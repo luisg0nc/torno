@@ -7,7 +7,7 @@ import { count, number } from '../../shared/format'
 import { actions, explodeNow, partsInLayout, store, useStore } from '../state/store'
 import { endReplace, startReplace, useReplacing } from '../state/tools'
 import { editRegion } from '../tools/regionPainting'
-import { labelText } from '../viewport/marks/labels'
+import { rowLabel } from '../viewport/marks/labels'
 import { spanningMarks } from '../viewport/marks/apart'
 import { DimensionFields, VerdictIcon, Words } from './DimensionFields'
 import { ShapeFields } from './ShapeFields'
@@ -101,7 +101,7 @@ export function MarkRow({
   const [draft, setDraft] = useState<string | null>(null)
   const field = useRef<HTMLInputElement>(null)
   const resolved = mark.status === 'resolved'
-  const label = labelText(mark)
+  const label = rowLabel(mark)
   const replacing = useReplacing() === mark.id
   // Offered where it can be done: a pin, a pick or an arrow of the person's that the last build left off its
   // surface or without its part, in the layout shown, where the next click on a part ties it again. Not on
@@ -159,7 +159,7 @@ export function MarkRow({
       aria-current={active ? 'true' : undefined}
       onClick={() => actions.focusMark(mark.id)}
     >
-      <span className="mark-chip num" data-author={mark.author} title={[mark.author === 'user' ? 'Your mark' : "The agent's mark", anchorNote].filter(Boolean).join('. ')}>
+      <span className="mark-chip num" data-author={mark.author} title={[mark.author === 'user' ? 'Your mark' : "The agent's mark", resolved ? '' : anchorNote].filter(Boolean).join('. ')}>
         {label}
       </span>
       <span className="mark-kind" title={what} aria-label={what} role="img">

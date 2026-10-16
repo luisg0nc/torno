@@ -3,7 +3,7 @@ import type { Line2 } from 'three/addons/lines/Line2.js'
 import type { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { describe, expect, it } from 'vitest'
 import type { ArrowMark, Mark, PickMark, PinMark, ShapeMark, StrokeMark, Vec3 } from '../../../shared/marks'
-import { labelText, mmPerPx, place, project, type Label } from './labels'
+import { labelText, mmPerPx, rowLabel, place, project, type Label } from './labels'
 import { MarkLayer } from './MarkLayer'
 import { BEHIND, DOT_PX, LEADER_PX, build, dispose, markPoints, rescale, setActive, strokePoints } from './markObjects'
 
@@ -204,6 +204,12 @@ describe('labels.project', () => {
     expect(labelText({ id: 'M3', anchorState: 'ok' })).toBe('M3')
     expect(labelText({ id: 'M3', anchorState: 'drifted' })).toBe('M3~')
     expect(labelText({ id: 'M3', anchorState: 'orphaned' })).toBe('M3?')
+  })
+
+  it('names a mark in its row by its id alone', () => {
+    expect(rowLabel({ id: 'M3', anchorState: 'drifted' })).toBe('M3')
+    expect(rowLabel({ id: 'M3', anchorState: 'orphaned' })).toBe('M3')
+    expect(labelText({ id: 'M3', anchorState: 'drifted' })).toBe('M3~') // the view's chip keeps it
   })
 
   it('puts a label where its mark is drawn', () => {

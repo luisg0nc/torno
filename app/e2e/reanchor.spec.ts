@@ -157,9 +157,9 @@ test('rebuilt thicker and without its post: the first pin has drifted onto the f
   expect(post.anchor).toEqual(placed.post)
   expect((await state()).scene?.parts.map((p) => p.name)).toEqual(['plate'])
 
-  await expect(row('M1').locator('.mark-chip')).toHaveText('M1~')
+  await expect(row('M1').locator('.mark-chip')).toHaveText('M1')
   await expect(row('M1').locator('.mark-anchor')).toHaveText('moved: check it')
-  await expect(row('M2').locator('.mark-chip')).toHaveText('M2?')
+  await expect(row('M2').locator('.mark-chip')).toHaveText('M2')
   await expect(row('M2').locator('.mark-anchor')).toHaveText('its part is gone')
   // Seen on a visible screen: what the build did to a mark took the note's room, cut the status word and had the
   // column scroll sideways. It has a line of its own under the note, also beside a note longer than the column.
@@ -244,7 +244,7 @@ test('reopened, it is checked against the build there is: its part is gone, and 
     ['draft', 'drifted']
   ])
   expect((await state()).build).toMatchObject({ status: 'ok', revision: 4 })
-  await expect(row('M2').locator('.mark-chip')).toHaveText('M2?')
+  await expect(row('M2').locator('.mark-chip')).toHaveText('M2')
   await expect(row('M2').locator('.mark-anchor')).toHaveText('its part is gone')
 })
 

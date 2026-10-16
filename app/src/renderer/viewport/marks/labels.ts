@@ -71,6 +71,11 @@ export function labelText(mark: Pick<Mark, 'id' | 'anchorState'>): string {
   return mark.id + (mark.anchorState === 'drifted' ? '~' : mark.anchorState === 'orphaned' ? '?' : '')
 }
 
+/** What a mark is called in its row: the row says in words what the last build did to it, so its chip is the id alone. */
+export function rowLabel(mark: Pick<Mark, 'id' | 'anchorState'>): string {
+  return mark.id
+}
+
 /**
  * How many millimetres one pixel is at a point, for a camera whose matrices
  * are up to date and a picture `heightPx` high.
