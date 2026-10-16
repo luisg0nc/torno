@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { expect, it } from 'vitest'
-import { GIZMO_MODES, TOOLS } from '../renderer/state/tools'
+import { GIZMO_MODES, TOOLS, TOOL_GROUPS } from '../renderer/state/tools'
 import { REBUILD_HOW, REBUILD_KEY } from './build'
 import { EXPLODED_TOOLS } from './explode'
 import { CONTEXTS, GIZMO_KEYS, capsOf, KEYS, TOOL_KEYS, VIEW_KEYS, cheatSheet, hint, keyClashes, keyName, pressOf, pressed, typed, which, type KeyRow } from './keys'
@@ -9,8 +9,18 @@ import { CONTEXTS, GIZMO_KEYS, capsOf, KEYS, TOOL_KEYS, VIEW_KEYS, cheatSheet, h
 it('is where the tools, the views and the gizmo have their keys from', () => {
   expect(TOOLS.map((t) => [t.name, t.label, t.key])).toEqual(TOOL_KEYS.map((t) => [t.name, t.label, t.key]))
   expect(GIZMO_MODES.map((m) => [m.mode, m.key])).toEqual(GIZMO_KEYS.map((m) => [m.mode, m.key]))
-  expect(TOOL_KEYS.map((t) => t.key).join('')).toBe('VPADSXMLB')
+  expect(TOOL_KEYS.map((t) => t.key).join('')).toBe('VMXPADSBL')
   expect(VIEW_KEYS.map((v) => v.key).join('')).toBe('1234')
+})
+
+it('puts every tool in a group, and the rows in the order of the groups: those that inspect, those that mark, the scan’s', () => {
+  expect(TOOL_GROUPS.map((g) => [g.group, g.label])).toEqual([['inspect', 'Inspect'], ['mark', 'Mark'], ['scan', 'Scan']])
+  const order = TOOL_GROUPS.map((g) => g.group)
+  const ranks = TOOL_KEYS.map((t) => order.indexOf(t.group))
+  expect(ranks.every((rank) => rank >= 0)).toBe(true)
+  expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
+  expect(TOOLS.map((t) => [t.name, t.group])).toEqual(TOOL_KEYS.map((t) => [t.name, t.group]))
+  expect(Object.fromEntries(TOOL_GROUPS.map((g) => [g.group, TOOL_KEYS.filter((t) => t.group === g.group).map((t) => t.name)]))).toEqual({ inspect: ['select', 'measure', 'section'], mark: ['pin', 'arrow', 'draw', 'shape', 'region'], scan: ['align'] })
 })
 
 it('lists every tool, every view key and the gizmo in the sheet, each key once where it is listened to', () => {

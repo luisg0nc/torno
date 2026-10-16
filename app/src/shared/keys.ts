@@ -25,17 +25,25 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  */
 export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'picture' | 'separator' | 'field' | 'menu' | 'sheet' | 'dev'
 
+/**
+ * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
+ * and leave nothing, those that leave a mark, and the scan's. The palette, the sheet of keys and README's table are
+ * in this order.
+ */
 export const TOOL_KEYS = [
-  { name: 'select', label: 'Select', key: 'V', does: 'Select: click a face, an edge or a part' },
-  { name: 'pin', label: 'Pin', key: 'P', does: 'Pin: click a point and leave a note' },
-  { name: 'arrow', label: 'Arrow', key: 'A', does: 'Arrow: drag from a point' },
-  { name: 'draw', label: 'Draw', key: 'D', does: 'Draw: a stroke on the surface, or on a locked view' },
-  { name: 'shape', label: 'Shape', key: 'S', does: 'Shape: place a box, a cylinder, a sphere or a plane' },
-  { name: 'section', label: 'Section', key: 'X', does: 'Section: cut the parts by a plane' },
-  { name: 'measure', label: 'Measure', key: 'M', does: 'Measure: two clicks, or a double click on a round thing' },
-  { name: 'align', label: 'Align scan', key: 'L', does: 'Align scan: stand a scan where the model is' },
-  { name: 'region', label: 'Region of a scan', key: 'B', does: 'Region of a scan: paint what something is' }
+  { name: 'select', label: 'Select', key: 'V', group: 'inspect', does: 'Select: click a face, an edge or a part' },
+  { name: 'measure', label: 'Measure', key: 'M', group: 'inspect', does: 'Measure: two clicks, or a double click on a round thing' },
+  { name: 'section', label: 'Section', key: 'X', group: 'inspect', does: 'Section: cut the parts by a plane' },
+  { name: 'pin', label: 'Pin', key: 'P', group: 'mark', does: 'Pin: click a point and leave a note' },
+  { name: 'arrow', label: 'Arrow', key: 'A', group: 'mark', does: 'Arrow: drag from a point' },
+  { name: 'draw', label: 'Draw', key: 'D', group: 'mark', does: 'Draw: a stroke on the surface, or on a locked view' },
+  { name: 'shape', label: 'Shape', key: 'S', group: 'mark', does: 'Shape: place a box, a cylinder, a sphere or a plane' },
+  { name: 'region', label: 'Region of a scan', key: 'B', group: 'mark', does: 'Region of a scan: paint what something is' },
+  { name: 'align', label: 'Align scan', key: 'L', group: 'scan', does: 'Align scan: stand a scan where the model is' }
 ] as const
+
+/** What a tool of the palette is for: it looks at the part and leaves nothing, it leaves a mark, or it is the scan's. */
+export type ToolGroup = (typeof TOOL_KEYS)[number]['group']
 
 export const VIEW_KEYS = [
   { view: 'iso', label: 'Iso', key: '1' },

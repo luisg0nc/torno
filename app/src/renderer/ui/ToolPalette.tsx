@@ -1,7 +1,7 @@
 import { hint, pressed } from '../../shared/keys'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ShapeKind } from '../../shared/marks'
-import { BETWEEN, ROUND, SHAPES, TOOLS, setBetween, setRound, setShape, setTool, useBetween, useRound, useShape, useTool, type ToolName } from '../state/tools'
+import { BETWEEN, ROUND, SHAPES, TOOLS, TOOL_GROUPS, setBetween, setRound, setShape, setTool, useBetween, useRound, useShape, useTool, type ToolName } from '../state/tools'
 import { count } from '../../shared/format'
 import { useRegion } from '../state/region'
 import { keepHeld, useHeld } from '../state/measured'
@@ -62,7 +62,11 @@ export function ToolPalette() {
     <>
     {tool === 'measure' && <MeasureChoice />}
     <div className="toolbox" role="toolbar" aria-label="Tools" aria-orientation="vertical">
-      {TOOLS.map((t) =>
+      {TOOL_GROUPS.map((g, i) => (
+        <Fragment key={g.group}>
+          {i > 0 && <span className="toolbox-rule" aria-hidden="true" />}
+          <div className="toolbox-group" role="group" aria-label={g.label}>
+      {TOOLS.filter((t) => t.group === g.group).map((t) =>
         t.name === 'shape' ? (
           <div key={t.name} className="tool-with-choice" ref={choice}>
             <button
@@ -129,6 +133,9 @@ export function ToolPalette() {
           </button>
         )
       )}
+          </div>
+        </Fragment>
+      ))}
       {/* At the foot, apart from the tools: every key there is, on one sheet. */}
       <span className="toolbox-rule" aria-hidden="true" />
       <button type="button" className="tool-button tool-keys num" aria-label="Keys" aria-keyshortcuts={hint('keys')} title={`Keys (${hint('keys')})`} onClick={() => showKeys()}>

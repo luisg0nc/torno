@@ -278,6 +278,21 @@ const ON_BASE: Vec3 = [14, 9, 2.5] // on the top of the base, clear of the post
 const ON_POST: Vec3 = [0, 0, 22.5] // the middle of the top of the post
 const model = () => join(root, 'bracket', 'bracket.py')
 
+test('the palette is in three groups, split by a rule: the tools that inspect, those that mark, and the scan’s; the keys still take each tool', async () => {
+  await openFromAbove()
+  const tools = page.getByRole('toolbar', { name: 'Tools' })
+  const inGroup = (name: string) => tools.getByRole('group', { name, exact: true }).locator('[data-tool]').evaluateAll((buttons) => buttons.map((b) => b.getAttribute('data-tool')))
+  await expect.poll(() => inGroup('Inspect')).toEqual(['select', 'measure', 'section'])
+  await expect.poll(() => inGroup('Mark')).toEqual(['pin', 'arrow', 'draw', 'shape', 'region'])
+  await expect.poll(() => inGroup('Scan')).toEqual(['align'])
+  // Two rules between the groups, and the one above the keys.
+  await expect(tools.locator('.toolbox-rule')).toHaveCount(3)
+  for (const [key, name] of [['m', 'Measure'], ['p', 'Pin'], ['l', 'Align scan'], ['v', 'Select']] as const) {
+    await page.keyboard.press(key)
+    await expect(tool(name)).toHaveAttribute('aria-pressed', 'true')
+  }
+})
+
 test('P takes the pin tool; a click on the part leaves a pin and opens its note beside it', async () => {
   await openFromAbove()
   await expect(tool('Pin')).toBeEnabled()

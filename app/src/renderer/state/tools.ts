@@ -1,13 +1,20 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
-import { GIZMO_KEYS, TOOL_KEYS } from '../../shared/keys'
+import { GIZMO_KEYS, TOOL_KEYS, type ToolGroup } from '../../shared/keys'
 import type { ShapeKind } from '../../shared/marks'
 import type { GizmoMode } from '../viewport/Viewport'
 
 export type ToolName = 'select' | 'pin' | 'arrow' | 'draw' | 'shape' | 'section' | 'measure' | 'align' | 'region'
 
 /** The tools of the palette, in its order, each with its key: from the one table of keys. One that is not `ready` is shown, and cannot be chosen yet. */
-export const TOOLS: { name: ToolName; label: string; key: string; ready: boolean }[] = TOOL_KEYS.map((t) => ({ name: t.name, label: t.label, key: t.key, ready: true }))
+export const TOOLS: { name: ToolName; label: string; key: string; group: ToolGroup; ready: boolean }[] = TOOL_KEYS.map((t) => ({ name: t.name, label: t.label, key: t.key, group: t.group, ready: true }))
+
+/** The groups of the palette, in its order, each named for the toolbar's `aria-label`: split on screen by a hairline. */
+export const TOOL_GROUPS: { group: ToolGroup; label: string }[] = [
+  { group: 'inspect', label: 'Inspect' },
+  { group: 'mark', label: 'Mark' },
+  { group: 'scan', label: 'Scan' }
+]
 
 export type { GizmoMode }
 

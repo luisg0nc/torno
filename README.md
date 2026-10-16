@@ -942,14 +942,14 @@ name without `.html` gets it.
 | Everywhere | `Ctrl+Shift+E` | Export to one HTML file: the open object, or from the page of objects any of them |
 | Everywhere | `Ctrl+Shift+B` | Rebuild: build the open object again, as the button in the status line does |
 | Viewport | `V` | Select: click a face, an edge or a part |
+| Viewport | `M` | Measure: two clicks, or a double click on a round thing |
+| Viewport | `X` | Section: cut the parts by a plane |
 | Viewport | `P` | Pin: click a point and leave a note |
 | Viewport | `A` | Arrow: drag from a point |
 | Viewport | `D` | Draw: a stroke on the surface, or on a locked view |
 | Viewport | `S` | Shape: place a box, a cylinder, a sphere or a plane |
-| Viewport | `X` | Section: cut the parts by a plane |
-| Viewport | `M` | Measure: two clicks, or a double click on a round thing |
-| Viewport | `L` | Align scan: stand a scan where the model is |
 | Viewport | `B` | Region of a scan: paint what something is |
+| Viewport | `L` | Align scan: stand a scan where the model is |
 | Viewport | `1` `2` `3` `4` | Iso, front, right and top view |
 | Viewport | `F` | Fit the parts in view |
 | Viewport | `O` | Perspective or orthographic |
