@@ -69,6 +69,18 @@ describe('the real kernel', () => {
     }
   })
 
+  it("gives a model's groups of parts with its scene, and none of a model without", async () => {
+    const grouped = await kernel.build(join(root, 'grouped'), 'grouped.py')
+    if (!grouped.ok) throw new Error(`${grouped.error.kind}: ${grouped.error.message}`)
+    expect(grouped.scene.groups).toEqual([
+      { name: 'flat', parts: ['flat-a', 'flat-b'] },
+      { name: 'tall', parts: ['tall-a'] }
+    ])
+    const bracket = await kernel.build(join(root, 'bracket'), 'bracket.py')
+    if (!bracket.ok) throw new Error(`${bracket.error.kind}: ${bracket.error.message}`)
+    expect(bracket.scene.groups).toEqual([])
+  })
+
   it('answers a query about the last good build', async () => {
     const part = await kernel.query<{ volume: number }>(join(root, 'bracket'), 'describe', { ref: 'assembly:base' })
     expect(part.volume).toBeCloseTo(6000, 6)

@@ -44,7 +44,16 @@ export interface Scene {
   output: string
   /** The model's `Params`, in their order; absent from a kernel that does not read them. */
   params?: Param[]
+  /** The model's groups of parts (`groups(p)`), in its order; absent from a kernel that does not read them. */
+  groups?: PartGroup[]
 }
+
+/**
+ * Parts that belong together, as the model's `groups(p)` gave them: one level, a part in one group at most, by
+ * part name across layouts (some of `parts` may be missing from a layout). A group name is not a ref: the loader
+ * refuses one with `/`, of the form `M<n>`, or that is a part's name.
+ */
+export interface PartGroup { name: string; parts: string[] }
 
 type BufArray = Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer>
 type BufArrayConstructor<T extends BufArray> = {
