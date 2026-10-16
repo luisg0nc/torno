@@ -154,6 +154,8 @@ test('a picture has the scan unless it is asked without, and says which', async 
 })
 
 test('opacity and the eye are kept in scene.json as the person set them, and are there again after a restart', async () => {
+  // The slider takes room on the row only when it is pointed at.
+  await row('S1').hover()
   await row('S1').getByRole('slider', { name: 'Opacity of S1' }).fill('0.6')
   await expect.poll(async () => (await scans())[0].opacity).toBe(0.6)
   expect((await picture({ view: 'iso', size: 256 })).caption).toContain('scans S1 at 60 % (not aligned in assembly')
@@ -341,6 +343,8 @@ test('a scan drawn solid in front of a part takes the pick, and one that is seen
   // Final fix wave (F15): nothing is picked there, and the pointer says why.
   await expect(readout).toHaveText('S2 hides the parts here: thin it on its row to point through it')
   // Drawn thin, the part shows through it, and is what is pointed at: the pointer names it, and a click selects it.
+  // The slider takes room on the row only when it is pointed at.
+  await row('S2').hover()
   await row('S2').getByRole('slider', { name: 'Opacity of S2' }).fill('0.4')
   await expect.poll(async () => (await scans())[0].opacity).toBe(0.4)
   expect(await page.evaluate(([fx, fy]) => window.__tornoTest!.pickAt(fx, fy), at)).toMatchObject({ part: 'post', kind: 'face' })
@@ -355,6 +359,8 @@ test('a scan drawn solid in front of a part takes the pick, and one that is seen
   expect((await state()).selection[0]).toMatch(/^post\/F/)
   await page.keyboard.press('Escape')
   // Solid again for what follows.
+  // The slider takes room on the row only when it is pointed at.
+  await row('S2').hover()
   await row('S2').getByRole('slider', { name: 'Opacity of S2' }).fill('1')
   await expect.poll(async () => (await scans())[0].opacity).toBe(1)
   expect(await page.evaluate(([fx, fy]) => window.__tornoTest!.pickAt(fx, fy), at)).toBeNull()
