@@ -79,7 +79,8 @@ export function ScanReadSheet({ scan, convert, layoutsOf }: { scan: ScanInfo; co
           <option value="y">Y up</option>
           <option value="z">Z up</option>
         </select>
-        <span className="spacer" />
+      </div>
+      <div className="scan-sheet-actions">
         <button type="button" className="button" title="Keeps the scan as it was read, and no longer asks" onClick={() => done({ unit: imported.unit, up: imported.up })}>
           Keep
         </button>
