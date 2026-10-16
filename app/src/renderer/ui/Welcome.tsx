@@ -1,16 +1,37 @@
-import { useEffect, useState } from 'react'
-import { hint } from '../../shared/keys'
+import { useEffect, useState, type CSSProperties } from 'react'
 import type { RecentFolder, WorkspaceInfo } from '../../shared/workspace'
 import { Logo } from './Logo'
 import { nameOf, openProblem } from './welcome'
 
+/** The idea of a folder of objects, drawn: the folder opened, an object in it, and its model. */
+const TREE: readonly (readonly [name: string, label: string])[] = [
+  ['objects/', 'the folder you open'],
+  ['bracket/', 'an object'],
+  ['bracket.py', 'its model, in build123d'],
+]
+
+function Tree() {
+  return (
+    <figure className="welcome-tree" aria-label="How a folder of objects is laid out">
+      {TREE.map(([name, label], depth) => (
+        <div key={name} className="tree-row" style={{ '--depth': depth } as CSSProperties}>
+          <span className="num">{name}</span>
+          <span className="tree-label">{label}</span>
+        </div>
+      ))}
+    </figure>
+  )
+}
+
 /**
- * The first screen, while no folder is open: what torno is, what an object is, and what to do, in a sentence
- * each. Then the ways in: the folder dialog, the folders opened lately (one that is gone is struck, and can be
- * taken off the list), and, where torno runs from its repository, a copy of its example.
+ * The first screen, while no folder is open, in two states. On a first run (no folder opened lately): what torno
+ * is in a line, the folder of objects drawn as a tree, and the ways in: the folder dialog (an empty folder is
+ * fine) and, where torno runs from its repository, a copy of its example. Coming back: the folders opened lately
+ * first (one that is gone is struck, and can be taken off the list), then the ways in, and no tree. Until the
+ * list has answered only the head is shown, so that the first run's words do not flash for someone coming back.
  */
 export function Welcome({ onPick, onOpened }: { onPick: () => void; onOpened: (info: WorkspaceInfo) => void }) {
-  const [recent, setRecent] = useState<RecentFolder[]>([])
+  const [recent, setRecent] = useState<RecentFolder[] | null>(null)
   const [example, setExample] = useState(false)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -19,7 +40,8 @@ export function Welcome({ onPick, onOpened }: { onPick: () => void; onOpened: (i
     let live = true
     void window.torno.workspace.recent().then(
       (list) => live && setRecent(list),
-      () => {}
+      // A list that cannot be read is none: the screen is not left at its head.
+      () => live && setRecent((was) => was ?? [])
     )
     void window.torno.workspace.hasExample().then(
       (has) => live && setExample(has),
@@ -45,36 +67,21 @@ export function Welcome({ onPick, onOpened }: { onPick: () => void; onOpened: (i
     })
   }
 
+  const head = (
+    <header className="welcome-head">
+      <Logo />
+      <h1 className="wordmark">torno</h1>
+    </header>
+  )
+  if (recent === null) return <div className="welcome-page">{head}</div>
+  const returning = recent.length > 0
+
   return (
     <div className="welcome-page">
-      <header className="welcome-head">
-        <Logo />
-        <h1 className="wordmark">torno</h1>
-      </header>
-      <div className="welcome-says">
-        <p>torno is a workbench for CAD parts: an AI coding agent writes each part as Python (build123d), and you point at the result.</p>
-        <p>
-          An object is a folder with one Python model in it, for example <span className="num">bracket/bracket.py</span>, inside the folder that holds your objects.
-        </p>
-        <p>Open the folder that holds them, or the example, to begin.</p>
-      </div>
-      <div className="welcome-ways">
-        <button type="button" className="button button-primary" disabled={busy} onClick={onPick}>
-          Open folder
-        </button>
-        {example && (
-          <button type="button" className="button" disabled={busy} title="Four small objects of torno's own, copied to a temporary folder: nothing of the repository is opened or written" onClick={() => open(() => window.torno.workspace.openExample(), 'The example')}>
-            Open the example
-          </button>
-        )}
-      </div>
-      {example && <p className="welcome-note">The example opens as a temporary copy: it is removed when torno quits.</p>}
-      {problem !== null && (
-        <p className="welcome-problem" role="alert">
-          {problem}
-        </p>
-      )}
-      {recent.length > 0 && (
+      {head}
+      <p className="welcome-tagline">Make CAD parts with an AI agent: it writes the model, you point at what to change.</p>
+      {!returning && <Tree />}
+      {returning && (
         <nav className="welcome-recent" aria-label="Recent folders">
           <h2 className="section-title">Recent folders</h2>
           <ul>
@@ -99,11 +106,27 @@ export function Welcome({ onPick, onOpened }: { onPick: () => void; onOpened: (i
           </ul>
         </nav>
       )}
+      <div className="welcome-ways">
+        <button type="button" className="button button-primary" disabled={busy} onClick={onPick}>
+          Open folder
+        </button>
+        {!returning && <p className="welcome-note">An empty folder is fine: torno helps you make the first object.</p>}
+        {example && (
+          <div className="welcome-example">
+            <button type="button" className="button button-quiet" disabled={busy} title="Four small objects of torno's own, copied to a temporary folder: nothing of the repository is opened or written" onClick={() => open(() => window.torno.workspace.openExample(), 'The example')}>
+              Open the example
+            </button>
+            <span className="welcome-note">A temporary copy, removed when torno quits.</span>
+          </div>
+        )}
+      </div>
+      {problem !== null && (
+        <p className="welcome-problem" role="alert">
+          {problem}
+        </p>
+      )}
       <p className="welcome-foot">
         torno writes only into a <span className="num">.torno</span> folder inside each object.
-      </p>
-      <p className="welcome-foot">
-        Press <kbd>{hint('keys')}</kbd> at any time for the keys.
       </p>
     </div>
   )

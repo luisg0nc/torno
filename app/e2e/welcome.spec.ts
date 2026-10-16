@@ -46,16 +46,24 @@ async function open(id: string): Promise<void> {
   await expect.poll(async () => (await state()).scene !== null).toBe(true)
 }
 
-test('the first run says what torno is, what an object is and what to do, and a folder with nothing in it says what to make', async () => {
+test('the first run shows what to open and how a folder of objects is laid out, and a folder with nothing in it says what to make', async () => {
   const bare = await launch()
   const empty = temp('empty')
   try {
     const first = await bare.firstWindow()
     expect(await bare.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(false)
     const says = first.locator('[data-region="viewport"]')
-    await expect(says).toContainText('torno is a workbench for CAD parts: an AI coding agent writes each part as Python (build123d), and you point at the result.')
-    await expect(says).toContainText('An object is a folder with one Python model in it, for example bracket/bracket.py, inside the folder that holds your objects.')
-    await expect(says).toContainText('Open the folder that holds them, or the example, to begin.')
+    await expect(says).toContainText('Make CAD parts with an AI agent: it writes the model, you point at what to change.')
+    const tree = first.getByRole('figure', { name: 'How a folder of objects is laid out' })
+    await expect(tree.locator('.num')).toHaveText(['objects/', 'bracket/', 'bracket.py'])
+    await expect(tree).toContainText('the folder you open')
+    await expect(says).toContainText('An empty folder is fine: torno helps you make the first object.')
+    await expect(says).toContainText('A temporary copy, removed when torno quits.')
+    await expect(says).toContainText('torno writes only into a .torno folder inside each object.')
+    await expect(says).not.toContainText('for the keys')
+    // The main way in is the one primary button; the example is a quiet one.
+    await expect(first.locator('.welcome-page .button-primary')).toHaveText(['Open folder'])
+    await expect(first.getByRole('button', { name: 'Open the example' })).toHaveClass(/button-quiet/)
     // Over the name, the logo as the icon has it: the vise in the ink, the part it holds in the accent.
     await expect(first.locator('.welcome-head').getByRole('heading', { name: 'torno', level: 1 })).toBeVisible()
     const logo = await first.evaluate(() => {
@@ -69,14 +77,9 @@ test('the first run says what torno is, what an object is and what to do, and a 
       return { parts: part?.length, part: part?.[0] && getComputedStyle(part[0]).fill, vise: svg && getComputedStyle(svg).color, accent, ink }
     })
     expect(logo).toEqual({ parts: 1, part: logo.accent, vise: logo.ink, accent: logo.accent, ink: logo.ink })
-    // What opening the example means is said before it is opened, not only in a tooltip.
-    await expect(says).toContainText('The example opens as a temporary copy: it is removed when torno quits.')
-    await expect(says.locator('.welcome-says p')).toHaveCount(3)
-    await expect(says.locator('.num', { hasText: 'bracket/bracket.py' })).toHaveCount(1)
     // Run from the repository it has its example beside it; with no folder ever opened there is no list.
     await expect(first.getByRole('button')).toHaveText(['Open folder', 'Open the example'])
     await expect(first.getByRole('navigation', { name: 'Recent folders' })).toHaveCount(0)
-    await expect(says).toContainText('Press ? at any time for the keys.')
     // The keys are there before any folder is.
     await first.keyboard.press('?')
     await expect(first.getByRole('dialog', { name: 'Keys' })).toBeVisible()
@@ -114,6 +117,9 @@ test('the folders opened lately are listed from torno\'s own file: one that is g
     const list = first.getByRole('navigation', { name: 'Recent folders' })
     // Eight at most, whatever the file holds.
     await expect(list.locator('li')).toHaveCount(8)
+    // Coming back, the list is what is shown first, and the explanation is not.
+    await expect(first.getByRole('figure', { name: 'How a folder of objects is laid out' })).toHaveCount(0)
+    await expect(first.locator('.welcome-page').getByText('An empty folder is fine', { exact: false })).toHaveCount(0)
     const missing = list.locator('li[data-missing]')
     await expect(missing).toHaveCount(1)
     await expect(missing).toContainText('gone')

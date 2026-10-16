@@ -4,15 +4,15 @@
   display: grid;
   /* One column as wide as the page and no wider: a long path is cut, it does not push the page off its centre. */
   grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
+  justify-items: start;
   gap: var(--space-4);
-  width: min(520px, 100%);
-  text-align: center;
+  width: min(34rem, 100%);
+  text-align: left;
 }
 
 .welcome-head {
   display: grid;
-  justify-items: center;
+  justify-items: start;
 }
 
 /* The logo as the icon has it: the vise in the ink. Its drawing leaves room under it already (the icon's tile). */
@@ -23,23 +23,47 @@
   color: var(--ink);
 }
 
-.welcome-says {
+/* What torno is, in a line and a size up. */
+.welcome-tagline {
+  color: var(--ink);
+  font-size: 15px;
+  text-wrap: pretty;
+}
+
+/* The folder of objects drawn: a row per level, indented by its depth, the name and what it is. */
+.welcome-tree {
   display: grid;
+  gap: var(--space-1);
+  width: 100%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.tree-row {
+  display: grid;
+  grid-template-columns: 12ch 1fr;
+  gap: var(--space-3);
+  padding-left: calc(var(--depth) * 1.25rem);
+}
+
+.tree-label {
+  color: var(--muted);
+}
+
+/* The ways in: the one main button with its note under it, then the example and its note on one row. */
+.welcome-ways {
+  display: grid;
+  justify-items: start;
   gap: var(--space-2);
 }
 
-.welcome-says p {
-  text-wrap: balance;
-}
-
-/* What it is, said first and a size up; what an object is and what to do follow it. */
-.welcome-says p:first-child {
-  font-size: 15px;
-}
-
-.welcome-ways {
-  display: grid;
-  justify-items: center;
+.welcome-example {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
 }
 
