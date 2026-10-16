@@ -371,6 +371,22 @@ export class MarkStore {
     })
   }
 
+  /**
+   * The person has seen what the agent did with these marks: all of them are acknowledged in one write, or
+   * none, when one of them is not a mark the agent resolved (the refusal names it). Each is checked as
+   * `update` checks one; an id named twice is one.
+   */
+  acknowledge(objectId: string, ids: readonly string[]): Promise<Mark[]> {
+    return this.change(objectId, (file) =>
+      [...new Set(ids.map(String))].map((id) => {
+        const mark = file.marks[indexOf(file, id)]
+        if (mark.status !== 'resolved' || mark.resolvedBy !== 'agent') throw new Refusal(`${id} was not resolved by the agent: there is nothing to acknowledge`)
+        mark.acknowledged = true
+        return mark
+      })
+    )
+  }
+
   remove(objectId: string, id: string): Promise<void> {
     return this.change(objectId, (file) => {
       file.marks.splice(indexOf(file, id), 1)

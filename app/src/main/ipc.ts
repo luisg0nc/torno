@@ -58,7 +58,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:stop, session:chooseView,
 //           chat:history, chat:send, chat:interrupt, chat:setModel,
-//           marks:list, marks:add, marks:update, marks:remove, marks:replace, marks:problem (also sent to the renderer),
+//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:replace, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, geometry:describe,
 //           scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
@@ -651,6 +651,8 @@ export function registerIpc(
     if (dueAfterEdit(patch, changed, lastScene(String(objectId))?.revision)) void remeasure(measuring(store), String(objectId), changed)
     return changed
   })
+  // Only the person acknowledges ("OK all"): all of them in one write, or none.
+  handle('marks:acknowledge', (_event, objectId: string, ids: string[]) => requireMarks().acknowledge(String(objectId), Array.isArray(ids) ? ids.map(String) : []))
   // With a region goes the mask that held its triangles.
   const regions = (): RegionDeps => ({ marks: requireMarks(), scans: requireScans() })
   handle('marks:remove', (_event, objectId: string, id: string) => (scans ? removeMark(regions(), String(objectId), String(id)) : requireMarks().remove(String(objectId), String(id))))

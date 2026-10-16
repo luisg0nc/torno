@@ -107,6 +107,8 @@ export interface TornoBridge {
     /** A kept region painted again: the same mark and note, of these triangles (the bits of a mask). One the agent was sent is a draft again. */
     repaintRegion(objectId: string, id: string, bits: Uint8Array): Promise<Mark>
     update(objectId: string, id: string, patch: MarkPatch): Promise<Mark>
+    /** The person has seen what the agent did with these marks: all are acknowledged in one write, or none, and the rejection says which was not the agent's to acknowledge. */
+    acknowledge(objectId: string, ids: string[]): Promise<Mark[]>
     remove(objectId: string, id: string): Promise<void>
     /** Puts a pin, a pick or an arrow somewhere else on a part: the same mark and note, tied where it was clicked. An arrow keeps its length and direction. */
     replace(objectId: string, id: string, placed: Replacement): Promise<Mark>

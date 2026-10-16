@@ -337,6 +337,34 @@ describe('resolving a mark', () => {
     await store.update('bracket', 'M1', { status: 'draft' })
     expect(await store.update('bracket', 'M1', { status: 'resolved' }, 'agent')).not.toHaveProperty('acknowledged')
   })
+
+  it('acknowledges many marks the agent resolved in one write', async () => {
+    for (const note of ['one', 'two', 'three']) await store.add('bracket', pin(note))
+    await store.update('bracket', 'M1', { status: 'resolved' }, 'agent')
+    await store.update('bracket', 'M2', { status: 'resolved' }, 'agent')
+    const told = changes.length
+    saves.mockClear()
+    const changed = await store.acknowledge('bracket', ['M1', 'M2', 'M1'])
+    expect(changed.map((m) => [m.id, m.acknowledged])).toEqual([
+      ['M1', true],
+      ['M2', true]
+    ])
+    expect(onDisk('bracket').marks.filter((m) => m.acknowledged).map((m) => m.id)).toEqual(['M1', 'M2'])
+    expect(saves).toHaveBeenCalledTimes(1)
+    expect(changes).toHaveLength(told + 1)
+  })
+
+  it('acknowledges none when one of them was not resolved by the agent', async () => {
+    for (const note of ['one', 'two', 'three']) await store.add('bracket', pin(note))
+    await store.update('bracket', 'M1', { status: 'resolved' }, 'agent')
+    await store.update('bracket', 'M2', { status: 'resolved' })
+    const told = changes.length
+    await expect(store.acknowledge('bracket', ['M1', 'M3'])).rejects.toThrow('M3 was not resolved by the agent: there is nothing to acknowledge')
+    await expect(store.acknowledge('bracket', ['M1', 'M2'])).rejects.toThrow('M2 was not resolved by the agent')
+    await expect(store.acknowledge('bracket', ['M1', 'M9'])).rejects.toThrow('no mark M9')
+    expect(onDisk('bracket').marks.some((m) => m.acknowledged)).toBe(false)
+    expect(changes).toHaveLength(told)
+  })
 })
 
 describe('sending marks', () => {
