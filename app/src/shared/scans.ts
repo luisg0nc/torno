@@ -311,6 +311,15 @@ export function alignmentText(alignment: ScanAlignment, figure: (mm: number) => 
 }
 
 /** `2518 × 2351 × 1494 mm, from m, Y up (assumed)`. */
+/** The size of a scan, in mm, had it been read with this unit and up axis: what the read sheet says before Apply. */
+export function sizeAs(imported: Pick<ScanImport, 'unit' | 'up' | 'bbox'>, as: { unit: ScanUnit; up: ScanUp }): Vec3 {
+  const { min, max } = imported.bbox
+  const k = UNIT_MM[as.unit] / UNIT_MM[imported.unit]
+  const [x, y, z] = max.map((c, axis) => (c - min[axis]) * k)
+  // The kernel turns Y up to Z up as (x, y, z) -> (x, -z, y), and back as (x, z, -y): the extents only swap Y and Z.
+  return as.up === imported.up ? [x, y, z] : [x, z, y]
+}
+
 export function importText(imported: ScanImport): string {
   const { min, max } = imported.bbox
   const size = max.map((c, axis) => number(c - min[axis])).join(' × ')

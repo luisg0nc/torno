@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { box, meshBin } from '../test/scanFixtures'
-import { type ScanAlignment, type ScanImport, alignmentOf, alignmentText, basisOf, basisText, importText, standingOf, maskBits, maskFile, parseScanMesh, staleText } from './scans'
+import { type ScanAlignment, type ScanImport, alignmentOf, alignmentText, basisOf, basisText, importText, standingOf, maskBits, maskFile, parseScanMesh, sizeAs, staleText } from './scans'
 
 describe('parseScanMesh', () => {
   it('gives views of the vertices, the colours and the triangles of a mesh.bin', () => {
@@ -199,4 +199,12 @@ describe('how an alignment stands against a build', () => {
     expect(doubted.stale).toBe('the model is no longer under 1 of its 3 points (worst 9 mm off) on r12: check the alignment')
     expect(doubted.note).toBeNull()
   })
+})
+
+describe('sizeAs', () => {
+  const imported = { unit: 'mm', up: 'z', assumed: { unit: true, up: true }, bbox: { min: [0, 0, 0], max: [650, 1226, 357.7] } } as unknown as ScanImport
+  const close = (got: number[], want: number[]) => got.forEach((c, n) => expect(c).toBeCloseTo(want[n], 6))
+  it('is the size as read when nothing changes', () => close(sizeAs(imported, { unit: 'mm', up: 'z' }), [650, 1226, 357.7]))
+  it('scales by the ratio of the units', () => close(sizeAs(imported, { unit: 'cm', up: 'z' }), [6500, 12260, 3577]))
+  it('swaps Y and Z when the up axis changes', () => close(sizeAs(imported, { unit: 'mm', up: 'y' }), [650, 357.7, 1226]))
 })
