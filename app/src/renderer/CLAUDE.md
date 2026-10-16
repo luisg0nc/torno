@@ -373,9 +373,20 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   sphere round the parts (`reaching`); a scan drawn of which some is outside
   the sphere the camera is then given is cut by the far plane, and says so
   (`beyondReach`, each scan against that one sphere: `ScanLayerState.clipped`,
-  the chip "not all in view" on its row from `store.scansClipped`, which
+  the line "Not all in view" in its row's detail from `store.scansClipped`, which
   the viewport sets with every view it reports, and `reaches beyond the
   view: not all of it is drawn` in a picture's caption).
+- A scan's row (`ScanRow` in `ui/ScansPanel.tsx`) is one line, as a layer's: id, name (`.row-name`, whole with
+  its source in the `title`), a dot while how it was read is a guess, its state in one word, the opacity on
+  hover, the eye, and the arrow that opens its detail beneath it (`.scan-detail`; one open at a time, the
+  `open` of `ScansPanel`). Everything else is in the detail: how it was read, the state's sentence (with the
+  basis, `.scan-basis`), Frame, Align, Rename (main's `scans.rename`), the fields. The word and its sentence
+  come from `ui/scanState.ts` (`scanState`): `aligned`, `placed`, `pending`, `check`, `rough`, `unaligned`,
+  `missing`. `placed` is an alignment tied to no point of the model (`tiedPoints` 0), which no build checks:
+  it never reads as `aligned`. How a scan this window just imported is read, when its unit or up axis was
+  assumed, is asked once by `ui/ScanReadSheet.tsx` at the top of the section, shown for `store.scanAsking`
+  (set by `importScan`, cleared by Keep, Apply, Later or another object), with the size from `sizeAs`
+  (`shared/scans.ts`).
 - The align bar is `ui/AlignBar.tsx`, its three bodies `ui/align/`
   (`FloorBody`, `PairsBody`, `NudgeBody`, and `format.ts` for what they
   share); the field one number is typed in is `ui/Field.tsx`, the Region

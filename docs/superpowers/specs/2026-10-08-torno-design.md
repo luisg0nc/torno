@@ -243,12 +243,12 @@ Custom, on plain three.js with three-mesh-bvh. It is the centre of the product a
 - **Views:** standard views, perspective/orthographic toggle, named views saved per object.
 - **Section:** one plane, axis-aligned or taken from a picked face, dragged along its normal, with stencil caps coloured per part. Scans are clipped without caps.
 - **Measure:** point, edge and face snapping; live readout from the mesh while hovering (`≈`), then the kernel's value. A measurement leaves no mark and is told to no one; the last one stays in the tool's strip (`Last: 6 mm between planes`) and is kept as a dimension only by "Keep as a dimension" or `Enter`.
-- **Scans:** drawn with vertex colours baked from the texture, opacity slider, one mesh for drawing, picking and checking (reduced only above 2 M triangles).
+- **Scans:** a list of their own under the layers, a row of one line each; drawn with vertex colours baked from the texture, opacity slider, one mesh for drawing, picking and checking (reduced only above 2 M triangles).
 - **Render on demand**, not a continuous loop.
 
 ## 8. Scans
 
-Import GLB, glTF, OBJ, PLY or STL by drop or dialog. The import process (trimesh) bakes vertex colours from the texture, converts to millimetres and Z up, and writes one mesh, `mesh.bin`; up to 2,000,000 triangles it is not reduced (Micra: 1.6 M, 3.4 s, 34 MB). The source is referenced by path, size and hash and never copied. Unit and up axis are assumed from the format and the size (glTF: metres, Y up), shown, and can be changed afterwards.
+Import GLB, glTF, OBJ, PLY or STL by drop or dialog. The import process (trimesh) bakes vertex colours from the texture, converts to millimetres and Z up, and writes one mesh, `mesh.bin`; up to 2,000,000 triangles it is not reduced (Micra: 1.6 M, 3.4 s, 34 MB). The source is referenced by path, size and hash and never copied. Unit and up axis are assumed from the format and the size (glTF: metres, Y up), asked about once right after an import in the window (with the size the scan would have), and can be changed afterwards. A scan's row in the panel is one line like a layer's (id, name, its state in one word, the eye: `placed` for an alignment tied to no point of the model, which no build checks), and the rest opens beneath it.
 
 Alignment, in order of use:
 

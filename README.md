@@ -743,20 +743,30 @@ how many.
 
 **Units.** glTF is read as metres and Y up; the others as millimetres, or
 metres when the whole is under 20 units across, with Y up for OBJ and Z up
-otherwise. The row says the size and what was assumed (`120 × 120 × 0 mm, from
-m, Z up (assumed)`) and asks `Read as metres, Z up: right?` until you say
-"Yes" or choose another unit or axis under "More". Changing either drops the
-scan's alignments, which torno says before it does it.
+otherwise. Right after an import in the window, when either was assumed, a
+short sheet at the top of the Scans panel asks once: `How is S1 read?`, with the
+unit and the up axis and the size the scan would have read so (`Its size would
+be 120 × 120 × 0 mm`); the scan is drawn in the view meanwhile. "Keep" says the
+guess is right, "Apply" reads it as chosen, "Later" puts the question away. Until
+it is answered the row has a dot after the name, and its detail says the size and
+what was assumed (`120 × 120 × 0 mm, from m, Z up (assumed)`) and asks
+`Read as metres, Z up: right?` with "Yes" and the unit and axis under it.
+Changing either drops the scan's alignments, which torno says before it does it.
 
-**The Scans panel.** Each scan (`S1`, `S2`, never reused) has a row: its name
-and size, how it stands in the layout on screen, a switch, an opacity slider,
-"Frame" (bring it into view: `F` and the views frame the parts only) and
-"More" (unit, up axis, colours, remove). A scan drawn solid hides what is
+**The Scans panel.** Each scan (`S1`, `S2`, never reused) has a row of one
+line, built like a layer's: its id, its name (whole, with the path of its source,
+in the tooltip), how it stands in the layout on screen in one word (its sentence
+in the tooltip), an opacity slider when pointed at, and a switch. The arrow at
+the end, or a click on the name, opens its detail beneath it, one scan at a time:
+its size and how it was read, how it stands in a sentence, what it rests on,
+"Frame" (bring it into view: `F` and the views frame the parts only), "Align",
+"Rename" (its name in torno: Enter keeps it, Esc leaves it), the unit and up
+axis, its colours, and "Remove". A scan drawn solid hides what is
 behind it and takes the pointer; one drawn see-through lets you point at the
 part behind it. The section cuts a scan open like the parts.
 
 **Aligning** (`L`). A scan is aligned in one layout at a time; in a layout
-where it is not, its row says "not aligned here" and nothing is checked
+where it is not, its row says `unaligned` and nothing is checked
 against it. The bar at the bottom of the viewport has three ways, which can
 follow one another:
 
@@ -779,14 +789,13 @@ What the row then says of the scan is what the agent is told of it:
 
 | Row | Meaning |
 |---|---|
-| `aligned`, `4 pairs, RMS 2.1 mm` | A fit of pairs, and how well they fitted. The RMS is of the points you clicked, not of the scan. |
-| `floor only` | Laid on a floor and no more. |
-| `by hand` | Placed by the handles or typed values: no fit says how well. |
-| `…, then moved by hand` | A fit or a floor that was moved afterwards. |
-| `rough alignment` | Fewer than three pairs, pairs almost in a line, or pairs left more than 5 mm apart. Torno asks before it keeps one. |
-| `check alignment` | The model has moved since: a point you clicked on a part is no longer on it, torno spreads a part otherwise, or the scan was imported again from a changed file. Align again, or press "Still right". |
-| `not checked yet` | Nothing is built in this run yet, or the last build has not been compared with the alignment yet. Torno never builds the model again by itself to make that check. |
-| `Tied to no point of the model` | No end of the alignment was clicked on a part, so no build can say whether it still holds. |
+| `aligned` | Tied to points of the model and checked against the last build. Its detail says what it rests on: `4 pairs, RMS 2.1 mm` is a fit of pairs and how well they fitted (the RMS is of the points you clicked, not of the scan); `…, then moved by hand` is a fit or a floor moved afterwards. |
+| `placed` | Tied to no point of the model: placed by the handles or typed values (`by hand`), laid on the ground (`floor only`), or pairs whose model ends were typed. No build can say whether it still holds, so none is checked. |
+| `pending` | Nothing is built in this run yet, or the last build has not been compared with the alignment yet. Torno never builds the model again by itself to make that check. |
+| `check` | The model has moved since: a point you clicked on a part is no longer on it, torno spreads a part otherwise, or the scan was imported again from a changed file. Align again, or press "Still right" in the detail. |
+| `rough` | Fewer than three pairs, pairs almost in a line, or pairs left more than 5 mm apart. Torno asks before it keeps one. |
+| `unaligned` | Not aligned in the layout on screen. |
+| `missing` | Its mesh is gone from the disk; the detail offers "Import again". |
 
 After every build torno looks for the model points of each alignment on their
 parts again. It tells what it finds; it never moves a scan by itself. A scan
@@ -1264,6 +1273,7 @@ On the screen:
 - **The clipboard in the terminal.** Select text in a session and press `Ctrl+Shift+C`, then `Ctrl+Shift+V`: it is copied and pasted. No test touches the clipboard. "Copy" on the build error sheet likewise.
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of objects and on the page of objects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new object's page is taken too; a test cannot drop a file with a path.
+- **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the column's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the chat shows the picture with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **A scan file dropped on the view.** Drag a GLB or STL from the file manager onto the parts: it is imported as "Import scan…" would.
 - **The folder dialog.** "Open folder" on the first screen, and "Open folder…" in the menu of the folder button at the top left: the system's folder dialog opens, and the folder chosen is opened.
