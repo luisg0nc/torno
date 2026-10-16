@@ -115,6 +115,19 @@ describe('scene file', () => {
     }
   })
 
+  it('keeps the groups folded in the layers list as names, and drops what is none', async () => {
+    await saveSceneFile(dir, { layers: {}, folded: ['flat', 'tall'] })
+    expect(await loadSceneFile(dir)).toEqual({ layers: {}, folded: ['flat', 'tall'] })
+    for (const not of ['flat', [1], [], ['a\nb'], { flat: true }]) {
+      forgetSceneFiles()
+      writeFileSync(join(dir, '.torno', 'scene.json'), JSON.stringify({ layers: {}, folded: not }))
+      expect(await loadSceneFile(dir)).toEqual({ layers: {} })
+    }
+    forgetSceneFiles()
+    writeFileSync(join(dir, '.torno', 'scene.json'), JSON.stringify({ layers: {}, folded: ['flat', 2, 'flat'] }))
+    expect(await loadSceneFile(dir)).toEqual({ layers: {}, folded: ['flat'] })
+  })
+
   it('keeps the saved views that are views, and loses only the one that is broken', async () => {
     const hinge = view('Hinge side', { hidden: ['lid'], explode: { amount: 0.4, scale: 1, axis: 'z' } })
     await saveSceneFile(dir, { layers: {}, views: [hinge, { name: 'broken' }, view('hinge SIDE'), view('Cut', { section: { origin: [0, 0, 3], normal: [0, 0, 2] } })] } as unknown as SceneFile)

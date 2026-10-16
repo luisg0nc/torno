@@ -171,6 +171,11 @@ function clean(value: unknown): SceneFile {
   // Each that is a view: a broken one is lost alone.
   const views = savedViewsOf(value.views)
   if (views.length > 0) file.views = views
+  // The groups folded in the layers list, by name: one-line names, each once.
+  if (Array.isArray(value.folded)) {
+    const folded = [...new Set(value.folded.filter((name): name is string => typeof name === 'string' && name.length > 0 && name.length <= MAX_LAYOUT_NAME && !/[\n\r]/.test(name)))]
+    if (folded.length > 0) file.folded = folded
+  }
   if (!isRecord(value.layers)) return file
   for (const [name, raw] of Object.entries(value.layers)) {
     if (!isRecord(raw)) continue

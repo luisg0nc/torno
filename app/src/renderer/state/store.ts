@@ -64,6 +64,8 @@ export interface TornoState {
    * One that is `proposed` is the agent's, until the person keeps or discards it.
    */
   views: SavedView[]
+  /** The groups of parts (`Scene.groups`) folded in the layers list, by name: what the scene file keeps as `folded`. */
+  folded: string[]
   /**
    * The name of the saved view that was last put on screen or saved from it, until the camera comes to rest
    * somewhere else; null for none. The strip marks it while the screen still shows what it holds (`viewMatches`).
@@ -151,7 +153,7 @@ const NO_SCANS: ScanInfo[] = []
 const NOT_CLIPPED: readonly string[] = []
 const NO_VIEWS: SavedView[] = []
 const NO_SELECTION = { selection: NOTHING_SELECTED, picked: NOTHING_PICKED }
-const NO_OBJECT = { objectId: null, build: null, scene: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, activeView: null, marks: [], marksProblem: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
+const NO_OBJECT = { objectId: null, build: null, scene: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], activeView: null, marks: [], marksProblem: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
 
 export const store = createStore<TornoState>(() => ({
   workspace: null,
@@ -203,7 +205,7 @@ export const actions = {
 
   /** Start showing an object, as its scene file left it. Its build state and scene follow. */
   openObject(objectId: string, file: SceneFile): void {
-    store.setState({ ...NO_OBJECT, page: 'object', objectId, scansKnown: false, layout: file.layout ?? '', layers: file.layers, section: sectionOf(file.section), explode: file.explode ?? {}, scanViews: file.scans ?? {}, views: file.views ?? NO_VIEWS })
+    store.setState({ ...NO_OBJECT, page: 'object', objectId, scansKnown: false, layout: file.layout ?? '', layers: file.layers, section: sectionOf(file.section), explode: file.explode ?? {}, scanViews: file.scans ?? {}, views: file.views ?? NO_VIEWS, folded: file.folded ?? [] })
   },
 
   applyBuild(build: BuildState): void {
@@ -228,11 +230,14 @@ export const actions = {
     const names = new Set(m.scene.parts.map((p) => p.name))
     const kept = Object.entries(s.layers).filter(([name]) => names.has(name))
     const layers = kept.length === Object.keys(s.layers).length ? s.layers : Object.fromEntries(kept)
+    // A group the model no longer has is folded no more, as the layer of a part that is gone is dropped.
+    const groups = new Set((m.scene.groups ?? []).map((g) => g.name))
+    const folded = s.folded.every((name) => groups.has(name)) ? s.folded : s.folded.filter((name) => groups.has(name))
     const same = s.scene !== null && layout === s.layout && sameParts(s.scene, m.scene)
     // The layout shown is gone with this build: what was being done there (a note, a mark worked on) is of
     // a layout that is no longer shown, as when the layout is changed by hand.
     const elsewhere = s.scene !== null && layout !== s.layout ? layoutChange(s, layout) : {}
-    store.setState({ ...elsewhere, scene: m.scene, revision: m.revision, layout, layers, ...(same ? {} : NO_SELECTION) })
+    store.setState({ ...elsewhere, scene: m.scene, revision: m.revision, layout, layers, folded, ...(same ? {} : NO_SELECTION) })
     return true
   },
 
@@ -253,6 +258,37 @@ export const actions = {
       shownByAgent = { ...shownByAgent, visible }
     }
     store.setState({ layers: { ...s.layers, [name]: { ...layerOf(s.layers, name), ...settings } }, edits: s.edits + 1, shownByAgent })
+  },
+
+  /** Change some settings of many parts at once (a group's eye): one edit of the person's, as `setLayer` is of one. */
+  setLayers(names: readonly string[], settings: LayerSettings | ((name: string) => LayerSettings)): void {
+    const s = store.getState()
+    const of = typeof settings === 'function' ? settings : () => settings
+    let shownByAgent = s.shownByAgent
+    const theirsAgain = names.filter((name) => of(name).visible !== undefined && shownByAgent && Object.hasOwn(shownByAgent.visible, name))
+    if (shownByAgent && theirsAgain.length > 0) {
+      const visible = { ...shownByAgent.visible }
+      for (const name of theirsAgain) delete visible[name]
+      shownByAgent = { ...shownByAgent, visible }
+      if (nothingShown(shownByAgent)) shownByAgent = null
+    }
+    const layers = { ...s.layers }
+    for (const name of names) layers[name] = { ...layerOf(s.layers, name), ...of(name) }
+    store.setState({ layers, edits: s.edits + 1, shownByAgent })
+  },
+
+  /** Show only these parts of a layout ("Show only" on a group): the others of the layout are switched off, as one edit. */
+  soloLayers(layout: string, names: readonly string[]): void {
+    const on = new Set(names)
+    const inLayout = (store.getState().scene?.parts ?? []).filter((part) => part.layout === layout).map((part) => part.name)
+    actions.setLayers(inLayout, (name) => ({ visible: on.has(name) }))
+  },
+
+  /** Fold a group of the layers list, or unfold it. Kept in the scene file. */
+  setFolded(name: string, on: boolean): void {
+    const s = store.getState()
+    if (s.folded.includes(name) === on) return
+    store.setState({ folded: on ? [...s.folded, name] : s.folded.filter((n) => n !== name), edits: s.edits + 1 })
   },
 
   /**
@@ -743,7 +779,7 @@ export function sceneFileOf(s: TornoState): SceneFile {
   if (section && layout && explode[layout]?.amount > 0) explode[layout] = { ...explode[layout], amount: 0 }
   // What says nothing but what is so anyway is left out.
   for (const [name, one] of Object.entries(explode)) if (sameExplode(one, NO_EXPLODE)) delete explode[name]
-  return { ...(layout ? { layout } : {}), layers, ...(section ? { section } : {}), ...(Object.keys(scans).length > 0 ? { scans } : {}), ...(Object.keys(explode).length > 0 ? { explode } : {}), ...(s.views.length > 0 ? { views: s.views } : {}) }
+  return { ...(layout ? { layout } : {}), layers, ...(section ? { section } : {}), ...(Object.keys(scans).length > 0 ? { scans } : {}), ...(Object.keys(explode).length > 0 ? { explode } : {}), ...(s.views.length > 0 ? { views: s.views } : {}), ...(s.folded.length > 0 ? { folded: s.folded } : {}) }
 }
 
 /**

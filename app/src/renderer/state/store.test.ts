@@ -105,6 +105,54 @@ describe('applying a scene', () => {
   })
 })
 
+describe('groups of parts', () => {
+  const GROUPED: Scene = {
+    ...scene({ assembly: ['flat-a', 'flat-b', 'tall-a', 'key'], print: ['flat-a', 'key'] }),
+    groups: [{ name: 'flat', parts: ['flat-a', 'flat-b'] }, { name: 'tall', parts: ['tall-a'] }]
+  }
+  beforeEach(() => actions.applyScene({ objectId: 'bracket', revision: 1, scene: GROUPED }))
+
+  it('hides and shows many parts as one edit, the person\'s again', () => {
+    actions.showForAgent('assembly', { 'flat-a': false })
+    const edits = store.getState().edits
+    actions.setLayers(['flat-a', 'flat-b'], { visible: false })
+    expect(store.getState().edits).toBe(edits + 1)
+    expect(store.getState().shownByAgent).toBeNull()
+    expect(store.getState().layers).toMatchObject({ 'flat-a': { visible: false }, 'flat-b': { visible: false } })
+    expect(sceneFileOf(store.getState()).layers).toMatchObject({ 'flat-a': { visible: false }, 'flat-b': { visible: false } })
+  })
+
+  it('shows only some parts of a layout, as one edit', () => {
+    actions.setLayer('key', { opacity: 0.5 })
+    const edits = store.getState().edits
+    actions.soloLayers('assembly', ['flat-a', 'flat-b'])
+    expect(store.getState().edits).toBe(edits + 1)
+    expect(visibleKeys(store.getState())).toEqual(['assembly:flat-a', 'assembly:flat-b'])
+    expect(store.getState().layers.key).toEqual({ opacity: 0.5, visible: false })
+    actions.soloLayers('assembly', ['tall-a'])
+    expect(visibleKeys(store.getState())).toEqual(['assembly:tall-a'])
+  })
+
+  it('keeps the groups folded in the scene file, only when one is', () => {
+    expect(sceneFileOf(store.getState()).folded).toBeUndefined()
+    const edits = store.getState().edits
+    actions.setFolded('flat', true)
+    actions.setFolded('flat', true)
+    expect(store.getState().folded).toEqual(['flat'])
+    expect(store.getState().edits).toBe(edits + 1)
+    expect(sceneFileOf(store.getState()).folded).toEqual(['flat'])
+    actions.setFolded('flat', false)
+    expect(sceneFileOf(store.getState()).folded).toBeUndefined()
+  })
+
+  it('opens with the groups the file folded, and lets go of one the model no longer has', () => {
+    actions.openObject('bracket', { layers: {}, folded: ['flat', 'gone'] })
+    expect(store.getState().folded).toEqual(['flat', 'gone'])
+    actions.applyScene({ objectId: 'bracket', revision: 2, scene: GROUPED })
+    expect(store.getState().folded).toEqual(['flat'])
+  })
+})
+
 describe('layouts and layers', () => {
   beforeEach(() => actions.applyScene({ objectId: 'bracket', revision: 1, scene: scene({ assembly: ['base', 'post'], print: ['base'] }) }))
 
