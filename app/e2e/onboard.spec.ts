@@ -386,3 +386,79 @@ test.describe('a new object whose agent cannot be started', () => {
     }
   })
 })
+
+test.describe('the window while a new object is made', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  let root: string
+  let files: string
+  let app: ElectronApplication
+  let page: Page
+  const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
+  const dock = () => page.locator('[data-region="session"]')
+  const list = () => page.getByRole('navigation', { name: 'Objects' })
+  const marks = () => page.locator('section[aria-label="Marks"]')
+  const status = () => page.locator('[data-region="status"]')
+
+  test.beforeAll(async () => {
+    root = copyOfWorkspace()
+    files = temp('files')
+    writeFileSync(join(files, 'desk.png'), png(400, 300))
+    ;({ app, page } = await start(root, `node ${fakeAgent}`))
+    await page.getByRole('button', { name: 'bracket', exact: true }).click()
+    await expect.poll(async () => (await state()).page).toBe('object')
+  })
+
+  test.afterAll(async () => {
+    await app?.close()
+    rmSync(root, { recursive: true, force: true })
+    rmSync(files, { recursive: true, force: true })
+  })
+
+  test('the shell is of the object being made, and comes back as it was', async () => {
+    await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
+    await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible({ timeout: 30_000 })
+    await fromList(page).click()
+    await expect(dock()).toContainText('Claude Code starts here once you create the object.')
+    await expect(dock()).toContainText('No name yet')
+    await expect(dock()).toContainText('Nothing yet')
+    await expect(dock().getByRole('button', { name: 'New session' })).toHaveCount(0)
+    await expect(dock().getByRole('button', { name: 'Resume' })).toHaveCount(0)
+    await page.getByLabel('Name', { exact: true }).fill('cable-clip')
+    await hook(app, { pickPhotos: [join(files, 'desk.png')] })
+    await page.getByRole('region', { name: 'New object' }).getByRole('button', { name: 'Add photos…' }).click()
+    await expect(dock().locator('.draft-pane')).toContainText('cable-clip')
+    await expect(dock().locator('.draft-pane')).toContainText('1 photo')
+    await expect(list().locator('[aria-current="true"]')).toHaveCount(0)
+    await expect(marks()).toHaveCount(0)
+    await expect(status()).toContainText('New object')
+    await expect(status().getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
+    await expect(status().getByRole('button', { name: 'Export…' })).toHaveCount(0)
+    // Escape leaves the field, then asks: the draft has something.
+    await page.getByLabel('Name', { exact: true }).focus()
+    await page.keyboard.press('Escape')
+    await expect(page.getByLabel('Name', { exact: true })).not.toBeFocused()
+    await page.keyboard.press('Escape')
+    const ask = page.getByRole('alertdialog', { name: 'Discard this new object?' })
+    await ask.getByRole('button', { name: 'Discard' }).click()
+    await expect.poll(async () => (await state()).page).toBe('object')
+    await expect(list().locator('[aria-current="true"]')).toHaveCount(1)
+    await expect(marks()).toHaveCount(1)
+    await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible()
+    await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
+  })
+
+  test('a running session of the object that was open stays in full, with a note of whose it is', async () => {
+    await dock().getByRole('button', { name: 'New session' }).click()
+    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible({ timeout: 30_000 })
+    await fromList(page).click()
+    await expect(dock().locator('.session-status')).toBeVisible()
+    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible()
+    await expect(dock().locator('.session-aside')).toContainText('This is the session of bracket')
+    await expect(dock().locator('.draft-pane')).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect.poll(async () => (await state()).page).toBe('object')
+    await expect(dock().locator('.session-aside')).toHaveCount(0)
+    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible()
+  })
+})
