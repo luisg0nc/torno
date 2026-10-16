@@ -134,6 +134,41 @@
   opacity: 0.35;
 }
 
+/* A group of parts (the model's groups(p)): a header, its parts indented under it. */
+.layer-group {
+  padding-left: var(--space-2);
+}
+
+.layer-group .row-name {
+  font-size: var(--text-small);
+  font-weight: 500;
+}
+
+.layer-count {
+  flex: none;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.layer-row[data-in-group] {
+  padding-left: calc(var(--space-4) + var(--space-3));
+}
+
+.layer-group[data-seen='none'] .row-name,
+.layer-group[data-seen='some'] .layer-group-eye {
+  color: var(--muted);
+}
+
+/* "Show only": out of the way until the header is pointed at, as the opacity of a part is. */
+.layer-solo {
+  opacity: 0;
+}
+
+.layer-group:hover .layer-solo,
+.layer-solo:focus-visible {
+  opacity: 1;
+}
+
 /* Opacity: out of the way until the row is pointed at, unless it has been set. */
 .layer-opacity {
   appearance: none;
