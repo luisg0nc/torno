@@ -559,9 +559,12 @@ was done. Clicking a row goes to the view the mark was placed from.
 
 - A mark you change after it was sent (its note, or a shape's place, size,
   kind or intent) is a draft again, and is told once more as `(changed)`.
-- A mark the agent resolves does not vanish: its row says "Resolved by the
-  agent" with the agent's line, until you press **OK** (it goes under
-  "Resolved") or **Reopen** (it is a draft again).
+- The Marks list is grouped: **To send**, **With the agent**, **To review**,
+  then **Resolved**, folded. The active row shows its note whole.
+- A mark the agent resolves does not vanish: "To review" says "The agent
+  resolved 2 marks." **Review** opens each, saying "Resolved by the agent"
+  with the agent's line, with **OK** (it goes under "Resolved") and
+  **Reopen** (it is a draft again); **OK all** says you have seen them all.
 - A mark on a part that is switched off in the layers is not drawn, in the
   window or in the agent's pictures; its row stays and says "its part is
   hidden".

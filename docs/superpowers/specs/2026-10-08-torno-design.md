@@ -174,7 +174,7 @@ Common fields: `id`, `kind`, `author` (`user` or `agent`), `note`, `anchors` (po
 
 Strokes drawn on a locked orthographic view are stored as 2D polylines in millimetres on a named plane (for example "plane XZ at y = 40"). That is the form in which a hand-drawn profile is directly usable by build123d.
 
-The agent can create marks too (`add_mark`), to ask "do you mean this face?" or to show where a change was made, and resolves the user's marks when it has acted on them.
+The agent can create marks too (`add_mark`), to ask "do you mean this face?" or to show where a change was made, and resolves the user's marks when it has acted on them. The panel lists marks by what is to be done with them (to send, with the agent, to review, resolved); what the agent resolved waits under "To review" as one summary, with Review and OK all, until the person acknowledges it.
 
 **Pinned dimensions** are dimension marks that stay. They are re-measured on every build. With an expected value and tolerance they show pass or fail. This is the ruler that verifies.
 

@@ -55,9 +55,15 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   (`src/renderer/tools/Tool.ts`) and gets every pointer event from the one
   subscription in `ui/ViewportPane.tsx`. Nothing of a pointer move goes
   through React or the store.
-- A mark's row is one line, its note cut to the room there is; what the last build did to its mark (`moved:
-  check it`, `its part is gone`) is a line of its own under the note (`.mark-anchor`, `late.css`), and the
-  status word is never cut. The Marks list never scrolls sideways (`e2e/reanchor.spec.ts`, with a note longer
+- The Marks list is grouped by what is to be done (`ui/markGroups.ts`): "To send" (drafts), "With the agent"
+  (sent), "To review" and the fold "Resolved"; a heading only for a group that has marks, and the heading says
+  the status, so a row has no status word but a pinned dimension's `pinned`, which is never cut. "To review" is
+  one summary (`ui/ResolvedSummary.tsx`): "The agent resolved N marks.", "Review" opening each row with its
+  resolution, OK and Reopen, and "OK all" (`marks.acknowledge`, no key).
+- A mark's row is one line, its note cut to the room there is, and the active row (`aria-current`) shows its
+  note whole, wrapped on a line of its own (`late.css`). Its chip is the id alone (`rowLabel`): `~` and `?` are
+  the view's chips' and the pictures' (`labelText`). What the last build did to its mark (`moved:
+  check it`, `its part is gone`) is a line of its own under the note (`.mark-anchor`, `late.css`). The Marks list never scrolls sideways (`e2e/reanchor.spec.ts`, with a note longer
   than the column). A dimension opened out leaves its value and verdict to its fields under the first line, so
   that `Add a note` is whole beside the buttons of the row (`marks.css`, `e2e/measure.spec.ts`).
 

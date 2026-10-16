@@ -8,6 +8,10 @@ is the detail of this folder, under the headings it has there. Paths are from `a
 
 ## Marks
 
+- "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
+  the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal
+  that names the first that is not the agent's to acknowledge. Only the person asks it (`marks:acknowledge`);
+  no MCP tool does.
 - After every successful build, and when a mark is added, reopened or put
   somewhere else, the marks are checked against the build
   (`src/main/marks/reanchor.ts`, one `nearest` query per layout). A mark stays

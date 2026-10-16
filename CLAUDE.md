@@ -94,7 +94,8 @@ What main, the window, the kernel and an agent must all hold to. The detail of e
 - What only main says of a mark (`MAIN_ONLY_KEYS` in `shared/marks.ts`:
   `resolvedBy`, `acknowledged`, `sentBefore`, `reopened`, `checkedRevision`) is never
   taken from the window or from a tool's arguments. A mark the agent resolved
-  stays in the panel's main list until the person acknowledges it.
+  is under "To review" until the person acknowledges it, one at a time or all at once (`marks.acknowledge`,
+  one write).
 - Lengths are millimetres, angles degrees, areas mm², volumes mm³, masses
   grams. Numbers shown go through `shared/format.ts` (four significant
   digits at most); numbers stored and returned as data are in full.
