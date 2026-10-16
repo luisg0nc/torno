@@ -75,8 +75,10 @@ Only the launcher writes it: after a `pnpm build` or a test run of your own on
 changed sources, the first start from the launcher builds again (some ten
 seconds, written into `app/out`).
 
-With no folder to open, the first screen says what torno is and offers "Open
-folder", the folders opened lately, and "Open the example": four small objects
+With no folder to open, the first screen says what torno is, draws how a folder
+of objects is laid out and offers "Open folder" (an empty one is fine) and
+"Open the example"; coming back, it lists the folders opened lately first. The
+example is four small objects
 of the repository's test workspace, copied to a temporary folder. That copy is
 removed when torno quits, with whatever was made in it, and the window says so
 under the workspace's name for as long as it is open; one that a crash left is
