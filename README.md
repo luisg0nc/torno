@@ -380,8 +380,11 @@ two: the session is ended (torno asks first if it is busy) and started again,
 resuming it. With no session it sets what the next one will be; the choice is
 kept in `.torno/agent.json`. What the chat showed is kept as text in
 `.torno/chat/`, and a resumed conversation shows it under "Earlier in this
-conversation"; pictures are never written, and say "Picture not kept" after the
-session.
+conversation"; pictures are never written. The photos and doodles you gave when
+you made the object are shown again from `reference/`, by the name the log
+keeps (one you have since deleted says `reference/doodle-1.png is no longer
+there`); a picture a tool gave says "Picture of an earlier build, not kept",
+and any other "Picture not kept".
 
 ### What Claude Code is given
 
@@ -482,6 +485,9 @@ Open marks: M2 (moved), M6 (unchecked)
 - `Open marks` are the numbers of the marks still open, each with what the
   last build did to it. After `/clear`, the first prompt of the new
   conversation lists your open marks once more.
+- The first prompt of a new conversation (a session that was not resumed, or
+  after `/clear`) ends with a line naming the files in `reference/` (twelve at
+  most, then how many more), to read when they matter: they are not attached.
 
 `.torno/state.md` says the same as text, for an agent without torno's tools:
 the build, the layouts and parts, the saved views, the scans and every open
@@ -1011,7 +1017,7 @@ place.
 | `scans.json` | the scans of the object: where each source file is and its hash, how it was imported, and its alignment in each layout | travels |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
 | `agent.json` | whether Claude Code is shown as a chat or a terminal; without it, in a chat | travels |
-| `chat/<conversation>.jsonl` | what a chat session said and did, as text; no picture data, no address | ignored |
+| `chat/<conversation>.jsonl` | what a chat session said and did, as text; no picture data, no address (a picture of `reference/` by its path) | ignored |
 | `session.json` | the conversation to resume | ignored |
 | `state.md` | the build, the parts, the views, the scans and the open marks as text | ignored |
 | `thumb.png`, `thumb.json` | the card's picture, and what it is of | ignored |
@@ -1268,4 +1274,5 @@ With a real agent:
 - **Making a new object with the real Claude Code.** "New object" with a name, a description, two photos from a phone (one large), a doodle, a scan and a reference to another object, each with a note, then "Create": the object is opened, its chat shows the one prompt with the pictures, Claude Code's reply speaks of them and of the notes, the scan is in the Scans list, `reference/` holds the original photos, and nothing else was written in the workspace. The stand-in agent has taken the prompt; the real CLI has not.
 - **Claude Code and torno's skills.** `--plugin-dir` works under `-p` (chat) and in the terminal view: in each, `/skills` (or asking the agent) lists `torno:torno-model`, `torno:build123d`, `torno:scans` and `torno:dimensions`, a model written in an empty object uses `torno-model` and builds with both layouts on the first try, and nothing was written under `~/.claude` or in the object's `.claude/`. The stand-in only shows the flag is passed.
 - **The torno-reviewer subagent.** One run with the real CLI, in chat and in the terminal: after a change of several steps Claude Code calls `torno-reviewer`, which uses only its read-only tools, reports with numbers from `measure` and changes nothing; whether the subagent's MCP calls go through `--allowedTools 'mcp__torno__*'` without a permission prompt; and that an invalid `--agents` would have stopped the start (it did not). The stand-in only shows the argument is passed.
+- **Pictures of a resumed chat, with the real Claude Code.** Make an object with one photo and one doodle and send the first prompt; let Claude Code take one `look`; quit torno. Start it again and open the object (the chat resumes): the photo and the doodle show, and the `look` picture says "Picture of an earlier build, not kept". Ask "Without reading any file, describe the doodle I gave at the start": a right answer confirms that `--resume` gives the model its pictures again. Then `/clear` and ask what references the object has: it names them from the line in `reference/`. The stand-in agent shows only that the window reads the files and the line is sent.
 - **Claude Code and the newer tools.** Ask it to cut the part, to look at it drawn apart and to check a part against a scan: `section`, `look` with `explode`, `scan_clash` and `scan_deviation` are called without a permission prompt and their replies are used.

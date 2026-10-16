@@ -208,6 +208,8 @@ Session status (idle, working, needs input) comes from HTTP hooks: `UserPromptSu
 
 *2026-10-16:* in the chat a prompt can also carry a drawing on the view: the agent's picture of the view with the person's ink, and a caption naming what the ink lies over by ref (`2026-10-16-torno-draw-on-view-design.md`).
 
+*2026-10-16:* the chat's log (`.torno/chat/`) stays text only. A picture of the first prompt of a new object records its path in `reference/` (`reference/doodle-1.png`), and a resumed chat shows it from that file again; every other picture whose data is gone says what it was. The first prompt of a new conversation is told, in one line, the files of `reference/`, to read when they matter; none is attached (`2026-10-16-torno-chat-pictures.md`, #22).
+
 ### MCP tools
 
 | Tool | Returns |

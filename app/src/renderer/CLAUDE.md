@@ -420,7 +420,12 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   (`SessionPane`: `trusting`; main's refusal is `trustQuestion` of `shared/agents.ts`): "Start the chat" asks main
   to remember the folder and starts again, "Use the terminal" chooses that view and starts it.
 - The agent's text is drawn by torno's own `markdown.tsx`: React text nodes, never raw HTML, a link shows its URL
-  and is not an `<a>`. A picture without its data says "Picture not kept".
+  and is not an `<a>`. A picture without its data (`ui/chat/gone.ts` `goneText`): a reference of the person's
+  (`ChatImage.file`, `reference/doodle-1.png`) is shown from that file, asked of main once through `chat.reference`
+  and scaled by `ui/onboard/images.ts`, as an object URL (`state/chat.ts` `referenceUrl`: 40 at most, revoked when
+  let go of, when its session is released or dropped), its file name as the thumbnail's title, the frame empty
+  while it comes; one main has no plain file for says `reference/doodle-1.png is no longer there`, the path in the
+  monospace face. A tool's picture says "Picture of an earlier build, not kept"; any other "Picture not kept".
 - **"Draw on view"** (`ui/drawing/`, `state/drawing.ts`). The ground is the agent's own picture of the view
   (`picture({ view: 'current', size: 1280 })`, the code of `look`), opened on `ui/board/Board.tsx` by `ViewBoard`, over
   the whole window as the export sheet is. The ink is `--drawing-ink` over a casing in `--panel` (`InkLook`), read once

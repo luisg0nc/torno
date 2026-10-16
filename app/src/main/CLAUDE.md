@@ -691,10 +691,20 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   `trustQuestion`. `session:trust` records it. The terminal view is never asked: it has the CLI's own question.
 - The log (`chatlog.ts`) appends each item as it becomes final to `.torno/chat/<conversation>.jsonl`: text only,
   the data of a picture never, `redact` applied to every line, one write at a time per file, the folder checked
-  with `ownTorno(dir, 'chat')` and ignored (`ensureIgnored`); after one write fails none is tried. A resumed chat
+  with `ownTorno(dir, 'chat')` and ignored (`ensureIgnored`); after one write fails none is tried. A picture of the
+  first prompt of a new object carries `file`, its path in `reference/` (the transcript reads it from the caption
+  before it, `REFERENCE_CAPTION`), and the log keeps that and never the data. `chat:reference` (`sessions/reference.ts`
+  `readReference`) gives the window the bytes of such a file again, for a session of the open workspace (one ended
+  too): only a name of the form `create.ts` gives (`REFERENCE_FILE`), only a plain file read with `readRegular` of
+  `create.ts` (no link, `reference` itself no link), at most `MAX_PHOTO`; anything else is null, never an error. A resumed chat
   reads the tail of the file as "Earlier in this conversation". A log over 5 MB is cut to its last 2,000 lines, whole
   and atomically, when a session starts on it (`trimLog`). Switching `view` ends the session and resumes the
   conversation in the other kind (`session.json` is the same).
+- The first prompt of a new conversation (`newConversation`: a session not resumed, its first `UserPromptSubmit`;
+  or `fresh`, after /clear) is told in a last line the files of `reference/` (`referencesLine` in `context.ts`,
+  `listReferences`: plain files of create's names, photos then doodles, twelve named at most). It is no mark, and is
+  left out when it does not fit in the context's limit. The onboarding prompt names them too; the repetition is
+  accepted.
 
 ## New objects
 
@@ -763,7 +773,9 @@ is the detail of this folder, under the headings it has there. Paths are from `a
 - Each picture comes after a text block naming it ("Picture 2: reference/doodle-1.png (the person's doodle): <note>",
   "Picture 3: ../lid/ as torno last drew it (its thumbnail): <note>"), because the CLI gives the model no file name for an
   image; the main text says "(attached: picture N)". The transcript's user item shows the first text only: a later text
-  right before an image is a caption and is not shown.
+  right before an image is a caption and is not shown. The caption's form is also read by the transcript, which keeps
+  the path of a photo or doodle on its picture (`REFERENCE_CAPTION`): it is a contract, held by `transcript.test.ts`,
+  which builds its prompt with `onboardPrompt`.
 - The answer has `prompt` (as sent, "attached: picture N" for a picture) and `held` (for the composer to hold: every picture
   "not attached: read reference/<file>", a referred object's as `../<name>/.torno/thumb.png`); the window holds
   `held`. The prompt names the scan tools by the adapter's tool names (`scans`, `scan_section`, `scan_clash`,

@@ -111,7 +111,8 @@ What main, the window, the kernel and an agent must all hold to. The detail of e
   chat is the CLI's own headless mode (`-p --input-format stream-json --output-format stream-json`) on pipes,
   under the person's own login, never run by a test. Hooks stay the one source of status and of the marks sent;
   the stream adds only that a request waiting for the person is `needs_input`. `.torno/chat/` holds text only:
-  no address, no secret, no picture data. A permission answer never writes the person's settings: "Allow for
+  no address, no secret, no picture data; a reference picture is recorded by its path in `reference/` and shown from
+  that file again. A permission answer never writes the person's settings: "Allow for
   this session" sends only `addRules` suggestions, rewritten to `destination: "session"`.
 - A drawing on the view ("Draw on view" in the chat) goes with one prompt as a picture: the agent's own picture of
   the view with the person's ink on it, after a caption main writes from data the window sends and main checks
