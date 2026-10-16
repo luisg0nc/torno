@@ -4,6 +4,7 @@ import { drawn } from '../../state/chat'
 import { numbered } from '../numbered'
 import { AskCard } from './AskCard'
 import { Markdown } from './markdown'
+import { YOUR_MESSAGE } from './gone'
 import { Pictures } from './Pictures'
 import { RefChip } from './RefChip'
 import { ToolCard } from './ToolCard'
@@ -62,7 +63,7 @@ const User = memo(function User({ item }: { item: Of<'user'> }) {
   return (
     <div className="chat-item chat-user" data-kind="user" data-state={item.state}>
       {item.text !== '' && <p className="chat-user-text selectable">{numbered(item.text)}</p>}
-      <Pictures images={item.images} what="Your message" />
+      <Pictures images={item.images} what={YOUR_MESSAGE} />
       {item.state === 'queued' && <p className="chat-user-state">Queued</p>}
       {item.state === 'not-sent' && <p className="chat-user-state">Not sent</p>}
     </div>

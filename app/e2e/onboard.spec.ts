@@ -320,6 +320,41 @@ test.describe('a new object', () => {
     await expect.poll(async () => (await state()).page).toBe('object')
   })
 
+  test('a resumed chat shows the references from reference/ again, and says which one is no longer there', async () => {
+    const dir = join(root, 'cable-clip')
+    const dock = page.locator('[data-region="session"]')
+    const view = (name: string) => dock.getByRole('group', { name: 'View' }).getByRole('button', { name })
+    const earlier = () => dock.locator('.chat').getByRole('region', { name: 'Earlier in this conversation' })
+    /** The terminal resumes the conversation, and the chat again after it: the first prompt is then read from the log, without its pictures' data. */
+    async function resume(): Promise<void> {
+      await view('Terminal').click()
+      await expect(dock.locator('.chat')).toHaveCount(0, { timeout: 15_000 })
+      await expect(dock.locator('.xterm')).toBeVisible({ timeout: 15_000 })
+      await view('Chat').click()
+      await expect(earlier()).toBeVisible({ timeout: 15_000 })
+    }
+    // The log has the names and no picture data.
+    const logs = readdirSync(join(dir, '.torno', 'chat'))
+    expect(logs).toHaveLength(1)
+    const log = readFileSync(join(dir, '.torno', 'chat', logs[0]), 'utf8')
+    expect(log).toContain('"file":"reference/doodle-1.png"')
+    expect(log).not.toContain('"data"')
+
+    await resume()
+    const user = earlier().locator('.chat-user').first()
+    await expect(user.locator('.chat-thumb img')).toHaveCount(3)
+    await expect(user.locator('.chat-thumb-gone')).toHaveCount(0)
+    expect(await user.locator('.chat-thumb').evaluateAll((thumbs) => thumbs.map((t) => t.getAttribute('title')))).toEqual(['photo-1.png', 'photo-2.webp', 'doodle-1.png'])
+    // Scaled as any picture is: the 3000 px photo comes back at 1280.
+    expect(await user.locator('.chat-thumb img').first().evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(1280)
+
+    rmSync(join(dir, 'reference', 'doodle-1.png'))
+    await resume()
+    const again = earlier().locator('.chat-user').first()
+    await expect(again.locator('.chat-thumb img')).toHaveCount(2)
+    await expect(again.locator('.chat-thumb-gone')).toHaveText('reference/doodle-1.png is no longer there')
+  })
+
   test('Cancel with something in the draft asks first, and Discard throws it away', async () => {
     await fromList(page).click()
     await page.getByLabel('Name', { exact: true }).fill('lid')

@@ -1,6 +1,7 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import { type ChatCommand, type ChatHistory, type ChatItem, type ChatMeta, type ChatModel, MAX_ITEMS } from '../../shared/chat'
+import { prepareImage } from '../ui/onboard/images'
 
 // The transcripts of the chat sessions, in a store of their own: they are updated by what main tells, an item at
 // a time, and nothing here is per frame. Main keeps the conversation; this is only what the window has drawn from
@@ -96,6 +97,51 @@ const set = (sessionId: string, change: (session: ChatSession) => ChatSession): 
 const tell = (sessionId: string, told: Told): void =>
   set(sessionId, (session) => (session.loading ? { ...session, told: [...session.told, told] } : apply(session, told)))
 
+/** The most references held decoded at once, as the transcript keeps the data of 40 pictures. */
+export const MOST_REFERENCES_SHOWN = 40
+
+/** A reference of the person's read again from `reference/`, by session and file: an object URL, or null when it is not there. */
+const references = new Map<string, Promise<string | null>>()
+const referenceKey = (sessionId: string, file: string): string => `${sessionId}\n${file}`
+
+function letGoReference(key: string): void {
+  const url = references.get(key)
+  references.delete(key)
+  void url?.then((u) => u && URL.revokeObjectURL(u))
+}
+
+function letGoReferences(sessionId?: string): void {
+  for (const key of [...references.keys()]) if (sessionId === undefined || key.startsWith(`${sessionId}\n`)) letGoReference(key)
+}
+
+/**
+ * The picture of a reference (`ChatImage.file`) of a session's object, asked of main once and scaled as a picture
+ * for the prompt is (`images.ts`): an object URL, or null when main has no plain file of that name to give.
+ */
+export function referenceUrl(sessionId: string, file: string): Promise<string | null> {
+  const key = referenceKey(sessionId, file)
+  const there = references.get(key)
+  if (there) {
+    // The newest asked for go last: the oldest are let go first.
+    references.delete(key)
+    references.set(key, there)
+    return there
+  }
+  const made = (async (): Promise<string | null> => {
+    try {
+      const got = await window.torno.chat.reference(sessionId, file)
+      if (!got) return null
+      const prepared = await prepareImage(got.bytes, file)
+      return URL.createObjectURL(new Blob([prepared.image as BlobPart], { type: prepared.type }))
+    } catch {
+      return null
+    }
+  })()
+  references.set(key, made)
+  while (references.size > MOST_REFERENCES_SHOWN) letGoReference(references.keys().next().value!)
+  return made
+}
+
 export const chatActions = {
   /** Asks main for the whole transcript of a session, unless it is on its way or already here; what is told meanwhile is kept and merged. */
   async load(sessionId: string): Promise<void> {
@@ -118,16 +164,19 @@ export const chatActions = {
 
   /** No pane shows this session: its pictures are let go, and what is told of it from now on carries none. */
   release(sessionId: string): void {
+    letGoReferences(sessionId)
     set(sessionId, (session) => ({ ...session, released: true, items: session.items.map(withoutData), earlier: session.earlier.map(withoutData) }))
   },
 
   /** A session is no more of this window's concern: a session ended and another started in its place, or a workspace closed. */
   drop(sessionId: string): void {
+    letGoReferences(sessionId)
     const { [sessionId]: _gone, ...sessions } = chatStore.getState().sessions
     chatStore.setState({ sessions })
   },
 
   dropAll(): void {
+    letGoReferences()
     chatStore.setState({ sessions: {} })
   }
 }

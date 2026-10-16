@@ -393,6 +393,12 @@ button.ref-chip {
   cursor: zoom-in;
 }
 
+.chat-thumb-loading {
+  display: block;
+  width: 96px;
+  cursor: default;
+}
+
 .chat-thumb:hover {
   border-color: var(--accent);
 }
