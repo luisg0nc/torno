@@ -88,6 +88,27 @@ export function draftHas(draft: Draft): boolean {
   return draft.name.trim() !== '' || draft.description.trim() !== '' || draft.photos.length + draft.doodles.length + draft.scans.length + draft.objects.length > 0
 }
 
+/** What Claude Code will start with, as the session pane says it while the draft is made. */
+export interface DraftSummary {
+  name: string | null
+  described: boolean
+  given: Array<[number, string]>
+}
+
+export function draftSummary(d: Draft): DraftSummary {
+  const words: Array<[Kind, string, string]> = [
+    ['photos', 'photo', 'photos'],
+    ['doodles', 'doodle', 'doodles'],
+    ['scans', 'scan', 'scans'],
+    ['objects', 'object', 'objects']
+  ]
+  return {
+    name: d.name.trim() || null,
+    described: d.description.trim() !== '',
+    given: words.filter(([k]) => d[k].length > 0).map(([k, one, many]): [number, string] => [d[k].length, d[k].length === 1 ? one : many])
+  }
+}
+
 let counter = 0
 let epoch = 0
 const newKey = (): string => `r${++counter}`

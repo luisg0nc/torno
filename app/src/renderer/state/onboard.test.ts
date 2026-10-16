@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MOST_REFERENCES } from '../../shared/objectName'
 import { actions } from './store'
-import { draftHas, onboard, onboarding, type DoodleDraft, type PhotoDraft } from './onboard'
+import { draftHas, draftSummary, onboard, onboarding, type DoodleDraft, type Draft, type PhotoDraft } from './onboard'
 
 const photo = (n: number): Omit<PhotoDraft, 'uid' | 'note'> => ({ path: `/p/photo-${n}.jpg`, file: `photo-${n}.jpg`, image: new Uint8Array([n]), url: `blob:p${n}` })
 const doodle = (n: number): Omit<DoodleDraft, 'uid' | 'note'> => ({ strokes: [{ tool: 'pen', width: 4, points: [[n, n]] }], png: new Uint8Array([n]), url: `blob:d${n}` })
@@ -110,5 +110,13 @@ describe('the draft of a new object', () => {
     expect(onboarding.epoch()).toBe(began)
     onboarding.discard()
     expect(onboarding.epoch()).not.toBe(began)
+  })
+})
+
+describe('draftSummary', () => {
+  it('words what a draft gives, leaving out the kinds it has none of', () => {
+    const d = { name: 'cable-clip', description: 'A clip', photos: [{}, {}, {}], doodles: [{}], scans: [{}], objects: [] } as unknown as Draft
+    expect(draftSummary(d)).toEqual({ name: 'cable-clip', described: true, given: [[3, 'photos'], [1, 'doodle'], [1, 'scan']] })
+    expect(draftSummary({ ...d, name: ' ', description: '', photos: [], doodles: [], scans: [] })).toEqual({ name: null, described: false, given: [] })
   })
 })
