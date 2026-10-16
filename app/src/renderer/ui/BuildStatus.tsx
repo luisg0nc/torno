@@ -60,6 +60,8 @@ export function BuildStatus({ errorOpen, onErrorOpen }: { errorOpen: boolean; on
   const waiting = useLasting(unmeasured.length > 0, UNCHECKED_AFTER_MS)
   const objectId = useStore((st) => st.objectId)
   const paged = useStore((st) => st.page === 'objects')
+  // The New object page: the line is of the object being made, and nothing of the one that was open is offered.
+  const creating = useStore((st) => st.page === 'new')
   const building = build?.status === 'building'
   const elapsed = useElapsed(building ? build.startedAt : undefined)
   const error = build?.status === 'failed' ? build.error : undefined
@@ -71,7 +73,9 @@ export function BuildStatus({ errorOpen, onErrorOpen }: { errorOpen: boolean; on
 
   return (
     <footer className="status" data-region="status">
-      {name === null || !build ? (
+      {creating ? (
+        <span className="status-name">New object</span>
+      ) : name === null || !build ? (
         <span>{name === null ? 'No object open' : name}</span>
       ) : (
         <>
@@ -132,7 +136,7 @@ export function BuildStatus({ errorOpen, onErrorOpen }: { errorOpen: boolean; on
       )}
       <span className="spacer" />
       {/* The open object, as one HTML file. With the page of objects up, the page has the button for them all. */}
-      {objectId !== null && !paged && (
+      {objectId !== null && !paged && !creating && (
         <button type="button" className="status-export" title="Export this object to one HTML file that opens by itself" onClick={() => actions.exportSheet([objectId])}>
           Export…
         </button>

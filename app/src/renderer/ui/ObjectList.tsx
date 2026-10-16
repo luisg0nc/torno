@@ -35,7 +35,7 @@ export function ObjectList({ onOpen }: { onOpen: (id: string) => void }) {
               <button
                 type="button"
                 className="row object-row"
-                aria-current={o.id === openId ? 'true' : undefined}
+                aria-current={o.id === openId && !creating ? 'true' : undefined}
                 data-problem={o.problem ? '' : undefined}
                 title={o.problem}
                 onClick={() => onOpen(o.id)}

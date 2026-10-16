@@ -3,7 +3,7 @@ import type { DimensionMark, Mark } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { letGoText } from '../../shared/build'
 import { store } from '../state/store'
-import { dimensionCount, goToRow } from './BuildStatus'
+import { BuildStatus, dimensionCount, goToRow } from './BuildStatus'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { OFF_EDGE_ADVICE, shownValue, verdictShown, whyNotMeasurable } from './DimensionFields'
@@ -108,5 +108,28 @@ describe('a build the kernel let go to make room', () => {
     expect(letGoText({ status: 'building' })).toBeNull()
     expect(letGoText({ status: 'ok' })).toBeNull()
     expect(letGoText({ status: 'ok', letGo: 'memory' })).toBe('This build was let go to make room (memory): it is built again when something is asked of it.')
+  })
+})
+
+describe('the status line on the New object page', () => {
+  afterEach(() => store.setState({ page: 'object', objectId: null, build: null, scene: null, revision: 0 }))
+  // A static render reads the store's first state (zustand's server snapshot): it is made the state there is now.
+  const line = (): string => {
+    const now = vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState())
+    try {
+      return renderToStaticMarkup(createElement(BuildStatus, { errorOpen: false, onErrorOpen: () => {} }))
+    } finally {
+      now.mockRestore()
+    }
+  }
+
+  it('says New object and nothing of the object that was open', () => {
+    store.setState({ page: 'new', objectId: 'bracket', build: { status: 'ok', revision: 1, seconds: 1 } as never, scene: SCENE, revision: 1, marks: [] })
+    const out = line()
+    expect(out).toContain('New object')
+    for (const gone of ['Rebuild', 'Export', 'r1', 'part', 'bracket']) expect(out).not.toContain(gone)
+    store.setState({ page: 'object' })
+    expect(line()).toContain('Rebuild')
+    expect(line()).toContain('Export…')
   })
 })
