@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatItem } from '../../shared/chat'
 import type { StreamMessage } from './stream'
+import { onboardPrompt } from '../onboard'
 import { Transcript } from './transcript'
 
 // The reducer, fed what Claude Code 2.1.300 printed (app/test/fixtures/claude-stream.jsonl) and what torno itself
@@ -213,6 +214,30 @@ describe('what is sent', () => {
     expect((item as { images: unknown[] }).images).toHaveLength(2)
     // A text, then a picture: the text is the prompt's.
     expect(t.userSent([...text('look'), img], false)).toMatchObject({ text: 'look' })
+  })
+
+  it('names the file in reference/ of a picture of the first prompt, and of no other picture', () => {
+    const t = new Transcript()
+    const png = { mediaType: 'image/png' as const, width: 1, height: 1, bytes: Buffer.from(PNG_1X1, 'base64') }
+    const { blocks } = onboardPrompt({
+      name: 'lid',
+      description: 'a lid',
+      items: [
+        { file: 'reference/photo-1.jpg', note: 'the old one', image: { ...png, mediaType: 'image/jpeg' } },
+        { file: 'reference/doodle-1.png', note: '', image: png }
+      ],
+      scans: [],
+      objects: [{ name: 'tub', summary: 'a box', note: '', thumb: png }]
+    })
+    const item = t.userSent(blocks, false) as Extract<ChatItem, { kind: 'user' }>
+    expect(item.images.map((i) => i.file)).toEqual(['reference/photo-1.jpg', 'reference/doodle-1.png', undefined])
+    expect('file' in item.images[2]).toBe(false)
+    // A text that names a file with no picture after it names nothing.
+    const plain = t.userSent([...text('Picture 1: reference/photo-1.png (the person\'s photo)')], false) as Extract<ChatItem, { kind: 'user' }>
+    expect(plain.images).toEqual([])
+    const img = { type: 'image', source: { type: 'base64', media_type: 'image/png', data: PNG_1X1 } } as const
+    const other = t.userSent([...text('main'), ...text('Picture 1: reference/x.png'), img], false) as Extract<ChatItem, { kind: 'user' }>
+    expect(other.images[0].file).toBeUndefined()
   })
 
   it('stays queued through an init until its own: one queued command becomes sent for each init no hook explains', () => {

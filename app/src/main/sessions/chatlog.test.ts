@@ -28,6 +28,13 @@ describe('the log of a conversation', () => {
     expect(readdirSync(join(dir, '.torno', 'chat'))).toEqual([`${CONVERSATION}.jsonl`])
   })
 
+  it('keeps the file in reference/ a picture names, and never its data', async () => {
+    await appendItems(dir, CONVERSATION, [{ kind: 'user', id: 'u1', text: 'hi', images: [{ id: 'p1', mediaType: 'image/png', data: 'AAAA', file: 'reference/doodle-1.png' }], state: 'sent', at: 1 }])
+    expect(readFileSync(file(), 'utf8')).not.toContain('AAAA')
+    const [user] = await readLog(dir, CONVERSATION)
+    expect((user as Extract<ChatItem, { kind: 'user' }>).images).toEqual([{ id: 'p1', mediaType: 'image/png', file: 'reference/doodle-1.png' }])
+  })
+
   it('never writes the data of a picture, nor of a picture inside a tool', async () => {
     const image = { id: 'p1', mediaType: 'image/png', data: 'AAAA', width: 4, height: 4 }
     await appendItems(dir, CONVERSATION, [

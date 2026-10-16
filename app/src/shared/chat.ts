@@ -13,6 +13,8 @@ export interface ChatImage {
   data?: string
   width?: number
   height?: number
+  /** The person's reference this picture is (`reference/photo-1.jpg`), when the prompt named it so: shown from the file once `data` is gone. */
+  file?: string
 }
 
 export type ChatItem =

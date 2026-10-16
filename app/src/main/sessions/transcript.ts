@@ -12,6 +12,11 @@ import type { PromptBlock, StreamAsk, StreamMessage } from './stream'
 // same `id`.
 
 const MAX_IMAGES = 40
+/**
+ * The caption `onboardPrompt` puts before a picture of the person's (`Picture 2: reference/doodle-1.png (the person's doodle): …`):
+ * its path is kept on the picture, so a resumed chat shows it from the file. Its form is a contract with `onboard.ts`.
+ */
+const REFERENCE_CAPTION = /^Picture \d+: (reference\/(?:photo|doodle)-\d+\.(?:png|jpe?g|webp)) \(the person's (?:photo|doodle)\)/
 /** Streaming text is told to the window no oftener than this for each item; the last change always goes. */
 const COALESCE_MS = 50
 /** A string of a tool's input or result longer than this is cut: the window shows the beginning, and the log is not a dump. */
@@ -142,7 +147,11 @@ export class Transcript {
         // A text that comes right before a picture, after the first text, only names that picture: the window shows the pictures.
         if (block.type === 'text') {
           if (texts.length === 0 || content[i + 1]?.type !== 'image') texts.push(block.text)
-        } else if (block.type === 'image') images.push(this.image(block.source.media_type, block.source.data))
+        } else if (block.type === 'image') {
+          const before = content[i - 1]
+          const caption = texts.length > 0 && before?.type === 'text' ? REFERENCE_CAPTION.exec(before.text) : null
+          images.push(this.image(block.source.media_type, block.source.data, caption?.[1]))
+        }
       })
       made = { kind: 'user', id: this.newId('i'), text: this.redact(texts.join('\n')), images, state: this.closed ? 'not-sent' : queued ? 'queued' : 'sent', at: this.now() }
       this.put(made)
@@ -686,9 +695,9 @@ export class Transcript {
     return `${this.prefix}${letter}${(this.counter += 1)}`
   }
 
-  private image(mediaType: string, data: string): ChatImage {
+  private image(mediaType: string, data: string, file?: string): ChatImage {
     const size = mediaType === 'image/png' ? pngSize(data) : undefined
-    return { id: this.newId('p'), mediaType, data, ...size }
+    return { id: this.newId('p'), mediaType, data, ...size, ...(file ? { file } : {}) }
   }
 
   /** The data of the newest pictures is kept, no more: an older one stays as an image without data. */
