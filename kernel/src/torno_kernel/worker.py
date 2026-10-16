@@ -63,11 +63,12 @@ def _build(channel: Any, dir: str, model: str) -> tuple[dict[str, Any], dict[Any
     queries would otherwise work out again, or None on failure.
     """
     try:
-        layouts, params = loader.load_model(Path(dir), model)
+        layouts, params, groups = loader.load_model(Path(dir), model)
         kept: dict[Any, Any] = {}
         scene, blob, shapes = tess.build_scene(layouts, model, kept)
         # Read here, by the worker that loaded the model: the supervisor never does.
         scene["params"] = params
+        scene["groups"] = groups
         _flush_output()
         # Inside the try: a scene that cannot be written as JSON (a NaN volume)
         # is refused before a byte of it is sent, and is a failure like any other.

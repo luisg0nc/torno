@@ -5,6 +5,7 @@ import importlib.util
 import inspect
 import io
 import math
+import re
 import sys
 import tokenize
 import traceback as tb_module
@@ -51,19 +52,70 @@ def load_scene(dir: Path, model: str) -> dict[str, dict[str, Any]]:
     return load_model(dir, model)[0]
 
 
-def load_model(dir: Path, model: str) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
-    """Import ``dir/model``: its scene as layout → name → shape, and its ``Params`` (``read_params``)."""
+def load_model(
+    dir: Path, model: str
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Import ``dir/model``: its scene as layout → name → shape, its ``Params`` (``read_params``) and its
+    groups of parts (``_groups``)."""
     path = (Path(dir) / model).resolve()
     try:
         module = _import_model(path)
         scene = _collect_scene(module)
+        groups = _groups(module, scene) if scene else []
     except LoadError:
         raise
     except Exception as e:
         raise LoadError("exception", str(e), _model_traceback(e, path)) from e
     if not scene:
         raise LoadError("no_scene", _no_scene(module, model))
-    return scene, read_params(module, path)
+    return scene, read_params(module, path), groups
+
+
+_MARK_ID = re.compile(r"M\d+")
+
+
+def _groups(module: ModuleType, scene: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """The model's ``groups(p)``: group name → part names, one level, a part in one group at most.
+
+    Read only under the ``Params`` convention (``assembly``/``printables``/``make_<part>``); ``[]`` without it.
+    A group is across layouts, by part name. What is wrong with it fails the build, saying how.
+    """
+    function = getattr(module, "groups", None)
+    if not callable(function) or not hasattr(module, "Params"):
+        return []
+    made = function(module.Params())
+    shape = "groups() must return a dict of group name to part names"
+    if not isinstance(made, dict):
+        raise LoadError("exception", f"{shape}, got {type(made).__name__}")
+    parts = {name for layout in scene.values() for name in layout}
+    known = ", ".join(dict.fromkeys(name for layout in scene.values() for name in layout))
+    owner: dict[str, str] = {}
+    groups: list[dict[str, Any]] = []
+    for name, members in made.items():
+        if not isinstance(name, str) or not isinstance(members, (list, tuple)):
+            raise LoadError("exception", f"{shape}, got {name!r}: {type(members).__name__}")
+        if not all(isinstance(m, str) for m in members):
+            raise LoadError("exception", f"{shape}: group {name} holds something that is not a part name")
+        if not name:
+            raise LoadError("exception", "groups(): a group name is not empty")
+        if "/" in name:
+            raise LoadError("exception", f"groups(): a group name has no /: {name}")
+        if _MARK_ID.fullmatch(name):
+            raise LoadError("exception", f"groups(): group {name} has the form of a mark's id; name it otherwise")
+        if name in parts:
+            raise LoadError("exception", f"groups(): group {name} has the name of a part; name it otherwise")
+        if not members:
+            raise LoadError("exception", f"groups(): group {name} has no parts")
+        for member in members:
+            if member not in parts:
+                raise LoadError("exception", f"groups() names {member}, which no layout has; parts: {known}")
+            if member in owner and owner[member] != name:
+                raise LoadError(
+                    "exception", f"groups(): {member} is in groups {owner[member]} and {name}; a part is in one at most"
+                )
+            owner[member] = name
+        groups.append({"name": name, "parts": list(dict.fromkeys(members))})
+    return groups
 
 
 def read_params(module: ModuleType, path: Path) -> list[dict[str, Any]]:

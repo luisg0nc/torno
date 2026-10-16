@@ -13,7 +13,7 @@ def write(tmp_path, source: str):
 
 
 def test_the_bracket_says_its_params(ws):
-    _, params = load_model(ws / "bracket", "bracket.py")
+    _, params, _ = load_model(ws / "bracket", "bracket.py")
     assert params == [{"name": "width", "type": "float", "default": 40, "literal": True, "doc": None}]
 
 
@@ -44,7 +44,7 @@ def test_float_int_and_bool_fields_with_their_notes_and_one_default_that_is_no_l
             return {"tray": Box(10, 10, p.wall)}
         ''',
     )
-    _, params = load_model(folder, "thing.py")
+    _, params, _ = load_model(folder, "thing.py")
     assert params == [
         {"name": "wall", "type": "float", "default": 2.5, "literal": True, "doc": "thickness of every wall, mm"},
         {"name": "ribs", "type": "int", "default": 3, "literal": True, "doc": "how many ribs across the floor"},
@@ -73,7 +73,7 @@ def test_types_as_written_and_a_default_that_is_no_plain_value_is_null(tmp_path)
             return {"box": Box(1, 1, 1)}
         """,
     )
-    _, params = load_model(folder, "thing.py")
+    _, params, _ = load_model(folder, "thing.py")
     assert params == [
         {"name": "at", "type": "Vector", "default": None, "literal": False, "doc": None},
         {"name": "size", "type": "float | None", "default": None, "literal": True, "doc": None},
@@ -82,5 +82,5 @@ def test_types_as_written_and_a_default_that_is_no_plain_value_is_null(tmp_path)
 
 
 def test_a_model_of_top_level_shapes_has_no_params(ws):
-    _, params = load_model(ws / "plain", "plain.py")
+    _, params, _ = load_model(ws / "plain", "plain.py")
     assert params == []

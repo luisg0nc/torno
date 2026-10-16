@@ -1,6 +1,8 @@
+import re
+
 import pytest
 
-from torno_kernel.loader import LoadError, choose_model, load_scene
+from torno_kernel.loader import LoadError, choose_model, load_model, load_scene
 
 
 def test_bracket_gives_assembly_and_print_layouts(ws):
@@ -207,3 +209,37 @@ def test_choose_model_ignores_init_and_dotfiles(tmp_path):
     with pytest.raises(LoadError) as info:
         choose_model(tmp_path)
     assert info.value.message == f"no model file in {tmp_path}"
+
+
+def test_groups_are_read_in_model_order(ws):
+    _, _, groups = load_model(ws / "grouped", "grouped.py")
+    assert groups == [{"name": "flat", "parts": ["flat-a", "flat-b"]}, {"name": "tall", "parts": ["tall-a"]}]
+
+
+def test_no_groups_function_gives_none(ws):
+    assert load_model(ws / "bracket", "bracket.py")[2] == []
+
+
+@pytest.mark.parametrize(
+    "body, said",
+    [
+        ('{"flat": ["nope"]}', "groups() names nope, which no layout has"),
+        ('{"flat/x": ["flat-a"]}', "a group name has no /"),
+        ('{"M3": ["flat-a"]}', "group M3 has the form of a mark's id"),
+        ('{"": ["flat-a"]}', "a group name is not empty"),
+        ('{"key": ["flat-a"]}', "group key has the name of a part"),
+        ('{"a": ["flat-a"], "b": ["flat-a"]}', "flat-a is in groups a and b"),
+        ('{"a": []}', "group a has no parts"),
+        ('{"a": "flat-a"}', "groups() must return a dict of group name to part names"),
+        ('["flat-a"]', "groups() must return a dict of group name to part names"),
+        ('1 / 0', "division by zero"),
+    ],
+)
+def test_bad_groups_fail_the_build(ws, tmp_path, body, said):
+    src = (ws / "grouped" / "grouped.py").read_text().replace(
+        'return {"flat": ["flat-a", "flat-b"], "tall": ["tall-a"]}', f"return {body}"
+    )
+    (tmp_path / "g.py").write_text(src)
+    with pytest.raises(LoadError, match=re.escape(said)) as e:
+        load_model(tmp_path, "g.py")
+    assert e.value.kind == "exception"
