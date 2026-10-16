@@ -63,8 +63,7 @@ export function useLasting(on: boolean, ms: number): boolean {
 /**
  * One mark in the panel: its number, what kind it is, its note (click to
  * write it), whether the last build moved the surface it is on or dropped its
- * part, whether anything has checked it against the build on show, whether
- * the agent has been sent it, and what can be done with it. A shape that is
+ * part, whether anything has checked it against the build on show, and what can be done with it. A shape that is
  * the active mark opens out below into its numbers (`ShapeFields`). A
  * dimension shows its value beside its number, with a tick or a cross when
  * something is expected of it, says `pinned` once the agent has it, and opens
@@ -238,9 +237,10 @@ export function MarkRow({
         </span>
       )}
       {elsewhere && <span className="mark-layout num">{mark.layout}</span>}
-      {!resolved && (
-        <span className="mark-status" data-status={mark.status} title={mark.kind === 'dimension' && mark.status === 'sent' ? 'The agent has it. It stays here with its value until it is resolved' : undefined}>
-          {mark.kind === 'dimension' && mark.status === 'sent' ? PINNED : mark.status}
+      {/* The heading of its group says the status; a dimension the agent has says it is pinned. */}
+      {mark.kind === 'dimension' && mark.status === 'sent' && (
+        <span className="mark-status" data-status={mark.status} title="The agent has it. It stays here with its value until it is resolved">
+          {PINNED}
         </span>
       )}
       <span className="mark-actions" onClick={(e) => e.stopPropagation()}>

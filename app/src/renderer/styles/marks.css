@@ -530,6 +530,15 @@
 }
 
 /* The heading the resolved marks are folded under. */
+/* The heading of a group of the list: what is to be done with its marks, and how many there are. */
+.marks-group {
+  margin: var(--space-1) 0 0;
+  padding: 4px var(--space-4) 2px;
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: normal;
+}
+
 .marks-fold {
   display: flex;
   align-items: center;

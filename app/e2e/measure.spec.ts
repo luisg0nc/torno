@@ -349,7 +349,7 @@ test('T over a face leaves the thickness of the wall there, and Escape drops a f
 })
 
 test('a dimension is given to the agent with the next prompt like any mark, and then says it is pinned', async () => {
-  await expect(row('M1', page).locator('.mark-status')).toHaveText('draft')
+  await expect(page.getByRole('list', { name: 'To send' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
   await app.evaluate(async () => {
     const hooks = (globalThis as unknown as { __tornoMain: { marks: { markSent(objectId: string): Promise<unknown> } } }).__tornoMain
     await hooks.marks.markSent('measures')
@@ -361,7 +361,7 @@ test('a dimension is given to the agent with the next prompt like any mark, and 
   await fields.getByRole('textbox', { name: 'Expected' }).fill('6')
   await fields.getByRole('textbox', { name: 'Expected' }).press('Enter')
   await expect(fields.locator('.dimension-verdict')).toHaveText('Passes')
-  await expect(row('M1', page).locator('.mark-status')).toHaveText('draft')
+  await expect(page.getByRole('list', { name: 'To send' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
   expect(dimension(root, 'M1')).toMatchObject({ status: 'draft', sentBefore: true, expected: 6, verdict: 'pass' })
 })
 

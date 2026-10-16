@@ -170,12 +170,11 @@ test('rebuilt thicker and without its post: the first pin has drifted onto the f
   for (const id of ['M1', 'M2']) {
     const boxes = await row(id).evaluate((el) => {
       const box = (selector: string) => el.querySelector(selector)!.getBoundingClientRect()
-      const status = el.querySelector<HTMLElement>('.mark-status')!
-      return { row: el.getBoundingClientRect(), note: box('.mark-note'), anchor: box('.mark-anchor'), status: status.getBoundingClientRect(), cut: status.scrollWidth > status.clientWidth, word: status.textContent }
+      // A draft says no status word: the heading of its group, "To send", says it.
+      return { row: el.getBoundingClientRect(), note: box('.mark-note'), anchor: box('.mark-anchor'), status: el.querySelector('.mark-status') }
     })
     expect([id, boxes.anchor.top >= boxes.note.bottom - 6]).toEqual([id, true])
-    expect([id, boxes.anchor.right <= boxes.row.right + 0.5, boxes.status.right <= boxes.row.right + 0.5]).toEqual([id, true, true])
-    expect([id, boxes.word, boxes.cut]).toEqual([id, 'draft', false])
+    expect([id, boxes.anchor.right <= boxes.row.right + 0.5, boxes.status]).toEqual([id, true, null])
     expect([id, boxes.note.width > 60]).toEqual([id, true])
   }
   for (const selector of ['.marks-body', '[data-region="left"]']) {

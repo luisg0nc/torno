@@ -391,7 +391,7 @@ test('the next prompt carries the pin as one line, and turns it sent', async () 
   await prompt()
   await expect.poll(said).toContain(`Marks from the user (drawn in look pictures with these numbers): ${line}`.replace(/\s+/g, ''))
   await expect.poll(async () => (await state()).marks[0].status).toBe('sent')
-  await expect(page.locator('.mark-row[data-mark="M1"] .mark-status')).toHaveText('sent')
+  await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
 })
 
 test("add_mark places the agent's own marks, by ref and by point, which the user sees in green", async () => {

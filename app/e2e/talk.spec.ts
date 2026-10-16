@@ -122,7 +122,7 @@ test('a mark changed after it was sent is sent again, and said to have changed',
   await page.keyboard.press('Enter')
   await expect(page.locator('.note-card')).toHaveCount(0)
   await expect.poll(async () => (await state()).marks[0]).toMatchObject({ note: 'make this corner thicker, by 2 mm', status: 'draft' })
-  await expect(row('M1').locator('.mark-status')).toHaveText('draft')
+  await expect(page.getByRole('list', { name: 'To send' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
 
   await prompt()
   await expect.poll(lastContext).toContain(squeezed('(changed) M1 pin on base/F'))
