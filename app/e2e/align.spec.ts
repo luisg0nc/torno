@@ -42,6 +42,12 @@ test.afterAll(async () => {
 const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window.__tornoTest!.state())
 const scans = (p: Page = page): Promise<ScanLayerState[]> => p.evaluate(() => window.__tornoTest!.scans())
 const row = (id: string, p: Page = page) => p.locator(`.scan-row[data-scan="${id}"]`)
+/** The detail of a scan's row, opened when it is not: what the row says beyond its one line is in it. */
+const detail = async (id: string, p: Page = page) => {
+  const button = row(id, p).getByRole('button', { name: `Details of ${id}` })
+  if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click()
+  return row(id, p).locator('.scan-detail')
+}
 const pickFile = (path: string | null) => app.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: { pickFile: string | null } }).__tornoMain.pickFile = path), path)
 
 async function open(name: string, p: Page = page): Promise<void> {
@@ -124,7 +130,7 @@ test('three pairs and a fourth bring a displaced scan onto the model, and say ho
   expect(kept.rms!).toBeLessThan(0.5)
   // Through the real kernel: the one end that was clicked on the base is still under the model on this build.
   await expect.poll(async () => (await state()).scans[0].checks.assembly).toMatchObject({ revision: (await state()).revision, of: 1, off: 0 })
-  await expect(row('S1').locator('.scan-basis')).toHaveText(/^· 4 pairs, RMS 0(\.\d+)? mm$/)
+  await expect((await detail('S1')).locator('.scan-basis')).toHaveText(/^4 pairs, RMS 0(\.\d+)? mm$/)
   // Where the scan's own points now are: on the base, within what a click can be off by.
   for (const point of ON_TOP) {
     const now = apply(kept.transform, where(point))
@@ -175,8 +181,8 @@ test('a tilted floor is laid flat on the ground, and says that is all it is', as
   // Laid on the ground, tied to no point of the model: placed, never aligned, and its word says why once.
   await expect(row('S1').locator('.chip[data-state="placed"]')).toHaveText('placed')
   await expect(row('S1').locator('.chip[data-state="placed"]')).toHaveAttribute('title', 'Placed by floor only: tied to no point of the model, so not checked against builds')
-  await expect(row('S1').locator('.scan-basis')).toHaveText('· floor only')
-  await expect(row('S1').locator('.scan-said[data-part="note"]')).toHaveCount(0)
+  await expect((await detail('S1')).locator('.scan-basis')).toHaveText('floor only')
+  await expect((await detail('S1')).locator('.scan-said[data-part="note"]')).toHaveCount(0)
   for (const local of [[0.5, 0.5, 60.05], [14.5, -14.5, 61.45], [-14.5, 14.5, 58.55]] as Vec3[]) expect(Math.abs(apply(kept.transform, local)[2])).toBeLessThan(1e-3)
   // What a floor leaves open is said once.
   await expect(bar().locator('.alignbar-state')).toHaveText(/^Aligned by floor only \(plane RMS 0(\.\d+)? mm\): its place in that plane is as imported$/)
@@ -323,7 +329,7 @@ test('Escape steps back one pick, and only then puts the tool down; two pairs ar
   expect(await alignment('assembly')).toEqual(before)
   await bar().getByRole('button', { name: 'Keep as rough' }).click()
   await expect(row('S1').locator('.chip[data-state="rough"]')).toHaveText('rough')
-  await expect(row('S1').locator('.scan-said[data-state="rough"]')).toContainText('It has 2 pairs of points')
+  await expect((await detail('S1')).locator('.scan-said[data-state="rough"]')).toContainText(/it has 2 pairs of points/i)
   const rough = await alignment('assembly')
   expect(rough.steps).toEqual(['pairs'])
   expect(rough.pairs).toHaveLength(2)
@@ -420,7 +426,7 @@ test('a floor is laid on a face of the model at the point that was clicked, eith
   await expect.poll(async () => (await state()).scans[0].checks.assembly).toMatchObject({ of: 1, off: 0 })
   expect((await state()).scans[0].checks.assembly.worst).toBeLessThan(0.01)
   await expect(row('S1').locator('.chip[data-state="aligned"]')).toHaveText('aligned')
-  await expect(row('S1').locator('.scan-said[data-part="note"]')).toHaveCount(0)
+  await expect((await detail('S1')).locator('.scan-said[data-part="note"]')).toHaveCount(0)
 })
 
 test('a build that takes the model from under a point raises a doubt; "Still right" settles it, and the same move is not raised again', async () => {
@@ -453,7 +459,7 @@ test('a build that takes the model from under a point raises a doubt; "Still rig
   await expect.poll(async () => (await state()).scans[0].checks.print?.off, { timeout: 60_000 }).toBe(1)
   const built = (await state()).revision
   await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveText('check')
-  await expect(row('S1').locator('.scan-said[data-state="stale"]')).toContainText(new RegExp(`The model is no longer under 1 of its 1 points \\(worst 3(\\.\\d+)? mm off\\) on r${built}: check the alignment`))
+  await expect((await detail('S1')).locator('.scan-said[data-state="stale"]')).toContainText(new RegExp(`The model is no longer under 1 of its 1 points \\(worst 3(\\.\\d+)? mm off\\) on r${built}: check the alignment`))
   await expect(bar().locator('[data-part="stale"]')).toContainText('The model is no longer under 1 of its 1 points')
 
   // The person looks and says it is still right: main asks the kernel where the point is now, and holds later builds against that.
@@ -465,7 +471,7 @@ test('a build that takes the model from under a point raises a doubt; "Still rig
   expect(confirmed.held[0]![0]).toBeCloseTo(15, 3)
   expect(Math.hypot(confirmed.held[0]![0] - 18, confirmed.held[0]![1] - 6, confirmed.held[0]![2] - 4)).toBeCloseTo(3, 1)
   await expect(row('S1').locator('.chip[data-state="aligned"]')).toHaveText('aligned')
-  await expect(row('S1').locator('.scan-said[data-part="note"]')).toHaveText(`Confirmed by the user on r${built}.`)
+  await expect((await detail('S1')).locator('.scan-said[data-part="note"]')).toHaveText(`Confirmed by the user on r${built}.`)
   // Nothing of the alignment itself was changed.
   expect((await alignment('print')).pairs?.[0]).toMatchObject({ part: 'tray', model: [expect.closeTo(18, 0), expect.closeTo(6, 0), expect.closeTo(4, 6)] })
 
@@ -552,7 +558,7 @@ test('"Use this alignment" in another layout keeps it there as placed by hand, w
   expect(await alignment('print')).toBeUndefined()
   await page.getByRole('button', { name: 'print', exact: true }).click()
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
-  await expect(row('S1').locator('.scan-said[data-part="start"]')).toContainText('Aligned in assembly.')
+  await expect((await detail('S1')).locator('.scan-said[data-part="start"]')).toContainText('Aligned in assembly.')
   await row('S1').getByRole('button', { name: 'Use the alignment of S1 in assembly here' }).click()
   await expect.poll(async () => (await alignment('print'))?.steps).toEqual(['typed'])
   const kept = await alignment('print')
@@ -562,8 +568,8 @@ test('"Use this alignment" in another layout keeps it there as placed by hand, w
   expect(kept.fitRms).toBeUndefined()
   expect(kept.rms).toBeUndefined()
   expect(kept.rough).toBeUndefined()
-  await expect(row('S1').locator('.scan-basis')).toHaveText('· by hand')
-  await expect(row('S1').locator('.scan-said[data-part="start"]')).toHaveCount(0)
+  await expect((await detail('S1')).locator('.scan-basis')).toHaveText('by hand')
+  await expect((await detail('S1')).locator('.scan-said[data-part="start"]')).toHaveCount(0)
   // The fit it was taken from is as it was.
   expect((await alignment('assembly')).pairs).toHaveLength(4)
   expect(JSON.parse(readFileSync(join(root, 'bracket', '.torno', 'scans.json'), 'utf8')).scans[0].alignments.print.steps).toEqual(['typed'])

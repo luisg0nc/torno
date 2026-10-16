@@ -1,6 +1,7 @@
 /* ---- Scans: the surroundings the parts are looked at in ----
-   A row is of the family of the layer rows: an id, a name, the same slider and
-   eye. Under them, quieter, how the scan was read and how it stands. */
+   A row is of the family of the layer rows: one line of an id, a name, a word,
+   the same slider and eye. Opened, beneath it and quieter, how the scan was
+   read, how it stands, and what there is to do with it. */
 
 .scans-line {
   margin: 0;
@@ -17,7 +18,11 @@
 .scan-row {
   display: block;
   height: auto;
-  padding: 0 0 var(--space-2);
+  padding: 0;
+}
+
+.scan-row[data-open] {
+  padding-bottom: var(--space-2);
 }
 
 .scan-head {
@@ -36,6 +41,116 @@
 
 .scan-row .row-name {
   font-size: var(--text-small);
+  cursor: default;
+}
+
+input.scan-name-field {
+  height: 22px;
+  padding: 0 var(--space-1);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-small);
+}
+
+/* How it was read is a guess still: a dot after the name, until the person says. */
+.scan-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+.scan-head .chip {
+  flex: none;
+  font-size: var(--text-small);
+}
+
+.scan-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+}
+
+.scan-toggle:hover {
+  color: var(--ink);
+}
+
+.scan-toggle svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 120ms ease-out;
+}
+
+.scan-toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+/* The detail, under the name, set in by a hairline. */
+.scan-detail {
+  display: grid;
+  gap: 2px;
+  margin: 0 var(--space-2) 0 calc(var(--space-4) + 4px);
+  padding: var(--space-1) 0 0;
+  border-left: var(--divider);
+}
+
+.scan-detail > p {
+  padding-left: var(--space-3);
+  padding-right: 0;
+}
+
+.scan-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+  padding: var(--space-1) 0 0 var(--space-2);
+}
+
+.scan-actions .button {
+  height: 22px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-small);
+}
+
+/* Asked once, after an import: how the scan is read. In the panel, not over the view the scan is looked at in. */
+.scan-sheet {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--divider);
+  border-bottom: var(--divider);
+  background: var(--panel);
+  font-size: var(--text-small);
+}
+
+.scan-sheet p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.scan-sheet-size {
+  color: var(--muted);
+}
+
+.scan-sheet .button {
+  height: 22px;
+  padding: 0 9px;
+}
+
+.scan-sheet > .confirm {
+  margin: 0 calc(-1 * var(--space-4));
 }
 
 .scan-row[data-hidden] .row-name {
@@ -47,7 +162,7 @@
 }
 
 .scan-read {
-  margin: -2px 0 0;
+  margin: 0;
   padding: 0 var(--space-4);
   font-size: var(--text-small);
   color: var(--muted);
@@ -79,16 +194,6 @@
 .link-button:disabled {
   opacity: 0.5;
   pointer-events: none;
-}
-
-.scan-state {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 var(--space-3);
-  min-height: 22px;
-  padding: 0 var(--space-2) 0 var(--space-4);
-  font-size: var(--text-small);
 }
 
 /* How a scan stands, in a word and the colour of its state; what is said of its source besides is quieter. */
@@ -125,36 +230,10 @@
   display: none;
 }
 
-.scan-more {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 22px;
-  padding: 0 2px 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.scan-more:hover {
-  color: var(--ink);
-}
-
-.scan-more svg {
-  width: 12px;
-  height: 12px;
-}
-
-.scan-more[aria-expanded='true'] svg {
-  transform: rotate(90deg);
-}
-
 .scan-fields {
   display: grid;
   gap: 6px;
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
+  padding: var(--space-1) 0 var(--space-1) var(--space-2);
   font-size: var(--text-small);
 }
 

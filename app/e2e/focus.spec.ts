@@ -114,7 +114,9 @@ test('after each step of a session of work, P takes the pin tool', async () => {
     await page.getByRole('button', { name: 'Import scan…' }).click()
   }
   await expect(page.locator('.scan-row')).toHaveCount(2)
-  const unit = page.getByRole('combobox', { name: 'Unit of S1' })
+  await page.getByRole('button', { name: 'Details of S1' }).click()
+  await pinIsInHand('a scan\'s detail opened')
+  const unit = page.locator('.scan-row').getByRole('combobox', { name: 'Unit of S1' })
   await choose(unit, 'cm')
   await pinIsInHand('a unit chosen for a scan')
   await choose(unit, 'mm')
@@ -128,7 +130,7 @@ test('after each step of a session of work, P takes the pin tool', async () => {
 })
 
 test('a choice made with the keys keeps them: the next arrow is the list\'s', async () => {
-  const unit = page.getByRole('combobox', { name: 'Unit of S1' })
+  const unit = page.locator('.scan-row').getByRole('combobox', { name: 'Unit of S1' })
   await unit.focus()
   await unit.selectOption('cm')
   await expect(unit).toBeFocused()

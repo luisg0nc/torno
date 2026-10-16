@@ -51,6 +51,12 @@ let scanFile: string
 
 const scans = (p: Page = page): Promise<ScanLayerState[]> => p.evaluate(() => window.__tornoTest!.scans())
 const row = (id: string, p: Page = page) => p.locator(`.scan-row[data-scan="${id}"]`)
+/** The detail of a scan's row, opened when it is not: what the row says beyond its one line is in it. */
+const detail = async (id: string, p: Page = page) => {
+  const button = row(id, p).getByRole('button', { name: `Details of ${id}` })
+  if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click()
+  return row(id, p).locator('.scan-detail')
+}
 const pickFile = (path: string | null) => app.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: { pickFile: string | null } }).__tornoMain.pickFile = path), path)
 const picture = (request: LookRequest, p: Page = page) =>
   p.evaluate(async (request) => {
@@ -91,12 +97,37 @@ test('a scan is imported from the panel, drawn, and said in millimetres', async 
   await pickFile(scanFile)
   await page.getByRole('button', { name: 'Import scan…' }).click()
   await expect(row('S1')).toContainText('plate under.stl')
-  await expect(row('S1')).toContainText('60 × 50 × 2 mm, from mm, Z up (assumed)')
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
-  // Fix round 1 (I4): a guess is asked about on the row, with what there is to change it open under it.
-  await expect(row('S1').locator('.scan-guess')).toContainText('Read as millimetres, Z up: right?')
-  await expect(row('S1').getByRole('combobox', { name: 'Unit of S1' })).toBeVisible()
-  await expect(row('S1').getByRole('button', { name: 'Apply' })).toBeDisabled()
+  // Issue #21: a guess is asked about once, at the top of the panel, with the size another reading would give.
+  const sheet = page.getByRole('dialog', { name: 'How is S1 read?' })
+  await expect(sheet).toContainText('S1 was read as millimetres, Z up: torno guessed from the format and the size.')
+  await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 60 × 50 × 2 mm')
+  await sheet.getByRole('combobox', { name: 'Unit of S1' }).selectOption('cm')
+  await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 600 × 500 × 20 mm')
+  await sheet.getByRole('combobox', { name: 'Up axis of S1' }).selectOption('y')
+  await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 600 × 20 × 500 mm')
+  await sheet.getByRole('combobox', { name: 'Unit of S1' }).selectOption('mm')
+  await sheet.getByRole('combobox', { name: 'Up axis of S1' }).selectOption('z')
+  await expect(sheet.getByRole('button', { name: 'Apply' })).toBeDisabled()
+  // Later: put away, and still to be answered, with a dot on the row and the question in its detail.
+  await sheet.getByRole('button', { name: 'Later' }).click()
+  await expect(sheet).toHaveCount(0)
+  await expect(row('S1').getByRole('img', { name: 'Read as assumed' })).toHaveAttribute('title', 'Read as millimetres, Z up: assumed')
+  // The row is one line; what else it says waits in its detail.
+  await expect(row('S1').locator('.scan-read')).toHaveCount(0)
+  await expect(row('S1').getByRole('button', { name: 'Frame S1' })).toHaveCount(0)
+  const head = (await row('S1').locator('.scan-head').boundingBox())!
+  const line = await row('S1').locator('.scan-head .row-name').evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height)
+  expect(head.height).toBeLessThanOrEqual(Math.max(28, 1.5 * line))
+  await expect(row('S1').locator('.scan-head .row-name')).toHaveAttribute('title', `plate under.stl, from ${scanFile}`)
+  await expect(row('S1').getByRole('button', { name: 'Show S1' })).toBeVisible()
+  const open = await detail('S1')
+  await expect(open).toContainText('60 × 50 × 2 mm, from mm, Z up (assumed)')
+  await expect(open.locator('.scan-guess')).toContainText('Read as millimetres, Z up: right?')
+  await expect(open.getByRole('combobox', { name: 'Unit of S1' })).toBeVisible()
+  await expect(open.getByRole('button', { name: 'Apply' })).toBeDisabled()
+  await expect(open.locator('.scan-said[data-part="state"]')).toHaveText('Not aligned in assembly: nothing is checked against it here')
+  for (const action of ['Frame S1', 'Align S1', 'Rename S1']) await expect(open.getByRole('button', { name: action })).toBeVisible()
   await expect.poll(async () => (await scans())[0]).toMatchObject({ id: 'S1', loaded: true, triangles: 12, aligned: false, visible: true, opacity: 1 })
   expect((await state()).scans[0]).toMatchObject({ id: 'S1', sourceState: 'present', meshState: 'ok', source: { path: scanFile } })
   expect(scansFile()).toMatchObject({ next: 2, scans: [{ id: 'S1', source: { path: scanFile, bytes: PLATE.length } }] })
@@ -166,12 +197,13 @@ test('a unit that was assumed wrongly is changed on the row, without the source'
   await page.reload()
   await page.waitForSelector('[data-region="left"]')
   await open('bracket')
-  await expect(row('S1').locator('.chip[data-state="source-missing"]')).toHaveText('source missing')
-  // Changed in fix round 1 (I4): what changes a guess is open while it is one; "More" would close it.
+  await expect((await detail('S1')).locator('.scan-said[data-part="source"]')).toHaveText(`Source missing: ${scanFile} is no longer there. The scan goes on working from what torno made of it.`)
+  // Changed for issue #21: a guess put off is still asked about in the detail, with what changes it.
   await expect(row('S1').locator('.scan-guess')).toContainText('Read as millimetres, Z up: right?')
   await row('S1').getByRole('combobox', { name: 'Unit of S1' }).selectOption('cm')
   await row('S1').getByRole('button', { name: 'Apply' }).click()
   await expect(row('S1')).toContainText('600 × 500 × 20 mm, from cm, Z up')
+  await expect(row('S1').getByRole('img', { name: 'Read as assumed' })).toHaveCount(0)
   // Both were chosen by pressing Apply: neither is assumed any more.
   await expect.poll(async () => (await state()).scans[0].imported.assumed).toEqual({ unit: false, up: false })
   await expect(row('S1')).not.toContainText('assumed')
@@ -185,7 +217,7 @@ test('a file that is no scan is said to be none, and a scan is removed with its 
   await pickFile(other)
   await page.getByRole('button', { name: 'Import scan…' }).click()
   await expect(page.getByRole('region', { name: 'Scans' })).toContainText('part.3mf is not a scan torno reads: .glb, .gltf, .obj, .ply or .stl')
-  await row('S1').getByRole('button', { name: 'Remove' }).click()
+  await (await detail('S1')).getByRole('button', { name: 'Remove' }).click()
   await page.getByRole('button', { name: 'Remove', exact: true }).last().click()
   await expect(row('S1')).toHaveCount(0)
   expect(existsSync(join(root, 'bracket', '.torno', 'scans', 'S1'))).toBe(false)
@@ -246,10 +278,13 @@ test('a scan with colours of its own is drawn in them, or plain, as its row says
   await expect(row('S2')).toContainText('plate.ply')
   await expect.poll(async () => (await scans())[0]).toMatchObject({ id: 'S2', loaded: true, triangles: 12 })
   expect((await state()).scans[0].imported.colours).toBe('vertex')
-  // The guess was right: saying so keeps the scan as it is, and no longer asks.
-  await row('S2').getByRole('button', { name: 'Yes' }).click()
+  // The guess was right: Keep says so, keeps the scan as it is, and no longer asks.
+  const sheet = page.getByRole('dialog', { name: 'How is S2 read?' })
+  await sheet.getByRole('button', { name: 'Keep' }).click()
+  await expect(sheet).toHaveCount(0)
   await expect.poll(async () => (await state()).scans[0].imported.assumed).toEqual({ unit: false, up: false })
-  await expect(row('S2').locator('.scan-guess')).toHaveCount(0)
+  await expect(row('S2').getByRole('img', { name: 'Read as assumed' })).toHaveCount(0)
+  await expect((await detail('S2')).locator('.scan-guess')).toHaveCount(0)
   await expect(row('S2').getByRole('button', { name: 'Own colours' })).toHaveAttribute('title', 'Its own colours, toned down')
   await expect(row('S2').getByRole('button', { name: 'Own colours' })).toHaveAttribute('aria-pressed', 'true')
   const own = await picture({ view: 'bottom', size: 256, marks: false })
@@ -270,7 +305,7 @@ test('a scan whose mesh is gone says so, is not drawn, and has its source read a
   expect((await picture({ view: 'iso', size: 256 })).caption).not.toContain('scans')
   // Changed in fix round 1 (I2): beside what says the mesh is gone, and into the same scan: what it had stays.
   await place('S2', [0, 0, 1])
-  await expect(row('S2').locator('.scan-said')).toContainText('Its mesh is gone from the disk')
+  await expect((await detail('S2')).locator('.scan-said')).toContainText('Its mesh is gone from the disk')
   await row('S2').locator('.scan-said').getByRole('button', { name: 'Import again' }).click()
   await expect.poll(async () => (await scans())[0], { timeout: 30_000 }).toMatchObject({ id: 'S2', loaded: true, aligned: true })
   await expect(row('S2').locator('.chip[data-state="placed"]')).toHaveText('placed')
@@ -351,10 +386,10 @@ test('"Frame" on its row brings a scan that stands far off into view, and does n
   // Stood a hundred metres off, it is further than the camera reaches for a scan (200 times the parts): its row says so.
   await place('S2', [100_000, 0, 35])
   await expect.poll(async () => (await scans())[0].clipped).toBe(true)
-  await expect(row('S2').locator('.chip[data-state="clipped"]')).toHaveText('not all in view')
+  await expect((await detail('S2')).locator('.scan-said[data-part="clipped"]')).toHaveText('Not all in view: Frame brings more of it in.')
   // The plate, 60 × 50 × 2 round (0, 0, -10) in its own frame, stood 400 mm along X: out of a view of the parts, and within reach.
   await place('S2', [400, 0, 35])
-  await expect(row('S2').locator('.chip[data-state="clipped"]')).toHaveCount(0)
+  await expect(row('S2').locator('.scan-said[data-part="clipped"]')).toHaveCount(0)
   await expect.poll(async () => (await scans())[0].transform.t).toEqual([400, 0, 35])
   await page.getByRole('button', { name: 'Iso', exact: true }).click()
   const corners: Array<[number, number, number]> = [[-30, -25, -11], [30, 25, -9], [30, -25, -11], [-30, 25, -9]]
@@ -372,7 +407,7 @@ test('"Frame" on its row brings a scan that stands far off into view, and does n
     const length = Math.hypot(...d)
     return d.map((c) => c / length)
   }
-  await row('S2').getByRole('button', { name: 'Frame S2' }).click()
+  await (await detail('S2')).getByRole('button', { name: 'Frame S2' }).click()
   await expect.poll(async () => inView(await drawn())).toBe(true)
   const after = await page.evaluate(() => window.__tornoTest!.camera())
   // Moved, not turned: it looks the same way, the same way up, through the same lens.
@@ -385,7 +420,48 @@ test('"Frame" on its row brings a scan that stands far off into view, and does n
   expect(inView([[px, py]])).toBe(true)
   // And the view is drawn as far as the scan reaches: its row has nothing to say of that.
   expect((await scans())[0].clipped).toBe(false)
-  await expect(row('S2').locator('.chip[data-state="clipped"]')).toHaveCount(0)
+  await expect(row('S2').locator('.scan-said[data-part="clipped"]')).toHaveCount(0)
+})
+
+// Issue #21.
+test('a scan read with a guess is asked about once after its import, and Apply reads it as chosen', async () => {
+  const again = join(root, 'plate again.stl')
+  writeFileSync(again, PLATE)
+  await pickFile(again)
+  await page.getByRole('button', { name: 'Import scan…' }).click()
+  const sheet = page.getByRole('dialog', { name: 'How is S3 read?' })
+  await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 60 × 50 × 2 mm')
+  await expect(row('S3').getByRole('img', { name: 'Read as assumed' })).toBeVisible()
+  await sheet.getByRole('combobox', { name: 'Unit of S3' }).selectOption('cm')
+  await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 600 × 500 × 20 mm')
+  await sheet.getByRole('button', { name: 'Apply' }).click()
+  await expect(sheet).toHaveCount(0)
+  await expect.poll(async () => (await state()).scans.find((scan) => scan.id === 'S3')?.imported).toMatchObject({ unit: 'cm', assumed: { unit: false, up: false } })
+  await expect(row('S3').getByRole('img', { name: 'Read as assumed' })).toHaveCount(0)
+  // One detail open at a time.
+  await detail('S2')
+  await detail('S3')
+  await expect(row('S2').locator('.scan-detail')).toHaveCount(0)
+  await expect(row('S2').getByRole('button', { name: 'Details of S2' })).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('a scan is renamed from its detail; an empty name is refused, and Escape leaves it as it was', async () => {
+  const name = () => row('S3').locator('.scan-head .row-name')
+  await (await detail('S3')).getByRole('button', { name: 'Rename S3' }).click()
+  await row('S3').getByRole('textbox', { name: 'Name of S3' }).fill('hatch')
+  await page.keyboard.press('Enter')
+  await expect(name()).toHaveText('hatch')
+  await expect.poll(async () => (await state()).scans.find((scan) => scan.id === 'S3')?.name).toBe('hatch')
+  await row('S3').getByRole('button', { name: 'Rename S3' }).click()
+  await row('S3').getByRole('textbox', { name: 'Name of S3' }).fill('')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('region', { name: 'Scans' }).getByRole('alert')).toContainText('a scan needs a name')
+  await expect(name()).toHaveText('hatch')
+  await row('S3').getByRole('button', { name: 'Rename S3' }).click()
+  await row('S3').getByRole('textbox', { name: 'Name of S3' }).fill('other')
+  await page.keyboard.press('Escape')
+  await expect(name()).toHaveText('hatch')
+  expect((await state()).scans.find((scan) => scan.id === 'S3')?.name).toBe('hatch')
 })
 
 test.describe('a large scan', () => {

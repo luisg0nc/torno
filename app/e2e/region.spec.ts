@@ -291,8 +291,9 @@ test('a kept region is painted again from its row: a new mask, the same mark, an
 })
 
 test('a region goes on as a mark when its scan is removed, and says so', async () => {
-  // A scan whose unit is a guess has its fields open already: "More" would close them.
-  if (!(await row('S1').getByRole('button', { name: 'Remove S1' }).isVisible())) await row('S1').getByText('More').click()
+  // What is done with a scan is in its detail, under its row.
+  const details = row('S1').getByRole('button', { name: 'Details of S1' })
+  if ((await details.getAttribute('aria-expanded')) !== 'true') await details.click()
   await row('S1').getByRole('button', { name: 'Remove' }).click()
   // It is asked first, and the question says what goes with the scan.
   await expect(row('S1')).toContainText('It has 1 region painted on it')

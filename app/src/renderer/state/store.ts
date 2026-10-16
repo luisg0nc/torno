@@ -90,6 +90,8 @@ export interface TornoState {
   importing: { name: string; stage: string | null } | null
   /** Why what was last asked of the scans here (an import, another unit, a removal) came to nothing, as main said it; null once it is put away. */
   scansRefused: string | null
+  /** A scan this window just imported whose unit or up axis was guessed: how it is read is asked once, at the top of the panel. Null for none. */
+  scanAsking: string | null
   /** What main said was wrong with the scans file of the open object, as a sentence; null when nothing was. */
   scansProblem: string | null
   /** The mark whose note is open over the viewport, for the person to write it; null for none. It is the active one. */
@@ -149,7 +151,7 @@ const NO_SCANS: ScanInfo[] = []
 const NOT_CLIPPED: readonly string[] = []
 const NO_VIEWS: SavedView[] = []
 const NO_SELECTION = { selection: NOTHING_SELECTED, picked: NOTHING_PICKED }
-const NO_OBJECT = { objectId: null, build: null, scene: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, activeView: null, marks: [], marksProblem: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scansProblem: null, activeMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
+const NO_OBJECT = { objectId: null, build: null, scene: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, activeView: null, marks: [], marksProblem: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
 
 export const store = createStore<TornoState>(() => ({
   workspace: null,
@@ -553,6 +555,11 @@ export const actions = {
   setScansClipped(ids: readonly string[]): void {
     const had = store.getState().scansClipped
     if (ids.length !== had.length || ids.some((id, n) => id !== had[n])) store.setState({ scansClipped: ids.length === 0 ? NOT_CLIPPED : [...ids] })
+  },
+
+  /** Asks how a scan just imported is read, once; null puts the question away. */
+  askScanRead(id: string | null): void {
+    if (id !== store.getState().scanAsking) store.setState({ scanAsking: id })
   },
 
   /** Why what was asked of the scans came to nothing, for the panel to say; null puts it away. */

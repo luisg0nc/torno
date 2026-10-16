@@ -66,4 +66,22 @@ describe('reading a file as a scan', () => {
       expect(store.getState().scansRefused).toBeNull()
     }
   })
+
+  it('asks once how a scan just imported is read, when its unit or up axis was guessed and the object is still open', async () => {
+    const imported = (id: string, unit: boolean, up: boolean) => ({ id, imported: { assumed: { unit, up } } }) as ScanInfo
+    importScan('bracket', '/d/a.stl')
+    ended[0].resolve(imported('S1', true, false))
+    await settled()
+    expect(store.getState().scanAsking).toBe('S1')
+    actions.askScanRead(null)
+    importScan('bracket', '/d/b.stl')
+    ended[1].resolve(imported('S2', false, false))
+    await settled()
+    expect(store.getState().scanAsking).toBeNull()
+    importScan('bracket', '/d/c.stl')
+    actions.openObject('other', { layers: {} })
+    ended[2].resolve(imported('S3', true, true))
+    await settled()
+    expect(store.getState().scanAsking).toBeNull()
+  })
 })
