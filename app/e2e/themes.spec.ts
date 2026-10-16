@@ -183,7 +183,7 @@ for (const theme of ['light', 'dark'] as const) {
 
 // Set TORNO_SHOTS=<dir>, as for the captures of the other specs, to capture the window in every state the pass
 // over the themes looks at, one launch each, into <dir>/ui-<state>-<theme>.png.
-const STATES = ['main', 'section', 'explode', 'views', 'scans', 'region', 'page', 'export', 'error', 'welcome', 'empty', 'folders', 'chat', 'view-board', 'onboard', 'onboard-board'] as const
+const STATES = ['main', 'section', 'explode', 'views', 'scans', 'scan-read', 'region', 'page', 'export', 'error', 'welcome', 'empty', 'folders', 'chat', 'view-board', 'onboard', 'onboard-board'] as const
 
 for (const theme of ['light', 'dark'] as const) {
   for (const shot of STATES) {
@@ -245,8 +245,17 @@ for (const theme of ['light', 'dark'] as const) {
           await page.locator('.view-chip[data-view="Wall at the post"]').click()
         } else if (shot === 'scans') {
           await scan()
+          // The question put off, the one-line row with its detail open under it.
+          await page.getByRole('dialog', { name: 'How is S1 read?' }).getByRole('button', { name: 'Later' }).click()
+          await page.getByRole('button', { name: 'Details of S1' }).click()
+          await expect(page.locator('.scan-detail')).toBeVisible()
           await page.keyboard.press('l')
           await expect(page.locator('.alignbar')).toBeVisible()
+        } else if (shot === 'scan-read') {
+          // How a scan just imported is read, asked once: a sheet at the top of the Scans section.
+          await scan()
+          expect((await state(page)).scans[0].imported.assumed.unit).toBe(true)
+          await expect(page.getByRole('dialog', { name: 'How is S1 read?' })).toBeVisible()
         } else if (shot === 'region') {
           await scan()
           await page.getByRole('button', { name: 'Top', exact: true }).click()
