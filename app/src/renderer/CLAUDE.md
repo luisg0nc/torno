@@ -19,7 +19,9 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   `which(e, id)` and never names a key; a button or a tooltip takes its key
   from `hint(id)`; the palette's tools, the view bar's views and the gizmo's
   ways are `TOOL_KEYS`, `VIEW_KEYS` and `GIZMO_KEYS`; the sheet of keys (`?`,
-  `ui/KeySheet.tsx`) is `cheatSheet()`. A new key is added there first:
+  `ui/KeySheet.tsx`) is `cheatSheet()`. A tool's key is shown on its
+  palette button and in its tooltip, and on the sheet of keys; nowhere else. The empty Marks section names no key: it
+  says what a mark is and that it goes with the next prompt. A new key is added there first:
   `keys.test.ts` reads the sources of the window, the preload and
   `main/devkeys.ts` and fails for any read of `.key`, `.code`, `.keyCode` or
   `.which` outside `shared/keys.ts` (a handler hands the press whole to

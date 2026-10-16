@@ -178,6 +178,8 @@ The agent can create marks too (`add_mark`), to ask "do you mean this face?" or 
 
 **Pinned dimensions** are dimension marks that stay. They are re-measured on every build. With an expected value and tolerance they show pass or fail. This is the ruler that verifies.
 
+With no marks, the Marks section says what a mark is for, and no key: "Point at the part to leave a note for the agent. A mark goes with your next prompt, and stays here until the agent resolves it." A tool's key is shown only on the tool palette (its button and tooltip) and on the sheet of keys (`?`).
+
 ## 6. The agent link
 
 ### Sessions
