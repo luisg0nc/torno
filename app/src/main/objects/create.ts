@@ -104,7 +104,7 @@ const line = (what: string, note: string): string => (note === '' ? `- ${what}` 
  * is too big are refused before any of it is read. The file is opened without following a link and looked at
  * through the open handle, so that what was checked is what is read.
  */
-async function readRegular(path: unknown, cap: number, what: string): Promise<{ bytes: Buffer; ext: string }> {
+export async function readRegular(path: unknown, cap: number, what: string): Promise<{ bytes: Buffer; ext: string }> {
   if (typeof path !== 'string' || !isAbsolute(path)) throw new Error(`A ${what} is given by the path of a file; this is not one.`)
   const ext = extname(path).toLowerCase()
   if (!PHOTO_TYPES.includes(ext)) throw new Error(`${path} is not a ${PHOTO_TYPES.join(', ')} file.`)

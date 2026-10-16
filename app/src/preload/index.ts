@@ -132,6 +132,7 @@ const bridge: TornoBridge = {
   },
   chat: {
     history: (sessionId) => invokePlain('chat:history', sessionId),
+    reference: (sessionId, file) => invokePlain('chat:reference', sessionId, file),
     onItem: (cb) => subscribe('chat:item', cb),
     onMeta: (cb) => subscribe('chat:meta', cb),
     onCapabilities: (cb) => subscribe('chat:capabilities', cb),

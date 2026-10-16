@@ -35,6 +35,7 @@ import type { AgentView, CreateRequest, OnboardDraft } from '../shared/bridge'
 import { readChoice, writeChoice } from './sessions/choice'
 import { drawingOf } from './sessions/drawing'
 import type { Sessions } from './sessions/manager'
+import { readReference } from './sessions/reference'
 import { sessionOfWorkspace } from './sessions/status'
 import { type KeepDeps, cardsOf, keepThumbnail, newestPython, thumbnailOnFile } from './show/cards'
 import { onboardObject, sessionRunning } from './onboard'
@@ -57,7 +58,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample,
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:stop, session:chooseView,
-//           chat:history, chat:send, chat:interrupt, chat:setModel,
+//           chat:history, chat:reference, chat:send, chat:interrupt, chat:setModel,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:replace, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, geometry:describe,
 //           scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
@@ -605,6 +606,12 @@ export function registerIpc(
     const history = sessions && sessionOfWorkspace(sessions.chatOf(String(sessionId)), current?.info.root) ? sessions.history(String(sessionId)) : undefined
     if (!history) throw new Error('There is no such conversation')
     return history
+  })
+
+  handle('chat:reference', async (_event, sessionId: string, file: string) => {
+    const chat = sessions?.chatOf(String(sessionId))
+    if (!chat || !sessionOfWorkspace(chat, current?.info.root)) return null
+    return readReference(chat.dir, String(file))
   })
 
   handle('chat:send', async (_event, sessionId: string, prompt: { text?: unknown; attachView?: unknown; drawing?: unknown }) => {

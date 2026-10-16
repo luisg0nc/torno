@@ -231,6 +231,8 @@ export interface TornoBridge {
   chat: {
     /** Everything the window needs to draw a session, whenever it asks; readable also after the session has ended, until another starts in that object. */
     history(sessionId: string): Promise<ChatHistory>
+    /** The bytes of a picture of the person's in the session's object, `reference/photo-1.jpg` (`ChatImage.file`), read again by main: none for a file that is not a plain file of a name torno gives there, or for a session that is not of the open workspace. Also for a session that has ended. */
+    reference(sessionId: string, file: string): Promise<{ mediaType: string; bytes: Uint8Array } | null>
     /** An item of the transcript was added or changed. One whose `seq` is not above the `seq` of the history asked for before holds nothing the history does not. */
     onItem(cb: (m: { sessionId: string; item: ChatItem; seq: number }) => void): () => void
     onMeta(cb: (m: { sessionId: string; meta: ChatMeta; seq: number }) => void): () => void
