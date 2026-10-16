@@ -182,6 +182,13 @@ test('rebuilt thicker and without its post: the first pin has drifted onto the f
     const [scroll, client] = await page.locator(selector).evaluate((el) => [el.scrollWidth, el.clientWidth])
     expect([selector, scroll <= client]).toEqual([selector, true])
   }
+  // The active row shows its note whole, wrapped, and the list still does not scroll sideways.
+  await expect(row('M1')).toHaveAttribute('aria-current', 'true')
+  const whole = row('M1').locator('.mark-note')
+  await expect(whole).toHaveText('the wall is too thin here and wants two more millimetres at least')
+  expect(await whole.evaluate((el) => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+  expect(await whole.getAttribute('title')).toBeNull()
+  expect(await page.locator('.marks-body').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   await row('M1').locator('.mark-note').click({ position: { x: 4, y: 8 } })
   await page.keyboard.type('too thin here')
   await page.keyboard.press('Enter')

@@ -167,6 +167,17 @@
   overflow-wrap: anywhere;
 }
 
+/* The active row shows its note whole: on a line of its own under the chip, wrapped, before what the build did. */
+.mark-row[aria-current='true'] > .mark-note {
+  order: 1;
+  flex: 0 0 100%;
+  height: auto;
+  padding: 0 0 6px 33px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
 /* What a row is opened out with comes after that line. */
 .mark-row > .mark-actions ~ * {
   order: 2;

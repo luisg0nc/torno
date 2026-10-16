@@ -176,7 +176,7 @@ export function MarkRow({
           type="button"
           className="mark-note"
           data-empty={mark.note === '' ? '' : undefined}
-          title={[mark.note, mark.resolvedNote ? `Resolved: ${mark.resolvedNote}` : ''].filter(Boolean).join('\n') || 'Write a note'}
+          title={active ? undefined : [mark.note, mark.resolvedNote ? `Resolved: ${mark.resolvedNote}` : ''].filter(Boolean).join('\n') || 'Write a note'}
           aria-label={`Note of ${mark.id}: ${mark.note || 'none'}. Edit`}
           onClick={(e) => {
             // Writing a note is not asking to go anywhere: the camera stays.
