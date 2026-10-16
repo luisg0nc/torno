@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { type MarkPatch, awaitsAcknowledgement, markAnchors } from '../../shared/marks'
 import { actions, layerOf, useStore } from '../state/store'
-import { TOOLS } from '../state/tools'
 import { MarkRow } from './MarkRow'
 
 /**
@@ -96,14 +95,7 @@ export function MarksPanel() {
         {marks.length === 0 && (
           <div className="marks-empty">
             <p>Point at the part to leave a note for the agent.</p>
-            <ul className="marks-keys" aria-label="Tool keys">
-              {TOOLS.filter((t) => t.name !== 'select').map((t) => (
-                <li key={t.name}>
-                  <kbd className="num">{t.key}</kbd>
-                  {t.label.toLowerCase()}
-                </li>
-              ))}
-            </ul>
+            <p>A mark goes with your next prompt, and stays here until the agent resolves it.</p>
           </div>
         )}
         {marks.length > 0 && open.length === 0 && <p className="section-note">Every mark is resolved.</p>}
