@@ -1,5 +1,5 @@
 import type { BuildState } from '../../shared/build'
-import type { Described } from '../../shared/geometry'
+import type { Described, MeasureProbe, MeasuredOnce } from '../../shared/geometry'
 import type { Anchor, Mark, NewMark, Replacement, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import type { Readout } from '../viewport/highlight'
@@ -54,6 +54,8 @@ export interface ToolContext {
   describe(ref: string): Promise<Described | null>
   /** Has main keep a mark; it comes back with its number. The viewport and the panel get it from main, like any other. */
   commit(mark: NewMark): Promise<Mark>
+  /** Has main measure, on the build there is, what the Measure tool took: the kernel's value, and nothing kept or told (`geometry.measure`). */
+  measure(probe: MeasureProbe): Promise<MeasuredOnce>
   /** Opens the note of a mark just made, for the person to write it. */
   openNote(mark: Mark): void
   /** Whether torno moved a part of the layout shown to set it beside the others for display (`Part.arranged`): what lies between it and another part is then not the model's. */

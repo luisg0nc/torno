@@ -215,6 +215,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       descriptor: (ref) => descriptorOf(objectId, revision, layout, ref),
       describe: (ref) => describeWhole(objectId, revision, layout, ref),
       commit: (mark) => commitMark(objectId, mark),
+      measure: (probe) => window.torno.geometry.measure(objectId, probe),
       moved: (part) => s.scene?.parts.some((p) => p.layout === layout && p.name === part && p.arranged !== undefined) === true,
       // A region's note opens in the layout shown: it is of its scan in every one.
       openNote: (mark) => actions.openNote({ objectId, layout: mark.kind === 'region' ? layout : mark.layout, id: mark.id }),

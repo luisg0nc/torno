@@ -52,6 +52,7 @@ function fake(over: Partial<ToolContext> = {}) {
     stale: null,
     descriptor: () => undefined,
     describe: async () => SIDE,
+    measure: () => Promise.reject(new Error('nothing is measured here')),
     commit: async () => {
       throw new Error('a section is no mark')
     },

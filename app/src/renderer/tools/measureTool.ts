@@ -1,5 +1,6 @@
 import { pressed } from '../../shared/keys'
-import { isSpreadRefusal, measuredValue, notMeasuredText, valueText } from '../../shared/dimension'
+import { isSpreadRefusal, valueText } from '../../shared/dimension'
+import { measuredStore } from '../state/measured'
 import type { Described } from '../../shared/geometry'
 import type { Anchor, MeasureKind, Vec3 } from '../../shared/marks'
 import { toolStore } from '../state/tools'
@@ -82,20 +83,24 @@ export function estimate(measure: 'distance' | 'angle', a: Pick<Hit, 'point' | '
 
 /**
  * The measure tool. A click on a face or an edge is the first end of a
- * measurement, a second click the other end: the dimension between them is
- * kept, a distance or, when that is what is chosen, an angle. A double click
- * on something round (a hole, a cylinder, a circular edge) keeps its diameter
- * at once, or its radius when that is chosen. `T` over a face keeps the
+ * measurement, a second click the other end: what is between them is
+ * measured, a distance or, when that is what is chosen, an angle. A double click
+ * on something round (a hole, a cylinder, a circular edge) measures its diameter
+ * at once, or its radius when that is chosen. `T` over a face measures the
  * thickness of the wall under the pointer. With Shift a click is a bare
  * point: where it was clicked, tied to no face.
+ *
+ * A measurement leaves no mark and is told to no one: main measures it (`ctx.measure`, `geometry.measure`) and the
+ * last one is held in `state/measured.ts` for the strip, until the next first end, Escape with nothing under way, or
+ * the tool is put down. It is kept as a dimension only by `measure.keep` (Enter) or the strip's button (`keepHeld`).
  *
  * While the second end is pending the line to the pointer is drawn and an
  * estimate from the mesh read out, marked `≈`. Of an angle, an end the kernel
  * takes by its axis, only if flat or straight, or not at all has no estimate:
- * that is said instead (`angleHint`), and the click is sent all the same. The value of the dimension is
- * the kernel's: main measures it as it keeps the mark, and it is read out in
+ * that is said instead (`angleHint`), and the click is sent all the same. The value of the measurement is
+ * the kernel's: main measures it, and it is read out in
  * place of the estimate. When the kernel refuses the measurement (no angle
- * between a plane and a cylinder), nothing is kept and its reason is read out
+ * between a plane and a cylinder), nothing is held and its reason is read out
  * for `REFUSAL_MS`. A distance between two parts torno spread for display is
  * no distance of the model's: `SPREAD_LINE` is read out in place of the
  * estimate, and stays after the click until the next one or Escape. Escape
@@ -136,21 +141,22 @@ export function measureTool(): Tool {
 
   const end = async (of: End, ctx: ToolContext): Promise<Anchor> => (of.bare ? { point: of.hit.point } : anchorFromHit(of.hit, ctx.describe))
 
-  const commit = async (measure: MeasureKind, a: End, b: End | null, client: [number, number], ctx: ToolContext): Promise<void> => {
-    // As they are now: the kernel is asked before the mark is made, and the view may move meanwhile.
-    const { layout, revision, camera } = ctx
+  const take = async (measure: MeasureKind, a: End, b: End | null, client: [number, number], ctx: ToolContext): Promise<void> => {
+    // As they are now: the kernel is asked before anything is held, and the view may move meanwhile.
+    const { objectId, layout, revision, camera } = ctx
     const mine = ++committing
     ctx.viewport.setDraft({ kind: 'dimension', from: a.hit.point, to: b ? b.hit.point : null })
     try {
       const [from, to] = await Promise.all([end(a, ctx), b ? end(b, ctx) : null])
-      const mark = await ctx.commit({ kind: 'dimension', measure, author: 'user', note: '', layout, revision, camera, a: from, ...(to ? { b: to } : {}) })
-      if (mine !== committing || mark.kind !== 'dimension') return
+      const probe = { measure, layout, revision, a: from, ...(to ? { b: to } : {}) }
+      const got = await ctx.measure(probe)
+      if (mine !== committing) return
+      // Held for the strip, to be kept as a dimension only when the person means to. Nothing is made of it.
+      measuredStore.getState().setHeld({ ...probe, objectId, camera, value: got.value, how: got.how, revision: got.revision })
       // The kernel's value, in place of the estimate: until the pointer moves on.
       release()
       held = { until: 0, client: hover?.client ?? client, within: RESULT_PX }
-      // One the kernel could not be asked about yet is kept without a value, and says so.
-      const value = measuredValue(mark, revision)
-      ctx.readout.show(held.client, mark.id, value === undefined ? notMeasuredText(mark, revision) : [valueText(mark.measure, value), mark.how ?? ''].filter(Boolean).join(' '))
+      ctx.readout.show(held.client, valueText(measure, got.value), got.how)
     } catch (e) {
       if (mine !== committing) return
       // Main did not keep it, and why is the kernel's to say: no angle between these two, no radius of that.
@@ -191,7 +197,9 @@ export function measureTool(): Tool {
       // A bare point has no radius. Of anything else the kernel says what it is: asked now, so a double click need not wait.
       const round = bare ? Promise.resolve(false) : within(ctx.describe(hit.ref), DESCRIBE_WITHIN_MS).then(isRound)
       first = { hit, bare, client: e.client, at: now, round }
-      // Whatever was being committed is on its own from here: the draft is this end's.
+      // A new measurement begins: the last one, not kept, is let go of.
+      measuredStore.getState().clearHeld()
+      // Whatever was being measured is on its own from here: the draft is this end's.
       committing += 1
       release()
       drawFirst(ctx)
@@ -215,12 +223,12 @@ export function measureTool(): Tool {
           return
         }
         first = null
-        return commit(toolStore.getState().round, begun, null, e.client, ctx)
+        return take(toolStore.getState().round, begun, null, e.client, ctx)
       })
       return
     }
     first = null
-    void commit(toolStore.getState().between, begun, { hit, bare: e.shift }, e.client, ctx)
+    void take(toolStore.getState().between, begun, { hit, bare: e.shift }, e.client, ctx)
   }
 
   /** What a ref is, as far as the kernel has said: asked once, and read out again when it answers while the pointer is still on it. */
@@ -308,7 +316,12 @@ export function measureTool(): Tool {
           release()
           ctx.readout.hide()
         }
-        if (!first) return said
+        if (!first) {
+          // With nothing under way, Escape lets go of the last measurement.
+          if (measuredStore.getState().held === null) return said
+          measuredStore.getState().clearHeld()
+          return true
+        }
         drop(ctx)
         return true
       }
@@ -325,13 +338,14 @@ export function measureTool(): Tool {
       // Whatever end was pending is dropped for it.
       first = null
       hover = { hit, client: at }
-      void commit('thickness', { hit, bare: false }, null, at, ctx)
+      void take('thickness', { hit, bare: false }, null, at, ctx)
       return true
     },
     cancel(ctx: ToolContext) {
       committing += 1
       clearTimeout(rest)
       release()
+      measuredStore.getState().clearHeld()
       first = null
       hover = null
       ctx.viewport.setHover(null)

@@ -150,6 +150,7 @@ function fake(over: Partial<ToolContext> = {}) {
     stale: null,
     descriptor: () => undefined,
     describe: async () => FACE,
+    measure: () => Promise.reject(new Error('nothing is measured here')),
     commit: async (mark) => {
       committed.push(mark)
       return { ...mark, id: `M${committed.length}`, status: 'draft', anchorState: 'ok', createdAt: '2026-10-09T00:00:00.000Z' } as Mark

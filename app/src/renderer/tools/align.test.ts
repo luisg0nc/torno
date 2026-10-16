@@ -71,6 +71,7 @@ function fake(over: Partial<ToolContext> = {}) {
     stale: null,
     descriptor: () => undefined,
     describe: async (ref) => (ref === 'base/F5' ? TOP : ref === 'base/F9' ? ROUND : null),
+    measure: () => Promise.reject(new Error('nothing is measured here')),
     commit: async () => {
       throw new Error('an alignment is no mark')
     },
