@@ -957,6 +957,7 @@ name without `.html` gets it.
 | Viewport | `W` | All objects of the folder, on one page (there a letter filters them by name) |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
 | With a tool in hand | `T` | Measure: the wall under the pointer |
+| With a tool in hand | `Enter` | Measure: keep the last measurement as a dimension |
 | With a tool in hand | `Left` `Right` `Up` `Down` | Section: move the plane by 1 mm |
 | With a tool in hand | `Shift+Left` `Shift+Right` `Shift+Up` `Shift+Down` | Section: move the plane by 0.1 mm |
 | With a tool in hand | `Tab` | Align, pairs: which end is asked for first |

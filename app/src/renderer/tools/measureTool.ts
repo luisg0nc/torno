@@ -1,6 +1,6 @@
 import { pressed } from '../../shared/keys'
 import { isSpreadRefusal, valueText } from '../../shared/dimension'
-import { measuredStore } from '../state/measured'
+import { keepHeld, measuredStore } from '../state/measured'
 import type { Described } from '../../shared/geometry'
 import type { Anchor, MeasureKind, Vec3 } from '../../shared/marks'
 import { toolStore } from '../state/tools'
@@ -323,6 +323,24 @@ export function measureTool(): Tool {
           return true
         }
         drop(ctx)
+        return true
+      }
+      if (pressed(e, 'measure.keep')) {
+        // The last measurement, kept as a dimension: as the strip's button keeps it. Only one of the object shown.
+        const last = measuredStore.getState().held
+        if (!last || last.objectId !== ctx.objectId) return false
+        if (e.repeat) return true
+        void keepHeld((_objectId, mark) => ctx.commit(mark)).catch((err: unknown) => {
+          const at = hover?.client ?? ctx.viewport.pointerAt?.() ?? null
+          if (!at) return
+          release()
+          held = { until: performance.now() + REFUSAL_MS, client: at, within: 0 }
+          held.timer = setTimeout(() => {
+            held = null
+            ctx.readout.hide()
+          }, REFUSAL_MS)
+          ctx.readout.say(at, err instanceof Error ? err.message : String(err))
+        })
         return true
       }
       if (!pressed(e, 'measure.wall')) return false

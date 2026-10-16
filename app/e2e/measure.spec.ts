@@ -53,6 +53,8 @@ const dimension = (dir: string, id: string): DimensionMark | undefined => marksO
 const readout = (p: Page) => p.locator('.pick-readout')
 const canvas = (p: Page) => p.locator('.viewport-canvas canvas').first()
 const row = (id: string, p: Page) => p.locator(`.mark-row[data-mark="${id}"]`)
+/** The last measurement, in the strip of the Measure tool: no mark until it is kept. */
+const last = (p: Page) => p.locator('.measure-last')
 
 function pickOver(point: Vec3, p: Page): Promise<Hit | null> {
   return p.evaluate((at) => {
@@ -170,7 +172,7 @@ test('M takes up the Measure tool, which says what its clicks measure', async ()
   await expect(choice.getByRole('button', { name: 'Diameter' })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('two clicks, on the top and on the bottom of the plate, leave its thickness: 6 mm between planes, from the kernel', async () => {
+test('two clicks, on the top and on the bottom of the plate, read out its thickness: 6 mm between planes, from the kernel; kept, it is a dimension', async () => {
   expect(await pickOver(ON_TOP, page)).toMatchObject({ kind: 'face', normal: [0, 0, 1] })
   await clickOver(ON_TOP, page)
   // While the second end is pending the readout is an estimate from the mesh, and says so.
@@ -191,6 +193,17 @@ test('two clicks, on the top and on the bottom of the plate, leave its thickness
   expect(await pickOver(UNDER, page)).toMatchObject({ kind: 'face', normal: [0, 0, -1] })
   await clickOver(UNDER, page)
 
+  // The kernel's value is read out at the pointer and held in the strip; nothing is kept of it, and no row is made.
+  await expect(readout(page)).toHaveText(/^\s*6 mm\s*between planes\s*$/)
+  await expect(last(page)).toContainText('Last: 6 mm between planes')
+  await expect(last(page).locator('.measure-last-text')).toHaveAttribute('title', `Measured on r${(await state(page)).revision}, not kept: the agent is not told`)
+  await page.waitForTimeout(500)
+  expect(marksOnDisk(root).marks).toEqual([])
+  await expect(page.locator('.mark-row')).toHaveCount(0)
+
+  // Kept, it is a dimension: main measures it again as it keeps it.
+  await last(page).getByRole('button', { name: 'Keep as a dimension' }).click()
+  await expect(last(page)).toHaveText('Kept as M1')
   await expect.poll(() => dimension(root, 'M1')?.value).toBeCloseTo(6, 9)
   const kept = dimension(root, 'M1')!
   expect(kept).toMatchObject({ kind: 'dimension', measure: 'distance', how: 'between planes', status: 'draft', author: 'user', anchorState: 'ok' })
@@ -199,20 +212,23 @@ test('two clicks, on the top and on the bottom of the plate, leave its thickness
   expect(kept.points![0][2]).toBeCloseTo(3, 9)
   expect(kept.points![1][2]).toBeCloseTo(-3, 9)
   expect(kept.measuredRevision).toBe((await state(page)).revision)
-  // The kernel's value is what is read out and what the row shows; no note was asked for.
-  await expect(readout(page)).toHaveText(/M1\s*6 mm between planes/)
+  // The kernel's value is what the row shows; no note was asked for.
   await expect(row('M1', page).locator('.mark-value')).toHaveText('6 mm')
   await expect(page.locator('.note-card')).toHaveCount(0)
   // The tool is still in hand.
   await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Measure', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('a double click on the wall of a hole leaves its diameter: ⌀ 8', async () => {
+test('a double click on the wall of a hole measures its diameter, ⌀ 8, and Enter keeps it', async () => {
   await page.keyboard.press('1')
   await atRest(page)
   const hit = await pickOver(IN_HOLE, page)
   expect(hit).toMatchObject({ kind: 'face', part: 'plate' })
   await clickOver(IN_HOLE, page, 2)
+  await expect(last(page)).toContainText('Last: ⌀ 8 mm cylinder')
+  expect(marksOnDisk(root).marks).toHaveLength(1)
+  await page.keyboard.press('Enter')
+  await expect(last(page)).toHaveText('Kept as M2')
   await expect.poll(() => dimension(root, 'M2')?.value).toBeCloseTo(8, 9)
   const kept = dimension(root, 'M2')!
   expect(kept).toMatchObject({ measure: 'diameter', how: 'cylinder', a: { ref: hit!.ref } })
@@ -320,7 +336,7 @@ test('the window cannot give a dimension a value: main measures what it is given
   await page.evaluate(() => window.torno.marks.remove(window.__tornoTest!.state().objectId!, 'M3'))
 })
 
-test('T over a face leaves the thickness of the wall there, and Escape drops a first end without putting the tool down', async () => {
+test('T over a face reads out the thickness of the wall there and leaves no mark, and Escape drops a first end without putting the tool down', async () => {
   // The floor of the pocket: 2 mm of plate under it.
   // The keys are the view's again once the field that was typed in is left.
   await page.evaluate(() => (document.activeElement as HTMLElement).blur())
@@ -334,16 +350,19 @@ test('T over a face leaves the thickness of the wall there, and Escape drops a f
   const [x, y] = await pageXY(floor, page)
   await page.mouse.move(x, y)
   await page.keyboard.press('t')
-  await expect.poll(() => dimension(root, 'M4')?.value).toBeCloseTo(2, 9)
-  expect(dimension(root, 'M4')).toMatchObject({ measure: 'thickness', how: 'wall, along the normal' })
+  await expect(last(page)).toContainText('Last: 2 mm wall, along the normal')
+  await expect(readout(page)).toContainText('2 mm')
+  expect(marksOnDisk(root).marks.map((m) => m.id)).toEqual(['M1', 'M2'])
 
+  // A first end lets go of the last measurement.
   await clickOver(ON_TOP, page)
+  await expect(last(page)).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Measure', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await clickOver(ON_CHAMFER, page)
   // That click was a first end again: nothing was measured between it and the one dropped.
   await page.keyboard.press('Escape')
-  expect(marksOnDisk(root).marks.map((m) => m.id)).toEqual(['M1', 'M2', 'M4'])
+  expect(marksOnDisk(root).marks.map((m) => m.id)).toEqual(['M1', 'M2'])
   await page.keyboard.press('Escape')
   await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Select', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
@@ -425,13 +444,25 @@ test('on the gauge, the thickness of the plate and the diameter of its hole are 
   expect(await pickOver(GAUGE_TOP, page)).toMatchObject({ kind: 'face', normal: [0, 0, 1] })
   await page.mouse.move(...(await pageXY(GAUGE_TOP, page)))
   await page.keyboard.press('t')
+  await expect(last(page)).toContainText('Last: 6 mm')
+  await page.keyboard.press('Enter')
   await expect.poll(() => gauge('M1')?.value).toBeCloseTo(6, 9)
   expect(await pickOver(GAUGE_HOLE, page)).toMatchObject({ kind: 'face', part: 'plate' })
   await clickOver(GAUGE_HOLE, page, 2)
+  await expect(last(page)).toContainText('Last: ⌀ 8 mm')
+  await last(page).getByRole('button', { name: 'Keep as a dimension' }).click()
   await expect.poll(() => gauge('M2')?.value).toBeCloseTo(8, 9)
   expect(gauge('M1')).toMatchObject({ measure: 'thickness', measuredRevision: 1 })
   expect(gauge('M2')).toMatchObject({ measure: 'diameter', measuredRevision: 1 })
+  // One more, not kept: it is told to no one (the next test's prompt has only M1 and M2).
+  await page.mouse.move(...(await pageXY(GAUGE_TOP, page)))
+  await page.keyboard.press('t')
+  await expect(last(page)).toContainText('Last: 6 mm')
+  // Escape lets go of it, and the next puts the tool down.
   await page.keyboard.press('Escape')
+  await expect(last(page)).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  expect(gaugeMarks()).toHaveLength(2)
 
   for (const [id, expected] of [['M1', '6'], ['M2', '8']] as const) {
     await row(id, page).click()
@@ -452,6 +483,8 @@ test('given to the agent they are pinned: the next prompt says only how many pas
   expect(first).toMatch(/M1thickness6mmwall,alongthenormal,plate\/F\d+at\(-10,5,6\)\(expected6±0\.05:pass\)/)
   expect(first).toMatch(/M2diameter8mm,plate\/F\d+\(expected8±0\.05:pass\)/)
   expect(first).not.toContain('Dimensions')
+  // The measurement that was not kept is not in it.
+  expect(first).not.toContain('M3')
   await expect(row('M1', page).locator('.mark-status')).toHaveText('pinned')
   await expect(row('M2', page).locator('.mark-status')).toHaveText('pinned')
   // The word of a row that is no draft takes no room until the row is pointed at: the width is the note's.
@@ -569,21 +602,29 @@ for (const shot of ['light', 'dark', 'look'] as const) {
       await clickOver(IN_HOLE, p)
       await p.waitForTimeout(500)
       await clickOver(IN_OTHER_HOLE, p)
+      await expect(last(p)).toContainText('Last:')
+      await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M1')?.value).toBeCloseTo(20, 9)
       // The diameter of one, which should have been 8.5.
       await p.waitForTimeout(500)
       await clickOver(IN_OTHER_HOLE, p, 2)
+      await expect(last(p)).toContainText('Last:')
+      await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M2')?.value).toBeCloseTo(8, 9)
       // The chamfer against the top.
       await p.getByRole('group', { name: 'What to measure' }).getByRole('button', { name: 'Angle' }).click()
       await clickOver([14, -6, 3], p)
       await p.waitForTimeout(500)
       await clickOver(ON_CHAMFER, p)
+      await expect(last(p)).toContainText('Last:')
+      await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M3')?.value).toBeCloseTo(45, 9)
       // The plate itself, which is as thick as it should be.
       const [x, y] = await pageXY([-14, -10, 3], p)
       await p.mouse.move(x, y)
       await p.keyboard.press('t')
+      await expect(last(p)).toContainText('Last:')
+      await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M4')?.value).toBeCloseTo(6, 9)
       const expect_ = async (id: string, value: string): Promise<void> => {
         await row(id, p).click()

@@ -511,6 +511,48 @@ describe('the measure tool', () => {
     expect(tool.onKey!(key('t'), ctx)).toBe(false)
   })
 
+  it('Enter keeps the last measurement as a dimension, once: the same ends, build and camera, measured again by main', async () => {
+    const tool = measureTool()
+    const { ctx, committed } = fake()
+    expect(tool.onKey!(key('Enter'), ctx)).toBe(false)
+    tool.onPointer(pointer('click', [50, 50], top()), ctx)
+    tool.onPointer(pointer('click', [50, 120], bottom()), ctx)
+    await settled()
+    expect(tool.onKey!(key('Enter'), ctx)).toBe(true)
+    await settled()
+    expect(committed).toEqual([
+      {
+        kind: 'dimension',
+        measure: 'distance',
+        author: 'user',
+        note: '',
+        layout: 'assembly',
+        revision: 7,
+        camera: CAMERA,
+        a: { point: [5, 3, 3], normal: [0, 0, 1], part: 'plate', ref: 'plate/F5', descriptor: PLANE.descriptor },
+        b: { point: [5, 3, -3], normal: [0, 0, -1], part: 'plate', ref: 'plate/F0', descriptor: PLANE.descriptor }
+      }
+    ])
+    expect(measuredStore.getState().held?.kept).toBe('M1')
+    // Kept already: a second Enter keeps nothing more.
+    tool.onKey!(key('Enter'), ctx)
+    await settled()
+    expect(committed).toHaveLength(1)
+  })
+
+  it('when main will not keep it, says why and holds the measurement still', async () => {
+    const tool = measureTool()
+    const { ctx, said } = fake({ commit: () => Promise.reject(new Error('it was placed on r7, and the part has been built again since (r8): measure it again')) })
+    tool.onPointer(pointer('click', [50, 50], hole()), ctx)
+    tool.onPointer(pointer('click', [50, 50], hole()), ctx)
+    await settled()
+    expect(tool.onKey!(key('Enter'), ctx)).toBe(true)
+    await settled()
+    expect(said.at(-1)).toBe('it was placed on r7, and the part has been built again since (r8): measure it again')
+    expect(measuredStore.getState()).toMatchObject({ held: { measure: 'diameter', value: 8 }, refused: 'it was placed on r7, and the part has been built again since (r8): measure it again' })
+    expect(measuredStore.getState().held).not.toHaveProperty('kept')
+  })
+
   it('is one of the tools, on M', () => {
     expect(toolStore.getState()).toMatchObject({ between: 'distance', round: 'diameter' })
   })

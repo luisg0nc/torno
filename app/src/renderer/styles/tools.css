@@ -90,6 +90,52 @@
   color: var(--ink);
 }
 
+/* The last measurement: a readout, not a mark, so in ink and muted, never in a mark's colour. */
+.measure-last {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+  border-left: var(--divider);
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.measure-last-text {
+  color: var(--ink);
+}
+
+.measure-how,
+.measure-refused {
+  color: var(--muted);
+}
+
+.measure-refused {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.measure-keep {
+  height: 24px;
+  padding: 0 8px;
+  border: var(--divider);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.measure-keep:hover {
+  background: var(--accent-wash);
+}
+
+.measure-keep:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
 .tool-choice .tool-button svg {
   transform: none;
 }

@@ -4,6 +4,10 @@ import type { ShapeKind } from '../../shared/marks'
 import { BETWEEN, ROUND, SHAPES, TOOLS, setBetween, setRound, setShape, setTool, useBetween, useRound, useShape, useTool, type ToolName } from '../state/tools'
 import { count } from '../../shared/format'
 import { useRegion } from '../state/region'
+import { keepHeld, useHeld } from '../state/measured'
+import { useStore } from '../state/store'
+import { commitMark } from '../tools/pickMarks'
+import { valueText } from '../../shared/dimension'
 import { showKeys } from './KeySheet'
 import { TYPING } from './typing'
 
@@ -163,7 +167,47 @@ function MeasureChoice() {
       <span className="measure-key" title={`Press ${hint('measure.wall')} with the pointer on a face to measure the wall under it. Shift-click measures from a bare point`}>
         <kbd className="num">{hint('measure.wall')}</kbd> thickness
       </span>
+      <MeasureLast />
     </div>
+  )
+}
+
+/**
+ * The last measurement, after the choices: the kernel's value and how it was taken, and a button that keeps it as a
+ * dimension (as `Enter` does). Only of the object and build on show: of any other it is not shown. It changes once
+ * per measurement, never per pointer move.
+ */
+function MeasureLast() {
+  const held = useHeld((s) => s.held)
+  const keeping = useHeld((s) => s.keeping)
+  const refused = useHeld((s) => s.refused)
+  const objectId = useStore((s) => s.objectId)
+  const revision = useStore((s) => s.revision)
+  if (!held || held.objectId !== objectId || held.revision !== revision) return null
+  return (
+    <span className="measure-last" role="status">
+      {held.kept !== undefined ? (
+        <span className="measure-last-text">
+          Kept as <span className="num">{held.kept}</span>
+        </span>
+      ) : (
+        <>
+          <span className="measure-last-text" title={`Measured on r${held.revision}, not kept: the agent is not told`}>
+            Last: <span className="num">{valueText(held.measure, held.value)}</span> <span className="measure-how">{held.how}</span>
+          </span>
+          <button
+            type="button"
+            className="measure-keep"
+            disabled={keeping}
+            title={`Keep it as a dimension (${hint('measure.keep')}): a mark, measured again on every build, sent with the next prompt`}
+            onClick={() => void keepHeld(commitMark).catch(() => {})}
+          >
+            Keep as a dimension
+          </button>
+          {refused !== null && <span className="measure-refused">{refused}</span>}
+        </>
+      )}
+    </span>
   )
 }
 

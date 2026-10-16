@@ -93,6 +93,7 @@ const ROWS = [
   row('escape', ['Esc'], 'Step back: what is under way, then the tool in hand, then the selection', 'Viewport', 'viewport'),
 
   row('measure.wall', ['T'], 'Measure: the wall under the pointer', 'With a tool in hand', 'measure'),
+  row('measure.keep', ['Enter'], 'Measure: keep the last measurement as a dimension', 'With a tool in hand', 'measure'),
   row('section.step', ARROWS, 'Section: move the plane by 1 mm', 'With a tool in hand', 'section'),
   row('section.fine', withShift(ARROWS), 'Section: move the plane by 0.1 mm', 'With a tool in hand', 'section'),
   row('align.first', ['Tab'], 'Align, pairs: which end is asked for first', 'With a tool in hand', 'align'),
