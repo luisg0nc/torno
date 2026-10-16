@@ -467,3 +467,41 @@
   color: var(--fail);
   font-size: var(--text-small);
 }
+
+/* ---- The session pane while a new object is made ---- */
+
+.draft-pane {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  color: var(--muted);
+}
+
+.draft-pane .draft-pane-lead {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.draft-pane ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.draft-pane-none {
+  font-style: italic;
+}
+
+/* Over a live session of the object that was open: whose it is. */
+.session-aside {
+  flex: none;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--divider);
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-wrap: pretty;
+}

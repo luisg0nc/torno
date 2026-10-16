@@ -10,6 +10,7 @@ import { chatActions, connectChat, useChat } from '../state/chat'
 import { onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
+import { DraftPaneLive } from './onboard/DraftPane'
 import { clearDrafts } from './chat/Composer'
 import { ModelMenu } from './chat/ModelMenu'
 import { Confirm } from './Confirm'
@@ -524,6 +525,10 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   const busy = session ? busyWith(session.status) : undefined
   // What the next prompt carries, said in one quiet line: of the session there is, or of the one a new session would be.
   const live = session !== undefined && !ended
+  // The New object page: the pane says what the new object's session will start with, unless the open object's
+  // session is live, which stays whole (a question may be waiting in it) with a note of whose it is.
+  const creating = useStore((s) => s.page === 'new')
+  const drafting = creating && !live
   const chatting = session?.view === 'chat'
   const chatOf = useChat(chatting ? session.sessionId : undefined)
   const model = chatOf?.meta.model
@@ -611,8 +616,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   return (
     <>
       <header className="panel-head session-head">
-        <h2 className="panel-title">{objectId ? AGENT_LABEL : 'Session'}</h2>
-        {session && (
+        <h2 className="panel-title">{objectId || creating ? AGENT_LABEL : 'Session'}</h2>
+        {session && !drafting && (
           <span className="session-status" role="status" data-status={session.status}>
             <span className="status-dot" />
             {STATUS_WORD[session.status]}
@@ -624,7 +629,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
             End
           </button>
         )}
-        {session && (
+        {session && !drafting && (
           <>
             {ended && resumable && (
               <button type="button" className="button button-quiet" disabled={starting} onClick={() => void start(true)}>
@@ -639,7 +644,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       </header>
 
       {/* How Claude Code is shown, and the model of its session: a quiet row of its own under the header. */}
-      {objectId && (
+      {objectId && !drafting && (
         <div className="session-views">
           <span className="view-switch" role="group" aria-label="View">
             {VIEWS.map((one) => (
@@ -669,12 +674,12 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         </div>
       )}
 
-      {next !== null && (
+      {next !== null && !drafting && (
         <p className="session-next" role="status">
           {numbered(next)}
         </p>
       )}
-      {choice.note && objectId && (
+      {choice.note && objectId && !drafting && (
         <div className="session-note">
           <p role="note">{choice.note}</p>
           {/* The file is the person's until they say: it is written only by this, or by choosing a view. */}
@@ -685,7 +690,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       )}
 
       {/* The first prompt of a new object that was not sent: the reason, above the pane that holds it. */}
-      {held !== undefined && objectId && (
+      {held !== undefined && objectId && !creating && (
         <div className="session-held" role="status">
           <p>
             The first prompt of this object was not sent: {held.reason.replace(/\.$/, '')}. {held.taken ? 'It is in the box below.' : held.text !== '' ? 'It is kept, and is in the box of the next chat.' : 'What was given is in brief.md and reference/.'}
@@ -694,6 +699,12 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
             Dismiss
           </button>
         </div>
+      )}
+
+      {creating && live && (
+        <p className="session-aside" role="note">
+          This is the session of {objectName}. It goes on; the new object gets its own when you create it.
+        </p>
       )}
 
       <div className="session-body">
@@ -737,9 +748,11 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
           </Confirm>
         )}
         {/* Always laid out, so a terminal can be fitted before its session starts. */}
-        <div className="session-term" ref={host} data-shown={session && !chatting ? '' : undefined} />
-        {session && chatting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} />}
-        {!objectId ? (
+        <div className="session-term" ref={host} data-shown={session && !chatting && !drafting ? '' : undefined} />
+        {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} />}
+        {drafting ? (
+          <DraftPaneLive />
+        ) : !objectId ? (
           <p className="panel-note">Open an object to work on it with the agent.</p>
         ) : (
           !session && (
