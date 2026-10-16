@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react'
 import { hint } from '../../shared/keys'
 import type { RecentFolder, WorkspaceInfo } from '../../shared/workspace'
 import { Logo } from './Logo'
-
-/** A folder as its row names it: its own name, and the path to it. */
-function nameOf(root: string): string {
-  return root.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || root
-}
+import { nameOf, openProblem } from './welcome'
 
 /**
  * The first screen, while no folder is open: what torno is, what an object is, and what to do, in a sentence
@@ -44,7 +40,7 @@ export function Welcome({ onPick, onOpened }: { onPick: () => void; onOpened: (i
     setProblem(null)
     ask().then(onOpened, (e: unknown) => {
       setBusy(false)
-      setProblem(`${what} could not be opened: ${e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, '') : String(e)}`)
+      setProblem(openProblem(what, e))
       void window.torno.workspace.recent().then(setRecent, () => {})
     })
   }
