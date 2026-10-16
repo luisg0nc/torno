@@ -549,7 +549,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 | `D` | Draw | Press and draw. On a locked view (an orthographic front, back, left, right, top or bottom, not turned since; a padlock shows on its button) the stroke is a profile in millimetres on the plane that faces you. On any other view it lies on the surface. Alt-drag turns the camera with this tool in hand. |
 | `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
-| `M` | Measure | Leaves dimensions. See [Measuring and dimensions](#measuring-and-dimensions). |
+| `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
 | `L`, `B` | Align scan, Region of a scan | See [Scans](#scans). |
 
 `Esc` drops what is being dragged, then puts the tool down for Select. In a
@@ -599,7 +599,7 @@ cylinder or a circular edge measures (Diameter or Radius). `T` has no button:
 with the pointer on a face it measures the wall there, from that point along
 the inward normal to where the part ends. With Shift a click is a bare point,
 tied to no face. While the second click is pending the pointer reads out an
-estimate from the mesh, marked `≈`. What is kept is never that: torno asks the
+estimate from the mesh, marked `≈`. What is measured is never that: torno asks the
 kernel, which measures on the exact geometry and says how (`6 mm between
 planes`, `axis to axis`, `point to plane`, `minimum`). A distance between two
 parallel flat faces is the distance between their planes, between two
@@ -612,10 +612,18 @@ taken too, and its angle is not said to be exact. Before the second click of an
 angle the pointer says, in place of the estimate, when an end is taken by its
 axis (no estimate from the mesh), only if it is flat or straight (a spline),
 or not at all (a sphere); the click is sent all the same. When the kernel
-refuses (an angle to a sphere), nothing is kept and its reason is read out at the
+refuses (an angle to a sphere), its reason is read out at the
 pointer. `Esc` drops a first click; the tool stays in hand.
 
-**Dimensions.** What the Measure tool leaves is a dimension: a mark (`M4`)
+**A measurement leaves nothing.** The kernel's value is read out at the pointer
+and stays in the strip as `Last: 6 mm between planes` until the next
+measurement, `Esc` with nothing under way, another tool, a new build or another
+object. It is no mark, and the agent is not told of it: not with the next
+prompt, not in `state.md`, not in a picture. To keep it, press `Enter` or
+"Keep as a dimension" in the strip: it becomes a dimension, measured again by
+main as it is kept, and the strip says `Kept as M4`.
+
+**Dimensions.** What you keep of a measurement is a dimension: a mark (`M4`)
 with a value, drawn on the part and listed with the marks. Its row, once
 clicked, shows the value, how it was taken, and under "Should be" two fields:
 what is expected (`=`) and the tolerance (`±`), in mm or degrees. With an
@@ -942,7 +950,7 @@ name without `.html` gets it.
 | Everywhere | `Ctrl+Shift+E` | Export to one HTML file: the open object, or from the page of objects any of them |
 | Everywhere | `Ctrl+Shift+B` | Rebuild: build the open object again, as the button in the status line does |
 | Viewport | `V` | Select: click a face, an edge or a part |
-| Viewport | `M` | Measure: two clicks, or a double click on a round thing |
+| Viewport | `M` | Measure: two clicks, or a double click on a round thing; nothing is kept unless you keep it |
 | Viewport | `X` | Section: cut the parts by a plane |
 | Viewport | `P` | Pin: click a point and leave a note |
 | Viewport | `A` | Arrow: drag from a point |

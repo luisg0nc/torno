@@ -46,10 +46,20 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   the keys (`TYPING`); what the pointer took up gives them back once done with: a choice made in a list
   (`pointerChoice`, `chosen`), the session pane's edge once dragged, as Enter and Escape do in a field
   (`giveKeysBack`). The exported page's own keys (`src/export/viewer`) are not in the
-  table: it is another program. The Measure tool is `tools/measureTool.ts`;
-  what its clicks measure is chosen in the strip `MeasureChoice` of
+  table: it is another program. The palette's tools are `TOOL_KEYS` in the order of their groups (`group`:
+  `inspect` Select, Measure, Section; `mark` Pin, Arrow, Draw, Shape, Region; `scan` Align), drawn as one
+  `role="group"` each (`TOOL_GROUPS` in `state/tools.ts`, its `aria-label` the group's name) with a
+  `toolbox-rule` between them; the sheet of keys and README's table follow that order. The Measure tool is
+  `tools/measureTool.ts`; what its clicks measure is chosen in the strip `MeasureChoice` of
   `ui/ToolPalette.tsx`, and a dimension's expectation is typed in
-  `ui/DimensionFields.tsx`. In Angle, before the second click, an end the kernel takes by its axis, only if
+  `ui/DimensionFields.tsx`. **A measurement is no mark**: the tool asks main (`ctx.measure`, `geometry.measure`)
+  and nothing is committed; the kernel's value replaces the `≈` estimate at the pointer, and the last
+  measurement is held in `state/measured.ts` (`Held`: its ends, kind, layout, build, camera, value and `how`),
+  which changes once per measurement. The strip shows it (`Last: …`, only for the object and build on show)
+  until the next first end, Escape with nothing under way or the tool put down. It is kept as a dimension only
+  by `measure.keep` (Enter) or the strip's "Keep as a dimension", both `keepHeld`, which commits the same
+  anchors through `commitMark` (main measures it again); the strip then says `Kept as M7`. A readout is not a
+  mark and is never drawn in a mark's colour. In Angle, before the second click, an end the kernel takes by its axis, only if
   flat or straight, or never (`angleTaking`, by the descriptor's type, the kernel's rule) is said at the pointer
   in place of the `≈` estimate; it is a hint, never a gate: the click is sent whatever it says. A tool is a `Tool`
   (`src/renderer/tools/Tool.ts`) and gets every pointer event from the one

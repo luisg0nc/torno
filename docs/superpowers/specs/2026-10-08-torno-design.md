@@ -242,7 +242,7 @@ Custom, on plain three.js with three-mesh-bvh. It is the centre of the product a
 - **Layers:** every part, reference and scan has visibility, colour and opacity. Layout switch between assembly and print. Explode slider: per layout, for display only. Nothing is marked, measured or cut while the parts are drawn apart, and no position told to the agent is an exploded one. A section is never drawn exploded.
 - **Views:** standard views, perspective/orthographic toggle, named views saved per object.
 - **Section:** one plane, axis-aligned or taken from a picked face, dragged along its normal, with stencil caps coloured per part. Scans are clipped without caps.
-- **Measure:** point, edge and face snapping; live readout from the mesh while hovering, the committed value from the kernel.
+- **Measure:** point, edge and face snapping; live readout from the mesh while hovering (`≈`), then the kernel's value. A measurement leaves no mark and is told to no one; the last one stays in the tool's strip (`Last: 6 mm between planes`) and is kept as a dimension only by "Keep as a dimension" or `Enter`.
 - **Scans:** drawn with vertex colours baked from the texture, opacity slider, one mesh for drawing, picking and checking (reduced only above 2 M triangles).
 - **Render on demand**, not a continuous loop.
 
@@ -267,7 +267,7 @@ The objects of a workspace are on one page of cards: a picture of the last build
 Its own, and deliberately far from nerv's dark control room.
 
 - **Idea:** a toolroom surface plate. Calm, light, exact. The part is the only loud thing on screen.
-- **Layout:** the viewport fills the window. Tools float on it in one small palette. Layers and marks sit in a narrow column on the left; the session docks on the right and can be widened, hidden or made full height. No frames within frames.
+- **Layout:** the viewport fills the window. Tools float on it in one small palette, in three groups split by a hairline: those that inspect (Select, Measure, Section), those that mark (Pin, Arrow, Draw, Shape, Region of a scan) and the scan's (Align scan). Layers and marks sit in a narrow column on the left; the session docks on the right and can be widened, hidden or made full height. No frames within frames.
 - **Colour:** warm paper-grey surfaces and graphite text in light mode, with a matching dark mode. One accent, layout blue (the blue machinists paint on steel before scribing). User marks are red pencil, agent marks are green, so authorship is visible at a glance. Parts use a muted, distinguishable palette.
 - **Logo** (2026-10-16): torno is Portuguese for a bench vise. The mark is one seen from the side: its jaws and slide holding a part in layout blue, its screw and handle, its base, the vise in graphite on the paper grey. The logo is the mark over the name in the sans, semibold, lowercase. The icon is `scripts/torno.svg` (and `torno-16.svg`, drawn again on whole pixels for 16 px), the window's `app/resources/icon.png` is made from it, and `ui/Logo.tsx` draws the same in the window: in the theme's ink and accent, or in one colour where it stands in for a picture.
 - **Type:** a humanist sans for UI and a monospace with tabular figures for every number and ref. Sentence case. No all-caps labels.

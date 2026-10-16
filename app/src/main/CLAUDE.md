@@ -51,7 +51,14 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   (`src/main/marks/measure.ts`: each end goes with its ref and its point, an
   end with no ref as a bare point). One the kernel refuses is not kept, nor
   one placed on another build than the last; one the kernel could not be
-  asked about is kept without a value.
+  asked about is kept without a value. The Measure tool keeps none by
+  itself: what it measures goes to `geometry:measure` (`measureOnce`), which
+  answers the kernel's value with the same refusals (`measurableOnLast`, shared
+  with `addDimensionTold`: no build, another build, parts spread apart; and the
+  kernel's reason), rejects plainly when the kernel cannot be asked, and
+  writes nothing. A measurement not kept is told to no one: not in the
+  prompt, not in `state.md`, not in a tool's answer. Kept (the strip's button
+  or Enter) it comes through `marks:add` and is measured again there.
   `value`, `how`, `points`, `measuredRevision`, `refused` and `verdict`
   (`MEASURED_KEYS`) are main's alone, like `MAIN_ONLY_KEYS`. The verdict is
   never stored on anyone's word: the sanitiser works it out
@@ -168,7 +175,7 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   - A plane is `{origin, normal}` or `{axis, at}` (`planeOf` in
     `shared/view.ts`): the latter has its normal along +axis.
   - `add_mark` with `kind: 'dimension'` goes through `addDimensionTold`, as
-    the Measure tool's do through `addDimension`, kept `sent`. One kept
+    the dimensions the person keeps do through `addDimension`, kept `sent`. One kept
     without a value of the last build is answered `NOT MEASURED: …` first
     (`keptUnmeasured`), so that its line is not taken for a measurement.
 - **A refusal is not a failure.** What the person asked that cannot be done (a dimension the kernel refuses,
