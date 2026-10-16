@@ -194,6 +194,8 @@ An **agent adapter** says how one CLI is started so that it knows torno (command
 
 *2026-10-16:* support for Copilot CLI was removed, and with it the machinery for an agent without hooks ("Send marks", `.torno/prompt.md`, `.torno/agent/`) and the choice of agent. Torno runs Claude Code only; `.torno/agent.json` keeps only the view, and a file naming Copilot CLI is read as Claude Code with a note saying so. Git history keeps the adapter should it come back.
 
+*2026-10-16:* while the New object page is up, the session pane says what Claude Code will start with in the new object (its name, whether it is described, how many photos, doodles, scans and objects), filled in as the draft is made, in place of New session and Resume of the object that was open; the list selects nothing, the Marks section is hidden and the status line reads "New object" alone. A session of the object that was open that is still live stays whole, with a note that it is that object's and goes on. Leaving the page brings everything back as it was.
+
 Session status (idle, working, needs input) comes from HTTP hooks: `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`, `SessionEnd`. (`SessionStart` does not fire as an HTTP hook and is not used.) Torno does not read Claude's private files.
 
 ### Three ways information reaches the agent

@@ -281,6 +281,13 @@ pictures are not sent then: the text says each is "not attached" and names the f
 the scans were not imported, and the page says so and where the folder is. While "Creating…" shows, `Esc`, Cancel
 and Discard do nothing.
 
+While the page is up the window is about the object being made: no object of the list is selected, the Marks
+section gives way, and the status line says "New object" with the build123d version alone. The session pane says
+what Claude Code will start with once you create the object (the name, whether you said what it is, and how many
+photos, doodles, scans and objects you gave), filled in as you go. A session of the object that was open that is
+still running stays as it is, a question waiting in it included, under a note saying whose it is: it goes on, and
+the new object gets its own. Cancel or `Esc` brings everything back as it was.
+
 The doodle board (the same board as the chat's "Draw on view") has a thin pen, a thick pen and an eraser, "Undo" and `Ctrl+Z`, "Clear", and "Done" and "Cancel".
 `Esc` puts the board away; if strokes were drawn since it was opened it asks "Discard this doodle?" first. A
 doodle can be opened again from its card and changed.

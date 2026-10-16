@@ -284,9 +284,13 @@ is the detail of this folder, under the headings it has there. Paths are from `a
 ## A new object
 
 - `ui/onboard/NewObject.tsx` is a page in place of the viewport (`store.page`: `'new'`; the view is `covered` and
-  inert under it as under the page of objects, and the layers and scans are hidden). It is opened from "New object"
-  at the foot of the list, in the head of the page of objects and in its empty state (`openNewObject`). It takes the
-  focus (the name field) when it comes and gives it back to where it was when it goes. Leaving the workspace
+  inert under it as under the page of objects, and the layers, scans and marks are hidden). No row of the list is
+  current (the "New object" button is pressed), and the status line is "New object" and the build123d version alone:
+  no Rebuild, revision, parts or Export. The session pane shows `ui/onboard/DraftPane.tsx` (from `draftSummary`):
+  what Claude Code will start with, live; unless the open object's session is live, which stays whole (see Agents).
+  All of it reads `store.page`, and nothing under the page changes, so leaving it brings everything back as it was.
+  The page is opened from "New object" at the foot of the list, in the head of the page of objects and in its empty
+  state (`openNewObject`). It takes the focus (the name field) when it comes and gives it back to where it was when it goes. Leaving the workspace
   (opening another folder) asks when the draft has something: "A new object is set up here and not made yet".
 - **The draft** (`state/onboard.ts`) lives in the window, for the workspace it was begun in, until the object is made
   or the person throws it away; nothing of it is on disk, and it is dropped when the workspace root changes. Caps
@@ -371,6 +375,10 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   bottom row decides (`ui/termGround.ts` `edgeGround`, after every write parsed); the terminal's own ground and
   the inset then take it, so that the agent's screen fills the pane (`window.__tornoTerm.ground()`; the
   stand-in's `ground r g b`).
+- On the New object page the pane is of the object being made (`drafting` in `SessionPane`): no status, no End,
+  New session or Resume, no view switch, no held prompt, and `DraftPane` in the body; `.session-term` stays laid out.
+  A live session (any status but `exited`) of the object that was open stays as it is, with the note
+  `.session-aside` above it ("This is the session of …"); an ended one counts as none.
 - The session header names Claude Code, the one agent there is; under it, "Chat · Terminal" chooses the view.
   When `.torno/agent.json` could not be followed (`note` of `session:current`) the pane says why, with "Use
   Claude Code", which writes the file anew and is disabled while a session runs.
