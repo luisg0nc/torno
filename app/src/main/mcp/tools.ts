@@ -21,7 +21,9 @@ import {
 } from '../../shared/view'
 import type { SavedView } from '../../shared/views'
 import type { ObjectInfo } from '../../shared/workspace'
-import { describeMark, markData } from '../marks/describe'
+import { describeMark, markData, sizes } from '../marks/describe'
+import { number } from '../../shared/format'
+import { groupsIn } from '../../shared/groups'
 import type { Unmeasured } from '../marks/measure'
 import { movedForDisplay } from '../marks/spread'
 import type { AskedAnchor, NearestAnchor } from '../marks/reanchor'
@@ -282,6 +284,9 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
   if ('content' in found) return found
   const layout = layoutFor(deps, objectId, found.scene, args.layout)
   if (typeof layout !== 'string') return layout
+  // A group of parts: worked out here from what the kernel sent of each part with the scene, so nothing is asked of it.
+  const group = groupsIn(found.scene, layout).find((g) => g.name === args.ref)
+  if (group) return json({ layout, ...ofBuild(deps, objectId), ...groupDescribed(found.scene, layout, group.name, group.parts) })
   const checked = checkRef(found.scene, layout, args.ref)
   if (typeof checked === 'string') return failure(checked)
   try {
@@ -291,6 +296,21 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
   } catch (e) {
     return failure(messageOf(e))
   }
+}
+
+/**
+ * A group as `describe` tells it: the box round its parts' boxes and their volumes added up, each exact only where
+ * every part's is (the box of a part that is not exact is widened, so the union is not exact either).
+ */
+function groupDescribed(scene: Scene, layout: string, name: string, names: readonly string[]): object {
+  const parts = scene.parts.filter((p) => p.layout === layout && names.includes(p.name))
+  const min = [0, 1, 2].map((i) => Math.min(...parts.map((p) => p.bbox.min[i])))
+  const max = [0, 1, 2].map((i) => Math.max(...parts.map((p) => p.bbox.max[i])))
+  const volume = parts.reduce((sum, p) => sum + p.volume, 0)
+  const bboxExact = parts.every((p) => p.bboxExact === true)
+  const volumeExact = parts.every((p) => p.volumeExact === true)
+  const descriptor = `group of ${parts.length} part${parts.length === 1 ? '' : 's'}, ${bboxExact ? '' : '≈ '}${sizes(max.map((m, i) => m - min[i]))} mm, ${volumeExact ? '' : '≈ '}${number(volume)} mm³`
+  return { type: 'group', name, parts: parts.map((p) => p.name), bbox: { min, max }, bboxExact, volume, volumeExact, descriptor }
 }
 
 /** The object a tool that touches the window works on, or the error to answer with when the window shows another. */

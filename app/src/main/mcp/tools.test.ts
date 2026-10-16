@@ -1687,6 +1687,32 @@ describe('groups of parts', () => {
     expect(TOOLS.scene.description).toContain('under groups the groups of parts')
   })
 
+  it('describe of a group gives the box of its parts and their volume, from the scene, asking the kernel nothing', async () => {
+    const deps = grouped()
+    const told = JSON.parse(textOf(await describeTool(deps, 'bracket', { ref: 'flat' })))
+    expect(told).toEqual({
+      layout: 'assembly',
+      revision: 3,
+      type: 'group',
+      name: 'flat',
+      parts: ['flat-a', 'flat-b'],
+      bbox: { min: [-5, -5, -1], max: [25, 5, 1] },
+      bboxExact: true,
+      volume: 12000,
+      volumeExact: true,
+      descriptor: 'group of 2 parts, 30 × 10 × 2 mm, 12000 mm³'
+    })
+    expect(deps.w.described).toEqual([])
+    // In print, only the part of it that layout has.
+    expect(JSON.parse(textOf(await describeTool(deps, 'bracket', { ref: 'flat', layout: 'print' }))).parts).toEqual(['flat-a'])
+  })
+
+  it('describe of a group is approximate where any of its parts is', async () => {
+    const loose: Scene = { ...GROUPED, parts: GROUPED.parts.map((p) => (p.name === 'flat-b' ? { ...p, bboxExact: false, volumeExact: false } : p)) }
+    const told = JSON.parse(textOf(await describeTool(grouped({ scene: () => ({ revision: 3, scene: loose }) }), 'bracket', { ref: 'flat' })))
+    expect(told).toMatchObject({ bboxExact: false, volumeExact: false, descriptor: 'group of 2 parts, ≈ 30 × 10 × 2 mm, ≈ 12000 mm³' })
+  })
+
   it('highlight says a group has no faces of its own', async () => {
     const deps = grouped()
     const result = await highlightTool(deps, 'bracket', { refs: ['flat/F1'] })

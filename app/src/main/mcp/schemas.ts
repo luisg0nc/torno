@@ -112,7 +112,7 @@ const marksInput = {
 }
 
 const describeInput = {
-  ref: z.string().describe(`${refText} Or the number of a mark (M3), which returns that mark.`),
+  ref: z.string().describe(`${refText} Or the number of a mark (M3), which returns that mark; or the name of a group of parts, as scene lists them under groups.`),
   layout: z.string().optional().describe(layoutText)
 }
 
@@ -326,7 +326,7 @@ export const TOOLS = {
   },
   describe: {
     description:
-      'Returns JSON with the exact geometry of a part, a face or an edge: its type, size, area or length, centre, normal or radius, a one-line descriptor (of a part its box and volume, with bboxExact and volumeExact), the revision of the build it was measured on, and a stale note when a newer build is running or failed; an area with areaExact false is approximate (≈ in the descriptor), as that of a freeform face always is, and so are the box and the volume of a part where bboxExact or volumeExact is false. Refs come from marks, scene and earlier describe calls; face and edge numbers change when the model is rebuilt, so describe a ref again after an edit before relying on it.',
+      'Returns JSON with the exact geometry of a part, a face or an edge, or of a group (a group name, as scene lists them: the box of its parts and their total volume, exact only where every part\'s is): its type, size, area or length, centre, normal or radius, a one-line descriptor (of a part its box and volume, with bboxExact and volumeExact), the revision of the build it was measured on, and a stale note when a newer build is running or failed; an area with areaExact false is approximate (≈ in the descriptor), as that of a freeform face always is, and so are the box and the volume of a part where bboxExact or volumeExact is false. Refs come from marks, scene and earlier describe calls; face and edge numbers change when the model is rebuilt, so describe a ref again after an edit before relying on it.',
     inputSchema: describeInput
   },
   highlight: {
