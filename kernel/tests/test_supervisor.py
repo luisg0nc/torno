@@ -792,6 +792,17 @@ def test_a_models_groups_come_with_its_scene(kernel, ws):
         {"name": "flat", "parts": ["flat-a", "flat-b"]},
         {"name": "tall", "parts": ["tall-a"]},
     ]
+    # Each part names its group, in every layout; a part in none names none.
+    assert {p["key"]: p.get("group") for p in reply["scene"]["parts"]} == {
+        "assembly:flat-a": "flat",
+        "assembly:flat-b": "flat",
+        "assembly:tall-a": "tall",
+        "assembly:key": None,
+        "print:flat-a": "flat",
+        "print:flat-b": "flat",
+        "print:tall-a": "tall",
+        "print:key": None,
+    }
 
 
 def test_scene_that_cannot_be_serialised_is_an_exception_reply(monkeypatch):

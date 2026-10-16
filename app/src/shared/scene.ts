@@ -28,6 +28,8 @@ export interface Part {
   mesh: PartMesh
   /** The translation the kernel applied to set an overlapping print layout side by side; absent when it applied none. `loc`, `bbox` and the mesh include it. */
   arranged?: [number, number, number]
+  /** The group of parts the model puts it in (`Scene.groups`), named by the worker; absent for a part in none. An explode moves a group as one body. */
+  group?: string
 }
 /**
  * A field of the model's `Params` dataclass, as the worker that loaded the model read it (`loader.read_params`).

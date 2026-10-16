@@ -34,6 +34,10 @@ centres on it (level ones, within `SHARED_CENTRE_MM`, in the scene's order)
 and set `2R × amount × scale` apart: to both sides of the middle along x and
 y, along z upward from the lowest part, which stays (nothing goes under the
 ground).
+A group of parts moves as one body (`Part.group`, which the worker sets on each part of a group): the rule is
+asked of the boxes round each group and of the parts in no group, and every part of a group gets its group's
+offset (`bodiesOf`). A layout whose parts are all of one group has nothing to draw apart (`one part`). The
+exported page carries no groups yet, so it draws apart part by part.
 
 - `scene.json` may hold a section and, for a layout, an explode above 0 at
   once (a view applied, a layout changed): `explodeShown` decides what is

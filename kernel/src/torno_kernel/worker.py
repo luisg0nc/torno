@@ -69,6 +69,11 @@ def _build(channel: Any, dir: str, model: str) -> tuple[dict[str, Any], dict[Any
         # Read here, by the worker that loaded the model: the supervisor never does.
         scene["params"] = params
         scene["groups"] = groups
+        # Each part names its group, so that whoever has the part has it (an explode moves a group as one).
+        group_of = {name: group["name"] for group in groups for name in group["parts"]}
+        for part in scene.get("parts", []):
+            if part.get("name") in group_of:
+                part["group"] = group_of[part["name"]]
         _flush_output()
         # Inside the try: a scene that cannot be written as JSON (a NaN volume)
         # is refused before a byte of it is sent, and is a failure like any other.

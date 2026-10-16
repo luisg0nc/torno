@@ -73,6 +73,38 @@ describe('explodeOffsets', () => {
   })
 })
 
+describe('explodeOffsets of a model with groups of parts', () => {
+  type V = [number, number, number]
+  const at = (name: string, x: number, group?: string) => ({ name, bbox: { min: [x, 0, 0] as V, max: [x + 10, 10, 2] as V }, ...(group ? { group } : {}) })
+  const parts = [at('flat-a', 0, 'flat'), at('flat-b', 20, 'flat'), at('tall-a', 60, 'tall'), at('key', 100)]
+
+  it('moves a group as one body: every part of it by the offset of the box round them', () => {
+    for (const axis of ['centre', 'x', 'z'] as const) {
+      const offsets = explodeOffsets(parts, { amount: 1, scale: 1, axis })
+      expect(offsets['flat-a'], axis).toEqual(offsets['flat-b'])
+      expect(Object.keys(offsets).sort()).toEqual(['flat-a', 'flat-b', 'key', 'tall-a'])
+    }
+    // As three bodies: the box of flat, tall-a and key, ranked along x.
+    const bodies = [{ name: 'flat', bbox: { min: [0, 0, 0] as V, max: [30, 10, 2] as V } }, at('tall', 60), at('key', 100)]
+    const asBodies = explodeOffsets(bodies, { amount: 0.5, scale: 1, axis: 'x' })
+    const offsets = explodeOffsets(parts, { amount: 0.5, scale: 1, axis: 'x' })
+    expect(offsets['flat-a']).toEqual(asBodies.flat)
+    expect(offsets['tall-a']).toEqual(asBodies.tall)
+    expect(offsets.key).toEqual(asBodies.key)
+  })
+
+  it('draws nothing apart of a layout whose parts are all of one group', () => {
+    const one = [at('flat-a', 0, 'flat'), at('flat-b', 20, 'flat')]
+    expect(explodeOffsets(one, { amount: 1, scale: 1, axis: 'x' })).toEqual({})
+    expect(nothingApart({ amount: 1, scale: 1, axis: 'x' }, one)).toBe('one part')
+  })
+
+  it('is as it was without groups', () => {
+    const plain = parts.map(({ name, bbox }) => ({ name, bbox }))
+    expect(explodeOffsets(plain, { amount: 1, scale: 1, axis: 'x' })['flat-a']).not.toEqual(explodeOffsets(plain, { amount: 1, scale: 1, axis: 'x' })['flat-b'])
+  })
+})
+
 describe('explodeOf', () => {
   it('keeps what is an explode, within its ranges', () => {
     expect(explodeOf({ amount: 0.4, scale: 2, axis: 'z' })).toEqual({ amount: 0.4, scale: 2, axis: 'z' })

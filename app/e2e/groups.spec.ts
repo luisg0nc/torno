@@ -1,6 +1,8 @@
 import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 
@@ -80,6 +82,42 @@ test('a group folds, and is still folded when the object is opened again', async
   await open('bracket')
   await open('grouped')
   await expect.poll(rows).toEqual(['group flat', 'group tall', '  tall-a', 'key'])
+})
+
+test('drawn apart, a group moves as one body', async () => {
+  const project = (part: string) => page.evaluate((name) => window.__tornoTest!.project([0, 0, 0], name), part)
+  const still = await project('flat-a')
+  await page.getByRole('toolbar', { name: 'View' }).getByRole('button', { name: /^Explode/ }).click()
+  await page.getByRole('slider', { name: 'Explode' }).fill('100')
+  await expect.poll(async () => (await state()).explode.assembly?.amount).toBe(1)
+  await expect.poll(() => page.evaluate(() => window.__tornoTest!.exploded())).toBe(true)
+  // At rest: the same point as a point of either part of flat is drawn in one place, away from where it was.
+  await expect.poll(async () => { const [a, b] = [await project('flat-a'), await project('flat-b')]; return Math.hypot(a[0] - b[0], a[1] - b[1]) }).toBeLessThan(1e-9)
+  await expect.poll(async () => { const a = await project('flat-a'); return Math.hypot(a[0] - still[0], a[1] - still[1]) }).toBeGreaterThan(0.001)
+  const [a, key] = [await project('flat-a'), await project('key')]
+  expect(Math.hypot(a[0] - key[0], a[1] - key[1])).toBeGreaterThan(0.001)
+  await page.getByRole('slider', { name: 'Explode' }).fill('0')
+  await expect.poll(() => page.evaluate(() => window.__tornoTest!.exploded())).toBe(false)
+})
+
+test("the agent's tools take a group's name for its parts, against the real kernel", async () => {
+  const url = await app.evaluate((_electron, id) => (globalThis as unknown as { __tornoMain: { mcpUrlFor(id: string): string } }).__tornoMain.mcpUrlFor(id), 'grouped')
+  const client = new Client({ name: 'torno-e2e', version: '0' })
+  await client.connect(new StreamableHTTPClientTransport(new URL(url)))
+  try {
+    const text = async (name: string, args: Record<string, unknown>): Promise<string> => {
+      const result = (await client.callTool({ name, arguments: args })) as { content: Array<{ type: string; text?: string }> }
+      return result.content.filter((block) => block.type === 'text').map((block) => block.text).join('\n')
+    }
+    const scene = JSON.parse(await text('scene', {}))
+    expect(scene.groups.map((g: { name: string; parts: string[] }) => [g.name, g.parts])).toEqual([['flat', ['flat-a', 'flat-b']], ['tall', ['tall-a']]])
+    expect(await text('show', { parts: ['tall', 'key'] })).toContain('parts tall-a, key')
+    await expect.poll(visible).toEqual(['tall-a', 'key'])
+    expect(JSON.parse(await text('describe', { ref: 'flat' }))).toMatchObject({ type: 'group', parts: ['flat-a', 'flat-b'], bboxExact: true, volume: 400 })
+    expect(await text('show', { parts: ['flat/F1'] })).toContain("unknown part 'flat/F1'")
+  } finally {
+    await client.close()
+  }
 })
 
 test('a model without groups has the list as it was', async () => {

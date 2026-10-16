@@ -117,7 +117,8 @@ is the detail of this folder, under the headings it has there. Paths are from `a
 
 ## Explode
 
-- `E` on a layout of one part opens no bar: the button says why for a moment.
+- `E` on a layout of one part opens no bar: the button says why for a moment. The parts of a group of the model
+  move as one body (`Part.group`, `explodeOffsets` in `shared/explode.ts`; `e2e/groups.spec.ts`).
   One rule for the camera when the parts are drawn apart, by whatever path (`E`, an axis or scale button, the
   slider let go, a layout, the agent's `show`, a saved view applied), in the window and in an exported page:
   the camera stays, and is framed anew only when a part would leave the view (`leavesView` in

@@ -55,7 +55,27 @@ export function explodeArg(value: unknown): ExplodeState | null {
   return typeof value === 'number' ? explodeOf({ amount: value }) : explodeOf(value)
 }
 
-export interface ExplodePart { name: string; bbox: { min: Vec3; max: Vec3 } }
+/** A part as explode takes it: its name, its box, and the group of parts it is in (`Part.group`), if any. */
+export interface ExplodePart { name: string; bbox: { min: Vec3; max: Vec3 }; group?: string }
+
+/**
+ * The bodies an explode moves: a group of parts is one, its box the box round its parts' boxes; a part in no group
+ * is one of its own. By a key no part's name can be, in the order they first come.
+ */
+function bodiesOf(parts: readonly ExplodePart[]): { bodies: ExplodePart[]; of: string[] } {
+  const bodies = new Map<string, ExplodePart>()
+  const of = parts.map((part) => {
+    const key = part.group === undefined ? `\u0000part ${part.name}` : `\u0000group ${part.group}`
+    const had = bodies.get(key)
+    if (!had) bodies.set(key, { name: key, bbox: { min: [...part.bbox.min], max: [...part.bbox.max] } })
+    else for (let i = 0; i < 3; i++) {
+      had.bbox.min[i] = Math.min(had.bbox.min[i], part.bbox.min[i])
+      had.bbox.max[i] = Math.max(had.bbox.max[i], part.bbox.max[i])
+    }
+    return key
+  })
+  return { bodies: [...bodies.values()], of }
+}
 
 /**
  * By part name, how far each part of a layout is drawn from where it is. Empty when nothing is exploded or the
@@ -70,6 +90,15 @@ export interface ExplodePart { name: string; bbox: { min: Vec3; max: Vec3 } }
  */
 export function explodeOffsets(parts: readonly ExplodePart[], explode: ExplodeState | null | undefined): Record<string, Vec3> {
   if (!isExploded(explode) || parts.length < 2) return Object.create(null)
+  // A group of parts moves as one body (`bodiesOf`): each of its parts by the offset of the box round them.
+  if (parts.some((part) => part.group !== undefined)) {
+    const { bodies, of } = bodiesOf(parts)
+    const moved = explodeOffsets(bodies, explode)
+    const offsets: Record<string, Vec3> = Object.create(null)
+    if (Object.keys(moved).length === 0) return offsets
+    parts.forEach((part, n) => (offsets[part.name] = moved[of[n]]))
+    return offsets
+  }
   const min: Vec3 = [Infinity, Infinity, Infinity]
   const max: Vec3 = [-Infinity, -Infinity, -Infinity]
   for (const { bbox } of parts) for (let i = 0; i < 3; i++) {
@@ -130,7 +159,7 @@ export function sameExplode(a: ExplodeState | null | undefined, b: ExplodeState 
 
 /** Why an explode of something would draw nothing apart of these parts: there are fewer than two, or none moves from a centre they share. Null when it would. */
 export function nothingApart(explode: ExplodeState, parts: readonly ExplodePart[]): 'one part' | 'shared centre' | null {
-  if (parts.length < 2) return 'one part'
+  if (parts.length < 2 || bodiesOf(parts).bodies.length < 2) return 'one part'
   return Object.keys(explodeOffsets(parts, { ...explode, amount: 1 })).length === 0 ? 'shared centre' : null
 }
 
