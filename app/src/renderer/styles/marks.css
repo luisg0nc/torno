@@ -529,7 +529,6 @@
   text-wrap: balance;
 }
 
-/* The heading the resolved marks are folded under. */
 /* What the agent resolved, told as one line until it is reviewed: a surface like a resolution's, in no mark colour. */
 .marks-review {
   margin: 0 var(--space-2);
@@ -562,6 +561,7 @@
   font-weight: normal;
 }
 
+/* The heading the resolved marks are folded under. */
 .marks-fold {
   display: flex;
   align-items: center;
