@@ -487,7 +487,7 @@ Open marks: M2 (moved), M6 (unchecked)
   conversation lists your open marks once more.
 - The first prompt of a new conversation (a session that was not resumed, or
   after `/clear`) ends with a line naming the files in `reference/` (twelve at
-  most, then how many more), to read when they matter: they are not attached.
+  most, then how many more), to read when they matter.
 
 `.torno/state.md` says the same as text, for an agent without torno's tools:
 the build, the layouts and parts, the saved views, the scans and every open

@@ -81,7 +81,7 @@ export function referencesLine(files: readonly string[]): string {
   if (files.length === 0) return ''
   const named = files.slice(0, MOST_REFERENCES_NAMED).join(', ')
   const more = files.length > MOST_REFERENCES_NAMED ? ` and ${files.length - MOST_REFERENCES_NAMED} more` : ''
-  return `The person's references for this object are in reference/: ${named}${more}. Read them when they matter; they are not attached.`
+  return `The person's references for this object are in reference/: ${named}${more}. Read them when they matter.`
 }
 
 /** What goes with a prompt, and the marks it tells of for the first time: sent, once the agent has it. */
@@ -126,7 +126,7 @@ export interface PromptContext {
  * screen (the first, of an object that is not open) and how it is shown.
  *
  * A new conversation (`newConversation`: the first prompt of a session not resumed, or `fresh`) is also told, in a last line, the files of the object's `reference/` (`referencesLine`),
- * to read when they matter: they are not attached.
+ * to read when they matter. It says nothing of whether they are attached: the first prompt of a new object attaches them.
  *
  * A tool of torno's is named as the agent's client names it to its model
  * (`opts.toolName`; as Claude Code does when nothing says).

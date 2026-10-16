@@ -40,7 +40,7 @@ const textFor = (d: ContextDeps, objectId: string): string => contextFor(d, obje
 
 describe('the references of a new conversation', () => {
   const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
-  const LINE = "The person's references for this object are in reference/: photo-1.jpg, doodle-1.png. Read them when they matter; they are not attached."
+  const LINE = "The person's references for this object are in reference/: photo-1.jpg, doodle-1.png. Read them when they matter."
   it('are named in one line, in a fresh conversation only', () => {
     const d = deps({ build: OK, scene: SCENE, references: ['photo-1.jpg', 'doodle-1.png'] })
     const fresh = contextFor(d, 'bracket', [], { fresh: true })
