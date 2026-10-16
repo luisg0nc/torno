@@ -109,7 +109,7 @@ In each object folder, `.torno/`:
 The kernel imports the object's model file as a module, so `if __name__ == "__main__"` does not run and nothing is exported. It then finds the scene, first match wins:
 
 1. `torno_scene()` if the module defines it. Returns a `torno.Scene`, for full control (layouts, references, colours).
-2. Convention: `Params()` then `assembly(p)` → layout `assembly`; `printables(p)` or `printable(p)` → layout `print`. Each returns `dict[str, Part]`.
+2. Convention: `Params()` then `assembly(p)` → layout `assembly`; `printables(p)` or `printable(p)` → layout `print`. Each returns `dict[str, Part]`. An optional `groups(p)` returns `dict[str, list[str]]`, group name to part names: one level, a part in one group at most, across layouts by part name, a name that is no ref (no `/`, not `M<n>`, not a part's). The build fails on one that breaks those rules. Groups are listed in the layers and taken by the tools wherever parts are named (issue #20).
 3. Module-level build123d shapes, by variable name.
 
 So today's objects load unchanged. `airbox.py` has only `printable`, so it shows a print layout until it gains an `assembly`.
@@ -239,7 +239,7 @@ Custom, on plain three.js with three-mesh-bvh. It is the centre of the product a
 
 - **Parts:** one mesh per part with per-face triangle ranges, plus true B-rep edges as lines. Z up, millimetres.
 - **Picking:** BVH raycast; the triangle index maps to a face through the cumulative `triangles_per_face`. Edges and vertices are picked within a pixel radius. Hover highlights the face or edge and shows its type and size.
-- **Layers:** every part, reference and scan has visibility, colour and opacity. Layout switch between assembly and print. Explode slider: per layout, for display only. Nothing is marked, measured or cut while the parts are drawn apart, and no position told to the agent is an exploded one. A section is never drawn exploded.
+- **Layers:** every part, reference and scan has visibility, colour and opacity. The model's groups of parts are headers that fold, hide or show their parts, or show only them; which are folded is kept in `scene.json`. Layout switch between assembly and print. Explode slider: per layout, for display only. Nothing is marked, measured or cut while the parts are drawn apart, and no position told to the agent is an exploded one. A section is never drawn exploded.
 - **Views:** standard views, perspective/orthographic toggle, named views saved per object.
 - **Section:** one plane, axis-aligned or taken from a picked face, dragged along its normal, with stencil caps coloured per part. Scans are clipped without caps.
 - **Measure:** point, edge and face snapping; live readout from the mesh while hovering (`≈`), then the kernel's value. A measurement leaves no mark and is told to no one; the last one stays in the tool's strip (`Last: 6 mm between planes`) and is kept as a dimension only by "Keep as a dimension" or `Enter`.

@@ -96,6 +96,11 @@ What main, the window, the kernel and an agent must all hold to. The detail of e
   taken from the window or from a tool's arguments. A mark the agent resolved
   is under "To review" until the person acknowledges it, one at a time or all at once (`marks.acknowledge`,
   one write).
+- A group of parts is the model's (`groups(p)`, read by the worker that loads the model, `Scene.groups`): one
+  level, a part in one group at most, across layouts by part name. A group name is not a ref (no `/`, not `M<n>`,
+  not a part's name: the loader refuses those). Wherever a tool takes part names a group's name stands for its parts
+  in the layout (`shared/groups.ts` `partsNamed`, in main before a request and in the window alike). torno never
+  writes the model: the only thing it keeps of groups is which are folded (`folded` in `scene.json`).
 - Lengths are millimetres, angles degrees, areas mm², volumes mm³, masses
   grams. Numbers shown go through `shared/format.ts` (four significant
   digits at most); numbers stored and returned as data are in full.

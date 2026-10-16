@@ -77,6 +77,16 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   than the column). A dimension opened out leaves its value and verdict to its fields under the first line, so
   that `Add a note` is whole beside the buttons of the row (`marks.css`, `e2e/measure.spec.ts`).
 
+## Layers
+
+- `ui/Layers.tsx`: the groups of the layout (`groupsIn`) come first, a header each (`li.layer-group`,
+  `data-group`): a fold chevron (`aria-expanded`, `Fold flat` / `Unfold flat`), the name and the count in the
+  monospace face, "Show only" (on hover, as the opacity slider; `actions.soloLayers`) and an eye whose
+  `aria-pressed` is `true`, `false` or `mixed` (`groupVisibility`; `actions.setLayers` over the group, one edit).
+  Its parts follow, indented, with `data-in-group`; a folded group draws none (`actions.setFolded`, kept in the
+  scene file as `folded`, and dropped for a group the model no longer has). The parts in no group come last. A
+  model without groups draws the list as it always was (`e2e/groups.spec.ts`).
+
 ## Section
 
 - Drawing is `viewport/section.ts`: the parts' materials are clipped, and each

@@ -218,7 +218,11 @@ the last good parts on screen, and its status opens the error with the
 traceback.
 
 **The window.** On the left, the layers (parts) of the open object each have a
-visibility switch. In the viewport, drag to orbit, drag with the right or
+visibility switch. A model that says which of its parts belong together (an optional
+`groups(p)` beside `assembly`, group name to part names) has them listed under a
+header each, which folds the group, hides or shows all of it, or, on "Show only",
+shows that group alone in the layout; ask the agent to group parts and it edits
+`groups(p)`. In the viewport, drag to orbit, drag with the right or
 middle button to pan, scroll to zoom; the bar at the top switches layout
 (`assembly`, `print`), view and projection. The folder button (top left)
 opens a menu of the folders opened lately, "Open folder…" and the example;
@@ -505,12 +509,12 @@ naming the keys it takes.
 
 | Tool | What it gives |
 |---|---|
-| `mcp__torno__scene` | The build status and error, the layouts, every part with its size, bounding box, volume and whether it is visible, your camera, section and explode, the saved views, the scans, and how many dimensions pass, fail and are not measured. It notes when the parts of the print layout were spread along X. |
+| `mcp__torno__scene` | The build status and error, the layouts, every part with its size, bounding box, volume and whether it is visible, the model's groups of parts, your camera, section and explode, the saved views, the scans, and how many dimensions pass, fail and are not measured. It notes when the parts of the print layout were spread along X. |
 | `mcp__torno__look` | A picture from the renderer you are looking at, with the marks drawn. With no arguments it is your view, cut by your section or drawn apart as you have it. It takes `view` (`iso`, `front`, `back`, `left`, `right`, `top`, `bottom`, the name of a saved view, or a camera), `layout`, `parts`, `size` (long edge, 1280 by default, 2000 at most), `marks` (false leaves them out), `section` (`'current'`, `null`, or a plane), `explode` (0 to 1, or `{amount, axis, scale}`; `null` together), `scans`, `scanColour` and `frame`. The caption says what was drawn. Also saved under `.torno/views/`. |
 | `mcp__torno__marks` | Your marks and the agent's as data, each with a line of text. |
-| `mcp__torno__describe` | The geometry of a part, a face or an edge (`lid`, `lid/F12`, `lid/E3`). |
-| `mcp__torno__highlight` | Tints faces or edges in your viewport with a note, to ask "this one?", until you click or a minute passes. |
-| `mcp__torno__show` | Changes your camera, layout, visible parts, section, explode and scans to show you something, or puts a saved view on screen by its name. For now only: what `.torno/scene.json` keeps stays yours. Refused while you hold a button in the viewport. |
+| `mcp__torno__describe` | The geometry of a part, a face or an edge (`lid`, `lid/F12`, `lid/E3`), or of a group of parts by its name: the box of its parts and their volume. |
+| `mcp__torno__highlight` | Tints faces or edges in your viewport with a note, to ask "this one?", until you click or a minute passes. A group's name tints all of its parts. |
+| `mcp__torno__show` | Changes your camera, layout, visible parts (a group's name stands for its parts), section, explode and scans to show you something, or puts a saved view on screen by its name. For now only: what `.torno/scene.json` keeps stays yours. Refused while you hold a button in the viewport. |
 | `mcp__torno__save_view` | Proposes a saved view: it appears in your strip marked "proposed" until you keep or discard it. Nothing on screen changes. |
 | `mcp__torno__add_mark` | Leaves a mark of the agent's, in green: a pin, a pick, an arrow, a shape, or with `kind: 'dimension'` a dimension, measured at once and on every build like yours. A point that is not on the part is refused, saying how far off it is. |
 | `mcp__torno__resolve_mark` | Resolves a mark with a line on what was done, which you then confirm or reopen. A dimension of yours with an expected value is refused: it is your check, and only you resolve it. |

@@ -151,5 +151,11 @@ is the detail of this folder, under the headings it has there.
   (`loader.read_params`: name, type as written, default, whether that default is a literal in the source, the
   field's comment) and the build's scene carries it as `params`; `scene` lists it. Nothing in torno writes the
   model file: it is the person's, outside `.torno/`. A `Params` that cannot be read is no failure: `[]`.
+- **Groups are read by the worker too.** Under the `Params` convention, an optional `groups(p)` (group name to
+  part names) is called with `Params()` by `loader._groups`, inside the load's `try`, and checked against the
+  part names of every layout: a dict of str to a list of str, no empty group or name, no `/`, not `M<n>`, not a
+  part's name, every part in some layout, a part in one group at most. Anything else fails the build as an
+  `exception` that says what is wrong. The scene carries it as `groups` (`[]` without); the supervisor passes the
+  frame on and reads none of it.
 - The app starts the kernel with `PYTHONDONTWRITEBYTECODE=1`, so importing a
   model writes no `__pycache__` into the workspace.

@@ -188,6 +188,12 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   `printable` (argument `bed`, `XxYxZ` in mm, read by `parseBed`) and `explain`, each one user message. Their text
   names tools through a `toolName`, Claude Code's (`mcp__torno__<tool>`): the server is stateless and does not know
   the client. The README lists them as `/mcp__torno__<name>` (`readme.test.ts` holds it to `PROMPTS`).
+- **Groups of parts.** `show`, `look` and `save_view` take group names in `parts`, and `highlight` in `refs` (a
+  bare name only: `flat/F1` is refused, saying that `flat` is a group and naming its parts), expanded in main by
+  `partsNamed` before the request goes to the window; the window expands what reaches it by the same rule. A
+  saved view is kept with part names. `scene` lists `groups` for the layout shown (`{name, parts, visible}`) and
+  each part's `group`; `describe` of a group's name is the box of its parts and their volume, from the scene,
+  exact only where every part's is. `state.md` names each layout's groups before its parts.
 - `<object>/.torno/state.md` says the same as the tools, as text
   (`src/main/statefile.ts`): the build, the parts, the scans with how each is
   aligned in every layout, the open marks. Its first line is when it was

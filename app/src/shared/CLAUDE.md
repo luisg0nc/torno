@@ -52,6 +52,16 @@ ground).
   `look` or `show` asked for an explode there answers with
   `nothingApartText`.
 
+## Groups
+
+- `shared/groups.ts` is the one rule of a model's groups of parts (`Scene.groups`, `PartGroup`), for main and the
+  window alike: `groupsIn(scene, layout)` (the groups with a part in the layout, each with only those parts),
+  `groupOf`, `partsNamed(scene, layout, names)` (part or group names to the part names of the layout, in order, no
+  repeats; an unknown name is the failure, worded `unknown part '…'; parts in layout …; groups: …`) and
+  `groupVisibility` (`all`, `some`, `none`; a part with no settings is visible).
+- Which groups are folded in the layers list is view state: `folded` (group names) in `scene.json`, read by
+  `main/scenefile.ts` as one-line names, each once. A saved view keeps part names, never a group's.
+
 ## Views
 
 A saved view is how an object was looked at, kept under a name (`SavedView` in
