@@ -53,7 +53,7 @@ const lookInput = {
       "'current' (the default) is the user's own camera. iso, front, back, left, right, top and bottom are orthographic views fitted to the parts. Or the name of a saved view, as scene lists them: the picture is then of that view whatever is on screen (its camera, layout, parts, section or explode, scans), and whatever you give beside it wins. Or a camera: {position, target, up?, ortho?, fov?, zoom?} in mm, Z up."
     ),
   layout: z.string().optional().describe('The layout to draw, as listed by scene. Default: the one on screen.'),
-  parts: z.array(z.string()).max(MAX_PARTS).optional().describe('Names of the parts to draw. Default: the parts the user has switched on.'),
+  parts: z.array(z.string()).max(MAX_PARTS).optional().describe('Names of parts or groups to draw (a group stands for its parts in the layout, as scene lists them under groups). Default: the parts the user has switched on.'),
   size: z.number().optional().describe(`Long edge of the image in pixels, ${MIN_SIZE} to ${MAX_SIZE}. Default ${DEFAULT_SIZE}.`),
   marks: z.boolean().optional().describe("Draw the user's and your marks with their numbers. Default true."),
   section: z
@@ -117,7 +117,7 @@ const describeInput = {
 }
 
 const highlightInput = {
-  refs: z.array(z.string()).min(1).max(50).describe(`${refText} A mark number (M3) stands for what that mark is on.`),
+  refs: z.array(z.string()).min(1).max(50).describe(`${refText} A mark number (M3) stands for what that mark is on. A group name stands for all of its parts.`),
   note: z.string().optional().describe('A short line shown beside them, such as the question you are asking.'),
   layout: z.string().optional().describe('The layout the refs are of. It must be the one on screen, which is the default.')
 }
@@ -127,7 +127,7 @@ const showInput = {
     .optional()
     .describe('iso, front, back, left, right, top or bottom, fitted to the parts shown; or the name of a saved view, as scene lists them, which puts all of it on their screen for now (its camera, layout, parts, section or explode, scans; whatever you give beside it wins); or a camera: {position, target, up?, ortho?, fov?, zoom?} in mm, Z up. Default: the camera stays.'),
   layout: z.string().optional().describe('The layout to switch to, as listed by scene. Default: the one on screen stays.'),
-  parts: z.array(z.string()).max(MAX_PARTS).optional().describe('Names of the parts to leave switched on; every other part of the layout is hidden. Default: no part is switched.'),
+  parts: z.array(z.string()).max(MAX_PARTS).optional().describe('Names of parts or groups to leave switched on (a group stands for its parts in the layout, as scene lists them under groups); every other part of the layout is hidden. Default: no part is switched.'),
   section: planeInput
     .nullable()
     .optional()
@@ -146,7 +146,7 @@ const saveViewInput = {
   note: loose(z.string()).optional().describe('Why you propose it, in a line.'),
   view: loose(z.union([z.string(), cameraInput])).optional().describe('iso, front, back, left, right, top or bottom, fitted to the parts, or a camera as scene gives one. Default: the user\'s own camera.'),
   layout: z.string().optional().describe('The layout the view is of. Default: the one on screen.'),
-  parts: z.array(z.string()).max(MAX_PARTS).optional().describe('Names of the parts the view shows; every other part of the layout is hidden in it. Default: those on screen.'),
+  parts: z.array(z.string()).max(MAX_PARTS).optional().describe('Names of parts or groups the view shows (a group stands for its parts in the layout, as scene lists them under groups; the view keeps the part names); every other part of the layout is hidden in it. Default: those on screen.'),
   section: planeInput.nullable().optional().describe(`The cut the view has: ${planeHelp}; null for none. Default: the one on screen. Not with explode.`),
   explode: explodeInput.nullable().optional().describe(`How far apart the view draws the parts: ${explodeHelp} Default: as on screen. Not with a section.`)
 }

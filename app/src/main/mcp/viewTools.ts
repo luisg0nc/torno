@@ -7,6 +7,7 @@ import type { Scene } from '../../shared/scene'
 import { type Camera, type LookRequest, type LookResult, type SaveViewRequest, type SaveViewResult, type SectionPlane, type ShowRequest, type ShowResult, type ViewName, axisForm, planeText } from '../../shared/view'
 import { type SavedView, MAX_PROPOSALS, VIEW_NOT_BOTH, cleanViewName, findView, viewGone, viewNameRefusal, viewSummary } from '../../shared/views'
 import { number } from '../../shared/format'
+import { partsNamed } from '../../shared/groups'
 import { alignmentSaid } from '../scans/said'
 import { unknownKeys } from './keys'
 import { NO_LOOK_SCANS, NO_SCAN_OPACITY, NO_SHOW_SCANS, isScanOpacity, scanColourFor, scanIds } from './scanTools'
@@ -165,7 +166,11 @@ export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs
   const request: LookRequest = { view, size: clampSize(args.size) }
   if (named) request.viewName = named.view.name
   if (args.layout !== undefined) request.layout = args.layout
-  if (args.parts !== undefined) request.parts = args.parts
+  if (args.parts !== undefined) {
+    const parts = partsOf(scene, args.layout ?? deps.view(objectId)?.layout, args.parts)
+    if ('content' in parts) return parts
+    request.parts = parts.names
+  }
   if (args.marks !== undefined) request.marks = args.marks
   if (args.section === null || args.section === 'current') request.section = args.section
   else if (args.section !== undefined) {
@@ -326,7 +331,11 @@ export async function showTool(deps: ToolDeps, objectId: string, given: ShowArgs
     if (view !== 'current') request.view = view
   }
   if (args.layout !== undefined) request.layout = args.layout
-  if (args.parts !== undefined) request.parts = args.parts
+  if (args.parts !== undefined) {
+    const parts = partsOf(scene, args.layout ?? deps.view(objectId)?.layout, args.parts)
+    if ('content' in parts) return parts
+    request.parts = parts.names
+  }
   if (args.section === null) request.section = null
   else if (args.section !== undefined) {
     const plane = planeArg(args.section)
@@ -361,6 +370,17 @@ export async function showTool(deps: ToolDeps, objectId: string, given: ShowArgs
 }
 
 const STANDARD_VIEWS = 'iso, front, back, left, right, top, bottom'
+
+/**
+ * Part or group names, as the agent gives them, to the part names of the layout they are of (`partsNamed`): a group
+ * stands for its parts there. With no layout known (the window has not said which it shows) they go as given, and
+ * the window expands them by the same rule.
+ */
+function partsOf(scene: Scene, layout: string | undefined, names: string[]): { names: string[] } | ToolResult {
+  if (layout === undefined || !scene.layouts.includes(layout)) return { names }
+  const parts = partsNamed(scene, layout, names)
+  return Array.isArray(parts) ? { names: parts } : failure(parts.text)
+}
 
 /** Whether a view given as a text is the name of a saved view: any text that is neither `current` nor a standard view. */
 const isSavedName = (view: unknown): view is string => typeof view === 'string' && view !== 'current' && !(VIEW_NAMES as readonly string[]).includes(view)
@@ -480,10 +500,12 @@ export async function saveViewTool(deps: ToolDeps, objectId: string, args: SaveV
   if (refused !== null) return failure(refused.startsWith('the user ') ? `${refused} (their views: ${views.filter((view) => !view.proposed).map((view) => `"${view.name}"`).join(', ')})` : refused)
   if (args.layout !== undefined && !scene.layouts.includes(args.layout)) return failure(`no layout '${args.layout}'; layouts: ${scene.layouts.join(', ')}`)
   const layout = args.layout ?? deps.view(objectId)?.layout
-  const inLayout = scene.parts.filter((part) => part.layout === layout)
-  if (layout !== undefined && scene.layouts.includes(layout)) {
-    const unknown = args.parts?.find((name) => !inLayout.some((part) => part.name === name))
-    if (unknown !== undefined) return failure(`unknown part '${unknown}'; parts in layout ${layout}: ${inLayout.map((part) => part.name).join(', ')}`)
+  // Group names stand for their parts: the view is saved with part names, and outlives a group's removal.
+  let parts = args.parts
+  if (parts !== undefined) {
+    const named = partsOf(scene, layout, parts)
+    if ('content' in named) return named
+    parts = named.names
   }
 
   const request: SaveViewRequest = { objectId, name: cleanViewName(args.name) }
@@ -497,7 +519,7 @@ export async function saveViewTool(deps: ToolDeps, objectId: string, args: SaveV
     request.view = view as ViewName | Camera
   }
   if (args.layout !== undefined) request.layout = args.layout
-  if (args.parts !== undefined) request.parts = args.parts
+  if (parts !== undefined) request.parts = parts
   if (args.section === null) request.section = null
   else if (args.section !== undefined) {
     const plane = planeArg(args.section)

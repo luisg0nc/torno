@@ -9,6 +9,7 @@ import { type LookRequest, type LookResult, type SectionPlane, type ViewState, M
 import { agentStore, connectAgent, picture, setPictures } from '../state/agent'
 import { describe, describeWhole, descriptorOf } from '../state/descriptors'
 import { newCut } from '../../shared/cut'
+import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
@@ -66,14 +67,10 @@ async function look(viewport: Viewport, req: LookRequest): Promise<LookResult> {
     let keys = visibleKeys(s, layout)
     if (req.parts) {
       const parts = partsInLayout(s, layout)
-      // An unknown layout is left to the viewport, whose error names the layouts.
-      const known = s.scene.layouts.includes(layout)
-      keys = []
-      for (const name of req.parts) {
-        const part = parts.find((p) => p.name === name)
-        if (part) keys.push(part.key)
-        else if (known) throw new Error(`unknown part '${name}'; parts in layout ${layout}: ${parts.map((p) => p.name).join(', ')}`)
-      }
+      // An unknown layout is left to the viewport, whose error names the layouts. A group stands for its parts.
+      const named = s.scene.layouts.includes(layout) ? partsNamed(s.scene, layout, req.parts) : req.parts
+      if (!Array.isArray(named)) throw new Error(named.text)
+      keys = parts.filter((p) => named.includes(p.name)).map((p) => p.key)
     }
     drawn = { objectId: s.objectId, revision: s.revision, stale: s.build?.stale ?? false }
     return { view: req.view ?? 'current', layout, visibleKeys: keys, size: req.size, marks: req.marks ?? true, section, scans: req.scans, explode, ...(req.scanColour ? { scanColour: req.scanColour } : {}), ...(req.frame ? { frame: req.frame } : {}), ...(typeof req.viewName === 'string' ? { viewName: req.viewName } : {}) }

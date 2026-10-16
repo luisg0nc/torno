@@ -1,4 +1,5 @@
 import { apply } from '../../shared/align'
+import { groupsIn } from '../../shared/groups'
 import type { Described } from '../../shared/geometry'
 import { expectedText, offBy, standingOf, valueText } from '../../shared/dimension'
 import { type Anchor, type DimensionMark, type Mark, type NewMark, type Quat, isUnchecked, markAnchors } from '../../shared/marks'
@@ -56,7 +57,10 @@ export function checkRef(scene: Scene, layout: string, ref: string): CheckedRef 
   if (!sub || !part) {
     const name = sub ? sub[1] : ref
     const form = sub || !ref.includes('/') ? '' : '; a ref is a part, part/F<n> or part/E<n>'
-    return `no part '${name}' in layout ${layout} (parts: ${parts.map((p) => p.name).join(', ') || 'none'})${form}`
+    // A group's name is no ref: its faces and edges are its parts'.
+    const group = groupsIn(scene, layout).find((g) => g.name === name)
+    const isGroup = group ? `; ${name} is a group: its parts are ${group.parts.join(', ')}` : ''
+    return `no part '${name}' in layout ${layout} (parts: ${parts.map((p) => p.name).join(', ') || 'none'})${form}${isGroup}`
   }
   const [letter, plural, count] = sub[2] === 'F' ? ['F', 'faces', part.faceCount] : ['E', 'edges', part.edgeCount]
   if (Number(sub[3]) >= count) return `${part.name} has ${count} ${plural}${count > 0 ? `, ${letter}0 to ${letter}${count - 1}` : ''}: there is no ${letter}${sub[3]}`
@@ -202,6 +206,12 @@ export async function highlightTool(deps: ToolDeps, objectId: string, args: High
       else if (isUnchecked(mark, found.revision)) wrong.push(`${ref} has not been checked against r${found.revision} yet, so what it is on is not known: give a ref, or ask again in a moment`)
       if (!mark || mark.layout !== layout || !on || mark.anchorState !== 'ok' || isUnchecked(mark, found.revision)) continue
       named = on
+    }
+    // A bare group name stands for all of its parts in the layout.
+    const group = named === ref ? groupsIn(found.scene, layout).find((g) => g.name === ref) : undefined
+    if (group) {
+      for (const name of group.parts) if (!refs.includes(name)) refs.push(name)
+      continue
     }
     const checked = checkRef(found.scene, layout, named)
     if (typeof checked === 'string') wrong.push(named === ref ? checked : `${ref} is on ${named}, but ${checked}`)

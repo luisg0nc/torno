@@ -20,6 +20,7 @@ import { drawnBox } from '../viewport/explode'
 import { DEFAULT_FOV, fitCamera, viewDirection } from '../viewport/views'
 import { spanningMarks } from '../viewport/marks/apart'
 import { tenth } from '../../shared/format'
+import { partsNamed } from '../../shared/groups'
 import { type ScanView, MIN_SCAN_OPACITY, standingOf } from '../../shared/scans'
 import { colorFor, colorsByName } from '../../shared/palette'
 import { explodedNote, scansNote, viewSaid } from '../viewport/picture'
@@ -82,9 +83,10 @@ export function show(viewport: Pick<Viewport, 'setView' | 'getCamera' | 'pointer
   const layout = req.layout ?? s.layout
   if (!s.scene.layouts.includes(layout)) throw new Error(`no layout '${layout}'; layouts: ${s.scene.layouts.join(', ')}`)
   const parts = partsInLayout(s, layout)
-  for (const name of req.parts ?? []) {
-    if (!parts.some((p) => p.name === name)) throw new Error(`unknown part '${name}'; parts in layout ${layout}: ${parts.map((p) => p.name).join(', ')}`)
-  }
+  // A group stands for its parts there (`partsNamed`), as main has it.
+  const named = req.parts && partsNamed(s.scene, layout, req.parts)
+  if (named && !Array.isArray(named)) throw new Error(named.text)
+  const shownParts = named || undefined
 
   const section = req.section === undefined || req.section === null ? req.section : sectionOf(req.section)
   if (section === null && req.section !== null) throw new Error(NOT_A_PLANE)
@@ -118,7 +120,7 @@ export function show(viewport: Pick<Viewport, 'setView' | 'getCamera' | 'pointer
 
   // The viewport follows the store as this is set, so the camera below is fitted to what it leaves on.
   // For now only: what the person had chosen stays what their scene file says.
-  actions.showForAgent(layout, req.parts ? Object.fromEntries(parts.map((part) => [part.name, req.parts!.includes(part.name)])) : {}, section, scans, explode)
+  actions.showForAgent(layout, shownParts ? Object.fromEntries(parts.map((part) => [part.name, shownParts.includes(part.name)])) : {}, section, scans, explode)
   if (req.view !== undefined) viewport.setView(req.view, true)
   // A saved view put on screen is the one that is on in the strip, while the screen shows what it holds.
   if (req.viewName !== undefined) actions.viewShown(req.viewName)
@@ -165,9 +167,10 @@ export function proposeView(viewport: Pick<Viewport, 'cameraGoal' | 'canvas'>, r
   const layout = req.layout ?? s.layout
   if (!s.scene.layouts.includes(layout)) throw new Error(`no layout '${layout}'; layouts: ${s.scene.layouts.join(', ')}`)
   const parts = partsInLayout(s, layout)
-  for (const name of req.parts ?? []) {
-    if (!parts.some((p) => p.name === name)) throw new Error(`unknown part '${name}'; parts in layout ${layout}: ${parts.map((p) => p.name).join(', ')}`)
-  }
+  // A group stands for its parts there (`partsNamed`), as main has it.
+  const named = req.parts && partsNamed(s.scene, layout, req.parts)
+  if (named && !Array.isArray(named)) throw new Error(named.text)
+  const shownParts = named || undefined
   const refused = viewNameRefusal(req.name, s.views, 'agent')
   if (refused !== null) throw new Error(refused)
 
@@ -182,7 +185,7 @@ export function proposeView(viewport: Pick<Viewport, 'cameraGoal' | 'canvas'>, r
   const section = apart ? null : cut !== undefined ? cut : s.section
   const explode = section ? null : apart !== undefined ? apart : explodeNow(s, layout)
 
-  const hidden = req.parts ? parts.filter((p) => !req.parts!.includes(p.name)).map((p) => p.name) : hiddenIn(s, layout)
+  const hidden = shownParts ? parts.filter((p) => !shownParts.includes(p.name)).map((p) => p.name) : hiddenIn(s, layout)
   // Where the camera is going, when `show` has just sent it somewhere: not a camera in flight.
   let camera = typeof req.view === 'object' ? req.view : viewport.cameraGoal()
   if (typeof req.view === 'string') {

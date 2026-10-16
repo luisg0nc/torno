@@ -1612,3 +1612,70 @@ describe('saved views', () => {
     expect((await saveViewTool(full, 'bracket', { name: 'one more' })).isError).toBeUndefined()
   })
 })
+
+describe('groups of parts', () => {
+  // The fixture `grouped`: two groups and a part in none.
+  const GROUPED: Scene = {
+    model: 'grouped.py',
+    layouts: ['assembly', 'print'],
+    parts: [
+      part('assembly', 'flat-a', [-5, -5, -1], [5, 5, 1]),
+      part('assembly', 'flat-b', [15, -5, -1], [25, 5, 1]),
+      part('assembly', 'tall-a', [-5, -25, -4], [5, -15, 4]),
+      part('assembly', 'key', [-2, 28, -2], [2, 32, 2]),
+      part('print', 'flat-a', [-5, -5, -1], [5, 5, 1]),
+      part('print', 'key', [38, -2, -2], [42, 2, 2])
+    ],
+    seconds: 0.5,
+    output: '',
+    groups: [{ name: 'flat', parts: ['flat-a', 'flat-b'] }, { name: 'tall', parts: ['tall-a'] }]
+  }
+  const grouped = (over: Partial<ToolDeps> = {}) => fake({ scene: (id) => (id === 'bracket' ? { revision: 3, scene: GROUPED } : undefined), ...over })
+
+  it('show takes a group for its parts in the layout', async () => {
+    const deps = grouped()
+    expect((await showTool(deps, 'bracket', { parts: ['flat'] })).isError).toBeUndefined()
+    await showTool(deps, 'bracket', { layout: 'print', parts: ['flat', 'key'] })
+    expect(deps.w.shows.map((req) => req.parts)).toEqual([['flat-a', 'flat-b'], ['flat-a', 'key']])
+  })
+
+  it('look takes a group for its parts', async () => {
+    const deps = grouped()
+    await lookTool(deps, 'bracket', { parts: ['tall'] })
+    expect(deps.looks.map((l) => l.req.parts)).toEqual([['tall-a']])
+  })
+
+  it('save_view keeps the part names a group stands for', async () => {
+    const deps = grouped()
+    expect((await saveViewTool(deps, 'bracket', { name: 'Flat', parts: ['flat', 'key'] })).isError).toBeUndefined()
+    expect(deps.savedViews.map((req) => req.parts)).toEqual([['flat-a', 'flat-b', 'key']])
+  })
+
+  it('names the groups beside the parts when a name is neither', async () => {
+    const deps = grouped()
+    const text = "unknown part 'nope'; parts in layout assembly: flat-a, flat-b, tall-a, key; groups: flat, tall"
+    expect(textOf(await showTool(deps, 'bracket', { parts: ['nope'] }))).toBe(text)
+    expect(textOf(await lookTool(deps, 'bracket', { parts: ['nope'] }))).toBe(text)
+    expect(textOf(await saveViewTool(deps, 'bracket', { name: 'No', parts: ['nope'] }))).toBe(text)
+    // A group none of whose parts the layout has is no name there.
+    expect(textOf(await showTool(deps, 'bracket', { layout: 'print', parts: ['tall'] }))).toBe("unknown part 'tall'; parts in layout print: flat-a, key; groups: flat")
+    expect(deps.w.shows).toEqual([])
+    expect(deps.looks).toEqual([])
+    expect(deps.savedViews).toEqual([])
+  })
+
+  it('highlight takes a bare group name for all of its parts', async () => {
+    const both = grouped()
+    const result = await highlightTool(both, 'bracket', { refs: ['flat', 'key', 'flat-a'] })
+    expect(result.isError).toBeUndefined()
+    expect(both.w.highlights).toEqual([{ layout: 'assembly', refs: ['flat-a', 'flat-b', 'key'] }])
+    expect(textOf(result)).toBe('highlighted flat-a, flat-b, key in layout assembly for the user, until they click in the viewport or 60 s pass.')
+  })
+
+  it('highlight says a group has no faces of its own', async () => {
+    const deps = grouped()
+    const result = await highlightTool(deps, 'bracket', { refs: ['flat/F1'] })
+    expect(textOf(result)).toBe("nothing was highlighted: no part 'flat' in layout assembly (parts: flat-a, flat-b, tall-a, key); flat is a group: its parts are flat-a, flat-b")
+    expect(deps.w.highlights).toEqual([])
+  })
+})
