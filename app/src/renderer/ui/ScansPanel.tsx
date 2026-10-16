@@ -1,6 +1,6 @@
 import { hint } from '../../shared/keys'
 import { useEffect, useState, type ReactNode } from 'react'
-import { type ScanInfo, type ScanUnit, type ScanUp, MIN_SCAN_OPACITY, UNIT_MM, importText, standingOf } from '../../shared/scans'
+import { type ScanInfo, type ScanUnit, type ScanUp, MIN_SCAN_OPACITY, UNIT_MM, importText } from '../../shared/scans'
 import { setAlignScan, startedFrom } from '../state/align'
 import { actions, store, useStore } from '../state/store'
 import { setTool } from '../state/tools'
@@ -8,12 +8,12 @@ import { Confirm } from './Confirm'
 import { EyeIcon } from './Layers'
 import { capital, numbered } from './numbered'
 import { importScan, reimportScan } from './scanDrop'
+import { guessOf, scanState } from './scanState'
 import { chosen, pointerChoice } from './typing'
 
 /** What the import process says it is doing, in the panel's words; a stage with no entry is said as it is. */
 const STAGE: Record<string, string> = { hashing: 'checking the file' }
 const UNITS = Object.keys(UNIT_MM) as ScanUnit[]
-const UNIT_WORD: Record<ScanUnit, string> = { mm: 'millimetres', cm: 'centimetres', m: 'metres', in: 'inches' }
 
 /** Has main told why something asked of the scans came to nothing, while their object is still the open one. */
 function asked(objectId: string, call: Promise<unknown>): Promise<void> {
@@ -98,36 +98,6 @@ export function ScansPanel() {
   )
 }
 
-/**
- * The one thing to know first of a scan in the layout shown, on the build on show: its state in a word, what its
- * alignment rests on (`basis`), what there is to say of the state in a sentence (`said`), why its fit is
- * doubtful when the state is another (`rough`), and what else is to be known (`note`). `confirm` when the
- * person can say it still holds: whatever put it in doubt but a check that has not come, which is only to be
- * waited for.
- */
-function stateOf(scan: ScanInfo, layout: string, revision: number): { state: string; text: string; basis: string | null; said: string | null; rough: string | null; note: string | null; confirm: boolean } {
-  const standing = standingOf(scan, layout, revision)
-  const { basis, note, rough } = standing
-  const none = { basis: null, said: null, rough: null, note: null, confirm: false }
-  if (scan.meshState === 'missing') return { state: 'mesh-missing', text: 'mesh missing', ...none }
-  if (!standing.aligned) return { state: 'unaligned', text: 'not aligned here', ...none }
-  // Nothing is built in this run yet: no check has been made, and none can be until something is.
-  if (revision === 0) return { state: 'unchecked', text: 'not checked yet', basis, said: null, rough, note, confirm: false }
-  // A check that is on its way, or will be tried again: nothing to look at. One that failed says why; it is tried again every 30 s.
-  if (standing.waiting) return { state: 'unchecked', text: 'not checked yet', basis, said: standing.failed ? `${standing.stale}. It is tried again every 30 s` : null, rough, note, confirm: false }
-  // One notion of "may no longer hold", with its reasons: what the last build's check found, a source that changed.
-  if (standing.stale) return { state: 'stale', text: 'check alignment', basis, said: standing.stale, rough, note, confirm: true }
-  if (rough) return { state: 'rough', text: 'rough alignment', basis, said: rough, rough: null, note, confirm: false }
-  return { state: 'aligned', text: 'aligned', basis, said: null, rough: null, note, confirm: false }
-}
-
-/** How a scan was read, where that was a guess: `Read as metres, Y up`; null when the person chose both. */
-function guessOf(scan: ScanInfo): string | null {
-  const { unit, up, assumed } = scan.imported
-  const guessed = [...(assumed.unit ? [UNIT_WORD[unit]] : []), ...(assumed.up ? [`${up.toUpperCase()} up`] : [])]
-  return guessed.length > 0 ? `Read as ${guessed.join(', ')}` : null
-}
-
 function ScanRow({ objectId, scan }: { objectId: string; scan: ScanInfo }) {
   const { id } = scan
   const layout = useStore((s) => s.layout)
@@ -154,7 +124,7 @@ function ScanRow({ objectId, scan }: { objectId: string; scan: ScanInfo }) {
   const coloured = scan.imported.colours !== 'none'
   const plain = !coloured || view?.colour === 'plain'
   const revision = useStore((s) => (s.scene ? s.revision : 0))
-  const state = stateOf(scan, layout, revision)
+  const state = scanState(scan, layout, revision)
   const meshGone = scan.meshState === 'missing'
   const source = scan.sourceState === 'missing' ? 'source missing' : scan.sourceState === 'changed' ? 'source changed' : null
   const layouts = Object.keys(scan.alignments)
@@ -212,8 +182,8 @@ function ScanRow({ objectId, scan }: { objectId: string; scan: ScanInfo }) {
         </p>
       )}
       <div className="scan-state">
-        <span className="chip" data-state={state.state} title={state.said ?? undefined}>
-          {state.text}
+        <span className="chip" data-state={state.state} title={state.tip}>
+          {state.word}
         </span>
         {/* What the alignment rests on, in plain words: a floor alone, a hand, so many pairs and how well they fit. */}
         {state.basis && <span className="scan-basis">· {numbered(state.basis)}</span>}

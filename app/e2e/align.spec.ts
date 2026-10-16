@@ -133,7 +133,7 @@ test('three pairs and a fourth bring a displaced scan onto the model, and say ho
   expect(JSON.parse(readFileSync(join(root, 'bracket', '.torno', 'scans.json'), 'utf8')).scans[0].alignments.assembly.steps).toEqual(['pairs'])
   // In the other layout it is not aligned.
   await page.getByRole('button', { name: 'print', exact: true }).click()
-  await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('not aligned here')
+  await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   expect((await scans())[0].aligned).toBe(false)
 })
 
@@ -172,9 +172,11 @@ test('a tilted floor is laid flat on the ground, and says that is all it is', as
   await expect.poll(async () => (await alignment('assembly'))?.steps).toEqual(['floor'])
   const kept = await alignment('assembly')
   expect(kept).not.toHaveProperty('rough')
-  await expect(row('S1').locator('.chip[data-state="aligned"]')).toHaveText('aligned')
+  // Laid on the ground, tied to no point of the model: placed, never aligned, and its word says why once.
+  await expect(row('S1').locator('.chip[data-state="placed"]')).toHaveText('placed')
+  await expect(row('S1').locator('.chip[data-state="placed"]')).toHaveAttribute('title', 'Placed by floor only: tied to no point of the model, so not checked against builds')
   await expect(row('S1').locator('.scan-basis')).toHaveText('· floor only')
-  await expect(row('S1').locator('.scan-said[data-part="note"]')).toHaveText('Tied to no point of the model: not checked against builds.')
+  await expect(row('S1').locator('.scan-said[data-part="note"]')).toHaveCount(0)
   for (const local of [[0.5, 0.5, 60.05], [14.5, -14.5, 61.45], [-14.5, 14.5, 58.55]] as Vec3[]) expect(Math.abs(apply(kept.transform, local)[2])).toBeLessThan(1e-3)
   // What a floor leaves open is said once.
   await expect(bar().locator('.alignbar-state')).toHaveText(/^Aligned by floor only \(plane RMS 0(\.\d+)? mm\): its place in that plane is as imported$/)
@@ -210,11 +212,11 @@ test('an alignment says so when a build moves the model from under it', async ()
     await bar().getByRole('textbox', { name: `Model z of pair ${n + 1}` }).press('Enter')
   }
   await bar().getByRole('button', { name: 'Apply' }).click()
-  await expect(row('S1').locator('.chip[data-state="aligned"]')).toBeVisible()
+  await expect(row('S1').locator('.chip[data-state="placed"]')).toBeVisible()
   await expect.poll(async () => (await state()).scans[0].checks.print).toMatchObject({ of: 0, off: 0, moved: [] })
   writeFileSync(join(root, 'spread', 'width.txt'), '40\n')
   await expect.poll(async () => (await state()).scans[0].checks.print?.moved, { timeout: 60_000 }).toEqual(['lid'])
-  await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveText('check alignment')
+  await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveText('check')
   await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveAttribute('title', 'torno has moved lid for display since it was aligned: check the alignment')
   // Nothing was re-fitted.
   expect((await alignment('print')).steps).toEqual(['pairs'])
@@ -268,7 +270,7 @@ test('a fit that says the unit is wrong offers the change in one click, keeps no
   await expect(bar()).toContainText(/RMS 0(\.\d+)? mm/)
   await expect(bar().locator('[data-part="size"]')).toHaveCount(0)
   await bar().getByRole('button', { name: 'Apply' }).click()
-  await expect(row('S1').locator('.chip[data-state="aligned"]')).toHaveText('aligned')
+  await expect(row('S1').locator('.chip[data-state="placed"]')).toHaveText('placed')
   const kept = await alignment('assembly')
   expect(kept.transform.s).toBe(1)
   expect(kept).not.toHaveProperty('scaled')
@@ -320,7 +322,7 @@ test('Escape steps back one pick, and only then puts the tool down; two pairs ar
   // Nothing is kept on the click that asks.
   expect(await alignment('assembly')).toEqual(before)
   await bar().getByRole('button', { name: 'Keep as rough' }).click()
-  await expect(row('S1').locator('.chip[data-state="rough"]')).toHaveText('rough alignment')
+  await expect(row('S1').locator('.chip[data-state="rough"]')).toHaveText('rough')
   await expect(row('S1').locator('.scan-said[data-state="rough"]')).toContainText('It has 2 pairs of points')
   const rough = await alignment('assembly')
   expect(rough.steps).toEqual(['pairs'])
@@ -450,7 +452,7 @@ test('a build that takes the model from under a point raises a doubt; "Still rig
   writeFileSync(join(root, 'spread', 'width.txt'), '30\n')
   await expect.poll(async () => (await state()).scans[0].checks.print?.off, { timeout: 60_000 }).toBe(1)
   const built = (await state()).revision
-  await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveText('check alignment')
+  await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveText('check')
   await expect(row('S1').locator('.scan-said[data-state="stale"]')).toContainText(new RegExp(`The model is no longer under 1 of its 1 points \\(worst 3(\\.\\d+)? mm off\\) on r${built}: check the alignment`))
   await expect(bar().locator('[data-part="stale"]')).toContainText('The model is no longer under 1 of its 1 points')
 
@@ -476,7 +478,7 @@ test('a build that takes the model from under a point raises a doubt; "Still rig
   // Back as it was when it was fitted: the model is under the point again, 3 mm from where it was confirmed. Raised (fix round 2, A).
   writeFileSync(join(root, 'spread', 'width.txt'), '40\n')
   await expect.poll(async () => (await state()).scans[0].checks.print?.off, { timeout: 60_000 }).toBe(1)
-  await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveText('check alignment')
+  await expect(row('S1').locator('.chip[data-state="stale"]')).toHaveText('check')
   await page.keyboard.press('Escape')
 })
 
@@ -549,7 +551,7 @@ test('"Use this alignment" in another layout keeps it there as placed by hand, w
   await expect.poll(async () => (await alignment('assembly'))?.pairs?.length).toBe(4)
   expect(await alignment('print')).toBeUndefined()
   await page.getByRole('button', { name: 'print', exact: true }).click()
-  await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('not aligned here')
+  await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   await expect(row('S1').locator('.scan-said[data-part="start"]')).toContainText('Aligned in assembly.')
   await row('S1').getByRole('button', { name: 'Use the alignment of S1 in assembly here' }).click()
   await expect.poll(async () => (await alignment('print'))?.steps).toEqual(['typed'])
