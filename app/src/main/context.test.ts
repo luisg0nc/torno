@@ -23,8 +23,9 @@ const SCENE: Scene = {
 
 const CAMERA = { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 } as ViewState['camera']
 
-function deps(over: { build?: BuildState; scene?: Scene; revision?: number; view?: ViewState; now?: number; open?: string | null; name?: string }): ContextDeps {
+function deps(over: { build?: BuildState; scene?: Scene; revision?: number; view?: ViewState; now?: number; open?: string | null; name?: string; references?: string[] }): ContextDeps {
   return {
+    references: () => over.references ?? [],
     object: (id) => (id === 'bracket' ? { ...BRACKET, name: over.name ?? BRACKET.name } : undefined),
     openObjectId: () => (over.open === undefined ? 'bracket' : over.open),
     build: () => over.build,
@@ -36,6 +37,29 @@ function deps(over: { build?: BuildState; scene?: Scene; revision?: number; view
 
 /** What the agent is told when the object has no marks. */
 const textFor = (d: ContextDeps, objectId: string): string => contextFor(d, objectId).text
+
+describe('the references of a new conversation', () => {
+  const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
+  const LINE = "The person's references for this object are in reference/: photo-1.jpg, doodle-1.png. Read them when they matter; they are not attached."
+  it('are named in one line, in a fresh conversation only', () => {
+    const d = deps({ build: OK, scene: SCENE, references: ['photo-1.jpg', 'doodle-1.png'] })
+    const fresh = contextFor(d, 'bracket', [], { fresh: true })
+    expect(fresh.text.split('\n')).toContain(LINE)
+    expect(fresh.sentMarkIds).toEqual([])
+    expect(contextFor(d, 'bracket').text).not.toContain('reference/')
+    // The first prompt of a session that was not resumed is in a new conversation too.
+    expect(contextFor(d, 'bracket', [], { newConversation: true }).text.split('\n').at(-1)).toBe(LINE)
+  })
+  it('are not said when there are none', () => {
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { fresh: true }).text).not.toContain('reference/')
+  })
+  it('are named twelve at most, and the rest counted', () => {
+    const many = Array.from({ length: 14 }, (_, i) => `photo-${i + 1}.jpg`)
+    const text = contextFor(deps({ build: OK, scene: SCENE, references: many }), 'bracket', [], { fresh: true }).text
+    expect(text).toContain(`reference/: ${many.slice(0, 12).join(', ')} and 2 more. Read them when they matter`)
+    expect(text).not.toContain('photo-13.jpg')
+  })
+})
 
 describe('contextFor', () => {
   it('names the revision, the layout shown and its parts after a build that worked', () => {

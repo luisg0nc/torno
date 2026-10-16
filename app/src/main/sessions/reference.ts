@@ -1,3 +1,4 @@
+import { lstatSync, readdirSync } from 'node:fs'
 import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { MAX_PHOTO, readRegular } from '../objects/create'
@@ -21,5 +22,25 @@ export async function readReference(dir: string, file: string): Promise<{ mediaT
     return mediaType ? { mediaType, bytes: new Uint8Array(bytes) } : null
   } catch {
     return null
+  }
+}
+
+/**
+ * The files of `<dir>/reference/` of the names `create.ts` gives, plain files only, photos then doodles, each by its
+ * number (`photo-1.jpg`): what a new conversation is told it can read. None on any error, or when `reference` is a link.
+ */
+export function listReferences(dir: string): string[] {
+  try {
+    const folder = join(dir, 'reference')
+    if (!lstatSync(folder).isDirectory()) return []
+    const order = (name: string): [number, number] => [name.startsWith('photo') ? 0 : 1, Number(/-(\d+)\./.exec(name)?.[1])]
+    return readdirSync(folder)
+      .filter((name) => REFERENCE_FILE.test(`reference/${name}`) && lstatSync(join(folder, name)).isFile())
+      .sort((a, b) => {
+        const [x, y] = [order(a), order(b)]
+        return x[0] - y[0] || x[1] - y[1] || a.localeCompare(b)
+      })
+  } catch {
+    return []
   }
 }

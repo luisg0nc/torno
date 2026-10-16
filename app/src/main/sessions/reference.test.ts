@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MAX_PHOTO } from '../objects/create'
-import { readReference } from './reference'
+import { listReferences, readReference } from './reference'
 
 let dir: string
 beforeEach(() => {
@@ -45,5 +45,21 @@ describe('a picture of reference/, read again for the window', () => {
     } finally {
       rmSync(other, { recursive: true, force: true })
     }
+  })
+})
+
+describe('the references a new conversation is told of', () => {
+  it('are the plain files of the names torno gives, photos then doodles, by number', () => {
+    writeFileSync(join(dir, 'reference', 'photo-10.png'), 'x')
+    writeFileSync(join(dir, 'reference', 'photo-2.webp'), 'x')
+    symlinkSync(join(dir, 'reference', 'photo-1.jpg'), join(dir, 'reference', 'photo-3.jpg'))
+    expect(listReferences(dir)).toEqual(['photo-1.jpg', 'photo-2.webp', 'photo-10.png', 'doodle-2.png'])
+  })
+  it('are none without a folder, or through a link', () => {
+    expect(listReferences(join(dir, 'nowhere'))).toEqual([])
+    const obj = join(dir, 'linked')
+    mkdirSync(obj)
+    symlinkSync(join(dir, 'reference'), join(obj, 'reference'))
+    expect(listReferences(obj)).toEqual([])
   })
 })

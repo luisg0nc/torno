@@ -11,6 +11,7 @@ import { copyExample, exampleSource, removeExample, sweepExamples } from './exam
 import { type Config, configOf, listed, recentWith, recentWithout } from './recent'
 import { startHttp } from './http'
 import { buildContextFor, contextFor } from './context'
+import { listReferences } from './sessions/reference'
 import { buildState, closeWorkspace, findObject, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc } from './ipc'
 import { cannotStart } from './kernel/client'
 import { NoAnswer, latestView, requestHighlight, requestLook, requestSaveView, requestSectionDrawing, requestShow } from './look'
@@ -288,7 +289,13 @@ function savedViews(objectId: string): Promise<SavedView[]> {
   return obj ? sceneFileNow(obj.dir).then((file) => file.views ?? []) : Promise.resolve([])
 }
 
-/** What the MCP tools and the text attached to a prompt are made from: the open workspace and the window. */
+/** What the text attached to a prompt is made from: the tools' deps, and the files of an object's `reference/` for a new conversation. */
+const referencesOf = (id: string): string[] => {
+  const obj = findObject(id)
+  return obj ? listReferences(obj.dir) : []
+}
+
+/** What the MCP tools are made from: the open workspace and the window. */
 const toolDeps: ToolDeps = {
   object: findObject,
   build: buildState,
@@ -339,6 +346,7 @@ const toolDeps: ToolDeps = {
     return proposing(obj.dir, req.name, () => theWindow().then((win) => requestSaveView(win, req)), (e) => e instanceof NoAnswer)
   }
 }
+const promptDeps = { ...toolDeps, references: referencesOf }
 
 /** `<object>/.torno/state.md` of every open object: what an agent without the tools reads instead. */
 const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews })
@@ -415,7 +423,7 @@ void app.whenReady().then(async () => {
     // Nor are scans that cannot be read: they are then not known, which is not the same as there being none.
     contextFor: async (id, opts) => {
       const scans = await listedScans(id).catch(() => undefined)
-      return contextFor(toolDeps, id, await marks.list(id).catch(() => []), { ...opts, ...(scans ? { scans } : {}) })
+      return contextFor(promptDeps, id, await marks.list(id).catch(() => []), { ...opts, ...(scans ? { scans } : {}) })
     },
     // An edit of the model is answered with the build it started, and a Stop held back once over a build the turn left failed or unseen.
     build: buildState,

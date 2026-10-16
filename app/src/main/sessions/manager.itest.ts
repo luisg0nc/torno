@@ -12,7 +12,8 @@ import type { ChatItem, ChatMeta } from '../../shared/chat'
 import type { PromptBlock, StreamMessage } from './stream'
 import type { BuildState } from '../../shared/build'
 import type { ViewDrawing } from '../../shared/drawing'
-import type { PromptContext } from '../context'
+import { contextFor, type PromptContext } from '../context'
+import { listReferences } from './reference'
 
 // The session manager with a real PTY and a real HTTP server; only the agent is
 // a stand-in (test/fake-agent.mjs), launched with Claude Code's arguments.
@@ -27,11 +28,13 @@ let context = (id: string) => `context for ${id}`
 let drafts = new Map<string, string[]>()
 let delivered: Array<{ objectId: string; sentMarkIds: string[] }> = []
 /** Each time the context of a prompt was asked for: of which object, and whether in a conversation that had not been given one. */
-let asked: Array<{ objectId: string; fresh: boolean }> = []
+let asked: Array<{ objectId: string; fresh: boolean; newConversation: boolean }> = []
 /** What the context waits for before it is given, and what is told when it is asked for. */
 let gate: Promise<void> = Promise.resolve()
 let asking: (() => void) | null = null
 let output = new Map<string, string>()
+/** When a test sets it, the context a prompt is answered with. */
+let answer: ((id: string, opts: { fresh: boolean; newConversation: boolean }) => PromptContext) | null = null
 let statuses = new Map<string, SessionStatus[]>()
 
 function object(id: string): ObjectInfo {
@@ -50,8 +53,9 @@ function make(command = `node ${FAKE}`): Sessions {
     viewFor: (obj) => views.get(obj.id) ?? 'terminal',
     contextFor: async (id, opts) => {
       asking?.()
-      asked.push({ objectId: id, fresh: opts.fresh })
+      asked.push({ objectId: id, fresh: opts.fresh, newConversation: opts.newConversation })
       await gate
+      if (answer) return answer(id, opts)
       return { text: context(id), sentMarkIds: drafts.get(id) ?? [] }
     },
     onDelivered: (objectId, sentMarkIds) => {
@@ -72,7 +76,8 @@ let others: Sessions[] = []
 const said = (id: string) => output.get(id) ?? ''
 const sessionFile = (id: string) => JSON.parse(readFileSync(join(root, id, '.torno', 'session.json'), 'utf8'))
 /** The arguments the agent was started with, from its READY line. */
-const argv = (id: string): string[] => JSON.parse(/READY (\[.*\])/.exec(said(id))![1])
+const argv = (id: string): string[] => argv2(said(id))
+const argv2 = (out: string): string[] => JSON.parse(/READY (\[.*\])/.exec(out)![1])
 
 function alive(pid: number): boolean {
   try {
@@ -101,6 +106,7 @@ afterEach(async () => {
   delivered = []
   gate = Promise.resolve()
   asking = null
+  answer = null
 })
 
 afterAll(async () => {
@@ -331,6 +337,38 @@ describe('a session', () => {
     const args = argv(second.sessionId)
     expect(args[args.indexOf('--resume') + 1]).toBe(other)
     expect(args).not.toContain('--session-id')
+  })
+
+  it('tells a new conversation the files of reference/, and not one it resumes', async () => {
+    const obj = object('clip')
+    mkdirSync(join(obj.dir, 'reference'), { recursive: true })
+    writeFileSync(join(obj.dir, 'reference', 'photo-1.jpg'), 'x')
+    answer = (id, opts) =>
+      contextFor({ object: (o) => (o === id ? obj : undefined), build: () => undefined, scene: () => undefined, view: () => undefined, openObjectId: () => id, references: () => listReferences(obj.dir) }, id, [], opts)
+    const real = sessions
+    let out = ''
+    // The manager has no way to stop listening: this one only stops hearing.
+    let listening = true
+    real.on('data', (m) => void (listening && (out += m.data)))
+    const first = await real.start(obj, {})
+    await expect.poll(() => out).toContain('READY')
+    real.write(first.sessionId, 'hook\r')
+    await expect.poll(() => out).toContain('reference/: photo-1.jpg')
+    // The next prompt of that conversation is not told again.
+    const told = out.split('reference/: photo-1.jpg').length
+    real.write(first.sessionId, 'hook\r')
+    await expect.poll(() => out.split('context: ').length).toBe(3)
+    await real.stop(first.sessionId)
+    expect(out.split('reference/: photo-1.jpg').length).toBe(told)
+
+    out = ''
+    const second = await real.start(obj, { resume: true })
+    await expect.poll(() => out).toContain('READY')
+    expect(argv2(out)).toContain('--resume')
+    real.write(second.sessionId, 'hook\r')
+    await expect.poll(() => out).toContain('context: ')
+    expect(out).not.toContain('reference/')
+    listening = false
   })
 
   it('is the one session of its object: starting again returns it', async () => {

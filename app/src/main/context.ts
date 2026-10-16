@@ -68,7 +68,20 @@ export interface ContextDeps {
   view(objectId: string): ViewState | undefined
   /** The object the window shows. */
   openObjectId(): string | null
+  /** The files of the object's `reference/` (`photo-1.jpg`), photos then doodles: told to a new conversation. None when it has none or cannot be read. */
+  references?(objectId: string): string[]
   now?(): number
+}
+
+/** The most references a new conversation is told the names of; the rest are counted. */
+const MOST_REFERENCES_NAMED = 12
+
+/** The line that tells a new conversation which references the object has, or '' when it has none. */
+export function referencesLine(files: readonly string[]): string {
+  if (files.length === 0) return ''
+  const named = files.slice(0, MOST_REFERENCES_NAMED).join(', ')
+  const more = files.length > MOST_REFERENCES_NAMED ? ` and ${files.length - MOST_REFERENCES_NAMED} more` : ''
+  return `The person's references for this object are in reference/: ${named}${more}. Read them when they matter; they are not attached.`
 }
 
 /** What goes with a prompt, and the marks it tells of for the first time: sent, once the agent has it. */
@@ -112,12 +125,15 @@ export interface PromptContext {
  * line after the selection: each with how it is aligned in the layout on
  * screen (the first, of an object that is not open) and how it is shown.
  *
+ * A new conversation (`newConversation`: the first prompt of a session not resumed, or `fresh`) is also told, in a last line, the files of the object's `reference/` (`referencesLine`),
+ * to read when they matter: they are not attached.
+ *
  * A tool of torno's is named as the agent's client names it to its model
  * (`opts.toolName`; as Claude Code does when nothing says).
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; scans?: readonly ScanInfo[]; toolName?: (tool: string) => string } = {}): PromptContext {
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; toolName?: (tool: string) => string } = {}): PromptContext {
   return withBuild(deps, objectId, contextText(deps, objectId, marks, opts))
 }
 
@@ -145,7 +161,7 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[], opts: { fresh?: boolean; scans?: readonly ScanInfo[]; toolName?: (tool: string) => string; buildOnly?: boolean }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; toolName?: (tool: string) => string; buildOnly?: boolean }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
@@ -227,7 +243,10 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
   // What has its line above is not named again; never longer than the line room was kept for.
   const rest = open.filter((m) => !listedUnmet.includes(m))
   if (rest.length > 0 && !opts.buildOnly) lines.push(`Open marks: ${openMarks(rest, revision, toolName, openLine.length - 'Open marks: '.length)}`)
-  const text = lines.join('\n')
+  // A new conversation is told which references there are, last, and only when the line fits: it is no mark.
+  const referred = (opts.fresh || opts.newConversation) && !opts.buildOnly ? referencesLine(deps.references?.(objectId) ?? []) : ''
+  const joined = lines.join('\n')
+  const text = referred && joined.length + 1 + referred.length <= CONTEXT_LIMIT ? `${joined}\n${referred}` : joined
   if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id) }
   // Every part above keeps to the room it has; this holds for what none of them foresaw. What is cut is
   // the end, and no mark whose line may be among it is said to have been told.
