@@ -168,7 +168,7 @@ test('a named view draws the marks with its own camera, at any size', async () =
 
 test('a note is written in the panel and kept in .torno/marks.json; the view keys do not fire meanwhile', async () => {
   const before = await camera()
-  await row('M1').locator('.mark-note').click()
+  await row('M1').locator('.mark-note').click({ position: { x: 4, y: 8 } })
   const field = row('M1').locator('.mark-note-input')
   await expect(field).toBeFocused()
   await expect(field).toHaveAttribute('maxlength', '2000')
@@ -183,14 +183,14 @@ test('a note is written in the panel and kept in .torno/marks.json; the view key
   expect((await state()).activeMark).toBe('M1')
 
   // Esc leaves the note as it was.
-  await row('M1').locator('.mark-note').click()
+  await row('M1').locator('.mark-note').click({ position: { x: 4, y: 8 } })
   await page.keyboard.type('never mind')
   await page.keyboard.press('Escape')
   await expect(row('M1').locator('.mark-note')).toHaveText('4 mm of proof 1')
   expect(marksOnDisk().marks[0].note).toBe('4 mm of proof 1')
 
   // No more can be typed than a note keeps.
-  await row('M2').locator('.mark-note').click()
+  await row('M2').locator('.mark-note').click({ position: { x: 4, y: 8 } })
   await row('M2').locator('.mark-note-input').fill('x'.repeat(2100))
   await page.keyboard.press('Enter')
   await expect.poll(() => marksOnDisk().marks[1].note.length).toBe(2000)
@@ -398,7 +398,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(rows(shotPage)).toHaveCount(5)
       await shotPage.evaluate(() => window.torno.marks.update('bracket', 'M1', { status: 'sent' }))
       // The stroke is the active mark, so its plane shows; the camera stays where it is.
-      await row('M4', shotPage).locator('.mark-note').click()
+      await row('M4', shotPage).locator('.mark-note').click({ position: { x: 4, y: 8 } })
       await shotPage.keyboard.press('Escape')
       await row('M2', shotPage).hover()
       await shotPage.evaluate(async () => {

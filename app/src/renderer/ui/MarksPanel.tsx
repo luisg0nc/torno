@@ -3,6 +3,7 @@ import { type Mark, type MarkPatch, markAnchors } from '../../shared/marks'
 import { actions, layerOf, useStore } from '../state/store'
 import { MarkRow } from './MarkRow'
 import { groupMarks } from './markGroups'
+import { ResolvedSummary } from './ResolvedSummary'
 
 /**
  * The marks of the open object, below the layers, grouped by what is to be
@@ -113,7 +114,14 @@ export function MarksPanel() {
         {marks.length > 0 && toSend.length + withAgent.length + toReview.length === 0 && <p className="section-note">Every mark is resolved.</p>}
         {group('To send', toSend)}
         {group('With the agent', withAgent)}
-        {group('To review', toReview)}
+        {toReview.length > 0 && (
+          <>
+            <h3 className="marks-group">
+              To review <span className="num">{toReview.length}</span>
+            </h3>
+            <ResolvedSummary key={objectId} marks={toReview} row={row} acknowledgeAll={() => done(window.torno.marks.acknowledge(objectId, toReview.map((m) => m.id)))} />
+          </>
+        )}
         {resolved.length > 0 && (
           <>
             <button type="button" className="marks-fold" aria-expanded={showResolved} onClick={() => setShowResolved((shown) => !shown)}>

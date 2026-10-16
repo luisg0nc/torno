@@ -184,9 +184,14 @@ test('on a stale build the selection cannot be put in the prompt: its refs would
   await page.keyboard.press('Escape')
 })
 
-test('a mark the agent resolved stays in the list, saying so and what the agent did, until the person says OK', async () => {
+test('a mark the agent resolved is told in a summary to review, saying what the agent did, until the person says OK', async () => {
   await asAgent('bracket', 'M1', { status: 'resolved', resolvedNote: 'made the corner 2 mm thicker' })
-  const open = panel().locator('.mark-rows').first()
+  const review = panel().locator('.marks-review')
+  await expect(review).toContainText('The agent resolved 1 mark.')
+  await expect(row('M1')).toHaveCount(0)
+  await review.getByRole('button', { name: 'Review' }).click()
+  await expect(review.getByRole('button', { name: 'Hide' })).toHaveAttribute('aria-expanded', 'true')
+  const open = panel().getByRole('list', { name: 'To review' })
   await expect(open.locator('[data-mark="M1"]')).toHaveAttribute('data-awaiting', '')
   await expect(row('M1').locator('.mark-resolution-note')).toHaveText('Resolved by the agent: made the corner 2 mm thicker')
   // Not drawn any more, like any resolved mark.
@@ -195,7 +200,7 @@ test('a mark the agent resolved stays in the list, saying so and what the agent 
   expect(onDisk('bracket')[0]).not.toHaveProperty('acknowledged')
 
   await row('M1').getByRole('button', { name: 'OK', exact: true }).click()
-  await expect(open.locator('[data-mark="M1"]')).toHaveCount(0)
+  await expect(review).toHaveCount(0)
   await panel().getByRole('button', { name: /Resolved/ }).click()
   await expect(panel().getByRole('list', { name: 'Resolved marks' }).locator('[data-mark="M1"]')).toHaveCount(1)
   expect(onDisk('bracket')[0]).toMatchObject({ status: 'resolved', resolvedBy: 'agent', acknowledged: true })
@@ -209,6 +214,7 @@ test('Reopen makes a mark the agent resolved a draft again; one the person resol
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).marks.map((m) => m.id)).toEqual(['M1', 'M2'])
   await asAgent('bracket', 'M2', { status: 'resolved' })
+  await panel().locator('.marks-review').getByRole('button', { name: 'Review' }).click()
   await expect(row('M2').locator('.mark-resolution-note')).toHaveText('Resolved by the agent')
   await row('M2').getByRole('button', { name: 'Reopen', exact: true }).click()
   await expect.poll(async () => (await state()).marks[1]).toMatchObject({ status: 'draft' })
@@ -227,6 +233,24 @@ test('Reopen makes a mark the agent resolved a draft again; one the person resol
   await expect(panel().getByRole('list', { name: 'Resolved marks' }).locator('[data-mark="M2"]')).toHaveCount(1)
   expect(onDisk('bracket')[1]).toMatchObject({ status: 'resolved', resolvedBy: 'user' })
   // Back among the open ones for what follows.
+  await page.evaluate(() => window.torno.marks.update('bracket', 'M2', { status: 'draft' }))
+})
+
+test('OK all acknowledges every mark the agent resolved, in one write', async () => {
+  await page.evaluate(() => window.torno.marks.update('bracket', 'M1', { status: 'draft' }))
+  await asAgent('bracket', 'M1', { status: 'resolved', resolvedNote: 'made the corner 2 mm thicker' })
+  await asAgent('bracket', 'M2', { status: 'resolved', resolvedNote: 'and this one too' })
+  const review = panel().locator('.marks-review')
+  await expect(review).toContainText('The agent resolved 2 marks.')
+  await expect(row('M1').locator('.mark-resolution')).toHaveCount(0)
+  await review.getByRole('button', { name: 'Review' }).click()
+  await expect(row('M1').locator('.mark-resolution-note')).toHaveText('Resolved by the agent: made the corner 2 mm thicker')
+  await expect(row('M2').locator('.mark-resolution-note')).toHaveText('Resolved by the agent: and this one too')
+  await review.getByRole('button', { name: 'OK all' }).click()
+  await expect(review).toHaveCount(0)
+  await expect.poll(() => onDisk('bracket').filter((m) => m.acknowledged).map((m) => m.id)).toEqual(['M1', 'M2'])
+  await expect(panel().getByRole('list', { name: 'Resolved marks' }).locator('[data-mark]')).toHaveCount(2)
+  // M2 back among the open ones for what follows, as before.
   await page.evaluate(() => window.torno.marks.update('bracket', 'M2', { status: 'draft' }))
 })
 

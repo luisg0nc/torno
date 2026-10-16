@@ -844,7 +844,7 @@ test('G, R and T choose what the gizmo does while a shape is active, and only th
   // Another mark is the active one: no gizmo, and the keys do nothing.
   await atRest()
   const [held, view] = [await pictureNow(), await camera()]
-  await page.locator('.mark-row[data-mark="M1"] .mark-note').click()
+  await page.locator('.mark-row[data-mark="M1"] .mark-note').click({ position: { x: 4, y: 8 } })
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).activeMark).toBe('M1')
   await expect(canvas()).not.toHaveAttribute('data-gizmo')
@@ -854,7 +854,7 @@ test('G, R and T choose what the gizmo does while a shape is active, and only th
   expect(await differing(held, await pictureNow())).toBe(0)
   await expect(page.locator('.shape-fields')).toHaveCount(0)
   await page.keyboard.press('r')
-  await page.locator(`.mark-row[data-mark="${box}"] .mark-note`).click()
+  await page.locator(`.mark-row[data-mark="${box}"] .mark-note`).click({ position: { x: 4, y: 8 } })
   await page.keyboard.press('Escape')
   await expect(canvas()).toHaveAttribute('data-gizmo', 'translate')
 })

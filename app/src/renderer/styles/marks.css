@@ -530,6 +530,29 @@
 }
 
 /* The heading the resolved marks are folded under. */
+/* What the agent resolved, told as one line until it is reviewed: a surface like a resolution's, in no mark colour. */
+.marks-review {
+  margin: 0 var(--space-2);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--accent-wash);
+  font-size: var(--text-small);
+}
+
+.marks-review > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.marks-review .button {
+  height: 22px;
+  padding: 0 9px;
+}
+
+.marks-review > .mark-rows {
+  margin: 6px calc(-1 * var(--space-2)) 0;
+}
+
 /* The heading of a group of the list: what is to be done with its marks, and how many there are. */
 .marks-group {
   margin: var(--space-1) 0 0;

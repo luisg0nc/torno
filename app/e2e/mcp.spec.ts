@@ -500,17 +500,22 @@ test('resolve_mark resolves a mark, which the user sees as resolved by the agent
   expect(result).toMatchObject({ isError: false, text: `resolved: ${describeMark(pin)}\nnote: made the corner 2 mm thicker` })
   const marks = page.getByRole('region', { name: 'Marks' })
   // Still in the list, saying who resolved it and what was done, in words on the row.
-  const awaiting = marks.locator('.mark-rows').first().locator('[data-mark="M1"]')
-  await expect(marks.locator('.mark-rows').first().locator('[data-mark]')).toHaveCount(4)
+  await expect(marks.locator('.marks-review')).toContainText('The agent resolved 1 mark.')
+  await marks.locator('.marks-review').getByRole('button', { name: 'Review' }).click()
+  const awaiting = marks.getByRole('list', { name: 'To review' }).locator('[data-mark="M1"]')
+  await expect(marks.locator('.mark-row[data-mark]')).toHaveCount(4)
   await expect(awaiting).toHaveAttribute('data-awaiting', '')
   await expect(awaiting.locator('.mark-resolution-note')).toHaveText('Resolved by the agent: made the corner 2 mm thicker')
   await awaiting.getByRole('button', { name: 'OK', exact: true }).click()
-  await expect(marks.locator('.mark-rows').first().locator('[data-mark]')).toHaveCount(3)
-  await expect(marks.locator('.mark-rows').first().locator('[data-mark="M1"]')).toHaveCount(0)
+  await expect(marks.locator('.marks-review')).toHaveCount(0)
+  await expect(marks.locator('.mark-row[data-mark]')).toHaveCount(3)
   await marks.getByRole('button', { name: /Resolved/ }).click()
   const resolved = marks.getByRole('list', { name: 'Resolved marks' }).locator('[data-mark="M1"]')
   await expect(resolved).toHaveAttribute('data-status', 'resolved')
-  await expect(resolved.locator('.mark-note')).toHaveAttribute('title', 'make this corner thicker\nResolved: made the corner 2 mm thicker')
+  // Its tooltip says what the row does not: the note too, unless the row is the active one, which shows it whole.
+  const whole = (await resolved.getAttribute('aria-current')) === 'true'
+  await expect(resolved.locator('.mark-note')).toHaveText('make this corner thicker')
+  await expect(resolved.locator('.mark-note')).toHaveAttribute('title', `${whole ? '' : 'make this corner thicker\n'}Resolved: made the corner 2 mm thicker`)
   expect((await call(bracket, 'marks', { status: 'open' })).text).not.toContain('"M1"')
 
   expect(await call(bracket, 'resolve_mark', { id: 'M9' })).toMatchObject({ isError: true, text: 'no mark M9; marks: M1, M2, M3, M4' })
