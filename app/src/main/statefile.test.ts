@@ -56,6 +56,15 @@ describe('stateText', () => {
     expect(stateText(obj, OK, { revision: 3, scene: SCENE }, [])).not.toContain('≈')
   })
 
+  it("names the model's groups of parts in each layout that has any of their parts, before the parts", () => {
+    const parts = [part('assembly', 'flat-a', [0, 0, 0], [10, 10, 2]), part('assembly', 'flat-b', [20, 0, 0], [30, 10, 2]), part('assembly', 'key', [0, 30, 0], [4, 34, 4]), part('print', 'key', [0, 30, 0], [4, 34, 4])]
+    const scene = { ...SCENE, layouts: ['assembly', 'print'], parts, groups: [{ name: 'flat', parts: ['flat-a', 'flat-b'] }] }
+    const text = stateText(obj, OK, { revision: 3, scene }, [])
+    expect(text).toContain('- assembly: groups flat (flat-a, flat-b); flat-a 10 × 10 × 2 mm, flat-b 10 × 10 × 2 mm, key 4 × 4 × 4 mm')
+    expect(text).toContain('- print: key 4 × 4 × 4 mm')
+    expect(stateText(obj, OK, { revision: 3, scene: SCENE }, [])).not.toContain('groups')
+  })
+
   it('names the saved views, and of each whether the agent proposed it or a part of it is gone', () => {
     const view = (name: string, more: Partial<SavedView> = {}): SavedView => ({ name, author: 'user', layout: 'assembly', camera: CAMERA as SavedView['camera'], hidden: [], at: '', ...more })
     const none = stateText(obj, OK, { revision: 3, scene: SCENE }, [])

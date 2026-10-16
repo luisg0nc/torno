@@ -7,7 +7,7 @@ import type { Scene } from '../../shared/scene'
 import { type Camera, type LookRequest, type LookResult, type SaveViewRequest, type SaveViewResult, type SectionPlane, type ShowRequest, type ShowResult, type ViewName, axisForm, planeText } from '../../shared/view'
 import { type SavedView, MAX_PROPOSALS, VIEW_NOT_BOTH, cleanViewName, findView, viewGone, viewNameRefusal, viewSummary } from '../../shared/views'
 import { number } from '../../shared/format'
-import { partsNamed } from '../../shared/groups'
+import { groupOf, groupsIn, groupVisibility, partsNamed } from '../../shared/groups'
 import { alignmentSaid } from '../scans/said'
 import { unknownKeys } from './keys'
 import { NO_LOOK_SCANS, NO_SCAN_OPACITY, NO_SHOW_SCANS, isScanOpacity, scanColourFor, scanIds } from './scanTools'
@@ -79,6 +79,13 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
   const explode = view && isExploded(view.explode) ? view.explode : null
   if (explode) notes.push(`The user's view is ${explodeText(explode)}: ${EXPLODED_NOTE}.`)
   if (scene.parts.some((p) => p.bboxExact !== true || p.volumeExact !== true)) notes.push(APPROXIMATE_NOTE)
+  // The model's groups of parts, in the layout shown (or the first): each with its parts there, and how many are on.
+  const groupLayout = view && scene.layouts.includes(view.layout) ? view.layout : scene.layouts[0]
+  const groups = groupLayout === undefined ? [] : groupsIn(scene, groupLayout).map((group) => ({
+    name: group.name,
+    parts: group.parts,
+    ...(shown ? { visible: groupVisibility(group.parts, Object.fromEntries(group.parts.map((name) => [name, { visible: shown.has(name) }]))) } : {})
+  }))
   const result = {
     object: obj.id,
     model: scene.model,
@@ -94,9 +101,11 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
     layouts: scene.layouts,
     // The model's Params as the kernel read them from the source: read only, the model file is the user's.
     params: scene.params ?? [],
+    ...(groups.length > 0 ? { groups } : {}),
     parts: scene.parts.map((p) => ({
       name: p.name,
       layout: p.layout,
+      ...(groupOf(scene, p.name) ? { group: groupOf(scene, p.name)!.name } : {}),
       // A part with no namesake in the layout shown has not been seen to be switched off.
       ...(shown && hideable ? { visible: shown.has(p.name) || !hideable.has(p.name) } : {}),
       size: p.bbox.max.map((max, i) => round(max - p.bbox.min[i])),

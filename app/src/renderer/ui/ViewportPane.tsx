@@ -70,7 +70,7 @@ async function look(viewport: Viewport, req: LookRequest): Promise<LookResult> {
       // An unknown layout is left to the viewport, whose error names the layouts. A group stands for its parts.
       const named = s.scene.layouts.includes(layout) ? partsNamed(s.scene, layout, req.parts) : req.parts
       if (!Array.isArray(named)) throw new Error(named.text)
-      keys = parts.filter((p) => named.includes(p.name)).map((p) => p.key)
+      keys = parts.filter((part) => named.includes(part.name)).map((part) => part.key)
     }
     drawn = { objectId: s.objectId, revision: s.revision, stale: s.build?.stale ?? false }
     return { view: req.view ?? 'current', layout, visibleKeys: keys, size: req.size, marks: req.marks ?? true, section, scans: req.scans, explode, ...(req.scanColour ? { scanColour: req.scanColour } : {}), ...(req.frame ? { frame: req.frame } : {}), ...(typeof req.viewName === 'string' ? { viewName: req.viewName } : {}) }

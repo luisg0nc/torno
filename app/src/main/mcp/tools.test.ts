@@ -1672,6 +1672,21 @@ describe('groups of parts', () => {
     expect(textOf(result)).toBe('highlighted flat-a, flat-b, key in layout assembly for the user, until they click in the viewport or 60 s pass.')
   })
 
+  it('scene lists the groups of the layout shown, with how many of their parts are on, and each part its group', () => {
+    const view: ViewState = { objectId: 'bracket', layout: 'assembly', camera: CAMERA, visible: ['assembly:flat-a', 'assembly:key'] }
+    const told = JSON.parse(textOf(sceneTool(grouped({ view: () => view }), 'bracket')))
+    expect(told.groups).toEqual([
+      { name: 'flat', parts: ['flat-a', 'flat-b'], visible: 'some' },
+      { name: 'tall', parts: ['tall-a'], visible: 'none' }
+    ])
+    expect(told.parts.map((p: { name: string; group?: string }) => p.group ?? null)).toEqual(['flat', 'flat', 'tall', null, 'flat', null])
+    // Of a model without groups nothing is said of them.
+    const plain = JSON.parse(textOf(sceneTool(fake(), 'bracket')))
+    expect(plain.groups).toBeUndefined()
+    expect(plain.parts.some((p: { group?: string }) => 'group' in p)).toBe(false)
+    expect(TOOLS.scene.description).toContain('under groups the groups of parts')
+  })
+
   it('highlight says a group has no faces of its own', async () => {
     const deps = grouped()
     const result = await highlightTool(deps, 'bracket', { refs: ['flat/F1'] })
