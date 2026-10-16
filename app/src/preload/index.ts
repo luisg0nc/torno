@@ -105,7 +105,8 @@ const bridge: TornoBridge = {
     dismissProblem: (objectId) => invokePlain('scans:dismissProblem', objectId)
   },
   geometry: {
-    describe: (objectId, layout, ref) => invokePlain('geometry:describe', objectId, layout, ref)
+    describe: (objectId, layout, ref) => invokePlain('geometry:describe', objectId, layout, ref),
+    measure: (objectId, probe) => invokePlain('geometry:measure', objectId, probe)
   },
   show: {
     cards: () => invoke('show:cards'),

@@ -5,7 +5,7 @@ import type { Scene } from '../../shared/scene'
 import { KernelError } from '../kernel/client'
 import { Refusal } from '../refusal'
 import { sanitiseMark } from './file'
-import { addDimension, addDimensionTold, dueAfterEdit, measureDimension, measureRequest, remeasure, wire } from './measure'
+import { addDimension, addDimensionTold, dueAfterEdit, measureDimension, measureOnce, measureRequest, remeasure, wire } from './measure'
 
 const CAMERA = { position: [100, -100, 80], target: [0, 0, 10], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 const BASE = { author: 'user', note: '', layout: 'assembly', revision: 3, camera: CAMERA } as const
@@ -551,5 +551,66 @@ describe('a measurement as it goes to the kernel', () => {
   it('has the layout in front of the refs, and names the layout for a bare point', () => {
     expect(wire({ kind: 'distance', layout: 'assembly', a: { ref: 'plate/F5', point: [5, 3, 3] }, b: { point: [0, 0, 9] } })).toEqual({ kind: 'distance', a: { ref: 'assembly:plate/F5', point: [5, 3, 3] }, b: { layout: 'assembly', point: [0, 0, 9] } })
     expect(wire({ kind: 'mass', layout: 'assembly', a: { ref: 'plate' }, density: 1.05 })).toEqual({ kind: 'mass', a: { ref: 'assembly:plate' }, density: 1.05 })
+  })
+})
+
+describe('a measurement not kept (measureOnce)', () => {
+  type Probe = Parameters<typeof measureOnce>[2]
+  const probe = (more: object = {}): Probe => ({ measure: 'distance', layout: 'assembly', revision: 3, a: TOP, b: BOTTOM, ...more }) as Probe
+
+  it('answers the kernel’s value on the last build, and writes no mark', async () => {
+    const k = kernel(() => ({ ...SIX, value: 6 }))
+    const store = marks()
+    expect(await measureOnce({ ...k, marks: store } as Parameters<typeof measureOnce>[0], 'measures', probe())).toEqual({ value: 6, how: 'between planes', revision: 3 })
+    expect(store.did).toEqual([])
+    expect(k.asked.map((a) => a.name)).toEqual(['measure'])
+  })
+
+  it('is refused when it was taken on another build than the last, and the kernel is not asked', async () => {
+    const k = kernel(() => SIX)
+    await expect(measureOnce(k, 'measures', probe({ revision: 2 }))).rejects.toThrow('it was placed on r2, and the part has been built again since (r3): measure it again')
+    await expect(measureOnce(k, 'measures', probe({ revision: 2 }))).rejects.toBeInstanceOf(Refusal)
+    expect(k.asked).toEqual([])
+  })
+
+  it('is refused between two parts torno spread apart, and the kernel is not asked', async () => {
+    const part = (name: string, arranged?: [number, number, number]) => ({ key: `print:${name}`, name, layout: 'print', ...(arranged ? { arranged } : {}) })
+    const spreadScene = { model: 'm.py', layouts: ['print'], parts: [part('tray'), part('lid', [25, 0, 0])], seconds: 0, output: '' } as unknown as Scene
+    const k = { ...kernel(() => SIX), scene: () => ({ revision: 3, scene: spreadScene }) }
+    const across = probe({ layout: 'print', a: { point: [0, 0, 4], part: 'tray', ref: 'tray/F5' }, b: { point: [30, 0, 2], part: 'lid', ref: 'lid/F5' } })
+    const refused = await measureOnce(k, 'spread', across).catch((e: unknown) => e)
+    expect(refused).toBeInstanceOf(Refusal)
+    expect(isSpreadRefusal((refused as Error).message)).toBe(true)
+    expect(k.asked).toEqual([])
+  })
+
+  it('is refused with the kernel’s reason, without the layout in front of the refs', async () => {
+    const k = kernel(() => {
+      throw new KernelError('bad_request', 'angle is measured between two planar faces; assembly:plate/F9 is a cylinder face')
+    })
+    const refused = await measureOnce(k, 'measures', probe({ measure: 'angle', b: HOLE })).catch((e: unknown) => e)
+    expect(refused).toBeInstanceOf(Refusal)
+    expect((refused as Error).message).toBe('angle is measured between two planar faces; plate/F9 is a cylinder face')
+  })
+
+  it('rejects with a plain message when the kernel cannot be asked, and keeps nothing for later', async () => {
+    const k = kernel(() => {
+      throw new KernelError('timeout', 'the kernel did not answer within 10 s')
+    })
+    const store = marks()
+    await expect(measureOnce({ ...k, marks: store } as Parameters<typeof measureOnce>[0], 'measures', probe())).rejects.toThrow('the kernel did not answer within 10 s')
+    expect(store.did).toEqual([])
+    const none = kernel(() => SIX)
+    none.world.revision = undefined
+    await expect(measureOnce(none, 'measures', probe())).rejects.toThrow('there is no build of measures to measure on')
+  })
+
+  it('refuses what is no measurement, and asks the kernel nothing: an unknown kind, an end that is no point, a distance with one end', async () => {
+    const k = kernel(() => SIX)
+    await expect(measureOnce(k, 'measures', probe({ measure: 'volume' }))).rejects.toThrow()
+    await expect(measureOnce(k, 'measures', probe({ a: { point: [0, Number.NaN, 0] } }))).rejects.toThrow()
+    await expect(measureOnce(k, 'measures', probe({ b: undefined }))).rejects.toThrow()
+    await expect(measureOnce(k, 'measures', null as unknown as Probe)).rejects.toThrow()
+    expect(k.asked).toEqual([])
   })
 })

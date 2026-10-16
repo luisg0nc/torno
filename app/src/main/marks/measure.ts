@@ -1,5 +1,5 @@
 import { offEdgeReason, verdictOf } from '../../shared/dimension'
-import type { MeasureArgs, MeasureTarget } from '../../shared/geometry'
+import type { MeasureArgs, MeasureProbe, MeasureTarget, MeasuredOnce } from '../../shared/geometry'
 import type { Anchor, DimensionMark, Mark, Measurement, NewMark, Vec3 } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import type { Builds } from '../builds'
@@ -178,6 +178,42 @@ async function onItsFace(deps: Pick<MeasureDeps, 'query'>, objectId: string, lay
 type Marks = Pick<MarkStore, 'add' | 'measured' | 'remove' | 'list'>
 
 /**
+ * Throws unless what is to be measured, kept or not, can be measured on the last build: there is one, it is the
+ * build the ends were placed on (its refs are of that build, and the kernel would measure whatever has those numbers
+ * now), and a distance is not between two parts torno spread apart (that would be a check of torno's spacing). One
+ * rule for a dimension kept (`addDimensionTold`) and a measurement that is not (`measureOnce`).
+ */
+function measurableOnLast(deps: MeasureDeps, objectId: string, probe: Pick<DimensionMark, 'measure' | 'layout' | 'revision' | 'a' | 'b'>): void {
+  const last = deps.scene(objectId)
+  if (last === undefined) throw new Error(`there is no build of ${objectId} to measure on`)
+  const built = last.revision
+  if (probe.revision !== built) throw new Refusal(`it was placed on r${probe.revision}, and the part has been built again since (r${built}): measure it again`)
+  const apart = probe.measure === 'distance' ? spreadApart(last.scene, probe.layout, probe.a.part, probe.b?.part, 'the distance between') : null
+  if (apart !== null) throw new Refusal(apart)
+}
+
+/** A camera for checking a probe as a dimension would be checked: a measurement not kept has no view of its own. */
+const NO_CAMERA = { position: [0, 0, 1], target: [0, 0, 0], up: [0, 1, 0], ortho: false, fov: 35, zoom: 1 }
+
+/**
+ * A measurement the person takes and does not keep (`geometry:measure`): the kernel's value on the last build, with
+ * the refusals of a dimension (`measurableOnLast`, the kernel's own reason), and nothing written. What is no
+ * dimension (a kind it does not know, an end that is no point, a distance with one end) is refused before anything
+ * is asked. When the kernel cannot be asked this rejects with a plain message: nothing is kept for later, unlike a
+ * dimension.
+ */
+export async function measureOnce(deps: MeasureDeps, objectId: string, probe: MeasureProbe): Promise<MeasuredOnce> {
+  const asked = typeof probe === 'object' && probe !== null ? { measure: probe.measure, layout: probe.layout, revision: probe.revision, a: probe.a, ...(probe.b === undefined ? {} : { b: probe.b }) } : {}
+  const checked = sanitiseMark({ ...asked, kind: 'dimension', id: 'M1', author: 'user', note: '', status: 'draft', anchorState: 'ok', createdAt: '', camera: NO_CAMERA })
+  const between = checked?.kind === 'dimension' && (checked.measure === 'distance' || checked.measure === 'angle')
+  if (checked?.kind !== 'dimension' || (between && checked.b === undefined)) throw new Refusal('that is no measurement: a kind of measurement, a layout, a build and its ends are needed')
+  measurableOnLast(deps, objectId, checked)
+  const measured = await measureDimension(deps, objectId, checked, checked.revision)
+  if (measured.refused !== undefined) throw new Refusal(measured.refused)
+  return { value: measured.value!, how: measured.how!, revision: checked.revision }
+}
+
+/**
  * Keeps a new dimension, measured: the kernel is asked at once, and when it
  * answers within `APPEARS_AFTER_MS` the dimension is added with its value, in
  * one change. When it takes longer the dimension appears without one, and is
@@ -231,13 +267,7 @@ export async function addDimensionTold(
     if (now !== probe.revision) return { mark: kept, unmeasured: 'rebuilt' }
     return { mark: kept, unmeasured: 'unanswered', ...(reason === undefined ? {} : { reason }) }
   }
-  const last = deps.scene(objectId)
-  if (last === undefined) throw new Error(`there is no build of ${objectId} to measure on`)
-  const built = last.revision
-  if (probe.revision !== built) throw new Refusal(`it was placed on r${probe.revision}, and the part has been built again since (r${built}): measure it again`)
-  // Between two parts torno spread apart, a distance would be kept as a check of torno's spacing: it is not kept, whoever asks.
-  const apart = probe.measure === 'distance' ? spreadApart(last.scene, probe.layout, probe.a.part, probe.b?.part, 'the distance between') : null
-  if (apart !== null) throw new Refusal(apart)
+  measurableOnLast(deps, objectId, probe)
 
   /** What the kernel said; null when it could not be asked. Throws its reason when it refused. */
   const measuring: Promise<Measurement | null> = measureDimension(deps, objectId, probe, probe.revision).then(

@@ -1,7 +1,7 @@
 import type { BuildState } from './build'
 import type { ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel } from './chat'
 import type { ExportPlan, ExportRequest } from './exportdata'
-import type { Described } from './geometry'
+import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { Mark, MarkPatch, NewMark, NewRegion, Replacement } from './marks'
 import type { Scene } from './scene'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
@@ -185,6 +185,7 @@ export interface TornoBridge {
   }
   geometry: {
     describe(objectId: string, layout: string, ref: string): Promise<Described>   // rejects with a plain message
+    measure(objectId: string, probe: MeasureProbe): Promise<MeasuredOnce>   // the kernel's value of a measurement not kept; writes nothing; rejects with a plain message
   }
   /** The page of objects: a card for each object of the workspace, read from what main knows and from what is on file. Asking builds nothing. */
   show: {

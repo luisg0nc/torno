@@ -5,7 +5,7 @@ import { basename, join, resolve } from 'node:path'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { BuildState } from '../shared/build'
 import type { ExportPlan, ExportRequest } from '../shared/exportdata'
-import type { Described } from '../shared/geometry'
+import type { Described, MeasureProbe, MeasuredOnce } from '../shared/geometry'
 import type { MarkPatch, NewMark, NewRegion, Replacement } from '../shared/marks'
 import { type AlignMade, type NewAlignment, type ScanInfo, type ScanUnit, type ScanUp, SCAN_FORMATS, alignmentOf, standingOf } from '../shared/scans'
 import type { Scene } from '../shared/scene'
@@ -21,7 +21,7 @@ import { KernelError, type KernelClient, startKernel } from './kernel/client'
 import { toArrayBuffer } from './kernel/frames'
 import { forgetViews, reportView, resolveRequest } from './look'
 import { type AskedAnchor, type Retrying, asPlaced, asReplaced, checkMarks, followMarks, nearestReply, retrying } from './marks/reanchor'
-import { addDimension, dueAfterEdit, remeasure } from './marks/measure'
+import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/measure'
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, tendRegions } from './marks/regions'
 import type { MarkStore } from './marks/store'
 import { kernelDir } from './paths'
@@ -60,7 +60,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           session:current, session:start, session:trust, session:stop, session:chooseView,
 //           chat:history, chat:reference, chat:send, chat:interrupt, chat:setModel,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:replace, marks:problem (also sent to the renderer),
-//           marks:dismissProblem, geometry:describe,
+//           marks:dismissProblem, geometry:describe, geometry:measure,
 //           scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:readPhoto, objects:create, objects:onboard, objects:taken, show:cards, show:thumbnail, export:plan, export:save
@@ -821,6 +821,16 @@ export function registerIpc(
       return await requireWorkspace().builds.describe<Described>(String(objectId), layout, ref)
     } catch (e) {
       // A plain message: the renderer shows it, and a KernelError would cross with its class name in front.
+      throw new Error(e instanceof Error ? e.message : String(e))
+    }
+  })
+  // A measurement the person takes and does not keep: the kernel's value on the last build, with a dimension's
+  // refusals, and nothing written. It is told to no one: keeping it is `marks:add`, which measures it again.
+  handle('geometry:measure', async (_event, objectId: string, probe: MeasureProbe): Promise<MeasuredOnce> => {
+    try {
+      return await measureOnce(measuring(requireMarks()), String(objectId), probe)
+    } catch (e) {
+      if (e instanceof Refusal) throw e
       throw new Error(e instanceof Error ? e.message : String(e))
     }
   })

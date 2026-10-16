@@ -1,4 +1,25 @@
+import type { Anchor, MeasureKind } from './marks'
+
 type Vec3 = [number, number, number]
+
+/**
+ * A measurement the person takes with the Measure tool and does not keep (`geometry.measure`): its kind, the
+ * layout, the build its ends' refs are of, and its ends as a dimension's would be. Nothing of it is written.
+ */
+export interface MeasureProbe {
+  measure: MeasureKind
+  layout: string
+  revision: number
+  a: Anchor
+  b?: Anchor
+}
+
+/** What the kernel measured of a `MeasureProbe`: its value in full, how it was taken, and the build it is of. */
+export interface MeasuredOnce {
+  value: number
+  how: string
+  revision: number
+}
 
 /**
  * What the kernel says of a part, a face or an edge: its `describe` reply
