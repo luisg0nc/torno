@@ -28,6 +28,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, BinaryIO
 
+from . import machmem
 from . import worker as worker_module
 from .frames import write_frame
 
@@ -338,7 +339,8 @@ class Supervisor:
         (ROOM_LEAST at least) and ROOM_SPARE: a worker is forked from here and
         shares nothing with the one before it. The other folders' workers go
         first, the least recently used first, then the folder's own. Nothing
-        goes when memory cannot be read. Files of /proc are read, no more.
+        goes when memory cannot be read. On Linux two files of /proc are read; on macOS Mach
+        is asked for the VM statistics and libproc for the worker's resident size. Nothing else.
 
         Nor does anything go with ``TORNO_KEEP_BUILDS=1`` in the environment:
         the switch of torno's own test suites, whose builds must not depend on
@@ -427,6 +429,7 @@ class Supervisor:
         # Whatever is buffered here would otherwise be written again by the child.
         sys.stdout.flush()
         sys.stderr.flush()
+        parent = os.getpid()  # read before the fork: a worker's getppid() may already be 1
         pid = os.fork()
         if pid == 0:
             try:
@@ -435,7 +438,7 @@ class Supervisor:
                 for live in self._live.values():
                     live.sock.close()
             finally:
-                worker_module.run(theirs, capture.fileno(), dir, model)
+                worker_module.run(theirs, capture.fileno(), dir, model, parent)
         theirs.close()
         ours.setblocking(False)
         now = time.monotonic()
@@ -616,7 +619,12 @@ def _no_room(dir: str) -> str:
 
 
 def _available() -> int | None:
-    """The memory a new process could have, in bytes: MemAvailable. None if it cannot be read."""
+    """The memory a new process could have, in bytes: MemAvailable (on macOS, free and inactive pages).
+
+    None if it cannot be read.
+    """
+    if sys.platform == "darwin":
+        return machmem.available()
     return _kilobytes(f"{_PROC}/meminfo", "MemAvailable:")
 
 
@@ -624,8 +632,10 @@ def _rss(pid: int) -> int | None:
     """The memory a process holds, in bytes: its VmRSS. None if it cannot be read.
 
     Of ``status``, which anyone may read of a worker that set PR_SET_DUMPABLE
-    to 0 (``smaps_rollup`` may not be).
+    to 0 (``smaps_rollup`` may not be). On macOS, the resident size libproc tells.
     """
+    if sys.platform == "darwin":
+        return machmem.rss(pid)
     return _kilobytes(f"{_PROC}/{pid}/status", "VmRSS:")
 
 

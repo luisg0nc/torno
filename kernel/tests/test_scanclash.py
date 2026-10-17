@@ -2,6 +2,7 @@
 
 import math
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -1002,6 +1003,9 @@ def test_no_more_pairs_are_asked_for_at_a_time_than_fit_and_the_answer_is_the_sa
     assert kind == "bad_request" and "too dense" in message
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="the bound is RLIMIT_DATA, which macOS does not enforce for mmap (and VmData is Linux's)"
+)
 def test_within_two_gigabytes_a_scan_with_a_triangle_30_m_long_is_answered(tmp_path):
     import json
     import subprocess

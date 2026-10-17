@@ -1,10 +1,13 @@
 """Drives ``python -m torno_kernel`` as a subprocess through the frame codec."""
 
+import ctypes
 import io
 import json
 import math
 import os
 import platform
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -1582,7 +1585,7 @@ def test_a_build_lets_nothing_go_when_memory_cannot_be_read(routed, monkeypatch,
     assert not gone(live.pid) and not gone(other.pid)
 
 
-def test_memory_is_read_from_proc_and_of_a_worker_that_cannot_be_dumped(fresh, ws):
+def test_memory_is_read_of_the_system_and_of_a_worker(fresh, ws):
     from torno_kernel import supervisor
 
     available = supervisor._available()
@@ -1591,13 +1594,14 @@ def test_memory_is_read_from_proc_and_of_a_worker_that_cannot_be_dumped(fresh, w
     id = fresh.send("build", dir=str(ws / "bracket"), model="bracket.py")
     started, _ = fresh.recv(5)
     assert fresh.recv(20)[0]["ok"] is True
-    # The worker set PR_SET_DUMPABLE 0: its status is still anyone's to read.
+    # On Linux the worker set PR_SET_DUMPABLE 0: its status is still anyone's to read.
     assert 50 << 20 < supervisor._rss(started["pid"]) < 4 * GIB
     assert started == {"id": id, "event": "build.started", "pid": started["pid"], "retired": []}
     fresh.close()
     assert supervisor._rss(started["pid"]) is None
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="/proc is Linux's")
 def test_memory_that_proc_does_not_say_is_none(monkeypatch, tmp_path):
     from torno_kernel import supervisor
 
@@ -1613,3 +1617,125 @@ def test_memory_that_proc_does_not_say_is_none(monkeypatch, tmp_path):
     assert supervisor._available() is None
     (tmp_path / "meminfo").unlink()
     assert supervisor._available() is None
+
+
+# Memory on macOS (Mach and libproc, by ctypes)
+
+
+def test_the_structs_of_the_mach_calls_are_the_size_of_the_headers():
+    # Held on every platform: a field out of place is found on Linux, not on a runner.
+    from torno_kernel import machmem
+
+    assert ctypes.sizeof(machmem.VmStatistics64) == 152
+    assert machmem.HOST_VM_INFO64_COUNT == 38
+    assert ctypes.sizeof(machmem.ProcTaskInfo) == 96
+    assert machmem.ProcTaskInfo.pti_resident_size.offset == 8
+    assert machmem.VmStatistics64.inactive_count.offset == 8
+    assert machmem.VmStatistics64.zero_fill_count.offset == 16
+    assert machmem.VmStatistics64.total_uncompressed_pages_in_compressor.offset == 144
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Mach and libproc are macOS's")
+def test_on_macos_the_available_memory_is_some_and_no_more_than_the_machine_has():
+    from torno_kernel import supervisor
+
+    total = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+    assert 0 < supervisor._available() <= total
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Mach and libproc are macOS's")
+def test_on_macos_the_resident_size_of_a_process_is_told_and_grows_with_what_it_touches():
+    from torno_kernel import supervisor
+
+    assert supervisor._rss(os.getpid()) > 1 << 20
+    read, write = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        try:
+            os.close(read)
+            before = supervisor._rss(os.getpid())
+            block = bytearray(200 << 20)
+            for i in range(0, len(block), 4096):
+                block[i] = 1
+            os.write(write, f"{before} {supervisor._rss(os.getpid())}".encode())
+        finally:
+            os._exit(0)
+    os.close(write)
+    try:
+        before, after = (int(n) for n in os.read(read, 64).decode().split())
+        assert 150 << 20 < after - before < 260 << 20
+        assert supervisor._rss(pid) is not None
+    finally:
+        os.close(read)
+        os.waitpid(pid, 0)
+    assert supervisor._rss(pid) is None
+
+
+# A worker dies with the supervisor
+
+
+def stat_of(pid: int) -> str | None:
+    done = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True)
+    return done.stdout.strip() or None
+
+
+def gone_or_zombie(pid: int) -> bool:
+    # Nobody may reap an orphan in a container; a zombie is dead all the same.
+    return stat_of(pid) in (None, "") or stat_of(pid).startswith("Z")
+
+
+def wait_until(condition, seconds: float) -> bool:
+    give_up = time.monotonic() + seconds
+    while not condition():
+        if time.monotonic() > give_up:
+            return False
+        time.sleep(0.05)
+    return True
+
+
+def test_a_worker_that_watches_its_parent_leaves_when_the_parent_is_killed():
+    # The watcher macOS needs, run here too: kqueue where there is, polling where not.
+    inner = (
+        "import sys, threading, time\n"
+        "from torno_kernel import worker\n"
+        "threading.Thread(target=worker._watch_parent, args=(int(sys.argv[1]),), daemon=True).start()\n"
+        "time.sleep(60)\n"
+    )
+    outer = (
+        "import os, subprocess, sys, time\n"
+        "child = subprocess.Popen([sys.executable, '-c', sys.argv[1], str(os.getpid())])\n"
+        "print(child.pid, flush=True)\n"
+        "time.sleep(60)\n"
+    )
+    parent = subprocess.Popen([sys.executable, "-c", outer, inner], stdout=subprocess.PIPE, text=True)
+    try:
+        child = int(parent.stdout.readline())
+        time.sleep(0.5)
+        assert not gone_or_zombie(child)
+        parent.kill()
+        parent.wait()
+        assert wait_until(lambda: gone_or_zombie(child), 5)
+    finally:
+        parent.kill()
+        parent.wait()
+
+
+def test_a_worker_watching_a_parent_that_is_not_there_leaves_at_once():
+    from torno_kernel import worker
+
+    left = []
+    dead = subprocess.Popen([sys.executable, "-c", "pass"])
+    dead.wait()
+    worker._watch_parent(dead.pid, left.append)
+    assert left == [0]
+
+
+def test_workers_die_with_the_supervisor_when_it_is_killed(fresh, ws):
+    id = fresh.send("build", dir=str(ws / "slow"), model="slow.py", timeout=120)
+    started, _ = fresh.recv(5)
+    assert started["event"] == "build.started"
+    time.sleep(1)
+    assert not gone_or_zombie(started["pid"])
+    fresh.proc.kill()
+    fresh.proc.wait()
+    assert wait_until(lambda: gone_or_zombie(started["pid"]), 10)

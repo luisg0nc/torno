@@ -111,7 +111,8 @@ is the detail of this folder, under the headings it has there.
   queried, whose queries are then `no_build`. Fewer stay when memory is
   short: before a build is forked the supervisor reads `MemAvailable`
   (`/proc/meminfo`) and the `VmRSS` of the folder's live worker
-  (`/proc/<pid>/status`), takes the build to need that (`ROOM_LEAST`, 2 GiB,
+  (`/proc/<pid>/status`); on macOS it asks Mach for the VM statistics (free and inactive pages) and libproc
+  for the worker's resident size, by ctypes alone (`machmem.py`), and nothing else of the system. It takes the build to need that (`ROOM_LEAST`, 2 GiB,
   at least) and `ROOM_SPARE` (2 GiB) more, and while less is available
   retires the live workers of other folders, least recently used first, then
   the folder's own (`Supervisor._make_room`). `build.started` carries
@@ -128,7 +129,11 @@ is the detail of this folder, under the headings it has there.
   A worker leaves through `os._exit`.
 - **prctl.** Each worker sets `PR_SET_PDEATHSIG` to SIGKILL, so it dies with
   the supervisor even when that is killed, and `PR_SET_DUMPABLE` to 0, so a
-  crashing model does not wait seconds on a core dump.
+  crashing model does not wait seconds on a core dump. macOS has no prctl: there a worker sets
+  `RLIMIT_CORE` to 0 and starts a daemon thread (`worker._watch_parent`) that waits with kqueue for the
+  supervisor's exit (polling `getppid()` where there is no kqueue) and then calls `os._exit(0)`. The
+  supervisor's pid is read before the fork and passed to the worker, so a supervisor that dies in between is
+  still seen. The thread is not a fork and holds no lock a model could want.
 - **Timeouts.** Every build has one: 600 s unless the request names another
   (the app passes `TORNO_BUILD_TIMEOUT`), a day at most; one that is not a
   positive, finite number is a `bad_request`.
