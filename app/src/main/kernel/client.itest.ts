@@ -1,4 +1,5 @@
-import { cpSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { cpSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -29,7 +30,12 @@ afterAll(async () => {
 
 /** The Python process: `uv run` stays as its parent. */
 function pythonPid(uvPid: number): number {
-  const children = readFileSync(`/proc/${uvPid}/task/${uvPid}/children`, 'utf8').trim().split(/\s+/).filter(Boolean)
+  let children: string[] = []
+  try {
+    children = execFileSync('pgrep', ['-P', String(uvPid)], { encoding: 'utf8' }).trim().split(/\s+/).filter(Boolean)
+  } catch {
+    // pgrep exits 1 when there is no child
+  }
   return children.length ? Number(children[0]) : uvPid
 }
 

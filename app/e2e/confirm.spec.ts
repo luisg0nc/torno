@@ -1,8 +1,8 @@
-import { cpSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync } from 'node:fs'
+import { cpSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { inTerminal } from './terminal'
+import { agentsIn, inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
 
 // What torno asks before it ends a session that is in the middle of something:
@@ -56,21 +56,6 @@ async function typeLine(line: string): Promise<void> {
   await page.locator('.session-term textarea').focus()
   await page.keyboard.type(line)
   await page.keyboard.press('Enter')
-}
-
-/** The stand-in agents running in a folder, by pid. */
-function agentsIn(dir: string): number[] {
-  const found: number[] = []
-  for (const entry of readdirSync('/proc')) {
-    if (!/^\d+$/.test(entry)) continue
-    try {
-      if (!readFileSync(`/proc/${entry}/cmdline`, 'utf8').includes('fake-agent.mjs')) continue
-      if (readlinkSync(`/proc/${entry}/cwd`) === dir) found.push(Number(entry))
-    } catch {
-      // Gone meanwhile, or not ours to read.
-    }
-  }
-  return found
 }
 
 /** What "Open folder" will be answered with, and how often it has been asked. */

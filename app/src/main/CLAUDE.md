@@ -281,7 +281,7 @@ is the detail of this folder, under the headings it has there. Paths are from `a
 ## The first screen
 
 - The folders opened lately are `recent` in torno's own config file
-  (`~/.config/torno/config.json`, or `TORNO_CONFIG`; `src/main/recent.ts`):
+  (`~/.config/torno/config.json`, on macOS `~/Library/Application Support/torno/config.json`, or `TORNO_CONFIG`; `src/main/recent.ts`):
   the newest first, eight at most, beside `workspace`. Never in a workspace.
   One that is no longer a folder is shown struck and leaves the list only
   when the person removes it. A test run reads and writes no config file but
@@ -805,3 +805,17 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   the answer holds `sessionId`, the text and a `problem`.
 - Tested: `onboard.test.ts` (the text, the pictures, the rules) and `onboard.itest.ts` (the stand-in agent, the real scan
   import: one prompt with its pictures, the scan in `scans.json`, the hook's context, a missing command).
+
+## macOS
+
+- **The menu** (`menu.ts` `menuTemplate(platform, actions)`) is pure and `null` but on darwin, where `index.ts`
+  builds it; elsewhere `Menu.setApplicationMenu(null)` stays (a lone Alt shows the bar on Linux). On darwin: the app
+  menu, `editMenu`, `windowMenu`. Quit is no role: it closes the window (so the "Close torno?" question holds) and
+  quits only when there is none; the Dock's Quit and a logout come as `before-quit` and are not held. No Close, no View.
+- **PATH** (`loginPath.ts`): on darwin, not under `TORNO_TEST=1`, `applyLoginPath()` asks `$SHELL -ilc` for its PATH
+  (5 s, then killed) before the first workspace opens, and sets `process.env.PATH` (`mergedPath`: shell, current, then
+  the usual folders that exist). Failure is one stderr line with the shell's path and nothing of its output.
+- **Paths from a process are real paths** (`sessions/inside.ts` `isInsideFolder`): whether an edited file is inside the
+  object compares real paths (the nearest existing folder for a file not written yet). The example is copied under
+  `realpathSync(tmpdir())`. What is stored (`recent`, `config.json`) keeps the path as it was opened.
+- `scripts/node-pty-exec.mjs` (the app's `postinstall`) gives node-pty's darwin `spawn-helper` its execute bit.

@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build && node scripts/build-viewer.mjs",
+    "postinstall": "node scripts/node-pty-exec.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:kernel": "vitest run --mode kernel --passWithNoTests",
