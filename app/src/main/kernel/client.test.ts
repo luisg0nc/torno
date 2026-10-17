@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -106,7 +106,7 @@ describe('kernel client', () => {
 
   it('runs the kernel in the workspace root', async () => {
     const result = await start().build('/ws/a', 'a.py')
-    expect(result.ok && result.scene.output).toBe(tmpdir())
+    expect(result.ok && result.scene.output).toBe(realpathSync(tmpdir()))
   })
 
   it('resolves a failed build with its error rather than rejecting', async () => {

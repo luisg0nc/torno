@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameOf, openProblem } from './welcome'
+import { nameOf, openProblem } from './openFolder'
 
 describe('the first screen', () => {
   it('names a folder by its last part, trailing separators and all', () => {

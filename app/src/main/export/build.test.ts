@@ -74,7 +74,7 @@ const SCAN_MESH = scanMesh()
 const SCAN = {
   id: 'S1',
   name: 'Car.glb',
-  source: { path: '/home/someone/Downloads/Car.glb', bytes: 1, mtimeMs: 1, sha256: 'abc' },
+  source: { path: '/home/someone/Downloads/Car.glb', bytes: 1, mtimeMs: 1, sha256: 'zq9-sha-marker' },
   imported: { unit: 'mm', up: 'z', assumed: { unit: false, up: false }, vertices: 50451, triangles: 100_000, colours: 'vertex', bbox: { min: [0, 0, 0], max: [250, 200, 3] }, area: 50000, at: '' },
   alignments: { assembly: { transform: { t: [1, 2, 3], q: [0, 0, 0, 1], s: 1 }, steps: ['typed'], frame: {}, at: '' } },
   sourceState: 'present',
@@ -147,7 +147,7 @@ describe('exportData', () => {
     expect(object.scans![0].triangles).toBeLessThanOrEqual(60_000)
     expect(object.scans![0].triangles).toBeGreaterThan(20_000)
     const text = JSON.stringify(data)
-    for (const secret of ['/home/', 'Downloads', 'sha256', 'abc', 'number plate', 'part that is gone']) expect(text).not.toContain(secret)
+    for (const secret of ['/home/', 'Downloads', 'sha256', 'zq9-sha-marker', 'number plate', 'part that is gone']) expect(text).not.toContain(secret)
   })
 
   it('gives a dimension no value and no verdict that is not of the build exported', async () => {
