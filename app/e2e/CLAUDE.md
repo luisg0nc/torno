@@ -19,7 +19,8 @@ window on it.
   Electron without that variable must give it a `--user-data-dir` of its own.
 - Never pass `--ozone-platform=headless`: Electron segfaults with it here.
   `scripts/torno` never passes a platform when `TORNO_TEST=1`, and refuses
-  `headless` whoever asks (`TORNO_OZONE` is `wayland` or `x11`, or unset).
+  `headless` whoever asks (`TORNO_OZONE` is `wayland` or `x11`, or unset; on
+  macOS it is never passed at all).
 - No test and no check runs `scripts/torno --install-desktop` or
   `--uninstall-desktop` with the person's own `HOME` or `XDG_DATA_HOME`:
   `src/launcher.test.ts` gives the script a temporary one of each. The entry

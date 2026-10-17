@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterAll, expect, it } from 'vitest'
@@ -8,6 +8,9 @@ import { readPng } from './test/pngRead'
 const scripts = resolve(__dirname, '../../scripts')
 const script = join(scripts, 'torno')
 const made: string[] = []
+const darwin = process.platform === 'darwin'
+/** Desktop entries are freedesktop's: on macOS the script refuses them, and the tests of their contents are skipped there. */
+const linuxOnly = it.skipIf(darwin)
 afterAll(() => {
   for (const dir of made) rmSync(dir, { recursive: true, force: true })
 })
@@ -33,8 +36,18 @@ it('says the command it would start, with a platform only when one is asked for,
   expect(lines[0].endsWith('/app/node_modules/.bin/electron')).toBe(true)
   expect(lines[1].endsWith('/app')).toBe(true)
   expect(lines).toHaveLength(2)
-  expect(run(['--print-command'], { TORNO_OZONE: 'wayland' }).stdout.trim().split('\n').at(-1)).toBe('--ozone-platform=wayland')
-  expect(run(['--print-command'], { TORNO_OZONE: 'x11' }).stdout.trim().split('\n').at(-1)).toBe('--ozone-platform=x11')
+  if (darwin) {
+    // Electron has one platform there: a valid value is ignored, with a line on stderr, and not under the test switch.
+    for (const value of ['wayland', 'x11']) {
+      const ignored = run(['--print-command'], { TORNO_OZONE: value })
+      expect([ignored.status, ignored.stdout]).toEqual([0, plain.stdout])
+      expect(ignored.stderr).toBe('torno: TORNO_OZONE is for Linux; on macOS Electron has one platform, and it is ignored\n')
+    }
+    expect(run(['--print-command'], { TORNO_OZONE: 'x11', TORNO_TEST: '1' }).stderr).toBe('')
+  } else {
+    expect(run(['--print-command'], { TORNO_OZONE: 'wayland' }).stdout.trim().split('\n').at(-1)).toBe('--ozone-platform=wayland')
+    expect(run(['--print-command'], { TORNO_OZONE: 'x11' }).stdout.trim().split('\n').at(-1)).toBe('--ozone-platform=x11')
+  }
   // Never with the test switch, whatever is asked.
   expect(run(['--print-command'], { TORNO_OZONE: 'wayland', TORNO_TEST: '1' }).stdout).not.toContain('ozone')
   // With a folder it is the same command: the folder goes in the environment. One that is no folder is refused as at a start.
@@ -58,7 +71,16 @@ it('refuses the headless platform, and any other it does not know, before it doe
   expect(run(['--print-desktop'], { TORNO_OZONE: 'headless' }).status).toBe(2)
 })
 
-it('prints a desktop entry that starts this script with the folder it is given, and writes nothing for the asking', () => {
+it.runIf(darwin)('refuses desktop entries on macOS, with code 2, and writes nothing', () => {
+  for (const option of ['--print-desktop', '--install-desktop', '--uninstall-desktop']) {
+    const refused = run([option])
+    expect([option, refused.status, refused.stdout]).toEqual([option, 2, ''])
+    expect(refused.stderr).toBe('torno: desktop entries are for Linux; on macOS make torno.app with pnpm dist:mac (README, Run)\n')
+    expect(files(refused.home)).toEqual([])
+  }
+})
+
+linuxOnly('prints a desktop entry that starts this script with the folder it is given, and writes nothing for the asking', () => {
   const printed = run(['--print-desktop'])
   expect(printed.status).toBe(0)
   const lines = printed.stdout.trim().split('\n')
@@ -78,7 +100,7 @@ it('prints a desktop entry that starts this script with the folder it is given, 
   expect(files(printed.home)).toEqual([])
 })
 
-it('quotes a path the desktop entry could misread', () => {
+linuxOnly('quotes a path the desktop entry could misread', () => {
   // A copy of the launcher in a folder whose name has a space, a dollar, a quote, a backslash and a per cent.
   const odd = mkdtempSync(join(tmpdir(), 'torno launcher $HOME "q" 50% \\-'))
   made.push(odd)
@@ -92,7 +114,7 @@ it('quotes a path the desktop entry could misread', () => {
   expect(printed.stdout.split('\n')).toContain(`Icon=${`${odd}/scripts/torno.svg`.replace(/\\/g, '\\\\')}`)
 })
 
-it('installs one file, under the data folder it is given, after saying what, and takes it away again', () => {
+linuxOnly('installs one file, under the data folder it is given, after saying what, and takes it away again', () => {
   const installed = run(['--install-desktop'])
   expect(installed.status).toBe(0)
   const entry = join(installed.home, 'data', 'applications', 'torno.desktop')
@@ -117,7 +139,7 @@ it('installs one file, under the data folder it is given, after saying what, and
   expect(files(home)).toEqual([])
 })
 
-it('installs nothing as root, nor without a home', () => {
+linuxOnly('installs nothing as root, nor without a home', () => {
   // An `id` that says root, first on the PATH: the script is not run as root to see this.
   const bin = mkdtempSync(join(tmpdir(), 'torno-launcher-bin-'))
   made.push(bin)
@@ -260,7 +282,7 @@ it('prints the folder with the command it would start: all of what is started', 
   expect(plain.stdout).not.toContain('TORNO_WORKSPACE')
 })
 
-it('says so when it replaces an entry that is there', () => {
+linuxOnly('says so when it replaces an entry that is there', () => {
   const first = run(['--install-desktop'])
   expect(first.stdout).toContain('torno: writing ')
   const again = spawnSync('sh', [script, '--install-desktop'], { encoding: 'utf8', env: { PATH: process.env.PATH ?? '', HOME: first.home, XDG_DATA_HOME: join(first.home, 'data') } })
@@ -270,7 +292,7 @@ it('says so when it replaces an entry that is there', () => {
 
 it('shows what went wrong when it was started from the desktop entry, where nobody reads its errors: a notice, or a log under its own data', () => {
   // The entry says where it was started from; a folder that is none is the failure at hand.
-  expect(run(['--print-desktop']).stdout).toMatch(/^Exec="[^"]*scripts\/torno" --from-desktop %F$/m)
+  if (!darwin) expect(run(['--print-desktop']).stdout).toMatch(/^Exec="[^"]*scripts\/torno" --from-desktop %F$/m)
   const home = mkdtempSync(join(tmpdir(), 'torno-launcher-'))
   made.push(home)
   const bin = join(home, 'bin')
@@ -392,6 +414,37 @@ it('builds again when what a source says changes, and not when only its time doe
   // What the build wrote, gone: built again whatever the stamp says.
   rmSync(join(repo.app, 'out', 'viewer', 'viewer.js'))
   expect(repo.start().built).toBe(true)
+})
+
+it('stamps a checkout with the same hash whichever of sha256sum and shasum is on the PATH, and stops before a build with neither', () => {
+  const found = (tool: string): string | undefined => {
+    const r = spawnSync('sh', ['-c', `command -v ${tool}`], { encoding: 'utf8' })
+    return r.status === 0 ? r.stdout.trim() : undefined
+  }
+  const [gnu, bsd] = [found('sha256sum'), found('shasum')]
+  const stampWith = (tools: Record<string, string>): { stamp: string | null; status: number | null; stderr: string; built: boolean } => {
+    const repo = fakeRepository()
+    // A PATH of links to what a shell needs and to the tools named; nothing else can answer.
+    const bin = join(repo.root, 'tools')
+    mkdirSync(bin)
+    for (const tool of ['sh', 'find', 'sort', 'xargs', 'cut', 'cat', 'mv', 'mkdir', 'touch', 'dirname', 'readlink', 'date', 'id', 'uname', 'perl', 'env']) {
+      const at = found(tool)
+      if (at) symlinkSync(at, join(bin, tool))
+    }
+    symlinkSync(process.execPath, join(bin, 'node'))
+    for (const [name, target] of Object.entries(tools)) symlinkSync(target, join(bin, name))
+    const result = spawnSync('sh', [join(repo.root, 'scripts', 'torno')], { encoding: 'utf8', env: { PATH: `${join(repo.root, 'bin')}:${bin}`, HOME: join(repo.root, 'home') } })
+    const stamp = join(repo.app, 'out', '.built')
+    return { stamp: existsSync(stamp) ? readFileSync(stamp, 'utf8') : null, status: result.status, stderr: result.stderr, built: existsSync(join(repo.root, 'built.log')) }
+  }
+  const none = stampWith({})
+  expect([none.status, none.built, none.stamp]).toEqual([1, false, null])
+  expect(none.stderr).toContain('torno: neither sha256sum nor shasum was found on PATH')
+  if (!gnu || !bsd) return
+  const [withGnu, withBsd] = [stampWith({ sha256sum: gnu }), stampWith({ shasum: bsd })]
+  expect([withGnu.status, withBsd.status]).toEqual([0, 0])
+  expect(withGnu.stamp).toMatch(/^[0-9a-f]{64}\n$/)
+  expect(withBsd.stamp).toBe(withGnu.stamp)
 })
 
 it('keeps no stamp of a build that failed, nor one of sources saved while it ran', () => {

@@ -7,11 +7,12 @@
 # with none, torno opens the one it was last pointed at.
 #
 # TORNO_OZONE=wayland or x11 has Electron told which platform to draw on;
-# unset, Electron chooses. --print-command says what would be started and
+# unset, Electron chooses. (On macOS Electron has one platform: it is ignored.) --print-command says what would be started and
 # starts nothing. --print-desktop prints a desktop entry for this script,
 # --install-desktop writes it, --uninstall-desktop removes it: that one file,
 # under the person's data folder, is all this script ever writes outside the
-# repository, and only when it is asked to by that option.
+# repository, and only when it is asked to by that option. Desktop entries are
+# Linux's: on macOS those three options write nothing and exit 2.
 #
 # --from-desktop is how the desktop entry starts it: nobody reads what a launcher prints, so what goes wrong is
 # then also shown as a notice (notify-send, where there is one) or, failing that, written to
@@ -27,6 +28,9 @@ while [ -L "$self" ]; do
     *) self=$(dirname "$self")/$target ;;
   esac
 done
+# Read once: macOS has no desktop entries and one Electron platform.
+darwin=
+[ "$(uname -s)" != Darwin ] || darwin=1
 root=$(CDPATH= cd -- "$(dirname -- "$self")/.." && pwd -P)
 app=$root/app
 
@@ -58,11 +62,11 @@ usage() {
   echo "       torno --print-desktop | --install-desktop | --uninstall-desktop"
   echo "  workspace            a folder of objects to open (default: the one opened last)"
   echo "  --print-command      print the command that would be started, one argument a line, and start nothing"
-  echo "  --print-desktop      print the desktop entry for this script, and write nothing"
-  echo "  --install-desktop    write that entry to \${XDG_DATA_HOME:-~/.local/share}/applications/torno.desktop"
-  echo "  --uninstall-desktop  remove it"
+  echo "  --print-desktop      Linux only: print the desktop entry for this script, and write nothing"
+  echo "  --install-desktop    Linux only: write that entry to \${XDG_DATA_HOME:-~/.local/share}/applications/torno.desktop"
+  echo "  --uninstall-desktop  Linux only: remove it (on macOS the three are refused: make torno.app with pnpm dist:mac)"
   echo "  --from-desktop       first, as the desktop entry gives it: errors are also shown as a notice, or logged"
-  echo "  TORNO_OZONE          wayland or x11: the platform Electron is told to draw on (default: Electron chooses)"
+  echo "  TORNO_OZONE          Linux only: wayland or x11, the platform Electron is told to draw on (default: Electron chooses; ignored on macOS)"
 }
 
 # How it is used, whatever else is asked or set: the help is where TORNO_OZONE is explained.
@@ -78,7 +82,13 @@ esac
 ozone=
 case ${TORNO_OZONE-} in
   '') ;;
-  wayland | x11) [ "${TORNO_TEST-}" = 1 ] || ozone=--ozone-platform=$TORNO_OZONE ;;
+  wayland | x11)
+    if [ -n "$darwin" ]; then
+      [ "${TORNO_TEST-}" = 1 ] || echo "torno: TORNO_OZONE is for Linux; on macOS Electron has one platform, and it is ignored" >&2
+    else
+      [ "${TORNO_TEST-}" = 1 ] || ozone=--ozone-platform=$TORNO_OZONE
+    fi
+    ;;
   *)
     complain "TORNO_OZONE must be wayland or x11 (headless is not supported: Electron crashes with it here)"
     exit 2
@@ -120,6 +130,10 @@ case ${1-} in
     shift
     ;;
   --print-desktop | --install-desktop | --uninstall-desktop)
+    if [ -n "$darwin" ]; then
+      echo "torno: desktop entries are for Linux; on macOS make torno.app with pnpm dist:mac (README, Run)" >&2
+      exit 2
+    fi
     if [ $# -gt 1 ]; then
       echo "torno: $1 takes nothing after it" >&2
       exit 2
@@ -214,10 +228,19 @@ fi
 # one as it was builds nothing, and any change of one, a file added, removed or renamed among them, builds
 # again. The build's own files will not do as a stamp, since the main bundle is written before the renderer is
 # compiled, and a build that then fails would leave it looking fresh. Tests and notes are not built.
+# The hash tool, chosen once: sha256sum (GNU), else shasum (macOS, in /usr/bin). Both print `<hash>  <name>`.
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256=sha256sum
+elif command -v shasum >/dev/null 2>&1; then
+  sha256='shasum -a 256'
+else
+  complain "neither sha256sum nor shasum was found on PATH"
+  exit 1
+fi
 sources() {
   (cd "$root" && find app/src app/scripts app/package.json app/electron.vite.config.ts app/tsconfig.json pnpm-lock.yaml \
     -type f ! -name '*.test.ts' ! -name '*.test.tsx' ! -name '*.itest.ts' ! -name 'CLAUDE.md' -print0 |
-    LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1)
+    LC_ALL=C sort -z | xargs -0 $sha256 | $sha256 | cut -d ' ' -f 1)
 }
 stamp=$app/out/.built
 held=$(sources)
