@@ -1,0 +1,66 @@
+name: macOS
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore: ['docs/**']
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**']
+  workflow_dispatch:
+    inputs:
+      e2e:
+        description: Also run the Playwright suite
+        type: boolean
+        default: false
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: kernel/uv.lock
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -C app typecheck
+      - name: App unit tests
+        if: ${{ !cancelled() }}
+        run: pnpm test
+      - name: Kernel tests
+        if: ${{ !cancelled() }}
+        working-directory: kernel
+        run: uv run --locked pytest -q
+      - name: App against the kernel
+        if: ${{ !cancelled() }}
+        run: pnpm test:kernel
+      - name: End to end
+        id: e2e
+        if: ${{ !cancelled() && inputs.e2e }}
+        run: pnpm test:e2e
+      - name: Upload e2e results
+        if: ${{ !cancelled() && steps.e2e.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: app/e2e/.results

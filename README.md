@@ -1210,6 +1210,8 @@ pnpm test:e2e      # the built app in a hidden window (Playwright)
 (cd kernel && uv run pytest -q)   # the kernel alone (pytest)
 ```
 
+GitHub Actions runs the suites on macOS (`.github/workflows/macos.yml`), with the e2e suite only when asked.
+
 No test opens a window, and none runs a real agent CLI: a stand-in
 (`app/test/fake-agent.mjs`) takes its place. Under test Electron keeps its own
 files (cache, storage, crash dumps) in a folder of the run in the temporary
