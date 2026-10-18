@@ -26,7 +26,7 @@ export function menuTemplate(platform: NodeJS.Platform, actions: MenuActions): M
         { role: 'hideOthers' },
         { role: 'unhide' },
         { type: 'separator' },
-        { label: 'Quit torno', accelerator: 'Command+Q', click: () => actions.quit() }
+        { id: 'quit', label: 'Quit torno', accelerator: 'Command+Q', click: () => actions.quit() }
       ]
     },
     { role: 'editMenu' },

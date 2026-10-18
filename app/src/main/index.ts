@@ -167,6 +167,8 @@ function createWindow(): BrowserWindow {
     width: 1440,
     height: 900,
     show: false,
+    // A hidden test window keeps its size where the display is smaller (macOS clamps it otherwise).
+    ...(isTest ? { enableLargerThanScreen: true } : {}),
     title: 'torno',
     icon: windowIcon(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? SURFACE.dark : SURFACE.light,

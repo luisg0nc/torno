@@ -47,7 +47,19 @@ test('with no folder open, the window is one prompt with its ways in', async () 
   }
 })
 
+test('on macOS the menu has Edit, Window and a Quit that is no role', async () => {
+  test.skip(process.platform !== 'darwin', 'the application menu is macOS only')
+  const items = await app.evaluate(({ Menu }) => Menu.getApplicationMenu()?.items.map((item) => item.label) ?? [])
+  expect(items).toEqual(expect.arrayContaining(['torno', 'Edit', 'Window']))
+  const quit = await app.evaluate(({ Menu }) => {
+    const found = Menu.getApplicationMenu()?.getMenuItemById('quit') ?? null
+    return found === null ? null : found.role ?? null
+  })
+  expect(quit).toBeNull()
+})
+
 test('there is no menu: a lone Alt has no menu bar to show', async () => {
+  test.skip(process.platform === 'darwin', 'the menu bar is global on macOS, and torno has a menu there')
   const menu = await app.evaluate(({ BrowserWindow, Menu }) => ({
     application: Menu.getApplicationMenu() === null,
     visible: BrowserWindow.getAllWindows()[0].isMenuBarVisible()

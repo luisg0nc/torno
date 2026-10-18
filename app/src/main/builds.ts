@@ -27,17 +27,20 @@ export function watchFolder(dir: string, onChange: OnChange): () => void {
   let timer: NodeJS.Timeout | undefined
   let changed = new Set<string>()
   const realDir = realPathOrNearest(dir)
+  // Paths come as the watcher knows them: by the real path on macOS when `dir` is reached through a link
+  // (`/var` is `/private/var`), so they are taken from whichever of the two the path lies under.
+  const isIgnored = (path: string): boolean => {
+    let from = relative(dir, path)
+    if (from.startsWith('..')) from = relative(realDir, path)
+    return from.split(sep).some((part) => IGNORED_FOLDERS.has(part) || (part.startsWith('.') && part !== '..'))
+  }
   const watcher = chokidarWatch(dir, {
     ignoreInitial: true,
-    // Paths come as the watcher knows them: by the real path on macOS when `dir` is reached through a link
-    // (`/var` is `/private/var`), so they are taken from whichever of the two the path lies under.
-    ignored: (path) => {
-      let from = relative(dir, path)
-      if (from.startsWith('..')) from = relative(realDir, path)
-      return from.split(sep).some((part) => IGNORED_FOLDERS.has(part) || (part.startsWith('.') && part !== '..'))
-    }
+    ignored: (path) => isIgnored(path)
   })
-  watcher.on('all', (_event, path) => {
+  watcher.on('all', (event, path) => {
+    // FSEvents may tell of a change in a folder that was ignored, and of the watched folder itself.
+    if (isIgnored(path) || (event === 'change' && (path === dir || path === realDir))) return
     changed.add(path)
     clearTimeout(timer)
     timer = setTimeout(() => {
