@@ -1022,6 +1022,11 @@ describe('watchFolder', () => {
     const bursts: string[][] = []
     stop = watchFolder(path, (paths) => bursts.push(paths))
     await sleep(150) // let the watcher settle on what is already there
+    if (process.platform === 'darwin') {
+      // FSEvents replays what was written just before the watch began (the files this test made): let it, and drop it.
+      await sleep(700)
+      bursts.length = 0
+    }
     return { changes: () => bursts.length, paths: () => bursts }
   }
 
@@ -1067,7 +1072,6 @@ describe('watchFolder', () => {
     writeFileSync(join(dir, 'obj', '__pycache__', 'model.cpython-312.pyc'), 'b')
     writeFileSync(join(dir, 'obj', '.model.py.swp'), 'c')
     await sleep(600)
-    expect(paths()).toEqual([])
     expect(changes()).toBe(0)
   })
 
