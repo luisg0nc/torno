@@ -40,6 +40,9 @@ QUERY_TIMEOUT = 30.0  # seconds a live worker has to answer a query
 # when that is less or there is none, and ROOM_SPARE on top.
 ROOM_LEAST = 2 << 30
 ROOM_SPARE = 2 << 30
+# Buffers of a worker's socketpair on macOS, each way. macOS gives a Unix socketpair about 8 KB, where Linux gives
+# about 200 KB; moving a 64 MiB mesh took 149 ms there against 10 ms with 1 MiB (4 MiB: 9 ms against 1 ms).
+SOCKET_BUFFER = 1 << 20
 _PROC = "/proc"
 OUTPUT_LINES = 200
 _OUTPUT_TAIL_BYTES = 1 << 20
@@ -425,6 +428,10 @@ class Supervisor:
 
     def _fork(self, id: Any, dir: str, model: str, timeout: float) -> _Worker:
         ours, theirs = socket.socketpair()
+        if sys.platform == "darwin":
+            for end in (ours, theirs):
+                end.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SOCKET_BUFFER)
+                end.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER)
         capture = tempfile.TemporaryFile()
         # Whatever is buffered here would otherwise be written again by the child.
         sys.stdout.flush()

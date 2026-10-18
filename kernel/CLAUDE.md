@@ -135,6 +135,9 @@ is the detail of this folder, under the headings it has there.
   supervisor's exit (polling `getppid()` where there is no kqueue) and then calls `os._exit(0)`. The
   supervisor's pid is read before the fork and passed to the worker, so a supervisor that dies in between is
   still seen. The thread is not a fork and holds no lock a model could want.
+- **Socket buffers.** On macOS the supervisor sets `SO_SNDBUF` and `SO_RCVBUF` of both ends of each worker's
+  socketpair to `SOCKET_BUFFER` (1 MiB) before the fork: macOS gives about 8 KB, and a 64 MiB mesh then took
+  149 ms to pass against 10 ms. Linux's are left as they are.
 - **Timeouts.** Every build has one: 600 s unless the request names another
   (the app passes `TORNO_BUILD_TIMEOUT`), a day at most; one that is not a
   positive, finite number is a `bad_request`.

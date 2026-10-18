@@ -6,6 +6,7 @@ import json
 import math
 import os
 import platform
+import signal
 import subprocess
 import sys
 import threading
@@ -1738,3 +1739,19 @@ def test_workers_die_with_the_supervisor_when_it_is_killed(fresh, ws):
     fresh.proc.kill()
     fresh.proc.wait()
     assert wait_until(lambda: gone_or_zombie(started["pid"]), 10)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS gives a Unix socketpair about 8 KB; Linux's is large")
+def test_on_macos_a_workers_socket_has_buffers_of_a_mebibyte_each_way(routed, ws):
+    import socket
+
+    from torno_kernel import supervisor
+
+    worker = routed.supervisor._fork("t", str(ws / "slow"), "slow.py", 60)
+    try:
+        for option in (socket.SO_SNDBUF, socket.SO_RCVBUF):
+            assert worker.sock.getsockopt(socket.SOL_SOCKET, option) >= supervisor.SOCKET_BUFFER
+    finally:
+        os.kill(worker.pid, signal.SIGKILL)
+        os.waitpid(worker.pid, 0)
+        worker.sock.close()
