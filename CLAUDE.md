@@ -24,7 +24,10 @@ says what it does and how to run it; the design is
   `--install-desktop` and `--uninstall-desktop` write and remove one file,
   `torno.desktop` under the person's data folder, the only thing the script
   writes outside the repository; `TORNO_OZONE` (`wayland` or `x11`) is the one
-  way a platform is passed to Electron (`src/launcher.test.ts`).
+  way a platform is passed to Electron (`src/launcher.test.ts`). The stamp is hashed with `sha256sum`, or else
+  `shasum -a 256`, which a Mac has (the same text, so the same hash; neither on the PATH is an error before any
+  build). On macOS (Darwin) `TORNO_OZONE` is checked as ever but then ignored with a line on stderr (none under
+  `TORNO_TEST=1`), and the three desktop options write nothing and exit 2.
   The icon is `scripts/torno.svg` (a bench vise holding a part; `torno-16.svg` is its drawing for 16 px); the
   window's `app/resources/icon.png` is made from it with `resvg -w 512 -h 512`, and `ui/Logo.tsx` draws both
   in the window. `src/launcher.test.ts` holds the three to one drawing: change the SVG, render the PNG again.

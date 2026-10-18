@@ -59,7 +59,7 @@ pnpm start [folder]         # the same, from the repository
 
 ```sh
 scripts/torno --print-command [folder]   # the command it would start, one argument a line, the folder first as TORNO_WORKSPACE=…; starts nothing
-scripts/torno --print-desktop            # the desktop entry for this copy of torno; writes nothing
+scripts/torno --print-desktop            # Linux only (macOS: see below). The desktop entry for this copy of torno; writes nothing
 scripts/torno --install-desktop          # writes it: ~/.local/share/applications/torno.desktop, and nothing else
 scripts/torno --uninstall-desktop        # removes that file
 TORNO_OZONE=wayland scripts/torno        # or x11: the platform Electron is told to draw on
@@ -94,7 +94,13 @@ does not come up, or comes up wrong, `TORNO_OZONE=wayland` or `TORNO_OZONE=x11`
 has the launcher pass `--ozone-platform` for it. Any other value is refused,
 `headless` among them: Electron crashes with it here.
 
-`--install-desktop` writes one file and only when you run it: `torno.desktop`
+On macOS Electron has one platform: `TORNO_OZONE` is checked but then ignored,
+with a line on stderr, and `--print-desktop`, `--install-desktop` and
+`--uninstall-desktop` write nothing and exit 2 (make `torno.app` with
+`pnpm dist:mac` instead). The launcher hashes the sources with `sha256sum` or,
+failing that, `shasum -a 256`, which a Mac has.
+
+`--install-desktop` (Linux) writes one file and only when you run it: `torno.desktop`
 under `$XDG_DATA_HOME/applications` (`~/.local/share` when that is not set),
 after printing the path and the entry. It refuses to run as root. The entry
 starts this script, and names its icon, by their whole paths: run it again
@@ -1226,7 +1232,7 @@ code: its table of keys, and the tools it names.
 | `TORNO_WORKSPACE=<path>` | the workspace to open at start, instead of the one remembered. `scripts/torno <path>` sets it. |
 | `TORNO_AGENT_CMD=<cmd>` | the command to run for a session in place of `claude`, split on spaces and given Claude Code's arguments: `TORNO_AGENT_CMD="claude --model sonnet"` |
 | `TORNO_BUILD_TIMEOUT=<seconds>` | how long a build may run before it is stopped: 600 by default, a day at most |
-| `TORNO_OZONE=wayland` or `x11` | read by `scripts/torno` only: the platform Electron is told to draw on. Unset, Electron chooses. |
+| `TORNO_OZONE=wayland` or `x11` | read by `scripts/torno` only, on Linux: the platform Electron is told to draw on. Unset, Electron chooses. On macOS it is ignored, with a line on stderr. |
 | `TORNO_CONFIG=<path>` | the config file to use instead of `~/.config/torno/config.json` |
 | `TORNO_DEBUG=1` | print to stderr the workspace opened at start, the address of the MCP server, and the command line and hooks of every session |
 | `TORNO_TEST=1` | create the window hidden and never show it; keep Electron's own files in a temporary folder of the run; expose the test hooks. For tests only. |
