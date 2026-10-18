@@ -69,9 +69,10 @@ jobs:
           name: e2e-results
           path: app/e2e/.results
 
-  # torno.app: on every push to main and when asked for, not on every pull request (macOS minutes cost ten times).
+  # torno.app: only when asked for (`gh workflow run macos.yml -f package=true`), never on a push or a pull request:
+  # macOS minutes cost ten times, and this account's ran out within hours of the port.
   package:
-    if: ${{ github.event_name == 'push' || inputs.package }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.package }}
     runs-on: macos-15
     timeout-minutes: 45
     steps:
