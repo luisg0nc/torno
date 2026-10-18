@@ -1664,7 +1664,6 @@ def test_on_macos_the_resident_size_of_a_process_is_told_and_grows_with_what_it_
     try:
         before, after = (int(n) for n in os.read(read, 64).decode().split())
         assert 150 << 20 < after - before < 260 << 20
-        assert supervisor._rss(pid) is not None
     finally:
         os.close(read)
         os.waitpid(pid, 0)

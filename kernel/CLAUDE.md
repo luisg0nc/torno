@@ -96,7 +96,8 @@ is the detail of this folder, under the headings it has there.
   query: one OCC operation in it would start OCC's thread pool, and every
   worker forked afterwards would deadlock. It reads two files of `/proc`
   before a build (`meminfo` again after each worker it lets go) and nothing
-  else of the system.
+  else of the system; on macOS it asks Mach for the VM statistics and libproc for the worker's resident
+  size instead, and nothing else.
 - **OCP's names come from OCP.** In a workspace with a `pyproject.toml` the kernel runs in the workspace's
   environment with the kernel laid over it (`uv run --no-sync --project <ws> --with-editable <kernel>`): its OCP
   and build123d are the workspace's, and ocp-tessellate is resolved afresh within the kernel's `>=3.5,<4`
