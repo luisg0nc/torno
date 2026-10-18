@@ -13,6 +13,7 @@ into outboxes that are drained as the other end makes room, so the loop keeps
 reading from all of them even when one pipelines faster than it reads.
 """
 
+import contextlib
 import io
 import json
 import math
@@ -429,9 +430,11 @@ class Supervisor:
     def _fork(self, id: Any, dir: str, model: str, timeout: float) -> _Worker:
         ours, theirs = socket.socketpair()
         if sys.platform == "darwin":
-            for end in (ours, theirs):
-                end.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SOCKET_BUFFER)
-                end.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER)
+            # For speed only: a system that refuses the size keeps its own, and the build goes on.
+            with contextlib.suppress(OSError):
+                for end in (ours, theirs):
+                    end.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SOCKET_BUFFER)
+                    end.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER)
         capture = tempfile.TemporaryFile()
         # Whatever is buffered here would otherwise be written again by the child.
         sys.stdout.flush()
