@@ -100,18 +100,6 @@ with a line on stderr, and `--print-desktop`, `--install-desktop` and
 `pnpm dist:mac` instead). The launcher hashes the sources with `sha256sum` or,
 failing that, `shasum -a 256`, which a Mac has.
 
-On macOS, `pnpm dist:mac` makes `torno.app` in `app/dist/`: `mac-arm64/torno.app` on Apple silicon (and a zip
-beside it), `mac/torno.app` on an Intel Mac (`pnpm dist:mac -- --x64`). Copy it to `/Applications` and open it from
-the Finder or the Dock. It carries the kernel's source, torno's skills for Claude Code, the icon and the example, and
-still needs `uv` and `claude` installed; it finds them through your login shell's `PATH`. Its Python environment for
-a workspace with no `pyproject.toml` is made at the first build of one, in
-`~/Library/Application Support/torno/kernel-env`, and never inside the app. The app is signed ad hoc and not
-notarized: one built on your own Mac opens as it is; one that was downloaded (the zip a CI run uploads, say) is
-quarantined, so right-click it and choose Open, or run `xattr -dr com.apple.quarantine torno.app`. Updating means
-building again. (`pnpm pack:check` builds the same files as a folder on Linux, `app/dist/linux-unpacked`, to check
-the packaging with `TORNO_PACKAGED=… pnpm -C app exec playwright test e2e/packaged.spec.ts`; it is no way to install
-torno on Linux.)
-
 `--install-desktop` (Linux) writes one file and only when you run it: `torno.desktop`
 under `$XDG_DATA_HOME/applications` (`~/.local/share` when that is not set),
 after printing the path and the entry. It refuses to run as root. The entry
@@ -141,6 +129,18 @@ the Dock's Quit and a logout do not ask. There is no Close item, no reload and n
 repository, the menu bar names the app "Electron" (the bundle of `node_modules/electron`); a packaged app is
 "torno". On a Mac torno asks your login shell for its `PATH` at start, so `uv` and `claude` are found when torno
 is started from the Finder or the Dock.
+
+On macOS, `pnpm dist:mac` makes `torno.app` in `app/dist/`: `mac-arm64/torno.app` on Apple silicon (and a zip
+beside it), `mac/torno.app` on an Intel Mac (`pnpm dist:mac -- --x64`). Copy it to `/Applications` and open it from
+the Finder or the Dock. It carries the kernel's source, torno's skills for Claude Code, the icon and the example, and
+still needs `uv` and `claude` installed; it finds them through your login shell's `PATH` (above). Its Python environment for
+a workspace with no `pyproject.toml` is made at the first build of one, in
+`~/Library/Application Support/torno/kernel-env`, and never inside the app. The app is signed ad hoc and not
+notarized: one built on your own Mac opens as it is; one that was downloaded (the zip a CI run uploads, say) is
+quarantined, so right-click it and choose Open, or run `xattr -dr com.apple.quarantine torno.app`. Updating means
+building again. (`pnpm pack:check` builds the same files as a folder on Linux, `app/dist/linux-unpacked`, to check
+the packaging with `TORNO_PACKAGED=… pnpm -C app exec playwright test e2e/packaged.spec.ts`; it is no way to install
+torno on Linux.)
 
 ## Five minutes with torno
 
