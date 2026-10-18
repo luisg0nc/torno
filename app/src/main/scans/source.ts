@@ -1,7 +1,7 @@
-import { realpath } from 'node:fs/promises'
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { SCAN_FORMATS } from '../../shared/scans'
 import { FOLDER } from '../own'
+import { realPathOrNearest } from '../sessions/inside'
 
 // The one path main is given for a scan: the file it is read from. It is checked here, and only ever read.
 
@@ -26,5 +26,5 @@ export async function sourceOf(dir: string, given: unknown): Promise<string> {
   return source
 }
 
-/** Where a path leads, through whatever links: the path itself when nothing is there. */
-const real = (path: string): Promise<string> => realpath(path).catch(() => path)
+/** Where a path leads, through whatever links (of its nearest folder that exists, for a file not there). */
+const real = (path: string): Promise<string> => Promise.resolve(realPathOrNearest(path))

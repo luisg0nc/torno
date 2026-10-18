@@ -23,7 +23,7 @@ logo is: one holding a part. The design is in
 
 ## Requirements
 
-Linux. Developed on Arch with Wayland (Hyprland); nothing else has been tried.
+Linux or macOS. Developed on Arch with Wayland (Hyprland). macOS is tested on GitHub's macOS runners and not yet by eye.
 
 - Node.js 22.12 or later (developed with 26) and pnpm 10
 - [uv](https://docs.astral.sh/uv/)
@@ -114,13 +114,21 @@ Only one torno runs at a time. Starting it again brings the window that is
 already open to the front and says so on stderr; given a folder, that window
 opens it, asking first if a session there is in the middle of its work.
 
-Torno has no menu. The window is closed through the window manager, which
+On Linux torno has no menu. The window is closed through the window manager, which
 ends torno and the sessions in it. When that would cut something short, torno
 asks first ("Close torno?", with "Keep it open" in focus): a session working or
 waiting for an answer, a region painted on a scan and not kept, a scan being
 imported or an export being written. With none of that it closes at once. `Ctrl+Q`, `Ctrl+W`, `F11` and
 the zoom shortcuts do not exist. For work on torno itself, `pnpm dev` runs the app from
 the Vite dev server, where `F5` and `Ctrl+R` reload the window.
+
+On macOS the menu bar is global, so torno has one there: the app menu (About, Hide, Quit), Edit and Window. Copy,
+paste, cut, select all and undo (`⌘C`, `⌘V`, `⌘X`, `⌘A`, `⌘Z`) come from the Edit menu, in fields and in the
+terminal. `⌘Q` asks first, as closing the window does ("Close torno?" while something would be cut short);
+the Dock's Quit and a logout do not ask. There is no Close item, no reload and no zoom. Run from the
+repository, the menu bar names the app "Electron" (the bundle of `node_modules/electron`); a packaged app is
+"torno". On a Mac torno asks your login shell for its `PATH` at start, so `uv` and `claude` are found when torno
+is started from the Finder or the Dock.
 
 ## Five minutes with torno
 
@@ -1063,7 +1071,7 @@ want none of it in git.
 
 Outside the workspace:
 
-- `~/.config/torno/`: `config.json` holds the workspace last opened and the
+- `~/.config/torno/` (on macOS `~/Library/Application Support/torno/`): `config.json` holds the workspace last opened and the
   folders opened lately (eight at most); the rest is Electron's own cache.
 - The one file an export writes, at the path you choose.
 - `torno.desktop`, only by `scripts/torno --install-desktop`.
@@ -1187,7 +1195,8 @@ build is not built again until a source changes.
 - **"New session" says the agent's command was not found on PATH.** Torno
   looks for `claude` on the `PATH` it was started with. Started from a desktop launcher, that may
   not be your shell's: start torno from a terminal, or set
-  `TORNO_AGENT_CMD`.
+  `TORNO_AGENT_CMD`. On macOS torno asks your login shell for its `PATH` (and adds `~/.local/bin`,
+  `/opt/homebrew/bin`, `/usr/local/bin` and `~/.claude/local` where they exist); if that fails it says so on stderr.
 - **The window does not come up, or stays blank.** Try
   `TORNO_OZONE=x11 scripts/torno`, then `TORNO_OZONE=wayland`. Torno draws
   with WebGL 2; `F12` opens the developer tools, whose console says when the
@@ -1221,7 +1230,7 @@ GitHub Actions runs the suites on macOS (`.github/workflows/macos.yml`), with th
 No test opens a window, and none runs a real agent CLI: a stand-in
 (`app/test/fake-agent.mjs`) takes its place. Under test Electron keeps its own
 files (cache, storage, crash dumps) in a folder of the run in the temporary
-folder, removed once it has quit, and nothing in `~/.config/torno`. The scans in the tests are made
+folder, removed once it has quit, and nothing in `~/.config/torno` (on macOS `~/Library/Application Support/torno`). The scans in the tests are made
 by the test code; none is in the repository. A test holds this file to the
 code: its table of keys, and the tools it names.
 
@@ -1233,7 +1242,7 @@ code: its table of keys, and the tools it names.
 | `TORNO_AGENT_CMD=<cmd>` | the command to run for a session in place of `claude`, split on spaces and given Claude Code's arguments: `TORNO_AGENT_CMD="claude --model sonnet"` |
 | `TORNO_BUILD_TIMEOUT=<seconds>` | how long a build may run before it is stopped: 600 by default, a day at most |
 | `TORNO_OZONE=wayland` or `x11` | read by `scripts/torno` only, on Linux: the platform Electron is told to draw on. Unset, Electron chooses. On macOS it is ignored, with a line on stderr. |
-| `TORNO_CONFIG=<path>` | the config file to use instead of `~/.config/torno/config.json` |
+| `TORNO_CONFIG=<path>` | the config file to use instead of `~/.config/torno/config.json` (on macOS `~/Library/Application Support/torno/config.json`) |
 | `TORNO_DEBUG=1` | print to stderr the workspace opened at start, the address of the MCP server, and the command line and hooks of every session |
 | `TORNO_TEST=1` | create the window hidden and never show it; keep Electron's own files in a temporary folder of the run; expose the test hooks. For tests only. |
 
@@ -1279,6 +1288,7 @@ happen.
 
 On the screen:
 
+- **macOS.** Nobody has run torno on a Mac by eye. Try once: `⌘V` and `⌘Z` in the chat composer and in a note, and `⌘C`/`⌘V` in the terminal view (`spawn-helper` of node-pty must be executable, or every terminal fails with `posix_spawnp failed`); `⌘Q` with a session working asks "Close torno?"; the Dock shows torno's icon when run from the repository; start torno from the Finder or the Dock and a session finds `claude` and a build finds `uv` (the login shell's `PATH`); on a trackpad a two-finger scroll zooms, `⌘`-drag or `⇧`-drag pans (OrbitControls' own), and Ctrl-click is a secondary click.
 - **Resizing.** `scripts/torno ~/objects` on Hyprland: drag the window wider and narrower, or retile it: it redraws without flicker. If the window does not come up right, `TORNO_OZONE=x11`, then `TORNO_OZONE=wayland`, and keep the one that works.
 - **Focus.** Start torno a second time with another folder: the window that is open comes to the front (on Hyprland only where `focus_on_activate` is on). Start dragging the section's arrow, switch workspace, come back: the plane is where it was before the drag, and the next drag turns the camera.
 - **Closing.** With a session working, close the window through the window manager: torno asks "Close torno?", "Keep it open" keeps everything as it was, "Close torno" ends torno and the session. With nothing under way it closes at once.

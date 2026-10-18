@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path'
+import { join } from 'node:path'
+import { isInsideFolder } from './inside'
 import * as pty from 'node-pty'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import type { ChatAnswer, ChatCommand, ChatHistory, ChatItem, ChatMeta, ChatModel } from '../../shared/chat'
@@ -885,8 +886,7 @@ export class Sessions {
   private ofObject(session: Session, input: unknown): boolean {
     const path = typeof input === 'object' && input !== null ? (input as { file_path?: unknown }).file_path : undefined
     if (typeof path !== 'string' || !path.endsWith('.py')) return false
-    const inside = relative(session.object.dir, resolvePath(session.object.dir, path))
-    return inside !== '' && !inside.startsWith('..') && !isAbsolute(inside)
+    return isInsideFolder(session.object.dir, path)
   }
 
   /** `POST /hooks/<secret>/<sessionId>/<event>`, with the hook's JSON as the body; `rest` is what comes after the secret. */

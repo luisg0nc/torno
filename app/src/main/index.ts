@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -7,6 +7,8 @@ import type { Described } from '../shared/geometry'
 import type { SavedView } from '../shared/views'
 import { writeFileAtomic } from './atomic'
 import { devShortcut } from './devkeys'
+import { applyLoginPath } from './loginPath'
+import { menuTemplate } from './menu'
 import { copyExample, exampleSource, removeExample, sweepExamples } from './example'
 import { type Config, configOf, listed, recentWith, recentWithout } from './recent'
 import { startHttp } from './http'
@@ -80,10 +82,24 @@ if (!isFirst) {
   app.quit()
 }
 
-// torno has no menu. With one, even hidden, a lone press of Alt shows the menu bar on Linux and the
+// torno has no menu on Linux. With one, even hidden, a lone press of Alt shows the menu bar on Linux and the
 // viewport is resized under the pointer: Alt-drag is how the camera is turned with the Draw tool in hand.
 // Text fields keep copy, paste, select all and undo without a menu; the terminal has its own keys.
-Menu.setApplicationMenu(null)
+// On macOS the menu bar is global and a text field takes copy, paste and undo from the roles of the menu:
+// `menu.ts` gives one there (and `null` anywhere else).
+Menu.setApplicationMenu(
+  (() => {
+    const template = menuTemplate(process.platform, {
+      // As closing the window is held: the window asks first; with none, the app quits.
+      quit: () => {
+        const win = BrowserWindow.getAllWindows()[0]
+        if (win && !win.isDestroyed()) win.close()
+        else app.quit()
+      }
+    })
+    return template === null ? null : Menu.buildFromTemplate(template)
+  })()
+)
 
 // The workspace last opened from the window is remembered in
 // ~/.config/torno/config.json and opened again at the next start. A test run
@@ -135,7 +151,7 @@ const exampleFrom = exampleSource(app.getAppPath(), app.isPackaged)
 let exampleCopy: string | null = null
 async function exampleFolder(): Promise<string | null> {
   if (exampleFrom === null) return null
-  if (exampleCopy === null || !existsSync(exampleCopy)) exampleCopy = await copyExample(exampleFrom, tmpdir())
+  if (exampleCopy === null || !existsSync(exampleCopy)) exampleCopy = await copyExample(exampleFrom, realpathSync(tmpdir()))
   return exampleCopy
 }
 
@@ -151,6 +167,8 @@ function createWindow(): BrowserWindow {
     width: 1440,
     height: 900,
     show: false,
+    // A hidden test window keeps its size where the display is smaller (macOS clamps it otherwise).
+    ...(isTest ? { enableLargerThanScreen: true } : {}),
     title: 'torno',
     icon: windowIcon(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? SURFACE.dark : SURFACE.light,
@@ -161,6 +179,9 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js')
     }
   })
+
+  // The constructor clamps a window to the display on macOS even so: ask for the size again.
+  if (isTest && process.platform === 'darwin') win.setSize(1440, 900)
 
   if (!isTest) win.once('ready-to-show', () => win.show())
 
@@ -401,6 +422,10 @@ app.on('second-instance', (_event, _argv, _cwd, data) => {
 
 void app.whenReady().then(async () => {
   if (!isFirst) return
+  // A start from the Finder or the Dock has launchd's PATH, without `uv` or `claude`: ask the login shell (macOS only).
+  await applyLoginPath()
+  // In development the Dock shows Electron's icon; a packaged app takes its own from its bundle.
+  if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(windowIcon())
   // What the agent's CLI talks to: its hooks, and the MCP server through which it sees what the window shows.
   const http = await startHttp()
   const mcpUrlFor = (id: string): string => http.url(`/mcp/${encodeURIComponent(id)}`)
@@ -498,7 +523,7 @@ void app.whenReady().then(async () => {
   // With the run's secret taken out: an address that is logged is an address anyone who reads the log can call.
   if (isDebug) console.error(http.redact(`[torno] MCP server of an object: ${mcpUrlFor('<object id>')}`))
   // What a torno that crashed left in the temporary folder: only copies of the example its own marker names.
-  if (exampleFrom !== null) void sweepExamples(tmpdir()).catch(() => {})
+  if (exampleFrom !== null) void sweepExamples(realpathSync(tmpdir())).catch(() => {})
   const named = process.env.TORNO_WORKSPACE
   const root = named ?? (await rememberedWorkspace())
   if (root) {

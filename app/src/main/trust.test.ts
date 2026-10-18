@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -7,7 +7,7 @@ import { Trust, projectSettings } from './trust'
 let home: string
 let object: string
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'torno-trust-'))
+  home = mkdtempSync(join(realpathSync(tmpdir()), 'torno-trust-'))
   object = join(home, 'work', 'ws', 'box')
   mkdirSync(object, { recursive: true })
 })

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -59,12 +59,14 @@ describe('scanWorkspace', () => {
     object('helmet-stand', ['helmet_stand.py', 'scratch.py', 'measure.py'])
     object('speaker_stand', ['speaker-stand.py', 'notes.py'])
     object('Lamp', ['lamp.py', 'Lamp.py'])
+    // On a case-insensitive filesystem (macOS) the two names are one file: nothing to tell them apart by.
+    const caseSensitive = readdirSync(join(root, 'Lamp')).length === 2
     const { objects } = await scanWorkspace(root)
     const of = (id: string) => objects.find((o) => o.id === id)
     expect(of('helmet-stand')).toEqual({ id: 'helmet-stand', name: 'helmet-stand', dir: join(root, 'helmet-stand'), model: 'helmet_stand.py' })
     expect(of('speaker_stand')?.model).toBe('speaker-stand.py')
     // Case is not folded: exactly one file is named as the folder is.
-    expect(of('Lamp')?.model).toBe('Lamp.py')
+    if (caseSensitive) expect(of('Lamp')?.model).toBe('Lamp.py')
   })
 
   it('reports several candidates only when none, or more than one, is named after the folder', async () => {

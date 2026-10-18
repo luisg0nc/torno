@@ -1,8 +1,8 @@
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { inTerminal } from './terminal'
+import { agentsIn, inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
 
 // The session pane through the window, with a stand-in for the agent's CLI
@@ -59,21 +59,6 @@ async function typeLine(line: string, p: Page = page): Promise<void> {
   await p.locator('.session-term textarea').focus()
   await p.keyboard.type(line)
   await p.keyboard.press('Enter')
-}
-
-/** The stand-in agents running in a folder, by pid. */
-function agentsIn(dir: string): number[] {
-  const found: number[] = []
-  for (const entry of readdirSync('/proc')) {
-    if (!/^\d+$/.test(entry)) continue
-    try {
-      if (!readFileSync(`/proc/${entry}/cmdline`, 'utf8').includes('fake-agent.mjs')) continue
-      if (readlinkSync(`/proc/${entry}/cwd`) === dir) found.push(Number(entry))
-    } catch {
-      // Gone meanwhile, or not ours to read.
-    }
-  }
-  return found
 }
 
 test('with no object open the dock says what to do; with one, it offers a new session', async () => {

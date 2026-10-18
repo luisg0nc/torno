@@ -6,6 +6,7 @@ import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { type KernelClient, KernelError } from './kernel/client'
 import { FOLDER } from './own'
+import { realPathOrNearest } from './sessions/inside'
 
 const DEBOUNCE_MS = 300
 // torno's own folder, and where models and tools keep what they make: exports,
@@ -25,14 +26,21 @@ export type OnChange = (paths: string[]) => void
 export function watchFolder(dir: string, onChange: OnChange): () => void {
   let timer: NodeJS.Timeout | undefined
   let changed = new Set<string>()
+  const realDir = realPathOrNearest(dir)
+  // Paths come as the watcher knows them: by the real path on macOS when `dir` is reached through a link
+  // (`/var` is `/private/var`), so they are taken from whichever of the two the path lies under.
+  const isIgnored = (path: string): boolean => {
+    let from = relative(dir, path)
+    if (from.startsWith('..')) from = relative(realDir, path)
+    return from.split(sep).some((part) => IGNORED_FOLDERS.has(part) || (part.startsWith('.') && part !== '..'))
+  }
   const watcher = chokidarWatch(dir, {
     ignoreInitial: true,
-    ignored: (path) =>
-      relative(dir, path)
-        .split(sep)
-        .some((part) => IGNORED_FOLDERS.has(part) || (part.startsWith('.') && part !== '..'))
+    ignored: (path) => isIgnored(path)
   })
-  watcher.on('all', (_event, path) => {
+  watcher.on('all', (event, path) => {
+    // FSEvents may tell of a change in a folder that was ignored, and of the watched folder itself.
+    if (isIgnored(path) || (event === 'change' && (path === dir || path === realDir))) return
     changed.add(path)
     clearTimeout(timer)
     timer = setTimeout(() => {

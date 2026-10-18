@@ -1,4 +1,5 @@
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, readdirSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
@@ -13,4 +14,26 @@ export function inTerminal(root: string, objects?: string[]): void {
     mkdirSync(join(root, name, '.torno'), { recursive: true })
     writeFileSync(join(root, name, '.torno', 'agent.json'), JSON.stringify({ agent: 'claude', view: 'terminal' }))
   }
+}
+
+/** The working folder of a process: `/proc/<pid>/cwd` on Linux, `lsof` elsewhere. Null when it is gone or not ours. */
+export function cwdOf(pid: number): string | null {
+  try {
+    if (process.platform === 'linux') return readlinkSync(`/proc/${pid}/cwd`)
+    const out = execFileSync('lsof', ['-a', '-d', 'cwd', '-p', String(pid), '-Fn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    return out.split('\n').find((line) => line.startsWith('n'))?.slice(1) ?? null
+  } catch {
+    return null
+  }
+}
+
+/** The stand-in agents running in a folder (given by its real path, which is how a process sees its cwd), by pid. */
+export function agentsIn(dir: string): number[] {
+  let pids: number[]
+  try {
+    pids = execFileSync('pgrep', ['-f', 'fake-agent.mjs'], { encoding: 'utf8' }).split('\n').filter(Boolean).map(Number)
+  } catch {
+    return [] // pgrep exits 1 when nothing matches
+  }
+  return pids.filter((pid) => cwdOf(pid) === dir)
 }

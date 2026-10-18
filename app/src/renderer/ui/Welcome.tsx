@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import type { RecentFolder, WorkspaceInfo } from '../../shared/workspace'
 import { Logo } from './Logo'
-import { nameOf, openProblem } from './welcome'
+import { nameOf, openProblem } from './openFolder'
 
 /** The idea of a folder of objects, drawn: the folder opened, an object in it, and its model. */
 const TREE: readonly (readonly [name: string, label: string])[] = [
