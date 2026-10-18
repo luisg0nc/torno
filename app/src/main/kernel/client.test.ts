@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cannotStart, kernelCommand, KernelError, type RunningKernel, startKernel, startKernelCommand } from './client'
+import { cannotStart, kernelCommand, kernelEnv, KernelError, type RunningKernel, startKernel, startKernelCommand } from './client'
 
 // These run the client against fake-kernel.mjs. client.itest.ts runs it against the real kernel.
 const FAKE = join(__dirname, 'fake-kernel.mjs')
@@ -32,6 +32,33 @@ describe('kernelCommand', () => {
     expect(kernelCommand({ workspaceRoot: '/ws', hasProject: false, kernelDir: '/repo/kernel' })).toEqual(
       ['uv', 'run', '--project', '/repo/kernel', 'python', '-m', 'torno_kernel']
     )
+  })
+
+  it('is frozen, in the kernel project, when packaged and the workspace has no project', () => {
+    expect(kernelCommand({ workspaceRoot: '/ws', hasProject: false, kernelDir: '/Resources/kernel', frozen: true })).toEqual(
+      ['uv', 'run', '--frozen', '--project', '/Resources/kernel', 'python', '-m', 'torno_kernel']
+    )
+    // With a project the workspace's environment is the one run, never synced: nothing more to say.
+    expect(kernelCommand({ workspaceRoot: '/ws', hasProject: true, kernelDir: '/Resources/kernel', frozen: true })).toEqual(
+      kernelCommand({ workspaceRoot: '/ws', hasProject: true, kernelDir: '/Resources/kernel' })
+    )
+  })
+})
+
+describe('kernelEnv', () => {
+  it('puts the kernel environment under userData when packaged and the workspace has no project', () => {
+    expect(kernelEnv({ packaged: true, userData: '/u/torno', hasProject: false })).toEqual({ UV_PROJECT_ENVIRONMENT: '/u/torno/kernel-env' })
+  })
+
+  it('is an absolute path whatever userData is', () => {
+    const env = kernelEnv({ packaged: true, userData: 'rel/torno', hasProject: false })
+    expect(env.UV_PROJECT_ENVIRONMENT).toBe(join(process.cwd(), 'rel', 'torno', 'kernel-env'))
+  })
+
+  it('adds nothing in development, nor over the .venv of a workspace project', () => {
+    expect(kernelEnv({ packaged: false, userData: '/u/torno', hasProject: false })).toEqual({})
+    expect(kernelEnv({ packaged: false, userData: '/u/torno', hasProject: true })).toEqual({})
+    expect(kernelEnv({ packaged: true, userData: '/u/torno', hasProject: true })).toEqual({})
   })
 })
 

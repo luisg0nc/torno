@@ -32,6 +32,15 @@ says what it does and how to run it; the design is
   window's `app/resources/icon.png` is made from it with `resvg -w 512 -h 512`, and `ui/Logo.tsx` draws both
   in the window. `src/launcher.test.ts` holds the three to one drawing: change the SVG, render the PNG again.
 
+- The packaged app (`app/electron-builder.yml`; `pnpm dist:mac` makes `torno.app`, `pnpm pack:check` the same files
+  as a Linux folder, a stand-in for checking and no release): the asar holds `out/**` and the dependencies of main
+  and preload (renderer-only ones are `devDependencies`, bundled by Vite), node-pty unpacked; `Resources/` holds
+  `kernel` (`pyproject.toml`, `uv.lock`, `src/`), `agent-plugin`, `icon.png` and `example` (the four objects). It
+  never writes inside its bundle: the kernel and the import process run with `--frozen` and
+  `UV_PROJECT_ENVIRONMENT=<userData>/kernel-env` (`kernelRun` in `main/paths.ts`, `kernelEnv` in
+  `main/kernel/client.ts`; not for a workspace with a `pyproject.toml`, whose `.venv` is its own). Signed ad hoc, not
+  notarized. `app/e2e/packaged.spec.ts` runs against it when `TORNO_PACKAGED` names the executable.
+
 ## Tests
 
 Run from the repository root.

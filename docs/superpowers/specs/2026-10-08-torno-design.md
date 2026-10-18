@@ -32,6 +32,8 @@ One session, 19 hours, about 28 human messages:
 
 Direct modelling, parametric sliders, slicer integration, multi-user collaboration, cloud sync, Windows and macOS packaging, a custom chat UI (the session layer leaves room for one).
 
+*Note, 2026-10-18: macOS has had a package since this change: `pnpm dist:mac` makes `torno.app`, signed ad hoc and not notarized (README, "Run"). Windows packaging is still out of scope.*
+
 ## 2. Concepts
 
 | Term | Meaning |

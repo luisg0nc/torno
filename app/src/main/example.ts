@@ -11,10 +11,13 @@ import { basename, join } from 'node:path'
 /** The objects of the test workspace that build and show something. The others are there to fail. */
 export const EXAMPLE_OBJECTS = ['bracket', 'gauge', 'hollow', 'measures'] as const
 
-/** Where the example is copied from, or null where there is none: a packaged app, or a repository without its fixtures. */
-export function exampleSource(appPath: string, packaged: boolean): string | null {
-  if (packaged) return null
-  const source = join(appPath, '..', 'kernel', 'tests', 'fixtures', 'ws')
+/**
+ * Where the example is copied from, or null where there is none. Run from the repository it is the test workspace
+ * beside `app/`; a packaged app carries the four objects in its resources (`example`, `extraResources` of
+ * electron-builder.yml). Null when one of them is missing. `resources` is `process.resourcesPath`.
+ */
+export function exampleSource(appPath: string, packaged: boolean, resources: string = process.resourcesPath): string | null {
+  const source = packaged ? join(resources, 'example') : join(appPath, '..', 'kernel', 'tests', 'fixtures', 'ws')
   return EXAMPLE_OBJECTS.every((name) => existsSync(join(source, name))) ? source : null
 }
 

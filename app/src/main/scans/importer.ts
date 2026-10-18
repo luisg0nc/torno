@@ -63,7 +63,7 @@ const STAGE = /^stage: (.+)$/
  * what runs is `uv`, whose child is Python, and killing `uv` alone would
  * leave Python to write its file after the import was given up on.
  */
-export function processImporter(command: (args: string[]) => string[], cwd: string, timeoutMs: number = IMPORT_TIMEOUT_MS): Importer {
+export function processImporter(command: (args: string[]) => string[], cwd: string, timeoutMs: number = IMPORT_TIMEOUT_MS, env: () => Record<string, string> = () => ({})): Importer {
   /** The last run asked for, which the next waits for. */
   let last: Promise<unknown> = Promise.resolve()
   /** Once `stop` was called: nothing is started any more, whenever it was asked for. */
@@ -78,7 +78,7 @@ export function processImporter(command: (args: string[]) => string[], cwd: stri
       .then(() => {
         if (stopped) throw new Error(STOPPED)
         // A command that cannot be had (`commandIn`) is why this run is rejected.
-        return once(command(args), cwd, timeoutMs, onStage, (ender) => (end = ender))
+        return once(command(args), cwd, timeoutMs, env(), onStage, (ender) => (end = ender))
       })
       .finally(() => (end = null))
     last = turn
@@ -107,21 +107,21 @@ export function processImporter(command: (args: string[]) => string[], cwd: stri
  * may be started there at all: with a project and no `.venv`, `uv` would
  * make one, so the command is not had and the reason thrown (`cannotStart`).
  */
-export function commandIn(workspaceRoot: string, hasProject: () => boolean, kernelDir: string): (args: string[]) => string[] {
+export function commandIn(workspaceRoot: string, hasProject: () => boolean, kernelDir: string, frozen = false): (args: string[]) => string[] {
   return (args) => {
     const opts = { workspaceRoot, hasProject: hasProject() }
     const reason = cannotStart(opts)
     if (reason !== null) throw new Error(reason)
-    return scanCommand({ ...opts, kernelDir }, args)
+    return scanCommand({ ...opts, kernelDir, frozen }, args)
   }
 }
 
 /** One run of the process. `ender` is given what ends it early, with the reason it is then rejected with. */
-function once(command: string[], cwd: string, timeoutMs: number, onStage: ((stage: string) => void) | undefined, ender: (end: (reason: string) => void) => void): Promise<ImportReply> {
+function once(command: string[], cwd: string, timeoutMs: number, extraEnv: Record<string, string>, onStage: ((stage: string) => void) | undefined, ender: (end: (reason: string) => void) => void): Promise<ImportReply> {
   return new Promise((resolve, reject) => {
     const [file, ...args] = command
     // No bytecode, as for the kernel: a workspace is only ever written under .torno/.
-    const env = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }
+    const env = { ...process.env, ...extraEnv, PYTHONDONTWRITEBYTECODE: '1' }
     const proc = spawn(file, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
     let stdout = ''
     let stderr = ''

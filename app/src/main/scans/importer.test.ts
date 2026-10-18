@@ -13,6 +13,13 @@ describe('the import process', () => {
       ['uv', 'run', '--project', '/torno/kernel', '--extra', 'scans', 'python', '-m', 'torno_kernel.scans', 'convert', '/m.bin'])
   })
 
+  it('is frozen when packaged and the workspace has no project, and unchanged with one', () => {
+    expect(scanCommand({ workspaceRoot: '/ws', hasProject: false, kernelDir: '/Resources/kernel', frozen: true }, ['convert', '/m.bin'])).toEqual(
+      ['uv', 'run', '--frozen', '--project', '/Resources/kernel', '--extra', 'scans', 'python', '-m', 'torno_kernel.scans', 'convert', '/m.bin'])
+    expect(scanCommand({ workspaceRoot: '/ws', hasProject: true, kernelDir: '/Resources/kernel', frozen: true }, ['x'])).toEqual(
+      scanCommand({ workspaceRoot: '/ws', hasProject: true, kernelDir: '/Resources/kernel' }, ['x']))
+  })
+
   it('answers with the last line it wrote, or rejects with its own words', () => {
     expect(replyOf('noise\n{"ok": true, "unit": "mm", "triangles": 12}\n', 0, '')).toMatchObject({ unit: 'mm', triangles: 12 })
     expect(() => replyOf('{"ok": false, "error": {"kind": "no_triangles", "message": "cloud.ply has no triangles"}}\n', 1, '')).toThrow('cloud.ply has no triangles')

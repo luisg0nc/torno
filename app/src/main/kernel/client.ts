@@ -1,7 +1,7 @@
 import { REBUILD_HOW } from '../../shared/build'
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { BuildError } from '../../shared/build'
 import type { Scene } from '../../shared/scene'
 import { encodeFrame, FrameDecoder } from './frames'
@@ -57,12 +57,24 @@ export interface KernelClient {
   stderrTail(): string
 }
 
+/**
+ * How `uv` is run for a workspace. `frozen` (a packaged app) has `uv` use the kernel's `uv.lock` as it is and never
+ * write it: the kernel then lies in the bundle, which is not written to. It matters only without a project, where the
+ * kernel's own project is the one run; with one, `--no-sync` already leaves everything as it is.
+ */
+export interface CommandOpts {
+  workspaceRoot: string
+  hasProject: boolean
+  kernelDir: string
+  frozen?: boolean
+}
+
 /** The command that runs the kernel for a workspace. */
-export function kernelCommand(opts: { workspaceRoot: string; hasProject: boolean; kernelDir: string }): string[] {
+export function kernelCommand(opts: CommandOpts): string[] {
   const run = opts.hasProject
     ? // The workspace's own environment, never synced, with the kernel layered on top.
       ['run', '--no-sync', '--project', opts.workspaceRoot, '--with-editable', opts.kernelDir]
-    : ['run', '--project', opts.kernelDir]
+    : ['run', ...(opts.frozen ? ['--frozen'] : []), '--project', opts.kernelDir]
   return ['uv', ...run, 'python', '-m', 'torno_kernel']
 }
 
@@ -71,11 +83,23 @@ export function kernelCommand(opts: { workspaceRoot: string; hasProject: boolean
  * the kernel's own, with the `scans` extra. Only this process asks for the
  * extra (trimesh, pillow): no kernel start depends on it.
  */
-export function scanCommand(opts: { workspaceRoot: string; hasProject: boolean; kernelDir: string }, args: string[]): string[] {
+export function scanCommand(opts: CommandOpts, args: string[]): string[] {
   const run = opts.hasProject
     ? ['run', '--no-sync', '--project', opts.workspaceRoot, '--with-editable', `${opts.kernelDir}[scans]`]
-    : ['run', '--project', opts.kernelDir, '--extra', 'scans']
+    : ['run', ...(opts.frozen ? ['--frozen'] : []), '--project', opts.kernelDir, '--extra', 'scans']
   return ['uv', ...run, 'python', '-m', 'torno_kernel.scans', ...args]
+}
+
+/**
+ * What a packaged app adds to the environment of the kernel and of the import process: the kernel's Python
+ * environment under `userData`, outside the bundle (`uv run --project <Resources>/kernel` would make a `.venv` inside
+ * it, which a read-only `/Applications` refuses and a signature does not survive). Only for a workspace with no
+ * project of its own: with one, the environment is the workspace's `.venv`, which this must not replace. Nothing
+ * otherwise, and nothing in development. Always an absolute path.
+ */
+export function kernelEnv(opts: { packaged: boolean; userData: string; hasProject: boolean }): Record<string, string> {
+  if (!opts.packaged || opts.hasProject) return {}
+  return { UV_PROJECT_ENVIRONMENT: resolve(opts.userData, 'kernel-env') }
 }
 
 type Pending =
@@ -98,7 +122,7 @@ class Kernel implements KernelClient {
   private stopped = false // exited twice in a row; started again by the next build
   private disposed: Promise<void> | null = null
 
-  constructor(command: string[], cwd: string) {
+  constructor(command: string[], cwd: string, private readonly extraEnv: Record<string, string> = {}) {
     this.command = command
     this.cwd = cwd
     this.ready = new Promise((resolve, reject) => {
@@ -187,7 +211,7 @@ class Kernel implements KernelClient {
     // would break its stderr too if the two shared one.
     // No bytecode: Python would write __pycache__ beside every model and common/
     // module it imports, and a workspace is only ever written under .torno/.
-    const env = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }
+    const env = { ...process.env, ...this.extraEnv, PYTHONDONTWRITEBYTECODE: '1' }
     const proc = spawn(file, args, { cwd: this.cwd, env, stdio: ['pipe', 'pipe', 'pipe'] })
     this.proc = proc
     const decoder = new FrameDecoder()
@@ -340,9 +364,9 @@ export function cannotStart(opts: { workspaceRoot: string; hasProject: boolean }
  * unexpectedly. Where it cannot be started (`cannotStart`), every build fails
  * saying why.
  */
-export function startKernel(opts: { workspaceRoot: string; hasProject: boolean; kernelDir: string }): RunningKernel {
+export function startKernel(opts: CommandOpts & { env?: Record<string, string> }): RunningKernel {
   const reason = cannotStart(opts)
-  return reason === null ? new Kernel(kernelCommand(opts), opts.workspaceRoot) : new NoKernel(reason)
+  return reason === null ? new Kernel(kernelCommand(opts), opts.workspaceRoot, opts.env) : new NoKernel(reason)
 }
 
 /** As `startKernel`, with the command given: tests run a stand-in for the kernel. */

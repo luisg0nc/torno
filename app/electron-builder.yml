@@ -1,0 +1,60 @@
+# The macOS app (`pnpm dist:mac`, the README's "On macOS"). Paths are from app/.
+appId: io.github.luisg0nc.torno
+productName: torno
+directories:
+  output: dist
+
+# What runs in the app: the build (main, preload, renderer, and the export viewer `out/viewer/viewer.js`, which
+# `src/main/export/html.ts` reads), without source maps. Dependencies of main and preload are added by
+# electron-builder from package.json.
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+
+asar: true
+# node-pty's `.node` files and `spawn-helper` cannot run from inside an asar. node-pty looks for `spawn-helper` in
+# `app.asar.unpacked` itself.
+asarUnpack:
+  - '**/node_modules/node-pty/**'
+
+# Beside the asar, in `Resources/` (`src/main/paths.ts`, `src/main/example.ts`). Never `.venv`, `tests`, caches.
+extraResources:
+  - from: ../kernel
+    to: kernel
+    filter:
+      - pyproject.toml
+      - uv.lock
+      - src/**
+      - '!**/__pycache__'
+      - '!**/__pycache__/**'
+      - '!**/*.pyc'
+  - from: resources/agent-plugin
+    to: agent-plugin
+  - from: resources/icon.png
+    to: icon.png
+  # The example of the first screen: `EXAMPLE_OBJECTS` of src/main/example.ts and what they read (`gauge`'s variant.txt).
+  - from: ../kernel/tests/fixtures/ws
+    to: example
+    filter:
+      - bracket/**
+      - gauge/**
+      - hollow/**
+      - measures/**
+      - '!**/__pycache__'
+      - '!**/__pycache__/**'
+      - '!**/*.pyc'
+
+mac:
+  target: [dir, zip]
+  category: public.app-category.developer-tools
+  icon: resources/icon.png
+  # Signed ad hoc: an unsigned arm64 binary is killed at once. No Developer ID, no hardened runtime, no notarization.
+  identity: '-'
+  hardenedRuntime: false
+  notarize: false
+
+# A stand-in for checking the packaging where macOS is not at hand (`pnpm pack:check`): the same files, asar and
+# resources as the Mac app, in a folder. It is no release and no way to install torno on Linux.
+linux:
+  target: dir

@@ -7,6 +7,8 @@
     "start": "scripts/torno",
     "dev": "pnpm -C app dev",
     "build": "pnpm -C app build",
+    "dist:mac": "pnpm -C app dist:mac",
+    "pack:check": "pnpm -C app pack:check",
     "test": "pnpm -C app test",
     "test:kernel": "pnpm -C app test:kernel",
     "test:e2e": "pnpm -C app test:e2e"

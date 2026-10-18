@@ -24,7 +24,7 @@ import { type AskedAnchor, type Retrying, asPlaced, asReplaced, checkMarks, foll
 import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/measure'
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, tendRegions } from './marks/regions'
 import type { MarkStore } from './marks/store'
-import { kernelDir } from './paths'
+import { kernelDir, kernelRun } from './paths'
 import { Refusal, refusable } from './refusal'
 import { type AlignCheckDeps, checkingAlignments, heldNow, keepChecking, tiedToMoved, uncheckedOn } from './scans/alignCheck'
 import { frameOf } from './scans/alignments'
@@ -205,7 +205,7 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   // Until none is open: another call may have opened one while this one waited.
   while (current) await closeWorkspace()
 
-  const kernel = startKernel({ workspaceRoot: info.root, hasProject: info.hasProject, kernelDir: kernelDir() })
+  const kernel = startKernel({ workspaceRoot: info.root, hasProject: info.hasProject, kernelDir: kernelDir(), ...kernelRun(info.hasProject) })
   const builds: Builds = new Builds({
     kernel,
     timeout: buildTimeout(process.env),

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
@@ -59,8 +59,14 @@ it('offers the example only from the repository, and copies it without touching 
   }
   writeFileSync(join(ws, 'gauge', 'variant.txt'), 'a\n')
   expect(exampleSource(join(repo, 'app'), false)).toBe(ws)
-  // An app that was packaged has no repository beside it; nor has one whose fixtures are gone.
-  expect(exampleSource(join(repo, 'app'), true)).toBeNull()
+  // A repository without its fixtures has none.
+  // A packaged app carries the objects in its resources, and has none of them without all four.
+  expect(exampleSource(join(repo, 'app'), true, join(repo, 'Resources'))).toBeNull()
+  expect(exampleSource(join(repo, 'app'), true, join(repo, 'kernel', 'tests', 'fixtures'))).toBeNull()
+  cpSync(ws, join(repo, 'Resources', 'example'), { recursive: true })
+  expect(exampleSource(join(repo, 'elsewhere', 'app'), true, join(repo, 'Resources'))).toBe(join(repo, 'Resources', 'example'))
+  rmSync(join(repo, 'Resources', 'example', 'hollow'), { recursive: true })
+  expect(exampleSource(join(repo, 'app'), true, join(repo, 'Resources'))).toBeNull()
   expect(exampleSource(join(repo, 'elsewhere', 'app'), false)).toBeNull()
 
   const into = temp()

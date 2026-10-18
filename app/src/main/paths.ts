@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { app } from 'electron'
+import { kernelEnv } from './kernel/client'
 
 /**
  * The kernel's Python project (the folder with its pyproject.toml). In
@@ -26,4 +27,15 @@ export function agentPluginDir(): string {
  */
 export function windowIcon(): string {
   return app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'resources', 'icon.png')
+}
+
+/**
+ * How `uv` is run for the kernel and the import process in this app: `frozen`, and the environment folder under
+ * `userData`, in a packaged app, and neither otherwise (`kernelEnv`, `CommandOpts` in kernel/client.ts).
+ */
+export function kernelRun(hasProject: boolean): { frozen: boolean; env: Record<string, string> } {
+  return {
+    frozen: app.isPackaged,
+    env: kernelEnv({ packaged: app.isPackaged, userData: app.getPath('userData'), hasProject })
+  }
 }

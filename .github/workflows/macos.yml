@@ -13,6 +13,10 @@ on:
         description: Also run the Playwright suite
         type: boolean
         default: false
+      package:
+        description: Also make torno.app and run the smoke test against it
+        type: boolean
+        default: false
 
 concurrency:
   group: macos-${{ github.ref }}
@@ -63,4 +67,53 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-results
+          path: app/e2e/.results
+
+  # torno.app: on every push to main and when asked for, not on every pull request (macOS minutes cost ten times).
+  package:
+    if: ${{ github.event_name == 'push' || inputs.package }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: kernel/uv.lock
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+
+      - name: Make torno.app
+        run: pnpm dist:mac
+      - name: Signature
+        run: |
+          app=app/dist/mac-arm64/torno.app
+          codesign -dv --verbose=2 "$app" 2>&1 | tee signature.txt
+          grep -q 'Signature=adhoc' signature.txt
+          codesign --verify --deep --strict "$app"
+      - name: Smoke test of torno.app
+        run: pnpm -C app exec playwright test e2e/packaged.spec.ts
+        env:
+          TORNO_PACKAGED: ${{ github.workspace }}/app/dist/mac-arm64/torno.app/Contents/MacOS/torno
+      - name: The signature still holds after the run
+        run: codesign --verify --deep --strict app/dist/mac-arm64/torno.app
+      - name: Upload torno.app
+        uses: actions/upload-artifact@v4
+        with:
+          name: torno-mac
+          path: app/dist/*.zip
+          retention-days: 7
+      - name: Upload e2e results
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-package
           path: app/e2e/.results

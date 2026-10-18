@@ -24,7 +24,7 @@ import { MarkStore } from './marks/store'
 import { mountMcp } from './mcp/server'
 import { DEFAULT_SIZE } from './mcp/schemas'
 import { onNotOwn } from './own'
-import { agentPluginDir, kernelDir, windowIcon } from './paths'
+import { agentPluginDir, kernelDir, kernelRun, windowIcon } from './paths'
 import type { ToolDeps } from './mcp/tools'
 import { saveView } from './mcp/views'
 import { systemPrompt } from './prompt'
@@ -283,7 +283,7 @@ const scans = new ScanStore({
       const now = openWorkspaceInfo()
       return now?.root === root ? now.hasProject : ws.hasProject
     }
-    if (importer?.root !== root) importer = { root, run: processImporter(commandIn(root, hasProject, kernelDir()), root) }
+    if (importer?.root !== root) importer = { root, run: processImporter(commandIn(root, hasProject, kernelDir(), kernelRun(false).frozen), root, undefined, () => kernelRun(hasProject()).env) }
     return importer.run
   }
 })

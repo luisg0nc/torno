@@ -64,6 +64,14 @@ window on it.
 - `TORNO_TEST=1` also skips the single-instance lock, so test launches can run
   side by side.
 
+## The packaged app
+
+`e2e/packaged.spec.ts` is skipped unless `TORNO_PACKAGED` names the executable of a packaged app: `…/torno.app/Contents/MacOS/torno`
+(`pnpm dist:mac`) or, where macOS is not at hand, the Linux stand-in of `pnpm pack:check`, `app/dist/linux-unpacked/torno-app`.
+Only that path differs. It launches it with `executablePath` (the same `TORNO_TEST=1`, its own `TORNO_CONFIG`, the stand-in
+agent), builds `hollow` of a temporary copy of the fixtures, and holds that the kernel's environment is under `userData`
+and that nothing under the package changed. Never started from `out/`, so it needs no `pnpm build`.
+
 ## The chat and the stand-in agent
 
 A chat session is tested with `app/test/fake-agent.mjs` in its stream mode, which it enters when started with
