@@ -180,6 +180,9 @@ function createWindow(): BrowserWindow {
     }
   })
 
+  // The constructor clamps a window to the display on macOS even so: ask for the size again.
+  if (isTest && process.platform === 'darwin') win.setSize(1440, 900)
+
   if (!isTest) win.once('ready-to-show', () => win.show())
 
   // Closing the window ends torno and every session in it, so the window is asked first (`renderer/closing.ts`):
