@@ -13,6 +13,7 @@ into outboxes that are drained as the other end makes room, so the loop keeps
 reading from all of them even when one pipelines faster than it reads.
 """
 
+import contextlib
 import io
 import json
 import math
@@ -28,6 +29,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, BinaryIO
 
+from . import machmem
 from . import worker as worker_module
 from .frames import write_frame
 
@@ -39,6 +41,9 @@ QUERY_TIMEOUT = 30.0  # seconds a live worker has to answer a query
 # when that is less or there is none, and ROOM_SPARE on top.
 ROOM_LEAST = 2 << 30
 ROOM_SPARE = 2 << 30
+# Buffers of a worker's socketpair on macOS, each way. macOS gives a Unix socketpair about 8 KB, where Linux gives
+# about 200 KB; moving a 64 MiB mesh took 149 ms there against 10 ms with 1 MiB (4 MiB: 9 ms against 1 ms).
+SOCKET_BUFFER = 1 << 20
 _PROC = "/proc"
 OUTPUT_LINES = 200
 _OUTPUT_TAIL_BYTES = 1 << 20
@@ -338,7 +343,8 @@ class Supervisor:
         (ROOM_LEAST at least) and ROOM_SPARE: a worker is forked from here and
         shares nothing with the one before it. The other folders' workers go
         first, the least recently used first, then the folder's own. Nothing
-        goes when memory cannot be read. Files of /proc are read, no more.
+        goes when memory cannot be read. On Linux two files of /proc are read; on macOS Mach
+        is asked for the VM statistics and libproc for the worker's resident size. Nothing else.
 
         Nor does anything go with ``TORNO_KEEP_BUILDS=1`` in the environment:
         the switch of torno's own test suites, whose builds must not depend on
@@ -423,10 +429,17 @@ class Supervisor:
 
     def _fork(self, id: Any, dir: str, model: str, timeout: float) -> _Worker:
         ours, theirs = socket.socketpair()
+        if sys.platform == "darwin":
+            # For speed only: a system that refuses the size keeps its own, and the build goes on.
+            with contextlib.suppress(OSError):
+                for end in (ours, theirs):
+                    end.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SOCKET_BUFFER)
+                    end.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER)
         capture = tempfile.TemporaryFile()
         # Whatever is buffered here would otherwise be written again by the child.
         sys.stdout.flush()
         sys.stderr.flush()
+        parent = os.getpid()  # read before the fork: a worker's getppid() may already be 1
         pid = os.fork()
         if pid == 0:
             try:
@@ -435,7 +448,7 @@ class Supervisor:
                 for live in self._live.values():
                     live.sock.close()
             finally:
-                worker_module.run(theirs, capture.fileno(), dir, model)
+                worker_module.run(theirs, capture.fileno(), dir, model, parent)
         theirs.close()
         ours.setblocking(False)
         now = time.monotonic()
@@ -616,7 +629,12 @@ def _no_room(dir: str) -> str:
 
 
 def _available() -> int | None:
-    """The memory a new process could have, in bytes: MemAvailable. None if it cannot be read."""
+    """The memory a new process could have, in bytes: MemAvailable (on macOS, free and inactive pages).
+
+    None if it cannot be read.
+    """
+    if sys.platform == "darwin":
+        return machmem.available()
     return _kilobytes(f"{_PROC}/meminfo", "MemAvailable:")
 
 
@@ -624,8 +642,10 @@ def _rss(pid: int) -> int | None:
     """The memory a process holds, in bytes: its VmRSS. None if it cannot be read.
 
     Of ``status``, which anyone may read of a worker that set PR_SET_DUMPABLE
-    to 0 (``smaps_rollup`` may not be).
+    to 0 (``smaps_rollup`` may not be). On macOS, the resident size libproc tells.
     """
+    if sys.platform == "darwin":
+        return machmem.rss(pid)
     return _kilobytes(f"{_PROC}/{pid}/status", "VmRSS:")
 
 

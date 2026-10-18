@@ -96,7 +96,8 @@ is the detail of this folder, under the headings it has there.
   query: one OCC operation in it would start OCC's thread pool, and every
   worker forked afterwards would deadlock. It reads two files of `/proc`
   before a build (`meminfo` again after each worker it lets go) and nothing
-  else of the system.
+  else of the system; on macOS it asks Mach for the VM statistics and libproc for the worker's resident
+  size instead, and nothing else.
 - **OCP's names come from OCP.** In a workspace with a `pyproject.toml` the kernel runs in the workspace's
   environment with the kernel laid over it (`uv run --no-sync --project <ws> --with-editable <kernel>`): its OCP
   and build123d are the workspace's, and ocp-tessellate is resolved afresh within the kernel's `>=3.5,<4`
@@ -111,7 +112,8 @@ is the detail of this folder, under the headings it has there.
   queried, whose queries are then `no_build`. Fewer stay when memory is
   short: before a build is forked the supervisor reads `MemAvailable`
   (`/proc/meminfo`) and the `VmRSS` of the folder's live worker
-  (`/proc/<pid>/status`), takes the build to need that (`ROOM_LEAST`, 2 GiB,
+  (`/proc/<pid>/status`); on macOS it asks Mach for the VM statistics (free and inactive pages) and libproc
+  for the worker's resident size, by ctypes alone (`machmem.py`), and nothing else of the system. It takes the build to need that (`ROOM_LEAST`, 2 GiB,
   at least) and `ROOM_SPARE` (2 GiB) more, and while less is available
   retires the live workers of other folders, least recently used first, then
   the folder's own (`Supervisor._make_room`). `build.started` carries
@@ -128,7 +130,14 @@ is the detail of this folder, under the headings it has there.
   A worker leaves through `os._exit`.
 - **prctl.** Each worker sets `PR_SET_PDEATHSIG` to SIGKILL, so it dies with
   the supervisor even when that is killed, and `PR_SET_DUMPABLE` to 0, so a
-  crashing model does not wait seconds on a core dump.
+  crashing model does not wait seconds on a core dump. macOS has no prctl: there a worker sets
+  `RLIMIT_CORE` to 0 and starts a daemon thread (`worker._watch_parent`) that waits with kqueue for the
+  supervisor's exit (polling `getppid()` where there is no kqueue) and then calls `os._exit(0)`. The
+  supervisor's pid is read before the fork and passed to the worker, so a supervisor that dies in between is
+  still seen. The thread is not a fork and holds no lock a model could want.
+- **Socket buffers.** On macOS the supervisor sets `SO_SNDBUF` and `SO_RCVBUF` of both ends of each worker's
+  socketpair to `SOCKET_BUFFER` (1 MiB) before the fork: macOS gives about 8 KB, and a 64 MiB mesh then took
+  149 ms to pass against 10 ms. Linux's are left as they are.
 - **Timeouts.** Every build has one: 600 s unless the request names another
   (the app passes `TORNO_BUILD_TIMEOUT`), a day at most; one that is not a
   positive, finite number is a `bad_request`.

@@ -6,10 +6,15 @@ Everything here runs in a child of the supervisor and leaves through
 
 import ctypes
 import os
+import resource
+import select
 import signal
 import socket
 import sys
+import threading
+import time
 import traceback
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -20,14 +25,15 @@ _PR_SET_PDEATHSIG = 1
 _PR_SET_DUMPABLE = 4
 
 
-def run(sock: socket.socket, capture_fd: int, dir: str, model: str) -> NoReturn:
+def run(sock: socket.socket, capture_fd: int, dir: str, model: str, parent: int | None = None) -> NoReturn:
     """Build ``dir/model`` and serve queries on ``sock``. Never returns.
 
     The caller has already closed the supervisor's other descriptors.
     ``capture_fd`` receives everything the model writes to stdout and stderr.
+    ``parent`` is the supervisor's pid, read before the fork.
     """
     try:
-        _isolate(capture_fd)
+        _isolate(capture_fd, os.getppid() if parent is None else parent)
         channel = sock.makefile("rwb")
         built = _build(channel, dir, model)
         if built is not None:
@@ -40,12 +46,17 @@ def run(sock: socket.socket, capture_fd: int, dir: str, model: str) -> NoReturn:
         os._exit(0)
 
 
-def _isolate(capture_fd: int) -> None:
-    libc = ctypes.CDLL(None)
-    # No core dump: with systemd-coredump a crashed worker takes seconds to reap.
-    libc.prctl(_PR_SET_DUMPABLE, 0)
-    # Die with the supervisor even if it is killed before it can clean up.
-    libc.prctl(_PR_SET_PDEATHSIG, int(signal.SIGKILL))
+def _isolate(capture_fd: int, parent: int) -> None:
+    if sys.platform.startswith("linux"):
+        libc = ctypes.CDLL(None)
+        # No core dump: with systemd-coredump a crashed worker takes seconds to reap.
+        libc.prctl(_PR_SET_DUMPABLE, 0)
+        # Die with the supervisor even if it is killed before it can clean up.
+        libc.prctl(_PR_SET_PDEATHSIG, int(signal.SIGKILL))
+    else:
+        # macOS has no prctl: no core file by the limit, and a thread that sees the supervisor go.
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        threading.Thread(target=_watch_parent, args=(parent,), daemon=True, name="parent-watch").start()
     devnull = os.open(os.devnull, os.O_RDONLY)
     os.dup2(devnull, 0)  # a model that reads stdin must not eat protocol frames
     os.close(devnull)
@@ -54,6 +65,36 @@ def _isolate(capture_fd: int) -> None:
     # Line buffered, so the output survives a crash or a kill.
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
+
+
+def _watch_parent(parent: int, leave: Callable[[int], Any] = os._exit) -> None:
+    """Leave, with the whole process, once the process ``parent`` is gone. Runs in a thread of its own.
+
+    Where there is kqueue it waits for the process to exit; where there is none (or it cannot be
+    asked) it looks every half second whether this process has been given to another parent.
+    The thread does nothing else and holds no lock the model's code could want.
+    """
+    try:
+        kqueue = select.kqueue()
+        event = select.kevent(
+            parent,
+            filter=select.KQ_FILTER_PROC,
+            flags=select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
+            fflags=select.KQ_NOTE_EXIT,
+        )
+        try:
+            kqueue.control([event], 0, 0)  # registers; an error is raised here, not told as an event
+        except ProcessLookupError:
+            leave(0)  # the supervisor is already gone
+            return
+        kqueue.control(None, 1, None)
+        leave(0)
+        return
+    except (AttributeError, OSError):
+        pass  # no kqueue, or it will not watch this process
+    while os.getppid() == parent:
+        time.sleep(0.5)
+    leave(0)
 
 
 def _build(channel: Any, dir: str, model: str) -> tuple[dict[str, Any], dict[Any, Any]] | None:
