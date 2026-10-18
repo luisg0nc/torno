@@ -1066,7 +1066,7 @@ describe('watchFolder', () => {
   })
 
   it('ignores out/, .torno/, __pycache__/ and dotfiles', async () => {
-    const { changes, paths } = await watching(join(dir, 'obj'))
+    const { changes } = await watching(join(dir, 'obj'))
     writeFileSync(join(dir, 'obj', 'out', 'part.step'), 'a')
     writeFileSync(join(dir, 'obj', '.torno', 'state.json'), '{}')
     writeFileSync(join(dir, 'obj', '__pycache__', 'model.cpython-312.pyc'), 'b')
