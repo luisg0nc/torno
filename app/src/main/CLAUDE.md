@@ -533,7 +533,17 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   `show:saveThumbnail` once `keepThumbnail` took it; at most `MOST_THUMB_BYTES`). The folder of a build is written before the index names it,
   so a crash leaves the index whole and at most a folder no index names, which the next change sweeps (only folders named `h<n>`). **An id
   is `h<n>`, counts on across runs and is never given twice** (`next`, and above any folder there: a lost index does not repeat one); a revision
-  is of its run and is told beside it. A build made from the sources the newest entry was made from is not kept again. A build whose declared
+  is of its run and is told beside it. A build made from the sources the newest entry was made from is not kept again (unless the person's
+  `Params` made it: the files are the same and the shape is not). **What caused each build, and its prompt, are main's alone** (`cause`, `turn`,
+  `wentBackTo`: never from the window or a tool): `Builds` says what it started a build for (`BuildReason`: `watch`, `params`, `rebuild`,
+  `goback`, `open`, on the `build` and `scene` events), `params` and `goback` are the cause as they are, and else `Sessions.causeOf(objectId,
+  startedMs)` says `agent` (a session of the object has a turn running whose first edit, `TurnState.changedAt`, was at or before the build began;
+  a build begun between the prompt and that edit is the person's) with the turn (`conversation`, `prompt`: the uuid a chat's prompt was sent
+  with, or `t-<conversation>-<n>` in a terminal, `text`: its first 200 characters), or `person`. A build that **failed** is kept too
+  (`History.keepFailed`, from `ipc.ts` on the `build` event): a line with `failed`, `error` (`errorLine`), `files: []`, the revision of the last
+  good build, no folder; the same failure of the same sources as the newest's is not kept again; not for a cancel, a stopped kernel or a project
+  with no model. `thumbnail` and `dimensions` never go to a failed entry. Pruning lets go of the oldest failed entries before any build, and never
+  of the newest entry. A build whose declared
   checks fail is kept and marked (`failing`). The newest 100 are kept besides every starred one (`HISTORY_KEPT`; `History.star`). The entry's
   verdicts are **as of then** (`dimensions` is set when the check that followed the build ends, `keepDimensions` in `ipc.ts`): never told as
   how the build stands now. One writer, one change at a time per object, `ownTorno(dir, 'history')` before every write and delete; nothing

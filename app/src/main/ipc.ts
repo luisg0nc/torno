@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import type { BuildState } from '../shared/build'
+import { type BuildReason, type BuildState, errorLine } from '../shared/build'
 import { EXPORT_FORMATS, EXTENSIONS, FORMAT_NAMES, type FileFormat, type ExportPlan, type ExportRequest, type ExportSaved, type ModelFormat } from '../shared/exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from '../shared/geometry'
 import type { BuildIdentity } from '../shared/git'
@@ -16,9 +16,9 @@ import type { ObjectCard, ThumbnailOf } from '../shared/show'
 import type { ViewState } from '../shared/view'
 import type { ObjectInfo, RecentFolder, WorkspaceInfo } from '../shared/workspace'
 import { Builds, buildTimeout, watchFolder } from './builds'
-import { BuildLog } from './buildlog'
+import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
-import { History, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
+import { History, type KeptCause, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
 import type { HistoryEntry, HistoryGhost, HistoryList } from '../shared/history'
 import type { Verdict } from '../shared/sanity'
 import { gitStateRecently } from './git'
@@ -268,11 +268,13 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   })
   builds.on('build', (state) => {
     if (state.status === 'building' && state.startedAt !== undefined) ws.started.set(state.objectId, state.startedAt)
+    // A build that failed is kept in the history too, as a line of it.
+    if (state.status === 'failed') keepFailedBuild(ws, state)
     broadcast('object:build', state)
     onBuild?.(state)
     cardsChanged()
   })
-  builds.on('scene', ({ objectId, revision, scene, blob }) => {
+  builds.on('scene', ({ objectId, revision, scene, blob, reason, wentBackTo }) => {
     ws.meshes.keep(objectId, revision, { scene, blob })
     // Which build this scene came of: the one started last. A picture of it is no newer than the model was then.
     ws.builtFrom.set(objectId, { revision, startedMs: ws.started.get(objectId) })
@@ -282,7 +284,7 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
       const made = ws.buildLog.record(obj, revision, scene)
       void made.catch(() => {})
       // And the build is kept in the object's history (`.torno/history/`), in the order the builds landed.
-      void ws.history.keep(obj, made, scene)
+      void ws.history.keep(obj, made, scene, causeOfBuild(objectId, ws.started.get(objectId), reason, wentBackTo))
     }
     broadcast('object:scene', { objectId, revision, scene, blob: toArrayBuffer(blob) })
   })
@@ -366,6 +368,34 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
  * built from (`Builds.choice`), so the list says what is on screen. A scan
  * that fails leaves what was known.
  */
+/**
+ * What made a build, kept with it: the reason `Builds` started it for when that says (the person's `Params`, a Go
+ * back), else what the session of the object says of the moment the build began (`Sessions.causeOf`: the agent after
+ * its turn's first edit, the person otherwise).
+ */
+function causeOfBuild(objectId: string, startedMs: number | undefined, reason: BuildReason | undefined, wentBackTo: string | undefined): KeptCause {
+  if (reason === 'params') return { cause: 'params' }
+  if (reason === 'goback') return { cause: 'goback', ...(wentBackTo ? { wentBackTo } : {}) }
+  return sessions?.causeOf(objectId, startedMs ?? 0) ?? { cause: 'person' }
+}
+
+/**
+ * The build of an object failed: it is kept in the history as a line (`History.keepFailed`), with the sources as
+ * `BuildLog` hashes them (those of the last good build's `uses`). Not one the kernel's stopping or a cancel made: no
+ * sources failed there.
+ */
+function keepFailedBuild(ws: OpenWorkspace, state: BuildState): void {
+  const { error } = state
+  if (!error || error.kernelStderr || error.kind === 'cancelled' || error.kind === 'no_model') return
+  const obj = ws.info.objects.find((o) => o.id === state.objectId)
+  if (!obj) return
+  const startedMs = ws.started.get(state.objectId)
+  void sourcesHash(obj.dir, ws.builds.scene(obj.id)?.scene.uses).then(
+    (sources) => ws.history.keepFailed(obj, { run: ws.buildLog.run, revision: state.revision, sources, ...(state.seconds !== undefined ? { seconds: state.seconds } : {}) }, errorLine(error), causeOfBuild(obj.id, startedMs, state.reason, state.wentBackTo)),
+    () => null
+  )
+}
+
 async function rescan(ws: OpenWorkspace): Promise<void> {
   const newest = ws.scan()
   const scanned = await scanWorkspace(ws.info.root).catch(() => null)
@@ -704,7 +734,7 @@ export function registerIpc(
     if (!field) throw new Refusal(`${name} is not a field of the model's Params in the last build`)
     if (!field.editable) throw new Refusal(`${name} cannot be tried here: only a number, a flag or a choice with a literal default can`)
     await setOverride(obj.dir, name, value, field.default)
-    ws.builds.changed(id)
+    ws.builds.changed(id, [], 'params')
   })
 
   handle('object:resetParams', async (_event, id: string, name?: string) => {
@@ -712,7 +742,7 @@ export function registerIpc(
     const obj = ws.info.objects.find((o) => o.id === id)
     if (!obj) throw new Refusal(`no project named ${id}`)
     await resetOverrides(obj.dir, name)
-    ws.builds.changed(id)
+    ws.builds.changed(id, [], 'params')
   })
 
   handle('object:sceneFile', (_event, id: string): Promise<SceneFile> => {

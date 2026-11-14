@@ -149,6 +149,8 @@ export class Transcript {
   private readonly untaken: string[] = []
   /** The uuid torno gave each prompt (it is in the `user` line, and the CLI's `command_lifecycle` names it), by the prompt's item id. Main's: not on the item. */
   private readonly uuids = new Map<string, string>()
+  /** The prompt the last `UserPromptSubmit` took up: the uuid torno sent it with (none when it was sent with none) and its text. */
+  private promptTaken: { uuid?: string; text: string } | undefined
   /** The prompts whose `init` is already explained (by their lifecycle or their hook), once each. */
   private readonly explainedIds = new Set<string>()
   /** The prompts taken up by a `command_lifecycle` that said they started. */
@@ -282,6 +284,8 @@ export class Transcript {
       const passed = named >= 0 && this.lifecycled.has(this.awaiting[named]) ? this.awaiting.splice(named, 1) : this.awaiting.splice(0, at + 1)
       const forUser = passed[passed.length - 1]
       for (const id of passed) this.take(id)
+      const uuid = this.uuids.get(forUser)
+      this.promptTaken = { ...(uuid !== undefined ? { uuid } : {}), text: (this.byId.get(forUser) as { text?: string } | undefined)?.text ?? '' }
       // This hook starts a turn, and the `init` that follows it is its own (unless its lifecycle said so already).
       this.explain(forUser)
       if (c.text.trim() === '' && c.sentMarkIds.length === 0) return
@@ -365,6 +369,11 @@ export class Transcript {
     if (at >= 0) this.untaken.splice(at, 1)
     const item = this.byId.get(id)
     if (item?.kind === 'user' && item.state === 'queued') this.takeUp(item)
+  }
+
+  /** The prompt the last hook took up, for whoever says which prompt a turn is of; undefined before any. */
+  taken(): { uuid?: string; text: string } | undefined {
+    return this.promptTaken
   }
 
   /** How many prompts the CLI has not taken up yet: while there are some, one sent now waits behind them. */

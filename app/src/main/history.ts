@@ -1,6 +1,6 @@
 import { readFile, readdir, rm } from 'node:fs/promises'
 import { join, posix } from 'node:path'
-import { type HistoryDimensions, type HistoryEntry, HISTORY_ID, HISTORY_KEPT, changeLine, sceneFacts } from '../shared/history'
+import { type BuildCause, type BuildTurn, type HistoryDimensions, type HistoryEntry, HISTORY_ID, HISTORY_KEPT, changeLine, drawable, sceneFacts } from '../shared/history'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { writeFileAtomic } from './atomic'
@@ -29,6 +29,15 @@ export const MOST_FILE_BYTES = 512 * 1024
 export const MOST_COPY_BYTES = 2 * 1024 * 1024
 /** A picture larger than this is not kept (the cards' own is at most 512 KB, and a hundred of those are no small thing). */
 export const MOST_THUMB_BYTES = 160 * 1024
+
+/** What made a build, as main decides it (`Sessions.causeOf`, and the reason `Builds` started it for): never from the window or a tool. */
+export interface KeptCause {
+  cause: BuildCause
+  turn?: BuildTurn
+  wentBackTo?: string
+}
+
+const causeFields = (c: KeptCause): Pick<HistoryEntry, 'cause' | 'turn' | 'wentBackTo'> => ({ cause: c.cause, ...(c.turn ? { turn: c.turn } : {}), ...(c.wentBackTo ? { wentBackTo: c.wentBackTo } : {}) })
 
 interface Index {
   next: number
@@ -146,9 +155,11 @@ export class History {
   /**
    * The build that landed (`record`, as `BuildLog` found it) is kept. A build made from the sources the newest
    * entry was made from is not kept again: nothing is new in it. Resolves with the entry, the newest's when it was
-   * that, and null when nothing could be written.
+   * that, and null when nothing could be written. A failed entry before it does not stand for the same sources, and
+   * nor does a build the person's `Params` made (the cause `params`): the files are the same and the shape is not.
+   * `cause` is what made the build, as main has found it.
    */
-  keep(obj: ObjectInfo, made: Promise<BuildRecord>, scene: Scene): Promise<HistoryEntry | null> {
+  keep(obj: ObjectInfo, made: Promise<BuildRecord>, scene: Scene, cause: KeptCause): Promise<HistoryEntry | null> {
     if (obj.model === null) return Promise.resolve(null)
     const model = obj.model
     return this.turn(obj.dir, async () => {
@@ -156,12 +167,15 @@ export class History {
         const record = await made
         const index = await readIndex(obj.dir)
         const newest = index.entries.at(-1)
-        if (newest && newest.sources === record.sources) return newest
+        // The person's Params are no part of the sources: a build they made, of the same files, is a build of its own.
+        if (newest && !newest.failed && newest.sources === record.sources && cause.cause !== 'params') return newest
         const sources = await readSources(obj.dir, scene.uses ?? [])
         // The copies are of what the build read only when the files are as they were when it was hashed.
         const total = sources.reduce((sum, f) => sum + f.bytes.length, 0)
         const copied = hashOf(sources) === record.sources && total <= MOST_COPY_BYTES && sources.every((f) => f.bytes.length <= MOST_FILE_BYTES) ? sources : []
-        const before = newest ? await readHistoryScene(obj.dir, newest.id) : null
+        // What this build changed is against the last that has a scene: a failed one has none.
+        const lastDrawn = index.entries.findLast(drawable)
+        const before = lastDrawn ? await readHistoryScene(obj.dir, lastDrawn.id) : null
         const id = `h${index.next}`
         const entry: HistoryEntry = {
           id,
@@ -174,7 +188,8 @@ export class History {
           model,
           files: copied.map((f) => f.path),
           ...sceneFacts(scene),
-          line: changeLine(before ?? undefined, scene)
+          line: changeLine(before ?? undefined, scene),
+          ...causeFields(cause)
         }
         const folder = join(await folderOf(obj.dir), id)
         await ensureIgnored(obj.dir, [`${HISTORY_FOLDER}/`])
@@ -197,10 +212,54 @@ export class History {
     })
   }
 
+  /**
+   * A build that failed is kept too, as a line of the history: its `error`, what made it and the sources it was made
+   * from, with no folder, copies, scene or picture. `at.revision` is the last build that worked (a failure has no
+   * revision of its own). The same failure of the same sources as the newest entry's is not kept again. Resolves with
+   * the entry, the newest's when it was that, and null when nothing could be written.
+   */
+  keepFailed(obj: ObjectInfo, at: { run: string; revision: number; sources: string; seconds?: number }, error: string, cause: KeptCause): Promise<HistoryEntry | null> {
+    if (obj.model === null) return Promise.resolve(null)
+    const model = obj.model
+    return this.turn(obj.dir, async () => {
+      try {
+        const index = await readIndex(obj.dir)
+        const newest = index.entries.at(-1)
+        if (newest && newest.failed && newest.sources === at.sources && newest.error === error) return newest
+        const entry: HistoryEntry = {
+          id: `h${index.next}`,
+          at: new Date().toISOString(),
+          run: at.run,
+          revision: at.revision,
+          sources: at.sources,
+          model,
+          files: [],
+          parts: 0,
+          seconds: at.seconds ?? 0,
+          line: error || 'build failed',
+          failed: true,
+          error,
+          ...causeFields(cause)
+        }
+        const entries = [...index.entries, entry]
+        const gone = pruned(entries)
+        const folder = await folderOf(obj.dir)
+        const kept = entries.filter((e) => !gone.includes(e))
+        await writeFileAtomic(join(folder, INDEX), `${JSON.stringify({ next: index.next + 1, entries: kept })}\n`)
+        await sweep(obj.dir, new Set(kept.map((e) => e.id)))
+        this.changed(obj.dir)
+        return entry
+      } catch (e) {
+        console.error(`cannot keep the failed build of ${obj.id} in its history: ${e instanceof Error ? e.message : String(e)}`)
+        return null
+      }
+    })
+  }
+
   /** The window drew a picture of the build of this run with this revision: it is kept with its entry, when it has one and the picture is small enough. */
   thumbnail(obj: ObjectInfo, run: string, revision: number, png: Uint8Array): Promise<boolean> {
     return this.change(obj, (index) => {
-      const entry = index.entries.findLast((e) => e.run === run && e.revision === revision)
+      const entry = index.entries.findLast((e) => !e.failed && e.run === run && e.revision === revision)
       if (!entry || entry.thumb || png.length > MOST_THUMB_BYTES || thumbnailRefusal(png) !== null) return null
       return { entry: { ...entry, thumb: true as const }, write: async (folder) => writeFileAtomic(join(folder, entry.id, 'thumb.png'), png) }
     })
@@ -209,7 +268,7 @@ export class History {
   /** What the person's dimensions said of the build of this run with this revision, as the check that followed it left them. */
   dimensions(obj: ObjectInfo, run: string, revision: number, counts: HistoryDimensions): Promise<boolean> {
     return this.change(obj, (index) => {
-      const entry = index.entries.findLast((e) => e.run === run && e.revision === revision)
+      const entry = index.entries.findLast((e) => !e.failed && e.run === run && e.revision === revision)
       const now = entry?.dimensions
       if (!entry || (counts.pass + counts.fail + counts.none === 0 && !now) || (now && now.pass === counts.pass && now.fail === counts.fail && now.none === counts.none)) return null
       return { entry: { ...entry, dimensions: counts } }
@@ -247,10 +306,17 @@ export class History {
   }
 }
 
-/** The entries to let go: the oldest that are not starred, beyond the newest `HISTORY_KEPT`; the newest is never one. */
+/**
+ * The entries to let go: those that are not starred, beyond the newest `HISTORY_KEPT`; the failed ones go first (the
+ * oldest of them), then the oldest builds. The newest entry is never one.
+ */
 function pruned(entries: readonly HistoryEntry[]): HistoryEntry[] {
   const loose = entries.filter((e) => !e.starred)
-  return loose.slice(0, Math.max(0, loose.length - HISTORY_KEPT)).filter((e) => e !== entries.at(-1))
+  const over = Math.max(0, loose.length - HISTORY_KEPT)
+  if (over === 0) return []
+  const newest = entries.at(-1)
+  const candidates = loose.filter((e) => e !== newest)
+  return [...candidates.filter((e) => e.failed), ...candidates.filter((e) => !e.failed)].slice(0, over)
 }
 
 /** Removes the folders of builds the index does not name: those pruned, and any a crash left. Only folders named like a build's. */

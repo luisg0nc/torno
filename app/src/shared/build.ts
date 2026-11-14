@@ -11,6 +11,8 @@ export interface BuildError {
   /** `output` is the stderr of the kernel process that stopped (set by main where it makes that error), not what the model printed. */
   kernelStderr?: true
 }
+/** What a build was started for: a change of the files, the person's `Params`, the Rebuild button, a Go back, or the project being opened. */
+export type BuildReason = 'watch' | 'params' | 'rebuild' | 'goback' | 'open'
 export interface BuildState {
   objectId: string
   status: BuildStatus
@@ -21,6 +23,10 @@ export interface BuildState {
   stale: boolean              // true when the parts on screen are older than the latest attempt
   /** The kernel let the last build of this object go to make room for the one running (memory): nothing answers of it until a build lands. */
   letGo?: 'memory'
+  /** What the build was started for (`Builds`); main's, so it is not taken from the window. */
+  reason?: BuildReason
+  /** For the reason `goback`: the id of the kept build it restores. */
+  wentBackTo?: string
 }
 
 /** The key of "Rebuild", written out: main's sentences name it and do not carry the table of keys (`keys.test.ts` holds it to the table). */

@@ -7,6 +7,7 @@ import * as pty from 'node-pty'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import { type AgentChoice, agentChoiceOf, type ChatAnswer, type ChatCommand, type ChatHistory, type ChatItem, type ChatMeta, type ChatModel, type Effort, isEffort, type Mode } from '../../shared/chat'
 import type { BuildIdentity } from '../../shared/git'
+import type { BuildTurn } from '../../shared/history'
 import { modelsOf } from './models'
 import { type BuildState, errorLine, failedAfter } from '../../shared/build'
 import { type DrawnOver, type ViewDrawing, drawnOver } from '../../shared/drawing'
@@ -50,6 +51,8 @@ const DID_NOT_START = 'It did not start: is `claude` up to date and signed in? T
 const CONVERSATION_EVENTS = new Set(['UserPromptSubmit', 'Stop'])
 /** The hooks that only say the agent is at work again. */
 const TOOL_EVENTS = new Set(['PreToolUse', 'PostToolUse'])
+/** The most of a prompt that a build's history entry keeps, in characters. */
+const PROMPT_TEXT = 200
 /** C0 and C1 controls and DEL: among them ESC, the newlines and the one-byte CSI. */
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g
 
@@ -79,6 +82,8 @@ interface Session {
   agent: AgentTransport | null
   /** A chat session: what it said and did, as the window draws it; kept after the session ends (`Sessions.history`). */
   chat: ChatRecord | null
+  /** How many `UserPromptSubmit` the session has had: a turn of a terminal session is named by it (`Sessions.causeOf`). */
+  prompts: number
   /** A chat session: what was written to the log, one write after another; and whether a write failed, after which none is tried. */
   logging: Promise<void>
   logFailed: boolean
@@ -133,6 +138,8 @@ interface TurnState {
    * turn's (`stopAnswer`); one begun before it, or in a turn with none, is not, and no `Stop` is held back for it.
    */
   changedAt?: number
+  /** The prompt the turn answers, as the history names it (`BuildTurn`, without its conversation): set once its hook has been answered. */
+  prompt?: { prompt: string; text: string }
   /** The `Bash` tool uses under way, by tool use: when each began and when the newest source of the object was saved then. */
   bashing: Map<string, { at: number; saved: number | null }>
   /** The tool use of the last edit answered: the chat's card its build is put on. */
@@ -449,6 +456,7 @@ export class Sessions {
       conversationId,
       promptedIn: conversationId,
       unprompted: stored === null,
+      prompts: 0,
       compacted: false,
       firstPrompt: true,
       status: 'starting',
@@ -542,6 +550,22 @@ export class Sessions {
     const waiting = this.buildWaiters
     this.buildWaiters = new Set()
     for (const wake of waiting) wake()
+  }
+
+  /**
+   * What caused a build of an object that began at `startedMs` (ms epoch): the agent when a session of the object has
+   * a turn running that first changed a source at or before then (`TurnState.changedAt`), with the turn it is of; the
+   * person otherwise (a save before the turn's first edit, or no turn at all). The prompt is named by the uuid torno
+   * sent it with (a chat), else by `t-<conversation>-<n>`, counted per `UserPromptSubmit` (a terminal). The caller
+   * lets the reason a build was started for (the person's `Params`, a Go back) win over this.
+   */
+  causeOf(objectId: string, startedMs: number): { cause: 'agent' | 'person'; turn?: BuildTurn } {
+    const session = this.of(objectId)
+    const turn = session?.turn
+    if (!session || !turn || turn.changedAt === undefined || startedMs < turn.changedAt) return { cause: 'person' }
+    const conversation = session.conversationId
+    const prompt = turn.prompt ?? { prompt: `t-${conversation}-${session.prompts}`, text: '' }
+    return { cause: 'agent', turn: { conversation, prompt: prompt.prompt, ...(prompt.text ? { text: prompt.text } : {}) } }
   }
 
   /** Resolves at the next change of a build, or at `until` (ms epoch), whichever comes first. */
@@ -1318,7 +1342,10 @@ export class Sessions {
     if (event === 'PostCompact') session.compacted = true
     if (event !== 'SessionEnd') this.advance(session, event, fields)
     if (event === 'Stop' || event === 'StopFailure') session.turn = undefined
+    // The number of the prompt and the turn it begins are taken now: the context is awaited below, and the turn is then the one to name it.
+    const promptNo = event === 'UserPromptSubmit' ? (session.prompts += 1) : session.prompts
     if (event === 'UserPromptSubmit') session.turn = this.beginTurn(session)
+    const turn = session.turn
 
     if (event !== 'UserPromptSubmit') {
       if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}`)
@@ -1352,6 +1379,12 @@ export class Sessions {
     }
     const { text, sentMarkIds } = context
     session.chat?.transcript.context({ text, sentMarkIds, ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
+    // Which prompt this turn answers, for the builds it causes: the uuid torno sent a chat's prompt with, else a number of main's own.
+    if (turn && session.turn === turn) {
+      const taken = session.chat?.transcript.taken()
+      const said = (taken?.text ?? (typeof fields.prompt === 'string' ? fields.prompt : '')).trim()
+      turn.prompt = { prompt: taken?.uuid ?? `t-${session.conversationId}-${promptNo}`, text: said.slice(0, PROMPT_TEXT) }
+    }
     this.emit('context', { sessionId: session.id, objectId, text, sentMarkIds, ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
     if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}${text ? `, answered with: ${text}` : ''}`)
     // Marks are sent once the answer that names them has been handed over whole: not when the agent hung

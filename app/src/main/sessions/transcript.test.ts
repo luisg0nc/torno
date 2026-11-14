@@ -250,6 +250,22 @@ describe('what is sent', () => {
     expect(of(t, 'user').map((u) => u.state)).toEqual(['sent', 'sent'])
   })
 
+  it('says which prompt the last hook took up, by the uuid it was sent with', () => {
+    const t = new Transcript()
+    expect(t.taken()).toBeUndefined()
+    t.userSent(text('first'), false, 'uuid-1')
+    t.userSent(text('second'), true, 'uuid-2')
+    t.context({ text: '', sentMarkIds: [], prompt: 'first' })
+    expect(t.taken()).toEqual({ uuid: 'uuid-1', text: 'first' })
+    t.message(init())
+    t.context({ text: 'ctx', sentMarkIds: [], prompt: 'second' })
+    expect(t.taken()).toEqual({ uuid: 'uuid-2', text: 'second' })
+    // A prompt sent with no uuid has none to say.
+    t.userSent(text('third'), true)
+    t.context({ text: '', sentMarkIds: [], prompt: 'third' })
+    expect(t.taken()).toEqual({ text: 'third' })
+  })
+
   it('shows the first text of a prompt and its pictures, and not the captions that come before each picture', () => {
     const t = new Transcript()
     const img = { type: 'image', source: { type: 'base64', media_type: 'image/png', data: PNG_1X1 } } as const

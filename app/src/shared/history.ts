@@ -70,7 +70,7 @@ export interface HistoryEntry {
   turn?: BuildTurn
   /** A build that failed: kept as a line of the history with no `scene.json`, picture or copies. */
   failed?: true
-  /** The first line of the failure, for a failed entry only. */
+  /** The line that names the failure (`errorLine`: the last of its traceback), for a failed entry only. */
   error?: string
   /** For the cause `goback`: the id of the build it restored. */
   wentBackTo?: string
