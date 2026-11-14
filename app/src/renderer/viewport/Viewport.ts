@@ -16,6 +16,7 @@ import { MarkLayer, type Draft } from './marks/MarkLayer'
 import { overlayFonts, type LabelStyle } from './overlay'
 import { OverlayPass } from './overlayPass'
 import { partChanged } from '../../shared/diff'
+import type { CompareMode } from '../state/compare'
 import { Earlier } from './earlier'
 import { Ghosts, type GhostItem } from './ghosts'
 import { STALE_FADE, colorFor, colorsOfParts, edgeTint, mix } from '../../shared/palette'
@@ -89,6 +90,8 @@ export class Viewport {
   private readonly ghosts = new Ghosts(() => this.invalidate())
   /** An earlier build drawn over the current one, for display only, until it is cleared (`earlier.ts`). */
   private readonly earlier = new Earlier()
+  /** How the earlier build is shown against the live one (Compare); null when none is compared. */
+  private compareMode: CompareMode | null = null
   /** False until a scene with parts has been framed; after that the camera is the user's. */
   private framed = false
   /** Everything drawn in the current layout, for the clip planes: the parts and the grid (`groundExtent`), and the marks. */
@@ -346,6 +349,7 @@ export class Viewport {
     if (this.section.get() !== null || this.apart.any) return false
     const parts = scene.parts.filter((p) => p.layout === this.layout)
     if (parts.length === 0) return false
+    this.earlier.tint(toHex(this.theme.muted), toHex(this.theme.ink))
     this.earlier.show(parts, blob, toHex(this.theme.muted))
     this.invalidate()
     return true
@@ -354,6 +358,23 @@ export class Viewport {
   /** Puts the earlier build away. */
   clearEarlier(): void {
     if (this.earlier.clear()) this.invalidate()
+  }
+
+  /**
+   * How the earlier build is shown against the live one: `overlay` it translucent over it, `before` it alone, `after` the live
+   * one alone, `side` the earlier one in the left half and the live one in the right (the same camera, each half framed as the
+   * whole view is; nothing in a half is pointed at or marked). Null for no comparing. Only while an earlier build is drawn.
+   */
+  setCompareMode(mode: CompareMode | null): void {
+    if (this.compareMode === mode) return
+    this.compareMode = mode
+    this.earlier.solid(mode === 'before' || mode === 'side')
+    this.invalidate()
+  }
+
+  /** Whether the view is split in two (`side`): a point of it is not one of the model. */
+  private get split(): boolean {
+    return this.compareMode === 'side' && this.earlier.on
   }
 
   /** The keys of the parts of the earlier build drawn; empty when there is none. */
@@ -860,6 +881,8 @@ export class Viewport {
    * alone are asked for (`partsOnly`); a scan that is seen through is pointed through (`ScanLayer.blocks`).
    */
   pick(clientX: number, clientY: number, opts?: { edges?: boolean; partsOnly?: boolean }): Hit | null {
+    // Side by side the canvas is two views of the model, and a point of it is on neither as the one camera has it.
+    if (this.split) return null
     const at = this.canvasPoint(clientX, clientY)
     if (!at) return null
     this.syncMatrices()
@@ -1275,7 +1298,7 @@ export class Viewport {
     this.highlights.setColors(this.theme)
     this.marks.setColours(markColours(this.theme))
     this.section.setColours(toHex(this.theme.muted), toHex(this.theme.accent))
-    this.earlier.tint(toHex(this.theme.muted))
+    this.earlier.tint(toHex(this.theme.muted), toHex(this.theme.ink))
     this.lookOfScans()
     this.showMarks()
     this.scene.background = new THREE.Color(this.theme.surface)
@@ -1415,16 +1438,55 @@ export class Viewport {
 
   private draw(): void {
     if (this.disposed) return
-    setProjection(this.camera, this.controls.target, this.fov, this.aspect, this.extent)
+    const split = this.split
+    // Side by side each half is as wide as half the view: the same camera, framed for that.
+    setProjection(this.camera, this.controls.target, this.fov, split ? this.aspect / 2 : this.aspect, this.extent)
     this.aimKeyLight(this.camera, this.controls.target)
     const size = { width: this.canvas.clientWidth, height: this.canvas.clientHeight }
     this.camera.updateMatrixWorld()
     this.marks.update(this.camera, size)
     this.section.sizeHandle((at) => mmPerPx(this.camera, at, size.height))
     this.section.outline()
-    this.renderer.render(this.scene, this.camera)
-    this.overlay.draw(size)
+    if (split) {
+      const half = size.width / 2
+      this.renderer.setScissorTest(true)
+      for (const [x, live] of [[0, false], [half, true]] as const) {
+        this.renderer.setViewport(x, 0, half, size.height)
+        this.renderer.setScissor(x, 0, half, size.height)
+        this.renderScene(live, !live)
+      }
+      this.renderer.setScissorTest(false)
+      this.renderer.setViewport(0, 0, size.width, size.height)
+      this.overlay.split(size)
+    } else {
+      // Before: the earlier build in the place of the live one. After: the live one, with nothing over it.
+      const mode = this.earlier.on ? this.compareMode : null
+      this.renderScene(mode !== 'before', mode !== 'after')
+      this.overlay.draw(size)
+    }
     for (const cb of this.drawnListeners) cb()
+  }
+
+  /** One frame of the scene with the live build left out (`live` false: its parts, marks, ghosts and scans) and/or the earlier build. */
+  private renderScene(live: boolean, earlier: boolean): void {
+    const left: THREE.Object3D[] = []
+    const out = (o: THREE.Object3D): void => {
+      if (!o.visible) return
+      o.visible = false
+      left.push(o)
+    }
+    if (!live) {
+      for (const entry of this.entries.values()) out(entry.built.group)
+      out(this.marks.group)
+      out(this.ghosts.group)
+      out(this.scans.group)
+    }
+    if (!earlier) out(this.earlier.group)
+    try {
+      this.renderer.render(this.scene, this.camera)
+    } finally {
+      for (const o of left) o.visible = true
+    }
   }
 }
 

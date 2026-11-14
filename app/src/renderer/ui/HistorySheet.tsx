@@ -83,7 +83,7 @@ export function HistorySheet({ objectName, onClose }: { objectName: string; onCl
   const objectId = useStore((s) => s.objectId)
   const list = useHistory(true)
   const session = useStore(runningSession)
-  const comparing = useStore((s) => s.compare)
+  const comparing = useStore((s) => s.compare?.from ?? null)
   // The earlier build is drawn uncut and together: it cannot be laid over a section or parts drawn apart.
   const blocked = useStore((s) => (s.section !== null ? 'Take the section away first: an earlier build is not drawn cut.' : explodeNow(s) !== null ? 'Put the parts together first: an earlier build is not drawn apart.' : null))
   const [chosen, setChosen] = useState<string | null>(null)
@@ -195,7 +195,7 @@ export function HistorySheet({ objectName, onClose }: { objectName: string; onCl
                           ? blocked
                           : 'Draw this build over the current one, translucent, for looking only; nothing is changed'
                     }
-                    onClick={() => actions.compareWith(comparing === entry.id ? null : entry.id)}
+                    onClick={() => (comparing === entry.id ? actions.endCompare() : actions.compare(entry.id, newest[0].id))}
                   >
                     {comparing === entry.id ? 'Stop showing it over the current' : 'Show over the current build'}
                   </button>

@@ -57,6 +57,23 @@ export class OverlayPass {
     this.canvas.height = Math.round(height * window.devicePixelRatio)
   }
 
+  /** Nothing drawn over the canvas but the line down its middle: the frame is two views, which the labels and cues are not placed for (two builds side by side). */
+  split(size: { width: number; height: number }): void {
+    const ctx = this.canvas?.getContext('2d')
+    if (!this.canvas || !ctx || size.width === 0 || size.height === 0) return
+    ctx.setTransform(this.canvas.width / size.width, 0, 0, this.canvas.height / size.height, 0, 0)
+    ctx.clearRect(0, 0, size.width, size.height)
+    ctx.strokeStyle = this.host.frame().muted
+    ctx.globalAlpha = 0.6
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(Math.round(size.width / 2) + 0.5, 0)
+    ctx.lineTo(Math.round(size.width / 2) + 0.5, size.height)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+    this.chips = []
+  }
+
   draw(size: { width: number; height: number }): void {
     const ctx = this.canvas?.getContext('2d')
     if (!this.canvas || !ctx || size.width === 0 || size.height === 0) return

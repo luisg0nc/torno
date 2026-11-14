@@ -373,11 +373,19 @@ are kept, and every one you star. A build that fails the model's own checks is k
 to compare against. A rebuild of sources the newest kept build was made from is not kept again. **History** in the status line opens
 the builds in a strip, newest first: the picture, the id, how long ago, and what changed from the build before in a
 line (`tub changed, lid same`). Choose one for its facts, **Show the source** to read the Python it was made from,
-read only, **Star** to keep it, **Show over the current build** to see it drawn translucent, in grey, over the build on show (for looking only: nothing is measured from it, a picture for the agent does not show it, and a section, parts drawn apart or another layout put it away; the status line says it is there and has **Stop**), or **Ask the agent to go back to this build**, which puts a request in the message box of
+read only, **Star** to keep it, **Show over the current build** to compare it with the one on show (below), or **Ask the agent to go back to this build**, which puts a request in the message box of
 the session (or starts one) naming the copies, and sends nothing. torno never puts a file back: the agent edits the
 project's files, under your permission rules, and the copies are not to be edited. What a kept build had then (checks
 that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands
-now. A build can be shown over the current one only if it was made in this run and its meshes are still held: they are kept in memory, never on disk, within a budget of 64 MB for the builds before the newest, the oldest let go first. The agent reads the same with `history`, and compares any two with `diff`.
+now. **Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the kept build alone), **Overlay**
+(translucent, in grey, over the live build), **After** (the live build alone) and **Side by side** (the kept build in the left half, the live one in
+the right, one camera for both), and **Back to the live build**, which `Esc` also does. Two boxes over the corners say what the later build changed
+(its line) and how the checks and your dimensions moved between the two builds. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
+It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
+show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from
+the meshes held in memory (never on disk, within a budget of 64 MB for the builds before the newest, the oldest let go first); an older one is built again from
+its copy of the files, in a worker thrown away that keeps and writes nothing, and the status line says `Building h40 to compare…` while it takes: the first time
+only waits for one build. A build that failed, or whose copy was not kept or no longer builds, is not drawn: the view says why. The agent reads the same with `history`, and compares any two with `diff`.
 
 **A failed fillet or chamfer.** build123d and OpenCascade say only that a fillet
 or a chamfer could not be made, naming neither the edges nor the radius. When a
@@ -1779,6 +1787,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Viewport | `O` | Perspective or orthographic |
 | Viewport | `E` | Draw the parts apart, or together again |
 | Viewport | `W` | All projects of the folder, on one page (there a letter filters them by name) |
+| Viewport | `Esc` | Compare: back to the live build, before any other step back |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
 | With a tool in hand | `T` | Measure: the wall under the pointer |
 | With a tool in hand | `Enter` | Measure: keep the last measurement as a dimension |
@@ -2240,8 +2249,8 @@ On the screen:
 - **The history sheet.** Build a project a few times with an edit between, then open **History** in the status line: a
   card for each build, newest first, in a row that scrolls sideways, each with a picture of the project as it was, legible
   in light and dark. The chosen card has the accent's edge; **Show the source** shows the Python in the monospace face and
-  cannot be typed in; **Show over the current build** draws that build in grey, translucent, over the one on show, and the
-  status line has **Stop**; **Ask the agent to go back** leaves the request in the box, unsent. Try it with a real Claude Code:
+  cannot be typed in; **Show over the current build** compares it with the one on show (a bar with Before, Overlay, After and Side by side under the view bar, two boxes over the corners,
+  `comparing h40 → h41` in the status line; **Back to the live build** or `Esc` ends it); **Ask the agent to go back** leaves the request in the box, unsent. Try it with a real Claude Code:
   send the request, and check that it edits your files to match the copy and not the copy itself.
 - **A broken part in the layers.** Build a model with a cavity whose shell faces into it, or a part made of a shell
   with a face left out: its layer row says "not valid" (or "not closed") after its name in the colour of a failure,

@@ -268,7 +268,7 @@ export interface TornoBridge {
     thumbnail(objectId: string, id: string): Promise<ArrayBuffer | null>
     /** The text of one copied source file of a build (`file` is one of its `files`), or null. */
     source(objectId: string, id: string, file: string): Promise<string | null>
-    /** A build made in this run, with its meshes, to be drawn over the current one for display only; null when its meshes are not held (see `HistoryList.ghosts`). */
+    /** A build made in this run, with its meshes, to be drawn over the current one for display only; its `refused` sentence when it cannot be drawn (it failed, or its copy is not kept or no longer builds); null for a project main does not know. See `HistoryList.ghosts`: those are held, the rest are built again. */
     ghost(objectId: string, id: string): Promise<HistoryGhost | null>
     /** Stars a build, or takes the star away: a starred build is not let go. False for a build that is not kept. */
     star(objectId: string, id: string, starred: boolean): Promise<boolean>

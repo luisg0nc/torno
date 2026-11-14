@@ -14,6 +14,7 @@ import { sameCamera, viewOnScreen } from './savedViews'
 import type { LayerSettings, SceneFile } from '../../shared/scenefile'
 import type { WorkspaceInfo } from '../../shared/workspace'
 import { type ColumnPrefs, type RailPanel, keptWidth, readColumn, windowStorage, writeColumn } from './column'
+import type { CompareMode, CompareState } from './compare'
 
 /** The agent session of an object. Its output is not here: it goes straight into the terminal. */
 export interface SessionView {
@@ -47,8 +48,8 @@ export interface TornoState {
   build: BuildState | null
   /** Whether the sheet of the failed build is up (the status line's "Build failed" and the chat's "Show error" open it); it is of the open object, and goes when the build has no error. */
   errorOpen: boolean
-  /** The kept build (`h41`) drawn over the current one, for display only (the history sheet's "Show over the current"); null for none. Of the open object: another object, another layout or a section puts it away. */
-  compare: string | null
+  /** Two kept builds compared in the view (`state/compare.ts`): the earlier drawn against the live build, for display only; null for none. Of the open object: another object, another layout, a section or an explode puts it away; a build landing does not. */
+  compare: CompareState | null
   /** What the sheet's "Start a session to fix it" asked for: the session pane starts one and puts this text in its box, never sends it. Of the open object; gone when another is opened. */
   fixRequest: string | null
   /** Whether the session dock is shown. The window's, not an object's: another object or workspace leaves it as it is. */
@@ -723,9 +724,40 @@ export const actions = {
     if (store.getState().fixRequest !== text) store.setState({ fixRequest: text })
   },
 
-  /** A kept build is drawn over the current one (`ViewportPane` asks main for its meshes), or, with null, put away. */
-  compareWith(id: string | null): void {
-    if (store.getState().compare !== id) store.setState({ compare: id })
+  /** The kept build `from` is compared with `to` (`ViewportPane` asks main for the meshes of `from`), as an overlay, for the turn `prompt` when it is one's. */
+  compare(from: string, to: string, prompt?: number): void {
+    const { objectId, compare } = store.getState()
+    if (objectId === null) return
+    // The same earlier build asked for again is the one already drawn, or being made, or refused: what is said of it stays.
+    const same = compare?.from === from ? { ...(compare.building ? { building: true as const } : {}), ...(compare.refused === undefined ? {} : { refused: compare.refused }) } : {}
+    store.setState({ compare: { from, to, mode: 'overlay', ...(prompt === undefined ? {} : { prompt }), ...same } })
+  },
+
+  /** How the comparing is shown. Nothing without one. */
+  compareMode(mode: CompareMode): void {
+    const { compare } = store.getState()
+    if (compare && compare.mode !== mode) store.setState({ compare: { ...compare, mode } })
+  },
+
+  /** Back to the live build alone. */
+  endCompare(): void {
+    if (store.getState().compare !== null) store.setState({ compare: null })
+  },
+
+  /** The old build of the comparing is being made again from its copy (`from` still the one asked for); false when it has come. */
+  compareBuilding(on: boolean): void {
+    const { compare } = store.getState()
+    if (!compare || Boolean(compare.building) === on) return
+    const { building: _, ...rest } = compare
+    store.setState({ compare: on ? { ...rest, building: true } : rest })
+  },
+
+  /** The old build could not be drawn: main's sentence says why, and the view shows it. */
+  compareRefused(why: string): void {
+    const { compare } = store.getState()
+    if (!compare) return
+    const { building: _, ...rest } = compare
+    store.setState({ compare: { ...rest, refused: why } })
   },
 
   /** The sheet of the failed build is opened or put away. */

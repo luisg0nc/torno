@@ -323,6 +323,11 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   const onKey = (e: KeyboardEvent) => {
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
     if (e.target instanceof Element && e.target.closest(TYPING)) return
+    // Two builds compared in the view: Escape is its end, before any other step back.
+    if (store.getState().compare !== null && pressed(e, 'compare.end')) {
+      actions.endCompare()
+      return e.preventDefault()
+    }
     // No tool but Select is handed a key either while the parts are drawn apart: a key measures and keeps as a press does.
     const handed = tool && (tool.id === 'select' || (explodeNow(store.getState()) === null && !viewport.exploded())) ? tool : undefined
     if (handed?.onKey?.(e, context())) return e.preventDefault()
@@ -346,15 +351,33 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   // The gizmo on the active mark while it is a shape, and the keys that say what it does.
   const offShape = connectShapeEdit(viewport)
 
-  const showEarlier = (objectId: string | null, id: string | null): void => {
-    if (id === null || objectId === null) return viewport.clearEarlier()
-    window.torno.history.ghost(objectId, id).then(
+  // How long an old build may take to come before the status line says it is being made again from its copy.
+  const BUILDING_SAID_MS = 300
+  const showEarlier = (objectId: string | null, from: string | null): void => {
+    viewport.clearEarlier()
+    if (from === null || objectId === null) return
+    const wanted = (): boolean => {
+      const now = store.getState()
+      return now.compare?.from === from && now.objectId === objectId
+    }
+    const refuse = (why: string): void => {
+      if (wanted()) actions.compareRefused(why)
+    }
+    const waiting = setTimeout(() => wanted() && actions.compareBuilding(true), BUILDING_SAID_MS)
+    window.torno.history.ghost(objectId, from).then(
       (ghost) => {
+        clearTimeout(waiting)
+        if (!wanted()) return
+        if (ghost?.refused !== undefined) return refuse(ghost.refused)
+        if (!ghost) return refuse(`Build ${from} cannot be drawn.`)
+        if (viewport.setEarlier(ghost.scene, ghost.blob)) return actions.compareBuilding(false)
         const now = store.getState()
-        if (now.compare !== id || now.objectId !== objectId) return
-        if (!ghost || !viewport.setEarlier(ghost.scene, ghost.blob)) actions.compareWith(null)
+        refuse(now.section !== null || explodeNow(now) !== null ? `Build ${from} is drawn uncut and together: take the section away and put the parts together first.` : `Build ${from} has no part in this layout.`)
       },
-      () => actions.compareWith(null)
+      (e) => {
+        clearTimeout(waiting)
+        refuse(`Build ${from} could not be drawn: ${e instanceof Error ? e.message : String(e)}`)
+      }
     )
   }
   const offStore = store.subscribe((s, prev) => {
@@ -363,9 +386,10 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     if (s.selection !== prev.selection) viewport.setSelection(s.selection)
     const apart = explodeNow(s)
     const wasApart = explodeNow(prev)
-    // A kept build drawn over this one (the history sheet): asked of main for its meshes; put away by anything that would cut or move it.
-    if (s.compare !== prev.compare) showEarlier(s.objectId, s.compare)
-    else if (s.compare !== null && (s.layout !== prev.layout || s.section !== null || apart !== null)) actions.compareWith(null)
+    // Two builds compared: the earlier one is asked of main for its meshes (an old one is built again from its copy); put away by anything that would cut or move it. A build landing under it changes nothing.
+    if (s.objectId !== prev.objectId || s.compare?.from !== prev.compare?.from) showEarlier(s.objectId, s.compare?.from ?? null)
+    else if (s.compare !== null && (s.layout !== prev.layout || s.section !== null || apart !== null)) actions.endCompare()
+    if (s.compare?.mode !== prev.compare?.mode) viewport.setCompareMode(s.compare?.mode ?? null)
     // Together before a cut is made, by order and not by what a frame happens to see: a section is never drawn across parts that are apart.
     if (apart === null && wasApart !== null && s.section !== null) viewport.setExplode(null)
     // The cut is of the object: another object has its own, or none.
@@ -487,6 +511,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       faded: () => viewport.faded(),
       ghosts: () => viewport.ghostKeys(),
       earlier: () => viewport.earlierKeys(),
+      compare: (from, to, prompt) => actions.compare(from, to, prompt),
       holdGhosts: (held) => viewport.holdGhosts(held),
       // What a pointer move costs: the same call, at points spread over the canvas in a grid.
       timePicks: (count = 200, opts) => timed(count, (x, y) => viewport.pick(x, y, opts) !== null),

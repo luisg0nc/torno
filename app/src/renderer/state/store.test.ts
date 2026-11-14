@@ -1453,3 +1453,61 @@ describe('the rail', () => {
     expect(store.getState().column.width).toBe(248)
   })
 })
+
+describe('comparing two kept builds', () => {
+  it('starts as an overlay of the one before on the one after, and says the prompt it came from', () => {
+    actions.compare('h40', 'h41', 14)
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay', prompt: 14 })
+    actions.compare('h40', 'h41')
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay' })
+  })
+
+  it('changes the way it is shown, and keeps the builds', () => {
+    actions.compare('h40', 'h41', 14)
+    for (const mode of ['before', 'after', 'side', 'overlay'] as const) {
+      actions.compareMode(mode)
+      expect(store.getState().compare).toMatchObject({ from: 'h40', to: 'h41', mode, prompt: 14 })
+    }
+  })
+
+  it('is told nothing of a mode when no comparing is on', () => {
+    actions.compareMode('side')
+    expect(store.getState().compare).toBeNull()
+  })
+
+  it('ends, and is the same state again when it ends twice', () => {
+    actions.compare('h40', 'h41', 14)
+    actions.endCompare()
+    expect(store.getState().compare).toBeNull()
+    const state = store.getState()
+    actions.endCompare()
+    expect(store.getState()).toBe(state)
+  })
+
+  it('keeps going when a build lands under it', () => {
+    actions.compare('h40', 'h41', 14)
+    actions.applyScene({ objectId: 'bracket', revision: 1, scene: BRACKET })
+    actions.applyScene({ objectId: 'bracket', revision: 2, scene: rebuilt(BRACKET, 'assembly:base') })
+    expect(store.getState().compare).toMatchObject({ from: 'h40', to: 'h41' })
+  })
+
+  it('goes with the object: another object opened has none', () => {
+    actions.compare('h40', 'h41')
+    actions.openObject('gear', { layers: {} })
+    expect(store.getState().compare).toBeNull()
+  })
+
+  it('says it is building the old build only while it is, and what main refused', () => {
+    actions.compare('h40', 'h41')
+    actions.compareBuilding(true)
+    expect(store.getState().compare).toMatchObject({ building: true })
+    actions.compareRefused('h40 could not be built again')
+    expect(store.getState().compare).toMatchObject({ refused: 'h40 could not be built again' })
+    expect(store.getState().compare?.building).toBeUndefined()
+    // The same build asked for again is the one already refused; another build starts clean.
+    actions.compare('h40', 'h42')
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h42', mode: 'overlay', refused: 'h40 could not be built again' })
+    actions.compare('h39', 'h41')
+    expect(store.getState().compare).toEqual({ from: 'h39', to: 'h41', mode: 'overlay' })
+  })
+})

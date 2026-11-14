@@ -7,8 +7,10 @@ import type { Part } from '../../shared/scene'
 import { partDefects } from '../../shared/sanity'
 import { makesEnvironment } from './readyLines'
 import { landedOn } from '../state/landing'
+import { compareStatus } from '../state/compare'
 import { actions, partsInLayout, useStore } from '../state/store'
 import { BuildErrorSheet } from './BuildErrorSheet'
+import { withRefs } from './CompareBar'
 import { HistorySheet } from './HistorySheet'
 import { UNCHECKED_AFTER_MS, useLasting } from './MarkRow'
 import { AGENT_LABEL } from '../../shared/agents'
@@ -174,9 +176,9 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
             </span>
           )}
           {compare !== null && (
-            <button type="button" className="status-compare" title="An earlier build is drawn over the current one, for looking only. Put it away" onClick={() => actions.compareWith(null)}>
-              Showing <span className="num">{compare}</span> over this build · Stop
-            </button>
+            <span className="status-compare" role="status" title="Two builds are compared in the view, for looking only. Back to the live build ends it" data-part="compare">
+              {withRefs(compareStatus(compare))}
+            </span>
           )}
           {hasScene && (
             <button type="button" className="status-history" aria-expanded={historyOpen} title="The builds kept of this project: compare, read their source, ask the agent to go back" onClick={() => setHistoryOpen(!historyOpen)}>

@@ -77,4 +77,23 @@ describe('Earlier', () => {
     const surface = (earlier.group.children[0] as THREE.Group).children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
     expect(surface.material.color.getHexString()).toBe('a0a4aa')
   })
+
+  it('is drawn solid, with edges in ink, when it is shown alone (Before, Side by side), and translucent again after', () => {
+    const { blob, mesh } = pack()
+    const earlier = new Earlier()
+    earlier.show([part('tub', mesh)], blob, '#646970')
+    earlier.tint('#646970', '#22252A')
+    earlier.solid(true)
+    const [surface, lines] = (earlier.group.children[0] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>, THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>]
+    expect([surface.material.transparent, surface.material.opacity, surface.material.depthWrite]).toEqual([false, 1, true])
+    expect([lines.material.opacity, lines.material.color.getHexString()]).toEqual([1, '22252a'])
+    // A new set of parts is drawn as it is now.
+    earlier.show([part('lid', mesh)], blob, '#646970')
+    const [again] = (earlier.group.children[0] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>]
+    expect(again.material.opacity).toBe(1)
+    earlier.solid(false)
+    const [back, edges] = (earlier.group.children[0] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>, THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>]
+    expect([back.material.transparent, back.material.opacity, back.material.depthWrite]).toEqual([true, EARLIER_SURFACE_OPACITY, false])
+    expect([edges.material.opacity, edges.material.color.getHexString()]).toEqual([EARLIER_EDGE_OPACITY, '646970'])
+  })
 })

@@ -146,3 +146,113 @@
 .menu-item:focus-visible {
   background: var(--accent-wash);
 }
+
+/* ---- Compare: two kept builds in the view (ui/CompareBar.tsx) ---- */
+
+/* Under the view bar: which builds, how they are shown, and the way back. */
+.comparebar {
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+}
+
+.comparebar-label {
+  color: var(--muted);
+}
+
+.comparebar .segmented {
+  /* The segmented control of the marks panel, at the height of a bar's buttons. */
+  height: 26px;
+}
+
+.comparebar .segmented button {
+  height: 22px;
+  padding: 0 10px;
+}
+
+/* The boxes hang from the bars at the corners of the view: they say, and take no pointer. */
+.compare-boxes {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.compare-box {
+  max-width: 260px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+.compare-box h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.compare-box ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compare-box li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.compare-box p {
+  margin: 0;
+}
+
+.compare-moved {
+  min-width: 200px;
+  margin-left: auto;
+}
+
+.compare-moved [data-better='true'] {
+  color: var(--ok);
+}
+
+.compare-moved [data-better='false'] {
+  color: var(--fail);
+}
+
+/* What main said of a build it could not draw: in place of nothing. */
+.compare-refused {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--fail);
+}
+
+/* Side by side: which half is which, over its middle. */
+.compare-sides {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  text-align: center;
+  font-size: var(--text-small);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.compare-refused {
+  max-width: min(420px, 100%);
+}

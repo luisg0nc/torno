@@ -17,13 +17,14 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `viewport`: outside a field and the terminal, with an object on show.
  * - `measure`, `section`, `align`, `region`: with that tool in hand, which then has the key before the viewport.
  * - `shape`: while a shape of the person's is the active mark.
+ * - `compare`: while two builds are compared in the view; it has the key before the viewport, whose Esc is another step back.
  * - `page`: on the page of objects; `filter`: in its field. `newobject`: on the page of a new object.
  * - `session`: in the terminal. `composer`: in the box a chat prompt is written in. `ask`: on a card of the chat that asks the person. `picture`: while a picture of the
  *   chat is shown large. `separator`: on the edge of the session pane, or the line above the marks.
  * - `field`, `menu`, `sheet`: in a field, an open menu, a sheet or a question.
  * - `dev`: under the dev server only.
  */
-export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
+export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'compare' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
 
 /**
  * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
@@ -126,6 +127,7 @@ const ROWS = [
   row('ortho', ['O'], 'Perspective or orthographic', 'Viewport', 'viewport'),
   row('explode', ['E'], 'Draw the parts apart, or together again', 'Viewport', 'viewport'),
   row('page', ['W'], 'All projects of the folder, on one page (there a letter filters them by name)', 'Viewport', 'viewport'),
+  row('compare.end', ['Esc'], 'Compare: back to the live build, before any other step back', 'Viewport', 'compare'),
   row('escape', ['Esc'], 'Step back: what is under way, then the tool in hand, then the selection', 'Viewport', 'viewport'),
 
   row('measure.wall', ['T'], 'Measure: the wall under the pointer', 'With a tool in hand', 'measure'),

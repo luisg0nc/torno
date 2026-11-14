@@ -1184,13 +1184,12 @@ export function registerIpc(
     const ws = current
     if (!obj || !ws) return null
     const entry = (await readHistory(obj.dir)).find((e) => e.id === String(id))
-    const held = entry && drawable(entry) && entry.run === ws.buildLog.run ? ws.meshes.get(obj.id, entry.revision) : undefined
+    if (!entry) return { refused: `Build ${String(id)} is not in the history of this project.` }
+    const held = drawable(entry) && entry.run === ws.buildLog.run ? ws.meshes.get(obj.id, entry.revision) : undefined
     if (held) return { scene: held.scene, blob: toArrayBuffer(held.blob) }
-    // Not in memory (an earlier run, or let go): built again from the copy of its files, in a worker thrown away.
-    // Null for a build that failed and for one whose copy cannot be built: the window says it has nothing to draw.
-    if (!entry || !drawable(entry)) return null
+    // Not in memory (an earlier run, or let go): built again from the copy of its files, in a worker thrown away. Its sentence when it cannot be: the view says it.
     const rebuilt = await rebuildKept(obj, entry, { kernel: ws.kernel, userData: app.getPath('userData'), timeout: buildTimeout(process.env) })
-    return 'refused' in rebuilt ? null : { scene: rebuilt.scene, blob: toArrayBuffer(rebuilt.blob) }
+    return 'refused' in rebuilt ? { refused: rebuilt.refused } : { scene: rebuilt.scene, blob: toArrayBuffer(rebuilt.blob) }
   })
   handle('history:star', (_event, objectId: string, id: string, starred: boolean) => {
     const obj = findObject(String(objectId))

@@ -167,11 +167,11 @@ export interface HistoryList {
   ghosts: string[]
 }
 
-/** A kept build's parts as the window draws them over the current build: its scene and the bytes of its meshes. */
-export interface HistoryGhost {
-  scene: Scene
-  blob: ArrayBuffer
-}
+/**
+ * A kept build's parts as the window draws them over the current build: its scene and the bytes of its meshes, or, when
+ * main cannot give them (a build that failed, whose copy was not kept or does not build any more), `refused`: its sentence, for the view to say.
+ */
+export type HistoryGhost = { scene: Scene; blob: ArrayBuffer; refused?: undefined } | { refused: string }
 
 /** The builds of the list an entry is among those made in this run. */
 export const madeHere = (list: Pick<HistoryList, 'run'>, entry: Pick<HistoryEntry, 'run'>): boolean => entry.run === list.run
