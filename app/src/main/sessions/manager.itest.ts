@@ -2287,15 +2287,22 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'agent', turn: { conversation, prompt: `t-${conversation}-1`, text: 'make the lid taller' } })
     // Another object has no turn of this one's.
     expect(s.causeOf('nowhere', Date.now() + 1)).toEqual({ cause: 'person' })
+    const during = Date.now()
+    await new Promise((r) => setTimeout(r, 5))
     await post('Stop', {})
+    // A build begun while the turn was on is its own though its scene lands after the Stop; one begun after the Stop is the person's.
+    const turn = { conversation, prompt: `t-${conversation}-1`, text: 'make the lid taller' }
+    expect(s.causeOf(obj.id, during)).toEqual({ cause: 'agent', turn })
     expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'person' })
+    // And one begun before the turn's first edit is not.
+    expect(s.causeOf(obj.id, before)).toEqual({ cause: 'person' })
     // The next prompt is the next number, and its text is cut to what a line of the history holds.
     await post('UserPromptSubmit', { prompt: 'x'.repeat(300), session_id: conversation })
     await post('PreToolUse', edit)
     expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'agent', turn: { conversation, prompt: `t-${conversation}-2`, text: 'x'.repeat(200) } })
   })
 
-  it('names the prompt of a chat turn by the uuid it was sent with', async () => {
+  it('names the prompt of a chat turn by the id of its user item', async () => {
     const { obj, post, sessionId, sessions: s } = await begun({ chat: true, grace: 200 })
     const heard: string[] = []
     s.on('context', (m) => heard.push(m.prompt ?? ''))
@@ -2304,7 +2311,8 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     await post('PreToolUse', { tool_name: 'Edit', tool_use_id: 'toolu_c', tool_input: { file_path: join(obj.dir, 'part.py') } })
     const caused = s.causeOf(obj.id, Date.now() + 1)
     expect(caused.cause).toBe('agent')
-    expect(caused.turn).toMatchObject({ prompt: expect.stringMatching(UUID), text: 'slow 3' })
+    // The id of the prompt's item in the chat, as its log holds it.
+    expect(caused.turn).toMatchObject({ prompt: s.history(sessionId)!.items.find((i) => i.kind === 'user')!.id, text: 'slow 3' })
     expect(caused.turn!.conversation).toMatch(UUID)
   })
 

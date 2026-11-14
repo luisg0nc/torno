@@ -538,8 +538,7 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   `wentBackTo`: never from the window or a tool): `Builds` says what it started a build for (`BuildReason`: `watch`, `params`, `rebuild`,
   `goback`, `open`, on the `build` and `scene` events), `params` and `goback` are the cause as they are, and else `Sessions.causeOf(objectId,
   startedMs)` says `agent` (a session of the object has a turn running whose first edit, `TurnState.changedAt`, was at or before the build began;
-  a build begun between the prompt and that edit is the person's) with the turn (`conversation`, `prompt`: the uuid a chat's prompt was sent
-  with, or `t-<conversation>-<n>` in a terminal, `text`: its first 200 characters), or `person`. A build that **failed** is kept too
+  a build begun between the prompt and that edit is the person's) with the turn (`conversation`, `prompt`: the id of the prompt's `user` item as the chat's log holds it, or `t-<conversation>-<n>` in a terminal, `text`: its first 200 characters), or `person`; a build begun while the turn was on is still its own when its scene lands after the `Stop` (`Session.lastTurn`). A build that **failed** is kept too
   (`History.keepFailed`, from `ipc.ts` on the `build` event): a line with `failed`, `error` (`errorLine`), `files: []`, the revision of the last
   good build, no folder; the same failure of the same sources as the newest's is not kept again; not for a cancel, a stopped kernel or a project
   with no model. `thumbnail` and `dimensions` never go to a failed entry. Pruning lets go of the oldest failed entries before any build, and never

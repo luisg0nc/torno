@@ -110,6 +110,8 @@ interface Session {
   termTimer?: NodeJS.Timeout
   /** What the hooks of the turn under way said of the model: see `TurnState`. */
   turn?: TurnState
+  /** The last turn that ended after changing a source: a build it began may land after its `Stop` (`Sessions.causeOf`). */
+  lastTurn?: { changedAt: number; endedAt: number; turn: BuildTurn }
 }
 
 /**
@@ -139,7 +141,7 @@ interface TurnState {
    */
   changedAt?: number
   /** The prompt the turn answers, as the history names it (`BuildTurn`, without its conversation): set once its hook has been answered. */
-  prompt?: { prompt: string; text: string }
+  prompt?: { conversation: string; prompt: string; text: string }
   /** The `Bash` tool uses under way, by tool use: when each began and when the newest source of the object was saved then. */
   bashing: Map<string, { at: number; saved: number | null }>
   /** The tool use of the last edit answered: the chat's card its build is put on. */
@@ -555,17 +557,19 @@ export class Sessions {
   /**
    * What caused a build of an object that began at `startedMs` (ms epoch): the agent when a session of the object has
    * a turn running that first changed a source at or before then (`TurnState.changedAt`), with the turn it is of; the
-   * person otherwise (a save before the turn's first edit, or no turn at all). The prompt is named by the uuid torno
-   * sent it with (a chat), else by `t-<conversation>-<n>`, counted per `UserPromptSubmit` (a terminal). The caller
+   * person otherwise (a save before the turn's first edit, or no turn at all). The prompt is named by the id of the
+   * chat's `user` item (a chat), else by `t-<conversation>-<n>`, counted per `UserPromptSubmit` (a terminal). The caller
    * lets the reason a build was started for (the person's `Params`, a Go back) win over this.
    */
   causeOf(objectId: string, startedMs: number): { cause: 'agent' | 'person'; turn?: BuildTurn } {
     const session = this.of(objectId)
-    const turn = session?.turn
-    if (!session || !turn || turn.changedAt === undefined || startedMs < turn.changedAt) return { cause: 'person' }
-    const conversation = session.conversationId
-    const prompt = turn.prompt ?? { prompt: `t-${conversation}-${session.prompts}`, text: '' }
-    return { cause: 'agent', turn: { conversation, prompt: prompt.prompt, ...(prompt.text ? { text: prompt.text } : {}) } }
+    if (!session) return { cause: 'person' }
+    const turn = session.turn
+    if (turn && turn.changedAt !== undefined && startedMs >= turn.changedAt) return { cause: 'agent', turn: turnOf(session, turn) }
+    // A build the turn began may land after its `Stop`: it began while the turn was on, and is the turn's.
+    const ended = session.lastTurn
+    if (ended && startedMs >= ended.changedAt && startedMs <= ended.endedAt) return { cause: 'agent', turn: ended.turn }
+    return { cause: 'person' }
   }
 
   /** Resolves at the next change of a build, or at `until` (ms epoch), whichever comes first. */
@@ -1341,7 +1345,10 @@ export class Sessions {
     }
     if (event === 'PostCompact') session.compacted = true
     if (event !== 'SessionEnd') this.advance(session, event, fields)
-    if (event === 'Stop' || event === 'StopFailure') session.turn = undefined
+    if (event === 'Stop' || event === 'StopFailure') {
+      if (session.turn?.changedAt !== undefined) session.lastTurn = { changedAt: session.turn.changedAt, endedAt: Date.now(), turn: turnOf(session, session.turn) }
+      session.turn = undefined
+    }
     // The number of the prompt and the turn it begins are taken now: the context is awaited below, and the turn is then the one to name it.
     const promptNo = event === 'UserPromptSubmit' ? (session.prompts += 1) : session.prompts
     if (event === 'UserPromptSubmit') session.turn = this.beginTurn(session)
@@ -1379,11 +1386,11 @@ export class Sessions {
     }
     const { text, sentMarkIds } = context
     session.chat?.transcript.context({ text, sentMarkIds, ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
-    // Which prompt this turn answers, for the builds it causes: the uuid torno sent a chat's prompt with, else a number of main's own.
+    // Which prompt this turn answers, for the builds it causes: the id of the chat's `user` item (as its log holds it), else a number of main's own.
     if (turn && session.turn === turn) {
       const taken = session.chat?.transcript.taken()
       const said = (taken?.text ?? (typeof fields.prompt === 'string' ? fields.prompt : '')).trim()
-      turn.prompt = { prompt: taken?.uuid ?? `t-${session.conversationId}-${promptNo}`, text: said.slice(0, PROMPT_TEXT) }
+      turn.prompt = { conversation: session.conversationId, prompt: taken?.item ?? `t-${session.conversationId}-${promptNo}`, text: said.slice(0, PROMPT_TEXT) }
     }
     this.emit('context', { sessionId: session.id, objectId, text, sentMarkIds, ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
     if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}${text ? `, answered with: ${text}` : ''}`)
@@ -1392,6 +1399,12 @@ export class Sessions {
     if (text && sentMarkIds.length > 0 && !session.killTimer) res.once('finish', () => this.deps.onDelivered?.(objectId, sentMarkIds))
     sendJson(res, 200, text ? { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } } : {})
   }
+}
+
+/** The turn as a build's history entry names it: its conversation, its prompt (a chat's `user` item, else `t-<conversation>-<n>`) and what was said. */
+function turnOf(session: Session, turn: TurnState): BuildTurn {
+  const prompt = turn.prompt ?? { conversation: session.conversationId, prompt: `t-${session.conversationId}-${session.prompts}`, text: '' }
+  return { conversation: prompt.conversation, prompt: prompt.prompt, ...(prompt.text ? { text: prompt.text } : {}) }
 }
 
 function started(s: Session): Started {

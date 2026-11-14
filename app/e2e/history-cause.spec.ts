@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
@@ -60,8 +60,10 @@ test('a save of the person, the person\'s params, an edit of the agent and a fai
   expect(kept.map((e) => [e.cause, e.failed === true])).toEqual([['person', false], ['person', false], ['params', false], ['agent', true]])
   const failed = kept[3]
   expect(failed.turn).toMatchObject({ text: 'edit hollow.py "return {" "return WAL, {"' })
-  expect(failed.turn!.prompt).toMatch(/^[0-9a-f-]{36}$/)
   expect(failed.turn!.conversation).toMatch(/^[0-9a-f-]{36}$/)
+  // The prompt is the id of the person's `user` item in the chat's log, which a later view joins on.
+  const log = join(root, 'hollow', '.torno', 'chat', `${failed.turn!.conversation}.jsonl`)
+  await expect.poll(() => existsSync(log) && readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { kind: string; id: string }).some((i) => i.kind === 'user' && i.id === failed.turn!.prompt), { timeout: 15_000 }).toBe(true)
   expect(failed).toMatchObject({ files: [], error: expect.stringContaining('WAL'), revision: 3 })
   expect(kept[0].turn).toBeUndefined()
   await page.evaluate((id) => window.torno.session.stop(id), sessionId)

@@ -250,20 +250,17 @@ describe('what is sent', () => {
     expect(of(t, 'user').map((u) => u.state)).toEqual(['sent', 'sent'])
   })
 
-  it('says which prompt the last hook took up, by the uuid it was sent with', () => {
+  it('says which prompt the last hook took up, by the id of its user item', () => {
     const t = new Transcript()
     expect(t.taken()).toBeUndefined()
-    t.userSent(text('first'), false, 'uuid-1')
-    t.userSent(text('second'), true, 'uuid-2')
+    const first = t.userSent(text('first'), false, 'uuid-1')
+    const second = t.userSent(text('second'), true, 'uuid-2')
     t.context({ text: '', sentMarkIds: [], prompt: 'first' })
-    expect(t.taken()).toEqual({ uuid: 'uuid-1', text: 'first' })
+    expect(t.taken()).toEqual({ item: first.id, text: 'first' })
     t.message(init())
     t.context({ text: 'ctx', sentMarkIds: [], prompt: 'second' })
-    expect(t.taken()).toEqual({ uuid: 'uuid-2', text: 'second' })
-    // A prompt sent with no uuid has none to say.
-    t.userSent(text('third'), true)
-    t.context({ text: '', sentMarkIds: [], prompt: 'third' })
-    expect(t.taken()).toEqual({ text: 'third' })
+    expect(t.taken()).toEqual({ item: second.id, text: 'second' })
+    expect(t.items().filter((i) => i.kind === 'user').map((i) => i.id)).toContain(t.taken()!.item)
   })
 
   it('shows the first text of a prompt and its pictures, and not the captions that come before each picture', () => {
