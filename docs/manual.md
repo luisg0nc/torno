@@ -747,25 +747,33 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   without its text. The button is there when the agent's edit tools changed a
   `.py` file; the sheet then lists every file that differs, a change made by a
   command (`sed`, a script) too.
-- **Undo.** The latest turn that edited a `.py` file has "Undo" beside "See
-  changes", while the session is idle and before you send anything else; an
-  earlier turn, or one that edited nothing, has none. It asks once ("Ask
-  Claude Code to put the model files back as they were before this turn?"). On
-  "Ask to undo" torno writes a prompt of its own, from the two texts of each
-  file it kept for "See changes": put the files back as they were before that
-  turn, with the lines to reverse (`-` is in the file now and goes, `+` comes
-  back). It is sent as yours, after a quiet note that says what was asked. The
-  agent makes the edits itself, so each one comes to you as any edit does (a
-  permission card, if your mode asks), and the build runs as after any change
-  of the source. torno does not write the model, and the conversation keeps
-  the turn, so the agent knows it was undone. It covers the same `.py` files
-  as "See changes": not `common/`, not other files, and a file over 200 KB or
-  too many lines is named without its lines, for the agent to undo from the
-  conversation. A file you saved after the turn is said to have changed, so the
-  agent reads it before it reverses a line. It is a request, not a restore: it
-  can be done wrongly, and the sheet "See changes" shows what the file is
-  now. Nothing is kept of a turn of an earlier session, so there is no
-  "Undo" there.
+- **The builds of a turn.** Under a turn's account, when the prompt made builds, a strip of small pictures: the build
+  the prompt began from (dashed), the builds it made and the last one, each with its id (`h41`); a build that failed
+  says so in place of its picture. Beside it, what they did, from what each build kept: the parts that changed, the
+  checks of the model that began or stopped to pass, the builds that failed on the way. The buttons of the turn:
+  **Compare** (draws the last build over the one the prompt began from, as "Compare" below does; it reads
+  "Comparing" while it is on and puts it away again), **See changes**, **Go back to before this prompt** and
+  **Star** (keeps the last build: a starred build is never let go).
+- **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
+  `common/fillets.py` in your editor · `h39`" for a build your own save made, "You tried `wall` · `h40`" for the
+  Params you tried. Several in a row, with no prompt between, are one line ("You saved 3 times in your editor ·
+  `h39` to `h41`"). torno says which build was whose when it keeps the build, so a save made while a turn runs is
+  yours, not the agent's.
+- **Go back to before this prompt.** On a turn that made builds, while the session is idle. It first says what it
+  would do: the files it would write, the files it would delete (a `.py` file of this project that the prompts it
+  undoes made), the files it leaves as they are (`common/` and other projects' files, which it never changes), the
+  files you changed since the last build (they are overwritten, and are named), whether the Params you tried are put
+  back as they were, and the prompts it undoes. On "Go back" it puts the project's own `.py` files back as they were
+  in the build the prompt began from, from the copies under `.torno/history/`, each whole or not at all; Claude is
+  told, with your next prompt and in a note in the chat, what was put back and that it keeps what it learnt. The
+  prompts it undid are folded into one faded row ("Prompts 10 to 12 · you went back from these", with "Show"). When
+  no copy of that build is kept (it was too large, or has been let go), the confirmation says "Claude will be asked
+  to put the files back instead", and "Ask Claude" is today's undo: torno writes a prompt of its own, from the two
+  texts of each file it kept for "See changes", with the lines to reverse (`-` is in the file now and goes, `+` comes
+  back), sent as yours after a quiet note; the agent edits itself, through its usual permission cards, and torno
+  writes nothing then. That request is for the latest turn only; a file over 200 KB or too many lines is named without
+  its lines, and a file you saved after the turn is said to have changed. It is a request, not a restore: it can be
+  done wrongly. Nothing is kept of a turn of an earlier session for it.
 - **Refs are live.** `M4`, `lid/F12`, `lid/E3` and `lid/@top` (a name the model
   gives a face or an edge) in the agent's text and in
   the cards are chips: hovering one lights it in the view, clicking a mark
@@ -2238,7 +2246,7 @@ On the screen:
 - **The Print profile panel.** Open it in the left column: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its title says what is chosen (`Print profile Bambu X1C, PETG`).
 - **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the row above the box names the faces the ink lies over before anything is sent (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
-- **Claude Code's own checkpoints for "Undo" (`Part of #131`).** "Undo" asks the agent in words. Claude Code can also
+- **Claude Code's own checkpoints for "Undo" (`Part of #131`).** The undo of "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>
   --rewind-files <uuid>`, where `<uuid>` is the id torno gives the prompt. This is not built: `--rewind-files` is absent
   from `--help`, and nothing is known of it from a real CLI. Try once by hand, with the CLI's version noted: after a
@@ -2284,7 +2292,7 @@ On the screen:
 - **The Marks panel's resolve glyph, review walk and undo line.** The glyph on a row, "To review" stepped through one mark at a time, and the line that undoes a delete: each in its place, legible in both themes.
 - **The Checks group and its summary.** In the Marks panel the group of dimensions and its one-line count read at a glance; the model's Checks panel lists each check with its words.
 - **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the pane and are legible in both themes.
-- **The turn summary, "See changes" and "Undo".** After a turn, the summary line, the sheet of the diff and the Undo button sit well in the chat and in a narrow dock.
+- **The turn summary, its builds and its buttons.** After a turn, the summary line, the strip of pictures of its builds (the dashed start, a failed build, the pictures themselves, which a test never sees), the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the question Go back asks with its list, the sheet of the diff, the quiet lines for your own saves and the faded row of prompts gone back from sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.
 - **The doodle board's grid.** The grid is faint on the board in light and dark, and is not in the PNG Claude gets.
 - **The prompt preview of a new project.** The preview of the first prompt reads clearly and matches what is sent.

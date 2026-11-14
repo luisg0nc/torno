@@ -593,6 +593,7 @@ deletes files of the person's model. The root `CLAUDE.md` says what it may write
   none, the build that was current when the prompt was sent (`Sessions.startedFrom(prompt)`, from `TurnState.before`, held for the newest 500
   prompts of this run) if that entry is kept before the prompt's first; else a sentence. The window names a prompt, never a file or a build:
   `ipc.ts` `goBackTarget` finds the entry.
+- **Tried Params** (`HistoryEntry.tried`): a build of the cause `params` names the Params whose applied override (`scene.overrides.applied`) is not what the build before was made with (`triedParams` in `history.ts`), so the chat can say "You tried wall". Main's only.
 - **The plan** (`planGoBack(obj, to)`, reads only; `history:goBackPlan`): `write` is the files of the copy in the project's own folder
   (`<name>/….py`, no hidden part, no `..`, `ownFile`) whose bytes now differ; `leftAlone` the files of `common/` and of other projects that
   differ (never written); `remove` the own `.py` files that are there, are in no entry up to `to` and in one after it, and are not in the copy (a file torno

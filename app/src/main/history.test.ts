@@ -170,6 +170,19 @@ describe('a build the params made', () => {
   })
 })
 
+describe('the Params a params build says were tried', () => {
+  it('names those whose applied value is not the one of the build before, and leaves a build of another cause saying none', async () => {
+    await build('a = 1\n', sceneOf(100, { overrides: { applied: { wall: 3 }, dropped: [] } }))
+    const more = await build('a = 1\n', sceneOf(200, { overrides: { applied: { wall: 3, lid: 2 }, dropped: [] } }), 'run1', { cause: 'params' })
+    expect(more?.tried).toEqual(['lid'])
+    const reset = await build('a = 1\n', sceneOf(300), 'run1', { cause: 'params' })
+    expect(reset?.tried).toEqual(['lid', 'wall'])
+    const saved = await build('a = 2\n', sceneOf(400), 'run1', { cause: 'person' })
+    expect(saved?.tried).toBeUndefined()
+    expect(JSON.parse(readFileSync(join(box.dir, '.torno/history/index.json'), 'utf8')).entries[1].tried).toEqual(['lid'])
+  })
+})
+
 describe('History.keepFailed', () => {
   it('keeps a failed build as a light entry: its error, no folder, and the cause', async () => {
     const turn = { prompt: 'p-2', text: 'more' }

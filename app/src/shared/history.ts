@@ -72,6 +72,8 @@ export interface HistoryEntry {
   failed?: true
   /** The line that names the failure (`errorLine`: the last of its traceback), for a failed entry only. */
   error?: string
+  /** For the cause `params`: the names of the Params the person tried since the build before (the window says them between turns). Main's only. */
+  tried?: string[]
   /** For the cause `goback`: the id of the build it restored. */
   wentBackTo?: string
   /** Undone by a later Go back. */

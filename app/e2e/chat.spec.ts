@@ -1,8 +1,9 @@
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
+import type { HistoryEntry } from '../src/shared/history'
 import type { Mark } from '../src/shared/marks'
 import { openListed } from './objects'
 
@@ -433,31 +434,105 @@ test('a turn ends with what it did to the project, and "See changes" shows the l
   await expect(turns().last().getByRole('button', { name: 'See changes' })).toHaveCount(0)
 })
 
-test('"Undo" is offered on the last turn that edited the model while the session is idle, asks first, and sends a prompt that holds the lines to reverse', async () => {
+const hollowModel = (): string => join(root, 'hollow', 'hollow.py')
+const kept = (): HistoryEntry[] => JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'history', 'index.json'), 'utf8')).entries
+const GO_BACK = 'Go back to before this prompt'
+
+test('a turn ends with the builds of its prompt, Compare draws them, Star keeps the last, and a save of the person between turns is a line', async () => {
   await expect(composer()).toBeEnabled()
   const before = await turns().count()
   await say('edit hollow.py "wall: float = 4" "wall: float = 5"')
   await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
-  await expect(turns().last().getByRole('button', { name: 'Undo' })).toBeVisible()
-  // Only the last turn has it: the one before, which edited the model too, does not.
-  await expect(chat().getByRole('button', { name: 'Undo' })).toHaveCount(1)
-  // Not while the session works, and not on a turn that edited nothing.
-  await say('slow 2')
-  await expect(chat().getByRole('button', { name: 'Undo' })).toHaveCount(0)
+  const end = turns().last()
+  // The build the prompt began from and the one it made, a picture frame each, and the four buttons.
+  const strip = end.locator('.turn-builds')
+  await expect(strip.locator('.turn-thumb')).toHaveCount(2, { timeout: 15_000 })
+  await expect(strip.locator('.turn-thumb[data-start]')).toHaveCount(1)
+  for (const name of ['Compare', 'See changes', GO_BACK, 'Star']) await expect(end.getByRole('button', { name, exact: true })).toBeVisible()
+  const ids = await strip.locator('.turn-thumb').evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))
+
+  // Compare: the last build over the one the prompt began from, for this prompt's number; again puts it away.
+  await end.getByRole('button', { name: 'Compare', exact: true }).click()
+  await expect.poll(async () => (await state()).compare).toMatchObject({ from: ids[0], to: ids[1], mode: 'overlay', prompt: expect.any(Number) })
+  await expect(end.getByRole('button', { name: 'Comparing' })).toHaveAttribute('aria-pressed', 'true')
+  await end.getByRole('button', { name: 'Comparing' }).click()
+  await expect.poll(async () => (await state()).compare).toBeNull()
+
+  // Star: the history's star, on the turn's last build.
+  await end.getByRole('button', { name: 'Star', exact: true }).click()
+  await expect(end.getByRole('button', { name: 'Starred' })).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(() => kept().find((e) => e.id === ids[1])?.starred).toBe(true)
+
+  // The person saves the model in their own editor: a line between this turn and the next prompt, from the history's cause.
+  const saved = kept().length
+  writeFileSync(hollowModel(), `${readFileSync(hollowModel(), 'utf8')}\n# saved by the person\n`)
+  await expect.poll(() => kept().slice(saved).find((e) => e.cause === 'person'), { timeout: 30_000 }).toBeTruthy()
+  await say('say after the save')
   await expect(turns()).toHaveCount(before + 2, { timeout: 30_000 })
-  await expect(chat().getByRole('button', { name: 'Undo' })).toHaveCount(0)
-  // A later edit is the last: it asks first, and "Keep it" puts the question away.
+  const line = chat().locator('.chat-save').last()
+  await expect(line).toContainText('You saved')
+  await expect(line).toContainText('in your editor')
+  await expect(line.locator('.num').last()).toHaveText(kept().filter((e) => e.cause === 'person').at(-1)!.id)
+})
+
+test('"Go back to before this prompt" lists what it will do, puts the file back as it was, and folds the prompt it undid into one faded row', async () => {
+  await expect(composer()).toBeEnabled()
+  const was = readFileSync(hollowModel(), 'utf8')
+  const before = await turns().count()
+  const kind = kept().length
+  await say('edit hollow.py "wall: float = 5" "wall: float = 7"')
+  await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
+  await expect.poll(() => kept().slice(kind).some((e) => e.cause === 'agent' && !e.failed), { timeout: 30_000 }).toBe(true)
+  expect(readFileSync(hollowModel(), 'utf8')).toContain('wall: float = 7')
+  const end = turns().last()
+  await expect(end.getByRole('button', { name: GO_BACK })).toBeEnabled()
+  await end.getByRole('button', { name: GO_BACK }).click()
+  const ask = end.getByRole('alertdialog', { name: GO_BACK })
+  await expect(ask).toContainText('Writes: hollow/hollow.py')
+  await expect(ask).toContainText('Undoes prompt')
+  // Keeping things as they are changes nothing.
+  await ask.getByRole('button', { name: 'Cancel' }).click()
+  await expect(ask).toHaveCount(0)
+  expect(readFileSync(hollowModel(), 'utf8')).toContain('wall: float = 7')
+  await end.getByRole('button', { name: GO_BACK }).click()
+  await ask.getByRole('button', { name: 'Go back', exact: true }).click()
+  await expect.poll(() => readFileSync(hollowModel(), 'utf8'), { timeout: 30_000 }).toBe(was)
+  // The prompt's builds are marked, and the build that followed says what it went back to.
+  await expect.poll(() => kept().filter((e) => e.turn && e.undone).length).toBeGreaterThan(0)
+  await expect.poll(() => kept().at(-1)).toMatchObject({ cause: 'goback', wentBackTo: expect.stringMatching(/^h\d+$/) })
+  // The prompt is one faded row, closed; "Show" opens it as it was.
+  const gone = chat().locator('.chat-gone')
+  await expect(gone).toContainText('you went back from this')
+  await expect(gone.locator('.chat-user')).toHaveCount(0)
+  await gone.getByRole('button', { name: 'Show' }).click()
+  await expect(gone.locator('.chat-user').last()).toContainText('wall: float = 7')
+  await gone.getByRole('button', { name: 'Hide' }).click()
+  await expect(gone.locator('.chat-user')).toHaveCount(0)
+})
+
+test('with no copy of the build to put back, the same button asks Claude to undo, which asks first and sends a prompt that holds the lines to reverse', async () => {
+  await expect(composer()).toBeEnabled()
+  // Not while the session works.
+  const slow = await turns().count()
+  await say('slow 2')
+  await expect(chat().getByRole('button', { name: GO_BACK }).last()).toBeDisabled()
+  await expect(turns()).toHaveCount(slow + 1, { timeout: 30_000 })
+  const before = slow + 1
+  const kind = kept().length
   await say('edit hollow.py "wall: float = 5" "wall: float = 6"')
-  await expect(turns()).toHaveCount(before + 3, { timeout: 30_000 })
+  await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
+  await expect.poll(() => kept().slice(kind).some((e) => e.cause === 'agent' && !e.failed), { timeout: 30_000 }).toBe(true)
+  // The copies of the builds before this prompt are gone from the disk: no copy to restore.
+  for (const e of kept().slice(0, kind)) rmSync(join(root, 'hollow', '.torno', 'history', e.id, 'source'), { recursive: true, force: true })
   const last = turns().last()
-  await last.getByRole('button', { name: 'Undo' }).click()
-  const question = last.getByRole('group', { name: 'Undo this turn' })
-  await expect(question).toContainText('you answer each edit')
-  await question.getByRole('button', { name: 'Keep it' }).click()
-  await expect(question).toHaveCount(0)
+  await last.getByRole('button', { name: GO_BACK }).click()
+  const ask = last.getByRole('alertdialog', { name: GO_BACK })
+  await expect(ask).toContainText('Claude will be asked to put the files back instead.')
+  await ask.getByRole('button', { name: 'Cancel' }).click()
+  await expect(ask).toHaveCount(0)
   const users = await chat().locator('.chat-user').count()
-  await last.getByRole('button', { name: 'Undo' }).click()
-  await question.getByRole('button', { name: 'Ask to undo' }).click()
+  await last.getByRole('button', { name: GO_BACK }).click()
+  await ask.getByRole('button', { name: 'Ask Claude' }).click()
   // A note says what was asked and that torno writes nothing; then the prompt, with the lines to reverse, as the person's.
   await expect(chat().locator('.chat-note', { hasText: 'Undo: Claude Code is asked to put hollow.py back' })).toContainText('torno writes nothing')
   await expect(chat().locator('.chat-user')).toHaveCount(users + 1)
@@ -465,9 +540,7 @@ test('"Undo" is offered on the last turn that edited the model while the session
   await expect(asked).toContainText('Undo your last turn')
   await expect(asked).toContainText('- wall: float = 6')
   await expect(asked).toContainText('+ wall: float = 5')
-  await expect(turns()).toHaveCount(before + 4, { timeout: 30_000 })
-  // That turn is no longer the last, and the new one edited nothing.
-  await expect(chat().getByRole('button', { name: 'Undo' })).toHaveCount(0)
+  await expect(turns()).toHaveCount(before + 2, { timeout: 30_000 })
 })
 
 test('a card of look can be gone to as the person\'s own view, and a highlight pointed again after a click put it away', async () => {
