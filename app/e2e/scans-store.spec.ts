@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { ScanInfo, ScansFile } from '../src/shared/scans'
 import { box, stl } from '../src/test/scanFixtures'
+import { openPanel } from './helpers'
 import { openListed } from './objects'
 
 // Scans from the window to the files and back: the bridge, the store in main
@@ -44,6 +45,7 @@ test.beforeAll(async () => {
   page = await app.firstWindow()
   await page.waitForSelector('[data-region="left"]')
   await openListed(page, 'bracket')
+  await openPanel(page, 'Scans')
   await expect.poll(async () => (await state()).scene?.parts.length ?? 0, { timeout: 20_000 }).toBeGreaterThan(0)
 })
 
@@ -217,6 +219,7 @@ test('a scans file that cannot be read is said to the window, until it is dismis
   mkdirSync(join(root, 'hollow', '.torno'), { recursive: true })
   writeFileSync(join(root, 'hollow', '.torno', 'scans.json'), '{"next": 4, "scans": [')
   await openListed(page, 'hollow')
+  await openPanel(page, 'Scans')
   const problem = page.locator('[data-part="problem"]')
   await expect(problem).toContainText('The scans file of this project could not be read')
   await expect(problem).toContainText('still in .torno/scans/')
@@ -225,6 +228,7 @@ test('a scans file that cannot be read is said to the window, until it is dismis
   await expect(problem).toHaveCount(0)
   expect(await page.evaluate(() => window.torno.scans.problem('hollow'))).toBeNull()
   await openListed(page, 'bracket')
+  await openPanel(page, 'Scans')
   await expect.poll(async () => (await state()).objectId).toBe('bracket')
 })
 

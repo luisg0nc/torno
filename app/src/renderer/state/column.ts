@@ -1,45 +1,48 @@
 /**
- * How the person likes the left column: which of the sections above the marks are folded, and the height the
- * splitter gave the marks (null: their share, what is left under the others). It is the window's, kept in its own
- * storage (`localStorage`), never in the workspace: it is not part of an object. A storage that is not there or
- * refuses leaves the defaults, and a write that fails is let go.
+ * How the person likes the left of the window: which panel of the rail is open (null: none) and how wide it is. It is
+ * the window's, kept in its own storage (`localStorage`), never in the workspace: it is not part of an object. A
+ * storage that is not there or refuses leaves the defaults, and a write that fails is let go. A value of the old
+ * shape (the column's folded sections and the marks' height) is read as the marks open, at the width it had.
  */
 
-/** The sections that fold. Marks never does. */
-export type ColumnSection = 'objects' | 'layers' | 'params' | 'checks' | 'print' | 'scans'
+/** The panels of the rail, in the order of its buttons. */
+export type RailPanel = 'projects' | 'layers' | 'params' | 'scans' | 'marks'
+
+export const RAIL_PANELS: readonly RailPanel[] = ['projects', 'layers', 'params', 'scans', 'marks']
 
 export interface ColumnPrefs {
-  folded: Record<ColumnSection, boolean>
-  /** Pixels: the height the marks were given with the splitter, at least `MARKS_FLOOR`; null for their share. */
-  marks: number | null
-  /** Pixels: the width the person gave the column, at least `LEFT_DEFAULT`; null for the default. */
-  width: number | null
+  /** The panel docked beside the rail, or null for none. */
+  open: RailPanel | null
+  /** Pixels: the width of the panel, from `LEFT_DEFAULT` to `PANEL_MAX`. */
+  width: number
 }
 
-/** Objects is a switcher of one row to begin with, and the parameters and the model's checks one row too: the room goes to the marks. */
-export const COLUMN_DEFAULT: ColumnPrefs = { folded: { objects: true, layers: false, params: true, checks: true, print: true, scans: false }, marks: null, width: null }
+export const COLUMN_DEFAULT: ColumnPrefs = { open: 'marks', width: 248 }
 
-/** The column's width unless the person gave it more. The same as `--left-w` in `styles/tokens.css`. */
+/** The panel's width unless the person gave it more. The same as `--panel-w` in `styles/tokens.css`. */
 export const LEFT_DEFAULT = 248
 
-/** The free viewport width the column and the dock always leave between them. */
+/** The most a panel is kept at: what a window wider than any in use could still give. */
+export const PANEL_MAX = 800
+
+/** The width of the rail. The same as `--rail-w` in `styles/tokens.css`. */
+export const RAIL_W = 56
+
+/** The free viewport width the rail, the panel and the dock always leave between them. */
 export const VIEWPORT_MIN = 240
 
-/** The width the column may be given: from the default up to what leaves the viewport its room beside the dock. */
+/** The width the panel may be given: from the default up to what leaves the viewport its room beside the rail and the dock. */
 export function clampLeft(width: number, inner: number, dock: number): number {
-  const max = Math.max(LEFT_DEFAULT, inner - dock - VIEWPORT_MIN)
+  const max = Math.max(LEFT_DEFAULT, inner - dock - RAIL_W - VIEWPORT_MIN)
   return Math.round(Math.min(Math.max(width, LEFT_DEFAULT), max))
 }
 
+/** A width as it is kept: a whole number of pixels from the default to the most; the default for anything else. */
+export function keptWidth(width: unknown): number {
+  return typeof width === 'number' && Number.isFinite(width) ? Math.round(Math.min(Math.max(width, LEFT_DEFAULT), PANEL_MAX)) : LEFT_DEFAULT
+}
+
 export const COLUMN_KEY = 'torno.column'
-
-/**
- * The least the marks are given, in pixels: their title, a group's heading and five rows of 30 px. The same as
- * `--marks-floor` in `styles/panels.css`.
- */
-export const MARKS_FLOOR = 212
-
-const SECTIONS: readonly ColumnSection[] = ['objects', 'layers', 'params', 'checks', 'print', 'scans']
 
 /** The window's storage, or null where there is none to be had. */
 export function windowStorage(): Storage | null {
@@ -58,12 +61,10 @@ export function readColumn(storage: Pick<Storage, 'getItem'> | null): ColumnPref
     return COLUMN_DEFAULT
   }
   if (typeof kept !== 'object' || kept === null || Array.isArray(kept)) return COLUMN_DEFAULT
-  const { folded, marks, width } = kept as { folded?: unknown; marks?: unknown; width?: unknown }
-  const fold = (typeof folded === 'object' && folded !== null ? folded : {}) as Record<string, unknown>
+  const { open, width } = kept as { open?: unknown; width?: unknown }
   return {
-    folded: Object.fromEntries(SECTIONS.map((section) => [section, typeof fold[section] === 'boolean' ? fold[section] : COLUMN_DEFAULT.folded[section]])) as ColumnPrefs['folded'],
-    marks: typeof marks === 'number' && Number.isFinite(marks) && marks >= MARKS_FLOOR ? Math.round(marks) : null,
-    width: typeof width === 'number' && Number.isFinite(width) && width > LEFT_DEFAULT ? Math.round(width) : null
+    open: open === null ? null : (RAIL_PANELS.find((panel) => panel === open) ?? COLUMN_DEFAULT.open),
+    width: keptWidth(width)
   }
 }
 
@@ -76,10 +77,22 @@ export function writeColumn(storage: Pick<Storage, 'setItem'> | null, prefs: Col
 }
 
 /**
- * Whether the list of objects is the switcher: folded, while an object is open or a new one is being made, in a
- * workspace of more than one object. With no object open, on the page of objects, or with one object alone (shown
- * by itself already) the list is whole.
+ * The panels the rail offers: all five for an open project; Projects and Marks on the page of projects (the layers,
+ * the parameters and the scans act on a view that is not on screen); Projects alone while a new project is being
+ * made (no tool works there) or with none open (the marks are a project's).
  */
-export function switcherShown(s: { folded: boolean; objects: readonly unknown[]; objectId: string | null; page: 'object' | 'objects' | 'new' }): boolean {
-  return s.folded && s.objects.length > 1 && (s.page === 'new' || (s.page === 'object' && s.objectId !== null))
+export function panelsFor(s: { page: 'object' | 'objects' | 'new'; objectId: string | null }): readonly RailPanel[] {
+  if (s.page === 'new' || s.objectId === null) return ['projects']
+  return s.page === 'objects' ? ['projects', 'marks'] : RAIL_PANELS
+}
+
+/**
+ * The panel on show: the one kept when the rail offers it, none when it does not, but where the rail offers one panel
+ * only (no project open, or a new one being made: nothing else to look at) and the person has not closed the panel,
+ * that one, the list of projects.
+ */
+export function shownPanel(open: RailPanel | null, offered: readonly RailPanel[]): RailPanel | null {
+  if (open === null) return null
+  if (offered.includes(open)) return open
+  return offered.length === 1 ? offered[0] : null
 }

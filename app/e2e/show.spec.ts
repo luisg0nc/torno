@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { inTerminal } from './terminal'
-import { objectList, openListed, switcher } from './objects'
+import { closePanel, openPanel, railButton } from './helpers'
+import { objectList, openListed } from './objects'
 import type { TornoState } from '../src/renderer/state/store'
 import type { ObjectCard } from '../src/shared/show'
 
@@ -107,6 +108,7 @@ test('the page of objects shows a card each, builds nothing, and opens one with 
   await expect.poll(() => readFileSync(thumb('hollow', '.gitignore'), 'utf8').split('\n').filter(Boolean).sort()).toEqual(['builds.jsonl', 'history/', 'state.md', 'thumb.json', 'thumb.png'])
   // Nothing of it outside .torno.
   expect(readdirSync(join(root, 'hollow')).sort()).toEqual(['.torno', 'hollow.py'])
+  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: 'All projects' }).click()
   await expect(card('hollow')).toContainText('Built, r1')
   // A build of this run is said in ink behind the status line's dot; an object not opened here has neither.
@@ -141,6 +143,7 @@ test('a card says when its picture is older than the model, and a second object 
   // Its facts say which picture they are of: its size and what its bytes hash to.
   expect(meta('hollow')).toMatchObject({ bytes: statSync(thumb('hollow')).size, hash: createHash('sha256').update(readFileSync(thumb('hollow'))).digest('hex') })
   writeFileSync(thumb('hollow', 'thumb.json'), JSON.stringify({ ...meta('hollow'), sourcesMtimeMs: 1 }))
+  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: 'All projects' }).click()
   await expect(card('hollow')).toContainText('A source has changed since')
   await expect(card('plain')).not.toContainText('A source has changed since')
@@ -350,12 +353,15 @@ test('a build that fails wins over the picture, which stays and is dimmed', asyn
   await page.keyboard.press('Escape')
 })
 
-test('the left column keeps the objects and the marks while the page is up, and Escape closes what is on top first', async () => {
+test('the rail keeps Projects and Marks while the page is up, and Escape closes what is on top first', async () => {
   // plain is open, and failed: the page comes up over it.
   await page.keyboard.press('w')
   expect((await state()).page).toBe('objects')
   // The layers and the scans act on a view that is not on screen while the page is up: they have given way
-  // (final fix wave), and with them the one slider the left column had there. The marks stay.
+  // (final fix wave), and with them the one slider the left had there: the rail has no icon for them. The marks stay.
+  for (const name of ['Layers', 'Params', 'Scans'] as const) await expect(railButton(page, name)).toHaveCount(0)
+  for (const name of ['Projects', 'Marks'] as const) await expect(railButton(page, name)).toBeVisible()
+  await openPanel(page, 'Marks')
   await expect(page.locator('[data-region="left"]').getByRole('slider')).toHaveCount(0)
   await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Layers' })).toHaveCount(0)
   await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Marks' })).toBeVisible()
@@ -374,7 +380,8 @@ test('the left column keeps the objects and the marks while the page is up, and 
   await page.keyboard.press('Enter')
   await expect(page.locator('[data-region="session"]').getByRole('status')).toHaveText('Working')
   expect((await state()).page).toBe('objects')
-  // The folder button is a menu now: the dialog is one of its ways.
+  // The folder button is at the top of the Projects panel, and a menu: the dialog is one of its ways.
+  await openPanel(page, 'Projects')
   await page.locator('[data-region="left"]').getByRole('button', { name: 'Folders' }).click()
   await page.locator('[data-region="left"]').getByRole('menuitem', { name: 'Open folder…' }).click()
   const ask = page.getByRole('alertdialog', { name: 'End the sessions of this folder?' })
@@ -387,6 +394,7 @@ test('the left column keeps the objects and the marks while the page is up, and 
   await page.keyboard.press('Escape')
   expect(await state()).toMatchObject({ page: 'object', objectId: 'plain' })
   // What had the focus when the page came up has it again when the page goes.
+  await openPanel(page, 'Projects')
   const all = page.getByRole('button', { name: 'All projects' })
   await all.focus()
   await page.keyboard.press('Enter')
@@ -397,8 +405,8 @@ test('the left column keeps the objects and the marks while the page is up, and 
   await expect(all).toBeFocused()
 })
 
-test('with an object open the list folds to a switcher, the marks start high, and its menu opens another object by the keys alone', async () => {
-  // hollow open (from the switcher, with the pointer), and the list of every object of the workspace is its title and one row.
+test('the Projects panel lists every project, opens another by the pointer, and the panel is the window\'s', async () => {
+  // hollow open, from the list with the pointer, and the panel lists every project of the workspace.
   expect((await state()).page).toBe('object')
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).build).toMatchObject({ objectId: 'hollow', status: 'ok' })
@@ -406,137 +414,29 @@ test('with an object open the list folds to a switcher, the marks start high, an
   expect(count).toBeGreaterThanOrEqual(15)
   const left = page.locator('[data-region="left"]')
   const objects = objectList(page)
-  const fold = (name: string) => left.locator('.section-fold').and(left.getByRole('button', { name, exact: true }))
-  await expect(switcher(page)).toHaveAttribute('data-object', 'hollow')
-  await expect(switcher(page)).toHaveAttribute('aria-haspopup', 'menu')
-  await expect(fold('Projects')).toHaveAttribute('aria-expanded', 'false')
-  await expect(fold('Projects')).toHaveAttribute('aria-description', `${count}`)
-  await expect(objects.locator('.object-row')).toHaveCount(0)
-  await expect(objects.getByRole('button', { name: 'All projects' })).toBeVisible()
-  expect((await objects.boundingBox())!.height).toBeLessThanOrEqual(64)
-  // Layers and Scans folded as well: their title rows say what matters, and the marks start high in the column.
-  // hollow has Params, so Parameters is there too, folded to its title from the start.
-  await expect(fold('Parameters')).toHaveAttribute('aria-expanded', 'false')
-  await expect(fold('Parameters')).toHaveAttribute('aria-description', '2')
-  for (const name of ['Layers', 'Scans']) {
-    await fold(name).click()
-    await expect(fold(name)).toHaveAttribute('aria-expanded', 'false')
-  }
-  await expect(fold('Layers')).toHaveAttribute('aria-description', '2')
-  await expect(fold('Layers').locator('.section-said')).toHaveText('2')
-  await expect(fold('Scans')).toHaveAttribute('aria-description', '0')
-  await expect(left.getByRole('region', { name: 'Layers' }).getByRole('listitem')).toHaveCount(0)
-  // Marks starts where the last title row above it ends, whatever the sections above are: nothing is left between.
-  const box = async (name: string) => (await left.getByRole('region', { name }).boundingBox())!
-  const scansBox = await box('Scans')
-  expect((await box('Parameters')).y).toBeGreaterThan((await box('Layers')).y)
-  expect((await box('Marks')).y - (scansBox.y + scansBox.height)).toBeLessThan(6)
-  expect((await box('Parameters')).height).toBeLessThan(40)
-  // The window keeps what is folded, in its own storage: nothing of it is in the workspace.
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!)).toMatchObject({ folded: { objects: true, layers: true, params: true, scans: true } })
-  expect(readdirSync(join(root, 'hollow', '.torno'))).not.toContain('column.json')
-  for (const name of ['Layers', 'Scans']) await fold(name).click()
-
-  // By the keys alone: Enter opens the menu on the open object; a muted one says why on a second line; Home, End
-  // and the arrows go about it; Enter opens the one in focus, and the keys are the switcher's again.
-  await switcher(page).focus()
-  await page.keyboard.press('Enter')
-  const menu = page.getByRole('menu', { name: 'Projects' })
-  await expect(menu.getByRole('menuitem', { name: 'hollow', exact: true })).toBeFocused()
-  await expect(menu.getByRole('menuitem', { name: 'hollow', exact: true })).toHaveAttribute('aria-current', 'true')
-  await expect(menu.getByRole('menuitem')).toHaveCount(count + 1)
-  await expect(menu.getByRole('menuitem', { name: 'two', exact: true }).locator('.object-item-problem')).toContainText('more than one model file')
-  await page.keyboard.press('End')
-  await expect(menu.getByRole('menuitem', { name: 'New project' })).toBeFocused()
-  await page.keyboard.press('Home')
-  await page.keyboard.press('ArrowDown')
-  await expect(menu.getByRole('menuitem', { name: 'broken', exact: true })).toBeFocused()
-  await page.keyboard.press('ArrowUp')
-  await expect(menu.getByRole('menuitem', { name: 'bracket', exact: true })).toBeFocused()
-  await page.keyboard.press('Enter')
-  await expect(menu).toHaveCount(0)
-  await expect.poll(async () => (await state()).objectId).toBe('bracket')
-  await expect(switcher(page)).toHaveAttribute('data-object', 'bracket')
-  await expect(switcher(page)).toBeFocused()
-  // Escape puts the menu away, and nothing is opened.
-  await page.keyboard.press('Enter')
-  await expect(menu).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(menu).toHaveCount(0)
-  await expect(switcher(page)).toBeFocused()
-  expect((await state()).objectId).toBe('bracket')
-
-  // The title unfolds the list in place, as it was; it gives way to the layers and the scans, a share of the column.
-  await fold('Projects').click()
-  await expect(fold('Projects')).toHaveAttribute('aria-expanded', 'true')
+  await openPanel(page, 'Projects')
+  await expect(left.locator('.workspace-name')).toBeVisible()
   await expect(objects.locator('.object-row')).toHaveCount(count)
+  await expect(objects.getByRole('button', { name: 'hollow', exact: true })).toHaveAttribute('aria-current', 'true')
+  await expect(objects.getByRole('button', { name: 'All projects' })).toBeVisible()
+  // One that cannot be built is muted, with the reason as its title.
+  await expect(objects.getByRole('button', { name: 'two', exact: true })).toHaveAttribute('data-problem', '')
+  await expect(objects.getByRole('button', { name: 'two', exact: true })).toHaveAttribute('title', /more than one model file/)
+  // Another project, opened by its row, and the panel stays as it was.
+  await objects.getByRole('button', { name: 'bracket', exact: true }).click()
+  await expect.poll(async () => (await state()).objectId).toBe('bracket')
   await expect(objects.getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
-  const column = (await left.boundingBox())!.height
-  expect((await objects.boundingBox())!.height).toBeLessThanOrEqual(column * 0.38 + 1)
-  await fold('Projects').click()
-  await expect(switcher(page)).toBeVisible()
-})
-
-test('the line above the marks gives them more room, from the sections above down to their titles, and a double click puts the shares back', async () => {
-  const left = page.locator('[data-region="left"]')
-  const marks = left.getByRole('region', { name: 'Marks' })
-  const line = left.getByRole('separator', { name: 'Resize marks' })
-  const kept = async (): Promise<number | null> => JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column'))) ?? '{}').marks ?? null
-  // The Layers unfolded above it: they give way, down to their title.
-  await expect(left.locator('.section-fold').and(left.getByRole('button', { name: 'Layers', exact: true }))).toHaveAttribute('aria-expanded', 'true')
-  const share = (await marks.boundingBox())!.height
-  const from = (await line.boundingBox())!
-  await page.mouse.move(from.x + 120, from.y + from.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(from.x + 120, from.y - 40, { steps: 4 })
-  await page.mouse.up()
-  const taller = (await marks.boundingBox())!.height
-  expect(taller).toBeGreaterThan(share + 30)
-  await expect.poll(kept).toBe(Math.round(taller))
-  await expect(line).toHaveAttribute('aria-valuenow', `${Math.round(taller)}`)
-  // As far as it goes: every section above at its title, never off the column.
-  await page.mouse.move(from.x + 120, from.y - 40)
-  await page.mouse.down()
-  await page.mouse.move(from.x + 120, 0, { steps: 4 })
-  await page.mouse.up()
-  const layers = (await left.getByRole('region', { name: 'Layers' }).boundingBox())!
-  expect(layers.height).toBeLessThanOrEqual(34)
-  expect((await marks.boundingBox())!.y).toBeGreaterThan(layers.y + layers.height - 1)
-  const most = (await kept())!
-  await expect(line).toHaveAttribute('aria-valuenow', `${most}`)
-  // A shorter window has less room than that: the marks take what there is, never running under the status line, and
-  // the line says the height shown. What is kept is as it was, and a taller window gives it back.
-  const was = await page.evaluate(() => [window.innerWidth, window.innerHeight])
-  const size = (w: number, h: number) => app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h])
-  try {
-    await size(was[0], was[1] - 200)
-    await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(was[1] - 200)
-    await expect
-      .poll(async () => {
-        const box = (await marks.boundingBox())!
-        const column = (await left.boundingBox())!
-        return box.y + box.height <= column.y + column.height + 0.5
-      })
-      .toBe(true)
-    await expect(line).toHaveAttribute('aria-valuenow', `${Math.round((await marks.boundingBox())!.height)}`)
-    expect(Math.round((await marks.boundingBox())!.height)).toBeLessThan(most)
-    expect(await kept()).toBe(most)
-  } finally {
-    await size(was[0], was[1])
-    await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(was[1])
-  }
-  await expect.poll(async () => Math.round((await marks.boundingBox())!.height)).toBe(most)
-  await expect(line).toHaveAttribute('aria-valuenow', `${most}`)
-  // By the keys: Down gives back a step of 16 px, Up takes it again.
-  await line.focus()
-  await page.keyboard.press('ArrowDown')
-  await expect.poll(kept).toBe(most - 16)
-  await page.keyboard.press('ArrowUp')
-  await expect.poll(kept).toBe(most)
-  // A double click: the shares as they were, and nothing kept.
-  await line.dblclick()
-  await expect.poll(kept).toBeNull()
-  await expect.poll(async () => Math.round((await marks.boundingBox())!.height)).toBe(Math.round(share))
+  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'true')
+  // The window keeps which panel is open, in its own storage: nothing of it is in the workspace.
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!)).toMatchObject({ open: 'projects' })
+  expect(readdirSync(join(root, 'hollow', '.torno'))).not.toContain('column.json')
+  // Pressed again, the panel goes; the next opens another.
+  await closePanel(page)
+  await expect(left.locator('.panel-host')).toHaveCount(0)
+  await openPanel(page, 'Layers')
+  await expect(left.getByRole('region', { name: 'Layers' })).toBeVisible()
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!)).toMatchObject({ open: 'layers' })
+  await openPanel(page, 'Marks')
 })
 
 // Forty objects, none opened: what the page costs when it is the face of a full workspace. Thirty have a picture

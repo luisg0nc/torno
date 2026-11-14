@@ -8,7 +8,6 @@ import type { LayerSettings } from '../../shared/scenefile'
 import { DEFECT_MEANS, partDefects } from '../../shared/sanity'
 import { SectionTitle } from './SectionTitle'
 import { type PartMarks, marksByPart } from './layerMarks'
-import { layersSaid } from './sectionSaid'
 import { giveKeysBack } from './typing'
 
 /**
@@ -29,7 +28,6 @@ export function Layers() {
   const layout = useStore((s) => s.layout)
   const layers = useStore((s) => s.layers)
   const folded = useStore((s) => s.folded)
-  const sectionFolded = useStore((s) => s.column.folded.layers)
   const marks = useStore((s) => s.marks)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const onPart = useStore((s) => s.marksOnPart)
@@ -47,15 +45,11 @@ export function Layers() {
   )
 
   return (
-    <section className="section layers" aria-label="Layers" data-folded={sectionFolded ? '' : undefined}>
-      <SectionTitle section="layers" title="Layers" said={layersSaid(parts.length, hidden.length)}>
+    <section className="section layers" aria-label="Layers">
+      <SectionTitle title="Layers" said={`${parts.length}`}>
         {hidden.length > 0 && (
           <span className="layers-hidden">
-            {!sectionFolded && (
-              <>
-                <span className="num">{hidden.length}</span> hidden ·{' '}
-              </>
-            )}
+            <span className="num">{hidden.length}</span> hidden ·{' '}
             <button
               type="button"
               className="link-button"
@@ -70,19 +64,17 @@ export function Layers() {
           </span>
         )}
       </SectionTitle>
-      {!sectionFolded && parts.length === 0 && <p className="section-note">This layout has no parts.</p>}
-      {!sectionFolded && (
-        <ul className="rows">
-          {groups.map((group) => {
-            const isFolded = folded.includes(group.name)
-            return [
-              <GroupRow key={`group:${group.name}`} group={group} layout={layout} layers={layers} folded={isFolded} />,
-              ...(isFolded ? [] : group.parts.map((name) => row(byName.get(name)!, group.name)))
-            ]
-          })}
-          {parts.filter((p) => !grouped.has(p.name)).map((part) => row(part))}
-        </ul>
-      )}
+      {parts.length === 0 && <p className="section-note">This layout has no parts.</p>}
+      <ul className="rows">
+        {groups.map((group) => {
+          const isFolded = folded.includes(group.name)
+          return [
+            <GroupRow key={`group:${group.name}`} group={group} layout={layout} layers={layers} folded={isFolded} />,
+            ...(isFolded ? [] : group.parts.map((name) => row(byName.get(name)!, group.name)))
+          ]
+        })}
+        {parts.filter((p) => !grouped.has(p.name)).map((part) => row(part))}
+      </ul>
     </section>
   )
 }

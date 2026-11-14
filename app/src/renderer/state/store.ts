@@ -13,7 +13,7 @@ import { type SavedView, MAX_VIEWS, TOO_MANY_VIEWS, cleanViewName, findView, own
 import { sameCamera, viewOnScreen } from './savedViews'
 import type { LayerSettings, SceneFile } from '../../shared/scenefile'
 import type { WorkspaceInfo } from '../../shared/workspace'
-import { type ColumnPrefs, type ColumnSection, readColumn, windowStorage, writeColumn } from './column'
+import { type ColumnPrefs, type RailPanel, keptWidth, readColumn, windowStorage, writeColumn } from './column'
 
 /** The agent session of an object. Its output is not here: it goes straight into the terminal. */
 export interface SessionView {
@@ -53,7 +53,7 @@ export interface TornoState {
   fixRequest: string | null
   /** Whether the session dock is shown. The window's, not an object's: another object or workspace leaves it as it is. */
   dockOpen: boolean
-  /** How the left column is laid out: the sections folded, the marks' height (`state/column.ts`). The window's, kept in its own storage. */
+  /** Which panel of the rail is open and how wide it is (`state/column.ts`). The window's, kept in its own storage. */
   column: ColumnPrefs
   /** The last good scene of the open object, and the revision it is. */
   scene: Scene | null
@@ -699,23 +699,18 @@ export const actions = {
     if (store.getState().noting !== null) store.setState({ noting: null })
   },
 
-  /** Folds a section of the left column above the marks, or unfolds it; the window keeps it for the next time. */
-  foldSection(section: ColumnSection, folded: boolean): void {
+  /** Opens a panel of the rail beside it; the same one again, or null, closes it. The window keeps it for the next time. */
+  openPanel(panel: RailPanel | null): void {
     const { column } = store.getState()
-    if (column.folded[section] === folded) return
-    setColumn({ ...column, folded: { ...column.folded, [section]: folded } })
+    const open = panel === column.open ? null : panel
+    if (column.open !== open) setColumn({ ...column, open })
   },
 
-  /** The width the person gave the left column (null: the default); the window keeps it. */
-  setLeftWidth(width: number | null): void {
+  /** The width the person gave the panel, once it is let go (at least the default); the window keeps it. */
+  setPanelWidth(px: number): void {
     const { column } = store.getState()
+    const width = keptWidth(px)
     if (column.width !== width) setColumn({ ...column, width })
-  },
-
-  /** The height the splitter gave the marks, once it is let go; null puts back their share. */
-  setMarksHeight(height: number | null): void {
-    const { column } = store.getState()
-    if (column.marks !== height) setColumn({ ...column, marks: height })
   },
 
   /** The session dock is shown or hidden. */

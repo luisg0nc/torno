@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampLeft, COLUMN_DEFAULT, LEFT_DEFAULT, COLUMN_KEY, MARKS_FLOOR, readColumn, switcherShown, writeColumn } from './column'
+import { clampLeft, COLUMN_DEFAULT, COLUMN_KEY, LEFT_DEFAULT, PANEL_MAX, RAIL_W, panelsFor, readColumn, shownPanel, writeColumn } from './column'
 
 /** A storage of the window, as the tests need it: what was written, and one that refuses. */
 function memory(start: Record<string, string> = {}): Storage & { data: Record<string, string> } {
@@ -26,27 +26,33 @@ const refusing = {
   }
 } as unknown as Storage
 
-describe('the left column as the person keeps it', () => {
-  it('starts with Objects folded to its switcher, the rest unfolded, and the marks at their share', () => {
-    expect(COLUMN_DEFAULT).toEqual({ folded: { objects: true, layers: false, params: true, checks: true, print: true, scans: false }, marks: null, width: null })
+describe('the rail and its panel as the person keeps them', () => {
+  it('starts with the marks open at the default width', () => {
+    expect(COLUMN_DEFAULT).toEqual({ open: 'marks', width: 248 })
     expect(readColumn(memory())).toEqual(COLUMN_DEFAULT)
     expect(readColumn(null)).toEqual(COLUMN_DEFAULT)
   })
 
   it('reads back what was written, and nothing but the window keeps it', () => {
     const storage = memory()
-    writeColumn(storage, { folded: { objects: false, layers: true, params: false, checks: true, print: true, scans: true }, marks: 320, width: 400 })
+    writeColumn(storage, { open: 'layers', width: 400 })
     expect(Object.keys(storage.data)).toEqual([COLUMN_KEY])
-    expect(readColumn(storage)).toEqual({ folded: { objects: false, layers: true, params: false, checks: true, print: true, scans: true }, marks: 320, width: 400 })
+    expect(readColumn(storage)).toEqual({ open: 'layers', width: 400 })
+    writeColumn(storage, { open: null, width: 300 })
+    expect(readColumn(storage)).toEqual({ open: null, width: 300 })
+  })
+
+  it('reads a value of the old shape (folded sections, marks height, width) as the marks open at its width', () => {
+    const old = { folded: { objects: true, layers: false, params: true, checks: true, print: true, scans: false }, marks: 320, width: 400 }
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify(old) }))).toEqual({ open: 'marks', width: 400 })
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ ...old, width: null }) }))).toEqual({ open: 'marks', width: LEFT_DEFAULT })
   })
 
   it('takes what it can of a value that is not its own, and the default for the rest', () => {
     expect(readColumn(memory({ [COLUMN_KEY]: 'not json' }))).toEqual(COLUMN_DEFAULT)
     expect(readColumn(memory({ [COLUMN_KEY]: '[1, 2]' }))).toEqual(COLUMN_DEFAULT)
-    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ folded: { layers: true, scans: 'yes' }, marks: 'tall' }) }))).toEqual({ folded: { objects: true, layers: true, params: true, checks: true, print: true, scans: false }, marks: null, width: null })
-    // A height under the floor of the marks is no height they are given: the floor holds anyway.
-    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ marks: MARKS_FLOOR - 1 }) })).marks).toBeNull()
-    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ marks: Number.POSITIVE_INFINITY }) })).marks).toBeNull()
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'history', width: 'wide' }) }))).toEqual(COLUMN_DEFAULT)
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'scans' }) }))).toEqual({ open: 'scans', width: LEFT_DEFAULT })
   })
 
   it('never throws for a storage that refuses: the window works without it', () => {
@@ -56,35 +62,41 @@ describe('the left column as the person keeps it', () => {
   })
 })
 
-describe('switcherShown', () => {
-  const two = [{ id: 'bracket' }, { id: 'hollow' }]
-  const at = (over: Partial<Parameters<typeof switcherShown>[0]>) => switcherShown({ folded: true, objects: two, objectId: 'hollow', page: 'object', ...over })
+describe('which panels there are, and which is shown', () => {
+  const at = (page: 'object' | 'objects' | 'new', objectId: string | null = 'hollow') => panelsFor({ page, objectId })
 
-  it('is the folded list while an object is open, or a new one is being made, in a workspace of several', () => {
-    expect(at({})).toBe(true)
-    expect(at({ page: 'new' })).toBe(true)
-    expect(at({ page: 'new', objectId: null })).toBe(true)
+  it('has the five of an open project, Projects and Marks on the page of projects, Projects alone for a new one or none open', () => {
+    expect(at('object')).toEqual(['projects', 'layers', 'params', 'scans', 'marks'])
+    expect(at('objects')).toEqual(['projects', 'marks'])
+    expect(at('new')).toEqual(['projects'])
+    expect(at('objects', null)).toEqual(['projects'])
+    expect(at('new', null)).toEqual(['projects'])
+    expect(at('object', null)).toEqual(['projects'])
   })
 
-  it('shows the list whole when it is unfolded, with no object open, on the page of objects, or with one object alone', () => {
-    expect(at({ folded: false })).toBe(false)
-    expect(at({ objectId: null })).toBe(false)
-    expect(at({ page: 'objects' })).toBe(false)
-    expect(at({ objects: [{ id: 'hollow' }] })).toBe(false)
+  it('shows the one kept when it is there, none when it is not, and Projects when none is open and the person has not closed it', () => {
+    expect(shownPanel('layers', at('object'))).toBe('layers')
+    expect(shownPanel('layers', at('objects'))).toBeNull()
+    expect(shownPanel('marks', at('objects'))).toBe('marks')
+    expect(shownPanel(null, at('object'))).toBeNull()
+    expect(shownPanel('marks', at('object', null))).toBe('projects')
+    expect(shownPanel(null, at('object', null))).toBeNull()
   })
 })
 
-describe('the width of the column', () => {
-  it('is kept only when it is wider than the default', () => {
-    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ width: 360.4 }) })).width).toBe(360)
-    for (const width of [LEFT_DEFAULT, 100, 'wide', null]) expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ width }) })).width).toBeNull()
+describe('the width of the panel', () => {
+  it('is kept from the default up to the most, and the old null is the default', () => {
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width: 360.4 }) })).width).toBe(360)
+    for (const width of [LEFT_DEFAULT, 100, 'wide', null, -5]) expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width }) })).width).toBe(LEFT_DEFAULT)
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width: 99999 }) })).width).toBe(PANEL_MAX)
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width: Number.POSITIVE_INFINITY }) })).width).toBe(LEFT_DEFAULT)
   })
 
-  it('is bounded below by the default and above by the room the viewport keeps beside the dock', () => {
+  it('is bounded below by the default and above by the room the viewport keeps beside the rail and the dock', () => {
     expect(clampLeft(100, 1600, 520)).toBe(LEFT_DEFAULT)
     expect(clampLeft(400, 1600, 520)).toBe(400)
-    expect(clampLeft(5000, 1600, 520)).toBe(1600 - 520 - 240)
-    expect(clampLeft(5000, 1600, 0)).toBe(1600 - 240)
+    expect(clampLeft(5000, 1600, 520)).toBe(1600 - 520 - 240 - RAIL_W)
+    expect(clampLeft(5000, 1600, 0)).toBe(1600 - 240 - RAIL_W)
     expect(clampLeft(5000, 600, 520)).toBe(LEFT_DEFAULT)
   })
 })

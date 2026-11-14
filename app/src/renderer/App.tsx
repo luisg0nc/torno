@@ -10,14 +10,9 @@ import { unsentSessions } from './ui/chat/Composer'
 import { paintings } from './tools/regionPainting'
 import { WorkspaceQuestion } from './ui/WorkspaceQuestion'
 import { openProblem } from './ui/openFolder'
-import { Layers } from './ui/Layers'
-import { ChecksPanel } from './ui/ChecksPanel'
-import { PrintProfile } from './ui/PrintProfile'
-import { ParamsPanel } from './ui/ParamsPanel'
-import { MarksPanel } from './ui/MarksPanel'
-import { ColumnSplit } from './ui/ColumnSplit'
 import { ObjectList } from './ui/ObjectList'
-import { ScansPanel } from './ui/ScansPanel'
+import { PanelHost } from './ui/PanelHost'
+import { Rail, useRail } from './ui/Rail'
 import { SessionPane } from './ui/SessionPane'
 import { SessionDot } from './ui/SessionDot'
 import { dockToggleName, dockToggleSaid, signOf } from './ui/sessionSign'
@@ -32,7 +27,6 @@ import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
-import { LeftEdge } from './ui/LeftEdge'
 import { LEFT_DEFAULT, VIEWPORT_MIN } from './state/column'
 
 const DOCK_DEFAULT = 520
@@ -325,6 +319,7 @@ export function App() {
   const page = useStore((s) => s.page)
   const workspaceKnown = useStore((s) => s.workspaceKnown)
   const shell = useRef<HTMLDivElement>(null)
+  const rail = useRail()
   const [dockWidth, setDockWidth] = useState(DOCK_DEFAULT)
   const dockOpen = useStore((s) => s.dockOpen)
   // The sign of the open object's session, for the dock's toggle while the dock is away.
@@ -428,6 +423,34 @@ export function App() {
 
   const revealDock = useCallback(() => actions.setDockOpen(true), [])
 
+  // The Projects panel: the folder's name and menu at its top, what is to be said of the folder, then the list.
+  const projectsPanel = workspace && (
+    <>
+      <header className="panel-head">
+        <h1 className="workspace-name" title={workspace.root}>
+          {basename(workspace.root)}
+        </h1>
+        {/* The way to another folder: those opened lately, the dialog, the example. */}
+        <FolderMenu open={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} />
+      </header>
+      {/* For as long as the example is open: what is made here does not outlive torno, and it says so where the folder is named. */}
+      {workspace.example && (
+        <p className="workspace-example" role="note">
+          {EXAMPLE_NOTE}{' '}
+          <button type="button" className="link-button" disabled={leaving !== null} title="Copies this folder, with whatever was made in it, to a new folder you choose, and opens that one" onClick={() => leave(KEEP)}>
+            Keep this as a folder…
+          </button>
+        </p>
+      )}
+      {openFailed !== null && (
+        <p className="workspace-problem" role="alert">
+          {openFailed}
+        </p>
+      )}
+      <ObjectList onOpen={(id) => void openObject(id)} />
+    </>
+  )
+
   if (!workspaceKnown) return <div className="shell" />
   if (!workspace) {
     return (
@@ -445,41 +468,12 @@ export function App() {
       ref={shell}
       className="shell"
       data-dock={dockOpen ? 'open' : 'collapsed'}
+      data-panel={rail.shown ?? 'closed'}
       style={{ '--dock-w': `${dockWidth}px` } as CSSProperties}
     >
-      <aside className="left" data-region="left" aria-label="Projects, layers, parameters, scans and marks">
-        <header className="panel-head">
-          <h1 className="workspace-name" title={workspace.root}>
-            {basename(workspace.root)}
-          </h1>
-          {/* The way to another folder: those opened lately, the dialog, the example. */}
-          <FolderMenu open={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} />
-        </header>
-        {/* For as long as the example is open: what is made here does not outlive torno, and it says so where the folder is named. */}
-        {workspace.example && (
-          <p className="workspace-example" role="note">
-            {EXAMPLE_NOTE}{' '}
-            <button type="button" className="link-button" disabled={leaving !== null} title="Copies this folder, with whatever was made in it, to a new folder you choose, and opens that one" onClick={() => leave(KEEP)}>
-              Keep this as a folder…
-            </button>
-          </p>
-        )}
-        {openFailed !== null && (
-          <p className="workspace-problem" role="alert">
-            {openFailed}
-          </p>
-        )}
-        <ObjectList onOpen={(id) => void openObject(id)} />
-        {/* While the page of objects is up, the layers, the parameters and the scans act on a view that is not on screen: they give way. The marks stay: they say why a card has a failing chip. On the New object page the marks give way too: no tool works there. */}
-        {page === 'object' && <Layers />}
-        {page === 'object' && <ParamsPanel />}
-        {page === 'object' && <ChecksPanel />}
-        {page === 'object' && <PrintProfile />}
-        {page === 'object' && <ScansPanel />}
-        {/* The line that gives the marks more room than their share, from the sections above. */}
-        {page === 'object' && <ColumnSplit />}
-        {page !== 'new' && <MarksPanel />}
-        <LeftEdge shell={shell} />
+      <aside className="left" data-region="left" aria-label="Panels">
+        <Rail offered={rail.offered} shown={rail.shown} />
+        <PanelHost shown={rail.shown} shell={shell} projects={projectsPanel} />
       </aside>
 
       <main className="viewport" data-region="viewport">

@@ -1,0 +1,96 @@
+/* ---- The rail: a thin column of icons at the left, each with a word under it, opening one docked panel ---- */
+
+.rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: var(--rail-w);
+  padding: 12px 0 var(--space-2);
+  border-right: var(--divider);
+  background: var(--panel);
+}
+
+.rail-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 48px;
+  padding: 6px 0 5px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.rail-button:hover {
+  color: var(--ink);
+}
+
+.rail-button[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.rail-button:focus-visible {
+  outline-offset: -2px;
+}
+
+.rail-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* What the closed panel has for the person to look at, as its folded title said: a count over the icon's corner. */
+.rail-badge {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--panel);
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.rail-badge[data-panel='layers'] {
+  background: var(--muted);
+}
+
+.rail-badge[data-panel='scans'] {
+  background: var(--warn);
+}
+
+.rail-badge[data-panel='params'] {
+  background: var(--fail);
+}
+
+/* Any project's session that works or waits, on Projects: a dot over the icon's corner, as on the dock's toggle
+   (`session.css`); the one that needs the person is larger and in the warning colour, so that colour is not all. */
+.rail-button .session-sign {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+}
+
+.rail-button .session-sign .status-dot {
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+.rail-button[aria-pressed='true'] .session-sign .status-dot {
+  box-shadow: 0 0 0 2px var(--accent-wash);
+}
+
+.rail-button .session-sign[data-sign='needs_input'] .status-dot {
+  width: 9px;
+  height: 9px;
+}

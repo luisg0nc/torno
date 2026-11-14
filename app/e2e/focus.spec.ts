@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { box, stl } from '../src/test/scanFixtures'
+import { openPanel, railButton } from './helpers'
 import { openListed } from './objects'
 
 // The app is driven by single letters. After a click or an action, wherever it was, the next letter is the
@@ -89,7 +90,8 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.keyboard.press('Enter')
   await expect(page.locator('.view-chip[data-view="From the front"]')).toBeVisible()
   await pinIsInHand('a view saved')
-  // The folder menu, opened and closed.
+  // The folder menu, which is at the top of the Projects panel, opened and closed.
+  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: 'Folders' }).click()
   await expect(page.getByRole('menu', { name: 'Folders' })).toBeVisible()
   await page.keyboard.press('Escape')
@@ -110,6 +112,7 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.mouse.up()
   await pinIsInHand('the session pane resized')
   // Two scans: a unit chosen on a row, and in the align bar which scan to align.
+  await openPanel(page, 'Scans')
   for (const name of ['plate.stl', 'floor.stl']) {
     await pickFile(join(root, name))
     await page.getByRole('button', { name: 'Import scan…' }).click()
@@ -125,28 +128,28 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await choose(page.getByRole('combobox', { name: 'Scan to align' }), 'S2')
   await pinIsInHand('a scan chosen to align')
   // A part switched off and on in the layers.
+  await openPanel(page, 'Layers')
   await page.getByRole('button', { name: 'Show post' }).click()
   await page.getByRole('button', { name: 'Show post' }).click()
   await pinIsInHand('a part switched off and on')
-  // A section of the left column folded and unfolded by its title, and the list of objects unfolded and folded again.
-  const fold = (name: string) => page.locator('.section-fold').and(page.getByRole('button', { name, exact: true }))
-  for (const name of ['Layers', 'Scans', 'Projects']) {
-    await fold(name).click()
-    await pinIsInHand(`${name} folded or unfolded`)
-    await fold(name).click()
+  // Each panel of the rail opened and closed by its icon, with the pointer.
+  for (const name of ['Projects', 'Layers', 'Scans', 'Marks'] as const) {
+    await railButton(page, name).click()
+    await pinIsInHand(`${name} opened or closed`)
+    await railButton(page, name).click()
     await pinIsInHand(`${name} as it was`)
   }
-  await expect(fold('Projects')).toHaveAttribute('aria-expanded', 'false')
-  // The marks given more room by the line above them, and the shares put back with a double click.
-  const line = page.getByRole('separator', { name: 'Resize marks' })
+  // The panel made wider by its edge, and the default put back with a double click.
+  await openPanel(page, 'Marks')
+  const line = page.getByRole('separator', { name: 'Resize panel' })
   const from = (await line.boundingBox())!
-  await page.mouse.move(from.x + 100, from.y + from.height / 2)
+  await page.mouse.move(from.x + from.width / 2, from.y + 300)
   await page.mouse.down()
-  await page.mouse.move(from.x + 100, from.y - 60, { steps: 4 })
+  await page.mouse.move(from.x + from.width / 2 + 60, from.y + 300, { steps: 4 })
   await page.mouse.up()
-  await pinIsInHand('the marks made taller')
+  await pinIsInHand('the panel made wider')
   await line.dblclick()
-  await pinIsInHand('the shares put back')
+  await pinIsInHand('the default width put back')
   // A mark's row clicked, and another's chip in the view: marks that were sent, so no note opens to take the keys.
   for (const point of [[14, 9, 2.5], [-14, -9, 2.5]]) {
     await page.evaluate(
@@ -165,14 +168,15 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.mouse.click(shown.x + chip!.x * shown.width, shown.y + chip!.y * shown.height)
   await expect.poll(async () => (await state()).activeMark).toBe('M2')
   await pinIsInHand('a mark\'s chip clicked in the view')
-  // Another object chosen in the switcher's menu with the pointer, and back.
+  // Another project chosen in the Projects panel with the pointer, and back.
+  await openPanel(page, 'Projects')
   for (const name of ['hollow', 'bracket']) {
-    await page.locator('.object-switcher').click()
-    await page.getByRole('menu', { name: 'Projects' }).getByRole('menuitem', { name, exact: true }).click()
+    await page.getByRole('navigation', { name: 'Projects' }).getByRole('button', { name, exact: true }).click()
     await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ objectId: name, status: 'ok' })
-    await pinIsInHand(`${name} chosen in the switcher`)
+    await pinIsInHand(`${name} chosen in the list`)
   }
   // As it was for what follows: the detail of S1 open.
+  await openPanel(page, 'Scans')
   await page.getByRole('button', { name: 'Details of S1' }).click()
 })
 

@@ -25,11 +25,11 @@ export function rowSaid(sign: Sign | null): string | undefined {
 }
 
 /**
- * The sign of the folded list of objects (the switcher): of any object of the list whose session works or waits,
- * the one that waits first; what it says, as the switcher's description and in its title, the open object's as a
+ * The sign of the list of objects as the rail's Projects icon carries it: of any object of the list whose session works
+ * or waits, the one that waits first; what it says, as the icon's description and in its title, the open object's as a
  * row says it, another's by its name (`session is working; plain needs you`), in the order of the list; and the words
- * beside the dot when a session waits (`word`): `needs you` for the open object's, else the name of the first that
- * waits (`plain needs you`), so that the words are never read as the open object's.
+ * a place with room for them could put beside the dot when a session waits (`word`): `needs you` for the open
+ * object's, else the name of the first that waits (`plain needs you`), so that they are never read as the open object's.
  */
 export function switcherSign(openId: string | null, objects: readonly { id: string; name: string }[], sessions: Record<string, Pick<SessionView, 'status'>>): { sign: Sign | null; said: string | undefined; word: string | undefined } {
   const signed = objects.flatMap((o) => {

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
+import { openPanel, railButton } from './helpers'
 import { openListed } from './objects'
 
 // The checks a model declares in its checks(p): measured by the kernel at every build, listed in the left column
@@ -54,7 +55,7 @@ test.afterAll(async () => {
 
 const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
 const section = () => page.locator('.left .checks')
-const title = () => section().getByRole('button', { name: 'Checks', exact: true })
+const title = () => section().locator('.section-title')
 
 async function open(name: string): Promise<void> {
   await openListed(page, name)
@@ -63,21 +64,31 @@ async function open(name: string): Promise<void> {
 
 test('a model with no checks has no section', async () => {
   await open('plain')
+  await openPanel(page, 'Layers')
   await expect(page.locator('.left .layers')).toBeVisible()
+  await openPanel(page, 'Params')
+  await expect(page.locator('.left .print')).toBeVisible()
   await expect(section()).toHaveCount(0)
+  await expect(railButton(page, 'Params')).not.toHaveAttribute('aria-description', /./)
 })
 
-test('a check that fails does not fail the build, and is told in the title', async () => {
+test('a check that fails does not fail the build, and is told in the title and on the rail', async () => {
   await open('lidded')
+  await openPanel(page, 'Params')
   await expect(section()).toBeVisible()
-  const order = await page.locator('.left > section').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
+  // The checks and the print profile are sections of the Params panel, after the Params themselves.
+  const order = await page.locator('.left .panel-body > section').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
   expect(order.indexOf('Checks')).toBe(order.indexOf('Parameters') + 1)
-  await expect(title()).toHaveAttribute('aria-expanded', 'false')
+  expect(order.indexOf('Print profile')).toBe(order.indexOf('Checks') + 1)
   await expect(title().locator('.section-said')).toHaveText('2 · 1 fails')
+  // With the panel shut, the icon still says one check fails.
+  await openPanel(page, 'Marks')
+  await expect(railButton(page, 'Params')).toHaveAttribute('aria-description', '1 check fails')
+  await expect(railButton(page, 'Params').locator('.rail-badge')).toHaveText('1')
 })
 
-test('it opens to a row for each check: how it stands in a word, what was measured and what was wanted', async () => {
-  await title().click()
+test('it has a row for each check: how it stands in a word, what was measured and what was wanted', async () => {
+  await openPanel(page, 'Params')
   await expect(section().locator('[data-check]')).toHaveCount(2)
   const fits = section().locator('[data-check="lid fits the tub"]')
   await expect(fits).toHaveAttribute('data-standing', 'fails')

@@ -11,9 +11,9 @@ point at the parts to say what you mean, measure them, and hold them to
 numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
-The window has three columns. On the left, the projects of the folder you
-opened, and under them the parts, scans and marks of the open one; the marks
-have the room, and the sections above them fold. In the
+The window has three parts. On the left, a thin rail of five icons (Projects,
+Layers, Params, Scans and Marks); each opens one panel beside it, which pushes
+the 3D view over. In the
 middle, the parts in 3D, with a bar of views above them and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
 says how the last build went.
@@ -265,13 +265,10 @@ the model it chose for as long as that file exists. A folder where no model
 can be chosen, or a model with none of the forms below, is listed with the
 reason it cannot be built.
 
-With a project open in a folder of several, the list of projects is folded to one row, the
-switcher: the open project's name, and "All projects `W`" beside the title. A click on the name,
-or `Enter`, opens a menu of every project (a dot for a session that works or waits, the reason
-under one that cannot be built) with "New project" at its foot; the arrows, `Home` and `End`
-move in it, `Enter` opens one, `Esc` puts it away. When a session of another project waits for
-you, the switcher has its dot and says so ("bracket needs you"). The "Projects" title unfolds the
-whole list in place. With no project open, or the page of projects up, the list is whole.
+The Projects panel lists the projects of the folder: a dot on a row for a session that works or waits,
+the reason under one that cannot be built, and "New project" at its foot. With a project open in a folder of
+several, "All projects `W`" is beside the title. When any project's session waits for you, the Projects
+icon on the rail has its dot and says so ("bracket needs you") while the panel is closed.
 
 The kernel imports the model file as a module (`if __name__ == "__main__"` does
 not run) and takes the first of:
@@ -411,15 +408,17 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left, the list of projects, then the layers, the parameters, the print profile and the scans of the
-open project, then its marks. Projects, Layers, Parameters, Print profile and Scans each fold by their title; folded, the
-title says what matters (`Layers 12 · 3 hidden`, `Scans 1 · unaligned`). Marks never folds:
-it keeps room for five rows at least, and the sections above give way first. Drag the line
-above Marks up for more (`Up` and `Down` with it in focus), double click it for the shares
-again. Drag the right edge of the column to make it wider (`Left` and `Right` with it in focus),
-double click it for the default width; the column is never narrower than that, and leaves the view
-its room beside the session pane. What is folded, where the line is and how wide the column is are
-kept by the window, not in the folder. The
+**The window.** On the left, a rail of five icons with a word under each: Projects, Layers, Params, Scans and
+Marks. Press one and its panel opens beside the rail, pushing the view over; press the open one and it closes;
+press another and it switches. One panel is open at a time, and Marks is the one at first. The Params panel holds
+Parameters, then Checks and Print profile, which are about the same build. What a folded title used to say shows
+as a small badge on a closed panel's icon: the parts switched off on Layers, the model's checks that fail on
+Params, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the panel to make it
+wider (`Left` and `Right` with it in focus), double click it for the default width; the panel is never narrower than
+that, and leaves the view its room beside the rail and the session pane. Which panel is open and how wide it is are
+kept by the window, not in the folder. On the page of projects the rail offers Projects and Marks, and while a new
+project is made, Projects alone. The Projects panel starts with the folder's name and its menu.
+The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
 a click with Select would, so "Insert" and "Note" work on it) and a double click brings it into view, the target on
@@ -427,7 +426,7 @@ the row shows only that part, and when some parts are switched off the title say
 name, a muted number counts the open marks on the part (in the colour of a failing check when one of them is
 one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
 rest back. That is a view of the list: the agent is told every mark as before. Parameters lists the fields of
-the model's `Params` (folded to its title at first; a model with none has no section): each
+the model's `Params` (a model with none says so): each
 field's name, its default in the monospace face (four digits at most, the whole value on hover) and
 its comment as the model has it, and, for a default the model works out (an expression, not a
 number written in), that it is worked out in the model. The model's comments should begin with where a size
@@ -446,7 +445,7 @@ is made with. The model only sees a tried value where it is given `p`: a helper 
 With a session running, a click on a row puts `Params.wall` in its prompt at the
 cursor, never sent, so you can write "make Params.wall 2.4" around it; with no session the rows say
 to start one. Checks lists what the model declares in its `checks(p)` (see Projects and builds), under
-Parameters and folded at first to a title that says how many fail (`Checks 3 · 1 fails`; a model
+Parameters, with a title that says how many fail (`Checks 3 · 1 fails`; a model
 with none has no section): each check's own name, how it stands in a word (pass, fails, not
 measured, not run), what was measured and what was wanted, and, for a thin wall, that it
 was found by sampling. They are the model's, marked with the agent's colour; your dimensions
@@ -516,7 +515,7 @@ failed) nothing is picked, and the pointer says why.
 
 ### Making a new project
 
-"New project" starts one from what you have. It is at the foot of the list of projects (of the switcher's menu when the list is folded), in the header of the page
+"New project" starts one from what you have. It is at the foot of the list of projects, in the header of the page
 of projects and in its empty state: a folder with no project in it leads with "Make your first project", "New project" and,
 where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page asks for a name and "What is it?" (what it is for, what it must fit or
@@ -572,9 +571,8 @@ pictures are not sent then: the text says each is "not attached" and names the f
 the scans were not imported, and the page says so and where the folder is. While "Creating…" shows, `Esc`, Cancel
 and Discard do nothing.
 
-While the page is up the window is about the project being made: no project of the list is selected (folded, the
-list reads "New project"), the Marks
-section gives way, and the status line says "New project" with the build123d version alone. The session pane says
+While the page is up the window is about the project being made: no project of the list is selected (the "New project" button is pressed), the Marks
+panel gives way, and the status line says "New project" with the build123d version alone. The session pane says
 the first prompt Claude Code will get once you create the project, as it will be sent and read-only, filled in as you go:
 your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and doodle, with "attached"
 or "named only" (only the first 6 pictures go with the prompt). Change the words on the left; the prompt follows. A session of the project that was open that is
@@ -607,9 +605,9 @@ it. It keeps running while another project is shown. A session that works or
 that waits for your answer (a permission, a question, a plan) says so wherever
 you are, not only in its own pane. In the list of projects its row has a dot
 after the name: a quiet one while it works, and, in the warning colour with the
-words "needs you", while it waits. Folded, the list's one row has the dot of any
-session of the folder that works or waits, and names the project of one that
-waits ("bracket needs you"); its menu has a dot on each row as the list does. Nothing is shown for a session that is idle
+words "needs you", while it waits. On the rail, the Projects icon has the dot of any
+session of the folder that works or waits, and says which project's waits
+("bracket needs you") in its description. Nothing is shown for a session that is idle
 or ended. When the session pane is hidden, its button has the same dot for the
 open project's session. And when any session of the folder waits for you, the
 status line has a button "*bracket* needs you" (with "and N more" if several do,
@@ -1370,7 +1368,7 @@ they are of the `print` layout when the model has one and no other is named.
 
 **The print profile** is the printer (bed, nozzle, layer) and the material (density, shrink, the gap per side of a
 press, a sliding and a loose fit, least wall, overhang angle) a project is made for. Choose them under "Print profile" in the
-left column. The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
+Params panel. The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
 makes one); PLA, PETG and ABS come with typical values, and a material of your own goes in that file (`materials`: `name`,
 `density`, and optionally `shrink`, `fits`, `minWall`, `overhang`). A choice is copied into `<project>/.torno/profile.json`,
 so the project travels with the numbers it was checked against. With a profile, `check` bed, thin and overhang and
@@ -1813,7 +1811,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Session | `Enter` | Chat: allow what the card in focus asks (in its reason field, Enter denies) |
 | Session | `Esc` | Chat: put away a picture shown large |
 | Session | `Left` `Right` | On the edge of the session pane: wider or narrower |
-| Session | `Left` `Right` | On the edge of the left column: narrower or wider |
+| Session | `Left` `Right` | On the edge of the panel beside the rail: narrower or wider |
 | In a field, a menu or a sheet | `Enter` | Field: keep what was typed |
 | In a field, a menu or a sheet | `Esc` | Field: leave it as it was |
 | In a field, a menu or a sheet | `Shift+Enter` | Note: a new line |
@@ -1821,7 +1819,6 @@ until the camera is first moved; the window remembers that in its own storage, n
 | In a field, a menu or a sheet | `Up` `Left` | Menu: the one before |
 | In a field, a menu or a sheet | `Home` `End` | Menu: the first or the last |
 | In a field, a menu or a sheet | `Esc` `Tab` | Menu: close it |
-| In a field, a menu or a sheet | `Up` `Down` | On the line above the marks: more room for them, or less |
 | In a field, a menu or a sheet | `Esc` | Sheet or question: put it away |
 | In a field, a menu or a sheet | `Ctrl+Z` | Drawing board (a doodle, or a drawing on the view): undo the last stroke |
 | In a field, a menu or a sheet | `Shift` | Drawing board: hold Shift while drawing for a straight line from where the stroke began |
@@ -2208,17 +2205,17 @@ On the screen:
 - **Focus.** Start torno a second time with another folder: the window that is open comes to the front (on Hyprland only where `focus_on_activate` is on). Start dragging the section's arrow, switch workspace, come back: the plane is where it was before the drag, and the next drag turns the camera.
 - **Closing.** With a session working, close the window through the window manager: torno asks "Close torno?", "Keep it open" keeps everything as it was, "Close torno" ends torno and the session. With nothing under way it closes at once.
 - **A session that needs you, away from its pane.** In two projects, ask Claude Code in one for something that needs a permission, then open the other (and again with the session pane hidden): the first one's row has a dot and "needs you" in the warning colour, the status line has the button "*name* needs you", which opens it and brings you to the card, and a working session's dot is a quiet grey. In a window that is not in front (another window on top, or a workspace switched away) the frame should flash on Linux, and the dock icon bounce once on a Mac: no test shows a window, so only the rule is tested.
-- **The left column.** With a folder of many projects, open one: the list is one row, "All projects `W`" beside its
-  title. Its menu, by the mouse and by the keys, opens another; folding Layers and Scans gives their room to the
-  marks, and their titles say how many parts and scans there are. Drag the line above Marks up and down, and double
-  click it: it moves without lag, the sections above give way down to their titles, and the shares come back.
-  Start torno again: what was folded, and where the line was, are as you left them. Legible in light and dark.
+- **The rail and its panels.** The five icons have a word each; pressing one opens its panel beside the rail and
+  pushes the view over without covering it, pressing it again closes it, another switches. The badges (parts
+  switched off, failing checks, unaligned scans, marks to review) are legible in light and dark and count what the
+  panel then shows. Drag the panel's edge wider and narrower: it moves without lag. Start torno again: the open
+  panel and its width are as you left them.
 - **Layers of a model with many parts.** Open a project of ten parts or more: the pointer on a layer row lights that
   part in the view in the accent (and nothing else changes), the target shows it alone, `Show all` in the title brings
   the rest back, and the count of marks on a part lists only its marks. The rows must not crowd: name, count, and on
-  hover the opacity, the target and the eye, at the width of the column.
+  hover the opacity, the target and the eye, at the width of the panel.
 - **Parameters.** In a project whose model has a `Params` dataclass with comments and one default that is an
-  expression, unfold Parameters under the layers: a row for each field in the model's order, the value in the
+  expression, open the Params panel: a row for each field in the model's order, the value in the
   monospace face, the comment as written (cut to two lines, whole on hover), "worked out in the model" on the expression's.
   With a real session running, in the chat and then in the terminal view, a click on a row puts `Params.wall` at the
   cursor of the box (or the prompt) and sends nothing, with the dock hidden as well; with no session the rows are
@@ -2228,8 +2225,8 @@ On the screen:
 - **The clipboard in the terminal.** Select text in a session and press `Ctrl+Shift+C`, then `Ctrl+Shift+V`: it is copied and pasted. No test touches the clipboard. "Copy" on the build error sheet likewise.
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of projects and on the page of projects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
-- **The Print profile panel.** Open it in the left column: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and the section folds to its title (`Print profile Bambu X1C, PETG`).
-- **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the column's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
+- **The Print profile panel.** Open it in the left column: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its title says what is chosen (`Print profile Bambu X1C, PETG`).
+- **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the row above the box names the faces the ink lies over before anything is sent (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **Claude Code's own checkpoints for "Undo" (`Part of #131`).** "Undo" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>
@@ -2276,7 +2273,7 @@ On the screen:
 - **The section's hatch and plane label.** Cut a part: the cut face is hatched and the plane is named at its edge; both legible in light and dark, and the label clear of the bars.
 - **The Marks panel's resolve glyph, review walk and undo line.** The glyph on a row, "To review" stepped through one mark at a time, and the line that undoes a delete: each in its place, legible in both themes.
 - **The Checks group and its summary.** In the Marks panel the group of dimensions and its one-line count read at a glance; the model's Checks panel lists each check with its words.
-- **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the column and are legible in both themes.
+- **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the pane and are legible in both themes.
 - **The turn summary, "See changes" and "Undo".** After a turn, the summary line, the sheet of the diff and the Undo button sit well in the chat and in a narrow dock.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.
 - **The doodle board's grid.** The grid is faint on the board in light and dark, and is not in the PNG Claude gets.
@@ -2284,7 +2281,7 @@ On the screen:
 - **The scans walk-through.** Import, align and check a scan by the steps the panel offers: each step is where the eye goes next, in both themes.
 - **The export sheet by reader.** Each reader (a person, a printer, a drawing), and the picture, SVG and PDF formats: the sheet is one screen and legible in both themes.
 - **The sources line of Parameters.** A field's source word is shown after its comment, in the monospace face, and "no source" is quiet.
-- **The splitter of the left column.** The line between the left column and the view drags without lag and keeps its place at start.
+- **The edge of the panel.** The line between the open panel and the view drags without lag and keeps its place at start.
 - **The edges of a field and F6.** A focused field shows its edge in both themes, and F6 moves the focus between the regions in a sensible order.
 - **The ask card.** A question from the agent shows its options and the faces they light in the view; legible in both themes.
 - **The edits menu.** The menu beside the model shows the three modes and the one in force, in both themes.

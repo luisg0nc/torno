@@ -5,6 +5,7 @@ import type { Param, Scene } from '../../shared/scene'
 import { COLUMN_DEFAULT } from '../state/column'
 import { store } from '../state/store'
 import { ParamsPanel } from './ParamsPanel'
+import { plainText } from '../../test/plainText'
 
 const PARAMS: Param[] = [
   { name: 'wall', type: 'float', default: 2.4, literal: true, doc: 'Clearance 0.2 mm, M3' },
@@ -14,7 +15,7 @@ const PARAMS: Param[] = [
 ]
 const scene = (params: Param[] | undefined): Scene => ({ model: 'm.py', layouts: ['assembly'], parts: [], seconds: 0, output: '', params }) as unknown as Scene
 
-describe('the Parameters section of the left column', () => {
+describe('the Parameters section of the Params panel', () => {
   afterEach(() => store.setState({ scene: null, objectId: null, sessions: {}, column: COLUMN_DEFAULT }))
   // A static render reads the store's first state (zustand's server snapshot): it is made the state there is now.
   const html = (): string => {
@@ -25,27 +26,27 @@ describe('the Parameters section of the left column', () => {
       now.mockRestore()
     }
   }
-  const open = { ...COLUMN_DEFAULT, folded: { ...COLUMN_DEFAULT.folded, params: false } }
 
-  it('is no section for a model with no Params fields, or a kernel that does not read them', () => {
-    store.setState({ scene: scene([]), column: open })
-    expect(html()).toBe('')
-    store.setState({ scene: scene(undefined), column: open })
-    expect(html()).toBe('')
-    store.setState({ scene: null, column: open })
-    expect(html()).toBe('')
+  it('says so for a model with no Params fields, or a kernel that does not read them, and has no rows', () => {
+    for (const given of [scene([]), scene(undefined), null]) {
+      store.setState({ scene: given, column: COLUMN_DEFAULT })
+      const out = html()
+      expect(out).toContain('This model has no Params.')
+      expect(out).not.toContain('data-param=')
+    }
   })
 
-  it('is folded to its title with the count at first', () => {
+  it('is not folded: the panel shows the rows and the count beside the title', () => {
     store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
     const out = html()
     expect(out).toContain('aria-label="Parameters"')
-    expect(out).toContain('data-folded')
-    expect(out).not.toContain('data-param=')
+    expect(out).not.toContain('data-folded')
+    expect(out).toContain('data-param="wall"')
+    expect(plainText(out)).toContain('Parameters4')
   })
 
   it('has a row for each field, in the model order, the value in the monospace face', () => {
-    store.setState({ scene: scene(PARAMS), column: open })
+    store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
     const out = html()
     expect([...out.matchAll(/data-param="([^"]+)"/g)].map((m) => m[1])).toEqual(['wall', 'inner', 'ribs', 'label'])
     expect(out).toContain('<span class="param-value num">2.4</span>')
@@ -54,7 +55,7 @@ describe('the Parameters section of the left column', () => {
   })
 
   it('shows the comment as written, and says a default worked out in the model is', () => {
-    store.setState({ scene: scene(PARAMS), column: open })
+    store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
     const out = html()
     // The comment is as written; the numbers in it are in the monospace face.
     expect(out).toContain('<span class="param-doc">Clearance <span class="num">0.2</span> mm, <span class="num">M3</span></span>')
@@ -66,14 +67,14 @@ describe('the Parameters section of the left column', () => {
   })
 
   it('has rows that cannot be clicked, and say why, while no session runs', () => {
-    store.setState({ scene: scene(PARAMS), column: open, objectId: 'o', sessions: {} })
+    store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT, objectId: 'o', sessions: {} })
     const out = html()
     expect(out).not.toContain('<button type="button" class="param-button"')
     expect(out).toContain('aria-description="Params.wall: float = 2.4. Clearance 0.2 mm, M3. Start a session to put Params.wall in its prompt"')
   })
 
   it('has a button for each row, named for the text it puts in the prompt, while a session runs', () => {
-    store.setState({ scene: scene(PARAMS), column: open, objectId: 'o', sessions: { o: { sessionId: 's', status: 'idle', view: 'chat' } } })
+    store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT, objectId: 'o', sessions: { o: { sessionId: 's', status: 'idle', view: 'chat' } } })
     const out = html()
     expect(out.match(/<button type="button" class="param-button"/g)).toHaveLength(PARAMS.length)
     expect(out).toContain('aria-label="Params.wall"')
@@ -89,7 +90,7 @@ describe('the Parameters section of the left column', () => {
   ]
 
   it('has a control for each field the model offers, by what it may be, and none for the rest', () => {
-    store.setState({ scene: scene(OFFERED), column: open })
+    store.setState({ scene: scene(OFFERED), column: COLUMN_DEFAULT })
     const out = html()
     expect(out).toContain('aria-label="Try wall"')
     expect(out).toContain('aria-label="Try wall (slider)"')
@@ -104,7 +105,7 @@ describe('the Parameters section of the left column', () => {
   })
 
   it('says a row is built with a value other than the file’s, with a Reset, and offers to bake it in', () => {
-    store.setState({ scene: scene(OFFERED), column: open, objectId: 'o', sessions: { o: { sessionId: 's', status: 'idle', view: 'chat' } } })
+    store.setState({ scene: scene(OFFERED), column: COLUMN_DEFAULT, objectId: 'o', sessions: { o: { sessionId: 's', status: 'idle', view: 'chat' } } })
     const out = html()
     const wall = out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="ribs"'))
     expect(wall).toContain('data-tried')
@@ -117,7 +118,7 @@ describe('the Parameters section of the left column', () => {
 
   it('says why an override was let go of, on its row', () => {
     const gone = OFFERED.map((p) => (p.name === 'wall' ? { ...p, value: 2 } : p))
-    store.setState({ scene: { ...scene(gone), overrides: { applied: {}, dropped: [{ name: 'wall', reason: 'the file wins' }] } }, column: open })
+    store.setState({ scene: { ...scene(gone), overrides: { applied: {}, dropped: [{ name: 'wall', reason: 'the file wins' }] } }, column: COLUMN_DEFAULT })
     const out = html()
     expect(out).toContain('<p class="param-note">the file wins</p>')
     expect(out).not.toContain('Ask the agent to bake')

@@ -168,6 +168,9 @@ test.beforeAll(async () => {
   app.process().stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
   page = await app.firstWindow()
   await page.waitForSelector('[data-region="left"]')
+  // The rail takes 56 px more than the column did: the window is that much wider, so the view is as wide as the tests were written for.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1496, 900))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1496)
   await openMeasures(page)
 })
 

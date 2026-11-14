@@ -1429,23 +1429,27 @@ describe('the session dock', () => {
   })
 })
 
-describe('the left column', () => {
-  it('folds and unfolds a section, the window\'s and not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column.folded).toEqual({ objects: true, layers: false, params: true, checks: true, print: true, scans: false })
-    actions.foldSection('layers', true)
-    actions.foldSection('objects', false)
+describe('the rail', () => {
+  it('opens a panel, and the same one again closes it; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
+    expect(store.getState().column).toEqual({ open: 'marks', width: 248 })
+    actions.openPanel('layers')
+    expect(store.getState().column.open).toBe('layers')
     actions.openObject('gear', { layers: {} })
     actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.folded).toEqual({ objects: false, layers: true, params: true, checks: true, print: true, scans: false })
-    actions.foldSection('layers', false)
-    actions.foldSection('objects', true)
-    expect(store.getState().column.folded).toEqual({ objects: true, layers: false, params: true, checks: true, print: true, scans: false })
+    expect(store.getState().column.open).toBe('layers')
+    actions.openPanel('layers')
+    expect(store.getState().column.open).toBeNull()
+    actions.openPanel('layers')
+    actions.openPanel('scans')
+    expect(store.getState().column.open).toBe('scans')
+    actions.openPanel(null)
+    expect(store.getState().column.open).toBeNull()
   })
 
-  it('keeps the height the marks were given, or none for their share', () => {
-    actions.setMarksHeight(320)
-    expect(store.getState().column.marks).toBe(320)
-    actions.setMarksHeight(null)
-    expect(store.getState().column.marks).toBeNull()
+  it('keeps the width the person gave the panel', () => {
+    actions.setPanelWidth(320)
+    expect(store.getState().column.width).toBe(320)
+    actions.setPanelWidth(100)
+    expect(store.getState().column.width).toBe(248)
   })
 })

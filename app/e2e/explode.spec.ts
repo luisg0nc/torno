@@ -37,6 +37,9 @@ test.beforeAll(async () => {
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
   await page.waitForSelector('[data-region="left"]')
+  // The rail takes 56 px more than the column did: the window is that much wider, so the view is as wide as the tests were written for.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1496, 900))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1496)
   await page.emulateMedia({ colorScheme: 'light' })
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).build?.status, { timeout: 30_000 }).toBe('ok')
@@ -372,7 +375,7 @@ test('a dimension between two parts drawn apart is drawn dashed between them, sa
 test('the view bar is one row for an object with two layouts, apart or together; and a stroke begun as the parts come together keeps nothing of where they were drawn', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build?.status, { timeout: 30_000 }).toBe('ok')
-  expect(await page.evaluate(() => [innerWidth, innerHeight])).toEqual([1440, 900])
+  expect(await page.evaluate(() => [innerWidth, innerHeight])).toEqual([1496, 900])
   const height = async (): Promise<number> => (await page.locator('.viewbar').boundingBox())!.height
   expect(await height()).toBeLessThan(40)
   await page.keyboard.press('e')

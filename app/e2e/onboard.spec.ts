@@ -5,7 +5,8 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { png } from '../src/test/pngFixtures'
 import { box, stl } from '../src/test/scanFixtures'
-import { newFromList, openListed, switcher } from './objects'
+import { openPanel } from './helpers'
+import { newFromList, openListed } from './objects'
 
 // Making a new object, from the window: the page, its draft, the doodle board, a photo of 3000 px arriving scaled
 // in the first prompt, the scan imported, and the object made on the disk. The agent is the stand-in. The window is
@@ -425,6 +426,7 @@ test.describe('a new object', () => {
   })
 
   test('the page of objects has the way in too, and Escape goes back to it', async () => {
+    await openPanel(page, 'Projects')
     await page.getByRole('button', { name: 'All projects' }).click()
     await expect.poll(async () => (await state()).page).toBe('objects')
     await page.locator('.show-new').click()
@@ -519,10 +521,9 @@ test.describe('the window while a new object is made', () => {
     await page.getByRole('region', { name: 'New project' }).getByRole('button', { name: 'Add a bought part…' }).click()
     await expect(dock().locator('.draft-pane-text')).toContainText('reference/608ZZ.step')
     await expect(dock().locator('.draft-pane-text')).toContainText('import_step(')
-    // The list folded to its switcher: no object is current, and the switcher reads "New object", pressed.
+    // The list in the Projects panel: no object is current, and "New project" is pressed.
     await expect(list().locator('[aria-current="true"]')).toHaveCount(0)
-    await expect(switcher(page)).toHaveText('New project')
-    await expect(switcher(page)).toHaveAttribute('aria-pressed', 'true')
+    await expect(list().getByRole('button', { name: 'New project' })).toHaveAttribute('aria-pressed', 'true')
     await expect(marks()).toHaveCount(0)
     await expect(status()).toContainText('New project')
     await expect(status().getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
@@ -535,8 +536,9 @@ test.describe('the window while a new object is made', () => {
     const ask = page.getByRole('alertdialog', { name: 'Discard this new project?' })
     await ask.getByRole('button', { name: 'Discard' }).click()
     await expect.poll(async () => (await state()).page).toBe('object')
-    await expect(switcher(page)).toHaveAttribute('data-object', 'bracket')
-    await expect(switcher(page)).not.toHaveAttribute('aria-pressed', /./)
+    await expect(list().getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
+    await expect(list().getByRole('button', { name: 'New project' })).toHaveAttribute('aria-pressed', 'false')
+    await openPanel(page, 'Marks')
     await expect(marks()).toHaveCount(1)
     await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible()
     await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
