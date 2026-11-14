@@ -20,7 +20,7 @@ import { thumbnailRefusal } from './show/cards'
 //
 // A build's folder is written before the index names it, and the index is replaced whole: a crash leaves the
 // index as it was and, at most, a folder no index names, which the next change sweeps away. Nothing here is
-// ever written outside the object's `.torno/`; torno never restores a file of the person's from it.
+// ever written outside the object's `.torno/`; the one thing that reads the copies back out is Go back (`goback.ts`).
 
 export const HISTORY_FOLDER = 'history'
 const INDEX = 'index.json'
@@ -282,6 +282,31 @@ export class History {
       if (!entry || (entry.starred === true) === starred) return null
       const { starred: _was, ...rest } = entry
       return { entry: starred ? { ...rest, starred: true as const } : rest }
+    })
+  }
+
+  /**
+   * A Go back put the files back to an earlier build: the builds `ids` name are marked `undone`, all in one write of
+   * the index. Resolves with the ids that were marked (those kept, and not marked already); none when nothing could be written.
+   */
+  markUndone(obj: ObjectInfo, ids: readonly string[]): Promise<string[]> {
+    return this.turn(obj.dir, async () => {
+      try {
+        const index = await readIndex(obj.dir)
+        const marked: string[] = []
+        const entries = index.entries.map((e) => {
+          if (!ids.includes(e.id) || e.undone) return e
+          marked.push(e.id)
+          return { ...e, undone: true as const }
+        })
+        if (marked.length === 0) return []
+        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), `${JSON.stringify({ next: index.next, entries })}\n`)
+        this.changed(obj.dir)
+        return marked
+      } catch (e) {
+        console.error(`cannot mark the builds of ${obj.id} undone in its history: ${e instanceof Error ? e.message : String(e)}`)
+        return []
+      }
     })
   }
 

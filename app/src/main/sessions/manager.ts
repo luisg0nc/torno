@@ -53,6 +53,8 @@ const CONVERSATION_EVENTS = new Set(['UserPromptSubmit', 'Stop'])
 const TOOL_EVENTS = new Set(['PreToolUse', 'PostToolUse'])
 /** The most of a prompt that a build's history entry keeps, in characters. */
 const PROMPT_TEXT = 200
+/** How many prompts' starting builds are held (`Sessions.startedFrom`). */
+const MAX_PROMPT_STARTS = 500
 /** C0 and C1 controls and DEL: among them ESC, the newlines and the one-byte CSI. */
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g
 
@@ -265,6 +267,8 @@ export class Sessions {
   private readonly buildEnds = new Map<string, number>()
   /** Builds that ended, of any object, counted: a turn knows which came after it began. */
   private finished = 0
+  /** By the id a turn's prompt has in the history, the revision of the build that was current when it was sent (the newest few hundred): what Go back goes to when no build was kept before the prompt. */
+  private readonly promptStarts = new Map<string, number>()
   /** Who waits for the next change of a build. */
   private buildWaiters = new Set<() => void>()
   /** By object: a session that is being started there. */
@@ -921,8 +925,9 @@ export class Sessions {
   }
 
   /**
-   * "Undo" on the last turn: a prompt of torno's own words asks the agent to put the model files back as they were
-   * before that turn, with the lines to reverse (from the kept `changes`), after a note that says what was asked. Torno
+   * "Undo" on the last turn, the way back when Go back has no copy to restore (`goback.ts`: an entry with `files: []`, over
+   * the size caps, or pruned): a prompt of torno's own words asks the agent to put the model files back as they were
+   * before that turn, with the lines to reverse (from the kept `changes`), after a note that says what was asked. This path
    * writes nothing of the model: the agent edits, through the permission card of each edit. Refused (a `Refusal`,
    * nothing sent) unless the session is idle, the turn is the last of its transcript and main holds what it changed.
    */
@@ -949,6 +954,27 @@ export class Sessions {
     const shown = names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : names.join(', ')
     s.chat.transcript.note(`Undo: Claude Code is asked to put ${shown} back as it was before that turn, with the lines to reverse, which torno read before and after it. It edits through its usual permission card; torno writes nothing.`, 'quiet')
     this.prompt(sessionId, [{ type: 'text', text: undoPrompt(changes, now) }])
+  }
+
+  /** The revision of the build that was current when this prompt was sent, as the session saw it; undefined when it did not (a restart forgets). */
+  startedFrom(promptId: string): number | undefined {
+    return this.promptStarts.get(promptId)
+  }
+
+  /**
+   * Why a Go back must wait: the object's session is working or waiting for the person, or has prompts the CLI has not
+   * taken up. Null when it may go ahead (no session, or an idle one).
+   */
+  busyWith(objectId: string): string | null {
+    const s = this.of(objectId)
+    if (!s) return null
+    if (s.status === 'working' || s.status === 'needs_input' || (s.chat?.transcript.untakenCount() ?? 0) > 0) return 'Claude is working on this project. Wait for it to finish, or stop it, then go back.'
+    return null
+  }
+
+  /** Says in the chat of the object's session, at once, what a Go back did and what the agent will be told with its next prompt. A quiet line; none when no chat is open. */
+  noteGoBack(objectId: string, text: string): void {
+    this.of(objectId)?.chat?.transcript.note(text, 'quiet')
   }
 
   /** A turn has ended: the sources now, against the sources when its prompt was sent; kept only when they differ. Never written. */
@@ -1391,6 +1417,10 @@ export class Sessions {
       const taken = session.chat?.transcript.taken()
       const said = (taken?.text ?? (typeof fields.prompt === 'string' ? fields.prompt : '')).trim()
       turn.prompt = { conversation: session.conversationId, prompt: taken?.item ?? `t-${session.conversationId}-${promptNo}`, text: said.slice(0, PROMPT_TEXT) }
+      if (turn.before) {
+        this.promptStarts.set(turn.prompt.prompt, turn.before.revision)
+        for (const old of [...this.promptStarts.keys()].slice(0, Math.max(0, this.promptStarts.size - MAX_PROMPT_STARTS))) this.promptStarts.delete(old)
+      }
     }
     this.emit('context', { sessionId: session.id, objectId, text, sentMarkIds, ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
     if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}${text ? `, answered with: ${text}` : ''}`)

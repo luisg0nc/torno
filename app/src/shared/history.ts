@@ -124,6 +124,37 @@ export function sceneFacts(scene: Scene): Pick<HistoryEntry, 'parts' | 'seconds'
   }
 }
 
+/** What a Go back would do, for the person to be asked before anything is written. */
+export interface GoBackPlan {
+  /** The entry restored. */
+  to: string
+  /** Own-folder files, from the workspace, that hold other bytes than the copy (or are not there). */
+  write: string[]
+  /** Own-folder `.py` files not in the copy, first seen in an entry after `to`, and there now. */
+  remove: string[]
+  /** `common/` and other projects' files of the copy that differ now: left as they are. */
+  leftAlone: string[]
+  /** Files of `write` and `remove` that hold other bytes than the newest build's copy: the person changed them since. */
+  changedSince: string[]
+  /** What the person tries of the Params is not what that build was made with. */
+  params: boolean
+  /** The ids of the entries after `to`. */
+  undone: string[]
+  /** Their distinct turns, oldest first. */
+  prompts: BuildTurn[]
+  /** No usable copy: the Undo prompt asks the agent to reverse its edits instead. */
+  fallback?: 'undo'
+}
+
+export interface GoBackResult {
+  /** What was written and removed, in order; `.torno/params.json` when the Params were put back. */
+  done: string[]
+  /** The first thing that could not be done: the rest was not tried. */
+  failed?: { file: string; why: string }
+  /** Nothing was touched: the reason. */
+  refused?: string
+}
+
 /** The history of an object as the window is given it. */
 export interface HistoryList {
   /** The run of this torno: an entry of it has a revision the window knows (`r3`). */

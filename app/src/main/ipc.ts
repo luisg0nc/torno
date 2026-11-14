@@ -18,6 +18,7 @@ import type { ObjectInfo, RecentFolder, WorkspaceInfo } from '../shared/workspac
 import { Builds, buildTimeout, watchFolder } from './builds'
 import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
+import { type GoBackPlan, type GoBackResult, applyGoBack, entryBefore, planGoBack } from './goback'
 import { History, type KeptCause, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
 import { type HistoryEntry, type HistoryGhost, type HistoryList, drawable } from '../shared/history'
 import type { Verdict } from '../shared/sanity'
@@ -77,7 +78,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 
 // Channel names, repeated in src/preload/index.ts.
 //   invoke: workspace:current, workspace:pick, workspace:open, workspace:versions, ready:check, ready:make,
-//           history:list, history:thumbnail, history:source, history:ghost, history:star,
+//           history:list, history:thumbnail, history:source, history:ghost, history:star, history:goBackPlan, history:goBack,
 //           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
@@ -455,6 +456,15 @@ export function openObjectId(): string | null {
 /** Where the build of an object stands, once the object has been opened. */
 export function buildState(id: string): BuildState | undefined {
   return current?.builds.state(id)
+}
+
+/** The build "before this prompt" of an object, for Go back: the object and the id of the entry, or why there is none. */
+async function goBackTarget(objectId: string, prompt: string): Promise<{ obj: ObjectInfo; to: string } | { refused: string }> {
+  const obj = findObject(objectId)
+  if (!obj || !current) return { refused: 'That project is not open.' }
+  const revision = sessions?.startedFrom(prompt)
+  const found = entryBefore(await readHistory(obj.dir), prompt, revision === undefined ? undefined : { run: current.buildLog.run, revision })
+  return 'refused' in found ? found : { obj, to: found.id }
 }
 
 /** How long a tool waits for the builds that just landed to be written into the history. */
@@ -1179,6 +1189,27 @@ export function registerIpc(
   handle('history:star', (_event, objectId: string, id: string, starred: boolean) => {
     const obj = findObject(String(objectId))
     return obj && current ? current.history.star(obj, String(id), starred === true) : false
+  })
+  // Go back to before a prompt (`main/goback.ts`): the plan to show, and the go-ahead. The one place the model's files are written.
+  handle('history:goBackPlan', async (_event, objectId: string, prompt: string): Promise<GoBackPlan | { refused: string }> => {
+    const target = await goBackTarget(String(objectId), String(prompt))
+    return 'refused' in target ? target : planGoBack(target.obj, target.to)
+  })
+  handle('history:goBack', async (_event, objectId: string, prompt: string, confirmed: Pick<GoBackPlan, 'to' | 'write' | 'remove'>): Promise<GoBackResult> => {
+    const ws = current
+    const target = await goBackTarget(String(objectId), String(prompt))
+    if (!ws || 'refused' in target) return { done: [], refused: 'refused' in target ? target.refused : 'No project is open.' }
+    const plan = await planGoBack(target.obj, target.to)
+    if ('refused' in plan) return { done: [], refused: plan.refused }
+    // What the person confirmed is what main would do; anything else is looked at again.
+    const asked = confirmed && typeof confirmed === 'object' ? confirmed : null
+    const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')
+    if (!asked || asked.to !== plan.to || !strings(asked.write) || !strings(asked.remove) || asked.write.join('\0') !== plan.write.join('\0') || asked.remove.join('\0') !== plan.remove.join('\0')) {
+      return { done: [], refused: 'The files are not as they were when you were asked. Look again before going back.' }
+    }
+    const result = await applyGoBack(target.obj, plan, { history: ws.history, builds: ws.builds, busy: () => sessions?.busyWith(target.obj.id) ?? null })
+    if (!result.refused && !result.failed) sessions?.noteGoBack(target.obj.id, `Went back to build ${plan.to}: the model files are put back as they were then. Claude is told with your next prompt which prompts are undone.`)
+    return result
   })
   handle('show:thumbnail', async (_event, objectId: string) => {
     const obj = findObject(String(objectId))

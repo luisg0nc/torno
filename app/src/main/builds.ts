@@ -267,7 +267,8 @@ export class Builds {
   private startChanged(entry: Entry, reason: BuildReason, wentBackTo?: string): void {
     entry.restoring = false
     entry.failure = undefined
-    this.setReason(entry, reason, wentBackTo)
+    // The files a Go back wrote are reported by the watcher while the build it asked for runs: that is still the Go back's build.
+    if (!(reason === 'watch' && entry.reason === 'goback' && entry.state.status === 'building')) this.setReason(entry, reason, wentBackTo)
     this.start(entry)
   }
 

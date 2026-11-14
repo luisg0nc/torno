@@ -65,6 +65,28 @@ describe('the references of a new conversation', () => {
   })
 })
 
+describe('the notice of a Go back', () => {
+  const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
+  const NOTICE = 'The person went back to build h4: the model files are as they were then, and prompts "make it taller" are undone. You keep what you learnt from them; do not try them again unless asked.'
+  it('is the first line of the next prompt\'s context, and the rest of it is as it was', () => {
+    const d = deps({ build: OK, scene: SCENE })
+    const plain = contextFor(d, 'bracket')
+    const told = contextFor(d, 'bracket', [], { notice: NOTICE })
+    expect(told.text).toBe(`${NOTICE}\n${plain.text}`)
+    expect(told.sentMarkIds).toEqual(plain.sentMarkIds)
+    expect(told.revision).toBe(plain.revision)
+    expect(contextFor(d, 'bracket').text).not.toContain('went back')
+  })
+  it('is told even when the context has nothing else, and is not held to the context limit', () => {
+    // An object that is not in the workspace has nothing to say, and the notice is still told.
+    expect(contextFor(deps({}), 'nowhere', [], { notice: NOTICE }).text).toBe(NOTICE)
+    const many = Array.from({ length: 200 }, (_, i) => ({ id: `M${i + 1}`, kind: 'pin', author: 'user', note: 'n'.repeat(60), status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '', checkedRevision: 1, anchor: { point: [0, 0, 0] } }) as Mark)
+    const full = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', many, { notice: NOTICE })
+    expect(full.text.startsWith(`${NOTICE}\n`)).toBe(true)
+    expect(full.text.length - NOTICE.length - 1).toBeLessThanOrEqual(CONTEXT_LIMIT)
+  })
+})
+
 // #50: the first prompt of a session names the instruction files Claude Code reads, and says what wins for seeing the build.
 describe('the instruction files of a session', () => {
   const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }

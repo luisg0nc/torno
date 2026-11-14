@@ -139,6 +139,8 @@ const bridge: TornoBridge = {
     source: (objectId, id, file) => invoke('history:source', objectId, id, file),
     ghost: (objectId, id) => invoke('history:ghost', objectId, id),
     star: (objectId, id, starred) => invoke('history:star', objectId, id, starred),
+    goBackPlan: (objectId, prompt) => invoke('history:goBackPlan', objectId, prompt),
+    goBack: (objectId, prompt, confirmed) => invoke('history:goBack', objectId, prompt, confirmed),
     onChanged: (cb) => subscribe<string>('history:changed', cb)
   },
   export: {

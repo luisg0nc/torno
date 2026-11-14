@@ -1266,6 +1266,17 @@ describe('what a build was started for (reason)', () => {
     expect(scenes.at(-1)!.wentBackTo).toBeUndefined()
   })
 
+  it('keeps goback for the build a Go back began when the watcher then reports the files it wrote', async () => {
+    const { kernel, builds, scenes, watched } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    builds.rebuild('bracket', 'goback', 'h4')
+    // Go back wrote the files before it asked for the build: the watcher's burst arrives while that build runs.
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 2)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'goback', wentBackTo: 'h4' })
+  })
+
   it('says params for a build the person\'s overrides started, and says it on a failure too', async () => {
     const { kernel, builds, states } = setup()
     builds.open(bracket)

@@ -266,6 +266,22 @@ describe('History pruning', () => {
   })
 })
 
+describe('History.markUndone', () => {
+  it('marks the builds named in one write of the index, and each once', async () => {
+    await build('a = 1\n')
+    await build('a = 2\n')
+    await build('a = 3\n')
+    const told: string[] = []
+    history.onChange((dir) => told.push(dir))
+    expect(await history.markUndone(box, ['h2', 'h3', 'h9'])).toEqual(['h2', 'h3'])
+    expect((await readHistory(box.dir)).map((e) => e.undone === true)).toEqual([false, true, true])
+    expect(told).toHaveLength(1)
+    // Nothing new to say: nothing is written or told.
+    expect(await history.markUndone(box, ['h2'])).toEqual([])
+    expect(told).toHaveLength(1)
+  })
+})
+
 describe('History.thumbnail and dimensions', () => {
   it('keeps the picture of the build of this run with that revision, once, and not a large one', async () => {
     await build('a = 1\n')

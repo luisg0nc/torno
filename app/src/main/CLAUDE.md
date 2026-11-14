@@ -550,7 +550,7 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   checks fail is kept and marked (`failing`). The newest 100 are kept besides every starred one (`HISTORY_KEPT`; `History.star`). The entry's
   verdicts are **as of then** (`dimensions` is set when the check that followed the build ends, `keepDimensions` in `ipc.ts`): never told as
   how the build stands now. One writer, one change at a time per object, `ownTorno(dir, 'history')` before every write and delete; nothing
-  of it is ever copied back: torno never restores a file (the window asks the agent to).
+  of it is copied back by Go back alone (`goback.ts`, see Go back below); the agent's tools never restore a file.
   **Meshes for the ghost of a kept build** (`src/main/meshes.ts` `RecentMeshes`, `ws.meshes`): the scene and the blob of each build of
   this run, in memory only, never written; `MESH_BUDGET_BYTES` (64 MB) for all the objects, not counting the newest build of each, the
   oldest let go first. `history:list` says which kept builds still have theirs (`ghosts`), `history:ghost` hands them to the window
@@ -577,6 +577,37 @@ is the detail of this folder, under the headings it has there. Paths are from `a
 - With 40 objects, none opened: `show.cards()` takes 3 to 8 ms, and the pictures of the first three rows are
   asked for. A thumbnail of a two-part fixture costs about 7 ms; of a generated part of a million triangles
   (23 MB of meshes) 35 to 90 ms of the window's time (7 to build, 21 to 49 to draw, 6 to 35 to read back).
+
+## Go back
+
+"Go back to before this prompt" (`src/main/goback.ts`; the plan and result types are in `shared/history.ts`): the one place torno writes and
+deletes files of the person's model. The root `CLAUDE.md` says what it may write (the fourth exception); these are the rules of the code.
+
+- **Which build.** `entryBefore(entries, prompt, startedFrom?)`: the newest drawable entry before the prompt's first entry (`turn.prompt`); with
+  none, the build that was current when the prompt was sent (`Sessions.startedFrom(prompt)`, from `TurnState.before`, held for the newest 500
+  prompts of this run) if that entry is kept before the prompt's first; else a sentence. The window names a prompt, never a file or a build:
+  `ipc.ts` `goBackTarget` finds the entry.
+- **The plan** (`planGoBack(obj, to)`, reads only; `history:goBackPlan`): `write` is the files of the copy in the project's own folder
+  (`<name>/….py`, no hidden part, no `..`, `ownFile`) whose bytes now differ; `leftAlone` the files of `common/` and of other projects that
+  differ (never written); `remove` the own `.py` files that are there, are in no entry up to `to` and in one after it, and are not in the copy (a file torno
+  never saw is never removed); `changedSince` those of `write` and `remove` whose bytes are not the newest drawable entry's copy; `params`
+  whether `.torno/params.json` is not what the build was made with (`scene.overrides.applied` of its `scene.json`, held against the entry's
+  `params` defaults; a build that says nothing of overrides leaves them alone); `undone` and `prompts` the entries after `to` and their distinct
+  turns. `fallback: 'undo'` when the target holds no copy (`files: []`, or a copy of an own file that cannot be read): Undo (`Sessions.undoTurn`)
+  is then the way, and says so.
+- **Applying** (`applyGoBack`; `history:goBack`): refused while the object's session is `working`, `needs_input` or has prompts untaken
+  (`Sessions.busyWith`) or a build runs. The plan is worked out again and must equal what the window confirmed (`to`, `write`, `remove`), and
+  what is written is what main worked out, never what the window sent. Before the first write every file is checked (inside the project by real path, not
+  a link, a folder or anything but a plain file); then each is written with `writeFileAtomic`, then the removes, then the Params
+  (`paramsfile.replaceOverrides`, the one write); a failure stops there and says `done` and `failed`, and nothing is marked undone or told.
+  After that `Builds.rebuild(id, 'goback', to)` (right after the files, and `Builds.changed` keeps `goback` for the watcher's burst of the same
+  files), the entries after `to` get `undone` in one index write (`History.markUndone`), and `.torno/goback.json` is kept.
+- **The notice** (`.torno/goback.json`, ignored by git: `{ to, undone, prompts, at }`): kept until a prompt carries it, so a restart or a new
+  conversation still gets it; a second Go back before then adds its prompts. `takeGoBackNotice(dir)` reads and removes it, and
+  `index.ts`'s `contextFor` puts its text first in the next prompt's context (`contextFor`'s `opts.notice`, in addition to `CONTEXT_LIMIT`).
+  It names the prompts by their words (the turn's `text`, 60 characters each, six at most), since the agent knows no prompt numbers. The chat
+  also gets a quiet note at once (`Sessions.noteGoBack`).
+- Nothing here is taken from the window but a prompt id and what was confirmed; `cause`, `wentBackTo` and `undone` are main's.
 
 ## Scans
 
