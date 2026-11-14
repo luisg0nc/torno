@@ -13,6 +13,7 @@ import { describe, describeWhole, descriptorOf } from '../state/descriptors'
 import { newCut } from '../../shared/cut'
 import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
+import { isLive } from '../state/compare'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
 import { pointerMoved } from '../state/step'
@@ -353,31 +354,67 @@ function connect(viewport: Viewport, readout: Readout): () => void {
 
   // How long an old build may take to come before the status line says it is being made again from its copy.
   const BUILDING_SAID_MS = 300
-  const showEarlier = (objectId: string | null, from: string | null): void => {
-    viewport.clearEarlier()
-    if (from === null || objectId === null) return
-    const wanted = (): boolean => {
-      const now = store.getState()
-      return now.compare?.from === from && now.objectId === objectId
-    }
+  /** Why a kept build could not be drawn when main gave its meshes (`setEarlier` and `setLater` say false for these). */
+  const notDrawn = (id: string): string => {
+    const now = store.getState()
+    return now.section !== null || explodeNow(now) !== null ? `Build ${id} is drawn uncut and together: take the section away and put the parts together first.` : `Build ${id} has no part in this layout.`
+  }
+  /** Asks main for a kept build of the comparing and hands it to `draw`; says its wait, and why when it is not drawn. `wanted` ends it when the comparing has moved on. */
+  const fetchKept = (objectId: string, id: string, wanted: () => boolean, draw: (g: { scene: Scene; blob: ArrayBuffer }) => boolean): void => {
     const refuse = (why: string): void => {
       if (wanted()) actions.compareRefused(why)
     }
-    const waiting = setTimeout(() => wanted() && actions.compareBuilding(true), BUILDING_SAID_MS)
-    window.torno.history.ghost(objectId, from).then(
+    const waiting = setTimeout(() => wanted() && actions.compareBuilding(id, true), BUILDING_SAID_MS)
+    window.torno.history.ghost(objectId, id).then(
       (ghost) => {
         clearTimeout(waiting)
         if (!wanted()) return
         if (ghost?.refused !== undefined) return refuse(ghost.refused)
-        if (!ghost) return refuse(`Build ${from} cannot be drawn.`)
-        if (viewport.setEarlier(ghost.scene, ghost.blob)) return actions.compareBuilding(false)
-        const now = store.getState()
-        refuse(now.section !== null || explodeNow(now) !== null ? `Build ${from} is drawn uncut and together: take the section away and put the parts together first.` : `Build ${from} has no part in this layout.`)
+        if (!ghost) return refuse(`Build ${id} cannot be drawn.`)
+        if (draw(ghost)) return actions.compareBuilding(id, false)
+        refuse(notDrawn(id))
       },
       (e) => {
         clearTimeout(waiting)
-        refuse(`Build ${from} could not be drawn: ${e instanceof Error ? e.message : String(e)}`)
+        refuse(`Build ${id} could not be drawn: ${e instanceof Error ? e.message : String(e)}`)
       }
+    )
+  }
+  const showEarlier = (objectId: string | null, from: string | null): void => {
+    viewport.clearEarlier()
+    if (from === null || objectId === null) return
+    fetchKept(objectId, from, () => {
+      const now = store.getState()
+      return now.compare?.from === from && now.objectId === objectId
+    }, (g) => viewport.setEarlier(g.scene, g.blob))
+  }
+  // The later build of the comparing stands in for the live one while it is not that build (a past turn compared while newer builds have landed): drawn in its place for the whole of the comparing, the live meshes kept unseen.
+  let laterFor: string | null = null
+  let laterAsked = 0
+  const syncLater = (): void => {
+    const { objectId, compare } = store.getState()
+    const asked = ++laterAsked
+    if (objectId === null || compare === null) {
+      laterFor = null
+      return viewport.clearLater()
+    }
+    const to = compare.to
+    window.torno.history.list(objectId).then(
+      (list) => {
+        if (asked !== laterAsked) return
+        const now = store.getState()
+        if (list && isLive(list.entries.find((e) => e.id === to), list.run, now.revision)) {
+          laterFor = null
+          return viewport.clearLater()
+        }
+        if (laterFor === to) return
+        laterFor = to
+        fetchKept(objectId, to, () => {
+          const cur = store.getState()
+          return laterFor === to && cur.compare?.to === to && cur.objectId === objectId
+        }, (g) => viewport.setLater(g.scene, g.blob))
+      },
+      () => {}
     )
   }
   const offStore = store.subscribe((s, prev) => {
@@ -390,6 +427,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     if (s.objectId !== prev.objectId || s.compare?.from !== prev.compare?.from) showEarlier(s.objectId, s.compare?.from ?? null)
     else if (s.compare !== null && (s.layout !== prev.layout || s.section !== null || apart !== null)) actions.endCompare()
     if (s.compare?.mode !== prev.compare?.mode) viewport.setCompareMode(s.compare?.mode ?? null)
+    // Which build stands for the live one is asked again when a build lands under the comparing.
+    if (s.objectId !== prev.objectId || s.compare?.to !== prev.compare?.to || (s.compare !== null && s.revision !== prev.revision)) syncLater()
     // Together before a cut is made, by order and not by what a frame happens to see: a section is never drawn across parts that are apart.
     if (apart === null && wasApart !== null && s.section !== null) viewport.setExplode(null)
     // The cut is of the object: another object has its own, or none.
@@ -511,6 +550,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       faded: () => viewport.faded(),
       ghosts: () => viewport.ghostKeys(),
       earlier: () => viewport.earlierKeys(),
+      later: () => viewport.laterKeys(),
       compare: (from, to, prompt) => actions.compare(from, to, prompt),
       holdGhosts: (held) => viewport.holdGhosts(held),
       // What a pointer move costs: the same call, at points spread over the canvas in a grid.

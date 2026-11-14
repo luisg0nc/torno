@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { HistoryEntry } from '../../shared/history'
-import { checksMoved, compareBoxes, compareStatus } from './compare'
+import { checksMoved, compareBoxes, compareStatus, isLive } from './compare'
 
 const entry = (id: string, over: Partial<HistoryEntry> = {}): HistoryEntry => ({ id, at: '2026-11-14T10:00:00Z', run: 'a', revision: 1, sources: 's', model: 'm.py', files: [], parts: 2, seconds: 1, line: 'no part changed', ...over })
 
@@ -12,7 +12,8 @@ describe('what the view says while comparing', () => {
     expect(compareStatus({ from: 'h40', to: 'h41', mode: 'side' })).toBe('comparing h40 → h41')
   })
   it('says it is building the old one for as long as it is', () => {
-    expect(compareStatus({ from: 'h40', to: 'h41', mode: 'overlay', prompt: 14, building: true })).toBe('Building h40 to compare…')
+    expect(compareStatus({ from: 'h40', to: 'h41', mode: 'overlay', prompt: 14, building: 'h40' })).toBe('Building h40 to compare…')
+    expect(compareStatus({ from: 'h40', to: 'h41', mode: 'overlay', building: 'h41' })).toBe('Building h41 to compare…')
   })
 })
 
@@ -44,5 +45,16 @@ describe('what the checks and the dimensions did between two builds', () => {
   it('says nothing for a build that did not keep what the person measured', () => {
     expect(checksMoved(entry('h40'), entry('h41', { dimensions: { pass: 1, fail: 0, none: 0 } }))).toEqual([])
     expect(checksMoved(undefined, undefined)).toEqual([])
+  })
+})
+
+describe('whether a kept build is the one on show', () => {
+  it('is when it was made in this run at the revision shown', () => {
+    expect(isLive(entry('h41', { run: 'a', revision: 3 }), 'a', 3)).toBe(true)
+  })
+  it('is not for another revision, another run, or a build the history does not have', () => {
+    expect(isLive(entry('h41', { run: 'a', revision: 2 }), 'a', 3)).toBe(false)
+    expect(isLive(entry('h41', { run: 'b', revision: 3 }), 'a', 3)).toBe(false)
+    expect(isLive(undefined, 'a', 3)).toBe(false)
   })
 })

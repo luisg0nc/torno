@@ -191,10 +191,14 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   `compare.end`, scope `compare`, which `ViewportPane`'s key handler asks before the tool in hand and the viewport's `escape`). `ViewportPane`
   asks main for `from`'s scene and meshes (`history.ghost`: held in memory for a build of this run, else built again from its copy in a worker thrown
   away; a `refused` sentence, shown in the view, when it cannot be) and draws its parts of the layout shown (`EARLIER_SURFACE_OPACITY`, in `--muted`, with
-  edges). Overlay: translucent over the live build. Before: the earlier build alone, solid (edges in `--ink`), the live parts, marks, ghosts and scans left
-  out of the frame (`Viewport.renderScene`). After: the live build alone. Side by side: one camera framed for half the width, two frames in the two halves
-  with the scissor test (earlier build left, live right), a line down the middle (`OverlayPass.split`), no marks, chips or cues, and no pick (`Viewport.pick`
-  is null: a point of the canvas is on neither as the camera has it). The status line says `comparing prompt 14 · h40 → h41` (`compareStatus`), or
+  edges). Which build is the "after" is `to`: when it is not the build on show (`isLive`: this run, the revision shown; a past turn compared while newer
+  builds have landed) `ViewportPane` asks main for it as it does for `from` and `Viewport.setLater` draws it in the live build's place for the whole
+  of the comparing (the live meshes, marks, ghosts and scans are left out of the frame by `renderScene`, never disposed; a live build landing updates
+  them unseen; `clearLater` has them back; asked again at every revision). Overlay: `from` translucent in `--muted` over `to`. Before, After and the two halves
+  of Side by side draw their build opaque in the normal part colours (`colorsOfParts` of its own scene; edges their darker tint): `from` alone, `to` alone
+  (the live build itself when it is `to`), the two in the left and right halves, with the scissor test and one camera framed for half the width, a line down the middle
+  (`OverlayPass.split`), no marks, chips or cues, and no pick (`Viewport.pick` is null whenever what is drawn is not the live build: a point of the canvas is on neither
+  as the camera has it, nor a chip of a mark made on another build). The status line says `comparing prompt 14 · h40 → h41` (`compareStatus`), or
   `Building h40 to compare…` once the wait passes 300 ms. The boxes over the view are the history entries' (`useHistory`): "What changed" is the later
   build's `line`, "Checks and marks" is `checksMoved` of both entries' `dimensions` and `failing`. For display only: no bounds tree, a ray finds nothing, it is
   hidden for a picture (`hideGizmo`), and nothing is measured, marked or written from it. A live build landing does not end it; another object, another layout, a

@@ -101,3 +101,45 @@ test('Esc ends it, and a build that is not kept says why in the view instead of 
   await bar().getByRole('button', { name: 'Back to the live build', exact: true }).click()
   await expect(page.locator('[data-part="compare-refused"]')).toHaveCount(0)
 })
+
+test('a later build that is not the live one stands in for it for the whole comparing, and the live build is back after', async () => {
+  const source = readFileSync(model(), 'utf8').replace('wall: float = 4', 'wall: float = 2')
+  const withPin = source.replace('return {"tub": tub, "lid": lid}', 'return {"tub": tub, "lid": lid, "pin": Pos(0, 0, 50) * Cylinder(1, 5)}')
+  expect(withPin).not.toBe(source)
+  const revision = (await state()).build!.revision
+  writeFileSync(model(), withPin)
+  await builtRevision(revision + 1)
+  writeFileSync(model(), source)
+  await builtRevision(revision + 2)
+  await expect.poll(() => kept().length).toBeGreaterThanOrEqual(5)
+  const all = kept()
+  const [from, pinned, live] = [all[0].id, all[all.length - 2].id, all[all.length - 1].id]
+  const parts = () => page.evaluate(() => (window.__tornoTest!.state().scene?.parts ?? []).map((p) => p.key))
+  expect(await parts()).toEqual(['assembly:tub', 'assembly:lid'])
+
+  // The build with the pin is compared while the build after it is live: it is drawn in the live one's place, with the pin it alone has.
+  await page.evaluate(([a, b]) => window.__tornoTest!.compare(a, b, 3), [from, pinned])
+  await expect.poll(() => page.evaluate(() => window.__tornoTest!.later())).toEqual(['assembly:tub', 'assembly:lid', 'assembly:pin'])
+  expect(await earlier()).toEqual(['assembly:tub', 'assembly:lid'])
+  await bar().getByRole('button', { name: 'After', exact: true }).click()
+  expect(await page.evaluate(() => window.__tornoTest!.later())).toContain('assembly:pin')
+  // A live build that lands meanwhile changes the live model unseen: the stand-in stays, and so does the comparing.
+  writeFileSync(model(), source.replace('wall: float = 2', 'wall: float = 3'))
+  await builtRevision(revision + 3)
+  expect(await page.evaluate(() => window.__tornoTest!.later())).toContain('assembly:pin')
+  expect((await state()).compare).toMatchObject({ from, to: pinned, mode: 'after' })
+  expect(await parts()).toEqual(['assembly:tub', 'assembly:lid'])
+
+  await bar().getByRole('button', { name: 'Back to the live build', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.__tornoTest!.later())).toEqual([])
+  expect(await earlier()).toEqual([])
+  expect((await state()).build?.revision).toBe(revision + 3)
+
+  // The later build that is the live one is drawn as it is: nothing stands in for it.
+  const newest = kept().at(-1)!.id
+  expect(newest).not.toBe(live)
+  await page.evaluate(([a, b]) => window.__tornoTest!.compare(a, b), [from, newest])
+  await expect.poll(earlier).toEqual(['assembly:tub', 'assembly:lid'])
+  expect(await page.evaluate(() => window.__tornoTest!.later())).toEqual([])
+  await bar().getByRole('button', { name: 'Back to the live build', exact: true }).click()
+})

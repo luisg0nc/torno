@@ -34,6 +34,8 @@ declare global {
       ghosts(): string[]
       /** The keys of the parts of the earlier build drawn over the current one (Compare); empty when there is none. */
       earlier(): string[]
+      /** The keys of the parts of the build that stands in for the live one while a compare's later build is not the live build; empty when the live build is drawn. */
+      later(): string[]
       /** Starts comparing the kept build `from` with `to` as the chat's turns do (`actions.compare`), for a test that has no turn to press. */
       compare(from: string, to: string, prompt?: number): void
       /** Keeps the ghosts of the builds that land after this until a key or a click (for a capture of the window). */

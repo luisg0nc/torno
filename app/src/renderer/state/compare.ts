@@ -6,7 +6,7 @@ export type CompareMode = 'before' | 'overlay' | 'after' | 'side'
 /**
  * Two kept builds compared in the view (`from` the earlier, `to` the later, history ids). The live build stays on show
  * underneath and keeps landing: the earlier build is drawn against it. `prompt` is the turn the pair came from, when it came
- * from one. `building` is said while an old build is made again from its copy to be drawn; `refused` is main's sentence when
+ * from one. `building` is the id of an old build while it is made again from its copy to be drawn; `refused` is main's sentence when
  * it could not be drawn at all. Display only: nothing here is written anywhere.
  */
 export interface CompareState {
@@ -14,7 +14,7 @@ export interface CompareState {
   to: string
   mode: CompareMode
   prompt?: number
-  building?: true
+  building?: string
   refused?: string
 }
 
@@ -27,7 +27,7 @@ export const COMPARE_MODES: ReadonlyArray<{ mode: CompareMode; label: string }> 
 
 /** What the status line says while comparing: `comparing prompt 14 · h40 → h41`, or that the old build is being made again. */
 export function compareStatus(c: CompareState): string {
-  if (c.building) return `Building ${c.from} to compare…`
+  if (c.building) return `Building ${c.building} to compare…`
   return `comparing ${c.prompt === undefined ? '' : `prompt ${c.prompt} · `}${c.from} → ${c.to}`
 }
 
@@ -65,4 +65,13 @@ export function checksMoved(from: HistoryEntry | undefined, to: HistoryEntry | u
 /** What the two boxes over the view hold: the rows of what changed (null for no box) and how the checks and dimensions moved. */
 export function compareBoxes(from: HistoryEntry | undefined, to: HistoryEntry | undefined): { changed: string[] | null; moved: MovedRow[] } {
   return { changed: to ? to.line.split('; ') : null, moved: checksMoved(from, to) }
+}
+
+/**
+ * Whether a kept build is the build on show: made in this run (`run` is the run of the history list) and its revision is the one the
+ * window shows. A build of an earlier run is never taken for it: its revision is of that run. The same sources kept as one entry
+ * make the live build read as not it, which draws that build again for nothing worse than a copy of the same shape.
+ */
+export function isLive(entry: Pick<HistoryEntry, 'run' | 'revision'> | undefined, run: string, shownRevision: number): boolean {
+  return entry !== undefined && entry.run === run && entry.revision === shownRevision
 }

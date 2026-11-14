@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import type { Buf, Part } from '../../shared/scene'
+import { edgeTint } from '../../shared/palette'
 import { EARLIER_EDGE_OPACITY, EARLIER_SURFACE_OPACITY, Earlier } from './earlier'
 
 /** A blob with one quad and one edge, packed the way the kernel does. */
@@ -95,5 +96,23 @@ describe('Earlier', () => {
     const [back, edges] = (earlier.group.children[0] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>, THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>]
     expect([back.material.transparent, back.material.opacity, back.material.depthWrite]).toEqual([true, EARLIER_SURFACE_OPACITY, false])
     expect([edges.material.opacity, edges.material.color.getHexString()]).toEqual([EARLIER_EDGE_OPACITY, '646970'])
+  })
+
+  it('is drawn opaque in the colours of its parts when it stands in for the live build, edges in their darker tint, and keeps the muted ghost for Overlay', () => {
+    const { blob, mesh } = pack()
+    const stand = new Earlier('later')
+    expect(stand.group.name).toBe('later')
+    const colors = new Map([['tub', '#7B93B4'], ['lid', '#C28B6C']])
+    stand.show([part('tub', mesh), part('lid', mesh)], blob, '#646970', colors)
+    stand.solid(true)
+    const read = (n: number) => (stand.group.children[n] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>, THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>]
+    expect(read(0)[0].material.color.getHexString()).toBe('7b93b4')
+    expect(read(1)[0].material.color.getHexString()).toBe('c28b6c')
+    expect(read(0)[1].material.color.getHexString()).toBe(edgeTint('#7B93B4').slice(1).toLowerCase())
+    expect([read(0)[0].material.transparent, read(0)[0].material.opacity]).toEqual([false, 1])
+    // As a ghost it is the muted tint again, whatever the colours.
+    stand.solid(false)
+    expect(read(0)[0].material.color.getHexString()).toBe('646970')
+    expect(read(0)[0].material.opacity).toBe(EARLIER_SURFACE_OPACITY)
   })
 })

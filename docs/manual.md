@@ -377,9 +377,10 @@ read only, **Star** to keep it, **Show over the current build** to compare it wi
 the session (or starts one) naming the copies, and sends nothing. torno never puts a file back: the agent edits the
 project's files, under your permission rules, and the copies are not to be edited. What a kept build had then (checks
 that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands
-now. **Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the kept build alone), **Overlay**
-(translucent, in grey, over the live build), **After** (the live build alone) and **Side by side** (the kept build in the left half, the live one in
-the right, one camera for both), and **Back to the live build**, which `Esc` also does. Two boxes over the corners say what the later build changed
+now. **Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the earlier build alone), **Overlay**
+(the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
+the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
+have landed, that older build, which stands in for the live one until you go back, and **Back to the live build**, which `Esc` also does. Two boxes over the corners say what the later build changed
 (its line) and how the checks and your dimensions moved between the two builds. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
 It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
 show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from

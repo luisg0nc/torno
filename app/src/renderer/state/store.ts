@@ -729,7 +729,7 @@ export const actions = {
     const { objectId, compare } = store.getState()
     if (objectId === null) return
     // The same earlier build asked for again is the one already drawn, or being made, or refused: what is said of it stays.
-    const same = compare?.from === from ? { ...(compare.building ? { building: true as const } : {}), ...(compare.refused === undefined ? {} : { refused: compare.refused }) } : {}
+    const same = compare?.from === from ? { ...(compare.building === undefined ? {} : { building: compare.building }), ...(compare.refused === undefined ? {} : { refused: compare.refused }) } : {}
     store.setState({ compare: { from, to, mode: 'overlay', ...(prompt === undefined ? {} : { prompt }), ...same } })
   },
 
@@ -744,12 +744,13 @@ export const actions = {
     if (store.getState().compare !== null) store.setState({ compare: null })
   },
 
-  /** The old build of the comparing is being made again from its copy (`from` still the one asked for); false when it has come. */
-  compareBuilding(on: boolean): void {
+  /** A build of the comparing (`id`, its `from` or its `to`) is being made again from its copy; with `on` false, it has come. Another build's wait is not ended by this one's. */
+  compareBuilding(id: string, on: boolean): void {
     const { compare } = store.getState()
-    if (!compare || Boolean(compare.building) === on) return
-    const { building: _, ...rest } = compare
-    store.setState({ compare: on ? { ...rest, building: true } : rest })
+    if (!compare) return
+    const { building: was, ...rest } = compare
+    if (on) store.setState({ compare: { ...rest, building: id } })
+    else if (was === id) store.setState({ compare: rest })
   },
 
   /** The old build could not be drawn: main's sentence says why, and the view shows it. */

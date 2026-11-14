@@ -90,6 +90,8 @@ export class Viewport {
   private readonly ghosts = new Ghosts(() => this.invalidate())
   /** An earlier build drawn over the current one, for display only, until it is cleared (`earlier.ts`). */
   private readonly earlier = new Earlier()
+  /** The build compared with it, standing in for the live one while it is not that build (`setLater`): drawn opaque, in its own colours, the live parts left out of the frame but kept. */
+  private readonly later = new Earlier('later')
   /** How the earlier build is shown against the live one (Compare); null when none is compared. */
   private compareMode: CompareMode | null = null
   /** False until a scene with parts has been framed; after that the camera is the user's. */
@@ -172,7 +174,7 @@ export class Viewport {
     this.ground.material.depthWrite = false
     this.ground.renderOrder = -1
     this.ground.frustumCulled = false
-    this.scene.add(this.ground, this.scans.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group)
+    this.scene.add(this.ground, this.scans.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group, this.later.group)
 
     this.overlay = new OverlayPass({ canvas, marks: this.marks, camera: () => this.camera, layout: () => this.layout, style: () => ({ ...this.labelStyle(), accent: this.theme.accent }), frame: () => ({ muted: this.theme.muted, axes: [this.theme.axisX, this.theme.axisY, this.theme.axisZ] as const, gridStep: this.gridStepMm }), project: (p) => this.project(p), syncMatrices: () => this.syncMatrices(), exploded: () => this.apart.any })
     // A label drawn before its face has loaded is in the fallback face: draw again once it is there.
@@ -247,7 +249,9 @@ export class Viewport {
         const gizmoBack = this.gizmo.hide()
         const ghostsBack = this.ghosts.hide()
         const earlierBack = this.earlier.hide()
+        const laterBack = this.later.hide()
         return () => {
+          laterBack()
           gizmoBack()
           ghostsBack()
           earlierBack()
@@ -346,13 +350,41 @@ export class Viewport {
    */
   setEarlier(scene: Scene, blob: ArrayBuffer): boolean {
     this.earlier.clear()
+    this.later.clear()
     if (this.section.get() !== null || this.apart.any) return false
     const parts = scene.parts.filter((p) => p.layout === this.layout)
     if (parts.length === 0) return false
     this.earlier.tint(toHex(this.theme.muted), toHex(this.theme.ink))
-    this.earlier.show(parts, blob, toHex(this.theme.muted))
+    this.earlier.show(parts, blob, toHex(this.theme.muted), colorsOfParts(scene.parts))
     this.invalidate()
     return true
+  }
+
+  /**
+   * Draws a kept build in the place of the live one, for the whole of a compare in which the later build is not the live
+   * one: opaque, in its own colours, where it stood. The live parts are not drawn while it is, but are kept: live builds that
+   * land meanwhile update them, unseen, and `clearLater` has them back. Not with a section or the parts drawn apart, nor
+   * the parts switched off; false then, and nothing is drawn. True when it is drawn.
+   */
+  setLater(scene: Scene, blob: ArrayBuffer): boolean {
+    this.later.clear()
+    if (this.section.get() !== null || this.apart.any) return false
+    const parts = scene.parts.filter((part) => part.layout === this.layout && this.layers.get(part.key)?.visible !== false)
+    if (parts.length === 0) return false
+    this.later.solid(true)
+    this.later.show(parts, blob, toHex(this.theme.muted), colorsOfParts(scene.parts))
+    this.invalidate()
+    return true
+  }
+
+  /** Puts the stand-in away: the live build is drawn again. */
+  clearLater(): void {
+    if (this.later.clear()) this.invalidate()
+  }
+
+  /** The keys of the parts of the stand-in drawn; empty when the live build is. */
+  laterKeys(): string[] {
+    return this.later.keys()
   }
 
   /** Puts the earlier build away. */
@@ -375,6 +407,11 @@ export class Viewport {
   /** Whether the view is split in two (`side`): a point of it is not one of the model. */
   private get split(): boolean {
     return this.compareMode === 'side' && this.earlier.on
+  }
+
+  /** Whether what the view draws is not the live build alone as the marks and picks have it: a pick or a chip of it would be of another build. */
+  private get viewOnly(): boolean {
+    return this.compareMode !== null && (this.later.on || (this.earlier.on && this.compareMode !== 'overlay' && this.compareMode !== 'after'))
   }
 
   /** The keys of the parts of the earlier build drawn; empty when there is none. */
@@ -882,7 +919,7 @@ export class Viewport {
    */
   pick(clientX: number, clientY: number, opts?: { edges?: boolean; partsOnly?: boolean }): Hit | null {
     // Side by side the canvas is two views of the model, and a point of it is on neither as the one camera has it.
-    if (this.split) return null
+    if (this.viewOnly) return null
     const at = this.canvasPoint(clientX, clientY)
     if (!at) return null
     this.syncMatrices()
@@ -1163,6 +1200,7 @@ export class Viewport {
     this.section.dispose()
     this.ghosts.end(false)
     this.earlier.clear()
+    this.later.clear()
     this.scans.dispose()
     for (const entry of this.entries.values()) this.discard(entry)
     this.entries.clear()
@@ -1299,6 +1337,7 @@ export class Viewport {
     this.marks.setColours(markColours(this.theme))
     this.section.setColours(toHex(this.theme.muted), toHex(this.theme.accent))
     this.earlier.tint(toHex(this.theme.muted), toHex(this.theme.ink))
+    this.later.tint(toHex(this.theme.muted), toHex(this.theme.ink))
     this.lookOfScans()
     this.showMarks()
     this.scene.background = new THREE.Color(this.theme.surface)
@@ -1450,38 +1489,45 @@ export class Viewport {
     if (split) {
       const half = size.width / 2
       this.renderer.setScissorTest(true)
-      for (const [x, live] of [[0, false], [half, true]] as const) {
+      for (const [x, show] of [[0, 'before'], [half, 'after']] as const) {
         this.renderer.setViewport(x, 0, half, size.height)
         this.renderer.setScissor(x, 0, half, size.height)
-        this.renderScene(live, !live)
+        this.renderScene(show)
       }
       this.renderer.setScissorTest(false)
       this.renderer.setViewport(0, 0, size.width, size.height)
       this.overlay.split(size)
     } else {
-      // Before: the earlier build in the place of the live one. After: the live one, with nothing over it.
+      // Before: the earlier build alone. After: the later one (the live build unless one stands in for it), with nothing over it. Overlay: both.
       const mode = this.earlier.on ? this.compareMode : null
-      this.renderScene(mode !== 'before', mode !== 'after')
+      this.renderScene(mode === 'before' ? 'before' : mode === 'overlay' ? 'both' : 'after')
+      // The chips of the marks are of the live build: not over another.
+      this.overlay.hideChips = this.later.on || mode === 'before'
       this.overlay.draw(size)
     }
     for (const cb of this.drawnListeners) cb()
   }
 
-  /** One frame of the scene with the live build left out (`live` false: its parts, marks, ghosts and scans) and/or the earlier build. */
-  private renderScene(live: boolean, earlier: boolean): void {
+  /**
+   * One frame of the scene: `before` the earlier build alone, `after` the later alone, `both` the earlier over the later. The later
+   * one is the live build, or the build standing in for it (`setLater`): then the live parts, marks, ghosts and scans are left out
+   * of the frame, never taken down.
+   */
+  private renderScene(show: 'before' | 'after' | 'both'): void {
     const left: THREE.Object3D[] = []
     const out = (o: THREE.Object3D): void => {
       if (!o.visible) return
       o.visible = false
       left.push(o)
     }
-    if (!live) {
+    if (show === 'before' || this.later.on) {
       for (const entry of this.entries.values()) out(entry.built.group)
       out(this.marks.group)
       out(this.ghosts.group)
       out(this.scans.group)
     }
-    if (!earlier) out(this.earlier.group)
+    if (show === 'after') out(this.earlier.group)
+    if (show === 'before') out(this.later.group)
     try {
       this.renderer.render(this.scene, this.camera)
     } finally {

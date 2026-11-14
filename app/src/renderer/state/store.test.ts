@@ -1499,8 +1499,11 @@ describe('comparing two kept builds', () => {
 
   it('says it is building the old build only while it is, and what main refused', () => {
     actions.compare('h40', 'h41')
-    actions.compareBuilding(true)
-    expect(store.getState().compare).toMatchObject({ building: true })
+    actions.compareBuilding('h40', true)
+    expect(store.getState().compare).toMatchObject({ building: 'h40' })
+    // Another build's wait ends only its own message.
+    actions.compareBuilding('h41', false)
+    expect(store.getState().compare).toMatchObject({ building: 'h40' })
     actions.compareRefused('h40 could not be built again')
     expect(store.getState().compare).toMatchObject({ refused: 'h40 could not be built again' })
     expect(store.getState().compare?.building).toBeUndefined()
