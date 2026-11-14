@@ -9,7 +9,7 @@ import { scanNumber } from '../../shared/format'
 import { type FilletDiagnosis, WHY, diagnosisText, sizeText } from '../../shared/diagnosis'
 import { number, sizes, vector } from '../marks/describe'
 import { clean, sceneDiff } from '../../shared/diff'
-import { type HistoryEntry, parseBuildRef } from '../../shared/history'
+import { type HistoryEntry, causeOf, drawable, parseBuildRef } from '../../shared/history'
 import { join } from 'node:path'
 import { plain, wire } from '../marks/measure'
 import { isMoved, movedForDisplay, spreadApart, spreadLayout } from '../marks/spread'
@@ -963,7 +963,9 @@ export async function diffTool(deps: ToolDeps, objectId: string, args: DiffToolA
   if ('content' in found) return found
   const kept: Kept[] = deps.scenes?.(objectId) ?? [{ revision: found.revision, scene: found.scene }]
   const history = await deps.history?.(objectId).catch(() => null)
-  const entries = history?.entries ?? []
+  const all = history?.entries ?? []
+  // A build that failed has no scene to compare, and carries the revision of the last good build before it: it is none of these.
+  const entries = all.filter(drawable)
   const entryOf = (revision: number): HistoryEntry | undefined => entries.findLast((e) => e.run === history?.run && e.revision === revision)
   const revisions = kept.map((k) => k.revision)
   const listed = `revisions ${revisions.slice(0, -1).join(', ')} and ${revisions.at(-1)} are`
@@ -985,6 +987,8 @@ export async function diffTool(deps: ToolDeps, objectId: string, args: DiffToolA
       if (entry && scene) return { label: ref.revision, scene, revision: ref.revision, entry }
       return failure(`revision ${ref.revision} is not kept: ${listed}${keptIds}`)
     }
+    const failed = all.find((e) => e.id === ref.id && !drawable(e))
+    if (failed) return failure(`${failed.id} failed to build${failed.error ? ` (${failed.error})` : ''}, so there is no build of it to compare: the history tool lists the builds that worked`)
     const entry = entries.find((e) => e.id === ref.id)
     const scene = entry ? await deps.historyScene?.(objectId, ref.id).catch(() => null) : null
     if (!entry || !scene) return failure(`${ref.id} is not kept${entries.length > 0 ? keptIds.replace(/^;/, ':') : ': the history of this project holds no build yet'}`)
@@ -1040,6 +1044,20 @@ export interface HistoryToolArgs {
   limit?: number
 }
 
+const MOST_PROMPT_WORDS = 80
+
+/** The `history` tool's words for what made a build and what became of it, said after the line of what changed. */
+function causeWords(e: HistoryEntry): string[] {
+  const cause = causeOf(e)
+  const said = e.turn?.text?.replace(/\s+/g, ' ').trim()
+  const prompt = said ? ` (prompt ${JSON.stringify(said.length > MOST_PROMPT_WORDS ? `${said.slice(0, MOST_PROMPT_WORDS - 1).trimEnd()}…` : said)})` : ''
+  return [
+    ...(cause === 'agent' ? [`by Claude${prompt}`] : cause === 'person' ? ['your edit'] : cause === 'params' ? ['params'] : cause === 'goback' ? [`went back to ${e.wentBackTo ?? 'an earlier build'}`] : []),
+    ...(e.failed ? [`failed: ${e.error || 'build failed'}`] : []),
+    ...(e.undone ? ['undone'] : [])
+  ]
+}
+
 /** The most builds `history` lists at once, and how many it does when it is not told. */
 export const HISTORY_MOST = 100
 export const HISTORY_DEFAULT = 20
@@ -1060,7 +1078,12 @@ export async function historyTool(deps: ToolDeps, objectId: string, args: Histor
     at: e.at,
     ...(e.run === history.run ? { revision: e.revision } : { earlierRun: true }),
     ...(e.starred ? { starred: true } : {}),
-    changed: e.line,
+    changed: [...(e.failed ? [] : [e.line]), ...causeWords(e)].join(' · '),
+    ...(e.cause ? { cause: e.cause } : {}),
+    ...(e.turn ? { turn: e.turn } : {}),
+    ...(e.failed ? { failed: true, ...(e.error ? { error: e.error } : {}) } : {}),
+    ...(e.wentBackTo ? { wentBackTo: e.wentBackTo } : {}),
+    ...(e.undone ? { undone: true } : {}),
     parts: e.parts,
     ...(e.failing ? { failingChecks: e.failing } : {}),
     ...(e.defects ? { defects: e.defects } : {}),
@@ -1075,7 +1098,7 @@ export async function historyTool(deps: ToolDeps, objectId: string, args: Histor
     const entry = history.entries.find((e) => e.id === id)
     if (!entry) return failure(`${JSON.stringify(args.id)} is not kept: ${history.entries.length === 0 ? 'the history holds no build yet' : `${history.entries.at(0)!.id} to ${history.entries.at(-1)!.id} are (not every number between them)`}`)
     const copies = entry.files.map((file) => ({ file, path: join(base, entry.id, 'source', ...file.split('/')) }))
-    const source = copies.length > 0 ? 'These are copies of the files the build was made from. To go back, read them and edit the project\'s own files to match; torno never restores a file itself.' : 'No copy of the sources was kept for this build (too large, or changed while it was read).'
+    const source = entry.failed ? 'This build failed to build, so no scene, picture or copy of its sources was kept: there is nothing of it to compare or to go back to.' : copies.length > 0 ? 'These are copies of the files the build was made from. To go back, read them and edit the project\'s own files to match; torno never restores a file itself.' : 'No copy of the sources was kept for this build (too large, or changed while it was read).'
     return reply({ object: obj.id, ...summary(entry), model: entry.model, seconds: entry.seconds, ...(entry.params ? { params: entry.params } : {}), copies, notes: [source, note] })
   }
   const limit = args.limit === undefined ? HISTORY_DEFAULT : args.limit

@@ -19,7 +19,7 @@ import { Builds, buildTimeout, watchFolder } from './builds'
 import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
 import { History, type KeptCause, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
-import type { HistoryEntry, HistoryGhost, HistoryList } from '../shared/history'
+import { type HistoryEntry, type HistoryGhost, type HistoryList, drawable } from '../shared/history'
 import type { Verdict } from '../shared/sanity'
 import { gitStateRecently } from './git'
 import { keepExample } from './example'
@@ -1147,30 +1147,33 @@ export function registerIpc(
     return obj && obj.model !== null ? gitStateRecently(obj.dir) : Promise.resolve(null)
   })
   // The builds kept of an object (`main/history.ts`): read, and starred; nothing is ever restored from them.
+  // Every field of an entry goes with it (`cause`, `turn`, `failed`, `error`...); a build that failed has no folder,
+  // scene, picture or copies, so no reader of those answers for one.
   handle('history:list', async (_event, objectId: string): Promise<HistoryList | null> => {
     const obj = findObject(String(objectId))
     const kept = obj ? await historyOf(obj.id) : null
     const held = current && obj ? current.meshes.revisions(obj.id) : []
-    const ghosts = kept ? kept.entries.filter((e) => e.run === kept.run && held.includes(e.revision)).map((e) => e.id) : []
+    const ghosts = kept ? kept.entries.filter((e) => drawable(e) && e.run === kept.run && held.includes(e.revision)).map((e) => e.id) : []
     return obj && kept ? { run: kept.run, base: join(obj.dir, '.torno', 'history'), entries: kept.entries, ghosts } : null
   })
   handle('history:thumbnail', async (_event, objectId: string, id: string) => {
     const obj = findObject(String(objectId))
-    const png = obj ? await readHistoryThumb(obj.dir, String(id)) : null
+    const entry = obj ? (await readHistory(obj.dir)).find((e) => e.id === String(id)) : undefined
+    const png = obj && entry && drawable(entry) ? await readHistoryThumb(obj.dir, entry.id) : null
     return png && toArrayBuffer(png)
   })
   handle('history:source', async (_event, objectId: string, id: string, file: string) => {
     const obj = findObject(String(objectId))
     if (!obj) return null
     const entry = (await readHistory(obj.dir)).find((e) => e.id === String(id))
-    return entry ? readHistorySource(obj.dir, entry, String(file)) : null
+    return entry && drawable(entry) ? readHistorySource(obj.dir, entry, String(file)) : null
   })
   handle('history:ghost', async (_event, objectId: string, id: string): Promise<HistoryGhost | null> => {
     const obj = findObject(String(objectId))
     const ws = current
     if (!obj || !ws) return null
     const entry = (await readHistory(obj.dir)).find((e) => e.id === String(id))
-    const held = entry && entry.run === ws.buildLog.run ? ws.meshes.get(obj.id, entry.revision) : undefined
+    const held = entry && drawable(entry) && entry.run === ws.buildLog.run ? ws.meshes.get(obj.id, entry.revision) : undefined
     return held ? { scene: held.scene, blob: toArrayBuffer(held.blob) } : null
   })
   handle('history:star', (_event, objectId: string, id: string, starred: boolean) => {
