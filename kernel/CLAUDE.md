@@ -192,7 +192,11 @@ is the detail of this folder, under the headings it has there.
   runs; a build that starts cancels a trial. The worker loads the model, builds the scene, answers each of at most
   `MOST_TRIAL_QUERIES` queries in its own process (`queries.run` over its shapes: a query that fails fails alone)
   and writes one frame with the scene (no mesh) and `answers`, then exits. Its refs are of no build and main gives
-  none. It has the build's timeout and its output is captured the same way.
+  none. It has the build's timeout and its output is captured the same way. With `mesh: true` (a bool) that frame
+  carries the blob of a build's own, and the folder above `dir` goes first on `sys.path` in the worker: the trial of
+  the copy of an older kept build (`main/oldbuild.ts`), which lies in a workspace of its own under `<userData>/compare/`,
+  so that `common/` and another project's module are the copy's, not those of the workspace the kernel runs in (its cwd,
+  which is on the path of every build).
 - **Files of a build are made by its worker and never written by the kernel** (`export.py`). `export` (`format`
   `step`, `stl` or `3mf`, `layout`, `parts`, `tolerance` mm and `angle` degrees for a mesh, `colors`, `name`)
   answers with the file's bytes as the reply's blob (`queries.WithBlob`, sent by `worker._serve`; every other

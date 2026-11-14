@@ -554,7 +554,13 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   **Meshes for the ghost of a kept build** (`src/main/meshes.ts` `RecentMeshes`, `ws.meshes`): the scene and the blob of each build of
   this run, in memory only, never written; `MESH_BUDGET_BYTES` (64 MB) for all the objects, not counting the newest build of each, the
   oldest let go first. `history:list` says which kept builds still have theirs (`ghosts`), `history:ghost` hands them to the window
-  (a build of this run only).
+  (a build of this run only), and **builds any other kept build again from its copy** (`oldbuild.ts` `rebuildKept`): the
+  copies of its files are laid out under `<userData>/compare/<random>/` at their paths from the workspace (so the model's
+  `common/` and other projects are the copies, never today's files) and the workspace's own kernel builds them as a `trial`
+  with `mesh: true`: a worker of its own, in the environment a build of that workspace has, the model's own default
+  `Params` (those of the build are not kept with its copies). The folder is removed when the answer comes and the whole of
+  `compare/` is swept when torno starts; nothing is written in the workspace. A build that failed, one with no copies, a kernel busy with a
+  build and a copy that does not build are `{ refused }` with a sentence, which `history:ghost` answers as null.
 - **`.torno/.gitignore` has one writer**, `src/main/ignored.ts` `ensureIgnored(dir, lines)`: it adds the
   lines that are missing at the end, makes the file when there is none, never removes or rewrites what is
   there, and adds nothing against a line the person negated (`!thumb.png`). The thumbnails ask it for

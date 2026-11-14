@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron'
 import { type BuildReason, type BuildState, errorLine } from '../shared/build'
 import { EXPORT_FORMATS, EXTENSIONS, FORMAT_NAMES, type FileFormat, type ExportPlan, type ExportRequest, type ExportSaved, type ModelFormat } from '../shared/exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from '../shared/geometry'
@@ -16,6 +16,7 @@ import type { ObjectCard, ThumbnailOf } from '../shared/show'
 import type { ViewState } from '../shared/view'
 import type { ObjectInfo, RecentFolder, WorkspaceInfo } from '../shared/workspace'
 import { Builds, buildTimeout, watchFolder } from './builds'
+import { rebuildKept } from './oldbuild'
 import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
 import { type GoBackPlan, type GoBackResult, applyGoBack, entryBefore, planGoBack } from './goback'
@@ -1184,7 +1185,12 @@ export function registerIpc(
     if (!obj || !ws) return null
     const entry = (await readHistory(obj.dir)).find((e) => e.id === String(id))
     const held = entry && drawable(entry) && entry.run === ws.buildLog.run ? ws.meshes.get(obj.id, entry.revision) : undefined
-    return held ? { scene: held.scene, blob: toArrayBuffer(held.blob) } : null
+    if (held) return { scene: held.scene, blob: toArrayBuffer(held.blob) }
+    // Not in memory (an earlier run, or let go): built again from the copy of its files, in a worker thrown away.
+    // Null for a build that failed and for one whose copy cannot be built: the window says it has nothing to draw.
+    if (!entry || !drawable(entry)) return null
+    const rebuilt = await rebuildKept(obj, entry, { kernel: ws.kernel, userData: app.getPath('userData'), timeout: buildTimeout(process.env) })
+    return 'refused' in rebuilt ? null : { scene: rebuilt.scene, blob: toArrayBuffer(rebuilt.blob) }
   })
   handle('history:star', (_event, objectId: string, id: string, starred: boolean) => {
     const obj = findObject(String(objectId))

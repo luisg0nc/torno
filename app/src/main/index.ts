@@ -28,6 +28,7 @@ import { MarkStore } from './marks/store'
 import { Asks } from './asks'
 import { mountMcp } from './mcp/server'
 import { DEFAULT_SIZE } from './mcp/schemas'
+import { sweepCompare } from './oldbuild'
 import { onNotOwn } from './own'
 import { agentPluginDir, kernelDir, kernelRun, ownEnvironment, windowIcon } from './paths'
 import { Expectations, withExpectation } from './mcp/expectTools'
@@ -491,6 +492,8 @@ void app.whenReady().then(async () => {
   // The files an agent is given by path (its MCP server's, which holds no secret): what a torno that crashed left is of no use.
   const configDir = join(app.getPath('userData'), 'agent')
   rmSync(configDir, { recursive: true, force: true })
+  // The copies of older builds laid out to compare them (`oldbuild.ts`): what a torno that crashed left is of no use.
+  sweepCompare(app.getPath('userData'))
   const adapter = claudeAdapter(process.env.TORNO_AGENT_CMD, off.has('skills') ? undefined : agentPluginDir(), { reviewer: !off.has('reviewer') })
   sessions = new Sessions({
     http,

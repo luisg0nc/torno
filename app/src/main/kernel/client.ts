@@ -44,8 +44,8 @@ export type KernelStateEvent = { state: 'starting' } | { state: 'ready'; version
 
 /** What the kernel answers one query of a trial with: its result, or why it gave none. */
 export type TrialAnswer = { ok: true; result: unknown } | { ok: false; error: { kind: string; message: string } }
-/** A trial: the model built with other values of its `Params` in a worker that is thrown away, and the answers to the queries asked there. */
-export type TrialResult = { ok: true; scene: Scene; answers: TrialAnswer[] } | { ok: false; error: BuildError }
+/** A trial: the model built with other values of its `Params` in a worker that is thrown away, and the answers to the queries asked there. `blob`: the mesh a build carries, when `mesh` was asked. */
+export type TrialResult = { ok: true; scene: Scene; answers: TrialAnswer[]; blob?: Buffer } | { ok: false; error: BuildError }
 
 export interface KernelClient {
   /** The first start. Rejects if the kernel stops for good before it is ever ready. */
@@ -63,8 +63,9 @@ export interface KernelClient {
    * Build the model in `dir` with `overrides` of its `Params` in a worker of its own, answer `queries` (`name` and
    * `args` as `query` takes them, refs with the layout in front) there, and throw it away: no live build is changed
    * or let go. Never rejects; a trial the kernel refuses (`busy`, `no_room`) is `{ ok: false }`. Absent from a fake that has none.
+   * With `mesh` the result carries the mesh blob as a build's does: that is how an older build's copy is drawn (`main/oldbuild.ts`).
    */
-  trial?(dir: string, model: string, overrides: Record<string, number | boolean | string>, queries: Array<{ name: string; args: object }>, opts?: { timeout?: number }): Promise<TrialResult>
+  trial?(dir: string, model: string, overrides: Record<string, number | boolean | string>, queries: Array<{ name: string; args: object }>, opts?: { timeout?: number; mesh?: true }): Promise<TrialResult>
   cancel(): void
   dispose(): Promise<void>
   /** Called when the kernel has exited unexpectedly and was not restarted. */
@@ -186,13 +187,13 @@ class Kernel implements KernelClient {
     })
   }
 
-  trial(dir: string, model: string, overrides: Record<string, number | boolean | string>, queries: Array<{ name: string; args: object }>, opts?: { timeout?: number }): Promise<TrialResult> {
+  trial(dir: string, model: string, overrides: Record<string, number | boolean | string>, queries: Array<{ name: string; args: object }>, opts?: { timeout?: number; mesh?: true }): Promise<TrialResult> {
     if (this.disposed) return Promise.resolve(trialFailure('cancelled', 'the kernel was shut down'))
     if (this.stopped) return Promise.resolve(trialFailure('crash', `the kernel is stopped. ${REBUILD_HOW}`))
     return new Promise((resolve) => {
       const id = this.nextId++
       this.pending.set(id, { type: 'trial', resolve })
-      this.send({ id, op: 'trial', dir, model, overrides, queries, ...(opts?.timeout === undefined ? {} : { timeout: opts.timeout }) })
+      this.send({ id, op: 'trial', dir, model, overrides, queries, ...(opts?.timeout === undefined ? {} : { timeout: opts.timeout }), ...(opts?.mesh ? { mesh: true } : {}) })
     })
   }
 
@@ -328,7 +329,8 @@ class Kernel implements KernelClient {
     }
     this.pending.delete(header.id)
     if (request.type === 'trial') {
-      request.resolve(header.ok ? { ok: true, scene: header.scene, answers: Array.isArray(header.answers) ? header.answers : [] } : { ok: false, error: header.error ?? { kind: 'crash', message: 'the trial failed' } })
+      // The blob is a view into the read buffer: give the scene one of its own (empty unless a mesh was asked).
+      request.resolve(header.ok ? { ok: true, scene: header.scene, answers: Array.isArray(header.answers) ? header.answers : [], ...(blob.length > 0 ? { blob: Buffer.from(blob) } : {}) } : { ok: false, error: header.error ?? { kind: 'crash', message: 'the trial failed' } })
     } else if (request.type === 'build') {
       // The blob is a view into the read buffer: give the scene one of its own.
       if (header.ok) request.resolve({ ok: true, scene: header.scene, blob: Buffer.from(blob) })
