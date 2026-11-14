@@ -21,6 +21,18 @@ export interface HistoryDimensions {
   none: number
 }
 
+/** What made a build: the agent, the person editing, the person's params, a Go back; `unknown` for builds kept before this was said. */
+export type BuildCause = 'agent' | 'person' | 'params' | 'goback' | 'unknown'
+
+/** The prompt of the turn a build came out of. Main's only: never taken from the window or from a tool. */
+export interface BuildTurn {
+  /** The chat it was said in, when it was one the person can open again. */
+  conversation?: string
+  prompt: string
+  /** What the agent said at the end of the turn, shortened. */
+  text?: string
+}
+
 /** One kept build, as `index.json` of the history holds it. */
 export interface HistoryEntry {
   id: string
@@ -52,7 +64,25 @@ export interface HistoryEntry {
   dimensions?: HistoryDimensions
   /** What changed since the entry before, as the status line says it. */
   line: string
+  /** What made the build; absent is `unknown` (`causeOf`). Main's only, as the fields below are. */
+  cause?: BuildCause
+  /** The turn of the agent it came out of, for the cause `agent`. */
+  turn?: BuildTurn
+  /** A build that failed: kept as a line of the history with no `scene.json`, picture or copies. */
+  failed?: true
+  /** The first line of the failure, for a failed entry only. */
+  error?: string
+  /** For the cause `goback`: the id of the build it restored. */
+  wentBackTo?: string
+  /** Undone by a later Go back. */
+  undone?: true
 }
+
+/** What made the build; `unknown` for an entry that says nothing. */
+export const causeOf = (e: HistoryEntry): BuildCause => e.cause ?? 'unknown'
+
+/** Whether the build has a scene to draw (a failed one has none). */
+export const drawable = (e: HistoryEntry): boolean => !e.failed
 
 /** Said of a build kept with no build before it. */
 export const FIRST_BUILD = 'first build kept'
