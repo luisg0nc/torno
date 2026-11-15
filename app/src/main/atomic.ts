@@ -1,4 +1,5 @@
 import { mkdir, open, rename, rm } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
 import { dirname } from 'node:path'
 
 /** The last write to each file, so that writes of one file land in the order they were made. */
@@ -15,11 +16,12 @@ export function writeFileAtomic(path: string, data: string | Uint8Array): Promis
     .catch(() => {})
     .then(async () => {
       await mkdir(dirname(path), { recursive: true })
-      const temp = `${path}.${process.pid}.tmp`
+      // A name of this write alone, opened `wx` (O_EXCL): a link or file planted at a name is never written through.
+      const temp = `${path}.${randomBytes(6).toString('hex')}.tmp`
       try {
         // On the disk before it takes the place of the old file: a crash or a power cut must not leave
         // a name that points at nothing, where hours of marks were.
-        const file = await open(temp, 'w')
+        const file = await open(temp, 'wx')
         try {
           await file.writeFile(data)
           await file.sync()
