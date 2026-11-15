@@ -220,6 +220,14 @@ test('where the agent is a terminal the same list is a pane over the session, fr
   await expect(rows().nth(1)).toContainText('make the base wider')
   // A terminal's prompt is in no chat: nothing to open.
   await expect(pane.getByRole('button', { name: 'Open in chat' })).toHaveCount(0)
+  // Each prompt that built something has Go back to before this prompt (a terminal has no turn to put it on). These builds
+  // kept no copies, and Claude cannot be asked to undo from here: the click says so and the button is gone.
+  const goBack = (n: number) => rows().nth(n).getByRole('button', { name: 'Go back to before this prompt', exact: true })
+  await expect(goBack(0)).toBeEnabled()
+  await expect(goBack(1)).toBeEnabled()
+  await goBack(0).click()
+  await expect(rows().nth(0)).toContainText('No copy of that build is kept')
+  await expect(goBack(0)).toHaveCount(0)
   await expect(pane.locator('.prompt-began')).toHaveCount(1)
   await pane.getByRole('button', { name: 'Close' }).click()
   await expect(pane).toHaveCount(0)

@@ -136,12 +136,14 @@ export interface GoBackPlan {
   remove: string[]
   /** `common/` and other projects' files of the copy that differ now: left as they are. */
   leftAlone: string[]
-  /** Files of `write` and `remove` that hold other bytes than the newest build's copy: the person changed them since. */
+  /** Files of `write` and `remove` that a save of the person's changed after `to` (a build of cause person, params or unknown put them in another state than the build before had), or that hold other bytes than the newest build's copy: overwritten or deleted by this. */
   changedSince: string[]
   /** What the person tries of the Params is not what that build was made with. */
   params: boolean
   /** The ids of the entries after `to`. */
   undone: string[]
+  /** Of those, the builds of the person's own saves and tried Params (cause `person`, `params` or `unknown`): saves this undoes. */
+  undoneSaves: string[]
   /** Their distinct turns, oldest first. */
   prompts: BuildTurn[]
   /** No usable copy: the Undo prompt asks the agent to reverse its edits instead. */

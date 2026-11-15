@@ -1342,6 +1342,7 @@ describe('the transcript of a chat session', () => {
   /** The marks the hook is answered with for the 1st, 2nd, … prompt; `marks` for any after them. */
   let marksPerCall: string[][] = []
   let hooks = 0
+  let handedOver: (() => void) | undefined
   let picture: ((obj: ObjectInfo) => Promise<Uint8Array>) | undefined
   const told: Array<{ sessionId: string; item: ChatItem; seq: number }> = []
   const metas: Array<{ sessionId: string; meta: ChatMeta; seq: number }> = []
@@ -1358,7 +1359,7 @@ describe('the transcript of a chat session', () => {
       viewFor: () => 'chat',
       contextFor: async () => {
         const ids = marksPerCall[hooks++] ?? marks
-        return { text: ids.length > 0 ? `Marks: ${ids.join(' ')}` : '', sentMarkIds: ids }
+        return { text: ids.length > 0 ? `Marks: ${ids.join(' ')}` : handedOver ? 'A notice of main\'s' : '', sentMarkIds: ids, ...(handedOver ? { delivered: handedOver } : {}) }
       },
       onDelivered: (_id, ids) => delivered2.push(ids),
       systemPromptFor: () => '',
@@ -1375,6 +1376,7 @@ describe('the transcript of a chat session', () => {
     marks = []
     marksPerCall = []
     hooks = 0
+    handedOver = undefined
     picture = undefined
     told.length = 0
     metas.length = 0
@@ -1423,6 +1425,16 @@ describe('the transcript of a chat session', () => {
     expect(turn).toMatchObject({ kind: 'turn', ok: true, stopped: false })
     expect(tSessions.history(c.id)!.meta).toMatchObject({ model: 'fake-model', tornoConnected: true })
     expect(tSessions.history(c.id)!.earlier).toEqual([])
+  })
+
+  it('tells main the answer was handed over, for what is kept until then (a Go back\'s notice), once it has left and not before', async () => {
+    const seen = vi.fn()
+    handedOver = seen
+    const c = await start()
+    await c.send('say hi')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    expect(c.items().find((i) => i.kind === 'context')).toMatchObject({ text: 'A notice of main\'s' })
+    expect(seen).toHaveBeenCalledTimes(1)
   })
 
   it('keeps what a turn changed in the .py files of the folder, in memory, and tells it by the id of the turn', async () => {

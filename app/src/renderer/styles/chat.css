@@ -1471,6 +1471,7 @@ select.session-model:disabled {
 
 .prompt {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   border-bottom: 1px solid var(--hairline);
@@ -1571,6 +1572,20 @@ select.session-model:disabled {
 /* Beside the row, not inside it (a button holds no button): quiet, and there for the keys as much as for the pointer. */
 .prompt-open {
   flex: none;
+}
+
+/* Go back to before this prompt, in a terminal's pane: beside the row; its question takes a line of its own. */
+.prompt-goback {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.prompt-goback:has(.confirm, .chat-turn-problem) {
+  flex: 1 0 100%;
+  padding-bottom: var(--space-2);
 }
 
 .prompt-between {

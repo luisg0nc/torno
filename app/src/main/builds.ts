@@ -103,6 +103,8 @@ interface Entry {
   /** What the build wanted or running was started for, and for a Go back the build it went back to: said on its states and its scene. */
   reason: BuildReason
   wentBackTo?: string
+  /** A Go back that is about to write the files: the next build the watcher starts is its, not the person's (`expect`). */
+  expected?: { reason: BuildReason; wentBackTo?: string }
   attempt: number // counts builds started; a result for an older attempt is dropped
   startedAt: number
   /** Something other than Python changed while it was building: build once more when that build ends. */
@@ -263,10 +265,30 @@ export class Builds {
     return true
   }
 
+  /**
+   * A Go back says, before it writes its first file, that the next build the watcher starts is its own: the watcher
+   * may report a file and start that build between two writes, and it would be kept as the person's. `rebuild` of
+   * that reason, a first watched build, or `expect(objectId)` with no reason, ends the wait.
+   */
+  expect(objectId: string, reason?: 'goback', wentBackTo?: string): void {
+    const entry = this.entries.get(objectId)
+    if (entry) entry.expected = reason ? { reason, wentBackTo } : undefined
+  }
+
   /** Build because the sources may have changed: what is on screen is stale until it ends. */
   private startChanged(entry: Entry, reason: BuildReason, wentBackTo?: string): void {
     entry.restoring = false
     entry.failure = undefined
+    const expected = entry.expected
+    if (expected && (reason === 'watch' || reason === expected.reason)) {
+      entry.expected = undefined
+      // The build a Go back was waiting for: it takes the Go back's place, as one it began would.
+      if (reason === 'watch') {
+        this.setReason(entry, expected.reason, expected.wentBackTo)
+        this.start(entry)
+        return
+      }
+    }
     // The files a Go back wrote are reported by the watcher while the build it asked for runs: that is still the Go back's build.
     if (!(reason === 'watch' && entry.reason === 'goback' && entry.state.status === 'building')) this.setReason(entry, reason, wentBackTo)
     this.start(entry)

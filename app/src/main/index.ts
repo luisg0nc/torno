@@ -520,10 +520,11 @@ void app.whenReady().then(async () => {
       // Told again after /clear (`fresh`): the CLI loads the CLAUDE.md files again then. The hook has 5 s in all: the lookup is given one.
       const folder = tellsInstructions(opts) ? findObject(id)?.dir : undefined
       const instructions = folder === undefined ? undefined : await instructionFiles.look(folder, HOOK_DEADLINE_MS)
-      // What a Go back left for the agent is told with this prompt and no other: the file is removed as it is read.
+      // What a Go back left for the agent is told with this prompt and no other: the file is removed once the answer has left (`delivered`), not as it is read.
       const dir = findObject(id)?.dir
       const notice = dir === undefined ? null : await takeGoBackNotice(dir).catch(() => null)
-      return contextFor(promptDeps, id, await marks.list(id).catch(() => []), { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(notice ? { notice } : {}) })
+      const told = contextFor(promptDeps, id, await marks.list(id).catch(() => []), { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(notice ? { notice: notice.text } : {}) })
+      return notice ? { ...told, delivered: notice.done } : told
     },
     // An edit of the model is answered with the build it started, and a Stop held back once over a build the turn left failed or unseen.
     build: buildState,

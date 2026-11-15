@@ -67,7 +67,7 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
   const promptsOpen = useStore((s) => s.promptsOpen)
   // The project's prompts, numbered across all its conversations: one number for a prompt wherever it is shown. Asked again when one is sent or a build is kept.
   const sent = (items ?? []).reduce((n, item) => n + (item.kind === 'user' && item.state === 'sent' ? 1 : 0), 0)
-  const rows = usePrompts(true, `${sent}:${history?.entries.length ?? 0}`)
+  const rows = usePrompts(true, `${sent}:${history?.entries.at(-1)?.id ?? ''}`)
   const numbers = useMemo(() => numbersOf(rows ?? [], [...(earlier ?? []), ...(items ?? [])]), [rows, earlier, items])
   // The conversation this chat shows: the one the prompts it holds were said in (none while it has said nothing and resumed nothing).
   const current = useMemo(() => {

@@ -32,7 +32,7 @@ async function build(files: Record<string, string>, turn?: { prompt: string; tex
   return entry!
 }
 
-const builds = (running = false) => ({ rebuild: vi.fn(() => true), state: () => (running ? { status: 'building' } : { status: 'ok' }) })
+const builds = (running = false) => ({ rebuild: vi.fn(() => true), expect: vi.fn(), state: () => (running ? { status: 'building' } : { status: 'ok' }) })
 const asBuilds = (b: ReturnType<typeof builds>) => b as unknown as Parameters<typeof applyGoBack>[2]['builds']
 
 beforeEach(() => {
@@ -93,6 +93,41 @@ describe('planGoBack', () => {
     expect(plan.undone).toEqual(['h3'])
   })
 
+  it('flags what a save of the person\'s that already built changed, and lists the saves it undoes (RF1)', async () => {
+    await build({ 'box/model.py': 'v1' })
+    await build({ 'box/model.py': 'v2' }, { prompt: 'u1', text: 'make it taller' })
+    // The person edits model.py and adds helper.py: a build of their own, which the newest build's copies agree with.
+    await build({ 'box/model.py': 'v3', 'box/helper.py': 'h' })
+    const plan = await planned('h1')
+    expect(plan.write).toEqual(['box/model.py'])
+    expect(plan.remove).toEqual(['box/helper.py'])
+    expect(plan.changedSince).toEqual(['box/helper.py', 'box/model.py'])
+    expect(plan.undone).toEqual(['h2', 'h3'])
+    expect(plan.undoneSaves).toEqual(['h3'])
+  })
+
+  it('flags a file the person saved even when a later prompt changed it again, and not one a save left as it was', async () => {
+    await build({ 'box/model.py': 'v1', 'box/other.py': 'o1' })
+    await build({ 'box/model.py': 'v2', 'box/other.py': 'o2' }, { prompt: 'u1' })
+    // The person saves model.py anew and leaves other.py as the prompt made it.
+    await build({ 'box/model.py': 'v3' })
+    await build({ 'box/model.py': 'v4' }, { prompt: 'u2' })
+    const plan = await planned('h1')
+    expect(plan.write).toEqual(['box/model.py', 'box/other.py'])
+    expect(plan.changedSince).toEqual(['box/model.py'])
+    expect(plan.undoneSaves).toEqual(['h3'])
+  })
+
+  it('counts a Go back\'s own build and a prompt\'s as nobody\'s save', async () => {
+    await build({ 'box/model.py': 'v1' })
+    await build({ 'box/model.py': 'v2' }, { prompt: 'u1' })
+    const entry = await history.keep(box, Promise.resolve({ revision: ++revision, at: new Date().toISOString(), run: 'run1', sources: await sourcesHash(box.dir, undefined) }), { model: 'model.py', layouts: ['assembly'], parts: [part('tub', 1)], seconds: 0.5, output: '' }, { cause: 'goback', wentBackTo: 'h1' })
+    expect(entry).not.toBeNull()
+    const plan = await planned('h1')
+    expect(plan.undoneSaves).toEqual([])
+    expect(plan.changedSince).toEqual([])
+  })
+
   it('removes only a file first seen after the target, and one that is there', async () => {
     await twoPrompts()
     put('box/mine.py', 'never in a build')
@@ -150,6 +185,15 @@ describe('entryBefore', () => {
     expect(entryBefore([e('h2', undefined, { run: 'r9', revision: 4 }), ...entries], 'u1', { run: 'r9', revision: 4 })).toMatchObject({ id: 'h2' })
     expect(entryBefore(entries, 'u1', { run: 'run1', revision: 7 })).toMatchObject({ refused: expect.any(String) })
   })
+  it('does not pick an old kept build when the ones between it and the prompt were let go (RF5)', () => {
+    // h2 and h3 were pruned: the prompt's first remaining build is h4 and the only older one is a starred h1.
+    const gap = [e('h1'), e('h4', 'u1')]
+    expect(entryBefore(gap, 'u1')).toMatchObject({ refused: expect.any(String) })
+    // Contiguous ids (a failed build between them is an entry too) are no gap.
+    expect(entryBefore([e('h1'), e('h2', undefined, { failed: true }), e('h3', 'u1')], 'u1')).toMatchObject({ id: 'h1' })
+    // The build current when the prompt was sent is still an answer when it is kept.
+    expect(entryBefore([e('h1', undefined, { run: 'r9', revision: 4 }), e('h4', 'u1')], 'u1', { run: 'r9', revision: 4 })).toMatchObject({ id: 'h1' })
+  })
   it('refuses a prompt that made no build', () => {
     expect(entryBefore([e('h1')], 'u9')).toMatchObject({ refused: expect.any(String) })
   })
@@ -172,6 +216,30 @@ describe('applyGoBack', () => {
     expect(kept).toMatchObject({ to: 'h1', undone: ['h2', 'h3'], prompts: [{ prompt: 'u1' }, { prompt: 'u2' }] })
     expect(typeof kept.at).toBe('string')
     expect(readFileSync(join(box.dir, '.torno', '.gitignore'), 'utf8')).toContain('goback.json')
+  })
+
+  it('tells the builds a Go back is coming before the first file is written, and takes it back when it stops short', async () => {
+    await twoPrompts()
+    const b = builds()
+    const order: string[] = []
+    b.expect.mockImplementation((_id: string, reason?: string, to?: string) => order.push(`expect ${reason ?? 'none'} ${to ?? ''}`.trim()))
+    const result = await applyGoBack(box, await planned('h1'), { history, builds: asBuilds(b) })
+    expect(result.failed).toBeUndefined()
+    expect(order[0]).toBe('expect goback h1')
+    expect(b.expect.mock.calls[0]).toEqual(['box', 'goback', 'h1'])
+    // Rebuilding is what ends the wait: nothing is left expected.
+    expect(b.rebuild).toHaveBeenCalled()
+  })
+
+  it('does not leave a Go back expected when a file could not be written', async () => {
+    await build({ 'box/a.py': 'a1', 'box/sub/b.py': 'b1' }, undefined, { uses: ['box/sub/b.py'] })
+    await build({ 'box/a.py': 'a2', 'box/sub/b.py': 'b2' }, { prompt: 'u1' }, { uses: ['box/sub/b.py'] })
+    const plan = await planned('h1')
+    chmodSync(join(root, 'box', 'sub'), 0o555)
+    const b = builds()
+    const result = await applyGoBack(box, plan, { history, builds: asBuilds(b) })
+    expect(result.failed).toBeDefined()
+    expect(b.expect.mock.calls.at(-1)).toEqual(['box'])
   })
 
   it('puts the Params the person tried back as they were for that build', async () => {
@@ -245,13 +313,27 @@ describe('applyGoBack', () => {
 })
 
 describe('takeGoBackNotice', () => {
-  it('returns the text once, then nothing', async () => {
+  it('returns the text, keeps the file until it is told the answer was handed over, then nothing (RF6)', async () => {
     await twoPrompts()
     await applyGoBack(box, await planned('h1'), { history, builds: asBuilds(builds()) })
-    const text = await takeGoBackNotice(box.dir)
-    expect(text).toBe('The person went back to build h1: the model files are as they were then, and prompts "make it taller", "add a lip" are undone. You keep what you learnt from them; do not try them again unless asked.')
-    expect(await takeGoBackNotice(box.dir)).toBeNull()
+    const taken = await takeGoBackNotice(box.dir)
+    expect(taken?.text).toBe('The person went back to build h1: the model files are as they were then, and prompts "make it taller", "add a lip" are undone. You keep what you learnt from them; do not try them again unless asked.')
+    // The answer has not left: the notice is still there for the next one to ask.
+    expect(existsSync(join(box.dir, '.torno', 'goback.json'))).toBe(true)
+    expect((await takeGoBackNotice(box.dir))?.text).toBe(taken!.text)
+    await taken!.done()
     expect(existsSync(join(box.dir, '.torno', 'goback.json'))).toBe(false)
+    expect(await takeGoBackNotice(box.dir)).toBeNull()
+  })
+
+  it('does not drop a second Go back\'s notice written while the first answer was on its way', async () => {
+    await twoPrompts()
+    await applyGoBack(box, await planned('h1'), { history, builds: asBuilds(builds()) })
+    const taken = await takeGoBackNotice(box.dir)
+    await build({ 'box/model.py': 'v4' }, { prompt: 'u3', text: 'round it' })
+    await applyGoBack(box, await planned('h1'), { history, builds: asBuilds(builds()) })
+    await taken!.done()
+    expect((await takeGoBackNotice(box.dir))?.text).toContain('"round it"')
   })
 
   it('tells of both when a second Go back comes before a prompt took the first', async () => {
@@ -259,7 +341,7 @@ describe('takeGoBackNotice', () => {
     await build({ 'box/model.py': 'v4' }, { prompt: 'u3', text: 'round it' })
     await applyGoBack(box, await planned('h3'), { history, builds: asBuilds(builds()) })
     await applyGoBack(box, await planned('h1'), { history, builds: asBuilds(builds()) })
-    const text = await takeGoBackNotice(box.dir)
+    const text = (await takeGoBackNotice(box.dir))!.text
     expect(text).toContain('went back to build h1')
     expect(text).toContain('"round it"')
     expect(text).toContain('"make it taller"')
@@ -279,7 +361,7 @@ describe('takeGoBackNotice', () => {
     await build({ 'box/model.py': 'v1' })
     for (let i = 0; i < 9; i++) await build({ 'box/model.py': `v${i + 2}` }, { prompt: `u${i}`, text: `${i} ${'x'.repeat(200)}` })
     await applyGoBack(box, await planned('h1'), { history, builds: asBuilds(builds()) })
-    const text = (await takeGoBackNotice(box.dir))!
+    const text = (await takeGoBackNotice(box.dir))!.text
     expect(text.length).toBeLessThan(900)
     expect(text).toMatch(/and 3 more/)
   })

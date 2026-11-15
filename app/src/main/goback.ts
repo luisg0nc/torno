@@ -1,6 +1,6 @@
 import { lstat, readFile, rm } from 'node:fs/promises'
 import { basename, dirname, join, posix } from 'node:path'
-import { type BuildTurn, type GoBackPlan, type GoBackResult, type HistoryEntry, HISTORY_ID, drawable } from '../shared/history'
+import { type BuildTurn, type GoBackPlan, type GoBackResult, type HistoryEntry, HISTORY_ID, causeOf, drawable } from '../shared/history'
 import type { ObjectInfo } from '../shared/workspace'
 import { writeFileAtomic } from './atomic'
 import type { Builds } from './builds'
@@ -51,9 +51,15 @@ const equal = (a: Buffer | null, b: Buffer | null): boolean => (a === null || b 
 export function entryBefore(entries: readonly HistoryEntry[], prompt: string, startedFrom?: { run: string; revision: number }): HistoryEntry | { refused: string } {
   const first = entries.findIndex((e) => e.turn?.prompt === prompt)
   if (first < 0) return { refused: 'No build was kept for that prompt, so there is nothing to go back from.' }
-  const before = entries.slice(0, first).findLast(drawable)
-  if (before) return before
-  const sent = startedFrom ? entries.slice(0, first).find((e) => drawable(e) && e.run === startedFrom.run && e.revision === startedFrom.revision) : undefined
+  const earlier = entries.slice(0, first)
+  const sent = startedFrom ? earlier.find((e) => drawable(e) && e.run === startedFrom.run && e.revision === startedFrom.revision) : undefined
+  const at = earlier.findLastIndex(drawable)
+  if (at >= 0) {
+    // Builds let go between that one and the prompt's first that is left (an old starred one outlived them) say it is not the one before the prompt.
+    const number = (e: HistoryEntry): number => Number(e.id.slice(1))
+    if (number(entries[first]) - number(earlier[at]) === first - at) return earlier[at]
+    return sent ?? { refused: 'The builds just before that prompt were let go, so the model as it was then is not kept.' }
+  }
   return sent ?? { refused: 'Nothing was kept of the model before that prompt, so there is no build to go back to.' }
 }
 
@@ -86,7 +92,9 @@ export async function planGoBack(obj: ObjectInfo, to: string): Promise<GoBackPla
   const after = entries.slice(at + 1)
   const prompts: BuildTurn[] = []
   for (const e of after) if (e.turn && !prompts.some((p) => p.prompt === e.turn!.prompt)) prompts.push(e.turn)
-  const plan: GoBackPlan = { to, write: [], remove: [], leftAlone: [], changedSince: [], params: false, undone: after.map((e) => e.id), prompts }
+  // The saves of the person's own among them: builds of their saves, their tried Params, or of no known cause (never a prompt's, never a Go back's).
+  const yours = (e: HistoryEntry): boolean => !e.failed && ['person', 'params', 'unknown'].includes(causeOf(e))
+  const plan: GoBackPlan = { to, write: [], remove: [], leftAlone: [], changedSince: [], params: false, undone: after.map((e) => e.id), undoneSaves: after.filter(yours).map((e) => e.id), prompts }
   const own = basename(obj.dir)
   // The copies the target holds, read now: one that cannot be read is no copy, and a half-restored model is worse than none.
   const copies = new Map<string, Buffer>()
@@ -110,19 +118,36 @@ export async function planGoBack(obj: ObjectInfo, to: string): Promise<GoBackPla
     const here = await lstat(absolute(obj, file)).catch(() => null)
     if (here?.isFile()) plan.remove.push(file)
   }
-  // What the person changed since the newest build: a file this would write or remove that is not as that build's copy had it.
+  // What the person changed since: a file this would write or remove that a save of theirs, among the builds after `to`,
+  // put in another state than the build before it had it (or first brought); and one that is not as the newest build's copy had it.
+  const touched = [...plan.write, ...plan.remove]
+  const changed = new Set<string>()
+  const last = new Map<string, Buffer | null>(touched.map((file) => [file, copies.get(file) ?? null]))
+  for (const e of after) {
+    if (e.files.length === 0) continue
+    for (const file of touched) {
+      if (!e.files.includes(file)) continue
+      const path = historySourcePath(obj.dir, e, file)
+      const bytes = path === null ? null : await bytesOf(path)
+      if (bytes === null) continue
+      const was = last.get(file) ?? null
+      if (yours(e) && (was === null || !equal(was, bytes))) changed.add(file)
+      last.set(file, bytes)
+    }
+  }
   const newest = entries.findLast(drawable)
   if (newest && newest.files.length > 0) {
-    for (const file of [...plan.write, ...plan.remove]) {
+    for (const file of touched) {
       if (!newest.files.includes(file)) {
-        if ((await bytesOf(absolute(obj, file))) !== null) plan.changedSince.push(file)
+        if ((await bytesOf(absolute(obj, file))) !== null) changed.add(file)
         continue
       }
       const path = historySourcePath(obj.dir, newest, file)
       const kept = path === null ? null : await bytesOf(path)
-      if (kept !== null && !equal(await bytesOf(absolute(obj, file)), kept)) plan.changedSince.push(file)
+      if (kept !== null && !equal(await bytesOf(absolute(obj, file)), kept)) changed.add(file)
     }
   }
+  plan.changedSince = touched.filter((file) => changed.has(file)).sort()
   const wanted = await triedThen(obj, target)
   if (wanted) plan.params = differs(overrideValues(obj.dir), wanted)
   return plan
@@ -150,7 +175,7 @@ const said = (e: unknown): string => (e instanceof Error ? e.message : String(e)
  * and a failure stops at it, saying what was done and what failed, with nothing undone or told. Nothing is
  * done while a session works (`busy`) or a build runs.
  */
-export async function applyGoBack(obj: ObjectInfo, plan: GoBackPlan, deps: { history: History; builds: Pick<Builds, 'rebuild' | 'state'>; busy?: () => string | null }): Promise<GoBackResult> {
+export async function applyGoBack(obj: ObjectInfo, plan: GoBackPlan, deps: { history: History; builds: Pick<Builds, 'rebuild' | 'state' | 'expect'>; busy?: () => string | null }): Promise<GoBackResult> {
   const refuse = (refused: string): GoBackResult => ({ done: [], refused })
   if (plan.fallback) return refuse('There is no copy of that build to put back: ask Claude to undo it instead.')
   const busy = deps.busy?.()
@@ -174,13 +199,19 @@ export async function applyGoBack(obj: ObjectInfo, plan: GoBackPlan, deps: { his
       if (why) return { done: [], failed: { file, why } }
     }
   }
+  // Before the first file is written: the watcher may report it and start a build, which is the Go back's, not the person's (`Builds.expect`).
+  deps.builds.expect(obj.id, 'goback', now.to)
   const done: string[] = []
+  const stop = (failed: { file: string; why: string }): GoBackResult => {
+    deps.builds.expect(obj.id)
+    return { done, failed }
+  }
   for (const file of now.write) {
     try {
       await writeFileAtomic(absolute(obj, file), copies.get(file)!)
       done.push(file)
     } catch (e) {
-      return { done, failed: { file, why: said(e) } }
+      return stop({ file, why: said(e) })
     }
   }
   for (const file of now.remove) {
@@ -188,7 +219,7 @@ export async function applyGoBack(obj: ObjectInfo, plan: GoBackPlan, deps: { his
       await rm(absolute(obj, file))
       done.push(file)
     } catch (e) {
-      return { done, failed: { file, why: said(e) } }
+      return stop({ file, why: said(e) })
     }
   }
   if (now.params) {
@@ -197,11 +228,12 @@ export async function applyGoBack(obj: ObjectInfo, plan: GoBackPlan, deps: { his
       if (wanted) await replaceOverrides(obj.dir, wanted)
       done.push(`${FOLDER}/params.json`)
     } catch (e) {
-      return { done, failed: { file: `${FOLDER}/params.json`, why: said(e) } }
+      return stop({ file: `${FOLDER}/params.json`, why: said(e) })
     }
   }
   // Right after the files, so that the build is the Go back's before the watcher reports them (`Builds.changed`).
   deps.builds.rebuild(obj.id, 'goback', now.to)
+  deps.builds.expect(obj.id)
   await deps.history.markUndone(obj, now.undone)
   try {
     await keepNotice(obj.dir, { to: now.to, undone: now.undone, prompts: now.prompts, at: new Date().toISOString() })
@@ -239,14 +271,18 @@ function label(t: BuildTurn): string {
   return `"${text.length > NOTICE_TEXT ? `${text.slice(0, NOTICE_TEXT - 1).trimEnd()}…` : text}"`
 }
 
-/** What the next prompt tells the agent, once. The file is removed as it is read; null when there is none (or it is not main's). */
-export async function takeGoBackNotice(dir: string): Promise<string | null> {
+/**
+ * What the next prompt tells the agent, and how to let the notice go. The file stays until `done` is called, which the
+ * caller does once the answer that holds the text has been handed over (a prompt whose answer never left tells it
+ * again); `done` removes it only if it is still the one that was read, so a Go back made meanwhile is not lost. Null
+ * when there is no notice (or the file is not main's: that one is removed at once).
+ */
+export async function takeGoBackNotice(dir: string): Promise<{ text: string; done: () => Promise<void> } | null> {
   const folder = await ownTorno(dir).catch(() => null)
   if (folder === null) return null
   const path = join(folder, NOTICE)
   const text = await readFile(path, 'utf8').catch(() => null)
   if (text === null) return null
-  await rm(path, { force: true }).catch(() => {})
   const notice = (() => {
     try {
       return noticeOf(JSON.parse(text) as unknown)
@@ -254,9 +290,17 @@ export async function takeGoBackNotice(dir: string): Promise<string | null> {
       return null
     }
   })()
-  if (!notice) return null
+  if (!notice) {
+    await rm(path, { force: true }).catch(() => {})
+    return null
+  }
   const names = notice.prompts.map(label)
   const list = `${names.slice(0, NOTICE_PROMPTS).join(', ')}${names.length > NOTICE_PROMPTS ? ` and ${names.length - NOTICE_PROMPTS} more` : ''}`
   const undone = names.length > 0 ? `and prompts ${list} are undone` : 'and the builds after it are undone'
-  return `The person went back to build ${notice.to}: the model files are as they were then, ${undone}. You keep what you learnt from them; do not try them again unless asked.`
+  return {
+    text: `The person went back to build ${notice.to}: the model files are as they were then, ${undone}. You keep what you learnt from them; do not try them again unless asked.`,
+    done: async () => {
+      if ((await readFile(path, 'utf8').catch(() => null)) === text) await rm(path, { force: true }).catch(() => {})
+    }
+  }
 }

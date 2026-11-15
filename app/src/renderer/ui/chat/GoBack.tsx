@@ -24,24 +24,42 @@ export function promptsSaid(prompts: readonly BuildTurn[], numbers: Map<string, 
   return prompts.length > MOST_PROMPTS ? [...said, `${prompts.length - MOST_PROMPTS} more`] : said
 }
 
+/** What is said when there is no copy to put back and Claude cannot be asked to undo the prompt either. */
+export const UNAVAILABLE_SAID = 'No copy of that build is kept to put back, and Claude cannot be asked to undo it from here.'
+
 /** What the plan says it will do, one line each, for the confirmation. Nothing is said of a thing the plan does not do. */
 export function planLines(plan: GoBackPlan, numbers: Map<string, number>, number: number): string[] {
   if (plan.fallback) return [FALLBACK_SAID]
   const lines = [`Puts the files back as they were at ${plan.to}, before prompt ${number}.`]
   if (plan.write.length > 0) lines.push(`Writes: ${plan.write.join(', ')}`)
-  if (plan.remove.length > 0) lines.push(`Deletes, made by the prompts it undoes: ${plan.remove.join(', ')}`)
+  if (plan.remove.length > 0) lines.push(`Deletes, first seen after that build: ${plan.remove.join(', ')}`)
   if (plan.write.length === 0 && plan.remove.length === 0) lines.push('The files are already as they were then.')
-  if (plan.changedSince.length > 0) lines.push(`You changed these since, and they are overwritten: ${plan.changedSince.join(', ')}`)
+  if (plan.changedSince.length > 0) lines.push(`You changed these since, and they are overwritten or deleted: ${plan.changedSince.join(', ')}`)
   if (plan.leftAlone.length > 0) lines.push(`Left as they are, not of this project: ${plan.leftAlone.join(', ')}`)
   if (plan.params) lines.push('Your tried Params are put back as they were for that build.')
-  if (plan.prompts.length > 0) lines.push(`Undoes ${promptsSaid(plan.prompts, numbers).join('; ')}`)
+  const saves = plan.undoneSaves.length > 0 ? `your saves ${plan.undoneSaves.join(', ')}` : ''
+  if (plan.prompts.length > 0) lines.push(`Undoes ${promptsSaid(plan.prompts, numbers).join('; ')}${saves ? ` and ${saves}` : ''}`)
+  else if (saves) lines.push(`Undoes ${saves}`)
   return lines
+}
+
+/**
+ * What follows the plan main gave: the question; or, with no build to go back to or no copy of it, asking Claude to undo
+ * (only the last turn of a live chat can be, `undoable`); or nothing to offer.
+ */
+export function afterPlan(plan: GoBackPlan | { refused: string }, undoable: boolean): { at: 'confirm'; plan: GoBackPlan } | { at: 'unavailable' } | { at: 'said'; text: string } {
+  if ('refused' in plan) return undoable ? { at: 'confirm', plan: NO_COPY } : { at: 'said', text: plan.refused }
+  if (plan.fallback && !undoable) return { at: 'unavailable' }
+  return { at: 'confirm', plan }
 }
 
 /** The first thing a Go back could not do, or why it did nothing, in words. */
 export const resultSaid = (r: GoBackResult): string | null => (r.refused ? r.refused : r.failed ? `${r.failed.file}: ${r.failed.why}${r.done.length > 0 ? ` (written before: ${r.done.join(', ')})` : ''}` : null)
 
-type State = { at: 'idle' } | { at: 'asking' } | { at: 'confirm'; plan: GoBackPlan } | { at: 'going'; plan: GoBackPlan } | { at: 'said'; text: string }
+/** What there is to confirm when only Claude can be asked to undo. */
+const NO_COPY: GoBackPlan = { to: '', write: [], remove: [], leftAlone: [], changedSince: [], params: false, undone: [], undoneSaves: [], prompts: [], fallback: 'undo' }
+
+type State = { at: 'idle' } | { at: 'unavailable' } | { at: 'asking' } | { at: 'confirm'; plan: GoBackPlan } | { at: 'going'; plan: GoBackPlan } | { at: 'said'; text: string }
 
 /**
  * "Go back to before this prompt": reads what it would do (`history.goBackPlan`), asks once with all of it listed (the files it
@@ -64,12 +82,11 @@ export function GoBack({ turnId, joined, undoable }: { turnId: string; joined: J
 
   const say = (text: string): void => setState({ at: 'said', text })
   const ask = async (): Promise<void> => {
-    if (!joined || !built) return setState({ at: 'confirm', plan: { to: '', write: [], remove: [], leftAlone: [], changedSince: [], params: false, undone: [], prompts: [], fallback: 'undo' } })
+    if (!joined || !built) return setState({ at: 'confirm', plan: NO_COPY })
     setState({ at: 'asking' })
     try {
       const plan = await window.torno.history.goBackPlan(objectId, joined.promptId)
-      if ('refused' in plan) say(plan.refused)
-      else setState({ at: 'confirm', plan })
+      setState(afterPlan(plan, undoable))
     } catch (e) {
       say(e instanceof Error ? e.message : String(e))
     }
@@ -102,6 +119,8 @@ export function GoBack({ turnId, joined, undoable }: { turnId: string; joined: J
       </Confirm>
     )
   }
+  // No copy and no undo: nothing to offer, so the button is not there (the spec's "neither available").
+  if (state.at === 'unavailable') return <span className="chat-turn-problem">{UNAVAILABLE_SAID}</span>
   const busy = state.at === 'asking' || state.at === 'going'
   return (
     <>

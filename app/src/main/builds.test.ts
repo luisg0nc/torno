@@ -1277,6 +1277,33 @@ describe('what a build was started for (reason)', () => {
     expect(scenes.at(-1)).toMatchObject({ reason: 'goback', wentBackTo: 'h4' })
   })
 
+  it('gives the next build the watcher starts to a Go back that said it was coming, once', async () => {
+    const { kernel, builds, scenes, watched } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    builds.expect('bracket', 'goback', 'h4')
+    // The watcher reports the first file Go back wrote, and starts a build, before the rest are written and before it asks for its own.
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    expect(builds.rebuild('bracket', 'goback', 'h4')).toBe(false)
+    await landed(kernel, 1)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'goback', wentBackTo: 'h4' })
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 2)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'watch' })
+    expect(scenes.at(-1)!.wentBackTo).toBeUndefined()
+  })
+
+  it('forgets a Go back that is no longer coming', async () => {
+    const { kernel, builds, scenes, watched } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    builds.expect('bracket', 'goback', 'h4')
+    builds.expect('bracket')
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 1)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'watch' })
+  })
+
   it('says params for a build the person\'s overrides started, and says it on a failure too', async () => {
     const { kernel, builds, states } = setup()
     builds.open(bracket)

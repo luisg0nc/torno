@@ -1,6 +1,7 @@
 import { readFile, readdir, rm } from 'node:fs/promises'
 import { join, posix } from 'node:path'
 import { type BuildCause, type BuildTurn, type HistoryDimensions, type HistoryEntry, HISTORY_ID, HISTORY_KEPT, changeLine, drawable, sceneFacts } from '../shared/history'
+import type { BuildReason } from '../shared/build'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { writeFileAtomic } from './atomic'
@@ -35,6 +36,18 @@ export interface KeptCause {
   cause: BuildCause
   turn?: BuildTurn
   wentBackTo?: string
+}
+
+/**
+ * What made a build: the reason `Builds` started it for when that says (the person's `Params`, a Go back; `open` is the
+ * first build of a project just opened, of files that may have been changed while torno was closed, so no one's), else
+ * what the session of the object says of the moment the build began (`bySession`).
+ */
+export function keptCause(reason: BuildReason | undefined, wentBackTo: string | undefined, bySession: () => KeptCause): KeptCause {
+  if (reason === 'params') return { cause: 'params' }
+  if (reason === 'goback') return { cause: 'goback', ...(wentBackTo ? { wentBackTo } : {}) }
+  if (reason === 'open') return { cause: 'unknown' }
+  return bySession()
 }
 
 const causeFields = (c: KeptCause): Pick<HistoryEntry, 'cause' | 'turn' | 'wentBackTo'> => ({ cause: c.cause, ...(c.turn ? { turn: c.turn } : {}), ...(c.wentBackTo ? { wentBackTo: c.wentBackTo } : {}) })

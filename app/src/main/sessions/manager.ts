@@ -1426,7 +1426,13 @@ export class Sessions {
     if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}${text ? `, answered with: ${text}` : ''}`)
     // Marks are sent once the answer that names them has been handed over whole: not when the agent hung
     // up first, and not to a session that has been hung up on, whose prompt nobody will answer.
-    if (text && sentMarkIds.length > 0 && !session.killTimer) res.once('finish', () => this.deps.onDelivered?.(objectId, sentMarkIds))
+    if (text && !session.killTimer) {
+      res.once('finish', () => {
+        if (sentMarkIds.length > 0) this.deps.onDelivered?.(objectId, sentMarkIds)
+        // What was kept until the answer left (a Go back's notice) is let go now; a failure of that is not the prompt's.
+        void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
+      })
+    }
     sendJson(res, 200, text ? { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } } : {})
   }
 }

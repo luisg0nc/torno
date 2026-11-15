@@ -270,6 +270,8 @@ export class Transcript {
    */
   context(c: { text: string; sentMarkIds: string[]; prompt?: string; revision?: number; buildState?: 'ok' | 'failed' | 'building'; selection?: string[]; instructions?: number; identity?: BuildIdentity }): ChatItem | null {
     let made: ChatItem | null = null
+    // Which prompt this hook took up: none until it is found one, so that a hook that matches no waiting prompt does not leave the last one's.
+    this.promptTaken = undefined
     this.run(() => {
       this.hookSeen = true
       this.stopWaiting()

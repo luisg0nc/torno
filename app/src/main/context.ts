@@ -136,6 +136,11 @@ export interface PromptContext {
   digest?: BuildDigest
   /** How many instruction files the text names (the first prompt of a session, and the first after `/clear`), as data for the chat's line. Absent when it names none. */
   instructions?: number
+  /**
+   * Called once the answer that holds `text` has been handed over whole (not when the agent hung up first): for what is
+   * kept until then and removed after, such as a Go back's notice (`takeGoBackNotice`).
+   */
+  delivered?: () => void | Promise<void>
 }
 
 /**

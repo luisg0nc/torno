@@ -3,8 +3,10 @@ import type { PromptRow } from '../../../shared/chat'
 import type { HistoryEntry } from '../../../shared/history'
 import { actions, explodeNow, useStore } from '../../state/store'
 import { useHistory } from '../useHistory'
+import { GoBack } from './GoBack'
 import { ago } from './ago'
 import { SaveLine } from './SaveLine'
+import { PromptNumbers, ChatIdle } from './turnContext'
 import { promptLines, resultWord, type PromptItem, type PromptLine } from './promptsView'
 import { usePrompts } from './usePrompts'
 import { useThumb } from './useThumb'
@@ -25,7 +27,7 @@ const toneOf = (word: string): 'fail' | 'warn' | 'ok' | undefined => (word.inclu
  * (`h40 → h41`), what they came to in a word, and when. A click compares the prompt (its last build over the one it started
  * from); a double click, or "Open in chat", opens it in the chat.
  */
-const PromptRowView = memo(function PromptRowView({ objectId, item, onOpen, blocked, now }: { objectId: string; item: PromptItem; onOpen?: (row: PromptRow) => void; blocked: string | null; now: number }) {
+const PromptRowView = memo(function PromptRowView({ objectId, item, onOpen, goBack, blocked, now }: { objectId: string; item: PromptItem; onOpen?: (row: PromptRow) => void; goBack?: boolean; blocked: string | null; now: number }) {
   const { row, from, to } = item
   // A terminal's prompt is in no chat: there is nothing to open.
   const open = row.id.startsWith('t-') ? undefined : onOpen
@@ -85,6 +87,11 @@ const PromptRowView = memo(function PromptRowView({ objectId, item, onOpen, bloc
           Open in chat
         </button>
       )}
+      {goBack && item.entries.length > 0 && !item.gone && (
+        <span className="prompt-goback">
+          <GoBack turnId={row.id} joined={{ promptId: row.id, number: row.number, entries: item.entries, ...(from ? { from } : {}) }} undoable={false} />
+        </span>
+      )}
     </li>
   )
 })
@@ -128,8 +135,9 @@ function summary(rows: readonly PromptRow[], builds: number): ReactNode {
  * conversation began and one for what the person built between two prompts. The rows are the project's prompts (`rows`, from
  * main) joined to its builds (`useHistory`) by what main labelled each build with. Filters: Starred, Hide gone back.
  * `current`: the conversation the chat shows. `onOpen`: where a row is opened in the chat (not in a terminal's pane).
+ * `goBack`: each prompt that built something has "Go back to before this prompt" (a terminal's pane has no turn to put it on).
  */
-export function PromptsOnly({ rows, current, onOpen }: { rows: PromptRow[] | undefined; current?: string; onOpen?: (row: PromptRow) => void }) {
+export function PromptsOnly({ rows, current, onOpen, goBack }: { rows: PromptRow[] | undefined; current?: string; onOpen?: (row: PromptRow) => void; goBack?: boolean }) {
   const objectId = useStore((s) => s.objectId)
   const history = useHistory(true)
   const blocked = useStore((s) => (s.section !== null ? 'Take the section away first: an earlier build is not drawn cut.' : explodeNow(s) !== null ? 'Put the parts together first: an earlier build is not drawn apart.' : null))
@@ -141,7 +149,7 @@ export function PromptsOnly({ rows, current, onOpen }: { rows: PromptRow[] | und
   const now = useMemo(() => Date.now(), [lines])
 
   const draw = (line: PromptLine): ReactNode => {
-    if (line.kind === 'prompt') return objectId === null ? null : <PromptRowView key={line.row.id} objectId={objectId} item={line} onOpen={onOpen} blocked={blocked} now={now} />
+    if (line.kind === 'prompt') return objectId === null ? null : <PromptRowView key={line.row.id} objectId={objectId} item={line} onOpen={onOpen} goBack={goBack} blocked={blocked} now={now} />
     if (line.kind === 'saves')
       return (
         <li key={line.id} className="prompt-between">
@@ -190,7 +198,9 @@ export function PromptsOnly({ rows, current, onOpen }: { rows: PromptRow[] | und
  */
 export function PromptsPane({ onClose }: { onClose: () => void }) {
   const history = useHistory(true)
-  const rows = usePrompts(true, String(history?.entries.length ?? 0))
+  // Asked again when a build is kept: by the newest build's id, which still changes once the history holds as many as it keeps.
+  const rows = usePrompts(true, history?.entries.at(-1)?.id ?? '')
+  const numbers = useMemo(() => new Map((rows ?? []).map((row) => [row.id, row.number])), [rows])
   return (
     <section className="session-prompts" aria-label="Prompts only">
       <header className="session-prompts-head">
@@ -200,7 +210,12 @@ export function PromptsPane({ onClose }: { onClose: () => void }) {
           Close
         </button>
       </header>
-      <PromptsOnly rows={rows} />
+      {/* No chat here to say whether Claude works: main refuses a Go back while a session of the project does. */}
+      <ChatIdle.Provider value={true}>
+        <PromptNumbers.Provider value={numbers}>
+          <PromptsOnly rows={rows} goBack />
+        </PromptNumbers.Provider>
+      </ChatIdle.Provider>
     </section>
   )
 }

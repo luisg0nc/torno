@@ -41,6 +41,7 @@ async function landed(revision: number): Promise<void> {
 }
 
 test('a save of the person, the person\'s params, an edit of the agent and a failure of it are told apart', async () => {
+  // The build that opens the project is of files that may have changed while torno was closed: no one's.
   await openListed(page, 'hollow')
   await landed(1)
   const source = readFileSync(model(), 'utf8')
@@ -57,7 +58,7 @@ test('a save of the person, the person\'s params, an edit of the agent and a fai
   await expect.poll(async () => entries().some((e) => e.failed), { timeout: 30_000 }).toBe(true)
 
   const kept = entries()
-  expect(kept.map((e) => [e.cause, e.failed === true])).toEqual([['person', false], ['person', false], ['params', false], ['agent', true]])
+  expect(kept.map((e) => [e.cause, e.failed === true])).toEqual([['unknown', false], ['person', false], ['params', false], ['agent', true]])
   const failed = kept[3]
   expect(failed.turn).toMatchObject({ text: 'edit hollow.py "return {" "return WAL, {"' })
   expect(failed.turn!.conversation).toMatch(/^[0-9a-f-]{36}$/)

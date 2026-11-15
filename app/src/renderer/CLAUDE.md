@@ -830,11 +830,14 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   builds that failed on the way). The buttons: "Compare" (`actions.compare(from, to, prompt number)`, "Comparing" while
   it is on, off while a section or an explode is), "See changes", "Go back to before this prompt" (`GoBack.tsx`) and
   "Star" (`history.star` on the last build). Go back reads `history.goBackPlan` and asks once with `Confirm`, listing
-  what is written, deleted, left alone, changed since, the Params and the prompts undone (`planLines`), then calls
+  what is written, deleted, left alone, changed since (a save of the person's among the builds it undoes counts), the Params, the prompts undone and
+  "your saves h42" (`planLines`), then calls
   `history.goBack` with what it was shown; it is off while the session works (`ChatIdle`). A plan with `fallback: 'undo'`
   says "Claude will be asked to put the files back instead." and its "Ask Claude" is `chat.undo`, offered only on the
   last turn of a live idle chat (`UndoableTurn`, which `ChatPane` gives its id to while no prompt of the person's
-  follows); a refusal of main is said beside the button. Between turns, a build the person made (`cause` person or
+  follows; `afterPlan`): on any other turn, and in a terminal's pane, there is nothing to ask and the answer to the click is a sentence in the
+  button's place; a refusal of main is said beside the button. The pane of Prompts only over a terminal (`PromptsPane`) puts "Go back to before this
+  prompt" on each row that built something (`PromptsOnly`'s `goBack`, keyed by the row's id, `t-<conversation>-<n>` there). Between turns, a build the person made (`cause` person or
   params) is a line (`SaveLine.tsx`; `savesBetween` takes them between two prompts' times, several in a row with no
   other build between are one run, `saveWords`); the prompts a Go back undid (`goneBack`: every build of the prompt is
   `undone`) are one faded row with "Show" (`rowsOf` in `Items.tsx`, which also places the lines), faded by the muted

@@ -379,7 +379,7 @@ in a word (`passes`, `2 failed on the way`, `build failed`, `starred`, `gone bac
 (your saves in your own editor, the Params you tried) is a line between the rows; the prompts a Go back undid are one faded row, openable. **Starred** keeps the
 prompts with a starred build, **Hide gone back** leaves out the ones you went back from. Click a row to compare it (below), double-click it, or **Open in chat**, to read it in the chat where it was said.
 The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
-is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened.
+is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
 The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are on the turns of the chat.
 What a kept build had then (checks that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands now.
 **Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the earlier build alone), **Overlay**
@@ -390,7 +390,7 @@ have landed, that older build, which stands in for the live one until you go bac
 It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
 show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from
 the meshes held in memory (never on disk, within a budget of 64 MB for the builds before the newest, the oldest let go first); an older one is built again from
-its copy of the files, with the model's own `Params` defaults, in a worker thrown away that keeps and writes nothing, and the status line says `Building h40 to compare…` while it takes: the first time
+its copy of the files, with the values of `Params` that build was made with, in a worker thrown away that keeps and writes nothing, and the status line says `Building h40 to compare…` while it takes: the first time
 only waits for one build. A build that failed, or whose copy was not kept or no longer builds, is not drawn: the view says why. The agent reads the same with `history`, and compares any two with `diff`.
 
 **A failed fillet or chamfer.** build123d and OpenCascade say only that a fillet
@@ -765,9 +765,8 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   `h39` to `h41`"). torno says which build was whose when it keeps the build, so a save made while a turn runs is
   yours, not the agent's.
 - **Go back to before this prompt.** On a turn that made builds, while the session is idle. It first says what it
-  would do: the files it would write, the files it would delete (a `.py` file of this project that the prompts it
-  undoes made), the files it leaves as they are (`common/` and other projects' files, which it never changes), the
-  files you changed since the last build (they are overwritten, and are named), whether the Params you tried are put
+  would do: the files it would write, the files it would delete (a `.py` file of this project first seen in a build after the one it goes back to), the files it leaves as they are (`common/` and other projects' files, which it never changes), the
+  files you changed since (a save of yours among the builds it undoes counts: they are overwritten or deleted, and are named), your saves it undoes ("and your saves `h42`"), whether the Params you tried are put
   back as they were, and the prompts it undoes. On "Go back" it puts the project's own `.py` files back as they were
   in the build the prompt began from, from the copies under `.torno/history/`, each whole or not at all; Claude is
   told, with your next prompt and in a note in the chat, what was put back and that it keeps what it learnt. The

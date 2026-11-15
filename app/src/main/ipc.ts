@@ -20,7 +20,7 @@ import { rebuildKept } from './oldbuild'
 import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
 import { type GoBackPlan, type GoBackResult, applyGoBack, entryBefore, planGoBack } from './goback'
-import { History, type KeptCause, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
+import { History, type KeptCause, keptCause, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
 import { type HistoryEntry, type HistoryGhost, type HistoryList, drawable } from '../shared/history'
 import type { Verdict } from '../shared/sanity'
 import { gitStateRecently } from './git'
@@ -377,9 +377,7 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
  * its turn's first edit, the person otherwise).
  */
 function causeOfBuild(objectId: string, startedMs: number | undefined, reason: BuildReason | undefined, wentBackTo: string | undefined): KeptCause {
-  if (reason === 'params') return { cause: 'params' }
-  if (reason === 'goback') return { cause: 'goback', ...(wentBackTo ? { wentBackTo } : {}) }
-  return sessions?.causeOf(objectId, startedMs ?? 0) ?? { cause: 'person' }
+  return keptCause(reason, wentBackTo, () => sessions?.causeOf(objectId, startedMs ?? 0) ?? { cause: 'person' })
 }
 
 /**
