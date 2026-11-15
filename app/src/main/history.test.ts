@@ -6,7 +6,7 @@ import { HISTORY_KEPT, causeOf, drawable } from '../shared/history'
 import type { Part, Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { type BuildRecord, sourcesHash } from './buildlog'
-import { History, MOST_THUMB_BYTES, historySourcePath, keptCause, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
+import { History, MOST_THUMB_BYTES, historySourcePath, keptCause, readHistory, readHistoryDrawnGone, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
 
 let root: string
 let box: ObjectInfo
@@ -270,6 +270,31 @@ describe('History pruning', () => {
     await build('s = last\n')
     expect((await readHistory(box.dir))[0].id).not.toBe('h1')
   }, 60_000)
+
+  it('says the newest build that drew of those let go, and not the failed ones', async () => {
+    expect(await readHistoryDrawnGone(box.dir)).toBe(0)
+    await build('s = 0\n')
+    await failedAt('s = (\n')
+    for (let i = 1; i < HISTORY_KEPT; i++) await build(`s = ${i}\n`)
+    // 101 entries: the failed h2 goes first, and no build that drew.
+    expect((await readHistory(box.dir)).some((e) => e.id === 'h2')).toBe(false)
+    expect(await readHistoryDrawnGone(box.dir)).toBe(0)
+    await build('s = more\n')
+    expect(await readHistoryDrawnGone(box.dir)).toBe(1)
+    // A star or an undone mark written after keeps it.
+    await history.star(box, 'h3', true)
+    await history.markUndone(box, ['h4'])
+    expect(await readHistoryDrawnGone(box.dir)).toBe(1)
+  }, 60_000)
+
+  it('takes what is missing below the oldest build not starred as drawn, in an index from before it was kept', async () => {
+    await build('s = 0\n')
+    await build('s = 1\n')
+    const path = join(box.dir, '.torno/history/index.json')
+    const index = JSON.parse(readFileSync(path, 'utf8'))
+    writeFileSync(path, JSON.stringify({ next: 9, entries: [{ ...index.entries[0], id: 'h2', starred: true }, { ...index.entries[1], id: 'h6' }] }))
+    expect(await readHistoryDrawnGone(box.dir)).toBe(5)
+  })
 
   it('stars only a build that is kept', async () => {
     await build('a = 1\n')

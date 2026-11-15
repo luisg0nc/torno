@@ -61,10 +61,16 @@ function triedParams(before: Scene | null, now: Scene): Pick<HistoryEntry, 'trie
 
 interface Index {
   next: number
+  /** The number of the newest build that drew of those let go (0 for none): a gap in the ids below it may be one, a gap above it only failed builds. */
+  drawnGone: number
   entries: HistoryEntry[]
 }
 
 const number = (id: string): number => Number(id.slice(1))
+
+/** The index as written: the newest drawn build let go is the most of what it was and of those `gone`. */
+const indexText = (next: number, entries: readonly HistoryEntry[], drawnGone: number, gone: readonly HistoryEntry[] = []): string =>
+  `${JSON.stringify({ next, drawnGone: Math.max(drawnGone, ...gone.filter(drawable).map((e) => number(e.id))), entries })}\n`
 
 function entryOf(raw: unknown): HistoryEntry | null {
   const e = raw as Partial<HistoryEntry> | null
@@ -99,12 +105,21 @@ async function readIndex(dir: string): Promise<Index> {
   // The next number is never below one a folder has already: an index lost or broken does not give a number twice.
   const folders = (await readdir(join(dir, '.torno', HISTORY_FOLDER)).catch(() => [] as string[])).filter((name) => HISTORY_ID.test(name)).map(number)
   const next = Math.max(Number.isInteger(found?.next) ? found!.next! : 1, ...entries.map((e) => number(e.id) + 1), ...folders.map((n) => n + 1), 1)
-  return { next, entries }
+  // An index from before it was kept: the oldest builds were let go first and a starred one outlives them, so what is
+  // missing below the oldest entry not starred may have drawn, and nothing above it did.
+  const oldestLoose = entries.find((e) => !e.starred)
+  const drawnGone = Number.isInteger(found?.drawnGone) && found!.drawnGone! >= 0 ? found!.drawnGone! : oldestLoose ? number(oldestLoose.id) - 1 : Math.max(0, next - 1)
+  return { next, drawnGone, entries }
 }
 
 /** The builds kept of an object, oldest first; none when there is no history. */
 export async function readHistory(dir: string): Promise<HistoryEntry[]> {
   return (await readIndex(dir)).entries
+}
+
+/** The number of the newest build that drew of those let go from the history (0 for none), for Go back to tell a gap in the ids it must refuse. */
+export async function readHistoryDrawnGone(dir: string): Promise<number> {
+  return (await readIndex(dir)).drawnGone
 }
 
 /** The scene a kept build left (without its mesh), or null. */
@@ -222,7 +237,7 @@ export class History {
         await writeFileAtomic(join(folder, 'scene.json'), JSON.stringify({ ...scene, output: '' }))
         const entries = [...index.entries, entry]
         const gone = pruned(entries)
-        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), `${JSON.stringify({ next: index.next + 1, entries: entries.filter((e) => !gone.includes(e)) })}\n`)
+        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), indexText(index.next + 1, entries.filter((e) => !gone.includes(e)), index.drawnGone, gone))
         await sweep(obj.dir, new Set(entries.filter((e) => !gone.includes(e)).map((e) => e.id)))
         this.changed(obj.dir)
         return entry
@@ -266,7 +281,7 @@ export class History {
         const gone = pruned(entries)
         const folder = await folderOf(obj.dir)
         const kept = entries.filter((e) => !gone.includes(e))
-        await writeFileAtomic(join(folder, INDEX), `${JSON.stringify({ next: index.next + 1, entries: kept })}\n`)
+        await writeFileAtomic(join(folder, INDEX), indexText(index.next + 1, kept, index.drawnGone, gone))
         await sweep(obj.dir, new Set(kept.map((e) => e.id)))
         this.changed(obj.dir)
         return entry
@@ -321,7 +336,7 @@ export class History {
           return { ...e, undone: true as const }
         })
         if (marked.length === 0) return []
-        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), `${JSON.stringify({ next: index.next, entries })}\n`)
+        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), indexText(index.next, entries, index.drawnGone))
         this.changed(obj.dir)
         return marked
       } catch (e) {
@@ -341,7 +356,7 @@ export class History {
         const folder = await folderOf(obj.dir)
         await asked.write?.(folder)
         const entries = index.entries.map((e) => (e.id === asked.entry.id ? asked.entry : e))
-        await writeFileAtomic(join(folder, INDEX), `${JSON.stringify({ next: index.next, entries })}\n`)
+        await writeFileAtomic(join(folder, INDEX), indexText(index.next, entries, index.drawnGone))
         this.changed(obj.dir)
         return true
       } catch (e) {

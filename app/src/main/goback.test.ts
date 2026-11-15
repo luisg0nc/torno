@@ -194,6 +194,16 @@ describe('entryBefore', () => {
     // The build current when the prompt was sent is still an answer when it is kept.
     expect(entryBefore([e('h1', undefined, { run: 'r9', revision: 4 }), e('h4', 'u1')], 'u1', { run: 'r9', revision: 4 })).toMatchObject({ id: 'h1' })
   })
+  it('is no gap when only failed builds between them were let go, past the 100 kept', () => {
+    // h50 failed and was pruned; no build that drew was let go above h49.
+    const entries = [e('h49'), e('h51', 'u1')]
+    expect(entryBefore(entries, 'u1', undefined, 0)).toMatchObject({ id: 'h49' })
+    expect(entryBefore(entries, 'u1', undefined, 48)).toMatchObject({ id: 'h49' })
+    // A build that drew was let go above h49: h50 was one of those.
+    expect(entryBefore(entries, 'u1', undefined, 50)).toMatchObject({ refused: expect.any(String) })
+    // An index that does not say treats every gap as real.
+    expect(entryBefore(entries, 'u1')).toMatchObject({ refused: expect.any(String) })
+  })
   it('refuses a prompt that made no build', () => {
     expect(entryBefore([e('h1')], 'u9')).toMatchObject({ refused: expect.any(String) })
   })

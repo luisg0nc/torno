@@ -20,7 +20,7 @@ import { rebuildKept } from './oldbuild'
 import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
 import { type GoBackPlan, type GoBackResult, applyGoBack, entryBefore, planGoBack } from './goback'
-import { History, type KeptCause, keptCause, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
+import { History, type KeptCause, keptCause, readHistory, readHistoryDrawnGone, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
 import { type HistoryEntry, type HistoryGhost, type HistoryList, drawable } from '../shared/history'
 import type { Verdict } from '../shared/sanity'
 import { gitStateRecently } from './git'
@@ -463,7 +463,7 @@ async function goBackTarget(objectId: string, prompt: string): Promise<{ obj: Ob
   const obj = findObject(objectId)
   if (!obj || !current) return { refused: 'That project is not open.' }
   const revision = sessions?.startedFrom(prompt)
-  const found = entryBefore(await readHistory(obj.dir), prompt, revision === undefined ? undefined : { run: current.buildLog.run, revision })
+  const found = entryBefore(await readHistory(obj.dir), prompt, revision === undefined ? undefined : { run: current.buildLog.run, revision }, await readHistoryDrawnGone(obj.dir))
   return 'refused' in found ? found : { obj, to: found.id }
 }
 

@@ -46,9 +46,11 @@ const equal = (a: Buffer | null, b: Buffer | null): boolean => (a === null || b 
 /**
  * The build "before this prompt" is the newest one that can be drawn before the prompt's first (`prompt` is the id
  * of its chat item, else `t-<conversation>-<n>`); with none kept before it, the build that was current when the
- * prompt was sent (`startedFrom`, as the session saw it), when that one is kept; else a sentence.
+ * prompt was sent (`startedFrom`, as the session saw it), when that one is kept; else a sentence. `drawnGone` is the
+ * number of the newest build that drew of those the history let go (`readHistoryDrawnGone`): a gap in the ids above it
+ * is failed builds only. Without it every gap is taken as one that drew.
  */
-export function entryBefore(entries: readonly HistoryEntry[], prompt: string, startedFrom?: { run: string; revision: number }): HistoryEntry | { refused: string } {
+export function entryBefore(entries: readonly HistoryEntry[], prompt: string, startedFrom?: { run: string; revision: number }, drawnGone = Number.POSITIVE_INFINITY): HistoryEntry | { refused: string } {
   const first = entries.findIndex((e) => e.turn?.prompt === prompt)
   if (first < 0) return { refused: 'No build was kept for that prompt, so there is nothing to go back from.' }
   const earlier = entries.slice(0, first)
@@ -57,7 +59,7 @@ export function entryBefore(entries: readonly HistoryEntry[], prompt: string, st
   if (at >= 0) {
     // Builds let go between that one and the prompt's first that is left (an old starred one outlived them) say it is not the one before the prompt.
     const number = (e: HistoryEntry): number => Number(e.id.slice(1))
-    if (number(entries[first]) - number(earlier[at]) === first - at) return earlier[at]
+    if (number(entries[first]) - number(earlier[at]) === first - at || drawnGone <= number(earlier[at])) return earlier[at]
     return sent ?? { refused: 'The builds just before that prompt were let go, so the model as it was then is not kept.' }
   }
   return sent ?? { refused: 'Nothing was kept of the model before that prompt, so there is no build to go back to.' }

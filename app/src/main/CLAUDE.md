@@ -530,7 +530,9 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   The hash is of the files as they are when the build lands; a save during a build builds again.
 - **A history of builds** (`src/main/history.ts`, `shared/history.ts`; #56). `History.keep` (called from `ipc.ts` when a build lands, with the
   promise of `BuildLog.record`, so in the order builds landed) keeps each build that worked under `.torno/history/`, ignored through
-  `ensureIgnored(dir, ['history/'])`: `index.json` (`{ next, entries }`, written whole and atomically), and per build `h41/scene.json` (the
+  `ensureIgnored(dir, ['history/'])`: `index.json` (`{ next, drawnGone, entries }`, written whole and atomically; `drawnGone` is the number of the newest build that
+  drew of those pruned, so Go back can tell a gap of failed builds only from one it must refuse, and an index without it takes it as the
+  entry before the oldest one not starred), and per build `h41/scene.json` (the
   scene without `output`; its mesh was never in it), `h41/source/<path from the workspace>` (copies of the files `sourcesHash` goes by, read
   once with `readSources`; not copied, and the entry kept with `files: []`, when they hash otherwise than `BuildRecord.sources` says, or pass
   `MOST_FILE_BYTES` a file or `MOST_COPY_BYTES` a build) and `h41/thumb.png` (the card's picture, attached by `History.thumbnail` from
