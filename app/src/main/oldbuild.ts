@@ -4,7 +4,7 @@ import { basename, dirname, join, posix, relative, sep } from 'node:path'
 import type { Scene } from '../shared/scene'
 import { type HistoryEntry, drawable } from '../shared/history'
 import type { ObjectInfo } from '../shared/workspace'
-import { historySourcePath } from './history'
+import { historySourcePath, readHistoryScene } from './history'
 import type { KernelClient } from './kernel/client'
 
 // An older kept build, drawn again from its copy (Compare can draw any kept build). Its sources are laid out under
@@ -30,7 +30,7 @@ const firstLine = (text: string): string => text.split('\n').find((line) => line
 /**
  * Builds the copy of a kept build and gives its scene and mesh as a build does, or says in a sentence why it
  * cannot: the build failed (it has no copies), its copies were not kept, the kernel is busy, or the copy does not
- * build. It builds with the model's own defaults: the build's values of `Params` are not kept with its copies.
+ * build. It builds with the values of `Params` the build was made with (`overrides.applied` of its scene), so what is drawn is the build the history has.
  */
 export async function rebuildKept(obj: ObjectInfo, entry: HistoryEntry, deps: { kernel: Pick<KernelClient, 'trial'>; userData: string; timeout?: number }): Promise<{ scene: Scene; blob: Uint8Array } | { refused: string }> {
   if (!drawable(entry)) return { refused: `Build ${entry.id} failed, so there is nothing of it to draw.` }
@@ -52,7 +52,9 @@ export async function rebuildKept(obj: ObjectInfo, entry: HistoryEntry, deps: { 
         throw new Error(`The copy of ${file} in build ${entry.id} is missing.`)
       })
     }
-    const result = await deps.kernel.trial(join(laid, project), entry.model, {}, [], { mesh: true, ...(deps.timeout === undefined ? {} : { timeout: deps.timeout }) })
+    // The values of `Params` the build was made with, as its scene kept them (the model's defaults when it says none).
+    const overrides = (await readHistoryScene(obj.dir, entry.id))?.overrides?.applied ?? {}
+    const result = await deps.kernel.trial(join(laid, project), entry.model, overrides, [], { mesh: true, ...(deps.timeout === undefined ? {} : { timeout: deps.timeout }) })
     if (!result.ok) return { refused: `Build ${entry.id} does not build from its copy: ${firstLine(result.error.message) || result.error.kind}` }
     if (!result.blob) return { refused: `The kernel gave no mesh for build ${entry.id}.` }
     return { scene: result.scene, blob: result.blob }

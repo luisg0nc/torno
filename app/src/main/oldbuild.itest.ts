@@ -91,6 +91,31 @@ describe('rebuildKept', () => {
     expect(drawn).toEqual({ refused: expect.stringContaining('no thanks') })
   })
 
+  it('builds with the values of Params the build was made with, not the model\'s defaults', async () => {
+    const model = [
+      'from dataclasses import dataclass, field',
+      'from build123d import Box',
+      '',
+      '@dataclass(frozen=True)',
+      'class Params:',
+      '    wall: float = field(default=2, metadata={"min": 1, "max": 5})',
+      '',
+      'def assembly(p):',
+      '    return {"block": Box(10, 10, p.wall)}',
+      ''
+    ].join('\n')
+    const { obj, entry } = kept('walled', { 'walled/walled.py': model })
+    const height = (scene: { parts: Array<{ bbox: { min: number[]; max: number[] } }> }): number => scene.parts[0].bbox.max[2] - scene.parts[0].bbox.min[2]
+    const plain = await rebuildKept(obj, entry, { kernel, userData })
+    if ('refused' in plain) throw new Error(plain.refused)
+    expect(height(plain.scene)).toBeCloseTo(2)
+    // The scene the build kept says what it was asked for.
+    write(join(obj.dir, '.torno', 'history', 'h1', 'scene.json'), JSON.stringify({ model: 'walled.py', layouts: [], parts: [], overrides: { applied: { wall: 3 }, dropped: [] } }))
+    const drawn = await rebuildKept(obj, entry, { kernel, userData })
+    if ('refused' in drawn) throw new Error(drawn.refused)
+    expect(height(drawn.scene)).toBeCloseTo(3)
+  })
+
   it('sweeps what a run that ended badly left', () => {
     write(join(userData, 'compare', 'old-1', 'x.py'), '')
     sweepCompare(userData)
