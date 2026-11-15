@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -43,5 +43,27 @@ describe('writing a file atomically', () => {
     rmSync(path, { recursive: true })
     await writeFileAtomic(path, 'y')
     expect(readFileSync(path, 'utf8')).toBe('y')
+  })
+
+  it('does not follow a link planted at the temp name the way an older write named it', async () => {
+    const victim = join(dir, 'victim')
+    writeFileSync(victim, 'precious')
+    const path = join(dir, 'file')
+    // The name this process used to write through: a link there must lead nowhere now.
+    symlinkSync(victim, `${path}.${process.pid}.tmp`)
+    await writeFileAtomic(path, 'new')
+    expect(readFileSync(victim, 'utf8')).toBe('precious')
+    expect(readFileSync(path, 'utf8')).toBe('new')
+    expect(existsSync(`${path}.${process.pid}.tmp`)).toBe(true)
+  })
+
+  it('never writes through a temp name that is already there: the open is exclusive', async () => {
+    const path = join(dir, 'file')
+    const names = new Set<string>()
+    for (let i = 0; i < 5; i++) {
+      await writeFileAtomic(path, `${i}`)
+      for (const n of readdirSync(dir)) names.add(n)
+    }
+    expect([...names]).toEqual(['file'])
   })
 })

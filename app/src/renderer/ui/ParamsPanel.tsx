@@ -7,6 +7,8 @@ import { giveKeysBack } from './typing'
 import { numbered } from './numbered'
 import { sourceCount } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
+import { ChecksPanel } from './ChecksPanel'
+import { PrintProfile } from './PrintProfile'
 import { SectionTitle } from './SectionTitle'
 
 /**
@@ -19,17 +21,36 @@ import { SectionTitle } from './SectionTitle'
  * with that value, keeps it under `.torno/params.json` (main's) and never touches the file. A row built with a
  * value other than the file's says so and has "Reset"; "Ask the agent to bake it in" puts the request to make the
  * values the defaults in the chat box, never sent; "Reset all" goes back to the file. A row's name stays
- * `Params.<name>`; what it holds (type, value whole, comment) and what a click does are its description, as a
- * folded section's title does it. A model with no fields, or a kernel that does not read them, has no section.
+ * `Params.<name>`; what it holds (type, value whole, comment) and what a click does are its description. A model
+ * with no fields, or a kernel that does not read them, has no section of Params, and the panel says so.
+ *
+ * The Params panel of the rail holds three sections about the same build: the Params, then the model's checks
+ * (`ChecksPanel`) and the print profile (`PrintProfile`), each of which is absent where it has nothing to say.
  */
 export function ParamsPanel() {
+  return (
+    <>
+      <ParamsSection />
+      <ChecksPanel />
+      <PrintProfile />
+    </>
+  )
+}
+
+function ParamsSection() {
   const params = useStore((s) => s.scene?.params)
   const dropped = useStore((s) => s.scene?.overrides?.dropped)
   const objectId = useStore((s) => s.objectId)
-  const folded = useStore((s) => s.column.folded.params)
   const canInsert = useStore((s) => runningSession(s) !== undefined)
   const [problem, setProblem] = useState<string | null>(null)
-  if (!params || params.length === 0) return null
+  if (!params || params.length === 0) {
+    return (
+      <section className="section params" aria-label="Parameters">
+        <SectionTitle title="Parameters" />
+        <p className="section-note">This model has no Params.</p>
+      </section>
+    )
+  }
   const changed = params.filter(tried)
   const say = (work: Promise<void>): void => {
     setProblem(null)
@@ -37,10 +58,10 @@ export function ParamsPanel() {
   }
   const these = changed.length === 1 ? 'it' : 'them'
   return (
-    <section className="section params" aria-label="Parameters" data-folded={folded ? '' : undefined}>
-      <SectionTitle section="params" title="Parameters" said={`${params.length}${changed.length > 0 ? ` · ${changed.length} tried` : ''}`} />
-      {!folded && <SourceCount params={params} />}
-      {!folded && changed.length > 0 && (
+    <section className="section params" aria-label="Parameters">
+      <SectionTitle title="Parameters" said={`${params.length}${changed.length > 0 ? ` · ${changed.length} tried` : ''}`} />
+      <SourceCount params={params} />
+      {changed.length > 0 && (
         <div className="params-tried" role="group" aria-label="Values you are trying">
           <p className="params-sources">{numbered(`The model file says otherwise, and the file wins: edit it to keep ${these}.`)}</p>
           <div className="params-actions">
@@ -62,24 +83,22 @@ export function ParamsPanel() {
           </div>
         </div>
       )}
-      {!folded && problem && (
+      {problem && (
         <p className="params-problem" role="alert">
           {problem}
         </p>
       )}
-      {!folded && (
-        <ul className="rows">
-          {params.map((param) => (
-            <ParamItem
-              key={param.name}
-              row={paramRow(param, dropped?.find((d) => d.name === param.name)?.reason ?? null)}
-              canInsert={canInsert}
-              set={(value) => objectId !== null && say(window.torno.object.setParam(objectId, param.name, value))}
-              reset={() => objectId !== null && say(window.torno.object.resetParams(objectId, param.name))}
-            />
-          ))}
-        </ul>
-      )}
+      <ul className="rows">
+        {params.map((param) => (
+          <ParamItem
+            key={param.name}
+            row={paramRow(param, dropped?.find((d) => d.name === param.name)?.reason ?? null)}
+            canInsert={canInsert}
+            set={(value) => objectId !== null && say(window.torno.object.setParam(objectId, param.name, value))}
+            reset={() => objectId !== null && say(window.torno.object.resetParams(objectId, param.name))}
+          />
+        ))}
+      </ul>
     </section>
   )
 }

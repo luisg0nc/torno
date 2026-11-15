@@ -396,8 +396,12 @@ class Supervisor:
         """
         dir, model, timeout = request.get("dir"), request.get("model"), request.get("timeout")
         overrides, asked = request.get("overrides"), request.get("queries")
+        mesh = request.get("mesh", False)
         if not isinstance(dir, str) or not isinstance(model, str):
             self._fail(id, "bad_request", "trial needs dir and model, both strings")
+            return
+        if not isinstance(mesh, bool):
+            self._fail(id, "bad_request", "trial mesh must be true or false")
             return
         if not _is_overrides(overrides):
             self._fail(id, "bad_request", "trial overrides must be an object of field name to a bool, number or string")
@@ -425,7 +429,7 @@ class Supervisor:
         if not self._has_room(dir):
             self._fail(id, "no_room", _no_room_for_trial(dir))
             return
-        self._trial = self._fork(id, dir, model, timeout, overrides, trial=asked)
+        self._trial = self._fork(id, dir, model, timeout, overrides, trial=asked, mesh=mesh)
         self._send({"id": id, "event": "trial.started", "pid": self._trial.pid})
 
     def _has_room(self, dir: str) -> bool:
@@ -447,7 +451,7 @@ class Supervisor:
         self._stop(worker, signal.SIGKILL)
         self._fail(worker.request_id, "cancelled", reason, output=self._take_output(worker))
 
-    def _trial_finished(self, worker: _Worker, result: dict[str, Any]) -> None:
+    def _trial_finished(self, worker: _Worker, result: dict[str, Any], blob: bytes = b"") -> None:
         self._trial = None
         output = self._take_output(worker)
         self._stop(worker, signal.SIGKILL)
@@ -455,7 +459,8 @@ class Supervisor:
             self._send({"id": worker.request_id, "ok": False, "error": {**result["error"], "output": output}})
             return
         scene = {**result["scene"], "seconds": time.monotonic() - worker.started, "output": output}
-        self._send({"id": worker.request_id, "ok": True, "scene": scene, "answers": result.get("answers", [])})
+        # The blob is the mesh of a trial that asked for it (``mesh``), and empty otherwise.
+        self._send({"id": worker.request_id, "ok": True, "scene": scene, "answers": result.get("answers", [])}, blob)
 
     def _trial_died(self, worker: _Worker) -> None:
         self._trial = None
@@ -576,6 +581,7 @@ class Supervisor:
         timeout: float,
         overrides: dict[str, Any] | None = None,
         trial: list[dict[str, Any]] | None = None,
+        mesh: bool = False,
     ) -> _Worker:
         ours, theirs = socket.socketpair()
         if sys.platform == "darwin":
@@ -598,7 +604,7 @@ class Supervisor:
                 for live in self._live.values():
                     live.sock.close()
             finally:
-                worker_module.run(theirs, capture.fileno(), dir, model, parent, deadline, overrides, trial)
+                worker_module.run(theirs, capture.fileno(), dir, model, parent, deadline, overrides, trial, mesh)
         theirs.close()
         ours.setblocking(False)
         now = time.monotonic()
@@ -625,7 +631,7 @@ class Supervisor:
         for header, blob in worker.decoder.feed(chunk):
             if worker is self._trial:
                 if _is_result(header):
-                    self._trial_finished(worker, header)
+                    self._trial_finished(worker, header, blob)
                 else:
                     self._trial_died(worker)
                 return

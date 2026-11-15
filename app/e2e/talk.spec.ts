@@ -6,6 +6,7 @@ import { inTerminal } from './terminal'
 import type { MarkStore } from '../src/main/marks/store'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark } from '../src/shared/marks'
+import { openPanel } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is told of the marks, and what the person is shown of what
@@ -275,8 +276,13 @@ test('a mark on a part that is switched off is not drawn, in the window or in a 
   const picture = async (request: object = {}): Promise<number> => (await page.evaluate((req) => window.__tornoTest!.look({ view: 'iso', size: 400, ...req }), request)).png.length
   const withBoth = await picture()
 
+  await openPanel(page, 'Layers')
+
   await page.locator('[data-layer="post"]').hover()
+
   await page.getByRole('button', { name: 'Show post' }).click()
+
+  await openPanel(page, 'Marks')
   await expect.poll(() => drawn('M3')).toBe(false)
   expect(await drawn('M2')).toBe(true)
   await expect(row('M3')).toHaveAttribute('data-hidden', '')
@@ -288,8 +294,13 @@ test('a mark on a part that is switched off is not drawn, in the window or in a 
   expect(await picture({ parts: ['base', 'post'] })).toBe(withBoth)
   expect(await picture({ parts: ['base'], marks: true })).toBe(withoutPost)
 
+  await openPanel(page, 'Layers')
+
   await page.locator('[data-layer="post"]').hover()
+
   await page.getByRole('button', { name: 'Show post' }).click()
+
+  await openPanel(page, 'Marks')
   await expect.poll(() => drawn('M3')).toBe(true)
   await expect(row('M3')).not.toHaveAttribute('data-hidden', '')
 })

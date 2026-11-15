@@ -11,6 +11,7 @@ import type { PinMark } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
+import { openPanel } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is given, through the real path: the SDK's MCP client in this
@@ -185,7 +186,7 @@ test('history lists the build kept of the project, with copies of its sources, a
     .toBeGreaterThan(0)
   const listed = JSON.parse((await call(bracket, 'history')).text)
   const first = listed.builds.at(-1)
-  expect(first).toMatchObject({ id: expect.stringMatching(/^h[1-9][0-9]*$/), revision: 1, changed: 'first build kept' })
+  expect(first).toMatchObject({ id: expect.stringMatching(/^h[1-9][0-9]*$/), revision: 1, changed: expect.stringMatching(/^first build kept/) })
   const one = JSON.parse((await call(bracket, 'history', { id: first.id })).text)
   expect(one.copies.length).toBeGreaterThan(0)
   for (const copy of one.copies) {
@@ -242,8 +243,10 @@ test('look returns the picture the window draws, and keeps a copy under .torno/v
 })
 
 test('a layer the person hides is gone from the next look, and scene says it is hidden', async () => {
+  await openPanel(page, 'Layers')
   await page.locator('[data-layer="post"]').hover()
   await page.getByRole('button', { name: 'Show post' }).click()
+  await openPanel(page, 'Marks')
   await expect.poll(async () => JSON.parse((await call(bracket, 'scene')).text).parts[1].visible).toBe(false)
 
   const result = await call(bracket, 'look', { view: 'iso' })
@@ -377,10 +380,12 @@ test("show changes what the user sees for now, not the layers they saved, and wa
   await page.waitForTimeout(900)
   expect(readFileSync(sceneFile, 'utf8')).toBe(saved)
   // A change the person then makes by hand is saved, without what the agent had shown.
+  await openPanel(page, 'Layers')
   await page.locator('[data-layer="base"]').getByRole('button', { name: 'Show base' }).click()
   await expect.poll(() => JSON.parse(readFileSync(sceneFile, 'utf8'))).toEqual({ layout: 'assembly', layers: { base: { visible: false }, post: { visible: false } } })
   await page.locator('[data-layer="base"]').getByRole('button', { name: 'Show base' }).click()
   await expect.poll(() => JSON.parse(readFileSync(sceneFile, 'utf8')).layers.base.visible).toBe(true)
+  await openPanel(page, 'Marks')
   // Back as the tests that follow expect it: assembly, the post hidden by the person.
   expect((await call(bracket, 'show', { layout: 'assembly', parts: ['base'] })).isError).toBe(false)
   expect(await state()).toMatchObject({ layout: 'assembly', layers: { post: { visible: false } } })
@@ -391,7 +396,9 @@ test("show changes the user's layers and camera, and says what they see then", a
   const parts = await call(bracket, 'show', { parts: ['base', 'post'] })
   expect(parts).toMatchObject({ isError: false, text: "view current · layout assembly · parts base, post · perspective\nrevision r1\nThe user's viewport now shows this." })
   expect((await state()).layers.post.visible).toBe(true)
+  await openPanel(page, 'Layers')
   await expect(page.locator('[data-layer="post"]').getByRole('button', { name: 'Show post' })).toHaveAttribute('aria-pressed', 'true')
+  await openPanel(page, 'Marks')
 
   const before = await camera()
   const top = await call(bracket, 'show', { view: 'top' })

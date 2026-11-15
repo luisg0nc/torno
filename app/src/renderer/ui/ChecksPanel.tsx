@@ -13,44 +13,39 @@ import { SectionTitle } from './SectionTitle'
  */
 export function ChecksPanel() {
   const scene = useStore((s) => s.scene)
-  const folded = useStore((s) => s.column.folded.checks)
   const checks = scene?.checks
   if (!checks || checks.length === 0) return null
   const notes = noteLines(scene.checkNotes ?? [])
   return (
-    <section className="section checks" aria-label="Checks" data-folded={folded ? '' : undefined}>
-      <SectionTitle section="checks" title="Checks" said={checksSaid(checks)} />
-      {!folded && (
-        <>
-          <ul className="rows">
-            {checks.map((check) => {
-              const row = checkRow(check)
-              return (
-                <li key={check.name} className="check-row" data-check={check.name} data-standing={row.standing} title={row.title}>
-                  <span className="check-line">
-                    <span className="check-name">{row.name}</span>
-                    <span className="check-standing">{row.standing}</span>
-                  </span>
-                  <span className="check-detail">
-                    <span className="num">{numbered(row.reading)}</span>
-                    {row.wanted && <span>{numbered(row.wanted)}</span>}
-                    {row.caution && <span>{row.caution}</span>}
-                  </span>
-                </li>
-              )
-            })}
+    <section className="section checks" aria-label="Checks">
+      <SectionTitle title="Checks" said={checksSaid(checks)} />
+      <ul className="rows">
+        {checks.map((check) => {
+          const row = checkRow(check)
+          return (
+            <li key={check.name} className="check-row" data-check={check.name} data-standing={row.standing} title={row.title}>
+              <span className="check-line">
+                <span className="check-name">{row.name}</span>
+                <span className="check-standing">{row.standing}</span>
+              </span>
+              <span className="check-detail">
+                <span className="num">{numbered(row.reading)}</span>
+                {row.wanted && <span>{numbered(row.wanted)}</span>}
+                {row.caution && <span>{row.caution}</span>}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      {notes.length > 0 && (
+        <div className="check-notes" role="note">
+          <p className="check-notes-head">Made easier to pass, or removed</p>
+          <ul>
+            {notes.map((line) => (
+              <li key={line}>{numbered(line)}</li>
+            ))}
           </ul>
-          {notes.length > 0 && (
-            <div className="check-notes" role="note">
-              <p className="check-notes-head">Made easier to pass, or removed</p>
-              <ul>
-                {notes.map((line) => (
-                  <li key={line}>{numbered(line)}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </section>
   )

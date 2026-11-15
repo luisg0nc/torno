@@ -1059,6 +1059,25 @@ describe('diff', () => {
       expect([result.from, result.to]).toEqual(['h3', 1])
     })
 
+    it('refuses a build that failed, with a sentence naming it', async () => {
+      const failed = entry('h5', { run: 'now', revision: 4, failed: true, error: 'ValueError: no wire', files: [], parts: 0, line: 'ValueError: no wire' })
+      const deps = kept2([...ENTRIES, failed], [[3, BEFORE], [4, AFTER]])
+      const refusal = refused('h5 failed to build (ValueError: no wire), so there is no build of it to compare: the history tool lists the builds that worked')
+      expect(await diffTool(deps, 'box', { from: 'h5' })).toEqual(refusal)
+      expect(await diffTool(deps, 'box', { to: 'h5' })).toEqual(refusal)
+    })
+
+    it('does not take a failed entry for the build of its revision, nor as the default to compare with', async () => {
+      // A failed entry carries the revision of the last good build.
+      const failed = entry('h5', { run: 'now', revision: 1, failed: true, error: 'boom', files: [], parts: 0, line: 'boom' })
+      const fresh = { ...kept2([...ENTRIES, failed], [[1, AFTER]]), identity: () => ({ sources: 'src-h4' }) }
+      const result: Row = data(await diffTool(fresh, 'box', {}))
+      expect([result.from, result.to]).toEqual(['h3', 1])
+      expect(result.builds.to.id).toBe('h4')
+      const old: Row = data(await diffTool(kept2([...ENTRIES, failed], [[7, AFTER]]), 'box', { from: 1 }))
+      expect(old.builds.from.id).toBe('h4')
+    })
+
     it('refuses an id not kept, naming the ones that are, and a revision nowhere', async () => {
       const deps = kept2(ENTRIES, [[3, BEFORE], [4, AFTER]])
       expect(await diffTool(deps, 'box', { from: 'h9' })).toEqual(refused('h9 is not kept: the history keeps h2, h3, h4 (the history tool lists them)'))
@@ -1094,14 +1113,45 @@ describe('history', () => {
     expect(text(await historyTool(deps, 'box', { limit: 0 }))).toMatch(/^limit is a whole number from 1 to 100/)
   })
 
-  it('gives one build with the paths of its copies, and says torno restores nothing', async () => {
+  it('gives one build with the paths of its copies, and says how to go back', async () => {
     const result = data(await historyTool(withHistory([entry('h1', { files: ['box/box.py', 'common/util.py'] })]), 'box', { id: 'H1' })) as Row
     expect(result.id).toBe('h1')
     expect(result.copies).toEqual([
       { file: 'box/box.py', path: '/ws/box/.torno/history/h1/source/box/box.py' },
       { file: 'common/util.py', path: '/ws/box/.torno/history/h1/source/common/util.py' }
     ])
-    expect(result.notes.join(' ')).toMatch(/never restores a file/)
+    expect(result.notes.join(' ')).toMatch(/Go back/)
+    expect(result.notes.join(' ')).not.toMatch(/never restores/)
+  })
+
+  it('tells who caused each build, under which prompt, and which failed, and says nothing of an old entry', async () => {
+    const result = data(await historyTool(withHistory([
+      entry('h1'),
+      entry('h2', { cause: 'agent', turn: { conversation: 'c1', prompt: 'u-7', text: 'make the lid thinner' } }),
+      entry('h3', { cause: 'person' }),
+      entry('h4', { cause: 'params' }),
+      entry('h5', { cause: 'goback', wentBackTo: 'h2', undone: true }),
+      entry('h6', { cause: 'agent', turn: { conversation: 'c1', prompt: 'u-8' }, failed: true, error: 'ValueError: no wire', files: [], parts: 0, line: 'ValueError: no wire' })
+    ]), 'box', {})) as Row
+    const by = Object.fromEntries(result.builds.map((b: Row) => [b.id, b]))
+    expect(by.h1.changed).toBe('tub changed')
+    expect(by.h1).not.toHaveProperty('cause')
+    expect(by.h2.changed).toBe('tub changed \u00b7 by Claude (prompt "make the lid thinner")')
+    expect(by.h2).toMatchObject({ cause: 'agent', turn: { conversation: 'c1', prompt: 'u-7', text: 'make the lid thinner' } })
+    expect(by.h3.changed).toBe('tub changed \u00b7 your edit')
+    expect(by.h4.changed).toBe('tub changed \u00b7 params')
+    expect(by.h5.changed).toBe('tub changed \u00b7 went back to h2 \u00b7 undone')
+    expect(by.h5).toMatchObject({ cause: 'goback', wentBackTo: 'h2', undone: true })
+    expect(by.h6.changed).toBe('by Claude \u00b7 failed: ValueError: no wire')
+    expect(by.h6).toMatchObject({ failed: true, error: 'ValueError: no wire' })
+  })
+
+  it('gives a failed build with no copies, and says no build of it exists', async () => {
+    const failed = entry('h2', { failed: true, error: 'ValueError: no wire', files: [], parts: 0, line: 'ValueError: no wire' })
+    const result = data(await historyTool(withHistory([failed]), 'box', { id: 'h2' })) as Row
+    expect(result).toMatchObject({ id: 'h2', failed: true, error: 'ValueError: no wire', copies: [] })
+    expect(result.notes.join(' ')).toMatch(/failed to build/)
+    expect(result.notes.join(' ')).not.toMatch(/No copy of the sources/)
   })
 
   it('says so when a build is not kept, or the project keeps none', async () => {

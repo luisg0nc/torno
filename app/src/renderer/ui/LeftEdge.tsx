@@ -1,4 +1,4 @@
-import { useEffect, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
+import { useLayoutEffect, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { which } from '../../shared/keys'
 import { clampLeft, LEFT_DEFAULT } from '../state/column'
 import { actions, useStore } from '../state/store'
@@ -14,30 +14,29 @@ function dockSpace(shell: HTMLElement): number {
 }
 
 /**
- * The right edge of the left column (`role="separator"`): dragged, or moved with Left and Right, the column is
- * wider, up to what leaves the viewport its room beside the session dock, and never narrower than its default. A
- * double click puts the default back. While it is dragged the width goes straight to `--left-w` on the shell; the
- * store, and the window's storage with it, has it once the edge is let go. The shell has what is kept as far as
- * the window has room for it now, and what is kept is not touched.
+ * The right edge of the docked panel (`role="separator"`): dragged, or moved with Left and Right, the panel is
+ * wider, up to what leaves the viewport its room beside the rail and the session dock, and never narrower than its
+ * default. A double click puts the default back. While it is dragged the width goes straight to `--panel-w` on the
+ * shell (the view's offset, `--left-w`, is the rail and the panel together); the store, and the window's storage
+ * with it, has it once the edge is let go. The shell has what is kept as far as the window has room for it now, and
+ * what is kept is not touched.
  */
 export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> }) {
   const width = useStore((s) => s.column.width)
   const dockOpen = useStore((s) => s.dockOpen)
-  const shown = width ?? LEFT_DEFAULT
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = shell.current
     if (!el) return
     const fit = (): void => {
       if (drag.current) return
-      if (width === null) el.style.removeProperty('--left-w')
-      else el.style.setProperty('--left-w', `${clampLeft(width, window.innerWidth, dockSpace(el))}px`)
+      el.style.setProperty('--panel-w', `${clampLeft(width, window.innerWidth, dockSpace(el))}px`)
     }
     fit()
     window.addEventListener('resize', fit)
     return () => {
       window.removeEventListener('resize', fit)
-      el.style.removeProperty('--left-w')
+      el.style.removeProperty('--panel-w')
     }
   }, [shell, width, dockOpen])
 
@@ -53,7 +52,7 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
     const d = drag.current
     if (!d || !shell.current) return
     d.width = clampLeft(d.startWidth + e.clientX - d.startX, window.innerWidth, dockSpace(shell.current))
-    shell.current.style.setProperty('--left-w', `${d.width}px`)
+    shell.current.style.setProperty('--panel-w', `${d.width}px`)
   }
 
   function onUp(e: PointerEvent<HTMLDivElement>) {
@@ -62,7 +61,7 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
     drag.current = null
     shell.current?.toggleAttribute('data-resizing-left', false)
     // A press that moved nothing (the first of a double click) keeps what there was.
-    if (d.width !== d.startWidth) actions.setLeftWidth(d.width > LEFT_DEFAULT ? d.width : null)
+    if (d.width !== d.startWidth) actions.setPanelWidth(d.width)
     giveKeysBack(e.currentTarget)
   }
 
@@ -72,25 +71,25 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
     e.preventDefault()
     const now = e.currentTarget.parentElement!.getBoundingClientRect().width
     const next = clampLeft(now + (way === 0 ? -KEY_STEP : KEY_STEP), window.innerWidth, dockSpace(shell.current))
-    actions.setLeftWidth(next > LEFT_DEFAULT ? next : null)
+    actions.setPanelWidth(next)
   }
 
   return (
     <div
       className="left-edge"
       role="separator"
-      aria-label="Resize left column"
+      aria-label="Resize panel"
       aria-orientation="vertical"
-      aria-valuenow={shown}
+      aria-valuenow={width}
       aria-valuemin={LEFT_DEFAULT}
       tabIndex={0}
-      title="Drag to make the column wider; a double click puts the default back"
+      title="Drag to make the panel wider; a double click puts the default back"
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
       onKeyDown={onKey}
-      onDoubleClick={() => actions.setLeftWidth(null)}
+      onDoubleClick={() => actions.setPanelWidth(LEFT_DEFAULT)}
     />
   )
 }

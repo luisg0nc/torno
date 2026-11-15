@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -107,9 +107,13 @@ describe('addRegion', () => {
 
   it('leaves no mask behind when the mark could not be written', async () => {
     writeFileSync(join(dir, '.torno', 'marks.json'), JSON.stringify({ next: 1, marks: [] }))
-    // The marks file's folder entry is in the way of its temp file: the write fails.
-    mkdirSync(join(dir, '.torno', `marks.json.${process.pid}.tmp`))
-    await expect(addRegion(deps(), 'bracket', region())).rejects.toThrow()
+    // The folder cannot take a temp file beside the marks file: the write fails (the mask goes in a folder of its own).
+    chmodSync(join(dir, '.torno'), 0o555)
+    try {
+      await expect(addRegion(deps(), 'bracket', region())).rejects.toThrow()
+    } finally {
+      chmodSync(join(dir, '.torno'), 0o755)
+    }
     expect(existsSync(maskOf('M1'))).toBe(false)
   })
 })
@@ -363,11 +367,14 @@ describe('painting a kept region again', () => {
     await expect(repaintRegion(deps(), 'bracket', 'M1', bits([1]))).rejects.toThrow('M1 is resolved: reopen it first')
     expect(existsSync(maskOf('M1.1'))).toBe(false)
     await marks.update('bracket', 'M1', { status: 'draft' })
-    mkdirSync(join(dir, '.torno', `marks.json.${process.pid}.tmp`))
-    await expect(repaintRegion(deps(), 'bracket', 'M1', bits([1]))).rejects.toThrow()
+    chmodSync(join(dir, '.torno'), 0o555)
+    try {
+      await expect(repaintRegion(deps(), 'bracket', 'M1', bits([1]))).rejects.toThrow()
+    } finally {
+      chmodSync(join(dir, '.torno'), 0o755)
+    }
     expect([existsSync(maskOf('M1')), existsSync(maskOf('M1.1'))]).toEqual([true, false])
     expect((await marks.list('bracket'))[0]).toMatchObject({ triangles: 2 })
-    rmSync(join(dir, '.torno', `marks.json.${process.pid}.tmp`), { recursive: true })
     // Orphaned for a cause that has not passed: its triangles are gone.
     rmSync(maskOf('M1'))
     await marks.orphanRegions('bracket', 'S1')

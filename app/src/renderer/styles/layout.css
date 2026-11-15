@@ -65,6 +65,12 @@ button {
   overflow: hidden;
   /* Width the dock takes from the viewport's free area right now. */
   --dock-space: var(--dock-w);
+  /* How far in from the window's left the view starts: the rail, and the panel docked beside it when one is open. */
+  --left-w: calc(var(--rail-w) + var(--panel-w));
+}
+
+.shell[data-panel='closed'] {
+  --left-w: var(--rail-w);
 }
 
 .shell[data-dock='collapsed'] {
@@ -210,10 +216,11 @@ button {
   background: var(--panel);
 }
 
+/* The rail, then the panel it opens, side by side: the whole is the region the focus goes round as "left". */
 .left {
   left: 0;
+  flex-direction: row;
   width: var(--left-w);
-  border-right: var(--divider);
 }
 
 .dock {
@@ -334,7 +341,7 @@ button {
   height: 16px;
 }
 
-/* The right edge of the left column: a band of 9 px to take hold of, a hairline of the accent when it is hot. */
+/* The right edge of the docked panel: a band of 9 px to take hold of, a hairline of the accent when it is hot. */
 .left-edge {
   position: absolute;
   top: 0;

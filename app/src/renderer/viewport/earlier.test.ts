@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import type { Buf, Part } from '../../shared/scene'
+import { edgeTint } from '../../shared/palette'
 import { EARLIER_EDGE_OPACITY, EARLIER_SURFACE_OPACITY, Earlier } from './earlier'
 
 /** A blob with one quad and one edge, packed the way the kernel does. */
@@ -76,5 +77,42 @@ describe('Earlier', () => {
     earlier.tint('#A0A4AA')
     const surface = (earlier.group.children[0] as THREE.Group).children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
     expect(surface.material.color.getHexString()).toBe('a0a4aa')
+  })
+
+  it('is drawn solid, with edges in ink, when it is shown alone (Before, Side by side), and translucent again after', () => {
+    const { blob, mesh } = pack()
+    const earlier = new Earlier()
+    earlier.show([part('tub', mesh)], blob, '#646970')
+    earlier.tint('#646970', '#22252A')
+    earlier.solid(true)
+    const [surface, lines] = (earlier.group.children[0] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>, THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>]
+    expect([surface.material.transparent, surface.material.opacity, surface.material.depthWrite]).toEqual([false, 1, true])
+    expect([lines.material.opacity, lines.material.color.getHexString()]).toEqual([1, '22252a'])
+    // A new set of parts is drawn as it is now.
+    earlier.show([part('lid', mesh)], blob, '#646970')
+    const [again] = (earlier.group.children[0] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>]
+    expect(again.material.opacity).toBe(1)
+    earlier.solid(false)
+    const [back, edges] = (earlier.group.children[0] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>, THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>]
+    expect([back.material.transparent, back.material.opacity, back.material.depthWrite]).toEqual([true, EARLIER_SURFACE_OPACITY, false])
+    expect([edges.material.opacity, edges.material.color.getHexString()]).toEqual([EARLIER_EDGE_OPACITY, '646970'])
+  })
+
+  it('is drawn opaque in the colours of its parts when it stands in for the live build, edges in their darker tint, and keeps the muted ghost for Overlay', () => {
+    const { blob, mesh } = pack()
+    const stand = new Earlier('later')
+    expect(stand.group.name).toBe('later')
+    const colors = new Map([['tub', '#7B93B4'], ['lid', '#C28B6C']])
+    stand.show([part('tub', mesh), part('lid', mesh)], blob, '#646970', colors)
+    stand.solid(true)
+    const read = (n: number) => (stand.group.children[n] as THREE.Group).children as [THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>, THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>]
+    expect(read(0)[0].material.color.getHexString()).toBe('7b93b4')
+    expect(read(1)[0].material.color.getHexString()).toBe('c28b6c')
+    expect(read(0)[1].material.color.getHexString()).toBe(edgeTint('#7B93B4').slice(1).toLowerCase())
+    expect([read(0)[0].material.transparent, read(0)[0].material.opacity]).toEqual([false, 1])
+    // As a ghost it is the muted tint again, whatever the colours.
+    stand.solid(false)
+    expect(read(0)[0].material.color.getHexString()).toBe('646970')
+    expect(read(0)[0].material.opacity).toBe(EARLIER_SURFACE_OPACITY)
   })
 })

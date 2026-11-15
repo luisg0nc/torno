@@ -6,7 +6,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { SESSION_HEADER } from '../src/main/http'
-import { openListed, switcher } from './objects'
+import { closePanel, openPanel } from './helpers'
+import { objectList, openListed, switcher } from './objects'
 
 // What the chat asks of the person and what it offers: a permission request, the questions of `AskUserQuestion`
 // and a plan, each a card that is answered; "Attach view" and "Draw on view"; the `/` commands the CLI named; the model of the session;
@@ -690,7 +691,7 @@ test('Stop with a request open: the card reads cancelled, has no buttons, and th
 
 test('a request that waits for the person shows on the dock\'s toggle when the dock is hidden, and on its row and in the status line when another object is open; the signs go when it is answered', async () => {
   const toggle = () => page.locator('.dock-toggle')
-  const item = (name: string) => page.getByRole('menu', { name: 'Projects' }).getByRole('menuitem', { name, exact: true })
+  const item = (name: string) => objectList(page).getByRole('button', { name, exact: true })
   const needs = () => page.locator('.status-needs')
   await newSession()
   await say('ask Bash {"command":"ls"}')
@@ -707,25 +708,23 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
   await expect(toggle()).toHaveAttribute('aria-description', 'Claude Code needs you')
   await expect(toggle()).toHaveAttribute('title', 'Show session: Claude Code needs you')
   await expect(toggle().locator('.session-sign[data-sign="needs_input"]')).toBeVisible()
-  // The switcher the list is folded to says it as well, of the open object, in words, and the status line has the button.
+  // The rail's Projects icon says it as well, of the open object, in words, and the status line has the button.
   await expect(switcher(page)).toHaveAttribute('aria-description', 'session needs you')
-  // Its name is the object's: found by it exactly, state or none.
-  await expect(page.getByRole('button', { name: 'bracket', exact: true })).toHaveCount(1)
-  await expect(switcher(page).locator('.session-sign-word')).toHaveText('needs you')
+  // Its name is Projects: found by it exactly, state or none.
+  await expect(page.getByRole('button', { name: 'Projects', exact: true })).toHaveCount(1)
   await expect(needs()).toContainText('bracket needs you')
 
-  // Another object shown: the switcher carries the sign of the one that asks, and names it; so does its item of the
-  // menu; and the toggle (of an object with no session) has none.
+  // Another object shown: the Projects icon carries the sign of the one that asks, and names it; so does its row of
+  // the list; and the toggle (of an object with no session) has none.
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).objectId).toBe('hollow')
   await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
   await expect(switcher(page)).toHaveAttribute('aria-description', 'bracket needs you')
-  await expect(switcher(page).locator('.session-sign-word')).toHaveText('bracket needs you')
-  await switcher(page).click()
+  await openPanel(page, 'Projects')
   await expect(item('bracket')).toHaveAttribute('data-session', 'needs_input')
   await expect(item('bracket')).toHaveAttribute('aria-description', 'session needs you')
   await expect(item('hollow')).not.toHaveAttribute('data-session', /./)
-  await page.keyboard.press('Escape')
+  await closePanel(page)
   await expect(toggle()).toHaveAttribute('aria-label', 'Show session')
   await expect(toggle().locator('.session-sign')).toHaveCount(0)
   await expect(needs()).toContainText('bracket needs you')

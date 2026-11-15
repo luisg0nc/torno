@@ -21,6 +21,18 @@ export interface HistoryDimensions {
   none: number
 }
 
+/** What made a build: the agent, the person editing, the person's params, a Go back; `unknown` for builds kept before this was said. */
+export type BuildCause = 'agent' | 'person' | 'params' | 'goback' | 'unknown'
+
+/** The prompt of the turn a build came out of. Main's only: never taken from the window or from a tool. */
+export interface BuildTurn {
+  /** The chat it was said in, when it was one the person can open again. */
+  conversation?: string
+  prompt: string
+  /** The prompt's own words, its first 200 characters. */
+  text?: string
+}
+
 /** One kept build, as `index.json` of the history holds it. */
 export interface HistoryEntry {
   id: string
@@ -52,7 +64,27 @@ export interface HistoryEntry {
   dimensions?: HistoryDimensions
   /** What changed since the entry before, as the status line says it. */
   line: string
+  /** What made the build; absent is `unknown` (`causeOf`). Main's only, as the fields below are. */
+  cause?: BuildCause
+  /** The turn of the agent it came out of, for the cause `agent`. */
+  turn?: BuildTurn
+  /** A build that failed: kept as a line of the history with no `scene.json`, picture or copies. */
+  failed?: true
+  /** The line that names the failure (`errorLine`: the last of its traceback), for a failed entry only. */
+  error?: string
+  /** For the cause `params`: the names of the Params the person tried since the build before (the window says them between turns). Main's only. */
+  tried?: string[]
+  /** For the cause `goback`: the id of the build it restored. */
+  wentBackTo?: string
+  /** Undone by a later Go back. */
+  undone?: true
 }
+
+/** What made the build; `unknown` for an entry that says nothing. */
+export const causeOf = (e: HistoryEntry): BuildCause => e.cause ?? 'unknown'
+
+/** Whether the build has a scene to draw (a failed one has none). */
+export const drawable = (e: HistoryEntry): boolean => !e.failed
 
 /** Said of a build kept with no build before it. */
 export const FIRST_BUILD = 'first build kept'
@@ -94,6 +126,39 @@ export function sceneFacts(scene: Scene): Pick<HistoryEntry, 'parts' | 'seconds'
   }
 }
 
+/** What a Go back would do, for the person to be asked before anything is written. */
+export interface GoBackPlan {
+  /** The entry restored. */
+  to: string
+  /** Own-folder files, from the workspace, that hold other bytes than the copy (or are not there). */
+  write: string[]
+  /** Own-folder `.py` files not in the copy, first seen in an entry after `to`, and there now. */
+  remove: string[]
+  /** `common/` and other projects' files of the copy that differ now: left as they are. */
+  leftAlone: string[]
+  /** Files of `write` and `remove` that a save of the person's changed after `to` (a build of cause person, params or unknown put them in another state than the build before had), or that hold other bytes than the newest build's copy: overwritten or deleted by this. */
+  changedSince: string[]
+  /** What the person tries of the Params is not what that build was made with. */
+  params: boolean
+  /** The ids of the entries after `to`. */
+  undone: string[]
+  /** Of those, the builds of the person's own saves and tried Params (cause `person`, `params` or `unknown`): saves this undoes. */
+  undoneSaves: string[]
+  /** Their distinct turns, oldest first. */
+  prompts: BuildTurn[]
+  /** No usable copy: the Undo prompt asks the agent to reverse its edits instead. */
+  fallback?: 'undo'
+}
+
+export interface GoBackResult {
+  /** What was written and removed, in order; `.torno/params.json` when the Params were put back. */
+  done: string[]
+  /** The first thing that could not be done: the rest was not tried. */
+  failed?: { file: string; why: string }
+  /** Nothing was touched: the reason. */
+  refused?: string
+}
+
 /** The history of an object as the window is given it. */
 export interface HistoryList {
   /** The run of this torno: an entry of it has a revision the window knows (`r3`). */
@@ -106,11 +171,11 @@ export interface HistoryList {
   ghosts: string[]
 }
 
-/** A kept build's parts as the window draws them over the current build: its scene and the bytes of its meshes. */
-export interface HistoryGhost {
-  scene: Scene
-  blob: ArrayBuffer
-}
+/**
+ * A kept build's parts as the window draws them over the current build: its scene and the bytes of its meshes, or, when
+ * main cannot give them (a build that failed, whose copy was not kept or does not build any more), `refused`: its sentence, for the view to say.
+ */
+export type HistoryGhost = { scene: Scene; blob: ArrayBuffer; refused?: undefined } | { refused: string }
 
 /** The builds of the list an entry is among those made in this run. */
 export const madeHere = (list: Pick<HistoryList, 'run'>, entry: Pick<HistoryEntry, 'run'>): boolean => entry.run === list.run

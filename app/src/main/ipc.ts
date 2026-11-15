@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import type { BuildState } from '../shared/build'
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron'
+import { type BuildReason, type BuildState, errorLine } from '../shared/build'
 import { EXPORT_FORMATS, EXTENSIONS, FORMAT_NAMES, type FileFormat, type ExportPlan, type ExportRequest, type ExportSaved, type ModelFormat } from '../shared/exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from '../shared/geometry'
 import type { BuildIdentity } from '../shared/git'
@@ -16,10 +16,12 @@ import type { ObjectCard, ThumbnailOf } from '../shared/show'
 import type { ViewState } from '../shared/view'
 import type { ObjectInfo, RecentFolder, WorkspaceInfo } from '../shared/workspace'
 import { Builds, buildTimeout, watchFolder } from './builds'
-import { BuildLog } from './buildlog'
+import { rebuildKept } from './oldbuild'
+import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
-import { History, readHistory, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
-import type { HistoryEntry, HistoryGhost, HistoryList } from '../shared/history'
+import { type GoBackPlan, type GoBackResult, applyGoBack, entryBefore, planGoBack } from './goback'
+import { History, type KeptCause, keptCause, readHistory, readHistoryDrawnGone, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
+import { type HistoryEntry, type HistoryGhost, type HistoryList, drawable } from '../shared/history'
 import type { Verdict } from '../shared/sanity'
 import { gitStateRecently } from './git'
 import { keepExample } from './example'
@@ -54,7 +56,8 @@ import type { Sessions } from './sessions/manager'
 import type { KnownModels } from './sessions/models'
 import { type UserProfiles, projectProfile, setProjectProfile } from './profile'
 import { type Profile, profileOf } from '../shared/profile'
-import { lastConversation } from './sessions/chatlog'
+import { lastConversation, readLog } from './sessions/chatlog'
+import { listPrompts } from './sessions/prompts'
 import { readReference } from './sessions/reference'
 import { storedConversation } from './sessions/resume'
 import { sessionOfWorkspace } from './sessions/status'
@@ -77,11 +80,11 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 
 // Channel names, repeated in src/preload/index.ts.
 //   invoke: workspace:current, workspace:pick, workspace:open, workspace:versions, ready:check, ready:make,
-//           history:list, history:thumbnail, history:source, history:ghost, history:star,
+//           history:list, history:thumbnail, history:source, history:ghost, history:star, history:goBackPlan, history:goBack,
 //           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
-//           chat:history, chat:lastConversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
+//           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
@@ -268,11 +271,13 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   })
   builds.on('build', (state) => {
     if (state.status === 'building' && state.startedAt !== undefined) ws.started.set(state.objectId, state.startedAt)
+    // A build that failed is kept in the history too, as a line of it.
+    if (state.status === 'failed') keepFailedBuild(ws, state)
     broadcast('object:build', state)
     onBuild?.(state)
     cardsChanged()
   })
-  builds.on('scene', ({ objectId, revision, scene, blob }) => {
+  builds.on('scene', ({ objectId, revision, scene, blob, reason, wentBackTo }) => {
     ws.meshes.keep(objectId, revision, { scene, blob })
     // Which build this scene came of: the one started last. A picture of it is no newer than the model was then.
     ws.builtFrom.set(objectId, { revision, startedMs: ws.started.get(objectId) })
@@ -282,7 +287,7 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
       const made = ws.buildLog.record(obj, revision, scene)
       void made.catch(() => {})
       // And the build is kept in the object's history (`.torno/history/`), in the order the builds landed.
-      void ws.history.keep(obj, made, scene)
+      void ws.history.keep(obj, made, scene, causeOfBuild(objectId, ws.started.get(objectId), reason, wentBackTo))
     }
     broadcast('object:scene', { objectId, revision, scene, blob: toArrayBuffer(blob) })
   })
@@ -366,6 +371,32 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
  * built from (`Builds.choice`), so the list says what is on screen. A scan
  * that fails leaves what was known.
  */
+/**
+ * What made a build, kept with it: the reason `Builds` started it for when that says (the person's `Params`, a Go
+ * back), else what the session of the object says of the moment the build began (`Sessions.causeOf`: the agent after
+ * its turn's first edit, the person otherwise).
+ */
+function causeOfBuild(objectId: string, startedMs: number | undefined, reason: BuildReason | undefined, wentBackTo: string | undefined): KeptCause {
+  return keptCause(reason, wentBackTo, () => sessions?.causeOf(objectId, startedMs ?? 0) ?? { cause: 'person' })
+}
+
+/**
+ * The build of an object failed: it is kept in the history as a line (`History.keepFailed`), with the sources as
+ * `BuildLog` hashes them (those of the last good build's `uses`). Not one the kernel's stopping or a cancel made: no
+ * sources failed there.
+ */
+function keepFailedBuild(ws: OpenWorkspace, state: BuildState): void {
+  const { error } = state
+  if (!error || error.kernelStderr || error.kind === 'cancelled' || error.kind === 'no_model') return
+  const obj = ws.info.objects.find((o) => o.id === state.objectId)
+  if (!obj) return
+  const startedMs = ws.started.get(state.objectId)
+  void sourcesHash(obj.dir, ws.builds.scene(obj.id)?.scene.uses).then(
+    (sources) => ws.history.keepFailed(obj, { run: ws.buildLog.run, revision: state.revision, sources, ...(state.seconds !== undefined ? { seconds: state.seconds } : {}) }, errorLine(error), causeOfBuild(obj.id, startedMs, state.reason, state.wentBackTo)),
+    () => null
+  )
+}
+
 async function rescan(ws: OpenWorkspace): Promise<void> {
   const newest = ws.scan()
   const scanned = await scanWorkspace(ws.info.root).catch(() => null)
@@ -425,6 +456,15 @@ export function openObjectId(): string | null {
 /** Where the build of an object stands, once the object has been opened. */
 export function buildState(id: string): BuildState | undefined {
   return current?.builds.state(id)
+}
+
+/** The build "before this prompt" of an object, for Go back: the object and the id of the entry, or why there is none. */
+async function goBackTarget(objectId: string, prompt: string): Promise<{ obj: ObjectInfo; to: string } | { refused: string }> {
+  const obj = findObject(objectId)
+  if (!obj || !current) return { refused: 'That project is not open.' }
+  const revision = sessions?.startedFrom(prompt)
+  const found = entryBefore(await readHistory(obj.dir), prompt, revision === undefined ? undefined : { run: current.buildLog.run, revision }, await readHistoryDrawnGone(obj.dir))
+  return 'refused' in found ? found : { obj, to: found.id }
 }
 
 /** How long a tool waits for the builds that just landed to be written into the history. */
@@ -704,7 +744,7 @@ export function registerIpc(
     if (!field) throw new Refusal(`${name} is not a field of the model's Params in the last build`)
     if (!field.editable) throw new Refusal(`${name} cannot be tried here: only a number, a flag or a choice with a literal default can`)
     await setOverride(obj.dir, name, value, field.default)
-    ws.builds.changed(id)
+    ws.builds.changed(id, [], 'params')
   })
 
   handle('object:resetParams', async (_event, id: string, name?: string) => {
@@ -712,7 +752,7 @@ export function registerIpc(
     const obj = ws.info.objects.find((o) => o.id === id)
     if (!obj) throw new Refusal(`no project named ${id}`)
     await resetOverrides(obj.dir, name)
-    ws.builds.changed(id)
+    ws.builds.changed(id, [], 'params')
   })
 
   handle('object:sceneFile', (_event, id: string): Promise<SceneFile> => {
@@ -812,6 +852,16 @@ export function registerIpc(
     const obj = findObject(String(objectId))
     const stored = obj ? storedConversation(obj.dir) : null
     return obj && stored !== null ? lastConversation(obj.dir, stored) : null
+  })
+
+  // The prompts of every conversation of an object, numbered across them (`main/sessions/prompts.ts`), and one earlier conversation to read: from `.torno/chat/`, read only.
+  handle('chat:prompts', async (_event, objectId: string) => {
+    const obj = findObject(String(objectId))
+    return obj ? listPrompts(obj.dir) : []
+  })
+  handle('chat:conversation', async (_event, objectId: string, conversationId: string) => {
+    const obj = findObject(String(objectId))
+    return obj ? readLog(obj.dir, String(conversationId)) : []
   })
 
   handle('chat:reference', async (_event, sessionId: string, file: string) => {
@@ -1117,35 +1167,63 @@ export function registerIpc(
     return obj && obj.model !== null ? gitStateRecently(obj.dir) : Promise.resolve(null)
   })
   // The builds kept of an object (`main/history.ts`): read, and starred; nothing is ever restored from them.
+  // Every field of an entry goes with it (`cause`, `turn`, `failed`, `error`...); a build that failed has no folder,
+  // scene, picture or copies, so no reader of those answers for one.
   handle('history:list', async (_event, objectId: string): Promise<HistoryList | null> => {
     const obj = findObject(String(objectId))
     const kept = obj ? await historyOf(obj.id) : null
     const held = current && obj ? current.meshes.revisions(obj.id) : []
-    const ghosts = kept ? kept.entries.filter((e) => e.run === kept.run && held.includes(e.revision)).map((e) => e.id) : []
+    const ghosts = kept ? kept.entries.filter((e) => drawable(e) && e.run === kept.run && held.includes(e.revision)).map((e) => e.id) : []
     return obj && kept ? { run: kept.run, base: join(obj.dir, '.torno', 'history'), entries: kept.entries, ghosts } : null
   })
   handle('history:thumbnail', async (_event, objectId: string, id: string) => {
     const obj = findObject(String(objectId))
-    const png = obj ? await readHistoryThumb(obj.dir, String(id)) : null
+    const entry = obj ? (await readHistory(obj.dir)).find((e) => e.id === String(id)) : undefined
+    const png = obj && entry && drawable(entry) ? await readHistoryThumb(obj.dir, entry.id) : null
     return png && toArrayBuffer(png)
   })
   handle('history:source', async (_event, objectId: string, id: string, file: string) => {
     const obj = findObject(String(objectId))
     if (!obj) return null
     const entry = (await readHistory(obj.dir)).find((e) => e.id === String(id))
-    return entry ? readHistorySource(obj.dir, entry, String(file)) : null
+    return entry && drawable(entry) ? readHistorySource(obj.dir, entry, String(file)) : null
   })
   handle('history:ghost', async (_event, objectId: string, id: string): Promise<HistoryGhost | null> => {
     const obj = findObject(String(objectId))
     const ws = current
     if (!obj || !ws) return null
     const entry = (await readHistory(obj.dir)).find((e) => e.id === String(id))
-    const held = entry && entry.run === ws.buildLog.run ? ws.meshes.get(obj.id, entry.revision) : undefined
-    return held ? { scene: held.scene, blob: toArrayBuffer(held.blob) } : null
+    if (!entry) return { refused: `Build ${String(id)} is not in the history of this project.` }
+    const held = drawable(entry) && entry.run === ws.buildLog.run ? ws.meshes.get(obj.id, entry.revision) : undefined
+    if (held) return { scene: held.scene, blob: toArrayBuffer(held.blob) }
+    // Not in memory (an earlier run, or let go): built again from the copy of its files, in a worker thrown away. Its sentence when it cannot be: the view says it.
+    const rebuilt = await rebuildKept(obj, entry, { kernel: ws.kernel, userData: app.getPath('userData'), timeout: buildTimeout(process.env) })
+    return 'refused' in rebuilt ? { refused: rebuilt.refused } : { scene: rebuilt.scene, blob: toArrayBuffer(rebuilt.blob) }
   })
   handle('history:star', (_event, objectId: string, id: string, starred: boolean) => {
     const obj = findObject(String(objectId))
     return obj && current ? current.history.star(obj, String(id), starred === true) : false
+  })
+  // Go back to before a prompt (`main/goback.ts`): the plan to show, and the go-ahead. The one place the model's files are written.
+  handle('history:goBackPlan', async (_event, objectId: string, prompt: string): Promise<GoBackPlan | { refused: string }> => {
+    const target = await goBackTarget(String(objectId), String(prompt))
+    return 'refused' in target ? target : planGoBack(target.obj, target.to)
+  })
+  handle('history:goBack', async (_event, objectId: string, prompt: string, confirmed: Pick<GoBackPlan, 'to' | 'write' | 'remove'>): Promise<GoBackResult> => {
+    const ws = current
+    const target = await goBackTarget(String(objectId), String(prompt))
+    if (!ws || 'refused' in target) return { done: [], refused: 'refused' in target ? target.refused : 'No project is open.' }
+    const plan = await planGoBack(target.obj, target.to)
+    if ('refused' in plan) return { done: [], refused: plan.refused }
+    // What the person confirmed is what main would do; anything else is looked at again.
+    const asked = confirmed && typeof confirmed === 'object' ? confirmed : null
+    const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')
+    if (!asked || asked.to !== plan.to || !strings(asked.write) || !strings(asked.remove) || asked.write.join('\0') !== plan.write.join('\0') || asked.remove.join('\0') !== plan.remove.join('\0')) {
+      return { done: [], refused: 'The files are not as they were when you were asked. Look again before going back.' }
+    }
+    const result = await applyGoBack(target.obj, plan, { history: ws.history, builds: ws.builds, busy: () => sessions?.busyWith(target.obj.id) ?? null })
+    if (!result.refused && !result.failed) sessions?.noteGoBack(target.obj.id, `Went back to build ${plan.to}: the model files are put back as they were then. Claude is told with your next prompt which prompts are undone.`)
+    return result
   })
   handle('show:thumbnail', async (_event, objectId: string) => {
     const obj = findObject(String(objectId))

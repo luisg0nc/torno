@@ -381,6 +381,8 @@
 }
 
 .new-confirm {
+  /* Never squeezed by a page taller than the window: with the rail and a panel beside it, the page is narrower and is. */
+  flex: none;
   position: sticky;
   bottom: 0;
   z-index: 5;

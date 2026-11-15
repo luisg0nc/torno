@@ -1,131 +1,59 @@
-/* ---- Left column: objects, then the layers and the scans of the open one, then its marks ---- */
+/* ---- The panel docked beside the rail: one of Projects, Layers, Params, Scans or Marks ---- */
 
 /*
- * The marks are the section read most, after every reply: they keep room for five rows at least (their title, a
- * group's heading and five rows of 30 px; `MARKS_FLOOR` in `state/column.ts`), and every section above gives way
- * before they do, each down to its title. The splitter above them (`ui/ColumnSplit.tsx`) gives them more:
- * `--marks-h`, set on the column.
+ * The panel is as tall as the window and scrolls as a whole (`.panel-body`), except the marks, which keep their title
+ * and the line of checks in place and scroll their list (`.marks-body`). The panel pushes the view over (`--left-w`
+ * on the shell is the rail and the panel's width); it never floats over it.
  */
-.left {
-  --marks-floor: 212px;
-  /* A section's title row (28 px), with its divider and the space above it: its least. */
-  --section-least: 33px;
+.panel-host {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: var(--divider);
+}
+
+.panel-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panel-host[data-panel='marks'] .panel-body {
+  overflow-y: hidden;
 }
 
 .section {
   display: flex;
+  flex: none;
   flex-direction: column;
   min-height: 0;
+  padding: var(--space-1) 0 var(--space-2);
+}
+
+/* The sections of one panel (Params holds the checks and the print profile): a hairline between. */
+.section + .section {
+  border-top: var(--divider);
+}
+
+/* The rows are the panel's to scroll, not a section's own. */
+.panel-body .rows {
+  flex: none;
+  overflow: visible;
 }
 
 .objects {
-  /* The list that gives way first: with a scan in, the layers and the marks need their rows. */
-  flex: 0 2 auto;
-  max-height: 38%;
-  min-height: calc(var(--section-least) + 28px);
   padding-bottom: var(--space-2);
-}
-
-/* With no layers or scans under it (no object open, or the page of objects up) the list has their room: every
-   object in sight, beside the marks when there are any, not a short scroller over an empty column. */
-.left:not(:has(> .layers, > .scans)) > .objects {
-  max-height: none;
-}
-
-/* Folded to its switcher, the list is its title and one row, and is never cut. */
-.objects[data-switcher] {
-  flex: none;
-  max-height: none;
-  min-height: 0;
-  padding-bottom: var(--space-1);
-}
-
-.layers {
-  flex: 0 1 auto;
-  max-height: 34%;
-  min-height: var(--section-least);
-  border-top: var(--divider);
-  padding: var(--space-1) 0 var(--space-2);
-}
-
-.params {
-  flex: 0 1 auto;
-  max-height: 30%;
-  min-height: var(--section-least);
-  border-top: var(--divider);
-  padding: var(--space-1) 0 var(--space-2);
-}
-
-.checks {
-  flex: 0 1 auto;
-  max-height: 30%;
-  min-height: var(--section-least);
-  border-top: var(--divider);
-  padding: var(--space-1) 0 var(--space-2);
-}
-
-.print {
-  flex: 0 1 auto;
-  max-height: 40%;
-  min-height: var(--section-least);
-  border-top: var(--divider);
-  padding: var(--space-1) 0 var(--space-2);
-}
-
-.scans {
-  flex: 0 1 auto;
-  max-height: 32%;
-  min-height: var(--section-least);
-  border-top: var(--divider);
-  padding: var(--space-1) 0 var(--space-2);
-}
-
-/* Folded, a section is its title row (and, for the scans, what is said of an import). */
-.layers[data-folded],
-.params[data-folded],
-.checks[data-folded],
-.print[data-folded],
-.scans[data-folded] {
-  flex: none;
-  max-height: none;
-  min-height: 0;
-  padding: 0;
 }
 
 .marks {
   flex: 1 1 0;
-  min-height: var(--marks-floor);
-  border-top: var(--divider);
   padding-top: var(--space-1);
-}
-
-/* Given more room by the splitter: `ui/ColumnSplit.tsx` keeps `--marks-h` to what the column has room for, as it is now. */
-.left:has(> .column-split) > .marks {
-  min-height: max(var(--marks-floor), var(--marks-h, 0px));
-}
-
-/* The splitter: the hairline above the marks, a band of 7 px to take hold of. */
-.column-split {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  height: 7px;
-  margin: -3px 0 -4px;
-  cursor: row-resize;
-}
-
-.column-split:hover,
-.left[data-resizing] .column-split {
-  background: linear-gradient(transparent 3px, var(--accent) 3px, var(--accent) 4px, transparent 4px);
-}
-
-.column-split:focus-visible {
-  outline-offset: -2px;
-}
-
-.left[data-resizing] {
-  cursor: row-resize;
-  user-select: none;
+  padding-bottom: 0;
 }
 
 /* A title with the one thing to do in its section beside it. */
@@ -146,38 +74,11 @@
   color: var(--muted);
 }
 
-/* A title that folds its section: the chevron in the gutter, so the word stands where the rows' names do. */
 .section-head .section-title {
   flex: 1;
   min-width: 0;
   padding-top: 2px;
   padding-bottom: 2px;
-}
-
-.section-fold {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  max-width: 100%;
-  height: 24px;
-  margin-left: -15px;
-  padding: 0 var(--space-1) 0 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  white-space: nowrap;
-}
-
-.section-fold svg {
-  flex: none;
-  width: 11px;
-  height: 11px;
-}
-
-.section-fold:hover {
-  color: var(--ink);
 }
 
 .section-said {
@@ -191,7 +92,7 @@
   padding-left: var(--space-1);
 }
 
-/* Folded to the switcher: the way to the page beside the title, as the scans have their import. */
+/* With a project open: the way to the page of projects beside the title, as the scans have their import. */
 .page-button {
   display: inline-flex;
   flex: none;
@@ -204,98 +105,7 @@
   height: 13px;
 }
 
-/* The switcher: the open object in ink, the sign of any session that works or waits, and the chevron of its menu. */
-.object-switcher-host {
-  position: relative;
-  flex: none;
-}
-
-.object-switcher {
-  border: 0;
-  background: var(--accent-wash);
-  color: var(--ink);
-  font-weight: 500;
-  text-align: left;
-}
-
-.object-switcher[aria-pressed='true'] {
-  color: var(--accent);
-}
-
-.object-switcher[data-problem] .row-name {
-  color: var(--muted);
-}
-
-.object-switcher:focus-visible {
-  outline-offset: -2px;
-}
-
-.object-switcher-chevron {
-  flex: none;
-  margin-left: auto;
-  width: 14px;
-  height: 14px;
-  color: var(--muted);
-}
-
-/* Over `.menu` (`viewbars.css`, later in the cascade): above the sections under it and the splitter. */
-.objects .object-menu {
-  z-index: 20;
-  top: calc(100% + 2px);
-  right: var(--space-2);
-  left: var(--space-2);
-  max-height: min(60vh, 520px);
-  overflow-y: auto;
-}
-
-/* An item may be two lines: over the menu's one-line height (`viewbars.css`, later in the cascade). */
-.object-menu .object-item {
-  display: grid;
-  height: auto;
-  min-height: 26px;
-  padding: 4px 9px;
-}
-
-.object-item-name {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.object-item[aria-current='true'] {
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.object-item[data-problem] .row-name {
-  color: var(--muted);
-}
-
-/* Why it cannot be built: a second line, not only a tooltip. */
-.object-item-problem {
-  color: var(--muted);
-  font-size: var(--text-small);
-  font-weight: 400;
-  overflow-wrap: anywhere;
-}
-
-.object-item-new {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-}
-
-.object-item-new svg {
-  width: 14px;
-  height: 14px;
-}
-
 .section-note {
-  /* It gives way with its section, down to the title, as the rows do: never over the section below. */
-  min-height: 0;
-  overflow: hidden;
   padding: 0 var(--space-4);
   color: var(--muted);
 }
@@ -644,21 +454,9 @@ button.param-button:focus-visible {
   color: var(--accent);
 }
 
-/* Another object's waiting session, named on the switcher: the name and the words share what room there is. */
-.object-switcher .row-name,
-.object-switcher .session-sign {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-.object-switcher .session-sign-word {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .params-sources {
   margin: 0 0 var(--space-2);
+  padding: 0 var(--space-4);
   color: var(--muted);
   font-size: var(--text-small);
 }
@@ -787,4 +585,5 @@ button.param-button:focus-visible {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin: 0 0 var(--space-2);
+  padding: 0 var(--space-4);
 }

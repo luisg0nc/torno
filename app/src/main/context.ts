@@ -136,6 +136,11 @@ export interface PromptContext {
   digest?: BuildDigest
   /** How many instruction files the text names (the first prompt of a session, and the first after `/clear`), as data for the chat's line. Absent when it names none. */
   instructions?: number
+  /**
+   * Called once the answer that holds `text` has been handed over whole (not when the agent hung up first): for what is
+   * kept until then and removed after, such as a Go back's notice (`takeGoBackNotice`).
+   */
+  delivered?: () => void | Promise<void>
 }
 
 /**
@@ -176,13 +181,18 @@ export interface PromptContext {
  * the build (`instructionsLine`), in the very last line. Its room is kept before the status is fitted and any mark is listed, and it outranks
  * the references. None of it is told with the answer to an edit.
  *
+ * What a Go back left for the agent (`opts.notice`, `takeGoBackNotice`, a sentence of main's) is the first line, ahead of the
+ * rest and in addition to CONTEXT_LIMIT (it is short: `goback.ts` keeps it so): nothing is left out for it.
+ *
  * A tool of torno's is named as the agent's client names it to its model
  * (`opts.toolName`; as Claude Code does when nothing says).
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; toolName?: (tool: string) => string } = {}): PromptContext {
-  return withBuild(deps, objectId, contextText(deps, objectId, marks, opts))
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; toolName?: (tool: string) => string; notice?: string } = {}): PromptContext {
+  const { notice, ...rest } = opts
+  const told = withBuild(deps, objectId, contextText(deps, objectId, marks, rest))
+  return notice ? { ...told, text: told.text === '' ? notice : `${notice}\n${told.text}` } : told
 }
 
 /**

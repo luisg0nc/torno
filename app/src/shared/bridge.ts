@@ -1,9 +1,9 @@
 import type { AskAnswer, OpenAsk } from './ask'
 import type { BuildState } from './build'
 import type { TurnChanges } from './changes'
-import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode } from './chat'
+import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode, PromptRow } from './chat'
 import type { GitState } from './git'
-import type { HistoryGhost, HistoryList } from './history'
+import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './history'
 import type { ExportPlan, ExportRequest, ExportSaved } from './exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
@@ -260,7 +260,7 @@ export interface TornoBridge {
     /** Something a card says may have changed. */
     onChanged(cb: () => void): () => void
   }
-  /** The builds kept of an object under its `.torno/history/` (`main/history.ts`). The window reads them and stars them; it never restores anything. */
+  /** The builds kept of an object under its `.torno/history/` (`main/history.ts`). The window reads them, stars them and asks for a Go back; only main writes the files (`main/goback.ts`). */
   history: {
     /** Oldest first; null for an object that is not of the open workspace. */
     list(objectId: string): Promise<HistoryList | null>
@@ -268,10 +268,23 @@ export interface TornoBridge {
     thumbnail(objectId: string, id: string): Promise<ArrayBuffer | null>
     /** The text of one copied source file of a build (`file` is one of its `files`), or null. */
     source(objectId: string, id: string, file: string): Promise<string | null>
-    /** A build made in this run, with its meshes, to be drawn over the current one for display only; null when its meshes are not held (see `HistoryList.ghosts`). */
+    /** A build made in this run, with its meshes, to be drawn over the current one for display only; its `refused` sentence when it cannot be drawn (it failed, or its copy is not kept or no longer builds); null for a project main does not know. See `HistoryList.ghosts`: those are held, the rest are built again. */
     ghost(objectId: string, id: string): Promise<HistoryGhost | null>
     /** Stars a build, or takes the star away: a starred build is not let go. False for a build that is not kept. */
     star(objectId: string, id: string, starred: boolean): Promise<boolean>
+    /**
+     * What "Go back to before this prompt" would do (`prompt` is a turn's prompt id, as the history names it), to be shown
+     * before anything is written; or a sentence on why it cannot. Reads only. A plan with `fallback: 'undo'` has no copy
+     * to restore: the chat's Undo is the way back then.
+     */
+    goBackPlan(objectId: string, prompt: string): Promise<GoBackPlan | { refused: string }>
+    /**
+     * Goes back, once the person has confirmed what `goBackPlan` showed (`confirmed` is only what they were shown: main works
+     * the plan out again and does nothing if it is not the same). Resolves with what was written and removed, and the first
+     * thing that failed; `refused` when nothing was touched. The files written are the project's own `.py` files, never
+     * `common/` or another project.
+     */
+    goBack(objectId: string, prompt: string, confirmed: Pick<GoBackPlan, 'to' | 'write' | 'remove'>): Promise<GoBackResult>
     /** Told, with the object, when its history changed. */
     onChanged(cb: (objectId: string) => void): () => void
   }
@@ -331,6 +344,10 @@ export interface TornoBridge {
     history(sessionId: string): Promise<ChatHistory>
     /** The end of the conversation an object's next session would resume (its last turns, text only, and when its log was last written; `at` null when it has no log, as one begun in a terminal), or null when there is none. Read from `.torno/chat/`; nothing is made. */
     lastConversation(objectId: string): Promise<{ items: ChatItem[]; at: string | null } | null>
+    /** Every prompt of the object's conversations that was sent, oldest first, numbered from 1 across all of them (a terminal's from the history): what "Prompts only" lists. Read from `.torno/chat/`. */
+    prompts(objectId: string): Promise<PromptRow[]>
+    /** The items of one earlier conversation of the object, from its log (its last 500), for reading above the current one; none for a conversation with no log. Read only. */
+    conversation(objectId: string, conversationId: string): Promise<ChatItem[]>
     /** The bytes of a picture of the person's in the session's object, `reference/photo-1.jpg` (`ChatImage.file`), read again by main: none for a file that is not a plain file of a name torno gives there, or for a session that is not of the open workspace. Also for a session that has ended. */
     reference(sessionId: string, file: string): Promise<{ mediaType: string; bytes: Uint8Array } | null>
     /**

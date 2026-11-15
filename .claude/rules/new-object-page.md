@@ -15,8 +15,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## A new object (`app/src/renderer`)
 
 - `ui/onboard/NewObject.tsx` is a page in place of the viewport (`store.page`: `'new'`; the view is `covered` and
-  inert under it as under the page of objects, and the layers, parameters, scans and marks are hidden). No row of the list is
-  current (the "New project" button is pressed; folded, the switcher reads "New project", pressed), and the status line is "New project" and the build123d version alone:
+  inert under it as under the page of objects, and the rail offers Projects alone). No row of the list is
+  current (the "New project" button is pressed), and the status line is "New project" and the build123d version alone:
   no Rebuild, revision, parts or Export. The session pane shows `ui/onboard/DraftPane.tsx` (#84):
   the first prompt Claude Code will get, read-only, as main writes it (`objects.previewPrompt`, asked again 300 ms after a
   change; the one `onboardPrompt` that `objects.onboard` sends), the person's own words in ink and torno's in the muted face,

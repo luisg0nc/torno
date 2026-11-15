@@ -35,8 +35,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `from` and `to` take a revision, `r3`, or an id, `h41`; `ToolDeps.history` and `historyScene`, read by `ipc.ts` `historyOf` after the writes that
   just landed, 2 s at most; a revision of this run that is no longer in memory is found there too; given only the last build, the
   default is the newest kept build of other sources; what a kept build had then (`failingChecks`, `defects`, `dimensions`) is told with a
-  note that it is as of then); `history` (`historyTool`) lists the kept builds newest first or gives one with the paths of its
-  copies, so that the agent can read them and edit the project's files itself.
+  note that it is as of then); `diff` refuses a failed entry (by id, with a sentence naming it and its error) and never takes one for the build of
+  a revision (it carries the revision of the last good build) or as the default to compare with; `history` (`historyTool`) lists the kept builds newest first or gives one with the paths of its
+  copies, so that the agent can read them and edit the project's files itself. Its `changed` says after the line what caused the build
+  (`· by Claude (prompt "<first 80 characters>")`, `· your edit`, `· params`, `· went back to h40`, `· undone`; nothing for an entry with no `cause`) and a
+  failed one is `failed: <error>`; the entry's `cause`, `turn`, `failed`, `error`, `wentBackTo` and `undone` go as stored. `history:ghost`,
+  `history:thumbnail` and `history:source` answer null for a failed entry, and `ghosts` never names one.
   Each part is compared by `partDiff` of `shared/diff.ts`, which the window's status line and ghosts use too,
   from what the kernel sent with each, asking it nothing: a number is `exact` only where both builds say so.
   `look` and `show` take the name of a saved view as `view`, and `save_view`

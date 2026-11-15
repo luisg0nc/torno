@@ -39,6 +39,17 @@ export type ChatItem =
   /** Something torno says about the conversation: the model changed, torno's tools are not connected, the session ended. `action`: a button beside it, `terminal` to run this object's sessions in Claude Code's own terminal (the chat could not use the login). */
   | { kind: 'note'; id: string; text: string; tone: 'quiet' | 'warn'; action?: 'terminal' }
 
+/** One prompt of the project (`main/sessions/prompts.ts`). `number` counts from 1 across every conversation, by the time it was said. */
+export interface PromptRow {
+  conversation: string
+  /** The `id` of the chat's `user` item, or `t-<conversation>-<n>` for a terminal's prompt. */
+  id: string
+  number: number
+  text: string
+  /** When it was said, ms; for a terminal's prompt, when its first build landed (the time it was said is not kept). */
+  at: number
+}
+
 /** The tokens of one kind of request, as the CLI counts them. */
 export interface TokenCount {
   input: number

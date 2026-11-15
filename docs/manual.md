@@ -11,9 +11,9 @@ point at the parts to say what you mean, measure them, and hold them to
 numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
-The window has three columns. On the left, the projects of the folder you
-opened, and under them the parts, scans and marks of the open one; the marks
-have the room, and the sections above them fold. In the
+The window has three parts. On the left, a thin rail of five icons (Projects,
+Layers, Params, Scans and Marks); each opens one panel beside it, which pushes
+the 3D view over. In the
 middle, the parts in 3D, with a bar of views above them and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
 says how the last build went.
@@ -265,13 +265,10 @@ the model it chose for as long as that file exists. A folder where no model
 can be chosen, or a model with none of the forms below, is listed with the
 reason it cannot be built.
 
-With a project open in a folder of several, the list of projects is folded to one row, the
-switcher: the open project's name, and "All projects `W`" beside the title. A click on the name,
-or `Enter`, opens a menu of every project (a dot for a session that works or waits, the reason
-under one that cannot be built) with "New project" at its foot; the arrows, `Home` and `End`
-move in it, `Enter` opens one, `Esc` puts it away. When a session of another project waits for
-you, the switcher has its dot and says so ("bracket needs you"). The "Projects" title unfolds the
-whole list in place. With no project open, or the page of projects up, the list is whole.
+The Projects panel lists the projects of the folder: a dot on a row for a session that works or waits,
+the reason under one that cannot be built, and "New project" at its foot. With a project open in a folder of
+several, "All projects `W`" is beside the title. When any project's session waits for you, the Projects
+icon on the rail has its dot and says so ("bracket needs you") while the panel is closed.
 
 The kernel imports the model file as a module (`if __name__ == "__main__"` does
 not run) and takes the first of:
@@ -374,13 +371,27 @@ the Python files it was made from, its parts' numbers, and a small picture. A ke
 which goes on counting across runs of torno; the revision (`r3`) is of one run and is told beside it. The latest 100
 are kept, and every one you star. A build that fails the model's own checks is kept too, marked: it is often the one
 to compare against. A rebuild of sources the newest kept build was made from is not kept again. **History** in the status line opens
-the builds in a strip, newest first: the picture, the id, how long ago, and what changed from the build before in a
-line (`tub changed, lid same`). Choose one for its facts, **Show the source** to read the Python it was made from,
-read only, **Star** to keep it, **Show over the current build** to see it drawn translucent, in grey, over the build on show (for looking only: nothing is measured from it, a picture for the agent does not show it, and a section, parts drawn apart or another layout put it away; the status line says it is there and has **Stop**), or **Ask the agent to go back to this build**, which puts a request in the message box of
-the session (or starts one) naming the copies, and sends nothing. torno never puts a file back: the agent edits the
-project's files, under your permission rules, and the copies are not to be edited. What a kept build had then (checks
-that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands
-now. A build can be shown over the current one only if it was made in this run and its meshes are still held: they are kept in memory, never on disk, within a budget of 64 MB for the builds before the newest, the oldest let go first. The agent reads the same with `history`, and compares any two with `diff`.
+**Prompts only**, which is also the chat's own toggle (`Chat | Prompts only`): one row for each prompt of the project, newest first, across
+every conversation of it as one thread, with a quiet line where a conversation began. A prompt has one number wherever it is shown (a turn
+of the chat, a row, `comparing prompt 14` in the status line), counted from 1 across the project by the time it was said. A row is the number, the
+picture of the prompt's last build, what you said cut to a line, and under it the builds it went through (`h40 → h41`), what they came to
+in a word (`passes`, `2 failed on the way`, `build failed`, `starred`, `gone back from`) and when. What you built yourself between two prompts
+(your saves in your own editor, the Params you tried) is a line between the rows; the prompts a Go back undid are one faded row, openable. **Starred** keeps the
+prompts with a starred build, **Hide gone back** leaves out the ones you went back from. Click a row to compare it (below), double-click it, or **Open in chat**, to read it in the chat where it was said.
+The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
+is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
+The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are on the turns of the chat.
+What a kept build had then (checks that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands now.
+**Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the earlier build alone), **Overlay**
+(the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
+the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
+have landed, that older build, which stands in for the live one until you go back, and **Back to the live build**, which `Esc` also does. Two boxes over the corners say what the later build changed
+(its line) and how the checks and your dimensions moved between the two builds. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
+It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
+show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from
+the meshes held in memory (never on disk, within a budget of 64 MB for the builds before the newest, the oldest let go first); an older one is built again from
+its copy of the files, with the values of `Params` that build was made with, in a worker thrown away that keeps and writes nothing, and the status line says `Building h40 to compare…` while it takes: the first time
+only waits for one build. A build that failed, or whose copy was not kept or no longer builds, is not drawn: the view says why. The agent reads the same with `history`, and compares any two with `diff`.
 
 **A failed fillet or chamfer.** build123d and OpenCascade say only that a fillet
 or a chamfer could not be made, naming neither the edges nor the radius. When a
@@ -411,15 +422,17 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left, the list of projects, then the layers, the parameters, the print profile and the scans of the
-open project, then its marks. Projects, Layers, Parameters, Print profile and Scans each fold by their title; folded, the
-title says what matters (`Layers 12 · 3 hidden`, `Scans 1 · unaligned`). Marks never folds:
-it keeps room for five rows at least, and the sections above give way first. Drag the line
-above Marks up for more (`Up` and `Down` with it in focus), double click it for the shares
-again. Drag the right edge of the column to make it wider (`Left` and `Right` with it in focus),
-double click it for the default width; the column is never narrower than that, and leaves the view
-its room beside the session pane. What is folded, where the line is and how wide the column is are
-kept by the window, not in the folder. The
+**The window.** On the left, a rail of five icons with a word under each: Projects, Layers, Params, Scans and
+Marks. Press one and its panel opens beside the rail, pushing the view over; press the open one and it closes;
+press another and it switches. One panel is open at a time, and Marks is the one at first. The Params panel holds
+Parameters, then Checks and Print profile, which are about the same build. What a folded title used to say shows
+as a small badge on a closed panel's icon: the parts switched off on Layers, the model's checks that fail on
+Params, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the panel to make it
+wider (`Left` and `Right` with it in focus), double click it for the default width; the panel is never narrower than
+that, and leaves the view its room beside the rail and the session pane. Which panel is open and how wide it is are
+kept by the window, not in the folder. On the page of projects the rail offers Projects and Marks, and while a new
+project is made, Projects alone. The Projects panel starts with the folder's name and its menu.
+The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
 a click with Select would, so "Insert" and "Note" work on it) and a double click brings it into view, the target on
@@ -427,13 +440,13 @@ the row shows only that part, and when some parts are switched off the title say
 name, a muted number counts the open marks on the part (in the colour of a failing check when one of them is
 one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
 rest back. That is a view of the list: the agent is told every mark as before. Parameters lists the fields of
-the model's `Params` (folded to its title at first; a model with none has no section): each
+the model's `Params` (a model with none says so): each
 field's name, its default in the monospace face (four digits at most, the whole value on hover) and
 its comment as the model has it, and, for a default the model works out (an expression, not a
 number written in), that it is worked out in the model. The model's comments should begin with where a size
 comes from (`brief:`, `M3:`, `S1 ≈:`, `ref <file>:`, `object:`, `datasheet <name>:`, `person:`, `derived:` or
 `assumed:`), and under the title a line counts the sizes that say `assumed` and those that say nothing, their
-names on hover; it is what the model says, not something torno has checked. torno never writes the model. A
+names on hover; it is what the model says, not something torno has checked. Trying a value never writes the model. A
 field whose default is a number or a flag written in the file (`wall: float = 2`, `lid: bool = True`), or a
 `Literal["round", "square"]`, has a control under its name: type a number and press Enter, or let go of a slider
 (the model gives one with `field(default=2.0, metadata={"min": 1, "max": 5, "step": 0.2})`), tick the box, or choose
@@ -446,7 +459,7 @@ is made with. The model only sees a tried value where it is given `p`: a helper 
 With a session running, a click on a row puts `Params.wall` in its prompt at the
 cursor, never sent, so you can write "make Params.wall 2.4" around it; with no session the rows say
 to start one. Checks lists what the model declares in its `checks(p)` (see Projects and builds), under
-Parameters and folded at first to a title that says how many fail (`Checks 3 · 1 fails`; a model
+Parameters, with a title that says how many fail (`Checks 3 · 1 fails`; a model
 with none has no section): each check's own name, how it stands in a word (pass, fails, not
 measured, not run), what was measured and what was wanted, and, for a thin wall, that it
 was found by sampling. They are the model's, marked with the agent's colour; your dimensions
@@ -516,7 +529,7 @@ failed) nothing is picked, and the pointer says why.
 
 ### Making a new project
 
-"New project" starts one from what you have. It is at the foot of the list of projects (of the switcher's menu when the list is folded), in the header of the page
+"New project" starts one from what you have. It is at the foot of the list of projects, in the header of the page
 of projects and in its empty state: a folder with no project in it leads with "Make your first project", "New project" and,
 where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page asks for a name and "What is it?" (what it is for, what it must fit or
@@ -572,9 +585,8 @@ pictures are not sent then: the text says each is "not attached" and names the f
 the scans were not imported, and the page says so and where the folder is. While "Creating…" shows, `Esc`, Cancel
 and Discard do nothing.
 
-While the page is up the window is about the project being made: no project of the list is selected (folded, the
-list reads "New project"), the Marks
-section gives way, and the status line says "New project" with the build123d version alone. The session pane says
+While the page is up the window is about the project being made: no project of the list is selected (the "New project" button is pressed), the Marks
+panel gives way, and the status line says "New project" with the build123d version alone. The session pane says
 the first prompt Claude Code will get once you create the project, as it will be sent and read-only, filled in as you go:
 your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and doodle, with "attached"
 or "named only" (only the first 6 pictures go with the prompt). Change the words on the left; the prompt follows. A session of the project that was open that is
@@ -607,9 +619,9 @@ it. It keeps running while another project is shown. A session that works or
 that waits for your answer (a permission, a question, a plan) says so wherever
 you are, not only in its own pane. In the list of projects its row has a dot
 after the name: a quiet one while it works, and, in the warning colour with the
-words "needs you", while it waits. Folded, the list's one row has the dot of any
-session of the folder that works or waits, and names the project of one that
-waits ("bracket needs you"); its menu has a dot on each row as the list does. Nothing is shown for a session that is idle
+words "needs you", while it waits. On the rail, the Projects icon has the dot of any
+session of the folder that works or waits, and says which project's waits
+("bracket needs you") in its description. Nothing is shown for a session that is idle
 or ended. When the session pane is hidden, its button has the same dot for the
 open project's session. And when any session of the folder waits for you, the
 status line has a button "*bracket* needs you" (with "and N more" if several do,
@@ -728,7 +740,7 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   account. It opens a sheet over the chat with, for each `.py` file directly
   in the project's folder that the turn changed, the file at the start of the
   turn against its end as lines removed and added, and the file as it is now
-  (read only: torno never writes the model, and the sheet runs nothing). Under
+  (the sheet is read only and runs nothing). Under
   them, the builds of the turn taken together, from the kernel's numbers: a
   part's volume and face count before the turn's first build against its last
   (`≈` where a number is not exact). torno reads the files when you send a
@@ -740,25 +752,32 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   without its text. The button is there when the agent's edit tools changed a
   `.py` file; the sheet then lists every file that differs, a change made by a
   command (`sed`, a script) too.
-- **Undo.** The latest turn that edited a `.py` file has "Undo" beside "See
-  changes", while the session is idle and before you send anything else; an
-  earlier turn, or one that edited nothing, has none. It asks once ("Ask
-  Claude Code to put the model files back as they were before this turn?"). On
-  "Ask to undo" torno writes a prompt of its own, from the two texts of each
-  file it kept for "See changes": put the files back as they were before that
-  turn, with the lines to reverse (`-` is in the file now and goes, `+` comes
-  back). It is sent as yours, after a quiet note that says what was asked. The
-  agent makes the edits itself, so each one comes to you as any edit does (a
-  permission card, if your mode asks), and the build runs as after any change
-  of the source. torno does not write the model, and the conversation keeps
-  the turn, so the agent knows it was undone. It covers the same `.py` files
-  as "See changes": not `common/`, not other files, and a file over 200 KB or
-  too many lines is named without its lines, for the agent to undo from the
-  conversation. A file you saved after the turn is said to have changed, so the
-  agent reads it before it reverses a line. It is a request, not a restore: it
-  can be done wrongly, and the sheet "See changes" shows what the file is
-  now. Nothing is kept of a turn of an earlier session, so there is no
-  "Undo" there.
+- **The builds of a turn.** Under a turn's account, when the prompt made builds, a strip of small pictures: the build
+  the prompt began from (dashed), the builds it made and the last one, each with its id (`h41`); a build that failed
+  says so in place of its picture. Beside it, what they did, from what each build kept: the parts that changed, the
+  checks of the model that began or stopped to pass, the builds that failed on the way. The buttons of the turn:
+  **Compare** (draws the last build over the one the prompt began from, as "Compare" below does; it reads
+  "Comparing" while it is on and puts it away again), **See changes**, **Go back to before this prompt** and
+  **Star** (keeps the last build: a starred build is never let go).
+- **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
+  `common/fillets.py` in your editor · `h39`" for a build your own save made, "You tried `wall` · `h40`" for the
+  Params you tried. Several in a row, with no prompt between, are one line ("You saved 3 times in your editor ·
+  `h39` to `h41`"). torno says which build was whose when it keeps the build, so a save made while a turn runs is
+  yours, not the agent's.
+- **Go back to before this prompt.** On a turn that made builds, while the session is idle. It first says what it
+  would do: the files it would write, the files it would delete (a `.py` file of this project first seen in a build after the one it goes back to), the files it leaves as they are (`common/` and other projects' files, which it never changes), the
+  files you changed since (a save of yours among the builds it undoes counts: they are overwritten or deleted, and are named), your saves it undoes ("and your saves `h42`"), whether the Params you tried are put
+  back as they were, and the prompts it undoes. On "Go back" it puts the project's own `.py` files back as they were
+  in the build the prompt began from, from the copies under `.torno/history/`, each whole or not at all; Claude is
+  told, with your next prompt and in a note in the chat, what was put back and that it keeps what it learnt. The
+  prompts it undid are folded into one faded row ("Prompts 10 to 12 · you went back from these", with "Show"). When
+  no copy of that build is kept (it was too large, or has been let go), the confirmation says "Claude will be asked
+  to put the files back instead", and "Ask Claude" is today's undo: torno writes a prompt of its own, from the two
+  texts of each file it kept for "See changes", with the lines to reverse (`-` is in the file now and goes, `+` comes
+  back), sent as yours after a quiet note; the agent edits itself, through its usual permission cards, and torno
+  writes nothing then. That request is for the latest turn only; a file over 200 KB or too many lines is named without
+  its lines, and a file you saved after the turn is said to have changed. It is a request, not a restore: it can be
+  done wrongly. Nothing is kept of a turn of an earlier session for it.
 - **Refs are live.** `M4`, `lid/F12`, `lid/E3` and `lid/@top` (a name the model
   gives a face or an edge) in the agent's text and in
   the cards are chips: hovering one lights it in the view, clicking a mark
@@ -1139,7 +1158,7 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__section` | The outlines a plane cuts of the parts, with their areas, and a 2D drawing of the cut. See [Section](#section). |
 | `mcp__torno__check` | Whether two parts overlap, how far apart they are, whether a part's mesh is closed, and whether it prints: overhangs, thin walls, the fit on a bed. |
 | `mcp__torno__diff` | What changed between the last two successful builds (or the two given as `from` and `to`: a revision of this run, or a build kept in the history by its id, `h41`): for each layout the parts added and removed, and for each part its volume (and its change in percent), box size and min corner before and after, with whether each is exact, and its face, edge and solid counts, a hint that refs may name other faces now. The answer to an edit gives the same of each part that changed. `builds` says what each was made from (a hash of the sources, the commit, whether files differed from it, and of a kept build its id and the checks, defects and dimensions it had then, which are as of then), and a note says when the two were made from the same sources. |
-| `mcp__torno__history` | The builds kept of the project (see Files torno writes, `history/`), newest first: each with its id (`h41`), when, its revision if it was made in this run, what changed from the build before it in a line, the checks of the model that failed and the parts with a defect (a build that fails its checks is kept all the same), how your dimensions stood when it was checked, and whether you starred it. With `id`, one build, with the paths of the copies of its Python files, to read when going back to it. torno never writes a file back. |
+| `mcp__torno__history` | The builds kept of the project (see Files torno writes, `history/`), newest first: each with its id (`h41`), when, its revision if it was made in this run, what changed from the build before it in a line that also says what caused it (Claude and the prompt, your own edit, params, a go back) and whether it failed to build (kept as a line with no copies, and the reason), the checks of the model that failed and the parts with a defect (a build that fails its checks is kept all the same), how your dimensions stood when it was checked, and whether you starred it. With `id`, one build, with the paths of the copies of its Python files, to read when going back to it. The agent never restores them itself: only your "Go back" does, and Claude is told when it has. |
 | `mcp__torno__expect` | Called before an edit: what it should change, as checks (a part's `volume`, `faces`, `edges` or `size` as a `value` or a `change` with a `tolerance`; a `measure` with the number it `expected`; `unchanged` parts). The next successful build is held against it, and the answer to the edit says in a line how many checks were met and which were not, with the numbers (`≈` where the kernel's is not exact). Kept in memory for that one build, told once, no mark, and it never holds a turn back. A ref to a face of a part whose face count changed is told as moved and not measured. `scene` gives the last verdict. |
 | `mcp__torno__try_fillet` | Tries a fillet (or a chamfer, `kind: 'chamfer'`) of `radius` mm of some edges of a part (`part`, `edges` as refs such as `lid/E3`) on the last good build and throws it away: whether it works, and when it does not, the edges that fail alone or in pairs and the largest radius that works, as a failed build's error says it. It changes nothing. |
 | `mcp__torno__try_params` | Builds the model with other values of its `Params` (`set`, the fields `scene` lists under `params` as editable: `{"wall": 2.4}`) in a worker of its own and throws it away, then says whether it built (or the model's error), what changed against the last build part by part, and the measurements (`measure`: `bbox`, `volume`, `area`, `mass` or `distance` of whole parts by name) and checks (`check`: as the `check` tool, parts by name) asked for, all worded as those tools word them and said to be of the trial. It changes nothing: not the model, not the values you are trying in the window, not the build on screen; it is made on top of your values, and refused when there is no memory for a second build or while a build runs. To keep a value the agent edits the model. |
@@ -1370,7 +1389,7 @@ they are of the `print` layout when the model has one and no other is named.
 
 **The print profile** is the printer (bed, nozzle, layer) and the material (density, shrink, the gap per side of a
 press, a sliding and a loose fit, least wall, overhang angle) a project is made for. Choose them under "Print profile" in the
-left column. The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
+Params panel. The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
 makes one); PLA, PETG and ABS come with typical values, and a material of your own goes in that file (`materials`: `name`,
 `density`, and optionally `shrink`, `fits`, `minWall`, `overhang`). A choice is copied into `<project>/.torno/profile.json`,
 so the project travels with the numbers it was checked against. With a profile, `check` bed, thin and overhang and
@@ -1781,6 +1800,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Viewport | `O` | Perspective or orthographic |
 | Viewport | `E` | Draw the parts apart, or together again |
 | Viewport | `W` | All projects of the folder, on one page (there a letter filters them by name) |
+| Viewport | `Esc` | Compare: back to the live build, before any other step back |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
 | With a tool in hand | `T` | Measure: the wall under the pointer |
 | With a tool in hand | `Enter` | Measure: keep the last measurement as a dimension |
@@ -1813,7 +1833,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Session | `Enter` | Chat: allow what the card in focus asks (in its reason field, Enter denies) |
 | Session | `Esc` | Chat: put away a picture shown large |
 | Session | `Left` `Right` | On the edge of the session pane: wider or narrower |
-| Session | `Left` `Right` | On the edge of the left column: narrower or wider |
+| Session | `Left` `Right` | On the edge of the panel beside the rail: narrower or wider |
 | In a field, a menu or a sheet | `Enter` | Field: keep what was typed |
 | In a field, a menu or a sheet | `Esc` | Field: leave it as it was |
 | In a field, a menu or a sheet | `Shift+Enter` | Note: a new line |
@@ -1821,7 +1841,6 @@ until the camera is first moved; the window remembers that in its own storage, n
 | In a field, a menu or a sheet | `Up` `Left` | Menu: the one before |
 | In a field, a menu or a sheet | `Home` `End` | Menu: the first or the last |
 | In a field, a menu or a sheet | `Esc` `Tab` | Menu: close it |
-| In a field, a menu or a sheet | `Up` `Down` | On the line above the marks: more room for them, or less |
 | In a field, a menu or a sheet | `Esc` | Sheet or question: put it away |
 | In a field, a menu or a sheet | `Ctrl+Z` | Drawing board (a doodle, or a drawing on the view): undo the last stroke |
 | In a field, a menu or a sheet | `Shift` | Drawing board: hold Shift while drawing for a straight line from where the stroke began |
@@ -1834,9 +1853,11 @@ repository.
 
 ## Files torno writes
 
-Inside a workspace torno writes only under `<project>/.torno/`, with one exception: "Create" on the page of a new
+Inside a workspace torno writes only under `<project>/.torno/`, with two exceptions. One: "Create" on the page of a new
 project (see "Making a new project") writes the new project's folder, `<name>/<module>.py`, `brief.md` and `reference/`.
-Those are the project's own, in git like its model, and torno never writes into them again. It writes under `.torno/` only when
+Those are the project's own, in git like its model, and torno never writes into them again. Two: "Go back to before this prompt"
+(see "The chat") writes and deletes `.py` files of the open project's own folder, after you have confirmed what it names, each
+whole or not at all; it never writes `common/` or another project's folder. It writes under `.torno/` only when
 that is a real folder inside the project: where a link or a file is in its
 place (a workspace copied from elsewhere may hold one) torno writes nothing
 there, and says so once in the Marks panel, until a real folder is put in its
@@ -1845,7 +1866,7 @@ place.
 | File | What | In git |
 |---|---|---|
 | `scene.json` | how you last looked at the project: the layout, the layer visibility, the section, the explode of each layout, how each scan is shown, and the saved views (`views`) | travels with the project |
-| `params.json` | the values you are trying in place of the model's `Params` defaults, with the default the file had; the model file is never written | ignored |
+| `params.json` | the values you are trying in place of the model's `Params` defaults, with the default the file had; trying a value never writes the model file (a Go back puts the values back as a build had them) | ignored |
 | `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured | travels |
 | `scans.json` | the scans of the project: where each source file is and its hash, how it was imported, and its alignment in each layout | travels |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
@@ -1856,7 +1877,8 @@ place.
 | `state.md` | the build, the parts, the checks of the model, the views, the scans and the open marks as text | ignored |
 | `thumb.png`, `thumb.json` | the card's picture, and what it is of | ignored |
 | `builds.jsonl` | a line for each build that worked: its revision, when, the run of torno it was made in (revisions count from 1 in every run), a hash of the sources it was made from, and the commit then checked out and whether files differed from it; the last 500 | ignored |
-| `history/` | the builds kept: for each build that worked (not again for sources the newest kept build was made from) a copy of the Python files it was made from, its scene without the meshes, a small picture, and an index of them with an id such as `h41`, which counts on across runs; the latest 100 and every one you star; never read back into your files | ignored |
+| `history/` | the builds kept: for each build that worked (not again for sources the newest kept build was made from) a copy of the Python files it was made from, its scene without the meshes, a small picture, and an index of them with an id such as `h41`, which counts on across runs; the latest 100 and every one you star. An entry also says what caused the build (`cause`: `agent`, `person`, `params`, `goback` or `unknown`, which is every entry kept before this was said), the prompt it came out of (`turn`: the conversation and the id of the prompt, with its first 200 characters), the Params you tried (`tried`), `failed` with the line of the error for a build that failed (an entry with no copies, picture or scene), `wentBackTo` for the build after a Go back, and `undone` for a build a later Go back undid. These are written by torno alone. The copies are read back into your files only by "Go back to before this prompt" | ignored |
+| `goback.json` | what the next prompt tells Claude after a Go back: the build the files were put back to, and the prompts it undid. Removed when a prompt has carried it | ignored |
 | `views/<n>.png` | the pictures and section drawings the agent asked for, the latest 20 | ignored (a picture of a scan may show the real world) |
 | `exports/` | where the save dialog of an export opens; empty unless you save there | ignored |
 
@@ -1879,6 +1901,7 @@ Outside the workspace:
   `${TORNO_SESSION}`, never the token, and is removed when the session ends (and at the next start after a crash).
 - `~/Library/Application Support/torno/kernel-env` on macOS, for the packaged app only: the kernel's Python
   environment, made at the first build of a workspace with no `pyproject.toml`. Never inside `torno.app`.
+- `~/.config/torno/compare/` (on macOS under `~/Library/Application Support/torno/`): the copies of an older kept build laid out to build it again for Compare, in a folder of its own for each build, removed when the build is done and swept at the next start after a crash. Never in a workspace.
 - The one file an export writes, at the path you choose.
 - The one new folder "Keep this as a folder…" makes of the example, at the path you choose.
 - `torno.desktop`, only by `scripts/torno --install-desktop`.
@@ -2208,30 +2231,30 @@ On the screen:
 - **Focus.** Start torno a second time with another folder: the window that is open comes to the front (on Hyprland only where `focus_on_activate` is on). Start dragging the section's arrow, switch workspace, come back: the plane is where it was before the drag, and the next drag turns the camera.
 - **Closing.** With a session working, close the window through the window manager: torno asks "Close torno?", "Keep it open" keeps everything as it was, "Close torno" ends torno and the session. With nothing under way it closes at once.
 - **A session that needs you, away from its pane.** In two projects, ask Claude Code in one for something that needs a permission, then open the other (and again with the session pane hidden): the first one's row has a dot and "needs you" in the warning colour, the status line has the button "*name* needs you", which opens it and brings you to the card, and a working session's dot is a quiet grey. In a window that is not in front (another window on top, or a workspace switched away) the frame should flash on Linux, and the dock icon bounce once on a Mac: no test shows a window, so only the rule is tested.
-- **The left column.** With a folder of many projects, open one: the list is one row, "All projects `W`" beside its
-  title. Its menu, by the mouse and by the keys, opens another; folding Layers and Scans gives their room to the
-  marks, and their titles say how many parts and scans there are. Drag the line above Marks up and down, and double
-  click it: it moves without lag, the sections above give way down to their titles, and the shares come back.
-  Start torno again: what was folded, and where the line was, are as you left them. Legible in light and dark.
+- **The rail and its panels.** The five icons have a word each; pressing one opens its panel beside the rail and
+  pushes the view over without covering it, pressing it again closes it, another switches. The badges (parts
+  switched off, failing checks, unaligned scans, marks to review) are legible in light and dark and count what the
+  panel then shows. Drag the panel's edge wider and narrower: it moves without lag. Start torno again: the open
+  panel and its width are as you left them.
 - **Layers of a model with many parts.** Open a project of ten parts or more: the pointer on a layer row lights that
   part in the view in the accent (and nothing else changes), the target shows it alone, `Show all` in the title brings
   the rest back, and the count of marks on a part lists only its marks. The rows must not crowd: name, count, and on
-  hover the opacity, the target and the eye, at the width of the column.
+  hover the opacity, the target and the eye, at the width of the panel.
 - **Parameters.** In a project whose model has a `Params` dataclass with comments and one default that is an
-  expression, unfold Parameters under the layers: a row for each field in the model's order, the value in the
+  expression, open the Params panel: a row for each field in the model's order, the value in the
   monospace face, the comment as written (cut to two lines, whole on hover), "worked out in the model" on the expression's.
   With a real session running, in the chat and then in the terminal view, a click on a row puts `Params.wall` at the
   cursor of the box (or the prompt) and sends nothing, with the dock hidden as well; with no session the rows are
-  not clickable. Legible in light and dark, and Marks keeps its five rows with the section open. Try a value in a
+  not clickable. Legible in light and dark. Try a value in a
   number field and with a slider (the field with a `metadata` range), tick a flag and choose from a list: the build
   runs once the slider is let go, not while it moves; the row says it differs from the file and Reset brings it back.
 - **The clipboard in the terminal.** Select text in a session and press `Ctrl+Shift+C`, then `Ctrl+Shift+V`: it is copied and pasted. No test touches the clipboard. "Copy" on the build error sheet likewise.
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of projects and on the page of projects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
-- **The Print profile panel.** Open it in the left column: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and the section folds to its title (`Print profile Bambu X1C, PETG`).
-- **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the column's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
+- **The Print profile.** Open the Params panel and find it under Checks: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its title says what is chosen (`Print profile Bambu X1C, PETG`).
+- **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the row above the box names the faces the ink lies over before anything is sent (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
-- **Claude Code's own checkpoints for "Undo" (`Part of #131`).** "Undo" asks the agent in words. Claude Code can also
+- **Claude Code's own checkpoints for the asked undo (`Part of #131`).** When no copy of the build is kept, "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>
   --rewind-files <uuid>`, where `<uuid>` is the id torno gives the prompt. This is not built: `--rewind-files` is absent
   from `--help`, and nothing is known of it from a real CLI. Try once by hand, with the CLI's version noted: after a
@@ -2239,13 +2262,13 @@ On the screen:
   it list the files with a dry run? Must the live session end first, or does a control request (`rewind_files`) work on
   the running process? What does it do to the conversation, and to a file changed by `Bash` or a subagent, which it
   does not track? Write the answers in issue #131: if the files and the conversation both come out right, the button
-  can use it and be exact; if not, the asked undo stays.
-- **The history sheet.** Build a project a few times with an edit between, then open **History** in the status line: a
-  card for each build, newest first, in a row that scrolls sideways, each with a picture of the project as it was, legible
-  in light and dark. The chosen card has the accent's edge; **Show the source** shows the Python in the monospace face and
-  cannot be typed in; **Show over the current build** draws that build in grey, translucent, over the one on show, and the
-  status line has **Stop**; **Ask the agent to go back** leaves the request in the box, unsent. Try it with a real Claude Code:
-  send the request, and check that it edits your files to match the copy and not the copy itself.
+  can use it and be exact; if not, the asked undo stays (torno's own restore, from the copies under `.torno/history/`, does not need it).
+- **Prompts only.** Send Claude Code a few prompts that edit the model, then open **History** in the status line: one row for each
+  prompt, newest first, in the pane of the chat, each with a picture of the project as it was after it, legible in light and dark, its
+  number and `h40 → h41` in the face of numbers. A click compares the prompt (a bar with Before, Overlay, After and Side by side under the view bar, two boxes over the corners,
+  `comparing prompt 14 · h40 → h41` in the status line; **Back to the live build** or `Esc` ends it), a double click opens it in the chat. Start a new session, send a prompt, and check
+  that its number goes on from the last and that **Earlier conversations** reads the first. With the terminal as the view, the same list is a pane over it. Try it with a real Claude Code, the
+  terminal too: after a prompt that edits the model, is its row there with the build it made?
 - **A broken part in the layers.** Build a model with a cavity whose shell faces into it, or a part made of a shell
   with a face left out: its layer row says "not valid" (or "not closed") after its name in the colour of a failure,
   with what that means in its tooltip, and the line at the bottom says "1 part has a defect"; legible in light and
@@ -2276,15 +2299,19 @@ On the screen:
 - **The section's hatch and plane label.** Cut a part: the cut face is hatched and the plane is named at its edge; both legible in light and dark, and the label clear of the bars.
 - **The Marks panel's resolve glyph, review walk and undo line.** The glyph on a row, "To review" stepped through one mark at a time, and the line that undoes a delete: each in its place, legible in both themes.
 - **The Checks group and its summary.** In the Marks panel the group of dimensions and its one-line count read at a glance; the model's Checks panel lists each check with its words.
-- **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the column and are legible in both themes.
-- **The turn summary, "See changes" and "Undo".** After a turn, the summary line, the sheet of the diff and the Undo button sit well in the chat and in a narrow dock.
+- **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the pane and are legible in both themes.
+- **The turn summary, its builds and its buttons.** After a turn, the summary line, the strip of pictures of its builds (the dashed start, a failed build, the pictures themselves, which a test never sees), the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.
 - **The doodle board's grid.** The grid is faint on the board in light and dark, and is not in the PNG Claude gets.
 - **The prompt preview of a new project.** The preview of the first prompt reads clearly and matches what is sent.
 - **The scans walk-through.** Import, align and check a scan by the steps the panel offers: each step is where the eye goes next, in both themes.
 - **The export sheet by reader.** Each reader (a person, a printer, a drawing), and the picture, SVG and PDF formats: the sheet is one screen and legible in both themes.
 - **The sources line of Parameters.** A field's source word is shown after its comment, in the monospace face, and "no source" is quiet.
-- **The splitter of the left column.** The line between the left column and the view drags without lag and keeps its place at start.
+- **The rail and its badges.** Press each of the five icons: its panel opens beside the rail and pushes the view over, the open icon closes it, the label under each icon is legible, and the drawn icons are of one weight and distinct at their size, in both themes. The badges (the parts switched off, the checks that fail, the scans not aligned, the marks to review) and the dot of a session that waits read at a glance on a closed panel, and the rail stays in its place in a narrow window.
+- **Compare in all four modes.** Compare a turn, a row and an older build with **Before**, **Overlay**, **After** and **Side by side**: the grey translucent earlier build over the later one, each build alone in its part colours, one camera for both halves, the two boxes over the corners, the bar and the status line (`comparing prompt 14 · h40 → h41`) legible in both themes and clear of the view bar. Tests drove them in the hidden window and never looked. Compare a turn while newer builds land: the older build is drawn in the live one's place and the view says so; check it reads as the live build, not as a second model. An older build is built again from its copy (tested against the real kernel on small models in a temporary folder): on a real project, how long the wait is, and that `Building h40 to compare…` is shown while it runs.
+- **Prompts only and Earlier conversations.** The toggle in the chat's head (`Chat | Prompts only`) and the History button: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.
+- **Go back's question.** On a turn after a prompt that edited the model: the list of files to write, to delete, to leave alone and changed since, the Params, and the prompts undone, in the monospace face for names and numbers; then "Go back" puts the files back in your own editor and folder (it was only tried on temporary folders), the note in the chat and the faded row appear, and the next prompt tells Claude. With no copy kept, the sentence about asking Claude instead.
+- **The edge of the panel.** The line between the open panel and the view drags without lag and keeps its place at start.
 - **The edges of a field and F6.** A focused field shows its edge in both themes, and F6 moves the focus between the regions in a sensible order.
 - **The ask card.** A question from the agent shows its options and the faces they light in the view; legible in both themes.
 - **The edits menu.** The menu beside the model shows the three modes and the one in force, in both themes.

@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, readlinkSyn
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
+import { openPanel } from './helpers'
 import { openListed } from './objects'
 
 const appDir = resolve(__dirname, '..')
@@ -149,6 +150,8 @@ test('a layer hidden just before the window closes is in .torno/scene.json: the 
     await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
     // Past the save that opening the object may have asked for.
     await page.waitForTimeout(1000)
+
+    await openPanel(page, 'Layers')
 
     await page.locator('[data-layer="post"]').hover()
     await page.getByRole('button', { name: 'Show post' }).click()

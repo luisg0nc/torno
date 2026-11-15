@@ -250,6 +250,29 @@ describe('what is sent', () => {
     expect(of(t, 'user').map((u) => u.state)).toEqual(['sent', 'sent'])
   })
 
+  it('says which prompt the last hook took up, by the id of its user item', () => {
+    const t = new Transcript()
+    expect(t.taken()).toBeUndefined()
+    const first = t.userSent(text('first'), false, 'uuid-1')
+    const second = t.userSent(text('second'), true, 'uuid-2')
+    t.context({ text: '', sentMarkIds: [], prompt: 'first' })
+    expect(t.taken()).toEqual({ item: first.id, text: 'first' })
+    t.message(init())
+    t.context({ text: 'ctx', sentMarkIds: [], prompt: 'second' })
+    expect(t.taken()).toEqual({ item: second.id, text: 'second' })
+    expect(t.items().filter((i) => i.kind === 'user').map((i) => i.id)).toContain(t.taken()!.item)
+  })
+
+  it('says no prompt was taken when a hook matches none that waits, not the one before', () => {
+    const t = new Transcript()
+    const first = t.userSent(text('first'), false, 'uuid-1')
+    t.context({ text: '', sentMarkIds: [], prompt: 'first' })
+    expect(t.taken()).toEqual({ item: first.id, text: 'first' })
+    // A prompt that never went through the chat (typed in the terminal's own line, say): nothing waits.
+    t.context({ text: '', sentMarkIds: [], prompt: 'typed elsewhere' })
+    expect(t.taken()).toBeUndefined()
+  })
+
   it('shows the first text of a prompt and its pictures, and not the captions that come before each picture', () => {
     const t = new Transcript()
     const img = { type: 'image', source: { type: 'base64', media_type: 'image/png', data: PNG_1X1 } } as const

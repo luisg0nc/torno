@@ -1,6 +1,7 @@
 import { readFile, readdir, rm } from 'node:fs/promises'
 import { join, posix } from 'node:path'
-import { type HistoryDimensions, type HistoryEntry, HISTORY_ID, HISTORY_KEPT, changeLine, sceneFacts } from '../shared/history'
+import { type BuildCause, type BuildTurn, type HistoryDimensions, type HistoryEntry, HISTORY_ID, HISTORY_KEPT, changeLine, drawable, sceneFacts } from '../shared/history'
+import type { BuildReason } from '../shared/build'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { writeFileAtomic } from './atomic'
@@ -20,7 +21,7 @@ import { thumbnailRefusal } from './show/cards'
 //
 // A build's folder is written before the index names it, and the index is replaced whole: a crash leaves the
 // index as it was and, at most, a folder no index names, which the next change sweeps away. Nothing here is
-// ever written outside the object's `.torno/`; torno never restores a file of the person's from it.
+// ever written outside the object's `.torno/`; the one thing that reads the copies back out is Go back (`goback.ts`).
 
 export const HISTORY_FOLDER = 'history'
 const INDEX = 'index.json'
@@ -30,12 +31,46 @@ export const MOST_COPY_BYTES = 2 * 1024 * 1024
 /** A picture larger than this is not kept (the cards' own is at most 512 KB, and a hundred of those are no small thing). */
 export const MOST_THUMB_BYTES = 160 * 1024
 
+/** What made a build, as main decides it (`Sessions.causeOf`, and the reason `Builds` started it for): never from the window or a tool. */
+export interface KeptCause {
+  cause: BuildCause
+  turn?: BuildTurn
+  wentBackTo?: string
+}
+
+/**
+ * What made a build: the reason `Builds` started it for when that says (the person's `Params`, a Go back; `open` is the
+ * first build of a project just opened, of files that may have been changed while torno was closed, so no one's), else
+ * what the session of the object says of the moment the build began (`bySession`).
+ */
+export function keptCause(reason: BuildReason | undefined, wentBackTo: string | undefined, bySession: () => KeptCause): KeptCause {
+  if (reason === 'params') return { cause: 'params' }
+  if (reason === 'goback') return { cause: 'goback', ...(wentBackTo ? { wentBackTo } : {}) }
+  if (reason === 'open') return { cause: 'unknown' }
+  return bySession()
+}
+
+const causeFields = (c: KeptCause): Pick<HistoryEntry, 'cause' | 'turn' | 'wentBackTo'> => ({ cause: c.cause, ...(c.turn ? { turn: c.turn } : {}), ...(c.wentBackTo ? { wentBackTo: c.wentBackTo } : {}) })
+
+/** The Params the person tried: the names whose applied override is not what the build before was made with (set, changed or put back), by name. Nothing when there are none to name. */
+function triedParams(before: Scene | null, now: Scene): Pick<HistoryEntry, 'tried'> {
+  const [was, is] = [before?.overrides?.applied ?? {}, now.overrides?.applied ?? {}]
+  const tried = [...new Set([...Object.keys(was), ...Object.keys(is)])].filter((name) => was[name] !== is[name]).sort()
+  return tried.length > 0 ? { tried } : {}
+}
+
 interface Index {
   next: number
+  /** The number of the newest build that drew of those let go (0 for none): a gap in the ids below it may be one, a gap above it only failed builds. */
+  drawnGone: number
   entries: HistoryEntry[]
 }
 
 const number = (id: string): number => Number(id.slice(1))
+
+/** The index as written: the newest drawn build let go is the most of what it was and of those `gone`. */
+const indexText = (next: number, entries: readonly HistoryEntry[], drawnGone: number, gone: readonly HistoryEntry[] = []): string =>
+  `${JSON.stringify({ next, drawnGone: Math.max(drawnGone, ...gone.filter(drawable).map((e) => number(e.id))), entries })}\n`
 
 function entryOf(raw: unknown): HistoryEntry | null {
   const e = raw as Partial<HistoryEntry> | null
@@ -70,12 +105,21 @@ async function readIndex(dir: string): Promise<Index> {
   // The next number is never below one a folder has already: an index lost or broken does not give a number twice.
   const folders = (await readdir(join(dir, '.torno', HISTORY_FOLDER)).catch(() => [] as string[])).filter((name) => HISTORY_ID.test(name)).map(number)
   const next = Math.max(Number.isInteger(found?.next) ? found!.next! : 1, ...entries.map((e) => number(e.id) + 1), ...folders.map((n) => n + 1), 1)
-  return { next, entries }
+  // An index from before it was kept: the oldest builds were let go first and a starred one outlives them, so what is
+  // missing below the oldest entry not starred may have drawn, and nothing above it did.
+  const oldestLoose = entries.find((e) => !e.starred)
+  const drawnGone = Number.isInteger(found?.drawnGone) && found!.drawnGone! >= 0 ? found!.drawnGone! : oldestLoose ? number(oldestLoose.id) - 1 : Math.max(0, next - 1)
+  return { next, drawnGone, entries }
 }
 
 /** The builds kept of an object, oldest first; none when there is no history. */
 export async function readHistory(dir: string): Promise<HistoryEntry[]> {
   return (await readIndex(dir)).entries
+}
+
+/** The number of the newest build that drew of those let go from the history (0 for none), for Go back to tell a gap in the ids it must refuse. */
+export async function readHistoryDrawnGone(dir: string): Promise<number> {
+  return (await readIndex(dir)).drawnGone
 }
 
 /** The scene a kept build left (without its mesh), or null. */
@@ -146,9 +190,11 @@ export class History {
   /**
    * The build that landed (`record`, as `BuildLog` found it) is kept. A build made from the sources the newest
    * entry was made from is not kept again: nothing is new in it. Resolves with the entry, the newest's when it was
-   * that, and null when nothing could be written.
+   * that, and null when nothing could be written. A failed entry before it does not stand for the same sources, and
+   * nor does a build the person's `Params` made (the cause `params`): the files are the same and the shape is not.
+   * `cause` is what made the build, as main has found it.
    */
-  keep(obj: ObjectInfo, made: Promise<BuildRecord>, scene: Scene): Promise<HistoryEntry | null> {
+  keep(obj: ObjectInfo, made: Promise<BuildRecord>, scene: Scene, cause: KeptCause): Promise<HistoryEntry | null> {
     if (obj.model === null) return Promise.resolve(null)
     const model = obj.model
     return this.turn(obj.dir, async () => {
@@ -156,12 +202,15 @@ export class History {
         const record = await made
         const index = await readIndex(obj.dir)
         const newest = index.entries.at(-1)
-        if (newest && newest.sources === record.sources) return newest
+        // The person's Params are no part of the sources: a build they made, of the same files, is a build of its own.
+        if (newest && !newest.failed && newest.sources === record.sources && cause.cause !== 'params') return newest
         const sources = await readSources(obj.dir, scene.uses ?? [])
         // The copies are of what the build read only when the files are as they were when it was hashed.
         const total = sources.reduce((sum, f) => sum + f.bytes.length, 0)
         const copied = hashOf(sources) === record.sources && total <= MOST_COPY_BYTES && sources.every((f) => f.bytes.length <= MOST_FILE_BYTES) ? sources : []
-        const before = newest ? await readHistoryScene(obj.dir, newest.id) : null
+        // What this build changed is against the last that has a scene: a failed one has none.
+        const lastDrawn = index.entries.findLast(drawable)
+        const before = lastDrawn ? await readHistoryScene(obj.dir, lastDrawn.id) : null
         const id = `h${index.next}`
         const entry: HistoryEntry = {
           id,
@@ -174,7 +223,9 @@ export class History {
           model,
           files: copied.map((f) => f.path),
           ...sceneFacts(scene),
-          line: changeLine(before ?? undefined, scene)
+          line: changeLine(before ?? undefined, scene),
+          ...causeFields(cause),
+          ...(cause.cause === 'params' ? triedParams(before, scene) : {})
         }
         const folder = join(await folderOf(obj.dir), id)
         await ensureIgnored(obj.dir, [`${HISTORY_FOLDER}/`])
@@ -186,7 +237,7 @@ export class History {
         await writeFileAtomic(join(folder, 'scene.json'), JSON.stringify({ ...scene, output: '' }))
         const entries = [...index.entries, entry]
         const gone = pruned(entries)
-        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), `${JSON.stringify({ next: index.next + 1, entries: entries.filter((e) => !gone.includes(e)) })}\n`)
+        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), indexText(index.next + 1, entries.filter((e) => !gone.includes(e)), index.drawnGone, gone))
         await sweep(obj.dir, new Set(entries.filter((e) => !gone.includes(e)).map((e) => e.id)))
         this.changed(obj.dir)
         return entry
@@ -197,10 +248,54 @@ export class History {
     })
   }
 
+  /**
+   * A build that failed is kept too, as a line of the history: its `error`, what made it and the sources it was made
+   * from, with no folder, copies, scene or picture. `at.revision` is the last build that worked (a failure has no
+   * revision of its own). The same failure of the same sources as the newest entry's is not kept again. Resolves with
+   * the entry, the newest's when it was that, and null when nothing could be written.
+   */
+  keepFailed(obj: ObjectInfo, at: { run: string; revision: number; sources: string; seconds?: number }, error: string, cause: KeptCause): Promise<HistoryEntry | null> {
+    if (obj.model === null) return Promise.resolve(null)
+    const model = obj.model
+    return this.turn(obj.dir, async () => {
+      try {
+        const index = await readIndex(obj.dir)
+        const newest = index.entries.at(-1)
+        if (newest && newest.failed && newest.sources === at.sources && newest.error === error) return newest
+        const entry: HistoryEntry = {
+          id: `h${index.next}`,
+          at: new Date().toISOString(),
+          run: at.run,
+          revision: at.revision,
+          sources: at.sources,
+          model,
+          files: [],
+          parts: 0,
+          seconds: at.seconds ?? 0,
+          line: error || 'build failed',
+          failed: true,
+          error,
+          ...causeFields(cause)
+        }
+        const entries = [...index.entries, entry]
+        const gone = pruned(entries)
+        const folder = await folderOf(obj.dir)
+        const kept = entries.filter((e) => !gone.includes(e))
+        await writeFileAtomic(join(folder, INDEX), indexText(index.next + 1, kept, index.drawnGone, gone))
+        await sweep(obj.dir, new Set(kept.map((e) => e.id)))
+        this.changed(obj.dir)
+        return entry
+      } catch (e) {
+        console.error(`cannot keep the failed build of ${obj.id} in its history: ${e instanceof Error ? e.message : String(e)}`)
+        return null
+      }
+    })
+  }
+
   /** The window drew a picture of the build of this run with this revision: it is kept with its entry, when it has one and the picture is small enough. */
   thumbnail(obj: ObjectInfo, run: string, revision: number, png: Uint8Array): Promise<boolean> {
     return this.change(obj, (index) => {
-      const entry = index.entries.findLast((e) => e.run === run && e.revision === revision)
+      const entry = index.entries.findLast((e) => !e.failed && e.run === run && e.revision === revision)
       if (!entry || entry.thumb || png.length > MOST_THUMB_BYTES || thumbnailRefusal(png) !== null) return null
       return { entry: { ...entry, thumb: true as const }, write: async (folder) => writeFileAtomic(join(folder, entry.id, 'thumb.png'), png) }
     })
@@ -209,7 +304,7 @@ export class History {
   /** What the person's dimensions said of the build of this run with this revision, as the check that followed it left them. */
   dimensions(obj: ObjectInfo, run: string, revision: number, counts: HistoryDimensions): Promise<boolean> {
     return this.change(obj, (index) => {
-      const entry = index.entries.findLast((e) => e.run === run && e.revision === revision)
+      const entry = index.entries.findLast((e) => !e.failed && e.run === run && e.revision === revision)
       const now = entry?.dimensions
       if (!entry || (counts.pass + counts.fail + counts.none === 0 && !now) || (now && now.pass === counts.pass && now.fail === counts.fail && now.none === counts.none)) return null
       return { entry: { ...entry, dimensions: counts } }
@@ -226,6 +321,31 @@ export class History {
     })
   }
 
+  /**
+   * A Go back put the files back to an earlier build: the builds `ids` name are marked `undone`, all in one write of
+   * the index. Resolves with the ids that were marked (those kept, and not marked already); none when nothing could be written.
+   */
+  markUndone(obj: ObjectInfo, ids: readonly string[]): Promise<string[]> {
+    return this.turn(obj.dir, async () => {
+      try {
+        const index = await readIndex(obj.dir)
+        const marked: string[] = []
+        const entries = index.entries.map((e) => {
+          if (!ids.includes(e.id) || e.undone) return e
+          marked.push(e.id)
+          return { ...e, undone: true as const }
+        })
+        if (marked.length === 0) return []
+        await writeFileAtomic(join(await folderOf(obj.dir), INDEX), indexText(index.next, entries, index.drawnGone))
+        this.changed(obj.dir)
+        return marked
+      } catch (e) {
+        console.error(`cannot mark the builds of ${obj.id} undone in its history: ${e instanceof Error ? e.message : String(e)}`)
+        return []
+      }
+    })
+  }
+
   /** One entry of the index replaced, after `job` has said which and what else to write; false when it said nothing. */
   private change(obj: ObjectInfo, job: (index: Index) => { entry: HistoryEntry; write?: (folder: string) => Promise<void> } | null): Promise<boolean> {
     return this.turn(obj.dir, async () => {
@@ -236,7 +356,7 @@ export class History {
         const folder = await folderOf(obj.dir)
         await asked.write?.(folder)
         const entries = index.entries.map((e) => (e.id === asked.entry.id ? asked.entry : e))
-        await writeFileAtomic(join(folder, INDEX), `${JSON.stringify({ next: index.next, entries })}\n`)
+        await writeFileAtomic(join(folder, INDEX), indexText(index.next, entries, index.drawnGone))
         this.changed(obj.dir)
         return true
       } catch (e) {
@@ -247,10 +367,17 @@ export class History {
   }
 }
 
-/** The entries to let go: the oldest that are not starred, beyond the newest `HISTORY_KEPT`; the newest is never one. */
+/**
+ * The entries to let go: those that are not starred, beyond the newest `HISTORY_KEPT`; the failed ones go first (the
+ * oldest of them), then the oldest builds. The newest entry is never one.
+ */
 function pruned(entries: readonly HistoryEntry[]): HistoryEntry[] {
   const loose = entries.filter((e) => !e.starred)
-  return loose.slice(0, Math.max(0, loose.length - HISTORY_KEPT)).filter((e) => e !== entries.at(-1))
+  const over = Math.max(0, loose.length - HISTORY_KEPT)
+  if (over === 0) return []
+  const newest = entries.at(-1)
+  const candidates = loose.filter((e) => e !== newest)
+  return [...candidates.filter((e) => e.failed), ...candidates.filter((e) => !e.failed)].slice(0, over)
 }
 
 /** Removes the folders of builds the index does not name: those pruned, and any a crash left. Only folders named like a build's. */

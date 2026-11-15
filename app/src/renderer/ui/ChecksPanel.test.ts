@@ -15,7 +15,7 @@ const gone: ModelCheck = { name: 'same part', kind: 'clearance', status: 'error'
 const words = (markup: string): string => plainText(markup)
 const scene = (checks: ModelCheck[] | undefined, more: Partial<Scene> = {}): Scene => ({ model: 'm.py', layouts: ['assembly'], parts: [], seconds: 0, output: '', checks, ...more }) as unknown as Scene
 
-describe('the Checks section of the left column', () => {
+describe('the Checks section of the Params panel', () => {
   afterEach(() => store.setState({ scene: null, objectId: null, column: COLUMN_DEFAULT }))
   const html = (): string => {
     const now = vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState())
@@ -25,25 +25,25 @@ describe('the Checks section of the left column', () => {
       now.mockRestore()
     }
   }
-  const open = { ...COLUMN_DEFAULT, folded: { ...COLUMN_DEFAULT.folded, checks: false } }
 
   it('is no section for a model with no checks, or a kernel that does not read them', () => {
-    store.setState({ scene: scene([]), column: open })
+    store.setState({ scene: scene([]), column: COLUMN_DEFAULT })
     expect(html()).toBe('')
-    store.setState({ scene: scene(undefined), column: open })
+    store.setState({ scene: scene(undefined), column: COLUMN_DEFAULT })
     expect(html()).toBe('')
   })
 
-  it('is folded to its title at first, which says how many fail', () => {
+  it('has a title that says how many fail, and its rows beneath', () => {
     store.setState({ scene: scene([fits, walls]), column: COLUMN_DEFAULT })
     const text = html()
     expect(text).toContain('Checks')
-    expect(text).toContain('2 · 1 fails')
-    expect(text).not.toContain('check-row')
+    expect(words(text)).toContain('2 · 1 fails')
+    expect(text).not.toContain('data-folded')
+    expect(text).toContain('check-row')
   })
 
   it('lists a row for each check with how it stands in a word, what was measured and what was wanted', () => {
-    store.setState({ scene: scene([fits, walls]), column: open })
+    store.setState({ scene: scene([fits, walls]), column: COLUMN_DEFAULT })
     const text = html()
     expect(text).toContain('data-check="lid fits the tub"')
     expect(text).toContain('fails')
@@ -54,7 +54,7 @@ describe('the Checks section of the left column', () => {
 
   it('says what the agent made easier to pass', () => {
     const note = { name: 'walls', what: 'loosened' as const, text: 'walls: min 1.2 → 0.6 mm', since: 3, from: walls }
-    store.setState({ scene: scene([walls], { checkNotes: [note] }), column: open })
+    store.setState({ scene: scene([walls], { checkNotes: [note] }), column: COLUMN_DEFAULT })
     expect(words(html())).toContain("walls: min 1.2 → 0.6 mm (since r3)")
   })
 })
@@ -66,7 +66,7 @@ describe('the rows of the checks', () => {
     expect(checkRow(gone)).toMatchObject({ standing: 'not measured', reading: 'a and b are the same part', wanted: '' })
     expect(checkRow({ ...gone, status: 'not run', reason: 'the 10 s ran out' }).standing).toBe('not run')
   })
-  it('says in the folded title how many fail or could not be measured', () => {
+  it('says in the title how many fail or could not be measured', () => {
     expect(checksSaid([walls, { ...walls, name: 'b' }])).toBe('2')
     expect(checksSaid([fits, gone])).toBe('2 · 1 fails, 1 not measured')
   })

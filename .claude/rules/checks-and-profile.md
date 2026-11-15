@@ -57,7 +57,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - `ui/ChecksPanel.tsx` (its own component, beside the marks, not in them): the checks the model declares in its
   `checks(p)` as the kernel measured them at the last build (`Scene.checks`, `Scene.checkNotes`), read only, under
-  Parameters, folded at first to a title that says how many fail (`2 · 1 fails`, `checksSaid`). A row
+  Parameters, in the Params panel (a section of it, never folded), with a title that says how many fail (`2 · 1 fails`, `checksSaid`). A row
   (`checkRow` in `ui/checkRows.ts`, pure, words from `shared/modelChecks.ts`) is the model's own name, how it stands
   in a word (`pass`, `fails`, `not measured`, `not run`: never colour alone), what was measured and what was wanted in
   the monospace face, and, for a thin wall or an approximate value, that it was found by sampling; its title is the
@@ -68,7 +68,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Print profile (`app/src/renderer`)
 
-- `ui/PrintProfile.tsx`, under Checks: a section (`print` in `ColumnSection`, folded at first; its title says
+- `ui/PrintProfile.tsx`, under Checks in the Params panel: a section (its title says
   `Bambu X1C, PETG` or `none`) with two lists, Printer and Material, and "Add a printer…" (name, bed X Y Z, nozzle),
   through `window.torno.profile` (`profile:*` channels). A choice is copied into the object's `.torno/profile.json` by
   main; the printers are the person's, in torno's settings. The numbers shown are the person's, set in the monospace

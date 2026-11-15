@@ -10,7 +10,6 @@ import { ScanReadSheet } from './ScanReadSheet'
 import { alignScan, importScan, reimportScan } from './scanDrop'
 import { guessOf, scanState } from './scanState'
 import { SectionTitle } from './SectionTitle'
-import { scansSaid } from './sectionSaid'
 import { chosen, pointerChoice } from './typing'
 
 /** What the import process says it is doing, in the panel's words; a stage with no entry is said as it is. */
@@ -48,9 +47,6 @@ export function ScansPanel() {
   const refused = useStore((s) => s.scansRefused)
   const problem = useStore((s) => s.scansProblem)
   const askingId = useStore((s) => s.scanAsking)
-  const folded = useStore((s) => s.column.folded.scans)
-  const layout = useStore((s) => s.layout)
-  const revision = useStore((s) => (s.scene ? s.revision : 0))
   // The one scan whose detail is open under its row; none for another object.
   const [open, setOpen] = useState<string | null>(null)
   useEffect(() => setOpen(null), [objectId])
@@ -64,15 +60,11 @@ export function ScansPanel() {
   }
 
   return (
-    <section className="section scans" aria-label="Scans" data-folded={folded ? '' : undefined}>
-      {/* Folded, what is said of an import and the question it asks stay: they are not the list. */}
-      <SectionTitle section="scans" title="Scans" said={folded ? scansSaid(scans.map((scan) => scanState(scan, layout, revision).word)) : undefined}>
-        {/* Folded, the title row is the title alone: a scan is still taken when dropped on the view. */}
-        {!folded && (
-          <button type="button" className="button button-quiet" title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'} disabled={importing !== null} onClick={() => void pick()}>
-            Import scan…
-          </button>
-        )}
+    <section className="section scans" aria-label="Scans">
+      <SectionTitle title="Scans" said={`${scans.length}`}>
+        <button type="button" className="button button-quiet" title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'} disabled={importing !== null} onClick={() => void pick()}>
+          Import scan…
+        </button>
       </SectionTitle>
       {/* What main found wrong with the scans file of this object. */}
       {problem !== null && (
@@ -106,8 +98,8 @@ export function ScansPanel() {
         </p>
       )}
       {askingOf && <ScanReadSheet key={askingOf.id} scan={askingOf} convert={(as) => convertScan(objectId, askingOf.id, as)} layoutsOf={numberedList} />}
-      {!folded && scans.length === 0 && importing === null && <p className="section-note">Drop a scan on the view, or import one.</p>}
-      {!folded && scans.length > 0 && (
+      {scans.length === 0 && importing === null && <p className="section-note">Drop a scan on the view, or import one.</p>}
+      {scans.length > 0 && (
         <ul className="rows">
           {scans.map((scan) => (
             <ScanRow key={scan.id} objectId={objectId} scan={scan} open={open === scan.id} onToggle={() => setOpen((was) => (was === scan.id ? null : scan.id))} />

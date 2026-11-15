@@ -35,6 +35,7 @@ def run(
     deadline: float | None = None,
     overrides: dict[str, Any] | None = None,
     trial: list[dict[str, Any]] | None = None,
+    mesh: bool = False,
 ) -> NoReturn:
     """Build ``dir/model`` and serve queries on ``sock``. Never returns.
 
@@ -44,12 +45,14 @@ def run(
     (``time.monotonic``) is when the build's timeout runs out.
     ``overrides`` are values for fields of the model's ``Params`` (``loader.apply_overrides``).
     ``trial``, a list of queries (``name`` and ``args``), makes this a trial: the model is built, the queries are
-    answered in this process, one frame says it all and the worker leaves; it never serves.
+    answered in this process, one frame says it all and the worker leaves; it never serves. With ``mesh`` that
+    frame carries the mesh blob a build's does, and the folder above ``dir`` is first on ``sys.path`` (a copy of
+    a build lies in a workspace of its own: the one the kernel runs in is not the one its imports are of).
     """
     try:
         _isolate(capture_fd, os.getppid() if parent is None else parent)
         channel = sock.makefile("rwb")
-        built = _build(channel, dir, model, deadline, overrides, trial)
+        built = _build(channel, dir, model, deadline, overrides, trial, mesh)
         if built is not None:
             _serve(channel, *built)
     except BaseException:
@@ -118,6 +121,7 @@ def _build(
     deadline: float | None = None,
     overrides: dict[str, Any] | None = None,
     trial: list[dict[str, Any]] | None = None,
+    mesh: bool = False,
 ) -> tuple[dict[str, Any], dict[Any, Any]] | None:
     """Send the build's one result frame.
 
@@ -129,6 +133,8 @@ def _build(
     """
     try:
         report: dict[str, Any] = {}
+        if trial is not None and mesh:
+            sys.path.insert(0, str(Path(dir).resolve().parent))
         layouts, params, groups, declared = loader.load_model(Path(dir), model, overrides, report)
         kept: dict[Any, Any] = {}
         scene, blob, shapes = tess.build_scene(layouts, model, kept)
@@ -151,7 +157,7 @@ def _build(
         if trial is not None:
             answers = _answers(trial, shapes, kept)
             _flush_output()
-            write_frame(channel, {"ok": True, "scene": scene, "answers": answers})
+            write_frame(channel, {"ok": True, "scene": scene, "answers": answers}, blob if mesh else b"")
             return None
         write_frame(channel, {"ok": True, "scene": scene}, blob)
         return shapes, kept

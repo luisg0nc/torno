@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { BuildError, BuildState } from '../shared/build'
+import type { BuildError, BuildReason, BuildState } from '../shared/build'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { Builds, NotBuilding, type OverridesPort, buildTimeout, watchFolder } from './builds'
@@ -114,7 +114,7 @@ function setup(over: { timeout?: number; exists?: (path: string) => boolean; ove
     ...over
   })
   const states: BuildState[] = []
-  const scenes: Array<{ objectId: string; revision: number; scene: Scene; blob: Buffer }> = []
+  const scenes: Array<{ objectId: string; revision: number; scene: Scene; blob: Buffer; reason: BuildReason; wentBackTo?: string }> = []
   builds.on('build', (s) => states.push(s))
   builds.on('scene', (m) => scenes.push(m))
   return { kernel, watched, builds, states, scenes, advance: (ms: number) => (clock += ms) }
@@ -501,7 +501,7 @@ describe('Builds', () => {
   it('starts a build as soon as an object is opened', () => {
     const { kernel, builds, states } = setup()
     const state = builds.open(bracket)
-    expect(state).toEqual({ objectId: 'bracket', status: 'building', revision: 0, startedAt: 1000, stale: false })
+    expect(state).toEqual({ objectId: 'bracket', status: 'building', revision: 0, startedAt: 1000, stale: false, reason: 'open' })
     expect(kernel.calls).toMatchObject([{ dir: '/ws/bracket', model: 'bracket.py' }])
     expect(states).toEqual([state])
     expect(builds.state('bracket')).toEqual(state)
@@ -513,7 +513,7 @@ describe('Builds', () => {
     builds.open(bracket)
     kernel.succeed(0, 1.25)
     await flush()
-    expect(builds.state('bracket')).toEqual({ objectId: 'bracket', status: 'ok', revision: 1, seconds: 1.25, stale: false })
+    expect(builds.state('bracket')).toEqual({ objectId: 'bracket', status: 'ok', revision: 1, seconds: 1.25, stale: false, reason: 'open' })
     expect(states.map((s) => s.status)).toEqual(['building', 'ok'])
     expect(scenes).toHaveLength(1)
     expect(scenes[0]).toMatchObject({ objectId: 'bracket', revision: 1, scene: { model: 'bracket.py' } })
@@ -624,7 +624,8 @@ describe('Builds', () => {
       revision: 0,
       seconds: 2,
       error: { kind: 'exception', message: 'boom', traceback: 'tb' },
-      stale: false
+      stale: false,
+      reason: 'open'
     })
   })
 
@@ -635,7 +636,7 @@ describe('Builds', () => {
     await flush()
     advance(500)
     builds.rebuild('bracket')
-    expect(builds.state('bracket')).toEqual({ objectId: 'bracket', status: 'building', revision: 1, startedAt: 1500, stale: true })
+    expect(builds.state('bracket')).toEqual({ objectId: 'bracket', status: 'building', revision: 1, startedAt: 1500, stale: true, reason: 'rebuild' })
     kernel.succeed(1)
     await flush()
     expect(builds.state('bracket')).toMatchObject({ status: 'ok', revision: 2, stale: false })
@@ -658,7 +659,7 @@ describe('Builds', () => {
     builds.rebuild('bracket')
     kernel.succeed(2)
     await flush()
-    expect(builds.state('bracket')).toEqual({ objectId: 'bracket', status: 'ok', revision: 2, seconds: 0.5, stale: false })
+    expect(builds.state('bracket')).toEqual({ objectId: 'bracket', status: 'ok', revision: 2, seconds: 0.5, stale: false, reason: 'rebuild' })
   })
 
   it('rebuilds when the object folder or the common folder changes', () => {
@@ -736,7 +737,8 @@ describe('Builds', () => {
       status: 'failed',
       revision: 0,
       error: { kind: 'no_model', message: 'more than one model file in /ws/two: a.py, b.py' },
-      stale: false
+      stale: false,
+      reason: 'open'
     })
     expect(states).toEqual([state])
     watched.get('/ws/two')!()
@@ -1228,6 +1230,88 @@ describe('Rebuild pressed while a build runs', () => {
     expect(builds.rebuild('bracket')).toBe(true)
     expect(kernel.calls).toHaveLength(2)
     expect(builds.rebuild('nowhere')).toBe(false)
+  })
+})
+
+describe('what a build was started for (reason)', () => {
+  const landed = async (kernel: FakeKernel, index: number): Promise<void> => {
+    kernel.succeed(index)
+    await flush()
+  }
+
+  it('says open for the first build, and carries it on the build states and the scene', async () => {
+    const { kernel, builds, states, scenes } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    expect(states.map((s) => [s.status, s.reason])).toEqual([['building', 'open'], ['ok', 'open']])
+    expect(scenes[0].reason).toBe('open')
+  })
+
+  it('says watch for a change of the files, rebuild for the button, goback with the build it went back to', async () => {
+    const { kernel, builds, states, scenes, watched } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 1)
+    builds.rebuild('bracket')
+    await landed(kernel, 2)
+    builds.rebuild('bracket', 'goback', 'h4')
+    await landed(kernel, 3)
+    expect(scenes.map((m) => [m.reason, m.wentBackTo])).toEqual([['open', undefined], ['watch', undefined], ['rebuild', undefined], ['goback', 'h4']])
+    expect(states.filter((s) => s.status === 'building').map((s) => s.reason)).toEqual(['open', 'watch', 'rebuild', 'goback'])
+    // A build after a Go back is not still said to be one.
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 4)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'watch' })
+    expect(scenes.at(-1)!.wentBackTo).toBeUndefined()
+  })
+
+  it('keeps goback for the build a Go back began when the watcher then reports the files it wrote', async () => {
+    const { kernel, builds, scenes, watched } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    builds.rebuild('bracket', 'goback', 'h4')
+    // Go back wrote the files before it asked for the build: the watcher's burst arrives while that build runs.
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 2)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'goback', wentBackTo: 'h4' })
+  })
+
+  it('gives the next build the watcher starts to a Go back that said it was coming, once', async () => {
+    const { kernel, builds, scenes, watched } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    builds.expect('bracket', 'goback', 'h4')
+    // The watcher reports the first file Go back wrote, and starts a build, before the rest are written and before it asks for its own.
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    expect(builds.rebuild('bracket', 'goback', 'h4')).toBe(false)
+    await landed(kernel, 1)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'goback', wentBackTo: 'h4' })
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 2)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'watch' })
+    expect(scenes.at(-1)!.wentBackTo).toBeUndefined()
+  })
+
+  it('forgets a Go back that is no longer coming', async () => {
+    const { kernel, builds, scenes, watched } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    builds.expect('bracket', 'goback', 'h4')
+    builds.expect('bracket')
+    watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    await landed(kernel, 1)
+    expect(scenes.at(-1)).toMatchObject({ reason: 'watch' })
+  })
+
+  it('says params for a build the person\'s overrides started, and says it on a failure too', async () => {
+    const { kernel, builds, states } = setup()
+    builds.open(bracket)
+    await landed(kernel, 0)
+    builds.changed('bracket', [], 'params')
+    kernel.fail(1, { kind: 'exception', message: 'boom' })
+    await flush()
+    expect(states.at(-1)).toMatchObject({ status: 'failed', reason: 'params' })
   })
 })
 

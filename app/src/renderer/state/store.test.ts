@@ -1429,23 +1429,88 @@ describe('the session dock', () => {
   })
 })
 
-describe('the left column', () => {
-  it('folds and unfolds a section, the window\'s and not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column.folded).toEqual({ objects: true, layers: false, params: true, checks: true, print: true, scans: false })
-    actions.foldSection('layers', true)
-    actions.foldSection('objects', false)
+describe('the rail', () => {
+  it('opens a panel, and the same one again closes it; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
+    expect(store.getState().column).toEqual({ open: 'marks', width: 248 })
+    actions.openPanel('layers')
+    expect(store.getState().column.open).toBe('layers')
     actions.openObject('gear', { layers: {} })
     actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.folded).toEqual({ objects: false, layers: true, params: true, checks: true, print: true, scans: false })
-    actions.foldSection('layers', false)
-    actions.foldSection('objects', true)
-    expect(store.getState().column.folded).toEqual({ objects: true, layers: false, params: true, checks: true, print: true, scans: false })
+    expect(store.getState().column.open).toBe('layers')
+    actions.openPanel('layers')
+    expect(store.getState().column.open).toBeNull()
+    actions.openPanel('layers')
+    actions.openPanel('scans')
+    expect(store.getState().column.open).toBe('scans')
+    actions.openPanel(null)
+    expect(store.getState().column.open).toBeNull()
   })
 
-  it('keeps the height the marks were given, or none for their share', () => {
-    actions.setMarksHeight(320)
-    expect(store.getState().column.marks).toBe(320)
-    actions.setMarksHeight(null)
-    expect(store.getState().column.marks).toBeNull()
+  it('keeps the width the person gave the panel', () => {
+    actions.setPanelWidth(320)
+    expect(store.getState().column.width).toBe(320)
+    actions.setPanelWidth(100)
+    expect(store.getState().column.width).toBe(248)
+  })
+})
+
+describe('comparing two kept builds', () => {
+  it('starts as an overlay of the one before on the one after, and says the prompt it came from', () => {
+    actions.compare('h40', 'h41', 14)
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay', prompt: 14 })
+    actions.compare('h40', 'h41')
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay' })
+  })
+
+  it('changes the way it is shown, and keeps the builds', () => {
+    actions.compare('h40', 'h41', 14)
+    for (const mode of ['before', 'after', 'side', 'overlay'] as const) {
+      actions.compareMode(mode)
+      expect(store.getState().compare).toMatchObject({ from: 'h40', to: 'h41', mode, prompt: 14 })
+    }
+  })
+
+  it('is told nothing of a mode when no comparing is on', () => {
+    actions.compareMode('side')
+    expect(store.getState().compare).toBeNull()
+  })
+
+  it('ends, and is the same state again when it ends twice', () => {
+    actions.compare('h40', 'h41', 14)
+    actions.endCompare()
+    expect(store.getState().compare).toBeNull()
+    const state = store.getState()
+    actions.endCompare()
+    expect(store.getState()).toBe(state)
+  })
+
+  it('keeps going when a build lands under it', () => {
+    actions.compare('h40', 'h41', 14)
+    actions.applyScene({ objectId: 'bracket', revision: 1, scene: BRACKET })
+    actions.applyScene({ objectId: 'bracket', revision: 2, scene: rebuilt(BRACKET, 'assembly:base') })
+    expect(store.getState().compare).toMatchObject({ from: 'h40', to: 'h41' })
+  })
+
+  it('goes with the object: another object opened has none', () => {
+    actions.compare('h40', 'h41')
+    actions.openObject('gear', { layers: {} })
+    expect(store.getState().compare).toBeNull()
+  })
+
+  it('says it is building the old build only while it is, and what main refused', () => {
+    actions.compare('h40', 'h41')
+    actions.compareBuilding('h40', true)
+    expect(store.getState().compare).toMatchObject({ building: 'h40' })
+    // Another build's wait ends only its own message.
+    actions.compareBuilding('h41', false)
+    expect(store.getState().compare).toMatchObject({ building: 'h40' })
+    actions.compareRefused('h40 could not be built again')
+    expect(store.getState().compare).toMatchObject({ refused: 'h40 could not be built again' })
+    expect(store.getState().compare?.building).toBeUndefined()
+    // The same build asked for again is the one already refused; another build starts clean.
+    actions.compare('h40', 'h42')
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h42', mode: 'overlay', refused: 'h40 could not be built again' })
+    actions.compare('h39', 'h41')
+    expect(store.getState().compare).toEqual({ from: 'h39', to: 'h41', mode: 'overlay' })
   })
 })

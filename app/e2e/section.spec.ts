@@ -6,6 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import { BAR_SIDE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR } from '../src/renderer/viewport/overlay'
 import type { Hit } from '../src/renderer/viewport/picking'
 import type { Camera, LookRequest, SectionPlane, ViewState } from '../src/shared/view'
+import { openPanel } from './helpers'
 import { openListed } from './objects'
 import { stableBox } from './stable'
 
@@ -448,6 +449,7 @@ test('a plane that leaves nothing of the parts says so, with a way back to the m
   await bar().getByRole('button', { name: 'Flip' }).click()
   await expect(note).toHaveCount(0)
   // With the post switched off there is nothing.
+  await openPanel(page, 'Layers')
   await page.locator('[data-layer="post"]').hover()
   await page.getByRole('button', { name: 'Show post' }).click()
   await expect(note).toHaveText('Everything is on the cut side')
@@ -521,6 +523,7 @@ test('the agent\'s show cuts by a plane for now: the scene file goes on saying w
   await expect.poll(async () => (await mainView('bracket'))?.section).toEqual({ origin: [5, 0, 0], normal: [1, 0, 0] })
 
   // A change of the person's own is saved, and with it their section, not the agent's.
+  await openPanel(page, 'Layers')
   await page.locator('[data-layer="post"]').hover()
   await page.getByRole('button', { name: 'Show post' }).click()
   await expect.poll(() => JSON.parse(readFileSync(sceneFile(), 'utf8')).layers.post, { timeout: 5_000 }).toEqual({ visible: false })

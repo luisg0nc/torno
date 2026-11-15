@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { Part } from '../../shared/scene'
+import { edgeTint } from '../../shared/palette'
 import { buildPart, disposePart, type BuiltPart } from './partMesh'
 
 /** How much of an earlier build shows through: the surfaces, and its edges. Enough to see where it stood, little enough to see the current build through it. */
@@ -15,10 +16,16 @@ export const EARLIER_EDGE_OPACITY = 0.8
  */
 export class Earlier {
   readonly group = new THREE.Group()
-  private parts: Array<{ part: string; built: BuiltPart }> = []
+  private parts: Array<{ part: string; name: string; built: BuiltPart }> = []
+  /** The colour of each part by name, as the build it is of had them: what it is drawn in when it stands in for the live build. */
+  private colors: ReadonlyMap<string, string> | undefined
+  /** Drawn alone, opaque, with edges in ink (Before, Side by side) rather than as a ghost over the live build. */
+  private opaque = false
+  private surfaceTint = ''
+  private inkTint = ''
 
-  constructor() {
-    this.group.name = 'earlier'
+  constructor(name = 'earlier') {
+    this.group.name = name
   }
 
   /** True while an earlier build is drawn. */
@@ -32,31 +39,49 @@ export class Earlier {
   }
 
   /** Draws these parts of an earlier build (the ones of the layout shown), from the bytes of its meshes. Whatever was drawn before is put away first. */
-  show(parts: readonly Part[], blob: ArrayBuffer, tint: string): void {
+  show(parts: readonly Part[], blob: ArrayBuffer, tint: string, colors?: ReadonlyMap<string, string>): void {
     this.clear()
+    this.colors = colors
+    this.surfaceTint = tint
+    if (this.inkTint === '') this.inkTint = tint
     for (const part of parts) {
       const built = buildPart(part, blob, { tree: false })
       built.mesh.material.color.set(tint)
-      built.mesh.material.transparent = true
-      built.mesh.material.opacity = EARLIER_SURFACE_OPACITY
-      built.mesh.material.depthWrite = false
       built.mesh.renderOrder = 1
       built.mesh.raycast = () => {}
-      built.edges.material.color.set(tint)
       built.edges.material.transparent = true
-      built.edges.material.opacity = EARLIER_EDGE_OPACITY
       built.edges.renderOrder = 2
       built.edges.raycast = () => {}
       this.group.add(built.group)
-      this.parts.push({ part: part.key, built })
+      this.parts.push({ part: part.key, name: part.name, built })
     }
+    this.look()
   }
 
-  /** The colour of what is drawn follows the theme. */
-  tint(colour: string): void {
-    for (const { built } of this.parts) {
-      built.mesh.material.color.set(colour)
-      built.edges.material.color.set(colour)
+  /** The colour of what is drawn follows the theme: the surfaces' and, drawn alone, the edges' (`ink`, the surfaces' when not given). */
+  tint(colour: string, ink: string = colour): void {
+    this.surfaceTint = colour
+    this.inkTint = ink
+    this.look()
+  }
+
+  /** Drawn alone and opaque, as the live build is (`true`), or as a ghost over it. */
+  solid(on: boolean): void {
+    this.opaque = on
+    this.look()
+  }
+
+  private look(): void {
+    for (const { name, built } of this.parts) {
+      // Opaque, a part is in its own colour when it has one (it stands in for the live build), else in the tint; a ghost is the tint, whatever the colours.
+      const own = this.opaque ? this.colors?.get(name) : undefined
+      built.mesh.material.color.set(own ?? this.surfaceTint)
+      built.mesh.material.transparent = !this.opaque
+      built.mesh.material.opacity = this.opaque ? 1 : EARLIER_SURFACE_OPACITY
+      built.mesh.material.depthWrite = this.opaque
+      built.mesh.material.needsUpdate = true
+      built.edges.material.color.set(this.opaque ? (own ? edgeTint(own) : this.inkTint) : this.surfaceTint)
+      built.edges.material.opacity = this.opaque ? 1 : EARLIER_EDGE_OPACITY
     }
   }
 

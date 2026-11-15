@@ -98,7 +98,8 @@
   --palette-shadow: 0 6px 20px rgb(34 37 42 / 0.10);
 
   /* Layout */
-  --left-w: 248px;
+  --rail-w: 56px;          /* the rail of icons at the left; `RAIL_W` in state/column.ts */
+  --panel-w: 248px;        /* the panel docked beside it; the default, the shell overrides it while the edge is dragged or the person has widened it */
   --dock-w: 520px;         /* default; the shell overrides it while the dock is resized */
   --status-h: 28px;
   --space-1: 4px;

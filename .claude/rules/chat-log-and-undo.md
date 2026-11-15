@@ -32,7 +32,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   reads the tail of the file as "Earlier in this conversation". The pane with no session shows the end of the conversation on file the same
   way, read-only (`chat:lastConversation`, `lastConversation` of `chatlog.ts`: the last eight `user`, `text` and `turn` items and the
   log's modification time; it only reads, and the object must be of the open workspace). A log over 5 MB is cut to its last 2,000 lines, whole
-  and atomically, when a session starts on it (`trimLog`). Switching `view` ends the session and resumes the
+  and atomically, when a session starts on it (`trimLog`; the prompts of the cut part are then no longer listed, and the numbers after them shift down).
+  `chat:prompts` (`sessions/prompts.ts` `listPrompts`) lists every `user` item with `state: 'sent'` of every log of `.torno/chat/` (read from
+  the tail as `readLog` does, parsing only the lines that say `"kind":"user"`: 50 logs of 2,000 lines take about 85 ms, so there is no index
+  file, RF4), and a terminal's prompts from the history entries' `turn` (the ids `t-<conversation>-<n>`, once each, at the time of their first
+  build: a terminal keeps no log, so only a prompt that built is known), oldest first and numbered from 1 across the project, at most the newest
+  2,000. `chat:conversation` reads one conversation's log (`readLog`) for the chat's "Earlier conversations". Both only read, for an object of the open
+  workspace. Switching `view` ends the session and resumes the
   conversation in the other kind (`session.json` is the same).
 - **What a turn changed in the model** (`sessions/snapshots.ts`, `shared/changes.ts`, `chat:changes`). When a
   prompt is sent (its `UserPromptSubmit`, read before the hook is answered, so before the agent can have touched
@@ -73,8 +79,24 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   kept (`chat.changes`, in memory, the last 20 turns; none is "No change ... is kept for this turn"), "Changes" (the
   file before against after, `Diff` with `ofEdit` false, so without the caption that is true only of an edit's lines)
   or "Whole file" (read only, the monospace face, no refs searched), and, below, the builds taken together
-  (`netParts`: a part's volume and faces from the first digest's `before` to the last's `after`, `≈` unless exact). "Undo"
-  (`Undo` in `TurnEnd.tsx`, `chat.undo`) is beside it on the last turn only: `ChatPane` gives its id to `UndoableTurn` while
-  the session is live and idle and no prompt of the person's follows that turn. It asks once in the row (a group named "Undo
-  this turn", "Ask to undo" / "Keep it"), main sends the prompt and a note, and a refusal of main is said beside the button.
+  (`netParts`: a part's volume and faces from the first digest's `before` to the last's `after`, `≈` unless exact). The builds of the turn's prompt are
+  joined to it (`ui/chat/historyJoin.ts` `joinTurns`: the turn answers the `user` item before it, and the history's
+  entries whose `turn.prompt` is that item's id are its; `ChatPane` reads them with `useHistory`, `ChatItems` joins) and
+  drawn as a strip under the account (`TurnBuilds.tsx`: the build the prompt began from, dashed, its builds, a failed
+  one marked `failed`, at most five pictures and `+n`; `turnFacts`: the parts changed, the checks that flipped, the
+  builds that failed on the way). The buttons: "Compare" (`actions.compare(from, to, prompt number)`, "Comparing" while
+  it is on, off while a section or an explode is), "See changes", "Go back to before this prompt" (`GoBack.tsx`) and
+  "Star" (`history.star` on the last build). Go back reads `history.goBackPlan` and asks once with `Confirm`, listing
+  what is written, deleted, left alone, changed since (a save of the person's among the builds it undoes counts), the Params, the prompts undone and
+  "your saves h42" (`planLines`), then calls
+  `history.goBack` with what it was shown; it is off while the session works (`ChatIdle`). A plan with `fallback: 'undo'`
+  says "Claude will be asked to put the files back instead." and its "Ask Claude" is `chat.undo`, offered only on the
+  last turn of a live idle chat (`UndoableTurn`, which `ChatPane` gives its id to while no prompt of the person's
+  follows; `afterPlan`): on any other turn, and in a terminal's pane, there is nothing to ask and the answer to the click is a sentence in the
+  button's place; a refusal of main is said beside the button. The pane of Prompts only over a terminal (`PromptsPane`) puts "Go back to before this
+  prompt" on each row that built something (`PromptsOnly`'s `goBack`, keyed by the row's id, `t-<conversation>-<n>` there). Between turns, a build the person made (`cause` person or
+  params) is a line (`SaveLine.tsx`; `savesBetween` takes them between two prompts' times, several in a row with no
+  other build between are one run, `saveWords`); the prompts a Go back undid (`goneBack`: every build of the prompt is
+  `undone`) are one faded row with "Show" (`rowsOf` in `Items.tsx`, which also places the lines), faded by the muted
+  face, never by opacity. Prompt numbers are the project's (`numbersOf`, above). All of it is drawn from main's own labels: the window works out no cause.
   A further action for a turn is one more button in `TurnActions`, given the turn's `item` and `account`.

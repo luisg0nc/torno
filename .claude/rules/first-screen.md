@@ -81,7 +81,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - For as long as the example is the open folder, the note under the folder's name (`EXAMPLE_NOTE`) has a link-button,
   "Keep this as a folder…" (`KEEP` in `App.tsx`, through `leave`, so that it asks first as opening a folder does):
   main shows the save dialog and copies (`workspace.keepExample`); the folder it made is opened in place of the copy.
-- With a folder open, the folder button of the left column is a menu
+- With a folder open, the folder button at the top of the Projects panel is a menu
   (`ui/FolderMenu.tsx`): the recent folders, "Open folder…", "Open the
   example". A folder torno is started with (`TORNO_WORKSPACE`) is added to the
   recent ones; the workspace to open next stays the one chosen in the window. The open folder's row is marked

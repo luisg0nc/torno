@@ -9,6 +9,7 @@ import { contrast } from '../src/shared/contrast'
 import { png } from '../src/test/pngFixtures'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
+import { openPanel, railButton } from './helpers'
 import { newFromList, openListed, switcher } from './objects'
 import { stableBox } from './stable'
 
@@ -152,6 +153,7 @@ for (const theme of ['light', 'dark'] as const) {
       const drawn = await page.evaluate(() => ({ muted: getComputedStyle(document.querySelector('.section-title')!).color, ground: getComputedStyle(document.body).backgroundColor }))
       const rgb = (hex: string): string => `rgb(${[1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(', ')})`
       expect(drawn).toEqual({ muted: rgb(tokens['--muted']), ground: rgb(tokens['--surface']) })
+      await openPanel(page, 'Layers')
       // What the system draws follows the theme too: on a visible screen the list of objects scrolled with the light
       // native bar in the dark theme. One scheme, said outright, and every scroller the thin one in the theme's grey.
       const scrolling = await page.evaluate(() => {
@@ -219,7 +221,7 @@ for (const theme of ['light', 'dark'] as const) {
 
 // Set TORNO_SHOTS=<dir>, as for the captures of the other specs, to capture the window in every state the pass
 // over the themes looks at, one launch each, into <dir>/ui-<state>-<theme>.png.
-const STATES = ['main', 'mark-chip', 'section', 'explode', 'views', 'scans', 'scan-read', 'region', 'page', 'export', 'error', 'welcome', 'welcome-first', 'welcome-first-ready', 'welcome-first-open', 'empty', 'ready-sheet', 'folders', 'switcher', 'folded', 'params', 'chat', 'view-board', 'view-board-chip', 'view-board-sent', 'onboard', 'onboard-board', 'onboard-missing', 'confirm-close', 'tools', 'keys', 'instructions', 'measure-raised', 'measure-raised-narrow', 'measure', 'marks-tall', 'landed'] as const
+const STATES = ['main', 'mark-chip', 'section', 'explode', 'views', 'scans', 'scan-read', 'region', 'page', 'export', 'error', 'welcome', 'welcome-first', 'welcome-first-ready', 'welcome-first-open', 'empty', 'ready-sheet', 'folders', 'projects', 'badges', 'params', 'chat', 'view-board', 'view-board-chip', 'view-board-sent', 'onboard', 'onboard-board', 'onboard-missing', 'confirm-close', 'tools', 'keys', 'instructions', 'measure-raised', 'measure-raised-narrow', 'measure', 'panel-short', 'landed'] as const
 
 /** Shots of a window with no folder open, or an empty one, where no object is opened. */
 const FIRST_SCREEN = ['welcome-first', 'welcome-first-ready', 'welcome-first-open'] as const
@@ -279,6 +281,7 @@ for (const theme of ['light', 'dark'] as const) {
         const file = join(root, 'sheet.stl')
         writeFileSync(file, stl(grid(30, 1, (x, y) => 41 + 0.4 * Math.sin(x / 3) * Math.cos(y / 4))))
         await app.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: Main }).__tornoMain.pickFile = path), file)
+        await openPanel(page, 'Scans')
         await page.getByRole('button', { name: 'Import scan…' }).click()
         await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.scans()))[0]?.ready, { timeout: 60_000 }).toBe(true)
       }
@@ -297,7 +300,7 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.press('Enter')
           await expect(page.locator('.chat-ask[data-state="open"]')).toBeVisible({ timeout: 30_000 })
           await open(page, 'hollow')
-          // The list is folded to the switcher of hollow: it carries the sign of bracket's session, and names it.
+          // The rail's Projects icon carries the sign of bracket's session, and names it in its description.
           await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
           await expect(switcher(page)).toHaveAttribute('aria-description', 'bracket needs you')
           await expect(page.locator('.status-needs')).toContainText('bracket needs you')
@@ -359,15 +362,9 @@ for (const theme of ['light', 'dark'] as const) {
           await canvas.click({ position: { x: box.width * 0.4, y: box.height * 0.62 } })
           await expect.poll(() => page.evaluate(() => window.__tornoTest!.draft()), { timeout: 30_000 }).toMatchObject({ kind: 'dimension', held: expect.any(String) })
           await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.1)
-        } else if (shot === 'marks-tall') {
-          // The line above the marks dragged to the top with Parameters unfolded, then the window made shorter: the marks
-          // take the room there is, above the status line.
-          await page.locator('.section-fold').and(page.getByRole('button', { name: 'Parameters', exact: true })).click()
-          const line = (await page.getByRole('separator', { name: 'Resize marks' }).boundingBox())!
-          await page.mouse.move(line.x + 120, line.y + line.height / 2)
-          await page.mouse.down()
-          await page.mouse.move(line.x + 120, 0, { steps: 4 })
-          await page.mouse.up()
+        } else if (shot === 'panel-short') {
+          // The Params panel open, then the window made shorter: the panel takes the room there is, above the status line.
+          await openPanel(page, 'Params')
           await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 680))
           await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(680)
         } else if (shot === 'explode') {
@@ -424,25 +421,25 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.press('Control+Shift+E')
           await expect(page.getByRole('dialog', { name: 'Export' })).toContainText('hollow')
         } else if (shot === 'folders') {
+          await openPanel(page, 'Projects')
           await page.getByRole('button', { name: 'Folders' }).click()
           await expect(page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem').first()).toBeVisible()
-        } else if (shot === 'switcher') {
-          // The layers and the scans folded to their titles, and the menu of the list folded to its switcher: a row that
-          // cannot be built says why on a second line.
-          for (const name of ['Layers', 'Scans']) await page.locator('.section-fold').and(page.getByRole('button', { name, exact: true })).click()
-          await switcher(page).click()
-          await expect(page.getByRole('menu', { name: 'Projects' }).getByRole('menuitem', { name: 'two', exact: true })).toContainText('more than one model file')
-        } else if (shot === 'folded') {
-          // A scan in, and the layers and the scans folded: each title row says what matters of what it holds.
+        } else if (shot === 'projects') {
+          // The Projects panel: a row that cannot be built says why in its title.
+          await openPanel(page, 'Projects')
+          await expect(page.getByRole('navigation', { name: 'Projects' }).getByRole('button', { name: 'two', exact: true })).toHaveAttribute('title', /more than one model file/)
+        } else if (shot === 'badges') {
+          // A scan in, and a part switched off, the panels shut: the rail's icons say what matters of what they hold.
           await scan()
           await page.getByRole('dialog', { name: 'How is S1 read?' }).getByRole('button', { name: 'Later' }).click()
-          for (const name of ['Layers', 'Scans']) await page.locator('.section-fold').and(page.getByRole('button', { name, exact: true })).click()
-          await expect(page.locator('.scans .section-said')).toHaveText('1 · unaligned')
+          await openPanel(page, 'Marks')
+          await expect(railButton(page, 'Scans').locator('.rail-badge')).toHaveText('1')
+          await expect(railButton(page, 'Scans')).toHaveAttribute('aria-description', '1 unaligned')
         } else if (shot === 'params') {
-          // The parameters opened under the layers, a session running so that the rows are buttons.
+          // The Params panel, a session running so that the rows are buttons.
           await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
-          await page.locator('.section-fold').and(page.getByRole('button', { name: 'Parameters', exact: true })).click()
+          await openPanel(page, 'Params')
           await expect(page.locator('.params [data-param]')).toHaveCount(5)
           await page.locator('.params [data-param="wall"] button').hover()
         } else if (shot === 'chat') {

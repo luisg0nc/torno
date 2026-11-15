@@ -7,9 +7,10 @@ import type { Part } from '../../shared/scene'
 import { partDefects } from '../../shared/sanity'
 import { makesEnvironment } from './readyLines'
 import { landedOn } from '../state/landing'
+import { compareStatus } from '../state/compare'
 import { actions, partsInLayout, useStore } from '../state/store'
 import { BuildErrorSheet } from './BuildErrorSheet'
-import { HistorySheet } from './HistorySheet'
+import { withRefs } from './CompareBar'
 import { UNCHECKED_AFTER_MS, useLasting } from './MarkRow'
 import { AGENT_LABEL } from '../../shared/agents'
 import { focusAsk, waitingObjects } from './sessionSign'
@@ -111,10 +112,9 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
   // What git says of the sources: read by main, never written.
   const git = useGit()
 
-  // The builds kept of the project, in a sheet of their own (`HistorySheet`).
-  const [historyOpen, setHistoryOpen] = useState(false)
+  // The history of the project is "Prompts only" in the session pane: this button puts it up and away.
+  const historyOpen = useStore((st) => st.promptsOpen)
   const compare = useStore((st) => st.compare)
-  useEffect(() => setHistoryOpen(false), [objectId])
 
   // The sheet shows the failure of the build it was opened for, no longer.
   useEffect(() => {
@@ -174,12 +174,12 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
             </span>
           )}
           {compare !== null && (
-            <button type="button" className="status-compare" title="An earlier build is drawn over the current one, for looking only. Put it away" onClick={() => actions.compareWith(null)}>
-              Showing <span className="num">{compare}</span> over this build · Stop
-            </button>
+            <span className="status-compare" role="status" title="Two builds are compared in the view, for looking only. Back to the live build ends it" data-part="compare">
+              {withRefs(compareStatus(compare))}
+            </span>
           )}
           {hasScene && (
-            <button type="button" className="status-history" aria-expanded={historyOpen} title="The builds kept of this project: compare, read their source, ask the agent to go back" onClick={() => setHistoryOpen(!historyOpen)}>
+            <button type="button" className="status-history" aria-expanded={historyOpen} title="Every prompt of this project, a row each, with the builds that came out of it: compare them" onClick={() => actions.setPromptsOpen(!historyOpen)}>
               History
             </button>
           )}
@@ -240,7 +240,6 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
         </button>
       )}
       {build123d && <span className="num">build123d {build123d}</span>}
-      {historyOpen && name !== null && <HistorySheet objectName={name} onClose={() => setHistoryOpen(false)} />}
       {errorOpen && error && name !== null && (
         <BuildErrorSheet objectName={name} error={error} onClose={() => actions.setErrorOpen(false)} />
       )}

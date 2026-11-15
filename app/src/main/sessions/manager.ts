@@ -7,6 +7,7 @@ import * as pty from 'node-pty'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import { type AgentChoice, agentChoiceOf, type ChatAnswer, type ChatCommand, type ChatHistory, type ChatItem, type ChatMeta, type ChatModel, type Effort, isEffort, type Mode } from '../../shared/chat'
 import type { BuildIdentity } from '../../shared/git'
+import type { BuildTurn } from '../../shared/history'
 import { modelsOf } from './models'
 import { type BuildState, errorLine, failedAfter } from '../../shared/build'
 import { type DrawnOver, type ViewDrawing, drawnOver } from '../../shared/drawing'
@@ -50,6 +51,10 @@ const DID_NOT_START = 'It did not start: is `claude` up to date and signed in? T
 const CONVERSATION_EVENTS = new Set(['UserPromptSubmit', 'Stop'])
 /** The hooks that only say the agent is at work again. */
 const TOOL_EVENTS = new Set(['PreToolUse', 'PostToolUse'])
+/** The most of a prompt that a build's history entry keeps, in characters. */
+const PROMPT_TEXT = 200
+/** How many prompts' starting builds are held (`Sessions.startedFrom`). */
+const MAX_PROMPT_STARTS = 500
 /** C0 and C1 controls and DEL: among them ESC, the newlines and the one-byte CSI. */
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g
 
@@ -79,6 +84,8 @@ interface Session {
   agent: AgentTransport | null
   /** A chat session: what it said and did, as the window draws it; kept after the session ends (`Sessions.history`). */
   chat: ChatRecord | null
+  /** How many `UserPromptSubmit` the session has had: a turn of a terminal session is named by it (`Sessions.causeOf`). */
+  prompts: number
   /** A chat session: what was written to the log, one write after another; and whether a write failed, after which none is tried. */
   logging: Promise<void>
   logFailed: boolean
@@ -105,6 +112,8 @@ interface Session {
   termTimer?: NodeJS.Timeout
   /** What the hooks of the turn under way said of the model: see `TurnState`. */
   turn?: TurnState
+  /** The last turn that ended after changing a source: a build it began may land after its `Stop` (`Sessions.causeOf`). */
+  lastTurn?: { changedAt: number; endedAt: number; turn: BuildTurn }
 }
 
 /**
@@ -133,6 +142,8 @@ interface TurnState {
    * turn's (`stopAnswer`); one begun before it, or in a turn with none, is not, and no `Stop` is held back for it.
    */
   changedAt?: number
+  /** The prompt the turn answers, as the history names it (`BuildTurn`, without its conversation): set once its hook has been answered. */
+  prompt?: { conversation: string; prompt: string; text: string }
   /** The `Bash` tool uses under way, by tool use: when each began and when the newest source of the object was saved then. */
   bashing: Map<string, { at: number; saved: number | null }>
   /** The tool use of the last edit answered: the chat's card its build is put on. */
@@ -256,6 +267,8 @@ export class Sessions {
   private readonly buildEnds = new Map<string, number>()
   /** Builds that ended, of any object, counted: a turn knows which came after it began. */
   private finished = 0
+  /** By the id a turn's prompt has in the history, the revision of the build that was current when it was sent (the newest few hundred): what Go back goes to when no build was kept before the prompt. */
+  private readonly promptStarts = new Map<string, number>()
   /** Who waits for the next change of a build. */
   private buildWaiters = new Set<() => void>()
   /** By object: a session that is being started there. */
@@ -449,6 +462,7 @@ export class Sessions {
       conversationId,
       promptedIn: conversationId,
       unprompted: stored === null,
+      prompts: 0,
       compacted: false,
       firstPrompt: true,
       status: 'starting',
@@ -542,6 +556,24 @@ export class Sessions {
     const waiting = this.buildWaiters
     this.buildWaiters = new Set()
     for (const wake of waiting) wake()
+  }
+
+  /**
+   * What caused a build of an object that began at `startedMs` (ms epoch): the agent when a session of the object has
+   * a turn running that first changed a source at or before then (`TurnState.changedAt`), with the turn it is of; the
+   * person otherwise (a save before the turn's first edit, or no turn at all). The prompt is named by the id of the
+   * chat's `user` item (a chat), else by `t-<conversation>-<n>`, counted per `UserPromptSubmit` (a terminal). The caller
+   * lets the reason a build was started for (the person's `Params`, a Go back) win over this.
+   */
+  causeOf(objectId: string, startedMs: number): { cause: 'agent' | 'person'; turn?: BuildTurn } {
+    const session = this.of(objectId)
+    if (!session) return { cause: 'person' }
+    const turn = session.turn
+    if (turn && turn.changedAt !== undefined && startedMs >= turn.changedAt) return { cause: 'agent', turn: turnOf(session, turn) }
+    // A build the turn began may land after its `Stop`: it began while the turn was on, and is the turn's.
+    const ended = session.lastTurn
+    if (ended && startedMs >= ended.changedAt && startedMs <= ended.endedAt) return { cause: 'agent', turn: ended.turn }
+    return { cause: 'person' }
   }
 
   /** Resolves at the next change of a build, or at `until` (ms epoch), whichever comes first. */
@@ -893,8 +925,9 @@ export class Sessions {
   }
 
   /**
-   * "Undo" on the last turn: a prompt of torno's own words asks the agent to put the model files back as they were
-   * before that turn, with the lines to reverse (from the kept `changes`), after a note that says what was asked. Torno
+   * "Undo" on the last turn, the way back when Go back has no copy to restore (`goback.ts`: an entry with `files: []`, over
+   * the size caps, or pruned): a prompt of torno's own words asks the agent to put the model files back as they were
+   * before that turn, with the lines to reverse (from the kept `changes`), after a note that says what was asked. This path
    * writes nothing of the model: the agent edits, through the permission card of each edit. Refused (a `Refusal`,
    * nothing sent) unless the session is idle, the turn is the last of its transcript and main holds what it changed.
    */
@@ -921,6 +954,27 @@ export class Sessions {
     const shown = names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : names.join(', ')
     s.chat.transcript.note(`Undo: Claude Code is asked to put ${shown} back as it was before that turn, with the lines to reverse, which torno read before and after it. It edits through its usual permission card; torno writes nothing.`, 'quiet')
     this.prompt(sessionId, [{ type: 'text', text: undoPrompt(changes, now) }])
+  }
+
+  /** The revision of the build that was current when this prompt was sent, as the session saw it; undefined when it did not (a restart forgets). */
+  startedFrom(promptId: string): number | undefined {
+    return this.promptStarts.get(promptId)
+  }
+
+  /**
+   * Why a Go back must wait: the object's session is working or waiting for the person, or has prompts the CLI has not
+   * taken up. Null when it may go ahead (no session, or an idle one).
+   */
+  busyWith(objectId: string): string | null {
+    const s = this.of(objectId)
+    if (!s) return null
+    if (s.status === 'working' || s.status === 'needs_input' || (s.chat?.transcript.untakenCount() ?? 0) > 0) return 'Claude is working on this project. Wait for it to finish, or stop it, then go back.'
+    return null
+  }
+
+  /** Says in the chat of the object's session, at once, what a Go back did and what the agent will be told with its next prompt. A quiet line; none when no chat is open. */
+  noteGoBack(objectId: string, text: string): void {
+    this.of(objectId)?.chat?.transcript.note(text, 'quiet')
   }
 
   /** A turn has ended: the sources now, against the sources when its prompt was sent; kept only when they differ. Never written. */
@@ -1317,8 +1371,14 @@ export class Sessions {
     }
     if (event === 'PostCompact') session.compacted = true
     if (event !== 'SessionEnd') this.advance(session, event, fields)
-    if (event === 'Stop' || event === 'StopFailure') session.turn = undefined
+    if (event === 'Stop' || event === 'StopFailure') {
+      if (session.turn?.changedAt !== undefined) session.lastTurn = { changedAt: session.turn.changedAt, endedAt: Date.now(), turn: turnOf(session, session.turn) }
+      session.turn = undefined
+    }
+    // The number of the prompt and the turn it begins are taken now: the context is awaited below, and the turn is then the one to name it.
+    const promptNo = event === 'UserPromptSubmit' ? (session.prompts += 1) : session.prompts
     if (event === 'UserPromptSubmit') session.turn = this.beginTurn(session)
+    const turn = session.turn
 
     if (event !== 'UserPromptSubmit') {
       if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}`)
@@ -1352,13 +1412,35 @@ export class Sessions {
     }
     const { text, sentMarkIds } = context
     session.chat?.transcript.context({ text, sentMarkIds, ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
+    // Which prompt this turn answers, for the builds it causes: the id of the chat's `user` item (as its log holds it), else a number of main's own.
+    if (turn && session.turn === turn) {
+      const taken = session.chat?.transcript.taken()
+      const said = (taken?.text ?? (typeof fields.prompt === 'string' ? fields.prompt : '')).trim()
+      turn.prompt = { conversation: session.conversationId, prompt: taken?.item ?? `t-${session.conversationId}-${promptNo}`, text: said.slice(0, PROMPT_TEXT) }
+      if (turn.before) {
+        this.promptStarts.set(turn.prompt.prompt, turn.before.revision)
+        for (const old of [...this.promptStarts.keys()].slice(0, Math.max(0, this.promptStarts.size - MAX_PROMPT_STARTS))) this.promptStarts.delete(old)
+      }
+    }
     this.emit('context', { sessionId: session.id, objectId, text, sentMarkIds, ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
     if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}${text ? `, answered with: ${text}` : ''}`)
     // Marks are sent once the answer that names them has been handed over whole: not when the agent hung
     // up first, and not to a session that has been hung up on, whose prompt nobody will answer.
-    if (text && sentMarkIds.length > 0 && !session.killTimer) res.once('finish', () => this.deps.onDelivered?.(objectId, sentMarkIds))
+    if (text && !session.killTimer) {
+      res.once('finish', () => {
+        if (sentMarkIds.length > 0) this.deps.onDelivered?.(objectId, sentMarkIds)
+        // What was kept until the answer left (a Go back's notice) is let go now; a failure of that is not the prompt's.
+        void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
+      })
+    }
     sendJson(res, 200, text ? { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } } : {})
   }
+}
+
+/** The turn as a build's history entry names it: its conversation, its prompt (a chat's `user` item, else `t-<conversation>-<n>`) and what was said. */
+function turnOf(session: Session, turn: TurnState): BuildTurn {
+  const prompt = turn.prompt ?? { conversation: session.conversationId, prompt: `t-${session.conversationId}-${session.prompts}`, text: '' }
+  return { conversation: prompt.conversation, prompt: prompt.prompt, ...(prompt.text ? { text: prompt.text } : {}) }
 }
 
 function started(s: Session): Started {

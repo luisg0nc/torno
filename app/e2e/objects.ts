@@ -1,37 +1,33 @@
 import { expect, type Page } from '@playwright/test'
+import { openPanel, openPanelName, railButton } from './helpers'
 
-// The list of objects in the left column as a person uses it: its row, or, while it is folded to the switcher
-// (an object open in a workspace of several), the switcher's menu. The menu's items have the objects' names, as
-// the rows do.
+// The list of projects as a person uses it: the Projects panel, opened through the rail, with a row for each
+// project. It is the panel's, so a spec that opens one panel to look at another goes back to it.
 
-/** The navigation of the objects in the left column. */
+/** The navigation of the projects in the Projects panel. */
 export const objectList = (page: Page) => page.getByRole('navigation', { name: 'Projects' })
 
-/** The switcher the list is folded to, while it is. */
-export const switcher = (page: Page) => objectList(page).locator('.object-switcher')
+/** The rail's Projects button: it says (`data-session`, its description) that a session of any project works or waits. */
+export const switcher = (page: Page) => railButton(page, 'Projects')
 
-/** Opens an object by its name, as a person does: its row, or the switcher's menu. The object open already stays as it is. */
+/**
+ * Opens a project by its name, as a person does: its row in the Projects panel. The one open already stays as it is.
+ * The panel that was open goes back to being open afterwards, so what a spec reads next is where it was.
+ */
 export async function openListed(page: Page, name: string): Promise<void> {
-  const list = objectList(page)
-  // One of the two is there once the workspace is.
-  await expect(list.locator('.object-row, .object-switcher').first()).toBeVisible()
-  if (await switcher(page).isVisible()) {
-    if ((await switcher(page).getAttribute('aria-pressed')) !== 'true' && (await switcherName(page)) === name) return
-    await switcher(page).click()
-    await page.getByRole('menu', { name: 'Projects' }).getByRole('menuitem', { name, exact: true }).click()
-  } else await list.getByRole('button', { name, exact: true }).click()
+  const was = await openPanelName(page)
+  await openPanel(page, 'Projects')
+  const row = objectList(page).getByRole('button', { name, exact: true })
+  await expect(row).toBeVisible()
+  if ((await row.getAttribute('aria-current')) !== 'true') await row.click()
+  if (was !== null && was !== 'Projects') await openPanel(page, was)
 }
 
-/** "New object", from the list, or from the foot of the switcher's menu. */
+/** "New project", from the foot of the Projects panel. */
 export async function newFromList(page: Page): Promise<void> {
-  const list = objectList(page)
-  await expect(list.locator('.new-object-button, .object-switcher').first()).toBeVisible()
-  if (await switcher(page).isVisible()) {
-    // The page of the new object is up already: the switcher says so, pressed.
-    if ((await switcher(page).getAttribute('aria-pressed')) === 'true') return
-    await switcher(page).click()
-    await page.getByRole('menu', { name: 'Projects' }).getByRole('menuitem', { name: 'New project' }).click()
-  } else await list.getByRole('button', { name: 'New project' }).click()
+  await openPanel(page, 'Projects')
+  const button = objectList(page).getByRole('button', { name: 'New project' })
+  await expect(button).toBeVisible()
+  // The page of the new project is up already: the button says so, pressed.
+  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click()
 }
-
-const switcherName = (page: Page): Promise<string> => switcher(page).locator('.row-name').innerText()

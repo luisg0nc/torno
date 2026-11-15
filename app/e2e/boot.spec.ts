@@ -100,7 +100,8 @@ test('the viewport fills the window and the panels sit over it', async () => {
   expect(await box('[data-region="viewport"]')).toEqual({ x: 0, y: 0, width: win.w, height: win.h })
   const left = await box('[data-region="left"]')
   expect(left.x).toBe(0)
-  expect(left.width).toBe(248)
+  // The rail (56) and the panel docked beside it (248).
+  expect(left.width).toBe(304)
   const session = await box('[data-region="session"]')
   expect(session.width).toBe(520)
   expect(session.x + session.width).toBe(win.w)
@@ -153,9 +154,9 @@ test('the session dock is resized by dragging its edge, within limits', async ()
   // It stops at a minimum width rather than vanishing...
   await dragEdgeBy(900)
   expect(await width()).toBe(320)
-  // ...and at a maximum that keeps 240 px of viewport free beside the left column.
+  // ...and at a maximum that keeps 240 px of viewport free beside the rail and the panel.
   await dragEdgeBy(-1400)
-  expect((await dock.boundingBox())!.x).toBe(248 + 240)
+  expect((await dock.boundingBox())!.x).toBe(304 + 240)
 
   // The edge also answers to the arrow keys, 16 px a press.
   await handle.focus()
@@ -169,9 +170,10 @@ test('the session dock is resized by dragging its edge, within limits', async ()
   expect(await width()).toBe(520)
 })
 
-test('the left column is made wider by dragging its edge, within limits, and kept by the window', async () => {
+test('the panel is made wider by dragging its edge, within limits, and kept by the window', async () => {
   const left = page.locator('[data-region="left"]')
-  const handle = page.getByRole('separator', { name: 'Resize left column' })
+  const handle = page.getByRole('separator', { name: 'Resize panel' })
+  const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}'))
   const width = async () => (await left.boundingBox())!.width
   const dragEdgeBy = async (dx: number) => {
     const edge = (await handle.boundingBox())!
@@ -182,15 +184,17 @@ test('the left column is made wider by dragging its edge, within limits, and kep
     await page.mouse.move(x + dx, y, { steps: 4 })
     await page.mouse.up()
   }
-  expect(await width()).toBe(248)
+  // The rail and the panel.
+  expect(await width()).toBe(56 + 248)
 
   await dragEdgeBy(100)
-  expect(await width()).toBe(348)
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}').width)).toBe(348)
+  expect(await width()).toBe(56 + 348)
+  // What is kept is which panel is open and how wide it is.
+  expect(await stored()).toEqual({ open: 'marks', width: 348 })
 
   // Never narrower than the default, and never wider than leaves 240 px of viewport beside the dock.
   await dragEdgeBy(-900)
-  expect(await width()).toBe(248)
+  expect(await width()).toBe(56 + 248)
   await dragEdgeBy(3000)
   const dockWidth = (await page.locator('[data-region="session"]').boundingBox())!.width
   expect(await width()).toBe((await page.evaluate(() => window.innerWidth)) - dockWidth - 240)
@@ -199,13 +203,13 @@ test('the left column is made wider by dragging its edge, within limits, and kep
   await dragEdgeBy(-3000)
   await handle.focus()
   await page.keyboard.press('ArrowRight')
-  await expect.poll(width).toBe(264)
+  await expect.poll(width).toBe(56 + 264)
   await page.keyboard.press('ArrowLeft')
-  await expect.poll(width).toBe(248)
+  await expect.poll(width).toBe(56 + 248)
   await dragEdgeBy(60)
   await handle.dblclick()
-  await expect.poll(width).toBe(248)
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}').width)).toBeNull()
+  await expect.poll(width).toBe(56 + 248)
+  expect((await stored()).width).toBe(248)
 })
 
 test('the session dock collapses and comes back at the same width', async () => {

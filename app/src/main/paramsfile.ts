@@ -106,6 +106,22 @@ export async function setOverride(dir: string, name: string, value: unknown, fil
   })
 }
 
+/** Whether two values of a field are the same, as a number that went through JSON and a build is. */
+export const sameValue = same
+
+/**
+ * The person's tries are put back as a Go back finds they were for an earlier build: these and no others, in one write.
+ * A value that is no value, or a name that is no field's, is left out. Whoever asks says which defaults they were made against.
+ */
+export async function replaceOverrides(dir: string, wanted: Overrides): Promise<void> {
+  const kept = clean({ overrides: wanted })
+  notes.set(dir, [])
+  await change(dir, (current) => {
+    const unchanged = Object.keys(current).length === Object.keys(kept).length && Object.entries(kept).every(([name, one]) => current[name] && sameValue(current[name].value, one.value) && sameValue(current[name].default, one.default))
+    return unchanged ? null : kept
+  })
+}
+
 /** Back to the file's value: one field's override, or all of them. */
 export async function resetOverrides(dir: string, name?: string): Promise<void> {
   notes.set(dir, name === undefined ? [] : (notes.get(dir) ?? []).filter((n) => n.name !== name))

@@ -1,5 +1,6 @@
-import { memo, useMemo, useRef, useState } from 'react'
+import { memo, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatItem } from '../../../shared/chat'
+import type { HistoryList } from '../../../shared/history'
 import { identitySaid } from '../../../shared/git'
 import { drawn } from '../../state/chat'
 import { numbered } from '../numbered'
@@ -16,6 +17,9 @@ import { type Entry, foldRuns } from './fold'
 import { TasksCard } from './Tasks'
 import { isTaskTool, listsAt } from './taskList'
 import { TurnEnd } from './TurnEnd'
+import { type JoinedTurn, type SaveRun, goneBack, joinTurns, savesBetween } from './historyJoin'
+import { SaveLine } from './SaveLine'
+import { PromptNumbers } from './turnContext'
 import { netParts, turnSummary, type TurnAccount } from './turnSummary'
 
 type Of<K extends ChatItem['kind']> = Extract<ChatItem, { kind: K }>
@@ -101,7 +105,7 @@ const User = memo(function User({ item }: { item: Of<'user'> }) {
  * One item of the transcript. Memoized: an item that did not change (the pane keeps its object) is not drawn again
  * for what else changes; `beat` is passed only to the items that show a dot, a constant to the rest.
  */
-export const ItemView = memo(function ItemView({ item, beat, account }: { item: ChatItem; beat: boolean; account?: TurnAccount }) {
+export const ItemView = memo(function ItemView({ item, beat, account, joined }: { item: ChatItem; beat: boolean; account?: TurnAccount; joined?: JoinedTurn }) {
   counting(item.id)
   switch (item.kind) {
     case 'user':
@@ -134,7 +138,7 @@ export const ItemView = memo(function ItemView({ item, beat, account }: { item: 
     case 'ask':
       return <AskCard item={item} />
     case 'turn':
-      return <TurnEnd item={item} account={account} />
+      return <TurnEnd item={item} account={account} joined={joined} />
     case 'note':
       return item.action === 'terminal' ? (
         <TerminalOffer item={item} />
@@ -190,8 +194,108 @@ function ToolFold({ entry }: { entry: Extract<Entry, { kind: 'fold' }> }) {
   )
 }
 
-/** The items in the order they are drawn, with each `context` under the prompt, or the tool card, it was made for: a prompt's as what torno added to it, a tool's as the build it started. A run of the agent's tools that is over is one line (`foldRuns`), and its task list is a card (`TasksCard`). */
-export function ChatItems({ items, beat }: { items: ChatItem[]; beat: boolean }) {
+/** One thing the chat draws in its order: an entry of the transcript (`at` its place among them, for the item that follows it), what the person built between two prompts, or the prompts they went back from, folded. */
+type Row = { kind: 'entry'; entry: Entry; at: number; prompt?: string } | { kind: 'saves'; id: string; run: SaveRun } | { kind: 'gone'; id: string; rows: Row[] }
+
+/** Far past any build: the end of the chat. */
+const LATER = '9999-12-31T00:00:00Z'
+
+/**
+ * The entries with the person's own builds put between the prompts they came between (`savesBetween`, from the history's
+ * `cause`), then the prompts a Go back undid folded: a run of them (with the saves between) is one row.
+ */
+export function rowsOf(entries: readonly Entry[], history: HistoryList | undefined, gone: ReadonlySet<string>): Row[] {
+  const rows: Row[] = []
+  let prompt: string | undefined
+  let promptAt: number | undefined
+  const savesBefore = (before: string, key: string): void => {
+    if (!history || promptAt === undefined) return
+    savesBetween(history.entries, new Date(promptAt).toISOString(), before).forEach((run, n) => rows.push({ kind: 'saves', id: `saves-${key}-${n}`, run }))
+  }
+  entries.forEach((entry, at) => {
+    if (entry.kind === 'item' && entry.item.kind === 'user' && entry.item.state !== 'queued') {
+      savesBefore(new Date(entry.item.at).toISOString(), entry.item.id)
+      prompt = entry.item.id
+      promptAt = entry.item.at
+    }
+    rows.push({ kind: 'entry', entry, at, ...(prompt !== undefined ? { prompt } : {}) })
+  })
+  // What the person built after the last turn ended.
+  const last = entries.at(-1)
+  if (last?.kind === 'item' && last.item.kind === 'turn') savesBefore(LATER, 'end')
+  if (gone.size === 0) return rows
+
+  // A row is gone when its prompt is; a line of saves between two gone prompts goes with them.
+  const own = rows.map((row) => row.kind === 'entry' && row.prompt !== undefined && gone.has(row.prompt))
+  const before: boolean[] = []
+  let was = false
+  rows.forEach((row, at) => {
+    if (row.kind === 'entry') was = own[at]
+    before[at] = was
+  })
+  const after: boolean[] = []
+  let next = false
+  for (let at = rows.length - 1; at >= 0; at -= 1) {
+    if (rows[at].kind === 'entry') next = own[at]
+    after[at] = next
+  }
+  const folded = rows.map((row, at) => (row.kind === 'entry' ? own[at] : before[at] && after[at]))
+
+  const out: Row[] = []
+  let run: Row[] = []
+  const close = (): void => {
+    if (run.length === 0) return
+    const first = run.find((r) => r.kind === 'entry' && r.entry.kind === 'item' && r.entry.item.kind === 'user')
+    if (first?.kind === 'entry' && first.entry.kind === 'item') out.push({ kind: 'gone', id: `gone-${first.entry.item.id}`, rows: run })
+    else out.push(...run)
+    run = []
+  }
+  rows.forEach((row, at) => {
+    if (folded[at]) run.push(row)
+    else {
+      close()
+      out.push(row)
+    }
+  })
+  close()
+  return out
+}
+
+/** The numbers of the first and last prompt a folded run holds. */
+function promptRange(rows: readonly Row[], numbering: Map<string, number>): [number, number] {
+  const ns = rows.flatMap((r) => (r.kind === 'entry' && r.entry.kind === 'item' && r.entry.item.kind === 'user' ? [numbering.get(r.entry.item.id) ?? 0] : []))
+  return [Math.min(...ns), Math.max(...ns)]
+}
+
+/** Prompts a Go back undid, faded and folded into one row; "Show" opens them as they were. */
+function GoneRow({ range, children }: { range: [number, number]; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const [a, b] = range
+  return (
+    <div className="chat-gone" data-open={open ? '' : undefined}>
+      <p className="chat-gone-head chat-note">
+        {a === b ? (
+          <>
+            Prompt <span className="num">{a}</span> · you went back from this
+          </>
+        ) : (
+          <>
+            Prompts <span className="num">{a}</span> to <span className="num">{b}</span> · you went back from these
+          </>
+        )}
+        <button type="button" className="chat-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </p>
+      {open && <div className="chat-gone-body">{children}</div>}
+    </div>
+  )
+}
+
+/** The items in the order they are drawn (`numbers`: the project's number of each prompt by its id, `numbersOf`), with each `context` under the prompt, or the tool card, it was made for: a prompt's as what torno added to it, a tool's as the build it started. A run of the agent's tools that is over is one line (`foldRuns`), and its task list is a card (`TasksCard`). With the project's `history`: each turn ends with its builds, what the person built between prompts is a line, and the prompts a Go back undid are one faded row. */
+const NO_NUMBERS = new Map<string, number>()
+
+export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { items: ChatItem[]; beat: boolean; history?: HistoryList; numbers?: Map<string, number> }) {
   const order = useMemo(() => drawn(items), [items])
   const under = useMemo(() => {
     const byUser = new Map<string, Array<Of<'context'>>>()
@@ -222,24 +326,48 @@ export function ChatItems({ items, beat }: { items: ChatItem[]; beat: boolean })
     }
     return out
   }, [order])
-  return (
-    <>
-      {entries.map((entry, at) => {
-        if (entry.kind === 'fold') return <ToolFold key={entry.id} entry={entry} />
-        const item = entry.item
-        // The list the agent keeps: `TodoWrite` is its list whole, a card of its own; the task tools are lines, and the list stands under the last of a run of them.
-        const next = entries[at + 1]
-        const last = item.kind === 'tool' && (item.name === 'TodoWrite' || next?.kind !== 'item' || !isTaskTool(next.item))
-        const list = isTaskTool(item) && item.state === 'done' && last ? lists.get(item.id) : undefined
-        const listed = list && list.length > 0 ? list : undefined
-        return (
-          <div key={item.id} className="chat-group" data-id={item.id}>
-            {item.kind === 'tool' && item.name === 'TodoWrite' && listed ? <TasksCard list={listed} /> : <ItemView item={item} beat={underWay(item) ? beat : true} account={accounts.get(item.id)} />}
-            {under.get(item.id)?.map((context) => (context.forTool ? <BuildLine key={context.id} item={context} /> : <Added key={context.id} item={context} />))}
-            {listed && !(item.kind === 'tool' && item.name === 'TodoWrite') && <TasksCard list={listed} />}
-          </div>
-        )
-      })}
-    </>
-  )
+  const numbering = numbers
+  // Which builds came out of each turn's prompt, kept as the same object while it says the same, so a turn drawn is not drawn again.
+  const keptJoins = useRef(new Map<string, { said: string; joined: JoinedTurn }>())
+  const joins = useMemo(() => {
+    const out = new Map<string, JoinedTurn>()
+    if (!history) return out
+    for (const [id, joined] of joinTurns(order, history.entries, numbering)) {
+      const said = JSON.stringify(joined)
+      const was = keptJoins.current.get(id)
+      const same = was?.said === said ? was.joined : joined
+      keptJoins.current.set(id, { said, joined: same })
+      out.set(id, same)
+    }
+    return out
+  }, [order, history, numbering])
+  const gone = useMemo(() => (history ? goneBack(history.entries) : new Set<string>()), [history])
+  const rows = useMemo(() => rowsOf(entries, history, gone), [entries, history, gone])
+
+  const draw = (row: Row): ReactNode => {
+    if (row.kind === 'saves') return <SaveLine key={row.id} run={row.run} />
+    if (row.kind === 'gone') {
+      return (
+        <GoneRow key={row.id} range={promptRange(row.rows, numbering)}>
+          {row.rows.map(draw)}
+        </GoneRow>
+      )
+    }
+    const { entry, at } = row
+    if (entry.kind === 'fold') return <ToolFold key={entry.id} entry={entry} />
+    const item = entry.item
+    // The list the agent keeps: `TodoWrite` is its list whole, a card of its own; the task tools are lines, and the list stands under the last of a run of them.
+    const next = entries[at + 1]
+    const last = item.kind === 'tool' && (item.name === 'TodoWrite' || next?.kind !== 'item' || !isTaskTool(next.item))
+    const list = isTaskTool(item) && item.state === 'done' && last ? lists.get(item.id) : undefined
+    const listed = list && list.length > 0 ? list : undefined
+    return (
+      <div key={item.id} className="chat-group" data-id={item.id}>
+        {item.kind === 'tool' && item.name === 'TodoWrite' && listed ? <TasksCard list={listed} /> : <ItemView item={item} beat={underWay(item) ? beat : true} account={accounts.get(item.id)} joined={joins.get(item.id)} />}
+        {under.get(item.id)?.map((context) => (context.forTool ? <BuildLine key={context.id} item={context} /> : <Added key={context.id} item={context} />))}
+        {listed && !(item.kind === 'tool' && item.name === 'TodoWrite') && <TasksCard list={listed} />}
+      </div>
+    )
+  }
+  return <PromptNumbers.Provider value={numbering}>{rows.map(draw)}</PromptNumbers.Provider>
 }

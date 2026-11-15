@@ -13,7 +13,8 @@ import { type SavedView, MAX_VIEWS, TOO_MANY_VIEWS, cleanViewName, findView, own
 import { sameCamera, viewOnScreen } from './savedViews'
 import type { LayerSettings, SceneFile } from '../../shared/scenefile'
 import type { WorkspaceInfo } from '../../shared/workspace'
-import { type ColumnPrefs, type ColumnSection, readColumn, windowStorage, writeColumn } from './column'
+import { type ColumnPrefs, type RailPanel, keptWidth, readColumn, windowStorage, writeColumn } from './column'
+import type { CompareMode, CompareState } from './compare'
 
 /** The agent session of an object. Its output is not here: it goes straight into the terminal. */
 export interface SessionView {
@@ -47,13 +48,15 @@ export interface TornoState {
   build: BuildState | null
   /** Whether the sheet of the failed build is up (the status line's "Build failed" and the chat's "Show error" open it); it is of the open object, and goes when the build has no error. */
   errorOpen: boolean
-  /** The kept build (`h41`) drawn over the current one, for display only (the history sheet's "Show over the current"); null for none. Of the open object: another object, another layout or a section puts it away. */
-  compare: string | null
+  /** Two kept builds compared in the view (`state/compare.ts`): the earlier drawn against the live build, for display only; null for none. Of the open object: another object, another layout, a section or an explode puts it away; a build landing does not. */
+  compare: CompareState | null
   /** What the sheet's "Start a session to fix it" asked for: the session pane starts one and puts this text in its box, never sends it. Of the open object; gone when another is opened. */
   fixRequest: string | null
+  /** Whether the project's history is up as "Prompts only", in the session pane (the status line's History button; the chat's `Chat | Prompts only`). Of the open object: another one starts at the chat. */
+  promptsOpen: boolean
   /** Whether the session dock is shown. The window's, not an object's: another object or workspace leaves it as it is. */
   dockOpen: boolean
-  /** How the left column is laid out: the sections folded, the marks' height (`state/column.ts`). The window's, kept in its own storage. */
+  /** Which panel of the rail is open and how wide it is (`state/column.ts`). The window's, kept in its own storage. */
   column: ColumnPrefs
   /** The last good scene of the open object, and the revision it is. */
   scene: Scene | null
@@ -180,7 +183,7 @@ const NO_SCANS: ScanInfo[] = []
 const NOT_CLIPPED: readonly string[] = []
 const NO_VIEWS: SavedView[] = []
 const NO_SELECTION = { selection: NOTHING_SELECTED, picked: NOTHING_PICKED }
-const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
+const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, promptsOpen: false, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
 
 export const store = createStore<TornoState>(() => ({
   workspace: null,
@@ -699,23 +702,18 @@ export const actions = {
     if (store.getState().noting !== null) store.setState({ noting: null })
   },
 
-  /** Folds a section of the left column above the marks, or unfolds it; the window keeps it for the next time. */
-  foldSection(section: ColumnSection, folded: boolean): void {
+  /** Opens a panel of the rail beside it; the same one again, or null, closes it. The window keeps it for the next time. */
+  openPanel(panel: RailPanel | null): void {
     const { column } = store.getState()
-    if (column.folded[section] === folded) return
-    setColumn({ ...column, folded: { ...column.folded, [section]: folded } })
+    const open = panel === column.open ? null : panel
+    if (column.open !== open) setColumn({ ...column, open })
   },
 
-  /** The width the person gave the left column (null: the default); the window keeps it. */
-  setLeftWidth(width: number | null): void {
+  /** The width the person gave the panel, once it is let go (at least the default); the window keeps it. */
+  setPanelWidth(px: number): void {
     const { column } = store.getState()
+    const width = keptWidth(px)
     if (column.width !== width) setColumn({ ...column, width })
-  },
-
-  /** The height the splitter gave the marks, once it is let go; null puts back their share. */
-  setMarksHeight(height: number | null): void {
-    const { column } = store.getState()
-    if (column.marks !== height) setColumn({ ...column, marks: height })
   },
 
   /** The session dock is shown or hidden. */
@@ -723,14 +721,52 @@ export const actions = {
     if (store.getState().dockOpen !== open) store.setState({ dockOpen: open })
   },
 
+  /** "Prompts only" of the open object up or put away; up, the dock is shown. */
+  setPromptsOpen(open: boolean): void {
+    if (open && !store.getState().dockOpen) store.setState({ dockOpen: true })
+    if (store.getState().promptsOpen !== open) store.setState({ promptsOpen: open })
+  },
+
   /** A session is wanted for the open object, with this text waiting in its box (`fixRequest`); null takes the request back. */
   setFixRequest(text: string | null): void {
     if (store.getState().fixRequest !== text) store.setState({ fixRequest: text })
   },
 
-  /** A kept build is drawn over the current one (`ViewportPane` asks main for its meshes), or, with null, put away. */
-  compareWith(id: string | null): void {
-    if (store.getState().compare !== id) store.setState({ compare: id })
+  /** The kept build `from` is compared with `to` (`ViewportPane` asks main for the meshes of `from`), as an overlay, for the turn `prompt` when it is one's. */
+  compare(from: string, to: string, prompt?: number): void {
+    const { objectId, compare } = store.getState()
+    if (objectId === null) return
+    // The same earlier build asked for again is the one already drawn, or being made, or refused: what is said of it stays.
+    const same = compare?.from === from ? { ...(compare.building === undefined ? {} : { building: compare.building }), ...(compare.refused === undefined ? {} : { refused: compare.refused }) } : {}
+    store.setState({ compare: { from, to, mode: 'overlay', ...(prompt === undefined ? {} : { prompt }), ...same } })
+  },
+
+  /** How the comparing is shown. Nothing without one. */
+  compareMode(mode: CompareMode): void {
+    const { compare } = store.getState()
+    if (compare && compare.mode !== mode) store.setState({ compare: { ...compare, mode } })
+  },
+
+  /** Back to the live build alone. */
+  endCompare(): void {
+    if (store.getState().compare !== null) store.setState({ compare: null })
+  },
+
+  /** A build of the comparing (`id`, its `from` or its `to`) is being made again from its copy; with `on` false, it has come. Another build's wait is not ended by this one's. */
+  compareBuilding(id: string, on: boolean): void {
+    const { compare } = store.getState()
+    if (!compare) return
+    const { building: was, ...rest } = compare
+    if (on) store.setState({ compare: { ...rest, building: id } })
+    else if (was === id) store.setState({ compare: rest })
+  },
+
+  /** The old build could not be drawn: main's sentence says why, and the view shows it. */
+  compareRefused(why: string): void {
+    const { compare } = store.getState()
+    if (!compare) return
+    const { building: _, ...rest } = compare
+    store.setState({ compare: { ...rest, refused: why } })
   },
 
   /** The sheet of the failed build is opened or put away. */

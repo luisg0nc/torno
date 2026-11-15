@@ -90,27 +90,30 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## The page of objects (`app/src/renderer`)
 
-- **The left column gives the room to the marks** (`styles/panels.css`, `state/column.ts`). Objects, Layers,
-  Parameters and Scans each have a title that folds them (`ui/SectionTitle.tsx`, `aria-expanded`; folded with the pointer, the
-  keys go back to the view); folded, a section is its title row, which says what matters (`ui/sectionSaid.ts`, and `ParamsPanel`'s own count:
-  `Layers 12 · 3 hidden`, `Parameters 5`, `Scans 1 · unaligned`, `Projects 17`), and Scans keeps only what is said of an import
-  and the question it asks. Parameters, under the layers, starts folded. Marks never folds: it keeps `--marks-floor` (`MARKS_FLOOR`: its title, a group's
-  heading and five rows), and every section above gives way before it, each down to its title. The splitter
-  above Marks (`ui/ColumnSplit.tsx`, `role="separator"`, `column.resize` Up/Down) gives Marks more: its drag writes
-  `--marks-h` on the column, nothing through React per move; a double click puts back the shares. The room is read
-  from the column as it is laid out (`tallest`: the column less everything else in it, each section that gives way at
-  its least), at the drag and whenever the column or a section in it is resized, comes or goes (a `ResizeObserver` and
-  a `MutationObserver`): `--marks-h` is the height kept cut to that room, so a shorter window or Parameters coming
-  above never push Marks under the status line, `aria-valuenow` is that height, and what is kept is not touched. What is
-  folded, the splitter's height and the column's width are the window's (`store.column`, in `localStorage` under `torno.column`, read
-  and written in try/catch), never the workspace's. The column's right edge (`ui/LeftEdge.tsx`, `role="separator"`, `left.resize` Left/Right) makes it wider than its default 248 px (`LEFT_DEFAULT`), up to what leaves the viewport `VIEWPORT_MIN` beside the dock (`clampLeft`); its drag writes `--left-w` on the shell, a double click puts the default back, and the dock's own limit reads the column's width now.
-- **Objects folds to a switcher by default** (`switcherShown`): folded, with an object open or a new one being
-  made, in a workspace of more than one object, the list is one row, the open object's name in ink
-  (`ObjectSwitcher`; "New project", pressed, on the page of a new object). Its accessible name is the object's
-  name, as a row's is; what the sessions do is its `aria-description`. A click or Enter opens a menu
-  (`role="menu"`, the keys of `FolderMenu`: `menu.next`, `menu.previous`, `menu.ends`, `menu.close`) of every
-  object as the rows (the item's name is the object's; a muted one has its reason as a second line), then "New
-  object". Chosen with the keys, the focus goes back to the switcher; with the pointer, the keys to the view.
-  Unfolded, the list is as it always was and gives way first (a share of the column at most); with no object
-  open, or the page up, it is whole and has the room of the layers, the parameters and the scans, every object in sight
-  (`e2e/show.spec.ts`).
+- **The rail and its panel** (`ui/Rail.tsx`, `ui/PanelHost.tsx`, `styles/rail.css`, `styles/panels.css`, `state/column.ts`).
+  The left of the window is `aside[data-region="left"]` (`aria-label="Panels"`), the F6 region `left`, holding the rail
+  (56 px, `--rail-w`, `RAIL_W`) and, beside it, the one panel that is open (`.panel-host`, `--panel-w`): five icons with a
+  word under each, Projects, Layers, Params, Scans and Marks (`RailPanel`), buttons with `aria-pressed`. A press opens
+  that panel and pushes the view over (`--left-w` on the shell is the rail and the panel together, or the rail alone
+  with none open: `data-panel` on the shell), a press on the open one closes it, another switches
+  (`actions.openPanel`; pressed with the pointer, the keys go back to the view). Tab and Ctrl+Tab are not bound: the
+  rail's buttons are in the page's own order. The rail offers what the page allows (`panelsFor`): all five for an open
+  project, Projects and Marks on the page of projects, Projects alone for a new project or with none open; a kept panel it
+  does not offer is not shown (`shownPanel`), except that where Projects is the only one it stands in, so that a
+  workspace with no project open shows its list. A badge on the icon is what the folded titles said: the parts switched
+  off (Layers), the model's checks that fail (Params), the scans not aligned (Scans), the marks to review (Marks)
+  (`ui/railBadges.ts`: the text, and the same in words as the button's `aria-description`; the number is in the
+  monospace face and the badge is `aria-hidden`). The Projects icon carries the dot of any project's session that works or waits
+  (`switcherSign`), its description naming which. Projects is the workspace's: the folder's name and menu, the example's
+  note, a folder that would not open, then the list; Params is Parameters, then Checks and Print profile; the sections
+  of a panel do not fold, and the panel scrolls as a whole except Marks, which keeps its title and line of checks in
+  place and scrolls its list. Which panel is open and the panel's width are the window's (`store.column`: `{ open, width }`,
+  in `localStorage` under `torno.column`, read and written in try/catch; a value of the old shape, folded sections and a
+  marks height, reads as Marks open at its width), never the workspace's. The panel's right edge (`ui/LeftEdge.tsx`,
+  `role="separator"`, `left.resize` Left/Right) makes it wider than its default 248 px (`LEFT_DEFAULT`), up to
+  `PANEL_MAX` and what leaves the viewport `VIEWPORT_MIN` beside the rail and the dock (`clampLeft`); its drag writes
+  `--panel-w` on the shell, a double click puts the default back, and the dock's own limit reads the left's width
+  now (`e2e/boot.spec.ts`). Opening a project from the list leaves the panel as it is.
+- **The list of projects** is whole, one row for each, in the Projects panel (a project that cannot be built is muted,
+  its reason the title; "All projects" is beside the title while a project is open and the first row otherwise). There
+  is no switcher: the rail's Projects icon says that a session of another project waits.

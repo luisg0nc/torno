@@ -23,11 +23,10 @@ export function profileSummary(profile: Profile | null): string[] {
  * The printer and the material the open project is made for. A choice is copied into `<project>/.torno/profile.json`
  * and sets the defaults of the agent's `check` and `measure mass`, and what it is told. The printers are the
  * person's, kept in torno's settings (not in the workspace): a new one is added here. The numbers are theirs, never
- * measured, and no verdict against them says the part prints. Folded at first; its title says what is chosen.
+ * measured, and no verdict against them says the part prints. A section of the Params panel; its title says what is chosen.
  */
 export function PrintProfile() {
   const objectId = useStore((s) => s.objectId)
-  const folded = useStore((s) => s.column.folded.print)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [choices, setChoices] = useState<Profiles>({ printers: [], materials: [] })
   const [adding, setAdding] = useState(false)
@@ -64,80 +63,78 @@ export function PrintProfile() {
   if (objectId === null) return null
   const said = profile ? profileName(profile) : 'none'
   return (
-    <section className="section print" aria-label="Print profile" data-folded={folded ? '' : undefined}>
-      <SectionTitle section="print" title="Print profile" said={said} />
-      {!folded && (
-        <div className="print-body">
-          <label className="print-row">
-            <span>Printer</span>
-            <select
-              aria-label="Printer"
-              value={profile?.printer?.name ?? NONE}
-              onPointerDown={pointerChoice.onPointerDown}
-              onKeyDown={pointerChoice.onKeyDown}
-              onChange={(e) => {
-                const printer = choices.printers.find((p) => p.name === e.target.value)
-                keep({ ...(printer ? { printer } : {}), ...(profile?.material ? { material: profile.material } : {}) })
-                chosen(e.currentTarget)
-              }}
-            >
-              <option value={NONE}>None</option>
-              {choices.printers.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="print-row">
-            <span>Material</span>
-            <select
-              aria-label="Material"
-              value={profile?.material?.name ?? NONE}
-              onPointerDown={pointerChoice.onPointerDown}
-              onKeyDown={pointerChoice.onKeyDown}
-              onChange={(e) => {
-                const material = choices.materials.find((m) => m.name === e.target.value)
-                keep({ ...(profile?.printer ? { printer: profile.printer } : {}), ...(material ? { material } : {}) })
-                chosen(e.currentTarget)
-              }}
-            >
-              <option value={NONE}>None</option>
-              {choices.materials.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {profileSummary(profile).map((line) => (
-            <p key={line} className="print-said">
-              {numbered(line)}
-            </p>
-          ))}
-          <p className="print-said">Your numbers, not measured: checks against them never say a part prints.</p>
-          {adding ? (
-            <AddPrinter
-              onAdded={(offered, name) => {
-                setChoices(offered)
-                setAdding(false)
-                const printer = offered.printers.find((p) => p.name === name)
-                if (printer) keep({ printer, ...(profile?.material ? { material: profile.material } : {}) })
-              }}
-              onCancel={() => setAdding(false)}
-            />
-          ) : (
-            <button type="button" className="link-button print-add" onClick={() => setAdding(true)}>
-              Add a printer…
-            </button>
-          )}
-          {problem !== null && (
-            <p className="print-problem" role="alert">
-              {problem}
-            </p>
-          )}
-        </div>
-      )}
+    <section className="section print" aria-label="Print profile">
+      <SectionTitle title="Print profile" said={said} />
+      <div className="print-body">
+        <label className="print-row">
+          <span>Printer</span>
+          <select
+            aria-label="Printer"
+            value={profile?.printer?.name ?? NONE}
+            onPointerDown={pointerChoice.onPointerDown}
+            onKeyDown={pointerChoice.onKeyDown}
+            onChange={(e) => {
+              const printer = choices.printers.find((p) => p.name === e.target.value)
+              keep({ ...(printer ? { printer } : {}), ...(profile?.material ? { material: profile.material } : {}) })
+              chosen(e.currentTarget)
+            }}
+          >
+            <option value={NONE}>None</option>
+            {choices.printers.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="print-row">
+          <span>Material</span>
+          <select
+            aria-label="Material"
+            value={profile?.material?.name ?? NONE}
+            onPointerDown={pointerChoice.onPointerDown}
+            onKeyDown={pointerChoice.onKeyDown}
+            onChange={(e) => {
+              const material = choices.materials.find((m) => m.name === e.target.value)
+              keep({ ...(profile?.printer ? { printer: profile.printer } : {}), ...(material ? { material } : {}) })
+              chosen(e.currentTarget)
+            }}
+          >
+            <option value={NONE}>None</option>
+            {choices.materials.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {profileSummary(profile).map((line) => (
+          <p key={line} className="print-said">
+            {numbered(line)}
+          </p>
+        ))}
+        <p className="print-said">Your numbers, not measured: checks against them never say a part prints.</p>
+        {adding ? (
+          <AddPrinter
+            onAdded={(offered, name) => {
+              setChoices(offered)
+              setAdding(false)
+              const printer = offered.printers.find((p) => p.name === name)
+              if (printer) keep({ printer, ...(profile?.material ? { material: profile.material } : {}) })
+            }}
+            onCancel={() => setAdding(false)}
+          />
+        ) : (
+          <button type="button" className="link-button print-add" onClick={() => setAdding(true)}>
+            Add a printer…
+          </button>
+        )}
+        {problem !== null && (
+          <p className="print-problem" role="alert">
+            {problem}
+          </p>
+        )}
+      </div>
     </section>
   )
 }

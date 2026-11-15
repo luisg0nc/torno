@@ -42,6 +42,8 @@ export class OverlayPass {
   held: { at: Vec3; text: string } | null = null
   /** The chips of the marks as the last frame placed and drew them: what the pointer is on is read from these, not worked out again. */
   private chips: Placed[] = []
+  /** Draw no chips of marks (and find none under the pointer): what is on the canvas is not the build they were made on. */
+  hideChips = false
 
   constructor(private readonly host: OverlayHost) {
     this.canvas = host.canvas.parentElement ? document.createElement('canvas') : null
@@ -57,6 +59,23 @@ export class OverlayPass {
     this.canvas.height = Math.round(height * window.devicePixelRatio)
   }
 
+  /** Nothing drawn over the canvas but the line down its middle: the frame is two views, which the labels and cues are not placed for (two builds side by side). */
+  split(size: { width: number; height: number }): void {
+    const ctx = this.canvas?.getContext('2d')
+    if (!this.canvas || !ctx || size.width === 0 || size.height === 0) return
+    ctx.setTransform(this.canvas.width / size.width, 0, 0, this.canvas.height / size.height, 0, 0)
+    ctx.clearRect(0, 0, size.width, size.height)
+    ctx.strokeStyle = this.host.frame().muted
+    ctx.globalAlpha = 0.6
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(Math.round(size.width / 2) + 0.5, 0)
+    ctx.lineTo(Math.round(size.width / 2) + 0.5, size.height)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+    this.chips = []
+  }
+
   draw(size: { width: number; height: number }): void {
     const ctx = this.canvas?.getContext('2d')
     if (!this.canvas || !ctx || size.width === 0 || size.height === 0) return
@@ -64,7 +83,7 @@ export class OverlayPass {
     const style = host.style()
     ctx.setTransform(this.canvas.width / size.width, 0, 0, this.canvas.height / size.height, 0, 0)
     ctx.clearRect(0, 0, size.width, size.height)
-    this.chips = host.marks.labels(host.layout(), host.camera(), size, 1, chipSize(ctx, 1))
+    this.chips = this.hideChips ? [] : host.marks.labels(host.layout(), host.camera(), size, 1, chipSize(ctx, 1))
     drawLabels(ctx, this.chips, style, 1, host.marks.activeId, host.marks.hoverId)
     this.drawFrame(ctx, size, style)
     // Not while the parts are drawn apart: a point picked on the model would be drawn where its part is not.

@@ -34,10 +34,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   in a `role="status"` that is always there) names the first object of the list whose session waits, with "and N
   more"; it opens that object, shows the dock (`dockOpen` and `actions.setDockOpen` are in the store, not in
   `App.tsx`) and `focusAsk` takes the focus to the open card or the terminal once the pane is of that object. The
-  toggle's dot is of the open object's session and only while the dock is hidden. The switcher the list folds to
-  carries the dot of any object of the list whose session works or waits (`switcherSign`: a waiting one first);
-  its words name the object whose session waits (`bracket needs you`), "needs you" alone when it is the open
-  object's, and its description says each (`session is working; bracket needs you`); its menu has the rows' dots.
+  toggle's dot is of the open object's session and only while the dock is hidden. The rail's Projects icon
+  carries the dot of any object of the list whose session works or waits (`switcherSign`: a waiting one first); its
+  description says each (`session is working; bracket needs you`), "needs you" alone for the open object's; the rows of the
+  Projects panel have their own dots.
 - On the New object page the pane is of the object being made (`drafting` in `SessionPane`): no status, no End,
   New session or Resume, no view switch, no held prompt, and `DraftPane` in the body; `.session-term` stays laid out.
   A live session (any status but `exited`) of the object that was open stays as it is, with the note

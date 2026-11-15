@@ -1342,6 +1342,7 @@ describe('the transcript of a chat session', () => {
   /** The marks the hook is answered with for the 1st, 2nd, … prompt; `marks` for any after them. */
   let marksPerCall: string[][] = []
   let hooks = 0
+  let handedOver: (() => void) | undefined
   let picture: ((obj: ObjectInfo) => Promise<Uint8Array>) | undefined
   const told: Array<{ sessionId: string; item: ChatItem; seq: number }> = []
   const metas: Array<{ sessionId: string; meta: ChatMeta; seq: number }> = []
@@ -1358,7 +1359,7 @@ describe('the transcript of a chat session', () => {
       viewFor: () => 'chat',
       contextFor: async () => {
         const ids = marksPerCall[hooks++] ?? marks
-        return { text: ids.length > 0 ? `Marks: ${ids.join(' ')}` : '', sentMarkIds: ids }
+        return { text: ids.length > 0 ? `Marks: ${ids.join(' ')}` : handedOver ? 'A notice of main\'s' : '', sentMarkIds: ids, ...(handedOver ? { delivered: handedOver } : {}) }
       },
       onDelivered: (_id, ids) => delivered2.push(ids),
       systemPromptFor: () => '',
@@ -1375,6 +1376,7 @@ describe('the transcript of a chat session', () => {
     marks = []
     marksPerCall = []
     hooks = 0
+    handedOver = undefined
     picture = undefined
     told.length = 0
     metas.length = 0
@@ -1423,6 +1425,16 @@ describe('the transcript of a chat session', () => {
     expect(turn).toMatchObject({ kind: 'turn', ok: true, stopped: false })
     expect(tSessions.history(c.id)!.meta).toMatchObject({ model: 'fake-model', tornoConnected: true })
     expect(tSessions.history(c.id)!.earlier).toEqual([])
+  })
+
+  it('tells main the answer was handed over, for what is kept until then (a Go back\'s notice), once it has left and not before', async () => {
+    const seen = vi.fn()
+    handedOver = seen
+    const c = await start()
+    await c.send('say hi')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    expect(c.items().find((i) => i.kind === 'context')).toMatchObject({ text: 'A notice of main\'s' })
+    expect(seen).toHaveBeenCalledTimes(1)
   })
 
   it('keeps what a turn changed in the .py files of the folder, in memory, and tells it by the id of the turn', async () => {
@@ -2207,6 +2219,8 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
       detail?: (id: string, markId: string, revision: number) => Promise<string | undefined>
       /** When the object's newest source was saved (`sourcesSaved`). */
       saved?: (dir: string) => Promise<number | null>
+      /** The session is a chat (the stand-in as a stream): there is no terminal to wait for. */
+      chat?: boolean
     } = {}
   ) {
     states = new Map()
@@ -2216,7 +2230,7 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
       configDir,
       http: server,
       adapter: claudeAdapter(`node ${FAKE}`),
-      viewFor: () => 'terminal',
+      viewFor: () => (opts.chat ? 'chat' : 'terminal'),
       contextFor: () => ({ text: '', sentMarkIds: [] }),
       build: (id) => states.get(id),
       buildContextFor: (id) => (opts.context ?? told)(id),
@@ -2237,12 +2251,12 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     const seen: SessionStatus[] = []
     made.on('status', (m) => seen.push(m.status))
     const { sessionId } = await made.start(obj, {})
-    await expect.poll(() => all).toMatch(READY_LINE)
+    if (!opts.chat) await expect.poll(() => all).toMatch(READY_LINE)
     const post = async (event: string, body: unknown) => (await fetch(server.url(`/hooks/${sessionId}/${event}`), { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body), headers: as(sessionId) })).json()
     const edit = (file = join(obj.dir, 'part.py'), tool = 'Edit') => post('PostToolUse', { tool_name: tool, tool_use_id: 'toolu_1', tool_input: { file_path: file } })
     /** The agent begins to edit the model: what a build begun after it is the turn's. */
     const changes = (file = join(obj.dir, 'part.py')) => post('PreToolUse', { tool_name: 'Edit', tool_use_id: 'toolu_c', tool_input: { file_path: file } })
-    return { obj, sessionId, post, edit, changes, seen }
+    return { obj, sessionId, post, edit, changes, seen, sessions: made }
   }
   const ok = (objectId: string, revision: number): BuildState => ({ objectId, status: 'ok', revision, stale: false })
   const building = (objectId: string, revision: number): BuildState => ({ objectId, status: 'building', revision, startedAt: Date.now(), stale: true })
@@ -2269,6 +2283,50 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     const kept = new Map(verdicts.map(([revision, list]) => [revision, new Map(list)]))
     return (_id: string, revision: number | undefined): BuildVerdicts | undefined => (revision === undefined ? undefined : kept.get(revision))
   }
+
+  it('says what caused a build: the person before the turn first edits, the agent after it, the person when no turn runs', async () => {
+    const { obj, post, sessions: s } = await begun({ grace: 200 })
+    const conversation = '0a1b2c3d-0000-4000-8000-000000000001'
+    const edit = { tool_name: 'Edit', tool_use_id: 'toolu_c', tool_input: { file_path: join(obj.dir, 'part.py') } }
+    expect(s.causeOf(obj.id, Date.now())).toEqual({ cause: 'person' })
+    await post('UserPromptSubmit', { prompt: 'make the lid taller', session_id: conversation })
+    // RF1: a build begun in the turn before its first edit's PreToolUse is the person's save.
+    const before = Date.now()
+    expect(s.causeOf(obj.id, before)).toEqual({ cause: 'person' })
+    await new Promise((r) => setTimeout(r, 5))
+    await post('PreToolUse', edit)
+    expect(s.causeOf(obj.id, before)).toEqual({ cause: 'person' })
+    expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'agent', turn: { conversation, prompt: `t-${conversation}-1`, text: 'make the lid taller' } })
+    // Another object has no turn of this one's.
+    expect(s.causeOf('nowhere', Date.now() + 1)).toEqual({ cause: 'person' })
+    const during = Date.now()
+    await new Promise((r) => setTimeout(r, 5))
+    await post('Stop', {})
+    // A build begun while the turn was on is its own though its scene lands after the Stop; one begun after the Stop is the person's.
+    const turn = { conversation, prompt: `t-${conversation}-1`, text: 'make the lid taller' }
+    expect(s.causeOf(obj.id, during)).toEqual({ cause: 'agent', turn })
+    expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'person' })
+    // And one begun before the turn's first edit is not.
+    expect(s.causeOf(obj.id, before)).toEqual({ cause: 'person' })
+    // The next prompt is the next number, and its text is cut to what a line of the history holds.
+    await post('UserPromptSubmit', { prompt: 'x'.repeat(300), session_id: conversation })
+    await post('PreToolUse', edit)
+    expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'agent', turn: { conversation, prompt: `t-${conversation}-2`, text: 'x'.repeat(200) } })
+  })
+
+  it('names the prompt of a chat turn by the id of its user item', async () => {
+    const { obj, post, sessionId, sessions: s } = await begun({ chat: true, grace: 200 })
+    const heard: string[] = []
+    s.on('context', (m) => heard.push(m.prompt ?? ''))
+    s.prompt(sessionId, [{ type: 'text', text: 'slow 3' }])
+    await expect.poll(() => heard.length).toBe(1)
+    await post('PreToolUse', { tool_name: 'Edit', tool_use_id: 'toolu_c', tool_input: { file_path: join(obj.dir, 'part.py') } })
+    const caused = s.causeOf(obj.id, Date.now() + 1)
+    expect(caused.cause).toBe('agent')
+    // The id of the prompt's item in the chat, as its log holds it.
+    expect(caused.turn).toMatchObject({ prompt: s.history(sessionId)!.items.find((i) => i.kind === 'user')!.id, text: 'slow 3' })
+    expect(caused.turn!.conversation).toMatch(UUID)
+  })
 
   it('answers an edit of the model with the build it started, once that build has ended', async () => {
     const { obj, edit } = await begun()

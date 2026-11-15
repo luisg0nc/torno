@@ -11,6 +11,7 @@ import { chatActions, connectChat, useChat } from '../state/chat'
 import { onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
+import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
 import { DraftPaneLive } from './onboard/DraftPane'
 import { clearDrafts, holdDraft } from './chat/Composer'
@@ -587,6 +588,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   const creating = useStore((s) => s.page === 'new')
   const drafting = creating && !live
   const chatting = session?.view === 'chat'
+  const promptsOpen = useStore((s) => s.promptsOpen)
   const chatOf = useChat(chatting ? session.sessionId : undefined)
   const model = chatOf?.meta.model
   const retrying = chatOf?.meta.retrying ? (chatOf.meta.retrying.attempt !== undefined ? `retrying (attempt ${chatOf.meta.retrying.attempt})` : 'retrying') : null
@@ -871,6 +873,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         )}
         {/* Always laid out, so a terminal can be fitted before its session starts. */}
         <div className="session-term" ref={host} data-shown={session && !chatting && !drafting ? '' : undefined} />
+        {/* Where the chat is not (a terminal, or no session yet) Prompts only is a pane of its own over the area; in the chat it is the chat's own toggle. */}
+        {promptsOpen && objectId && !drafting && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
         {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} />}
         {drafting ? (
           <DraftPaneLive />

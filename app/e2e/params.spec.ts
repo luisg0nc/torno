@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
+import { openPanel, railButton } from './helpers'
 import { openListed } from './objects'
 
 // The model's Params in the left column, read only: a row for each field with its default in the monospace face and
@@ -57,23 +58,22 @@ async function open(name: string): Promise<void> {
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
 }
 
-test('a model with no Params has no section', async () => {
+test('a model with no Params says so in the panel, and has no rows', async () => {
   await open('plain')
+  await openPanel(page, 'Layers')
   await expect(page.locator('.left .layers')).toBeVisible()
-  await expect(section()).toHaveCount(0)
+  await openPanel(page, 'Params')
+  await expect(section()).toContainText('This model has no Params.')
+  await expect(section().locator('[data-param]')).toHaveCount(0)
 })
 
-test('the section is under the layers, folded to its title with the count, and opens to a row for each field', async () => {
+test('the Params panel starts with the section, with the count, and has a row for each field', async () => {
   await open('hollow')
+  await openPanel(page, 'Params')
   await expect(section()).toBeVisible()
-  const order = await page.locator('.left > section').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
-  expect(order.indexOf('Parameters')).toBe(order.indexOf('Layers') + 1)
-  const title = section().getByRole('button', { name: 'Parameters', exact: true })
-  await expect(title).toHaveAttribute('aria-expanded', 'false')
-  await expect(title.locator('.section-said')).toHaveText('5')
-  await expect(section().locator('[data-param]')).toHaveCount(0)
-  await title.click()
-  await expect(title).toHaveAttribute('aria-expanded', 'true')
+  const order = await page.locator('.left .panel-body > section').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
+  expect(order[0]).toBe('Parameters')
+  await expect(section().locator('.section-title .section-said')).toHaveText('5')
   await expect.poll(() => section().locator('[data-param]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-param')))).toEqual(['side', 'wall', 'gap', 'inner', 'ribs'])
 })
 
@@ -150,11 +150,16 @@ test('trying a value builds the model with it, says it differs from the file, an
   expect(JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'params.json'), 'utf8'))).toEqual({ overrides: {} })
 })
 
-test('a fold is the window\'s: it is kept when another object is opened', async () => {
-  const title = section().getByRole('button', { name: 'Parameters', exact: true })
-  await title.click()
-  await expect(section().locator('[data-param]')).toHaveCount(0)
+test('the open panel is the window\'s: it is kept when another project is opened', async () => {
+  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'true')
   await open('plain')
+  await expect(section()).toContainText('This model has no Params.')
   await open('hollow')
-  await expect(section().getByRole('button', { name: 'Parameters', exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'true')
+  await expect(section().locator('[data-param="wall"]')).toBeVisible()
+  // Pressed again, the panel goes and the view has its room; the choice is kept by the window, not the folder.
+  await railButton(page, 'Params').click()
+  await expect(section()).toHaveCount(0)
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}').open)).toBeNull()
+  await openPanel(page, 'Params')
 })

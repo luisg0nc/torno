@@ -17,13 +17,14 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `viewport`: outside a field and the terminal, with an object on show.
  * - `measure`, `section`, `align`, `region`: with that tool in hand, which then has the key before the viewport.
  * - `shape`: while a shape of the person's is the active mark.
+ * - `compare`: while two builds are compared in the view; it has the key before the viewport, whose Esc is another step back.
  * - `page`: on the page of objects; `filter`: in its field. `newobject`: on the page of a new object.
  * - `session`: in the terminal. `composer`: in the box a chat prompt is written in. `ask`: on a card of the chat that asks the person. `picture`: while a picture of the
  *   chat is shown large. `separator`: on the edge of the session pane, or the line above the marks.
  * - `field`, `menu`, `sheet`: in a field, an open menu, a sheet or a question.
  * - `dev`: under the dev server only.
  */
-export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
+export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'compare' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
 
 /**
  * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
@@ -126,6 +127,7 @@ const ROWS = [
   row('ortho', ['O'], 'Perspective or orthographic', 'Viewport', 'viewport'),
   row('explode', ['E'], 'Draw the parts apart, or together again', 'Viewport', 'viewport'),
   row('page', ['W'], 'All projects of the folder, on one page (there a letter filters them by name)', 'Viewport', 'viewport'),
+  row('compare.end', ['Esc'], 'Compare: back to the live build, before any other step back', 'Viewport', 'compare'),
   row('escape', ['Esc'], 'Step back: what is under way, then the tool in hand, then the selection', 'Viewport', 'viewport'),
 
   row('measure.wall', ['T'], 'Measure: the wall under the pointer', 'With a tool in hand', 'measure'),
@@ -166,7 +168,7 @@ const ROWS = [
   row('chat.close', ['Esc'], 'Chat: put away a picture shown large', 'Session', 'picture'),
   row('dock.resize', ['Left', 'Right'], 'On the edge of the session pane: wider or narrower', 'Session', 'separator'),
 
-  row('left.resize', ['Left', 'Right'], 'On the edge of the left column: narrower or wider', 'Session', 'leftedge'),
+  row('left.resize', ['Left', 'Right'], 'On the edge of the panel beside the rail: narrower or wider', 'Session', 'leftedge'),
 
   row('field.keep', ['Enter'], 'Field: keep what was typed', 'In a field, a menu or a sheet', 'field'),
   row('field.leave', ['Esc'], 'Field: leave it as it was', 'In a field, a menu or a sheet', 'field'),
@@ -175,7 +177,6 @@ const ROWS = [
   row('menu.previous', ['Up', 'Left'], 'Menu: the one before', 'In a field, a menu or a sheet', 'menu'),
   row('menu.ends', ['Home', 'End'], 'Menu: the first or the last', 'In a field, a menu or a sheet', 'menu'),
   row('menu.close', ['Esc', 'Tab'], 'Menu: close it', 'In a field, a menu or a sheet', 'menu'),
-  row('column.resize', ['Up', 'Down'], 'On the line above the marks: more room for them, or less', 'In a field, a menu or a sheet', 'separator'),
   row('sheet.close', ['Esc'], 'Sheet or question: put it away', 'In a field, a menu or a sheet', 'sheet'),
   row('board.undo', ['Ctrl+Z'], 'Drawing board (a doodle, or a drawing on the view): undo the last stroke', 'In a field, a menu or a sheet', 'sheet'),
   row('board.straight', ['Shift'], 'Drawing board: hold Shift while drawing for a straight line from where the stroke began', 'In a field, a menu or a sheet', 'sheet'),

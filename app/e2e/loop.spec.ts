@@ -5,7 +5,8 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { letGoText } from '../src/shared/build'
 import type { Camera, LookRequest, LookResult, ViewState } from '../src/shared/view'
-import { openListed, switcher } from './objects'
+import { openPanel, railButton } from './helpers'
+import { objectList, openListed } from './objects'
 
 // The whole loop through the window: choose an object, see its parts, change
 // layers and views, save the model and watch it rebuild, break it and mend it.
@@ -49,7 +50,11 @@ test.afterAll(async () => {
 
 const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window.__tornoTest!.state())
 const camera = (): Promise<Camera> => page.evaluate(() => window.__tornoTest!.camera())
-const layerNames = (p: Page = page) => p.locator('[data-layer]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer')))
+/** The layers listed in the Layers panel, which is opened first where the rail offers it (a project is open). */
+async function layerNames(p: Page = page): Promise<(string | null)[]> {
+  if ((await railButton(p, 'Layers').count()) > 0) await openPanel(p, 'Layers')
+  return p.locator('[data-layer]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer')))
+}
 const status = (p: Page) => p.locator('[data-region="status"]')
 
 interface Picture {
@@ -141,8 +146,9 @@ test('clicking an object builds it: status ok, revision 1, its parts as layers',
   // Every number and ref is in the monospace face.
   const face = await status(page).locator('[data-part="revision"] .num').evaluate((el) => getComputedStyle(el).fontFamily)
   expect(face).toContain('IBM Plex Mono')
-  // Folded to the switcher, the list names the object open.
-  await expect(switcher(page)).toHaveAttribute('data-object', 'bracket')
+  // The list in the Projects panel marks the object open.
+  await openPanel(page, 'Projects')
+  await expect(objectList(page).getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
 })
 
 test('a look draws the parts', async () => {
@@ -336,9 +342,10 @@ test('a broken save fails the build and keeps the last good parts, dimmed; the e
   await expect(sheet.getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
   // The same sources would give the same error: the status line's Rebuild is quiet.
   await expect(status(page).locator('.status-rebuild')).not.toHaveAttribute('data-primary', '')
-  // The sheet lies over the viewport, between the left column and the session dock.
+  // The sheet lies over the viewport, between the rail and its panel and the session dock.
   const box = (await sheet.boundingBox())!
-  expect(box.x).toBe(248)
+  const left = (await page.locator('[data-region="left"]').boundingBox())!
+  expect(box.x).toBe(left.x + left.width)
   expect(box.x + box.width).toBe(1440 - 520)
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
@@ -405,6 +412,7 @@ test('mending the model builds the next revision and clears the failure', async 
 
 test('hiding a layer changes the picture and is recorded in .torno/scene.json', async () => {
   const both = await look({ view: 'iso' })
+  await openPanel(page, 'Layers')
   await page.locator('[data-layer="post"]').hover()
   const toggle = page.getByRole('button', { name: 'Show post' })
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
@@ -558,10 +566,11 @@ test('the workspace is written nowhere but under .torno/', async () => {
   // One that built has the picture of its card, what that is of, and the word to git to pass over the two.
   await expect
     .poll(() => added().sort())
-    .toEqual(['bracket/.torno', 'bracket/.torno/.gitignore', 'bracket/.torno/builds.jsonl', 'bracket/.torno/history', 'bracket/.torno/scene.json', 'bracket/.torno/state.md', 'bracket/.torno/thumb.json', 'bracket/.torno/thumb.png', 'noscene/.torno', 'noscene/.torno/.gitignore', 'noscene/.torno/state.md', 'two/.torno', 'two/.torno/.gitignore', 'two/.torno/state.md'].sort())
+    .toEqual(['bracket/.torno', 'bracket/.torno/.gitignore', 'bracket/.torno/builds.jsonl', 'bracket/.torno/history', 'bracket/.torno/scene.json', 'bracket/.torno/state.md', 'bracket/.torno/thumb.json', 'bracket/.torno/thumb.png', 'noscene/.torno', 'noscene/.torno/.gitignore', 'noscene/.torno/history', 'noscene/.torno/state.md', 'two/.torno', 'two/.torno/.gitignore', 'two/.torno/state.md'].sort())
   const kept = all().filter((path) => path.includes('.torno/history/'))
   expect(kept.length).toBeGreaterThan(0)
-  expect(kept.every((path) => path.startsWith('bracket/.torno/history/'))).toBe(true)
+  // A build that failed is kept too (noscene has no scene to build), as an entry without a scene.
+  expect(kept.every((path) => path.startsWith('bracket/.torno/history/') || path.startsWith('noscene/.torno/history/'))).toBe(true)
   expect(kept).toContain('bracket/.torno/history/index.json')
 })
 

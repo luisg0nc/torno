@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { watch as chokidarWatch } from 'chokidar'
-import { type BuildError, type BuildState, REBUILD_KEY } from '../shared/build'
+import { type BuildError, type BuildReason, type BuildState, REBUILD_KEY } from '../shared/build'
 import { keepNotes } from '../shared/modelChecks'
 import { isBoolean } from '../shared/diagnosis'
 import type { Scene } from '../shared/scene'
@@ -89,7 +89,9 @@ export interface OverridesPort {
   reconcile: (dir: string, scene: Scene) => Promise<{ stale: boolean }>
 }
 
-type SceneMessage = { objectId: string; revision: number; scene: Scene; blob: Buffer }
+export type { BuildReason }
+/** `reason` and `wentBackTo` say what the build was started for (`Builds.rebuild`), for whoever keeps it. */
+type SceneMessage = { objectId: string; revision: number; scene: Scene; blob: Buffer; reason: BuildReason; wentBackTo?: string }
 type LastGood = { revision: number; scene: Scene; blob: Buffer }
 
 interface Entry {
@@ -98,6 +100,11 @@ interface Entry {
   lastGood?: LastGood
   /** The successful build before `lastGood`, for `diff`; its blob is not kept. */
   previousGood?: { revision: number; scene: Scene }
+  /** What the build wanted or running was started for, and for a Go back the build it went back to: said on its states and its scene. */
+  reason: BuildReason
+  wentBackTo?: string
+  /** A Go back that is about to write the files: the next build the watcher starts is its, not the person's (`expect`). */
+  expected?: { reason: BuildReason; wentBackTo?: string }
   attempt: number // counts builds started; a result for an older attempt is dropped
   startedAt: number
   /** Something other than Python changed while it was building: build once more when that build ends. */
@@ -189,6 +196,7 @@ export class Builds {
       entry = {
         obj,
         state: { objectId: obj.id, status: 'idle', revision: 0, stale: false },
+        reason: 'open',
         attempt: 0,
         startedAt: 0,
         changedMeanwhile: false,
@@ -227,6 +235,7 @@ export class Builds {
     entry.obj = obj
     entry.restoring = false
     entry.failure = undefined
+    this.setReason(entry, 'watch')
     this.start(entry)
     return true
   }
@@ -235,31 +244,64 @@ export class Builds {
    * Files of an open object, or of `common/`, changed. A build under way is
    * started again only for Python; anything else waits for it to end.
    */
-  changed(objectId: string, paths: string[] = []): void {
+  changed(objectId: string, paths: string[] = [], reason: BuildReason = 'watch'): void {
     const entry = this.entries.get(objectId)
     if (!entry) return
     const building = entry.state.status === 'building'
     if (building && paths.length > 0 && !paths.some((path) => path.endsWith('.py'))) entry.changedMeanwhile = true
-    else this.startChanged(entry)
+    else this.startChanged(entry, reason)
   }
 
   /**
    * Build an object again by hand ("Rebuild"). Not while a build of it runs: that one is of the sources as
    * they are (a change of them starts another by itself), and starting it over would only cost its time again.
-   * False when nothing was started.
+   * False when nothing was started. `reason` is what the build is for (`rebuild` unless it is a Go back, which
+   * says which kept build it restored); the history keeps it with the build.
    */
-  rebuild(objectId: string): boolean {
+  rebuild(objectId: string, reason: BuildReason = 'rebuild', wentBackTo?: string): boolean {
     const entry = this.entries.get(objectId)
     if (!entry || entry.state.status === 'building') return false
-    this.startChanged(entry)
+    this.startChanged(entry, reason, wentBackTo)
     return true
   }
 
+  /**
+   * A Go back says, before it writes its first file, that the next build the watcher starts is its own: the watcher
+   * may report a file and start that build between two writes, and it would be kept as the person's. `rebuild` of
+   * that reason, a first watched build, or `expect(objectId)` with no reason, ends the wait.
+   */
+  expect(objectId: string, reason?: 'goback', wentBackTo?: string): void {
+    const entry = this.entries.get(objectId)
+    if (entry) entry.expected = reason ? { reason, wentBackTo } : undefined
+  }
+
   /** Build because the sources may have changed: what is on screen is stale until it ends. */
-  private startChanged(entry: Entry): void {
+  private startChanged(entry: Entry, reason: BuildReason, wentBackTo?: string): void {
     entry.restoring = false
     entry.failure = undefined
+    const expected = entry.expected
+    if (expected && (reason === 'watch' || reason === expected.reason)) {
+      entry.expected = undefined
+      // The build a Go back was waiting for: it takes the Go back's place, as one it began would.
+      if (reason === 'watch') {
+        this.setReason(entry, expected.reason, expected.wentBackTo)
+        this.start(entry)
+        return
+      }
+    }
+    // The files a Go back wrote are reported by the watcher while the build it asked for runs: that is still the Go back's build.
+    if (!(reason === 'watch' && entry.reason === 'goback' && entry.state.status === 'building')) this.setReason(entry, reason, wentBackTo)
     this.start(entry)
+  }
+
+  private setReason(entry: Entry, reason: BuildReason, wentBackTo?: string): void {
+    entry.reason = reason
+    entry.wentBackTo = reason === 'goback' ? wentBackTo : undefined
+  }
+
+  /** What a build's states and scene say it was started for. */
+  private why(entry: Entry): { reason: BuildReason; wentBackTo?: string } {
+    return { reason: entry.reason, ...(entry.wentBackTo ? { wentBackTo: entry.wentBackTo } : {}) }
   }
 
   close(objectId: string): void {
@@ -387,6 +429,7 @@ export class Builds {
       // A build of this object that is running, or waiting for its turn, will do.
       if (entry.state.status !== 'building') {
         entry.restoring = true
+        this.setReason(entry, 'rebuild')
         if (this.running === null) this.start(entry)
         else this.displaced.add(entry.obj.id) // started when the kernel is free
       }
@@ -423,7 +466,7 @@ export class Builds {
     if (obj.model === null) {
       const message = obj.problem ?? `no model file in ${obj.dir}`
       entry.restoring = false
-      this.set(entry, { objectId: id, status: 'failed', revision, error: { kind: 'no_model', message }, stale: revision > 0 })
+      this.set(entry, { objectId: id, status: 'failed', revision, error: { kind: 'no_model', message }, stale: revision > 0, ...this.why(entry) })
       this.abandon(id)
       return
     }
@@ -432,7 +475,7 @@ export class Builds {
     // has ended and the kernel is free again, when nothing would say any more that it was displaced.
     if (this.running !== null && this.running !== id) this.displaced.add(this.running)
     entry.startedAt = this.now()
-    this.set(entry, { objectId: id, status: 'building', revision, startedAt: entry.startedAt, stale })
+    this.set(entry, { objectId: id, status: 'building', revision, startedAt: entry.startedAt, stale, ...this.why(entry) })
     this.running = id
     // The kernel says which builds it let go to make room for this one: when this object's own is among
     // them, nothing answers of it until this build lands, and the status says so.
@@ -533,8 +576,8 @@ export class Builds {
     entry.failure = undefined
     entry.letGo = false
     this.watchUses(entry, scene.uses ?? [])
-    this.set(entry, { objectId: id, status: 'ok', revision, seconds: scene.seconds, stale: false })
-    for (const cb of this.sceneListeners) cb({ objectId: id, revision, scene, blob })
+    this.set(entry, { objectId: id, status: 'ok', revision, seconds: scene.seconds, stale: false, ...this.why(entry) })
+    for (const cb of this.sceneListeners) cb({ objectId: id, revision, scene, blob, ...this.why(entry) })
   }
 
   /**
@@ -563,7 +606,7 @@ export class Builds {
     const revision = entry.state.revision
     const seconds = (this.now() - entry.startedAt) / 1000
     entry.failure = error
-    this.set(entry, { objectId: entry.obj.id, status: 'failed', revision, seconds, error, stale: revision > 0 })
+    this.set(entry, { objectId: entry.obj.id, status: 'failed', revision, seconds, error, stale: revision > 0, ...this.why(entry) })
   }
 
   private set(entry: Entry, given: BuildState): void {

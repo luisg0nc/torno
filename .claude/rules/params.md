@@ -24,7 +24,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - The model's `Params` can be tried without editing the model: the person's overrides are `<object>/.torno/params.json`
   (main the only writer; the file always wins: an override is dropped when the file's default of its field changes),
   every build of the object carries them, and the agent is told so with every prompt; the agent's `try_params` builds
-  a throwaway copy in a trial worker and keeps nothing. torno still never writes the model: a value is baked in by the
+  a throwaway copy in a trial worker and keeps nothing. torno never writes the model for this: a value is baked in by the
   agent editing it (below, Params the person tries; the rule `kernel-model-contract`).
 
 ## Params the person tries (`app/src/main`)

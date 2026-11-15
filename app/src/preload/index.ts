@@ -139,6 +139,8 @@ const bridge: TornoBridge = {
     source: (objectId, id, file) => invoke('history:source', objectId, id, file),
     ghost: (objectId, id) => invoke('history:ghost', objectId, id),
     star: (objectId, id, starred) => invoke('history:star', objectId, id, starred),
+    goBackPlan: (objectId, prompt) => invoke('history:goBackPlan', objectId, prompt),
+    goBack: (objectId, prompt, confirmed) => invoke('history:goBack', objectId, prompt, confirmed),
     onChanged: (cb) => subscribe<string>('history:changed', cb)
   },
   export: {
@@ -167,6 +169,8 @@ const bridge: TornoBridge = {
   chat: {
     history: (sessionId) => invokePlain('chat:history', sessionId),
     lastConversation: (objectId) => invokePlain('chat:lastConversation', objectId),
+    prompts: (objectId) => invokePlain('chat:prompts', objectId),
+    conversation: (objectId, conversationId) => invokePlain('chat:conversation', objectId, conversationId),
     reference: (sessionId, file) => invokePlain('chat:reference', sessionId, file),
     changes: (sessionId, turnId) => invokePlain('chat:changes', sessionId, turnId),
     undo: (sessionId, turnId) => invokePlain('chat:undo', sessionId, turnId),
