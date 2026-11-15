@@ -2,7 +2,7 @@ name: CI
 
 # The suites that need no display: the app's unit tests, its typecheck, the kernel's own tests, and the app
 # against the real kernel with the stand-in agent. The Playwright suite drives Electron in a hidden window on a
-# desktop (app/e2e/CLAUDE.md) and is run by hand before a release. The Linux package is built and started in a hidden
+# desktop (.claude/rules/e2e-hidden-window.md) and is run by hand before a release. The Linux package is built and started in a hidden
 # window at the end (`TORNO_TEST=1`, under xvfb). macOS is apart, in macos.yml. A change of only the site or the docs
 # runs none of the suites: `changes` says so, and the jobs it gates are skipped (which a required check accepts).
 

@@ -29,7 +29,7 @@
 </p>
 
 > [!NOTE]
-> torno is new and early. It is developed on Linux (Arch, Wayland) and also runs on macOS, which has seen less use. Expect rough edges,
+> torno is new and early. It is developed on Linux (Arch, Wayland) 100% using claudecode and also runs on macOS, which has seen less use. Expect rough edges,
 > and please [open an issue](https://github.com/luisg0nc/torno/issues) when you find one.
 
 ## Why torno

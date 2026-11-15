@@ -1,13 +1,32 @@
-# torno: the exported page (`app/src/export`)
+---
+paths:
+  - "app/src/renderer/viewport/lights.ts"
+  - "app/src/renderer/viewport/ground.ts"
+  - "app/src/shared/faceted.ts"
+  - "app/src/export/**"
+  - "app/scripts/build-viewer.mjs"
+  - "app/src/shared/exportdata.ts"
+  - "app/src/shared/exportdata.test.ts"
+  - "app/src/main/export/html.ts"
+  - "app/src/main/export/html.test.ts"
+  - "app/src/main/export/build.ts"
+  - "app/src/main/export/build.test.ts"
+  - "app/src/main/export/decimate.ts"
+  - "app/src/main/export/decimate.test.ts"
+  - "app/e2e/export.spec.ts"
+---
+
+# The exported page: what a file holds, its budget, its policy, its viewer
+
+Moved as written from the folder `CLAUDE.md` files; each heading names the folder it came from, and paths are written as they were there (see "Rules by area" in the root `CLAUDE.md`).
+
+## About this folder (`app/src/export`)
 
 The page an export writes: its style (`page.css`) and its viewer (`viewer/`), which
 `app/scripts/build-viewer.mjs` bundles into `out/viewer/viewer.js`. What makes the file is in
-`src/main/export` (see also `app/src/main/CLAUDE.md`, "Export").
+`src/main/export` (see also the rule `export-saving`).
 
-What binds every part of torno is in the `CLAUDE.md` at the root of the repository: read that first. Here
-is the detail of this folder, under the heading it has there. Paths are from `app/`.
-
-## Export
+## Export (`app/src/export`)
 
 - One HTML file of an object, or of several, for someone who has no torno (`src/main/export`, `src/export`).
   It is made in main from the last good build of this run of each object (`Builds.scene`): nothing is built for

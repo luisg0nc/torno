@@ -4,7 +4,7 @@
 
 Prints one JSON object: ``build`` (``ok``, and ``error`` when the model did not load) and ``checks``, one result per
 check, each ``{"id", "kind", "pass", "value", "expect", "exact"}``. Volumes and boxes are the kernel's own
-(``torno_kernel.extent``), exact where it says they are (``kernel/CLAUDE.md``, Exactness): a box only of planes and
+(``torno_kernel.extent``), exact where it says they are (``.claude/rules/kernel-measures.md``): a box only of planes and
 cylinders, a volume only of analytic faces; a ratio of boxes is exact when the box is. A check that cannot be measured
 fails, with ``error``.
 

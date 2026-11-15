@@ -103,7 +103,7 @@ export async function copyExample(source: string, tmp: string): Promise<string> 
 }
 
 // Keeping the example (`keepExample`): "Keep this as a folder" in the window. It is a write in the person's files outside
-// `.torno/`, an exception of the root CLAUDE.md beside an object's creation and an export: ONE new folder, at the path the
+// `.torno/`, an exception of the root CLAUDE.md (.claude/rules/workspace-writes.md) beside an object's creation and an export: ONE new folder, at the path the
 // person chose in the save dialog (never from the window or from an agent), made the way `objects/create.ts` makes one:
 // all of it is written in a hidden `.<name>.torno-new-<random>` folder beside it, which takes the name as the last step,
 // so that the folder is whole or not there. It never writes into or replaces a folder that exists (compared without

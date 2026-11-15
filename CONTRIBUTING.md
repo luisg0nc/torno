@@ -54,14 +54,15 @@ To try changes on real models without touching your own, copy the test models:
 | `scripts/torno` | The launcher |
 | `docs/` | [The manual](docs/manual.md), the [design](docs/superpowers/specs/2026-10-08-torno-design.md), and the plans each feature was built from |
 
-**Each folder has a `CLAUDE.md` with the rules for that part of the code**, and the one at the root has the rules
-for all of it. They're written for AI agents, but they're the most complete description of how torno is meant to
-behave, so read the root one and the one for the folder you're changing before you start. A change that breaks
-one of their rules needs a good reason, and should change the rule too.
+**The root `CLAUDE.md` has the rules for all of torno, and `.claude/rules/` has the rules for each part of the
+code**, one file per topic, each naming the files it covers in its `paths:` list. They're written for AI agents
+(Claude Code loads a rule when it reads or edits one of those files), but they're the most complete description of
+how torno is meant to behave, so read the root one and the rules for the files you're changing before you start. A
+change that breaks one of their rules needs a good reason, and should change the rule too.
 
 ## The rules that matter most
 
-The `CLAUDE.md` files have the detail. These are the ones a change most often trips over:
+The `CLAUDE.md` and the rules have the detail. These are the ones a change most often trips over:
 
 - **torno never writes in a person's workspace** except under `<object>/.torno/`. The only exceptions are making
   a new object and the export the person saves.
@@ -106,7 +107,7 @@ Two things tests must never do:
   still needs it.
 - **Open a visible window.** Every launch of Electron sets `TORNO_TEST=1`, which keeps the window hidden. Never
   pass `--ozone-platform=headless`, and never call `page.screenshot()`, which hangs on a hidden window.
-  [`app/e2e/CLAUDE.md`](app/e2e/CLAUDE.md) says how to read state and pictures instead.
+  [`.claude/rules/e2e-hidden-window.md`](.claude/rules/e2e-hidden-window.md) says how to read state and pictures instead.
 
 ## Docs
 
@@ -114,7 +115,7 @@ Two things tests must never do:
 - [The manual](docs/manual.md) is the reference, and `app/src/readme.test.ts` holds it to the code. If you add an
   MCP tool or a prompt, name it in the manual. If you change a key or a pointer gesture, regenerate its tables with
   `TORNO_README=write pnpm -C app exec vitest run src/readme.test.ts`.
-- When a change alters what torno does, change the manual and the folder's `CLAUDE.md` in the same commit.
+- When a change alters what torno does, change the manual and the rule that says it in the same commit.
 
 ## Commits and pull requests
 
@@ -126,7 +127,7 @@ Two things tests must never do:
 
 ## Working with an AI agent
 
-You're welcome to. torno is built that way, and the `CLAUDE.md` files are there so an agent can follow the
+You're welcome to. torno is built that way, and the `CLAUDE.md` and the rules are there so an agent can follow the
 rules. You're still responsible for what it writes: read the diff, run the tests, and check by hand what the tests
 can't see.
 

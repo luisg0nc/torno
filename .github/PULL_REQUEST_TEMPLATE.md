@@ -14,11 +14,11 @@
 ## Docs
 
 - [ ] `docs/manual.md` changed if behaviour did (`app/src/readme.test.ts` holds it to the code; `TORNO_README=write pnpm -C app exec vitest run src/readme.test.ts` rewrites the keys)
-- [ ] The `CLAUDE.md` of the folder changed if a rule did
+- [ ] The rule in `.claude/rules/` (or the root `CLAUDE.md`) changed if a rule did
 
 ## Pictures
 
-<!-- For anything visible, a capture from a hidden window (see app/e2e/CLAUDE.md; never page.screenshot() on Electron). Light and dark if colours changed. -->
+<!-- For anything visible, a capture from a hidden window (see .claude/rules/e2e-hidden-window.md; never page.screenshot() on Electron). Light and dark if colours changed. -->
 
 ## Two rules to check
 

@@ -7,8 +7,9 @@ __pycache__/
 .pytest_cache/
 app/e2e/.results/
 
-# Claude Code worktrees and profiler dumps
+# Claude Code: its worktrees and the person's local settings; profiler dumps
 .claude/worktrees/
+.claude/settings.local.json
 *.prof
 docs/images/raw/
 
@@ -19,3 +20,6 @@ site/manual/
 site/assets/fonts/
 site/assets/img/
 site/manual/
+
+# Brainstorming companion files (superpowers)
+.superpowers/

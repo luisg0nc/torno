@@ -15,7 +15,7 @@ import { configured, readmeWorkspace, showScans } from './readme-workspace'
 // and a desk stand for a speaker, `speaker-stand`, one part `stand`. The marks below are put on faces of those
 // models at points measured on them; with other projects, change them.
 //
-// The window is hidden (TORNO_TEST=1), as app/e2e/CLAUDE.md asks of every launch, and webContents.capturePage()
+// The window is hidden (TORNO_TEST=1), as .claude/rules/e2e-hidden-window.md asks of every launch, and webContents.capturePage()
 // gives one picture a launch. The agent is the stand-in: the chat it shows is what torno really rendered of a
 // scripted turn, with one cosmetic edit, said where it is made: the person's prompt is the stand-in's script, so
 // the text of that one bubble is replaced by the words a person would have typed before the capture.
