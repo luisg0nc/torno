@@ -1065,7 +1065,7 @@ export const HISTORY_DEFAULT = 20
 /**
  * The builds kept in the project's history, newest first, each with its id, when it was made, what changed from the
  * build kept before it in a line, and the checks and dimensions it had then; or one of them (`id`), with where its
- * copies of the sources are, which the agent may read to go back to that build (torno never restores a file).
+ * copies of the sources are, which the agent may read to go back to that build (the person's own Go back puts them back, after asking).
  */
 export async function historyTool(deps: ToolDeps, objectId: string, args: HistoryToolArgs): Promise<ToolResult> {
   const obj = deps.object(objectId)
@@ -1098,7 +1098,7 @@ export async function historyTool(deps: ToolDeps, objectId: string, args: Histor
     const entry = history.entries.find((e) => e.id === id)
     if (!entry) return failure(`${JSON.stringify(args.id)} is not kept: ${history.entries.length === 0 ? 'the history holds no build yet' : `${history.entries.at(0)!.id} to ${history.entries.at(-1)!.id} are (not every number between them)`}`)
     const copies = entry.files.map((file) => ({ file, path: join(base, entry.id, 'source', ...file.split('/')) }))
-    const source = entry.failed ? 'This build failed to build, so no scene, picture or copy of its sources was kept: there is nothing of it to compare or to go back to.' : copies.length > 0 ? 'These are copies of the files the build was made from. To go back, read them and edit the project\'s own files to match; torno never restores a file itself.' : 'No copy of the sources was kept for this build (too large, or changed while it was read).'
+    const source = entry.failed ? 'This build failed to build, so no scene, picture or copy of its sources was kept: there is nothing of it to compare or to go back to.' : copies.length > 0 ? 'These are copies of the files the build was made from. To go back, read them and edit the project\'s own files to match; the person can also put them back with Go back to before a prompt, which asks first. A copy is not to be edited.' : 'No copy of the sources was kept for this build (too large, or changed while it was read).'
     return reply({ object: obj.id, ...summary(entry), model: entry.model, seconds: entry.seconds, ...(entry.params ? { params: entry.params } : {}), copies, notes: [source, note] })
   }
   const limit = args.limit === undefined ? HISTORY_DEFAULT : args.limit

@@ -1113,14 +1113,15 @@ describe('history', () => {
     expect(text(await historyTool(deps, 'box', { limit: 0 }))).toMatch(/^limit is a whole number from 1 to 100/)
   })
 
-  it('gives one build with the paths of its copies, and says torno restores nothing', async () => {
+  it('gives one build with the paths of its copies, and says how to go back', async () => {
     const result = data(await historyTool(withHistory([entry('h1', { files: ['box/box.py', 'common/util.py'] })]), 'box', { id: 'H1' })) as Row
     expect(result.id).toBe('h1')
     expect(result.copies).toEqual([
       { file: 'box/box.py', path: '/ws/box/.torno/history/h1/source/box/box.py' },
       { file: 'common/util.py', path: '/ws/box/.torno/history/h1/source/common/util.py' }
     ])
-    expect(result.notes.join(' ')).toMatch(/never restores a file/)
+    expect(result.notes.join(' ')).toMatch(/Go back/)
+    expect(result.notes.join(' ')).not.toMatch(/never restores/)
   })
 
   it('tells who caused each build, under which prompt, and which failed, and says nothing of an old entry', async () => {

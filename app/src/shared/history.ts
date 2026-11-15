@@ -29,7 +29,7 @@ export interface BuildTurn {
   /** The chat it was said in, when it was one the person can open again. */
   conversation?: string
   prompt: string
-  /** What the agent said at the end of the turn, shortened. */
+  /** The prompt's own words, its first 200 characters. */
   text?: string
 }
 
