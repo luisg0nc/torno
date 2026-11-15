@@ -371,13 +371,18 @@ the Python files it was made from, its parts' numbers, and a small picture. A ke
 which goes on counting across runs of torno; the revision (`r3`) is of one run and is told beside it. The latest 100
 are kept, and every one you star. A build that fails the model's own checks is kept too, marked: it is often the one
 to compare against. A rebuild of sources the newest kept build was made from is not kept again. **History** in the status line opens
-the builds in a strip, newest first: the picture, the id, how long ago, and what changed from the build before in a
-line (`tub changed, lid same`). Choose one for its facts, **Show the source** to read the Python it was made from,
-read only, **Star** to keep it, **Show over the current build** to compare it with the one on show (below), or **Ask the agent to go back to this build**, which puts a request in the message box of
-the session (or starts one) naming the copies, and sends nothing. torno never puts a file back: the agent edits the
-project's files, under your permission rules, and the copies are not to be edited. What a kept build had then (checks
-that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands
-now. **Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the earlier build alone), **Overlay**
+**Prompts only**, which is also the chat's own toggle (`Chat | Prompts only`): one row for each prompt of the project, newest first, across
+every conversation of it as one thread, with a quiet line where a conversation began. A prompt has one number wherever it is shown (a turn
+of the chat, a row, `comparing prompt 14` in the status line), counted from 1 across the project by the time it was said. A row is the number, the
+picture of the prompt's last build, what you said cut to a line, and under it the builds it went through (`h40 → h41`), what they came to
+in a word (`passes`, `2 failed on the way`, `build failed`, `starred`, `gone back from`) and when. What you built yourself between two prompts
+(your saves in your own editor, the Params you tried) is a line between the rows; the prompts a Go back undid are one faded row, openable. **Starred** keeps the
+prompts with a starred build, **Hide gone back** leaves out the ones you went back from. Click a row to compare it (below), double-click it, or **Open in chat**, to read it in the chat where it was said.
+The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
+is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened.
+The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are on the turns of the chat.
+What a kept build had then (checks that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands now.
+**Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
 the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
 have landed, that older build, which stands in for the live one until you go back, and **Back to the live build**, which `Esc` also does. Two boxes over the corners say what the later build changed
@@ -2255,12 +2260,12 @@ On the screen:
   the running process? What does it do to the conversation, and to a file changed by `Bash` or a subagent, which it
   does not track? Write the answers in issue #131: if the files and the conversation both come out right, the button
   can use it and be exact; if not, the asked undo stays.
-- **The history sheet.** Build a project a few times with an edit between, then open **History** in the status line: a
-  card for each build, newest first, in a row that scrolls sideways, each with a picture of the project as it was, legible
-  in light and dark. The chosen card has the accent's edge; **Show the source** shows the Python in the monospace face and
-  cannot be typed in; **Show over the current build** compares it with the one on show (a bar with Before, Overlay, After and Side by side under the view bar, two boxes over the corners,
-  `comparing h40 → h41` in the status line; **Back to the live build** or `Esc` ends it); **Ask the agent to go back** leaves the request in the box, unsent. Try it with a real Claude Code:
-  send the request, and check that it edits your files to match the copy and not the copy itself.
+- **Prompts only.** Send Claude Code a few prompts that edit the model, then open **History** in the status line: one row for each
+  prompt, newest first, in the pane of the chat, each with a picture of the project as it was after it, legible in light and dark, its
+  number and `h40 → h41` in the face of numbers. A click compares the prompt (a bar with Before, Overlay, After and Side by side under the view bar, two boxes over the corners,
+  `comparing prompt 14 · h40 → h41` in the status line; **Back to the live build** or `Esc` ends it), a double click opens it in the chat. Start a new session, send a prompt, and check
+  that its number goes on from the last and that **Earlier conversations** reads the first. With the terminal as the view, the same list is a pane over it. Try it with a real Claude Code, the
+  terminal too: after a prompt that edits the model, is its row there with the build it made?
 - **A broken part in the layers.** Build a model with a cavity whose shell faces into it, or a part made of a shell
   with a face left out: its layer row says "not valid" (or "not closed") after its name in the colour of a failure,
   with what that means in its tooltip, and the line at the bottom says "1 part has a defect"; legible in light and

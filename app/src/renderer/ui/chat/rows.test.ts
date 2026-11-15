@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { ChatItem } from '../../../shared/chat'
 import type { HistoryEntry, HistoryList } from '../../../shared/history'
 import type { Entry } from './fold'
+import { numbersOf } from './historyJoin'
 import { ChatItems, rowsOf } from './Items'
 
 const T0 = Date.parse('2026-01-01T00:00:00Z')
@@ -43,7 +44,7 @@ describe('ChatItems with a history', () => {
   const items: ChatItem[] = [user('u1', 0), turn('x1'), user('u2', 10), turn('x2')]
   it('draws the line between turns, and the prompts gone back from as one faded row, closed', () => {
     const history = list([entry('h1', 5, { cause: 'person', files: ['common/fillets.py'] }), entry('h2', 11, { cause: 'agent', turn: { prompt: 'u2' }, undone: true })])
-    const html = renderToStaticMarkup(createElement(ChatItems, { items, beat: true, history }))
+    const html = renderToStaticMarkup(createElement(ChatItems, { items, beat: true, history, numbers: numbersOf([], items) }))
     expect(html).toContain('You saved ')
     expect(html).toContain('common/fillets.py')
     expect(html).toContain('Prompt <span class="num">2</span> · you went back from this')

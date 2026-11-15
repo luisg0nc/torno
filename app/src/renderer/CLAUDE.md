@@ -173,20 +173,30 @@ is the detail of this folder, under the headings it has there. Paths are from `a
 
 ## History of builds
 
-- `ui/HistorySheet.tsx` (#56), opened by **History** in the status line (`ui/BuildStatus.tsx`, `status-history`), has the error
-  sheet's shape (`.sheet`, `data-sheet='history'`, `sheet.close`): a strip of cards (`ol.history-strip`, `button.history-card`,
-  `data-build`), newest first, each with the picture kept with the build (`history.thumbnail`, an object URL revoked when
-  the card goes), `nameOf` (`h41`, and `· r3` beside it only for a build of this run: a revision is of one run), `ago`, the
-  change line and what it had then (`marksOf`: checks that failed, defects, dimensions that failed; all as of then). The chosen
-  card's facts, **Show the source** (`history.source`, one copied file at a time, read only in a `pre`), **Star**
-  (`history.star`, main's) and **Ask the agent to go back to this build**: the request is `goBackPrompt` (`ui/historyBits.ts`:
-  the copies by their paths, "Change the files of … to match them", "Do not edit the copies"), put in the box of the session by
-  `insertIntoSession`, or kept for a session the pane starts (`setFixRequest`), and never sent. The window reads the list
-  (`useHistory`, `history.list`, again at `history:changed`) and writes nothing; nothing here restores a file or puts a build on
-  screen. A build with no copies (too large, or changed while read) has both buttons off, with `NO_COPY` in the title.
+- **Prompts only** is the history of the project, in the session pane (`ui/chat/PromptsOnly.tsx`; the old `HistorySheet` is gone). **History**
+  in the status line (`BuildStatus`, `status-history`) and the chat head's `Chat | Prompts only` toggle (`ChatPane`, the group `Show`) are
+  the one flag `store.promptsOpen` (`actions.setPromptsOpen`, which also shows the dock; of the open object, so another one starts at the chat).
+  In the chat it is drawn over the transcript (`.prompts`, absolute inside `.chat-scroll`), which keeps its scroll and is `inert` meanwhile; where
+  the chat is not (a terminal session, or no session yet) `SessionPane` draws `PromptsPane` over the session area (`.session-prompts`, with Close).
+  Rows are `promptLines` (`ui/chat/promptsView.ts`, pure and held by its test): the project's prompts (`chat.prompts` through `usePrompts`, asked
+  again when a prompt is sent or a build kept) joined to the history's entries by `turn.prompt`, newest first, with `savesBetween` lines between
+  rows, a `began` line where a conversation's run starts (`current`: the conversation of the open chat), the prompts of `goneBack` folded into one
+  openable row, `Starred` (a build of the prompt is starred) and `Hide gone back`. A row: number, `useThumb` of its last build, the text cut to a line,
+  `<from> → <to>` (where it started from, its last drawable build), `resultWord` (`gone back from`, `build failed`, `<n> failed on the way`,
+  `<n> checks fail`, `starred`, `passes`; nothing for a prompt that built nothing) and `ago`. A click is `actions.compare(from, to, number)` (a second
+  click `endCompare`; `aria-disabled` with the reason when there is nothing to compare or a section or an explode is on), a double click or the row's
+  "Open in chat" is `ChatPane.openInChat`: it puts Prompts only away, reads the earlier conversations first when the prompt is of another, and scrolls
+  `.chat-group[data-id=<user item id>]` into view. A terminal's prompt (`t-` ids) is never opened. The chat's **Earlier conversations (n)** button (at the
+  top of the transcript, shown for the project's other conversations that have a chat log) reads them (`chat.conversation`, read-only, no history joined)
+  and draws each above the current one under `ChatEarlier`.
+- **One number for a prompt.** `listPrompts` (`main/sessions/prompts.ts`) numbers every sent prompt of every conversation from 1 by time; the window's
+  `numbersOf(rows, items)` (`historyJoin.ts`) is that map by prompt id, plus the prompts of the open transcript the list does not have yet (queued or just
+  sent), numbered on from its last; `ChatItems` takes it as `numbers`, and turn cards, Go back's confirmation, Prompts only and `comparing prompt <n>` all use it.
+- The window's own reading of the history (`useHistory`, `history.list`, again at `history:changed`) writes nothing. The source of a kept build
+  and "Ask the agent to go back to this build" were the sheet's and are gone with it (`history.source` stays for tools that read it); Go back is on the turns.
 - **Compare: a kept build against the live one** (`state/compare.ts`, `ui/CompareBar.tsx`, `viewport/earlier.ts` `Earlier`, `Viewport.setEarlier`
   and `setCompareMode`). `store.compare` is `{ from, to, mode, prompt? }` (history ids, `from` the earlier; `building` and `refused` are said of
-  `from`'s drawing), set by `actions.compare(from, to, prompt?)` (the sheet's "Show over the current build" for now; the chat's turns),
+  `from`'s drawing), set by `actions.compare(from, to, prompt?)` (a row of Prompts only, a turn of the chat),
   changed by `compareMode` (`before`, `overlay`, `after`, `side`) and ended by `endCompare` ("Back to the live build" in the bar, `Esc`: the row
   `compare.end`, scope `compare`, which `ViewportPane`'s key handler asks before the tool in hand and the viewport's `escape`). `ViewportPane`
   asks main for `from`'s scene and meshes (`history.ghost`: held in memory for a build of this run, else built again from its copy in a worker thrown
@@ -828,8 +838,7 @@ is the detail of this folder, under the headings it has there. Paths are from `a
   params) is a line (`SaveLine.tsx`; `savesBetween` takes them between two prompts' times, several in a row with no
   other build between are one run, `saveWords`); the prompts a Go back undid (`goneBack`: every build of the prompt is
   `undone`) are one faded row with "Show" (`rowsOf` in `Items.tsx`, which also places the lines), faded by the muted
-  face, never by opacity. Prompt numbers are `numberPrompts` over the transcript, until the list of prompts of the
-  project comes. All of it is drawn from main's own labels: the window works out no cause.
+  face, never by opacity. Prompt numbers are the project's (`numbersOf`, above). All of it is drawn from main's own labels: the window works out no cause.
   A further action for a turn is one more button in `TurnActions`, given the turn's `item` and `account`.
 - **The agent's question** (`ask`; `state/asks.ts` follows main's list, `ui/QuestionCard.tsx` draws it): a card with
   the question, a button for each answer (its label, its refs in the monospace face), and "None of these". The pointer

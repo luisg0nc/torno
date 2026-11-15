@@ -1258,7 +1258,13 @@ deletes files of the person's model. The root `CLAUDE.md` says what it may write
   reads the tail of the file as "Earlier in this conversation". The pane with no session shows the end of the conversation on file the same
   way, read-only (`chat:lastConversation`, `lastConversation` of `chatlog.ts`: the last eight `user`, `text` and `turn` items and the
   log's modification time; it only reads, and the object must be of the open workspace). A log over 5 MB is cut to its last 2,000 lines, whole
-  and atomically, when a session starts on it (`trimLog`). Switching `view` ends the session and resumes the
+  and atomically, when a session starts on it (`trimLog`; the prompts of the cut part are then no longer listed, and the numbers after them shift down).
+  `chat:prompts` (`sessions/prompts.ts` `listPrompts`) lists every `user` item with `state: 'sent'` of every log of `.torno/chat/` (read from
+  the tail as `readLog` does, parsing only the lines that say `"kind":"user"`: 50 logs of 2,000 lines take about 85 ms, so there is no index
+  file, RF4), and a terminal's prompts from the history entries' `turn` (the ids `t-<conversation>-<n>`, once each, at the time of their first
+  build: a terminal keeps no log, so only a prompt that built is known), oldest first and numbered from 1 across the project, at most the newest
+  2,000. `chat:conversation` reads one conversation's log (`readLog`) for the chat's "Earlier conversations". Both only read, for an object of the open
+  workspace. Switching `view` ends the session and resumes the
   conversation in the other kind (`session.json` is the same).
 - **What a turn changed in the model** (`sessions/snapshots.ts`, `shared/changes.ts`, `chat:changes`). When a
   prompt is sent (its `UserPromptSubmit`, read before the hook is answered, so before the agent can have touched

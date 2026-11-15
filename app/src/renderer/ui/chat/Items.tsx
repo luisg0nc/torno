@@ -17,7 +17,7 @@ import { type Entry, foldRuns } from './fold'
 import { TasksCard } from './Tasks'
 import { isTaskTool, listsAt } from './taskList'
 import { TurnEnd } from './TurnEnd'
-import { type JoinedTurn, type SaveRun, goneBack, joinTurns, numberPrompts, savesBetween } from './historyJoin'
+import { type JoinedTurn, type SaveRun, goneBack, joinTurns, savesBetween } from './historyJoin'
 import { SaveLine } from './SaveLine'
 import { PromptNumbers } from './turnContext'
 import { netParts, turnSummary, type TurnAccount } from './turnSummary'
@@ -292,8 +292,10 @@ function GoneRow({ range, children }: { range: [number, number]; children: React
   )
 }
 
-/** The items in the order they are drawn, with each `context` under the prompt, or the tool card, it was made for: a prompt's as what torno added to it, a tool's as the build it started. A run of the agent's tools that is over is one line (`foldRuns`), and its task list is a card (`TasksCard`). With the project's `history`: each turn ends with its builds, what the person built between prompts is a line, and the prompts a Go back undid are one faded row. */
-export function ChatItems({ items, beat, history }: { items: ChatItem[]; beat: boolean; history?: HistoryList }) {
+/** The items in the order they are drawn (`numbers`: the project's number of each prompt by its id, `numbersOf`), with each `context` under the prompt, or the tool card, it was made for: a prompt's as what torno added to it, a tool's as the build it started. A run of the agent's tools that is over is one line (`foldRuns`), and its task list is a card (`TasksCard`). With the project's `history`: each turn ends with its builds, what the person built between prompts is a line, and the prompts a Go back undid are one faded row. */
+const NO_NUMBERS = new Map<string, number>()
+
+export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { items: ChatItem[]; beat: boolean; history?: HistoryList; numbers?: Map<string, number> }) {
   const order = useMemo(() => drawn(items), [items])
   const under = useMemo(() => {
     const byUser = new Map<string, Array<Of<'context'>>>()
@@ -324,7 +326,7 @@ export function ChatItems({ items, beat, history }: { items: ChatItem[]; beat: b
     }
     return out
   }, [order])
-  const numbering = useMemo(() => numberPrompts(order), [order])
+  const numbering = numbers
   // Which builds came out of each turn's prompt, kept as the same object while it says the same, so a turn drawn is not drawn again.
   const keptJoins = useRef(new Map<string, { said: string; joined: JoinedTurn }>())
   const joins = useMemo(() => {

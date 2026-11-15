@@ -1,29 +1,13 @@
-import { Fragment, memo, useEffect, useState } from 'react'
+import { Fragment, memo } from 'react'
 import type { HistoryEntry } from '../../../shared/history'
 import { useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { type JoinedTurn, stripOf, turnFacts } from './historyJoin'
+import { useThumb } from './useThumb'
 
 /** The picture kept with a build, small, with its id over it; the word `failed` in its place for a build that failed, an empty frame while it comes or when none was kept. */
 function BuildThumb({ objectId, entry, start }: { objectId: string; entry: HistoryEntry; start?: true }) {
-  const [url, setUrl] = useState<string | null>(null)
-  useEffect(() => {
-    if (!entry.thumb || entry.failed) return setUrl(null)
-    let current = true
-    let made: string | null = null
-    window.torno.history.thumbnail(objectId, entry.id).then(
-      (png) => {
-        if (!current || !png) return
-        made = URL.createObjectURL(new Blob([png], { type: 'image/png' }))
-        setUrl(made)
-      },
-      () => {}
-    )
-    return () => {
-      current = false
-      if (made) URL.revokeObjectURL(made)
-    }
-  }, [objectId, entry.id, entry.thumb, entry.failed])
+  const url = useThumb(objectId, entry)
   return (
     <span className="turn-thumb" data-build={entry.id} data-start={start ? '' : undefined} data-failed={entry.failed ? '' : undefined} title={start ? `${entry.id}: where this prompt started` : entry.failed ? `${entry.id} failed${entry.error ? `: ${entry.error}` : ''}` : entry.id}>
       {url ? <img src={url} alt="" /> : entry.failed ? <span className="turn-thumb-failed">failed</span> : null}

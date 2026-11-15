@@ -1,7 +1,7 @@
 import type { AskAnswer, OpenAsk } from './ask'
 import type { BuildState } from './build'
 import type { TurnChanges } from './changes'
-import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode } from './chat'
+import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode, PromptRow } from './chat'
 import type { GitState } from './git'
 import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './history'
 import type { ExportPlan, ExportRequest, ExportSaved } from './exportdata'
@@ -344,6 +344,10 @@ export interface TornoBridge {
     history(sessionId: string): Promise<ChatHistory>
     /** The end of the conversation an object's next session would resume (its last turns, text only, and when its log was last written; `at` null when it has no log, as one begun in a terminal), or null when there is none. Read from `.torno/chat/`; nothing is made. */
     lastConversation(objectId: string): Promise<{ items: ChatItem[]; at: string | null } | null>
+    /** Every prompt of the object's conversations that was sent, oldest first, numbered from 1 across all of them (a terminal's from the history): what "Prompts only" lists. Read from `.torno/chat/`. */
+    prompts(objectId: string): Promise<PromptRow[]>
+    /** The items of one earlier conversation of the object, from its log (its last 500), for reading above the current one; none for a conversation with no log. Read only. */
+    conversation(objectId: string, conversationId: string): Promise<ChatItem[]>
     /** The bytes of a picture of the person's in the session's object, `reference/photo-1.jpg` (`ChatImage.file`), read again by main: none for a file that is not a plain file of a name torno gives there, or for a session that is not of the open workspace. Also for a session that has ended. */
     reference(sessionId: string, file: string): Promise<{ mediaType: string; bytes: Uint8Array } | null>
     /**

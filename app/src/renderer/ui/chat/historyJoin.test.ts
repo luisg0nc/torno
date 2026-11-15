@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { ChatItem } from '../../../shared/chat'
+import type { ChatItem, PromptRow } from '../../../shared/chat'
 import type { HistoryEntry } from '../../../shared/history'
-import { goneBack, joinTurns, numberPrompts, savesBetween, saveWords, stripOf, turnFacts } from './historyJoin'
+import { goneBack, joinTurns, numbersOf, savesBetween, saveWords, stripOf, turnFacts } from './historyJoin'
 
 const user = (id: string, at: number, state: 'sent' | 'queued' = 'sent'): ChatItem => ({ kind: 'user', id, text: id, images: [], state, at })
 const turn = (id: string): ChatItem => ({ kind: 'turn', id, ok: true, stopped: false, seconds: 1, pulled: {} })
@@ -24,16 +24,22 @@ const entry = (id: string, at: string, extra: Partial<HistoryEntry> = {}): Histo
 const agent = (id: string, at: string, prompt: string, extra: Partial<HistoryEntry> = {}) => entry(id, at, { cause: 'agent', turn: { prompt }, ...extra })
 const person = (id: string, at: string, extra: Partial<HistoryEntry> = {}) => entry(id, at, { cause: 'person', ...extra })
 
-describe('numberPrompts', () => {
-  it('counts the person\'s prompts from 1, in the order they were said', () => {
+describe('numbersOf', () => {
+  const row = (id: string, number: number): PromptRow => ({ conversation: 'c', id, number, text: id, at: number })
+  it('gives a prompt the number the project\'s list has for it, whatever conversation it is of', () => {
     const items = [user('u1', 1), text('t'), turn('x1'), user('u2', 2), turn('x2')]
-    expect([...numberPrompts(items)]).toEqual([['u1', 1], ['u2', 2]])
+    expect([...numbersOf([row('old', 1), row('u1', 2), row('u2', 3)], items)]).toEqual([['old', 1], ['u1', 2], ['u2', 3]])
+  })
+  it('numbers on from the list\'s last the prompts of the transcript it has not heard of yet, queued ones too, in the order they were made', () => {
+    const items = [user('u1', 1), user('u2', 2), user('u3', 3, 'queued')]
+    expect([...numbersOf([row('u1', 7)], items)]).toEqual([['u1', 7], ['u2', 8], ['u3', 9]])
+    expect([...numbersOf([], items)]).toEqual([['u1', 1], ['u2', 2], ['u3', 3]])
   })
 })
 
 describe('joinTurns', () => {
   const items = [user('u1', 1), text('a'), turn('x1'), user('u2', 2), turn('x2'), user('u3', 3), turn('x3')]
-  const numbering = numberPrompts(items)
+  const numbering = numbersOf([], items)
   const entries = [
     person('h1', '2026-01-01T00:00:00Z'),
     agent('h2', '2026-01-01T00:01:00Z', 'u1'),
@@ -63,7 +69,7 @@ describe('joinTurns', () => {
 
   it('joins a prompt to its own turn when another prompt was queued meanwhile and is drawn at the end', () => {
     const queued = [user('u1', 1), text('a'), turn('x1'), user('u2', 2, 'queued')]
-    const joined = joinTurns(queued, [agent('h1', '2026-01-01T00:00:00Z', 'u1')], numberPrompts(queued))
+    const joined = joinTurns(queued, [agent('h1', '2026-01-01T00:00:00Z', 'u1')], numbersOf([], queued))
     expect([...joined.keys()]).toEqual(['x1'])
     expect(joined.get('x1')!.entries).toHaveLength(1)
   })

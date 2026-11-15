@@ -1416,3 +1416,233 @@ select.session-model:disabled {
   font-size: var(--text-small);
   overflow-wrap: anywhere;
 }
+
+/* ---- Prompts only: the project's history as one row per prompt ---- */
+
+/* The head of the chat holds the toggle between the conversation and the list of prompts. */
+.chat-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: var(--space-1) var(--space-4);
+  border-bottom: var(--divider);
+}
+
+/* Over the transcript, which keeps its place beneath. */
+.prompts {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.prompts-head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--divider);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.prompts-head .button-quiet[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+.prompts-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--space-4) var(--space-4);
+  overflow-y: auto;
+}
+
+.prompts-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* The prompt being compared. */
+.prompt:has(> .prompt-row[aria-pressed='true']) {
+  margin: 0 calc(var(--space-4) * -1);
+  padding: 0 var(--space-4);
+  background: var(--accent-wash);
+}
+
+.prompt-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.prompt-row:hover:not([aria-disabled='true']) {
+  background: var(--surface);
+}
+
+.prompt-row[aria-disabled='true'] {
+  cursor: default;
+}
+
+.prompt-number {
+  flex: none;
+  width: 32px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.prompt-thumb {
+  display: block;
+  flex: none;
+  width: 56px;
+  height: 38px;
+  overflow: hidden;
+  border: var(--divider);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.prompt-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.prompt-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.prompt-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.prompt-star {
+  color: var(--ink);
+}
+
+.prompt-result[data-tone='ok'] {
+  color: var(--ok);
+}
+
+.prompt-result[data-tone='fail'] {
+  color: var(--fail);
+}
+
+.prompt-result[data-tone='warn'] {
+  color: var(--warn);
+}
+
+/* Beside the row, not inside it (a button holds no button): quiet, and there for the keys as much as for the pointer. */
+.prompt-open {
+  flex: none;
+}
+
+.prompt-between {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.prompt-began {
+  padding: var(--space-2) 0;
+}
+
+.prompt-gone {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.prompt-gone-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--field-edge);
+  border-radius: var(--radius-palette);
+  color: var(--muted);
+}
+
+.prompt-gone-body {
+  margin: var(--space-2) 0 0;
+  padding: 0 0 0 var(--space-3);
+  border-left: 2px dashed var(--hairline);
+  list-style: none;
+}
+
+/* Faded by the muted face, not by opacity. */
+.prompt-gone-body .prompt-row,
+.prompt-gone-body .prompt-text {
+  color: var(--muted);
+}
+
+/* Where the chat is not, Prompts only is a pane of its own over the session area. */
+.session-prompts {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.session-prompts-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: var(--space-1) var(--space-4);
+  border-bottom: var(--divider);
+}
+
+.session-prompts-title {
+  margin: 0;
+  font-size: var(--text-size);
+  font-weight: 600;
+}
+
+.session-prompts .prompts {
+  position: static;
+  flex: 1;
+}
+
+/* "Earlier conversations" above the current one, and each conversation read there. */
+.chat-more-earlier {
+  margin: 0 0 var(--space-3);
+}

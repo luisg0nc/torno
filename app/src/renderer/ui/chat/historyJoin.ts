@@ -1,4 +1,4 @@
-import type { ChatItem } from '../../../shared/chat'
+import type { ChatItem, PromptRow } from '../../../shared/chat'
 import { FIRST_BUILD, drawable, type HistoryEntry } from '../../../shared/history'
 
 // The chat is the project's history: each turn is joined to the builds that came out of its prompt (main labels each
@@ -10,7 +10,7 @@ import { FIRST_BUILD, drawable, type HistoryEntry } from '../../../shared/histor
 export interface JoinedTurn {
   /** The `id` of the person's `user` item the turn answers. */
   promptId: string
-  /** Its number among the prompts of the transcript, from 1 (0 when it is not one of them). */
+  /** Its number among the prompts of the project, from 1 (0 when it has none). */
   number: number
   /** The builds that came out of the prompt, oldest first: a failed one too. */
   entries: HistoryEntry[]
@@ -20,10 +20,15 @@ export interface JoinedTurn {
 
 const queued = (item: ChatItem): boolean => item.kind === 'user' && item.state === 'queued'
 
-/** The person's prompts of a transcript, numbered from 1 in the order they were said (a queued one counts: it will be). */
-export function numberPrompts(items: readonly ChatItem[]): Map<string, number> {
-  const out = new Map<string, number>()
-  for (const item of items) if (item.kind === 'user') out.set(item.id, out.size + 1)
+/**
+ * The number of each prompt, by its id: the number the project's list gives it (`PromptRow.number`, counted from 1 across
+ * every conversation, one number wherever the prompt is shown), and, for a prompt of the open transcript the list does not
+ * have yet (it was only just sent, or is queued: it will be), the numbers after the list's last, in the order they were made.
+ */
+export function numbersOf(rows: readonly PromptRow[], items: readonly ChatItem[]): Map<string, number> {
+  const out = new Map<string, number>(rows.map((row) => [row.id, row.number]))
+  let last = rows.reduce((most, row) => Math.max(most, row.number), 0)
+  for (const item of items) if (item.kind === 'user' && !out.has(item.id)) out.set(item.id, (last += 1))
   return out
 }
 

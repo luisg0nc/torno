@@ -56,7 +56,8 @@ import type { Sessions } from './sessions/manager'
 import type { KnownModels } from './sessions/models'
 import { type UserProfiles, projectProfile, setProjectProfile } from './profile'
 import { type Profile, profileOf } from '../shared/profile'
-import { lastConversation } from './sessions/chatlog'
+import { lastConversation, readLog } from './sessions/chatlog'
+import { listPrompts } from './sessions/prompts'
 import { readReference } from './sessions/reference'
 import { storedConversation } from './sessions/resume'
 import { sessionOfWorkspace } from './sessions/status'
@@ -83,7 +84,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
-//           chat:history, chat:lastConversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
+//           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
@@ -853,6 +854,16 @@ export function registerIpc(
     const obj = findObject(String(objectId))
     const stored = obj ? storedConversation(obj.dir) : null
     return obj && stored !== null ? lastConversation(obj.dir, stored) : null
+  })
+
+  // The prompts of every conversation of an object, numbered across them (`main/sessions/prompts.ts`), and one earlier conversation to read: from `.torno/chat/`, read only.
+  handle('chat:prompts', async (_event, objectId: string) => {
+    const obj = findObject(String(objectId))
+    return obj ? listPrompts(obj.dir) : []
+  })
+  handle('chat:conversation', async (_event, objectId: string, conversationId: string) => {
+    const obj = findObject(String(objectId))
+    return obj ? readLog(obj.dir, String(conversationId)) : []
   })
 
   handle('chat:reference', async (_event, sessionId: string, file: string) => {
