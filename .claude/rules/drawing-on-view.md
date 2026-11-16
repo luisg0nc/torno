@@ -55,10 +55,22 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   scan, else nothing. `ViewHost.shows()` is `screenShows`: a scan counts by whether it is drawn, how thin, whether its
   mesh has come and where it stands, not by whether its tree is made. A point of the picture is the same fraction of the canvas: one camera,
   one aspect. The faces' descriptors are waited for 3 s. It then keeps the plain picture, the inked one, the pen strokes with ink left
-  (`underInk`'s `kept`, points within the picture) and what they lie over as a `NoteDraft` through `notes.make` (a rejection stays
-  on the board as its problem); the board is put away and the keys are the composer's again. Until the sheet and the waiting row
-  of a note are rebuilt (view notes, tasks 5 and 6) nothing of the note is shown above the box: it is a draft mark in the list
-  and goes with the next prompt. The sent prompt shows what each note's ink lies over under its pictures (`notes` on the
+  (`underInk`'s `kept`, points within the picture), the labels (`cleanLabels`: one line of at most 200 characters, at most 20, points within the
+  picture) and what the ink and the head of each arrow lie over (`under`: a line for each stroke told of, then one for each label with an
+  arrow, in label order; `underHeads`), with the first face under the ink as the `anchor` (`ViewHost.under` gives a face's point, normal and part), the comment
+  (one line, at most 300 characters) and the references, as a `NoteDraft` through `notes.make` (a rejection stays on the board as its problem); the
+  board is put away and the keys are the composer's again. The sheet (`InkPad` with its `labels`, `aside`, `ready` and `changed`; the doodle uses none of
+  them) has a label tool (`T`, `board.label`, not heard in a field): a click places a label and a field to write it in, a drag from it pulls an arrow
+  (`Labels.tsx`, an SVG in picture pixels over the canvas; `labelbox.ts` lays a label out from a measure, so that `paintLabels` in `compose.ts` draws
+  the very box into the PNG, over the ink); Esc in a field of the sheet (`data-board-field`) is the field's, the next one leaves. References
+  (`References.tsx`, `references.ts`) are added by main's photo dialog (`objects.pickPhotos`/`readPhoto`) or a drop, scaled to 1280 px by `prepareImage`
+  and sent as bytes, never a path; a note's own are kept by index and their comments are not changed. The sheet says before Done when the view moved
+  under it (`worksOut`, asked again every 400 ms): then `under` is empty and no anchor is sent. `openNote(objectId, markId)` (`make.ts`;
+  `drawingActions.openNoteOn` in the state) reopens a note over its plain picture (`notes.picture(…, 'plain')`) with its strokes, labels, comment and references; Done
+  sends only what changed through `notes.edit` (`change.ts`), the picture with the ink only when the strokes or labels did, and what the ink lies over is kept
+  while the strokes and the heads of the arrows stand where they were, and is none otherwise (it is not worked out for a view that is not the picture's). A note
+  whose plain picture is not on this computer opens as a sheet of its comment and references alone (`finishNoteText`). The eraser's work is not kept in a note's strokes
+  (the vectors are whole): a reopened note shows what was erased again.The sent prompt shows what each note's ink lies over under its pictures (`notes` on the
   user item, `ui/chat/DrawnOver.tsx` from `drawnOver` of `shared/drawing.ts`: the faces, `the cut face of lid`, scans,
   `stroke 1 partly over no part`, `stroke 2 over no part`; the hover lights a face in the view as everywhere); one drawn on an
   earlier build says its faces are of that build; one that was not worked out says so in `--warn`. "Attach view", pressed, shows a

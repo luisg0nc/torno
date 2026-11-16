@@ -824,9 +824,19 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   the agent's `look` makes of it, with the axes, the scale bar and the marks
   numbered. Draw on it as on the doodle board (two pens, an eraser that takes
   away only your ink, "Undo" and `Ctrl+Z`, "Clear"); the ink is magenta, edged
-  with a thin line, which no mark is drawn in. "Done" keeps the drawing as a view
+  with a thin line, which no mark is drawn in. The "Label" tool (`T`) places a
+  label: click the picture and type a line of at most 200 characters (up to 20
+  labels), then drag from the label to point an arrow at something; "Remove arrow"
+  and "Remove label" are beside the label while you write in it. Under the picture
+  are a comment (one line, 300 characters) and "Add a reference", which opens a
+  dialog for a photo or a picture (or drop one on the list), up to six, each
+  scaled to 1280 px and each with a line of its own. "Done" keeps the drawing as a view
   note, a draft among the marks, and the box has the keys again, for the prompt
-  it goes with. A note goes with your next prompt, whatever you write; once sent
+  it goes with. The sheet says before "Done" when the view moved under it, so what
+  the ink lies over could not be worked out; the head of each arrow is looked
+  under as the ink is. A note is opened again on its own plain picture to change
+  its ink, labels, comment or references; one whose picture is not on this
+  computer opens with its comment and references only. A note goes with your next prompt, whatever you write; once sent
   it is a sent mark like any other. The prompt carries, after the picture "Attach
   view" shows when there is one, each draft note in the order of the marks: its
   words, the picture with your ink, then its reference pictures, up to six
@@ -1967,6 +1977,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | In a field, a menu or a sheet | `Esc` | Sheet or question: put it away |
 | In a field, a menu or a sheet | `Ctrl+Z` | Drawing board (a doodle, or a drawing on the view): undo the last stroke |
 | In a field, a menu or a sheet | `Shift` | Drawing board: hold Shift while drawing for a straight line from where the stroke began |
+| In a field, a menu or a sheet | `T` | Drawing on the view: the label tool, click to place a label and drag from it to point an arrow (not heard in a field) |
 | For working on torno | `F12` `Ctrl+Shift+I` | Developer tools |
 <!-- keys: end -->
 

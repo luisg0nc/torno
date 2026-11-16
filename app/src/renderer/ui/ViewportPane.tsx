@@ -50,6 +50,7 @@ import { ToolHint } from './ToolHint'
 import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
 import { Logo } from './Logo'
+import { openNote } from './drawing/make'
 import { ViewBar } from './ViewBar'
 
 const NO_SCENE: Scene = { model: '', layouts: [], parts: [], seconds: 0, output: '' }
@@ -505,7 +506,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
         const x = box.left + fx * box.width
         const y = box.top + fy * box.height
         const hit = viewport.pick(x, y, { edges: false })
-        if (hit) return { ref: hit.ref }
+        if (hit) return { ref: hit.ref, point: hit.point, normal: hit.normal, part: hit.part }
         // A section's cut face is drawn in its part's colour: it is that part, not nothing.
         const cut = viewport.pickedCutOf()
         if (cut !== null) return { cut }
@@ -558,6 +559,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       // What a pointer move costs: the same call, at points spread over the canvas in a grid.
       timePicks: (count = 200, opts) => timed(count, (x, y) => viewport.pick(x, y, opts) !== null),
       underAt: (fx, fy) => viewHost()?.under([[fx, fy]])[0] ?? null,
+      openNote: (objectId, id) => openNote(objectId, id),
       pickScanAt: (fx, fy) => {
         const box = canvasBox(viewport)
         return viewport.pickScan(box.left + fx * box.width, box.top + fy * box.height)

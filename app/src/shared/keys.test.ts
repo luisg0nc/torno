@@ -320,3 +320,9 @@ it('has a key for the sketch of a new project, in its own scope, with no clash w
   expect(keyClashes()).toEqual([])
   expect(hint('new.sketch')).toBe('S')
 })
+
+it('has the label tool of a drawing on the view as T, in the sheet, with no clash', () => {
+  expect(pressed({ key: 't' }, 'board.label')).toBe(true)
+  expect(pressed({ key: 'T', shiftKey: true }, 'board.label')).toBe(true)
+  expect(keyClashes()).toEqual([])
+})

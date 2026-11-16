@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { NoteMark } from '../../shared/marks'
 import { type Pictured, drawingActions, drawingStore, screenShows } from './drawing'
 
 // The store of a drawing on the view: the board over a picture, and when what a picture holds of the window's memory
@@ -14,6 +15,12 @@ const picture = (name: string): Pictured => ({
   width: 64, height: 48, objectId: 'bracket', revision: 3, layout: 'assembly', caption: 'view current', ink: '#B5127A', casing: '#FAF9F6',
   camera: { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 },
   shows: 'same'
+})
+
+const note = (): NoteMark => ({
+  id: 'M4', kind: 'note', author: 'user', note: 'the lid', status: 'sent', anchorState: 'ok', layout: 'assembly', revision: 3, createdAt: '2026-11-16T10:00:00Z',
+  camera: picture('x').camera, picture: 'n-0123456789ab.png', ink: 'n-0123456789ab.ink.png', size: { w: 64, h: 48 }, inkColour: '#B5127A',
+  strokes: [{ width: 3, points: [[1, 2], [10, 20]] }], labels: [{ x: 5, y: 5, text: 'here', to: { x: 30, y: 30 } }], under: [], references: [{ file: 'r-0123456789ab.png', comment: 'a photo' }]
 })
 
 beforeEach(() => {
@@ -32,6 +39,39 @@ describe('a board put away', () => {
     drawingActions.cancel()
     expect(drawingStore.getState().board).toBeNull()
     expect(closed).toEqual(['one'])
+  })
+})
+
+describe('a note opened to edit', () => {
+  it('opens as a board of its own strokes on its plain picture, and says which note it is', () => {
+    drawingActions.openNoteOn('s1', 'bracket', note(), picture('plain'))
+    const board = drawingStore.getState().board!
+    expect(board.note?.id).toBe('M4')
+    expect(board.picture?.url).toBe('blob:plain')
+    expect(board.strokes).toEqual([{ tool: 'pen', width: 3, points: [[1, 2], [10, 20]] }])
+  })
+  it('leaves the note as it was when it is put away: what the board drew on is a copy, and its picture is let go', () => {
+    const was = note()
+    drawingActions.openNoteOn('s1', 'bracket', was, picture('plain'))
+    drawingStore.getState().board!.strokes[0].points.push([99, 99])
+    drawingActions.cancel()
+    expect(drawingStore.getState().board).toBeNull()
+    expect(was).toEqual(note())
+    expect(closed).toEqual(['plain'])
+    expect(revoked).toEqual(['blob:plain'])
+  })
+  it('opens with no picture when the plain one is not on this computer, and has nothing to let go', () => {
+    drawingActions.openNoteOn('s1', 'bracket', note(), null)
+    expect(drawingStore.getState().board).toMatchObject({ picture: null, note: { id: 'M4' } })
+    drawingActions.cancel()
+    expect(drawingStore.getState().board).toBeNull()
+    expect(closed).toEqual([])
+  })
+  it('is not opened over a board that is open', () => {
+    drawingActions.openOn('s1', picture('one'))
+    drawingActions.openNoteOn('s1', 'bracket', note(), picture('two'))
+    expect(drawingStore.getState().board?.picture?.url).toBe('blob:one')
+    expect(closed).toEqual(['two'])
   })
 })
 

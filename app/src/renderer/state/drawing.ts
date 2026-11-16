@@ -1,12 +1,14 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
+import type { NoteMark } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import type { Under } from '../ui/drawing/under'
 import type { Stroke } from './onboard'
 
-// A drawing on the view (the chat's "Draw on view"): the board open over a picture of the view. Done makes a view note
-// of it (`notes.make`), a draft that goes with the next prompt; nothing of the board is on disk, and a closed workspace
-// lets it go. What makes a picture and a note is `ui/drawing/make.ts`.
+// A drawing on the view (the chat's "Draw on view"): the sheet of a view note, open over a picture of the view, or over
+// the plain picture of a note being edited. Done makes the note (`notes.make`, a draft that goes with the next prompt)
+// or changes it (`notes.edit`); nothing of the sheet is on disk, and a closed workspace lets it go. What makes a
+// picture and a note is `ui/drawing/make.ts`.
 
 /** What the viewport tells of itself for a drawing, while there is one (`ui/ViewportPane.tsx`). */
 export interface ViewHost {
@@ -70,9 +72,21 @@ export interface Pictured {
   shows: string | null
 }
 
+/**
+ * The board open: for which session (empty when a note is opened with none), on which picture, with what drawn when it
+ * was opened. `note` is the note being edited, as it was when the sheet opened; null for a new one. A note whose plain
+ * picture is not on this computer has no `picture`: only its comment and its references can be changed.
+ */
+export interface Board {
+  sessionId: string
+  objectId: string
+  picture: Pictured | null
+  strokes: Stroke[]
+  note: NoteMark | null
+}
+
 interface DrawingState {
-  /** The board open: for which session, on which picture, with what drawn when it was opened. */
-  board: { sessionId: string; picture: Pictured; strokes: Stroke[] } | null
+  board: Board | null
   /** The session a picture is being made for. */
   opening: string | null
 }
@@ -84,8 +98,8 @@ export function useDrawing<T>(pick: (s: DrawingState) => T): T {
 }
 
 /** Lets go of a picture that no board holds. */
-function release(p: Pictured): void {
-  if (drawingStore.getState().board?.picture === p) return
+function release(p: Pictured | null): void {
+  if (p === null || drawingStore.getState().board?.picture === p) return
   URL.revokeObjectURL(p.url)
   p.bitmap.close()
 }
@@ -97,7 +111,17 @@ export const drawingActions = {
   },
   /** The board, over this picture, for this session. */
   openOn(sessionId: string, picture: Pictured): void {
-    drawingStore.setState({ board: { sessionId, picture, strokes: [] } })
+    drawingStore.setState({ board: { sessionId, objectId: picture.objectId, picture, strokes: [], note: null } })
+  },
+  /**
+   * The sheet over a note to edit, on its plain picture (null when that is not on this computer). The ink it had is the
+   * sheet's own copy, so that putting the sheet away leaves the note as it was. Nothing is opened over a board that is
+   * open: the picture given is let go.
+   */
+  openNoteOn(sessionId: string, objectId: string, note: NoteMark, picture: Pictured | null): void {
+    if (drawingStore.getState().board) return release(picture)
+    const strokes: Stroke[] = note.strokes.map((s) => ({ tool: 'pen', width: s.width, points: s.points.map(([x, y]) => [x, y] as [number, number]) }))
+    drawingStore.setState({ board: { sessionId, objectId, picture, strokes, note } })
   },
   /** The board put away, by Done or Cancel: the picture it was over is let go. */
   cancel(): void {

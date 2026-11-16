@@ -1,10 +1,12 @@
-import { cpSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs'
+import { cpSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { deflateSync } from 'node:zlib'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
+import type { NoteMark } from '../src/shared/marks'
 import { SESSION_HEADER } from '../src/main/http'
 import { closePanel, openPanel } from './helpers'
 import { objectList, openListed, switcher } from './objects'
@@ -525,6 +527,179 @@ test('a board discarded keeps no note, and gives the keys back to the box', asyn
   await page.keyboard.type('never mind')
   await expect(composer()).toHaveValue('never mind')
   await composer().fill('')
+})
+
+/** A small picture of one colour as a PNG file, made here: nothing of the person's. */
+function writePng(path: string, width = 96, height = 64): void {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    return c >>> 0
+  })
+  const crc = (buf: Buffer): number => {
+    let c = 0xffffffff
+    for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8)
+    return (c ^ 0xffffffff) >>> 0
+  }
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const body = Buffer.concat([Buffer.from(type), data])
+    const out = Buffer.alloc(body.length + 8)
+    out.writeUInt32BE(data.length, 0)
+    body.copy(out, 4)
+    out.writeUInt32BE(crc(body), body.length + 4)
+    return out
+  }
+  const head = Buffer.alloc(13)
+  head.writeUInt32BE(width, 0)
+  head.writeUInt32BE(height, 4)
+  head[8] = 8
+  head[9] = 2
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, 0x7f)])
+  const data = deflateSync(Buffer.concat(Array.from({ length: height }, () => row)))
+  writeFileSync(path, Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', head), chunk('IDAT', data), chunk('IEND', Buffer.alloc(0))]))
+}
+
+/** The view notes of the project as the window holds them. */
+const notesNow = async (): Promise<NoteMark[]> => (await state()).marks.filter((m): m is NoteMark => m.kind === 'note')
+const noteNow = async (id: string): Promise<NoteMark> => (await notesNow()).find((n) => n.id === id)!
+
+test('a view note: two strokes, a label with an arrow, a comment and a reference are kept as a draft note, with its files; opened again, a changed comment is kept and a sent note is a draft again', async () => {
+  const spot = await page.evaluate(() => {
+    for (const fy of [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65]) {
+      for (const fx of [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65]) {
+        const hit = window.__tornoTest!.pickAt(fx, fy, { edges: false })
+        if (hit) return { fx, fy, part: hit.part }
+      }
+    }
+    return null
+  })
+  expect(spot).not.toBeNull()
+  const { fx, fy, part } = spot!
+  const photo = join(home, 'reference.png')
+  writePng(photo)
+  await app.evaluate((_electron, picked) => void ((globalThis as unknown as { __tornoMain: { pickPhotos: string[] } }).__tornoMain.pickPhotos = picked), [photo])
+  ended = await turns().count()
+  await cameraSettled()
+
+  await drawButton().click()
+  const board = drawingBoard()
+  await expect(board).toBeVisible()
+  const canvas = board.locator('canvas')
+  await line(board, [fx - 0.01, fy], [fx + 0.01, fy])
+  await line(board, [fx, fy - 0.01], [fx, fy + 0.01])
+  await expect(canvas).toHaveAttribute('data-strokes', '2')
+  // The label tool is T, and a label is written where the picture was pressed.
+  await page.keyboard.press('t')
+  await expect(board.getByRole('button', { name: 'Label' })).toHaveAttribute('aria-pressed', 'true')
+  const box = (await canvas.boundingBox())!
+  const at = (x: number, y: number): [number, number] => [box.x + box.width * x, box.y + box.height * y]
+  await page.mouse.click(...at(0.08, 0.1))
+  await expect(board.getByRole('textbox', { name: 'Label text' })).toBeFocused()
+  // T typed into a field is a letter: it does not take the tool again.
+  await page.keyboard.type('thicker here')
+  await page.keyboard.press('Enter')
+  await expect(board.getByRole('textbox', { name: 'Label text' })).toHaveCount(0)
+  await expect(board.locator('.label')).toHaveCount(1)
+  // An arrow: a drag from the label to the part.
+  const [lx, ly] = at(0.08, 0.1)
+  await page.mouse.move(lx + 12, ly + 12)
+  await page.mouse.down()
+  await page.mouse.move(...at(fx, fy), { steps: 10 })
+  await page.mouse.up()
+  await expect(board.locator('.label[data-arrow]')).toHaveCount(1)
+  await board.getByRole('textbox', { name: 'Comment' }).fill('make the lid thicker')
+  await board.getByRole('button', { name: 'Add a reference' }).click()
+  await expect(board.getByRole('img', { name: 'Reference 1' })).toBeVisible()
+  await board.getByRole('textbox', { name: 'Comment on reference 1' }).fill('the part it mates with')
+  await board.getByRole('button', { name: 'Done' }).click()
+  await expect(board).toHaveCount(0)
+
+  await expect(draftNotes()).toHaveCount(1)
+  const note = (await notesNow()).at(-1)!
+  expect(note).toMatchObject({ status: 'draft', author: 'user', note: 'make the lid thicker' })
+  expect(note.strokes).toHaveLength(2)
+  expect(note.labels).toHaveLength(1)
+  expect(note.labels[0]).toMatchObject({ text: 'thicker here' })
+  expect(note.labels[0].to).toBeDefined()
+  expect(note.references).toEqual([{ file: expect.stringMatching(/^r-[0-9a-f]{12}\.(png|jpg)$/), comment: 'the part it mates with' }])
+  // What the ink lies over: a line for each stroke, then one for the head of the arrow, which is over the part.
+  expect(note.under).toHaveLength(3)
+  expect(note.under[2].refs[0]?.ref).toMatch(new RegExp(`^${part}/F\\d+$`))
+  expect(note.anchor?.ref).toMatch(new RegExp(`^${part}/F\\d+$`))
+  // Its files are in the project's folder, named by main: the plain picture, the one with the ink, the reference.
+  const files = readdirSync(join(root, 'bracket', '.torno', 'notes'))
+  expect(note.picture).toMatch(/^n-[0-9a-f]{12}\.png$/)
+  expect(note.ink).toMatch(/^n-[0-9a-f]{12}\.ink\.png$/)
+  for (const file of [note.picture, note.ink, note.references[0].file]) expect(files).toContain(file)
+  // The picture with the ink on it is the plain one's size.
+  const inkPng = readFileSync(join(root, 'bracket', '.torno', 'notes', note.ink))
+  expect([inkPng.readUInt32BE(16), inkPng.readUInt32BE(20)]).toEqual([note.size.w, note.size.h])
+  expect(Math.max(note.size.w, note.size.h)).toBe(1280)
+
+  // Reopened and put away unchanged, it is left as it was.
+  const id = note.id
+  await page.evaluate((mark) => window.__tornoTest!.openNote('bracket', mark), id)
+  await expect(board).toBeVisible()
+  await expect(board.getByRole('textbox', { name: 'Comment' })).toHaveValue('make the lid thicker')
+  await expect(board.locator('.label')).toHaveCount(1)
+  await expect(canvas).toHaveAttribute('data-strokes', '2')
+  await board.getByRole('button', { name: 'Cancel' }).click()
+  await expect(board).toHaveCount(0)
+  expect((await noteNow(id)).note).toBe('make the lid thicker')
+
+  // It goes with a prompt: then it is sent.
+  await say('images')
+  await finished()
+  await expect.poll(async () => (await noteNow(id)).status).toBe('sent')
+
+  // Reopened, its comment changed, Done: the pictures were not made again, and the note is a draft once more, reopened.
+  const before = (await noteNow(id)).ink
+  await page.evaluate((mark) => window.__tornoTest!.openNote('bracket', mark), id)
+  await expect(board).toBeVisible()
+  await board.getByRole('textbox', { name: 'Comment' }).fill('make the lid thicker, 3 mm')
+  await board.getByRole('button', { name: 'Done' }).click()
+  await expect(board).toHaveCount(0)
+  await expect.poll(async () => (await noteNow(id)).note).toBe('make the lid thicker, 3 mm')
+  const after = await noteNow(id)
+  expect(after).toMatchObject({ status: 'draft', reopened: true })
+  expect(after.ink).toBe(before)
+  expect(after.strokes).toHaveLength(2)
+  expect(after.labels).toHaveLength(1)
+  expect(after.references).toHaveLength(1)
+  // Taking the reference away and changing a label: the picture with the ink is made again.
+  await page.evaluate((mark) => window.__tornoTest!.openNote('bracket', mark), id)
+  await board.getByRole('button', { name: 'Remove reference 1' }).click()
+  await board.getByRole('button', { name: 'Label' }).click()
+  const again = (await canvas.boundingBox())!
+  await page.mouse.click(again.x + again.width * 0.08 + 12, again.y + again.height * 0.1 + 12)
+  await page.keyboard.press('End')
+  await page.keyboard.type(' now')
+  await page.keyboard.press('Enter')
+  await board.getByRole('button', { name: 'Done' }).click()
+  await expect(board).toHaveCount(0)
+  await expect.poll(async () => (await noteNow(id)).references.length).toBe(0)
+  const edited = await noteNow(id)
+  expect(edited.labels[0].text).toBe('thicker here now')
+  expect(edited.ink).not.toBe(before)
+  // A label's words alone changed: what the ink lies over is what it was.
+  expect(edited.under).toHaveLength(3)
+  await say('images')
+  await finished()
+  await expect.poll(async () => (await noteNow(id)).status).toBe('sent')
+})
+
+test('a note whose ink was drawn while the view moved says so in the sheet, before Done', async () => {
+  await drawButton().click()
+  await expect(drawingBoard()).toBeVisible()
+  await expect(drawingBoard().locator('.note-warn')).toHaveCount(0)
+  // The agent's `show` moves the view under the sheet.
+  const show = (request: object): Promise<void> => app.evaluate(({ BrowserWindow }, req) => BrowserWindow.getAllWindows()[0].webContents.send('view:show', { id: 987703, request: req }), request)
+  await show({ objectId: 'bracket', view: 'top' })
+  await expect(drawingBoard().locator('.note-warn')).toContainText('could not be worked out')
+  await drawingBoard().getByRole('button', { name: 'Cancel' }).click()
+  await expect(drawingBoard()).toHaveCount(0)
+  await show({ objectId: 'bracket', view: 'iso' })
+  await cameraSettled()
 })
 
 test('ink over the face a section cuts is told as the cut face of its part, not as over no part', async () => {
