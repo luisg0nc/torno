@@ -1,5 +1,5 @@
 import type { Stroke } from '../../state/onboard'
-import { type InkLook, paintStrokes } from '../board/strokes'
+import { type InkLook, paintStrokes } from '../ink/strokes'
 
 /**
  * The picture of a drawing on the view: the ground (the agent's picture of the view) with the ink over it, a PNG of

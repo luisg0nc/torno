@@ -89,6 +89,20 @@ const bridge: TornoBridge = {
     problem: (objectId) => invokePlain('marks:problem', objectId),
     dismissProblem: (objectId) => invokePlain('marks:dismissProblem', objectId)
   },
+  board: {
+    read: (objectId) => invokePlain('board:read', objectId),
+    change: (objectId, change) => invokePlain('board:change', objectId, change),
+    picture: (objectId, name) => invokePlain('board:picture', objectId, name),
+    brief: (objectId) => invokePlain('board:brief', objectId),
+    reference: (objectId, file) => invokePlain('board:reference', objectId, file),
+    addPicture: (objectId, bytes) => invokePlain('board:addPicture', objectId, bytes),
+    pin: (objectId, what) => invokePlain('board:pin', objectId, what),
+    open: (objectId, what) => invokePlain('board:open', objectId, what),
+    onChanged: (cb) => subscribe('board:changed', cb),
+    problem: (objectId) => invokePlain('board:problem', objectId),
+    dismissProblem: (objectId) => invokePlain('board:dismissProblem', objectId),
+    onProblem: (cb) => subscribe('board:problem', cb)
+  },
   objects: {
     pickPhotos: () => invokePlain('objects:pickPhotos'),
     pickScan: () => invokePlain('scans:pick'),

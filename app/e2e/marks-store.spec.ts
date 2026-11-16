@@ -112,7 +112,7 @@ test('a pin added through the bridge is M1, in the window and in .torno/marks.js
   await expect.poll(async () => (await state()).marks).toEqual([checked])
   expect(marksOnDisk()).toEqual({ next: 2, marks: (await state()).marks })
   // Beside it only the state file, which follows the build and the marks by a second, and the picture of the object's card with what goes with it.
-  expect(readdirSync(join(root, 'bracket', '.torno')).filter((name) => !['state.md', 'thumb.png', 'thumb.json', 'builds.jsonl', 'history', '.gitignore'].includes(name))).toEqual(['marks.json'])
+  expect(readdirSync(join(root, 'bracket', '.torno')).filter((name) => !['state.md', 'thumb.png', 'thumb.json', 'builds.jsonl', 'history', 'board', '.gitignore'].includes(name))).toEqual(['marks.json'])
 })
 
 test('a change made through the bridge reaches the window and the file', async () => {
@@ -173,7 +173,7 @@ test('the mark is still there after the window is reloaded', async () => {
 test('nothing else in the object folder changed', async () => {
   expect(bracketFiles()).toEqual(before)
   // Beside it only the state file, which follows the build and the marks by a second, and the picture of the object's card with what goes with it.
-  expect(readdirSync(join(root, 'bracket', '.torno')).filter((name) => !['state.md', 'thumb.png', 'thumb.json', 'builds.jsonl', 'history', '.gitignore'].includes(name))).toEqual(['marks.json'])
+  expect(readdirSync(join(root, 'bracket', '.torno')).filter((name) => !['state.md', 'thumb.png', 'thumb.json', 'builds.jsonl', 'history', 'board', '.gitignore'].includes(name))).toEqual(['marks.json'])
   // The marks file did not set off a build: the bracket is still at its first.
   expect((await state()).build).toMatchObject({ status: 'ok', revision: 1, stale: false })
 })

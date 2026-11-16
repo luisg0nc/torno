@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { GIZMO_MODES, TOOLS, TOOL_GROUPS } from '../renderer/state/tools'
 import { REBUILD_HOW, REBUILD_KEY } from './build'
 import { EXPLODED_TOOLS } from './explode'
-import { CONTEXTS, GIZMO_KEYS, SCAN_TOOLS, capsOf, doesOf, KEYS, TOOL_KEYS, VIEW_KEYS, cheatSheet, hint, keyClashes, keyName, pressOf, pressed, stepOf, typed, which, type KeyRow } from './keys'
+import { CONTEXTS, GIZMO_KEYS, SCAN_TOOLS, capsOf, doesOf, KEYS, TOOL_KEYS, VIEW_KEYS, cheatSheet, hint, keyClashes, keyName, pressOf, pressed, stepOf, typed, viewKey, which, type KeyRow } from './keys'
 
 it('is where the tools, the views and the gizmo have their keys from', () => {
   expect(TOOLS.map((t) => [t.name, t.label, t.key])).toEqual(TOOL_KEYS.map((t) => [t.name, t.label, t.key]))
@@ -25,7 +25,7 @@ it('puts every tool in a group, and the rows in the order of the groups: those t
 
 it('lists every tool, every view key and the gizmo in the sheet, each key once where it is listened to', () => {
   const sheet = cheatSheet()
-  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
+  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
   expect(sheet.map((g) => g.context)).toEqual(CONTEXTS.map((c) => c.name))
   for (const group of sheet) expect([group.context, group.rows.length > 0, group.when.length > 0]).toEqual([group.context, true, true])
   const viewport = KEYS.filter((row) => row.scope === 'viewport').flatMap((row) => row.keys)
@@ -73,6 +73,34 @@ it('names a key press as the table does', () => {
   expect(keyName({ key: '`', code: 'Backquote', ctrlKey: true })).toBe('Ctrl+`')
   expect(keyName({ key: 'I', ctrlKey: true, shiftKey: true })).toBe('Ctrl+Shift+I')
   expect(keyName({ key: 'F12' })).toBe('F12')
+  // The character a key gives is its name even with Shift on a figure: `/` on a Portuguese or German keyboard is Shift+7, and a figure on a French one is Shift+its key.
+  expect(keyName({ key: '/', code: 'Digit7', shiftKey: true })).toBe('/')
+  expect(keyName({ key: '1', code: 'Digit1', shiftKey: true })).toBe('1')
+  expect(keyName({ key: '!', code: 'Digit1', shiftKey: true })).toBe('!')
+  expect(keyName({ key: '1', code: 'Digit1' })).toBe('1')
+})
+
+it('knows a key of the view, for the board that covers it', () => {
+  for (const key of ['V', 'F', 'A', 'S', 'M', 'X', 'E', 'O', '1', 'G', 'T', 'Enter']) expect([key, viewKey({ key })]).toEqual([key, true])
+  // What sheets and the page of projects keep, and what is not the view's at all.
+  for (const key of ['Esc', 'W', 'Q', '?']) expect([key, viewKey({ key: key === 'Esc' ? 'Escape' : key })]).toEqual([key, false])
+  expect(viewKey({ key: 'v', ctrlKey: true, code: 'KeyV' })).toBe(false)
+})
+
+it('has the keys of the board, and Ctrl+Tab for the swap alone in the window', () => {
+  expect(hint('board.swap')).toBe('Ctrl+Tab')
+  expect(pressed({ key: 'Tab', code: 'Tab', ctrlKey: true }, 'board.swap')).toBe(true)
+  expect(pressed({ key: 'Tab', code: 'Tab' }, 'board.swap')).toBe(false)
+  expect(pressed({ key: '!', code: 'Digit1', shiftKey: true }, 'board.fit')).toBe(true)
+  expect(pressed({ key: '1', code: 'Digit1' }, 'board.fit')).toBe(false)
+  // Shift on the figure key, whatever the layout makes of it (`1` on a French one), and only that key.
+  expect(pressed({ key: '1', code: 'Digit1', shiftKey: true }, 'board.fit')).toBe(true)
+  expect(pressed({ key: '/', code: 'Digit7', shiftKey: true }, 'board.fit')).toBe(false)
+  expect(pressed({ key: '!', code: 'Digit1', shiftKey: true, ctrlKey: true }, 'board.fit')).toBe(false)
+  // The key of the page's filter stays the filter's where Shift makes the slash.
+  expect(pressed({ key: '/', code: 'Digit7', shiftKey: true }, 'page.filter')).toBe(true)
+  for (const [id, key] of [['select', 'V'], ['text', 'N'], ['frame', 'F'], ['arrow', 'A'], ['picture', 'I'], ['sketch', 'S']] as const) expect(hint(`board.${id}`)).toBe(key)
+  expect(KEYS.some((r) => r.id === 'board.attach' && r.scope === 'board')).toBe(true)
 })
 
 it('says which key of a row was pressed', () => {
@@ -111,7 +139,8 @@ it('has nothing heard while typing that typing or the terminal would take', () =
   expect(global.map((row) => row.id)).toEqual(['session.focus', 'region.next', 'region.previous', 'dock.toggle', 'export', 'rebuild', 'devtools'])
   for (const row of global) for (const key of row.keys) expect([key, typed(key)]).toEqual([key, false])
   // And nothing that is listened to only outside a field needs a chord to be told from typing.
-  for (const row of KEYS.filter((r) => r.scope === 'viewport' || r.scope === 'window')) for (const key of row.keys) expect([key, typed(key)]).toEqual([key, true])
+  // (The board's swap, Ctrl+Tab, is a chord typing does not take, and is still not heard in a field: the spec's call, so a page with a field of its own keeps its Tab.)
+  for (const row of KEYS.filter((r) => (r.scope === 'viewport' || r.scope === 'window') && r.id !== 'board.swap')) for (const key of row.keys) expect([key, typed(key)]).toEqual([key, true])
 })
 
 /** Every source of the window and of main that is not a test. */

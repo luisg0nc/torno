@@ -3,7 +3,8 @@
 /* The bars at the top of the view, one under the other, in the middle: the view bar, and under it what it opens. */
 .viewbars {
   position: absolute;
-  top: var(--space-3);
+  /* Below the switch of Board and Model, which stands over the top left of this area (`--switch-h`): at the widths a view can have, bars that are centred reach under it. */
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
   left: var(--space-3);
   right: var(--space-3);
   display: flex;

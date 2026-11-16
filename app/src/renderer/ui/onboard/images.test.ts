@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MOST_PIXELS, PROMPT_EDGE, extensionOf, fitWithin, headerSize, imageType, isHeic } from './images'
-import { ERASER_WIDTH, addPoint } from '../board/strokes'
+import { ERASER_WIDTH, addPoint } from '../ink/strokes'
 
 describe('the pictures of the first prompt', () => {
   it('scales the long edge to 1280, keeps the shape, and never makes a picture larger', () => {

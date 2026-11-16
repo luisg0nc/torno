@@ -17,7 +17,7 @@ describe('what the tools tell a client', () => {
   })
 
   it('marks the tools that only read as read-only, and the ones that change the view or the marks as neither read-only nor destructive', () => {
-    const readOnly = ['check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'try_fillet', 'try_params']
+    const readOnly = ['board', 'check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'try_fillet', 'try_params']
     expect(entries.filter(([, tool]) => tool.annotations.readOnlyHint).map(([name]) => name).sort()).toEqual(readOnly)
     for (const [name, tool] of entries.filter(([name]) => !readOnly.includes(name))) expect(tool.annotations, name).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false })
   })

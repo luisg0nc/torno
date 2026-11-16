@@ -40,6 +40,9 @@ import { type AskedAnchor, type Retrying, asPlaced, asReplaced, checkMarks, foll
 import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/measure'
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, restoreMark, tendRegions } from './marks/regions'
 import type { MarkStore } from './marks/store'
+import { boardAttachOf, boardHandlers } from './board/ipc'
+import { pinBuild } from './board/pinbuild'
+import type { BoardStore } from './board/store'
 import { kernelDir, kernelRun } from './paths'
 import { Refusal, refusable } from './refusal'
 import { type AlignCheckDeps, checkingAlignments, heldNow, keepChecking, tiedToMoved, uncheckedOn } from './scans/alignCheck'
@@ -48,6 +51,8 @@ import type { ScanStore } from './scans/store'
 import { forgetParamFiles, overrideValues, reconcile, resetOverrides, setOverride } from './paramsfile'
 import { forgetSceneFiles, loadSceneFile, saveSceneFile, sceneFileNow } from './scenefile'
 import { EFFORTS, isEffort, isMode, MODES, MODEL_ALIASES, MODEL_NAME, type ChatAnswer } from '../shared/chat'
+import type { BoardOpen, PersonChange, PinWhat } from '../shared/board'
+import type { SavedView } from '../shared/views'
 import type { AgentView, CreateRequest, OnboardDraft, PromptPreviewDraft } from '../shared/bridge'
 import { readChoice, writeChoice } from './sessions/choice'
 import { drawingOf } from './sessions/drawing'
@@ -81,6 +86,8 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 // Channel names, repeated in src/preload/index.ts.
 //   invoke: workspace:current, workspace:pick, workspace:open, workspace:versions, ready:check, ready:make,
 //           history:list, history:thumbnail, history:source, history:ghost, history:star, history:goBackPlan, history:goBack,
+//           board:read, board:change, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open,
+//           board:problem, board:dismissProblem,
 //           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
@@ -96,7 +103,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:saveView (sent by src/main/look.ts),
 //           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested and window:closeAsked (sent by src/main/index.ts,
 //           which hears the answer, window:closeAnswer),
-//           ready:changed, marks:changed, marks:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
+//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
 
 /** The longest prompt the window may send. */
 const MAX_PROMPT_CHARS = 200_000
@@ -174,6 +181,9 @@ let onMarksChecked: ((objectId: string, revision: number | undefined) => void) |
 
 /** Told that the window gave the scene file of an object to save: its saved views may be others. */
 let onSceneFile: ((objectId: string) => void) | null = null
+
+/** Told that the window opened a project of the workspace, once `registerIpc` has been given it. */
+let onObjectOpened: ((objectId: string) => void) | null = null
 
 /** Told that the workspace was left, with what was known of its objects. */
 let onWorkspaceClosed: (() => void) | null = null
@@ -569,12 +579,18 @@ export function registerIpc(
     /** The profile of an object changed: its state file is written anew. */
     onProfile?: (objectId: string) => void
     marks?: MarkStore
+    /** The boards of the projects: the window reads and changes them through here, and is told when one changes. */
+    board?: BoardStore
+    /** The views saved of a project (its scene file's): only one of them is pinned to the board. */
+    views?: (objectId: string) => Promise<SavedView[]>
     onBuild?: (state: BuildState) => void
     onMarksChecked?: (objectId: string, revision: number | undefined) => void
     /** The window gave the scene file of an object to save. */
     onSceneFile?: (objectId: string) => void
     /** The open workspace was left: object ids mean nothing any more. */
     onWorkspaceClosed?: () => void
+    /** The window opened a project: the cards of what it has are brought up to date. */
+    onObjectOpened?: (objectId: string) => void
     /** What torno needs and whether it is there: Claude Code, uv, the kernel's Python environment. */
     ready?: ReadyKeeper
     /** The folders opened lately, each with whether it is still there. */
@@ -624,6 +640,7 @@ export function registerIpc(
   onMarksChecked = opts.onMarksChecked ?? null
   onSceneFile = opts.onSceneFile ?? null
   onWorkspaceClosed = opts.onWorkspaceClosed ?? null
+  onObjectOpened = opts.onObjectOpened ?? null
   readiness = opts.ready ?? null
   readiness?.on('changed', (m) => broadcast('ready:changed', m))
   marks = opts.marks ?? null
@@ -635,6 +652,29 @@ export function registerIpc(
   const requireMarks = (): MarkStore => {
     if (!marks) throw new Error('marks are not available')
     return marks
+  }
+
+  // The board of a project: what the person does to it in the window, and the window told of every change, whoever made it.
+  const boardStore = opts.board
+  boardStore?.on('changed', (m) => broadcast('board:changed', m))
+  boardStore?.on('problem', (m) => broadcast('board:problem', m))
+  const boards = boardStore
+    ? boardHandlers({
+        board: boardStore,
+        object: findObject,
+        views: async (objectId) => (await opts.views?.(objectId)) ?? [],
+        // The brief in the person's own program, a photo in its folder: tests stand in for both, as for an export.
+        show: async (how, path) => {
+          if (how === 'reveal') return void (opts.revealFile ? opts.revealFile(path) : shell.showItemInFolder(path))
+          if (opts.openFile) return void (await opts.openFile(path))
+          const failed = await shell.openPath(path)
+          if (failed) throw new Refusal(`It could not be opened: ${failed}`)
+        },
+        pinBuild: (objectId, historyId) => pinBuild({ board: boardStore, object: findObject, history: requireWorkspace().history }, objectId, historyId) })
+    : undefined
+  const requireBoards = (): NonNullable<typeof boards> => {
+    if (!boards) throw new Error('boards are not available')
+    return boards
   }
 
   const chosen = (info: WorkspaceInfo): WorkspaceInfo => {
@@ -726,6 +766,7 @@ export function registerIpc(
     if (!obj) throw new Error(`no project named ${id} in ${ws.info.root}`)
     const state = ws.builds.open(obj)
     ws.opened.add(id)
+    onObjectOpened?.(id)
     // A renderer that subscribes after a build has missed its scene event.
     const last = ws.builds.scene(id)
     if (last) event.sender.send('object:scene', { objectId: id, ...last, blob: toArrayBuffer(last.blob) })
@@ -882,7 +923,7 @@ export function registerIpc(
     await requireSessions().undoTurn(String(sessionId), turnId)
   })
 
-  handle('chat:send', async (_event, sessionId: string, prompt: { text?: unknown; attachView?: unknown; attachedView?: unknown; drawing?: unknown }) => {
+  handle('chat:send', async (_event, sessionId: string, prompt: { text?: unknown; attachView?: unknown; attachedView?: unknown; drawing?: unknown; board?: unknown }) => {
     if (!ofThisWorkspace(String(sessionId))) throw new Refusal('This session has ended')
     if (typeof prompt?.text !== 'string' || prompt.text.length > MAX_PROMPT_CHARS) throw new Refusal('Nothing to send')
     // The window's drawing is taken only once it is what one is: main words what the agent reads of it.
@@ -890,7 +931,10 @@ export function registerIpc(
     if (typeof drawing === 'string') throw new Refusal(drawing)
     // The picture the window showed for "Attach view": the sessions check it as any picture for the agent.
     if (prompt.attachedView !== undefined && !(prompt.attachedView instanceof Uint8Array)) throw new Refusal('The picture of the view is not one')
-    await requireSessions().send(String(sessionId), { text: prompt.text, attachView: prompt.attachView === true, ...(prompt.attachedView ? { attachedView: prompt.attachedView } : {}), ...(drawing ? { drawing } : {}) })
+    // The part of the board to go with it: ids, or all. What each says is read when it is sent, not taken from the window.
+    const board = prompt.board === undefined ? undefined : boardAttachOf(prompt.board)
+    if (typeof board === 'string') throw new Refusal(board)
+    await requireSessions().send(String(sessionId), { text: prompt.text, attachView: prompt.attachView === true, ...(prompt.attachedView ? { attachedView: prompt.attachedView } : {}), ...(drawing ? { drawing } : {}), ...(board ? { board } : {}) })
   })
 
   // The questions the agent put to the person (`ask`): the list for a window that has just begun, and the answer.
@@ -981,6 +1025,17 @@ export function registerIpc(
     const layout = (await store.list(String(objectId))).find((m) => m.id === String(id))?.layout
     return store.replace(String(objectId), String(id), layout === undefined ? placed : asReplaced(placed, layout, lastScene(String(objectId))))
   })
+  handle('board:read', (_event, objectId: string) => requireBoards().read(objectId))
+  handle('board:change', (_event, objectId: string, change: PersonChange) => requireBoards().change(objectId, change))
+  handle('board:picture', (_event, objectId: string, name: string) => requireBoards().picture(objectId, name))
+  handle('board:brief', (_event, objectId: string) => requireBoards().brief(objectId))
+  handle('board:reference', (_event, objectId: string, file: string) => requireBoards().reference(objectId, file))
+  handle('board:addPicture', (_event, objectId: string, bytes: Uint8Array) => requireBoards().addPicture(objectId, bytes))
+  handle('board:pin', (_event, objectId: string, what: PinWhat) => requireBoards().pin(objectId, what))
+  handle('board:open', (_event, objectId: string, what: BoardOpen) => requireBoards().open(objectId, what))
+  handle('board:problem', (_event, objectId: string) => requireBoards().problem(objectId))
+  handle('board:dismissProblem', (_event, objectId: string) => requireBoards().dismissProblem(objectId))
+
   handle('marks:problem', (_event, objectId: string) => requireMarks().problem(String(objectId)))
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
 

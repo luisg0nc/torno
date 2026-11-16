@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { attachLabel, attachSummary } from '../../../shared/board'
 import { drawnOver } from '../../../shared/drawing'
 import { hint, pressed, which } from '../../../shared/keys'
 import { unmetDimensions } from '../../../shared/dimension'
+import { boardActions, useBoard } from '../../state/board'
 import { useChat } from '../../state/chat'
 import { drawingActions, drawingWaits, useDrawing } from '../../state/drawing'
 import { picture } from '../../state/agent'
@@ -86,6 +88,29 @@ function Next() {
   )
 }
 
+/**
+ * The part of the board that goes with the next prompt, as a chip: "Latch · 3 cards · 1 arrow". What each card says is read
+ * when the prompt is sent, so an edit made since goes too; a card removed meanwhile is left out and the chip says so.
+ */
+function BoardChip() {
+  const attached = useBoard((s) => s.attached)
+  const board = useBoard((s) => s.board)
+  if (attached === null || board === null) return null
+  const sum = attachSummary(board, attached.ids)
+  return (
+    <div className="chat-board-attached" role="group" aria-label="Board attached">
+      <span className="chat-with-what">
+        <span>{attached.ids === 'all' ? 'The whole board goes with your next prompt' : 'Part of the board goes with your next prompt'}</span>
+        <span className="chat-board-chip num">{attachLabel(sum)}</span>
+        {sum.gone.length > 0 && <span className="chat-board-gone">{numbered(`${sum.gone.join(', ')} ${sum.gone.length === 1 ? 'was' : 'were'} removed, so ${sum.gone.length === 1 ? 'it is' : 'they are'} left out`)}</span>}
+      </span>
+      <button type="button" className="button button-quiet" onClick={() => boardActions.detach()}>
+        Remove
+      </button>
+    </div>
+  )
+}
+
 /** The `/` commands the CLI named, offered while a single `/word` is typed: the arrows choose, Tab or a click completes. */
 function Commands({ offered, at, onChoose }: { offered: ReturnType<typeof commandsFor>; at: number; onChoose: (name: string) => void }) {
   return (
@@ -144,6 +169,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
   const openMarks = useStore((st) => st.marks.filter((m) => m.status !== 'resolved').length)
   const layouts = useStore((st) => st.scene?.layouts)
   const buildFailed = useStore((st) => st.build?.status === 'failed')
+  const boardAttached = useBoard((st) => st.attached !== null && st.board !== null)
   // A permission or a plan waiting for the person: what is written can be the answer to it.
   const waiting = chat?.items.findLast((i) => i.kind === 'ask' && i.state === 'open' && i.toolName !== 'AskUserQuestion')
   const openAsk = waiting?.kind === 'ask' ? waiting : undefined
@@ -259,12 +285,14 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
     }
     // The drawing goes with this prompt and with no other; given back if the prompt is not sent.
     const drawing = drawingActions.taken(sessionId)
+    // So is the part of the board the person attached; the same.
+    const board = boardActions.takeAttached()
     setText('')
     unattach()
     setProblem(null)
     onSent()
     try {
-      await window.torno.chat.send(sessionId, { text: prompt, ...(viewPng ? { attachedView: viewPng } : {}), ...(drawing ? { drawing: drawing.drawing } : {}) })
+      await window.torno.chat.send(sessionId, { text: prompt, ...(viewPng ? { attachedView: viewPng } : {}), ...(drawing ? { drawing: drawing.drawing } : {}), ...(board ? { board } : {}) })
       if (drawing) drawingActions.spent(drawing)
     } catch (e) {
       // Nothing was sent: what was written is given back, unless more has been written since.
@@ -276,6 +304,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         preview(press, Promise.resolve({ png: viewPng, objectId }))
       }
       if (drawing) drawingActions.giveBack(sessionId, drawing)
+      if (board) boardActions.giveBackAttached(board)
       setProblem(reason(e))
     }
   }
@@ -333,8 +362,9 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         />
       )}
       {offered.length > 0 && <Commands offered={offered} at={at} onChoose={complete} />}
-      {(drawn || attach) && (
+      {(drawn || attach || boardAttached) && (
         <div className="chat-with">
+          <BoardChip />
           {drawn && (
             <div className="chat-drawing" role="group" aria-label="Drawing on the view">
               <img src={drawn.thumb} alt="" draggable={false} />

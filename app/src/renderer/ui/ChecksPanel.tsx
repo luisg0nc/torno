@@ -1,6 +1,7 @@
 import { useStore } from '../state/store'
 import { checkRow, checksSaid, noteLines } from './checkRows'
 import { numbered } from './numbered'
+import { PinButton } from './projectBoard/PinButton'
 import { SectionTitle } from './SectionTitle'
 
 /**
@@ -18,7 +19,9 @@ export function ChecksPanel() {
   const notes = noteLines(scene.checkNotes ?? [])
   return (
     <section className="section checks" aria-label="Checks">
-      <SectionTitle title="Checks" said={checksSaid(checks)} />
+      <SectionTitle title="Checks" said={checksSaid(checks)}>
+        <PinButton what={{ kind: 'checks' }} title="Put the checks on the board as a card that stays up to date" />
+      </SectionTitle>
       <ul className="rows">
         {checks.map((check) => {
           const row = checkRow(check)

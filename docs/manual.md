@@ -1159,6 +1159,8 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__check` | Whether two parts overlap, how far apart they are, whether a part's mesh is closed, and whether it prints: overhangs, thin walls, the fit on a bed. |
 | `mcp__torno__diff` | What changed between the last two successful builds (or the two given as `from` and `to`: a revision of this run, or a build kept in the history by its id, `h41`): for each layout the parts added and removed, and for each part its volume (and its change in percent), box size and min corner before and after, with whether each is exact, and its face, edge and solid counts, a hint that refs may name other faces now. The answer to an edit gives the same of each part that changed. `builds` says what each was made from (a hash of the sources, the commit, whether files differed from it, and of a kept build its id and the checks, defects and dimensions it had then, which are as of then), and a note says when the two were made from the same sources. |
 | `mcp__torno__history` | The builds kept of the project (see Files torno writes, `history/`), newest first: each with its id (`h41`), when, its revision if it was made in this run, what changed from the build before it in a line that also says what caused it (Claude and the prompt, your own edit, params, a go back) and whether it failed to build (kept as a line with no copies, and the reason), the checks of the model that failed and the parts with a defect (a build that fails its checks is kept all the same), how your dimensions stood when it was checked, and whether you starred it. With `id`, one build, with the paths of the copies of its Python files, to read when going back to it. The agent never restores them itself: only your "Go back" does, and Claude is told when it has. |
+| `mcp__torno__board` | Reads the board of the project as text: each card by its id, its kind and who made it (you, Claude, or torno), with what it says, the frames first with their cards in reading order, then the arrows. A frame by its name or id gives only that frame and its cards; `pictures: true` also sends the pictures of the cards, at most 6, each scaled to 1280 px. Hidden cards are left out. |
+| `mcp__torno__add_card` | Leaves a card of Claude's on the board: some text, or a picture of the view drawn as `look` draws it (at 1280 px, with its camera), in a frame by name (made, and Claude's, when there is none), with an arrow from or to a card and a word. It lands in a free spot, never over a card; in a frame of yours with no room left it goes just below the frame, and Claude is told so. With `card` it changes the text of, or with `remove` takes down, a card of Claude's own, and it refuses any change to a card of yours or one torno made. |
 | `mcp__torno__expect` | Called before an edit: what it should change, as checks (a part's `volume`, `faces`, `edges` or `size` as a `value` or a `change` with a `tolerance`; a `measure` with the number it `expected`; `unchanged` parts). The next successful build is held against it, and the answer to the edit says in a line how many checks were met and which were not, with the numbers (`≈` where the kernel's is not exact). Kept in memory for that one build, told once, no mark, and it never holds a turn back. A ref to a face of a part whose face count changed is told as moved and not measured. `scene` gives the last verdict. |
 | `mcp__torno__try_fillet` | Tries a fillet (or a chamfer, `kind: 'chamfer'`) of `radius` mm of some edges of a part (`part`, `edges` as refs such as `lid/E3`) on the last good build and throws it away: whether it works, and when it does not, the edges that fail alone or in pairs and the largest radius that works, as a failed build's error says it. It changes nothing. |
 | `mcp__torno__try_params` | Builds the model with other values of its `Params` (`set`, the fields `scene` lists under `params` as editable: `{"wall": 2.4}`) in a worker of its own and throws it away, then says whether it built (or the model's error), what changed against the last build part by part, and the measurements (`measure`: `bbox`, `volume`, `area`, `mass` or `distance` of whole parts by name) and checks (`check`: as the `check` tool, parts by name) asked for, all worded as those tools word them and said to be of the trial. It changes nothing: not the model, not the values you are trying in the window, not the build on screen; it is made on top of your values, and refused when there is no memory for a second build or while a build runs. To keep a value the agent edits the model. |
@@ -1626,6 +1628,90 @@ proposes its own with `save_view`: a dashed chip that says "proposed", with
 "Keep" and "Discard". A proposal is the agent's until you keep it; it can
 replace its own proposals (12 at most) and never a view of yours.
 
+## The board
+
+Each project has a board: a canvas of cards where what the project knows is laid out, framed and put in order, so that
+you can point Claude at a frame ("work through Latch") instead of explaining it again. **Board** and **Model** swap in the main
+area by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys). The window remembers the last choice
+for each project; a project opens on the model until its board has a card of yours or Claude's. The model stays
+loaded while the board is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
+
+**What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
+`brief.md` (its text, read only, scrolling), each photo or doodle of `reference/`, each mark (`M1`, its kind, where it is,
+its note and its state) and each scan. Removing one of these hides it: the mark, scan or photo is untouched, and "Hidden cards"
+at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed) its card goes with it. These
+you pin, with "Pin to board":
+
+- a **build**, from the strip of builds under a prompt in the chat (a small "Pin" on each picture). The card keeps the
+  build's picture, id and line, and the build is starred in the history, so it is never pruned; taking the card away leaves
+  the star. On another computer, or once the history has let it go, the card says "build not on this computer".
+- a **saved view**, from the menu of its chip in the strip of views;
+- the **Params**, from their panel, with each value and the ones you are trying marked as tried; and the **checks**, from the
+  Checks section of that panel, each passing or failing. Each is on a board once: pinning it again says so.
+
+You make **text** cards, **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
+Claude is sent is scaled down by the window first), **sketch** cards (drawn with the same ink pad as the doodles), named
+**frames** and **arrows** between cards, with an optional word on them. A card dropped inside a frame belongs to it, and a frame
+dragged takes its cards along. Claude's cards have a green edge; Claude makes text and pictures of the view (below) and
+never moves, edits or removes one of yours or one torno made.
+
+**Moving around.** The wheel or two fingers pan; `Ctrl` and the wheel, or a pinch, zoom about the pointer (10 % to 400 %); a
+middle or right drag, or `Space` and a drag, pan; `Shift+1` fits every card. A small map in the corner shows the board and
+what is on screen: click or drag in it to go there. The tools are in a palette at the foot: Select `V`, Text `N`, Frame `F`,
+Arrow `A`, Picture `I`, Sketch `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
+one. `Delete` removes what is selected (the cards that came by themselves are hidden), and `Ctrl+Z` takes back the last changes
+you made here, up to 50. A board holds 2000 cards and a text card 4000 characters.
+
+**A double click** does what the card is for:
+
+| Card | Double click |
+|---|---|
+| Brief | opens `brief.md` in your editor |
+| Photo of `reference/` | opens it large (`Esc` puts it away); any other file is shown in its folder |
+| Mark | shows the model with the mark selected |
+| Scan | shows the model with the scan on |
+| Build | shows the model and opens Compare with the live build (nothing for a build this computer does not have) |
+| View | shows the model with that view on |
+| Params, Checks | opens the Params panel |
+| Text | edits it (yours only) |
+| Picture | opens it large; one Claude drew of the view goes to the model with its camera |
+| Sketch | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
+| Frame | renames it (yours only) |
+| Arrow | edits its word |
+
+**What Claude is told.** Every prompt carries one line: how many cards the board has, how many are new and what they are, the
+names of the frames, and that `board` reads it. It never carries the board. A card is new when it was added or what it says
+changed (a text, a caption, a name, a word on an arrow, the values of the Params, the results of the checks), not when it was moved,
+resized or put in a frame. The line under each prompt in the chat says it: `board: 12 cards, 2 new`.
+
+**Sending part of the board.** Select cards or frames and press "Send with the next prompt" (or `Ctrl+Enter`), or press "Send the
+whole board". A chip appears above the box of the chat, "Latch · 3 cards · 1 arrow", which "Remove" takes off. When you send the
+prompt, torno reads those cards as they are then (an edit made after attaching goes too; a card removed meanwhile is left out and the
+chip says so) and puts them in the prompt, after your words: the frames by name, then their cards in reading order (left to
+right, top to bottom) each by its id with what it says, then the arrows ("C3 → C7: like this"). The pictures go as pictures after
+the text, at most 6 and each at most 1280 px on the long edge; past 6 they are named and left for `board` with `pictures: true`.
+The text is at most 12 000 characters, and past that it ends with a sentence that says so. The line under your prompt says what
+went: `board: Latch, 3 cards, 1 arrow`. An arrow alone is no attachment.
+
+**Refs.** A board card is `C7`, as a mark is `M3`. You and Claude can write it in a message; in the chat it is a chip, and a click on
+one the board has shows the board with that card selected. A card that is hidden or not there is only text.
+
+**Claude's tools** (see "Tools"): `board` reads the board as text, and `add_card` leaves a card of Claude's own, optionally in a
+frame and with an arrow, for example a plan or a picture of the view.
+
+The board is stored in `<project>/.torno/board/board.json`, which goes with the project in git: the places, frames, arrows and
+text. The pictures stay on the computer (`board/pictures/`, ignored), and what Claude was last told stays too (`board/told.json`);
+a board cloned without its pictures shows "picture not on this computer" in their place. Only torno writes it, and it writes
+nothing outside `.torno/`.
+
+torno does not watch `board.json`. If it was changed outside torno (a `git pull`), torno notices at the next change you or Claude
+make to the board: before writing it compares the file with what it last wrote, takes the file as it is then, makes your change
+on top of it, and shows you the result. A pull is therefore seen at the next change, not at once. A file torno cannot read, or
+with cards that are not whole, is kept beside it (`board.json.corrupt-…`, `board.json.dropped-…`) and the board says so, with
+"Dismiss". Undo (`Ctrl+Z`) goes back up to 50 changes made in this window, and brings back what torno took off in this run. The
+pictures no card names are removed when the project is first opened in a run, except those a file kept aside names
+(`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them.
+
 ## The page of projects
 
 `W`, or "All projects" at the top of the list (beside its title once a project is open), shows every project of the folder
@@ -1815,6 +1901,19 @@ until the camera is first moved; the window remembers that in its own storage, n
 | With a tool in hand | `Z` | Region: undo the last stroke |
 | With a tool in hand | `Enter` | Region: keep what is painted |
 | With a shape in hand | `G` `R` `T` | Move, rotate or size the shape with its handles |
+| Board | `Ctrl+Tab` | The board of the project, or the model again |
+| Board | `Shift+1` | Board: fit all the cards |
+| Board | `V` | Board, Select: click a card, drag on empty space for a box; Shift adds |
+| Board | `N` | Board, Text: a card for a note |
+| Board | `F` | Board, Frame: a named outline round cards |
+| Board | `A` | Board, Arrow: draw from one card to another |
+| Board | `I` | Board, Picture: add a photo from a file |
+| Board | `S` | Board, Sketch: draw on a card |
+| Board | `Space` | Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms) |
+| Board | `Ctrl+Enter` | Board: send the selected cards with the next prompt |
+| Board | `Delete` `Backspace` | Board: remove the selected cards and arrows (those that came by themselves are hidden) |
+| Board | `Ctrl+Z` | Board: undo the last change you made to cards (up to 50) |
+| Board | `Esc` | Board: end what is being written, then put the tool back to Select, then let go of the selection |
 | Page of projects | `Left` `Right` `Up` `Down` `Home` `End` | Move among the cards |
 | Page of projects | `Enter` | Open the card in focus |
 | Page of projects | `/` | Filter by name: a letter or a figure does too |
@@ -1869,6 +1968,9 @@ place.
 | `params.json` | the values you are trying in place of the model's `Params` defaults, with the default the file had; trying a value never writes the model file (a Go back puts the values back as a build had them) | ignored |
 | `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured | travels |
 | `scans.json` | the scans of the project: where each source file is and its hash, how it was imported, and its alignment in each layout | travels |
+| `board/board.json` | the board (see "The board"): its cards with their places, sizes and text, the frames and the arrows; for a card that shows a build, a copy of what it says | travels |
+| `board/pictures/` | the pictures and sketches of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
+| `board/told.json` | what Claude was last told of each card, so that only what is new is said | ignored |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
 | `profile.json` | the printer and material the project is made for (a copy of your choice under "Print profile") | travels with the project |
 | `agent.json` | whether Claude Code is shown as a chat or a terminal; without it, in a chat | travels |
@@ -1885,10 +1987,10 @@ place.
 "Ignored" is by `.torno/.gitignore` (or one inside the folder), which torno
 adds lines to and never rewrites; a line you negate there (`!state.md`) is
 yours, and is not added against. What travels with the project in git is what
-is the project's: `scene.json`, `marks.json`, `scans.json`, `profile.json` and `agent.json`.
+is the project's: `scene.json`, `marks.json`, `scans.json`, `board/board.json`, `profile.json` and `agent.json`.
 What changes with every build or session, or is of this machine, is
-ignored: `state.md`, `session.json`, `chat/`, the thumbnail, `builds.jsonl`, `history/`, `views/` and
-`exports/`. Add `.torno/` to the workspace's `.gitignore` if you
+ignored: `state.md`, `session.json`, `chat/`, the thumbnail, `builds.jsonl`, `history/`, `views/`,
+`board/pictures/`, `board/told.json` and `exports/`. Add `.torno/` to the workspace's `.gitignore` if you
 want none of it in git.
 
 Outside the workspace:
@@ -2377,3 +2479,16 @@ With a real agent:
   are fair to a real agent.
 - **What torno says it needs, with the real CLI, a machine without `claude` and one without `uv`.** Tests look for `claude` on the `PATH` and never run it; the stand-in plays `--version` and `auth status`. With the real CLI: the first screen says `claude` is found, its version (`claude --version` prints it first, as `2.1.307 (Claude Code)`) and "signed in" (look at the real output of `claude auth status`: torno reads `loggedIn` and `authMethod` of its JSON, and says nothing of the account where it finds neither); signed out (`claude auth logout`) the line says so and the page of a new project warns above "Create"; a `claude` that hangs or is too old to know `auth status` is said to have not answered, within 3 seconds. On a machine without `claude` on the `PATH` the line says "Not found on PATH", and without `uv` the uv line does and the kernel's is left out. With no `kernel/.venv` (or no `kernel-env` under torno's data folder, packaged), "Not made yet" and "Make it now" run `uv sync` on the network and show its lines, then the line says torno's environment is made; offline the reason is uv's. Started from the Finder or a desktop launcher the `PATH` shown is the one torno has.
 - **An agent torno did not start (#54, a spike).** Start torno with `TORNO_OUTSIDE_AGENTS=1 scripts/torno ~/objects`, open a project, and in its folder add the bridge to your own agent (`claude mcp add torno -- node <torno>/scripts/torno-mcp.mjs .`, or the stdio server of Codex, Gemini CLI or opencode). Torno asks in the window before any tool answers; check that `scene` and `look` work, that the server's instructions reach the model, how long a call takes, which tools are worth it outside, and how the agent fares without torno's hooks. Deny, and the agent is told so; quit torno, and it is told how to start it. Whether to keep it, and steps 3 to 5 of #54 (`scripts/torno mcp`, a `news` tool that sends marks, the plugin's `.mcp.json`, a README section), wait for that trial.
+- **The board with a hand.** A trackpad's two-finger pan and pinch, a middle-button drag and `Space` and a drag move around the board without drawing a card
+  again, and the cards, arrows and the map stay sharp when zoomed to 10 % and to 400 %. Dragging a card and a frame, drawing a box and an arrow, dropping a photo from the
+  file manager and pasting one all feel steady with real pointers; tests moved the pointer with synthetic events, dropped files they made themselves and never touched the clipboard.
+- **A phone's photo on the board.** A photo of 12 megapixels from a phone, dropped on the board or chosen with the Picture tool, is scaled and becomes a card at once, and the
+  card is as sharp as it is wanted at 100 %. Tests dropped a generated picture of 2600 × 1800 pixels. A HEIC photo says why it is not read.
+- **The brief in your editor, and a file in its folder.** A double click on the brief card opens `brief.md` in the program the system has for it, and a file of `reference/`
+  that is no picture is shown in the file manager. A test stands in for both.
+- **Claude reading the board.** The real agent understands the line every prompt carries, reads the board with `board`, and works through an attached frame; its cards
+  (a plan, a picture of the view) are green-edged and never over yours. Tests used the stand-in, which says each line it is given.
+- **The board by eye, in dark and in light.** The cards, frames, arrows, the green edge of Claude's cards, a build card's picture, the pictures opened large and the palette are legible and quiet
+  in both themes, on a board of 200 marks and on one of a dozen cards.
+- **A board file that cannot be read, and a pull.** Break `board.json` (conflict markers) and open the project: the board is empty and a notice above the palette says where the old file was kept, with "Dismiss". Pull a change of `board.json` made elsewhere, then add a card: the pulled cards show with it. Tests wrote the file themselves and looked at the notice in a hidden window only.
+- **A project of 780 parts.** A board with a few hundred cards of marks opens and pans without a stall. Tests used boards of a handful of cards and a count of how many times the cards are drawn.

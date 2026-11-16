@@ -65,6 +65,11 @@ export function overrideValues(dir: string): Record<string, ParamValue> {
   return Object.fromEntries(Object.entries(load(dir)).map(([name, one]) => [name, one.value]))
 }
 
+/** The overrides the object holds with the defaults they were made against (a copy), for what is told of them. */
+export function heldOverrides(dir: string): Overrides {
+  return structuredClone(load(dir))
+}
+
 /** The overrides the object holds, and why others went: what the window shows. */
 export function overridesOf(dir: string): { overrides: Record<string, ParamValue>; dropped: Note[] } {
   return { overrides: overrideValues(dir), dropped: [...(notes.get(dir) ?? [])] }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Keyb
 import { EXAMPLE_NOTE, type WorkspaceInfo } from '../shared/workspace'
 import { connectLook } from './state/agent'
 import { connectAsks } from './state/asks'
+import { connectBoard, useBoard } from './state/board'
 import { actions, sceneFileOf, store, useStore } from './state/store'
 import { BuildStatus } from './ui/BuildStatus'
 import { closingWhy, isExporting, leavingWhy, unkept, type Reason } from './closing'
@@ -23,6 +24,8 @@ import { ShowPage, usePageKey } from './ui/ShowPage'
 import { NewObject, openNewObject } from './ui/onboard/NewObject'
 import { draftHas, onboard, onboarding } from './state/onboard'
 import { ViewportPane } from './ui/ViewportPane'
+import { BoardSwitch, useBoardSwapKey } from './ui/projectBoard/BoardSwitch'
+import { BoardView } from './ui/projectBoard/BoardView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { Welcome } from './ui/Welcome'
@@ -177,6 +180,8 @@ function useMain(): void {
     const offLook = connectLook()
     // What the agent asked the person to choose (`ask`).
     const offAsks = connectAsks()
+    // The board of the open project, read from main and followed.
+    const offBoard = connectBoard()
 
     // Layer and layout changes are written to <object>/.torno/scene.json, once they stop coming.
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -209,6 +214,7 @@ function useMain(): void {
       live = false
       offBuild()
       offAsks()
+      offBoard()
       offMarks()
       offMarksProblem()
       offScans()
@@ -315,6 +321,7 @@ export function App() {
   usePageKey()
   useKeysKey()
   useExportKey()
+  useBoardSwapKey()
   const workspace = useStore((s) => s.workspace)
   const page = useStore((s) => s.page)
   const workspaceKnown = useStore((s) => s.workspaceKnown)
@@ -322,6 +329,8 @@ export function App() {
   const rail = useRail()
   const [dockWidth, setDockWidth] = useState(DOCK_DEFAULT)
   const dockOpen = useStore((s) => s.dockOpen)
+  // The board takes the main area's place from the model, on the project's own page.
+  const boardOf = useBoard((s) => (s.shown === 'board' ? s.objectId : null))
   // The sign of the open object's session, for the dock's toggle while the dock is away.
   const dockSign = useStore((s) => signOf(s.objectId === null ? undefined : s.sessions[s.objectId]?.status))
   // While the edge is dragged the width goes straight to the CSS variable, so
@@ -477,7 +486,10 @@ export function App() {
       </aside>
 
       <main className="viewport" data-region="viewport">
+        {/* First in the region, so that the focus a region key gives lands on it. */}
+        <BoardSwitch />
         <ViewportPane />
+        {page === 'object' && boardOf !== null && <BoardView key={boardOf} />}
         {page === 'objects' && <ShowPage onOpen={(id) => void openObject(id)} onExample={() => leave(EXAMPLE)} />}
         {page === 'new' && <NewObject onOpen={openObject} />}
         {/* Over either: what goes into an export, asked before anything is written. */}

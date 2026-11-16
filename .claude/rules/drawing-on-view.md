@@ -47,7 +47,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## Agents (`app/src/renderer`)
 
 - **"Draw on view"** (`ui/drawing/`, `state/drawing.ts`). The ground is the agent's own picture of the view
-  (`picture({ view: 'current', size: 1280 })`, the code of `look`), opened on `ui/board/Board.tsx` by `ViewBoard`, over
+  (`picture({ view: 'current', size: 1280 })`, the code of `look`), opened on `ui/ink/InkPad.tsx` by `ViewBoard`, over
   the whole window as the export sheet is. The ink is `--drawing-ink` over a casing in `--panel` (`InkLook`), read once
   when the picture is made: the picture is of that theme. "Done" (`finishDrawing` in `make.ts`) composes the PNG
   (`compose.ts`) and, only while the screen is what the picture was made of (`ViewHost.shows()`, registered by

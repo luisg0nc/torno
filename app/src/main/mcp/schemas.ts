@@ -106,6 +106,22 @@ export interface LookArgs {
   margin?: number
 }
 
+export interface BoardArgs {
+  frame?: string
+  pictures?: boolean
+}
+
+export interface AddCardArgs {
+  text?: string
+  look?: LookArgs
+  frame?: string
+  arrowFrom?: string
+  arrowTo?: string
+  label?: string
+  card?: string
+  remove?: boolean
+}
+
 /** A focus as the agent gives one: a ref, a group, a mark, or a box. */
 export type FocusArg = string | { min: Vec3; max: Vec3 }
 
@@ -284,6 +300,20 @@ const diffInput = {
 const historyInput = {
   id: z.string().optional().describe('A kept build by its id ("h41"): the answer is that build alone, with where its copies of the sources are. Default: the list.'),
   limit: z.number().int().optional().describe('How many builds the list gives, the newest first, 1 to 100. Default 20.')
+}
+const boardInput = {
+  frame: z.string().optional().describe('Only this frame and the cards in it: its name ("Latch") or its id ("C3"). Default: the whole board.'),
+  pictures: z.boolean().optional().describe('Also send the pictures of the cards that have one, at most 6, each at most 1280 px on its long edge. Default false: they are named in the text.')
+}
+const addCardInput = {
+  text: z.string().optional().describe('The words of a text card; the caption of a picture when look is given; the new words of the card you change (card).'),
+  look: loose(z.looseObject(lookInput)).optional().describe('Make a card of a picture of the view, drawn as the look tool draws it, with the same arguments, at 1280 px. The picture and its camera stay on the card.'),
+  frame: z.string().optional().describe('Put the card in this frame, by name or id. A name that no frame has makes a frame of yours with it. A frame of the person\'s with no room left gets the card just below it, outside it, and you are told so.'),
+  arrowFrom: z.string().optional().describe('Draw an arrow from this card (an id such as "C3") to the new card.'),
+  arrowTo: z.string().optional().describe('Draw an arrow from the new card to this card (an id such as "C3").'),
+  label: z.string().optional().describe('A few words on the arrow.'),
+  card: z.string().optional().describe('The id of a card of yours to change (give text) or to remove (remove: true). Never a card of the person\'s or of torno\'s own.'),
+  remove: z.boolean().optional().describe('Take the card named in card off the board, with the arrows on it.')
 }
 const expectInput = {
   checks: z.array(z.unknown()).describe('What the next edit should change, 1 to 20 checks, each one of: {"part": "plate", "volume": {"change": -1200, "tolerance": 50}} (a part\'s volume, faces, edges or size, as a value or a change from now; size is [x, y, z]); {"measure": {"kind": "diameter", "a": "plate/F9"}, "expected": 6.4, "tolerance": 0.05} (a measurement as measure takes it); {"unchanged": ["lid", "hinge"]} (those parts keep their volume, box and counts).'),
@@ -515,6 +545,20 @@ export const TOOLS = {
       "Returns JSON of the builds torno kept of this project under .torno/history/, newest first: for each its id (h41, which counts on across runs of torno), when it was made, its revision if it was made in this run, what changed from the build kept before it in a line that also says what caused it (by Claude under which prompt, the person's own edit, params, a go back to an earlier build, or nothing for a build kept before torno said), whether a go back undid it, and, for a build that failed to build (kept as a line, with no scene or copies: diff refuses it), the line of its error, the checks of the model that failed and the parts with a defect in it (a build that fails them is kept all the same), how the person's dimensions stood when it was checked (as of then, never how they stand now), what sources it was made from, and whether the person starred it. With id, that build alone, with the paths of the copies of its Python files: read them to go back to that build, then edit the project's own files to match, since a copy is not to be edited and torno restores files only when the person chooses Go back in the window, after confirming (you are told when it has). Use it to find the build to compare with diff, or to go back to.",
     inputSchema: historyInput
   },
+  board: {
+    title: 'Read the board',
+    annotations: READ_ONLY,
+    description:
+      'Returns the board of this project as text: each card by its id, its kind and who made it with what it says, frames first with their cards in reading order, then the arrows between them, and the pictures named, or sent with pictures: true. The board is the person\'s brief, where they lay out what they want, so read it when they point at a frame or a card, and before you plan. {"frame": "Latch"} gives only that frame and its cards.',
+    inputSchema: boardInput
+  },
+  add_card: {
+    title: 'Add a card to the board',
+    annotations: CHANGES_VIEW_OR_MARKS,
+    description:
+      'Returns the id of the card you added to the person\'s board, and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own.',
+    inputSchema: addCardInput
+  },
   expect: {
     title: 'Say what an edit should change',
     annotations: CHANGES_VIEW_OR_MARKS,
@@ -584,6 +628,8 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - check: overlap and clearance between parts, interference of a whole layout, a closed mesh, and for printing overhangs, thin walls and the fit on a bed.
 - diff: what changed between two successful builds (the last two, or any kept ones): parts added or removed, volume, size and face counts.
 - history: the builds kept of this project, by id (h41), with what changed in each; diff compares any two.
+- board: the person's board, where they lay out what they want: text, pictures, frames and arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
+- add_card: leave a card of yours on the board (a plan, a note, a picture of the view), in a frame, with an arrow; change or remove only your own.
 - expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the build after it is checked against that.
 - try_fillet: try a fillet or chamfer of some edges on the last build and throw it away: whether it works, the largest radius that does, which edges or pairs fail.
 - try_params: build the model with other values of its Params in a throwaway worker and measure or check there, to search a value without editing the model.

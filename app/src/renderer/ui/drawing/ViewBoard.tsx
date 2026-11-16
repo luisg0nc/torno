@@ -1,5 +1,5 @@
 import { drawingActions, useDrawing } from '../../state/drawing'
-import { Board } from '../board/Board'
+import { InkPad } from '../ink/InkPad'
 import { finishDrawing } from './make'
 
 /**
@@ -11,7 +11,7 @@ export function ViewBoard() {
   if (!board) return null
   const { picture } = board
   return (
-    <Board
+    <InkPad
       title="Draw on view"
       label="Drawing on the view"
       hint="Ring it, point at it, sketch beside it. Claude gets this picture with your ink, and what the ink lies over."

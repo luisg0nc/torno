@@ -10,6 +10,11 @@ describe('refsIn', () => {
     expect(refsIn('M4 and lid/F12, r3; tub_2/E10.').map((p) => p.text).join('')).toBe('M4 and lid/F12, r3; tub_2/E10.')
   })
 
+  it('finds a card of the board, and nothing that only ends in one', () => {
+    expect(refs('see C7 and M3')).toEqual(['C7', 'M3'])
+    expect(refs('C alone, ABC7, C7x, C.')).toEqual([])
+  })
+
   it('finds a face or an edge the model names, without the full stop or comma that ends the sentence', () => {
     expect(refs('the lid/@top and tub/@screw_holes, then lid/@a.b-c. Not lid/@ or @top.')).toEqual(['lid/@top', 'tub/@screw_holes', 'lid/@a.b-c'])
   })

@@ -98,7 +98,7 @@ heading names the folder its text came from. Paths are as written there: from `a
   (Params, groups, tags, checks, references, `uses`), `kernel-measures`, `kernel-features`, `kernel-scans`.
 - Tests: `e2e-hidden-window` (every Electron launch), `e2e-stand-in-agent` (the stand-in, the specs, the evals).
 - Marks and the model: `marks-store`, `dimensions`, `marks-window`, `keys`, `params`, `checks-and-profile`,
-  `left-column` (layers, groups, references), `builds-history`, `goback`, `exactness-app`.
+  `left-column` (layers, groups, references), `builds-history`, `board`, `goback`, `exactness-app`.
 - The view: `section`, `explode`, `saved-views`, `viewport-overlay`, `styles-themes`.
 - The agent: `mcp-tools`, `mcp-read-tools`, `build-digest`, `stop-hook`, `agent-prompt`, `instruction-files`, `asks`,
   `agent-launch-and-tokens`, `sessions`, `chat-transcript`, `chat-log-and-undo`, `session-pane`, `chat-pane`,

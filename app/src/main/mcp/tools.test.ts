@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import type { BuildState } from '../../shared/build'
 import type { Part, Scene } from '../../shared/scene'
@@ -12,6 +15,8 @@ import type { NearestAnchor } from '../marks/reanchor'
 import { Asks } from '../asks'
 import { askTool } from './askTool'
 import { flushCut, probe } from '../../test/diagnosisFixtures'
+import { BoardStore } from '../board/store'
+import { addCardTool, boardTool } from './boardTools'
 import { addMarkTool, highlightTool, resolveMarkTool } from './markTools'
 import { TOOLS, refusedKeys } from './schemas'
 import { describeTool, marksTool, selectorFrame, type ToolDeps } from './tools'
@@ -186,7 +191,7 @@ const textOf = (result: { content: Array<{ type: string; text?: string }> }): st
 
 describe('the tool descriptions', () => {
   it('say in two or three sentences each what the tool returns and when to use it', () => {
-    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
+    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'board', 'add_card', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
     for (const tool of Object.values(TOOLS)) {
       expect(tool.description).toMatch(/^Returns /)
       const sentences = tool.description.match(/[.?!]"?(\s|$)/g)!.length
@@ -2265,5 +2270,236 @@ describe('ask', () => {
   it('is refused for an object that is not the one open in the window', async () => {
     const { deps } = asking({ openObjectId: () => 'helmet-stand' })
     expect(textOf(await askTool(deps, 'bracket', { question: 'Which?', options }))).toBe('bracket is not the project open in the torno window (open: helmet-stand). Ask the user to open it.')
+  })
+})
+
+/** A PNG header of this size: all `checkedImage` reads. */
+function png(width: number, height: number, tag = 0): Uint8Array {
+  const bytes = new Uint8Array(40)
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52])
+  const view = new DataView(bytes.buffer)
+  view.setUint32(16, width)
+  view.setUint32(20, height)
+  bytes[39] = tag
+  return bytes
+}
+
+describe('board and add_card', () => {
+  let root: string
+  let dir: string
+  let store: BoardStore
+  let scaled: number[]
+  const file = (): string => join(dir, '.torno', 'board', 'board.json')
+  const pictures = (): string[] => {
+    try {
+      return readdirSync(join(dir, '.torno', 'board', 'pictures')).filter((n) => n.endsWith('.png'))
+    } catch {
+      return []
+    }
+  }
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'torno-board-tools-'))
+    dir = join(root, 'bracket')
+    mkdirSync(dir)
+    store = new BoardStore({ dirOf: (id) => (id === 'bracket' ? dir : undefined) })
+    scaled = []
+  })
+  afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+  const rig = (over: Partial<ToolDeps> = {}): Fake => {
+    const deps: Fake = fake({
+      object: (id) => (id === 'bracket' ? { ...BRACKET, dir } : undefined),
+      board: { read: (id) => store.read(id), agent: (id, change) => store.agent(id, change), live: async () => ({ marks: new Map() }) },
+      scale: async (bytes, edge) => {
+        scaled.push(edge)
+        return bytes
+      },
+      ...over
+    })
+    // The window draws a picture whose header is one the board keeps.
+    deps.look = async (objectId, req) => {
+      deps.looks.push({ objectId, req })
+      return { ...PICTURE, png: png(1280, 960), objectId }
+    }
+    return deps
+  }
+  const person = (change: Parameters<BoardStore['person']>[1]) => store.person('bracket', change)
+  const words = (x: number, y: number, extra: Record<string, unknown> = {}) => ({ op: 'add' as const, card: { kind: 'text' as const, x, y, w: 200, h: 100, text: 'hello', ...extra } })
+
+  it('says an empty board is empty', async () => {
+    expect(textOf(await boardTool(rig(), 'bracket', {}))).toBe('The board has nothing on it.')
+  })
+
+  it('gives the whole board in the text form of an attachment, a frame by name or by id with its cards in order', async () => {
+    await person({ op: 'add', card: { kind: 'frame', x: 0, y: 0, w: 600, h: 400, name: 'Latch' } })
+    await person({ op: 'add', card: { kind: 'text', x: 300, y: 40, w: 200, h: 100, text: 'second', frame: 'C1' } })
+    await person({ op: 'add', card: { kind: 'text', x: 24, y: 40, w: 200, h: 100, text: 'first', frame: 'C1' } })
+    await person(words(900, 0, { text: 'elsewhere' }))
+    const deps = rig()
+    const all = textOf(await boardTool(deps, 'bracket', {}))
+    expect(all).toContain('elsewhere')
+    for (const frame of ['Latch', 'C1']) {
+      const only = textOf(await boardTool(deps, 'bracket', { frame }))
+      expect(only).not.toContain('elsewhere')
+      expect(only.indexOf('first')).toBeGreaterThan(-1)
+      expect(only.indexOf('first')).toBeLessThan(only.indexOf('second'))
+    }
+  })
+
+  it('says which frames there are when it is asked for one that is not there, or for a card that is no frame', async () => {
+    await person({ op: 'add', card: { kind: 'frame', x: 0, y: 0, w: 600, h: 400, name: 'Latch' } })
+    await person(words(900, 0))
+    expect(textOf(await boardTool(rig(), 'bracket', { frame: 'Snorkel' }))).toBe('There is no frame Snorkel on this board; frames: Latch.')
+    expect(textOf(await boardTool(rig(), 'bracket', { frame: 'C2' }))).toBe('C2 is not a frame of this board; frames: Latch.')
+  })
+
+  it('sends the pictures it names only when asked, scaled to 1280, and says they are not attached when not', async () => {
+    const name = 'p-0123456789ab.png'
+    mkdirSync(join(dir, '.torno', 'board', 'pictures'), { recursive: true })
+    writeFileSync(join(dir, '.torno', 'board', 'pictures', name), png(2000, 1000, 7))
+    await person({ op: 'add', card: { kind: 'picture', x: 0, y: 0, w: 300, h: 200, picture: name, caption: 'the latch' } })
+    const deps = rig()
+    const plain = await boardTool(deps, 'bracket', {})
+    expect(plain.content.map((b) => b.type)).toEqual(['text'])
+    expect(textOf(plain)).toContain('pictures: true')
+    const sent = await boardTool(deps, 'bracket', { pictures: true })
+    expect(sent.content.map((b) => b.type)).toEqual(['text', 'image'])
+    expect(scaled).toEqual([1280])
+    expect(sent.content[1]).toMatchObject({ type: 'image', mimeType: 'image/png' })
+  })
+
+  it('sends a photo of reference/ as a picture too: named without pictures, scaled and sent with pictures: true', async () => {
+    mkdirSync(join(dir, 'reference'), { recursive: true })
+    writeFileSync(join(dir, 'reference', 'photo-1.png'), png(1600, 1200, 3))
+    await store.torno('bracket', (b) => ({ ...b, next: 2, cards: [{ id: 'C1', kind: 'reference', x: 0, y: 0, w: 240, h: 180, by: 'torno', source: 'reference/photo-1.png' }] }))
+    const deps = rig()
+    const plain = await boardTool(deps, 'bracket', {})
+    expect(plain.content.map((b) => b.type)).toEqual(['text'])
+    expect(textOf(plain)).toContain('[picture C1: of reference/photo-1.png]')
+    expect(textOf(plain)).toContain('pictures: true')
+    const sent = await boardTool(deps, 'bracket', { pictures: true })
+    expect(sent.content.map((b) => b.type)).toEqual(['text', 'image'])
+    expect(scaled).toEqual([1280])
+  })
+
+  it('names a picture that is still too big once scaled, and sends nothing for it', async () => {
+    const name = 'p-0123456789ab.png'
+    mkdirSync(join(dir, '.torno', 'board', 'pictures'), { recursive: true })
+    writeFileSync(join(dir, '.torno', 'board', 'pictures', name), png(2000, 1000, 7))
+    await person({ op: 'add', card: { kind: 'picture', x: 0, y: 0, w: 300, h: 200, picture: name } })
+    const result = await boardTool(rig({ scale: async () => new Uint8Array(4_000_000).fill(1) }), 'bracket', { pictures: true })
+    expect(result.content.map((b) => b.type)).toEqual(['text'])
+    expect(textOf(result)).toContain('C1: the picture cannot be sent')
+  })
+
+  it('tells a picture whose file is not on this computer, and sends none', async () => {
+    await person({ op: 'add', card: { kind: 'picture', x: 0, y: 0, w: 300, h: 200, picture: 'p-0123456789ab.png' } })
+    const result = await boardTool(rig(), 'bracket', { pictures: true })
+    expect(result.content.map((b) => b.type)).toEqual(['text'])
+    expect(textOf(result)).toContain('picture not on this computer')
+  })
+
+  it('refuses a key it does not take, and the keys an author, an id or a place would be given in', () => {
+    for (const key of ['by', 'id', 'x', 'y', 'hidden']) expect(refusedKeys('add_card', { text: 'a', [key]: 1 }), key).not.toBeNull()
+    expect(refusedKeys('add_card', { text: 'a', frame: 'Plan', arrowFrom: 'C1', label: 'why' })).toBeNull()
+    expect(refusedKeys('board', { frame: 'Latch', pictures: true })).toBeNull()
+  })
+
+  it('adds a text card of its own, and says its id', async () => {
+    const result = await addCardTool(rig(), 'bracket', { text: 'Plan: widen the latch' })
+    expect(result.isError).toBeUndefined()
+    expect(textOf(result)).toBe('Added C1, text.')
+    expect((await store.read('bracket')).cards).toEqual([expect.objectContaining({ id: 'C1', kind: 'text', by: 'agent', text: 'Plan: widen the latch' })])
+  })
+
+  it('takes no author, id or place from its arguments when it is called with them', async () => {
+    await addCardTool(rig(), 'bracket', { text: 'x', by: 'person', id: 'C99', x: 500, y: 500, hidden: true } as never)
+    expect((await store.read('bracket')).cards).toEqual([expect.objectContaining({ id: 'C1', by: 'agent', x: 0, y: 0 })])
+    expect((await store.read('bracket')).cards[0].hidden).toBeUndefined()
+  })
+
+  it('puts the card in a frame by name, makes the frame when there is none, and arrows it to a card, with a word', async () => {
+    await person(words(0, 0))
+    const result = await addCardTool(rig(), 'bracket', { text: 'why', frame: 'Plan', arrowFrom: 'C1', label: 'because' })
+    expect(textOf(result)).toBe('Made the frame Plan, C2. Added C3, text, in Plan. Arrow C4 from C1 to C3.')
+    const board = await store.read('bracket')
+    expect(board.cards.find((c) => c.id === 'C2')).toMatchObject({ kind: 'frame', by: 'agent', name: 'Plan' })
+    expect(board.cards.find((c) => c.id === 'C3')).toMatchObject({ frame: 'C2' })
+    expect(board.arrows).toEqual([{ id: 'C4', from: 'C1', to: 'C3', label: 'because', by: 'agent' }])
+  })
+
+  it('puts the card below a full frame of the person’s, not in it, says so, and leaves the frame as it was', async () => {
+    await person({ op: 'add', card: { kind: 'frame', x: 100, y: 100, w: 300, h: 200, name: 'Latch' } })
+    await person({ op: 'add', card: { kind: 'text', x: 124, y: 140, w: 250, h: 130, text: 'mine', frame: 'C1' } })
+    const before = await store.read('bracket')
+    const result = await addCardTool(rig(), 'bracket', { text: 'a plan', frame: 'Latch' })
+    expect(textOf(result)).toContain('the frame Latch was full, so C3 is just below it')
+    const after = await store.read('bracket')
+    expect(after.cards.find((c) => c.id === 'C1')).toEqual(before.cards.find((c) => c.id === 'C1'))
+    expect(after.cards.find((c) => c.id === 'C3')?.frame).toBeUndefined()
+  })
+
+  it('edits and removes a card of its own', async () => {
+    const deps = rig()
+    await addCardTool(deps, 'bracket', { text: 'first' })
+    expect(textOf(await addCardTool(deps, 'bracket', { card: 'C1', text: 'second' }))).toBe('Changed C1.')
+    expect((await store.read('bracket')).cards[0].text).toBe('second')
+    expect(textOf(await addCardTool(deps, 'bracket', { card: 'C1', remove: true }))).toBe('Removed C1.')
+    expect((await store.read('bracket')).cards).toEqual([])
+  })
+
+  it('does not change or remove a card of the person’s, says whose it is, and leaves the file byte for byte as it was', async () => {
+    await person(words(0, 0))
+    const before = readFileSync(file())
+    for (const args of [{ card: 'C1', text: 'mine now' }, { card: 'C1', remove: true }]) {
+      const result = await addCardTool(rig(), 'bracket', args)
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/C1 is the person's/)
+    }
+    expect(readFileSync(file()).equals(before)).toBe(true)
+  })
+
+  it('asks for what it needs: nothing at all, a remove with no card, a change of a card with more than its words', async () => {
+    const deps = rig()
+    expect(textOf(await addCardTool(deps, 'bracket', {}))).toMatch(/text or look/)
+    expect(textOf(await addCardTool(deps, 'bracket', { remove: true }))).toMatch(/remove names a card/)
+    await addCardTool(deps, 'bracket', { text: 'a' })
+    expect(textOf(await addCardTool(deps, 'bracket', { card: 'C1', frame: 'Plan' }))).toMatch(/only its text/)
+    expect(textOf(await addCardTool(deps, 'bracket', { arrowFrom: 'C1', arrowTo: 'C1', text: 'b' }))).toMatch(/one end/)
+    expect(textOf(await addCardTool(deps, 'bracket', { label: 'x', text: 'b' }))).toMatch(/one end/)
+  })
+
+  it('draws the view as look does, at 1280, keeps the picture and the camera on the card, and saves no view', async () => {
+    const deps = rig()
+    const result = await addCardTool(deps, 'bracket', { look: { view: { position: [100, -80, 60], target: [0, 0, 10] }, size: 400 }, text: 'the latch from here' })
+    expect(textOf(result)).toBe('Added C1, picture.')
+    expect(deps.looks).toHaveLength(1)
+    expect(deps.looks[0].req.size).toBe(1280)
+    expect(deps.saved).toEqual([])
+    expect(pictures()).toHaveLength(1)
+    const [card] = (await store.read('bracket')).cards
+    expect(card).toMatchObject({ kind: 'picture', by: 'agent', caption: 'the latch from here', picture: pictures()[0] })
+    expect(card.camera).toMatchObject({ position: [100, -80, 60], target: [0, 0, 10] })
+  })
+
+  it('keeps the camera the person has on screen for a picture of the current view', async () => {
+    await addCardTool(rig(), 'bracket', { look: {} })
+    expect((await store.read('bracket')).cards[0].camera).toEqual(CAMERA)
+  })
+
+  it('adds nothing when the picture cannot be drawn, and refuses a key of the look it does not take', async () => {
+    const away = rig({ openObjectId: () => 'helmet-stand' })
+    expect(textOf(await addCardTool(away, 'bracket', { look: {} }))).toContain('is not the project open')
+    expect(textOf(await addCardTool(rig(), 'bracket', { look: { layouts: 'print' } as never }))).toContain('look takes no "layouts": did you mean layout?')
+    expect((await store.read('bracket')).cards).toEqual([])
+    expect(pictures()).toEqual([])
+  })
+
+  it('answers for a project that is not there, and where the board is not kept', async () => {
+    expect(textOf(await boardTool(rig(), 'nothing', {}))).toBe('unknown project: nothing')
+    expect(textOf(await addCardTool(rig(), 'nothing', { text: 'x' }))).toBe('unknown project: nothing')
+    expect(textOf(await boardTool(rig({ board: undefined }), 'bracket', {}))).toBe('the board is not available here')
+    expect(textOf(await addCardTool(rig({ board: undefined }), 'bracket', { text: 'x' }))).toBe('the board is not available here')
   })
 })

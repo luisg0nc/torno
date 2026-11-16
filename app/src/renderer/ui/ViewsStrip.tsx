@@ -6,6 +6,7 @@ import { stripChips, viewMatches } from '../state/savedViews'
 import { actions, store, useStore } from '../state/store'
 import type { Viewport } from '../viewport/Viewport'
 import { numbered } from './numbered'
+import { pinToBoard } from './projectBoard/pin'
 
 /** Which way a popover hangs under what opened it: from its left edge, or from its right when that is past the middle of the strip. */
 type Side = 'left' | 'right'
@@ -156,7 +157,7 @@ export function ViewsStrip({ viewport }: { viewport: Viewport }) {
                 className="view-act view-more"
                 data-actions={view.name}
                 aria-label={`Actions for ${view.name}`}
-                title="Rename, update or delete"
+                title="Rename, update, pin to the board or delete"
                 aria-haspopup="menu"
                 aria-expanded={menu !== null}
                 onClick={(e) => setOpen(menu ? null : { kind: 'menu', view: view.name, deleting: false, side: sideOf(e) })}
@@ -181,6 +182,20 @@ export function ViewsStrip({ viewport }: { viewport: Viewport }) {
                   }}
                 >
                   Update to what is on screen
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  data-pin="view"
+                  title="Put this view on the board as a card, to go back to it from there"
+                  onClick={() => {
+                    const id = store.getState().objectId
+                    if (id !== null) void pinToBoard(id, { kind: 'view', name: view.name }).then(setSaid)
+                    shut(actionsOf(view.name))
+                  }}
+                >
+                  Pin to board
                 </button>
                 <button type="button" role="menuitem" className="menu-item" onClick={() => setOpen({ ...menu, deleting: true })}>
                   Delete

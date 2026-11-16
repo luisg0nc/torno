@@ -1,4 +1,4 @@
-/* ---- The page of a new object (ui/onboard/NewObject.tsx) and the board (ui/board/Board.tsx): its doodle, a drawing on the view ---- */
+/* ---- The page of a new object (ui/onboard/NewObject.tsx) and the board (ui/ink/InkPad.tsx): its doodle, a drawing on the view ---- */
 
 .new-object-button {
   display: flex;

@@ -514,6 +514,19 @@ test('a pair’s row shows a point of a scan the size of a room uncut in a view 
   await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1336)
   await page.keyboard.press('l')
   await bar().getByRole('button', { name: 'Pairs' }).click()
+  // The bars stand under the switch of Board and Model, so the model is framed lower: stepped back until the scan's point is in the view and under no bar.
+  const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2)
+  const free = (): Promise<boolean> =>
+    page.evaluate((local) => {
+      const [fx, fy] = window.__tornoTest!.projectScan('S1', local)
+      const c = document.querySelector('.viewport-canvas canvas')!.getBoundingClientRect()
+      return document.elementFromPoint(c.x + fx * c.width, c.y + fy * c.height)?.tagName === 'CANVAS'
+    }, where(ON_TOP[0]))
+  for (let tries = 0; tries < 8 && !(await free()); tries++) {
+    await page.mouse.wheel(0, 240)
+    await page.waitForTimeout(250)
+  }
   await clickScan(where(ON_TOP[0]))
   await expect(bar().locator('.align-pair')).toHaveCount(1)
   const widths = await bar().locator('.align-pair').first().evaluate((row) => {

@@ -98,3 +98,28 @@ describe('what in prose is a ref at all (M5)', () => {
   })
 })
 
+describe('a card of the board in the chat', () => {
+  const card = (id: string, extra: Record<string, unknown> = {}) => ({ id, kind: 'text', x: 0, y: 0, w: 10, h: 10, by: 'person', ...extra })
+  const board = (...cards: unknown[]) => ({ next: 20, cards, arrows: [] }) as never
+
+  it('is live when the board has it, and a click shows the board with it selected', () => {
+    const state = { ...store.getState(), board: board(card('C7', { text: 'the snap latch goes here' })) }
+    expect(refInfo(state, 'C7')).toMatchObject({ kind: 'card', live: true, lights: [], act: 'card', plain: false })
+    expect(refInfo(state, 'C7').title).toContain('the snap latch goes here')
+  })
+
+  it('names a frame by its name, a picture by its caption, and anything else by what it shows', () => {
+    const state = { ...store.getState(), board: board(card('C1', { kind: 'frame', name: 'Latch' }), card('C2', { kind: 'picture', caption: 'the bay' }), card('C3', { kind: 'mark', source: 'M4', by: 'torno' })) }
+    expect(refInfo(state, 'C1').title).toBe('C1: frame Latch')
+    expect(refInfo(state, 'C2').title).toBe('C2: picture, the bay')
+    expect(refInfo(state, 'C3').title).toBe('C3: mark M4')
+  })
+
+  it('is only text when the board has no such card, or has it hidden', () => {
+    const state = { ...store.getState(), board: board(card('C5', { by: 'torno', hidden: true })) }
+    expect(refInfo(state, 'C9')).toMatchObject({ kind: 'card', live: false, plain: true, title: 'C9 is not on the board of this project' })
+    expect(refInfo(state, 'C5')).toMatchObject({ live: false, plain: false, title: 'C5 is hidden on the board: show it again from "Hidden cards"' })
+    // The board not read yet: nothing is claimed.
+    expect(refInfo(store.getState(), 'C9')).toMatchObject({ live: false, plain: true })
+  })
+})

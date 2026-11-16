@@ -9,6 +9,7 @@ import { sourceCount } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
 import { ChecksPanel } from './ChecksPanel'
 import { PrintProfile } from './PrintProfile'
+import { PinButton } from './projectBoard/PinButton'
 import { SectionTitle } from './SectionTitle'
 
 /**
@@ -59,7 +60,9 @@ function ParamsSection() {
   const these = changed.length === 1 ? 'it' : 'them'
   return (
     <section className="section params" aria-label="Parameters">
-      <SectionTitle title="Parameters" said={`${params.length}${changed.length > 0 ? ` · ${changed.length} tried` : ''}`} />
+      <SectionTitle title="Parameters" said={`${params.length}${changed.length > 0 ? ` · ${changed.length} tried` : ''}`}>
+        <PinButton what={{ kind: 'params' }} title="Put the Params, with the values you are trying, on the board as a card that stays up to date" />
+      </SectionTitle>
       <SourceCount params={params} />
       {changed.length > 0 && (
         <div className="params-tried" role="group" aria-label="Values you are trying">

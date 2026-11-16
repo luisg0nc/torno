@@ -1,5 +1,6 @@
 import { type ChatImage, type ChatItem, type ChatMeta, type Effort, MAX_ITEMS, MODE_NOTE, type TokenCount, type TurnUsage, TORNO_TOOL_PREFIX, isTornoTool, toolLabel } from '../../shared/chat'
 import type { BuildIdentity } from '../../shared/git'
+import { ATTACHMENT_HEAD, type BoardCounts, type BoardSent } from '../../shared/board'
 import type { DrawnOver } from '../../shared/drawing'
 import type { BuildDigest } from '../../shared/sanity'
 import { sessionRules } from './permissions'
@@ -231,12 +232,14 @@ export class Transcript {
   }
 
   /** A prompt for the agent. Queued when it will wait for the one at work; it is sent once the CLI takes it up (its hook, or an `init` for a command). */
-  userSent(content: PromptBlock[], queued: boolean, uuid?: string, drawing?: DrawnOver): ChatItem {
+  userSent(content: PromptBlock[], queued: boolean, uuid?: string, drawing?: DrawnOver, board?: BoardSent): ChatItem {
     let made!: ChatItem
     this.run(() => {
       const texts: string[] = []
       const images: ChatImage[] = []
       content.forEach((block, i) => {
+        // What the person attached of the board is told to the agent in words of main's: the item holds its counts (`board`), not those words.
+        if (block.type === 'text' && block.text.startsWith(ATTACHMENT_HEAD)) return
         // A text that comes right before a picture, after the first text, only names that picture: the window shows the pictures.
         if (block.type === 'text') {
           if (texts.length === 0 || content[i + 1]?.type !== 'image') texts.push(block.text)
@@ -246,7 +249,7 @@ export class Transcript {
           images.push(this.image(block.source.media_type, block.source.data, caption?.[1]))
         }
       })
-      made = { kind: 'user', id: this.newId('i'), text: this.redact(texts.join('\n')), images, state: this.closed ? 'not-sent' : queued ? 'queued' : 'sent', at: this.now(), ...(drawing ? { drawing: this.drawnOver(drawing) } : {}) }
+      made = { kind: 'user', id: this.newId('i'), text: this.redact(texts.join('\n')), images, state: this.closed ? 'not-sent' : queued ? 'queued' : 'sent', at: this.now(), ...(drawing ? { drawing: this.drawnOver(drawing) } : {}), ...(board ? { board: this.sentOf(board) } : {}) }
       this.put(made)
       this.keepImages(made.id, images)
       if (!this.closed) {
@@ -256,6 +259,11 @@ export class Transcript {
       }
     })
     return made
+  }
+
+  /** What was attached of the board, with the names of the frames through `redact` like any text the log holds. */
+  private sentOf(b: BoardSent): BoardSent {
+    return { cards: b.cards, arrows: b.arrows, frames: b.frames.map((name) => this.redact(name)), ...(b.gone && b.gone.length > 0 ? { gone: [...b.gone] } : {}) }
   }
 
   /** What the ink of a drawing lies over, with every ref through `redact` like any text the log holds. */
@@ -268,7 +276,7 @@ export class Transcript {
    * What a `UserPromptSubmit` was answered with, under the prompt it went with: the one `prompt` names if it names
    * one that is waiting, else the oldest that has none yet. Null when nothing was added, and when no prompt waits.
    */
-  context(c: { text: string; sentMarkIds: string[]; prompt?: string; revision?: number; buildState?: 'ok' | 'failed' | 'building'; selection?: string[]; instructions?: number; identity?: BuildIdentity }): ChatItem | null {
+  context(c: { text: string; sentMarkIds: string[]; prompt?: string; revision?: number; buildState?: 'ok' | 'failed' | 'building'; selection?: string[]; instructions?: number; identity?: BuildIdentity; board?: BoardCounts }): ChatItem | null {
     let made: ChatItem | null = null
     // Which prompt this hook took up: none until it is found one, so that a hook that matches no waiting prompt does not leave the last one's.
     this.promptTaken = undefined
@@ -290,7 +298,7 @@ export class Transcript {
       // This hook starts a turn, and the `init` that follows it is its own (unless its lifecycle said so already).
       this.explain(forUser)
       if (c.text.trim() === '' && c.sentMarkIds.length === 0) return
-      made = { kind: 'context', id: this.newId('i'), forUser, text: this.redact(c.text), marks: [...c.sentMarkIds], ...(c.revision !== undefined ? { revision: c.revision } : {}), ...(c.buildState ? { buildState: c.buildState } : {}), ...(c.selection && c.selection.length > 0 ? { selection: c.selection.map((ref) => this.redact(ref)) } : {}), ...(c.instructions ? { instructions: c.instructions } : {}), ...(c.identity ? { identity: c.identity } : {}) }
+      made = { kind: 'context', id: this.newId('i'), forUser, text: this.redact(c.text), marks: [...c.sentMarkIds], ...(c.revision !== undefined ? { revision: c.revision } : {}), ...(c.buildState ? { buildState: c.buildState } : {}), ...(c.selection && c.selection.length > 0 ? { selection: c.selection.map((ref) => this.redact(ref)) } : {}), ...(c.instructions ? { instructions: c.instructions } : {}), ...(c.identity ? { identity: c.identity } : {}), ...(c.board ? { board: { total: c.board.total, new: c.board.new } } : {}) }
       this.put(made)
     })
     return made
