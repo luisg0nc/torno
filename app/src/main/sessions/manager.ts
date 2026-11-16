@@ -861,7 +861,9 @@ export class Sessions {
     // The draft notes of the project, as they are now: words, then pictures, in what room the view and the board left.
     // Those a prompt that waits for its hook already carries are left to it: they are still drafts until that hook is answered.
     const carrying = new Set([...s.carried].filter(([item]) => s.chat?.transcript.awaitsHook(item)).flatMap(([, ids]) => ids))
-    const drafts = ((await this.deps.draftNotes?.(s.object.id)) ?? []).filter((note) => !carrying.has(note.id))
+    // A slash command carries none: the CLI runs it itself, and has no hook to say they were taken.
+    const command = prompt.text.trimStart().startsWith('/')
+    const drafts = command ? [] : ((await this.deps.draftNotes?.(s.object.id)) ?? []).filter((note) => !carrying.has(note.id))
     const noted = await notePrompt(s.object.dir, drafts, { latest: this.deps.build?.(s.object.id)?.revision, toolName: this.deps.adapter.toolName, ...(this.deps.scalePicture ? { scale: this.deps.scalePicture } : {}), room: MOST_NOTE_PICTURES - content.filter((block) => block.type === 'image').length })
     content.push(...noted.blocks)
     if (content.length === 0) return

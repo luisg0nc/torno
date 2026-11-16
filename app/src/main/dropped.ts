@@ -93,13 +93,14 @@ export interface Held {
  */
 export async function sweepDropped(dir: string, inside: readonly string[], valid: (name: string) => boolean, held: Held, grace = 0): Promise<void> {
   const folder = await ownTorno(dir, ...inside)
-  const there = await readdir(folder).catch((e: NodeJS.ErrnoException) => {
-    if (e.code === 'ENOENT') return null
-    throw e
-  })
-  if (there === null) return
   const path = join(folder, DROPPED_FILE)
   await exclusive(path, async () => {
+    // Read inside the turn: a name recorded meanwhile is on the list read next, and its file is in this listing.
+    const there = await readdir(folder).catch((e: NodeJS.ErrnoException) => {
+      if (e.code === 'ENOENT') return null
+      throw e
+    })
+    if (there === null) return
     const list = await readList(path, valid)
     if (list.length === 0) return
     const now = Date.now()

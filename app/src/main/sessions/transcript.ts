@@ -397,9 +397,9 @@ export class Transcript {
     return [...this.promptsPassed]
   }
 
-  /** Whether a prompt of ours still waits for its hook: sent, and not yet taken up by one. */
+  /** Whether a prompt of ours still waits for its hook: sent, and not yet taken up by one. A command has no hook, so it never does. */
   awaitsHook(id: string): boolean {
-    return this.awaiting.includes(id)
+    return this.awaiting.includes(id) && !this.isCommand(id)
   }
 
   /** How many prompts the CLI has not taken up yet: while there are some, one sent now waits behind them. */

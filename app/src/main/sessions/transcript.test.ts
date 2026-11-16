@@ -281,6 +281,12 @@ describe('what is sent', () => {
     expect(t.takenItems()).toEqual([])
   })
 
+  it('does not say a command waits for a hook: it has none', () => {
+    const t = new Transcript()
+    const command = t.userSent(text('/compact'), false, 'uuid-1')
+    expect(t.awaitsHook(command.id)).toBe(false)
+  })
+
   it('says no prompt was taken when a hook matches none that waits, not the one before', () => {
     const t = new Transcript()
     const first = t.userSent(text('first'), false, 'uuid-1')

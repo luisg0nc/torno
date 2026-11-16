@@ -1832,6 +1832,17 @@ describe('the transcript of a chat session', () => {
     expect(delivered2[0]).toEqual(['M1'])
   }, 30_000)
 
+  it('attaches no draft note to a slash command: the note goes with the prompt after it, and is sent with that', async () => {
+    const c = await start()
+    drafted = [await noteOf(c, 'M5', 0)]
+    await c.send('/compact')
+    await c.send('say fix it')
+    await expect.poll(() => c.items().filter((i) => i.kind === 'turn').length, { timeout: 20_000 }).toBeGreaterThanOrEqual(1)
+    const users = c.items().filter((i) => i.kind === 'user') as Array<{ notes?: unknown[] }>
+    expect(users.map((u) => u.notes?.length ?? 0)).toEqual([0, 1])
+    await expect.poll(() => delivered2.flat(), { timeout: 20_000 }).toContain('M5')
+  }, 30_000)
+
   it('carries at most 6 pictures in all, the attached view first, and names the rest in the words of the note they belong to', async () => {
     const c = await start()
     drafted = [await noteOf(c, 'M1', 3), await noteOf(c, 'M2', 3), await noteOf(c, 'M3', 3)]
