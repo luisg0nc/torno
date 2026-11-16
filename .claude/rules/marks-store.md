@@ -14,8 +14,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## What crosses processes (root `CLAUDE.md`)
 
-- A mark is a pin, a pick, an arrow, a stroke, a shape, a dimension or a region
-  of a scan, with a note (`app/src/shared/marks.ts`). Ids are `M1`, `M2`, … per object, never reused,
+- A mark is a pin, a pick, an arrow, a stroke, a shape, a dimension, a region
+  of a scan or a view note (a picture of the view with ink, labels and references; its pictures are files in
+  `.torno/notes/`, never in marks.json; its anchor is optional), with a note (`app/src/shared/marks.ts`). Ids are `M1`, `M2`, … per object, never reused,
   given by main only.
 - Main is the only writer of `<object>/.torno/marks.json`
   (`src/main/marks/store.ts`): one change at a time per object, written

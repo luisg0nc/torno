@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ArrowMark, DimensionMark, Mark, MarksFile, PickMark, PinMark, ShapeMark, StrokeMark } from '../../shared/marks'
+import type { ArrowMark, DimensionMark, Mark, MarksFile, NoteMark, PickMark, PinMark, ShapeMark, StrokeMark } from '../../shared/marks'
 import { markAnchors } from '../../shared/marks'
 import * as atomic from '../atomic'
 import { loadMarksFile, MAX_NOTE, MAX_STROKE_POINTS, sanitiseMark, saveMarksFile } from './file'
@@ -427,5 +427,75 @@ describe('a region', () => {
     expect(sanitiseMark(region({ local: local({ bbox: { min: [0, 0, 0] } }) }))).toBeNull()
     expect(sanitiseMark(region({ local: local({ plane: { origin: [0, 0, 0], normal: [0, 0, 1] } }) }))).toBeNull()
     expect(sanitiseMark(region({ local: undefined }))).toBeNull()
+  })
+})
+
+describe('a note mark', () => {
+  const under = { box: [10, 10, 60, 40], refs: [{ ref: 'base/F4', descriptor: 'plane, normal +Z' }], cuts: [], scans: [], bare: false }
+  const note = (over: object = {}): NoteMark =>
+    ({
+      ...BASE,
+      id: 'M7',
+      kind: 'note',
+      anchor: ANCHOR,
+      picture: 'n-0123456789ab.png',
+      ink: 'n-0123456789ab.ink.png',
+      size: { w: 800, h: 600 },
+      strokes: [{ width: 4, points: [[10, 10], [60, 40]] }],
+      inkColour: '#ff00ff',
+      labels: [{ x: 100, y: 80, text: 'thin', to: { x: 30, y: 20 } }],
+      under: [under, under],
+      references: [{ file: 'r-0123456789ab.jpg', comment: 'like this one' }],
+      ...over
+    }) as unknown as NoteMark
+
+  it('is kept whole, with or without an anchor', () => {
+    expect(sanitiseMark(note())).toEqual(note())
+    const bare = note()
+    delete bare.anchor
+    expect(sanitiseMark(bare)).toEqual(bare)
+  })
+
+  it('keeps no field it does not have', () => {
+    expect(sanitiseMark({ ...note(), extra: 1, strokes: [{ width: 4, points: [[1, 2]], more: true }] })).toEqual(note({ strokes: [{ width: 4, points: [[1, 2]] }] }))
+  })
+
+  it.each([
+    ['a picture that is not a note picture', { picture: 'n-0123456789ab.ink.png' }],
+    ['a picture with a path in it', { picture: '../n-0123456789ab.png' }],
+    ['an ink that is not an ink file', { ink: 'n-0123456789ab.png' }],
+    ['a reference with a bad name', { references: [{ file: 'p-0123456789ab.png', comment: '' }] }],
+    ['a reference of another type', { references: [{ file: 'r-0123456789ab.gif', comment: '' }] }],
+    ['a size of zero', { size: { w: 0, h: 600 } }],
+    ['an ink that is no colour', { inkColour: 'magenta' }],
+    ['a label that is not finite', { labels: [{ x: Infinity, y: 0, text: 'a' }] }],
+    ['an arrow that is not finite', { labels: [{ x: 0, y: 0, text: 'a', to: { x: 'n', y: 0 } }] }],
+    ['a stroke with no width', { strokes: [{ points: [[1, 2]] }] }],
+    ['a stroke under that is no box', { under: [{ ...under, box: [1, 2, 3] }] }]
+  ])('is dropped for %s', (_what, over) => {
+    expect(sanitiseMark(note(over))).toBeNull()
+  })
+
+  it('is dropped for more labels than a note keeps, a longer label, more references or a longer comment on one', () => {
+    const label = { x: 0, y: 0, text: 'a' }
+    expect(sanitiseMark(note({ labels: Array.from({ length: 20 }, () => label), under: [] }))).not.toBeNull()
+    expect(sanitiseMark(note({ labels: Array.from({ length: 21 }, () => label), under: [] }))).toBeNull()
+    expect(sanitiseMark(note({ labels: [{ ...label, text: 'a'.repeat(200) }] }))).not.toBeNull()
+    expect(sanitiseMark(note({ labels: [{ ...label, text: 'a'.repeat(201) }] }))).toBeNull()
+    const reference = { file: 'r-0123456789ab.png', comment: 'c' }
+    expect(sanitiseMark(note({ references: Array.from({ length: 6 }, () => reference) }))).not.toBeNull()
+    expect(sanitiseMark(note({ references: Array.from({ length: 7 }, () => reference) }))).toBeNull()
+    expect(sanitiseMark(note({ references: [{ ...reference, comment: 'c'.repeat(300) }] }))).not.toBeNull()
+    expect(sanitiseMark(note({ references: [{ ...reference, comment: 'c'.repeat(301) }] }))).toBeNull()
+  })
+
+  it('cuts a stroke to the points a stroke keeps', () => {
+    const points = Array.from({ length: MAX_STROKE_POINTS + 10 }, (_, i) => [i, i])
+    const kept = sanitiseMark(note({ strokes: [{ width: 4, points }], under: [] })) as NoteMark
+    expect(kept.strokes[0].points).toHaveLength(MAX_STROKE_POINTS)
+  })
+
+  it('keeps what main says of it as of any mark', () => {
+    expect(sanitiseMark(note({ sentBefore: true, checkedRevision: 4 }))).toMatchObject({ sentBefore: true, checkedRevision: 4 })
   })
 })

@@ -213,6 +213,45 @@ describe('reanchorAll', () => {
     expect(logged).toEqual([])
   })
 
+  describe('a view note', () => {
+    const note = (anchor?: Anchor): NewMark =>
+      ({
+        ...BASE,
+        kind: 'note',
+        note: 'thin',
+        ...(anchor ? { anchor } : {}),
+        picture: 'n-0123456789ab.png',
+        ink: 'n-0123456789ab.ink.png',
+        size: { w: 800, h: 600 },
+        strokes: [],
+        inkColour: '#ff00ff',
+        labels: [],
+        under: [],
+        references: []
+      }) as unknown as NewMark
+
+    it('is asked about at its anchor, and is ok where the face is still there', async () => {
+      await store.addNote('bracket', note(ON_TOP) as never)
+      await run()
+      expect(anchorsOf(asked[0].args)).toEqual([{ part: 'base', point: ON_TOP.point }])
+      expect((await byId()).M1).toMatchObject({ anchorState: 'ok', checkedRevision: 1, anchor: { ref: 'base/F1' } })
+    })
+
+    it('is orphaned when its part is gone, and keeps its anchor and its picture', async () => {
+      await store.addNote('bracket', note({ point: [1, 1, 2.5], part: 'gone' }) as never)
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part }) => ({ part, found: false })) })
+      await run()
+      expect((await byId()).M1).toMatchObject({ anchorState: 'orphaned', anchor: { point: [1, 1, 2.5], part: 'gone' }, picture: 'n-0123456789ab.png' })
+    })
+
+    it('with no anchor asks nothing, and is checked as far as it can be', async () => {
+      await store.addNote('bracket', note() as never)
+      expect(await run()).toBe(true)
+      expect(asked).toEqual([])
+      expect((await byId()).M1).toMatchObject({ anchorState: 'ok', checkedRevision: 1 })
+    })
+  })
+
   describe('a stroke on the surface', () => {
     const stroke = (points: Array<[number, number, number]>, more: object = {}): NewMark =>
       ({ ...BASE, kind: 'stroke', space: 'surface', anchor: { ...ON_TOP, point: points[0] }, points, ...more }) as NewMark

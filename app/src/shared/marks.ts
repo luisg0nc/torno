@@ -1,3 +1,4 @@
+import type { StrokeUnder } from './drawing'
 import type { Camera } from './view'
 export type Vec3 = [number, number, number]
 export type Quat = [number, number, number, number]            // x y z w
@@ -146,7 +147,53 @@ export interface RegionMark extends MarkBase {
 }
 /** What main alone says of a region, from the scan's mesh and the mask: no caller supplies these. */
 export const REGION_KEYS = ['triangles', 'area', 'local', 'mesh', 'mask'] as const
-export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | DimensionMark | RegionMark
+/** The most labels a note keeps, the longest label, the most reference pictures and the longest comment on one. */
+export const MOST_LABELS = 20
+export const MAX_LABEL = 200
+export const MOST_NOTE_REFERENCES = 6
+export const MAX_REFERENCE_COMMENT = 300
+/** The most strokes of ink a note keeps. */
+export const MOST_NOTE_STROKES = 100
+/** The files of a note, in `<object>/.torno/notes/`: named by main alone. The plain picture of the view, the picture with the ink on it, and a reference picture. */
+export const NOTE_PICTURE = /^n-[0-9a-f]{12}\.png$/
+export const NOTE_INK = /^n-[0-9a-f]{12}\.ink\.png$/
+export const NOTE_REFERENCE = /^r-[0-9a-f]{12}\.(png|jpg)$/
+
+/** A word on the picture of a note, at a point of it in pixels, with an arrow to another point when it has one. */
+export interface NoteLabel {
+  x: number
+  y: number
+  text: string
+  to?: { x: number; y: number }
+}
+/** A picture the person gave with a note, kept as `r-<12 hex>.<png|jpg>`, and what they say it is. */
+export interface NoteReference {
+  file: string
+  comment: string
+}
+/**
+ * A picture of the view with the person's ink on it, labels with arrows, a comment (`note`) and reference pictures.
+ * Its pictures are files of main's beside the marks (`picture`, `ink`, each reference's `file`), never in marks.json.
+ * The strokes and labels are in pixels of the picture (`size`) and stay the source: an edit makes a new inked file.
+ * Its anchor is where the ink first lies over a face, when it does: like a pick's, but optional.
+ */
+export interface NoteMark extends MarkBase {
+  kind: 'note'
+  anchor?: Anchor
+  /** The plain picture of the view: `n-<12 hex>.png`. */
+  picture: string
+  /** The picture with the ink on it: `n-<12 hex>.ink.png`. */
+  ink: string
+  size: { w: number; h: number }
+  strokes: Array<{ width: number; points: Array<[number, number]> }>
+  /** The ink, `#rrggbb`. */
+  inkColour: string
+  labels: NoteLabel[]
+  /** What the ink lies over: one per stroke, then one per label that has an arrow. */
+  under: StrokeUnder[]
+  references: NoteReference[]
+}
+export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | DimensionMark | RegionMark | NoteMark
 export type MarkKind = Mark['kind']
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 /** What main alone says of a mark: no caller supplies these. */
@@ -165,6 +212,10 @@ export type MarkPatch = Partial<Pick<MarkBase, 'note' | 'status' | 'resolvedNote
     expected?: number | null
     tolerance?: number | null
   }
+/** A note as main gives it to `MarkStore.addNote`: its files are already written, and named by main. */
+export type NewNote = Extract<NewMark, { kind: 'note' }>
+/** What a person changes of a note; `ink` is the file of the picture with the new ink on it. */
+export type NotePatch = Partial<Pick<NoteMark, 'note' | 'labels' | 'strokes' | 'under' | 'references' | 'ink'>>
 export interface MarksFile { next: number; marks: Mark[] }
 /**
  * What the window gives to keep a region: the scan, and its triangles as the bits of a mask (bit `i & 7` of
@@ -190,6 +241,7 @@ export function markAnchors(mark: Mark): Anchor[] {
     case 'arrow':
       return [mark.from]
     case 'shape':
+    case 'note':
       return mark.anchor ? [mark.anchor] : []
     case 'dimension':
       return mark.b ? [mark.a, mark.b] : [mark.a]
@@ -262,6 +314,9 @@ export function translated<M extends Mark>(mark: M, by: Vec3, byB: Vec3 = by): M
     case 'dimension':
       // Of one end alone (a radius, a wall) both points are of that end.
       return { ...m, a: at(m.a), ...(m.b ? { b: { ...m.b, point: moved(m.b.point, byB) } } : {}), ...(m.points ? { points: [moved(m.points[0], by), moved(m.points[1], m.b ? byB : by)] } : {}) } as M
+    case 'note':
+      // Its picture is of a view, and the ink is in pixels of it: only where it is tied to the model moves.
+      return m.anchor ? ({ ...m, anchor: at(m.anchor) } as M) : mark
     case 'region':
       // What it holds is in its scan's frame, and a scan is never spread.
       return mark
@@ -306,6 +361,9 @@ export function markPoints(mark: Mark): Vec3[] {
     }
     case 'dimension':
       return [mark.a.point, ...(mark.b ? [mark.b.point] : []), ...(mark.points ?? [])]
+    case 'note':
+      // It is a picture, drawn in no view: nothing of it needs the camera to keep it in.
+      return []
     case 'region':
       // It is drawn on its scan, which is inside what the camera keeps in already.
       return []

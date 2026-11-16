@@ -45,8 +45,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **`.torno` is named in one module, `src/main/own.ts`** (`FOLDER`), and every write under it goes through
   `ownTorno(dir)` first (`writeOwn` for a file written whole): a link or a file in its place is refused with a
   plain reason, nothing is written, and the person is told once for each object, in the Marks panel
-  (`onNotOwn`, wired in `index.ts`). (`.torno/views/`, `.torno/scans/` and `.torno/board/pictures/` each have a `.gitignore` of their own
-  inside them, written by whoever makes the folder.)
+  (`onNotOwn`, wired in `index.ts`). (`.torno/views/`, `.torno/scans/`, `.torno/board/pictures/` and `.torno/notes/` each have a `.gitignore` of their own
+  inside them, written by whoever makes the folder; `main/notes/files.ts` writes the pictures of the view notes, named
+  `n-<12 hex>.png`, `n-<12 hex>.ink.png` and `r-<12 hex>.png|jpg`, by main alone.)
   - The folders torno keeps under it are held to the same rule by the same function, named after the folder:
     `ownTorno(dir, 'views')`, `ownTorno(dir, 'exports')`, `ownTorno(dir, 'scans', 'S1')` (`ownFolders` and
     `linkRefusal` of the scans are that call), `ownTorno(dir, 'chat')`. It is asked before every write into

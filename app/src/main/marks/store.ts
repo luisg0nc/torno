@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type Replacement, type RegionMark, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NotePatch, type Replacement, type RegionMark, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, markAnchors, translated } from '../../shared/marks'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
 
@@ -57,6 +57,8 @@ interface MarkEvents {
 
 /** What a patch may change of any mark, and of a shape only. */
 const COMMON_KEYS = ['note', 'status', 'resolvedNote'] as const
+/** What the person may change of a note, besides what `update` changes. */
+const NOTE_KEYS = ['note', 'labels', 'strokes', 'under', 'references', 'ink'] as const
 const SHAPE_KEYS = ['intent', 'position', 'rotation', 'size', 'shape'] as const
 /** And of a dimension only: what it should measure. `null` takes either away. */
 const DIMENSION_KEYS = ['expected', 'tolerance'] as const
@@ -274,6 +276,49 @@ export class MarkStore {
       if (kind(mark) === 'dimension') this.forgetHistory(objectId, `M${this.files.get(this.deps.dirOf(objectId) ?? '')?.next ?? 0}`)
       throw e
     })
+  }
+
+  /**
+   * Keeps a new note of the person's, as a draft. Its files are written already, and named by main (`notes/files.ts`):
+   * the file names it carries are checked as the sanitiser checks them (a name that is not main's is no note), and what
+   * only main says of a mark is never taken from it. If it is refused, nothing is written and the number is not used.
+   */
+  addNote(objectId: string, note: NewNote): Promise<Mark> {
+    return this.add(objectId, { ...note, kind: 'note', author: 'user' } as NewMark)
+  }
+
+  /**
+   * Changes what the person made of a note: its comment, its labels and strokes with what they lie over, its
+   * references and the file of its picture with the ink on it. A note the agent was sent, or resolved, that is changed
+   * is a draft again, told as one it was sent before and that the person reopened (`sentBefore`, `reopened`); one
+   * that was resolved forgets who resolved it. A draft stays one, and a patch that changes nothing writes and tells
+   * nothing. A file named that is not main's, or a field of the wrong sort, is refused.
+   */
+  async editNote(objectId: string, id: string, patch: NotePatch): Promise<Mark> {
+    let was: Mark | undefined
+    const edited = await this.change(objectId, (file) => {
+      const at = indexOf(file, id)
+      const mark = file.marks[at]
+      if (mark.kind !== 'note') throw new Refusal(`${id} is a ${mark.kind}, not a note`)
+      was = mark
+      // What crosses from the window is whatever it sent: a patch that is no object changes nothing.
+      const asked: Record<string, unknown> = typeof patch === 'object' && patch !== null ? patch : {}
+      const kept = Object.fromEntries(NOTE_KEYS.filter((key) => asked[key] !== undefined).map((key) => [key, asked[key]]))
+      const changed = sanitiseMark({ ...mark, ...kept })
+      if (!changed) throw new Refusal(`that is not a valid change to ${id}`)
+      if (isDeepStrictEqual(changed, mark)) return UNCHANGED
+      if (mark.status !== 'draft') {
+        // What the agent was told, or settled, no longer holds: it is told again, and that the person reopened it.
+        changed.status = 'draft'
+        changed.sentBefore = true
+        changed.reopened = true
+        delete changed.resolvedBy
+        delete changed.acknowledged
+      }
+      file.marks[at] = changed
+      return changed
+    })
+    return edited === UNCHANGED ? structuredClone(was as Mark) : edited
   }
 
   /**

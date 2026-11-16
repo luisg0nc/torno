@@ -260,6 +260,9 @@ export function labelAnchor(mark: Mark, regionAt?: (mark: RegionMark) => Vec3 | 
       return { point: mark.anchor.point, leader: unit(mark.anchor.normal) }
     case 'pick':
       return { point: mark.anchor.point }
+    case 'note':
+      // A picture of a view: it hangs a label only where its ink lay over a face.
+      return { point: mark.anchor?.point ?? [0, 0, 0] }
     case 'arrow':
       return { point: mark.from.point }
     case 'stroke':
@@ -401,6 +404,9 @@ export function build(mark: Mark, colours: MarkColours, scale: number): THREE.Ob
       break
     case 'region':
       // Nothing of its own: it is the tint on its scan (`ScanTints`), and its number.
+      break
+    case 'note':
+      // A picture, drawn in no view.
       break
   }
   rescale(root, () => scale, 1)
