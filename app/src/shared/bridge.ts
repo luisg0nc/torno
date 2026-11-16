@@ -10,6 +10,7 @@ import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
 import type { Mark, MarkPatch, NewMark, NewRegion, Replacement } from './marks'
 import type { Scene } from './scene'
+import type { SizeFact } from './size'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
 import type { SceneFile } from './scenefile'
 import type { ObjectCard, ThumbnailOf } from './show'
@@ -25,14 +26,22 @@ export interface CreateRequest {
   description: string
   /** Files on the disk (from a drop or main's dialog): copied into `reference/` as `photo-<n>.<ext>`. */
   photos: Array<{ path: string; note: string }>
-  /** PNG bytes of a drawing: `reference/doodle-<n>.png`. */
-  doodles: Array<{ png: Uint8Array; note: string }>
+  /** PNG bytes of a drawing: `reference/doodle-<n>.png`. `over` is the index into `photos` of the photo it is drawn over. */
+  doodles: Array<{ png: Uint8Array; note: string; over?: number }>
   /** Vendor STEP files of bought parts (`.step`, `.stp`, at most 50 MB): copied into `reference/` under their own names (`stepFiles`). */
   steps: Array<{ path: string; note: string }>
   /** Not copied: imported into the object after it is made. */
   scans: Array<{ path: string; note: string }>
   /** Other objects of the workspace, by id. */
   objects: Array<{ id: string; note: string }>
+  /** What the person measured or read (at most 40): cards of the project's board, never written into `brief.md`. */
+  sizes: SizeFact[]
+  /** Rules for the model (at most 4000 characters): a text card of the board. */
+  rules: string
+  /** Links (`http`, `https`; at most 20): a text card each, never opened by torno. */
+  links: Array<{ url: string; note: string }>
+  /** PDF files (at most 6, 25 MB each, starting `%PDF-`): copied into `reference/` under their own names (`referenceFiles`). */
+  pdfs: Array<{ path: string; note: string }>
 }
 
 /**
@@ -214,6 +223,8 @@ export interface TornoBridge {
     pickScan(): Promise<string | null>
     /** The dialog for a vendor STEP file (`.step`, `.stp`); under test, what `__tornoMain.pickStep` holds. null when cancelled. */
     pickStep(): Promise<string | null>
+    /** The dialog for a PDF; under test, what `__tornoMain.pickPdf` holds. null when cancelled. */
+    pickPdf(): Promise<string | null>
     /** Where a file dropped on the window is on the disk (`webUtils.getPathForFile`); '' for one that is nowhere. */
     pathOf(file: File): string
     /** The bytes of an image file the dialog or a drop gave (a plain PNG, JPEG or WebP file of at most 25 MB), to draw it and scale a copy for the prompt. */

@@ -1,13 +1,18 @@
 import { randomBytes } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstatSync, readdirSync, rmSync } from 'node:fs'
-import { lstat, mkdir, open, readdir, rename, rm, rmdir } from 'node:fs/promises'
+import { type FileHandle, lstat, mkdir, open, readdir, rename, rm, rmdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { extname, isAbsolute, join } from 'node:path'
 import type { CreateRequest } from '../../shared/bridge'
-import { MAX_PHOTO_BYTES, MAX_STEP_BYTES, moduleName, MOST_REFERENCES, objectNameProblem, STEP_FORMATS, stepFiles } from '../../shared/objectName'
+import { MAX_PDF_BYTES, MAX_PHOTO_BYTES, MAX_STEP_BYTES, moduleName, MOST_REFERENCES, objectNameProblem, PDF_FORMATS, referenceFiles, STEP_FORMATS } from '../../shared/objectName'
+import { MAX_SIZES, checkSize, type SizeFact } from '../../shared/size'
 import { SCAN_FORMATS } from '../../shared/scans'
+import { MAX_TEXT_CHARS } from '../../shared/board'
 import { writeFileAtomic } from '../atomic'
+import { textOf } from '../board/file'
+import { startBoard } from '../board/start'
+import { FOLDER } from '../own'
 import template from './template.py.txt?raw'
 
 // Making an object is the one thing torno writes in a workspace outside `<object>/.torno/`: one new folder,
@@ -22,10 +27,18 @@ export const MOST = MOST_REFERENCES
 export const MAX_PHOTO = MAX_PHOTO_BYTES
 /** The biggest vendor STEP file, in bytes (50 MB). */
 export const MAX_STEP = MAX_STEP_BYTES
+/** The biggest PDF, in bytes (25 MB). */
+export const MAX_PDF = MAX_PDF_BYTES
 export const MAX_DOODLE = 8 * 1024 * 1024
 /** The longest description and the longest note, in characters. */
 const MAX_DESCRIPTION = 20_000
 const MAX_NOTE = 2_000
+/** What a board takes of the rest: the rules (a text card holds this much), the links, and a link's note. */
+const MAX_RULES = MAX_TEXT_CHARS
+const MAX_LINKS = 20
+const MAX_URL = 2_000
+const MAX_LINK_NOTE = 300
+const PDF_SIGNATURE = '%PDF-'
 const PHOTO_TYPES = ['.png', '.jpg', '.jpeg', '.webp']
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 
@@ -35,7 +48,13 @@ export interface CreateDeps {
   /** The ids of its objects, which are what another object may be referred to by. */
   objects: readonly string[]
   /** For tests: called with the temp folder when everything is written, before it takes the name. */
-  hooks?: { beforeRename?: (temp: string) => void | Promise<void> }
+  hooks?: {
+    /** Called with the temp folder once it is made, before anything is written in it. */
+    afterTemp?: (temp: string) => void | Promise<void>
+    /** Called with the temp folder when the files are written, before the board is. */
+    beforeBoard?: (temp: string) => void | Promise<void>
+    beforeRename?: (temp: string) => void | Promise<void>
+  }
 }
 
 /** What a crash between the claim and the rename leaves: `.<name>.torno-new-<12 hex>`. Nothing else is ours to remove. */
@@ -102,11 +121,11 @@ function homeRelative(path: string): string {
 const line = (what: string, note: string): string => (note === '' ? `- ${what}` : `- ${what}: ${note}`)
 
 /**
- * The bytes of a regular file of at most `cap` bytes, and nothing else: a link, a folder, a pipe and a file that
+ * A plain file opened for reading, of at most `cap` bytes, and nothing else: a link, a folder, a pipe and a file that
  * is too big are refused before any of it is read. The file is opened without following a link and looked at
- * through the open handle, so that what was checked is what is read.
+ * through the open handle, so that what was checked is what is read. The caller closes the handle.
  */
-export async function readRegular(path: unknown, cap: number, what: string, types: readonly string[] = PHOTO_TYPES): Promise<{ bytes: Buffer; ext: string }> {
+async function openRegular(path: unknown, cap: number, what: string, types: readonly string[]): Promise<{ handle: FileHandle; size: number; ext: string; path: string }> {
   if (typeof path !== 'string' || !isAbsolute(path)) throw new Error(`A ${what} is given by the path of a file; this is not one.`)
   const ext = extname(path).toLowerCase()
   if (!types.includes(ext)) throw new Error(`${path} is not a ${types.join(', ')} file.`)
@@ -120,16 +139,42 @@ export async function readRegular(path: unknown, cap: number, what: string, type
     const opened = await handle.stat()
     if (!opened.isFile()) throw new Error(`${path} is not a plain file: torno copies only plain files.`)
     if (opened.size > cap) throw new Error(`${path} is over ${cap / (1024 * 1024)} MB.`)
+    return { handle, size: opened.size, ext, path }
+  } catch (e) {
+    await handle.close()
+    throw e
+  }
+}
+
+/** The bytes of a regular file of at most `cap` bytes, and nothing else (`openRegular`). */
+export async function readRegular(path: unknown, cap: number, what: string, types: readonly string[] = PHOTO_TYPES): Promise<{ bytes: Buffer; ext: string }> {
+  const { handle, size, ext, path: at } = await openRegular(path, cap, what, types)
+  try {
     // One byte more than the size said: a file that grew since is caught, not read whole.
-    const bytes = Buffer.alloc(opened.size + 1)
+    const bytes = Buffer.alloc(size + 1)
     let got = 0
     while (got < bytes.length) {
       const { bytesRead } = await handle.read(bytes, got, bytes.length - got, got)
       if (bytesRead === 0) break
       got += bytesRead
     }
-    if (got > opened.size) throw new Error(`${path} changed while it was read.`)
+    if (got > size) throw new Error(`${at} changed while it was read.`)
     return { bytes: bytes.subarray(0, got), ext }
+  } finally {
+    await handle.close()
+  }
+}
+
+/** Whether `bytes` start as a PDF does. */
+const isPdf = (bytes: Uint8Array): boolean => PDF_SIGNATURE.split('').every((c, i) => bytes[i] === c.charCodeAt(0))
+
+/** Looks at a PDF without reading it: a plain file of at most 25 MB that starts `%PDF-`. Throws the reason. */
+async function checkPdf(path: unknown): Promise<void> {
+  const { handle, path: at } = await openRegular(path, MAX_PDF, 'PDF', PDF_FORMATS)
+  try {
+    const head = Buffer.alloc(PDF_SIGNATURE.length)
+    const { bytesRead } = await handle.read(head, 0, head.length, 0)
+    if (bytesRead < head.length || !isPdf(head)) throw new Error(`${at} is not a PDF: it does not start with ${PDF_SIGNATURE}.`)
   } finally {
     await handle.close()
   }
@@ -144,16 +189,39 @@ export async function readPhoto(path: unknown): Promise<Uint8Array> {
   return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.length)
 }
 
-/** The request, held to what it may be; throws a plain reason. Returns what `brief.md` needs. */
-function checked(req: CreateRequest, deps: CreateDeps, existing: readonly string[]): void {
+/** What the board is made from, once the request has been held to what it may be. */
+interface Checked {
+  sizes: SizeFact[]
+  rules: string
+  links: Array<{ url: string; note: string }>
+}
+
+/** A link: `http` or `https` only (any case of the scheme), one word, a host, at most 2000 characters. */
+function checkLink(link: unknown): { url: string; note: string } {
+  const url = (link as { url?: unknown } | null)?.url
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('A link is an http or https address.')
+  if (url.length > MAX_URL) throw new Error(`A link is at most ${MAX_URL} characters.`)
+  if (/[\s\p{Cc}]/u.test(url)) throw new Error('A link has no space, control character or line break in it.')
+  try {
+    if (new URL(url).hostname === '') throw new Error('no host')
+  } catch {
+    throw new Error('A link is an http or https address.')
+  }
+  const note = oneLine((link as { note?: unknown }).note, 'link')
+  if (note.length > MAX_LINK_NOTE) throw new Error(`The note of a link is over ${MAX_LINK_NOTE} characters.`)
+  return { url, note }
+}
+
+/** The request, held to what it may be; throws a plain reason. Returns what the board needs. */
+async function checked(req: CreateRequest, deps: CreateDeps, existing: readonly string[]): Promise<Checked> {
   if (typeof req !== 'object' || req === null) throw new Error('No project to make.')
   if (typeof req.name !== 'string') throw new Error('Give the project a name.')
   const problem = objectNameProblem(req.name, existing)
   if (problem) throw new Error(problem)
   if (typeof req.description !== 'string' || req.description.trim() === '') throw new Error('Say what it is first.')
   if (req.description.length > MAX_DESCRIPTION) throw new Error(`The description is over ${MAX_DESCRIPTION} characters.`)
-  const named = { photos: 'photos', doodles: 'doodles', steps: 'bought parts', scans: 'scans', objects: 'projects' }
-  for (const kind of ['photos', 'doodles', 'steps', 'scans', 'objects'] as const) {
+  const named = { photos: 'photos', doodles: 'doodles', steps: 'bought parts', scans: 'scans', objects: 'projects', pdfs: 'PDFs' }
+  for (const kind of ['photos', 'doodles', 'steps', 'scans', 'objects', 'pdfs'] as const) {
     if (!Array.isArray(req[kind])) throw new Error(`The ${named[kind]} are not a list.`)
     if (req[kind].length > MOST[kind]) throw new Error(`At most ${MOST[kind]} ${named[kind]}.`)
   }
@@ -175,14 +243,39 @@ function checked(req: CreateRequest, deps: CreateDeps, existing: readonly string
     if (typeof photo?.path !== 'string') throw new Error('A photo is given by the path of a file; this is not one.')
     oneLine(photo.note, 'photo')
   }
-  for (const doodle of req.doodles) oneLine(doodle?.note, 'doodle')
-  for (const [kind, keys] of [['photo', req.photos.map((p) => p.path)], ['bought part', req.steps.map((s) => s.path)], ['scan', req.scans.map((s) => s.path)], ['project', req.objects.map((o) => o?.id)]] as const) {
+  for (const doodle of req.doodles) {
+    oneLine(doodle?.note, 'doodle')
+    const over = doodle?.over
+    if (over !== undefined && (!Number.isInteger(over) || over < 0 || over >= req.photos.length)) throw new Error('A doodle is drawn over one of the photos given.')
+  }
+  for (const pdf of req.pdfs) {
+    if (typeof pdf?.path !== 'string' || !isAbsolute(pdf.path) || !(PDF_FORMATS as readonly string[]).includes(extname(pdf.path).toLowerCase())) {
+      throw new Error('A PDF is a .pdf file given by its path.')
+    }
+    oneLine(pdf.note, 'PDF')
+  }
+  for (const [kind, keys] of [['photo', req.photos.map((p) => p.path)], ['bought part', req.steps.map((s) => s.path)], ['PDF', req.pdfs.map((p) => p.path)], ['scan', req.scans.map((s) => s.path)], ['project', req.objects.map((o) => o?.id)]] as const) {
     if (new Set(keys).size !== keys.length) throw new Error(`The same ${kind} is given twice.`)
   }
   for (const other of req.objects) {
     oneLine(other?.note, 'project')
     if (typeof other?.id !== 'string' || !deps.objects.includes(other.id)) throw new Error(`There is no project ${JSON.stringify(other?.id)} in this workspace.`)
   }
+  if (!Array.isArray(req.sizes)) throw new Error('The sizes are not a list.')
+  if (req.sizes.length > MAX_SIZES) throw new Error(`At most ${MAX_SIZES} sizes.`)
+  const sizes = req.sizes.map((raw) => {
+    const size = checkSize(raw, 'person')
+    if (typeof size === 'string') throw new Error(size)
+    return size
+  })
+  if (typeof req.rules !== 'string') throw new Error('The rules are not text.')
+  if (req.rules.length > MAX_RULES) throw new Error(`The rules are over ${MAX_RULES} characters.`)
+  if (!Array.isArray(req.links)) throw new Error('The links are not a list.')
+  if (req.links.length > MAX_LINKS) throw new Error(`At most ${MAX_LINKS} links.`)
+  const links = req.links.map(checkLink)
+  // The files last, the one thing that reads the disk: each is looked at, not read, so that nothing is made for a PDF that is no good.
+  for (const pdf of req.pdfs) await checkPdf(pdf.path)
+  return { sizes, rules: req.rules, links }
 }
 
 /**
@@ -197,19 +290,26 @@ export async function createObject(req: CreateRequest, deps: CreateDeps): Promis
   // nothing to lose): the finished folder takes its place.
   const reuse = name !== '' && existing.includes(name) && (await isEmptyFolder(target))
   if (reuse) existing = existing.filter((entry) => entry !== name)
-  checked(req, deps, existing)
+  const board = await checked(req, deps, existing)
   const temp = join(deps.root, `.${name}.torno-new-${randomBytes(6).toString('hex')}`)
   let claimed = false
   await mkdir(temp)
   try {
+    await deps.hooks?.afterTemp?.(temp)
     const references: string[] = []
+    // What the board holds of the files written: each file with the note the person gave (`caption`).
+    const made: Array<{ file: string; note: string }> = []
+    const reference = (file: string, note: string): void => {
+      references.push(line(file, note))
+      made.push({ file, note })
+    }
     await writeFileAtomic(join(temp, `${moduleName(name)}.py`), template)
     let n = 0
     for (const photo of req.photos) {
       const { bytes, ext } = await readRegular(photo?.path, MAX_PHOTO, 'photo')
       const file = `reference/photo-${++n}${ext}`
       await writeFileAtomic(join(temp, file), bytes)
-      references.push(line(file, oneLine(photo.note, 'photo')))
+      reference(file, oneLine(photo.note, 'photo'))
     }
     n = 0
     for (const doodle of req.doodles) {
@@ -219,19 +319,34 @@ export async function createObject(req: CreateRequest, deps: CreateDeps): Promis
       if (png.length < PNG_SIGNATURE.length || PNG_SIGNATURE.some((b, i) => png[i] !== b)) throw new Error('A doodle is a PNG; this is not one.')
       const file = `reference/doodle-${++n}.png`
       await writeFileAtomic(join(temp, file), png)
-      references.push(line(file, oneLine(doodle.note, 'doodle')))
+      const note = oneLine(doodle.note, 'doodle')
+      const over = doodle.over === undefined ? '' : `drawn over reference/photo-${doodle.over + 1}${extname(req.photos[doodle.over].path).toLowerCase()}`
+      reference(file, over === '' ? note : note === '' ? over : `${note} (${over})`)
     }
-    const stepNames = stepFiles(req.steps.map((step) => step.path))
+    const stepNames = referenceFiles(req.steps.map((step) => step.path), STEP_FORMATS)
     for (const [i, step] of req.steps.entries()) {
       // Copied as it is, under its own name: the model reads it by that name. A STEP file is plain text, within its cap.
       const { bytes } = await readRegular(step.path, MAX_STEP, 'bought part', STEP_FORMATS)
       await writeFileAtomic(join(temp, stepNames[i]), bytes)
-      references.push(line(stepNames[i], oneLine(step.note, 'bought part')))
+      reference(stepNames[i], oneLine(step.note, 'bought part'))
+    }
+    const pdfNames = referenceFiles(req.pdfs.map((pdf) => pdf.path), PDF_FORMATS)
+    for (const [i, pdf] of req.pdfs.entries()) {
+      // Copied as it is, under its own name, once it is read whole: a PDF that is no PDF is not kept.
+      const { bytes } = await readRegular(pdf.path, MAX_PDF, 'PDF', PDF_FORMATS)
+      if (!isPdf(bytes)) throw new Error(`${pdf.path} is not a PDF: it does not start with ${PDF_SIGNATURE}.`)
+      await writeFileAtomic(join(temp, pdfNames[i]), bytes)
+      reference(pdfNames[i], oneLine(pdf.note, 'PDF'))
     }
     for (const scan of req.scans) references.push(line(`scan ${homeRelative(scan.path)}`, oneLine(scan.note, 'scan')))
     for (const other of req.objects) references.push(line(`../${other.id}/`, oneLine(other.note, 'project')))
     const brief = [`# ${name}`, '', req.description.trim(), ...(references.length ? ['', '## References', '', ...references] : []), ''].join('\n')
     await writeFileAtomic(join(temp, 'brief.md'), brief)
+    // The board, whole in the hidden folder like the rest: the brief and the references are cards of main's own, as the
+    // first open would make them. Nothing else of `.torno/` is written; its `.gitignore` lines are the store's, when it
+    // first writes what they are for.
+    await deps.hooks?.beforeBoard?.(temp)
+    await writeFileAtomic(join(temp, FOLDER, 'board', 'board.json'), textOf(startBoard({ description: req.description, references: made, sizes: board.sizes, rules: board.rules, links: board.links })))
 
     await deps.hooks?.beforeRename?.(temp)
     // The name is taken by making it, which fails if it is there (in any case, on a disk that does not tell them

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { STDLIB_MODULES } from './pythonModules'
-import { MAX_PHOTO_BYTES, moduleName, objectNameProblem } from './objectName'
+import { MAX_PDF_BYTES, MAX_PHOTO_BYTES, moduleName, objectNameProblem, PDF_FORMATS, referenceFiles, stepFiles, STEP_FORMATS } from './objectName'
 
 describe('objectNameProblem', () => {
   it('accepts letters, digits, dash and underscore', () => {
@@ -76,4 +76,21 @@ describe('moduleName', () => {
 
 it('has one cap for a photo, which main and the window both hold a file to', () => {
   expect(MAX_PHOTO_BYTES).toBe(25 * 1024 * 1024)
+})
+
+describe('referenceFiles', () => {
+  it('keeps each file its own name, safe, lower-case ending, and numbers a name taken in any case', () => {
+    expect(referenceFiles(['/a/Data Sheet.PDF', '/b/data sheet.pdf', '/c/DATA_SHEET.pdf', '/d/noending'], PDF_FORMATS)).toEqual([
+      'reference/Data_Sheet.pdf',
+      'reference/data_sheet-2.pdf',
+      'reference/DATA_SHEET-3.pdf',
+      'reference/noending.pdf'
+    ])
+  })
+
+  it('is what stepFiles says for STEP files, and a PDF may share a stem with one', () => {
+    expect(stepFiles(['/a/608ZZ.STEP', '/b/608zz.stp', '/c/x'])).toEqual(referenceFiles(['/a/608ZZ.STEP', '/b/608zz.stp', '/c/x'], STEP_FORMATS))
+    expect(stepFiles(['/c/x'])).toEqual(['reference/x.step'])
+    expect(MAX_PDF_BYTES).toBe(25 * 1024 * 1024)
+  })
 })

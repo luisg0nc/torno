@@ -68,7 +68,7 @@ const depsOf = (s: Sessions): OnboardDeps => ({
 async function made(name: string) {
   const photo = join(root, 'files', 'desk.png')
   const { objectId } = await createObject(
-    { name, description: 'A clip for a 6 mm cable.', photos: [{ path: photo, note: 'the desk' }], doodles: [{ png: png(1200, 800), note: 'the shape' }], steps: [], scans: [], objects: [{ id: 'lid', note: 'mounts on this' }] },
+    { name, description: 'A clip for a 6 mm cable.', photos: [{ path: photo, note: 'the desk' }], doodles: [{ png: png(1200, 800), note: 'the shape' }], steps: [], scans: [], objects: [{ id: 'lid', note: 'mounts on this' }], sizes: [], rules: '', links: [], pdfs: [] },
     { root, objects: ['lid'] }
   )
   objects.set(objectId, { id: objectId, name: objectId, dir: join(root, objectId), model: null })

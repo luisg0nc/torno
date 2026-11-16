@@ -46,8 +46,22 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the file is checked as a plain file of `reference/` with a STEP name). torno reads nothing of them. `objects:pickStep` is their dialog
   (`__tornoMain.pickStep`, `stepPicks` count). Scans are not copied (`objects:onboard` imports them) and other objects are named
   by id; the path of a scan is refused if it holds a control character, a line break above all, as it is a line of `brief.md`,
-  which writes a path under the home folder with `~`. At most 12 photos, 6 doodles, 4 bought parts (STEP), 4 scans and 8 objects (`MOST_REFERENCES` in `shared/objectName.ts`, held by the window and main alike). `brief.md` is `# name`, the description, and `## References` with a line per item in the
-  order photos, doodles, STEP files, scans, objects.
+  which writes a path under the home folder with `~`. At most 12 photos, 6 doodles, 4 bought parts (STEP), 4 scans, 8 objects and 6 PDFs (`MOST_REFERENCES` in `shared/objectName.ts`, held by the window and main alike). `brief.md` is `# name`, the description, and `## References` with a line per item in the
+  order photos, doodles, STEP files, PDFs, scans, objects.
+- PDFs come as paths too (`objects:pickPdf`, `__tornoMain.pickPdf` and `pdfPicks`; its path goes into `Offered`), copied as they are to
+  `reference/<their name>` (`referenceFiles` in `shared/objectName.ts`, of which `stepFiles` is the STEP case), at most 25 MB (`MAX_PDF_BYTES`),
+  through `readRegular`, and each must start `%PDF-`. `checked` looks at each of them (plain file, size, signature, without reading it
+  whole) before the temp folder is made, so a PDF that is no good makes nothing. A doodle may say `over`, the index of the photo in
+  `photos` it is drawn over (an integer of a photo given, else refused): its brief line and its card's caption say "(drawn over
+  reference/photo-2.jpg)" after the note.
+- The board is written into the temp folder as the last file, before the rename: `.torno/board/board.json` (`startBoard`, `main/board/start.ts`,
+  text by `textOf`; nothing else of `.torno/`: the store adds the `.gitignore` lines when it first writes what they are for). A frame for
+  each of Brief, Photos, Sketches, Sizes, Rules, Links, Bought parts and PDFs that holds something (a person's), laid left to right, wrapping at
+  3200, 40 apart. The brief and the reference cards in them are main's own (`by: 'torno'`, `caption` the note), exactly what `reconcile` makes
+  for the folder, so that the first open changes nothing; sizes, the rules and each link (the URL, then its note on the next line) are the
+  person's cards. They are held before the temp folder is made: at most 40 sizes (`checkSize`, as the person), rules of at most 4000 characters,
+  at most 20 links (`http`/`https` only, any case of the scheme, no whitespace or control character, at most 2000 characters, a note of
+  at most 300), a list that is not one is refused. Sizes, rules and links are not in `brief.md`. A failure writing the board removes the temp folder.
 - `objects:create` answers after `rescan`, so the listing has the object; if the workspace was left meanwhile, or it
   does not list the object, it rejects saying the object "was made, but ..." (the window then does not offer the
   draft again). It validates the request (name, caps, every note, every scan and object, the same photo, scan or object given

@@ -108,6 +108,7 @@ const bridge: TornoBridge = {
     pickPhotos: () => invokePlain('objects:pickPhotos'),
     pickScan: () => invokePlain('scans:pick'),
     pickStep: () => invokePlain('objects:pickStep'),
+    pickPdf: () => invokePlain('objects:pickPdf'),
     pathOf: (file) => webUtils.getPathForFile(file),
     readPhoto: (path) => invokePlain('objects:readPhoto', path),
     create: (req) => invokePlain('objects:create', req),

@@ -81,7 +81,12 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
       doodles: draft.doodles.map((d) => ({ png: d.png, note: d.note })),
       steps: draft.steps.map((s) => ({ path: s.path, note: s.note })),
       scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
-      objects: draft.objects.map((o) => ({ id: o.id, note: o.note }))
+      objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),
+      // The draft has no sizes, rules, links or PDFs yet.
+      sizes: [],
+      rules: '',
+      links: [],
+      pdfs: []
     }
     // What `onboard` names is what `create` wrote: photo-<n> with the extension of the file, doodle-<n>.png.
     const items = referenceFiles(draft)
