@@ -35,6 +35,18 @@ describe('the log of a conversation', () => {
     expect((user as Extract<ChatItem, { kind: 'user' }>).images).toEqual([{ id: 'p1', mediaType: 'image/png', file: 'reference/doodle-1.png' }])
   })
 
+  it('reads back the user item of a log that holds an old drawing on the view, and one that holds notes', async () => {
+    const drawing = { revision: 3, over: { faces: ['tub/F3'], cuts: [], scans: [], bare: [], partly: [], strokes: 1 } }
+    const notes = [{ note: 'M5', revision: 3, over: { faces: ['lid/F1'], cuts: [], scans: [], bare: [], partly: [], strokes: 1 } }]
+    await appendItems(dir, CONVERSATION, [
+      { kind: 'user', id: 'u1', text: 'old', images: [], state: 'sent', at: 1, drawing },
+      { kind: 'user', id: 'u2', text: 'new', images: [], state: 'sent', at: 2, notes }
+    ])
+    const [old, fresh] = await readLog(dir, CONVERSATION)
+    expect(old).toMatchObject({ kind: 'user', text: 'old', drawing })
+    expect(fresh).toMatchObject({ kind: 'user', text: 'new', notes })
+  })
+
   it('never writes the data of a picture, nor of a picture inside a tool', async () => {
     const image = { id: 'p1', mediaType: 'image/png', data: 'AAAA', width: 4, height: 4 }
     await appendItems(dir, CONVERSATION, [

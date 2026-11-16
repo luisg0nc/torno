@@ -16,7 +16,7 @@ import type { SceneFile } from './scenefile'
 import type { ObjectCard, ThumbnailOf } from './show'
 import type { HighlightRequest, HighlightResult, LookRequest, LookResult, SaveViewRequest, SaveViewResult, SectionDrawingRequest, SectionDrawingResult, ShowRequest, ShowResult, ViewState, Camera } from './view'
 import type { RecentFolder, WorkspaceInfo } from './workspace'
-import type { StrokeUnder, ViewDrawing } from './drawing'
+import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
@@ -478,12 +478,12 @@ export interface TornoBridge {
     /** The slash commands and models the session's CLI has, told when it has said them (a history had earlier may lack them). */
     onCapabilities(cb: (m: { sessionId: string; commands: ChatCommand[]; models: ChatModel[]; seq: number }) => void): () => void
     /**
-     * Sends a prompt; with `attachedView`, main adds that picture (the one "Attach view" showed, checked as any picture for the agent) and no other; with `attachView` alone, a picture of the viewport as it is now; with `drawing`,
-     * the person's drawing on the view, after a caption main writes; with `board`, the cards and frames it names (or all
-     * the board), read as they are now and told in text with up to six of their pictures. Rejects, sending nothing, when a picture cannot be
-     * made, the drawing is not one or the board cannot be read.
+     * Sends a prompt; with `attachedView`, main adds that picture (the one "Attach view" showed, checked as any picture for the agent) and no other; with `attachView` alone, a picture of the viewport as it is now; with `board`, the cards and frames it names (or all
+     * the board), read as they are now and told in text with up to six of their pictures. The project's draft view notes (`notes.make`)
+     * go with it of themselves, in the order of the marks, within the 6 pictures a prompt carries. Rejects, sending nothing, when a picture cannot be
+     * made or the board cannot be read.
      */
-    send(sessionId: string, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing; board?: BoardAttach }): Promise<void>
+    send(sessionId: string, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; board?: BoardAttach }): Promise<void>
     /** Answers a request of the agent's. The tool runs with the input it asked with; only the answers of `AskUserQuestion` are taken from the window. */
     answer(sessionId: string, requestId: string, answer: ChatAnswer): void
     interrupt(sessionId: string): Promise<void>

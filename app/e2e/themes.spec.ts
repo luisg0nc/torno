@@ -481,8 +481,8 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(asked.getByRole('button', { name: 'Keep it open' })).toBeFocused()
         } else if (shot === 'view-board' || shot === 'view-board-chip' || shot === 'view-board-sent') {
           // The board over the view, from the chat's "Draw on view": a ring round the middle and an arrow to it.
-          // Then (`-chip`) the board put away with Done: the drawing waits above the box with what its ink lies over, and the view attached beside it;
-          // or (`-sent`) the prompt it went with, which shows the same line under its picture.
+          // Then (`-chip`) the board put away with Done: the drawing is a draft view note among the marks, and the view is attached;
+          // or (`-sent`) the prompt it went with, which shows what its ink lies over under its picture.
           await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.locator('[data-region="session"]').getByRole('button', { name: 'Draw on view' }).click()
@@ -500,9 +500,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(board.locator('canvas')).toHaveAttribute('data-strokes', '4')
           if (shot !== 'view-board') {
             await board.getByRole('button', { name: 'Done' }).click()
-            const waiting = page.getByRole('group', { name: 'Drawing on the view' })
-            await expect(waiting.locator('.over')).toBeVisible()
-            await expect(waiting.locator('.ref-chip').first()).toBeVisible()
+            await expect(page.locator('.mark-row[data-status="draft"]').filter({ has: page.getByRole('img', { name: 'View note' }) })).toHaveCount(1)
             const dock = page.locator('[data-region="session"]')
             if (shot === 'view-board-chip') {
               await dock.getByRole('button', { name: 'Attach view' }).click()

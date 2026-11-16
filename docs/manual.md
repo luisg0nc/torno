@@ -817,34 +817,35 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   tools it used.
 - **"Attach view"** adds a picture of the viewport as you see it to the next
   prompt only. Pressed, it shows a small picture of the view as it is now above
-  the box, with "Remove", beside the drawing's row when there is one; the
+  the box, with "Remove"; the
   picture that goes with the prompt is the one shown, whatever the view does
   meanwhile.
 - **"Draw on view"** opens a board over a picture of the view: the very picture
   the agent's `look` makes of it, with the axes, the scale bar and the marks
   numbered. Draw on it as on the doodle board (two pens, an eraser that takes
   away only your ink, "Undo" and `Ctrl+Z`, "Clear"); the ink is magenta, edged
-  with a thin line, which no mark is drawn in. "Done" puts the drawing above the
-  box, with "Edit" and "Remove", and the box has the keys again, for the prompt
-  it goes with; it goes with your next prompt only. The row says what the ink
-  lies over, before anything is sent: `Over tub/F3, tub/F1, the cut face of lid
-  · stroke 1 partly over no part · stroke 2 over no part`, the refs as chips that light their face in the view
-  when the pointer is on them. If the view moved while you drew, it says in
-  the warning colour that this was not worked out, with "Draw again"; if the model has been
-  built again since, it says the faces are of the build you drew on. The prompt,
-  once sent, shows the same line under its picture. Claude
-  Code gets the picture with your ink, and before it a caption torno writes: that
-  the strokes are your drawing, which build it was drawn on, the camera it was
-  seen from (so that it can `look` from there again), and stroke by stroke the
-  faces of the parts, the cut faces of a section ("the cut face of lid") and the
-  scans your ink lies over, by ref with the kernel's line for each face
-  (`lid/F12 (plane, normal +Z, z = 20, 1180 mm²)`). No
-  coordinate is taken from the drawing. If the view moved while you drew (the
-  agent's `show`, a build), the caption says what lies under the ink was not
-  worked out; if the model was built again before you sent it, it says the refs
-  are of the build you drew on. The terminal view has no "Draw on view". The
-  picture is never written to disk; the line of what it lies over, refs only, is
-  text in the chat's log like the rest of the prompt.
+  with a thin line, which no mark is drawn in. "Done" keeps the drawing as a view
+  note, a draft among the marks, and the box has the keys again, for the prompt
+  it goes with. A note goes with your next prompt, whatever you write; once sent
+  it is a sent mark like any other. The prompt carries, after the picture "Attach
+  view" shows when there is one, each draft note in the order of the marks: its
+  words, the picture with your ink, then its reference pictures, up to six
+  pictures in all; one past that is named in the words and not attached. The
+  words say which build it was drawn on, the camera it was seen from (so that
+  Claude Code can `look` from there again), and stroke by stroke the faces of the
+  parts, the cut faces of a section ("the cut face of lid") and the scans your
+  ink lies over, by ref with the kernel's line for each face (`lid/F12 (plane,
+  normal +Z, z = 20, 1180 mm²)`). No coordinate is taken from the drawing. If the
+  view moved while you drew (the agent's `show`, a build), they say what lies
+  under the ink was not worked out; if the model was built again before you sent
+  it, that the refs are of the build you drew on. A note whose pictures are not on
+  this computer goes as words only. The prompt, once sent, shows under its
+  pictures what each note's ink lies over (`Over tub/F3, tub/F1, the cut face of
+  lid · stroke 1 partly over no part · stroke 2 over no part`), the refs as chips
+  that light their face in the view when the pointer is on them. The terminal view
+  has no "Draw on view". The pictures are kept in the project's `.torno/notes/`,
+  never in the chat's log; the line of what the ink lies over, refs only, is text
+  in the log like the rest of the prompt.
 - **What Claude Code says of itself.** torno reads the account the CLI gives at
   the start of a turn and says what a person would miss: a warning when torno's
   tools did not connect, with what the CLI said; a warning when torno's skills
@@ -2378,7 +2379,7 @@ On the screen:
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
 - **The Print profile.** Open the Params panel and find it under Checks: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its title says what is chosen (`Print profile Bambu X1C, PETG`).
 - **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
-- **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the row above the box names the faces the ink lies over before anything is sent (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
+- **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **Claude Code's own checkpoints for the asked undo (`Part of #131`).** When no copy of the build is kept, "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>
   --rewind-files <uuid>`, where `<uuid>` is the id torno gives the prompt. This is not built: `--rewind-files` is absent

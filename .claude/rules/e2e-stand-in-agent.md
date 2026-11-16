@@ -67,7 +67,7 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
   code a real drop takes is the dialog's, from `takePhotos` on. Photos go through the dialog hook.
 - `themes.spec.ts` has the states `onboard` and `onboard-board` for `TORNO_SHOTS`, and `view-board` for the chat's
   "Draw on view" (`e2e/chatask.spec.ts` drives it: a point of the canvas over a part is found with `pickAt` and the
-  same fraction of the board is drawn on; the caption is read from what the stand-in says back, line by line).
+  same fraction of the board is drawn on; "Done" makes a draft view note, which the next `say` carries, and the words of the note are read from what the stand-in says back, line by line).
 
 ## Light and dark (`app/e2e`)
 

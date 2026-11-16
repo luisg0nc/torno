@@ -101,6 +101,11 @@ const User = memo(function User({ item }: { item: Of<'user'> }) {
           <DrawnOverLine drawn={item.drawing} />
         </p>
       )}
+      {item.notes?.map((note, i) => (
+        <p key={note.note ?? i} className="chat-user-drawing" data-part="note">
+          {note.note && <RefChip value={note.note} />} <DrawnOverLine drawn={note} />
+        </p>
+      ))}
       {item.board && (
         <p className="chat-user-board" data-part="board" title="The part of the board that went with this prompt">
           {numbered(boardSentSaid(item.board))}

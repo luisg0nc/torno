@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme } from 'electron'
 import { type Door, openDoor, projectFor } from './door'
 import type { Described } from '../shared/geometry'
-import type { Mark } from '../shared/marks'
+import type { Mark, NoteMark } from '../shared/marks'
 import type { SavedView } from '../shared/views'
 import { heldOverrides } from './paramsfile'
 import { writeFileAtomic } from './atomic'
@@ -563,6 +563,10 @@ void app.whenReady().then(async () => {
       if (dir === undefined) throw new Error('That project is not open')
       return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
     },
+    // The view notes that are drafts, in the order of the marks: they go with the next chat prompt, pictures and all.
+    // Marks that cannot be read are no reason to send nothing.
+    draftNotes: async (id) => (await marks.list(id).catch((): Mark[] => [])).filter((m): m is NoteMark => m.kind === 'note' && m.status === 'draft'),
+    scalePicture,
     // The viewport as the person has it, for a prompt that attaches the view: of the object the session is of.
     picture: async (obj) => {
       const look = await requestLook(await theWindow(), { view: 'current', size: DEFAULT_SIZE })

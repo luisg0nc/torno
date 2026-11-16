@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { attachLabel, attachSummary } from '../../../shared/board'
-import { drawnOver } from '../../../shared/drawing'
 import { hint, pressed, which } from '../../../shared/keys'
 import { unmetDimensions } from '../../../shared/dimension'
 import { boardActions, useBoard } from '../../state/board'
 import { useChat } from '../../state/chat'
-import { drawingActions, drawingWaits, useDrawing } from '../../state/drawing'
+import { drawingActions, useDrawing } from '../../state/drawing'
 import { picture } from '../../state/agent'
 import { onboarding } from '../../state/onboard'
 import { store, useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { giveKeysBack } from '../typing'
 import { openDrawing } from '../drawing/make'
-import { DrawnOverLine } from './DrawnOver'
 import { commandsFor, rateLine } from './foot'
 import { RefChip } from './RefChip'
 import { type Suggestion, suggest } from './suggest'
@@ -24,12 +22,12 @@ const reason = (e: unknown): string => (e instanceof Error ? e.message : String(
 /** A prompt not yet sent, kept for a session while its pane is not shown (another object's, say). */
 const drafts = new Map<string, string>()
 
-/** Which of these sessions have a prompt written in their box, or a drawing on the view waiting for it, and not sent: closing the window would lose it. */
+/** Which of these sessions have a prompt written in their box and not sent: closing the window would lose it. */
 export function unsentSessions(sessionIds: Iterable<string>): string[] {
-  return [...sessionIds].filter((id) => (drafts.get(id) ?? '').trim() !== '' || drawingWaits(id))
+  return [...sessionIds].filter((id) => (drafts.get(id) ?? '').trim() !== '')
 }
 
-/** The drafts of the prompts not sent, and the drawings waiting for them, are let go when the workspace they were made in is closed. */
+/** The drafts of the prompts not sent, and the board over the view, are let go when the workspace they were made in is closed. */
 export function clearDrafts(): void {
   drafts.clear()
   drawingActions.clear()
@@ -138,8 +136,8 @@ function Commands({ offered, at, onChoose }: { offered: ReturnType<typeof comman
  * The foot of the chat: what goes with the next prompt, and the box to write it in. Enter sends and Shift+Enter
  * breaks the line; Escape closes the list of commands while one is offered, and else gives the keys back to the view, as a field does. While the agent works, the prompt is
  * queued by the CLI, and "Stop" interrupts it. "Attach view" adds a picture of the viewport to the next prompt only;
- * "Draw on view" opens a board over a picture of the view, and the drawing waits above the box until it goes with the
- * next prompt.
+ * "Draw on view" opens a board over a picture of the view; Done keeps the drawing as a view note, a draft mark that goes
+ * with the next prompt of itself.
  * While a `/command` is typed the commands of the CLI are offered; and when a window of the rate limit is half
  * used, one quiet line says so.
  */
@@ -154,8 +152,6 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
   const pressing = useRef(0)
   /** The picture of the view the preview shows (it may still be coming): what goes with the prompt. */
   const shown = useRef<Promise<{ png: Uint8Array; objectId: string }> | null>(null)
-  const drawn = useDrawing((s) => s.drawn[sessionId])
-  const revision = useStore((s) => s.revision)
   const opening = useDrawing((s) => s.opening === sessionId)
   const drawingHere = useDrawing((s) => s.board?.sessionId === sessionId)
   const [choice, setChoice] = useState(0)
@@ -209,8 +205,8 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
     field.current?.setSelectionRange(cursor.current, cursor.current)
     cursor.current = null
   }, [text])
-  // The board over the view put away, by Done or by Cancel: the keys are the box's again, for the prompt the drawing
-  // goes with. After the board's own giving back, which finds "Draw on view" disabled once a drawing waits.
+  // The board over the view put away, by Done or by Cancel: the keys are the box's again, for the prompt the note
+  // goes with.
   const boardWasHere = useRef(false)
   useEffect(() => {
     if (boardWasHere.current && !drawingHere) field.current?.focus()
@@ -283,8 +279,6 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         return
       }
     }
-    // The drawing goes with this prompt and with no other; given back if the prompt is not sent.
-    const drawing = drawingActions.taken(sessionId)
     // So is the part of the board the person attached; the same.
     const board = boardActions.takeAttached()
     setText('')
@@ -292,8 +286,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
     setProblem(null)
     onSent()
     try {
-      await window.torno.chat.send(sessionId, { text: prompt, ...(viewPng ? { attachedView: viewPng } : {}), ...(drawing ? { drawing: drawing.drawing } : {}), ...(board ? { board } : {}) })
-      if (drawing) drawingActions.spent(drawing)
+      await window.torno.chat.send(sessionId, { text: prompt, ...(viewPng ? { attachedView: viewPng } : {}), ...(board ? { board } : {}) })
     } catch (e) {
       // Nothing was sent: what was written is given back, unless more has been written since.
       setText((now) => (now === '' ? prompt : now))
@@ -303,7 +296,6 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         setAttach(true)
         preview(press, Promise.resolve({ png: viewPng, objectId }))
       }
-      if (drawing) drawingActions.giveBack(sessionId, drawing)
       if (board) boardActions.giveBackAttached(board)
       setProblem(reason(e))
     }
@@ -362,36 +354,9 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         />
       )}
       {offered.length > 0 && <Commands offered={offered} at={at} onChoose={complete} />}
-      {(drawn || attach || boardAttached) && (
+      {(attach || boardAttached) && (
         <div className="chat-with">
           <BoardChip />
-          {drawn && (
-            <div className="chat-drawing" role="group" aria-label="Drawing on the view">
-              <img src={drawn.thumb} alt="" draggable={false} />
-              <span className="chat-with-what">
-                <span>Your drawing on the view goes with your next prompt</span>
-                <DrawnOverLine drawn={drawnOver(drawn.drawing, revision)}>
-                  <button
-                    type="button"
-                    className="button button-quiet"
-                    onClick={() => {
-                      setProblem(null)
-                      drawingActions.remove(sessionId)
-                      openDrawing(sessionId).catch((e: unknown) => setProblem(reason(e)))
-                    }}
-                  >
-                    Draw again
-                  </button>
-                </DrawnOverLine>
-              </span>
-              <button type="button" className="button button-quiet" onClick={() => drawingActions.edit(sessionId)}>
-                Edit
-              </button>
-              <button type="button" className="button button-quiet" onClick={() => drawingActions.remove(sessionId)}>
-                Remove
-              </button>
-            </div>
-          )}
           {attach && (
             <div className="chat-attached" role="group" aria-label="View attached">
               {attached !== null ? <img src={attached} alt="The view as it is now" draggable={false} /> : <span className="chat-attached-wait" aria-hidden="true" />}
@@ -471,8 +436,8 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
           <button
             type="button"
             className="button"
-            disabled={!live || opening || drawn !== undefined}
-            title={drawn ? 'A drawing goes with your next prompt: edit it or remove it above' : 'Draw over a picture of the view as it is now; the picture goes with the next prompt'}
+            disabled={!live || opening}
+            title="Draw over a picture of the view as it is now; it is kept as a note that goes with your next prompt"
             onClick={() => {
               setProblem(null)
               openDrawing(sessionId).catch((e: unknown) => setProblem(reason(e)))

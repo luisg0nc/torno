@@ -425,7 +425,7 @@ describe('contextFor', () => {
         references: [{ file: 'r-0123456789ab.png', comment: 'like this' }]
       } as Mark
       const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [pin(1), note])
-      expect(context.text).toBe([STATUS, HEAD, line(1), 'M4 · view note · draft: "make this wall thicker" (1 label, 1 reference, drawn on build 3) [its picture, labels and references: mcp__torno__marks with ids ["M4"] and pictures: true]'].join('\n'))
+      expect(context.text).toBe([STATUS, HEAD, line(1), 'M4 · view note · draft: "make this wall thicker" (1 label, 1 reference, drawn on build 3) [its labels and references in full, and its pictures if the prompt carried none: mcp__torno__marks with ids ["M4"] and pictures: true]'].join('\n'))
       expect(context.sentMarkIds).toEqual(['M1', 'M4'])
       expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [note], { toolName: (tool) => `torno.${tool}` }).text).toContain('torno.marks with ids ["M4"] and pictures: true]')
     })

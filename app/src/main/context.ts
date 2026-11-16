@@ -313,8 +313,9 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
       // layout named is no place. One whose scan is gone is told nowhere.
       const told = named ?? (mark.kind === 'region' ? (deps.scene(objectId)?.scene.layouts[0] ?? mark.layout) : undefined)
       const where = mark.kind === 'region' ? (named || mark.anchorState === 'orphaned' ? '' : ` [in layout ${told}]`) : mark.layout === named ? '' : ` [in layout ${mark.layout}]`
-      // A note is a picture the person drew on: here only its words, and where its labels, its ink and its pictures are read.
-      const readIn = mark.kind === 'note' ? ` [its picture, labels and references: ${toolName('marks')} with ids ["${mark.id}"] and pictures: true]` : ''
+      // A note is a picture the person drew on: here only its line. A chat prompt carries a draft note's words and pictures
+      // itself; this says where to read them in full, and its pictures when the prompt had none (a terminal, or a picture left out).
+      const readIn = mark.kind === 'note' ? ` [its labels and references in full, and its pictures if the prompt carried none: ${toolName('marks')} with ids ["${mark.id}"] and pictures: true]` : ''
       const line = `${describeMark(mark, { revision, ...(built ? { scene: built } : {}), ...(opts.scans ? { scans: opts.scans } : {}), ...(told ? { layout: told } : {}), ...(tag ? { tag } : {}) })}${where}${readIn}`
       const after = listed.length - i - 1
       // Room is kept for the line that says how many are left out, should the next one not fit.

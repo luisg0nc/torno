@@ -2,6 +2,7 @@ import { type ChatImage, type ChatItem, type ChatMeta, type Effort, MAX_ITEMS, M
 import type { BuildIdentity } from '../../shared/git'
 import { ATTACHMENT_HEAD, type BoardCounts, type BoardSent } from '../../shared/board'
 import type { DrawnOver } from '../../shared/drawing'
+import { NOTE_HEAD } from '../notes/prompt'
 import type { BuildDigest } from '../../shared/sanity'
 import { sessionRules } from './permissions'
 import type { AgentAsk, AgentMessage, PromptBlock } from './transport'
@@ -232,7 +233,7 @@ export class Transcript {
   }
 
   /** A prompt for the agent. Queued when it will wait for the one at work; it is sent once the CLI takes it up (its hook, or an `init` for a command). */
-  userSent(content: PromptBlock[], queued: boolean, uuid?: string, drawing?: DrawnOver, board?: BoardSent): ChatItem {
+  userSent(content: PromptBlock[], queued: boolean, uuid?: string, notes?: DrawnOver[], board?: BoardSent): ChatItem {
     let made!: ChatItem
     this.run(() => {
       const texts: string[] = []
@@ -240,6 +241,8 @@ export class Transcript {
       content.forEach((block, i) => {
         // What the person attached of the board is told to the agent in words of main's: the item holds its counts (`board`), not those words.
         if (block.type === 'text' && block.text.startsWith(ATTACHMENT_HEAD)) return
+        // The words of a view note are told to the agent as main's: the item holds what its ink lies over (`notes`), not those words.
+        if (block.type === 'text' && notes && notes.length > 0 && NOTE_HEAD.test(block.text)) return
         // A text that comes right before a picture, after the first text, only names that picture: the window shows the pictures.
         if (block.type === 'text') {
           if (texts.length === 0 || content[i + 1]?.type !== 'image') texts.push(block.text)
@@ -249,7 +252,7 @@ export class Transcript {
           images.push(this.image(block.source.media_type, block.source.data, caption?.[1]))
         }
       })
-      made = { kind: 'user', id: this.newId('i'), text: this.redact(texts.join('\n')), images, state: this.closed ? 'not-sent' : queued ? 'queued' : 'sent', at: this.now(), ...(drawing ? { drawing: this.drawnOver(drawing) } : {}), ...(board ? { board: this.sentOf(board) } : {}) }
+      made = { kind: 'user', id: this.newId('i'), text: this.redact(texts.join('\n')), images, state: this.closed ? 'not-sent' : queued ? 'queued' : 'sent', at: this.now(), ...(notes && notes.length > 0 ? { notes: notes.map((n) => this.drawnOver(n)) } : {}), ...(board ? { board: this.sentOf(board) } : {}) }
       this.put(made)
       this.keepImages(made.id, images)
       if (!this.closed) {

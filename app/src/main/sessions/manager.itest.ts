@@ -12,7 +12,9 @@ import type { ChatItem, ChatMeta, Effort, Mode } from '../../shared/chat'
 import type { PromptBlock, StreamMessage } from './stream'
 import type { BuildState } from '../../shared/build'
 import type { BoardAttach } from '../../shared/board'
-import type { ViewDrawing } from '../../shared/drawing'
+import type { NoteMark } from '../../shared/marks'
+import { writeNoteFile } from '../notes/files'
+import { png as notePng } from '../notes/testing'
 import { attachBoard, type BoardAttachment } from '../board/attach'
 import { savePicture } from '../board/pictures'
 import { BoardStore } from '../board/store'
@@ -1349,6 +1351,8 @@ describe('the transcript of a chat session', () => {
   let handedOver: (() => void) | undefined
   let picture: ((obj: ObjectInfo) => Promise<Uint8Array>) | undefined
   let attacher: ((objectId: string, ids: string[] | 'all') => Promise<BoardAttachment>) | undefined
+  /** The draft view notes the project has, in mark order. */
+  let drafted: NoteMark[] = []
   const told: Array<{ sessionId: string; item: ChatItem; seq: number }> = []
   const metas: Array<{ sessionId: string; meta: ChatMeta; seq: number }> = []
   const abilities: Array<{ sessionId: string; objectId: string; commands: Array<{ name: string }>; models: unknown[]; seq: number }> = []
@@ -1377,7 +1381,8 @@ describe('the transcript of a chat session', () => {
       systemPromptFor: () => '',
       mcpUrlFor: (id) => tHttp.url(`/mcp/${id}`),
       picture: (obj) => (picture ? picture(obj) : Promise.reject(new Error('no window'))),
-      attachBoard: (objectId, ids) => (attacher ? attacher(objectId, ids) : Promise.reject(new Error('no board')))
+      attachBoard: (objectId, ids) => (attacher ? attacher(objectId, ids) : Promise.reject(new Error('no board'))),
+      draftNotes: async () => drafted
     })
     tSessions.on('item', (m) => told.push({ sessionId: m.sessionId, item: m.item, seq: m.seq }))
     tSessions.on('meta', (m) => metas.push({ sessionId: m.sessionId, meta: m.meta, seq: m.seq }))
@@ -1392,6 +1397,7 @@ describe('the transcript of a chat session', () => {
     handedOver = undefined
     picture = undefined
     attacher = undefined
+    drafted = []
     told.length = 0
     metas.length = 0
     abilities.length = 0
@@ -1416,7 +1422,7 @@ describe('the transcript of a chat session', () => {
       id,
       items,
       kinds: () => items().map((i) => i.kind),
-      send: (text: string, extra: { attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing; board?: BoardAttach } = {}) => tSessions.send(id, { text, ...extra }),
+      send: (text: string, extra: { attachView?: boolean; attachedView?: Uint8Array; board?: BoardAttach } = {}) => tSessions.send(id, { text, ...extra }),
       turns: () => items().filter((i) => i.kind === 'turn').length,
       logFile: () => {
         const folder = join(obj.dir, '.torno', 'chat')
@@ -1737,49 +1743,119 @@ describe('the transcript of a chat session', () => {
     expect(lines(file)[0]).toMatchObject({ kind: 'user', text: 'say hi', board: { cards: 1, arrows: 0, frames: [] } })
   })
 
-  const drawingFor = (objectId: string, revision = 1): ViewDrawing => ({
-    objectId, revision, layout: 'assembly', caption: 'view current · layout assembly · parts a · perspective · 4×4',
-    camera: { position: [10, -10, 10], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 },
-    png: new Uint8Array(PNG_4X4), width: 4, height: 4, ink: '#B5127A',
-    under: [{ box: [0, 0, 3, 3], refs: [{ ref: 'a/F1', descriptor: 'plane, normal +Z' }], cuts: [], scans: [], bare: true }]
-  })
+  /** A draft view note of the project of `c`, its pictures written as main writes them (a PNG of the size; `files: false` leaves them out). */
+  async function noteOf(c: { obj: ObjectInfo }, id: string, references: number, ink = { w: 800, h: 600 }, files = true): Promise<NoteMark> {
+    const write = async (kind: 'plain' | 'ink' | 'reference', bytes: Uint8Array): Promise<string> => (files ? writeNoteFile(c.obj.dir, kind, bytes, 'image/png') : `${kind === 'reference' ? 'r' : 'n'}-ffffffffffff.${kind === 'ink' ? 'ink.' : ''}png`)
+    const refs = []
+    for (let i = 0; i < references; i++) refs.push({ file: await write('reference', notePng(300 + i, 200)), comment: `ref ${i + 1}` })
+    return {
+      id, kind: 'note', author: 'user', note: `comment of ${id}`, status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1,
+      camera: { position: [10, -10, 10], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }, createdAt: '2026-11-16T10:00:00.000Z', checkedRevision: 1,
+      picture: await write('plain', notePng(ink.w, ink.h)), ink: await write('ink', notePng(ink.w, ink.h)), size: ink, strokes: [{ width: 4, points: [[1, 1], [3, 3]] }], inkColour: '#B5127A', labels: [],
+      under: [{ box: [0, 0, 3, 3], refs: [{ ref: 'a/F1', descriptor: 'plane, normal +Z' }], cuts: [], scans: [], bare: true }], references: refs
+    } as NoteMark
+  }
+  const said = (c: { items: () => ChatItem[] }): string[] => c.items().filter((i) => i.kind === 'text').map((i) => (i as { text: string }).text)
 
-  it('adds a drawing on the view to the prompt: the text, the caption, then the picture; the prompt shows the text and the picture', async () => {
+  it('carries the draft view notes with the prompt: the attached view, then each note\'s words, its inked picture and its references, in the order of the marks', async () => {
     const c = await start()
-    await c.send('images', { drawing: drawingFor(c.obj.id) })
-    const user = c.items()[0] as { kind: string; text: string; images: Array<{ width?: number; height?: number }>; drawing?: unknown }
-    expect(user).toMatchObject({ kind: 'user', text: 'images' })
-    expect(user.images).toEqual([expect.objectContaining({ width: 4, height: 4 })])
-    // What the ink lies over stays on the item as data (refs), not the caption's words, no pixel and no kernel line.
-    expect(user.drawing).toEqual({ revision: 1, over: { faces: ['a/F1'], cuts: [], scans: [], bare: [], partly: [1], strokes: 1 } })
-    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
-    // The stand-in says what came: one picture, and each line of the caption (a line that is no command is said).
-    const said = c.items().filter((i) => i.kind === 'text').map((i) => (i as { text: string }).text)
-    expect(said).toContain('images: 1 4x4')
-    expect(said.some((t) => t.startsWith('Picture: the view as the person saw it when they drew on it, on r1'))).toBe(true)
-    expect(said).toContain('- stroke 1, x 0–3, y 0–3: a/F1 (plane, normal +Z); partly over no part')
-  })
+    drafted = [await noteOf(c, 'M1', 1, { w: 800, h: 600 }), await noteOf(c, 'M3', 0, { w: 640, h: 480 })]
+    await c.send('images', { attachedView: new Uint8Array(PNG_4X4) })
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(1)
+    // The stand-in says the sizes of the pictures in the order they came, and each line of the words of a note.
+    expect(said(c)).toContain('images: 4 4x4 800x600 300x200 640x480')
+    expect(said(c).some((t) => t.startsWith('M1 · view note · draft: "comment of M1"'))).toBe(true)
+    expect(said(c).some((t) => t.startsWith('M3 · view note · draft: "comment of M3"'))).toBe(true)
+    expect(said(c)).toContain('- stroke 1, x 0–3, y 0–3: a/F1 (plane, normal +Z); partly over no part')
+    expect(said(c)).toContain('reference 1: ref 1')
+    // What the ink lies over stays on the item as data, one for each note; the words are not its text.
+    const user = c.items()[0] as { text: string; images: unknown[]; notes?: unknown[]; drawing?: unknown }
+    expect(user.text).toBe('images')
+    expect(user.images).toHaveLength(4)
+    expect(user.drawing).toBeUndefined()
+    expect(user.notes).toEqual([
+      { note: 'M1', revision: 1, over: { faces: ['a/F1'], cuts: [], scans: [], bare: [], partly: [1], strokes: 1 } },
+      { note: 'M3', revision: 1, over: { faces: ['a/F1'], cuts: [], scans: [], bare: [], partly: [1], strokes: 1 } }
+    ])
+  }, 30_000)
 
-  it('logs what the ink lies over as text, with no picture, no caption, no coordinate and no kernel line', async () => {
+  it('has the notes it carried among the marks sent once the answer has left, whether or not the hook listed them', async () => {
     const c = await start()
-    await c.send('images', { drawing: drawingFor(c.obj.id) })
-    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    drafted = [await noteOf(c, 'M1', 0), await noteOf(c, 'M2', 0)]
+    marks = ['M2', 'M4']
+    await c.send('say hi')
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(1)
+    expect([...delivered2[0]].sort()).toEqual(['M1', 'M2', 'M4'])
+    // The next prompt carries what it is given then, and the notes are not told twice.
+    drafted = []
+    marks = ['M5']
+    await c.send('say again')
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(2)
+    expect(delivered2[1]).toEqual(['M5'])
+  }, 30_000)
+
+  it('carries at most 6 pictures in all, the attached view first, and names the rest in the words of the note they belong to', async () => {
+    const c = await start()
+    drafted = [await noteOf(c, 'M1', 3), await noteOf(c, 'M2', 3), await noteOf(c, 'M3', 3)]
+    await c.send('images', { attachedView: new Uint8Array(PNG_4X4) })
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(1)
+    // The view, M1's four, M2's picture: six.
+    expect(said(c)).toContain('images: 6 4x4 800x600 300x200 301x200 302x200 800x600')
+    const words = said(c).join('\n')
+    expect(words).toContain('Not attached: M2 reference 1, M2 reference 2, M2 reference 3')
+    expect(words).toContain('Not attached: M3, M3 reference 1, M3 reference 2, M3 reference 3')
+    expect((c.items()[0] as { images: unknown[] }).images).toHaveLength(6)
+    expect((c.items()[0] as { notes?: unknown[] }).notes).toHaveLength(3)
+  }, 30_000)
+
+  it('carries 3 notes of 3 references each as 6 pictures when no view is attached', async () => {
+    const c = await start()
+    drafted = [await noteOf(c, 'M1', 3), await noteOf(c, 'M2', 3), await noteOf(c, 'M3', 3)]
+    await c.send('images')
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(1)
+    expect(said(c)).toContain('images: 6 800x600 300x200 301x200 302x200 800x600 300x200')
+    expect(said(c).join('\n')).toContain('Not attached: M2 reference 2, M2 reference 3')
+  }, 30_000)
+
+  it('carries a note whose pictures are not on this computer as words only, and the notes after it as usual', async () => {
+    const c = await start()
+    drafted = [await noteOf(c, 'M1', 1, { w: 800, h: 600 }, false), await noteOf(c, 'M2', 0, { w: 640, h: 480 })]
+    await c.send('images')
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(1)
+    expect(said(c)).toContain('images: 1 640x480')
+    expect(said(c)).toContain('The picture is not on this computer; look through its camera.')
+    expect((c.items()[0] as { images: unknown[]; notes?: unknown[] }).images).toHaveLength(1)
+    expect((c.items()[0] as { notes?: unknown[] }).notes).toHaveLength(2)
+  }, 30_000)
+
+  it('sends a prompt of notes alone, with no words of the person', async () => {
+    const c = await start()
+    drafted = [await noteOf(c, 'M1', 0)]
+    await c.send('')
+    expect(c.items()[0]).toMatchObject({ kind: 'user', text: '', images: [expect.objectContaining({ width: 800, height: 600 })] })
+  }, 30_000)
+
+  it('logs what the ink of each note lies over as text, with no picture, no words of the note, no coordinate and no kernel line', async () => {
+    const c = await start()
+    drafted = [await noteOf(c, 'M1', 1)]
+    await c.send('images')
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(1)
     await tSessions.stop(c.id)
     const [file] = c.logFile()
-    // The stand-in echoes the caption it was sent, so only the prompt's own line is looked at for the words.
     const user = JSON.stringify(lines(file)[0])
+    // The stand-in echoes the words it was sent, so only the prompt's own line is looked at for them.
     expect(readFileSync(file, 'utf8')).not.toContain('iVBOR')
-    expect(user).not.toContain('Picture: the view as the person saw it')
+    expect(user).not.toContain('view note')
     expect(user).not.toContain('plane, normal')
     expect(user).not.toContain('position')
-    expect(lines(file)[0]).toMatchObject({ kind: 'user', drawing: { revision: 1, over: { faces: ['a/F1'] } } })
-  })
+    expect(lines(file)[0]).toMatchObject({ kind: 'user', notes: [{ note: 'M1', revision: 1, over: { faces: ['a/F1'] } }] })
+  }, 30_000)
 
-  it('refuses a drawing of another object than the session is of, sending nothing', async () => {
+  it('carries no note into a prompt when the project has none', async () => {
     const c = await start()
-    await expect(c.send('images', { drawing: drawingFor('another') })).rejects.toThrow('The drawing is of another, not of')
-    expect(c.items()).toEqual([])
-  })
+    await c.send('say plain')
+    expect((c.items()[0] as { notes?: unknown }).notes).toBeUndefined()
+  }, 30_000)
 
   it('keeps the data of the newest pictures only, and never writes it', async () => {
     const c = await start()

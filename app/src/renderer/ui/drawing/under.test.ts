@@ -53,6 +53,13 @@ describe('underInk', () => {
   it('tells no stroke of which no ink is left', () => {
     expect(underInk([pen([[10, 50], [90, 50]])], size, () => false, look).under).toEqual([])
   })
+  it('keeps the pen strokes with ink left, every one of them, told or not, in the order drawn', () => {
+    const strokes: Stroke[] = [pen([[10, 50], [90, 50]]), { tool: 'eraser', width: 28, points: [[0, 0], [5, 5]] }, pen([[10, 10], [20, 10]]), pen([[150, 80], [190, 80]])]
+    const { kept } = underInk(strokes, size, (x) => x < 140, look)
+    expect(kept).toEqual([strokes[0], strokes[2]])
+    const many = Array.from({ length: MOST_STROKES_TOLD + 2 }, (_, i) => pen([[i, 10], [i, 20]]))
+    expect(underInk(many, size, () => true, look).kept).toHaveLength(MOST_STROKES_TOLD + 2)
+  })
   it('tells at most so many strokes, and counts the rest', () => {
     const strokes = Array.from({ length: MOST_STROKES_TOLD + 2 }, (_, i) => pen([[i, 10], [i, 20]]))
     const { under, more } = underInk(strokes, size, () => true, look)

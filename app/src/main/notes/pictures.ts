@@ -8,6 +8,8 @@ import { readNoteFile } from './files'
 /** The most pictures one answer or one prompt carries, and the long edge each is sent at. */
 export const MOST_NOTE_PICTURES = 6
 export const NOTE_PICTURE_EDGE = 1280
+/** Why a picture of a note that is not in the folder could not be sent, as `failed` says it. */
+export const NOT_HERE = 'the picture is not on this computer'
 
 export interface NotePicture {
   /** What it is, as the text names it: `M5` for the picture of a note, `M5 reference 2` for a reference. */
@@ -41,7 +43,7 @@ export async function notePictures(dir: string, notes: readonly NoteMark[], scal
     }
     const bytes = await readNoteFile(dir, file)
     if (bytes === null) {
-      out.failed.push(`${what}: the picture is not on this computer`)
+      out.failed.push(`${what}: ${NOT_HERE}`)
       continue
     }
     let scaled: Uint8Array = bytes

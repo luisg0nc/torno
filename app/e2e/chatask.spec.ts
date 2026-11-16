@@ -398,9 +398,12 @@ async function line(board: Locator, from: [number, number], to: [number, number]
 }
 const drawingBoard = () => page.getByRole('dialog', { name: 'Drawing on the view' })
 const drawButton = () => dock().getByRole('button', { name: 'Draw on view' })
-const waiting = () => dock().getByRole('group', { name: 'Drawing on the view' })
+/** The view notes that are drafts: made by Done on the board, they wait in the list of marks until the next prompt carries them. */
+const draftNotes = () => page.locator('.mark-row[data-status="draft"]').filter({ has: page.getByRole('img', { name: 'View note' }) })
+/** What the ink of a note lies over, under the prompt it went with. */
+const notesOf = (user: Locator) => user.locator('.chat-user-drawing[data-part="note"]')
 
-test('Draw on view: a board over the agent\'s picture of the view; the drawing goes with the next prompt only, with what its ink lies over', async () => {
+test('Draw on view: a board over the agent\'s picture of the view; Done keeps a view note that goes with the next prompt only, with what its ink lies over', async () => {
   // A point of the canvas over a part: the same fraction of the picture is over it too (one camera, one aspect).
   const spot = await page.evaluate(() => {
     for (const fy of [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65]) {
@@ -426,42 +429,34 @@ test('Draw on view: a board over the agent\'s picture of the view; the drawing g
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Keep drawing' }).click()
   await expect(drawingBoard()).toBeVisible()
+  await expect(draftNotes()).toHaveCount(0)
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
   await expect(drawingBoard()).toHaveCount(0)
-  await expect(waiting()).toBeVisible()
-  await expect(drawButton()).toBeDisabled()
-  // What the ink lies over is told before it is sent, as chips that are live: a face of the part drawn across, lit in the view by the pointer.
-  const over = waiting().locator('.over[data-over="known"]')
-  await expect(over).toContainText('Over')
-  const face = over.locator(`.ref-chip[data-ref^="${part}/F"]`).first()
-  await expect(face).toBeVisible()
-  const ref = (await face.getAttribute('data-ref'))!
-  expect(await peeked()).toEqual([])
-  await face.hover()
-  await expect.poll(peeked).toEqual([ref])
-  await page.mouse.move(0, 0)
-  await expect.poll(peeked).toEqual([])
+  // The drawing is a note now, a draft among the marks, and nothing waits above the box.
+  await expect(draftNotes()).toHaveCount(1)
+  await expect(dock().getByRole('group', { name: 'Drawing on the view' })).toHaveCount(0)
   // The keys are the box's again: what is typed next is the prompt, not a key of the view.
   await page.keyboard.type('thicker')
   await expect(composer()).toHaveValue('thicker')
   await composer().fill('')
 
   await say('images')
-  await expect(waiting()).toHaveCount(0)
   const user = chat().locator('.chat-user').last()
   await expect(user.locator('.chat-thumb')).toHaveCount(1, { timeout: 20_000 })
   await expect(user).not.toContainText('Picture:')
-  // The prompt shows the same line under its picture; the caption's words are not among its text.
-  await expect(user.locator('.chat-user-drawing')).toContainText('Over')
-  await expect(user.locator('.chat-user-drawing').locator(`.ref-chip[data-ref="${ref}"]`)).toBeVisible()
-  await expect(user.locator('.chat-user-drawing')).not.toContainText('stroke 1, x')
-  // The stand-in says the size of each picture, then each line of the caption.
+  // What the ink lies over is told under the prompt, by ref: a face of the part drawn across.
+  await expect(notesOf(user)).toContainText('Over')
+  await expect(notesOf(user).locator(`.ref-chip[data-ref^="${part}/F"]`).first()).toBeVisible()
+  // The words of the note are not among the text of the prompt, and not the coordinates of the ink.
+  await expect(notesOf(user)).not.toContainText('stroke 1, x')
+  // The stand-in says the size of each picture, then each line of the words of the note.
   await expect(chat()).toContainText(/images: 1 (1280x\d+|\d+x1280)/, { timeout: 20_000 })
-  await expect(chat()).toContainText('Picture: the view as the person saw it when they drew on it')
+  await expect(chat()).toContainText('view note')
   await expect(chat()).toContainText('Under the ink, stroke by stroke')
   await expect(chat()).toContainText(new RegExp(`stroke 1, x \\d+–\\d+, y \\d+–\\d+: ${part}/F\\d+`))
   await finished()
-  await expect(drawButton()).toBeEnabled()
+  // Sent with that prompt: no draft is left.
+  await expect(draftNotes()).toHaveCount(0)
 
   // The next prompt carries none.
   await say('images')
@@ -469,7 +464,7 @@ test('Draw on view: a board over the agent\'s picture of the view; the drawing g
   await finished()
 })
 
-test('a stroke across a part and bare ground says it is partly over no part, before it is sent and under the prompt', async () => {
+test('a stroke across a part and bare ground says it is partly over no part, under the prompt the note went with', async () => {
   const fy = await page.evaluate(() => {
     for (const fy of [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65]) if (window.__tornoTest!.pickAt(0.5, fy, { edges: false })) return fy
     return null
@@ -481,13 +476,14 @@ test('a stroke across a part and bare ground says it is partly over no part, bef
   // From the edge of the picture, where nothing is, across the part.
   await line(drawingBoard(), [0.01, fy!], [0.5, fy!])
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
-  await expect(waiting().locator('.over[data-over="known"]')).toContainText('stroke 1 partly over no part')
+  await expect(draftNotes()).toHaveCount(1)
   await say('images')
-  await expect(chat().locator('.chat-user').last().locator('.chat-user-drawing')).toContainText('stroke 1 partly over no part', { timeout: 20_000 })
+  await expect(notesOf(chat().locator('.chat-user').last())).toContainText('stroke 1 partly over no part', { timeout: 20_000 })
   await finished()
 })
 
-test('a drawing made while the camera moved says that what its ink lies over was not worked out, and "Draw again" starts anew', async () => {
+test('a drawing made while the camera moved says that what its ink lies over was not worked out', async () => {
+  ended = await turns().count()
   await drawButton().click()
   await expect(drawingBoard()).toBeVisible()
   // The agent's `show` moves the view under the board.
@@ -496,10 +492,12 @@ test('a drawing made while the camera moved says that what its ink lies over was
   await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.camera())).position[2]).toBeGreaterThan(0)
   await line(drawingBoard(), [0.45, 0.5], [0.55, 0.5])
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
-  await expect(waiting()).toBeVisible()
-  const warn = waiting().locator('.over-warn')
-  await expect(warn).toContainText('was not worked out')
-  await expect(waiting().locator('.ref-chip')).toHaveCount(0)
+  await expect(draftNotes()).toHaveCount(1)
+  await say('images')
+  const note = notesOf(chat().locator('.chat-user').last())
+  const warn = note.locator('.over-warn')
+  await expect(warn).toContainText('was not worked out', { timeout: 20_000 })
+  await expect(note.locator('.over .ref-chip')).toHaveCount(0)
   // It is shown in the colour of a warning.
   const [own, wanted] = await warn.evaluate((el) => {
     const probe = document.createElement('i')
@@ -510,36 +508,19 @@ test('a drawing made while the camera moved says that what its ink lies over was
     return [getComputedStyle(el).color, colour]
   })
   expect(own).toBe(wanted)
-  await waiting().getByRole('button', { name: 'Draw again' }).click()
-  // The drawing is gone, and the board is open over a new picture.
-  await expect(drawingBoard()).toBeVisible()
-  await expect(waiting()).toHaveCount(0)
-  await page.keyboard.press('Escape')
-  await expect(drawingBoard()).toHaveCount(0)
+  await finished()
   await show({ objectId: 'bracket', view: 'iso' })
   await cameraSettled()
 })
 
-test('a drawing waits in the composer: Edit opens it with its strokes, Remove takes it away, and a board discarded keeps nothing', async () => {
-  await drawButton().click()
-  await line(drawingBoard(), [0.2, 0.2], [0.4, 0.3])
-  await drawingBoard().getByRole('button', { name: 'Done' }).click()
-  await waiting().getByRole('button', { name: 'Edit' }).click()
-  await expect(drawingBoard().locator('canvas')).toHaveAttribute('data-strokes', '1')
-  // Nothing drawn since it was opened: Escape puts it away without asking, and the drawing still waits.
-  await page.keyboard.press('Escape')
-  await expect(drawingBoard()).toHaveCount(0)
-  await expect(waiting()).toBeVisible()
-  await waiting().getByRole('button', { name: 'Remove' }).click()
-  await expect(waiting()).toHaveCount(0)
-
-  // A board with a stroke that is discarded leaves nothing waiting.
+test('a board discarded keeps no note, and gives the keys back to the box', async () => {
+  // Drawn, and put away with Cancel: nothing is kept.
   await drawButton().click()
   await line(drawingBoard(), [0.2, 0.2], [0.4, 0.3])
   await drawingBoard().getByRole('button', { name: 'Cancel' }).click()
   await page.getByRole('button', { name: 'Discard', exact: true }).click()
   await expect(drawingBoard()).toHaveCount(0)
-  await expect(waiting()).toHaveCount(0)
+  await expect(draftNotes()).toHaveCount(0)
   // Put away too, the board gives the keys back to the box.
   await page.keyboard.type('never mind')
   await expect(composer()).toHaveValue('never mind')
@@ -566,9 +547,9 @@ test('ink over the face a section cuts is told as the cut face of its part, not 
   await drawButton().click()
   await line(drawingBoard(), [fx - 0.005, fy], [fx + 0.005, fy])
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
-  await expect(waiting()).toBeVisible()
-  await expect(waiting().locator('.over')).toContainText(`the cut face of ${part}`)
+  await expect(draftNotes()).toHaveCount(1)
   await say('images')
+  await expect(notesOf(chat().locator('.chat-user').last()).locator('.over')).toContainText(`the cut face of ${part}`, { timeout: 20_000 })
   await expect(chat()).toContainText(new RegExp(`stroke 1, x \\d+–\\d+, y \\d+–\\d+: (.*, )?the cut face of ${part}`), { timeout: 20_000 })
   await finished()
 })
