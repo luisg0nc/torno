@@ -647,7 +647,9 @@ test('a view note in the list has its picture and its comment; the pointer on it
         const strokeUnder = { box: [20, 30, 120, 60], refs: [{ ref }, { ref: gone }], cuts: [], scans: [], bare: false }
         return window.torno.notes.make({
           objectId: 'bracket', revision: 1, layout, camera, caption: 'the bracket from the front', size: { w: 160, h: 100 }, plain, inked, inkColour: '#d4342c',
-          strokes: [{ width: 6, points: [[20, 30], [120, 60]] }], labels: [], under: [strokeUnder], comment: 'make the base thicker here', references: []
+          strokes: [{ width: 6, points: [[20, 30], [120, 60]] }], labels: [], under: [strokeUnder], comment: 'make the base thicker here', references: [],
+          // A note hangs a label only where its ink first lay over a face (one with no anchor is a picture in no place).
+          anchor: { point: [0, 0, 0], part: 'base', ref }
         } as never)
       },
       { camera: seen, layout: now.layout, ref: `base/F0`, gone: `base/F${face.faceCount + 40}` }

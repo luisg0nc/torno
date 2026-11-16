@@ -393,6 +393,8 @@ export function staleValue(mark: Mark, revision: number | undefined): boolean {
 
 export function cutAway(mark: Mark, section: SectionPlane | null): boolean {
   if (!section) return false
+  // A note with no anchor is of no place in the model: no half of a section takes it away.
+  if (mark.kind === 'note' && !mark.anchor) return false
   const anchors = mark.kind === 'dimension' ? markAnchors(mark) : markAnchors(mark).slice(0, 1)
   const points = anchors.length > 0 ? anchors.map((anchor) => anchor.point) : [labelAnchor(mark).point]
   return points.every((at) => section.normal.reduce((sum, c, i) => sum + c * (at[i] - section.origin[i]), 0) > CUT_BEYOND_MM)

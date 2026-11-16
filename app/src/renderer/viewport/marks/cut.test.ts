@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import type { Mark, PinMark, ShapeMark, Vec3 } from '../../../shared/marks'
-import { MarkLayer } from './MarkLayer'
+import type { Mark, NoteMark, PinMark, ShapeMark, Vec3 } from '../../../shared/marks'
+import { MarkLayer, cutAway } from './MarkLayer'
 
 const CAMERA = { position: [100, -100, 80] as Vec3, target: [0, 0, 10] as Vec3, up: [0, 0, 1] as Vec3, ortho: false, fov: 35, zoom: 1 }
 const BASE = { author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '2026-10-09T10:00:00.000Z' } as const
@@ -73,3 +73,10 @@ class MarkLayerOf extends MarkLayer {
     this.setMarks(marks)
   }
 }
+
+describe('a view note with no anchor and a section', () => {
+  it('is never in the half taken away: it is anywhere', () => {
+    const note: NoteMark = { ...BASE, id: 'M7', kind: 'note', picture: 'n-0123456789ab.png', ink: 'n-0123456789ab.ink.png', size: { w: 100, h: 80 }, strokes: [], inkColour: '#cf3f2c', labels: [], under: [], references: [] }
+    expect(cutAway(note, { origin: [0, 0, -5], normal: [0, 0, 1] })).toBe(false)
+  })
+})

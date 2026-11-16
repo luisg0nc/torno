@@ -647,6 +647,14 @@ test('a view note: two strokes, a label with an arrow, a comment and a reference
   await expect(board).toHaveCount(0)
   expect((await noteNow(id)).note).toBe('make the lid thicker')
 
+  // The marks list has an Edit for it too: the same sheet, on the same note.
+  await page.locator(`.mark-row[data-mark="${id}"]`).hover()
+  await page.getByRole('button', { name: `Edit ${id}`, exact: true }).click()
+  await expect(board).toBeVisible()
+  await expect(board.getByRole('textbox', { name: 'Comment' })).toHaveValue('make the lid thicker')
+  await board.getByRole('button', { name: 'Cancel' }).click()
+  await expect(board).toHaveCount(0)
+
   // It goes with a prompt: then it is sent.
   await say('images')
   await finished()

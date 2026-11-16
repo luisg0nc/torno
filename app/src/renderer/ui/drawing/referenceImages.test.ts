@@ -1,13 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_REFERENCE_COMMENT, MOST_NOTE_REFERENCES, type NoteMark } from '../../../shared/marks'
-import { type RefItem, MAX_NOTE_COMMENT, addable, itemsOf, referenceChange, referenceDrafts } from './referenceImages'
+import { MAX_NOTE, MAX_REFERENCE_COMMENT, MOST_NOTE_REFERENCES, type NoteMark } from '../../../shared/marks'
+import { type RefItem, MAX_NOTE_COMMENT, UrlKeeper, addable, itemsOf, referenceChange, referenceDrafts } from './referenceImages'
 
 const note = { references: [{ file: 'r-0123456789ab.png', comment: 'first' }, { file: 'r-0123456789ac.jpg', comment: 'second' }] } as NoteMark
 const fresh = (uid: number, comment = ''): RefItem => ({ uid, comment, old: null, image: { bytes: new Uint8Array([uid]), mediaType: 'image/png' }, url: null })
 
-it('holds a comment to one line of at most 300 characters, and a reference\'s to what a note keeps', () => {
-  expect(MAX_NOTE_COMMENT).toBe(300)
+it('holds a note\'s comment to what main keeps of a mark\'s note, and a reference\'s to its own shorter line', () => {
+  expect(MAX_NOTE_COMMENT).toBe(MAX_NOTE)
+  expect(MAX_NOTE_COMMENT).toBe(2000)
   expect(MAX_REFERENCE_COMMENT).toBe(300)
+})
+
+describe('UrlKeeper', () => {
+  it('lets go of every URL it was given, once, however late they were given', () => {
+    const revoked: string[] = []
+    const keeper = new UrlKeeper((url) => revoked.push(url))
+    keeper.keep('blob:a')
+    keeper.keep('blob:b')
+    keeper.releaseAll()
+    expect(revoked).toEqual(['blob:a', 'blob:b'])
+    keeper.keep('blob:c')
+    keeper.releaseAll()
+    keeper.releaseAll()
+    expect(revoked).toEqual(['blob:a', 'blob:b', 'blob:c'])
+  })
 })
 
 describe('itemsOf', () => {

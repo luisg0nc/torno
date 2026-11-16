@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_LABEL, MOST_LABELS } from '../../../shared/marks'
-import { LABEL_LINE, LABEL_MAX_WIDTH, LABEL_PAD, arrowFrom, barbs, cleanLabels, labelBox, wrapLabel } from './labelbox'
+import { LABEL_LINE, LABEL_MAX_WIDTH, LABEL_PAD, arrowFrom, arrowPath, barbs, cleanLabels, labelBox, wrapLabel } from './labelbox'
 
 // A label is laid out the same in the sheet (SVG) and in the picture (canvas): by one function, from a measure.
 const measure = (text: string): number => text.length * 10
@@ -38,6 +38,14 @@ describe('arrowFrom', () => {
   })
   it('is none for a head inside the box', () => {
     expect(arrowFrom(box, { x: 120, y: 110 })).toBeNull()
+  })
+})
+
+describe('arrowPath', () => {
+  const box = { x: 100, y: 100, width: 80, height: 40, lines: ['x'] }
+  it('is the line from the box edge to the head, then its two barbs; none when the head is inside the box', () => {
+    expect(arrowPath(box, { x: 300, y: 120 })).toMatch(/^M180 120L300 120M[-\d.]+ [-\d.]+L300 120L[-\d.]+ [-\d.]+$/)
+    expect(arrowPath(box, { x: 120, y: 110 })).toBe('')
   })
 })
 

@@ -15,6 +15,7 @@ import { hoverMark, unhoverMark } from './markHover'
 import { Confirm } from './Confirm'
 import { ShapeFields } from './ShapeFields'
 import { useNotePicture } from './chat/useNotePicture'
+import { openNote } from './drawing/make'
 import { insertIntoSession } from './insertIntoSession'
 import { ICONS, SHAPE_ICONS } from './ToolPalette'
 
@@ -328,6 +329,21 @@ export function MarkRow({
         )}
         {mark.kind === 'region' && !resolved && mark.anchorState === 'ok' && mark.author === 'user' && (
           <button type="button" className="icon-button" aria-label={`Edit ${mark.id}`} title={exploded ?? 'Edit: take its triangles in hand and paint it again'} disabled={exploded !== null} onClick={() => void editRegion(mark)}>
+            <BrushIcon />
+          </button>
+        )}
+        {mark.kind === 'note' && (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Edit ${mark.id}`}
+            title="Edit: open the drawing again to change its ink, labels, comment or references"
+            onClick={() => {
+              const objectId = store.getState().objectId
+              // Why not (a drawing already open, another project) is not said here: the sheet simply does not open.
+              if (objectId) void openNote(objectId, mark.id).catch(() => {})
+            }}
+          >
             <BrushIcon />
           </button>
         )}

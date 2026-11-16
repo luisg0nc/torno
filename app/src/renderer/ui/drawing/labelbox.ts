@@ -69,6 +69,14 @@ export function barbs(from: Point, to: Point, length = BARB_LENGTH, angle = BARB
   return [at(back + angle), at(back - angle)]
 }
 
+/** The SVG path of an arrow from a box to `to`, with its head: the line, then the two barbs. Empty when the head is inside the box. */
+export function arrowPath(box: LabelBox, to: Point): string {
+  const from = arrowFrom(box, to)
+  if (!from) return ''
+  const [a, b] = barbs(from, to)
+  return `M${from.x} ${from.y}L${to.x} ${to.y}M${a.x} ${a.y}L${to.x} ${to.y}L${b.x} ${b.y}`
+}
+
 const within = (n: number, most: number): number => tenth(Math.min(Math.max(n, 0), most))
 
 /** What a note keeps of the labels the sheet holds: one line of at most `MAX_LABEL` characters each, none empty, points within the picture, at most `MOST_LABELS`. */

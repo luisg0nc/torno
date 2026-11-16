@@ -3,7 +3,7 @@ import { pressed } from '../../../shared/keys'
 import { MAX_LABEL, MOST_LABELS, type NoteLabel } from '../../../shared/marks'
 import { CASING_PX, type InkLook } from '../ink/strokes'
 import { labelFont } from './compose'
-import { LABEL_FONT_PX, LABEL_LINE, LABEL_MAX_WIDTH, LABEL_PAD, arrowFrom, barbs, labelBox, type LabelBox, type Measure, type Point } from './labelbox'
+import { LABEL_FONT_PX, LABEL_LINE, LABEL_MAX_WIDTH, LABEL_PAD, arrowPath, labelBox, type LabelBox, type Measure, type Point } from './labelbox'
 
 /** How far the pointer goes, in board pixels, before a press on a label is a drag for its arrow and not a click to write in it. */
 const DRAG_PX = 6
@@ -42,7 +42,7 @@ interface LabelsProps {
  */
 export function Labels({ size, labels, onChange, labelling, look, family }: LabelsProps) {
   const [editing, setEditing] = useState<number | null>(null)
-  const drag = useRef<{ index: number; pointer: number; from: Point; moved: boolean } | null>(null)
+  const drag = useRef<{ index: number; pointer: number; from: Point; moved: boolean; to?: Point } | null>(null)
   const layer = useRef<HTMLDivElement>(null)
   const measure = measurer(family)
   const boxes: LabelBox[] = labels.map((l) => labelBox(l, measure))
@@ -89,8 +89,11 @@ export function Labels({ size, labels, onChange, labelling, look, family }: Labe
     const p = at(e)
     if (!d.moved && Math.hypot(p.x - d.from.x, p.y - d.from.y) < DRAG_PX) return
     d.moved = true
+    d.to = p
+    // The arrow follows the pointer on the SVG alone: the sheet is told once, on release (it draws again at every change).
     const label = labels[d.index]
-    if (label) replace(d.index, { ...label, to: p })
+    const paths = layer.current?.querySelectorAll(`[data-label="${d.index}"] path`)
+    if (label && paths) for (const path of paths) path.setAttribute('d', arrowPath(boxes[d.index], p))
   }
   const release = (e: ReactPointerEvent<HTMLElement>): void => {
     const d = drag.current
@@ -98,6 +101,7 @@ export function Labels({ size, labels, onChange, labelling, look, family }: Labe
     drag.current = null
     // Not dragged: it was a click, and writes in the label.
     if (!d.moved) setEditing(d.index)
+    else if (d.to && labels[d.index]) replace(d.index, { ...labels[d.index], to: d.to })
   }
   function endWriting(): void {
     if (editing === null) return
@@ -113,12 +117,6 @@ export function Labels({ size, labels, onChange, labelling, look, family }: Labe
 
   const fieldAt = writing === null ? null : boxes[writing]
   const percent = (n: number, of: number): string => `${(n / of) * 100}%`
-  const arrow = (label: NoteLabel, box: LabelBox): { d: string } | null => {
-    const from = label.to ? arrowFrom(box, label.to) : null
-    if (!label.to || !from) return null
-    const [a, b] = barbs(from, label.to)
-    return { d: `M${from.x} ${from.y}L${label.to.x} ${label.to.y}M${a.x} ${a.y}L${label.to.x} ${label.to.y}L${b.x} ${b.y}` }
-  }
 
   return (
     <div
@@ -137,15 +135,12 @@ export function Labels({ size, labels, onChange, labelling, look, family }: Labe
       <svg className="label-svg" viewBox={`0 0 ${size.width} ${size.height}`} aria-hidden="true">
         {labels.map((label, i) => {
           const box = boxes[i]
-          const line = arrow(label, box)
+          // Always there, empty without an arrow: a drag fills them in as it goes (`move`).
+          const d = label.to ? arrowPath(box, label.to) : ''
           return (
             <g key={i} className="label" data-label={i} data-arrow={label.to ? '' : undefined} onPointerDown={(e) => press(e, i)}>
-              {line && (
-                <>
-                  <path d={line.d} fill="none" stroke={look.casing ?? look.ink} strokeWidth={3 + 2 * CASING_PX} strokeLinecap="round" strokeLinejoin="round" />
-                  <path d={line.d} fill="none" stroke={look.ink} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-                </>
-              )}
+              <path d={d} fill="none" stroke={look.casing ?? look.ink} strokeWidth={3 + 2 * CASING_PX} strokeLinecap="round" strokeLinejoin="round" />
+              <path d={d} fill="none" stroke={look.ink} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
               <rect x={box.x} y={box.y} width={writing === i ? Math.max(box.width, FIELD_MIN + 2 * LABEL_PAD) : box.width} height={box.height} fill={look.casing ?? '#ffffff'} stroke={look.ink} strokeWidth={2} />
               {writing !== i &&
                 box.lines.map((text, n) => (

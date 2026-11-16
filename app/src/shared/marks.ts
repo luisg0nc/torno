@@ -152,6 +152,8 @@ export const MOST_LABELS = 20
 export const MAX_LABEL = 200
 export const MOST_NOTE_REFERENCES = 6
 export const MAX_REFERENCE_COMMENT = 300
+/** The longest note a mark keeps, in characters: a note's own comment is held to it as well. */
+export const MAX_NOTE = 2000
 /** A stroke of a note, in pixels of its picture: a pen stroke, or (`erase`) an eraser stroke, which rubs out what the strokes before it drew. */
 export interface NoteStroke {
   width: number

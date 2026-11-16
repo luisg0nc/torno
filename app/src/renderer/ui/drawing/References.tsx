@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MAX_REFERENCE_COMMENT, MOST_NOTE_REFERENCES } from '../../../shared/marks'
 import { MAX_PHOTO_BYTES } from '../../../shared/objectName'
 import { HEIC_REASON, prepareImage } from '../onboard/images'
-import { type RefItem, addable } from './referenceImages'
+import { type RefItem, UrlKeeper, addable } from './referenceImages'
 
 /** The endings of the pictures a note takes: a PNG, a JPEG or a WebP (which is scaled into a PNG or a JPEG). */
 const IMAGE_ENDINGS = ['.png', '.jpg', '.jpeg', '.webp']
@@ -42,10 +42,10 @@ export function References({ objectId, noteId, items, onChange, busy }: Referenc
 
   // The pictures a note already has are shown from its own files, which main reads: one that is not on this computer has none to show.
   const [shown, setShown] = useState<Record<number, string | null>>({})
+  const [made] = useState(() => new UrlKeeper())
   useEffect(() => {
     if (noteId === null) return
     let gone = false
-    const urls: string[] = []
     for (const item of items) {
       if (item.old === null || item.old in shown) continue
       const index = item.old
@@ -54,7 +54,7 @@ export function References({ objectId, noteId, items, onChange, busy }: Referenc
         .then((bytes) => {
           if (gone) return
           const url = bytes ? URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/*' })) : null
-          if (url) urls.push(url)
+          if (url) made.keep(url)
           setShown((s) => ({ ...s, [index]: url }))
         })
         .catch(() => !gone && setShown((s) => ({ ...s, [index]: null })))
@@ -66,7 +66,7 @@ export function References({ objectId, noteId, items, onChange, busy }: Referenc
   }, [objectId, noteId])
   useEffect(
     () => () => {
-      for (const url of Object.values(shown)) if (url) URL.revokeObjectURL(url)
+      made.releaseAll()
       for (const item of now.current) if (item.url) URL.revokeObjectURL(item.url)
     },
     // Only when the sheet is put away: what was added is let go of with it.
