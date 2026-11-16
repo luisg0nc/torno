@@ -72,6 +72,29 @@ describe('making the object', () => {
     expect(made.hold).not.toHaveBeenCalled()
   })
 
+  it('sends the index of the photo a doodle is drawn over, and says so in the note the prompt gets, as create does on the card', async () => {
+    const d = draft()
+    d.doodles = [
+      { uid: 'c', strokes: [], png: new Uint8Array([3]), note: 'the shape', url: 'blob:c', over: 'b' },
+      { uid: 'g', strokes: [], png: new Uint8Array([4]), note: '', url: 'blob:g', over: 'a' },
+      { uid: 'h', strokes: [], png: new Uint8Array([5]), note: 'plain', url: 'blob:h' }
+    ]
+    const { made } = deps()
+    await makeObject(d, made)
+    const req = (made.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as CreateRequest
+    expect(req.doodles).toEqual([
+      { png: new Uint8Array([3]), note: 'the shape', over: 1 },
+      { png: new Uint8Array([4]), note: '', over: 0 },
+      { png: new Uint8Array([5]), note: 'plain' }
+    ])
+    const sent = (made.onboard as ReturnType<typeof vi.fn>).mock.calls[0][1] as OnboardDraft
+    expect(sent.items.slice(2).map((i) => [i.file, i.note])).toEqual([
+      ['reference/doodle-1.png', 'the shape (drawn over reference/photo-2.webp)'],
+      ['reference/doodle-2.png', 'drawn over reference/photo-1.jpg'],
+      ['reference/doodle-3.png', 'plain']
+    ])
+  })
+
   it('hands the model and effort chosen to the onboarding, and nothing of a choice for the person\'s defaults', async () => {
     const { made } = deps()
     await makeObject(draft(), made, { model: 'opus', effort: 'xhigh' })

@@ -484,6 +484,16 @@
   touch-action: none;
 }
 
+/* "Draw over": the photo a doodle is drawn on, among the tools. */
+.board-over {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
 /* The doodle's grid: a square every 40 board pixels, in the hairline (--grid-x and --grid-y are the squares across and down). */
 .board-canvas[data-grid] {
   background-image: linear-gradient(to right, var(--hairline) 1px, transparent 1px), linear-gradient(to bottom, var(--hairline) 1px, transparent 1px);

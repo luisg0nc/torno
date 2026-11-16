@@ -276,6 +276,40 @@ test.describe('a new object', () => {
     await page.getByRole('alertdialog', { name: 'Discard this doodle?' }).getByRole('button', { name: 'Discard' }).click()
   })
 
+  test('a doodle is drawn over one of the photos: the photo is under the ink in its picture, there is no grid, and it is opened again on the photo', async () => {
+    await newPage().getByRole('button', { name: 'Draw…' }).click()
+    await expect(board().locator('canvas')).toHaveAttribute('data-grid', '')
+    await board().getByLabel('Draw over').selectOption({ label: 'Photo 2, bench.webp' })
+    await expect(board().locator('canvas')).not.toHaveAttribute('data-grid')
+    await expect(board().locator('canvas')).toHaveAttribute('data-ground', '')
+    await stroke([0.2, 0.3], [0.8, 0.3])
+    await board().getByRole('button', { name: 'Done' }).click()
+    await expect(board()).toHaveCount(0)
+    await expect(cards('doodles')).toHaveCount(2)
+    const pixel = (fx: number, fy: number): Promise<number[]> =>
+      cards('doodles').nth(1).locator('img').evaluate(async (img, [x, y]) => {
+        const picture = img as HTMLImageElement
+        await picture.decode()
+        const canvas = new OffscreenCanvas(picture.naturalWidth, picture.naturalHeight)
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(picture, 0, 0)
+        return Array.from(ctx.getImageData(Math.round(canvas.width * x), Math.round(canvas.height * y), 1, 1).data)
+      }, [fx, fy])
+    // The photo (#4477aa, 800 x 600, fitted whole: white at the sides) where there is no ink, the ink over it.
+    const [r, g, b] = await pixel(0.5, 0.7)
+    expect(Math.abs(r - 0x44) + Math.abs(g - 0x77) + Math.abs(b - 0xaa)).toBeLessThan(40)
+    expect((await pixel(0.02, 0.5)).slice(0, 3)).toEqual([255, 255, 255])
+    expect(Math.max(...(await pixel(0.5, 0.3)).slice(0, 3))).toBeLessThan(80)
+    // Opened again, it is on its photo.
+    await cards('doodles').nth(1).getByRole('button', { name: 'Change doodle 2' }).click()
+    await expect(board().getByLabel('Draw over')).toHaveValue(/^r\d+$/)
+    await expect(board().getByLabel('Draw over').locator('option:checked')).toHaveText('Photo 2, bench.webp')
+    await expect(board().locator('canvas')).not.toHaveAttribute('data-grid')
+    await board().getByRole('button', { name: 'Cancel' }).click()
+    await cards('doodles').nth(1).getByRole('button', { name: 'Remove doodle 2' }).click()
+    await expect(cards('doodles')).toHaveCount(1)
+  })
+
   test('a vendor STEP file is given as a bought part, with a note, and the preview names it for import_step', async () => {
     await hook(app, { pickStep: bearing() })
     await newPage().getByRole('button', { name: 'Add a bought part…' }).click()

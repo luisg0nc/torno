@@ -67,6 +67,20 @@ describe('the draft of a new object', () => {
     expect(again).toMatchObject({ uid: d.uid, note: 'the shape', strokes: [{ tool: 'pen', width: 4, points: [[2, 2]] }] })
   })
 
+  it('keeps the doodle and its picture when the photo it was drawn over is removed, and forgets which photo it was', () => {
+    onboarding.addPhotos([photo(1), photo(2)])
+    const [first, second] = onboard.getState().draft.photos
+    onboarding.addDoodle({ ...doodle(1), over: second.uid })
+    onboarding.addDoodle({ ...doodle(2), over: first.uid })
+    onboarding.remove('photos', second.uid)
+    const [a, b] = onboard.getState().draft.doodles
+    expect(a.over).toBeUndefined()
+    expect(a).toMatchObject({ png: new Uint8Array([1]), strokes: [{ tool: 'pen', width: 4, points: [[1, 1]] }] })
+    expect(b.over).toBe(first.uid)
+    onboarding.replaceDoodle(b.uid, { ...doodle(3), over: undefined })
+    expect(onboard.getState().draft.doodles[1].over).toBeUndefined()
+  })
+
   it('is let go by discard: nothing stays, and the page is not on', () => {
     onboarding.setName('clip')
     onboarding.addPhotos([photo(1)])

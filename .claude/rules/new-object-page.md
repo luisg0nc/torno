@@ -51,7 +51,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   doodle?" when the strokes are other than it was opened with. Its keys (Esc is `sheet.close`, Ctrl+Z `board.undo`)
   are heard in the capture phase before anything else, so that no tool under the board gets them. The PNG is made
   by `strokes.ts` with a white ground and dark ink whatever the theme: what is drawn on screen follows the theme,
-  what Claude receives does not (`PNG_GROUND`).
+  what Claude receives does not (`PNG_GROUND`). A doodle can be drawn over one of the draft's photos
+  ("Draw over", `InkPad`'s `background`): the photo is fitted whole on the white ground (`fitBackground`, letterboxed), there is
+  no grid, the ink is the PNG's own on screen too, and the PNG is the photo plus the ink at 1200 x 800 (`doodlePng`'s `background`).
+  `DoodleDraft.over` is the photo draft's `uid`; removing that photo clears it and keeps the doodle and its PNG. `makeObject`
+  sends it as the photo's index (`CreateRequest.doodles[i].over`), and the doodle's note for the prompt and the preview says
+  "(drawn over reference/photo-N.ext)", the words `create` puts on its card.
 - **The model and effort** of the new object's session are chosen beside Create (`ui/onboard/SessionChoice.tsx`,
   "Claude Code on"): "Your default model" and "Your default effort" pass nothing. The models are `chat.models()` (the
   last chat's list, or Claude Code's aliases), the CLI's own `default` row left out as the default is; the efforts

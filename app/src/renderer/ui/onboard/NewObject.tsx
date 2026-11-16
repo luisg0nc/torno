@@ -400,9 +400,11 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
     {board !== null && (
       <Doodle
         initial={editing?.strokes ?? []}
+        photos={draft.photos}
+        over={editing?.over}
         onCancel={() => setBoard(null)}
-        onDone={(strokes: Stroke[], png: Uint8Array) => {
-          const item = { strokes, png, url: URL.createObjectURL(new Blob([png as BlobPart], { type: 'image/png' })) }
+        onDone={(strokes: Stroke[], png: Uint8Array, over: string | undefined) => {
+          const item = { strokes, png, url: URL.createObjectURL(new Blob([png as BlobPart], { type: 'image/png' })), ...(over === undefined ? {} : { over }) }
           if (board.uid) onboarding.replaceDoodle(board.uid, item)
           else onboarding.addDoodle(item)
           setBoard(null)

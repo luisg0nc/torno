@@ -36,10 +36,23 @@ export type Outcome =
 
 /** What `create` will name the photos and the doodles of the draft: photo-<n> with the extension of the file, doodle-<n>.png. */
 export function referenceFiles(draft: Draft): OnboardDraft['items'] {
+  const photoFile = (n: number): string => `reference/photo-${n + 1}${extensionOf(draft.photos[n].path)}`
   return [
-    ...draft.photos.map((p, n) => ({ file: `reference/photo-${n + 1}${extensionOf(p.path)}`, note: p.note, image: p.image })),
-    ...draft.doodles.map((d, n) => ({ file: `reference/doodle-${n + 1}.png`, note: d.note, image: d.png }))
+    ...draft.photos.map((p, n) => ({ file: photoFile(n), note: p.note, image: p.image })),
+    ...draft.doodles.map((d, n) => {
+      // The words `create` puts on the card of a doodle drawn over a photo, so that the prompt and the board agree.
+      const over = overIndex(draft, d)
+      const said = over === undefined ? '' : `drawn over ${photoFile(over)}`
+      return { file: `reference/doodle-${n + 1}.png`, note: said === '' ? d.note : d.note === '' ? said : `${d.note} (${said})`, image: d.png }
+    })
   ]
+}
+
+/** The index in the draft's photos of the photo a doodle is drawn over, if it still is in the draft. */
+function overIndex(draft: Draft, doodle: Draft['doodles'][number]): number | undefined {
+  if (doodle.over === undefined) return undefined
+  const at = draft.photos.findIndex((p) => p.uid === doodle.over)
+  return at < 0 ? undefined : at
 }
 
 /** What `create` will name the vendor STEP files of the draft: their own names (`stepFiles`). */
@@ -89,7 +102,10 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
       name: draft.name,
       description,
       photos: draft.photos.map((p) => ({ path: p.path, note: p.note })),
-      doodles: draft.doodles.map((d) => ({ png: d.png, note: d.note })),
+      doodles: draft.doodles.map((d) => {
+        const over = overIndex(draft, d)
+        return { png: d.png, note: d.note, ...(over === undefined ? {} : { over }) }
+      }),
       steps: draft.steps.map((s) => ({ path: s.path, note: s.note })),
       scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
       objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),

@@ -37,6 +37,8 @@ export interface DoodleDraft extends Item {
   strokes: Stroke[]
   png: Uint8Array
   url: string
+  /** The `uid` of the photo it is drawn over (the photo is under the ink in `png`). Cleared when that photo is removed: the picture keeps it. */
+  over?: string
 }
 
 export interface ScanDraft extends Item {
@@ -155,7 +157,7 @@ export const onboarding = {
     return true
   },
 
-  /** The doodle drawn again: its note and its place stay. */
+  /** The doodle drawn again: its note and its place stay; what it is drawn over is the new item's. */
   replaceDoodle(uid: string, item: Omit<DoodleDraft, 'uid' | 'note'>): void {
     const old = onboard.getState().draft.doodles.find((d) => d.uid === uid)
     if (!old) return revoke(item.url)
@@ -191,7 +193,12 @@ export const onboarding = {
   remove(kind: Kind, uid: string): void {
     const gone = (onboard.getState().draft[kind] as Array<Item & { url?: string }>).find((x) => x.uid === uid)
     if (gone?.url) revoke(gone.url)
-    change((d) => ({ ...d, [kind]: (d[kind] as Item[]).filter((x) => x.uid !== uid) }))
+    change((d) => ({
+      ...d,
+      [kind]: (d[kind] as Item[]).filter((x) => x.uid !== uid),
+      // A doodle drawn over this photo keeps its picture, and no longer says which photo it was.
+      ...(kind === 'photos' ? { doodles: d.doodles.map((x) => (x.over === uid ? { ...x, over: undefined } : x)) } : {})
+    }))
   },
 
   /** Counts the times the draft was thrown away: a photo that began to be read before one is not added after it. */
