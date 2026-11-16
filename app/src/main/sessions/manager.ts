@@ -108,8 +108,12 @@ interface Session {
   heard: boolean
   /** A chat session: those waiting to know whether the CLI began (`Sessions.began`). */
   watchers: Array<(began: Began) => void>
-  /** A chat session: the view notes the prompts sent carried, which the next answered hook counts among the marks sent. */
-  carried: string[]
+  /**
+   * A chat session: the view notes each prompt carried, by the id of its `user` item, while it waits for its hook. That
+   * prompt's own hook counts them among the marks sent, and no other: until then they are drafts that another prompt
+   * does not carry again, and a prompt that never goes (the session ends) leaves them drafts.
+   */
+  carried: Map<string, string[]>
   /** A chat session: what a prompt waits for when it is sent with a picture, so that prompts reach the CLI in the order they were sent. */
   sending: Promise<void>
   exited: Promise<void>
@@ -485,7 +489,7 @@ export class Sessions {
       prompts: 0,
       compacted: false,
       firstPrompt: true,
-      carried: [],
+      carried: new Map(),
       status: 'starting',
       cols,
       rows,
@@ -783,9 +787,9 @@ export class Sessions {
     const queued = s.status === 'working' || s.status === 'needs_input' || s.chat.transcript.untakenCount() > 0
     // Its own id: the CLI says in `command_lifecycle` when it queues, begins and ends the prompt it names.
     const uuid = randomUUID()
-    // The notes the prompt carries are sent when the hook is answered, whether or not it lists them.
-    for (const id of carried) if (!s.carried.includes(id)) s.carried.push(id)
-    s.chat.transcript.userSent(content, queued, uuid, notes, board)
+    const item = s.chat.transcript.userSent(content, queued, uuid, notes, board)
+    // The notes the prompt carries are sent when its own hook is answered, whether or not it lists them.
+    if (carried.length > 0 && item.kind === 'user' && item.state !== 'not-sent') s.carried.set(item.id, [...carried])
     s.agent.prompt(content, s.conversationId, uuid)
   }
 
@@ -855,7 +859,9 @@ export class Sessions {
       content.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: Buffer.from(png).toString('base64') } })
     }
     // The draft notes of the project, as they are now: words, then pictures, in what room the view and the board left.
-    const drafts = (await this.deps.draftNotes?.(s.object.id)) ?? []
+    // Those a prompt that waits for its hook already carries are left to it: they are still drafts until that hook is answered.
+    const carrying = new Set([...s.carried].filter(([item]) => s.chat?.transcript.awaitsHook(item)).flatMap(([, ids]) => ids))
+    const drafts = ((await this.deps.draftNotes?.(s.object.id)) ?? []).filter((note) => !carrying.has(note.id))
     const noted = await notePrompt(s.object.dir, drafts, { latest: this.deps.build?.(s.object.id)?.revision, toolName: this.deps.adapter.toolName, ...(this.deps.scalePicture ? { scale: this.deps.scalePicture } : {}), room: MOST_NOTE_PICTURES - content.filter((block) => block.type === 'image').length })
     content.push(...noted.blocks)
     if (content.length === 0) return
@@ -1102,6 +1108,8 @@ export class Sessions {
       for (const watcher of session.watchers.splice(0)) watcher({ began: false, why: why || 'The session ended.' })
       // What was open ends in a stated state, and the log has all of it before the session counts as gone.
       session.chat?.transcript.ended()
+      // The prompts that never went carried notes that stay drafts.
+      session.carried.clear()
       this.advance(session, 'exit')
       void session.logging.then(ended)
     })
@@ -1454,14 +1462,19 @@ export class Sessions {
     if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}${text ? `, answered with: ${text}` : ''}`)
     // Marks are sent once the answer that names them has been handed over whole: not when the agent hung
     // up first, and not to a session that has been hung up on, whose prompt nobody will answer.
-    // The view notes a prompt carried (its pictures, its words) are sent with that answer, even where its list left them out.
-    const carried = text ? session.carried.splice(0) : []
-    if (text && !session.killTimer) {
+    // The view notes the prompt this hook took up carried (its pictures, its words) are sent with that answer, even where
+    // its list left them out, and even where it says nothing: they are in the prompt itself. Another prompt's wait for its own.
+    const carried = (session.chat?.transcript.takenItems() ?? []).flatMap((item) => {
+      const ids = session.carried.get(item) ?? []
+      session.carried.delete(item)
+      return ids
+    })
+    if ((text || carried.length > 0) && !session.killTimer) {
       res.once('finish', () => {
-        const delivered = [...new Set([...sentMarkIds, ...carried])]
-        if (delivered.length > 0 || context.boardTold) this.deps.onDelivered?.(objectId, delivered, context.boardTold)
+        const delivered = [...new Set([...(text ? sentMarkIds : []), ...carried])]
+        if (delivered.length > 0 || (text && context.boardTold)) this.deps.onDelivered?.(objectId, delivered, text ? context.boardTold : undefined)
         // What was kept until the answer left (a Go back's notice) is let go now; a failure of that is not the prompt's.
-        void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
+        if (text) void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
       })
     }
     sendJson(res, 200, text ? { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } } : {})

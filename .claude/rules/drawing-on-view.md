@@ -27,8 +27,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - A view note is listed with the other marks and is a card on the board (`.claude/rules/marks-window.md`, `board.md`): its row and
   its card show the picture with the ink (`notes.picture`) and the comment; the pointer on the row lights the faces of `under` that the
-  build shown still has; a double click on its card, like "Edit" above the box, is `openNote`. The picture is kept in
-  `.torno/notes/` of this computer only (git ignores the folder), never in `marks.json`, the chat's log or the board's files.
+  build shown still has; a double click on its card, like "Edit" above the box and the "Edit" of its row in the marks list, is `openNote`. The picture is kept in
+  `.torno/notes/` of this computer only (git ignores the folder), never in `marks.json`, the chat's log or the board's files. A note with no
+  `anchor` (its ink lay over no face) has no chip in the view, in the window or in a picture of it (`project` in `labels.ts` leaves it out), and
+  no section takes it away (`cutAway`).
 
 ## Agents (`app/src/main`)
 
@@ -41,8 +43,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   references, scaled to 1280 (`deps.scalePicture`), within the 6 pictures a prompt carries (what the board and the view hold
   counts): a picture past the room is named in the words of its note (`Not attached: M5 reference 2`), not attached, and a
   note whose pictures are not on this computer goes as words only. The notes the prompt carried are among the marks sent when
-  the hook is answered (`Session.carried`, joined to `sentMarkIds` for `onDelivered`), whether or not the hook's list had room
-  for them; the hook's line for a note says where to read it in full. The words of a note are text blocks that begin as
+  the hook of that prompt is answered (`Session.carried`, by the id of the prompt's `user` item, released by the items
+  `transcript.takenItems()` says that hook took up, and joined to `sentMarkIds` for `onDelivered`), whether or not the hook's
+  list had room for them and whether or not it had words to say; a draft a prompt that still waits for its hook carries is left
+  out of the next prompt (`transcript.awaitsHook`), so no two prompts carry one, and a prompt that never goes (the session
+  ends) leaves its notes drafts; the hook's line for a note says where to read it in full. The words of a note are text blocks that begin as
   `describeMark` does (`NOTE_HEAD`): the transcript leaves them out of the item's text and keeps `notes` (`DrawnOver` with `note`,
   the strokes' refs and counts, each ref through `redact`, no kernel line, no box, no camera). The pictures are written nowhere
   but `.torno/notes/`.
@@ -63,7 +68,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`underInk`'s `kept`, points within the picture), the labels (`cleanLabels`: one line of at most 200 characters, at most 20, points within the
   picture) and what the ink and the head of each arrow lie over (`under`: a line for each stroke told of, then one for each label with an
   arrow, in label order; `underHeads`), with the first face under the ink as the `anchor` (`ViewHost.under` gives a face's point, normal and part), the comment
-  (one line, at most 300 characters) and the references, as a `NoteDraft` through `notes.make` (a rejection stays on the board as its problem); the
+  (one line, at most 2000 characters, `MAX_NOTE_COMMENT` = main's `MAX_NOTE`; a reference's comment 300) and the references, as a `NoteDraft` through `notes.make` (a rejection stays on the board as its problem); the
   board is put away and the keys are the composer's again. The sheet (`InkPad` with its `labels`, `aside`, `ready` and `changed`; the doodle uses none of
   them) has a label tool (`T`, `board.label`, not heard in a field): a click places a label and a field to write it in, a drag from it pulls an arrow
   (`Labels.tsx`, an SVG in picture pixels over the canvas; `labelbox.ts` lays a label out from a measure, so that `paintLabels` in `compose.ts` draws

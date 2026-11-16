@@ -263,6 +263,24 @@ describe('what is sent', () => {
     expect(t.items().filter((i) => i.kind === 'user').map((i) => i.id)).toContain(t.taken()!.item)
   })
 
+  it('says which prompts the last hook took up, and which still wait for theirs', () => {
+    const t = new Transcript()
+    expect(t.takenItems()).toEqual([])
+    const first = t.userSent(text('first'), false, 'uuid-1')
+    const second = t.userSent(text('second'), true, 'uuid-2')
+    expect(t.awaitsHook(first.id)).toBe(true)
+    expect(t.awaitsHook(second.id)).toBe(true)
+    t.context({ text: '', sentMarkIds: [], prompt: 'first' })
+    expect(t.takenItems()).toEqual([first.id])
+    expect(t.awaitsHook(first.id)).toBe(false)
+    expect(t.awaitsHook(second.id)).toBe(true)
+    t.context({ text: '', sentMarkIds: [], prompt: 'second' })
+    expect(t.takenItems()).toEqual([second.id])
+    expect(t.awaitsHook(second.id)).toBe(false)
+    t.context({ text: '', sentMarkIds: [], prompt: 'typed elsewhere' })
+    expect(t.takenItems()).toEqual([])
+  })
+
   it('says no prompt was taken when a hook matches none that waits, not the one before', () => {
     const t = new Transcript()
     const first = t.userSent(text('first'), false, 'uuid-1')

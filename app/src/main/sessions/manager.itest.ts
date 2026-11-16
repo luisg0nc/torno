@@ -1794,6 +1794,44 @@ describe('the transcript of a chat session', () => {
     expect(delivered2[1]).toEqual(['M5'])
   }, 30_000)
 
+  it('has a note it carried sent even when the hook has nothing to say: it is in the prompt itself', async () => {
+    const c = await start()
+    drafted = [await noteOf(c, 'M1', 0)]
+    await c.send('say hi')
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(1)
+    expect(delivered2).toEqual([['M1']])
+  }, 30_000)
+
+  it('carries a draft note once when two prompts are queued behind a turn, and has it sent with the prompt that carried it, not with the one before', async () => {
+    const c = await start()
+    marksPerCall = [['M1'], ['M9'], ['M10']]
+    await c.send('slow 1.5')
+    drafted = [await noteOf(c, 'M5', 0)]
+    await c.send('say a')
+    // The note is still a draft as far as the project knows (the first prompt's hook has not come): the next prompt leaves it to the one that has it.
+    await c.send('say b')
+    const users = c.items().filter((i) => i.kind === 'user') as Array<{ state: string; notes?: unknown[]; images: unknown[] }>
+    expect(users.map((u) => u.notes?.length ?? 0)).toEqual([0, 1, 0])
+    expect(users.map((u) => u.images.length)).toEqual([0, 1, 0])
+    await expect.poll(() => c.turns(), { timeout: 20_000 }).toBe(3)
+    // M5 went with the hook of the prompt that carried it (the second), and with no other.
+    expect(delivered2).toEqual([['M1'], ['M9', 'M5'], ['M10']])
+  }, 30_000)
+
+  it('leaves a note a draft when the prompt that carried it was queued and the session ended before its hook', async () => {
+    const c = await start()
+    marksPerCall = [['M1']]
+    await c.send('slow 5')
+    await expect.poll(() => delivered2.length, { timeout: 20_000 }).toBe(1)
+    drafted = [await noteOf(c, 'M5', 0)]
+    await c.send('say a')
+    await tSessions.stop(c.id)
+    const [, queued] = c.items().filter((i) => i.kind === 'user') as Array<{ state: string }>
+    // The CLI may run what is queued as it goes (the interrupt leaves it to run): only a prompt that was not taken up leaves the note unsent.
+    if (queued.state === 'not-sent') expect(delivered2.flat()).not.toContain('M5')
+    expect(delivered2[0]).toEqual(['M1'])
+  }, 30_000)
+
   it('carries at most 6 pictures in all, the attached view first, and names the rest in the words of the note they belong to', async () => {
     const c = await start()
     drafted = [await noteOf(c, 'M1', 3), await noteOf(c, 'M2', 3), await noteOf(c, 'M3', 3)]
