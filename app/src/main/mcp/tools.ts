@@ -5,7 +5,7 @@ import type { BuildState } from '../../shared/build'
 import { diagnosisText } from '../../shared/diagnosis'
 import type { Described } from '../../shared/geometry'
 import type { BuildIdentity } from '../../shared/git'
-import type { Mark, MarkPatch, NewMark } from '../../shared/marks'
+import type { Mark, MarkPatch, NewMark, NoteMark } from '../../shared/marks'
 import type { ScanInfo } from '../../shared/scans'
 import type { Scene } from '../../shared/scene'
 import {
@@ -27,6 +27,9 @@ import type { HistoryEntry } from '../../shared/history'
 import type { TrialResult } from '../kernel/client'
 import type { ObjectInfo } from '../../shared/workspace'
 import { describeMark, markData, sizes } from '../marks/describe'
+import { noteFilesExist } from '../notes/files'
+import { MOST_NOTE_PICTURES, notePictures } from '../notes/pictures'
+import { noteData } from '../notes/text'
 import { number } from '../../shared/format'
 import { groupsIn } from '../../shared/groups'
 import type { Unmeasured } from '../marks/measure'
@@ -293,7 +296,11 @@ export const noMark = (id: string, marks: Mark[]): ToolResult => failure(`no mar
  * A region of a scan is told where the scan's alignment in its layout puts
  * it, which takes the `scans` of the object (`scansFor`).
  */
-const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene): object => ({ ...markData(mark, revision, scans, layout), line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}) }) })
+const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string): object => ({
+  // A note is told in words, without its strokes and the names of its files: where its files are on this computer is told with it.
+  ...(mark.kind === 'note' ? noteData(mark, revision, dir === undefined ? undefined : noteFilesExist(dir, mark)) : markData(mark, revision, scans, layout)),
+  line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}) })
+})
 
 /** The layout a region is told in by a tool: the one asked for, else the one on screen, else the build's first; none before a build, or for a layout the build has not (the region is then told in its own). */
 /** The refusal for a layout that was asked for and that the build has not: it is not answered in another. Null otherwise, and before anything is built. */
@@ -367,17 +374,32 @@ export async function marksTool(deps: ToolDeps, objectId: string, args: MarksArg
   if (wrong) return wrong
   const layout = regionLayout(deps, objectId, args.layout)
   const strokes = !named && listed.some((m) => m.kind === 'stroke')
-  return json({
+  const dir = deps.object(objectId)?.dir
+  const notes = listed.filter((m): m is NoteMark => m.kind === 'note')
+  const sent = notes.length > 0 && dir !== undefined && args.pictures === true ? await notePictures(dir, notes, deps.scale) : undefined
+  const result = json({
     ...build,
     marks: listed.map((m) => {
-      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene)
+      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene, dir)
       return named ? told : strokeSummarised(told)
     }),
     ...(wanted === 'open' && !named ? { listed: 'open marks; resolved ones with status resolved, or by ids' } : {}),
     ...(missing && missing.length > 0 ? { missing } : {}),
     ...(omitted > 0 ? { truncated: true, omitted, next: rest[listed.length].id } : {}),
-    ...(strokes ? { strokesSummarised: 'a stroke holds a summary of its points; name it in ids for all of them' } : {})
+    ...(strokes ? { strokesSummarised: 'a stroke holds a summary of its points; name it in ids for all of them' } : {}),
+    ...(notes.length > 0 ? { pictures: notePicturesTold(notes, sent) } : {})
   })
+  return { content: [...result.content, ...(sent?.sent ?? []).map((one): ToolResult['content'][number] => ({ type: 'image', data: Buffer.from(one.bytes).toString('base64'), mimeType: one.mediaType }))] }
+}
+
+/** What `marks` says of the pictures of the notes it lists: which are sent, which are only named (and how to have them), which could not be sent. */
+function notePicturesTold(notes: readonly NoteMark[], sent: Awaited<ReturnType<typeof notePictures>> | undefined): object {
+  if (!sent) return { named: notes.flatMap((n) => [n.id, ...n.references.map((_, i) => `${n.id} reference ${i + 1}`)]), note: 'Pictures are named here, not sent: ask for them with pictures: true.' }
+  return {
+    attached: sent.sent.map((one) => one.what),
+    ...(sent.left.length > 0 ? { notAttached: sent.left, note: `Not attached, past the most one answer sends (${MOST_NOTE_PICTURES}): ask for fewer notes with ids to read the rest.` } : {}),
+    ...(sent.failed.length > 0 ? { notSent: sent.failed } : {})
+  }
 }
 
 /**
@@ -399,7 +421,7 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
     const build = ofBuild(deps, objectId)
     const wrong = noSuchLayout(deps, objectId, args.layout)
     if (wrong) return wrong
-    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene) }) : noMark(args.ref, marks)
+    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene, deps.object(objectId)?.dir) }) : noMark(args.ref, marks)
   }
   const found = built(deps, objectId)
   if ('content' in found) return found

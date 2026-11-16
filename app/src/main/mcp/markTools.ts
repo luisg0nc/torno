@@ -437,6 +437,8 @@ function markCamera(scene: Scene, layout: string, at: Vec3, normal: Vec3 | undef
 }
 
 export async function addMarkTool(deps: ToolDeps, objectId: string, args: AddMarkArgs): Promise<ToolResult> {
+  // The schema lets every value through (the SDK would drop a key it does not know without a word); the kinds are checked here.
+  if ((args.kind as string) === 'note') return failure("a view note is the person's: you cannot make one. Resolve one of theirs with resolve_mark, or place a pin, a pick, an arrow, a shape or a dimension.")
   const found = built(deps, objectId)
   if ('content' in found) return found
   const { scene, revision } = found

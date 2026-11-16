@@ -16,6 +16,7 @@ import { Asks } from '../asks'
 import { askTool } from './askTool'
 import { flushCut, probe } from '../../test/diagnosisFixtures'
 import { BoardStore } from '../board/store'
+import { writeNoteFile } from '../notes/files'
 import { addCardTool, boardTool } from './boardTools'
 import { addMarkTool, highlightTool, resolveMarkTool } from './markTools'
 import { TOOLS, refusedKeys } from './schemas'
@@ -2543,5 +2544,151 @@ describe('board and add_card', () => {
     expect(textOf(await addCardTool(rig(), 'nothing', { text: 'x' }))).toBe('unknown project: nothing')
     expect(textOf(await boardTool(rig({ board: undefined }), 'bracket', {}))).toBe('the board is not available here')
     expect(textOf(await addCardTool(rig({ board: undefined }), 'bracket', { text: 'x' }))).toBe('the board is not available here')
+  })
+})
+
+describe('view notes, as Claude reads them', () => {
+  let root: string
+  let dir: string
+  let scaled: number[]
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'torno-note-tools-'))
+    dir = join(root, 'bracket')
+    mkdirSync(dir)
+    scaled = []
+  })
+  afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+  const NOTE_UNDER = { box: [10, 10, 60, 40], refs: [{ ref: 'base/F5', descriptor: 'plane, normal +Z, z = 2.5, 1200 mm²' }], cuts: [], scans: [], bare: false }
+  /** A note of the person's whose pictures are written to the project, with `references` reference pictures. */
+  async function noteMade(n: number, references: number, over: Partial<Mark> = {}): Promise<Mark> {
+    const ink = await writeNoteFile(dir, 'ink', png(1600, 1200, n), 'image/png')
+    const plain = await writeNoteFile(dir, 'plain', png(1600, 1200, n), 'image/png')
+    const files: Array<{ file: string; comment: string }> = []
+    for (let i = 0; i < references; i++) files.push({ file: await writeNoteFile(dir, 'reference', png(300, 200, n * 10 + i), 'image/png'), comment: `reference of M${n}, number ${i + 1}` })
+    return {
+      ...MARK_BASE,
+      id: `M${n}`,
+      kind: 'note',
+      note: `wall ${n} is too thin`,
+      picture: plain,
+      ink,
+      size: { w: 1600, h: 1200 },
+      strokes: [{ width: 4, points: Array.from({ length: 400 }, (_, i): [number, number] => [i, i]) }],
+      inkColour: '#ff00ff',
+      labels: [{ x: 100, y: 80, text: 'thin here', to: { x: 30, y: 20 } }],
+      under: [NOTE_UNDER, NOTE_UNDER],
+      references: files,
+      ...over
+    } as Mark
+  }
+  const rig = (list: Mark[], over: Partial<ToolDeps> = {}): Fake => {
+    const deps = fake({
+      object: (id) => (id === 'bracket' ? { ...BRACKET, dir } : undefined),
+      scale: async (bytes, edge) => {
+        scaled.push(edge)
+        return bytes
+      },
+      ...over
+    })
+    deps.w.list = list
+    return deps
+  }
+  const kinds = (result: { content: Array<{ type: string }> }): string[] => result.content.map((b) => b.type)
+
+  it('lists a note with what it says in words and the number of its strokes, never their points or the names of its files', async () => {
+    const deps = rig([await noteMade(5, 1)])
+    const [note] = jsonOf(await marksTool(deps, 'bracket', {})).marks
+    expect(note).toMatchObject({ id: 'M5', kind: 'note', note: 'wall 5 is too thin', strokeCount: 1, references: [{ comment: 'reference of M5, number 1' }] })
+    expect(note.text).toContain('Under the ink, stroke by stroke')
+    expect(note.text).toContain('- "thin here" → base/F5 (plane, normal +Z, z = 2.5, 1200 mm²)')
+    expect(note.text).toContain('reference 1: reference of M5, number 1')
+    expect(note.text).toContain('It was seen from')
+    expect(note.line).toBe('M5 · view note · draft: "wall 5 is too thin" (1 label, 1 reference, drawn on build 3)')
+    for (const key of ['strokes', 'under', 'picture', 'ink']) expect(note).not.toHaveProperty(key)
+    expect(JSON.stringify(note)).not.toMatch(/n-[0-9a-f]{12}|r-[0-9a-f]{12}/)
+  })
+
+  it('says a note was drawn on an older build than the last, and that its picture is not on this computer when it is not', async () => {
+    const deps = rig([await noteMade(5, 1, { revision: 2 })])
+    expect(jsonOf(await marksTool(deps, 'bracket', {})).marks[0].text).toContain('The model has been built again since: r3 is the latest')
+    const bare = rig([{ ...(await noteMade(5, 1)), ink: 'n-aaaaaaaaaaaa.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.png', comment: 'lost' }] } as Mark])
+    const [note] = jsonOf(await marksTool(bare, 'bracket', {})).marks
+    expect(note.text).toContain('The picture is not on this computer; look through its camera.')
+    expect(note.text).toContain('reference 1: lost (the picture is not on this computer)')
+  })
+
+  it('sends no picture unless asked, and names that they can be', async () => {
+    const deps = rig([await noteMade(5, 1)])
+    const plain = await marksTool(deps, 'bracket', {})
+    expect(kinds(plain)).toEqual(['text'])
+    expect(jsonOf(plain).pictures).toEqual({ named: ['M5', 'M5 reference 1'], note: 'Pictures are named here, not sent: ask for them with pictures: true.' })
+    expect(scaled).toEqual([])
+  })
+
+  it('attaches the inked picture of each note it lists, then its references, 6 in all, scaled to 1280, and names the rest', async () => {
+    const deps = rig([await noteMade(1, 3), await noteMade(2, 3), await noteMade(3, 3)])
+    const result = await marksTool(deps, 'bracket', { pictures: true })
+    expect(kinds(result)).toEqual(['text', 'image', 'image', 'image', 'image', 'image', 'image'])
+    expect(scaled).toEqual([1280, 1280, 1280, 1280, 1280, 1280])
+    expect(jsonOf(result).pictures).toEqual({
+      attached: ['M1', 'M1 reference 1', 'M1 reference 2', 'M1 reference 3', 'M2', 'M2 reference 1'],
+      notAttached: ['M2 reference 2', 'M2 reference 3', 'M3', 'M3 reference 1', 'M3 reference 2', 'M3 reference 3'],
+      note: 'Not attached, past the most one answer sends (6): ask for fewer notes with ids to read the rest.'
+    })
+    expect(result.content[1]).toMatchObject({ type: 'image', mimeType: 'image/png' })
+  })
+
+  it('attaches only the pictures of the notes it lists, not of marks that are no notes or of notes it left out', async () => {
+    const deps = rig([await noteMade(5, 0), await noteMade(6, 0)])
+    deps.w.list.unshift(deps.w.list.pop()!, { ...MARK_BASE, id: 'M9', kind: 'pin', anchor: { point: [0, 0, 0] } } as Mark)
+    const only = await marksTool(deps, 'bracket', { ids: ['M5', 'M9'], pictures: true })
+    expect(kinds(only)).toEqual(['text', 'image'])
+    expect(jsonOf(only).pictures.attached).toEqual(['M5'])
+    // With nothing of the kind listed, there is no `pictures` to tell of.
+    expect(jsonOf(await marksTool(deps, 'bracket', { ids: ['M9'], pictures: true }))).not.toHaveProperty('pictures')
+  })
+
+  it('names a picture it cannot send and sends the others', async () => {
+    const note = await noteMade(5, 1)
+    const deps = rig([{ ...note, references: [{ file: 'r-aaaaaaaaaaaa.png', comment: 'lost' }] } as Mark])
+    const result = await marksTool(deps, 'bracket', { pictures: true })
+    expect(kinds(result)).toEqual(['text', 'image'])
+    expect(jsonOf(result).pictures).toMatchObject({ attached: ['M5'], notSent: ['M5 reference 1: the picture is not on this computer'] })
+  })
+
+  it('takes pictures as a boolean, and says so in the description', () => {
+    expect(TOOLS.marks.inputSchema.pictures.safeParse(true).success).toBe(true)
+    expect(TOOLS.marks.inputSchema.pictures.safeParse('yes').success).toBe(false)
+    expect(TOOLS.marks.description).toContain('pictures: true')
+    expect(refusedKeys('marks', { pictures: true })).toBeNull()
+  })
+
+  it('tells a note by describe as it does by marks', async () => {
+    const deps = rig([await noteMade(5, 1)])
+    const [listed] = jsonOf(await marksTool(deps, 'bracket', {})).marks
+    expect(jsonOf(await describeTool(deps, 'bracket', { ref: 'M5' })).mark).toEqual(listed)
+  })
+
+  it('refuses add_mark of a note, and keeps nothing', async () => {
+    const deps = fake()
+    const result = await addMarkTool(deps, 'bracket', { kind: 'note' as 'pin', note: 'look at this', ref: 'base/F5' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe('a view note is the person\'s: you cannot make one. Resolve one of theirs with resolve_mark, or place a pin, a pick, an arrow, a shape or a dimension.')
+    expect(deps.w.added).toEqual([])
+    expect(TOOLS.add_mark.inputSchema.kind.safeParse('note').success).toBe(false)
+  })
+
+  it('resolves a note as any mark, sending only its status and what was done', async () => {
+    const deps = rig([await noteMade(5, 1)])
+    const result = await resolveMarkTool(deps, 'bracket', { id: 'M5', note: 'thickened to 3 mm' })
+    expect(result.isError).toBeUndefined()
+    expect(deps.w.updates).toEqual([{ id: 'M5', patch: { status: 'resolved', resolvedNote: 'thickened to 3 mm' } }])
+    expect(textOf(result)).toBe('resolved: M5 · view note · resolved: "wall 5 is too thin" (1 label, 1 reference, drawn on build 3)\nnote: thickened to 3 mm')
+  })
+
+  it('has no tool that edits or deletes a note of the person: resolving is all it does to one', () => {
+    expect(Object.keys(TOOLS).filter((name) => /update|delete|remove|edit|change|note/.test(name))).toEqual([])
+    expect(Object.keys(TOOLS.resolve_mark.inputSchema)).toEqual(['id', 'note'])
   })
 })

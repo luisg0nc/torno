@@ -1167,6 +1167,14 @@ describe('a view note', () => {
     expect((await store.list('bracket'))[0]).toEqual(added)
   })
 
+  it('is resolved by the agent as any mark is, and nothing else of it changes: not its text, its ink or its files', async () => {
+    const added = await store.addNote('bracket', note())
+    const resolved = await store.update('bracket', 'M1', { status: 'resolved', resolvedNote: 'thickened to 3 mm' }, 'agent')
+    expect(resolved).toEqual({ ...added, status: 'resolved', resolvedNote: 'thickened to 3 mm', resolvedBy: 'agent' })
+    // What the agent is not given a tool for is not taken from a patch either: a note's files and ink are the person's alone (`editNote`).
+    await expect(store.update('bracket', 'M1', { ink: 'n-ffffffffffff.ink.png', strokes: [] } as never, 'agent')).resolves.toMatchObject({ ink: (added as NoteMark).ink, strokes: (added as NoteMark).strokes })
+  })
+
   it('has its anchor checked and its picture left alone by a check against a build', async () => {
     await store.addNote('bracket', note())
     const [mark] = await store.list('bracket')

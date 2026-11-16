@@ -402,6 +402,34 @@ describe('contextFor', () => {
       expect(context.sentMarkIds).toEqual(['M1', 'M2', 'M3'])
     })
 
+    it('lists a view note as text, with what it says of itself and where to read the rest, with its pictures: no picture is in it', () => {
+      const note = {
+        id: 'M4',
+        kind: 'note',
+        author: 'user',
+        note: 'make this wall thicker',
+        status: 'draft',
+        anchorState: 'ok',
+        layout: 'assembly',
+        revision: 3,
+        camera: CAMERA,
+        createdAt: '2026-10-09T12:00:00.000Z',
+        checkedRevision: 3,
+        picture: 'n-0123456789ab.png',
+        ink: 'n-0123456789ab.ink.png',
+        size: { w: 800, h: 600 },
+        strokes: [{ width: 4, points: [[10, 10], [60, 40]] }],
+        inkColour: '#ff00ff',
+        labels: [{ x: 1, y: 1, text: 'thin' }],
+        under: [],
+        references: [{ file: 'r-0123456789ab.png', comment: 'like this' }]
+      } as Mark
+      const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [pin(1), note])
+      expect(context.text).toBe([STATUS, HEAD, line(1), 'M4 · view note · draft: "make this wall thicker" (1 label, 1 reference, drawn on build 3) [its picture, labels and references: mcp__torno__marks with ids ["M4"] and pictures: true]'].join('\n'))
+      expect(context.sentMarkIds).toEqual(['M1', 'M4'])
+      expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [note], { toolName: (tool) => `torno.${tool}` }).text).toContain('torno.marks with ids ["M4"] and pictures: true]')
+    })
+
     it('says of a draft the agent was sent before that it has changed', () => {
       const marks = [pin(1, { sentBefore: true }), pin(2)]
       const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', marks)

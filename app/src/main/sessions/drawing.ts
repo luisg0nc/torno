@@ -100,11 +100,10 @@ export function drawingOf(value: unknown): ViewDrawing | string {
 
 /** Where in the picture, as the agent reads it: `412–630`. */
 const span = (from: number, to: number): string => `${Math.round(from)}–${Math.round(to)}`
-const counted = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
+export const counted = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
 
-/** What one stroke lies over, as a line of the caption. */
-function strokeLine(stroke: StrokeUnder, n: number): string {
-  const [left, top, right, bottom] = stroke.box
+/** What a stroke of ink, or the head of an arrow, lies over, in words: the faces with the kernel's line, the cut faces, the scans. */
+export function overText(stroke: StrokeUnder): string {
   const faces = stroke.refs.map((r) => (r.descriptor ? `${r.ref} (${r.descriptor})` : r.ref))
   if (stroke.moreRefs) faces.push(`and ${counted(stroke.moreRefs, 'more face', 'more faces')}`)
   // A section's cut face is of its part, and no face of the model: it has no ref.
@@ -114,7 +113,13 @@ function strokeLine(stroke: StrokeUnder, n: number): string {
   if (faces.length > 0) over = `${faces.join(', ')}${scans ? `; ${scans} where no part is` : ''}${stroke.bare ? '; partly over no part' : ''}`
   else if (scans) over = `over no part: ${scans}${stroke.bare ? ', and partly over nothing' : ''}`
   else over = 'over no part'
-  return `- stroke ${n}, x ${span(left, right)}, y ${span(top, bottom)}: ${over}`
+  return over
+}
+
+/** What one stroke lies over, as a line of the caption. */
+export function strokeLine(stroke: StrokeUnder, n: number): string {
+  const [left, top, right, bottom] = stroke.box
+  return `- stroke ${n}, x ${span(left, right)}, y ${span(top, bottom)}: ${overText(stroke)}`
 }
 
 /**
