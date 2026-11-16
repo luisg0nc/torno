@@ -9,7 +9,7 @@ import { store } from '../../state/store'
 import { drawingPng } from './compose'
 import { changeOf, itsUnder } from './change'
 import { cleanLabels } from './labelbox'
-import { type RefItem, MAX_NOTE_COMMENT, oneLine, referenceDrafts } from './references'
+import { type RefItem, MAX_NOTE_COMMENT, oneLine, referenceDrafts } from './referenceImages'
 import { type Under, underHeads, underInk } from './under'
 
 /** The long edge of the picture drawn on: the agent's picture at its default. */

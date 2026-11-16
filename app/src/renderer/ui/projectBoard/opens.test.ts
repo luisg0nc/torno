@@ -23,6 +23,15 @@ describe('what a double click on a card does', () => {
     expect(doubleClickOf(card('view', { source: 'front' }))).toEqual({ does: 'view', name: 'front' })
   })
 
+  it('opens the sheet of a view note on a double click on its card, and goes to the model for any other mark', () => {
+    const note = { id: 'M4', kind: 'note' } as never
+    const pin = { id: 'M3', kind: 'pin' } as never
+    expect(doubleClickOf(card('mark', { source: 'M4' }), note)).toEqual({ does: 'note', id: 'M4' })
+    expect(doubleClickOf(card('mark', { source: 'M3' }), pin)).toEqual({ does: 'mark', id: 'M3' })
+    // A mark that is not loaded (yet) is gone to, as before.
+    expect(doubleClickOf(card('mark', { source: 'M9' }), undefined)).toEqual({ does: 'mark', id: 'M9' })
+  })
+
   it('does nothing for a build whose copy it has not', () => {
     expect(doubleClickOf(card('build', { source: 'h41' }))).toBeNull()
   })

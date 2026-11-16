@@ -4,6 +4,7 @@ import type { HistoryEntry } from '../../../shared/history'
 import { boardActions, useBoard } from '../../state/board'
 import { ensurePicture, pictureOf, usePictureUrl } from '../../state/boardPictures'
 import { useStore } from '../../state/store'
+import { useNotePicture } from '../chat/useNotePicture'
 import { useHistory } from '../useHistory'
 import { type Facts, faceOf, refPieces } from './faces'
 
@@ -74,8 +75,13 @@ const CardView = memo(
     useEffect(() => {
       if (file) ensurePicture(objectId, file)
     }, [objectId, file?.from, file?.file]) // eslint-disable-line react-hooks/exhaustive-deps
-    const url = usePictureUrl(file)
-    const face = faceOf(card, file ? { ...facts, ...(url === undefined ? {} : { picture: url === null ? ('missing' as const) : ('here' as const) }) } : facts)
+    const boardUrl = usePictureUrl(file)
+    // The card of a view note shows the picture with the ink, which main keeps with the note, not with the board.
+    const note = facts.mark?.kind === 'note' ? facts.mark : null
+    const inked = useNotePicture(objectId, note?.id ?? null, note?.ink ?? '')
+    const url = note ? inked.url : boardUrl
+    const state = note ? (inked.state === 'loading' ? undefined : inked.state === 'ready' ? ('here' as const) : ('missing' as const)) : boardUrl === undefined ? undefined : boardUrl === null ? ('missing' as const) : ('here' as const)
+    const face = faceOf(card, file || note ? { ...facts, ...(state === undefined ? {} : { picture: state }) } : facts)
     return (
       <article
         className="pboard-card"

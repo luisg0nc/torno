@@ -7,7 +7,7 @@ import { InkPad } from '../ink/InkPad'
 import { changeOf } from './change'
 import { Labels } from './Labels'
 import { References } from './References'
-import { type RefItem, MAX_NOTE_COMMENT, itemsOf } from './references'
+import { type RefItem, MAX_NOTE_COMMENT, itemsOf } from './referenceImages'
 import { finishDrawing, finishNoteText, worksOut } from './make'
 
 /** The face of the window's text, which the labels of a picture are set in as the sheet sets them. */

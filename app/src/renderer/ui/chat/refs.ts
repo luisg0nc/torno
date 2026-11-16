@@ -1,5 +1,5 @@
 import type { BoardFile, Card } from '../../../shared/board'
-import { markAnchors } from '../../../shared/marks'
+import { type NoteMark, markAnchors } from '../../../shared/marks'
 import { splitTagRef, tagRefs } from '../../../shared/tags'
 import { layerOf, type TornoState } from '../../state/store'
 
@@ -21,6 +21,20 @@ export interface RefInfo {
 }
 
 const NOTE_WORDS = 80
+/** The most faces a view note lights at once: its ink may lie over a great many. */
+const MOST_LIT = 60
+
+/** The faces under a view note's ink (and arrow heads) that the build shown still has, each once: the rest lit nothing. */
+function noteLights(s: RefState, note: NoteMark): string[] {
+  const lit = new Set<string>()
+  for (const under of note.under) {
+    for (const { ref } of under.refs) {
+      if (lit.size >= MOST_LIT) return [...lit]
+      if (!lit.has(ref) && refInfo(s, ref).live) lit.add(ref)
+    }
+  }
+  return [...lit]
+}
 
 /** What a ref (`M4`, `r12`, `lid/F12`, `lid/E3`) is among what the window shows now. */
 /** The parts of the state a ref depends on: the rest of it (the selection, the camera) cannot change what a chip says. */
@@ -53,7 +67,7 @@ export function refInfo(s: RefState, value: string): RefInfo {
       return { kind: 'mark', live: false, lights: [], plain: false, author: mark.author, title: `${value} is on the layout ${mark.layout}, which this build does not have` }
     }
     // Lit where it is tied to the part, when the layout it is in is the one shown.
-    const lights = mark.layout === s.layout ? markAnchors(mark).flatMap((a) => (a.ref ? [a.ref] : [])).slice(0, 2) : []
+    const lights = mark.layout === s.layout ? (mark.kind === 'note' ? noteLights(s, mark) : markAnchors(mark).flatMap((a) => (a.ref ? [a.ref] : [])).slice(0, 2)) : []
     const note = mark.note.length > NOTE_WORDS ? `${mark.note.slice(0, NOTE_WORDS)}…` : mark.note
     return { kind: 'mark', live: true, lights, plain: false, act: 'focus', author: mark.author, title: note === '' ? `Go to ${value}` : `${value}: ${note}` }
   }

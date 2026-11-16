@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NoteMark } from '../../../shared/marks'
 import type { StrokeUnder } from '../../../shared/drawing'
-import type { RefItem } from './references'
+import type { RefItem } from './referenceImages'
 import { type Now, changeOf, itsUnder } from './change'
 
 const head: StrokeUnder = { box: [24, 24, 36, 36], refs: [{ ref: 'a/F1' }], cuts: [], scans: [], bare: false }

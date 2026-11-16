@@ -76,6 +76,23 @@
   height: 14px;
 }
 
+/* A view note's picture, in the row: as tall as the row has room for, as wide as its picture is. */
+.mark-thumb {
+  flex: none;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 40px;
+  height: 22px;
+  border: var(--divider);
+  border-radius: 3px;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+span.mark-thumb {
+  width: 32px;
+}
+
 .mark-note {
   flex: 1;
   min-width: 0;

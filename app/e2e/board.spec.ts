@@ -779,3 +779,36 @@ test('a board file that cannot be read is kept aside and said on the board, with
   await expect(notice).toHaveCount(0)
   expect(await page.evaluate(() => window.torno.board.problem('two'))).toBeNull()
 })
+
+test('the card of a view note shows its picture with the ink and its comment, and a double click on it opens its sheet', async () => {
+  await openListed(page, 'bracket')
+  await expect.poll(async () => (await state()).objectId, { timeout: 20_000 }).toBe('bracket')
+  await expect.poll(async () => (await state()).scene?.parts.length ?? 0, { timeout: 20_000 }).toBeGreaterThan(0)
+  const made = await page.evaluate(async (camera) => {
+    const canvas = new OffscreenCanvas(160, 100)
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#d9d4c8'
+    ctx.fillRect(0, 0, 160, 100)
+    const plain = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
+    ctx.strokeStyle = '#d4342c'
+    ctx.lineWidth = 6
+    ctx.beginPath()
+    ctx.moveTo(20, 30)
+    ctx.lineTo(120, 60)
+    ctx.stroke()
+    const inked = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
+    return window.torno.notes.make({
+      objectId: 'bracket', revision: 1, layout: 'assembly', camera, caption: 'the bracket from the front', size: { w: 160, h: 100 }, plain, inked, inkColour: '#d4342c',
+      strokes: [{ width: 6, points: [[20, 30], [120, 60]] }], labels: [], under: [{ box: [20, 30, 120, 60], refs: [], cuts: [], scans: [], bare: true }], comment: 'make the base thicker here', references: []
+    } as never)
+  }, note('').camera)
+  await switchButton('Board').click()
+  const card = page.locator('.pboard-card[data-kind="mark"]', { hasText: made.id })
+  await expect(card).toContainText('make the base thicker here')
+  await expect(card.locator('img.pboard-picture')).toBeVisible()
+  // A double click opens the sheet over the note, and shows the model it lies over.
+  await card.dblclick()
+  await expect(page.getByRole('dialog', { name: 'Drawing on the view' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('.pboard')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+})

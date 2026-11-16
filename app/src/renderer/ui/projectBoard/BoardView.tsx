@@ -3,7 +3,7 @@ import type { Card } from '../../../shared/board'
 import { hint, pressed, viewKey } from '../../../shared/keys'
 import { boardActions, boardStore, memoryEpoch, onBoardForgotten, useBoard, type BoardTool } from '../../state/board'
 import { pictureStore } from '../../state/boardPictures'
-import { actions } from '../../state/store'
+import { actions, store } from '../../state/store'
 import { InkPad } from '../ink/InkPad'
 import { BOARD, doodlePng, doodlePngOver } from '../ink/strokes'
 import { HEIC_REASON, isHeic, prepareImage } from '../onboard/images'
@@ -512,7 +512,7 @@ export function BoardView() {
     const found = card === undefined ? undefined : cardOf(card)
     if (!found || objectId === null) return
     // What it does is the card's own (`doubleClickOf`, the table of the spec).
-    const opens = doubleClickOf(found)
+    const opens = doubleClickOf(found, found.kind === 'mark' ? store.getState().marks.find((m) => m.id === found.source) : undefined)
     if (opens === null) return
     switch (opens.does) {
       case 'edit':

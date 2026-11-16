@@ -2,7 +2,7 @@ import { pressed } from '../../shared/keys'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { exactText, shownDimension } from '../../shared/dimension'
 import { EXPLODED_TOOLS } from '../../shared/explode'
-import { type Mark, type MarkKind, type MarkPatch, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
+import { type Mark, type MarkKind, type MarkPatch, type NoteMark, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
 import { count, number } from '../../shared/format'
 import { actions, explodeNow, partsInLayout, runningSession, store, useStore } from '../state/store'
 import { endReplace, startReplace, useReplacing } from '../state/tools'
@@ -14,6 +14,7 @@ import { DimensionFields, VerdictIcon, Words } from './DimensionFields'
 import { hoverMark, unhoverMark } from './markHover'
 import { Confirm } from './Confirm'
 import { ShapeFields } from './ShapeFields'
+import { useNotePicture } from './chat/useNotePicture'
 import { insertIntoSession } from './insertIntoSession'
 import { ICONS, SHAPE_ICONS } from './ToolPalette'
 
@@ -215,6 +216,7 @@ export function MarkRow({
       <span className="mark-kind" title={what} aria-label={what} role="img">
         {mark.kind === 'shape' ? SHAPE_ICONS[mark.shape] : KIND_ICON[mark.kind]}
       </span>
+      {mark.kind === 'note' && <NoteThumb note={mark} />}
       {mark.kind === 'dimension' && <DimensionValue mark={mark} revision={revision} />}
       {mark.kind === 'region' && (
         <span className="mark-value num" title={`${count(mark.triangles)} ${mark.triangles === 1 ? 'triangle' : 'triangles'} of ${mark.scan}, ≈ ${number(mark.area)} mm² of its mesh`}>
@@ -416,6 +418,17 @@ export function MarkRow({
       )}
     </li>
   )
+}
+
+/**
+ * A view note's picture with its ink, small, in the place a dimension has its value. A note whose picture is not on this
+ * computer (the pictures are not in git) shows an empty frame that says so; its comment is the row's own note.
+ */
+function NoteThumb({ note }: { note: NoteMark }) {
+  const objectId = useStore((s) => s.objectId)
+  const picture = useNotePicture(objectId ?? '', objectId === null ? null : note.id, note.ink)
+  if (picture.url !== null) return <img className="mark-thumb" src={picture.url} alt="" draggable={false} title="The view as it was drawn on" />
+  return <span className="mark-thumb" data-picture={picture.state} title={picture.state === 'missing' ? 'The picture is not on this computer' : undefined} aria-hidden="true" />
 }
 
 /**

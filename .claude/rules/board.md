@@ -92,7 +92,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 
 - There is **one text form** of a board, `board/text.ts` (`boardText`), shared by what goes with a prompt and what the `board` tool
   answers: the frames by name, then their cards in reading order (left to right, top to bottom; tops within half a card's
-  height are one row), each by id with what it says (a text card's text, a mark's ref and note, a build's id and line, the
+  height are one row), each by id with what it says (a text card's text, a mark's ref and note, a view note's card by the note's line, `describeMark`: its comment, how many labels and references, the build its picture is of, a build's id and line, the
   Params' values, and so on), then the arrows (`C3 → C7: like this`). Hidden cards are left out.
 - **Every prompt** carries one line (`boardLine`, in `contextFor`, inside `CONTEXT_LIMIT`): how many cards there are, how many are
   new, frames by name, and "Read it with `board`". It never carries the board. A card is new when it was added or what it
@@ -106,6 +106,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   with the head and the notes, and past that it ends with the sentence that says to read the rest with `board`.
   The ids sent are card ids only (never an arrow's); the line under the prompt says what went ("board: Latch, 3 cards, 1
   arrow").
+- A mark's card for a view note shows the picture with the ink (`notes.picture(…, 'ink')` through `useNotePicture`, not the board's `pictures/`: it is of this computer, "picture not on this computer" otherwise) and its comment and status (`faces.ts` `markFace`); the card appears by itself as any mark's does (`follow.ts`), and is never news to the agent, as no mark card is.
 - `C<n>` is a ref like `M<n>` (`refsIn`): the chat shows it as a chip (`RefChip`), and a click shows the board with that card
   selected. One the board does not have, or has hidden, is only text.
 
@@ -115,6 +116,6 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   panning and zooming never draw the cards again (`__tornoBoardRenders` counts it under test). The 3D view stays mounted and
   stops drawing while the board is shown.
 - What a double click on a card does is `ui/projectBoard/opens.ts`, a table held by its test: the brief opens in the person's
-  editor, a photo opens large, a mark, scan, build, view and the Params go to the model, a sketch opens the ink pad on its
+  editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a sketch opens the ink pad on its
   drawing, a text edits and a frame renames (the person's only). The "Pin to board" buttons ask main (`pinToBoard`), which
   decides.

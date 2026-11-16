@@ -25,6 +25,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   picture is in the log or in `marks.json`. A log written before notes may hold `drawing` on a user item (the same shape for the
   one-shot drawing that went with a prompt): it is still read and shown, never written.
 
+- A view note is listed with the other marks and is a card on the board (`.claude/rules/marks-window.md`, `board.md`): its row and
+  its card show the picture with the ink (`notes.picture`) and the comment; the pointer on the row lights the faces of `under` that the
+  build shown still has; a double click on its card, like "Edit" above the box, is `openNote`. The picture is kept in
+  `.torno/notes/` of this computer only (git ignores the folder), never in `marks.json`, the chat's log or the board's files.
+
 ## Agents (`app/src/main`)
 
 - **A drawing on the view** (`sessions/drawing.ts` keeps the pieces the notes reuse: `strokeOf`, `cameraOf`, `strokeLine`,
@@ -63,7 +68,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   them) has a label tool (`T`, `board.label`, not heard in a field): a click places a label and a field to write it in, a drag from it pulls an arrow
   (`Labels.tsx`, an SVG in picture pixels over the canvas; `labelbox.ts` lays a label out from a measure, so that `paintLabels` in `compose.ts` draws
   the very box into the PNG, over the ink); Esc in a field of the sheet (`data-board-field`) is the field's, the next one leaves. References
-  (`References.tsx`, `references.ts`) are added by main's photo dialog (`objects.pickPhotos`/`readPhoto`) or a drop, scaled to 1280 px by `prepareImage`
+  (`References.tsx`, `referenceImages.ts`) are added by main's photo dialog (`objects.pickPhotos`/`readPhoto`) or a drop, scaled to 1280 px by `prepareImage`
   and sent as bytes, never a path; a note's own are kept by index and their comments are not changed. The sheet says before Done when the view moved
   under it (`worksOut`, asked again every 400 ms): then `under` is empty and no anchor is sent. `openNote(objectId, markId)` (`make.ts`;
   `drawingActions.openNoteOn` in the state) reopens a note over its plain picture (`notes.picture(…, 'plain')`) with its strokes, labels, comment and references; Done

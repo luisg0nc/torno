@@ -55,6 +55,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   much it misses after its cross, in `--fail` (`40 mm ✗ 2 under`: `labelValue`'s `off`, from `offBy`), on screen
   and in a picture for the agent alike. A spec that hands a tool a press at a point checks first that no chip is
   drawn there (`__tornoTest.chipAt`, `clearOfChips` in `e2e/tools.spec.ts` and `e2e/measure.spec.ts`).
+- **A view note's row** (`MarkRow`'s `NoteThumb`): beside its number the small picture with its ink (`notes.picture(…, 'ink')`
+  through `ui/chat/useNotePicture.ts`, asked again when the note's `ink` file changes; an empty frame that says so when the
+  file is not on this computer), then its comment as the row's note. Its status is the heading of its group, as any mark's.
+  The pointer on the row lights the faces under its ink and the heads of its arrows, as the chat's chip does (`refInfo`'s
+  `noteLights`: each face of `under` once, at most 60, and only those the build shown still has: a part gone, a part switched
+  off or a face index past the part's count lights nothing, so a note drawn on an earlier build lights what is left of it;
+  none for a note of another layout than the one shown). A click on the row and "Go to" go to the note's camera as any mark's do.
 - When the project has checks (`isCheck`: an open dimension with an expected value) a line heads the Marks, outside
   the list's scroll (`ui/ChecksSummary.tsx`): `Checks on r12: 3 pass · 1 fails · 1 not measured`, each count a
   button to the first such check (`goToRow`), in `--ok`, `--fail`, `--warn`, never a mark's colour. The not

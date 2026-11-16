@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MAX_REFERENCE_COMMENT, MOST_NOTE_REFERENCES } from '../../../shared/marks'
 import { MAX_PHOTO_BYTES } from '../../../shared/objectName'
 import { HEIC_REASON, prepareImage } from '../onboard/images'
-import { type RefItem, addable } from './references'
+import { type RefItem, addable } from './referenceImages'
 
 /** The endings of the pictures a note takes: a PNG, a JPEG or a WebP (which is scaled into a PNG or a JPEG). */
 const IMAGE_ENDINGS = ['.png', '.jpg', '.jpeg', '.webp']

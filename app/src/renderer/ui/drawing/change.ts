@@ -1,7 +1,7 @@
 import type { NoteLabel, NoteMark, NoteStroke } from '../../../shared/marks'
 import type { StrokeUnder } from '../../../shared/drawing'
 import type { NoteEdit } from '../../../shared/bridge'
-import { oneLine, referenceChange, type RefItem } from './references'
+import { oneLine, referenceChange, type RefItem } from './referenceImages'
 
 /** What the sheet of a note being edited holds now: the strokes with ink left (and the eraser's), the labels as kept, the comment and the references. */
 export interface Now {

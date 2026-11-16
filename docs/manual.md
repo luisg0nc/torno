@@ -1242,6 +1242,17 @@ there. The pointer on a row, or the keys' focus in it, rings the mark's chip in 
 active one's, and lights the face it is on, as a mention of it in the chat
 does.
 
+A **view note** (see "Draw on view" under [The agent](#the-agent)) has a row like
+any other mark's: its number, a small picture of the view with your ink, and
+its comment as the row's note. The pointer on it lights the faces under its ink
+and the heads of its arrows, those the model as it is built now still has: after a
+rebuild that took a face away, the others light and that one does not. A click
+on the row and the reticle go to the camera the note was made from (a click only
+when the note's number is out of view, as for any mark). A note whose picture is
+not on this computer (pictures are not in git) has an empty frame in the place of
+the picture and still goes with the prompt in words. The note is also a card on the
+board, with the picture and the comment (see [The board](#the-board)).
+
 The chips in the view answer the pointer too. On a chip the pointer is a hand,
 the mark's row lights, and its note is read out beside the pointer on one line
 (`M1 too thin here`; for a dimension its numbers, `M3 40 mm, expected 42 ±
@@ -1703,7 +1714,7 @@ The card shows the value and unit large, in the face of numbers, then what it me
 |---|---|
 | Brief | opens `brief.md` in your editor |
 | Photo of `reference/` | opens it large (`Esc` puts it away); any other file is shown in its folder |
-| Mark | shows the model with the mark selected |
+| Mark | shows the model with the mark selected; the card of a view note opens its sheet over the note (to change it), and shows the model first |
 | Scan | shows the model with the scan on |
 | Build | shows the model and opens Compare with the live build (nothing for a build this computer does not have) |
 | View | shows the model with that view on |
@@ -2396,6 +2407,8 @@ On the screen:
 - **The Print profile.** Open the Params panel and find it under Checks: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its title says what is chosen (`Print profile Bambu X1C, PETG`).
 - **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
+- **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
+- **The notes that wait, and the note rows and cards.** The row above the box for each draft note (its picture with the ink, its comment, what the ink lies over, "Edit" and "Remove" with its "Undo"); the row of a note in the Marks list (the small picture, its comment, the faces lit under the pointer, the empty frame of a note whose picture is not on this computer); and a note's card on the board (the picture in the card's size, the comment and status under it, the double click that opens the sheet): each legible in both themes, and the rows still one line at the panel's default width.
 - **Claude Code's own checkpoints for the asked undo (`Part of #131`).** When no copy of the build is kept, "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>
   --rewind-files <uuid>`, where `<uuid>` is the id torno gives the prompt. This is not built: `--rewind-files` is absent

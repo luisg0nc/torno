@@ -2,6 +2,7 @@ import { drawable } from '../../../shared/history'
 import { goToCamera, goToSavedView } from '../../state/agent'
 import { boardActions } from '../../state/board'
 import { actions, explodeNow, store } from '../../state/store'
+import { openNote } from '../drawing/make'
 import type { Opens } from './opens'
 
 // What a double click on a card does once it has been worked out (`doubleClickOf`), for the parts that leave the board: the
@@ -24,6 +25,12 @@ export async function carryOut(objectId: string, opens: Opens): Promise<string |
       boardActions.show('model')
       actions.focusMark(opens.id)
       return null
+    }
+    case 'note': {
+      if (!store.getState().marks.some((m) => m.id === opens.id)) return `${opens.id} is not among the marks of this project now.`
+      // The sheet lies over the model: it is that that is shown.
+      boardActions.show('model')
+      return openNote(objectId, opens.id).then(() => null, wordsOf)
     }
     case 'scan': {
       if (!store.getState().scans.some((scan) => scan.id === opens.id)) return `${opens.id} is not among the scans of this project now.`

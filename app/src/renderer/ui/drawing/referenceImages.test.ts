@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_REFERENCE_COMMENT, MOST_NOTE_REFERENCES, type NoteMark } from '../../../shared/marks'
-import { type RefItem, MAX_NOTE_COMMENT, addable, itemsOf, referenceChange, referenceDrafts } from './references'
+import { type RefItem, MAX_NOTE_COMMENT, addable, itemsOf, referenceChange, referenceDrafts } from './referenceImages'
 
 const note = { references: [{ file: 'r-0123456789ab.png', comment: 'first' }, { file: 'r-0123456789ac.jpg', comment: 'second' }] } as NoteMark
 const fresh = (uid: number, comment = ''): RefItem => ({ uid, comment, old: null, image: { bytes: new Uint8Array([uid]), mediaType: 'image/png' }, url: null })

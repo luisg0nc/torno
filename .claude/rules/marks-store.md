@@ -37,6 +37,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Marks (`app/src/main`)
 
+- A view note's card on the board is told to the agent as the note's line (`describeMark`, the same as the `marks` tool's first line), never as
+  `(note, on <ref>)` of the other marks (`main/board/text.ts` `markText`).
 - A view note is made and edited through `notes:make` and `notes:edit` (`main/notes/ipc.ts`): the window sends the pictures
   and what the ink lies over, main checks them (`checkNoteDraft`, `checkNoteEdit`: the caps of a note, the checks of a
   drawing), writes the files, then calls `MarkStore.addNote` / `editNote`. A note keeps up to 2000 strokes
