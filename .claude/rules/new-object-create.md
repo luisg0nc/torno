@@ -53,7 +53,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   through `readRegular`, and each must start `%PDF-`. `checked` looks at each of them (plain file, size, signature, without reading it
   whole) before the temp folder is made, so a PDF that is no good makes nothing. A doodle may say `over`, the index of the photo in
   `photos` it is drawn over (an integer of a photo given, else refused): its brief line and its card's caption say "(drawn over
-  reference/photo-2.jpg)" after the note.
+  reference/photo-2.jpg)" after the note; `onPhoto: true` (the photo was taken from the draft, the picture still has it under the ink; anything but `true` is refused)
+  says "(drawn over a photo)" and names no file. `startBoard` puts a file in the Photos or Sketches frame only when it ends in an image ending (`png`, `jpg`, `jpeg`, `webp`): a PDF or a STEP named `photo-1.pdf` is in its own frame only.
 - The board is written into the temp folder as the last file, before the rename: `.torno/board/board.json` (`startBoard`, `main/board/start.ts`,
   text by `textOf`; nothing else of `.torno/`: the store adds the `.gitignore` lines when it first writes what they are for). A frame for
   each of Brief, Photos, Sketches, Sizes, Rules, Links, Bought parts and PDFs that holds something (a person's), laid left to right, wrapping at
@@ -85,7 +86,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `numbered`.
 - **Create** is `ui/onboard/make.ts` (`makeObject`, tested with fakes, and guarded against a second call while one
   runs). The order is `objects.create`, the list is refreshed, the draft is spent, the object is opened as a click
-  opens it, then `objects.onboard` once; the session main started is put into the store. Made without starting Claude (`start = false`), `onboard` is not called, so each scan of the draft is imported with `scans.import(objectId, path)`, in order, a failure not stopping the rest and said as the reason of an empty held prompt (`<file> was not imported: <why>.`). A failure of `create`
+  opens it, then `objects.onboard` once; the session main started is put into the store. Made without starting Claude (`start = false`), `onboard` is not called, so each scan of the draft is imported with `scans.import(objectId, path)`, in order, a failure not stopping the rest and said as the reason of an empty held entry marked `imports: true` (`<file> was not imported: <why>.`; the pane words it as an import failure, `heldSaid`, not as a prompt that was not sent). A failure of `create`
   stays on the page with its reason and the draft intact. An error saying the object "was made, but ..." is never
   offered again: the draft is spent and the object opened if the workspace lists it. When `sessionId` is null or
   there is a `problem`, the object is open and `onboarding.hold` keeps the text: the session pane says why

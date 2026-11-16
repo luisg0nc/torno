@@ -144,7 +144,7 @@ export function faceOf(card: Card, facts: Facts): Face {
         const kind = /\.(?:step|stp)$/i.test(name) ? 'STEP file' : /\.pdf$/i.test(name) ? 'PDF' : 'file'
         return { label: LABEL.reference, title: name.replace(/^reference\//, ''), lines: [{ text: kind, tone: 'muted' }], ...(card.caption ? { body: card.caption } : {}) }
       }
-      return { label: LABEL.reference, title: name.replace(/^reference\//, ''), lines: [], ...(facts.picture ? { picture: facts.picture } : {}), ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {}) }
+      return { label: LABEL.reference, title: name.replace(/^reference\//, ''), lines: [], ...(card.caption ? { body: card.caption } : {}), ...(facts.picture ? { picture: facts.picture } : {}), ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {}) }
     }
     case 'picture':
     case 'sketch':

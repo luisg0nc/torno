@@ -82,7 +82,9 @@ describe('making the object', () => {
     d.doodles = [
       { uid: 'c', strokes: [], png: new Uint8Array([3]), note: 'the shape', url: 'blob:c', over: 'b' },
       { uid: 'g', strokes: [], png: new Uint8Array([4]), note: '', url: 'blob:g', over: 'a' },
-      { uid: 'h', strokes: [], png: new Uint8Array([5]), note: 'plain', url: 'blob:h' }
+      { uid: 'h', strokes: [], png: new Uint8Array([5]), note: 'plain', url: 'blob:h' },
+      { uid: 'i', strokes: [], png: new Uint8Array([6]), note: 'pointing', url: 'blob:i', onPhoto: true },
+      { uid: 'j', strokes: [], png: new Uint8Array([7]), note: '', url: 'blob:j', onPhoto: true }
     ]
     const { made } = deps()
     await makeObject(d, made)
@@ -90,13 +92,17 @@ describe('making the object', () => {
     expect(req.doodles).toEqual([
       { png: new Uint8Array([3]), note: 'the shape', over: 1 },
       { png: new Uint8Array([4]), note: '', over: 0 },
-      { png: new Uint8Array([5]), note: 'plain' }
+      { png: new Uint8Array([5]), note: 'plain' },
+      { png: new Uint8Array([6]), note: 'pointing', onPhoto: true },
+      { png: new Uint8Array([7]), note: '', onPhoto: true }
     ])
     const sent = (made.onboard as ReturnType<typeof vi.fn>).mock.calls[0][1] as OnboardDraft
     expect(sent.items.slice(2).map((i) => [i.file, i.note])).toEqual([
       ['reference/doodle-1.png', 'the shape (drawn over reference/photo-2.webp)'],
       ['reference/doodle-2.png', 'drawn over reference/photo-1.jpg'],
-      ['reference/doodle-3.png', 'plain']
+      ['reference/doodle-3.png', 'plain'],
+      ['reference/doodle-4.png', 'pointing (drawn over a photo)'],
+      ['reference/doodle-5.png', 'drawn over a photo']
     ])
   })
 
@@ -208,6 +214,14 @@ describe('making the object', () => {
     expect(made.create).not.toHaveBeenCalled()
   })
 
+  it('leaves a size row nothing was typed in out, and makes the rest', async () => {
+    const d = draft()
+    d.sizes = [{ uid: 'z0', what: ' ', value: '', unit: 'mm', source: 'measured', note: '' }, { uid: 'z1', what: 'lid', value: '3', unit: 'mm', source: 'measured', note: '' }]
+    const { made } = deps()
+    expect(await makeObject(d, made)).toMatchObject({ kind: 'done' })
+    expect((made.create as ReturnType<typeof vi.fn>).mock.calls[0][0].sizes).toEqual([{ what: 'lid', value: '3', unit: 'mm', source: 'measured' }])
+  })
+
   it('"Make it without starting Claude" makes, lists, opens and spends the draft, and never calls onboard', async () => {
     const { made, calls } = deps()
     const outcome = await makeObject(draft(), made, { model: 'opus' }, false)
@@ -237,7 +251,7 @@ describe('making the object', () => {
     expect(calls).toEqual(['create', 'listed', 'discard', 'open', 'import /s/a.stl', 'import /s/b.stl', 'import /s/c.stl'])
     // Said where the project's notice is, as a failed first prompt is, with no text to hold.
     expect(outcome).toEqual({ kind: 'done', objectId: 'cable-clip', problem: 'b.stl was not imported: the file has no triangles.' })
-    expect(made.hold).toHaveBeenCalledWith('cable-clip', { text: '', reason: 'b.stl was not imported: the file has no triangles.' })
+    expect(made.hold).toHaveBeenCalledWith('cable-clip', { text: '', reason: 'b.stl was not imported: the file has no triangles.', imports: true })
   })
 
   it('names every scan that failed, and imports nothing when the draft has none', async () => {

@@ -109,6 +109,10 @@ describe('onboardPrompt', () => {
     const { text } = onboardPrompt(over)
     expect(text).not.toContain('light grid')
     expect(text).toContain("A doodle drawn over a photo is the person's ink over that photo")
+    // A photo that was taken from the draft is still what is under the ink: the same sentence, and no grid.
+    const gone = { ...full(), items: [{ file: 'reference/doodle-1.png', note: 'the shape (drawn over a photo)', image: image(png(1200, 800)) }] }
+    expect(onboardPrompt(gone).text).not.toContain('light grid')
+    expect(onboardPrompt(gone).text).toContain("the person's ink over that photo")
     // One of each says both.
     const both = { ...full(), items: [...over.items, { file: 'reference/doodle-2.png', note: 'a plain one', image: image(png(1200, 800)) }] }
     expect(onboardPrompt(both).text).toContain('light grid')

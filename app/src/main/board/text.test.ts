@@ -53,6 +53,14 @@ describe('the text of a board', () => {
     expect(out.text).toContain(`${photo.id} · reference · by torno\nreference/photo-1.jpg\n[picture ${photo.id}: of reference/photo-1.jpg]`)
     expect(out.pictures.map((p) => p.card)).toEqual([photo.id])
   })
+  it('says the caption of a photo or a doodle of reference/ after its name, before its picture', () => {
+    const photo = card({ kind: 'reference', by: 'torno', source: 'reference/photo-1.jpg', caption: 'the desk edge', x: 0 })
+    const doodle = card({ kind: 'reference', by: 'torno', source: 'reference/doodle-1.png', caption: 'the shape (drawn over reference/photo-1.jpg)', x: 300 })
+    const out = boardText(board([photo, doodle]), LIVE, OPTS)
+    expect(out.text).toContain(`${photo.id} · reference · by torno\nreference/photo-1.jpg\nthe desk edge\n[picture ${photo.id}: of reference/photo-1.jpg]`)
+    expect(out.text).toContain(`${doodle.id} · reference · by torno\nreference/doodle-1.png\nthe shape (drawn over reference/photo-1.jpg)\n[picture ${doodle.id}: of reference/doodle-1.png]`)
+    expect(saysHash({ ...photo, caption: 'another note' }, LIVE)).not.toBe(saysHash(photo, LIVE))
+  })
   it('counts a changed caption of a STEP as news, and a move as none', () => {
     const step = card({ kind: 'reference', by: 'torno', source: 'reference/608zz.step' })
     const was = saysHash(step, LIVE)

@@ -41,6 +41,8 @@ export interface DoodleDraft extends Item {
   url: string
   /** The `uid` of the photo it is drawn over (the photo is under the ink in `png`). Cleared when that photo is removed: the picture keeps it. */
   over?: string
+  /** True once the photo it was drawn over is removed from the draft: the picture still has that photo under the ink, though no file is named. */
+  onPhoto?: true
 }
 
 export interface ScanDraft extends Item {
@@ -104,6 +106,15 @@ export interface Held {
   reason: string
   /** The text was put in a chat's box: the reason stays to be read, the text is no longer held. */
   taken?: true
+  /** Not a prompt that was not sent but scans that were not imported, after "make it without starting Claude": `reason` says which. */
+  imports?: true
+}
+
+/** What the notice of a held entry says, above the pane of the session. */
+export function heldSaid(held: Held): string {
+  const why = held.reason.replace(/\.$/, '')
+  if (held.imports) return `The project was made, but not all of its scans were imported: ${why}. The files stay where they were, and can be imported again.`
+  return `The first prompt of this project was not sent: ${why}. ${held.taken ? 'It is in the box below.' : held.text !== '' ? 'It is kept, and is in the box of the next chat.' : 'What was given is in brief.md and reference/.'}`
 }
 
 interface OnboardState {
@@ -138,6 +149,12 @@ export function sizeProblem(size: SizeDraft): string | null {
   const checked = checkSize({ what: size.what, value: size.value, unit: size.unit, source: size.source, ...(size.note === '' ? {} : { note: size.note }) }, 'person')
   return typeof checked === 'string' ? checked : null
 }
+
+/** A row nothing is typed in (what it measures and the value are both empty): it is left alone, neither a problem nor a size. */
+export const sizeBlank = (size: SizeDraft): boolean => size.what.trim() === '' && size.value.trim() === ''
+
+/** Whether a row of the draft is half done: not blank and not whole. */
+export const sizesWrong = (sizes: readonly SizeDraft[]): boolean => sizes.some((s) => !sizeBlank(s) && sizeProblem(s) !== null)
 
 /** The size row as the fact main takes (a note only when there is one), or null when it is not whole. */
 export function sizeFact(size: SizeDraft): SizeFact | null {
@@ -280,8 +297,8 @@ export const onboarding = {
     change((d) => ({
       ...d,
       [kind]: (d[kind] as Item[]).filter((x) => x.uid !== uid),
-      // A doodle drawn over this photo keeps its picture, and no longer says which photo it was.
-      ...(kind === 'photos' ? { doodles: d.doodles.map((x) => (x.over === uid ? { ...x, over: undefined } : x)) } : {})
+      // A doodle drawn over this photo keeps its picture, and no longer says which photo it was, only that it is over a photo.
+      ...(kind === 'photos' ? { doodles: d.doodles.map((x) => (x.over === uid ? { ...x, over: undefined, onPhoto: true as const } : x)) } : {})
     }))
   },
 

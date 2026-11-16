@@ -3,7 +3,7 @@ import { MAX_LINKS, MOST_REFERENCES } from '../../shared/objectName'
 import { MAX_SIZES } from '../../shared/size'
 import { MAX_TEXT_CHARS } from '../../shared/board'
 import { actions } from './store'
-import { draftHas, onboard, onboarding, sizeProblem, type DoodleDraft, type PhotoDraft } from './onboard'
+import { draftHas, onboard, onboarding, heldSaid, sizeBlank, sizeProblem, sizesWrong, type DoodleDraft, type PhotoDraft } from './onboard'
 
 const photo = (n: number): Omit<PhotoDraft, 'uid' | 'note'> => ({ path: `/p/photo-${n}.jpg`, file: `photo-${n}.jpg`, image: new Uint8Array([n]), url: `blob:p${n}` })
 const doodle = (n: number): Omit<DoodleDraft, 'uid' | 'note'> => ({ strokes: [{ tool: 'pen', width: 4, points: [[n, n]] }], png: new Uint8Array([n]), url: `blob:d${n}` })
@@ -77,10 +77,12 @@ describe('the draft of a new object', () => {
     onboarding.remove('photos', second.uid)
     const [a, b] = onboard.getState().draft.doodles
     expect(a.over).toBeUndefined()
+    expect(a.onPhoto).toBe(true)
     expect(a).toMatchObject({ png: new Uint8Array([1]), strokes: [{ tool: 'pen', width: 4, points: [[1, 1]] }] })
     expect(b.over).toBe(first.uid)
-    onboarding.replaceDoodle(b.uid, { ...doodle(3), over: undefined })
-    expect(onboard.getState().draft.doodles[1].over).toBeUndefined()
+    expect(b.onPhoto).toBeUndefined()
+    onboarding.replaceDoodle(a.uid, { ...doodle(3), over: undefined })
+    expect(onboard.getState().draft.doodles[0].onPhoto).toBeUndefined()
   })
 
   it('is let go by discard: nothing stays, and the page is not on', () => {
@@ -99,6 +101,13 @@ describe('the draft of a new object', () => {
     onboarding.setName('clip')
     actions.refreshWorkspace(info('/ws/b'))
     expect(onboard.getState().draft.name).toBe('clip')
+  })
+
+  it('words the notice of a held entry: a prompt not sent, or scans not imported', () => {
+    expect(heldSaid({ text: '', reason: 'No agent.' })).toBe('The first prompt of this project was not sent: No agent. What was given is in brief.md and reference/.')
+    const scans = heldSaid({ text: '', reason: 'b.stl was not imported: no triangles.', imports: true })
+    expect(scans).toMatch(/^The project was made, but not all of its scans were imported: b\.stl was not imported: no triangles\./)
+    expect(scans).not.toContain('first prompt')
   })
 
   it('holds the prompt that was not sent for the object, once', () => {
@@ -180,6 +189,10 @@ describe('the draft of a new object', () => {
     const [row] = onboard.getState().draft.sizes
     expect(row).toMatchObject({ what: '', value: '', unit: 'mm', source: 'measured', note: '' })
     expect(sizeProblem(row)).toMatch(/what it measures/)
+    // A row nothing is typed in is left alone: it is not a problem of the draft.
+    expect(sizeBlank(row)).toBe(true)
+    expect(sizesWrong([row])).toBe(false)
+    expect(sizesWrong([{ ...row, value: '3' }])).toBe(true)
     onboarding.setSize(row.uid, { what: 'battery tray', value: 'Ø 62,5', unit: '°', source: 'a guess', note: 'by eye' })
     const [again] = onboard.getState().draft.sizes
     expect(again).toMatchObject({ uid: row.uid, what: 'battery tray', value: 'Ø 62,5', unit: '°', source: 'a guess', note: 'by eye' })

@@ -535,7 +535,7 @@ where torno runs from its repository, "open the example to look around". The way
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
 "What are we making?": "What is it?" (what it is for, what it must fit or hold, how it will be made) and the photos, each with a note for Claude. Under them is a
 tile for each other thing you have: "Sketch it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
-becomes its cards or rows once something is in it, and "Add another" (or "+ add a size") adds more. Files can be dropped anywhere on the page: a picture becomes a
+becomes its cards or rows once something is in it, and "Add another" (or "Add a size") adds more. Files can be dropped anywhere on the page: a picture becomes a
 photo, `.step` and `.stp` a bought part, `.pdf` a PDF, and a scan format a scan. An image pasted with `Ctrl+V` is taken as a dropped one is (only a file on the
 disk can be: a copied file is, a screenshot has none, and the page says so). `S` opens a sketch. At the right of the page,
 "What Claude gets first" shows the first prompt as it will be sent, and under it are "Claude Code on" (the model and effort), "Start: make the project and ask Claude" and "Or make it without starting Claude".
@@ -555,7 +555,7 @@ Each slot is:
 - **Scans** ("Scans", or dropped): up to 4. They are imported into the project as "Import scan…" does, not
   copied and not aligned; Claude is told each scan's file name and id, and that it is not aligned (you align it in
   torno); `brief.md` keeps the path it came from, with `~` for your home folder.
-- **Sizes I know**: up to 40 rows, each with what it measures (200 characters at most), a value kept as you typed it (60 characters: one number, `a × b` or `a × b × c`, with `Ø` or `R` in front; anything else is kept as text and Claude is told it is not read as numbers), a unit (`mm`, or `°`), where it came from (`measured`, `from a manual or datasheet` or `a guess`) and a note. A row that is not whole holds "Start" back until it is finished or removed. Claude is told each as given, and asks only for the sizes still missing.
+- **Sizes I know**: up to 40 rows, each with what it measures (200 characters at most), a value kept as you typed it (60 characters: one number, `a × b` or `a × b × c`, with `Ø` (or `⌀`) or `R` in front, and the unit may be typed after it (`62 mm`) and is said once; anything else is kept as text and Claude is told it is not read as numbers), a unit (`mm`, or `°`), where it came from (`measured`, `from a manual or datasheet` or `a guess`) and a note. A row you have typed nothing in is left out; one that is half done holds "Start" back until it is finished or removed. Claude is told each as given, and asks only for the sizes still missing.
 - **Links and PDFs**: up to 20 links (an `http` or `https` address of 2,000 characters at most, with a note of 300) and up to 6 PDFs of 25 MB each ("Add a PDF…", or dropped). torno opens no link and reads no PDF: Claude is told them, and reads them with its own tools if it helps. A PDF is copied into `reference/`.
 - **Rules**: free text of up to 4,000 characters (the printer, the material, the least wall), given to Claude as written.
 - **Other projects** (a menu of the projects of the workspace): up to 8. Claude is told to look in `../<name>/` and
@@ -582,7 +582,7 @@ place as the last step, so it is whole or not there, and it never goes into or o
 empty one of that name is used). A temporary folder a crash left is swept away at the next opening of the
 workspace once it is ten minutes old, unless it holds files in `reference/` (your doodles and STEP files may be nowhere else):
 such a leftover, a hidden `.<name>.torno-new-<hex>` folder in the workspace, is yours to look at and delete. Then torno opens the project on its board, imports the scans, starts Claude Code in a
-chat and sends one prompt with everything. "Or make it without starting Claude" stops after opening the project: no session starts and nothing is sent, but the scans are imported all the same, one after the other (one that fails is named in the pane of the session, and the others still go in). The prompt asks Claude to list the sizes that decide fit or function and
+chat and sends one prompt with everything. "Or make it without starting Claude" stops after opening the project: no session starts and nothing is sent, but the scans are imported all the same, one after the other (one that fails is named in the pane of the session as not imported, and the others still go in). The prompt asks Claude to list the sizes that decide fit or function and
 say where each comes from (your words, a note, a scan, another project, or nowhere), and to ask you for those that come
 from nowhere in one round (a card in the chat, at most four questions, each with a typical value among its options;
 "build with assumptions" is an answer) before it builds. What it builds without an answer is marked "assumed" in the
@@ -615,7 +615,7 @@ under the ink; hold `Shift` while drawing for a straight line from where the str
 `Esc` puts the board away; if strokes were drawn since it was opened it asks "Discard this doodle?" first. A
 doodle can be opened again from its card and changed. "Draw over" (when photos are given) puts one of them under the ink,
 fitted whole on a white ground, with no grid; Claude gets the photo with your ink on it, and the note says "drawn over reference/photo-N.ext", and the prompt says it is your ink over that photo and not a drawing on the grid. If you remove that photo
-the doodle stays as it was drawn.
+the doodle stays as it was drawn, and still says it is drawn over a photo (with no file named).
 
 What you have entered is a draft, kept while the window lives: you can leave the page, open another project and
 come back. `Esc` on the page leaves it, asking first when something is in it; so does leaving the workspace, and so
@@ -1648,7 +1648,7 @@ for each project; a project opens on the model until its board has a card of you
 loaded while the board is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
 
 **What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
-`brief.md` (its text, read only, scrolling), each photo or doodle of `reference/`, each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
+`brief.md` (its text, read only, scrolling), each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
 its note and its state) and each scan. Removing one of these hides it: the mark, scan or photo is untouched, and "Hidden cards"
 at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed) its card goes with it. These
 you pin, with "Pin to board":

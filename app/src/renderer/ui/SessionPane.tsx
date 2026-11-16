@@ -8,7 +8,7 @@ import { AGENT_LABEL, busyWith, isTrustQuestion, nextCarries, nextPromptLine } f
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import { type InstructionFile, READS_TITLE, named, weighed } from '../../shared/instructions'
 import { chatActions, connectChat, useChat } from '../state/chat'
-import { onboarding, useOnboard } from '../state/onboard'
+import { heldSaid, onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
 import { PromptsPane } from './chat/PromptsOnly'
@@ -814,7 +814,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       {held !== undefined && objectId && !creating && (
         <div className="session-held" role="status">
           <p>
-            The first prompt of this project was not sent: {held.reason.replace(/\.$/, '')}. {held.taken ? 'It is in the box below.' : held.text !== '' ? 'It is kept, and is in the box of the next chat.' : 'What was given is in brief.md and reference/.'}
+            {heldSaid(held)}
           </p>
           <button type="button" className="button button-quiet" onClick={() => onboarding.dismiss(objectId)}>
             Dismiss

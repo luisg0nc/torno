@@ -23,6 +23,26 @@ describe('parseSize', () => {
 
 const fact = (over: Partial<SizeFact> = {}): SizeFact => ({ what: 'battery tray', value: '186 × 128', unit: 'mm', source: 'measured', ...over })
 
+describe('a unit typed after the value', () => {
+  it('is read as the unit the row has, and is not said twice', () => {
+    expect(parseSize('62 mm', 'mm')).toEqual({ numbers: [62] })
+    expect(parseSize('Ø62mm', 'mm')).toEqual({ mark: 'Ø', numbers: [62] })
+    expect(parseSize('186 x 128 MM', 'mm')).toEqual({ numbers: [186, 128] })
+    expect(parseSize('12°', '°')).toEqual({ numbers: [12] })
+    expect(parseSize('12 °', '°')).toEqual({ numbers: [12] })
+    // Another unit than the row's is no number: it stays as typed.
+    expect(parseSize('62 mm', '°')).toBeNull()
+    expect(parseSize('12°', 'mm')).toBeNull()
+    expect(saySize(fact({ value: '62 mm' }))).toBe('battery tray 62 mm (measured)')
+    expect(saySize(fact({ value: 'about 60 mm', source: 'a guess' }))).toBe('battery tray about 60 mm (as typed, a guess)')
+    expect(saySize(fact({ value: '12°', unit: '°' }))).toBe('battery tray 12° (measured)')
+  })
+  it('reads the diameter signs as Ø', () => {
+    for (const sign of ['\u2300', '\u2205', 'ø']) expect(parseSize(`${sign}62`), sign).toEqual({ mark: 'Ø', numbers: [62] })
+    expect(saySize(fact({ value: '\u230062' }))).toBe('battery tray Ø 62 mm (measured)')
+  })
+})
+
 describe('saySize', () => {
   it('says what, the numbers, the unit and where it came from', () => {
     expect(saySize(fact())).toBe('battery tray 186 × 128 mm (measured)')

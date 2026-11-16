@@ -238,6 +238,7 @@ async function checked(req: CreateRequest, deps: CreateDeps, existing: readonly 
   for (const doodle of req.doodles) {
     oneLine(doodle?.note, 'doodle')
     const over = doodle?.over
+    if (doodle?.onPhoto !== undefined && doodle.onPhoto !== true) throw new Error('A doodle is over a photo or it is not.')
     if (over !== undefined && (!Number.isInteger(over) || over < 0 || over >= req.photos.length)) throw new Error('A doodle is drawn over one of the photos given.')
   }
   for (const pdf of req.pdfs) {
@@ -312,7 +313,7 @@ export async function createObject(req: CreateRequest, deps: CreateDeps): Promis
       const file = `reference/doodle-${++n}.png`
       await writeFileAtomic(join(temp, file), png)
       const note = oneLine(doodle.note, 'doodle')
-      const over = doodle.over === undefined ? '' : `drawn over reference/photo-${doodle.over + 1}${extname(req.photos[doodle.over].path).toLowerCase()}`
+      const over = doodle.over !== undefined ? `drawn over reference/photo-${doodle.over + 1}${extname(req.photos[doodle.over].path).toLowerCase()}` : doodle.onPhoto ? 'drawn over a photo' : ''
       reference(file, over === '' ? note : note === '' ? over : `${note} (${over})`)
     }
     const stepNames = referenceFiles(req.steps.map((step) => step.path), STEP_FORMATS)

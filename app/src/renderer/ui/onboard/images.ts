@@ -12,6 +12,14 @@ const JPEG_QUALITY = 0.85
 
 export type ImageType = 'image/png' | 'image/jpeg' | 'image/webp'
 
+/**
+ * The files an image paste brings, each named: a picture the system made on the spot has no name (or the name `image.png`)
+ * and is named by its kind. A real file that was copied (it has a path) is kept as it is, with its path.
+ */
+export function pastedFiles(files: readonly File[], pathOf: (file: File) => string): File[] {
+  return files.map((f) => ((f.name === '' || f.name === 'image.png') && pathOf(f) === '' ? new File([f], `pasted.${f.type.split('/')[1] ?? 'png'}`, { type: f.type }) : f))
+}
+
 /** What the bytes are, by their signature; null for anything else. */
 export function imageType(bytes: Uint8Array): ImageType | null {
   const is = (at: number, ...values: number[]): boolean => values.every((v, i) => bytes[at + i] === v)

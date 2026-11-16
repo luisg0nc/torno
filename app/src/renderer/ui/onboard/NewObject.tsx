@@ -3,14 +3,14 @@ import { hint, pressed } from '../../../shared/keys'
 import { MAX_PDF_BYTES, MAX_PHOTO_BYTES, MAX_STEP_BYTES, moduleName, MOST_REFERENCES, objectNameProblem, PDF_FORMATS, STEP_FORMATS } from '../../../shared/objectName'
 import { MAX_SIZES } from '../../../shared/size'
 import { actions, store, useStore } from '../../state/store'
-import { draftHas, onboard, onboarding, sizeProblem, useOnboard, type Stroke } from '../../state/onboard'
+import { draftHas, onboard, onboarding, sizesWrong, useOnboard, type Stroke } from '../../state/onboard'
 import { Confirm } from '../Confirm'
 import { numbered } from '../numbered'
 import { Readiness } from '../Readiness'
 import { isScan, NO_PATH } from '../scanDrop'
 import { TYPING, giveKeysBack } from '../typing'
 import { Doodle } from './Doodle'
-import { HEIC_REASON, prepareImage } from './images'
+import { HEIC_REASON, pastedFiles, prepareImage } from './images'
 import { DraftPaneLive } from './DraftPane'
 import { LinksSlot } from './LinksSlot'
 import { makeObject, reason } from './make'
@@ -93,7 +93,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
   busyNow.current = working
 
   const nameProblem = draft.name === '' ? null : objectNameProblem(draft.name, [...new Set([...ids, ...taken])])
-  const sizeIssue = draft.sizes.some((s) => sizeProblem(s) !== null)
+  const sizeIssue = sizesWrong(draft.sizes)
   const ready = draft.name !== '' && nameProblem === null && draft.description.trim() !== '' && !sizeIssue
   const files = draft.photos.length + draft.doodles.length + draft.steps.length + draft.pdfs.length
   const module = moduleName(draft.name)
@@ -257,8 +257,8 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
       const pasted = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/') || isImage(f.name))
       if (pasted.length === 0 || boardOpen.current || asked.current || busyNow.current) return
       e.preventDefault()
-      // A picture with no name is one the system made on the spot: it is named by its kind.
-      taking(pasted.map((f) => (f.name === '' || f.name === 'image.png' ? new File([f], `pasted.${f.type.split('/')[1] ?? 'png'}`, { type: f.type }) : f)))
+      // A picture with no name (and no path) is one the system made on the spot: it is named by its kind. A copied file keeps its own.
+      taking(pastedFiles(pasted, (f) => window.torno.objects.pathOf(f)))
     }
     window.addEventListener('paste', onPaste, true)
     return () => window.removeEventListener('paste', onPaste, true)
@@ -494,7 +494,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
                     setFocusSlot('sizes')
                   }}
                 >
-                  + add a size
+                  <span aria-hidden="true">+ </span>Add a size
                 </button>
               }
             >

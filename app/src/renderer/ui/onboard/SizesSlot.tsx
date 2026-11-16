@@ -1,14 +1,12 @@
 import { pressed } from '../../../shared/keys'
 import { MAX_SIZE_VALUE, MAX_SIZE_WHAT, MAX_SIZE_NOTE, PERSON_SOURCES, SIZE_UNITS, parseSize, type SizeSource, type SizeUnit } from '../../../shared/size'
-import { onboarding, sizeProblem, type SizeDraft } from '../../state/onboard'
+import { onboarding, sizeBlank, sizeProblem, type SizeDraft } from '../../state/onboard'
 import { chosen, giveKeysBack, pointerChoice } from '../typing'
 
-/** A row is left alone, not nagged about, while it is blank. */
-const blank = (s: SizeDraft): boolean => s.what.trim() === '' && s.value.trim() === ''
 
 function SizeRow({ size, n, disabled }: { size: SizeDraft; n: number; disabled: boolean }) {
   const problem = sizeProblem(size)
-  const read = size.value.trim() === '' ? null : parseSize(size.value)
+  const read = size.value.trim() === '' ? null : parseSize(size.value, size.unit)
   const keep = (e: { key: string; currentTarget: HTMLElement }): void => {
     if (pressed(e as never, 'field.keep')) giveKeysBack(e.currentTarget)
   }
@@ -91,7 +89,7 @@ function SizeRow({ size, n, disabled }: { size: SizeDraft; n: number; disabled: 
       <button type="button" className="button button-quiet" aria-label={`Remove size ${n + 1}`} disabled={disabled} onClick={() => onboarding.remove('sizes', size.uid)}>
         Remove
       </button>
-      {problem !== null && !blank(size) && (
+      {problem !== null && !sizeBlank(size) && (
         <p className="size-help" data-tone="warn" role="status">
           {problem}
         </p>

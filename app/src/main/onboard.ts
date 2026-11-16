@@ -91,8 +91,8 @@ export interface PromptInput {
 
 const imageBlock = (image: ImageBytes): PromptBlock => ({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: Buffer.from(image.bytes).toString('base64') } })
 
-/** A doodle the person drew over one of the photos they gave: `create.ts` says so in its note. */
-const overPhoto = (item: { note: string }): boolean => item.note.includes('drawn over reference/photo-')
+/** A doodle the person drew over a photo (one they gave, or one they took away after): `create.ts` says so in its note. */
+const overPhoto = (item: { note: string }): boolean => item.note.includes('drawn over reference/photo-') || item.note.includes('drawn over a photo')
 
 const CLAUDE_TOOL = (tool: string): string => `mcp__torno__${tool}`
 

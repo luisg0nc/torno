@@ -101,7 +101,7 @@ const buildText = (card: Card): string => (card.copy ? `Build ${card.copy.id}: $
 function referenceText(card: Card): string {
   const source = card.source ?? ''
   const what = /\.(?:step|stp)$/i.test(source) ? " (a bought part's STEP)" : /\.pdf$/i.test(source) ? ' (a PDF: read it with your own tools)' : ''
-  return what === '' ? source : [`${source}${what}`, ...(card.caption ? [card.caption] : [])].join('\n')
+  return [`${source}${what}`, ...(card.caption ? [card.caption] : [])].join('\n')
 }
 
 /** What a card says, in words, without the picture it may carry: the one thing `saysHash` and the text are both made of. */
@@ -207,7 +207,7 @@ export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: stri
     const head = `${card.id} · ${LABEL[card.kind]} · by ${WHO[card.by]}${where}`
     // A size is one line, said after its head; the numbers it holds follow it in full.
     if (card.kind === 'size') {
-      const numbers = card.size ? parseSize(card.size.value)?.numbers : undefined
+      const numbers = card.size ? parseSize(card.size.value, card.size.unit)?.numbers : undefined
       return [`${head}: ${contentOf(card, live)}`, ...(numbers ? [`numbers: [${numbers.join(', ')}]`] : [])].join('\n')
     }
     const body = card.kind === 'picture' || card.kind === 'sketch' ? '' : contentOf(card, live)

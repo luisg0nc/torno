@@ -557,7 +557,7 @@ for (const theme of ['light', 'dark'] as const) {
           await new_.getByLabel('What size 1 measures').fill('desk edge')
           await new_.getByLabel('Value of size 1').fill('18')
           await new_.getByLabel('Where size 1 came from').selectOption('measured')
-          await new_.getByRole('button', { name: '+ add a size' }).click()
+          await new_.getByRole('button', { name: 'Add a size' }).click()
           await new_.getByLabel('What size 2 measures').fill('cable')
           await new_.getByLabel('Value of size 2').fill('Ø 6')
           await new_.getByLabel('Where size 2 came from').selectOption('a guess')

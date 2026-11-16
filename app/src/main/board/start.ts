@@ -45,13 +45,13 @@ function groups(req: StartRequest): Group[] {
   const of = (test: RegExp): Part[] => req.references.filter((r) => test.test(r.file)).map(reference)
   const all: Group[] = [
     { name: 'Brief', kind: { size: CARD_SIZE.brief, perRow: 1 }, parts: req.description.trim() !== '' ? [{ kind: 'brief', by: 'torno', source: 'brief' }] : [] },
-    { name: 'Photos', kind: REFERENCES, parts: of(/^reference\/photo-\d+\./) },
-    { name: 'Sketches', kind: REFERENCES, parts: of(/^reference\/doodle-\d+\./) },
+    { name: 'Photos', kind: REFERENCES, parts: of(/^reference\/photo-\d+\.(?:png|jpe?g|webp)$/) },
+    { name: 'Sketches', kind: REFERENCES, parts: of(/^reference\/doodle-\d+\.(?:png|jpe?g|webp)$/) },
     { name: 'Sizes', kind: { size: CARD_SIZE.size, perRow: 4 }, parts: req.sizes.map((size) => ({ kind: 'size', by: 'person', size })) },
     { name: 'Rules', kind: RULES, parts: req.rules.trim() !== '' ? [{ kind: 'text', by: 'person', text: req.rules.trim() }] : [] },
     { name: 'Links', kind: LINKS, parts: req.links.map((l) => ({ kind: 'text', by: 'person', text: l.note === '' ? l.url : `${l.url}\n${l.note}` })) },
-    { name: 'Bought parts', kind: REFERENCES, parts: of(/\.(?:step|stp)$/i) },
-    { name: 'PDFs', kind: REFERENCES, parts: of(/\.pdf$/i) }
+    { name: 'Bought parts', kind: REFERENCES, parts: of(/\.(?:step|stp)$/) },
+    { name: 'PDFs', kind: REFERENCES, parts: of(/\.pdf$/) }
   ]
   return all.filter((g) => g.parts.length > 0)
 }

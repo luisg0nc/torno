@@ -69,6 +69,7 @@ describe('what a card shows', () => {
 
   it('shows a STEP and a PDF by their name and kind, with the note of the card', () => {
     expect(faceOf(card({ kind: 'reference', source: 'reference/608zz.step', by: 'torno', caption: 'the bearing' }), {})).toEqual({ label: 'Reference', title: '608zz.step', lines: [{ text: 'STEP file', tone: 'muted' }], body: 'the bearing' })
+    expect(faceOf(card({ kind: 'reference', source: 'reference/photo-1.jpg', by: 'torno', caption: 'the desk edge' }), { picture: 'here' })).toMatchObject({ body: 'the desk edge', picture: 'here' })
     expect(faceOf(card({ kind: 'reference', source: 'reference/datasheet.pdf', by: 'torno' }), {})).toEqual({ label: 'Reference', title: 'datasheet.pdf', lines: [{ text: 'PDF', tone: 'muted' }] })
   })
 

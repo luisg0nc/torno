@@ -362,17 +362,20 @@ test.describe('a new object', () => {
     await newPage().getByRole('button', { name: /^Sizes I know/ }).click()
     await expect(slot('sizes')).toContainText('Sizes I know')
     await expect(newPage().getByLabel('What size 1 measures')).toBeFocused()
-    // A row that is not whole holds Start back, and says so.
+    // A row nothing is typed in holds nothing back; one half done does, and says so.
+    await expect(startButton()).toBeEnabled()
+    await newPage().getByLabel('What size 1 measures').fill('battery tray')
     await expect(startButton()).toBeDisabled()
     await expect(newPage().locator('.new-will')).toContainText('Finish or remove the sizes that are not whole')
-    await newPage().getByLabel('What size 1 measures').fill('battery tray')
     await newPage().getByLabel('Value of size 1').fill('186 x 128')
     await newPage().getByLabel('Where size 1 came from').selectOption('measured')
     await expect(startButton()).toBeEnabled()
-    // "+ add a size" adds a second row; a person may not say a size is from Claude.
-    await slot('sizes').getByRole('button', { name: '+ add a size' }).click()
+    // "Add a size" adds a second row; a person may not say a size is from Claude.
+    await slot('sizes').getByRole('button', { name: 'Add a size' }).click()
     await expect(newPage().getByLabel('What size 2 measures')).toBeFocused()
     await expect(newPage().getByLabel('Where size 2 came from').locator('option')).toHaveText(['measured', 'from a manual or datasheet', 'a guess'])
+    await expect(startButton()).toBeEnabled()
+    await newPage().getByLabel('Value of size 2').fill('5')
     await expect(startButton()).toBeDisabled()
     await newPage().getByLabel('Remove size 2').click()
     await expect(startButton()).toBeEnabled()

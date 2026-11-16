@@ -1,6 +1,6 @@
 import type { CreateRequest, OnboardDraft, Onboarded, PromptPreviewDraft } from '../../../shared/bridge'
 import type { AgentChoice } from '../../../shared/chat'
-import { sizeFact, sizeProblem, type Draft, type Held } from '../../state/onboard'
+import { sizeBlank, sizeFact, sizeProblem, type Draft, type Held } from '../../state/onboard'
 import { PDF_FORMATS, referenceFiles as namedReferences, stepFiles } from '../../../shared/objectName'
 import { extensionOf } from './images'
 
@@ -44,7 +44,7 @@ export function referenceFiles(draft: Draft): OnboardDraft['items'] {
     ...draft.doodles.map((d, n) => {
       // The words `create` puts on the card of a doodle drawn over a photo, so that the prompt and the board agree.
       const over = overIndex(draft, d)
-      const said = over === undefined ? '' : `drawn over ${photoFile(over)}`
+      const said = over !== undefined ? `drawn over ${photoFile(over)}` : d.onPhoto ? 'drawn over a photo' : ''
       return { file: `reference/doodle-${n + 1}.png`, note: said === '' ? d.note : d.note === '' ? said : `${d.note} (${said})`, image: d.png }
     })
   ]
@@ -110,6 +110,7 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
   try {
     const description = draft.description.trim()
     for (const size of draft.sizes) {
+      if (sizeBlank(size)) continue
       const wrong = sizeProblem(size)
       if (wrong !== null) return { kind: 'refused', message: wrong }
     }
@@ -119,7 +120,7 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
       photos: draft.photos.map((p) => ({ path: p.path, note: p.note })),
       doodles: draft.doodles.map((d) => {
         const over = overIndex(draft, d)
-        return { png: d.png, note: d.note, ...(over === undefined ? {} : { over }) }
+        return { png: d.png, note: d.note, ...(over !== undefined ? { over } : d.onPhoto ? { onPhoto: true as const } : {}) }
       }),
       steps: draft.steps.map((s) => ({ path: s.path, note: s.note })),
       scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
@@ -171,7 +172,7 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
       }
       if (failed.length > 0) {
         const problem = failed.join(' ')
-        deps.hold(objectId, { text: '', reason: problem })
+        deps.hold(objectId, { text: '', reason: problem, imports: true })
         return { kind: 'done', objectId, problem, ...(shown ? {} : { shown: false as const }) }
       }
       return { kind: 'done', objectId, ...(shown ? {} : { shown: false as const }) }

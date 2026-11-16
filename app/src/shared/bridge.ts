@@ -27,7 +27,7 @@ export interface CreateRequest {
   /** Files on the disk (from a drop or main's dialog): copied into `reference/` as `photo-<n>.<ext>`. */
   photos: Array<{ path: string; note: string }>
   /** PNG bytes of a drawing: `reference/doodle-<n>.png`. `over` is the index into `photos` of the photo it is drawn over. */
-  doodles: Array<{ png: Uint8Array; note: string; over?: number }>
+  doodles: Array<{ png: Uint8Array; note: string; over?: number; /** The photo it was drawn over is no longer among the photos: the picture still has it under the ink, and the card says "drawn over a photo". */ onPhoto?: true }>
   /** Vendor STEP files of bought parts (`.step`, `.stp`, at most 50 MB): copied into `reference/` under their own names (`stepFiles`). */
   steps: Array<{ path: string; note: string }>
   /** Not copied: imported into the object after it is made. */
@@ -51,7 +51,7 @@ export interface CreateRequest {
  */
 export interface OnboardDraft {
   description: string
-  /** The photos, then the doodles, as `create` named them: `reference/photo-1.jpg`, `reference/doodle-1.png`. The note of a doodle drawn over a photo says so, as `create` writes it on its card (`drawn over reference/photo-2.jpg`). */
+  /** The photos, then the doodles, as `create` named them: `reference/photo-1.jpg`, `reference/doodle-1.png`. The note of a doodle drawn over a photo says so, as `create` writes it on its card (`drawn over reference/photo-2.jpg`, or `drawn over a photo` when that photo is no longer in the draft). */
   items: Array<{ file: string; note: string; image?: Uint8Array }>
   /** The vendor STEP files, as `create` named them: `reference/608zz.step`. */
   steps: Array<{ file: string; note: string }>

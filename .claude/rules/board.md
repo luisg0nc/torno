@@ -97,7 +97,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 - **Every prompt** carries one line (`boardLine`, in `contextFor`, inside `CONTEXT_LIMIT`): how many cards there are, how many are
   new, frames by name, and "Read it with `board`". It never carries the board. A card is new when it was added or what it
   says changed (a text, a caption, a name, an arrow's word, the content of a pinned card's source), not when it was moved,
-  resized or put in a frame (`saysHash`). The window shows it under the prompt as "board: 12 cards, 2 new".
+  resized or put in a frame (`saysHash`). A reference card is told with its caption after its file name, a photo or doodle as a STEP or a PDF (`referenceText`), and the card shows it. The window shows it under the prompt as "board: 12 cards, 2 new".
 - **An attachment** goes with the prompt the person sends, not in the context (`attach.ts`, read at the moment of sending, so an
   edit made since goes too; a card removed meanwhile is left out and named). Pictures go as images after the text: at most
   6, each at most 1280 px on the long edge (main scales them, `scalePicture`); past 6 they are named and left for the tool.

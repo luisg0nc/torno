@@ -6,7 +6,7 @@ import { giveKeysBack } from '../typing'
 import { ReferenceCards } from './ReferenceItems'
 
 /** The links given, a row each with its note: kept as text, never opened from here. */
-function LinkRow({ url, uid, note, n }: { url: string; uid: string; note: string; n: number }) {
+function LinkRow({ url, uid, note, n, disabled }: { url: string; uid: string; note: string; n: number; disabled: boolean }) {
   return (
     <li className="link-row" aria-label={`Link ${n + 1}`}>
       <span className="link-url num" title={url}>
@@ -17,6 +17,7 @@ function LinkRow({ url, uid, note, n }: { url: string; uid: string; note: string
         type="text"
         value={note}
         maxLength={MAX_LINK_NOTE}
+        disabled={disabled}
         placeholder="Note for Claude"
         aria-label={`Note for link ${n + 1}`}
         spellCheck
@@ -26,7 +27,7 @@ function LinkRow({ url, uid, note, n }: { url: string; uid: string; note: string
           if (pressed(e, 'field.keep')) giveKeysBack(e.currentTarget)
         }}
       />
-      <button type="button" className="button button-quiet" aria-label={`Remove link ${n + 1}`} onClick={() => onboarding.remove('links', uid)}>
+      <button type="button" className="button button-quiet" aria-label={`Remove link ${n + 1}`} disabled={disabled} onClick={() => onboarding.remove('links', uid)}>
         Remove
       </button>
     </li>
@@ -78,7 +79,7 @@ export function LinksSlot({ draft, disabled, onAddPdf, onSaid }: { draft: Draft;
       {draft.links.length > 0 && (
         <ul className="link-list" aria-label="Links">
           {draft.links.map((l, n) => (
-            <LinkRow key={l.uid} url={l.url} uid={l.uid} note={l.note} n={n} />
+            <LinkRow key={l.uid} url={l.url} uid={l.uid} note={l.note} n={n} disabled={disabled} />
           ))}
         </ul>
       )}

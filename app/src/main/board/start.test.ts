@@ -44,6 +44,15 @@ describe('startBoard', () => {
     expect(board.cards.filter((c) => c.kind !== 'frame').every((c) => c.frame !== undefined)).toBe(true)
   })
 
+  it('puts a PDF or a STEP named like a photo or a sketch in one frame only', () => {
+    const board = startBoard({ ...full, references: [{ file: 'reference/photo-1.pdf', note: '' }, { file: 'reference/doodle-2.step', note: '' }, { file: 'reference/photo-2.jpg', note: '' }] })
+    expect(inside(board, 'Photos').map((c) => c.source)).toEqual(['reference/photo-2.jpg'])
+    expect(frames(board).map((f) => f.name)).not.toContain('Sketches')
+    expect(inside(board, 'PDFs').map((c) => c.source)).toEqual(['reference/photo-1.pdf'])
+    expect(inside(board, 'Bought parts').map((c) => c.source)).toEqual(['reference/doodle-2.step'])
+    expect(board.cards.filter((c) => c.kind === 'reference')).toHaveLength(3)
+  })
+
   it('makes no frame for what is empty', () => {
     const board = startBoard({ description: 'A clip.', references: [{ file: 'reference/photo-1.jpg', note: '' }], sizes: [], rules: '  \n', links: [] })
     expect(frames(board).map((f) => f.name)).toEqual(['Brief', 'Photos'])

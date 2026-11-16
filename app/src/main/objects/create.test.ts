@@ -389,6 +389,14 @@ describe('the board a new project starts with', () => {
     expect(reconcile(board(), found)).toBeNull()
   })
 
+  it('says a doodle whose photo was taken away is drawn over a photo, naming no file', async () => {
+    await make(request({ doodles: [{ png: PNG, note: 'the shape', onPhoto: true }, { png: PNG, note: '', onPhoto: true }] }))
+    const caption = (source: string) => board().cards.find((c) => c.source === source)?.caption
+    expect(caption('reference/doodle-1.png')).toBe('the shape (drawn over a photo)')
+    expect(caption('reference/doodle-2.png')).toBe('drawn over a photo')
+    expect(readFileSync(join(ws, 'cable-clip', 'brief.md'), 'utf8')).toContain('- reference/doodle-1.png: the shape (drawn over a photo)\n')
+  })
+
   it('names a doodle drawn over a photo by the photo as it is copied, with its own ending', async () => {
     writeFileSync(join(files, 'a.PNG'), PNG)
     writeFileSync(join(files, 'b.jpeg'), JPG)

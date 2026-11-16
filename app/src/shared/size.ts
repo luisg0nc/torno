@@ -27,24 +27,35 @@ export const PERSON_SOURCES: readonly SizeSource[] = ['measured', 'from a manual
 export const AGENT_SOURCE: SizeSource = 'from Claude'
 
 const NUMBER = String.raw`\d+(?:[.,]\d+)?`
-const PARSED = new RegExp(`^(?:([ØR])\\s*)?(${NUMBER}(?:\\s*[x×]\\s*${NUMBER}){0,2})$`, 'i')
+const PARSED = new RegExp(`^(?:([ØøR\u2300\u2205])\\s*)?(${NUMBER}(?:\\s*[x×]\\s*${NUMBER}){0,2})$`, 'i')
 
-/** The numbers a value holds: one to three joined by `x` or `×`, with `,` or `.` for decimals and a leading `Ø` or `R`. Null when it is anything else. */
-export function parseSize(value: string): { mark?: 'Ø' | 'R'; numbers: number[] } | null {
-  const found = PARSED.exec(value.trim())
+/** The value without the unit it ends with, when that is the row's own (`62 mm` of a row in mm): the unit is said once. */
+function withoutUnit(value: string, unit: SizeUnit | undefined): string {
+  const text = value.trim()
+  if (unit === undefined) return text
+  const tail = text.slice(-unit.length)
+  return tail.toLowerCase() === unit && text.length > unit.length ? text.slice(0, -unit.length).trimEnd() : text
+}
+
+/**
+ * The numbers a value holds: one to three joined by `x` or `×`, with `,` or `.` for decimals and a leading `Ø` (or `⌀`,
+ * `∅`) or `R`. With the row's `unit`, the same unit typed after the value (`62 mm`) is left out of it. Null when it is anything else.
+ */
+export function parseSize(value: string, unit?: SizeUnit): { mark?: 'Ø' | 'R'; numbers: number[] } | null {
+  const found = PARSED.exec(withoutUnit(value, unit))
   if (!found) return null
   const numbers = found[2].split(/[x×]/i).map((n) => Number(n.trim().replace(',', '.')))
   if (!numbers.every(Number.isFinite)) return null
-  const mark = found[1] === undefined ? undefined : (found[1].toUpperCase() as 'Ø' | 'R')
+  const mark = found[1] === undefined ? undefined : found[1].toUpperCase() === 'R' ? 'R' : 'Ø'
   return { ...(mark !== undefined ? { mark } : {}), numbers }
 }
 
 /** A size in words, the one form the prompt and the `board` tool tell: `battery tray 186 × 128 mm (measured)`. */
 export function saySize(s: SizeFact): string {
-  const parsed = parseSize(s.value)
+  const parsed = parseSize(s.value, s.unit)
   const from = (as: string): string => ` (${as}${s.note ? `: ${s.note}` : ''})`
   const unit = s.unit === '°' ? '°' : ` ${s.unit}`
-  if (!parsed) return `${s.what} ${s.value.trim()}${unit}${from(`as typed, ${s.source}`)}`
+  if (!parsed) return `${s.what} ${withoutUnit(s.value, s.unit)}${unit}${from(`as typed, ${s.source}`)}`
   return `${s.what} ${parsed.mark ? `${parsed.mark} ` : ''}${parsed.numbers.join(' × ')}${unit}${from(s.source)}`
 }
 

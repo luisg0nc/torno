@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MOST_PIXELS, PROMPT_EDGE, extensionOf, fitWithin, headerSize, imageType, isHeic } from './images'
+import { MOST_PIXELS, PROMPT_EDGE, extensionOf, fitWithin, headerSize, imageType, isHeic, pastedFiles } from './images'
 import { ERASER_WIDTH, addPoint } from '../ink/strokes'
 
 describe('the pictures of the first prompt', () => {
@@ -65,5 +65,18 @@ describe('the strokes of the board', () => {
     expect(addPoint(stroke, 30, 20)).toBe(true)
     expect(stroke.points).toEqual([[10, 20.1], [30, 20]])
     expect(ERASER_WIDTH).toBeGreaterThan(9)
+  })
+})
+
+describe('the files an image paste brings', () => {
+  it('names a picture made on the spot, and keeps a copied file called image.png as it is, with its path', () => {
+    const shot = new File([new Uint8Array([1])], '', { type: 'image/png' })
+    const real = new File([new Uint8Array([2])], 'image.png', { type: 'image/png' })
+    const named = new File([new Uint8Array([3])], 'desk.jpg', { type: 'image/jpeg' })
+    const paths = new Map<File, string>([[real, '/home/x/image.png'], [named, '/home/x/desk.jpg']])
+    const out = pastedFiles([shot, real, named], (f) => paths.get(f) ?? '')
+    expect(out[0].name).toBe('pasted.png')
+    expect(out[1]).toBe(real)
+    expect(out[2]).toBe(named)
   })
 })
