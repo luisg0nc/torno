@@ -22,6 +22,24 @@ export const MAX_STEP_BYTES = 50 * 1024 * 1024
 export const PDF_FORMATS = ['.pdf'] as const
 export const MAX_PDF_BYTES = 25 * 1024 * 1024
 
+/** What a new project takes of links: the most, the longest address, the longest note on one line (`main/objects/create.ts` holds a request to them, the page holds the draft). */
+export const MAX_LINKS = 20
+export const MAX_URL = 2_000
+export const MAX_LINK_NOTE = 300
+
+/** Why an address is not a link a new project takes (`http` or `https` only, one word, a host, at most 2000 characters), or null when it is. */
+export function linkProblem(url: unknown): string | null {
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return 'A link is an http or https address.'
+  if (url.length > MAX_URL) return `A link is at most ${MAX_URL} characters.`
+  if (/[\s\p{Cc}]/u.test(url)) return 'A link has no space, control character or line break in it.'
+  try {
+    if (new URL(url).hostname === '') return 'A link is an http or https address.'
+  } catch {
+    return 'A link is an http or https address.'
+  }
+  return null
+}
+
 /**
  * The files `reference/` is given for the files of a draft that keep their own names (vendor STEP files, PDFs), in the
  * order given: the file's own name (the model reads it by that name), with what a folder name may hold of it and the

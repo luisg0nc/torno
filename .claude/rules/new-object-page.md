@@ -14,10 +14,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## A new object (`app/src/renderer`)
 
-- `ui/onboard/NewObject.tsx` is a page in place of the viewport (`store.page`: `'new'`; the view is `covered` and
+- `ui/onboard/NewObject.tsx` is (since piece 3 of the board redesign) a page of slots: the name and "Discard"; "What are we making?" (the description, the photos with their notes);
+  a tile per other kind (`Slot.tsx`: Sketch it, Bought parts, Scans, Other projects, Sizes I know, Links and PDFs, Rules), which is its cards or rows once something is
+  in it (`SizesSlot.tsx`, `LinksSlot.tsx` with the PDFs, `RulesSlot.tsx`); and, at the right (under it when the page is narrow, a container query), `DraftPaneLive`, the model and effort, **Start: make the
+  project and ask Claude** and "Or make it without starting Claude" (`makeObject(..., start = false)`: everything but `objects.onboard`, so the scans are not imported yet). Drops go by ending (a picture a photo, `.step`/`.stp` a bought part, `.pdf` a PDF,
+  a scan format a scan) and a pasted image is taken as a dropped one: only a file with a path can be a photo, a screenshot has none and is told so. `S` (`new.sketch`, not heard in a field) opens the sketch. It is a page in place of the viewport (`store.page`: `'new'`; the view is `covered` and
   inert under it as under the page of objects, and the rail offers Projects alone). No row of the list is
   current (the "New project" button is pressed), and the status line is "New project" and the build123d version alone:
-  no Rebuild, revision, parts or Export. The session pane shows `ui/onboard/DraftPane.tsx` (#84):
+  no Rebuild, revision, parts or Export. The page itself shows `ui/onboard/DraftPane.tsx` (#84; the session pane only says it is there, `data-draft-note`):
   the first prompt Claude Code will get, read-only, as main writes it (`objects.previewPrompt`, asked again 300 ms after a
   change; the one `onboardPrompt` that `objects.onboard` sends), the person's own words in ink and torno's in the muted face,
   and a thumbnail of each photo and doodle with "attached" or "named only"; unless the open object's session is live, which stays whole (see Agents).
@@ -25,6 +29,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   The page is opened from "New project" at the foot of the list, in the head of the page of objects and in its empty
   state (`openNewObject`). It takes the focus (the name field) when it comes and gives it back to where it was when it goes. Leaving the workspace
   (opening another folder) asks when the draft has something: "A new project is set up here and not made yet".
+- **The draft** (`state/onboard.ts`) also holds `sizes` (rows that may be unwhole: `sizeProblem`; Start and `makeObject` refuse one), `rules`, `links` and `pdfs`, with the caps of `shared/size.ts`, `shared/objectName.ts` (`MAX_LINKS`, `linkProblem`) and `MAX_TEXT_CHARS`; the `add*` and `setRules` return the reason they refused, or null.
 - **The draft** (`state/onboard.ts`) lives in the window, for the workspace it was begun in, until the object is made
   or the person throws it away; nothing of it is on disk, and it is dropped when the workspace root changes. Caps
   are `MOST_REFERENCES` (shared with main), a photo or scan is refused as a duplicate by path and an object by id.

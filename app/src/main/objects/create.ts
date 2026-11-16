@@ -5,7 +5,7 @@ import { type FileHandle, lstat, mkdir, open, readdir, rename, rm, rmdir } from 
 import { homedir } from 'node:os'
 import { extname, isAbsolute, join } from 'node:path'
 import type { CreateRequest } from '../../shared/bridge'
-import { MAX_PDF_BYTES, MAX_PHOTO_BYTES, MAX_STEP_BYTES, moduleName, MOST_REFERENCES, objectNameProblem, PDF_FORMATS, referenceFiles, STEP_FORMATS } from '../../shared/objectName'
+import { linkProblem, MAX_LINK_NOTE, MAX_LINKS, MAX_PDF_BYTES, MAX_PHOTO_BYTES, MAX_STEP_BYTES, moduleName, MOST_REFERENCES, objectNameProblem, PDF_FORMATS, referenceFiles, STEP_FORMATS } from '../../shared/objectName'
 import { MAX_SIZES, checkSize, type SizeFact } from '../../shared/size'
 import { SCAN_FORMATS } from '../../shared/scans'
 import { MAX_TEXT_CHARS } from '../../shared/board'
@@ -35,9 +35,7 @@ const MAX_DESCRIPTION = 20_000
 const MAX_NOTE = 2_000
 /** What a board takes of the rest: the rules (a text card holds this much), the links, and a link's note. */
 export const MAX_RULES = MAX_TEXT_CHARS
-export const MAX_LINKS = 20
-const MAX_URL = 2_000
-const MAX_LINK_NOTE = 300
+export { MAX_LINKS }
 const PDF_SIGNATURE = '%PDF-'
 const PHOTO_TYPES = ['.png', '.jpg', '.jpeg', '.webp']
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
@@ -199,17 +197,11 @@ interface Checked {
 /** A link: `http` or `https` only (any case of the scheme), one word, a host, at most 2000 characters. */
 export function checkLink(link: unknown): { url: string; note: string } {
   const url = (link as { url?: unknown } | null)?.url
-  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('A link is an http or https address.')
-  if (url.length > MAX_URL) throw new Error(`A link is at most ${MAX_URL} characters.`)
-  if (/[\s\p{Cc}]/u.test(url)) throw new Error('A link has no space, control character or line break in it.')
-  try {
-    if (new URL(url).hostname === '') throw new Error('no host')
-  } catch {
-    throw new Error('A link is an http or https address.')
-  }
+  const problem = linkProblem(url)
+  if (problem !== null) throw new Error(problem)
   const note = oneLine((link as { note?: unknown }).note, 'link')
   if (note.length > MAX_LINK_NOTE) throw new Error(`The note of a link is over ${MAX_LINK_NOTE} characters.`)
-  return { url, note }
+  return { url: url as string, note }
 }
 
 /** The request, held to what it may be; throws a plain reason. Returns what the board needs. */

@@ -1,7 +1,9 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import type { AgentChoice } from '../../shared/chat'
-import { MOST_REFERENCES } from '../../shared/objectName'
+import { MAX_LINK_NOTE, MAX_LINKS, linkProblem, MOST_REFERENCES } from '../../shared/objectName'
+import { MAX_TEXT_CHARS } from '../../shared/board'
+import { MAX_SIZES, checkSize, type SizeFact } from '../../shared/size'
 import { store as main } from './store'
 
 // The draft of a new object (the page `ui/onboard/NewObject.tsx`): what the person has said and given so far. It
@@ -60,6 +62,25 @@ export interface ObjectRef extends Item {
   id: string
 }
 
+/**
+ * A size the person knows, as a row of the draft: the fields are those of a `SizeFact`, typed as they are (a row that is
+ * not whole yet is kept, and `sizeProblem` says what is missing); `note` is `''` for none.
+ */
+export interface SizeDraft extends Item, Omit<SizeFact, 'note'> {}
+
+/** A link: `http` or `https`, kept as text and never opened by the window; `note` is on one line. */
+export interface LinkDraft extends Item {
+  url: string
+}
+
+/** A PDF: `path` is where it is on the disk (main copies it from there into `reference/`). */
+export interface PdfDraft extends Item {
+  path: string
+  file: string
+  /** In bytes, when the window knows it (a dropped file). */
+  size?: number
+}
+
 export interface Draft {
   name: string
   description: string
@@ -68,9 +89,14 @@ export interface Draft {
   steps: StepDraft[]
   scans: ScanDraft[]
   objects: ObjectRef[]
+  sizes: SizeDraft[]
+  /** Free text: the printer, the material, the least wall. */
+  rules: string
+  links: LinkDraft[]
+  pdfs: PdfDraft[]
 }
 
-export type Kind = 'photos' | 'doodles' | 'steps' | 'scans' | 'objects'
+export type Kind = 'photos' | 'doodles' | 'steps' | 'scans' | 'objects' | 'sizes' | 'links' | 'pdfs'
 
 /** A first prompt that was not sent, kept for the object until a chat can hold it. */
 export interface Held {
@@ -89,7 +115,7 @@ interface OnboardState {
   choice: AgentChoice
 }
 
-const empty = (): Draft => ({ name: '', description: '', photos: [], doodles: [], steps: [], scans: [], objects: [] })
+const empty = (): Draft => ({ name: '', description: '', photos: [], doodles: [], steps: [], scans: [], objects: [], sizes: [], rules: '', links: [], pdfs: [] })
 
 export const onboard = createStore<OnboardState>(() => ({ draft: empty(), from: 'objects', held: {}, choice: {} }))
 
@@ -99,7 +125,24 @@ export function useOnboard<T>(selector: (s: OnboardState) => T): T {
 
 /** Whether the person has put anything into the draft: a close or a discard would lose it. */
 export function draftHas(draft: Draft): boolean {
-  return draft.name.trim() !== '' || draft.description.trim() !== '' || draft.photos.length + draft.doodles.length + draft.steps.length + draft.scans.length + draft.objects.length > 0
+  return (
+    draft.name.trim() !== '' ||
+    draft.description.trim() !== '' ||
+    draft.rules.trim() !== '' ||
+    draft.photos.length + draft.doodles.length + draft.steps.length + draft.scans.length + draft.objects.length + draft.sizes.length + draft.links.length + draft.pdfs.length > 0
+  )
+}
+
+/** Why a size row cannot be sent yet (what it measures, a value, its length), or null when it can. */
+export function sizeProblem(size: SizeDraft): string | null {
+  const checked = checkSize({ what: size.what, value: size.value, unit: size.unit, source: size.source, ...(size.note === '' ? {} : { note: size.note }) }, 'person')
+  return typeof checked === 'string' ? checked : null
+}
+
+/** The size row as the fact main takes (a note only when there is one), or null when it is not whole. */
+export function sizeFact(size: SizeDraft): SizeFact | null {
+  const checked = checkSize({ what: size.what, value: size.value, unit: size.unit, source: size.source, ...(size.note === '' ? {} : { note: size.note }) }, 'person')
+  return typeof checked === 'string' ? null : checked
 }
 
 let counter = 0
@@ -184,6 +227,47 @@ export const onboarding = {
     if (now.length >= MOST_REFERENCES.objects || now.some((o) => o.id === id)) return false
     change((d) => ({ ...d, objects: [...d.objects, { id, uid: newKey(), note: '' }] }))
     return true
+  },
+
+  /** Adds a row of sizes (blank unless given); the reason it was not added, or null. */
+  addSize(size: Partial<Omit<SizeDraft, 'uid'>> = {}): string | null {
+    if (onboard.getState().draft.sizes.length >= MAX_SIZES) return `At most ${MAX_SIZES} sizes.`
+    change((d) => ({ ...d, sizes: [...d.sizes, { what: '', value: '', unit: 'mm', source: 'measured', note: '', ...size, uid: newKey() }] }))
+    return null
+  },
+
+  setSize(uid: string, patch: Partial<Pick<SizeDraft, 'what' | 'value' | 'unit' | 'source' | 'note'>>): void {
+    change((d) => ({ ...d, sizes: d.sizes.map((x) => (x.uid === uid ? { ...x, ...patch } : x)) }))
+  },
+
+  /** The rules, as typed; text over the most a text card holds is not kept, and the reason is given. */
+  setRules(rules: string): string | null {
+    if (rules.length > MAX_TEXT_CHARS) return `The rules are at most ${MAX_TEXT_CHARS} characters.`
+    change((d) => ({ ...d, rules }))
+    return null
+  },
+
+  /** Adds a link; the reason it was not, or null. */
+  addLink(url: string, note = ''): string | null {
+    const now = onboard.getState().draft.links
+    if (now.length >= MAX_LINKS) return `At most ${MAX_LINKS} links.`
+    const trimmed = url.trim()
+    const wrong = linkProblem(trimmed)
+    if (wrong !== null) return wrong
+    if (now.some((l) => l.url === trimmed)) return 'That link is there already.'
+    const said = note.replace(/\s+/g, ' ').trim()
+    if (said.length > MAX_LINK_NOTE) return `The note of a link is at most ${MAX_LINK_NOTE} characters.`
+    change((d) => ({ ...d, links: [...d.links, { url: trimmed, uid: newKey(), note: said }] }))
+    return null
+  },
+
+  /** Adds a PDF by its path; the reason it was not, or null. */
+  addPdf(item: Omit<PdfDraft, 'uid' | 'note'>): string | null {
+    const now = onboard.getState().draft.pdfs
+    if (now.length >= MOST_REFERENCES.pdfs) return `At most ${MOST_REFERENCES.pdfs} PDFs.`
+    if (now.some((p) => p.path === item.path)) return `${item.file} is there already.`
+    change((d) => ({ ...d, pdfs: [...d.pdfs, { ...item, uid: newKey(), note: '' }] }))
+    return null
   },
 
   setNote(kind: Kind, uid: string, note: string): void {

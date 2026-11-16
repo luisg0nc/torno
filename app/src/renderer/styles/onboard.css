@@ -47,13 +47,33 @@
   outline-offset: -10px;
 }
 
+/* Two columns when the page is wide enough: the slots, and what Claude gets first with the buttons that make the project. */
+.new-object {
+  container-type: inline-size;
+}
+
+.new-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  align-items: start;
+  gap: var(--space-4) 28px;
+  width: min(1100px, 100%);
+  margin: 0 auto;
+}
+
 .new-column {
   display: flex;
   flex-direction: column;
   gap: 22px;
-  width: min(720px, 100%);
-  margin: 0 auto;
+  min-width: 0;
   padding-bottom: var(--space-4);
+}
+
+.new-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .shell[data-dock='collapsed'] .new-head {
@@ -63,6 +83,295 @@
 .new-head h2 {
   font-size: 18px;
   font-weight: 500;
+}
+
+.new-brief {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.new-sub {
+  margin-top: var(--space-1);
+  font-size: var(--text-size);
+  font-weight: 500;
+}
+
+.new-hint {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.new-reading:empty {
+  display: none;
+}
+
+/* The slots: a tile for what has not been given, a section with its cards or rows for what has. */
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.slot[data-empty] {
+  display: contents;
+}
+
+.slot:not([data-empty]) {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.slot-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-3);
+  border: 1px dashed var(--field-edge);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.slot-tile:hover:not(:disabled),
+.slot-tile:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  outline: none;
+}
+
+.slot-tile:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.slot-tile:disabled {
+  color: var(--muted);
+}
+
+.slot-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.slot-words {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.slot-title {
+  font-size: var(--text-size);
+  font-weight: 500;
+}
+
+.slot-hint {
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-wrap: pretty;
+}
+
+.slot-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+
+.slot-head .slot-icon {
+  align-self: center;
+  margin-top: 0;
+}
+
+.slot-add {
+  margin-left: auto;
+}
+
+.slot .ref-list {
+  margin-top: 0;
+}
+
+/* Sizes: a row each, what it measures, the value as typed, the unit, where it came from, a note. */
+.size-list,
+.link-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.size-list:empty,
+.link-list:empty {
+  display: none;
+}
+
+.size-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--divider);
+}
+
+.size-row:last-child {
+  border-bottom: 0;
+}
+
+.size-what,
+.size-value,
+.size-note,
+.link-add .new-input {
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: var(--field-border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.size-what {
+  flex: 2 1 160px;
+  min-width: 0;
+}
+
+.size-value {
+  flex: 1 1 100px;
+  min-width: 0;
+}
+
+.size-note {
+  flex: 3 1 180px;
+  min-width: 0;
+}
+
+.size-what:focus-visible,
+.size-value:focus-visible,
+.size-note:focus-visible {
+  border-color: var(--accent);
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.size-help {
+  flex: 1 0 100%;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.size-help[data-tone='warn'] {
+  color: var(--warn);
+}
+
+/* Links: the address typed, then a row each with its note. */
+.link-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.link-add .new-input {
+  flex: 1 1 200px;
+  width: auto;
+  min-width: 0;
+}
+
+.link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.link-url {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What Claude gets first, and the buttons: beside the slots when there is room, under them when there is not. */
+.new-side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.new-side .new-foot {
+  position: static;
+  margin-top: 0;
+  padding: var(--space-3) 0 0;
+}
+
+.new-side .new-choice {
+  justify-content: flex-start;
+}
+
+.new-start,
+.new-make {
+  width: 100%;
+  justify-content: center;
+}
+
+@container (max-width: 800px) {
+  /* One column: the side's pieces join the page's own flow, so that the buttons can stay in view at the foot of the window while the slots are scrolled. */
+  .new-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .new-side {
+    display: contents;
+  }
+
+  /* The buttons stay in view: the choice on one line, the two buttons beside it. */
+  .new-side .new-foot {
+    position: sticky;
+    bottom: -20px;
+    z-index: 1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: var(--space-3) 0;
+    background: var(--surface);
+  }
+
+  .new-side .new-foot > .ready,
+  .new-side .new-foot > .new-problem,
+  .new-side .new-foot > .new-choice {
+    flex: 1 0 100%;
+  }
+
+  .new-side .new-foot .new-start {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .new-side .new-foot .new-make {
+    flex: 0 1 auto;
+    width: auto;
+  }
 }
 
 .new-lead {
@@ -528,18 +837,25 @@
 /* ---- The session pane while a new object is made ---- */
 
 .draft-pane {
-  position: absolute;
-  inset: 0;
   display: grid;
-  align-content: center;
+  align-content: start;
   gap: var(--space-2);
-  padding: var(--space-4);
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
   color: var(--muted);
 }
 
 .draft-pane .draft-pane-lead {
   color: var(--ink);
+  font-size: var(--text-size);
   font-weight: 600;
+}
+
+.draft-pane-sub {
+  color: var(--muted);
+  font-size: var(--text-small);
 }
 
 .draft-pane ul:not(.draft-pane-pictures) {
@@ -563,12 +879,12 @@
   text-wrap: pretty;
 }
 
-/* The first prompt, read back (#84): the session pane while a new project is made. */
-.draft-pane {
-  align-content: start;
-  overflow-y: auto;
-}
+/* The first prompt, read back (#84): beside the slots while a new project is made. */
 .draft-pane .draft-pane-text {
+  max-height: min(46vh, 440px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--muted);

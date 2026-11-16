@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CreateRequest, OnboardDraft, Onboarded } from '../../../shared/bridge'
 import type { Draft } from '../../state/onboard'
-import { makeObject, pdfReferences, type MakeDeps } from './make'
+import { makeObject, pdfReferences, previewDraft, type MakeDeps } from './make'
 
 const draft = (): Draft => ({
   name: 'cable-clip',
@@ -13,7 +13,11 @@ const draft = (): Draft => ({
   doodles: [{ uid: 'c', strokes: [], png: new Uint8Array([3]), note: 'the shape', url: 'blob:c' }],
   steps: [{ uid: 'f', path: '/p/608zz.STEP', file: '608zz.STEP', note: 'the bearing' }],
   scans: [{ uid: 'd', path: '/s/clip.stl', file: 'clip.stl', note: 'old one' }],
-  objects: [{ uid: 'e', id: 'plain', note: 'same style' }]
+  objects: [{ uid: 'e', id: 'plain', note: 'same style' }],
+  sizes: [],
+  rules: '',
+  links: [],
+  pdfs: []
 })
 
 function deps(over: Partial<MakeDeps> = {}) {
@@ -170,5 +174,59 @@ describe('making the object', () => {
     const { made } = deps({ open: vi.fn(async () => Promise.reject(new Error('superseded'))) })
     expect(await makeObject(draft(), made)).toEqual({ kind: 'done', objectId: 'cable-clip', shown: false })
     expect(made.onboard).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends the sizes, rules, links and PDFs of the draft to create and to the onboarding, a size without a note having none', async () => {
+    const d = draft()
+    d.sizes = [
+      { uid: 'z1', what: 'battery tray', value: '186 x 128', unit: 'mm', source: 'measured', note: '' },
+      { uid: 'z2', what: 'hinge', value: '90', unit: '°', source: 'from a manual or datasheet', note: 'page 4' }
+    ]
+    d.rules = 'PETG, min wall 1.2 mm'
+    d.links = [{ uid: 'l1', url: 'https://example.com/ds', note: 'the datasheet' }]
+    d.pdfs = [{ uid: 'p1', path: '/p/Data Sheet.pdf', file: 'Data Sheet.pdf', note: 'the manual' }]
+    const { made } = deps()
+    await makeObject(d, made)
+    const req = (made.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as CreateRequest
+    expect(req.sizes).toEqual([
+      { what: 'battery tray', value: '186 x 128', unit: 'mm', source: 'measured' },
+      { what: 'hinge', value: '90', unit: '°', source: 'from a manual or datasheet', note: 'page 4' }
+    ])
+    expect(req.rules).toBe('PETG, min wall 1.2 mm')
+    expect(req.links).toEqual([{ url: 'https://example.com/ds', note: 'the datasheet' }])
+    expect(req.pdfs).toEqual([{ path: '/p/Data Sheet.pdf', note: 'the manual' }])
+    const sent = (made.onboard as ReturnType<typeof vi.fn>).mock.calls[0][1] as OnboardDraft
+    expect(sent).toMatchObject({ sizes: req.sizes, rules: req.rules, links: req.links, pdfs: [{ file: 'reference/Data_Sheet.pdf', note: 'the manual' }] })
+  })
+
+  it('refuses, making nothing, a size that is not whole', async () => {
+    const d = draft()
+    d.sizes = [{ uid: 'z1', what: '', value: '3', unit: 'mm', source: 'measured', note: '' }]
+    const { made } = deps()
+    expect(await makeObject(d, made)).toMatchObject({ kind: 'refused', message: expect.stringMatching(/what it measures/) })
+    expect(made.create).not.toHaveBeenCalled()
+  })
+
+  it('"Make it without starting Claude" makes, lists, opens and spends the draft, and never calls onboard', async () => {
+    const { made, calls } = deps()
+    const outcome = await makeObject(draft(), made, { model: 'opus' }, false)
+    expect(outcome).toEqual({ kind: 'done', objectId: 'cable-clip' })
+    expect(calls).toEqual(['create', 'listed', 'discard', 'open'])
+    expect(made.onboard).not.toHaveBeenCalled()
+    expect(made.hold).not.toHaveBeenCalled()
+  })
+})
+
+describe('the preview of a draft', () => {
+  it('has the sizes that are whole, the rules, the links and the PDFs by the file create will name them', () => {
+    const d = draft()
+    d.sizes = [
+      { uid: 'z1', what: 'tray', value: '10', unit: 'mm', source: 'a guess', note: '' },
+      { uid: 'z2', what: '', value: '', unit: 'mm', source: 'measured', note: '' }
+    ]
+    d.rules = 'PETG'
+    d.links = [{ uid: 'l1', url: 'https://example.com', note: '' }]
+    d.pdfs = [{ uid: 'p1', path: '/p/a b.pdf', file: 'a b.pdf', note: 'n' }]
+    expect(previewDraft(d)).toMatchObject({ sizes: [{ what: 'tray', value: '10', unit: 'mm', source: 'a guess' }], rules: 'PETG', links: [{ url: 'https://example.com', note: '' }], pdfs: [{ file: 'reference/a_b.pdf', note: 'n' }] })
   })
 })

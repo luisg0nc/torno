@@ -532,23 +532,32 @@ failed) nothing is picked, and the pointer says why.
 "New project" starts one from what you have. It is at the foot of the list of projects, in the header of the page
 of projects and in its empty state: a folder with no project in it leads with "Make your first project", "New project" and,
 where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
-such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page asks for a name and "What is it?" (what it is for, what it must fit or
-hold, sizes you know, how it will be made), and then for what you have, each with a note for Claude:
+such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
+"What are we making?": "What is it?" (what it is for, what it must fit or hold, how it will be made) and the photos, each with a note for Claude. Under them is a
+tile for each other thing you have: "Sketch it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
+becomes its cards or rows once something is in it, and "Add another" (or "+ add a size") adds more. Files can be dropped anywhere on the page: a picture becomes a
+photo, `.step` and `.stp` a bought part, `.pdf` a PDF, and a scan format a scan. An image pasted with `Ctrl+V` is taken as a dropped one is (only a file on the
+disk can be: a copied file is, a screenshot has none, and the page says so). `S` opens a sketch. At the right of the page,
+"What Claude gets first" shows the first prompt as it will be sent, and under it are "Claude Code on" (the model and effort), "Start: make the project and ask Claude" and "Or make it without starting Claude".
+Each slot is:
 
 - **Photos** ("Add photos…", or dropped on the page): PNG, JPEG or WebP, at most 12, 25 MB each and 50 megapixels
   (a larger picture is refused with a reason on the card, before it is decoded). HEIC, the iPhone's default, is
   not read: set the phone to Most compatible, or export as JPEG. Claude gets each one attached to its first prompt, after a line naming it ("Picture 1: reference/photo-1.jpg"),
   scaled to 1280 px on its long edge; the original is copied to `reference/photo-<n>.<ext>` in the project.
-- **Doodles** ("Draw…"): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
+- **Sketches** ("Sketch it", or `S`): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
   over a light grid (1 square = 40 px of the board, no scale, and the prompt says so), whichever theme you drew it in, and `reference/` keeps it.
-- **Bought parts** ("Add a bought part…", or dropped): a vendor's STEP file (`.step` or `.stp`) of a screw, a bearing, a
+- **Bought parts** ("Bought parts", or dropped): a vendor's STEP file (`.step` or `.stp`) of a screw, a bearing, a
   board, a motor; up to 4, 50 MB each (a larger file is refused, and is never read whole). The file is copied as it is into `reference/` under its own name
   (made safe for a file name; `608zz.step`, or `608zz-2.step` if two have the name), and the prompt names it and tells Claude to read it in the
   model with `import_step` and return it among `references(p)` (see "Bought parts" under the model), not as a part to print. torno reads
   nothing of it itself.
-- **Scans** ("Add a scan…", or dropped): up to 4. They are imported into the project as "Import scan…" does, not
+- **Scans** ("Scans", or dropped): up to 4. They are imported into the project as "Import scan…" does, not
   copied and not aligned; Claude is told each scan's file name and id, and that it is not aligned (you align it in
   torno); `brief.md` keeps the path it came from, with `~` for your home folder.
+- **Sizes I know**: up to 40 rows, each with what it measures (200 characters at most), a value kept as you typed it (60 characters: one number, `a × b` or `a × b × c`, with `Ø` or `R` in front; anything else is kept as text and Claude is told it is not read as numbers), a unit (`mm`, or `°`), where it came from (`measured`, `from a manual or datasheet` or `a guess`) and a note. A row that is not whole holds "Start" back until it is finished or removed. Claude is told each as given, and asks only for the sizes still missing.
+- **Links and PDFs**: up to 20 links (an `http` or `https` address of 2,000 characters at most, with a note of 300) and up to 6 PDFs of 25 MB each ("Add a PDF…", or dropped). torno opens no link and reads no PDF: Claude is told them, and reads them with its own tools if it helps. A PDF is copied into `reference/`.
+- **Rules**: free text of up to 4,000 characters (the printer, the material, the least wall), given to Claude as written.
 - **Other projects** (a menu of the projects of the workspace): up to 8. Claude is told to look in `../<name>/` and
   gets the project's summary (its parts and box, with whether the kernel says it is exact; "not built in this run"
   if it has not been built) and its thumbnail.
@@ -565,35 +574,35 @@ standard library), since a model's folder leads the import path and its file wou
 place; also Python keywords, the workspace's own `common`, `tests`, `out` and `docs`, `tools`, `reference`, and a
 name whose model file would be taken for a test (`test_*`, `*_test`). The page says why while you type.
 
-"Create" writes one new folder in the workspace and nothing else: `<name>/<module>.py` (a placeholder, a 20 mm
-cube, to be replaced), `brief.md` (your words and a line for each reference with its note) and `reference/`. The
+"Start" (or "Or make it without starting Claude") writes one new folder in the workspace and nothing else: `<name>/<module>.py` (a placeholder, a 20 mm
+cube, to be replaced), `brief.md` (your words and a line for each reference with its note) and `reference/`, and the project's board with what you gave in frames
+(Brief, Photos, Sketches, Sizes, Rules, Links, Bought parts, PDFs); the sizes, rules and links live on the board and in the first prompt, not in `brief.md`. The
 `.torno/` folder is made as for any project. It is made in a hidden temporary folder beside it and renamed into
 place as the last step, so it is whole or not there, and it never goes into or over a folder that exists (an
 empty one of that name is used). A temporary folder a crash left is swept away at the next opening of the
 workspace once it is ten minutes old, unless it holds files in `reference/` (your doodles and STEP files may be nowhere else):
-such a leftover, a hidden `.<name>.torno-new-<hex>` folder in the workspace, is yours to look at and delete. Then torno opens the project, imports the scans, starts Claude Code in a
-chat and sends one prompt with everything. The prompt asks Claude to list the sizes that decide fit or function and
+such a leftover, a hidden `.<name>.torno-new-<hex>` folder in the workspace, is yours to look at and delete. Then torno opens the project on its board, imports the scans, starts Claude Code in a
+chat and sends one prompt with everything. "Or make it without starting Claude" stops after opening the project: no session starts and the scans are not imported yet. The prompt asks Claude to list the sizes that decide fit or function and
 say where each comes from (your words, a note, a scan, another project, or nowhere), and to ask you for those that come
 from nowhere in one round (a card in the chat, at most four questions, each with a typical value among its options;
 "build with assumptions" is an answer) before it builds. What it builds without an answer is marked "assumed" in the
 model, and its reply lists those. If Claude Code cannot start (the command is not found, or the
 trust question stands, or the CLI starts and leaves at once because it is signed out or too old), the project is made
 and open anyway: the pane says why and the text of the prompt waits in the message box for you to send. Where
-torno already knows Claude Code is not found or not signed in, the page says so above "Create", before the folder is made. The
+torno already knows Claude Code is not found or not signed in, the page says so above "Start", before the folder is made. The
 pictures are not sent then: the text says each is "not attached" and names the file in `reference/` (and the
 `.torno/thumb.png` of another project) for Claude to read. If the project was made but the workspace does not list it,
-the scans were not imported, and the page says so and where the folder is. While "Creating…" shows, `Esc`, Cancel
-and Discard do nothing.
+the scans were not imported, and the page says so and where the folder is. While "Starting…" or "Making…" shows, `Esc` and Discard do nothing.
 
 While the page is up the window is about the project being made: no project of the list is selected (the "New project" button is pressed), the Marks
-panel gives way, and the status line says "New project" with the build123d version alone. The session pane says
-the first prompt Claude Code will get once you create the project, as it will be sent and read-only, filled in as you go:
-your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and doodle, with "attached"
-or "named only" (only the first 6 pictures go with the prompt). Change the words on the left; the prompt follows. A session of the project that was open that is
+panel gives way, and the status line says "New project" with the build123d version alone. The page shows
+the first prompt Claude Code will get, as it will be sent and read-only, filled in as you go:
+your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and sketch, with "attached"
+or "named only" (only the first 6 pictures go with the prompt). The session pane points to it. A session of the project that was open that is
 still running stays as it is, a question waiting in it included, under a note saying whose it is: it goes on, and
-the new project gets its own. Cancel or `Esc` brings everything back as it was.
+the new project gets its own. Discard or `Esc` brings everything back as it was.
 
-Beside "Create", "Claude Code on" picks the model and the effort the new project's session starts on. Both start
+Above "Start", "Claude Code on" picks the model and the effort the new project's session starts on. Both start
 at "Your default", which passes nothing: Claude Code goes by your own settings. A choice holds for that session
 alone (torno starts the CLI with `--model` and `--effort`) and is never written to your settings; the page keeps
 it for the next project you make in this window. The models are the ones Claude Code offered in the last chat
@@ -611,7 +620,7 @@ the doodle stays as it was drawn.
 What you have entered is a draft, kept while the window lives: you can leave the page, open another project and
 come back. `Esc` on the page leaves it, asking first when something is in it; so does leaving the workspace, and so
 does closing the window ("A new project is set up here and not made yet"). Nothing of the draft is written until
-"Create".
+"Start".
 
 ## The agent
 
@@ -1923,6 +1932,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Page of projects | `Enter` | In the filter: open the first card |
 | Page of projects | `Down` | In the filter: down to the cards |
 | New project | `Esc` | Leave the page, asking first when something is in it; on the doodle board, put the board away |
+| New project | `S` | Sketch: open the doodle board (not heard in a field) |
 | Session | `Shift+Enter` | A new line in the prompt, not a send |
 | Session | `Ctrl+Shift+C` | Copy what is selected in the terminal |
 | Session | `Ctrl+Shift+V` | Paste into the terminal |

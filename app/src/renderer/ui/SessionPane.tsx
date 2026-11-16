@@ -13,7 +13,6 @@ import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
 import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
-import { DraftPaneLive } from './onboard/DraftPane'
 import { clearDrafts, holdDraft } from './chat/Composer'
 import { effortsOf } from '../../shared/chat'
 import { EffortMenu } from './chat/EffortMenu'
@@ -877,7 +876,9 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         {promptsOpen && objectId && !drafting && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
         {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} />}
         {drafting ? (
-          <DraftPaneLive />
+          <p className="panel-note" data-draft-note="">
+            The first prompt is on the page of the new project, beside the slots.
+          </p>
         ) : !objectId ? (
           <p className="panel-note">Claude Code works here, one session per project. Make or open a project to start.</p>
         ) : (

@@ -411,13 +411,13 @@ test('the empty workspace and the page of a new object say what is missing, and 
     await gone.waitForSelector('[data-region="left"]')
     const block = gone.locator('.show-empty .ready')
     await expect(block.locator('.ready-line[data-line="claude"]')).toContainText('Not found on PATH')
-    // The page of a new object has the line above Create, and says what that means for the object.
+    // The page of a new object has the line above Start, and says what that means for the object.
     await gone.locator('.show-empty').getByRole('button', { name: 'New project' }).click()
     const foot = gone.locator('.new-foot .ready[data-variant="missing"]')
     await expect(foot.locator('.ready-line[data-line="claude"]')).toHaveAttribute('data-tone', 'fail')
     await expect(foot).toContainText('The project will be made, but Claude Code cannot start in it until this is put right.')
-    // Above Create, not under it.
-    expect(await foot.evaluate((el) => !!(el.compareDocumentPosition(document.querySelector('.new-actions')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
+    // Above Start, not under it.
+    expect(await foot.evaluate((el) => !!(el.compareDocumentPosition(document.querySelector('.new-start')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
 
     // With Claude Code found the new object's page has no such block.
     const fine = await ok.firstWindow()

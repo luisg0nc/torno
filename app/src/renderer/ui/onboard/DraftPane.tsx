@@ -41,7 +41,8 @@ export interface PaneThumb {
 export function DraftPane({ preview, words, thumbs }: { preview: PromptPreview | null; words: string[]; thumbs: PaneThumb[] }) {
   return (
     <div className="draft-pane" role="note">
-      <p className="draft-pane-lead">Claude Code starts with this once you create the project.</p>
+      <h3 className="draft-pane-lead">What Claude gets first</h3>
+      <p className="draft-pane-sub">Written from the board, updates as you add.</p>
       {preview === null ? (
         <p className="draft-pane-none">Reading the prompt…</p>
       ) : (
@@ -64,13 +65,23 @@ export function DraftPane({ preview, words, thumbs }: { preview: PromptPreview |
           ))}
         </ul>
       )}
-      <p className="draft-pane-foot">Change the words on the left; this follows.</p>
     </div>
   )
 }
 
 /** The person's own words in a draft, which the prompt carries as they were written. */
-export const wordsOf = (d: Draft): string[] => [d.description, ...d.photos.map((p) => p.note), ...d.doodles.map((x) => x.note), ...d.steps.map((s) => s.note), ...d.scans.map((s) => s.note), ...d.objects.map((o) => o.note)]
+export const wordsOf = (d: Draft): string[] => [
+  d.description,
+  d.rules,
+  ...d.photos.map((p) => p.note),
+  ...d.doodles.map((x) => x.note),
+  ...d.steps.map((s) => s.note),
+  ...d.scans.map((s) => s.note),
+  ...d.objects.map((o) => o.note),
+  ...d.sizes.flatMap((s) => [s.what, s.note]),
+  ...d.links.flatMap((l) => [l.url, l.note]),
+  ...d.pdfs.map((p) => p.note)
+]
 
 /** The same, of the draft being made: asked of main again 300 ms after each change. */
 export function DraftPaneLive() {

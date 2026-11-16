@@ -313,3 +313,10 @@ it('says what every tool does and waits for in plain sentences, with no key writ
   expect([stepOf('select'), stepOf('pin'), stepOf('measure'), stepOf('measure', 'second')]).toEqual([null, 'Pin: click the part, then write a note', TOOL_KEYS[1].next, 'Measure: click the second end'])
   expect(SCAN_TOOLS).toEqual(['region', 'align'])
 })
+
+it('has a key for the sketch of a new project, in its own scope, with no clash with the shape tool', () => {
+  const row = KEYS.find((r) => r.id === 'new.sketch')
+  expect(row).toMatchObject({ keys: ['S'], scope: 'newobject', context: 'New project' })
+  expect(keyClashes()).toEqual([])
+  expect(hint('new.sketch')).toBe('S')
+})

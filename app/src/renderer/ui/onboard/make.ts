@@ -1,6 +1,6 @@
 import type { CreateRequest, OnboardDraft, Onboarded, PromptPreviewDraft } from '../../../shared/bridge'
 import type { AgentChoice } from '../../../shared/chat'
-import type { Draft, Held } from '../../state/onboard'
+import { sizeFact, sizeProblem, type Draft, type Held } from '../../state/onboard'
 import { PDF_FORMATS, referenceFiles as namedReferences, stepFiles } from '../../../shared/objectName'
 import { extensionOf } from './images'
 
@@ -67,6 +67,15 @@ export function pdfReferences(pdfs: CreateRequest['pdfs']): OnboardDraft['pdfs']
   return pdfs.map((p, n) => ({ file: files[n], note: p.note }))
 }
 
+/** The sizes of the draft that are whole, as main takes them. */
+const wholeSizes = (draft: Draft): CreateRequest['sizes'] => draft.sizes.flatMap((s) => sizeFact(s) ?? [])
+
+/** The links of a draft, as main takes them. */
+const linksOf = (draft: Draft): CreateRequest['links'] => draft.links.map((l) => ({ url: l.url, note: l.note }))
+
+/** The PDFs of a draft, by the path they are at. */
+const pdfsOf = (draft: Draft): CreateRequest['pdfs'] => draft.pdfs.map((p) => ({ path: p.path, note: p.note }))
+
 /** The draft as `objects.previewPrompt` takes it: no picture, only whether there is one. */
 export function previewDraft(draft: Draft): PromptPreviewDraft {
   return {
@@ -75,11 +84,11 @@ export function previewDraft(draft: Draft): PromptPreviewDraft {
     steps: stepReferences(draft),
     scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
     objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),
-    // The draft has no sizes, rules, links or PDFs yet.
-    sizes: [],
-    rules: '',
-    links: [],
-    pdfs: []
+    // A row that is not whole yet is left out of the preview, as main leaves it: the page is still being filled.
+    sizes: wholeSizes(draft),
+    rules: draft.rules,
+    links: linksOf(draft),
+    pdfs: pdfReferences(pdfsOf(draft))
   }
 }
 
@@ -93,11 +102,15 @@ const WAS_MADE = /^\S+ was made, but /
  * chosen for its session (`choice`: empty for the person's defaults). A second call while one
  * runs does nothing. The draft is spent as soon as the folder exists, never before: a refusal leaves the page as it was.
  */
-export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoice = {}): Promise<Outcome> {
+export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoice = {}, start = true): Promise<Outcome> {
   if (running) return { kind: 'busy' }
   running = true
   try {
     const description = draft.description.trim()
+    for (const size of draft.sizes) {
+      const wrong = sizeProblem(size)
+      if (wrong !== null) return { kind: 'refused', message: wrong }
+    }
     const request: CreateRequest = {
       name: draft.name,
       description,
@@ -109,11 +122,10 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
       steps: draft.steps.map((s) => ({ path: s.path, note: s.note })),
       scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
       objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),
-      // The draft has no sizes, rules, links or PDFs yet.
-      sizes: [],
-      rules: '',
-      links: [],
-      pdfs: []
+      sizes: wholeSizes(draft),
+      rules: draft.rules,
+      links: linksOf(draft),
+      pdfs: pdfsOf(draft)
     }
     // What `onboard` names is what `create` wrote: photo-<n> with the extension of the file, doodle-<n>.png.
     const items = referenceFiles(draft)
@@ -143,6 +155,8 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
     if (!deps.sameWorkspace()) return { kind: 'made', objectId, message: `${objectId} was made, but the workspace was left before it could be opened.`, opened: false }
     let shown = true
     await deps.open(objectId).catch(() => void (shown = false))
+    // "Make it without starting Claude": the project is made and open, and nothing is asked of an agent.
+    if (!start) return { kind: 'done', objectId, ...(shown ? {} : { shown: false as const }) }
     let told: Onboarded
     try {
       told = await deps.onboard(objectId, { description, items, steps: stepReferences(draft), scans: request.scans, objects: request.objects, sizes: request.sizes, rules: request.rules, links: request.links, pdfs: pdfReferences(request.pdfs), ...(choice.model || choice.effort ? { choice } : {}) })
