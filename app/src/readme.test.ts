@@ -88,6 +88,7 @@ it('is laid out for a first-time reader: what it is, how to start it, a walk-thr
     '## Section',
     '## Scans',
     '## Explode and saved views',
+    '## The board',
     '## The page of projects',
     '## Export',
     '## Keys',

@@ -1,4 +1,5 @@
 import type { AskAnswer, OpenAsk } from './ask'
+import type { BoardAttach, BoardFile, BoardOpen, PersonChange, PinWhat } from './board'
 import type { BuildState } from './build'
 import type { TurnChanges } from './changes'
 import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode, PromptRow } from './chat'
@@ -179,6 +180,31 @@ export interface TornoBridge {
     dismissProblem(objectId: string): Promise<void>
   }
   /** Making a new object by onboarding. Calls reject with a plain message. */
+  /** The board of a project (`<project>/.torno/board/`): main is its only writer, and it never takes an id, an author or `hidden` from the window. */
+  board: {
+    read(objectId: string): Promise<BoardFile>
+    /** A change the person made. Answers with the board as it now is; rejects, changing nothing, with why not. A card the window adds is the person's whatever it says. */
+    change(objectId: string, change: PersonChange): Promise<BoardFile>
+    /** The bytes of a picture or sketch of the board; null when there is none of that name. */
+    picture(objectId: string, name: string): Promise<Uint8Array | null>
+    /** The text of the project's `brief.md`, as far as a card shows it; null when there is none. */
+    brief(objectId: string): Promise<string | null>
+    /** A photo or doodle of `reference/` by the name its card has (`reference/photo-1.jpg`); null for any other file. */
+    reference(objectId: string, file: string): Promise<{ mediaType: string; bytes: Uint8Array } | null>
+    /** Keeps a PNG or JPEG the person gave (at most 3.75 MB and 2000 px) and answers with the name a card is to hold. Rejects for anything else. */
+    addPicture(objectId: string, bytes: Uint8Array): Promise<string>
+    /** Pins a build of the history, a saved view, the Params or the checks. Answers with the board, or why it was not pinned. */
+    pin(objectId: string, what: PinWhat): Promise<BoardFile | { refused: string }>
+    /** Opens the project's `brief.md` in the person's own program, or shows a file of its `reference/` in its folder. Rejects with why not. */
+    open(objectId: string, what: BoardOpen): Promise<void>
+    /** The board of a project changed, whoever changed it: the whole board as it now is. */
+    onChanged(cb: (m: { objectId: string; board: BoardFile }) => void): () => void
+    /** What main found wrong with a project's board file (not readable, cards left out, not a plain file): told once as it happens. */
+    onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
+    /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
+    problem(objectId: string): Promise<string | null>
+    dismissProblem(objectId: string): Promise<void>
+  }
   objects: {
     /** The photo dialog (several images); under test, what `__tornoMain.pickPhotos` holds. [] when cancelled. */
     pickPhotos(): Promise<string[]>
@@ -370,10 +396,11 @@ export interface TornoBridge {
     onCapabilities(cb: (m: { sessionId: string; commands: ChatCommand[]; models: ChatModel[]; seq: number }) => void): () => void
     /**
      * Sends a prompt; with `attachedView`, main adds that picture (the one "Attach view" showed, checked as any picture for the agent) and no other; with `attachView` alone, a picture of the viewport as it is now; with `drawing`,
-     * the person's drawing on the view, after a caption main writes. Rejects, sending nothing, when a picture cannot be
-     * made or the drawing is not one.
+     * the person's drawing on the view, after a caption main writes; with `board`, the cards and frames it names (or all
+     * the board), read as they are now and told in text with up to six of their pictures. Rejects, sending nothing, when a picture cannot be
+     * made, the drawing is not one or the board cannot be read.
      */
-    send(sessionId: string, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing }): Promise<void>
+    send(sessionId: string, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing; board?: BoardAttach }): Promise<void>
     /** Answers a request of the agent's. The tool runs with the input it asked with; only the answers of `AskUserQuestion` are taken from the window. */
     answer(sessionId: string, requestId: string, answer: ChatAnswer): void
     interrupt(sessionId: string): Promise<void>

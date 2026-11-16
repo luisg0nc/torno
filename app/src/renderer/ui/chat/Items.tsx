@@ -9,6 +9,7 @@ import { BuildLine } from './BuildLine'
 import { Markdown } from './markdown'
 import { YOUR_MESSAGE } from './gone'
 import { DrawnOverLine } from './DrawnOver'
+import { boardCountsSaid, boardSentSaid } from './boardLine'
 import { Pictures } from './Pictures'
 import { RefChip } from './RefChip'
 import { useChatOffers } from './offers'
@@ -76,6 +77,11 @@ const Added = memo(function Added({ item }: { item: Of<'context'> }) {
             <span className="num">{item.instructions}</span> instruction {item.instructions === 1 ? 'file' : 'files'}
           </span>
         )}
+        {item.board && boardCountsSaid(item.board) !== null && (
+          <span className="chat-added-board" data-part="board" title="What the board line of this prompt said: how many cards the board has, and how many are new to Claude">
+            {numbered(boardCountsSaid(item.board)!)}
+          </span>
+        )}
         <button type="button" className="chat-more" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? 'Hide text' : 'Show text'}
         </button>
@@ -93,6 +99,11 @@ const User = memo(function User({ item }: { item: Of<'user'> }) {
       {item.drawing && (
         <p className="chat-user-drawing">
           <DrawnOverLine drawn={item.drawing} />
+        </p>
+      )}
+      {item.board && (
+        <p className="chat-user-board" data-part="board" title="The part of the board that went with this prompt">
+          {numbered(boardSentSaid(item.board))}
         </p>
       )}
       {item.state === 'queued' && <p className="chat-user-state">Queued</p>}

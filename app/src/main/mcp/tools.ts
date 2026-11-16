@@ -40,9 +40,13 @@ import { addMarkTool, checkRef, highlightTool, resolveMarkTool } from './markToo
 import { type FeaturesToolArgs, featuresTool } from './featureTools'
 import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type SectionToolArgs, type TryFilletToolArgs, type TryParamsToolArgs, checkTool, diffTool, historyTool, measureTool, sectionTool, tryFilletTool, tryParamsTool } from './readTools'
 import { type ScanClashArgs, type ScanDeviationArgs, type ScansArgs, scanClashTool, scanDeviationTool, scansTool } from './scanTools'
-import { type AddMarkArgs, type AskArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
+import { type AddCardArgs, type AddMarkArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
+import { addCardTool, boardTool } from './boardTools'
 import { type SceneArgs, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 import type { Profile } from '../../shared/profile'
+import type { AgentChange, BoardFile } from '../../shared/board'
+import type { AgentResult } from '../board/store'
+import type { LiveFacts } from '../board/text'
 
 /** What the tools need of torno. All of it is about objects of the open workspace, by id. */
 export interface ToolDeps {
@@ -134,6 +138,15 @@ export interface ToolDeps {
   saveView(objectId: string, req: SaveViewRequest): Promise<SaveViewResult>
   /** What the agent expects of its next edit (`expect`), held in memory. Without it the tool says it is not available. */
   expectations?: Expectations
+  /** The board of a project (`main/board/store.ts`): what `board` reads and `add_card` changes, and what the cards that show something of the project say. Without it those tools say they are not available. */
+  board?: {
+    read(objectId: string): Promise<BoardFile>
+    /** Rejects with a `Refusal` whose message is for the agent: nothing was changed. */
+    agent(objectId: string, change: AgentChange): Promise<AgentResult>
+    live(objectId: string): Promise<LiveFacts>
+  }
+  /** A picture scaled down to a long edge of at most `edge` px, as a PNG: the pictures of the board are sent at 1280. Without it they are sent as they are kept. */
+  scale?(bytes: Uint8Array, edge: number): Promise<Uint8Array>
 }
 
 type Block = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
@@ -214,6 +227,8 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<TryFilletToolArgs>('try_fillet', (args) => tryFilletTool(deps, objectId, args))
   tool<FeaturesToolArgs>('features', (args) => featuresTool(deps, objectId, args))
   tool<TryParamsToolArgs>('try_params', (args) => tryParamsTool(deps, objectId, args))
+  tool<BoardArgs>('board', (args) => boardTool(deps, objectId, args))
+  tool<AddCardArgs>('add_card', (args) => addCardTool(deps, objectId, args))
   tool<ScansArgs>('scans', (args) => scansTool(deps, objectId, args))
   tool<ScanClashArgs>('scan_clash', (args) => scanClashTool(deps, objectId, args))
   tool<ScanDeviationArgs>('scan_deviation', (args) => scanDeviationTool(deps, objectId, args))

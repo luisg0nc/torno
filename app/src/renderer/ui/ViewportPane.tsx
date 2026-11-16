@@ -14,6 +14,7 @@ import { newCut } from '../../shared/cut'
 import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
 import { isLive } from '../state/compare'
+import { useBoard } from '../state/board'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
 import { pointerMoved } from '../state/step'
@@ -538,6 +539,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     }
     window.__tornoTest = {
       state: () => store.getState(),
+      paused: () => viewport.paused,
       look: (req) => picture(req),
       camera: () => viewport.getCamera(),
       peeked: () => agentStore.getState().peek,
@@ -683,6 +685,11 @@ export function ViewportPane() {
   const build = useStore((s) => s.build)
   // Under the page of objects or of a new object the view stays as it is, and takes neither the pointer nor the keys.
   const covered = useStore((s) => s.page !== 'object')
+  // The board shown in its place: the view stays mounted, so nothing is built again on the swap, but it draws nothing meanwhile.
+  const boardShown = useBoard((s) => s.shown === 'board')
+  useEffect(() => {
+    if (viewport) viewport.paused = boardShown
+  }, [viewport, boardShown])
 
   useEffect(() => {
     // A canvas of its own for each viewport: a WebGL context is not handed on.
@@ -724,7 +731,7 @@ export function ViewportPane() {
   const hasDetails = Boolean(error?.traceback?.trim() || error?.output?.trim())
 
   return (
-    <div className="viewport-pane" inert={covered}>
+    <div className="viewport-pane" inert={covered || boardShown} hidden={boardShown}>
       {/* Always laid out, so the camera is fitted to its real shape; what is said below covers it. */}
       <div className="viewport-canvas" ref={host} />
       {viewport && hasScene && (

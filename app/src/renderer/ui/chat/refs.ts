@@ -1,16 +1,17 @@
+import type { BoardFile, Card } from '../../../shared/board'
 import { markAnchors } from '../../../shared/marks'
 import { splitTagRef, tagRefs } from '../../../shared/tags'
 import { layerOf, type TornoState } from '../../state/store'
 
 /** What a ref shown in the chat is, and what the window can do with it. */
 export interface RefInfo {
-  kind: 'mark' | 'build' | 'geometry' | 'none'
+  kind: 'mark' | 'build' | 'geometry' | 'card' | 'none'
   /** Whether it names something in the window now: only such a chip lights, and answers a click. */
   live: boolean
   /** The refs of the layout shown to light in the viewport while the pointer is on the chip. */
   lights: string[]
   /** What a click does: go to the mark, select the face or edge, or open the sheet of the failed build. */
-  act?: 'focus' | 'select' | 'build'
+  act?: 'focus' | 'select' | 'build' | 'card'
   /** For a mark, who made it: its chip is in its colour. */
   author?: 'user' | 'agent'
   /** The tooltip: what it is, or why it does nothing. */
@@ -23,7 +24,26 @@ const NOTE_WORDS = 80
 
 /** What a ref (`M4`, `r12`, `lid/F12`, `lid/E3`) is among what the window shows now. */
 /** The parts of the state a ref depends on: the rest of it (the selection, the camera) cannot change what a chip says. */
-export type RefState = Pick<TornoState, 'marks' | 'scene' | 'layers' | 'layout' | 'revision' | 'build'>
+export type RefState = Pick<TornoState, 'marks' | 'scene' | 'layers' | 'layout' | 'revision' | 'build'> & {
+  /** The board of the project as the window has it (`state/board.ts`): without it, a `C7` is only text. */
+  board?: BoardFile | null
+}
+
+/** What names a card in a tooltip: its words when it has them, else what it shows. */
+function cardSaid(card: Card): string {
+  const words = (text: string | undefined): string => (text ?? '').replace(/\s+/g, ' ').trim().slice(0, NOTE_WORDS)
+  switch (card.kind) {
+    case 'text':
+      return words(card.text) || 'text'
+    case 'frame':
+      return `frame ${words(card.name)}`.trim()
+    case 'picture':
+    case 'sketch':
+      return [card.kind, words(card.caption)].filter(Boolean).join(', ')
+    default:
+      return [card.kind === 'reference' ? 'reference' : card.kind, card.source ?? ''].filter(Boolean).join(' ')
+  }
+}
 
 export function refInfo(s: RefState, value: string): RefInfo {
   if (/^M\d+$/.test(value)) {
@@ -36,6 +56,12 @@ export function refInfo(s: RefState, value: string): RefInfo {
     const lights = mark.layout === s.layout ? markAnchors(mark).flatMap((a) => (a.ref ? [a.ref] : [])).slice(0, 2) : []
     const note = mark.note.length > NOTE_WORDS ? `${mark.note.slice(0, NOTE_WORDS)}…` : mark.note
     return { kind: 'mark', live: true, lights, plain: false, act: 'focus', author: mark.author, title: note === '' ? `Go to ${value}` : `${value}: ${note}` }
+  }
+  if (/^C\d+$/.test(value)) {
+    const card = s.board?.cards.find((c) => c.id === value)
+    if (!card) return { kind: 'card', live: false, lights: [], plain: true, title: `${value} is not on the board of this project` }
+    if (card.hidden) return { kind: 'card', live: false, lights: [], plain: false, title: `${value} is hidden on the board: show it again from "Hidden cards"` }
+    return { kind: 'card', live: true, lights: [], plain: false, act: 'card', title: `${value}: ${cardSaid(card)}` }
   }
   if (/^r\d+$/.test(value)) {
     const n = Number(value.slice(1))

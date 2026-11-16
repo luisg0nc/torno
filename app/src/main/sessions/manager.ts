@@ -10,7 +10,9 @@ import type { BuildIdentity } from '../../shared/git'
 import type { BuildTurn } from '../../shared/history'
 import { modelsOf } from './models'
 import { type BuildState, errorLine, failedAfter } from '../../shared/build'
+import type { BoardAttach, BoardSent } from '../../shared/board'
 import { type DrawnOver, type ViewDrawing, drawnOver } from '../../shared/drawing'
+import type { BoardAttachment } from '../board/attach'
 import type { Scene } from '../../shared/scene'
 import type { ObjectInfo } from '../../shared/workspace'
 import { FOLDER } from '../own'
@@ -258,6 +260,15 @@ export interface StartOptions extends AgentChoice {
   skills?: false
 }
 
+/** What a chat prompt may carry besides its words: the view as it is or as it was shown, the person's drawing on it, part of the board. */
+export interface SendPrompt {
+  text: string
+  attachView?: boolean
+  attachedView?: Uint8Array
+  drawing?: ViewDrawing
+  board?: BoardAttach
+}
+
 export class Sessions {
   private readonly sessions = new Map<string, Session>()
   /** The transcript of each chat session there is, and of the last one of each object that has ended. */
@@ -298,7 +309,7 @@ export class Sessions {
        * and these marks were in it. Only ever for a UserPromptSubmit of a
        * session that is still the one of its object.
        */
-      onDelivered?: (objectId: string, sentMarkIds: string[]) => void
+      onDelivered?: (objectId: string, sentMarkIds: string[], boardTold?: Record<string, string>) => void
       /** What is added to the agent's system prompt. */
       systemPromptFor: (adapter: AgentAdapter) => string
       mcpUrlFor: (objectId: string) => string
@@ -312,6 +323,8 @@ export class Sessions {
        * settings of its own. Absent: no question is asked.
        */
       trust?: Pick<Trust, 'pending' | 'accept'>
+      /** What the person attached of the board of an object (`attachBoard`): read as it is when the prompt is sent. Rejects with why not. Absent: none can be attached. */
+      attachBoard?: (objectId: string, ids: string[] | 'all') => Promise<BoardAttachment>
       /** A PNG of the viewport of an object as the person sees it now, for a prompt that attaches the view. Absent: none can be attached. */
       picture?: (obj: ObjectInfo) => Promise<Uint8Array>
       /** How the build of an object stands now. Absent: tool hooks are not read, and a Stop is never held back. */
@@ -755,14 +768,14 @@ export class Sessions {
    * A chat session: a prompt for its agent, which queues it if it is at work. Nothing for a terminal session
    * (its prompts are typed: `write`) or one that has ended or been told to.
    */
-  prompt(sessionId: string, content: PromptBlock[], drawing?: DrawnOver): void {
+  prompt(sessionId: string, content: PromptBlock[], drawing?: DrawnOver, board?: BoardSent): void {
     const s = this.chat(sessionId, 'prompt')
     if (!s?.agent || !s.chat) return
     // It waits when the agent is at work, or has been sent a prompt it has not taken up yet (its hook has not moved the status).
     const queued = s.status === 'working' || s.status === 'needs_input' || s.chat.transcript.untakenCount() > 0
     // Its own id: the CLI says in `command_lifecycle` when it queues, begins and ends the prompt it names.
     const uuid = randomUUID()
-    s.chat.transcript.userSent(content, queued, uuid, drawing)
+    s.chat.transcript.userSent(content, queued, uuid, drawing, board)
     s.agent.prompt(content, s.conversationId, uuid)
   }
 
@@ -790,10 +803,10 @@ export class Sessions {
 
   /**
    * A chat session: what the person typed, then the person's drawing on the view after its caption when `drawing`,
-   * then the picture of the view the person was shown when `attachedView` (checked here), or else a picture of the viewport as it is now when `attachView` (made through the window: `deps.picture`). Rejects,
+   * then the part of the board the person attached when `board` (its text, then its pictures; read now), then the picture of the view the person was shown when `attachedView` (checked here), or else a picture of the viewport as it is now when `attachView` (made through the window: `deps.picture`). Rejects,
    * sending nothing, when the picture cannot be made, the drawing is of another object, or the session has ended.
    */
-  async send(sessionId: string, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing }): Promise<void> {
+  async send(sessionId: string, prompt: SendPrompt): Promise<void> {
     const s = this.chat(sessionId, 'send')
     if (!s?.agent) throw new Error('This session has ended')
     // One after another: a prompt that waits for its picture is not overtaken by the one sent after it.
@@ -806,10 +819,19 @@ export class Sessions {
     return mine
   }
 
-  private async sendOne(sessionId: string, s: Session, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing }): Promise<void> {
+  private async sendOne(sessionId: string, s: Session, prompt: SendPrompt): Promise<void> {
     const content: PromptBlock[] = []
     let over: DrawnOver | undefined
+    let boarded: BoardSent | undefined
     if (prompt.text !== '') content.push({ type: 'text', text: prompt.text })
+    if (prompt.board) {
+      // The part of the board the person chose, as it is now: its words, then up to six of its pictures.
+      if (!this.deps.attachBoard) throw new Error('No board can be attached here')
+      const attached = await this.deps.attachBoard(s.object.id, prompt.board.ids)
+      content.push({ type: 'text', text: attached.text })
+      for (const picture of attached.pictures) content.push({ type: 'image', source: { type: 'base64', media_type: picture.mediaType, data: Buffer.from(picture.bytes).toString('base64') } })
+      boarded = attached.sent
+    }
     if (prompt.drawing) {
       // Drawn on the view of this session's object, or not sent.
       if (prompt.drawing.objectId !== s.object.id) throw new Error(`The drawing is of ${prompt.drawing.objectId}, not of ${s.object.id}`)
@@ -833,7 +855,7 @@ export class Sessions {
     if (content.length === 0) return
     // The picture took a moment, and the prompts before this one: the session may have gone meanwhile.
     if (!this.chat(sessionId, 'send')) throw new Error('This session has ended')
-    this.prompt(sessionId, content, over)
+    this.prompt(sessionId, content, over, boarded)
   }
 
   /**
@@ -1411,7 +1433,7 @@ export class Sessions {
       context = { text: '', sentMarkIds: [] }
     }
     const { text, sentMarkIds } = context
-    session.chat?.transcript.context({ text, sentMarkIds, ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
+    session.chat?.transcript.context({ text, sentMarkIds, ...(context.board ? { board: context.board } : {}), ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
     // Which prompt this turn answers, for the builds it causes: the id of the chat's `user` item (as its log holds it), else a number of main's own.
     if (turn && session.turn === turn) {
       const taken = session.chat?.transcript.taken()
@@ -1428,7 +1450,7 @@ export class Sessions {
     // up first, and not to a session that has been hung up on, whose prompt nobody will answer.
     if (text && !session.killTimer) {
       res.once('finish', () => {
-        if (sentMarkIds.length > 0) this.deps.onDelivered?.(objectId, sentMarkIds)
+        if (sentMarkIds.length > 0 || context.boardTold) this.deps.onDelivered?.(objectId, sentMarkIds, context.boardTold)
         // What was kept until the answer left (a Go back's notice) is let go now; a failure of that is not the prompt's.
         void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
       })

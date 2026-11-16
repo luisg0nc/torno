@@ -38,12 +38,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   there, and adds nothing against a line the person negated (`!thumb.png`). The thumbnails ask it for
   `thumb.png` and `thumb.json`, the state file for `state.md`, a conversation put on file for `session.json`,
   a chat's log for `chat/`, an export for `exports/`, a picture for `views/`, the builds' record for `builds.jsonl`, the overrides of
-  `Params` for `params.json`. What is the
-  object's travels: `scene.json`, `marks.json`, `scans.json`, `profile.json`, `agent.json`.
+  `Params` for `params.json`, the board's record of what the agent was told for `board/told.json` and the
+  board's pictures for `board/pictures/` (that folder has a `.gitignore` of its own). What is the
+  object's travels: `scene.json`, `marks.json`, `scans.json`, `profile.json`, `agent.json`, `board/board.json` (the cards, frames and
+  arrows of the board; its pictures stay on the computer).
 - **`.torno` is named in one module, `src/main/own.ts`** (`FOLDER`), and every write under it goes through
   `ownTorno(dir)` first (`writeOwn` for a file written whole): a link or a file in its place is refused with a
   plain reason, nothing is written, and the person is told once for each object, in the Marks panel
-  (`onNotOwn`, wired in `index.ts`). (`.torno/views/` and `.torno/scans/` each have a `.gitignore` of their own
+  (`onNotOwn`, wired in `index.ts`). (`.torno/views/`, `.torno/scans/` and `.torno/board/pictures/` each have a `.gitignore` of their own
   inside them, written by whoever makes the folder.)
   - The folders torno keeps under it are held to the same rule by the same function, named after the folder:
     `ownTorno(dir, 'views')`, `ownTorno(dir, 'exports')`, `ownTorno(dir, 'scans', 'S1')` (`ownFolders` and

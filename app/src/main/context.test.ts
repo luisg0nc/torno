@@ -10,6 +10,12 @@ import type { ScanAlignment, ScanInfo } from '../shared/scans'
 import { probe } from '../test/diagnosisFixtures'
 import { buildContextFor, CONTEXT_LIMIT, contextFor, modelOutput, tellsInstructions, type ContextDeps } from './context'
 import { STARTER_MATERIALS, printerOf } from '../shared/profile'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import type { BoardFile } from '../shared/board'
+import { BoardStore } from './board/store'
+import { boardLine } from './board/text'
 
 const BRACKET: ObjectInfo = { id: 'bracket', name: 'bracket', dir: '/ws/bracket', model: 'bracket.py' }
 
@@ -1236,5 +1242,60 @@ describe('the print profile of a new conversation', () => {
   })
   it('is not told when the project has none', () => {
     expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { fresh: true }).text).not.toContain('Print profile')
+  })
+})
+
+describe('the board line', () => {
+  const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
+  const board: BoardFile = { next: 3, cards: [{ id: 'C1', kind: 'text', x: 0, y: 0, w: 200, h: 100, by: 'person', text: 'wall 2 mm' }], arrows: [] }
+  const live = { marks: new Map<string, Mark>() }
+  const said = boardLine(board, {}, live, (t) => `mcp__torno__${t}`)
+
+  it('follows the scans line, inside the limit', () => {
+    const scan = { id: 'S1', name: 'loom.glb', alignments: {}, checks: {} } as unknown as ScanInfo
+    const view: ViewState = { objectId: 'bracket', layout: 'print', camera: CAMERA, visible: [], scans: [{ id: 'S1', visible: true, opacity: 1, loaded: true }] }
+    const told = contextFor(deps({ build: OK, scene: SCENE, view }), 'bracket', [], { scans: [scan], board: said.line, boardTold: said.told })
+    const lines = told.text.split('\n')
+    const at = lines.indexOf('Board: 1 card (1 new: C1 text). Read it with mcp__torno__board.')
+    expect(at).toBeGreaterThan(0)
+    expect(lines[at - 1]).toMatch(/^Scans/)
+    expect(told.boardTold).toEqual(said.told)
+  })
+  it('hands back the counts the line said, as numbers, only with a line', () => {
+    expect(said.counts).toEqual({ total: 1, new: 1 })
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { board: said.line, boardTold: said.told, boardCounts: said.counts }).board).toEqual({ total: 1, new: 1 })
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { boardCounts: said.counts }).board).toBeUndefined()
+  })
+  it('says nothing of the board without one, and none while an edit is answered', () => {
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket').text).not.toContain('Board:')
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket').boardTold).toBeUndefined()
+    expect(buildContextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { board: said.line } as never).text).not.toContain('Board:')
+  })
+  it('is counted in the limit with the marks, which give way to it', () => {
+    const marks = Array.from({ length: 60 }, (_, i) => ({ id: `M${i + 1}`, kind: 'pin', author: 'user', status: 'draft', anchorState: 'ok', note: `note ${'x'.repeat(100)}`, layout: 'print', revision: 1, camera: CAMERA, createdAt: '', anchor: { point: [0, 0, 0], ref: 'base/F1' } }) as unknown as Mark)
+    const told = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', marks, { board: said.line, boardTold: said.told })
+    expect(told.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+    expect(told.text).toContain('Board: 1 card')
+  })
+  it('is new until the prompt is delivered: a prompt that never finishes leaves told.json as it was', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'torno-board-context-'))
+    try {
+      mkdirSync(join(root, 'bracket'))
+      const store = new BoardStore({ dirOf: (id) => (id === 'bracket' ? join(root, 'bracket') : undefined) })
+      const prompt = async () => {
+        const line = boardLine(board, await store.told('bracket'), live)
+        return contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { board: line.line, boardTold: line.told })
+      }
+      // The answer is composed and never handed over: nothing was kept, so the next prompt says it again.
+      const first = await prompt()
+      expect(first.text).toContain('1 new')
+      expect(await store.told('bracket')).toEqual({})
+      expect((await prompt()).text).toContain('1 new')
+      // Handed over: what it told is kept (`onDelivered`), and the next says 0 new.
+      await store.markTold('bracket', first.boardTold as Record<string, string>)
+      expect((await prompt()).text).toContain('Board: 1 card (0 new)')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

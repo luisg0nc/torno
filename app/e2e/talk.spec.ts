@@ -142,7 +142,7 @@ test('after the agent starts another conversation, the next prompt lists the ope
   await expect.poll(lastContext).toContain(squeezed('Marks still open (this conversation has not seen them): M1 pin on base/F'))
   expect(await lastContext()).not.toContain('(changed)')
   await prompt('11111111-2222-4333-8444-555555555555')
-  await expect.poll(async () => squeezed(await lastContext())).toMatch(/base,post\.Openmarks:M1$/)
+  await expect.poll(async () => squeezed(await lastContext())).toMatch(/base,post\.Board:1card[^.]*\.Readitwith[^.]*\.Openmarks:M1$/)
 })
 
 test('what is selected goes with the prompt, each ref with what the kernel says of it', async () => {
@@ -159,7 +159,7 @@ test('what is selected goes with the prompt, each ref with what the kernel says 
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).selection).toEqual([])
   await prompt()
-  await expect.poll(async () => squeezed(await lastContext())).toMatch(/base,post\.Openmarks:M1$/)
+  await expect.poll(async () => squeezed(await lastContext())).toMatch(/base,post\.Board:1card[^.]*\.Readitwith[^.]*\.Openmarks:M1$/)
 })
 
 test('on a stale build the selection cannot be put in the prompt: its refs would name other geometry', async () => {

@@ -108,3 +108,22 @@ export async function doodlePng(strokes: readonly Stroke[], grid = true): Promis
   const blob = await sheet.convertToBlob({ type: 'image/png' })
   return new Uint8Array(await blob.arrayBuffer())
 }
+
+/** The PNG of a sketch drawn on again: the earlier drawing (a PNG of the board's size) with the new strokes over it, in dark ink. */
+export async function doodlePngOver(ground: Uint8Array, strokes: readonly Stroke[]): Promise<Uint8Array> {
+  const bitmap = await createImageBitmap(new Blob([ground as BlobPart], { type: 'image/png' }))
+  try {
+    const layer = new OffscreenCanvas(BOARD.width, BOARD.height)
+    paintStrokes(layer.getContext('2d')!, strokes, { ink: PNG_INK })
+    const sheet = new OffscreenCanvas(BOARD.width, BOARD.height)
+    const ctx = sheet.getContext('2d')!
+    ctx.fillStyle = PNG_GROUND
+    ctx.fillRect(0, 0, BOARD.width, BOARD.height)
+    ctx.drawImage(bitmap, 0, 0, BOARD.width, BOARD.height)
+    ctx.drawImage(layer, 0, 0)
+    const blob = await sheet.convertToBlob({ type: 'image/png' })
+    return new Uint8Array(await blob.arrayBuffer())
+  } finally {
+    bitmap.close()
+  }
+}

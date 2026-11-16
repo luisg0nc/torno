@@ -56,6 +56,7 @@ const text = (skills: boolean): string => [
   'When you have acted on a mark and checked the result, call mcp__torno__resolve_mark with a line on what you did, except for a dimension of the user’s that has an expected value: that is their check, it passes by itself and keeps being measured, and only they resolve it (a resolved dimension is no longer measured).',
   'Before a change costly to get wrong, call mcp__torno__highlight to show the faces or edges you mean and ask "this one?".',
   'mcp__torno__add_mark leaves a mark of your own, to show where you changed something or what a question is about.',
+  "The board is the person's brief. A frame they attach says what to work on. Add a plan or a picture to it with mcp__torno__add_card when it helps them follow; never rearrange their cards.",
   'mcp__torno__show changes what the user sees (their camera, layout, visible parts and section): use it to show them something, and say that you did. To see for yourself, use look.',
   'look and show take explode (0 to 1) to draw the parts apart for display; a picture says when it is exploded, and no position, ref or number is ever of an exploded part.',
   'scene lists the views saved by name: look {"view": "Hinge side"} draws one and show {"view": "Hinge side"} puts it on the user\'s screen; they are the angles the user checks: for your look, take the one that shows the change.',

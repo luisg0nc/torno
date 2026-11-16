@@ -26,6 +26,12 @@ describe('the system prompt', () => {
     expect(TOOLS.add_mark.description).toContain('it is told to you again with every prompt for as long as it fails')
   })
 
+  it('says the board is the person\'s brief, that an attached frame says what to work on, and that cards are added with add_card and never rearranged', () => {
+    const sentence = "The board is the person's brief. A frame they attach says what to work on. Add a plan or a picture to it with mcp__torno__add_card when it helps them follow; never rearrange their cards."
+    expect(FULL_PROMPT).toContain(sentence)
+    expect(SYSTEM_PROMPT).toContain(sentence)
+  })
+
   it('names the tools as it is told to', () => {
     expect(systemPrompt((tool) => `torno.${tool}`)).toContain('torno.scene reports the build status')
     expect(systemPrompt((tool) => `torno.${tool}`)).not.toContain('mcp__torno__')
@@ -86,8 +92,8 @@ describe('the system prompt', () => {
   })
 
   it('stays short', () => {
-    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108).
-    expect(FULL_PROMPT.length).toBeLessThan(8000)
+    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board.
+    expect(FULL_PROMPT.length).toBeLessThan(8300)
   })
 
   it('says how to read the digest that comes back with an edit: numbers of the B-rep, to be held to what was meant', () => {
@@ -141,7 +147,7 @@ describe("Claude Code's prompt, with the skills", () => {
 
   it('is the whole text without the scans and the dimensions, noticeably shorter', () => {
     expect(systemPrompt((tool) => `mcp__torno__${tool}`, true)).toBe(SYSTEM_PROMPT)
-    expect(SYSTEM_PROMPT.length).toBeLessThan(7000)
+    expect(SYSTEM_PROMPT.length).toBeLessThan(7300)
     expect(FULL_PROMPT.length - SYSTEM_PROMPT.length).toBeGreaterThan(1000)
     for (const sentence of [...SCANS_TEXT, ...DIMENSIONS_TEXT]) {
       expect(FULL_PROMPT).toContain(sentence)

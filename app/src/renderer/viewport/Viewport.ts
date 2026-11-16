@@ -1451,9 +1451,30 @@ export class Viewport {
 
   // ---- drawing ----
 
+  /**
+   * Whether the view is covered by the board (`ViewportPane`): no frame is asked for while it is, and the one asked for
+   * is let go. What changed meanwhile is drawn in the one frame that is asked for when it is shown again.
+   */
+  private held = false
+
+  get paused(): boolean {
+    return this.held
+  }
+
+  set paused(on: boolean) {
+    if (on === this.held) return
+    this.held = on
+    if (on) {
+      if (this.frame) cancelAnimationFrame(this.frame)
+      this.frame = 0
+    } else {
+      this.invalidate()
+    }
+  }
+
   /** Asks for one frame. Any number of changes before it share that frame. */
   private invalidate(): void {
-    if (this.frame || this.disposed) return
+    if (this.frame || this.disposed || this.held) return
     this.frame = requestAnimationFrame((now) => {
       this.frame = 0
       const next = this.move.step(now)

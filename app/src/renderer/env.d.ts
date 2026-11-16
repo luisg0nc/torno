@@ -12,8 +12,14 @@ declare global {
     /** Only when main runs with TORNO_TEST=1: what the e2e tests read and the pictures they take. */
     /** Only under test: how many times the chat has drawn each of its items, by id. */
     __tornoChatRenders?: Record<string, number>
+    /** Only under test: how many times the board's layer of cards has been drawn. A pan or a zoom must not add one. */
+    __tornoBoardRenders?: number
+    /** Only under test: where the board's camera stands, while the board is shown. */
+    __tornoBoardCamera?: () => { x: number; y: number; k: number }
     __tornoTest?: {
       state(): TornoState
+      /** Whether the view draws nothing for now: the board is shown in its place. */
+      paused(): boolean
       look(req: LookRequest): Promise<LookResult>
       camera(): Camera
       /** What the pointer is on in the chat and the viewport lights for it (a ref chip's refs); none when it is on nothing. */

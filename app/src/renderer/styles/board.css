@@ -1,0 +1,650 @@
+/* ---- The board of a project (ui/projectBoard/): the switch, the stage, its cards, arrows and minimap ---- */
+
+/* Board or Model, at the top left of the main area. */
+.pboard-switch {
+  position: absolute;
+  top: var(--space-3);
+  left: calc(var(--left-w) + var(--space-3));
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--switch-h);
+  gap: 2px;
+  padding: 3px;
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.pboard-switch-button {
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pboard-switch-button:hover {
+  background: var(--accent-wash);
+}
+
+.pboard-switch-button[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.pboard-switch-key {
+  margin: 0 var(--space-2) 0 var(--space-1);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* The board takes the place of the view: the part of the viewport no panel covers. */
+.pboard {
+  position: absolute;
+  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.pboard-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--surface);
+  /* The dots of the ground move with the camera: its three properties are set where it moves, not through React. */
+  background-image: radial-gradient(circle, var(--hairline) 1.2px, transparent 1.7px);
+  background-size: var(--board-dot, 24px) var(--board-dot, 24px);
+  background-position: var(--board-x, 0) var(--board-y, 0);
+  touch-action: none;
+  cursor: default;
+}
+
+.pboard-stage[data-space],
+.pboard-stage[data-panning] {
+  cursor: grab;
+}
+
+.pboard-stage[data-panning] {
+  cursor: grabbing;
+}
+
+.pboard-stage:focus-visible {
+  outline-offset: -2px;
+}
+
+/* One layer, moved and scaled by the camera's transform; board units are CSS pixels at 100 %. */
+.pboard-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.pboard-cards {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.pboard-arrows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pboard-arrow line {
+  stroke: var(--muted);
+  stroke-width: 1.5px;
+}
+
+.pboard-arrow[data-by='agent'] line {
+  stroke: var(--agent-mark);
+}
+
+.pboard-arrowhead path {
+  fill: var(--muted);
+}
+
+.pboard-arrowhead[data-by='agent'] path {
+  fill: var(--agent-mark);
+}
+
+.pboard-arrow text {
+  fill: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  /* A halo in the ground's colour, so the word reads over the line. */
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+
+/* A card: the panel's own colour on the ground, a hairline round it, and no shadow (the one shadow is the palettes'). */
+.pboard-card {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow: hidden;
+  padding: var(--space-2) var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  font-size: var(--text-size);
+  line-height: var(--text-leading);
+  user-select: none;
+}
+
+/* Claude's cards: the agent's green edge, as its marks have. */
+.pboard-card[data-by='agent'] {
+  border-color: var(--agent-mark);
+  border-left-width: 3px;
+}
+
+.pboard-card[data-selected] {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.pboard-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.pboard-kind {
+  flex: none;
+}
+
+.pboard-chip {
+  flex: none;
+  padding: 0 4px;
+  border: var(--divider);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 11.5px;
+  line-height: 15px;
+}
+
+.pboard-id {
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.pboard-title {
+  flex: none;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pboard-picture {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.pboard-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The brief reads as much as the card holds, and scrolls for the rest. */
+.pboard-body[data-scroll] {
+  overflow: auto;
+  user-select: text;
+}
+
+.pboard-note {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.pboard-note[data-missing] {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.pboard-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.pboard-lines li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pboard-lines li.num {
+  font-size: 12px;
+}
+
+.pboard-lines [data-tone='ok'] {
+  color: var(--ok);
+}
+
+.pboard-lines [data-tone='fail'] {
+  color: var(--fail);
+}
+
+.pboard-lines [data-tone='tried'] {
+  color: var(--accent);
+}
+
+.pboard-lines [data-tone='muted'] {
+  color: var(--muted);
+}
+
+/* A frame: an outline that holds cards, under them; only its name and edge are for the pointer. */
+.pboard-card[data-kind='frame'] {
+  z-index: 0;
+  padding: 0;
+  border: 1.5px solid var(--field-edge);
+  border-radius: 12px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.pboard-card[data-kind='frame'] .pboard-head,
+.pboard-card[data-kind='frame'] .pboard-title {
+  padding: var(--space-2) var(--space-3) 0;
+  pointer-events: auto;
+}
+
+.pboard-card[data-kind='frame'] .pboard-head {
+  padding-bottom: 0;
+}
+
+.pboard-card[data-kind='frame'] .pboard-kind {
+  display: none;
+}
+
+.pboard-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: 360px;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* The minimap: the whole board as boxes, and the part the screen shows. */
+.pboard-minimap {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 3;
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.pboard-mini-card {
+  fill: var(--field-edge);
+}
+
+.pboard-mini-card[data-by='agent'] {
+  fill: var(--agent-mark);
+}
+
+.pboard-mini-card[data-kind='frame'] {
+  fill: none;
+  stroke: var(--field-edge);
+  stroke-width: 1px;
+}
+
+.pboard-mini-view {
+  fill: var(--accent-wash);
+  fill-opacity: 0.55;
+  stroke: var(--accent);
+  stroke-width: 1px;
+  pointer-events: none;
+}
+
+/* ---- Making and changing cards: the palette, the field a card is written in, handles, the box, the hidden list ---- */
+
+/* The tools, at the foot of the board on the left, as the switch is at the top. */
+.pboard-palette {
+  position: absolute;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.pboard-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pboard-tool:hover {
+  background: var(--accent-wash);
+}
+
+.pboard-tool[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.pboard-tool-key {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pboard-stage[data-tool='text'] {
+  cursor: text;
+}
+
+.pboard-stage[data-tool='frame'],
+.pboard-stage[data-tool='arrow'] {
+  cursor: crosshair;
+}
+
+/* The field a card's words, a frame's name or the word on an arrow is written in. */
+.pboard-editor {
+  position: absolute;
+  z-index: 4;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-size);
+  line-height: var(--text-leading);
+  resize: none;
+  outline: none;
+}
+
+textarea.pboard-editor {
+  white-space: pre-wrap;
+}
+
+/* The box drawn on the ground while a drag selects, or sets out a frame. */
+.pboard-box {
+  position: absolute;
+  z-index: 3;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--accent-wash);
+  pointer-events: none;
+}
+
+/* The arrow being pulled from a card. */
+.pboard-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pboard-ghost line {
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
+}
+
+/* The wider line an arrow is pressed on, and the arrow that is selected. */
+.pboard-arrow .pboard-arrow-hit {
+  stroke: transparent;
+  stroke-width: 14px;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.pboard-arrow[data-selected] line:not(.pboard-arrow-hit) {
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+}
+
+/* The corners a card is resized by: inside the card, so that its edge never clips them. */
+.pboard-handle {
+  position: absolute;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  background: var(--panel);
+  pointer-events: auto;
+}
+
+.pboard-handle[data-handle='nw'] {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.pboard-handle[data-handle='ne'] {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.pboard-handle[data-handle='sw'] {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.pboard-handle[data-handle='se'] {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+/* The cards taken off the board that came by themselves: a button at the top right, and its list. */
+.pboard-hidden {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  font-size: var(--text-small);
+}
+
+.pboard-hidden-toggle {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  cursor: pointer;
+}
+
+.pboard-hidden-toggle:hover,
+.pboard-hidden-toggle[aria-expanded='true'] {
+  background: var(--accent-wash);
+}
+
+.pboard-hidden-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 260px;
+  max-height: 320px;
+  margin: 0;
+  padding: var(--space-2);
+  overflow: auto;
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  list-style: none;
+}
+
+.pboard-hidden-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 2px var(--space-2);
+}
+
+.pboard-hidden-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What main refused, in its words, for a few seconds. */
+.pboard-problem {
+  position: absolute;
+  bottom: calc(var(--space-3) + 44px);
+  left: var(--space-3);
+  z-index: 3;
+  max-width: 420px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--divider);
+  border-left: 3px solid var(--fail);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+/* What was wrong with the board file when it was read: above the refusals, until it is dismissed. */
+.pboard-file-problem {
+  bottom: calc(var(--space-3) + 96px);
+  overflow-wrap: anywhere;
+}
+
+/* What of the board goes with the next prompt: at the top, between the switch and the hidden cards. */
+.pboard-attach {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  transform: translateX(-50%);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.pboard-attach-button {
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.pboard-attach-button:hover:not(:disabled),
+.pboard-attach-button[aria-pressed='true'] {
+  background: var(--accent-wash);
+}
+
+.pboard-attach-button[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.pboard-attach-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* A picture opened large over the board. */
+.pboard-view {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.pboard-view img {
+  max-width: calc(100% - 8 * var(--space-4));
+  max-height: calc(100% - 8 * var(--space-4));
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  object-fit: contain;
+}
+
+.pboard-view-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+.pboard-view:focus {
+  outline: none;
+}

@@ -1,6 +1,6 @@
 import type { Stroke } from '../../state/onboard'
-import { Board } from '../board/Board'
-import { BOARD, doodlePng } from '../board/strokes'
+import { InkPad } from '../ink/InkPad'
+import { BOARD, doodlePng } from '../ink/strokes'
 
 /** The ink as the theme has it now: the board's strokes are drawn in it; the PNG is made in its own. */
 const inkNow = (): string => getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#22252A'
@@ -11,7 +11,7 @@ const inkNow = (): string => getComputedStyle(document.documentElement).getPrope
  */
 export function Doodle({ initial, onDone, onCancel }: { initial: Stroke[]; onDone: (strokes: Stroke[], png: Uint8Array) => void; onCancel: () => void }) {
   return (
-    <Board
+    <InkPad
       title="Doodle"
       label="Doodle board"
       hint="Draw what you mean: a shape, where it goes, a size. Hold Shift for a straight line."

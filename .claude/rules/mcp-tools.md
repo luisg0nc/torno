@@ -24,7 +24,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `mcp/markTools.ts`; those that read the part in `mcp/readTools.ts`; those
   that ask about scans in `mcp/scanTools.ts`): `scene`, `look`, `marks`,
   `describe`, `highlight`, `ask`, `show`, `save_view`, `add_mark`, `resolve_mark`,
-  `measure`, `section`, `check`, `diff`, `history`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
+  `measure`, `section`, `check`, `diff`, `history`, `board`, `add_card`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
+  `board` and `add_card` (`mcp/boardTools.ts`; `ToolDeps.board`, `ToolDeps.scale`, wired in `index.ts`) are the agent's door to the
+  board: `board` reads it as `boardText` does (a frame by name or id; `pictures: true` sends up to 6, each scaled to 1280 by
+  `deps.scale`); `add_card` makes cards and arrows of the agent's own through `BoardStore.agent` and changes or removes only those (a
+  card of the person's or of torno's own is refused by name of its owner, the file untouched). A picture is drawn by `lookTool` (its
+  `capture`: not kept as a view) at 1280 px and kept by `savePicture`, with the camera when it is known. `by`, `id`, a place and `hidden`
+  are never an argument.
   `expect` (`mcp/expectTools.ts`, `Expectations`, wired in `index.ts`) is the agent's note on one edit: checks on a
   part's volume, faces, edges or size, a `measure` with `expected`, or `unchanged` parts, taken against the last
   build and held in memory for the next successful build only (never a file, never a mark, never a Stop reason). It is
@@ -54,7 +60,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   - What a client reads of a tool before it calls one is beside its description in `TOOLS`: a `title` (sentence
     case), `annotations` and, for the tools loaded upfront, `meta`. Every tool has `openWorldHint: false`; the
     ones that only read have `readOnlyHint: true` (`scene`, `look`, `marks`, `describe`, `measure`, `section`,
-    `check`, `diff`, `history`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
+    `check`, `diff`, `history`, `board`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
     `look` reads, the picture it writes under `.torno/views/` being torno's own), the rest `readOnlyHint: false,
     destructiveHint: false`. `scene`, `look`, `marks`, `describe` and `measure` have
     `_meta["anthropic/alwaysLoad"]` (Claude Code's tool search defers every other MCP tool until it is searched for,

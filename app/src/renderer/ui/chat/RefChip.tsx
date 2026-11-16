@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useRef } from 'react'
 import { peek } from '../../state/agent'
+import { boardActions, useBoard } from '../../state/board'
 import { actions, useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
 import { ChatEarlier } from './place'
@@ -7,7 +8,7 @@ import { type RefInfo, refInfo } from './refs'
 
 /**
  * A ref the chat shows (`M4`, `lid/F12`, `r12`) as a chip that is live: the pointer on it lights what it names in
- * the viewport, a click on a mark goes to it, a click on a face or an edge selects it, and a click on the build on show opens the sheet of the build after it that failed. One that names nothing
+ * the viewport, a click on a mark goes to it, a click on a face or an edge selects it, a click on a card of the board (`C7`) shows the board with it selected, and a click on the build on show opens the sheet of the build after it that failed. One that names nothing
  * in the window now (another layout, a part not drawn, a mark that is gone) says so in its tooltip and does
  * nothing else. `value` is the ref (`ref` is React's own word). `prose`: the ref was found in running text, where one
  * the object has no such thing as (`M3` the screw, a build not made yet) is only text.
@@ -22,7 +23,10 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
   const layout = useStore((s) => s.layout)
   const revision = useStore((s) => s.revision)
   const build = useStore((s) => s.build)
-  const info: RefInfo = useMemo(() => refInfo({ marks, scene, layers, layout, revision, build }, value), [marks, scene, layers, layout, revision, build, value])
+  // A card of the board is followed only by a ref that names one.
+  const isCard = /^C\d+$/.test(value)
+  const board = useBoard((s) => (isCard ? s.board : null))
+  const info: RefInfo = useMemo(() => refInfo({ marks, scene, layers, layout, revision, build, board }, value), [marks, scene, layers, layout, revision, build, board, value])
   const lit = useRef(false)
   const light = (on: boolean): void => {
     if (on === lit.current) return
@@ -52,6 +56,7 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
       onClick={(e) => {
         if (info.act === 'focus') actions.focusMark(value)
         else if (info.act === 'build') actions.setErrorOpen(true)
+        else if (info.act === 'card') boardActions.reveal(value)
         else actions.setSelection(info.lights.length > 0 ? info.lights : [value])
         // Made with the pointer, the next letter is the view's: what the chip did, it did to the view. (Enter on it keeps the focus.)
         if (e.detail > 0) giveKeysBack(e.currentTarget)

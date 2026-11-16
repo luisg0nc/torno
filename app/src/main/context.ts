@@ -1,3 +1,4 @@
+import type { BoardCounts } from '../shared/board'
 import type { BuildState } from '../shared/build'
 import { diagnosisText } from '../shared/diagnosis'
 import { standingOf, unmetDimensions } from '../shared/dimension'
@@ -19,6 +20,8 @@ import { type BuildVerdicts, verdictChanges } from './verdicts'
 
 /** The most the agent is given with a prompt, in characters. */
 export const CONTEXT_LIMIT = 6000
+/** The most the board's line takes of it. */
+export const BOARD_LIMIT = 600
 /** The most of it that says how the build stands, when there are marks to tell of as well. */
 const STATUS_LIMIT = 2000
 /** The most of it that tells how the model's own checks stand (`checksLine`). */
@@ -136,6 +139,10 @@ export interface PromptContext {
   digest?: BuildDigest
   /** How many instruction files the text names (the first prompt of a session, and the first after `/clear`), as data for the chat's line. Absent when it names none. */
   instructions?: number
+  /** What the board line told of each card and arrow (`boardLine`): kept once the answer that holds `text` has been handed over (`BoardStore.markTold`). Absent when the text has no board line. */
+  boardTold?: Record<string, string>
+  /** What the board line said, as numbers for the chat's line under the prompt: the cards there are and how many are new to the agent. Absent when the text has no board line. */
+  board?: BoardCounts
   /**
    * Called once the answer that holds `text` has been handed over whole (not when the agent hung up first): for what is
    * kept until then and removed after, such as a Go back's notice (`takeGoBackNotice`).
@@ -173,6 +180,10 @@ export interface PromptContext {
  * line after the selection: each with how it is aligned in the layout on
  * screen (the first, of an object that is not open) and how it is shown.
  *
+ * The board of the project (`opts.board`, one line from `boardLine`, at most BOARD_LIMIT characters) follows the scans,
+ * and counts toward CONTEXT_LIMIT like the rest; `opts.boardTold` is what it told, handed back as `boardTold` to be kept
+ * once the prompt is delivered, as the marks are.
+ *
  * A new conversation (`newConversation`: the first prompt of a session not resumed, or `fresh`) is also told, in a last line, the files of the object's `reference/` (`referencesLine`),
  * to read when they matter. It says nothing of whether they are attached: the first prompt of a new object attaches them.
  *
@@ -189,7 +200,7 @@ export interface PromptContext {
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; toolName?: (tool: string) => string; notice?: string } = {}): PromptContext {
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; notice?: string } = {}): PromptContext {
   const { notice, ...rest } = opts
   const told = withBuild(deps, objectId, contextText(deps, objectId, marks, rest))
   return notice ? { ...told, text: told.text === '' ? notice : `${notice}\n${told.text}` } : told
@@ -224,7 +235,7 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; toolName?: (tool: string) => string; buildOnly?: boolean }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; buildOnly?: boolean }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
@@ -257,7 +268,9 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
   // The person's tries of the model's Params: what the build is made with is not what the file says, so it is said every time.
   const shownScene = deps.scene(objectId)?.scene
   const tried = cutEnd(triedLine(shownScene?.params, shownScene?.overrides?.dropped), TRIED_LIMIT)
-  const limit = told ? STATUS_LIMIT : CONTEXT_LIMIT - room(instructed) - room(selected) - room(scanned) - room(tried)
+  // The board's line, after the scans: one line of main's own, which keeps to its limit.
+  const boarded = opts.buildOnly ? '' : cutEnd(opts.board ?? '', BOARD_LIMIT)
+  const limit = told ? STATUS_LIMIT : CONTEXT_LIMIT - room(instructed) - room(selected) - room(scanned) - room(boarded) - room(tried)
   // Every part of it is fitted to the limit by what it can spare; the cut holds for what none of them
   // foresaw, such as a very long name.
   const lines = [cutEnd(status(deps, objectId, limit), limit)]
@@ -265,6 +278,7 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
   if (tried) lines.push(tried)
   if (selected) lines.push(selected)
   if (scanned) lines.push(scanned)
+  if (boarded) lines.push(boarded)
   const openLine = open.length > 0 && !opts.buildOnly ? `Open marks: ${openMarks(open, revision, toolName)}` : ''
   const named = layoutNamed(deps, objectId)
   // What the dimensions need at the least, kept from the drafts: the head, how many are left out, how many pass.
@@ -340,7 +354,7 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
   // The files Claude Code reads are the very last line; the references go before it, should they fit beside it.
   const tail = instructed ? 1 + instructed.length : 0
   const text = printed ? `${joined}\n${printed}` : `${joined}${referred && joined.length + 1 + referred.length + tail <= CONTEXT_LIMIT ? `\n${referred}` : ''}${instructed ? `\n${instructed}` : ''}`
-  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}) }
+  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}) }
   // Every part above keeps to the room it has; this holds for what none of them foresaw. What is cut is
   // the end, and no mark whose line may be among it is said to have been told.
   return { text: cutEnd(text, CONTEXT_LIMIT), sentMarkIds: [] }

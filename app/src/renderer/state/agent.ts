@@ -386,6 +386,30 @@ export function seeInView(tool: SeeTool, input: unknown): string | null {
 }
 
 /**
+ * A saved view put on screen with its camera, as its chip in the strip does it (the board's double click on a view card):
+ * its layout, parts, section or explode and scans as one edit of the person's, then the camera. Null when it was done,
+ * else why not, in a sentence.
+ */
+export function goToSavedView(name: string): string | null {
+  const viewport = seeing
+  if (!viewport) return 'The 3D view is not there'
+  const applied = actions.applyView(name)
+  if (typeof applied === 'string') return applied
+  const apart = applied.explode !== undefined && applied.explode !== null && applied.explode.amount > 0 && !applied.section
+  viewport.setView(applied.camera, !apart)
+  if (apart) viewport.keepApartInView?.()
+  return null
+}
+
+/** The camera of a picture the agent made, taken to as the person's own view of the model (the board's double click on such a picture). */
+export function goToCamera(camera: Camera): string | null {
+  const viewport = seeing
+  if (!viewport) return 'The 3D view is not there'
+  viewport.setView(camera, true)
+  return null
+}
+
+/**
  * "Point again" of a card of `highlight`: the same refs and note put back, when the window shows the build they were
  * read from. Marks and groups are read as the tool reads them. Null when it was done, else why not.
  */

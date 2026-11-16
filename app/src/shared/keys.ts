@@ -8,7 +8,7 @@
  */
 
 /** Where the sheet lists a row. */
-export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'With a shape in hand' | 'Page of projects' | 'New project' | 'Session' | 'In a field, a menu or a sheet' | 'For working on torno'
+export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'With a shape in hand' | 'Board' | 'Page of projects' | 'New project' | 'Session' | 'In a field, a menu or a sheet' | 'For working on torno'
 
 /**
  * Where a key is listened to. Two rows of one scope would answer the same press.
@@ -18,13 +18,14 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `measure`, `section`, `align`, `region`: with that tool in hand, which then has the key before the viewport.
  * - `shape`: while a shape of the person's is the active mark.
  * - `compare`: while two builds are compared in the view; it has the key before the viewport, whose Esc is another step back.
+ * - `board`: while the board of the project is shown in place of the view, which then hears nothing.
  * - `page`: on the page of objects; `filter`: in its field. `newobject`: on the page of a new object.
  * - `session`: in the terminal. `composer`: in the box a chat prompt is written in. `ask`: on a card of the chat that asks the person. `picture`: while a picture of the
  *   chat is shown large. `separator`: on the edge of the session pane, or the line above the marks.
  * - `field`, `menu`, `sheet`: in a field, an open menu, a sheet or a question.
  * - `dev`: under the dev server only.
  */
-export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'compare' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
+export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'compare' | 'board' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
 
 /**
  * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
@@ -146,6 +147,20 @@ const ROWS = [
 
   row('gizmo', GIZMO_KEYS.map((g) => g.key), 'Move, rotate or size the shape with its handles', 'With a shape in hand', 'shape'),
 
+  row('board.swap', ['Ctrl+Tab'], 'The board of the project, or the model again', 'Board', 'window'),
+  row('board.fit', ['Shift+1'], 'Board: fit all the cards', 'Board', 'board'),
+  row('board.select', ['V'], 'Board, Select: click a card, drag on empty space for a box; Shift adds', 'Board', 'board'),
+  row('board.text', ['N'], 'Board, Text: a card for a note', 'Board', 'board'),
+  row('board.frame', ['F'], 'Board, Frame: a named outline round cards', 'Board', 'board'),
+  row('board.arrow', ['A'], 'Board, Arrow: draw from one card to another', 'Board', 'board'),
+  row('board.picture', ['I'], 'Board, Picture: add a photo from a file', 'Board', 'board'),
+  row('board.sketch', ['S'], 'Board, Sketch: draw on a card', 'Board', 'board'),
+  row('board.pan', ['Space'], 'Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms)', 'Board', 'board'),
+  row('board.attach', ['Ctrl+Enter'], 'Board: send the selected cards with the next prompt', 'Board', 'board'),
+  row('board.remove', ['Delete', 'Backspace'], 'Board: remove the selected cards and arrows (those that came by themselves are hidden)', 'Board', 'board'),
+  row('board.undoChange', ['Ctrl+Z'], 'Board: undo the last change you made to cards (up to 50)', 'Board', 'board'),
+  row('board.step', ['Esc'], 'Board: end what is being written, then put the tool back to Select, then let go of the selection', 'Board', 'board'),
+
   row('page.move', [...ARROWS, 'Home', 'End'], 'Move among the cards', 'Page of projects', 'page'),
   row('page.open', ['Enter'], 'Open the card in focus', 'Page of projects', 'page'),
   row('page.filter', ['/'], 'Filter by name: a letter or a figure does too', 'Page of projects', 'page'),
@@ -197,6 +212,7 @@ export const CONTEXTS: ReadonlyArray<{ name: KeyContext; when: string }> = [
   { name: 'Viewport', when: 'Outside a field and the terminal' },
   { name: 'With a tool in hand', when: 'The tool has the key before the viewport' },
   { name: 'With a shape in hand', when: 'While a shape of yours is the active mark, after the tool in hand' },
+  { name: 'Board', when: 'Ctrl+Tab anywhere outside a field; the rest while the board is shown' },
   { name: 'Page of projects', when: 'While the cards are up' },
   { name: 'New project', when: 'While the page of a new project is up' },
   { name: 'Session', when: 'With the terminal in focus' },
@@ -286,15 +302,35 @@ const BY_ID = new Map<KeyId, KeyRow>(KEYS.map((r) => [r.id, r]))
 /**
  * Which key of a row a press is: its place among the row's keys, or -1. Shift held with a key, and nothing
  * else, is that key, unless Shift with it is a row of its own where this one is listened to (`Shift+Left` with
- * the Section tool). A chord is never anything but itself.
+ * the Section tool). A chord is never anything but itself. A row that names a figure with Shift (`Shift+1`) hears
+ * that key whatever character the layout gives it (`!`, `1`, `&`): the figure's key is told by its place, in this row
+ * only, so that the character itself (`/` is Shift+7 on some layouts) keeps its name everywhere else.
  */
 export function which(e: KeyPress, id: KeyId): number {
   const r = BY_ID.get(id)!
+  if (e.shiftKey === true && e.ctrlKey !== true && e.altKey !== true && e.metaKey !== true && e.code) {
+    const figure = /^Digit(\d)$/.exec(e.code)?.[1]
+    const placed = figure === undefined ? -1 : r.keys.indexOf(`Shift+${figure}`)
+    if (placed >= 0) return placed
+  }
   const name = keyName(e)
   const at = r.keys.indexOf(name)
   if (at >= 0 || !name.startsWith('Shift+')) return at
   if (KEYS.some((other) => other.scope === r.scope && other.keys.includes(name))) return -1
   return r.keys.indexOf(name.replace('Shift+', ''))
+}
+
+/** Scopes of the view and of the tools in hand in it: while the board is shown in its place, these hear nothing. */
+const VIEW_SCOPES: readonly KeyScope[] = ['viewport', 'measure', 'section', 'align', 'region', 'shape', 'compare']
+
+/**
+ * Whether a press is a key of the view or of a tool in hand in it, as the board covers it: the board hears the press,
+ * and the view does not (Esc, which sheets and questions take too, and the key to the page of projects, are left to
+ * whoever has them).
+ */
+export function viewKey(e: KeyPress): boolean {
+  const name = keyName(e)
+  return name !== 'Esc' && KEYS.some((r) => VIEW_SCOPES.includes(r.scope) && r.id !== 'page' && r.keys.includes(name))
 }
 
 /** Whether a press is a key of the row. */

@@ -15,7 +15,7 @@ const TOOLS: ReadonlyArray<{ id: Tool; label: string }> = [
 /** What can take the focus in the board, in order. */
 const FOCUSABLE = 'button:not(:disabled), [tabindex="0"]'
 
-export interface BoardProps {
+export interface InkPadProps {
   /** The heading, the name a reader of the screen hears for the sheet, and the line beside the heading. */
   title: string
   label: string
@@ -45,7 +45,7 @@ export interface BoardProps {
  * back, clear all of them. The strokes are kept as vectors (`initial` is what it is opened with again), and "Done"
  * hands them over. A stroke is drawn as the pointer moves, in the canvas and never through React.
  */
-export function Board({ title, label, hint: words, size, ground, grid, foot, look, initial, discard, onDone, onCancel }: BoardProps) {
+export function InkPad({ title, label, hint: words, size, ground, grid, foot, look, initial, discard, onDone, onCancel }: InkPadProps) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sheet = useRef<HTMLElement>(null)
   const strokes = useRef<Stroke[]>(initial.map((s) => ({ ...s, points: [...s.points] })))

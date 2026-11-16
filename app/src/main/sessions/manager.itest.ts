@@ -11,7 +11,11 @@ import { killGroup, Sessions } from './manager'
 import type { ChatItem, ChatMeta, Effort, Mode } from '../../shared/chat'
 import type { PromptBlock, StreamMessage } from './stream'
 import type { BuildState } from '../../shared/build'
+import type { BoardAttach } from '../../shared/board'
 import type { ViewDrawing } from '../../shared/drawing'
+import { attachBoard, type BoardAttachment } from '../board/attach'
+import { savePicture } from '../board/pictures'
+import { BoardStore } from '../board/store'
 import { Expectations, withExpectation } from '../mcp/expectTools'
 import type { ToolDeps } from '../mcp/tools'
 import { buildContextFor, contextFor, type ContextDeps, type PromptContext } from '../context'
@@ -1344,10 +1348,15 @@ describe('the transcript of a chat session', () => {
   let hooks = 0
   let handedOver: (() => void) | undefined
   let picture: ((obj: ObjectInfo) => Promise<Uint8Array>) | undefined
+  let attacher: ((objectId: string, ids: string[] | 'all') => Promise<BoardAttachment>) | undefined
   const told: Array<{ sessionId: string; item: ChatItem; seq: number }> = []
   const metas: Array<{ sessionId: string; meta: ChatMeta; seq: number }> = []
   const abilities: Array<{ sessionId: string; objectId: string; commands: Array<{ name: string }>; models: unknown[]; seq: number }> = []
   const delivered2: string[][] = []
+  /** What the board line told, as `onDelivered` was given it; and what the hook is to answer with. */
+  const deliveredBoard: Array<Record<string, string> | undefined> = []
+  let boardTold: Record<string, string> | undefined
+  let boardCounts: { total: number; new: number } | undefined
   const givenUp: string[] = []
 
   beforeAll(async () => {
@@ -1359,12 +1368,16 @@ describe('the transcript of a chat session', () => {
       viewFor: () => 'chat',
       contextFor: async () => {
         const ids = marksPerCall[hooks++] ?? marks
-        return { text: ids.length > 0 ? `Marks: ${ids.join(' ')}` : handedOver ? 'A notice of main\'s' : '', sentMarkIds: ids, ...(handedOver ? { delivered: handedOver } : {}) }
+        return { text: boardTold ? 'Board: 1 card (1 new: C1 text). Read it with board.' : ids.length > 0 ? `Marks: ${ids.join(' ')}` : handedOver ? 'A notice of main\'s' : '', sentMarkIds: ids, ...(handedOver ? { delivered: handedOver } : {}), ...(boardTold ? { boardTold } : {}), ...(boardTold && boardCounts ? { board: boardCounts } : {}) }
       },
-      onDelivered: (_id, ids) => delivered2.push(ids),
+      onDelivered: (_id, ids, told) => {
+        delivered2.push(ids)
+        deliveredBoard.push(told)
+      },
       systemPromptFor: () => '',
       mcpUrlFor: (id) => tHttp.url(`/mcp/${id}`),
-      picture: (obj) => (picture ? picture(obj) : Promise.reject(new Error('no window')))
+      picture: (obj) => (picture ? picture(obj) : Promise.reject(new Error('no window'))),
+      attachBoard: (objectId, ids) => (attacher ? attacher(objectId, ids) : Promise.reject(new Error('no board')))
     })
     tSessions.on('item', (m) => told.push({ sessionId: m.sessionId, item: m.item, seq: m.seq }))
     tSessions.on('meta', (m) => metas.push({ sessionId: m.sessionId, meta: m.meta, seq: m.seq }))
@@ -1378,11 +1391,15 @@ describe('the transcript of a chat session', () => {
     hooks = 0
     handedOver = undefined
     picture = undefined
+    attacher = undefined
     told.length = 0
     metas.length = 0
     abilities.length = 0
     givenUp.length = 0
     delivered2.length = 0
+    deliveredBoard.length = 0
+    boardTold = undefined
+    boardCounts = undefined
   })
   afterAll(async () => {
     await tHttp.close()
@@ -1399,7 +1416,7 @@ describe('the transcript of a chat session', () => {
       id,
       items,
       kinds: () => items().map((i) => i.kind),
-      send: (text: string, extra: { attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing } = {}) => tSessions.send(id, { text, ...extra }),
+      send: (text: string, extra: { attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing; board?: BoardAttach } = {}) => tSessions.send(id, { text, ...extra }),
       turns: () => items().filter((i) => i.kind === 'turn').length,
       logFile: () => {
         const folder = join(obj.dir, '.torno', 'chat')
@@ -1425,6 +1442,15 @@ describe('the transcript of a chat session', () => {
     expect(turn).toMatchObject({ kind: 'turn', ok: true, stopped: false })
     expect(tSessions.history(c.id)!.meta).toMatchObject({ model: 'fake-model', tornoConnected: true })
     expect(tSessions.history(c.id)!.earlier).toEqual([])
+  })
+
+  it('gives main what the board line told once the answer has left, with no marks to send', async () => {
+    boardTold = { C1: 'abc' }
+    const c = await start()
+    await c.send('say hi')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    expect(delivered2).toEqual([[]])
+    expect(deliveredBoard).toEqual([{ C1: 'abc' }])
   })
 
   it('tells main the answer was handed over, for what is kept until then (a Go back\'s notice), once it has left and not before', async () => {
@@ -1640,6 +1666,75 @@ describe('the transcript of a chat session', () => {
     await expect(c.send('say nothing', { attachView: true })).rejects.toThrow('the window shows another object')
     expect(c.items()).toEqual([])
     await expect(tSessions.send('nope', { text: 'x' })).rejects.toThrow()
+  })
+
+  /** A board in the folder of the session's object, and what is attached from it as main does. */
+  function boardOf(c: { obj: ObjectInfo }): BoardStore {
+    const store = new BoardStore({ dirOf: () => c.obj.dir })
+    attacher = (objectId, ids) => attachBoard({ board: { read: (o) => store.read(o), live: async () => ({ marks: new Map() }) }, dirOf: () => c.obj.dir }, objectId, ids)
+    return store
+  }
+
+  it('sends the part of the board that was attached after the prompt: its words, then its pictures; the prompt shows the person\'s words, the counts and the pictures', async () => {
+    const c = await start()
+    const store = boardOf(c)
+    const frame = (await store.person(c.obj.id, { op: 'add', card: { kind: 'frame', name: 'Latch', x: 0, y: 0, w: 900, h: 500 } })).cards[0].id
+    await store.person(c.obj.id, { op: 'add', card: { kind: 'text', text: 'wall 2 mm', x: 20, y: 40, w: 200, h: 100, frame } })
+    const picture = await savePicture(c.obj.dir, new Uint8Array(PNG_4X4))
+    const picked = (await store.person(c.obj.id, { op: 'add', card: { kind: 'picture', picture, caption: 'the old latch', x: 300, y: 40, w: 200, h: 100, frame } })).cards.at(-1)!.id
+    await store.person(c.obj.id, { op: 'add', card: { kind: 'text', text: 'not attached', x: 5000, y: 5000, w: 200, h: 100 } })
+    await c.send('images', { board: { ids: [frame] } })
+    const user = c.items()[0] as { text: string; images: Array<{ width?: number }>; board?: unknown }
+    expect(user.text).toBe('images')
+    expect(user.images).toEqual([expect.objectContaining({ width: 4 })])
+    expect(user.board).toEqual({ cards: 2, arrows: 0, frames: ['Latch'] })
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    const said = c.items().filter((i) => i.kind === 'text').map((i) => (i as { text: string }).text)
+    expect(said).toContain('images: 1 4x4')
+    expect(said.some((t) => t.startsWith('Attached from the board by the person (Latch, 2 cards)'))).toBe(true)
+    expect(said).toContain('wall 2 mm')
+    expect(said).toContain(`[picture ${picked}: the old latch]`)
+    expect(said.join('\n')).not.toContain('not attached')
+  })
+
+  it('names a card that was removed since it was attached, and sends the rest', async () => {
+    const c = await start()
+    const store = boardOf(c)
+    const kept = (await store.person(c.obj.id, { op: 'add', card: { kind: 'text', text: 'wall 2 mm', x: 0, y: 0, w: 200, h: 100 } })).cards[0].id
+    await c.send('say hi', { board: { ids: [kept, 'C9'] } })
+    expect((c.items()[0] as { board?: unknown }).board).toEqual({ cards: 1, arrows: 0, frames: [], gone: ['C9'] })
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    expect(c.items().filter((i) => i.kind === 'text').map((i) => (i as { text: string }).text).join('\n')).toContain('C9 was removed from the board')
+  })
+
+  it('sends nothing, and says why, when the board cannot be read; and sends no board unless asked', async () => {
+    const c = await start()
+    attacher = () => Promise.reject(new Error('the board cannot be read'))
+    await expect(c.send('say nothing', { board: { ids: 'all' } })).rejects.toThrow('the board cannot be read')
+    expect(c.items()).toEqual([])
+    await c.send('say plain')
+    expect((c.items()[0] as { board?: unknown }).board).toBeUndefined()
+  })
+
+  it('keeps what the board line said on the context item, as numbers', async () => {
+    boardTold = { C1: 'abc' }
+    boardCounts = { total: 12, new: 2 }
+    const c = await start()
+    await c.send('say hi')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    expect(c.items().find((i) => i.kind === 'context')).toMatchObject({ board: { total: 12, new: 2 } })
+  })
+
+  it('keeps nothing of the board but counts, words of main\'s own and names, in its log', async () => {
+    const c = await start()
+    const store = boardOf(c)
+    await store.person(c.obj.id, { op: 'add', card: { kind: 'text', text: 'SECRET WORDS', x: 0, y: 0, w: 200, h: 100 } })
+    await c.send('say hi', { board: { ids: 'all' } })
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    await tSessions.stop(c.id)
+    const [file] = c.logFile()
+    expect(JSON.stringify(lines(file)[0])).not.toContain('SECRET WORDS')
+    expect(lines(file)[0]).toMatchObject({ kind: 'user', text: 'say hi', board: { cards: 1, arrows: 0, frames: [] } })
   })
 
   const drawingFor = (objectId: string, revision = 1): ViewDrawing => ({

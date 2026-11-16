@@ -67,6 +67,8 @@ button {
   --dock-space: var(--dock-w);
   /* How far in from the window's left the view starts: the rail, and the panel docked beside it when one is open. */
   --left-w: calc(var(--rail-w) + var(--panel-w));
+  /* How tall the switch of Board and Model is, at the top left of the main area (`pboard-switch`): the bars of the view stand below it, never under it. */
+  --switch-h: 34px;
 }
 
 .shell[data-panel='closed'] {

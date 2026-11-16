@@ -228,7 +228,16 @@ function sectionData(plane: SectionPlane): object {
   return { origin: plane.origin.map(round), normal: tidy(plane.normal), ...(along && along.sign > 0 ? { axis: along.axis, at: round(along.at) } : {}) }
 }
 
-export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs): Promise<ToolResult> {
+/**
+ * What `lookTool` drew, for whoever asks for it (`capture`): the request, and the window's picture. A look that is
+ * captured is not kept as a view of `.torno/views/`: it is kept by whoever asked for it.
+ */
+export interface LookCapture {
+  request?: LookRequest
+  picture?: LookResult
+}
+
+export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs, capture?: LookCapture): Promise<ToolResult> {
   const found = built(deps, objectId)
   if ('content' in found) return found
   const { obj, scene, revision } = found
@@ -313,9 +322,13 @@ export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs
   // now is not what was drawn.
   if (picture.objectId !== objectId) return elsewhere(picture.objectId)
 
+  if (capture) {
+    capture.request = request
+    capture.picture = picture
+  }
   let saved: string
   try {
-    saved = `saved as ${await deps.saveImage(objectId, picture.png)}`
+    saved = capture ? 'not kept as a view' : `saved as ${await deps.saveImage(objectId, picture.png)}`
   } catch (e) {
     saved = `not saved: ${e instanceof Error ? e.message : String(e)}`
   }

@@ -214,9 +214,19 @@ export function useStore<T>(selector: (s: TornoState) => T): T {
   return useZustand(store, selector)
 }
 
+/** Who is told when a workspace is opened or left (`setWorkspace`): what the window kept of the old one's projects goes. */
+const workspaceSet = new Set<() => void>()
+
+/** Asks to be told when a workspace is opened or left. Returns what stops it. */
+export function onWorkspaceSet(cb: () => void): () => void {
+  workspaceSet.add(cb)
+  return () => void workspaceSet.delete(cb)
+}
+
 export const actions = {
   /** A workspace was opened (or there is none): nothing of the old one stays. */
   setWorkspace(workspace: WorkspaceInfo | null): void {
+    for (const cb of workspaceSet) cb()
     // Several objects are met on their page; one alone is the thing to open, and none has the page say what an object is.
     store.setState({ workspace, workspaceKnown: true, versions: {}, ...NO_OBJECT, sessions: {}, page: workspace && workspace.objects.length !== 1 ? 'objects' : 'object', exportOf: null })
   },

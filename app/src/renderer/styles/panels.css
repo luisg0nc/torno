@@ -587,3 +587,15 @@ button.param-button:focus-visible {
   margin: 0 0 var(--space-2);
   padding: 0 var(--space-4);
 }
+
+/* "Pin to board" at the end of a section's title: what main said of it is beside the button for a few seconds. */
+.pin-board {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pin-board-said {
+  color: var(--muted);
+  font-size: var(--text-small);
+}

@@ -3,10 +3,12 @@ import { ablations, evalTuning } from './ablations'
 import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme } from 'electron'
 import { type Door, openDoor, projectFor } from './door'
 import type { Described } from '../shared/geometry'
+import type { Mark } from '../shared/marks'
 import type { SavedView } from '../shared/views'
+import { heldOverrides } from './paramsfile'
 import { writeFileAtomic } from './atomic'
 import { devShortcut } from './devkeys'
 import { applyLoginPath } from './loginPath'
@@ -25,6 +27,13 @@ import { addDimensionTold } from './marks/measure'
 import type { NearestAnchor } from './marks/reanchor'
 import { maskReadsOf, maskStampOf, meshesOf } from './marks/regions'
 import { MarkStore } from './marks/store'
+import { attachBoard } from './board/attach'
+import { reconcileProject } from './board/follow'
+import { liveFacts } from './board/live'
+import { PictureSweep } from './board/pictures'
+import { BoardStore } from './board/store'
+import { boardLine } from './board/text'
+import type { BoardCounts } from '../shared/board'
 import { Asks } from './asks'
 import { mountMcp } from './mcp/server'
 import { DEFAULT_SIZE } from './mcp/schemas'
@@ -354,6 +363,13 @@ const toolDeps: ToolDeps = {
   ...(off.has('look') ? { off: new Set(['look']) } : {}),
   ...(tuning.lookSize ? { lookSize: tuning.lookSize } : {}),
   expectations,
+  // The board: what `board` reads and `add_card` changes (the store is below, and is first asked after the app is up).
+  board: {
+    read: (objectId) => board.read(objectId),
+    agent: (objectId, change) => board.agent(objectId, change),
+    live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides })
+  },
+  scale: scalePicture,
   redact: (text) => redactAddresses(text),
   object: findObject,
   profile: (id) => {
@@ -431,6 +447,34 @@ marks.on('changed', ({ objectId }) => stateFiles.changed(objectId))
 marks.on('changed', ({ objectId, marks: all }) => verdicts.record(objectId, lastScene(objectId)?.revision, all))
 // Where a region is told to be follows its scan's alignment.
 scans.on('changed', ({ objectId }) => stateFiles.changed(objectId))
+/**
+ * A picture scaled down to a long edge of at most `edge` px: what the tools and the prompts send of the board's pictures.
+ * A PNG stays a PNG (a sketch, a drawing); anything else (a photo: a JPEG, a WebP) goes as a JPEG, which is a fraction of
+ * the size. Whoever sends it checks the result as an image (`pictureToSend`).
+ */
+async function scalePicture(bytes: Uint8Array, edge: number): Promise<Uint8Array> {
+  const image = nativeImage.createFromBuffer(Buffer.from(bytes))
+  if (image.isEmpty()) throw new Error('the picture cannot be read')
+  const { width, height } = image.getSize()
+  const long = Math.max(width, height)
+  const scaled = long > edge ? image.resize({ width: Math.max(1, Math.round((width * edge) / long)), height: Math.max(1, Math.round((height * edge) / long)), quality: 'best' }) : image
+  const png = bytes[0] === 0x89 && bytes[1] === 0x50
+  return new Uint8Array(png ? scaled.toPNG() : scaled.toJPEG(85))
+}
+// The cards of what a project has appear on its board by themselves, and go with it.
+const board = new BoardStore({ dirOf: (id) => findObject(id)?.dir })
+/** The pictures no card names go when a project is first opened in a run, once the window has nothing of it to undo. */
+const pictureSweep = new PictureSweep(board)
+/** The one line every prompt carries of the board of a project (`boardLine`), with what it will have told: undefined when there is no such project. */
+async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts } | undefined> {
+  const dir = findObject(objectId)?.dir
+  if (dir === undefined) return undefined
+  const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides })])
+  return boardLine(file, told, live, toolName)
+}
+const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: async (id) => (await marks.list(id)).map((m) => ({ id: m.id, layout: m.layout })), scans: async (id) => (await scans.list(id)).map((s) => s.id) }, objectId)
+marks.on('changed', ({ objectId }) => void followBoard(objectId))
+scans.on('changed', ({ objectId }) => void followBoard(objectId))
 // A mask that did not read for a region is asked for again: what the scans are has changed.
 scans.on('changed', ({ objectId }) => marks.scansChanged(objectId))
 
@@ -506,6 +550,12 @@ void app.whenReady().then(async () => {
     ...(tuning.holds ? { mostHolds: tuning.holds } : {}),
     // How the session is shown: the object's choice, in its `.torno/agent.json` (a chat unless it says terminal).
     viewFor: async (obj) => (await readChoice(obj.dir)).view,
+    // What the person attached of the board, read as it is when the prompt is sent, with its pictures at most 1280 px.
+    attachBoard: async (objectId, ids) => {
+      const dir = findObject(objectId)?.dir
+      if (dir === undefined) throw new Error('That project is not open')
+      return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
+    },
     // The viewport as the person has it, for a prompt that attaches the view: of the object the session is of.
     picture: async (obj) => {
       const look = await requestLook(await theWindow(), { view: 'current', size: DEFAULT_SIZE })
@@ -523,7 +573,10 @@ void app.whenReady().then(async () => {
       // What a Go back left for the agent is told with this prompt and no other: the file is removed once the answer has left (`delivered`), not as it is read.
       const dir = findObject(id)?.dir
       const notice = dir === undefined ? null : await takeGoBackNotice(dir).catch(() => null)
-      const told = contextFor(promptDeps, id, await marks.list(id).catch(() => []), { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(notice ? { notice: notice.text } : {}) })
+      // What is on the board, and what of it is new to the agent: one line. A board that cannot be read is no reason to tell nothing of the build.
+      const all = await marks.list(id).catch(() => [])
+      const boarded = await boardLineFor(id, all, opts.toolName).catch(() => undefined)
+      const told = contextFor(promptDeps, id, all, { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
       return notice ? { ...told, delivered: notice.done } : told
     },
     // An edit of the model is answered with the build it started, and a Stop held back once over a build the turn left failed or unseen.
@@ -547,7 +600,11 @@ void app.whenReady().then(async () => {
       return mark?.kind === 'dimension' ? valueAgainstExpected(mark, revision) : undefined
     },
     // The agent has the prompt, and with it the drafts that were listed: they are sent.
-    onDelivered: (id, sentMarkIds) => void marks.markSent(id, sentMarkIds).catch((e) => console.error(`cannot mark ${sentMarkIds.join(', ')} of ${id} as sent: ${e.message}`)),
+    // The marks the prompt listed are sent, and what its board line told is kept: only once the answer has left, so a prompt that fails to go leaves both news.
+    onDelivered: (id, sentMarkIds, boardTold) => {
+      if (sentMarkIds.length > 0) void marks.markSent(id, sentMarkIds).catch((e) => console.error(`cannot mark ${sentMarkIds.join(', ')} of ${id} as sent: ${e.message}`))
+      if (boardTold) void board.markTold(id, boardTold).catch((e) => console.error(`cannot keep what the board line told of ${id}: ${e.message}`))
+    },
     systemPromptFor: (adapter) => systemPrompt(adapter.toolName, adapter.skills),
     mcpUrlFor,
     debug: isDebug
@@ -586,6 +643,8 @@ void app.whenReady().then(async () => {
     sessions,
     asks,
     marks,
+    board,
+    views: savedViews,
     onBuild: (state) => {
       stateFiles.changed(state.objectId)
       sessions?.built(state)
@@ -599,12 +658,19 @@ void app.whenReady().then(async () => {
         .then(() => keepDimensions(objectId, revision, verdicts.of(objectId, revision))),
     // The saved views are named in the state file.
     onSceneFile: (objectId) => stateFiles.changed(objectId),
+    onObjectOpened: (objectId) =>
+      void followBoard(objectId).then(() => {
+        const dir = findObject(objectId)?.dir
+        if (dir !== undefined) return pictureSweep.once(objectId, dir)
+      }),
     // What was waiting to be written was of objects of the workspace that is left.
     onWorkspaceClosed: () => {
       asks.end()
       instructionFiles.forget()
       stateFiles.forget()
       verdicts.forget()
+      board.forget()
+      pictureSweep.forget()
       // An import still running there is ended, and its importer with it: its scan is not kept, and its id not given again.
       importer?.run.stop()
       importer = null
