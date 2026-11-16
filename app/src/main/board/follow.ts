@@ -1,7 +1,7 @@
 import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ObjectInfo } from '../../shared/workspace'
-import { listReferences } from '../sessions/reference'
+import { listBoardReferences } from '../sessions/reference'
 import { reconcile } from './sources'
 import type { BoardStore } from './store'
 
@@ -31,7 +31,7 @@ export async function reconcileProject(deps: FollowDeps, objectId: string): Prom
   if (!obj) return
   try {
     const [marks, scans, brief] = await Promise.all([deps.marks(objectId), deps.scans(objectId), hasBrief(obj.dir)])
-    const found = { brief, references: listReferences(obj.dir).map((name) => `reference/${name}`), marks, scans }
+    const found = { brief, references: listBoardReferences(obj.dir).map((name) => `reference/${name}`), marks, scans }
     await deps.board.torno(objectId, (board) => reconcile(board, found))
   } catch (e) {
     console.error(`cannot bring the board of ${objectId} up to date: ${e instanceof Error ? e.message : String(e)}`)

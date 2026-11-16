@@ -43,6 +43,22 @@ describe('the reading order', () => {
 })
 
 describe('the text of a board', () => {
+  it('says a STEP or a PDF of reference/ with what it is, and its caption', () => {
+    const step = card({ kind: 'reference', by: 'torno', source: 'reference/608zz.step', caption: 'the bearing, 22 mm', x: 0 })
+    const pdf = card({ kind: 'reference', by: 'torno', source: 'reference/datasheet.pdf', x: 300 })
+    const photo = card({ kind: 'reference', by: 'torno', source: 'reference/photo-1.jpg', x: 600 })
+    const out = boardText(board([step, pdf, photo]), LIVE, OPTS)
+    expect(out.text).toContain(`${step.id} · reference · by torno\nreference/608zz.step (a bought part's STEP)\nthe bearing, 22 mm`)
+    expect(out.text).toContain(`${pdf.id} · reference · by torno\nreference/datasheet.pdf (a PDF: read it with your own tools)\n\n`)
+    expect(out.text).toContain(`${photo.id} · reference · by torno\nreference/photo-1.jpg\n[picture ${photo.id}: of reference/photo-1.jpg]`)
+    expect(out.pictures.map((p) => p.card)).toEqual([photo.id])
+  })
+  it('counts a changed caption of a STEP as news, and a move as none', () => {
+    const step = card({ kind: 'reference', by: 'torno', source: 'reference/608zz.step' })
+    const was = saysHash(step, LIVE)
+    expect(saysHash({ ...step, x: 90 }, LIVE)).toBe(was)
+    expect(saysHash({ ...step, caption: 'new note' }, LIVE)).not.toBe(was)
+  })
   it('has a block for each card, and the arrows after them', () => {
     const a = card({ kind: 'text', text: 'wall 2 mm', x: 0 })
     const b = card({ kind: 'text', text: 'like this', x: 300, by: 'agent' })

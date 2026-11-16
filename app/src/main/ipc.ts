@@ -86,7 +86,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 // Channel names, repeated in src/preload/index.ts.
 //   invoke: workspace:current, workspace:pick, workspace:open, workspace:versions, ready:check, ready:make,
 //           history:list, history:thumbnail, history:source, history:ghost, history:star, history:goBackPlan, history:goBack,
-//           board:read, board:change, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open,
+//           board:read, board:change, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open, board:openLink,
 //           board:problem, board:dismissProblem,
 //           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
@@ -617,6 +617,8 @@ export function registerIpc(
     instructions?: InstructionList
     /** Stands in for showing a file in its folder (`shell.showItemInFolder`), which tests must never do. */
     revealFile?: (path: string) => void
+    /** Stands in for opening a link of a card in the person's browser (`shell.openExternal`), which tests must never do. */
+    openExternal?: (url: string) => void | Promise<void>
   } = {}
 ): void {
   sessions = opts.sessions ?? null
@@ -670,6 +672,7 @@ export function registerIpc(
           const failed = await shell.openPath(path)
           if (failed) throw new Refusal(`It could not be opened: ${failed}`)
         },
+        openExternal: async (url) => (opts.openExternal ? opts.openExternal(url) : shell.openExternal(url)),
         pinBuild: (objectId, historyId) => pinBuild({ board: boardStore, object: findObject, history: requireWorkspace().history }, objectId, historyId) })
     : undefined
   const requireBoards = (): NonNullable<typeof boards> => {
@@ -1033,6 +1036,7 @@ export function registerIpc(
   handle('board:addPicture', (_event, objectId: string, bytes: Uint8Array) => requireBoards().addPicture(objectId, bytes))
   handle('board:pin', (_event, objectId: string, what: PinWhat) => requireBoards().pin(objectId, what))
   handle('board:open', (_event, objectId: string, what: BoardOpen) => requireBoards().open(objectId, what))
+  handle('board:openLink', (_event, objectId: string, cardId: string) => requireBoards().openLink(objectId, cardId))
   handle('board:problem', (_event, objectId: string) => requireBoards().problem(objectId))
   handle('board:dismissProblem', (_event, objectId: string) => requireBoards().dismissProblem(objectId))
 

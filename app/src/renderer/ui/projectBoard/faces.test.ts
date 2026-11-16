@@ -67,6 +67,11 @@ describe('what a card shows', () => {
     expect(faceOf(card({ kind: 'reference', source: 'reference/photo-1.jpg', by: 'torno' }), { picture: 'missing' })).toMatchObject({ label: 'Reference', note: PICTURE_MISSING })
   })
 
+  it('shows a STEP and a PDF by their name and kind, with the note of the card', () => {
+    expect(faceOf(card({ kind: 'reference', source: 'reference/608zz.step', by: 'torno', caption: 'the bearing' }), {})).toEqual({ label: 'Reference', title: '608zz.step', lines: [{ text: 'STEP file', tone: 'muted' }], body: 'the bearing' })
+    expect(faceOf(card({ kind: 'reference', source: 'reference/datasheet.pdf', by: 'torno' }), {})).toEqual({ label: 'Reference', title: 'datasheet.pdf', lines: [{ text: 'PDF', tone: 'muted' }] })
+  })
+
   it('says a build is not on this computer when the history lacks it, and shows its copy all the same', () => {
     const copy = { id: 'h41', line: 'wall to 3', cause: 'agent', sources: 'abc' }
     expect(faceOf(card({ kind: 'build', copy }), { buildHere: false })).toMatchObject({ label: 'Build', chip: 'h41', note: 'build not on this computer' })
@@ -107,6 +112,12 @@ describe('what a card shows', () => {
   it('shows a text card as written, a frame by its name, and an agent card as the agent\'s', () => {
     expect(faceOf(card({ kind: 'text', text: 'see M3 and C7' }), {})).toMatchObject({ label: 'Text', body: 'see M3 and C7' })
     expect(faceOf(card({ kind: 'frame', name: 'Latch' }), {})).toMatchObject({ label: 'Frame', title: 'Latch' })
+  })
+
+  it('gives the link of a text card, the first web address in it, and none when there is none', () => {
+    expect(faceOf(card({ kind: 'text', text: 'datasheet: https://example.com/a.pdf thanks' }), {}).link).toBe('https://example.com/a.pdf')
+    expect(faceOf(card({ kind: 'text', text: 'javascript:alert(1)' }), {}).link).toBeUndefined()
+    expect(faceOf(card({ kind: 'text', text: 'nothing' }), {}).link).toBeUndefined()
   })
 })
 

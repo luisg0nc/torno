@@ -44,3 +44,24 @@ export function listReferences(dir: string): string[] {
     return []
   }
 }
+
+/** A file of `reference/` the board shows as a card without drawing it: a bought part's STEP, or a PDF. */
+export const BOARD_FILE = /\.(?:step|stp|pdf)$/i
+
+/**
+ * What the board shows of `<dir>/reference/`: the pictures `listReferences` gives, then the plain files ending `.step`,
+ * `.stp` or `.pdf`, by name. A link, or a folder, is not a file; none on any error, or when `reference` is a link.
+ */
+export function listBoardReferences(dir: string): string[] {
+  const pictures = listReferences(dir)
+  try {
+    const folder = join(dir, 'reference')
+    if (!lstatSync(folder).isDirectory()) return pictures
+    const files = readdirSync(folder)
+      .filter((name) => BOARD_FILE.test(name) && lstatSync(join(folder, name)).isFile())
+      .sort((a, b) => a.localeCompare(b))
+    return [...pictures, ...files]
+  } catch {
+    return pictures
+  }
+}

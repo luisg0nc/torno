@@ -1,4 +1,4 @@
-import type { Card, CardKind } from '../../../shared/board'
+import { type Card, type CardKind, firstLink } from '../../../shared/board'
 import { count } from '../../../shared/format'
 import { type Mark, markAnchors } from '../../../shared/marks'
 import { checkText, type ModelCheck } from '../../../shared/modelChecks'
@@ -54,6 +54,8 @@ export interface Face {
   picture?: 'here' | 'missing'
   /** What is wrong with where the card's thing is, as a sentence. */
   note?: string
+  /** The web address of a text card that holds one, shown as a link that main opens in the browser. */
+  link?: string
 }
 
 const LABEL: Record<CardKind, string> = {
@@ -135,7 +137,12 @@ export function faceOf(card: Card, facts: Facts): Face {
     case 'reference': {
       const name = card.source ?? ''
       const image = IMAGE.test(name)
-      return { label: LABEL.reference, title: name.replace(/^reference\//, ''), lines: image ? [] : [{ text: name, mono: true }], ...(image && facts.picture ? { picture: facts.picture } : {}), ...(image && facts.picture === 'missing' ? { note: PICTURE_MISSING } : {}) }
+      if (!image) {
+        // A STEP or a PDF: its name and what it is, and the person's note on it. It has no picture to show.
+        const kind = /\.(?:step|stp)$/i.test(name) ? 'STEP file' : /\.pdf$/i.test(name) ? 'PDF' : 'file'
+        return { label: LABEL.reference, title: name.replace(/^reference\//, ''), lines: [{ text: kind, tone: 'muted' }], ...(card.caption ? { body: card.caption } : {}) }
+      }
+      return { label: LABEL.reference, title: name.replace(/^reference\//, ''), lines: [], ...(facts.picture ? { picture: facts.picture } : {}), ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {}) }
     }
     case 'picture':
     case 'sketch':
@@ -160,8 +167,10 @@ export function faceOf(card: Card, facts: Facts): Face {
       return { label: LABEL.params, lines: paramLines(facts.params) }
     case 'checks':
       return { label: LABEL.checks, lines: checkLines(facts.checks) }
-    case 'text':
-      return { label: LABEL.text, lines: [], body: card.text ?? '' }
+    case 'text': {
+      const link = firstLink(card.text ?? '')
+      return { label: LABEL.text, lines: [], body: card.text ?? '', ...(link !== null ? { link } : {}) }
+    }
     case 'frame':
       return { label: LABEL.frame, title: card.name ?? '', lines: [] }
     case 'size':

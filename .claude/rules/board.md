@@ -72,6 +72,12 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   spot, the first time the board is read after it appears), and removing it only hides it (`hidden: true`): the mark, scan or
   photo is untouched, and "Hidden cards" brings it back. When the thing itself is gone, so is its card. Pinned cards are the
   person's choice and stay when their source is missing (a build card says "build not on this computer").
+- The files of `reference/` that have a card are the pictures `create.ts` names and the plain files ending `.step`, `.stp` or
+  `.pdf` (`listBoardReferences`; `listReferences` stays the chat's own list of pictures). A STEP or PDF card shows its name and
+  kind, is said to the agent as `reference/608zz.step (a bought part's STEP)` or `(a PDF: read it with your own tools)` with its
+  caption, and a double click shows it in its folder (`board:open`). A text card whose text holds an `http` or `https` address
+  shows it as a link: `board:openLink(objectId, cardId)` reads the card in main, takes `firstLink` of its text and has the system open
+  it (`deps.openExternal`, a stand-in under test); no address comes from the window, and nothing else is opened.
 - Pinning is asked of main by name and checked there: a build must be one the history keeps (it is starred, so never pruned,
   and its thumb is copied into `pictures/`; removing the card leaves the star), a view must be among the saved views (the
   card keeps its layout), the Params and the checks are on a board once each. A local build with the card's id and

@@ -98,6 +98,7 @@ const bridge: TornoBridge = {
     addPicture: (objectId, bytes) => invokePlain('board:addPicture', objectId, bytes),
     pin: (objectId, what) => invokePlain('board:pin', objectId, what),
     open: (objectId, what) => invokePlain('board:open', objectId, what),
+    openLink: (objectId, cardId) => invokePlain('board:openLink', objectId, cardId),
     onChanged: (cb) => subscribe('board:changed', cb),
     problem: (objectId) => invokePlain('board:problem', objectId),
     dismissProblem: (objectId) => invokePlain('board:dismissProblem', objectId),

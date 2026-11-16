@@ -488,12 +488,12 @@ scans.on('changed', ({ objectId }) => marks.scansChanged(objectId))
  * store of the scans; `pickFile` is what "Import scan" is answered with, and
  * `filePicks` counts how often it was asked; `pickPhotos` (a list of paths) and `photoPicks` are the same for the photo dialog of a new object, `pickStep` and `stepPicks` for its bought-part (STEP) dialog; `pickSave` is what the save dialog of
  * an export is answered with (the path to write, or null), `savePicks` counts
- * how often it was asked and `saveOffered` is the path it would have opened on; `replace` answers the question asked before an export replaces a file the dialog did not ask about, and `replaceAsked` counts it; `openedFiles` are the files an export would have had the system open (a 3MF, when asked); `revealedFiles` are the instruction files the session pane's rows would have had shown in the file manager. `letGo` has an object's status
+ * how often it was asked and `saveOffered` is the path it would have opened on; `replace` answers the question asked before an export replaces a file the dialog did not ask about, and `replaceAsked` counts it; `openedFiles` are the files an export would have had the system open (a 3MF, when asked); `revealedFiles` are the files that would have been shown in the file manager (the session pane's instruction files, a STEP or PDF of a board's reference card); `openedLinks` are the addresses a text card would have had opened in a browser. `letGo` has an object's status
  * say that the kernel let its build go, which no test's kernel does. `opened`
  * are the objects opened in this run: those that are watched and built. `mcpFor` gives the address of an
  * object's MCP server and a token that opens it, to send in `X-Torno-Session`.
  */
-const testHooks = { requestLook, latestView, marks, marksChecks, opened: openedObjects, letGo: letGoForTest, mcpFor: (_id: string): { url: string; token: string } => ({ url: '', token: '' }), pickFolder: null as string | null, picks: 0, scans, pickFile: null as string | null, filePicks: 0, pickPhotos: [] as string[], photoPicks: 0, pickStep: null as string | null, stepPicks: 0, pickSave: null as string | null, savePicks: 0, saveOffered: null as string | null, replace: false, replaceAsked: 0, openedFiles: [] as string[], revealedFiles: [] as string[] }
+const testHooks = { requestLook, latestView, marks, marksChecks, opened: openedObjects, letGo: letGoForTest, mcpFor: (_id: string): { url: string; token: string } => ({ url: '', token: '' }), pickFolder: null as string | null, picks: 0, scans, pickFile: null as string | null, filePicks: 0, pickPhotos: [] as string[], photoPicks: 0, pickStep: null as string | null, stepPicks: 0, pickSave: null as string | null, savePicks: 0, saveOffered: null as string | null, replace: false, replaceAsked: 0, openedFiles: [] as string[], revealedFiles: [] as string[], openedLinks: [] as string[] }
 
 /** The folder a second launch was given while there was no window to offer it to, or none that had loaded. */
 let requested: string | null = null
@@ -728,7 +728,9 @@ void app.whenReady().then(async () => {
     // The instruction files Claude Code reads for an object, listed for the session pane.
     instructions: instructionFiles,
     // Nor a file manager.
-    revealFile: isTest ? (path) => void testHooks.revealedFiles.push(path) : undefined
+    revealFile: isTest ? (path) => void testHooks.revealedFiles.push(path) : undefined,
+    // Nor a browser.
+    openExternal: isTest ? (url) => void testHooks.openedLinks.push(url) : undefined
   })
   // Under test only: an object's MCP address and a token that opens it, as a session of that object has one.
   if (isTest) testHooks.mcpFor = (id) => ({ url: mcpUrlFor(id), token: http.grant([new URL(mcpUrlFor(id)).pathname]) })

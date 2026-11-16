@@ -97,6 +97,13 @@ function markText(card: Card, live: LiveFacts): string {
 
 const buildText = (card: Card): string => (card.copy ? `Build ${card.copy.id}: ${card.copy.line} (${card.copy.cause})` : `Build ${card.source ?? ''}`.trim())
 
+/** What a file of `reference/` that is not a picture is, for the agent, who reads it with its own tools. */
+function referenceText(card: Card): string {
+  const source = card.source ?? ''
+  const what = /\.(?:step|stp)$/i.test(source) ? " (a bought part's STEP)" : /\.pdf$/i.test(source) ? ' (a PDF: read it with your own tools)' : ''
+  return what === '' ? source : [`${source}${what}`, ...(card.caption ? [card.caption] : [])].join('\n')
+}
+
 /** What a card says, in words, without the picture it may carry: the one thing `saysHash` and the text are both made of. */
 function contentOf(card: Card, live: LiveFacts): string {
   switch (card.kind) {
@@ -112,7 +119,7 @@ function contentOf(card: Card, live: LiveFacts): string {
     case 'brief':
       return live.brief ? live.brief.slice(0, MAX_TEXT_CHARS) : '(there is no brief.md)'
     case 'reference':
-      return card.source ?? ''
+      return referenceText(card)
     case 'mark':
       return markText(card, live)
     case 'scan':

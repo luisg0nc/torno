@@ -302,6 +302,8 @@ export function BoardView() {
     if (!camera) return
     const target = e.target instanceof Element ? e.target : null
     if (target?.closest('.pboard-editor')) return
+    // A link of a text card is pressed, not dragged: the click opens it.
+    if (e.button === 0 && target?.closest('[data-link]')) return
     e.currentTarget.focus({ preventScroll: true })
     if (e.button === 1 || e.button === 2 || (e.button === 0 && space.current)) {
       e.preventDefault()

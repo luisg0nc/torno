@@ -1,10 +1,10 @@
 import { existsSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
-import { type BoardAttach, type BoardFile, type BoardOpen, CARD_ID, MAX_CARDS, type PersonChange, type PinWhat } from '../../shared/board'
+import { type BoardAttach, type BoardFile, type BoardOpen, CARD_ID, MAX_CARDS, firstLink, type PersonChange, type PinWhat } from '../../shared/board'
 import { type SavedView, findView } from '../../shared/views'
 import type { ObjectInfo } from '../../shared/workspace'
 import { Refusal } from '../refusal'
-import { listReferences, readReference } from '../sessions/reference'
+import { listBoardReferences, readReference } from '../sessions/reference'
 import { readBrief } from './live'
 import { readPicture, savePicture } from './pictures'
 import { pin } from './sources'
@@ -23,6 +23,8 @@ export interface BoardIpcDeps {
   views(objectId: string): Promise<readonly SavedView[]>
   /** Has the system open a file of the project in the person's own program, or show it in its folder. The path is main's. */
   show(how: 'open' | 'reveal', path: string): void | Promise<void>
+  /** Has the system open an address in the person's browser (`shell.openExternal`). Only ever given an `http` or `https` one. */
+  openExternal(url: string): void | Promise<void>
 }
 
 const NOT_OPEN = 'That project is not open.'
@@ -95,10 +97,27 @@ export function boardHandlers(deps: BoardIpcDeps) {
         if (!existsSync(path) || !lstatSync(path).isFile()) throw new Refusal('There is no brief.md in this project.')
         return void (await deps.show('open', path))
       }
-      if (what.kind === 'reference' && typeof what.file === 'string' && /^reference\/[^/]+$/.test(what.file) && listReferences(obj.dir).includes(what.file.slice('reference/'.length))) {
+      if (what.kind === 'reference' && typeof what.file === 'string' && /^reference\/[^/]+$/.test(what.file) && listBoardReferences(obj.dir).includes(what.file.slice('reference/'.length))) {
         return void (await deps.show('reveal', join(obj.dir, what.file)))
       }
       throw new Refusal('That is not something the board opens.')
+    },
+
+    /** The first link of a text card, opened in the person's browser. The window names the card; the card is read from the store, and only `http` and `https` go. */
+    async openLink(objectId: string, cardId: string): Promise<void> {
+      const { id } = open(objectId)
+      if (typeof cardId !== 'string' || !CARD_ID.test(cardId)) throw new Refusal('That is not a card of the board.')
+      const card = (await deps.board.read(id)).cards.find((c) => c.id === cardId)
+      if (!card) throw new Refusal('That card is not on the board.')
+      const link = card.kind === 'text' && card.text !== undefined ? firstLink(card.text) : null
+      let url: URL | undefined
+      try {
+        url = link === null ? undefined : new URL(link)
+      } catch {
+        url = undefined
+      }
+      if (link === null || !url || (url.protocol !== 'http:' && url.protocol !== 'https:')) throw new Refusal('There is no web address on that card to open.')
+      await deps.openExternal(link)
     },
 
     /** Pins what the project has to the board; why not, as a value, when it cannot be. */

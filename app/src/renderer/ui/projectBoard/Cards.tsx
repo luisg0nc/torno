@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { Card } from '../../../shared/board'
 import type { HistoryEntry } from '../../../shared/history'
-import { useBoard } from '../../state/board'
+import { boardActions, useBoard } from '../../state/board'
 import { ensurePicture, pictureOf, usePictureUrl } from '../../state/boardPictures'
 import { useStore } from '../../state/store'
 import { useHistory } from '../useHistory'
@@ -43,6 +43,30 @@ function Pieces({ text }: { text: string }) {
   )
 }
 
+/** The text of a card with the web address in it as a link: main opens it in the browser, from the card, so no address is ever sent from here. */
+function LinkBody({ objectId, cardId, text, link }: { objectId: string; cardId: string; text: string; link: string }) {
+  const at = text.indexOf(link)
+  if (at < 0) return <Pieces text={text} />
+  return (
+    <>
+      <Pieces text={text.slice(0, at)} />
+      <a
+        className="pboard-link num"
+        href={link}
+        data-link=""
+        title="Open in your browser"
+        onClick={(e) => {
+          e.preventDefault()
+          window.torno.board.openLink(objectId, cardId).catch((error: unknown) => boardActions.say(error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']*': (?:Error: )?/, '') : String(error)))
+        }}
+      >
+        {link}
+      </a>
+      <Pieces text={text.slice(at + link.length)} />
+    </>
+  )
+}
+
 /** One card, drawn again only when it, what it shows or whether it is selected changes. */
 const CardView = memo(
   function CardView({ objectId, card, facts, selected, handles }: CardProps) {
@@ -79,7 +103,7 @@ const CardView = memo(
         )}
         {face.body !== undefined && (
           <div className="pboard-body" data-scroll={face.scroll ? '' : undefined}>
-            <Pieces text={face.body} />
+            {face.link !== undefined ? <LinkBody objectId={objectId} cardId={card.id} text={face.body} link={face.link} /> : <Pieces text={face.body} />}
           </div>
         )}
         {face.lines.length > 0 && (

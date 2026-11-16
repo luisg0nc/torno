@@ -108,6 +108,15 @@ export type AgentChange =
 /** What the window pins from what the project has: the build by its id in the history, a view by its name, the Params, the checks. */
 export type PinWhat = { kind: 'build'; id: string } | { kind: 'view'; name: string } | { kind: 'params' } | { kind: 'checks' }
 
+/** The most characters of a link a card opens. */
+export const MAX_LINK_CHARS = 2000
+
+/** The first `http://` or `https://` address in a text, up to the next whitespace, at most `MAX_LINK_CHARS` characters; null when there is none. Whether it may be opened is main's to check. */
+export function firstLink(text: string): string | null {
+  const found = /https?:\/\/\S+/i.exec(text)
+  return found ? found[0].slice(0, MAX_LINK_CHARS) : null
+}
+
 /** What the window asks main to open from a card: the brief in the person's program, or a file of `reference/` in its folder. */
 export type BoardOpen = { kind: 'brief' } | { kind: 'reference'; file: string }
 

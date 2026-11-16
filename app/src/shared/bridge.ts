@@ -197,6 +197,8 @@ export interface TornoBridge {
     pin(objectId: string, what: PinWhat): Promise<BoardFile | { refused: string }>
     /** Opens the project's `brief.md` in the person's own program, or shows a file of its `reference/` in its folder. Rejects with why not. */
     open(objectId: string, what: BoardOpen): Promise<void>
+    /** Opens the first `http` or `https` link of a text card in the person's browser. Main reads the card; rejects with why not (no such card, no link). */
+    openLink(objectId: string, cardId: string): Promise<void>
     /** The board of a project changed, whoever changed it: the whole board as it now is. */
     onChanged(cb: (m: { objectId: string; board: BoardFile }) => void): () => void
     /** What main found wrong with a project's board file (not readable, cards left out, not a plain file): told once as it happens. */
