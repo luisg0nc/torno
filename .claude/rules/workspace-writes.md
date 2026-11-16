@@ -47,7 +47,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   plain reason, nothing is written, and the person is told once for each object, in the Marks panel
   (`onNotOwn`, wired in `index.ts`). (`.torno/views/`, `.torno/scans/`, `.torno/board/pictures/` and `.torno/notes/` each have a `.gitignore` of their own
   inside them, written by whoever makes the folder; `main/notes/files.ts` writes the pictures of the view notes, named
-  `n-<12 hex>.png`, `n-<12 hex>.ink.png` and `r-<12 hex>.png|jpg`, by main alone.)
+  `n-<12 hex>.png`, `n-<12 hex>.ink.png` and `r-<12 hex>.png|jpg`, by main alone, after `main/notes/check.ts` has checked what the window sent
+  (`notes:make`, `notes:edit`); the files no note names are swept once per project per run, when it is first opened
+  (`main/notes/sweep.ts`), keeping those of notes removed in this run and those a `marks.json.corrupt-*` or `.dropped-*`
+  names, and nothing at all when the marks file could not be read; a file made in the last minute is left alone.)
   - The folders torno keeps under it are held to the same rule by the same function, named after the folder:
     `ownTorno(dir, 'views')`, `ownTorno(dir, 'exports')`, `ownTorno(dir, 'scans', 'S1')` (`ownFolders` and
     `linkRefusal` of the scans are that call), `ownTorno(dir, 'chat')`. It is asked before every write into

@@ -11,27 +11,27 @@ const FACE = /^[^\p{Cc}\u2028\u2029]{1,200}\/F(?:0|[1-9][0-9]{0,6})$/u
 /** A part, by its name: one line, no control character. */
 const PART = /^[^\p{Cc}\u2028\u2029]{1,200}$/u
 const SCAN = /^S[1-9][0-9]{0,6}$/
-const INK = /^#[0-9a-fA-F]{6}$/
+export const INK = /^#[0-9a-fA-F]{6}$/
 /** The longest caption, and object id or layout, taken after folding to one line; a longer descriptor is cut. */
-const MAX_CAPTION = 4000
-const MAX_NAME = 200
+export const MAX_CAPTION = 4000
+export const MAX_NAME = 200
 const MAX_DESCRIPTOR = 200
 /** Beyond this a coordinate of a camera is no place (as of a saved view). */
 const MAX_COORDINATE = 1e9
 const NOT = 'The drawing on the view could not be sent'
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
-const isCount = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0
+export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+export const isCount = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0
 /** Every run of white space, line breaks too, as one space. */
-const folded = (v: string): string => v.replace(/\s+/g, ' ').trim()
+export const folded = (v: string): string => v.replace(/\s+/g, ' ').trim()
 /** A text of one line, `most` characters at most once folded; null for anything else. */
-function line(v: unknown, most: number): string | null {
+export function line(v: unknown, most: number): string | null {
   if (typeof v !== 'string') return null
   const one = folded(v)
   return one !== '' && one.length <= most ? one : null
 }
 
-function cameraOf(v: unknown): Camera | null {
+export function cameraOf(v: unknown): Camera | null {
   if (!isRecord(v)) return null
   const triple = (t: unknown): [number, number, number] | null => (Array.isArray(t) && t.length === 3 && t.every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= MAX_COORDINATE) ? [t[0], t[1], t[2]] : null)
   const position = triple(v.position)
@@ -45,7 +45,7 @@ function cameraOf(v: unknown): Camera | null {
 }
 
 /** One stroke of what the window says is under the ink, within a picture of that size; null when it is not one. */
-function strokeOf(v: unknown, width: number, height: number): StrokeUnder | null {
+export function strokeOf(v: unknown, width: number, height: number): StrokeUnder | null {
   if (!isRecord(v) || !Array.isArray(v.box) || v.box.length !== 4 || !v.box.every((n) => typeof n === 'number' && Number.isFinite(n))) return null
   const [left, top, right, bottom] = v.box as number[]
   if (left < 0 || top < 0 || right > width || bottom > height || left > right || top > bottom) return null

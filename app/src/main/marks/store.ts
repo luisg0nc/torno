@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NotePatch, type Replacement, type RegionMark, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type RegionMark, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, markAnchors, translated } from '../../shared/marks'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
 
@@ -90,6 +90,11 @@ export class MarkStore {
    * (`DimensionMark.history`). In memory only, never in marks.json: revisions count from 1 in every run.
    */
   private histories = new Map<string, Map<string, DimensionSample[]>>()
+  /**
+   * By object folder: the picture files of the notes removed in this run (`withNoteFiles`), kept in memory only: an undo
+   * brings a removed note back, and its pictures with it. Cleared with the rest by `forget`, as the window forgets its undo.
+   */
+  private removedFiles = new Map<string, Set<string>>()
   /** Counts `forget`: what was read before one is not kept after it. */
   private epoch = 0
   private listeners: { [E in keyof MarkEvents]: Array<(m: MarkEvents[E]) => void> } = { changed: [], problem: [], unchecked: [] }
@@ -111,6 +116,7 @@ export class MarkStore {
   forget(): void {
     this.epoch += 1
     this.deleted.clear()
+    this.removedFiles.clear()
     this.files.clear()
     this.histories.clear()
     this.unread.clear()
@@ -476,11 +482,34 @@ export class MarkStore {
   }
 
   /**
+   * Runs `task` in the turn of the object's marks, so that no change lands meanwhile, with the picture files its notes
+   * name: those of the notes it has and of those removed in this run (an undo brings those back), and what was wrong
+   * with the marks file when it was read (a sweep that is told so leaves the files alone: the file kept aside may name them).
+   */
+  withNoteFiles<T>(objectId: string, task: (named: Set<string>, dir: string, problem: string | null) => Promise<T>): Promise<T> {
+    return this.turn(objectId, (file, dir) => {
+      const named = new Set<string>(this.removedFiles.get(dir) ?? [])
+      for (const mark of file.marks) if (mark.kind === 'note') for (const name of noteFileNames(mark)) named.add(name)
+      return task(named, dir, this.problems.get(dir) ?? null)
+    })
+  }
+
+  /**
    * Takes a mark away. The last mark taken from each object is kept in memory, whole, with the triangles of a
    * region when the caller read them (`mask`), so that `restore` can put it back.
    */
   remove(objectId: string, id: string, mask?: Uint8Array): Promise<void> {
-    return this.change(objectId, (file) => file.marks.splice(indexOf(file, id), 1)[0]).then((mark) => {
+    return this.change(objectId, (file) => {
+      const [removed] = file.marks.splice(indexOf(file, id), 1)
+      // Inside the turn, so that a sweep that comes next names its files.
+      const dir = this.deps.dirOf(objectId)
+      if (removed.kind === 'note' && dir !== undefined) {
+        const kept = this.removedFiles.get(dir) ?? new Set<string>()
+        for (const name of noteFileNames(removed)) kept.add(name)
+        this.removedFiles.set(dir, kept)
+      }
+      return removed
+    }).then((mark) => {
       this.deleted.set(objectId, { mark, mask })
     })
   }
@@ -736,6 +765,9 @@ export class MarkStore {
     for (const cb of this.listeners[event]) cb(message)
   }
 }
+
+/** The picture files a note names: its view, the view with its ink and each reference. */
+const noteFileNames = (note: NoteMark): string[] => [note.picture, note.ink, ...note.references.map((r) => r.file)]
 
 /** A dimension with what the kernel now says of it in place of what it said before; the verdict follows from the value. */
 function withMeasurement(mark: DimensionMark, result: Measurement): Mark | null {

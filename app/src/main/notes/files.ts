@@ -42,7 +42,7 @@ export async function writeNoteFile(dir: string, kind: NoteFileKind, bytes: Uint
   return name
 }
 
-const isNoteFile = (name: string): boolean => NOTE_PICTURE.test(name) || NOTE_INK.test(name) || NOTE_REFERENCE.test(name)
+export const isNoteFile = (name: string): boolean => NOTE_PICTURE.test(name) || NOTE_INK.test(name) || NOTE_REFERENCE.test(name)
 
 /** The bytes of a file of a note, or null when there is none of that name (or the name is not main's, or a link or folder stands in its place). */
 export async function readNoteFile(dir: string, name: string): Promise<Buffer | null> {

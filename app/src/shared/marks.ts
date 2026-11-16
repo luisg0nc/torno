@@ -152,8 +152,8 @@ export const MOST_LABELS = 20
 export const MAX_LABEL = 200
 export const MOST_NOTE_REFERENCES = 6
 export const MAX_REFERENCE_COMMENT = 300
-/** The most strokes of ink a note keeps. */
-export const MOST_NOTE_STROKES = 100
+/** The most strokes of ink a note keeps: a person hatching a part must not lose a note. Only `MOST_STROKES_TOLD` of them get a line of what they lie over; the rest are counted. */
+export const MOST_NOTE_STROKES = 2000
 /** The files of a note, in `<object>/.torno/notes/`: named by main alone. The plain picture of the view, the picture with the ink on it, and a reference picture. */
 export const NOTE_PICTURE = /^n-[0-9a-f]{12}\.png$/
 export const NOTE_INK = /^n-[0-9a-f]{12}\.ink\.png$/

@@ -41,6 +41,7 @@ import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/meas
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, restoreMark, tendRegions } from './marks/regions'
 import type { MarkStore } from './marks/store'
 import { boardAttachOf, boardHandlers } from './board/ipc'
+import { noteHandlers } from './notes/ipc'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
 import { kernelDir, kernelRun } from './paths'
@@ -53,7 +54,7 @@ import { forgetSceneFiles, loadSceneFile, saveSceneFile, sceneFileNow } from './
 import { EFFORTS, isEffort, isMode, MODES, MODEL_ALIASES, MODEL_NAME, type ChatAnswer } from '../shared/chat'
 import type { BoardOpen, PersonChange, PinWhat } from '../shared/board'
 import type { SavedView } from '../shared/views'
-import type { AgentView, CreateRequest, OnboardDraft, PromptPreviewDraft } from '../shared/bridge'
+import type { AgentView, CreateRequest, NoteDraft, NoteEdit, OnboardDraft, PromptPreviewDraft } from '../shared/bridge'
 import { readChoice, writeChoice } from './sessions/choice'
 import { drawingOf } from './sessions/drawing'
 import type { Asks } from './asks'
@@ -93,7 +94,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:problem (also sent to the renderer),
-//           marks:dismissProblem, geometry:describe, geometry:measure,
+//           marks:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection
@@ -1041,6 +1042,11 @@ export function registerIpc(
   handle('board:problem', (_event, objectId: string) => requireBoards().problem(objectId))
   handle('board:dismissProblem', (_event, objectId: string) => requireBoards().dismissProblem(objectId))
 
+  // A view note: main checks what the window sends, names and writes its pictures, and says the rest of the mark (its anchor placed, as a mark's).
+  const notes = () => noteHandlers({ marks: requireMarks(), object: findObject, placed: placedMark })
+  handle('notes:make', (_event, draft: NoteDraft) => notes().make(draft))
+  handle('notes:edit', (_event, objectId: string, id: string, patch: NoteEdit) => notes().edit(objectId, id, patch))
+  handle('notes:picture', (_event, objectId: string, id: string, which: 'ink' | 'plain' | number) => notes().picture(objectId, id, which))
   handle('marks:problem', (_event, objectId: string) => requireMarks().problem(String(objectId)))
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
 

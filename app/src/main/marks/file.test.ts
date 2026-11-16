@@ -495,6 +495,12 @@ describe('a note mark', () => {
     expect(kept.strokes[0].points).toHaveLength(MAX_STROKE_POINTS)
   })
 
+  it('keeps 2000 strokes of ink, so that a person hatching a part does not lose the note, and no more', () => {
+    const stroke = { width: 4, points: [[1, 2]] }
+    const kept = sanitiseMark(note({ strokes: Array.from({ length: 2005 }, () => stroke), under: [] })) as NoteMark
+    expect(kept.strokes).toHaveLength(2000)
+  })
+
   it('keeps what main says of it as of any mark', () => {
     expect(sanitiseMark(note({ sentBefore: true, checkedRevision: 4 }))).toMatchObject({ sentBefore: true, checkedRevision: 4 })
   })

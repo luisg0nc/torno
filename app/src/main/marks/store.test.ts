@@ -1053,6 +1053,42 @@ describe('a view note', () => {
     expect(changes).toHaveLength(1)
   })
 
+  it('names the files of its notes, and of those removed in this run, to whoever sweeps them', async () => {
+    await store.addNote('bracket', note({ picture: 'n-aaaaaaaaaaaa.png', ink: 'n-aaaaaaaaaaaa.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.jpg', comment: '' }] }))
+    await store.addNote('bracket', note({ picture: 'n-bbbbbbbbbbbb.png', ink: 'n-bbbbbbbbbbbb.ink.png' }))
+    await store.add('bracket', pin())
+    await store.remove('bracket', 'M2')
+    const seen = await store.withNoteFiles('bracket', async (named, dir, problem) => ({ named: [...named].sort(), dir, problem }))
+    expect(seen).toEqual({ named: ['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'n-bbbbbbbbbbbb.ink.png', 'n-bbbbbbbbbbbb.png', 'r-aaaaaaaaaaaa.jpg'], dir: dirs.bracket, problem: null })
+  })
+
+  it('forgets the files of the notes removed when the workspace is left, and keeps a restored one named', async () => {
+    await store.addNote('bracket', note())
+    await store.remove('bracket', 'M1')
+    await store.restore('bracket', 'M1')
+    expect(await store.withNoteFiles('bracket', async (named) => [...named].sort())).toEqual(['n-0123456789ab.ink.png', 'n-0123456789ab.png'])
+    await store.remove('bracket', 'M1')
+    store.forget()
+    expect(await store.withNoteFiles('bracket', async (named) => [...named])).toEqual([])
+  })
+
+  it('says what was wrong with its marks file to the sweep, which then leaves the files alone', async () => {
+    mkdirSync(join(dirs.bracket, '.torno'))
+    writeFileSync(join(dirs.bracket, '.torno', 'marks.json'), 'not json')
+    expect(await store.withNoteFiles('bracket', async (_named, _dir, problem) => problem)).toMatch(/could not be read/)
+  })
+
+  it('waits its turn: no change lands while the sweep runs', async () => {
+    const order: string[] = []
+    const sweeping = store.withNoteFiles('bracket', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      order.push('swept')
+    })
+    const added = store.addNote('bracket', note()).then(() => order.push('added'))
+    await Promise.all([sweeping, added])
+    expect(order).toEqual(['swept', 'added'])
+  })
+
   it('is added without an anchor when the ink lay over no face', async () => {
     const { anchor: _anchor, ...bare } = note() as NewNote & { anchor?: Anchor }
     expect(await store.addNote('bracket', bare as NewNote)).not.toHaveProperty('anchor')

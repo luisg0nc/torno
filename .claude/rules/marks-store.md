@@ -37,6 +37,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Marks (`app/src/main`)
 
+- A view note is made and edited through `notes:make` and `notes:edit` (`main/notes/ipc.ts`): the window sends the pictures
+  and what the ink lies over, main checks them (`checkNoteDraft`, `checkNoteEdit`: the caps of a note, the checks of a
+  drawing), writes the files, then calls `MarkStore.addNote` / `editNote`. A note keeps up to 2000 strokes
+  (`MOST_NOTE_STROKES`), and only the first `MOST_STROKES_TOLD` get a line of what they lie over (`under`), then one per
+  label with an arrow. `MarkStore.withNoteFiles` runs the sweep of `.torno/notes/` in the turn of the marks, naming the
+  files of the notes it has and of those removed in this run (`remove` records them; `forget` clears them).
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
   the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal
   that names the first that is not the agent's to acknowledge. Only the person asks it (`marks:acknowledge`);

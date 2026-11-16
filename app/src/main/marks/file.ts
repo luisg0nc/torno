@@ -357,7 +357,7 @@ function strokeOf(base: Omit<StrokeMark, 'kind' | 'space' | 'anchor'>, anchor: A
 }
 
 /** An anchor needs its point; what else it says is kept when it is of the right sort. */
-function anchorOf(value: unknown): Anchor | null {
+export function anchorOf(value: unknown): Anchor | null {
   if (!isRecord(value)) return null
   const point = tuple<Vec3>(value.point, 3)
   if (!point) return null
