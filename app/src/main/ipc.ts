@@ -1139,6 +1139,8 @@ export function registerIpc(
         start: (obj, choice) => requireSessions().start(obj, choice),
         prompt: (sessionId, blocks) => requireSessions().prompt(sessionId, blocks),
         began: (sessionId) => requireSessions().began(sessionId),
+        // The first prompt says what is on the board in its own words: its board line counts the cards as told.
+        boardTold: (id) => (boardStore ? boardStore.markAllTold(id) : Promise.resolve()),
         scene: (id) => ws.builds.scene(id)?.scene
       },
       String(objectId),

@@ -462,7 +462,11 @@ async function scalePicture(bytes: Uint8Array, edge: number): Promise<Uint8Array
   return new Uint8Array(png ? scaled.toPNG() : scaled.toJPEG(85))
 }
 // The cards of what a project has appear on its board by themselves, and go with it.
-const board = new BoardStore({ dirOf: (id) => findObject(id)?.dir })
+const board = new BoardStore({
+  dirOf: (id) => findObject(id)?.dir,
+  // What a card shows of the project, for what `markAllTold` keeps: as the board line of a prompt reads it.
+  live: async (id) => liveFacts({ dir: findObject(id)?.dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides })
+})
 /** The pictures no card names go when a project is first opened in a run, once the window has nothing of it to undo. */
 const pictureSweep = new PictureSweep(board)
 /** The one line every prompt carries of the board of a project (`boardLine`), with what it will have told: undefined when there is no such project. */

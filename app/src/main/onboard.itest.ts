@@ -11,6 +11,9 @@ import { createObject } from './objects/create'
 import { onboardObject, sessionRunning, type OnboardDeps } from './onboard'
 import { ScanStore } from './scans/store'
 import { processImporter } from './scans/importer'
+import { BoardStore } from './board/store'
+import { liveFacts } from './board/live'
+import { boardLine } from './board/text'
 import { claudeAdapter } from './sessions/claude'
 import { Sessions } from './sessions/manager'
 import type { StreamMessage } from './sessions/stream'
@@ -30,14 +33,21 @@ function png(w: number, h: number): Uint8Array {
   return b
 }
 
+const SIZE = { what: 'cable', value: 'Ø6', unit: 'mm' as const, source: 'measured' as const }
+const RULES = 'No supports.'
+const LINK = { url: 'https://example.com/clip', note: 'the vendor' }
+
 let root: string
 /** torno's own folder of the files an agent is given by path, outside the workspace. */
 let configDir: string
 let http: HttpRouter
 let sessions: Sessions
 let scans: ScanStore
+let board: BoardStore
 const messages: StreamMessage[] = []
 const objects = new Map<string, ObjectInfo>()
+
+const live_ = (id: string) => liveFacts({ dir: objects.get(id)?.dir, marks: [], scene: undefined, overrides: () => ({}) })
 
 function make(command: string): Sessions {
   const made = new Sessions({
@@ -45,8 +55,15 @@ function make(command: string): Sessions {
     http,
     adapter: claudeAdapter(command),
     viewFor: () => 'chat',
-    contextFor: async (id) => ({ text: `context for ${id}`, sentMarkIds: [] }),
-    onDelivered: () => {},
+    // As the app's prompt does: the line of the board, and what it told kept once the prompt is delivered.
+    contextFor: async (id) => {
+      const [file, told, live] = await Promise.all([board.read(id), board.told(id), live_(id)])
+      const line = boardLine(file, told, live)
+      return { text: `context for ${id}${line.line ? `\n${line.line}` : ''}`, sentMarkIds: [], ...(line.line ? { boardTold: line.told } : {}) }
+    },
+    onDelivered: (id, _marks, told) => {
+      if (told) void board.markTold(id, told)
+    },
     systemPromptFor: () => '',
     mcpUrlFor: (id) => http.url(`/mcp/${id}`)
   })
@@ -61,6 +78,7 @@ const depsOf = (s: Sessions): OnboardDeps => ({
   start: (obj, choice) => s.start(obj, choice),
   prompt: (id, blocks) => s.prompt(id, blocks),
   began: (id) => s.began(id),
+  boardTold: (id) => board.markAllTold(id),
   scene: () => undefined
 })
 
@@ -68,7 +86,7 @@ const depsOf = (s: Sessions): OnboardDeps => ({
 async function made(name: string) {
   const photo = join(root, 'files', 'desk.png')
   const { objectId } = await createObject(
-    { name, description: 'A clip for a 6 mm cable.', photos: [{ path: photo, note: 'the desk' }], doodles: [{ png: png(1200, 800), note: 'the shape' }], steps: [], scans: [], objects: [{ id: 'lid', note: 'mounts on this' }], sizes: [], rules: '', links: [], pdfs: [] },
+    { name, description: 'A clip for a 6 mm cable.', photos: [{ path: photo, note: 'the desk' }], doodles: [{ png: png(1200, 800), note: 'the shape' }], steps: [], scans: [], objects: [{ id: 'lid', note: 'mounts on this' }], sizes: [SIZE], rules: RULES, links: [LINK], pdfs: [{ path: join(root, 'files', 'cable.pdf'), note: 'the cable' }] },
     { root, objects: ['lid'] }
   )
   objects.set(objectId, { id: objectId, name: objectId, dir: join(root, objectId), model: null })
@@ -79,7 +97,11 @@ async function made(name: string) {
       items: [{ file: 'reference/photo-1.png', note: 'the desk', image: png(1280, 960) }, { file: 'reference/doodle-1.png', note: 'the shape', image: png(1200, 800) }],
       steps: [],
       scans: [{ path: join(root, 'files', 'edge.stl'), note: 'the edge' }],
-      objects: [{ id: 'lid', note: 'mounts on this' }]
+      objects: [{ id: 'lid', note: 'mounts on this' }],
+      sizes: [SIZE],
+      rules: RULES,
+      links: [LINK],
+      pdfs: [{ file: 'reference/cable.pdf', note: 'the cable' }]
     }
   }
 }
@@ -88,6 +110,7 @@ beforeAll(async () => {
   root = mkdtempSync(join(realpathSync(tmpdir()), 'torno-onboard-'))
   mkdirSync(join(root, 'files'))
   writeFileSync(join(root, 'files', 'desk.png'), png(3000, 2000))
+  writeFileSync(join(root, 'files', 'cable.pdf'), '%PDF-1.4\n')
   writeFileSync(join(root, 'files', 'edge.stl'), stl(box([40, 30, 5])))
   mkdirSync(join(root, 'lid'))
   writeFileSync(join(root, 'lid', 'lid.py'), '# lid\n')
@@ -98,6 +121,7 @@ beforeAll(async () => {
   http = await startHttp()
   sessions = make(`node ${FAKE}`)
   const importer = processImporter((args) => scanCommand({ workspaceRoot: root, hasProject: false, kernelDir: KERNEL_DIR }, args), root)
+  board = new BoardStore({ dirOf: (id) => objects.get(id)?.dir, live: live_ })
   scans = new ScanStore({ dirOf: (id) => objects.get(id)?.dir, importer: () => importer })
 })
 
@@ -138,13 +162,30 @@ describe('onboarding a new object', () => {
     expect(user.text).toContain('../lid/ (another project of this workspace: not built in this run; its picture is attached: picture 3)')
     expect(sessions.history(out.sessionId!)!.items.filter((i) => i.kind === 'user')).toHaveLength(1)
 
-    // The hook answered this prompt with the context, like any other.
-    expect(messages.find((m) => m.type === 'system' && m.subtype === 'hook_response')).toMatchObject({ output: `context for ${objectId}` })
-    expect(sessions.history(out.sessionId!)!.items.some((i) => i.kind === 'context' && i.text === `context for ${objectId}`)).toBe(true)
+    expect(user.text).toContain('Sizes the person gave:\n- cable Ø 6 mm (measured)')
+    expect(user.text).toContain('Rules:\nNo supports.')
+    expect(user.text).toContain('- https://example.com/clip: the vendor')
+    expect(user.text).toContain('- reference/cable.pdf: the cable. A PDF; read it with your own tools if it helps.')
+
+    // The hook answered this prompt with the context, like any other, and its board line counts the cards the prompt
+    // said as cards, none of them new (brief, photo, doodle, size, rules, link, PDF).
+    const context = (messages.find((m) => m.type === 'system' && m.subtype === 'hook_response') as unknown as { output: string }).output
+    expect(context).toMatch(/^context for cable-clip\nBoard: 7 cards \(0 new\), frames /)
+    expect(context).not.toMatch(/ new:/)
+    expect(sessions.history(out.sessionId!)!.items.some((i) => i.kind === 'context' && i.text === context)).toBe(true)
 
     // And the object is the one `create` made, its brief holding the same notes.
     const brief = readFileSync(join(root, objectId, 'brief.md'), 'utf8')
     for (const note of ['the desk', 'the shape', 'mounts on this']) expect(brief).toContain(note)
+  })
+
+  it('would call every card and frame new if the board were not counted as told first', async () => {
+    const { objectId, draft } = await made('uncounted')
+    const out = await onboardObject({ ...depsOf(sessions), boardTold: undefined }, objectId, draft)
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 15000 }).toBe(1)
+    const context = (messages.find((m) => m.type === 'system' && m.subtype === 'hook_response') as unknown as { output: string }).output
+    expect(context).toMatch(/Board: 7 cards \(14 new: /)
+    expect(out.problem).toBeUndefined()
   })
 
   it('refuses an object that has a session already, and imports and sends nothing more', async () => {

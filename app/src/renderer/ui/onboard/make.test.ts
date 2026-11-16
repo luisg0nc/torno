@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CreateRequest, OnboardDraft, Onboarded } from '../../../shared/bridge'
 import type { Draft } from '../../state/onboard'
-import { makeObject, type MakeDeps } from './make'
+import { makeObject, pdfReferences, type MakeDeps } from './make'
 
 const draft = (): Draft => ({
   name: 'cable-clip',
@@ -32,6 +32,15 @@ function deps(over: Partial<MakeDeps> = {}) {
   return { made, calls }
 }
 
+describe('pdfReferences', () => {
+  it('names the PDFs as create does: their own names, a name taken in any case numbered', () => {
+    expect(pdfReferences([{ path: '/p/Data Sheet.PDF', note: 'a' }, { path: '/q/data sheet.pdf', note: '' }])).toEqual([
+      { file: 'reference/Data_Sheet.pdf', note: 'a' },
+      { file: 'reference/data_sheet-2.pdf', note: '' }
+    ])
+  })
+})
+
 describe('making the object', () => {
   it('creates, lists, opens, discards the draft, then onboards once, with the pictures named as create names them', async () => {
     const { made, calls } = deps()
@@ -53,7 +62,11 @@ describe('making the object', () => {
         ],
         steps: [{ file: 'reference/608zz.step', note: 'the bearing' }],
         scans: [{ path: '/s/clip.stl', note: 'old one' }],
-        objects: [{ id: 'plain', note: 'same style' }]
+        objects: [{ id: 'plain', note: 'same style' }],
+        sizes: [],
+        rules: '',
+        links: [],
+        pdfs: []
       }
     ])
     expect(made.hold).not.toHaveBeenCalled()

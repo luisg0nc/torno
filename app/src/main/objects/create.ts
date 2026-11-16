@@ -34,8 +34,8 @@ export const MAX_DOODLE = 8 * 1024 * 1024
 const MAX_DESCRIPTION = 20_000
 const MAX_NOTE = 2_000
 /** What a board takes of the rest: the rules (a text card holds this much), the links, and a link's note. */
-const MAX_RULES = MAX_TEXT_CHARS
-const MAX_LINKS = 20
+export const MAX_RULES = MAX_TEXT_CHARS
+export const MAX_LINKS = 20
 const MAX_URL = 2_000
 const MAX_LINK_NOTE = 300
 const PDF_SIGNATURE = '%PDF-'
@@ -197,7 +197,7 @@ interface Checked {
 }
 
 /** A link: `http` or `https` only (any case of the scheme), one word, a host, at most 2000 characters. */
-function checkLink(link: unknown): { url: string; note: string } {
+export function checkLink(link: unknown): { url: string; note: string } {
   const url = (link as { url?: unknown } | null)?.url
   if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('A link is an http or https address.')
   if (url.length > MAX_URL) throw new Error(`A link is at most ${MAX_URL} characters.`)

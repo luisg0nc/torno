@@ -44,7 +44,9 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   file is the one place that still says which they are.
 - `<object>/.torno/board/told.json` (ignored through `ensureIgnored`) holds what revision of each card the agent was told. It
   is never tracked, so the tracked file carries no counters. It is written only once a prompt that carried the board line
-  has been delivered (the delivery point of `sentMarkIds`), so a prompt that fails to go leaves the cards new.
+  has been delivered (the delivery point of `sentMarkIds`), so a prompt that fails to go leaves the cards new. The one other
+  writer is `BoardStore.markAllTold`, for the first prompt of a new project (`objects:onboard`, just before the prompt
+  goes): it keeps the hashes `boardLine` itself computes for every card and arrow, so that prompt's line says none is new.
 - Everything of the board is written under `<object>/.torno/board/`, through `ownTorno(dir, 'board')` and
   `writeOwn` first: a link or a file in the place of a folder is refused and nothing is written where it leads. The board
   adds no write exception to `workspace-writes`.

@@ -1,7 +1,7 @@
 import type { CreateRequest, OnboardDraft, Onboarded, PromptPreviewDraft } from '../../../shared/bridge'
 import type { AgentChoice } from '../../../shared/chat'
 import type { Draft, Held } from '../../state/onboard'
-import { stepFiles } from '../../../shared/objectName'
+import { PDF_FORMATS, referenceFiles as namedReferences, stepFiles } from '../../../shared/objectName'
 import { extensionOf } from './images'
 
 /** What an IPC call failed with, without Electron's wrapping. */
@@ -48,6 +48,12 @@ export function stepReferences(draft: Draft): OnboardDraft['steps'] {
   return draft.steps.map((s, n) => ({ file: files[n], note: s.note }))
 }
 
+/** What `create` will name the PDFs of a request: their own names (`referenceFiles`), with the person's note on each. */
+export function pdfReferences(pdfs: CreateRequest['pdfs']): OnboardDraft['pdfs'] {
+  const files = namedReferences(pdfs.map((p) => p.path), PDF_FORMATS)
+  return pdfs.map((p, n) => ({ file: files[n], note: p.note }))
+}
+
 /** The draft as `objects.previewPrompt` takes it: no picture, only whether there is one. */
 export function previewDraft(draft: Draft): PromptPreviewDraft {
   return {
@@ -55,7 +61,12 @@ export function previewDraft(draft: Draft): PromptPreviewDraft {
     items: referenceFiles(draft).map((i) => ({ file: i.file, note: i.note, picture: (i.image?.byteLength ?? 0) > 0 })),
     steps: stepReferences(draft),
     scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
-    objects: draft.objects.map((o) => ({ id: o.id, note: o.note }))
+    objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),
+    // The draft has no sizes, rules, links or PDFs yet.
+    sizes: [],
+    rules: '',
+    links: [],
+    pdfs: []
   }
 }
 
@@ -118,7 +129,7 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
     await deps.open(objectId).catch(() => void (shown = false))
     let told: Onboarded
     try {
-      told = await deps.onboard(objectId, { description, items, steps: stepReferences(draft), scans: request.scans, objects: request.objects, ...(choice.model || choice.effort ? { choice } : {}) })
+      told = await deps.onboard(objectId, { description, items, steps: stepReferences(draft), scans: request.scans, objects: request.objects, sizes: request.sizes, rules: request.rules, links: request.links, pdfs: pdfReferences(request.pdfs), ...(choice.model || choice.effort ? { choice } : {}) })
     } catch (e) {
       // Nothing is known of the text: the object is made and open, and the reason is said where the chat would be.
       const message = reason(e)

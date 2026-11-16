@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type BoardFile, type Card, MAX_TEXT_CHARS } from '../../shared/board'
 import { BoardStore } from './store'
 import { ensureIgnored } from '../ignored'
+import { boardLine } from './text'
 
 let root: string
 let dirs: Record<string, string>
@@ -238,6 +239,41 @@ describe('told.json', () => {
     expect(ignore).toContain('board/told.json')
     expect(readFileSync(join(dirs.bracket, '.torno', 'board', 'told.json'), 'utf8')).toContain('"C1"')
     await ensureIgnored(dirs.bracket, ['board/told.json'])
+  })
+})
+
+describe('markAllTold', () => {
+  const toldOf = (): Record<string, string> => JSON.parse(readFileSync(join(dirs.bracket, '.torno', 'board', 'told.json'), 'utf8'))
+
+  it('keeps what the board line would say of every card and arrow as told, so that the next line says nothing is new', async () => {
+    writeFileSync(join(dirs.bracket, 'brief.md'), '# bracket\n\nA bracket.\n')
+    const live = { marks: new Map(), brief: '# bracket\n\nA bracket.\n' }
+    store = new BoardStore({ dirOf: (id) => dirs[id], live: async () => live })
+    await withTorno()
+    await store.person('bracket', frame('Sizes'))
+    await store.person('bracket', text(0, 0))
+    await store.person('bracket', text(300, 0, { text: 'second' }))
+    await store.person('bracket', { op: 'arrow', from: 'C3', to: 'C4' })
+    const before = boardLine(await store.read('bracket'), await store.told('bracket'), live)
+    expect(before.line).toMatch(/\(\d+ new: /)
+    await store.markAllTold('bracket')
+    const after = boardLine(await store.read('bracket'), await store.told('bracket'), live)
+    expect(after.line).toMatch(/^Board: 3 cards \(0 new\)/)
+    expect(Object.keys(toldOf()).sort()).toEqual(Object.keys(before.told).sort())
+  })
+
+  it('is not undone by a card made afterwards: that one is new', async () => {
+    store = new BoardStore({ dirOf: (id) => dirs[id], live: async () => ({ marks: new Map() }) })
+    await store.person('bracket', text(0, 0))
+    await store.markAllTold('bracket')
+    await store.person('bracket', text(300, 0, { text: 'later' }))
+    const line = boardLine(await store.read('bracket'), await store.told('bracket'), { marks: new Map() }).line
+    expect(line).toMatch(/\(1 new: C2 text\)/)
+  })
+
+  it('works with no live facts given, and for a board with nothing on it writes an empty told', async () => {
+    await store.markAllTold('two')
+    expect(JSON.parse(readFileSync(join(dirs.two, '.torno', 'board', 'told.json'), 'utf8'))).toEqual({})
   })
 })
 

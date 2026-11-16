@@ -7,9 +7,10 @@ import { number } from '../shared/format'
 import { MOST_IMAGES, moduleName } from '../shared/objectName'
 import type { Scene } from '../shared/scene'
 import { SCAN_FORMATS } from '../shared/scans'
+import { MAX_SIZES, type SizeFact, checkSize, saySize } from '../shared/size'
 import type { ObjectInfo } from '../shared/workspace'
 import { FOLDER } from './own'
-import { MOST, oneLine } from './objects/create'
+import { MAX_LINKS, MAX_RULES, MOST, checkLink, oneLine } from './objects/create'
 import { THUMB_MAX_BYTES, THUMB_PNG } from './show/cards'
 import type { Sessions } from './sessions/manager'
 import type { PromptBlock } from './sessions/transport'
@@ -28,6 +29,8 @@ const MAX_DESCRIPTION = 20_000
 const REFERENCE_FILE = /^reference\/(photo|doodle)-[1-9][0-9]*\.(png|jpg|jpeg|webp)$/
 /** A vendor STEP file as `create` names it (`stepFiles`). */
 const STEP_FILE = /^reference\/[A-Za-z0-9][A-Za-z0-9._-]*\.(step|stp)$/
+/** A PDF as `create` names it (`referenceFiles`). */
+const PDF_FILE = /^reference\/[A-Za-z0-9][A-Za-z0-9._-]*\.pdf$/
 
 /** The picture an object has on file for its card, or none: a plain file under a plain `.torno`, a PNG within the card's size. */
 export async function readThumb(dir: string): Promise<ImageBytes | undefined> {
@@ -76,6 +79,14 @@ export interface PromptInput {
   /** `id` is none for a scan that could not be imported, and `problem` says why. */
   scans: Array<{ id: string | null; file: string; note: string; problem?: string }>
   objects: Array<{ name: string; summary: string; note: string; thumb?: ImageBytes }>
+  /** What the person measured or read, told in words (`saySize`). */
+  sizes?: SizeFact[]
+  /** The rules for the model, as the person wrote them. */
+  rules?: string
+  /** Links, told one to a line; torno opens none. */
+  links?: Array<{ url: string; note: string }>
+  /** The PDFs copied into `reference/`. */
+  pdfs?: Array<{ file: string; note: string }>
 }
 
 const imageBlock = (image: ImageBytes): PromptBlock => ({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: Buffer.from(image.bytes).toString('base64') } })
@@ -112,6 +123,10 @@ export function onboardPrompt(input: PromptInput, toolName: (tool: string) => st
       const name = file.split('/').pop() ?? file
       lines.push(`- ${file}${note === '' ? '' : `: ${note}`}. A vendor's STEP file of a bought part, copied into the project as it is. It is not a part to print: in the model read it with import_step(Path(__file__).parent / "reference" / "${name}") and return it among references(p) (the torno-model skill, "References: bought parts").`)
     }
+    for (const pdf of input.pdfs ?? []) {
+      const note = said(pdf.note)
+      lines.push(`- ${said(pdf.file)}${note === '' ? '' : `: ${note}`}. A PDF; read it with your own tools if it helps.`)
+    }
     for (const scan of input.scans) {
       const note = said(scan.note)
       const file = said(scan.file)
@@ -128,17 +143,24 @@ export function onboardPrompt(input: PromptInput, toolName: (tool: string) => st
       const note = said(other.note)
       lines.push(`- ../${name}/ (another project of this workspace: ${other.summary}${picture})${note === '' ? '' : `: ${note}`}`)
     })
+    const given: string[] = []
+    if ((input.sizes ?? []).length > 0) given.push('Sizes the person gave:', ...(input.sizes ?? []).map((size) => `- ${saySize(size)}`), '')
+    if ((input.rules ?? '').trim() !== '') given.push('Rules:', (input.rules ?? '').trim(), '')
+    if ((input.links ?? []).length > 0) {
+      given.push('Links (torno does not open links; read one only if it helps):', ...(input.links ?? []).map((link) => `- ${said(link.url)}${said(link.note) === '' ? '' : `: ${said(link.note)}`}`), '')
+    }
     return [
       `This is a new project, ${input.name}, made in torno just now. What it is, in the person's words:`,
       '',
       input.description.trim(),
       '',
       ...(lines.length > 0 ? ['What they gave (all of it is also in brief.md; files are in reference/):', ...lines, ''] : []),
+      ...given,
       ...(input.items.some((item) => item.file.startsWith('reference/doodle')) ? ['A doodle is drawn over a light grid: 1 square = 40 px of the board, with no scale. Read proportions from it, not sizes.', ''] : []),
       `${moduleName(input.name)}.py is torno's placeholder (a 20 mm cube). Read brief.md and look at what was given. Then:`,
       '',
-      "1. List the sizes that decide fit or function (overall size, wall, the sizes of the parts it mates with, hole and fastener sizes, clearances), and say where each comes from: brief.md, a reference picture's note, a scan (≈, to a few mm), another project, or nowhere.",
-      '2. For those from nowhere, ask in one round, before you build, with AskUserQuestion: at most 4 questions, each with 2 to 4 options, one of them a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"); the person may answer "build with assumptions". Do not ask about what you can choose freely (a fillet radius, a chamfer). If every size has a source, ask nothing.',
+      "1. List the sizes that decide fit or function (overall size, wall, the sizes of the parts it mates with, hole and fastener sizes, clearances), and say where each comes from: the sizes the person gave (above, or size cards of the board), brief.md, a reference picture's note, a PDF, a scan (≈, to a few mm), another project, or nowhere.",
+      '2. Ask only for sizes with no source, those from nowhere: a size the person gave is not asked again. For those, ask in one round, before you build, with AskUserQuestion: at most 4 questions, each with 2 to 4 options, one of them a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"); the person may answer "build with assumptions". Do not ask about what you can choose freely (a fillet radius, a chamfer). If every size has a source, ask nothing.',
       '3. Replace the placeholder with the real model, built with the answers. A size still unknown is built as assumed (a field of Params commented "assumed"), and your reply lists the assumptions.'
     ].join('\n')
   }
@@ -157,7 +179,7 @@ const STAND_IN: ImageBytes = { bytes: new Uint8Array(0), mediaType: 'image/png',
 export async function previewPrompt(deps: Pick<OnboardDeps, 'object' | 'scene'>, name: string, draft: PromptPreviewDraft): Promise<PromptPreview> {
   if (typeof name !== 'string' || typeof draft !== 'object' || draft === null) throw new Error('No draft to preview.')
   if (typeof draft.description !== 'string' || draft.description.length > MAX_DESCRIPTION) throw new Error('The description is not text of at most 20,000 characters.')
-  for (const kind of ['items', 'steps', 'scans', 'objects'] as const) {
+  for (const kind of ['items', 'steps', 'scans', 'objects', 'sizes', 'links', 'pdfs'] as const) {
     if (!Array.isArray(draft[kind]) || draft[kind].length > MOST_PREVIEW) throw new Error(`The ${kind} are not a short list.`)
   }
   const text = (v: unknown): string => (typeof v === 'string' ? v.slice(0, 2000) : '')
@@ -174,7 +196,21 @@ export async function previewPrompt(deps: Pick<OnboardDeps, 'object' | 'scene'>,
     items: draft.items.map((item) => ({ file: text(item?.file), note: text(item?.note), ...(item?.picture === true ? { image: STAND_IN } : {}) })),
     steps: draft.steps.map((step) => ({ file: text(step?.file), note: text(step?.note) })),
     scans: draft.scans.map((scan, i) => ({ id: `S${i + 1}`, file: basename(text(scan?.path)), note: text(scan?.note) })),
-    objects
+    objects,
+    // What the draft holds that `onboard` would refuse is left out of the preview rather than refused: the page is still being filled.
+    sizes: draft.sizes.flatMap((raw) => {
+      const size = checkSize(raw, 'person')
+      return typeof size === 'string' ? [] : [size]
+    }),
+    rules: typeof draft.rules === 'string' ? draft.rules.slice(0, MAX_RULES) : '',
+    links: draft.links.flatMap((link) => {
+      try {
+        return [checkLink(link)]
+      } catch {
+        return []
+      }
+    }),
+    pdfs: draft.pdfs.map((pdf) => ({ file: text(pdf?.file), note: text(pdf?.note) }))
   })
   return { text: built.text, attached: built.attached, pictured: built.pictured, objects: objects.map((o) => o.name) }
 }
@@ -193,6 +229,8 @@ export interface OnboardDeps {
   prompt(sessionId: string, blocks: PromptBlock[]): void
   /** Resolves once the session's CLI has taken the prompt up, or with why it ended without; none when this cannot be known. */
   began?(sessionId: string): Promise<{ began: true } | { began: false; why: string }>
+  /** Counts everything on the object's board as told (`BoardStore.markAllTold`), just before the first prompt goes. */
+  boardTold?(objectId: string): Promise<void>
   /** The last good build of an object in this run. */
   scene(objectId: string): Pick<Scene, 'layouts' | 'parts'> | undefined
 }
@@ -208,12 +246,12 @@ const onboarding = new Set<string>()
 const firstLine = (e: unknown): string => (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 300)
 
 /** The draft held to what it may be; throws a plain reason. */
-async function checked(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft): Promise<void> {
+async function checked(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft): Promise<{ sizes: SizeFact[]; links: Array<{ url: string; note: string }> }> {
   if (typeof draft !== 'object' || draft === null) throw new Error('No draft to onboard.')
   if (typeof draft.description !== 'string' || draft.description.length > MAX_DESCRIPTION) throw new Error('The description is not text of at most 20,000 characters.')
-  const lists = { items: MOST.photos + MOST.doodles, steps: MOST.steps, scans: MOST.scans, objects: MOST.objects }
-  const named = { items: 'items', steps: 'bought parts', scans: 'scans', objects: 'projects' }
-  for (const kind of ['items', 'steps', 'scans', 'objects'] as const) {
+  const lists = { items: MOST.photos + MOST.doodles, steps: MOST.steps, scans: MOST.scans, objects: MOST.objects, pdfs: MOST.pdfs }
+  const named = { items: 'items', steps: 'bought parts', scans: 'scans', objects: 'projects', pdfs: 'PDFs' }
+  for (const kind of ['items', 'steps', 'scans', 'objects', 'pdfs'] as const) {
     if (!Array.isArray(draft[kind])) throw new Error(`The ${named[kind]} are not a list.`)
     if (draft[kind].length > lists[kind]) throw new Error(`At most ${lists[kind]} ${named[kind]}.`)
   }
@@ -231,6 +269,13 @@ async function checked(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft):
     const stat = await lstat(join(obj.dir, step.file)).catch(() => null)
     if (!stat?.isFile()) throw new Error(`${step.file} is not there.`)
   }
+  for (const pdf of draft.pdfs) {
+    if (typeof pdf?.file !== 'string' || !PDF_FILE.test(pdf.file)) throw new Error('A PDF is a .pdf file of reference/ that torno made.')
+    if (typeof pdf.note !== 'string') throw new Error('The note of a PDF is not text.')
+    oneLine(pdf.note, 'PDF')
+    const stat = await lstat(join(obj.dir, pdf.file)).catch(() => null)
+    if (!stat?.isFile()) throw new Error(`${pdf.file} is not there.`)
+  }
   for (const scan of draft.scans) {
     if (typeof scan?.path !== 'string' || !isAbsolute(scan.path) || !(SCAN_FORMATS as readonly string[]).includes(extname(scan.path).toLowerCase())) throw new Error(`A scan is a ${SCAN_FORMATS.join(', ')} file given by its path.`)
     // One line of the prompt: a control character, a line break above all, could write lines of its own.
@@ -244,9 +289,22 @@ async function checked(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft):
     if (typeof other.note !== 'string') throw new Error('The note of a project is not text.')
     oneLine(other.note, 'project')
   }
-  for (const [kind, keys] of [['file', [...draft.items.map((i) => i.file), ...draft.steps.map((x) => x.file)]], ['scan', draft.scans.map((s) => s.path)], ['project', draft.objects.map((o) => o.id)]] as const) {
+  if (!Array.isArray(draft.sizes)) throw new Error('The sizes are not a list.')
+  if (draft.sizes.length > MAX_SIZES) throw new Error(`At most ${MAX_SIZES} sizes.`)
+  const sizes = draft.sizes.map((raw) => {
+    const size = checkSize(raw, 'person')
+    if (typeof size === 'string') throw new Error(size)
+    return size
+  })
+  if (typeof draft.rules !== 'string') throw new Error('The rules are not text.')
+  if (draft.rules.length > MAX_RULES) throw new Error(`The rules are over ${MAX_RULES} characters.`)
+  if (!Array.isArray(draft.links)) throw new Error('The links are not a list.')
+  if (draft.links.length > MAX_LINKS) throw new Error(`At most ${MAX_LINKS} links.`)
+  const links = draft.links.map(checkLink)
+  for (const [kind, keys] of [['file', [...draft.items.map((i) => i.file), ...draft.steps.map((x) => x.file), ...draft.pdfs.map((p) => p.file)]], ['scan', draft.scans.map((s) => s.path)], ['project', draft.objects.map((o) => o.id)]] as const) {
     if (new Set(keys).size !== keys.length) throw new Error(`The same ${kind} is given twice.`)
   }
+  return { sizes, links }
 }
 
 /**
@@ -269,7 +327,7 @@ export async function onboardObject(deps: OnboardDeps, objectId: string, draft: 
 }
 
 async function onboarded(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft): Promise<Onboarded> {
-  await checked(deps, obj, draft)
+  const { sizes, links } = await checked(deps, obj, draft)
 
   const scans: PromptInput['scans'] = []
   for (const scan of draft.scans) {
@@ -293,7 +351,11 @@ async function onboarded(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft
     items: draft.items.map((item) => ({ file: item.file, note: item.note, image: checkedImage(item.image) ?? undefined })),
     steps: draft.steps.map((step) => ({ file: step.file, note: step.note })),
     scans,
-    objects
+    objects,
+    sizes,
+    rules: draft.rules,
+    links,
+    pdfs: draft.pdfs.map((pdf) => ({ file: pdf.file, note: pdf.note }))
   })
 
   let started: { sessionId: string; view: string }
@@ -304,6 +366,9 @@ async function onboarded(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft
     return { sessionId: null, prompt: text, held, problem: firstLine(e) }
   }
   if (started.view !== 'chat') return { sessionId: started.sessionId, prompt: text, held, problem: "This agent has no chat to send the first prompt to; it is held, for the person to paste." }
+  // The prompt says what is on the board in its own words, so its board line counts all of it as told. Not worth stopping
+  // the prompt for: when this fails the line only calls the cards new.
+  await deps.boardTold?.(obj.id).catch(() => {})
   try {
     deps.prompt(started.sessionId, blocks)
   } catch (e) {

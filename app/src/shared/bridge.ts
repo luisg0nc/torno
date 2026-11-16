@@ -51,13 +51,21 @@ export interface CreateRequest {
  */
 export interface OnboardDraft {
   description: string
-  /** The photos, then the doodles, as `create` named them: `reference/photo-1.jpg`, `reference/doodle-1.png`. */
+  /** The photos, then the doodles, as `create` named them: `reference/photo-1.jpg`, `reference/doodle-1.png`. The note of a doodle drawn over a photo says so, as `create` writes it on its card (`drawn over reference/photo-2.jpg`). */
   items: Array<{ file: string; note: string; image?: Uint8Array }>
   /** The vendor STEP files, as `create` named them: `reference/608zz.step`. */
   steps: Array<{ file: string; note: string }>
   /** The scans to import into the new object, by the path the dialog or the drop gave. */
   scans: Array<{ path: string; note: string }>
   objects: Array<{ id: string; note: string }>
+  /** What the person measured or read: told in the prompt in words (`saySize`), as `create` put them on the board. */
+  sizes: SizeFact[]
+  /** The rules for the model, told in full. */
+  rules: string
+  /** The links, told one to a line; torno opens none. */
+  links: Array<{ url: string; note: string }>
+  /** The PDFs, as `create` named them in `reference/` (`referenceFiles`): `reference/datasheet.pdf`. */
+  pdfs: Array<{ file: string; note: string }>
   /** The model and effort to start the session on, for it alone; absent, or what is not one: the person's own default. */
   choice?: AgentChoice
 }
@@ -69,6 +77,10 @@ export interface PromptPreviewDraft {
   steps: Array<{ file: string; note: string }>
   scans: Array<{ path: string; note: string }>
   objects: Array<{ id: string; note: string }>
+  sizes: SizeFact[]
+  rules: string
+  links: Array<{ url: string; note: string }>
+  pdfs: Array<{ file: string; note: string }>
 }
 
 /** The first prompt of a draft as it would be sent. `attached[i]` is the number of the picture of `items[i]` in it, none when it is named only; `pictured` the same for the objects listed in `objects` (those of the draft that exist). */

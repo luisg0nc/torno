@@ -7,6 +7,7 @@ import { ensureIgnored } from '../ignored'
 import { Refusal } from '../refusal'
 import { diskText, loadBoardFile, nextAbove, saveBoardFile, textOf } from './file'
 import { MADE_SIZE, freeSpot, freeSpotBelow } from './place'
+import { type LiveFacts, boardLine } from './text'
 
 interface BoardEvents {
   /** The board of a project changed: the whole board, as it now is. */
@@ -364,7 +365,7 @@ export class BoardStore {
   private epoch = 0
   private listeners: { [E in keyof BoardEvents]: Array<(e: BoardEvents[E]) => void> } = { changed: [], problem: [] }
 
-  constructor(private deps: { dirOf(objectId: string): string | undefined }) {}
+  constructor(private deps: { dirOf(objectId: string): string | undefined; /** What a card shows of the project besides the board (`liveFacts`), for `markAllTold`: none, and a card of the marks, Params or checks is then told as if there were nothing to show. */ live?(objectId: string): Promise<LiveFacts> }) {}
 
   on<E extends keyof BoardEvents>(event: E, cb: (e: BoardEvents[E]) => void): void {
     this.listeners[event].push(cb)
@@ -454,6 +455,20 @@ export class BoardStore {
       // Ignored before it is there: a file written first is for a moment one that git would take.
       await ensureIgnored(dir, [`board/${TOLD}`])
       await writeOwn(dir, `board/${TOLD}`, `${JSON.stringify(told, null, 2)}\n`)
+    })
+  }
+
+  /**
+   * Counts everything on the board as told: the hashes the board line itself would keep (`boardLine`), written in the
+   * board's turn, so that the line of the next prompt says no card is new. For a prompt that says what is on the board in
+   * its own words (the first of a new project).
+   */
+  async markAllTold(objectId: string): Promise<void> {
+    const live = (await this.deps.live?.(objectId).catch(() => undefined)) ?? { marks: new Map() }
+    await this.turn(objectId, async (file, dir) => {
+      await ownTorno(dir, 'board')
+      await ensureIgnored(dir, [`board/${TOLD}`])
+      await writeOwn(dir, `board/${TOLD}`, `${JSON.stringify(boardLine(file, {}, live).told, null, 2)}\n`)
     })
   }
 

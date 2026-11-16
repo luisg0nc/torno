@@ -21,8 +21,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   says it could not be imported), starts the chat session (`Sessions.start`, the agent chosen for the object, which
   has no `agent.json`, on the model and effort of `OnboardDraft.choice` held to `agentChoiceOf`), and sends one
   prompt (`Sessions.prompt`): the text of `onboardPrompt`, then the pictures.
+  The text names, after the references (the PDFs among them, "A PDF; read it with your own tools if it helps."), the
+  sizes the person gave (`saySize`, one line each), the rules, and the links ("torno does not open links"); the draft's
+  sizes are held by `checkSize` (by the person: at most 40), the rules to 4000 characters, the links by `create`'s
+  `checkLink` (at most 20, `http` or `https`), the PDFs to plain files of `reference/` ending `.pdf` (at most 6). A
+  preview leaves out what `onboard` would refuse. Just before `Sessions.prompt`, and not when no prompt goes,
+  `deps.boardTold` (`BoardStore.markAllTold`) keeps what the board line would say of every card and arrow as told, so
+  the line of this prompt reads "Board: N cards (0 new)": the prompt says them in its words. A failure of that does not
+  stop the prompt.
   The text ends in three numbered steps (#111): list the sizes that decide fit or function with the source of each
-  (`brief.md`, a picture's note, a scan, another object, or nowhere); ask for those from nowhere in one round with
+  (the sizes the person gave, `brief.md`, a picture's note, a PDF, a scan, another object, or nowhere); ask only for those from nowhere in one round with
   `AskUserQuestion` (at most 4 questions, each with 2 to 4 options, one a typical value labelled as such; "build
   with assumptions" is an answer; nothing about what it can choose freely); build with the answers, a size still
   unknown being "assumed" in `Params` and listed in the reply. The same rule is in the `torno-model` skill, "Before

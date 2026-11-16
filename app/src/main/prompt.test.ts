@@ -174,6 +174,11 @@ describe("Claude Code's prompt, with the skills", () => {
     expect(model).toContain('## Before the first model')
     for (const said of ['where it comes from', 'or nowhere', 'ask in one round, before you build, with `AskUserQuestion`', 'at most 4 questions, each with 2 to 4 options', 'labelled as typical', '"build with assumptions"', 'Do not ask about what you can choose freely', 'built as assumed', 'a new feature whose key size is not given']) expect(model).toContain(said)
   })
+
+  it('whose model skill does not ask again for a size the person gave, in the first prompt or as a size card of the board', () => {
+    const model = skill('torno-model').replace(/\s+/g, ' ')
+    for (const said of ['the sizes the person gave, in the first prompt or as size cards on the board', 'Ask only for sizes with no source', 'a size the person gave is not asked again']) expect(model).toContain(said)
+  })
 })
 
 // #50: which wins for seeing the build is one line of the skill and one of the first prompt of a session (`instructionsLine`); the system prompt has no room for it.
