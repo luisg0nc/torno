@@ -42,6 +42,9 @@ export function doubleClickOf(card: Card): Opens | null {
       return card.by === 'person' ? { does: 'edit' } : null
     case 'frame':
       return card.by === 'person' ? { does: 'rename' } : null
+    case 'size':
+      // Edited in place by the size card's own editor, when the window has one.
+      return null
     case 'picture':
       if (card.picture === undefined) return null
       return card.camera ? { does: 'camera', camera: card.camera } : { does: 'large' }

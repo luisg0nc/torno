@@ -331,6 +331,60 @@ describe('editing', () => {
   })
 })
 
+describe('size cards', () => {
+  const fact = { what: 'battery tray', value: '186 x 128', unit: 'mm' as const, source: 'measured' as const }
+  const sized = (extra: Record<string, unknown> = {}) => ({ op: 'add' as const, card: { kind: 'size' as const, x: 0, y: 0, w: 240, h: 120, size: fact, ...extra } })
+
+  it('adds a size card as the person’s, with the size as typed', async () => {
+    const board = await store.person('bracket', { ...sized({ by: 'agent', id: 'C9' }) })
+    expect(byId(board, 'C1')).toEqual({ id: 'C1', kind: 'size', x: 0, y: 0, w: 240, h: 120, by: 'person', size: fact })
+    expect(onDisk()).toEqual(board)
+  })
+
+  it('refuses a size that is not whole: none, a unit, a source of Claude’s, too long', async () => {
+    await expect(store.person('bracket', sized({ size: undefined }))).rejects.toThrow(/size/i)
+    await expect(store.person('bracket', sized({ size: { ...fact, unit: 'cm' } }))).rejects.toThrow(/mm/)
+    await expect(store.person('bracket', sized({ size: { ...fact, source: 'from Claude' } }))).rejects.toThrow(/Claude/)
+    await expect(store.person('bracket', sized({ size: { ...fact, what: 'w'.repeat(201) } }))).rejects.toThrow(/200/)
+    expect((await store.read('bracket')).cards).toEqual([])
+  })
+
+  it('keeps no size on a card of another kind', async () => {
+    const board = await store.person('bracket', text(0, 0, { size: fact }))
+    expect(byId(board, 'C1').size).toBeUndefined()
+  })
+
+  it('edits the size in place and undoes it by editing it back', async () => {
+    await store.person('bracket', sized())
+    const next = { ...fact, value: '190 × 128', source: 'a guess' as const, note: 'by eye' }
+    const edited = await store.person('bracket', { op: 'edit', id: 'C1', size: next })
+    expect(byId(edited, 'C1').size).toEqual(next)
+    expect(onDisk()).toEqual(edited)
+    const back = await store.person('bracket', { op: 'edit', id: 'C1', size: fact })
+    expect(byId(back, 'C1').size).toEqual(fact)
+    expect(Object.keys(byId(back, 'C1').size ?? {})).not.toContain('note')
+  })
+
+  it('refuses a size edit that is not whole, or of a card that is no size card, and leaves the file', async () => {
+    await store.person('bracket', sized())
+    await store.person('bracket', text(400, 0))
+    const before = readFileSync(join(dirs.bracket, '.torno', 'board', 'board.json'))
+    await expect(store.person('bracket', { op: 'edit', id: 'C1', size: { ...fact, unit: 'in' } as never })).rejects.toThrow(/mm/)
+    await expect(store.person('bracket', { op: 'edit', id: 'C1', size: undefined as never, text: undefined })).resolves.toBeDefined()
+    await expect(store.person('bracket', { op: 'edit', id: 'C2', size: fact })).rejects.toThrow(/size card/)
+    expect(readFileSync(join(dirs.bracket, '.torno', 'board', 'board.json')).equals(before)).toBe(true)
+  })
+
+  it('brings a removed size card back whole with restore', async () => {
+    await store.person('bracket', sized())
+    await store.person('bracket', { op: 'remove', ids: ['C1'] })
+    expect((await store.read('bracket')).cards).toEqual([])
+    const back = await store.person('bracket', { op: 'restore', ids: ['C1'] })
+    expect(byId(back, 'C1').size).toEqual(fact)
+    expect(byId(back, 'C1').by).toBe('person')
+  })
+})
+
 describe('removing', () => {
   it('hides a card of main’s own and keeps it, and its arrows', async () => {
     await withTorno()
@@ -516,7 +570,7 @@ describe('the agent’s own changes', () => {
   })
 
   it('refuses a card with nothing in it, a picture that is not one torno kept, and too long a text', async () => {
-    await expect(store.agent('bracket', { op: 'add' })).rejects.toThrow(/text or a picture/)
+    await expect(store.agent('bracket', { op: 'add' })).rejects.toThrow(/text, a size or a picture/)
     await expect(store.agent('bracket', { op: 'add', picture: '../x.png' })).rejects.toThrow(/picture/)
     await expect(store.agent('bracket', said({ text: 'x'.repeat(MAX_TEXT_CHARS + 1) }))).rejects.toThrow(/characters long/)
     expect(changes).toEqual([])
@@ -612,6 +666,44 @@ describe('the agent’s own changes', () => {
     await expect(store.agent('bracket', { op: 'remove', id: 'C2' })).rejects.toThrow(/torno's own/)
     await expect(store.agent('bracket', { op: 'remove', id: 'C3' })).rejects.toThrow(/C3 is the person's/)
     await expect(store.agent('bracket', { op: 'remove', id: 'C7' })).rejects.toThrow(/no card C7/)
+    expect(readFileSync(file).equals(before)).toBe(true)
+  })
+
+  it('adds a size card of its own, from Claude, and changes or removes only that', async () => {
+    const { board, id } = await store.agent('bracket', { op: 'add', size: { what: 'tray', value: '186 x 128', unit: 'mm' } })
+    expect(id).toBe('C1')
+    expect(byId(board, 'C1')).toMatchObject({ kind: 'size', by: 'agent', size: { what: 'tray', value: '186 x 128', unit: 'mm', source: 'from Claude' } })
+    expect(onDisk()).toEqual(board)
+    await expect(store.agent('bracket', { op: 'edit', id: 'C1', text: 'x' })).rejects.toThrow(/size/)
+    expect((await store.agent('bracket', { op: 'remove', id: 'C1' })).board.cards).toEqual([])
+    const again = await store.person('bracket', { op: 'restore', ids: ['C1'] })
+    expect(byId(again, 'C1')).toMatchObject({ by: 'agent', size: { source: 'from Claude' } })
+  })
+
+  it('takes a size with a note, a unit of degrees, and a frame, and never a source of its own', async () => {
+    await store.person('bracket', frame('Sizes'))
+    const { board } = await store.agent('bracket', { op: 'add', frame: 'Sizes', size: { what: 'lean', value: '12', unit: '°', note: 'of the lid' } })
+    expect(byId(board, 'C2')).toMatchObject({ frame: 'C1', size: { unit: '°', note: 'of the lid', source: 'from Claude' } })
+    await expect(store.agent('bracket', { op: 'add', size: { what: 'lean', value: '12', source: 'measured' } as never })).rejects.toThrow(/Claude/)
+  })
+
+  it('refuses a size with text or a picture, and a size that is not whole, and keeps nothing', async () => {
+    const file = join(dirs.bracket, '.torno', 'board', 'board.json')
+    await store.agent('bracket', said())
+    const before = readFileSync(file)
+    await expect(store.agent('bracket', { op: 'add', text: 'x', size: { what: 'a', value: '1' } })).rejects.toThrow(/alone/)
+    await expect(store.agent('bracket', { op: 'add', picture: 'p-aaaaaaaaaaaa.png', size: { what: 'a', value: '1' } })).rejects.toThrow(/alone/)
+    await expect(store.agent('bracket', { op: 'add', size: { what: 'a', value: '1', unit: 'cm' as never } })).rejects.toThrow(/mm/)
+    await expect(store.agent('bracket', { op: 'add', size: { what: '', value: '1' } })).rejects.toThrow()
+    expect(readFileSync(file).equals(before)).toBe(true)
+  })
+
+  it('does not change or remove a size card of the person’s', async () => {
+    await store.person('bracket', { op: 'add', card: { kind: 'size', x: 0, y: 0, w: 240, h: 120, size: { what: 'tray', value: '186', unit: 'mm', source: 'measured' } } })
+    const file = join(dirs.bracket, '.torno', 'board', 'board.json')
+    const before = readFileSync(file)
+    await expect(store.agent('bracket', { op: 'edit', id: 'C1', text: 'mine now' })).rejects.toThrow(/C1 is the person's/)
+    await expect(store.agent('bracket', { op: 'remove', id: 'C1' })).rejects.toThrow(/C1 is the person's/)
     expect(readFileSync(file).equals(before)).toBe(true)
   })
 

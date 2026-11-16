@@ -64,4 +64,4 @@ export function freeSpotBelow(cards: readonly Card[], size: { w: number; h: numb
 }
 
 /** The sizes of the cards the agent makes. */
-export const MADE_SIZE = { text: { w: 280, h: 160 }, picture: { w: 320, h: 240 }, frame: { w: 720, h: 480 } } as const
+export const MADE_SIZE = { text: { w: 280, h: 160 }, picture: { w: 320, h: 240 }, frame: { w: 720, h: 480 }, size: { w: 240, h: 120 } } as const

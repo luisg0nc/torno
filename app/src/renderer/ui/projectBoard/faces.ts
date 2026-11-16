@@ -68,7 +68,8 @@ const LABEL: Record<CardKind, string> = {
   text: 'Text',
   picture: 'Picture',
   sketch: 'Sketch',
-  frame: 'Frame'
+  frame: 'Frame',
+  size: 'Size'
 }
 
 const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim()
@@ -163,6 +164,11 @@ export function faceOf(card: Card, facts: Facts): Face {
       return { label: LABEL.text, lines: [], body: card.text ?? '' }
     case 'frame':
       return { label: LABEL.frame, title: card.name ?? '', lines: [] }
+    case 'size':
+      // A first face, until the window draws sizes (the new-project board): what it measures, its value as typed, where it came from.
+      return card.size
+        ? { label: LABEL.size, title: card.size.what, lines: [{ text: `${card.size.value} ${card.size.unit}`, mono: true }, { text: card.size.source, tone: 'muted' }] }
+        : { label: LABEL.size, lines: [] }
   }
 }
 

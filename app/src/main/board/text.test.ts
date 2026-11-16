@@ -233,3 +233,31 @@ describe('what was told, kept by the store', () => {
     expect(await store.told('bracket')).toEqual({})
   })
 })
+
+describe('a size card', () => {
+  const size = (over: Partial<Card> = {}): Card => card({ kind: 'size', size: { what: 'battery tray', value: '186 x 128', unit: 'mm', source: 'measured' }, ...over })
+
+  it('says what it measures, the numbers, the unit and the source, with the numbers in full after it', () => {
+    const c = size()
+    const out = boardText(board([c]), LIVE, OPTS)
+    expect(out.text).toBe(`${c.id} · size · by the person: battery tray 186 × 128 mm (measured)\nnumbers: [186, 128]`)
+  })
+  it('says a size of Claude\'s and a note, and tells where it is', () => {
+    const f = card({ kind: 'frame', name: 'Sizes' })
+    const c = size({ by: 'agent', frame: f.id, size: { what: 'snorkel hole', value: 'Ø62,5', unit: 'mm', source: 'from Claude', note: 'by eye' } })
+    const out = boardText(board([f, c]), LIVE, OPTS)
+    expect(out.text).toContain(`${c.id} · size · by you · in Sizes: snorkel hole Ø 62.5 mm (from Claude: by eye)\nnumbers: [62.5]`)
+  })
+  it('gives no numbers for a value that is none', () => {
+    const out = boardText(board([size({ size: { what: 'gap', value: 'about 60', unit: 'mm', source: 'a guess' } })]), LIVE, OPTS)
+    expect(out.text).toContain('gap about 60 mm (as typed, a guess)')
+    expect(out.text).not.toContain('numbers')
+  })
+  it('is news when what it says changes, and not when it is moved', () => {
+    const c = size()
+    const before = saysHash(c, LIVE)
+    expect(saysHash({ ...c, x: 500, y: 40, w: 300 }, LIVE)).toBe(before)
+    expect(saysHash({ ...c, size: { ...(c.size as NonNullable<Card['size']>), value: '190 x 128' } }, LIVE)).not.toBe(before)
+    expect(boardLine(board([c]), {}, LIVE).line).toContain(`${c.id} a size`)
+  })
+})

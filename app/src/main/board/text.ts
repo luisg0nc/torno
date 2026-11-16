@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { type Arrow, type BoardCounts, type BoardFile, type Card, type CardKind, MAX_BOARD_PICTURES, MAX_TEXT_CHARS, readingOrder } from '../../shared/board'
 import { type Mark, markAnchors } from '../../shared/marks'
 import { checkText, type ModelCheck } from '../../shared/modelChecks'
+import { parseSize, saySize } from '../../shared/size'
 import { said } from '../../shared/params'
 import type { Param } from '../../shared/scene'
 import type { Overrides } from '../paramsfile'
@@ -45,7 +46,8 @@ const LABEL: Record<CardKind, string> = {
   text: 'text',
   picture: 'picture',
   sketch: 'sketch',
-  frame: 'frame'
+  frame: 'frame',
+  size: 'size'
 }
 /** What a new card of each kind is called in the line. */
 const NEW_AS: Record<CardKind, string> = {
@@ -60,7 +62,8 @@ const NEW_AS: Record<CardKind, string> = {
   text: 'text',
   picture: 'a photo',
   sketch: 'a sketch',
-  frame: 'a frame'
+  frame: 'a frame',
+  size: 'a size'
 }
 
 const hash = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 12)
@@ -104,6 +107,8 @@ function contentOf(card: Card, live: LiveFacts): string {
     case 'picture':
     case 'sketch':
       return card.caption ?? ''
+    case 'size':
+      return card.size ? saySize(card.size) : ''
     case 'brief':
       return live.brief ? live.brief.slice(0, MAX_TEXT_CHARS) : '(there is no brief.md)'
     case 'reference':
@@ -193,6 +198,11 @@ export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: stri
   const block = (card: Card): string => {
     const where = card.frame !== undefined && frames.has(card.frame) ? ` · in ${frames.get(card.frame)}` : ''
     const head = `${card.id} · ${LABEL[card.kind]} · by ${WHO[card.by]}${where}`
+    // A size is one line, said after its head; the numbers it holds follow it in full.
+    if (card.kind === 'size') {
+      const numbers = card.size ? parseSize(card.size.value)?.numbers : undefined
+      return [`${head}: ${contentOf(card, live)}`, ...(numbers ? [`numbers: [${numbers.join(', ')}]`] : [])].join('\n')
+    }
     const body = card.kind === 'picture' || card.kind === 'sketch' ? '' : contentOf(card, live)
     const picture = ((): string => {
       const state = fate.get(card.id)

@@ -27,6 +27,11 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   `S<n>`, `h<n>`, a view's name, `params`, `checks`), `layout`, `text`, `name`, `picture`, `caption`, `camera`,
   `hidden`, `copy` (a build card's copy of what it shows). An arrow has `id`, `from`, `to`, `label?`, `by`. Ids are
   `C<n>` from one count for cards and arrows, per project, given by main, never reused.
+- A `size` card (`shared/size.ts`) holds `size: { what, value, unit, source, note? }`: `value` as typed, never parsed into the file
+  (`parseSize` reads the numbers whenever they are told), `unit` `mm` or `°`, `source` one of `measured`, `from a manual or datasheet`,
+  `a guess` for the person or `from Claude` for the agent alone (`checkSize`, which every door goes through, the file's
+  `sanitiseCard` too: a size card without a whole size is dropped). Caps: `what` 200, `value` 60, `note` 300 on one line,
+  40 sizes in a draft. Said as `C7 · size · by the person: battery tray 186 × 128 mm (measured)` and the numbers in full on the next line.
 - `<object>/.torno/board/pictures/` holds the picture and sketch files (`p-<12 hex>.png|jpg`) with a `.gitignore` of `*` of
   its own, written by whoever makes the folder (`pictures.ts`, as `views/` and `scans/` do). A picture may show the real
   world, so **pictures do not travel**: a board cloned without them shows a "picture not on this computer" placeholder

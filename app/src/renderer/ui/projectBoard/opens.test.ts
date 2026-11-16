@@ -39,6 +39,10 @@ describe('what a double click on a card does', () => {
     expect(doubleClickOf(card('frame', { by: 'agent' }))).toBeNull()
   })
 
+  it('does nothing yet for a size card', () => {
+    expect(doubleClickOf(card('size', { by: 'person' }))).toBeNull()
+  })
+
   it('opens a picture large, or, when the agent made it with a camera, goes to the model with it', () => {
     expect(doubleClickOf(card('picture', { by: 'person', picture: 'p-aaaaaaaaaaaa.png' }))).toEqual({ does: 'large' })
     expect(doubleClickOf(card('picture', { by: 'agent', picture: 'p-aaaaaaaaaaaa.png' }))).toEqual({ does: 'large' })

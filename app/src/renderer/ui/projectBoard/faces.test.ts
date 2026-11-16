@@ -99,6 +99,11 @@ describe('what a card shows', () => {
     expect(faceOf(card({ kind: 'params' }), {}).lines.map((l) => l.text)).toEqual(['not built yet'])
   })
 
+  it('shows a size card by what it measures, its value as typed and its source', () => {
+    const size = { what: 'battery tray', value: '186 x 128', unit: 'mm' as const, source: 'measured' as const }
+    expect(faceOf(card({ kind: 'size', size }), {})).toMatchObject({ label: 'Size', title: 'battery tray', lines: [{ text: '186 x 128 mm', mono: true }, { text: 'measured' }] })
+  })
+
   it('shows a text card as written, a frame by its name, and an agent card as the agent\'s', () => {
     expect(faceOf(card({ kind: 'text', text: 'see M3 and C7' }), {})).toMatchObject({ label: 'Text', body: 'see M3 and C7' })
     expect(faceOf(card({ kind: 'frame', name: 'Latch' }), {})).toMatchObject({ label: 'Frame', title: 'Latch' })

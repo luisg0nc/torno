@@ -1,3 +1,4 @@
+import type { SizeFact, SizeUnit } from './size'
 import type { Camera as SavedCamera } from './view'
 
 // The board of a project (`<project>/.torno/board/board.json`): cards laid out on a canvas, frames that hold
@@ -6,14 +7,14 @@ import type { Camera as SavedCamera } from './view'
 
 export type { SavedCamera }
 
-export type CardKind = 'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'text' | 'picture' | 'sketch' | 'frame'
+export type CardKind = 'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'text' | 'picture' | 'sketch' | 'frame' | 'size'
 
 /** Cards that appear by themselves, from what the project has. */
 export const AUTO_KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan']
 /** Cards the person pins from the build strip, the views, the Params and the checks. */
 export const PINNED_KINDS: readonly CardKind[] = ['build', 'view', 'params', 'checks']
-/** Cards the person makes on the board, and the agent may too (a text, a picture, a frame). */
-export const MADE_KINDS: readonly CardKind[] = ['text', 'picture', 'sketch', 'frame']
+/** Cards the person makes on the board, and the agent may too (a text, a picture, a frame, a size). */
+export const MADE_KINDS: readonly CardKind[] = ['text', 'picture', 'sketch', 'frame', 'size']
 
 /** What a build card keeps of the build it shows, so it can say so when the build is not on this computer. */
 export interface BuildCopy {
@@ -48,6 +49,8 @@ export interface Card {
   /** Only ever true, and only on a card of main's own: removing one hides it. */
   hidden?: true
   copy?: BuildCopy
+  /** What a `size` card says: only ever on that kind. */
+  size?: SizeFact
 }
 
 export interface Arrow {
@@ -85,7 +88,7 @@ export const MAX_NAME_CHARS = 200
 export type PersonChange =
   | { op: 'add'; card: Omit<Card, 'id' | 'by' | 'hidden'> }
   | { op: 'move'; moves: Array<{ id: string; x: number; y: number; w?: number; h?: number; frame?: string | null }> }
-  | { op: 'edit'; id: string; text?: string; name?: string; caption?: string; picture?: string }
+  | { op: 'edit'; id: string; text?: string; name?: string; caption?: string; picture?: string; size?: SizeFact }
   | { op: 'remove'; ids: string[] }
   | { op: 'unhide'; id: string }
   | { op: 'arrow'; from: string; to: string; label?: string }
@@ -98,7 +101,7 @@ export type PersonChange =
  * those: never an id, an author, a place or a size, and never a card of the person's or of main's own.
  */
 export type AgentChange =
-  | { op: 'add'; text?: string; picture?: string; camera?: SavedCamera; frame?: string; arrow?: { from?: string; to?: string; label?: string } }
+  | { op: 'add'; text?: string; picture?: string; camera?: SavedCamera; size?: { what: string; value: string; unit?: SizeUnit; note?: string }; frame?: string; arrow?: { from?: string; to?: string; label?: string } }
   | { op: 'edit'; id: string; text: string }
   | { op: 'remove'; id: string }
 
