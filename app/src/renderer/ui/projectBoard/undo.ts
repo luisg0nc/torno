@@ -67,6 +67,11 @@ function reverse(before: Snapshot, after: Snapshot): PersonChange[] {
       edit.picture = c.picture
       edited = true
     }
+    // A size card's facts, as a whole: main checks them as it does a new size.
+    if (c.kind === 'size' && c.size !== undefined && JSON.stringify(c.size) !== JSON.stringify(b.size)) {
+      edit.size = structuredClone(c.size)
+      edited = true
+    }
     if (edited) changes.push(edit)
   }
 

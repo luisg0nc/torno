@@ -91,6 +91,9 @@ export interface PromptInput {
 
 const imageBlock = (image: ImageBytes): PromptBlock => ({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: Buffer.from(image.bytes).toString('base64') } })
 
+/** A doodle the person drew over one of the photos they gave: `create.ts` says so in its note. */
+const overPhoto = (item: { note: string }): boolean => item.note.includes('drawn over reference/photo-')
+
 const CLAUDE_TOOL = (tool: string): string => `mcp__torno__${tool}`
 
 /**
@@ -143,6 +146,7 @@ export function onboardPrompt(input: PromptInput, toolName: (tool: string) => st
       const note = said(other.note)
       lines.push(`- ../${name}/ (another project of this workspace: ${other.summary}${picture})${note === '' ? '' : `: ${note}`}`)
     })
+    const doodles = input.items.filter((item) => item.file.startsWith('reference/doodle'))
     const given: string[] = []
     if ((input.sizes ?? []).length > 0) given.push('Sizes the person gave:', ...(input.sizes ?? []).map((size) => `- ${saySize(size)}`), '')
     if ((input.rules ?? '').trim() !== '') given.push('Rules:', (input.rules ?? '').trim(), '')
@@ -156,7 +160,8 @@ export function onboardPrompt(input: PromptInput, toolName: (tool: string) => st
       '',
       ...(lines.length > 0 ? ['What they gave (all of it is also in brief.md; files are in reference/):', ...lines, ''] : []),
       ...given,
-      ...(input.items.some((item) => item.file.startsWith('reference/doodle')) ? ['A doodle is drawn over a light grid: 1 square = 40 px of the board, with no scale. Read proportions from it, not sizes.', ''] : []),
+      ...(doodles.some((item) => !overPhoto(item)) ? ['A doodle is drawn over a light grid: 1 square = 40 px of the board, with no scale. Read proportions from it, not sizes.', ''] : []),
+      ...(doodles.some(overPhoto) ? ["A doodle drawn over a photo is the person's ink over that photo: read it as what they point at in the photo, with no grid.", ''] : []),
       `${moduleName(input.name)}.py is torno's placeholder (a 20 mm cube). Read brief.md and look at what was given. Then:`,
       '',
       "1. List the sizes that decide fit or function (overall size, wall, the sizes of the parts it mates with, hole and fastener sizes, clearances), and say where each comes from: the sizes the person gave (above, or size cards of the board), brief.md, a reference picture's note, a PDF, a scan (≈, to a few mm), another project, or nowhere.",

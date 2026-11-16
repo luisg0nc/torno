@@ -111,10 +111,19 @@ export type PinWhat = { kind: 'build'; id: string } | { kind: 'view'; name: stri
 /** The most characters of a link a card opens. */
 export const MAX_LINK_CHARS = 2000
 
-/** The first `http://` or `https://` address in a text, up to the next whitespace, at most `MAX_LINK_CHARS` characters; null when there is none. Whether it may be opened is main's to check. */
+/** The first `http://` or `https://` address in a text, up to the next whitespace without the sentence's own punctuation at its end, at most `MAX_LINK_CHARS` characters; null when there is none. Whether it may be opened is main's to check. */
 export function firstLink(text: string): string | null {
   const found = /https?:\/\/\S+/i.exec(text)
-  return found ? found[0].slice(0, MAX_LINK_CHARS) : null
+  if (!found) return null
+  let link = found[0].slice(0, MAX_LINK_CHARS)
+  // The punctuation of the sentence the address ends, and a `)` that closes a bracket opened before it.
+  for (;;) {
+    const last = link.at(-1)
+    if (last !== undefined && '.,;:!?'.includes(last)) link = link.slice(0, -1)
+    else if (last === ')' && (link.match(/\(/g)?.length ?? 0) < (link.match(/\)/g)?.length ?? 0)) link = link.slice(0, -1)
+    else break
+  }
+  return link
 }
 
 /** What the window asks main to open from a card: the brief in the person's program, or a file of `reference/` in its folder. */

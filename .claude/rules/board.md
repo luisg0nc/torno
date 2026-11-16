@@ -32,6 +32,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   `a guess` for the person or `from Claude` for the agent alone (`checkSize`, which every door goes through, the file's
   `sanitiseCard` too: a size card without a whole size is dropped). Caps: `what` 200, `value` 60, `note` 300 on one line,
   40 sizes in a draft. Said as `C7 · size · by the person: battery tray 186 × 128 mm (measured)` and the numbers in full on the next line.
+- The window makes and edits sizes: the palette's Size tool (`M`, `board.size`, in hand until one card is made) and a click on the ground open the form of `SizeEditor.tsx` (what it measures, the value as typed in the monospace face, `mm` or `°`, one of the person's three sources, a note: `maxLength` from the caps); Enter or Done keeps it when `checkSize` takes it and otherwise says what is missing, Esc and leaving the form keep a whole size and make nothing of a half-written one. A double click edits a size card of the person's (`opens.ts`; the agent's is left alone), and Ctrl+Z takes each back (`undo.ts` sends the size before as an `edit` with `size`). The card shows value and unit large, then what it measures, then the source and note.
 - `<object>/.torno/board/pictures/` holds the picture and sketch files (`p-<12 hex>.png|jpg`) with a `.gitignore` of `*` of
   its own, written by whoever makes the folder (`pictures.ts`, as `views/` and `scans/` do). A picture may show the real
   world, so **pictures do not travel**: a board cloned without them shows a "picture not on this computer" placeholder
@@ -78,7 +79,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   `.pdf` (`listBoardReferences`; `listReferences` stays the chat's own list of pictures). A STEP or PDF card shows its name and
   kind, is said to the agent as `reference/608zz.step (a bought part's STEP)` or `(a PDF: read it with your own tools)` with its
   caption, and a double click shows it in its folder (`board:open`). A text card whose text holds an `http` or `https` address
-  shows it as a link: `board:openLink(objectId, cardId)` reads the card in main, takes `firstLink` of its text and has the system open
+  shows it as a link (without the sentence's own punctuation at its end, `.,;:!?`, and without a `)` that closes no `(` of the address): `board:openLink(objectId, cardId)` reads the card in main, takes `firstLink` of its text and has the system open
   it (`deps.openExternal`, a stand-in under test); no address comes from the window, and nothing else is opened.
 - Pinning is asked of main by name and checked there: a build must be one the history keeps (it is starred, so never pruned,
   and its thumb is copied into `pictures/`; removing the card leaves the star), a view must be among the saved views (the

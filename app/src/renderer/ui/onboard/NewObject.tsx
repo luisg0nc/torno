@@ -295,6 +295,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
         },
         sameWorkspace: () => store.getState().workspace?.root === root,
         folderOf: (id) => `${root}/${id}`,
+        importScan: (id, path) => window.torno.scans.import(id, path),
         discard: () => onboarding.discard(),
         hold: (id, held) => onboarding.hold(id, held)
       },
@@ -557,7 +558,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
                     </>
                   )}
                   , and lays what you gave out on its board.
-                  {draft.scans.length > 0 && <> {draft.scans.length === 1 ? 'The scan is' : 'The scans are'} imported into the project, not copied, once Claude starts.</>}
+                  {draft.scans.length > 0 && <> {draft.scans.length === 1 ? 'The scan is' : 'The scans are'} imported into the project, not copied.</>}
                 </>
               ) : sizeIssue && draft.name !== '' && nameProblem === null && draft.description.trim() !== '' ? (
                 'Finish or remove the sizes that are not whole.'

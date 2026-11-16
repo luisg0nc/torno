@@ -31,6 +31,7 @@ function deps(over: Partial<MakeDeps> = {}) {
     hold: vi.fn(),
     sameWorkspace: vi.fn(() => true),
     folderOf: vi.fn((id: string) => `/ws/${id}`),
+    importScan: vi.fn(async (_id: string, _path: string) => void calls.push('import')),
     ...over
   }
   return { made, calls }
@@ -211,9 +212,50 @@ describe('making the object', () => {
     const { made, calls } = deps()
     const outcome = await makeObject(draft(), made, { model: 'opus' }, false)
     expect(outcome).toEqual({ kind: 'done', objectId: 'cable-clip' })
-    expect(calls).toEqual(['create', 'listed', 'discard', 'open'])
+    expect(calls).toEqual(['create', 'listed', 'discard', 'open', 'import'])
     expect(made.onboard).not.toHaveBeenCalled()
     expect(made.hold).not.toHaveBeenCalled()
+    // The scans of the draft are imported into the project here, as `onboard` would have, since it is not called.
+    expect(made.importScan).toHaveBeenCalledTimes(1)
+    expect(made.importScan).toHaveBeenCalledWith('cable-clip', '/s/clip.stl')
+  })
+
+  it('"Make it without starting Claude" imports every scan after the project is open, one after the other, and a scan that fails does not stop the rest', async () => {
+    const d = draft()
+    d.scans = [
+      { uid: 'd', path: '/s/a.stl', file: 'a.stl', note: '' },
+      { uid: 'g', path: '/s/b.stl', file: 'b.stl', note: '' },
+      { uid: 'h', path: '/s/c.stl', file: 'c.stl', note: '' }
+    ]
+    const { made, calls } = deps({
+      importScan: vi.fn(async (_id: string, path: string) => {
+        calls.push(`import ${path}`)
+        if (path === '/s/b.stl') throw new Error("Error invoking remote method 'scans:import': Error: the file has no triangles")
+      })
+    })
+    const outcome = await makeObject(d, made, {}, false)
+    expect(calls).toEqual(['create', 'listed', 'discard', 'open', 'import /s/a.stl', 'import /s/b.stl', 'import /s/c.stl'])
+    // Said where the project's notice is, as a failed first prompt is, with no text to hold.
+    expect(outcome).toEqual({ kind: 'done', objectId: 'cable-clip', problem: 'b.stl was not imported: the file has no triangles.' })
+    expect(made.hold).toHaveBeenCalledWith('cable-clip', { text: '', reason: 'b.stl was not imported: the file has no triangles.' })
+  })
+
+  it('names every scan that failed, and imports nothing when the draft has none', async () => {
+    const d = draft()
+    d.scans = [{ uid: 'd', path: '/s/a.stl', file: 'a.stl', note: '' }, { uid: 'g', path: '/s/b.stl', file: 'b.stl', note: '' }]
+    const { made } = deps({ importScan: vi.fn(async () => { throw new Error('no') }) })
+    expect(await makeObject(d, made, {}, false)).toMatchObject({ problem: 'a.stl was not imported: no. b.stl was not imported: no.' })
+    const none = deps()
+    const bare = draft()
+    bare.scans = []
+    expect(await makeObject(bare, none.made, {}, false)).toEqual({ kind: 'done', objectId: 'cable-clip' })
+    expect(none.made.importScan).not.toHaveBeenCalled()
+  })
+
+  it('starting Claude leaves the scans to onboard: the window imports none', async () => {
+    const { made } = deps()
+    await makeObject(draft(), made)
+    expect(made.importScan).not.toHaveBeenCalled()
   })
 })
 

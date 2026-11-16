@@ -686,6 +686,12 @@ test.describe('a new project made without starting Claude', () => {
       await here.getByRole('button', { name: /^Sizes I know/ }).click()
       await here.getByLabel('What size 1 measures').fill('lid thickness')
       await here.getByLabel('Value of size 1').fill('4')
+      // A scan is imported into the project even though no prompt is sent (onboard, which imports it otherwise, is not called).
+      const scanFiles = temp('files')
+      writeFileSync(join(scanFiles, 'plate.stl'), stl(box([60, 50, 2], [0, 0, -10])))
+      await hook(app, { pickFile: join(scanFiles, 'plate.stl') })
+      await here.getByRole('button', { name: /^Scans/ }).click()
+      await expect(here.locator('.ref-card[data-kind="scans"]')).toHaveCount(1)
       await here.getByRole('button', { name: 'Or make it without starting Claude' }).click()
       await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).objectId, { timeout: 30_000 }).toBe('latch')
       await expect(here).toHaveCount(0)
@@ -696,6 +702,10 @@ test.describe('a new project made without starting Claude', () => {
       const dock = page.locator('[data-region="session"]')
       await expect(dock.locator('.chat-user')).toHaveCount(0)
       await expect(dock.getByRole('button', { name: 'New session' })).toBeVisible()
+      await expect
+        .poll(() => (existsSync(join(root, 'latch', '.torno', 'scans.json')) ? readFileSync(join(root, 'latch', '.torno', 'scans.json'), 'utf8') : ''), { timeout: 60_000 })
+        .toContain('plate.stl')
+      rmSync(scanFiles, { recursive: true, force: true })
     } finally {
       await app.close()
       rmSync(root, { recursive: true, force: true })

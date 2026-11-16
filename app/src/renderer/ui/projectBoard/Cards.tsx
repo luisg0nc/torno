@@ -109,7 +109,7 @@ const CardView = memo(
         {face.lines.length > 0 && (
           <ul className="pboard-lines">
             {face.lines.map((line, i) => (
-              <li key={i} className={line.mono ? 'num' : undefined} data-tone={line.tone}>
+              <li key={i} className={line.mono ? 'num' : undefined} data-tone={line.tone} data-big={line.big ? '' : undefined}>
                 {line.text}
               </li>
             ))}

@@ -8,12 +8,13 @@ export const BOARD_TOOLS: ReadonlyArray<{ tool: BoardTool; label: string; id: Ke
   { tool: 'text', label: 'Text', id: 'board.text', does: 'Click the board and write a card' },
   { tool: 'frame', label: 'Frame', id: 'board.frame', does: 'Drag a box and name it: the cards inside join it' },
   { tool: 'arrow', label: 'Arrow', id: 'board.arrow', does: 'Drag from one card to another' },
+  { tool: 'size', label: 'Size', id: 'board.size', does: 'Click the board and give a size you know' },
   { tool: 'picture', label: 'Picture', id: 'board.picture', does: 'Add a photo from a file, or drop one on the board' },
   { tool: 'sketch', label: 'Sketch', id: 'board.sketch', does: 'Draw a card' }
 ]
 
 /**
- * The palette of the board, at its foot: Select, Text, Frame and Arrow stay in hand until another is chosen; Picture and
+ * The palette of the board, at its foot: Select, Text, Frame, Arrow and Size stay in hand until another is chosen; Picture and
  * Sketch do their one thing and Select is in hand again.
  */
 export function Palette({ onChoose }: { onChoose: (tool: BoardTool) => void }) {

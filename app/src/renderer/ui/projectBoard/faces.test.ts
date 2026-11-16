@@ -104,9 +104,22 @@ describe('what a card shows', () => {
     expect(faceOf(card({ kind: 'params' }), {}).lines.map((l) => l.text)).toEqual(['not built yet'])
   })
 
-  it('shows a size card by what it measures, its value as typed and its source', () => {
+  it('shows a size card by its value and unit first, in the monospace face, then what it measures and the source', () => {
     const size = { what: 'battery tray', value: '186 x 128', unit: 'mm' as const, source: 'measured' as const }
-    expect(faceOf(card({ kind: 'size', size }), {})).toMatchObject({ label: 'Size', title: 'battery tray', lines: [{ text: '186 x 128 mm', mono: true }, { text: 'measured' }] })
+    expect(faceOf(card({ kind: 'size', size }), {})).toEqual({
+      label: 'Size',
+      lines: [{ text: '186 x 128 mm', mono: true, big: true }, { text: 'battery tray' }, { text: 'measured', tone: 'muted' }]
+    })
+  })
+
+  it('sets a degree against its number, keeps a value as typed, and adds the note to the source', () => {
+    const size = { what: 'lid hinge', value: 'about 95', unit: '°' as const, source: 'a guess' as const, note: 'from the drawing' }
+    expect(faceOf(card({ kind: 'size', size, by: 'agent' }), {}).lines).toEqual([{ text: 'about 95°', mono: true, big: true }, { text: 'lid hinge' }, { text: 'a guess: from the drawing', tone: 'muted' }])
+    expect(faceOf(card({ kind: 'size', by: 'agent', size: { ...size, source: 'from Claude' } }), {}).lines[2]).toEqual({ text: 'from Claude: from the drawing', tone: 'muted' })
+  })
+
+  it('shows a size card without a size as an empty one', () => {
+    expect(faceOf(card({ kind: 'size' }), {})).toEqual({ label: 'Size', lines: [] })
   })
 
   it('shows a text card as written, a frame by its name, and an agent card as the agent\'s', () => {

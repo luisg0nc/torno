@@ -44,7 +44,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`MAX_STEP_BYTES`), through the same `readRegular` (no link, folder or pipe). They are listed in the brief after the doodles and
   named in the first prompt as a reference body for `import_step` and `references(p)` (`OnboardDraft.steps`: `reference/<file>` and a note;
   the file is checked as a plain file of `reference/` with a STEP name). torno reads nothing of them. `objects:pickStep` is their dialog
-  (`__tornoMain.pickStep`, `stepPicks` count). Scans are not copied (`objects:onboard` imports them) and other objects are named
+  (`__tornoMain.pickStep`, `stepPicks` count). Scans are not copied (`objects:onboard` imports them, or the window does when the project is made without starting Claude: `MakeDeps.importScan`) and other objects are named
   by id; the path of a scan is refused if it holds a control character, a line break above all, as it is a line of `brief.md`,
   which writes a path under the home folder with `~`. At most 12 photos, 6 doodles, 4 bought parts (STEP), 4 scans, 8 objects and 6 PDFs (`MOST_REFERENCES` in `shared/objectName.ts`, held by the window and main alike). `brief.md` is `# name`, the description, and `## References` with a line per item in the
   order photos, doodles, STEP files, PDFs, scans, objects.
@@ -85,7 +85,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `numbered`.
 - **Create** is `ui/onboard/make.ts` (`makeObject`, tested with fakes, and guarded against a second call while one
   runs). The order is `objects.create`, the list is refreshed, the draft is spent, the object is opened as a click
-  opens it, then `objects.onboard` once; the session main started is put into the store. A failure of `create`
+  opens it, then `objects.onboard` once; the session main started is put into the store. Made without starting Claude (`start = false`), `onboard` is not called, so each scan of the draft is imported with `scans.import(objectId, path)`, in order, a failure not stopping the rest and said as the reason of an empty held prompt (`<file> was not imported: <why>.`). A failure of `create`
   stays on the page with its reason and the draft intact. An error saying the object "was made, but ..." is never
   offered again: the draft is spent and the object opened if the workspace lists it. When `sessionId` is null or
   there is a `problem`, the object is open and `onboarding.hold` keeps the text: the session pane says why

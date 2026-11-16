@@ -22,6 +22,8 @@ export interface MakeDeps {
   sameWorkspace(): boolean
   /** Where the object's folder is. */
   folderOf(objectId: string): string
+  /** Has the scan at this path imported into the object, as `scans.import` does (seconds). Rejects with why not. */
+  importScan(objectId: string, path: string): Promise<unknown>
 }
 
 export type Outcome =
@@ -156,7 +158,24 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
     let shown = true
     await deps.open(objectId).catch(() => void (shown = false))
     // "Make it without starting Claude": the project is made and open, and nothing is asked of an agent.
-    if (!start) return { kind: 'done', objectId, ...(shown ? {} : { shown: false as const }) }
+    if (!start) {
+      // `onboard` imports the scans when it runs; here it does not, so they are imported now, one after the other, and one
+      // that fails does not stop the rest. A failure is said where a first prompt that could not be sent is (no text is held).
+      const failed: string[] = []
+      for (const scan of draft.scans) {
+        try {
+          await deps.importScan(objectId, scan.path)
+        } catch (e) {
+          failed.push(`${scan.file} was not imported: ${reason(e).replace(/\.$/, '')}.`)
+        }
+      }
+      if (failed.length > 0) {
+        const problem = failed.join(' ')
+        deps.hold(objectId, { text: '', reason: problem })
+        return { kind: 'done', objectId, problem, ...(shown ? {} : { shown: false as const }) }
+      }
+      return { kind: 'done', objectId, ...(shown ? {} : { shown: false as const }) }
+    }
     let told: Onboarded
     try {
       told = await deps.onboard(objectId, { description, items, steps: stepReferences(draft), scans: request.scans, objects: request.objects, sizes: request.sizes, rules: request.rules, links: request.links, pdfs: pdfReferences(request.pdfs), ...(choice.model || choice.effort ? { choice } : {}) })

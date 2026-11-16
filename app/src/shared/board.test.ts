@@ -49,6 +49,19 @@ describe('the link a text card holds', () => {
   it('is nothing for other schemes or no address', () => {
     for (const text of ['javascript:alert(1)', 'file:///etc/passwd', 'ftp://x.dev', 'no link here', '', 'https:/x']) expect(firstLink(text)).toBeNull()
   })
+  it('leaves off the punctuation of the sentence it ends, and a bracket it does not open', () => {
+    expect(firstLink('see https://x.dev/a.')).toBe('https://x.dev/a')
+    expect(firstLink('https://x.dev/a, then')).toBe('https://x.dev/a')
+    expect(firstLink('who? https://x.dev/a?!')).toBe('https://x.dev/a')
+    expect(firstLink('https://x.dev/a;:')).toBe('https://x.dev/a')
+    expect(firstLink('(see https://x.dev/a)')).toBe('https://x.dev/a')
+    expect(firstLink('(see https://x.dev/a).')).toBe('https://x.dev/a')
+  })
+  it('keeps a bracket that closes one in the address, and a query', () => {
+    expect(firstLink('https://en.wikipedia.org/wiki/Torno_(lathe)')).toBe('https://en.wikipedia.org/wiki/Torno_(lathe)')
+    expect(firstLink('https://en.wikipedia.org/wiki/Torno_(lathe).')).toBe('https://en.wikipedia.org/wiki/Torno_(lathe)')
+    expect(firstLink('https://x.dev/a?b=1&c=2')).toBe('https://x.dev/a?b=1&c=2')
+  })
   it('is cut at 2000 characters', () => {
     expect(firstLink(`https://x.dev/${'a'.repeat(3000)}`)).toHaveLength(2000)
   })

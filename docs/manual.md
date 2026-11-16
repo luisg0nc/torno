@@ -582,7 +582,7 @@ place as the last step, so it is whole or not there, and it never goes into or o
 empty one of that name is used). A temporary folder a crash left is swept away at the next opening of the
 workspace once it is ten minutes old, unless it holds files in `reference/` (your doodles and STEP files may be nowhere else):
 such a leftover, a hidden `.<name>.torno-new-<hex>` folder in the workspace, is yours to look at and delete. Then torno opens the project on its board, imports the scans, starts Claude Code in a
-chat and sends one prompt with everything. "Or make it without starting Claude" stops after opening the project: no session starts and the scans are not imported yet. The prompt asks Claude to list the sizes that decide fit or function and
+chat and sends one prompt with everything. "Or make it without starting Claude" stops after opening the project: no session starts and nothing is sent, but the scans are imported all the same, one after the other (one that fails is named in the pane of the session, and the others still go in). The prompt asks Claude to list the sizes that decide fit or function and
 say where each comes from (your words, a note, a scan, another project, or nowhere), and to ask you for those that come
 from nowhere in one round (a card in the chat, at most four questions, each with a typical value among its options;
 "build with assumptions" is an answer) before it builds. What it builds without an answer is marked "assumed" in the
@@ -614,7 +614,7 @@ The doodle board (the same board as the chat's "Draw on view") has a thin pen, a
 under the ink; hold `Shift` while drawing for a straight line from where the stroke began. (A drawing on the view has no grid: its ground is the picture.)
 `Esc` puts the board away; if strokes were drawn since it was opened it asks "Discard this doodle?" first. A
 doodle can be opened again from its card and changed. "Draw over" (when photos are given) puts one of them under the ink,
-fitted whole on a white ground, with no grid; Claude gets the photo with your ink on it, and the note says "drawn over reference/photo-N.ext". If you remove that photo
+fitted whole on a white ground, with no grid; Claude gets the photo with your ink on it, and the note says "drawn over reference/photo-N.ext", and the prompt says it is your ink over that photo and not a drawing on the grid. If you remove that photo
 the doodle stays as it was drawn.
 
 What you have entered is a draft, kept while the window lives: you can leave the page, open another project and
@@ -1171,7 +1171,7 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__diff` | What changed between the last two successful builds (or the two given as `from` and `to`: a revision of this run, or a build kept in the history by its id, `h41`): for each layout the parts added and removed, and for each part its volume (and its change in percent), box size and min corner before and after, with whether each is exact, and its face, edge and solid counts, a hint that refs may name other faces now. The answer to an edit gives the same of each part that changed. `builds` says what each was made from (a hash of the sources, the commit, whether files differed from it, and of a kept build its id and the checks, defects and dimensions it had then, which are as of then), and a note says when the two were made from the same sources. |
 | `mcp__torno__history` | The builds kept of the project (see Files torno writes, `history/`), newest first: each with its id (`h41`), when, its revision if it was made in this run, what changed from the build before it in a line that also says what caused it (Claude and the prompt, your own edit, params, a go back) and whether it failed to build (kept as a line with no copies, and the reason), the checks of the model that failed and the parts with a defect (a build that fails its checks is kept all the same), how your dimensions stood when it was checked, and whether you starred it. With `id`, one build, with the paths of the copies of its Python files, to read when going back to it. The agent never restores them itself: only your "Go back" does, and Claude is told when it has. |
 | `mcp__torno__board` | Reads the board of the project as text: each card by its id, its kind and who made it (you, Claude, or torno), with what it says, the frames first with their cards in reading order, then the arrows. A frame by its name or id gives only that frame and its cards; `pictures: true` also sends the pictures of the cards, at most 6, each scaled to 1280 px. Hidden cards are left out. |
-| `mcp__torno__add_card` | Leaves a card of Claude's on the board: some text, or a picture of the view drawn as `look` draws it (at 1280 px, with its camera), in a frame by name (made, and Claude's, when there is none), with an arrow from or to a card and a word. It lands in a free spot, never over a card; in a frame of yours with no room left it goes just below the frame, and Claude is told so. With `card` it changes the text of, or with `remove` takes down, a card of Claude's own, and it refuses any change to a card of yours or one torno made. |
+| `mcp__torno__add_card` | Leaves a card of Claude's on the board: some text, a size (what it measures, a value, `mm` or `°`, a note; its source is always "from Claude"), or a picture of the view drawn as `look` draws it (at 1280 px, with its camera), in a frame by name (made, and Claude's, when there is none), with an arrow from or to a card and a word. It lands in a free spot, never over a card; in a frame of yours with no room left it goes just below the frame, and Claude is told so. With `card` it changes the text of, or with `remove` takes down, a card of Claude's own, and it refuses any change to a card of yours or one torno made. |
 | `mcp__torno__expect` | Called before an edit: what it should change, as checks (a part's `volume`, `faces`, `edges` or `size` as a `value` or a `change` with a `tolerance`; a `measure` with the number it `expected`; `unchanged` parts). The next successful build is held against it, and the answer to the edit says in a line how many checks were met and which were not, with the numbers (`≈` where the kernel's is not exact). Kept in memory for that one build, told once, no mark, and it never holds a turn back. A ref to a face of a part whose face count changed is told as moved and not measured. `scene` gives the last verdict. |
 | `mcp__torno__try_fillet` | Tries a fillet (or a chamfer, `kind: 'chamfer'`) of `radius` mm of some edges of a part (`part`, `edges` as refs such as `lid/E3`) on the last good build and throws it away: whether it works, and when it does not, the edges that fail alone or in pairs and the largest radius that works, as a failed build's error says it. It changes nothing. |
 | `mcp__torno__try_params` | Builds the model with other values of its `Params` (`set`, the fields `scene` lists under `params` as editable: `{"wall": 2.4}`) in a worker of its own and throws it away, then says whether it built (or the model's error), what changed against the last build part by part, and the measurements (`measure`: `bbox`, `volume`, `area`, `mass` or `distance` of whole parts by name) and checks (`check`: as the `check` tool, parts by name) asked for, all worded as those tools word them and said to be of the trial. It changes nothing: not the model, not the values you are trying in the window, not the build on screen; it is made on top of your values, and refused when there is no memory for a second build or while a build runs. To keep a value the agent edits the model. |
@@ -1648,7 +1648,7 @@ for each project; a project opens on the model until its board has a card of you
 loaded while the board is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
 
 **What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
-`brief.md` (its text, read only, scrolling), each photo or doodle of `reference/`, each mark (`M1`, its kind, where it is,
+`brief.md` (its text, read only, scrolling), each photo or doodle of `reference/`, each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
 its note and its state) and each scan. Removing one of these hides it: the mark, scan or photo is untouched, and "Hidden cards"
 at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed) its card goes with it. These
 you pin, with "Pin to board":
@@ -1660,7 +1660,7 @@ you pin, with "Pin to board":
 - the **Params**, from their panel, with each value and the ones you are trying marked as tried; and the **checks**, from the
   Checks section of that panel, each passing or failing. Each is on a board once: pinning it again says so.
 
-You make **text** cards, **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
+You make **text** cards (a web address in one shows as a link, and a click on it opens it in your browser), **size** cards (below), **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
 Claude is sent is scaled down by the window first), **sketch** cards (drawn with the same ink pad as the doodles), named
 **frames** and **arrows** between cards, with an optional word on them. A card dropped inside a frame belongs to it, and a frame
 dragged takes its cards along. Claude's cards have a green edge; Claude makes text and pictures of the view (below) and
@@ -1669,9 +1669,17 @@ never moves, edits or removes one of yours or one torno made.
 **Moving around.** The wheel or two fingers pan; `Ctrl` and the wheel, or a pinch, zoom about the pointer (10 % to 400 %); a
 middle or right drag, or `Space` and a drag, pan; `Shift+1` fits every card. A small map in the corner shows the board and
 what is on screen: click or drag in it to go there. The tools are in a palette at the foot: Select `V`, Text `N`, Frame `F`,
-Arrow `A`, Picture `I`, Sketch `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
+Arrow `A`, Size `M`, Picture `I`, Sketch `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
 one. `Delete` removes what is selected (the cards that came by themselves are hidden), and `Ctrl+Z` takes back the last changes
 you made here, up to 50. A board holds 2000 cards and a text card 4000 characters.
+
+**Sizes.** A size card holds one size you know: what it measures ("battery tray"), its value as you typed it (`186 × 128`, `Ø62`, `about 60`;
+at most 60 characters, never changed to numbers in the file), its unit (`mm` or `°`), where it came from (`measured`, `from a manual or
+datasheet`, or `a guess`) and a note of a line. The tool `M` and a click on empty ground open its form; Enter or "Done" keeps it, and when
+something is missing the form says what and stays; `Esc`, or leaving the form, keeps a whole size and makes nothing of a half-written one.
+The card shows the value and unit large, in the face of numbers, then what it measures and the source. A double click on one of yours opens the form again, and
+`Ctrl+Z` takes the change back. Claude's own sizes say "from Claude" and are never yours to change; Claude reads all of them with `board`, as
+`battery tray 186 × 128 mm (measured)`, and asks only for the sizes the board does not have. A new project's "Sizes I know" become these cards.
 
 **A double click** does what the card is for:
 
@@ -1684,7 +1692,9 @@ you made here, up to 50. A board holds 2000 cards and a text card 4000 character
 | Build | shows the model and opens Compare with the live build (nothing for a build this computer does not have) |
 | View | shows the model with that view on |
 | Params, Checks | opens the Params panel |
-| Text | edits it (yours only) |
+| Text | edits it (yours only); a click on a web address in it opens the address in your browser |
+| Size | opens its form (yours only) |
+| STEP file, PDF | shows the file in its folder |
 | Picture | opens it large; one Claude drew of the view goes to the model with its camera |
 | Sketch | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
 | Frame | renames it (yours only) |
@@ -1918,6 +1928,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Board | `N` | Board, Text: a card for a note |
 | Board | `F` | Board, Frame: a named outline round cards |
 | Board | `A` | Board, Arrow: draw from one card to another |
+| Board | `M` | Board, Size: a card for a size you know |
 | Board | `I` | Board, Picture: add a photo from a file |
 | Board | `S` | Board, Sketch: draw on a card |
 | Board | `Space` | Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms) |
@@ -2417,6 +2428,9 @@ On the screen:
 - **The turn summary, its builds and its buttons.** After a turn, the summary line, the strip of pictures of its builds (the dashed start, a failed build, the pictures themselves, which a test never sees), the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.
 - **The doodle board's grid.** The grid is faint on the board in light and dark, and is not in the PNG Claude gets.
+- **The board of a new project.** Make a project from a page with photos, a sketch, a few sizes, rules, a link and a PDF: it opens on its board, with a frame for each (Brief, Photos, Sketches, Sizes, Rules, Links, PDFs) laid left to right, nothing over anything else, legible in light and dark, and the cards of a frame sit inside it when the board is zoomed out to the whole.
+- **Size cards.** With `M` and a click make a size card: the form sits over the place the card will take, the unit and source lists open with the pointer and give the keys back when one is chosen, and the card reads at 100 % and when zoomed out, with the value large in the face of numbers, in both themes. The page of a new project has the same fields in rows.
+- **STEP and PDF cards, and a link.** A PDF or a STEP file of `reference/` is a card with its name and kind; a double click shows it in your file manager, and a click on a web address in a text card opens it in your default browser (a test only has a stand-in for the system's opener).
 - **The prompt preview of a new project.** The preview of the first prompt reads clearly and matches what is sent.
 - **The scans walk-through.** Import, align and check a scan by the steps the panel offers: each step is where the eye goes next, in both themes.
 - **The export sheet by reader.** Each reader (a person, a printer, a drawing), and the picture, SVG and PDF formats: the sheet is one screen and legible in both themes.
@@ -2440,6 +2454,7 @@ With a real agent:
 - **Subagents and thinking.** A turn with a subagent (`Task`; newer versions may call the tool `Agent`) and one with extended thinking: the card counts steps and lists the tools, "Thought for N s" shows after a thought. The number was worked out from a recording; nobody has looked at it with the real CLI.
 - **The chat with the real Claude Code.** In a session in chat: a prompt with a pin or two marked (the "torno added" line shows them and they turn to sent); a command that asks permission, answered "Allow", then another with "Allow for this session" (the next like it is not asked, and `~/.claude/settings.json` and the project's `.claude/` are as they were), then one "Deny"; a question (`AskUserQuestion`) answered with an option and with "Other"; a plan in plan mode approved; "Attach view" (the agent describes what you see); the model menu (the next answer is from that model, and `/model` in the terminal still shows your default); the effort menu (a level chosen is taken, `/effort` in the terminal still shows your default, and `~/.claude/settings.json` is as it was); a new project made with a model and an effort chosen beside "Create" (its first answer is from that model, at that effort); `/compact` (one note, the conversation goes on); "Terminal", then "Chat" again: the same conversation, its earlier part shown.
 - **Making a new project with the real Claude Code.** "New project" with a name, a description, two photos from a phone (one large), a doodle, a scan and a reference to another project, each with a note, then "Create": the project is opened, its chat shows the one prompt with the pictures, Claude Code's reply speaks of them and of the notes, the scan is in the Scans list, `reference/` holds the original photos, and nothing else was written in the workspace. The stand-in agent has taken the prompt; the real CLI has not.
+- **The board of a new project, with the real Claude Code.** Make a project with sizes and a PDF, and start Claude: its first prompt names the sizes (and its board line says no card is new), it does not ask for a size you gave, it reads the PDF with its own tools, and a size it adds with `add_card` shows on the board as a card that says "from Claude".
 - **Asking for the missing sizes, with the real Claude Code.** Make a project whose description gives one size and leaves out the rest (a lid for a box of an unnamed size, screws not named): before the first write of the model, Claude Code asks once, in a card with at most four questions, each with a typical value among its options and "Other" taking "build with assumptions"; it asks nothing about a fillet radius; after the answers it builds, and a size you did not give is a field of `Params` commented "assumed" and listed in its reply. Then ask for a new feature with no key size (a hole for "a screw"): it asks once, not again. The stand-in agent only plays the card; the real model's choice to ask has not been seen, and the eval harness (#121) does not yet measure it.
 - **The edits menu with the real Claude Code.** In a chat, choose "Accept edits" and ask for a change: the CLI
   should take the edit without asking, and the menu should show the mode again after the next prompt; then "Plan

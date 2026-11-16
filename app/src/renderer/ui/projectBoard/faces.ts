@@ -39,6 +39,8 @@ export interface Line {
   tone?: Tone
   /** Set in the monospace face: a number or a ref. */
   mono?: true
+  /** Set large: the one figure a card is read for. */
+  big?: true
 }
 
 export interface Face {
@@ -173,11 +175,16 @@ export function faceOf(card: Card, facts: Facts): Face {
     }
     case 'frame':
       return { label: LABEL.frame, title: card.name ?? '', lines: [] }
-    case 'size':
-      // A first face, until the window draws sizes (the new-project board): what it measures, its value as typed, where it came from.
-      return card.size
-        ? { label: LABEL.size, title: card.size.what, lines: [{ text: `${card.size.value} ${card.size.unit}`, mono: true }, { text: card.size.source, tone: 'muted' }] }
-        : { label: LABEL.size, lines: [] }
+    case 'size': {
+      // The value and unit first, large, in the monospace face (the value as it was typed), then what it measures and where it came from.
+      const size = card.size
+      if (!size) return { label: LABEL.size, lines: [] }
+      const unit = size.unit === '°' ? '°' : ` ${size.unit}`
+      return {
+        label: LABEL.size,
+        lines: [{ text: `${size.value.trim()}${unit}`, mono: true, big: true }, { text: size.what }, { text: size.note ? `${size.source}: ${size.note}` : size.source, tone: 'muted' }]
+      }
+    }
   }
 }
 

@@ -104,6 +104,17 @@ const full = () => ({
 })
 
 describe('onboardPrompt', () => {
+  it('says a doodle drawn over a photo is the person\'s ink over that photo, not a drawing on a grid', () => {
+    const over = { ...full(), items: [{ file: 'reference/doodle-1.png', note: 'the shape (drawn over reference/photo-1.jpg)', image: image(png(1200, 800)) }] }
+    const { text } = onboardPrompt(over)
+    expect(text).not.toContain('light grid')
+    expect(text).toContain("A doodle drawn over a photo is the person's ink over that photo")
+    // One of each says both.
+    const both = { ...full(), items: [...over.items, { file: 'reference/doodle-2.png', note: 'a plain one', image: image(png(1200, 800)) }] }
+    expect(onboardPrompt(both).text).toContain('light grid')
+    expect(onboardPrompt(both).text).toContain("the person's ink over that photo")
+  })
+
   it('names only tools torno has (TOOLS), so a tool that does not exist is caught here (#119)', () => {
     const { text } = onboardPrompt(full())
     const named = [...text.matchAll(/mcp__torno__([A-Za-z_]+)/g)].map((m) => m[1])
