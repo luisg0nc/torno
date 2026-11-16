@@ -59,7 +59,6 @@ changing it.
 
   ```
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-  Claude-Session: https://claude.ai/code/session_01GCibhn9HYVGh3bhhx6ZMWr
   ```
 
 ## Before a commit
