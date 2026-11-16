@@ -14,16 +14,18 @@ const storageNow = (): Storage | null => (typeof window === 'undefined' ? null :
 
 export type Shown = 'board' | 'model'
 
-/** The tool in hand on the board: Select, or one that makes a text, a frame, an arrow, a picture or a sketch. */
-export type BoardTool = 'select' | 'text' | 'frame' | 'arrow' | 'picture' | 'sketch'
+/** The tool in hand on the board: Select, or one that makes a text, a frame, an arrow, a size, a picture or a sketch. */
+export type BoardTool = 'select' | 'text' | 'frame' | 'arrow' | 'size' | 'picture' | 'sketch'
 
 /**
  * What is being written on the board in a field of its own, over the place it is for: the words of a text card (new, or
- * of one that is there), the name of a frame being drawn or renamed, the word on an arrow. Board units throughout.
+ * of one that is there), the facts of a size card (a form), the name of a frame being drawn or renamed, the word on an arrow. Board units throughout.
  */
 export type Editing =
   | { kind: 'text'; x: number; y: number; w: number; h: number; id?: string }
   | { kind: 'frame'; x: number; y: number; w: number; h: number }
+  /** A size card's form: over a new card's place, or over the card (`id`). */
+  | { kind: 'size'; x: number; y: number; w: number; h: number; id?: string }
   | { kind: 'name'; id: string }
   | { kind: 'word'; id: string }
 

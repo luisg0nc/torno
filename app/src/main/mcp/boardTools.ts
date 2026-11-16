@@ -2,8 +2,9 @@ import { type AgentChange, type BoardFile, type Card, BOARD_PICTURE_EDGE, CARD_I
 import type { LookRequest } from '../../shared/view'
 import { filesOf, pictureToSend, savePicture } from '../board/pictures'
 import { boardText } from '../board/text'
+import { checkSize } from '../../shared/size'
 import { unknownKeys } from './keys'
-import { type AddCardArgs, type BoardArgs, TOOLS } from './schemas'
+import { type AddCardArgs, type BoardArgs, SIZE_ARG_KEYS, TOOLS } from './schemas'
 import { type ToolDeps, type ToolResult, failure, messageOf } from './tools'
 import { type LookCapture, lookTool } from './viewTools'
 
@@ -82,7 +83,7 @@ export async function addCardTool(deps: ToolDeps, objectId: string, args: AddCar
     // A card of its own, changed or taken down.
     if (args.card !== undefined || args.remove === true) {
       if (typeof args.card !== 'string' || !CARD_ID.test(args.card)) return failure('remove names a card of yours, and so does a change of its text: give card with its id, such as "C9". Nothing was done.')
-      const others = args.look !== undefined || args.frame !== undefined || args.arrowFrom !== undefined || args.arrowTo !== undefined || args.label !== undefined
+      const others = args.size !== undefined || args.look !== undefined || args.frame !== undefined || args.arrowFrom !== undefined || args.arrowTo !== undefined || args.label !== undefined
       if (args.remove === true) {
         if (args.text !== undefined || others) return failure('remove takes only the id of the card to take down: nothing was done.')
         await done({ op: 'remove', id: args.card })
@@ -94,7 +95,14 @@ export async function addCardTool(deps: ToolDeps, objectId: string, args: AddCar
     }
 
     const hasText = typeof args.text === 'string' && args.text !== ''
-    if (!hasText && args.look === undefined) return failure('add_card needs text or look: the words of a card, or a picture of the view. Nothing was done.')
+    if (args.size !== undefined) {
+      if (hasText || args.look !== undefined) return failure('A size card holds a size alone: give size or text or look, not together. Nothing was done.')
+      const wrong = unknownKeys(args.size, SIZE_ARG_KEYS, 'size')
+      if (wrong !== null) return failure(wrong)
+      const size = checkSize(args.size, 'agent')
+      if (typeof size === 'string') return failure(`${size} Nothing was done.`)
+    }
+    if (!hasText && args.look === undefined && args.size === undefined) return failure('add_card needs text, size or look: the words of a card, a size, or a picture of the view. Nothing was done.')
 
     // A picture of the view: drawn as `look` draws it, and kept by the board, not as a view.
     let picture: string | undefined
@@ -114,12 +122,13 @@ export async function addCardTool(deps: ToolDeps, objectId: string, args: AddCar
     const result = await done({
       op: 'add',
       ...(hasText ? { text: args.text } : {}),
+      ...(args.size !== undefined ? { size: args.size } : {}),
       ...(picture !== undefined ? { picture } : {}),
       ...(camera !== undefined ? { camera } : {}),
       ...(args.frame !== undefined ? { frame: args.frame } : {}),
       ...(arrowed ? { arrow: { ...(args.arrowFrom !== undefined ? { from: args.arrowFrom } : {}), ...(args.arrowTo !== undefined ? { to: args.arrowTo } : {}), ...(args.label !== undefined ? { label: args.label } : {}) } } : {})
     })
-    const kind = picture !== undefined ? 'picture' : 'text'
+    const kind = picture !== undefined ? 'picture' : args.size !== undefined ? 'size' : 'text'
     const said: string[] = []
     if (result.frame?.made) said.push(`Made the frame ${result.frame.name}, ${result.frame.id}.`)
     const where = result.below !== undefined ? `; the frame ${result.frame?.name ?? result.below} was full, so ${result.id} is just below it, not in it` : result.frame ? `, in ${result.frame.name}` : ''

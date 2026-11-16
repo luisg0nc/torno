@@ -1,11 +1,12 @@
 import { copyFile, lstat, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { type Arrow, type BoardFile, type Card, type CardKind, type SavedCamera, CARD_ID, MAX_NAME_CHARS, MAX_TEXT_CHARS, PICTURE_NAME } from '../../shared/board'
+import { checkSize } from '../../shared/size'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 
 const FOLDER_NAME = 'board'
 const NAME = 'board.json'
-const KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan', 'build', 'view', 'params', 'checks', 'text', 'picture', 'sketch', 'frame']
+const KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan', 'build', 'view', 'params', 'checks', 'text', 'picture', 'sketch', 'frame', 'size']
 
 /** The text of a board file: what is written, and what a change is compared with. */
 export const textOf = (file: BoardFile): string => `${JSON.stringify(file, null, 2)}\n`
@@ -51,6 +52,12 @@ export function sanitiseCard(value: unknown): Card | null {
   const copy = value.copy
   if (isRecord(copy) && typeof copy.id === 'string' && typeof copy.line === 'string' && typeof copy.cause === 'string' && typeof copy.sources === 'string') {
     card.copy = { id: copy.id, line: copy.line, cause: copy.cause, sources: copy.sources }
+  }
+  // A size is kept only on a card of its kind, and a card of that kind without a whole one is not a card.
+  if (card.kind === 'size') {
+    const size = checkSize(value.size, card.by === 'agent' ? 'agent' : 'person')
+    if (typeof size === 'string') return null
+    card.size = size
   }
   return card
 }

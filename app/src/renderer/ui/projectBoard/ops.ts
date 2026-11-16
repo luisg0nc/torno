@@ -1,4 +1,5 @@
 import type { BoardFile, Card, PersonChange } from '../../../shared/board'
+import type { SizeFact } from '../../../shared/size'
 import { boardActions, boardStore, onBoardForgotten } from '../../state/board'
 import { cardsIn, frameAt } from './geometry'
 import { BoardUndo, pick, withMembers } from './undo'
@@ -58,7 +59,7 @@ function newId(prev: BoardFile, next: BoardFile, of: (c: Card) => boolean): stri
   return next.cards.find((c) => !was.has(c.id) && of(c))?.id
 }
 
-export type Made = { kind: 'text'; text: string } | { kind: 'picture' | 'sketch'; picture: string }
+export type Made = { kind: 'text'; text: string } | { kind: 'size'; size: SizeFact } | { kind: 'picture' | 'sketch'; picture: string }
 
 /** A new card of the person's at a place: it belongs to the frame its middle is in. */
 export async function addCard(objectId: string, made: Made, rect: { x: number; y: number; w: number; h: number }): Promise<string | undefined> {
@@ -131,6 +132,11 @@ export async function moveCards(objectId: string, moves: Move[]): Promise<boolea
 /** The words of a card, the name of a frame, or the caption of a picture, changed. */
 export async function editCard(objectId: string, id: string, fields: { text?: string; name?: string; caption?: string }): Promise<void> {
   await act(objectId, [id], () => send(objectId, { op: 'edit', id, ...fields }))
+}
+
+/** The facts of a size card, changed: one action, one undo. Main checks them as it does a new size. */
+export async function editSize(objectId: string, id: string, size: SizeFact): Promise<void> {
+  await act(objectId, [id], () => send(objectId, { op: 'edit', id, size }))
 }
 
 /** Cards removed (those that appeared by themselves are hidden), and arrows taken off. */

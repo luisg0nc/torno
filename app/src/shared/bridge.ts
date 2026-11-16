@@ -10,6 +10,7 @@ import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
 import type { Mark, MarkPatch, NewMark, NewRegion, Replacement } from './marks'
 import type { Scene } from './scene'
+import type { SizeFact } from './size'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
 import type { SceneFile } from './scenefile'
 import type { ObjectCard, ThumbnailOf } from './show'
@@ -25,14 +26,22 @@ export interface CreateRequest {
   description: string
   /** Files on the disk (from a drop or main's dialog): copied into `reference/` as `photo-<n>.<ext>`. */
   photos: Array<{ path: string; note: string }>
-  /** PNG bytes of a drawing: `reference/doodle-<n>.png`. */
-  doodles: Array<{ png: Uint8Array; note: string }>
+  /** PNG bytes of a drawing: `reference/doodle-<n>.png`. `over` is the index into `photos` of the photo it is drawn over. */
+  doodles: Array<{ png: Uint8Array; note: string; over?: number; /** The photo it was drawn over is no longer among the photos: the picture still has it under the ink, and the card says "drawn over a photo". */ onPhoto?: true }>
   /** Vendor STEP files of bought parts (`.step`, `.stp`, at most 50 MB): copied into `reference/` under their own names (`stepFiles`). */
   steps: Array<{ path: string; note: string }>
   /** Not copied: imported into the object after it is made. */
   scans: Array<{ path: string; note: string }>
   /** Other objects of the workspace, by id. */
   objects: Array<{ id: string; note: string }>
+  /** What the person measured or read (at most 40): cards of the project's board, never written into `brief.md`. */
+  sizes: SizeFact[]
+  /** Rules for the model (at most 4000 characters): a text card of the board. */
+  rules: string
+  /** Links (`http`, `https`; at most 20): a text card each, never opened by torno. */
+  links: Array<{ url: string; note: string }>
+  /** PDF files (at most 6, 25 MB each, starting `%PDF-`): copied into `reference/` under their own names (`referenceFiles`). */
+  pdfs: Array<{ path: string; note: string }>
 }
 
 /**
@@ -42,13 +51,21 @@ export interface CreateRequest {
  */
 export interface OnboardDraft {
   description: string
-  /** The photos, then the doodles, as `create` named them: `reference/photo-1.jpg`, `reference/doodle-1.png`. */
+  /** The photos, then the doodles, as `create` named them: `reference/photo-1.jpg`, `reference/doodle-1.png`. The note of a doodle drawn over a photo says so, as `create` writes it on its card (`drawn over reference/photo-2.jpg`, or `drawn over a photo` when that photo is no longer in the draft). */
   items: Array<{ file: string; note: string; image?: Uint8Array }>
   /** The vendor STEP files, as `create` named them: `reference/608zz.step`. */
   steps: Array<{ file: string; note: string }>
   /** The scans to import into the new object, by the path the dialog or the drop gave. */
   scans: Array<{ path: string; note: string }>
   objects: Array<{ id: string; note: string }>
+  /** What the person measured or read: told in the prompt in words (`saySize`), as `create` put them on the board. */
+  sizes: SizeFact[]
+  /** The rules for the model, told in full. */
+  rules: string
+  /** The links, told one to a line; torno opens none. */
+  links: Array<{ url: string; note: string }>
+  /** The PDFs, as `create` named them in `reference/` (`referenceFiles`): `reference/datasheet.pdf`. */
+  pdfs: Array<{ file: string; note: string }>
   /** The model and effort to start the session on, for it alone; absent, or what is not one: the person's own default. */
   choice?: AgentChoice
 }
@@ -60,6 +77,10 @@ export interface PromptPreviewDraft {
   steps: Array<{ file: string; note: string }>
   scans: Array<{ path: string; note: string }>
   objects: Array<{ id: string; note: string }>
+  sizes: SizeFact[]
+  rules: string
+  links: Array<{ url: string; note: string }>
+  pdfs: Array<{ file: string; note: string }>
 }
 
 /** The first prompt of a draft as it would be sent. `attached[i]` is the number of the picture of `items[i]` in it, none when it is named only; `pictured` the same for the objects listed in `objects` (those of the draft that exist). */
@@ -197,6 +218,8 @@ export interface TornoBridge {
     pin(objectId: string, what: PinWhat): Promise<BoardFile | { refused: string }>
     /** Opens the project's `brief.md` in the person's own program, or shows a file of its `reference/` in its folder. Rejects with why not. */
     open(objectId: string, what: BoardOpen): Promise<void>
+    /** Opens the first `http` or `https` link of a text card in the person's browser. Main reads the card; rejects with why not (no such card, no link). */
+    openLink(objectId: string, cardId: string): Promise<void>
     /** The board of a project changed, whoever changed it: the whole board as it now is. */
     onChanged(cb: (m: { objectId: string; board: BoardFile }) => void): () => void
     /** What main found wrong with a project's board file (not readable, cards left out, not a plain file): told once as it happens. */
@@ -212,6 +235,8 @@ export interface TornoBridge {
     pickScan(): Promise<string | null>
     /** The dialog for a vendor STEP file (`.step`, `.stp`); under test, what `__tornoMain.pickStep` holds. null when cancelled. */
     pickStep(): Promise<string | null>
+    /** The dialog for a PDF; under test, what `__tornoMain.pickPdf` holds. null when cancelled. */
+    pickPdf(): Promise<string | null>
     /** Where a file dropped on the window is on the disk (`webUtils.getPathForFile`); '' for one that is nowhere. */
     pathOf(file: File): string
     /** The bytes of an image file the dialog or a drop gave (a plain PNG, JPEG or WebP file of at most 25 MB), to draw it and scale a copy for the prompt. */

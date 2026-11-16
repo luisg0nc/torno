@@ -32,8 +32,8 @@ const ASK_FIRST = (m: string): string =>
   [
     `${m}.py is torno's placeholder (a 20 mm cube). Read brief.md and look at what was given. Then:`,
     '',
-    '1. List the sizes that decide fit or function (overall size, wall, the sizes of the parts it mates with, hole and fastener sizes, clearances), and say where each comes from: brief.md, a reference picture\'s note, a scan (≈, to a few mm), another project, or nowhere.',
-    '2. For those from nowhere, ask in one round, before you build, with AskUserQuestion: at most 4 questions, each with 2 to 4 options, one of them a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"); the person may answer "build with assumptions". Do not ask about what you can choose freely (a fillet radius, a chamfer). If every size has a source, ask nothing.',
+    "1. List the sizes that decide fit or function (overall size, wall, the sizes of the parts it mates with, hole and fastener sizes, clearances), and say where each comes from: the sizes the person gave (above, or size cards of the board), brief.md, a reference picture's note, a PDF, a scan (≈, to a few mm), another project, or nowhere.",
+    '2. Ask only for sizes with no source, those from nowhere: a size the person gave is not asked again. For those, ask in one round, before you build, with AskUserQuestion: at most 4 questions, each with 2 to 4 options, one of them a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"); the person may answer "build with assumptions". Do not ask about what you can choose freely (a fillet radius, a chamfer). If every size has a source, ask nothing.',
     '3. Replace the placeholder with the real model, built with the answers. A size still unknown is built as assumed (a field of Params commented "assumed"), and your reply lists the assumptions.'
   ].join('\n')
 
@@ -104,6 +104,21 @@ const full = () => ({
 })
 
 describe('onboardPrompt', () => {
+  it('says a doodle drawn over a photo is the person\'s ink over that photo, not a drawing on a grid', () => {
+    const over = { ...full(), items: [{ file: 'reference/doodle-1.png', note: 'the shape (drawn over reference/photo-1.jpg)', image: image(png(1200, 800)) }] }
+    const { text } = onboardPrompt(over)
+    expect(text).not.toContain('light grid')
+    expect(text).toContain("A doodle drawn over a photo is the person's ink over that photo")
+    // A photo that was taken from the draft is still what is under the ink: the same sentence, and no grid.
+    const gone = { ...full(), items: [{ file: 'reference/doodle-1.png', note: 'the shape (drawn over a photo)', image: image(png(1200, 800)) }] }
+    expect(onboardPrompt(gone).text).not.toContain('light grid')
+    expect(onboardPrompt(gone).text).toContain("the person's ink over that photo")
+    // One of each says both.
+    const both = { ...full(), items: [...over.items, { file: 'reference/doodle-2.png', note: 'a plain one', image: image(png(1200, 800)) }] }
+    expect(onboardPrompt(both).text).toContain('light grid')
+    expect(onboardPrompt(both).text).toContain("the person's ink over that photo")
+  })
+
   it('names only tools torno has (TOOLS), so a tool that does not exist is caught here (#119)', () => {
     const { text } = onboardPrompt(full())
     const named = [...text.matchAll(/mcp__torno__([A-Za-z_]+)/g)].map((m) => m[1])
@@ -203,6 +218,64 @@ describe('onboardPrompt', () => {
     )
   })
 
+  it('says the sizes, rules, links and PDFs the person gave, after what they gave, and asks only for sizes with no source', () => {
+    const given = {
+      name: 'x',
+      description: 'A tray.',
+      items: [{ file: 'reference/photo-1.jpg', note: 'the desk' }],
+      scans: [],
+      objects: [],
+      sizes: [
+        { what: 'battery tray', value: '186 x 128', unit: 'mm' as const, source: 'measured' as const },
+        { what: 'screw', value: '4', unit: 'mm' as const, source: 'from a manual or datasheet' as const, note: 'M4' }
+      ],
+      rules: 'Print without supports.\nWalls at least 2 mm.',
+      links: [{ url: 'https://example.com/tray', note: 'the vendor page' }, { url: 'https://example.com/b', note: '' }],
+      pdfs: [{ file: 'reference/datasheet.pdf', note: 'the cell' }, { file: 'reference/other.pdf', note: '' }]
+    }
+    const { text, held } = onboardPrompt(given)
+    for (const out of [text, held]) {
+      expect(out).toBe(
+        [
+          "This is a new project, x, made in torno just now. What it is, in the person's words:",
+          '',
+          'A tray.',
+          '',
+          'What they gave (all of it is also in brief.md; files are in reference/):',
+          '- reference/photo-1.jpg: the desk (not attached: read reference/photo-1.jpg)',
+          '- reference/datasheet.pdf: the cell. A PDF; read it with your own tools if it helps.',
+          '- reference/other.pdf. A PDF; read it with your own tools if it helps.',
+          '',
+          'Sizes the person gave:',
+          '- battery tray 186 × 128 mm (measured)',
+          '- screw 4 mm (from a manual or datasheet: M4)',
+          '',
+          'Rules:',
+          'Print without supports.\nWalls at least 2 mm.',
+          '',
+          'Links (torno does not open links; read one only if it helps):',
+          '- https://example.com/tray: the vendor page',
+          '- https://example.com/b',
+          '',
+          ASK_FIRST('x')
+        ].join('\n')
+      )
+    }
+    expect(text).toContain('Ask only for sizes with no source')
+    const named = [...text.matchAll(/mcp__torno__([A-Za-z_]+)/g)].map((m) => m[1])
+    expect(named.filter((name) => !(name in TOOLS))).toEqual([])
+  })
+
+  it('says nothing of sizes, rules, links and PDFs that were not given', () => {
+    const { text } = onboardPrompt({ name: 'x', description: 'A thing.', items: [], scans: [], objects: [], sizes: [], rules: '  \n', links: [], pdfs: [] })
+    expect(text).not.toMatch(/Sizes the person gave:|Rules:|Links \(|A PDF;/)
+  })
+
+  it('folds a size, a link and a PDF to one line each', () => {
+    const { text } = onboardPrompt({ name: 'x', description: 'd', items: [], scans: [], objects: [], links: [{ url: 'https://a.example/x', note: 'a\n- injected' }], pdfs: [{ file: 'reference/a.pdf', note: 'a\n- injected' }] })
+    expect(text).not.toMatch(/^- injected/m)
+  })
+
   it('asks for the missing sizes in one round before the first build', () => {
     const { text, held } = onboardPrompt({ name: 'x', description: 'A thing.', items: [], scans: [], objects: [] })
     for (const said of ['List the sizes that decide fit or function', 'or nowhere.', 'ask in one round, before you build, with AskUserQuestion', 'at most 4 questions, each with 2 to 4 options', 'labelled as typical', '"build with assumptions"', 'Do not ask about what you can choose freely', 'built as assumed']) {
@@ -261,12 +334,16 @@ describe('onboardObject', () => {
         calls.push(`start ${o.id}`)
         return { sessionId: 'sess', view: 'chat' }
       },
-      prompt: (sessionId, blocks) => void sent.push({ sessionId, blocks }),
+      prompt: (sessionId, blocks) => {
+        calls.push('prompt')
+        sent.push({ sessionId, blocks })
+      },
+      boardTold: async (id) => void calls.push(`told ${id}`),
       scene: () => undefined,
       ...over
     }
   }
-  const draft = (over: Partial<OnboardDraft> = {}): OnboardDraft => ({ description: 'A clip.', items: [], steps: [], scans: [], objects: [], ...over })
+  const draft = (over: Partial<OnboardDraft> = {}): OnboardDraft => ({ description: 'A clip.', items: [], steps: [], scans: [], objects: [], sizes: [], rules: '', links: [], pdfs: [], ...over })
 
   beforeEach(() => {
     base = mkdtempSync(join(realpathSync(tmpdir()), 'torno-onboard-'))
@@ -281,7 +358,7 @@ describe('onboardObject', () => {
   it('names a vendor STEP file in the prompt, as a reference body to place with import_step, and previews the same (#57)', async () => {
     writeFileSync(join(base, 'cable-clip', 'reference', '608zz.step'), 'x')
     const steps = [{ file: 'reference/608zz.step', note: 'the bearing' }]
-    const shown = await previewPrompt(deps(), 'cable-clip', { description: 'A clip.', items: [], steps, scans: [], objects: [] })
+    const shown = await previewPrompt(deps(), 'cable-clip', { description: 'A clip.', items: [], steps, scans: [], objects: [], sizes: [], rules: '', links: [], pdfs: [] })
     expect(shown.text).toContain('- reference/608zz.step: the bearing. A vendor\'s STEP file of a bought part')
     expect(shown.text).toContain('import_step(Path(__file__).parent / "reference" / "608zz.step")')
     expect(shown.text).toContain('references(p)')
@@ -303,13 +380,82 @@ describe('onboardObject', () => {
       items: d.items.map((i) => ({ file: i.file, note: i.note, picture: true })),
       steps: d.steps,
       scans: d.scans,
-      objects: d.objects
+      objects: d.objects,
+      sizes: [],
+      rules: '',
+      links: [],
+      pdfs: []
     })
     expect(calls).toEqual([])
     expect(shown.attached).toEqual([1, 2])
     expect(shown.pictured).toEqual([3])
     await onboardObject(deps(), 'cable-clip', { ...d, objects: [{ id: 'lid', note: 'mounts on this' }] })
     expect(shown.text).toBe(sent[0].blocks[0].text)
+  })
+
+  it('counts the board as told just before the prompt goes, so that its line says no card is new, and not when nothing is sent', async () => {
+    await onboardObject(deps(), 'cable-clip', draft())
+    expect(calls).toEqual(['start cable-clip', 'told cable-clip', 'prompt'])
+    calls.length = 0
+    await onboardObject(deps({ start: async () => { throw new Error('no') } }), 'cable-clip', draft())
+    await onboardObject(deps({ start: async () => ({ sessionId: 'sess', view: 'terminal' }) }), 'cable-clip', draft())
+    expect(calls).toEqual([])
+  })
+
+  it('sends the prompt all the same when the board cannot be counted as told: its line then calls the cards new, which does no harm', async () => {
+    const out = await onboardObject(deps({ boardTold: async () => { throw new Error('disk full') } }), 'cable-clip', draft())
+    expect(out).toMatchObject({ sessionId: 'sess' })
+    expect(out.problem).toBeUndefined()
+    expect(sent).toHaveLength(1)
+  })
+
+  it('says the sizes, rules, links and PDFs of the draft, and previews the very same text', async () => {
+    writeFileSync(join(base, 'cable-clip', 'reference', 'datasheet.pdf'), '%PDF-1.4')
+    const given = {
+      sizes: [{ what: 'cable', value: 'Ø6', unit: 'mm' as const, source: 'measured' as const }],
+      rules: 'No supports.',
+      links: [{ url: 'https://example.com/clip', note: 'the vendor' }],
+      pdfs: [{ file: 'reference/datasheet.pdf', note: 'the cable' }]
+    }
+    const shown = await previewPrompt(deps(), 'cable-clip', { description: 'A clip.', items: [], steps: [], scans: [], objects: [], ...given })
+    await onboardObject(deps(), 'cable-clip', draft(given))
+    expect(sent[0].blocks[0].text).toBe(shown.text)
+    for (const said of ['Sizes the person gave:\n- cable Ø 6 mm (measured)', 'Rules:\nNo supports.', 'Links (torno does not open links; read one only if it helps):\n- https://example.com/clip: the vendor', '- reference/datasheet.pdf: the cable. A PDF; read it with your own tools if it helps.']) expect(shown.text).toContain(said)
+  })
+
+  it('refuses sizes, rules, links and PDFs that are not what they may be, before anything is done', async () => {
+    writeFileSync(join(base, 'cable-clip', 'reference', 'a.pdf'), '%PDF-1.4')
+    const size = { what: 'cable', value: '6', unit: 'mm', source: 'measured' }
+    const bad: Array<[Partial<OnboardDraft>, RegExp]> = [
+      [{ sizes: 'no' as never }, /sizes/],
+      [{ sizes: Array.from({ length: 41 }, () => size) as never }, /At most 40 sizes/],
+      [{ sizes: [{ ...size, source: 'from Claude' }] as never }, /from Claude/],
+      [{ sizes: [{ ...size, value: 'a\nb' }] as never }, /one line/],
+      [{ rules: 3 as never }, /rules/],
+      [{ rules: 'x'.repeat(4001) }, /rules/],
+      [{ links: 'no' as never }, /links/],
+      [{ links: Array.from({ length: 21 }, () => ({ url: 'https://example.com', note: '' })) }, /At most 20 links/],
+      [{ links: [{ url: 'file:///etc/passwd', note: '' }] }, /http or https/],
+      [{ links: [{ url: 'javascript:alert(1)', note: '' }] }, /http or https/],
+      [{ links: [{ url: `https://example.com/${'a'.repeat(2000)}`, note: '' }] }, /2000/],
+      [{ links: [{ url: 'https://example.com/a b', note: '' }] }, /space/],
+      [{ links: [{ url: 'https://example.com', note: 'x'.repeat(301) }] }, /300/],
+      [{ pdfs: 'no' as never }, /PDFs/],
+      [{ pdfs: Array.from({ length: 7 }, (_, i) => ({ file: `reference/a${i}.pdf`, note: '' })) }, /At most 6 PDFs/],
+      [{ pdfs: [{ file: '../../etc/a.pdf', note: '' }] }, /PDF/],
+      [{ pdfs: [{ file: 'reference/a.txt', note: '' }] }, /PDF/],
+      [{ pdfs: [{ file: 'reference/sub/a.pdf', note: '' }] }, /PDF/],
+      [{ pdfs: [{ file: 'reference/missing.pdf', note: '' }] }, /not there/],
+      [{ pdfs: [{ file: 'reference/a.pdf', note: '' }, { file: 'reference/a.pdf', note: '' }] }, /twice/]
+    ]
+    for (const [over, why] of bad) await expect(onboardObject(deps(), 'cable-clip', draft(over)), JSON.stringify(over).slice(0, 80)).rejects.toThrow(why)
+    expect(calls).toEqual([])
+    await expect(onboardObject(deps(), 'cable-clip', draft({ pdfs: [{ file: 'reference/a.pdf', note: 'ok' }] }))).resolves.toMatchObject({ sessionId: 'sess' })
+  })
+
+  it('refuses a PDF that is a link, not a plain file', async () => {
+    symlinkSync('/etc/hostname', join(base, 'cable-clip', 'reference', 'l.pdf'))
+    await expect(onboardObject(deps(), 'cable-clip', draft({ pdfs: [{ file: 'reference/l.pdf', note: '' }] }))).rejects.toThrow(/not there/)
   })
 
   it('imports the scans, then starts the session, then sends one prompt with everything', async () => {
@@ -324,7 +470,7 @@ describe('onboardObject', () => {
         objects: [{ id: 'lid', note: 'mounts on this' }, { id: 'base', note: '' }]
       })
     )
-    expect(calls).toEqual(['import /s/desk.stl', 'start cable-clip'])
+    expect(calls).toEqual(['import /s/desk.stl', 'start cable-clip', 'told cable-clip', 'prompt'])
     expect(out.sessionId).toBe('sess')
     expect(out.problem).toBeUndefined()
     expect(sent).toHaveLength(1)

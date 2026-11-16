@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { hint, pressed } from '../../../shared/keys'
 import type { Stroke } from '../../state/onboard'
 import { Confirm } from '../Confirm'
-import { ERASER_WIDTH, GRID_STEP, PEN_WIDTHS, addPoint, paintStroke, paintStrokes, straighten, type InkLook } from './strokes'
+import { ERASER_WIDTH, GRID_STEP, PEN_WIDTHS, addPoint, paintBackground, paintStroke, paintStrokes, straighten, type Backdrop, type InkLook } from './strokes'
 
 type Tool = 'thin' | 'thick' | 'eraser'
 
@@ -13,7 +13,7 @@ const TOOLS: ReadonlyArray<{ id: Tool; label: string }> = [
 ]
 
 /** What can take the focus in the board, in order. */
-const FOCUSABLE = 'button:not(:disabled), [tabindex="0"]'
+const FOCUSABLE = 'button:not(:disabled), select:not(:disabled), [tabindex="0"]'
 
 export interface InkPadProps {
   /** The heading, the name a reader of the screen hears for the sheet, and the line beside the heading. */
@@ -24,8 +24,12 @@ export interface InkPadProps {
   size: { width: number; height: number }
   /** A picture of the board's size under the ink (an object URL): the eraser takes away ink, never it. */
   ground?: string
-  /** A light grid under the ink, one square every 40 board pixels (a doodle's; not a drawing on a picture). */
+  /** A photo under the ink, fitted whole to the board on a white ground (a sketch drawn over a photo): there is no grid under it. The eraser takes away ink, never it. */
+  background?: Backdrop
+  /** A light grid under the ink, one square every 40 board pixels (a doodle's; not a drawing on a picture, and not over a `background`). */
   grid?: boolean
+  /** What else the row of tools holds, after the pens. */
+  tools?: ReactNode
   /** The line beside Done. */
   foot?: string
   /** How the strokes are drawn on the board: asked whenever they are painted, so that an ink of the theme follows it. */
@@ -45,7 +49,7 @@ export interface InkPadProps {
  * back, clear all of them. The strokes are kept as vectors (`initial` is what it is opened with again), and "Done"
  * hands them over. A stroke is drawn as the pointer moves, in the canvas and never through React.
  */
-export function InkPad({ title, label, hint: words, size, ground, grid, foot, look, initial, discard, onDone, onCancel }: InkPadProps) {
+export function InkPad({ title, label, hint: words, size, ground, background, grid, tools, foot, look, initial, discard, onDone, onCancel }: InkPadProps) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sheet = useRef<HTMLElement>(null)
   const strokes = useRef<Stroke[]>(initial.map((s) => ({ ...s, points: [...s.points] })))
@@ -64,6 +68,26 @@ export function InkPad({ title, label, hint: words, size, ground, grid, foot, lo
   askingNow.current = asking
   const lookNow = useRef(look)
   lookNow.current = look
+  // The photo under the ink, drawn as the PNG will have it and shown as the canvas's background: the canvas itself holds ink alone.
+  const [backdrop, setBackdrop] = useState<string | null>(null)
+  useEffect(() => {
+    setBackdrop(null)
+    if (!background) return
+    let url: string | null = null
+    let gone = false
+    const sheet = new OffscreenCanvas(size.width, size.height)
+    paintBackground(sheet.getContext('2d')!, background, size.width, size.height)
+    void sheet.convertToBlob({ type: 'image/png' }).then((blob) => {
+      if (gone) return
+      url = URL.createObjectURL(blob)
+      setBackdrop(url)
+    })
+    return () => {
+      gone = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [background, size.width, size.height])
+  const under = ground ?? backdrop ?? undefined
 
   const repaint = (): void => {
     const ctx = canvas.current?.getContext('2d')
@@ -228,6 +252,7 @@ export function InkPad({ title, label, hint: words, size, ground, grid, foot, lo
               </button>
             ))}
           </span>
+          {tools}
           <span className="spacer" />
           <button type="button" className="button button-quiet" disabled={count === 0 || saving} title={`Take the last stroke back (${hint('board.undo')})`} onClick={undo}>
             Undo
@@ -242,9 +267,9 @@ export function InkPad({ title, label, hint: words, size, ground, grid, foot, lo
             className="board-canvas"
             width={size.width}
             height={size.height}
-            style={{ '--board-aspect': String(size.width / size.height), '--grid-x': String(size.width / GRID_STEP), '--grid-y': String(size.height / GRID_STEP), ...(ground ? { backgroundImage: `url("${ground}")` } : {}) } as CSSProperties}
-            data-ground={ground ? '' : undefined}
-            data-grid={grid && !ground ? '' : undefined}
+            style={{ '--board-aspect': String(size.width / size.height), '--grid-x': String(size.width / GRID_STEP), '--grid-y': String(size.height / GRID_STEP), ...(under ? { backgroundImage: `url("${under}")` } : {}) } as CSSProperties}
+            data-ground={under ? '' : undefined}
+            data-grid={grid && !ground && !background ? '' : undefined}
             aria-label="Drawing area"
             data-strokes={count}
             onPointerDown={onDown}

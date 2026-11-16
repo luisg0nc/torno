@@ -4,8 +4,9 @@ import { pressed } from '../../../shared/keys'
 import { boardActions, useBoard } from '../../state/board'
 import { arrowLine } from './geometry'
 import { addCard, addFrame, editCard, wordArrow } from './ops'
+import { SizeEditor } from './SizeEditor'
 
-// The field a card's words, a frame's name or the word on an arrow is written in, over the place it is for and in the
+// The field a card's words, a frame's name or the word on an arrow is written in (a size card's form is `SizeEditor`), over the place it is for and in the
 // board's own space, so that the camera moves it with the rest. Enter keeps a name or a word, Esc and leaving the field
 // keep what was typed (a text card has Enter for a new line); words that are nothing make nothing.
 
@@ -26,6 +27,8 @@ export function Editor({ objectId }: { objectId: string }) {
   }, [editing])
 
   if (!editing || !board) return null
+  // A size card has a form of its own: several fields, not one.
+  if (editing.kind === 'size') return <SizeEditor key={`size:${editing.id ?? `${editing.x},${editing.y}`}`} objectId={objectId} editing={editing} />
 
   const card = 'id' in editing && editing.id !== undefined ? board.cards.find((c) => c.id === editing.id) : undefined
   const arrow = editing.kind === 'word' ? board.arrows.find((a) => a.id === editing.id) : undefined
@@ -53,7 +56,7 @@ export function Editor({ objectId }: { objectId: string }) {
 
   /** Keeps what was typed, once. */
   function keep(value: string): void {
-    if (done.current || !editing) return
+    if (done.current || !editing || editing.kind === 'size') return
     done.current = true
     boardActions.edit(null)
     // A text or a frame is made once, and Select is in hand again.

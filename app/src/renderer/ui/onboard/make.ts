@@ -1,7 +1,7 @@
 import type { CreateRequest, OnboardDraft, Onboarded, PromptPreviewDraft } from '../../../shared/bridge'
 import type { AgentChoice } from '../../../shared/chat'
-import type { Draft, Held } from '../../state/onboard'
-import { stepFiles } from '../../../shared/objectName'
+import { sizeBlank, sizeFact, sizeProblem, type Draft, type Held } from '../../state/onboard'
+import { PDF_FORMATS, referenceFiles as namedReferences, stepFiles } from '../../../shared/objectName'
 import { extensionOf } from './images'
 
 /** What an IPC call failed with, without Electron's wrapping. */
@@ -22,6 +22,8 @@ export interface MakeDeps {
   sameWorkspace(): boolean
   /** Where the object's folder is. */
   folderOf(objectId: string): string
+  /** Has the scan at this path imported into the object, as `scans.import` does (seconds). Rejects with why not. */
+  importScan(objectId: string, path: string): Promise<unknown>
 }
 
 export type Outcome =
@@ -36,10 +38,23 @@ export type Outcome =
 
 /** What `create` will name the photos and the doodles of the draft: photo-<n> with the extension of the file, doodle-<n>.png. */
 export function referenceFiles(draft: Draft): OnboardDraft['items'] {
+  const photoFile = (n: number): string => `reference/photo-${n + 1}${extensionOf(draft.photos[n].path)}`
   return [
-    ...draft.photos.map((p, n) => ({ file: `reference/photo-${n + 1}${extensionOf(p.path)}`, note: p.note, image: p.image })),
-    ...draft.doodles.map((d, n) => ({ file: `reference/doodle-${n + 1}.png`, note: d.note, image: d.png }))
+    ...draft.photos.map((p, n) => ({ file: photoFile(n), note: p.note, image: p.image })),
+    ...draft.doodles.map((d, n) => {
+      // The words `create` puts on the card of a doodle drawn over a photo, so that the prompt and the board agree.
+      const over = overIndex(draft, d)
+      const said = over !== undefined ? `drawn over ${photoFile(over)}` : d.onPhoto ? 'drawn over a photo' : ''
+      return { file: `reference/doodle-${n + 1}.png`, note: said === '' ? d.note : d.note === '' ? said : `${d.note} (${said})`, image: d.png }
+    })
   ]
+}
+
+/** The index in the draft's photos of the photo a doodle is drawn over, if it still is in the draft. */
+function overIndex(draft: Draft, doodle: Draft['doodles'][number]): number | undefined {
+  if (doodle.over === undefined) return undefined
+  const at = draft.photos.findIndex((p) => p.uid === doodle.over)
+  return at < 0 ? undefined : at
 }
 
 /** What `create` will name the vendor STEP files of the draft: their own names (`stepFiles`). */
@@ -48,6 +63,21 @@ export function stepReferences(draft: Draft): OnboardDraft['steps'] {
   return draft.steps.map((s, n) => ({ file: files[n], note: s.note }))
 }
 
+/** What `create` will name the PDFs of a request: their own names (`referenceFiles`), with the person's note on each. */
+export function pdfReferences(pdfs: CreateRequest['pdfs']): OnboardDraft['pdfs'] {
+  const files = namedReferences(pdfs.map((p) => p.path), PDF_FORMATS)
+  return pdfs.map((p, n) => ({ file: files[n], note: p.note }))
+}
+
+/** The sizes of the draft that are whole, as main takes them. */
+const wholeSizes = (draft: Draft): CreateRequest['sizes'] => draft.sizes.flatMap((s) => sizeFact(s) ?? [])
+
+/** The links of a draft, as main takes them. */
+const linksOf = (draft: Draft): CreateRequest['links'] => draft.links.map((l) => ({ url: l.url, note: l.note }))
+
+/** The PDFs of a draft, by the path they are at. */
+const pdfsOf = (draft: Draft): CreateRequest['pdfs'] => draft.pdfs.map((p) => ({ path: p.path, note: p.note }))
+
 /** The draft as `objects.previewPrompt` takes it: no picture, only whether there is one. */
 export function previewDraft(draft: Draft): PromptPreviewDraft {
   return {
@@ -55,7 +85,12 @@ export function previewDraft(draft: Draft): PromptPreviewDraft {
     items: referenceFiles(draft).map((i) => ({ file: i.file, note: i.note, picture: (i.image?.byteLength ?? 0) > 0 })),
     steps: stepReferences(draft),
     scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
-    objects: draft.objects.map((o) => ({ id: o.id, note: o.note }))
+    objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),
+    // A row that is not whole yet is left out of the preview, as main leaves it: the page is still being filled.
+    sizes: wholeSizes(draft),
+    rules: draft.rules,
+    links: linksOf(draft),
+    pdfs: pdfReferences(pdfsOf(draft))
   }
 }
 
@@ -69,19 +104,31 @@ const WAS_MADE = /^\S+ was made, but /
  * chosen for its session (`choice`: empty for the person's defaults). A second call while one
  * runs does nothing. The draft is spent as soon as the folder exists, never before: a refusal leaves the page as it was.
  */
-export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoice = {}): Promise<Outcome> {
+export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoice = {}, start = true): Promise<Outcome> {
   if (running) return { kind: 'busy' }
   running = true
   try {
     const description = draft.description.trim()
+    for (const size of draft.sizes) {
+      if (sizeBlank(size)) continue
+      const wrong = sizeProblem(size)
+      if (wrong !== null) return { kind: 'refused', message: wrong }
+    }
     const request: CreateRequest = {
       name: draft.name,
       description,
       photos: draft.photos.map((p) => ({ path: p.path, note: p.note })),
-      doodles: draft.doodles.map((d) => ({ png: d.png, note: d.note })),
+      doodles: draft.doodles.map((d) => {
+        const over = overIndex(draft, d)
+        return { png: d.png, note: d.note, ...(over !== undefined ? { over } : d.onPhoto ? { onPhoto: true as const } : {}) }
+      }),
       steps: draft.steps.map((s) => ({ path: s.path, note: s.note })),
       scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
-      objects: draft.objects.map((o) => ({ id: o.id, note: o.note }))
+      objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),
+      sizes: wholeSizes(draft),
+      rules: draft.rules,
+      links: linksOf(draft),
+      pdfs: pdfsOf(draft)
     }
     // What `onboard` names is what `create` wrote: photo-<n> with the extension of the file, doodle-<n>.png.
     const items = referenceFiles(draft)
@@ -111,9 +158,28 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
     if (!deps.sameWorkspace()) return { kind: 'made', objectId, message: `${objectId} was made, but the workspace was left before it could be opened.`, opened: false }
     let shown = true
     await deps.open(objectId).catch(() => void (shown = false))
+    // "Make it without starting Claude": the project is made and open, and nothing is asked of an agent.
+    if (!start) {
+      // `onboard` imports the scans when it runs; here it does not, so they are imported now, one after the other, and one
+      // that fails does not stop the rest. A failure is said where a first prompt that could not be sent is (no text is held).
+      const failed: string[] = []
+      for (const scan of draft.scans) {
+        try {
+          await deps.importScan(objectId, scan.path)
+        } catch (e) {
+          failed.push(`${scan.file} was not imported: ${reason(e).replace(/\.$/, '')}.`)
+        }
+      }
+      if (failed.length > 0) {
+        const problem = failed.join(' ')
+        deps.hold(objectId, { text: '', reason: problem, imports: true })
+        return { kind: 'done', objectId, problem, ...(shown ? {} : { shown: false as const }) }
+      }
+      return { kind: 'done', objectId, ...(shown ? {} : { shown: false as const }) }
+    }
     let told: Onboarded
     try {
-      told = await deps.onboard(objectId, { description, items, steps: stepReferences(draft), scans: request.scans, objects: request.objects, ...(choice.model || choice.effort ? { choice } : {}) })
+      told = await deps.onboard(objectId, { description, items, steps: stepReferences(draft), scans: request.scans, objects: request.objects, sizes: request.sizes, rules: request.rules, links: request.links, pdfs: pdfReferences(request.pdfs), ...(choice.model || choice.effort ? { choice } : {}) })
     } catch (e) {
       // Nothing is known of the text: the object is made and open, and the reason is said where the chat would be.
       const message = reason(e)

@@ -95,15 +95,41 @@ export function paintStrokes(ctx: Ctx, strokes: readonly Stroke[], look: InkLook
   for (const stroke of strokes) paintStroke(ctx, stroke, look)
 }
 
-/** The PNG of a doodle: the strokes in dark ink on a white ground with a light grid (1 square = 40 px of the board), 1200 x 800. */
-export async function doodlePng(strokes: readonly Stroke[], grid = true): Promise<Uint8Array> {
+/** A picture a sketch is drawn over: a decoded photo. */
+export type Backdrop = ImageBitmap | HTMLImageElement
+
+/** Where a picture of `width` x `height` goes on a board of `into`, fitted whole and centred (letterboxed on the ground). */
+export function fitBackground(width: number, height: number, into: { width: number; height: number } = BOARD): { x: number; y: number; width: number; height: number } {
+  const scale = Math.min(into.width / width, into.height / height)
+  const [w, h] = [Math.round(width * scale), Math.round(height * scale)]
+  return { x: Math.round((into.width - w) / 2), y: Math.round((into.height - h) / 2), width: w, height: h }
+}
+
+/** The white ground of the board with a photo on it, fitted whole: what a sketch drawn over a photo is drawn on. */
+export function paintBackground(ctx: Ctx, image: Backdrop, width: number = BOARD.width, height: number = BOARD.height): void {
+  ctx.fillStyle = PNG_GROUND
+  ctx.fillRect(0, 0, width, height)
+  const [w, h] = 'naturalWidth' in image ? [image.naturalWidth, image.naturalHeight] : [image.width, image.height]
+  if (w < 1 || h < 1) return
+  const box = fitBackground(w, h, { width, height })
+  ctx.drawImage(image, box.x, box.y, box.width, box.height)
+}
+
+/**
+ * The PNG of a doodle: the strokes in dark ink on a white ground with a light grid (1 square = 40 px of the board), 1200 x 800.
+ * Drawn over a photo (`background`) the ground is the photo, fitted whole, and there is no grid.
+ */
+export async function doodlePng(strokes: readonly Stroke[], grid = true, background?: Backdrop): Promise<Uint8Array> {
   const layer = new OffscreenCanvas(BOARD.width, BOARD.height)
   paintStrokes(layer.getContext('2d')!, strokes, { ink: PNG_INK })
   const sheet = new OffscreenCanvas(BOARD.width, BOARD.height)
   const ctx = sheet.getContext('2d')!
-  ctx.fillStyle = PNG_GROUND
-  ctx.fillRect(0, 0, BOARD.width, BOARD.height)
-  if (grid) paintGrid(ctx, BOARD.width, BOARD.height)
+  if (background) paintBackground(ctx, background)
+  else {
+    ctx.fillStyle = PNG_GROUND
+    ctx.fillRect(0, 0, BOARD.width, BOARD.height)
+    if (grid) paintGrid(ctx, BOARD.width, BOARD.height)
+  }
   ctx.drawImage(layer, 0, 0)
   const blob = await sheet.convertToBlob({ type: 'image/png' })
   return new Uint8Array(await blob.arrayBuffer())

@@ -113,6 +113,7 @@ export interface BoardArgs {
 
 export interface AddCardArgs {
   text?: string
+  size?: { what: string; value: string; unit?: 'mm' | '°'; note?: string }
   look?: LookArgs
   frame?: string
   arrowFrom?: string
@@ -305,7 +306,10 @@ const boardInput = {
   frame: z.string().optional().describe('Only this frame and the cards in it: its name ("Latch") or its id ("C3"). Default: the whole board.'),
   pictures: z.boolean().optional().describe('Also send the pictures of the cards that have one, at most 6, each at most 1280 px on its long edge. Default false: they are named in the text.')
 }
+/** The keys of a size an agent gives: never a source, which is always `from Claude`. */
+export const SIZE_ARG_KEYS = ['what', 'value', 'unit', 'note']
 const addCardInput = {
+  size: loose(z.looseObject({ what: z.string(), value: z.string(), unit: z.enum(['mm', '°']).optional(), note: z.string().optional() })).optional().describe('Make a card of a size you measured or assumed: {"what": "battery tray", "value": "186 x 128", "unit": "mm"}. what is what it measures (up to 200 characters), value is the number as you would write it, "186 x 128", "Ø62" or "R5" (up to 60), unit is mm (default) or ° (degrees), note is a few words on one line (up to 300). The card says it is from Claude. Give it instead of text and look, never with them.'),
   text: z.string().optional().describe('The words of a text card; the caption of a picture when look is given; the new words of the card you change (card).'),
   look: loose(z.looseObject(lookInput)).optional().describe('Make a card of a picture of the view, drawn as the look tool draws it, with the same arguments, at 1280 px. The picture and its camera stay on the card.'),
   frame: z.string().optional().describe('Put the card in this frame, by name or id. A name that no frame has makes a frame of yours with it. A frame of the person\'s with no room left gets the card just below it, outside it, and you are told so.'),
@@ -556,7 +560,7 @@ export const TOOLS = {
     title: 'Add a card to the board',
     annotations: CHANGES_VIEW_OR_MARKS,
     description:
-      'Returns the id of the card you added to the person\'s board, and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own.',
+      'Returns the id of the card you added to the person\'s board, and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own.',
     inputSchema: addCardInput
   },
   expect: {
@@ -629,7 +633,7 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - diff: what changed between two successful builds (the last two, or any kept ones): parts added or removed, volume, size and face counts.
 - history: the builds kept of this project, by id (h41), with what changed in each; diff compares any two.
 - board: the person's board, where they lay out what they want: text, pictures, frames and arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
-- add_card: leave a card of yours on the board (a plan, a note, a picture of the view), in a frame, with an arrow; change or remove only your own.
+- add_card: leave a card of yours on the board (a plan, a note, a size, a picture of the view), in a frame, with an arrow; change or remove only your own.
 - expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the build after it is checked against that.
 - try_fillet: try a fillet or chamfer of some edges on the last build and throw it away: whether it works, the largest radius that does, which edges or pairs fail.
 - try_params: build the model with other values of its Params in a throwaway worker and measure or check there, to search a value without editing the model.

@@ -55,6 +55,15 @@ describe('reconcileProject', () => {
     expect(existsSync(join(dir, '.torno'))).toBe(false)
   })
 
+  it('shows a STEP and a PDF of reference/ as cards, and not a link named so', async () => {
+    mkdirSync(join(dir, 'reference'))
+    writeFileSync(join(dir, 'reference', '608zz.step'), 'x')
+    writeFileSync(join(dir, 'reference', 'datasheet.pdf'), 'x')
+    symlinkSync(join(dir, 'reference', 'datasheet.pdf'), join(dir, 'reference', 'x.pdf'))
+    await reconcileProject(deps(), 'bracket')
+    expect(sources()).toEqual(['reference:reference/608zz.step', 'reference:reference/datasheet.pdf'])
+  })
+
   it('shows the reference files, the marks and the scans', async () => {
     mkdirSync(join(dir, 'reference'))
     writeFileSync(join(dir, 'reference', 'photo-1.jpg'), 'x')

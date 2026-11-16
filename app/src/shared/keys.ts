@@ -153,6 +153,7 @@ const ROWS = [
   row('board.text', ['N'], 'Board, Text: a card for a note', 'Board', 'board'),
   row('board.frame', ['F'], 'Board, Frame: a named outline round cards', 'Board', 'board'),
   row('board.arrow', ['A'], 'Board, Arrow: draw from one card to another', 'Board', 'board'),
+  row('board.size', ['M'], 'Board, Size: a card for a size you know', 'Board', 'board'),
   row('board.picture', ['I'], 'Board, Picture: add a photo from a file', 'Board', 'board'),
   row('board.sketch', ['S'], 'Board, Sketch: draw on a card', 'Board', 'board'),
   row('board.pan', ['Space'], 'Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms)', 'Board', 'board'),
@@ -170,6 +171,7 @@ const ROWS = [
   row('filter.down', ['Down'], 'In the filter: down to the cards', 'Page of projects', 'filter'),
 
   row('new.back', ['Esc'], 'Leave the page, asking first when something is in it; on the doodle board, put the board away', 'New project', 'newobject'),
+  row('new.sketch', ['S'], 'Sketch: open the doodle board (not heard in a field)', 'New project', 'newobject'),
 
   row('session.newline', ['Shift+Enter'], 'A new line in the prompt, not a send', 'Session', 'session'),
   row('session.copy', ['Ctrl+Shift+C'], 'Copy what is selected in the terminal', 'Session', 'session'),

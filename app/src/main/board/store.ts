@@ -1,3 +1,4 @@
+import { checkSize } from '../../shared/size'
 import { type AgentChange, type Arrow, type BoardFile, type Card, type PersonChange, CARD_ID, MADE_KINDS, MAX_CARDS, MAX_NAME_CHARS, MAX_TEXT_CHARS, PICTURE_NAME } from '../../shared/board'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -6,6 +7,7 @@ import { ensureIgnored } from '../ignored'
 import { Refusal } from '../refusal'
 import { diskText, loadBoardFile, nextAbove, saveBoardFile, textOf } from './file'
 import { MADE_SIZE, freeSpot, freeSpotBelow } from './place'
+import { type LiveFacts, boardLine } from './text'
 
 interface BoardEvents {
   /** The board of a project changed: the whole board, as it now is. */
@@ -22,6 +24,13 @@ function checkedText(text: unknown, max: number, what: string): string {
   if (typeof text !== 'string') throw new Refusal(`The ${what} must be text.`)
   if (text.length > max) throw new Refusal(`The ${what} is ${text.length} characters long, and a board keeps at most ${max}.`)
   return text
+}
+
+/** A size the person says, as a size card keeps it: whole, or a `Refusal` that says what is not. */
+function checkedSize(raw: unknown): NonNullable<Card['size']> {
+  const size = checkSize(raw, 'person')
+  if (typeof size === 'string') throw new Refusal(size)
+  return size
 }
 
 function checkedFrame(board: BoardFile, frame: unknown, of: Card | { kind: Card['kind']; id?: string }): string {
@@ -64,13 +73,14 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
   switch (change.op) {
     case 'add': {
       const said = change.card as Partial<Card> | undefined
-      if (!said || !MADE_KINDS.includes(said.kind as Card['kind'])) throw new Refusal('The board takes a text, a picture, a sketch or a frame from the person.')
+      if (!said || !MADE_KINDS.includes(said.kind as Card['kind'])) throw new Refusal('The board takes a text, a picture, a sketch, a frame or a size from the person.')
       if (board.cards.length >= MAX_CARDS) throw new Refusal(`The board holds ${MAX_CARDS} cards, and that is all it takes.`)
       const { kind, x, y, w, h } = said
       if (!finite(x) || !finite(y) || !finite(w) || !finite(h) || w <= 0 || h <= 0) throw new Refusal('A card needs a place and a size.')
       const card: Card = { id: give(board), kind: kind as Card['kind'], x, y, w, h, by: 'person' }
       if (kind === 'text') card.text = checkedText(said.text ?? '', MAX_TEXT_CHARS, 'text')
       if (kind === 'frame') card.name = checkedText(said.name ?? '', MAX_NAME_CHARS, 'name')
+      if (kind === 'size') card.size = checkedSize(said.size)
       if (kind === 'picture' || kind === 'sketch') {
         if (typeof said.picture !== 'string' || !PICTURE_NAME.test(said.picture)) throw new Refusal('A picture card names a picture torno kept.')
         card.picture = said.picture
@@ -116,6 +126,10 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
         if (card.kind !== 'sketch') throw new Refusal(`${card.id} is not a sketch, and its picture is not changed here.`)
         if (typeof change.picture !== 'string' || !PICTURE_NAME.test(change.picture)) throw new Refusal('A sketch names a picture torno kept.')
         card.picture = change.picture
+      }
+      if (change.size !== undefined) {
+        if (card.kind !== 'size') throw new Refusal(`${card.id} is not a size card, and has no size to change.`)
+        card.size = checkedSize(change.size)
       }
       if (change.text !== undefined) card.text = checkedText(change.text, MAX_TEXT_CHARS, 'text')
       if (change.name !== undefined) card.name = checkedText(change.name, MAX_NAME_CHARS, 'name')
@@ -250,7 +264,14 @@ function applyAgent(board: BoardFile, change: AgentChange): Omit<AgentResult, 'b
       const said = change as Extract<AgentChange, { op: 'add' }>
       const hasText = typeof said.text === 'string' && said.text !== ''
       const hasPicture = said.picture !== undefined
-      if (!hasText && !hasPicture) throw new Refusal('A card holds some text or a picture.')
+      const hasSize = said.size !== undefined
+      if (hasSize && (hasText || hasPicture)) throw new Refusal('A size card holds a size alone, not with text or a picture.')
+      if (!hasText && !hasPicture && !hasSize) throw new Refusal('A card holds some text, a size or a picture.')
+      let fact: ReturnType<typeof checkSize> | undefined
+      if (hasSize) {
+        fact = checkSize(said.size, 'agent')
+        if (typeof fact === 'string') throw new Refusal(fact)
+      }
       if (hasPicture && (typeof said.picture !== 'string' || !PICTURE_NAME.test(said.picture))) throw new Refusal('A picture card names a picture torno kept.')
       const words = hasText ? checkedText(said.text, MAX_TEXT_CHARS, hasPicture ? 'caption' : 'text') : undefined
       let end: { named: 'from' | 'to'; id: string } | undefined
@@ -264,14 +285,15 @@ function applyAgent(board: BoardFile, change: AgentChange): Omit<AgentResult, 'b
       const out: Omit<AgentResult, 'board'> = {}
       const into = said.frame === undefined ? undefined : frameFor(board, said.frame)
       if (into) out.frame = { id: into.frame.id, name: into.frame.name ?? '', made: into.made }
-      const size = hasPicture ? MADE_SIZE.picture : MADE_SIZE.text
+      const size = hasPicture ? MADE_SIZE.picture : hasSize ? MADE_SIZE.size : MADE_SIZE.text
       let spot = into ? freeSpot(board.cards, size, into.frame) : freeSpot(board.cards, size)
       if (spot === null) {
         spot = freeSpotBelow(board.cards, size, into!.frame)
         out.below = into!.frame.id
       }
-      const card: Card = { id: give(board), kind: hasPicture ? 'picture' : 'text', ...spot, ...size, by: 'agent' }
-      if (hasPicture) {
+      const card: Card = { id: give(board), kind: hasPicture ? 'picture' : hasSize ? 'size' : 'text', ...spot, ...size, by: 'agent' }
+      if (typeof fact === 'object') card.size = fact
+      else if (hasPicture) {
         card.picture = said.picture
         if (words !== undefined) card.caption = words
         if (said.camera !== undefined) card.camera = structuredClone(said.camera)
@@ -343,7 +365,7 @@ export class BoardStore {
   private epoch = 0
   private listeners: { [E in keyof BoardEvents]: Array<(e: BoardEvents[E]) => void> } = { changed: [], problem: [] }
 
-  constructor(private deps: { dirOf(objectId: string): string | undefined }) {}
+  constructor(private deps: { dirOf(objectId: string): string | undefined; /** What a card shows of the project besides the board (`liveFacts`), for `markAllTold`: none, and a card of the marks, Params or checks is then told as if there were nothing to show. */ live?(objectId: string): Promise<LiveFacts> }) {}
 
   on<E extends keyof BoardEvents>(event: E, cb: (e: BoardEvents[E]) => void): void {
     this.listeners[event].push(cb)
@@ -433,6 +455,20 @@ export class BoardStore {
       // Ignored before it is there: a file written first is for a moment one that git would take.
       await ensureIgnored(dir, [`board/${TOLD}`])
       await writeOwn(dir, `board/${TOLD}`, `${JSON.stringify(told, null, 2)}\n`)
+    })
+  }
+
+  /**
+   * Counts everything on the board as told: the hashes the board line itself would keep (`boardLine`), written in the
+   * board's turn, so that the line of the next prompt says no card is new. For a prompt that says what is on the board in
+   * its own words (the first of a new project).
+   */
+  async markAllTold(objectId: string): Promise<void> {
+    const live = (await this.deps.live?.(objectId).catch(() => undefined)) ?? { marks: new Map() }
+    await this.turn(objectId, async (file, dir) => {
+      await ownTorno(dir, 'board')
+      await ensureIgnored(dir, [`board/${TOLD}`])
+      await writeOwn(dir, `board/${TOLD}`, `${JSON.stringify(boardLine(file, {}, live).told, null, 2)}\n`)
     })
   }
 

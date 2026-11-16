@@ -98,17 +98,21 @@ function ObjectCard({ id, itemKey, note }: { id: string; itemKey: string; note: 
   )
 }
 
-/** What the person has given so far, a card each, in the order of the kinds: photos, doodles, bought parts, scans, objects. */
-export function ReferenceCards({ draft, onEditDoodle }: { draft: Draft; onEditDoodle: (key: string) => void }) {
+/** The kinds that are cards of files and projects, in the order they are listed in. */
+export type CardKind = 'photos' | 'doodles' | 'steps' | 'scans' | 'objects' | 'pdfs'
+
+/** What the person has given of the kinds named (all of them when none are), a card each, in the order of the kinds: photos, doodles, bought parts, scans, objects, PDFs. */
+export function ReferenceCards({ draft, kinds, label = 'What you have', onEditDoodle }: { draft: Draft; kinds?: readonly CardKind[]; label?: string; onEditDoodle: (key: string) => void }) {
+  const has = (kind: CardKind): boolean => kinds === undefined || kinds.includes(kind)
   return (
-    <ul className="ref-list" aria-label="What you have">
-      {draft.photos.map((p, n) => (
+    <ul className="ref-list" aria-label={label}>
+      {has('photos') && draft.photos.map((p, n) => (
         <Card key={p.uid} kind="photos" word="Photo" itemKey={p.uid} file={p.file} detail={p.detail} note={p.note} name={`photo ${n + 1}`} thumb={<img src={p.url} alt="" draggable={false} />} />
       ))}
-      {draft.doodles.map((d, n) => (
+      {has('doodles') && draft.doodles.map((d, n) => (
         <Card key={d.uid} kind="doodles" word="Doodle" itemKey={d.uid} file={`doodle-${n + 1}.png`} note={d.note} name={`doodle ${n + 1}`} thumb={<img src={d.url} alt="" draggable={false} />} onEdit={() => onEditDoodle(d.uid)} />
       ))}
-      {draft.steps.map((s, n) => (
+      {has('steps') && draft.steps.map((s, n) => (
         <Card
           key={s.uid}
           kind="steps"
@@ -126,7 +130,7 @@ export function ReferenceCards({ draft, onEditDoodle }: { draft: Draft; onEditDo
           }
         />
       ))}
-      {draft.scans.map((s, n) => (
+      {has('scans') && draft.scans.map((s, n) => (
         <Card
           key={s.uid}
           kind="scans"
@@ -144,15 +148,32 @@ export function ReferenceCards({ draft, onEditDoodle }: { draft: Draft; onEditDo
           }
         />
       ))}
-      {draft.objects.map((o) => (
-        <ObjectCard key={o.uid} id={o.id} itemKey={o.uid} note={o.note} />
-      ))}
+      {has('objects') && draft.objects.map((o) => <ObjectCard key={o.uid} id={o.id} itemKey={o.uid} note={o.note} />)}
+      {has('pdfs') &&
+        draft.pdfs.map((p, n) => (
+          <Card
+            key={p.uid}
+            kind="pdfs"
+            word="PDF"
+            itemKey={p.uid}
+            file={p.file}
+            detail={p.size === undefined ? undefined : sizeSaid(p.size)}
+            note={p.note}
+            name={`PDF ${n + 1}`}
+            thumb={
+              <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 4h10l5 5v19H9z" />
+                <path d="M19 4v5h5M12 16h9M12 20h9M12 24h5" />
+              </svg>
+            }
+          />
+        ))}
     </ul>
   )
 }
 
 /** A button and the list of the workspace's objects under it, each with the picture it has: the one to refer to is chosen from it. */
-export function ObjectMenu({ ids, disabled, onChoose }: { ids: string[]; disabled: boolean; onChoose: (id: string) => void }) {
+export function ObjectMenu({ ids, disabled, onChoose, className = 'button', label, children = 'Refer to a project…' }: { ids: string[]; disabled: boolean; onChoose: (id: string) => void; className?: string; label?: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false)
   const holder = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -174,8 +195,8 @@ export function ObjectMenu({ ids, disabled, onChoose }: { ids: string[]; disable
 
   return (
     <div className="ref-menu" ref={holder}>
-      <button ref={button} type="button" className="button" disabled={disabled || ids.length === 0} aria-haspopup="menu" aria-expanded={open} title={ids.length === 0 ? 'No other project here to refer to' : undefined} onClick={() => setOpen((was) => !was)}>
-        Refer to a project…
+      <button ref={button} type="button" className={className} disabled={disabled || ids.length === 0} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={ids.length === 0 ? 'No other project here to refer to' : undefined} onClick={() => setOpen((was) => !was)}>
+        {children}
       </button>
       {open && (
         <ul

@@ -6,6 +6,7 @@ import type { BuildCopy, Card, SavedCamera } from '../../../shared/board'
 export type Opens =
   | { does: 'edit' }
   | { does: 'rename' }
+  | { does: 'size' }
   | { does: 'brief' }
   | { does: 'folder'; file: string }
   | { does: 'large' }
@@ -42,6 +43,8 @@ export function doubleClickOf(card: Card): Opens | null {
       return card.by === 'person' ? { does: 'edit' } : null
     case 'frame':
       return card.by === 'person' ? { does: 'rename' } : null
+    case 'size':
+      return card.by === 'person' ? { does: 'size' } : null
     case 'picture':
       if (card.picture === undefined) return null
       return card.camera ? { does: 'camera', camera: card.camera } : { does: 'large' }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attachLabel, attachSummary, type Arrow, type BoardFile, type Card } from './board'
+import { attachLabel, attachSummary, firstLink, type Arrow, type BoardFile, type Card } from './board'
 
 const card = (id: string, extra: Partial<Card> = {}): Card => ({ id, kind: 'text', x: 0, y: 0, w: 100, h: 50, by: 'person', ...extra })
 const arrow = (id: string, from: string, to: string): Arrow => ({ id, from, to, by: 'person' })
@@ -37,5 +37,32 @@ describe('what an attachment is said to hold', () => {
     expect(attachLabel(attachSummary(latch, ['C4']))).toBe('1 card')
     expect(attachLabel(attachSummary(latch, ['C2', 'C3']))).toBe('2 cards · 1 arrow')
     expect(attachLabel(attachSummary(latch, ['C99']))).toBe('0 cards')
+  })
+})
+
+describe('the link a text card holds', () => {
+  it('is the first http or https address, up to the next whitespace', () => {
+    expect(firstLink('see https://example.com/a b')).toBe('https://example.com/a')
+    expect(firstLink('a\nhttp://x.dev/p?q=1\nhttps://other.dev')).toBe('http://x.dev/p?q=1')
+    expect(firstLink('HTTPS://EXAMPLE.COM')).toBe('HTTPS://EXAMPLE.COM')
+  })
+  it('is nothing for other schemes or no address', () => {
+    for (const text of ['javascript:alert(1)', 'file:///etc/passwd', 'ftp://x.dev', 'no link here', '', 'https:/x']) expect(firstLink(text)).toBeNull()
+  })
+  it('leaves off the punctuation of the sentence it ends, and a bracket it does not open', () => {
+    expect(firstLink('see https://x.dev/a.')).toBe('https://x.dev/a')
+    expect(firstLink('https://x.dev/a, then')).toBe('https://x.dev/a')
+    expect(firstLink('who? https://x.dev/a?!')).toBe('https://x.dev/a')
+    expect(firstLink('https://x.dev/a;:')).toBe('https://x.dev/a')
+    expect(firstLink('(see https://x.dev/a)')).toBe('https://x.dev/a')
+    expect(firstLink('(see https://x.dev/a).')).toBe('https://x.dev/a')
+  })
+  it('keeps a bracket that closes one in the address, and a query', () => {
+    expect(firstLink('https://en.wikipedia.org/wiki/Torno_(lathe)')).toBe('https://en.wikipedia.org/wiki/Torno_(lathe)')
+    expect(firstLink('https://en.wikipedia.org/wiki/Torno_(lathe).')).toBe('https://en.wikipedia.org/wiki/Torno_(lathe)')
+    expect(firstLink('https://x.dev/a?b=1&c=2')).toBe('https://x.dev/a?b=1&c=2')
+  })
+  it('is cut at 2000 characters', () => {
+    expect(firstLink(`https://x.dev/${'a'.repeat(3000)}`)).toHaveLength(2000)
   })
 })

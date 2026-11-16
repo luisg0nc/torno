@@ -8,12 +8,11 @@ import { AGENT_LABEL, busyWith, isTrustQuestion, nextCarries, nextPromptLine } f
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import { type InstructionFile, READS_TITLE, named, weighed } from '../../shared/instructions'
 import { chatActions, connectChat, useChat } from '../state/chat'
-import { onboarding, useOnboard } from '../state/onboard'
+import { heldSaid, onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
 import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
-import { DraftPaneLive } from './onboard/DraftPane'
 import { clearDrafts, holdDraft } from './chat/Composer'
 import { effortsOf } from '../../shared/chat'
 import { EffortMenu } from './chat/EffortMenu'
@@ -815,7 +814,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       {held !== undefined && objectId && !creating && (
         <div className="session-held" role="status">
           <p>
-            The first prompt of this project was not sent: {held.reason.replace(/\.$/, '')}. {held.taken ? 'It is in the box below.' : held.text !== '' ? 'It is kept, and is in the box of the next chat.' : 'What was given is in brief.md and reference/.'}
+            {heldSaid(held)}
           </p>
           <button type="button" className="button button-quiet" onClick={() => onboarding.dismiss(objectId)}>
             Dismiss
@@ -877,7 +876,9 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         {promptsOpen && objectId && !drafting && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
         {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} />}
         {drafting ? (
-          <DraftPaneLive />
+          <p className="panel-note" data-draft-note="">
+            The first prompt is on the page of the new project, beside the slots.
+          </p>
         ) : !objectId ? (
           <p className="panel-note">Claude Code works here, one session per project. Make or open a project to start.</p>
         ) : (

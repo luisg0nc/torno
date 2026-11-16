@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MAX_PHOTO } from '../objects/create'
-import { listReferences, readReference } from './reference'
+import { listBoardReferences, listReferences, readReference } from './reference'
 
 let dir: string
 beforeEach(() => {
@@ -61,5 +61,28 @@ describe('the references a new conversation is told of', () => {
     mkdirSync(obj)
     symlinkSync(join(dir, 'reference'), join(obj, 'reference'))
     expect(listReferences(obj)).toEqual([])
+  })
+})
+
+describe('the references the board shows', () => {
+  it('are the pictures, then the plain STEP and PDF files by name', () => {
+    writeFileSync(join(dir, 'reference', '608zz.step'), 'x')
+    writeFileSync(join(dir, 'reference', 'plate.STP'), 'x')
+    writeFileSync(join(dir, 'reference', 'datasheet.pdf'), 'x')
+    writeFileSync(join(dir, 'reference', 'model.stl'), 'x')
+    symlinkSync(join(dir, 'reference', 'datasheet.pdf'), join(dir, 'reference', 'x.pdf'))
+    mkdirSync(join(dir, 'reference', 'folder.pdf'))
+    expect(listBoardReferences(dir)).toEqual(['photo-1.jpg', 'doodle-2.png', '608zz.step', 'datasheet.pdf', 'plate.STP'])
+  })
+  it('leave the chat\'s own list as it was', () => {
+    writeFileSync(join(dir, 'reference', '608zz.step'), 'x')
+    expect(listReferences(dir)).toEqual(['photo-1.jpg', 'doodle-2.png'])
+  })
+  it('are none without a folder, or through a link', () => {
+    expect(listBoardReferences(join(dir, 'nowhere'))).toEqual([])
+    const obj = join(dir, 'linked')
+    mkdirSync(obj)
+    symlinkSync(join(dir, 'reference'), join(obj, 'reference'))
+    expect(listBoardReferences(obj)).toEqual([])
   })
 })

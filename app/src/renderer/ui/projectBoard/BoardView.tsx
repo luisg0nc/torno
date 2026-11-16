@@ -51,6 +51,8 @@ const SLOP = 4
 /** The size a new text card is made at, and a sketch card. */
 const TEXT_SIZE = { w: 280, h: 160 }
 const SKETCH_SIZE = { w: 300, h: 200 }
+/** The size a new size card is made at: main's own (`MADE_SIZE.size`). */
+const SIZE_CARD = { w: 240, h: 120 }
 
 const inkNow = (): string => getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#22252A'
 
@@ -302,6 +304,8 @@ export function BoardView() {
     if (!camera) return
     const target = e.target instanceof Element ? e.target : null
     if (target?.closest('.pboard-editor')) return
+    // A link of a text card is pressed, not dragged: the click opens it.
+    if (e.button === 0 && target?.closest('[data-link]')) return
     e.currentTarget.focus({ preventScroll: true })
     if (e.button === 1 || e.button === 2 || (e.button === 0 && space.current)) {
       e.preventDefault()
@@ -332,7 +336,7 @@ export function BoardView() {
       begin({ kind: 'box', start, shift: false, frame: true })
       return
     }
-    if (state.tool === 'text') {
+    if (state.tool === 'text' || state.tool === 'size') {
       if (card) boardActions.select([card.id], e.shiftKey)
       else begin({ kind: 'place', start })
       return
@@ -415,7 +419,8 @@ export function BoardView() {
     if (g.kind === 'place') {
       if (!near) return
       const at = camera.toBoard(e.clientX, e.clientY)
-      boardActions.edit({ kind: 'text', x: Math.round(at.x), y: Math.round(at.y), ...TEXT_SIZE })
+      const sizing = boardStore.getState().tool === 'size'
+      boardActions.edit({ kind: sizing ? 'size' : 'text', x: Math.round(at.x), y: Math.round(at.y), ...(sizing ? SIZE_CARD : TEXT_SIZE) })
     } else if (g.kind === 'move') {
       if (!g.moved) {
         // A press with no drag: on a card among several selected, it is the one that is chosen.
@@ -514,6 +519,8 @@ export function BoardView() {
         return boardActions.edit({ kind: 'text', id: found.id, x: found.x, y: found.y, w: found.w, h: found.h })
       case 'rename':
         return boardActions.edit({ kind: 'name', id: found.id })
+      case 'size':
+        return boardActions.edit({ kind: 'size', id: found.id, x: found.x, y: found.y, w: found.w, h: found.h })
       case 'large':
         return openLarge(found)
       case 'sketch':

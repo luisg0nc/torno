@@ -43,6 +43,30 @@ describe('the reading order', () => {
 })
 
 describe('the text of a board', () => {
+  it('says a STEP or a PDF of reference/ with what it is, and its caption', () => {
+    const step = card({ kind: 'reference', by: 'torno', source: 'reference/608zz.step', caption: 'the bearing, 22 mm', x: 0 })
+    const pdf = card({ kind: 'reference', by: 'torno', source: 'reference/datasheet.pdf', x: 300 })
+    const photo = card({ kind: 'reference', by: 'torno', source: 'reference/photo-1.jpg', x: 600 })
+    const out = boardText(board([step, pdf, photo]), LIVE, OPTS)
+    expect(out.text).toContain(`${step.id} · reference · by torno\nreference/608zz.step (a bought part's STEP)\nthe bearing, 22 mm`)
+    expect(out.text).toContain(`${pdf.id} · reference · by torno\nreference/datasheet.pdf (a PDF: read it with your own tools)\n\n`)
+    expect(out.text).toContain(`${photo.id} · reference · by torno\nreference/photo-1.jpg\n[picture ${photo.id}: of reference/photo-1.jpg]`)
+    expect(out.pictures.map((p) => p.card)).toEqual([photo.id])
+  })
+  it('says the caption of a photo or a doodle of reference/ after its name, before its picture', () => {
+    const photo = card({ kind: 'reference', by: 'torno', source: 'reference/photo-1.jpg', caption: 'the desk edge', x: 0 })
+    const doodle = card({ kind: 'reference', by: 'torno', source: 'reference/doodle-1.png', caption: 'the shape (drawn over reference/photo-1.jpg)', x: 300 })
+    const out = boardText(board([photo, doodle]), LIVE, OPTS)
+    expect(out.text).toContain(`${photo.id} · reference · by torno\nreference/photo-1.jpg\nthe desk edge\n[picture ${photo.id}: of reference/photo-1.jpg]`)
+    expect(out.text).toContain(`${doodle.id} · reference · by torno\nreference/doodle-1.png\nthe shape (drawn over reference/photo-1.jpg)\n[picture ${doodle.id}: of reference/doodle-1.png]`)
+    expect(saysHash({ ...photo, caption: 'another note' }, LIVE)).not.toBe(saysHash(photo, LIVE))
+  })
+  it('counts a changed caption of a STEP as news, and a move as none', () => {
+    const step = card({ kind: 'reference', by: 'torno', source: 'reference/608zz.step' })
+    const was = saysHash(step, LIVE)
+    expect(saysHash({ ...step, x: 90 }, LIVE)).toBe(was)
+    expect(saysHash({ ...step, caption: 'new note' }, LIVE)).not.toBe(was)
+  })
   it('has a block for each card, and the arrows after them', () => {
     const a = card({ kind: 'text', text: 'wall 2 mm', x: 0 })
     const b = card({ kind: 'text', text: 'like this', x: 300, by: 'agent' })
@@ -231,5 +255,33 @@ describe('what was told, kept by the store', () => {
     mkdirSync(join(dir, '.torno', 'board'), { recursive: true })
     await import('node:fs/promises').then((fs) => fs.writeFile(join(dir, '.torno', 'board', 'told.json'), '[1,2]'))
     expect(await store.told('bracket')).toEqual({})
+  })
+})
+
+describe('a size card', () => {
+  const size = (over: Partial<Card> = {}): Card => card({ kind: 'size', size: { what: 'battery tray', value: '186 x 128', unit: 'mm', source: 'measured' }, ...over })
+
+  it('says what it measures, the numbers, the unit and the source, with the numbers in full after it', () => {
+    const c = size()
+    const out = boardText(board([c]), LIVE, OPTS)
+    expect(out.text).toBe(`${c.id} · size · by the person: battery tray 186 × 128 mm (measured)\nnumbers: [186, 128]`)
+  })
+  it('says a size of Claude\'s and a note, and tells where it is', () => {
+    const f = card({ kind: 'frame', name: 'Sizes' })
+    const c = size({ by: 'agent', frame: f.id, size: { what: 'snorkel hole', value: 'Ø62,5', unit: 'mm', source: 'from Claude', note: 'by eye' } })
+    const out = boardText(board([f, c]), LIVE, OPTS)
+    expect(out.text).toContain(`${c.id} · size · by you · in Sizes: snorkel hole Ø 62.5 mm (from Claude: by eye)\nnumbers: [62.5]`)
+  })
+  it('gives no numbers for a value that is none', () => {
+    const out = boardText(board([size({ size: { what: 'gap', value: 'about 60', unit: 'mm', source: 'a guess' } })]), LIVE, OPTS)
+    expect(out.text).toContain('gap about 60 mm (as typed, a guess)')
+    expect(out.text).not.toContain('numbers')
+  })
+  it('is news when what it says changes, and not when it is moved', () => {
+    const c = size()
+    const before = saysHash(c, LIVE)
+    expect(saysHash({ ...c, x: 500, y: 40, w: 300 }, LIVE)).toBe(before)
+    expect(saysHash({ ...c, size: { ...(c.size as NonNullable<Card['size']>), value: '190 x 128' } }, LIVE)).not.toBe(before)
+    expect(boardLine(board([c]), {}, LIVE).line).toContain(`${c.id} a size`)
   })
 })

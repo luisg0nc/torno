@@ -43,8 +43,8 @@ While iterating run the focused test; run all four suites before a commit. `app/
 
 ## Global invariants
 
-- Never write inside a user workspace except under `<object>/.torno/`. Four exceptions: making a new object, an export
-  the person saves, "Keep this as a folder" on the example (each one new folder or file, whole or not there), and Go
+- Never write inside a user workspace except under `<object>/.torno/`. Four exceptions: making a new object (its folder, with its photos, doodles, STEP files and PDFs copied into `reference/`
+  and its board, `.torno/board/board.json`), an export the person saves, "Keep this as a folder" on the example (each one new folder or file, whole or not there), and Go
   back, which writes and removes `.py` files of its own project's folder after the person confirms (`goback`).
   The kernel never writes a file. Never run `uv sync` there: always `uv run --no-sync`, and only when
   `<workspace>/.venv` exists (`workspace-writes`).

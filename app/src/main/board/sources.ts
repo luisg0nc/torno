@@ -1,13 +1,13 @@
 import { type BoardFile, type BuildCopy, type Card, type CardKind, AUTO_KINDS, MAX_CARDS, MAX_NAME_CHARS, PICTURE_NAME } from '../../shared/board'
 import { HISTORY_ID } from '../../shared/history'
-import { freeSpot } from './place'
+import { MADE_SIZE, freeSpot } from './place'
 
 // What is on a board that the project already has: the cards that appear by themselves (reconcile) and the ones the
 // person pins (pin). Both are pure: they are given a board and give the board it should be, which `BoardStore.torno`
 // writes. Main chooses the place of every card; the window and the agent never do.
 
 /** The size a card of each kind first has, in board units. */
-export const CARD_SIZE: Record<'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks', { w: number; h: number }> = {
+export const CARD_SIZE: Record<'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'size', { w: number; h: number }> = {
   brief: { w: 320, h: 240 },
   reference: { w: 240, h: 180 },
   mark: { w: 240, h: 120 },
@@ -15,7 +15,9 @@ export const CARD_SIZE: Record<'brief' | 'reference' | 'mark' | 'scan' | 'build'
   build: { w: 240, h: 200 },
   view: { w: 240, h: 120 },
   params: { w: 280, h: 240 },
-  checks: { w: 280, h: 240 }
+  checks: { w: 280, h: 240 },
+  /** A size the person or Claude added: the same on every board (`MADE_SIZE`). */
+  size: MADE_SIZE.size
 }
 
 /** What the project has that a card may show. */

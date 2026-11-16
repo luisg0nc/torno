@@ -2400,9 +2400,18 @@ describe('board and add_card', () => {
     expect(textOf(result)).toContain('picture not on this computer')
   })
 
+  it('tells a size card with its numbers in full, as the person gave it and as Claude did', async () => {
+    await person({ op: 'add', card: { kind: 'size', x: 0, y: 0, w: 240, h: 120, size: { what: 'battery tray', value: '186 × 128', unit: 'mm', source: 'measured' } } })
+    await addCardTool(rig(), 'bracket', { size: { what: 'snorkel hole', value: 'Ø62,5', unit: 'mm' } })
+    const said = textOf(await boardTool(rig(), 'bracket', {}))
+    expect(said).toContain('C1 · size · by the person: battery tray 186 × 128 mm (measured)\nnumbers: [186, 128]')
+    expect(said).toContain('C2 · size · by you: snorkel hole Ø 62.5 mm (from Claude)\nnumbers: [62.5]')
+  })
+
   it('refuses a key it does not take, and the keys an author, an id or a place would be given in', () => {
     for (const key of ['by', 'id', 'x', 'y', 'hidden']) expect(refusedKeys('add_card', { text: 'a', [key]: 1 }), key).not.toBeNull()
     expect(refusedKeys('add_card', { text: 'a', frame: 'Plan', arrowFrom: 'C1', label: 'why' })).toBeNull()
+    expect(refusedKeys('add_card', { size: { what: 'a', value: '1', unit: 'mm', note: 'b' }, frame: 'Plan' })).toBeNull()
     expect(refusedKeys('board', { frame: 'Latch', pictures: true })).toBeNull()
   })
 
@@ -2411,6 +2420,39 @@ describe('board and add_card', () => {
     expect(result.isError).toBeUndefined()
     expect(textOf(result)).toBe('Added C1, text.')
     expect((await store.read('bracket')).cards).toEqual([expect.objectContaining({ id: 'C1', kind: 'text', by: 'agent', text: 'Plan: widen the latch' })])
+  })
+
+  it('adds a size card of its own, from Claude, and says so', async () => {
+    const result = await addCardTool(rig(), 'bracket', { size: { what: 'battery tray', value: '186 x 128', unit: 'mm' } })
+    expect(result.isError).toBeUndefined()
+    expect(textOf(result)).toBe('Added C1, size.')
+    expect((await store.read('bracket')).cards).toEqual([expect.objectContaining({ id: 'C1', kind: 'size', by: 'agent', size: { what: 'battery tray', value: '186 x 128', unit: 'mm', source: 'from Claude' } })])
+  })
+
+  it('takes a size in a frame, with a note and an arrow, and takes the unit as mm when none is given', async () => {
+    await person(words(0, 0))
+    const result = await addCardTool(rig(), 'bracket', { size: { what: 'gap', value: '2,5', note: 'by eye' }, frame: 'Sizes', arrowFrom: 'C1' })
+    expect(textOf(result)).toBe('Made the frame Sizes, C2. Added C3, size, in Sizes. Arrow C4 from C1 to C3.')
+    expect((await store.read('bracket')).cards.find((c) => c.id === 'C3')?.size).toEqual({ what: 'gap', value: '2,5', unit: 'mm', source: 'from Claude', note: 'by eye' })
+  })
+
+  it('refuses a size together with text or a look, a size that is not whole, and a source of its own, and changes nothing', async () => {
+    const deps = rig()
+    const size = { what: 'tray', value: '186' }
+    const text = async (args: Parameters<typeof addCardTool>[2]): Promise<string> => {
+      const result = await addCardTool(deps, 'bracket', args)
+      expect(result.isError).toBe(true)
+      return textOf(result)
+    }
+    expect(await text({ size, text: 'x' })).toMatch(/size or text/)
+    expect(await text({ size, look: {} })).toMatch(/size or text/)
+    expect(await text({ size: { ...size, unit: 'cm' } as never })).toMatch(/mm/)
+    expect(await text({ size: { what: '', value: '1' } })).toMatch(/what/)
+    expect(await text({ size: { ...size, source: 'measured' } as never })).toMatch(/source/)
+    expect(await text({ size: 'big' as never })).toMatch(/size is/)
+    expect(await text({ card: 'C1', size })).toMatch(/only its text/)
+    expect((await store.read('bracket')).cards).toEqual([])
+    expect(deps.looks).toEqual([])
   })
 
   it('takes no author, id or place from its arguments when it is called with them', async () => {
@@ -2462,7 +2504,7 @@ describe('board and add_card', () => {
 
   it('asks for what it needs: nothing at all, a remove with no card, a change of a card with more than its words', async () => {
     const deps = rig()
-    expect(textOf(await addCardTool(deps, 'bracket', {}))).toMatch(/text or look/)
+    expect(textOf(await addCardTool(deps, 'bracket', {}))).toMatch(/text, size or look/)
     expect(textOf(await addCardTool(deps, 'bracket', { remove: true }))).toMatch(/remove names a card/)
     await addCardTool(deps, 'bracket', { text: 'a' })
     expect(textOf(await addCardTool(deps, 'bracket', { card: 'C1', frame: 'Plan' }))).toMatch(/only its text/)

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -25,6 +25,7 @@ let pinned: Array<[string, string]>
 /** The saved views of the project, as the scene file has them. */
 let saved: Array<{ name: string; layout: string }>
 let shown: Array<['open' | 'reveal', string]>
+let links: string[]
 
 const obj = (): ObjectInfo => ({ id: 'bracket', name: 'bracket', dir, model: 'model.py' })
 const handlers = () =>
@@ -33,6 +34,7 @@ const handlers = () =>
     object: (id) => (id === 'bracket' ? obj() : undefined),
     views: async () => saved as never,
     show: (how, path) => void shown.push([how, path]),
+    openExternal: async (url) => void links.push(url),
     pinBuild: async (objectId, historyId) => (pinned.push([objectId, historyId]), { refused: 'stand-in' })
   })
 const text = (extra: Record<string, unknown> = {}) => ({ op: 'add' as const, card: { kind: 'text', x: 0, y: 0, w: 200, h: 100, text: 'hello', ...extra } }) as never
@@ -45,6 +47,7 @@ beforeEach(() => {
   pinned = []
   saved = [{ name: 'front', layout: 'assembly' }]
   shown = []
+  links = []
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
@@ -155,6 +158,41 @@ describe('the board handlers', () => {
     await expect(h.open('bracket', { kind: 'secret' } as never)).rejects.toThrow()
     await expect(h.open('nope', { kind: 'brief' })).rejects.toThrow(/not open/)
     expect(shown).toHaveLength(2)
+  })
+
+  it('shows a STEP and a PDF of reference/ in their folder, and not a link or a file of another kind', async () => {
+    const h = handlers()
+    mkdirSync(join(dir, 'reference'))
+    writeFileSync(join(dir, 'reference', '608zz.step'), 'x')
+    writeFileSync(join(dir, 'reference', 'datasheet.pdf'), 'x')
+    writeFileSync(join(dir, 'reference', 'notes.txt'), 'x')
+    symlinkSync(join(dir, 'reference', 'datasheet.pdf'), join(dir, 'reference', 'x.pdf'))
+    await h.open('bracket', { kind: 'reference', file: 'reference/datasheet.pdf' })
+    await h.open('bracket', { kind: 'reference', file: 'reference/608zz.step' })
+    expect(shown).toEqual([
+      ['reveal', join(dir, 'reference', 'datasheet.pdf')],
+      ['reveal', join(dir, 'reference', '608zz.step')]
+    ])
+    for (const file of ['reference/x.pdf', 'reference/notes.txt', 'reference/nothing.pdf']) await expect(h.open('bracket', { kind: 'reference', file })).rejects.toThrow()
+    expect(shown).toHaveLength(2)
+  })
+
+  it('opens the first link of a text card in the browser, by the card the store has', async () => {
+    const h = handlers()
+    await h.change('bracket', text({ text: 'see https://example.com/a b' }))
+    await h.openLink('bracket', 'C1')
+    expect(links).toEqual(['https://example.com/a'])
+  })
+
+  it('opens nothing for a card that holds no http or https link, or one that is not there, and rejects', async () => {
+    const h = handlers()
+    await h.change('bracket', text({ text: 'javascript:alert(1)' }))
+    await h.change('bracket', text({ text: 'file:///etc/passwd' }))
+    await h.change('bracket', text({ text: 'https://' }))
+    await h.change('bracket', { op: 'add', card: { kind: 'frame', x: 0, y: 0, w: 200, h: 100, name: 'https://example.com' } } as never)
+    for (const id of ['C1', 'C2', 'C3', 'C4', 'C99', 'x', '../C1', 7]) await expect(h.openLink('bracket', id as string)).rejects.toThrow()
+    await expect(h.openLink('nope', 'C1')).rejects.toThrow(/not open/)
+    expect(links).toEqual([])
   })
 
   it('refuses a pin of something the board does not pin, as a value', async () => {

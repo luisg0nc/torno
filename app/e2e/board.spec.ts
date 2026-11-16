@@ -373,6 +373,69 @@ test('Ctrl+Z takes a move back', async () => {
   await expect.poll(async () => (await readBoard()).cards.find((c) => c.id === before.id)!.x).toBe(before.x)
 })
 
+test('M then a click makes a size card from a form; a double click edits it, Ctrl+Z takes each back, and board.json holds the facts', async () => {
+  const sizeCard = () => page.locator('.pboard-card[data-kind="size"]')
+  const sizes = async () => (await readBoard()).cards.filter((c) => c.kind === 'size')
+  const form = page.locator('.pboard-sizeform')
+  await page.locator('.pboard-stage').focus()
+  const stage = await stageBox()
+  await page.keyboard.press('m')
+  await expect(page.locator('.pboard-tool[data-tool="size"]')).toHaveAttribute('aria-pressed', 'true')
+  await page.mouse.click(stage.x + stage.width * 0.75, stage.y + stage.height * 0.8)
+  await expect(form).toBeVisible()
+  await expect(form.getByLabel('What it measures')).toBeFocused()
+
+  // Done says what is missing and keeps the form.
+  await form.getByLabel('What it measures').fill('battery tray')
+  await form.getByRole('button', { name: 'Done' }).click()
+  await expect(form).toBeVisible()
+  await expect(form.locator('.pboard-sizeform-help')).toContainText('value')
+  expect(await sizes()).toHaveLength(0)
+
+  await form.getByLabel('Value').fill('186 x 128')
+  await form.getByLabel('Where it came from').selectOption('from a manual or datasheet')
+  await form.getByLabel('Note').fill('with the lip')
+  await form.getByLabel('Value').press('Enter')
+  await expect(form).toHaveCount(0)
+  await expect(sizeCard()).toHaveCount(1)
+  await expect(sizeCard()).toContainText('186 x 128 mm')
+  await expect(sizeCard()).toContainText('battery tray')
+  await expect(sizeCard()).toContainText('from a manual or datasheet: with the lip')
+  await expect(sizeCard().locator('li.num[data-big]')).toHaveText('186 x 128 mm')
+  await expect(sizeCard()).toHaveAttribute('data-by', 'person')
+  const made = (await sizes())[0]
+  expect(made.by).toBe('person')
+  expect(made.size).toEqual({ what: 'battery tray', value: '186 x 128', unit: 'mm', source: 'from a manual or datasheet', note: 'with the lip' })
+  // The tool is put back to Select after one card.
+  await expect(page.locator('.pboard-tool[data-tool="select"]')).toHaveAttribute('aria-pressed', 'true')
+
+  // A double click edits it: the form holds what it had; a new value is kept, in degrees too.
+  await sizeCard().dblclick()
+  await expect(form).toBeVisible()
+  await expect(form.getByLabel('Value')).toHaveValue('186 x 128')
+  await form.getByLabel('Value').fill('190 x 128')
+  await form.getByLabel('Unit').selectOption('°')
+  await form.getByLabel('Value').press('Enter')
+  await expect(sizeCard()).toContainText('190 x 128°')
+  expect((await sizes())[0].size).toMatchObject({ value: '190 x 128', unit: '°' })
+
+  // Ctrl+Z takes the edit back, then the card away.
+  await page.keyboard.press('Control+z')
+  await expect(sizeCard()).toContainText('186 x 128 mm')
+  expect((await sizes())[0].size).toEqual(made.size)
+  await page.keyboard.press('Control+z')
+  await expect(sizeCard()).toHaveCount(0)
+  expect(await sizes()).toHaveLength(0)
+
+  // Left half-written, Esc makes nothing.
+  await page.keyboard.press('m')
+  await page.mouse.click(stage.x + stage.width * 0.75, stage.y + stage.height * 0.8)
+  await form.getByLabel('What it measures').fill('half')
+  await page.keyboard.press('Escape')
+  await expect(form).toHaveCount(0)
+  expect(await sizes()).toHaveLength(0)
+})
+
 test('a picture dropped on the board makes a picture card', async () => {
   const stage = await stageBox()
   const dataTransfer = await page.evaluateHandle(async () => {

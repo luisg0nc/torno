@@ -221,6 +221,12 @@
   user-select: text;
 }
 
+.pboard-link {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .pboard-note {
   flex: none;
   color: var(--muted);
@@ -255,6 +261,12 @@
 
 .pboard-lines li.num {
   font-size: 12px;
+}
+
+.pboard-lines li.num[data-big] {
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.25;
 }
 
 .pboard-lines [data-tone='ok'] {
@@ -418,6 +430,69 @@
 
 textarea.pboard-editor {
   white-space: pre-wrap;
+}
+
+/* The form of a size card: what it measures, the value as typed, its unit, where it came from and a note, over the card's place. */
+.pboard-sizeform {
+  position: absolute;
+  z-index: 4;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  width: 340px;
+  padding: var(--space-3);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-size);
+  line-height: var(--text-leading);
+}
+
+.pboard-sizeform label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.pboard-sizeform label[data-wide] {
+  grid-column: 1 / -1;
+}
+
+.pboard-sizeform input,
+.pboard-sizeform select {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  height: 28px;
+  border: var(--field-border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.pboard-sizeform input:focus,
+.pboard-sizeform select:focus {
+  outline: var(--focus-ring);
+  outline-offset: 0;
+}
+
+.pboard-sizeform-help {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--fail);
+  font-size: var(--text-small);
+}
+
+.pboard-sizeform-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* The box drawn on the ground while a drag selects, or sets out a frame. */

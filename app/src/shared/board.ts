@@ -1,3 +1,4 @@
+import type { SizeFact, SizeUnit } from './size'
 import type { Camera as SavedCamera } from './view'
 
 // The board of a project (`<project>/.torno/board/board.json`): cards laid out on a canvas, frames that hold
@@ -6,14 +7,14 @@ import type { Camera as SavedCamera } from './view'
 
 export type { SavedCamera }
 
-export type CardKind = 'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'text' | 'picture' | 'sketch' | 'frame'
+export type CardKind = 'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'text' | 'picture' | 'sketch' | 'frame' | 'size'
 
 /** Cards that appear by themselves, from what the project has. */
 export const AUTO_KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan']
 /** Cards the person pins from the build strip, the views, the Params and the checks. */
 export const PINNED_KINDS: readonly CardKind[] = ['build', 'view', 'params', 'checks']
-/** Cards the person makes on the board, and the agent may too (a text, a picture, a frame). */
-export const MADE_KINDS: readonly CardKind[] = ['text', 'picture', 'sketch', 'frame']
+/** Cards the person makes on the board, and the agent may too (a text, a picture, a frame, a size). */
+export const MADE_KINDS: readonly CardKind[] = ['text', 'picture', 'sketch', 'frame', 'size']
 
 /** What a build card keeps of the build it shows, so it can say so when the build is not on this computer. */
 export interface BuildCopy {
@@ -48,6 +49,8 @@ export interface Card {
   /** Only ever true, and only on a card of main's own: removing one hides it. */
   hidden?: true
   copy?: BuildCopy
+  /** What a `size` card says: only ever on that kind. */
+  size?: SizeFact
 }
 
 export interface Arrow {
@@ -85,7 +88,7 @@ export const MAX_NAME_CHARS = 200
 export type PersonChange =
   | { op: 'add'; card: Omit<Card, 'id' | 'by' | 'hidden'> }
   | { op: 'move'; moves: Array<{ id: string; x: number; y: number; w?: number; h?: number; frame?: string | null }> }
-  | { op: 'edit'; id: string; text?: string; name?: string; caption?: string; picture?: string }
+  | { op: 'edit'; id: string; text?: string; name?: string; caption?: string; picture?: string; size?: SizeFact }
   | { op: 'remove'; ids: string[] }
   | { op: 'unhide'; id: string }
   | { op: 'arrow'; from: string; to: string; label?: string }
@@ -98,12 +101,30 @@ export type PersonChange =
  * those: never an id, an author, a place or a size, and never a card of the person's or of main's own.
  */
 export type AgentChange =
-  | { op: 'add'; text?: string; picture?: string; camera?: SavedCamera; frame?: string; arrow?: { from?: string; to?: string; label?: string } }
+  | { op: 'add'; text?: string; picture?: string; camera?: SavedCamera; size?: { what: string; value: string; unit?: SizeUnit; note?: string }; frame?: string; arrow?: { from?: string; to?: string; label?: string } }
   | { op: 'edit'; id: string; text: string }
   | { op: 'remove'; id: string }
 
 /** What the window pins from what the project has: the build by its id in the history, a view by its name, the Params, the checks. */
 export type PinWhat = { kind: 'build'; id: string } | { kind: 'view'; name: string } | { kind: 'params' } | { kind: 'checks' }
+
+/** The most characters of a link a card opens. */
+export const MAX_LINK_CHARS = 2000
+
+/** The first `http://` or `https://` address in a text, up to the next whitespace without the sentence's own punctuation at its end, at most `MAX_LINK_CHARS` characters; null when there is none. Whether it may be opened is main's to check. */
+export function firstLink(text: string): string | null {
+  const found = /https?:\/\/\S+/i.exec(text)
+  if (!found) return null
+  let link = found[0].slice(0, MAX_LINK_CHARS)
+  // The punctuation of the sentence the address ends, and a `)` that closes a bracket opened before it.
+  for (;;) {
+    const last = link.at(-1)
+    if (last !== undefined && '.,;:!?'.includes(last)) link = link.slice(0, -1)
+    else if (last === ')' && (link.match(/\(/g)?.length ?? 0) < (link.match(/\)/g)?.length ?? 0)) link = link.slice(0, -1)
+    else break
+  }
+  return link
+}
 
 /** What the window asks main to open from a card: the brief in the person's program, or a file of `reference/` in its folder. */
 export type BoardOpen = { kind: 'brief' } | { kind: 'reference'; file: string }

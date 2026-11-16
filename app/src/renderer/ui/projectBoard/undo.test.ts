@@ -31,6 +31,23 @@ describe('BoardUndo', () => {
     expect(undo.undo()).toBeNull()
   })
 
+  it('gives the size before for the undo of an edit of a size card, and nothing when the size is the same', () => {
+    const undo = new BoardUndo()
+    const was = { what: 'tray', value: '186 x 128', unit: 'mm' as const, source: 'measured' as const }
+    const now = { ...was, value: '190 x 128', note: 'with the lip' }
+    undo.push(snap([card('C1', { kind: 'size', size: was })]), snap([card('C1', { kind: 'size', size: now })]))
+    expect(all(undo)).toEqual([{ op: 'edit', id: 'C1', size: was }])
+    undo.push(snap([card('C1', { kind: 'size', size: was })]), snap([card('C1', { kind: 'size', size: { ...was } })]))
+    expect(undo.undo()).toBeNull()
+  })
+
+  it('takes a new size card away for the undo of adding it', () => {
+    const undo = new BoardUndo()
+    const size = { what: 'tray', value: '186', unit: 'mm' as const, source: 'a guess' as const }
+    undo.push(NOTHING, snap([card('C9', { kind: 'size', size })]))
+    expect(all(undo)).toEqual([{ op: 'remove', ids: ['C9'] }])
+  })
+
   it('gives a restore by id for the undo of a delete, and the arrows that went with it', () => {
     const undo = new BoardUndo()
     const c = card('C1', { text: 'hello' })

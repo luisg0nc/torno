@@ -4,11 +4,18 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { CreateRequest } from '../../shared/bridge'
+import type { BoardFile } from '../../shared/board'
+import { readBoardFile } from '../board/file'
+import { reconcile } from '../board/sources'
+import { listBoardReferences } from '../sessions/reference'
 import { createObject, readPhoto, sweepStaleNew } from './create'
 import template from './template.py.txt?raw'
 
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
 const JPG = Uint8Array.from([0xff, 0xd8, 0xff, 9, 9])
+
+/** What a made folder holds of the board, beside what it was given. */
+const BOARD = ['.torno/', '.torno/board/', '.torno/board/board.json']
 
 let base: string
 let ws: string
@@ -25,7 +32,7 @@ function tree(dir: string, prefix = ''): string[] {
 }
 
 function request(over: Partial<CreateRequest> = {}): CreateRequest {
-  return { name: 'cable-clip', description: 'A clip for a 6 mm cable.', photos: [], doodles: [], steps: [], scans: [], objects: [], ...over }
+  return { name: 'cable-clip', description: 'A clip for a 6 mm cable.', photos: [], doodles: [], steps: [], scans: [], objects: [], sizes: [], rules: '', links: [], pdfs: [], ...over }
 }
 
 const make = (req: CreateRequest, objects: string[] = [], hooks?: Parameters<typeof createObject>[1]['hooks']) => createObject(req, { root: ws, objects, hooks })
@@ -44,10 +51,10 @@ afterEach(() => rmSync(base, { recursive: true, force: true }))
 describe('creating an object', () => {
   it('writes the template and the brief, and nothing else, when there is nothing to copy', async () => {
     expect(await make(request())).toEqual({ objectId: 'cable-clip' })
-    expect(tree(join(ws, 'cable-clip'))).toEqual(['brief.md', 'cable_clip.py'])
+    expect(tree(join(ws, 'cable-clip'))).toEqual([...BOARD, 'brief.md', 'cable_clip.py'])
     expect(readFileSync(join(ws, 'cable-clip', 'cable_clip.py'), 'utf8')).toBe(template)
     expect(readFileSync(join(ws, 'cable-clip', 'brief.md'), 'utf8')).toBe('# cable-clip\n\nA clip for a 6 mm cable.\n')
-    expect(tree(ws)).toEqual(['cable-clip/', 'cable-clip/brief.md', 'cable-clip/cable_clip.py', 'lid/', 'lid/lid.py'])
+    expect(tree(ws)).toEqual(['cable-clip/', ...BOARD.map((b) => `cable-clip/${b}`), 'cable-clip/brief.md', 'cable-clip/cable_clip.py', 'lid/', 'lid/lid.py'])
   })
 
   it('copies photos and doodles in the order given and lists every item in the brief, in order', async () => {
@@ -69,7 +76,7 @@ describe('creating an object', () => {
       ['lid']
     )
     const dir = join(ws, 'cable-clip')
-    expect(tree(dir)).toEqual(['brief.md', 'cable_clip.py', 'reference/', 'reference/doodle-1.png', 'reference/photo-1.jpeg', 'reference/photo-2.png'])
+    expect(tree(dir)).toEqual([...BOARD, 'brief.md', 'cable_clip.py', 'reference/', 'reference/doodle-1.png', 'reference/photo-1.jpeg', 'reference/photo-2.png'])
     expect([...readFileSync(join(dir, 'reference', 'photo-1.jpeg'))]).toEqual([...JPG])
     expect([...readFileSync(join(dir, 'reference', 'photo-2.png'))]).toEqual([...PNG])
     expect([...readFileSync(join(dir, 'reference', 'doodle-1.png'))]).toEqual([...PNG])
@@ -96,7 +103,7 @@ describe('creating an object', () => {
     await make(request(), [], {
       beforeRename: (temp) => {
         seen = readdirSync(ws)
-        expect(tree(temp)).toEqual(['brief.md', 'cable_clip.py'])
+        expect(tree(temp)).toEqual([...BOARD, 'brief.md', 'cable_clip.py'])
       }
     })
     expect(seen.filter((n) => !n.startsWith('.'))).toEqual(['lid'])
@@ -124,7 +131,7 @@ describe('creating an object', () => {
   it('takes an empty folder of the name as free (a crash left it between the claim and the rename)', async () => {
     mkdirSync(join(ws, 'cable-clip'))
     expect(await make(request())).toEqual({ objectId: 'cable-clip' })
-    expect(tree(join(ws, 'cable-clip'))).toEqual(['brief.md', 'cable_clip.py'])
+    expect(tree(join(ws, 'cable-clip'))).toEqual([...BOARD, 'brief.md', 'cable_clip.py'])
     expect(readdirSync(ws).sort()).toEqual(['cable-clip', 'lid'])
   })
 
@@ -255,7 +262,7 @@ describe('creating an object', () => {
       const b = step('motor mount.stp', 'other')
       await make(request({ steps: [{ path: a, note: 'the bearing' }, { path: b, note: '' }] }))
       const dir = join(ws, 'cable-clip')
-      expect(tree(dir)).toEqual(['brief.md', 'cable_clip.py', 'reference/', 'reference/608zz.step', 'reference/motor_mount.stp'])
+      expect(tree(dir)).toEqual([...BOARD, 'brief.md', 'cable_clip.py', 'reference/', 'reference/608zz.step', 'reference/motor_mount.stp'])
       expect(readFileSync(join(dir, 'reference', '608zz.step'), 'utf8')).toBe(STEP)
       expect(readFileSync(join(dir, 'brief.md'), 'utf8')).toContain('## References\n\n- reference/608zz.step: the bearing\n- reference/motor_mount.stp\n')
     })
@@ -323,6 +330,157 @@ describe('creating an object', () => {
 
   it('removes the temp folder when a hook fails mid-way', async () => {
     await expect(make(request(), [], { beforeRename: () => { throw new Error('disk full') } })).rejects.toThrow(/disk full/)
+    expect(readdirSync(ws)).toEqual(['lid'])
+  })
+})
+
+describe('the board a new project starts with', () => {
+  const PDF = Buffer.from('%PDF-1.7\n1 0 obj\n')
+  const pdf = (name: string, bytes: Buffer | string = PDF) => {
+    writeFileSync(join(files, name), bytes)
+    return join(files, name)
+  }
+  const size = (what: string) => ({ what, value: '186 x 128', unit: 'mm' as const, source: 'measured' as const })
+  const board = (name = 'cable-clip'): BoardFile => JSON.parse(readFileSync(join(ws, name, '.torno', 'board', 'board.json'), 'utf8'))
+  const names = (b: BoardFile) => b.cards.filter((c) => c.kind === 'frame').map((c) => c.name)
+
+  it('writes a board with a Brief frame and nothing else of .torno for a bare request', async () => {
+    await make(request())
+    expect(tree(join(ws, 'cable-clip'))).toEqual([...BOARD, 'brief.md', 'cable_clip.py'])
+    expect(names(board())).toEqual(['Brief'])
+  })
+
+  it('writes the board, valid for the file reader, with a frame for each thing given, and copies the PDF', async () => {
+    writeFileSync(join(files, 'desk.png'), PNG)
+    writeFileSync(join(files, '608zz.step'), 'ISO-10303-21;')
+    await make(
+      request({
+        photos: [{ path: join(files, 'desk.png'), note: 'the desk edge' }],
+        doodles: [{ png: PNG, note: 'the shape', over: 0 }],
+        steps: [{ path: join(files, '608zz.step'), note: 'bearing' }],
+        pdfs: [{ path: pdf('Data Sheet.PDF'), note: 'the connector' }],
+        sizes: [size('battery tray')],
+        rules: 'No supports.',
+        links: [{ url: 'https://example.com/a', note: 'vendor' }]
+      })
+    )
+    const dir = join(ws, 'cable-clip')
+    expect([...readFileSync(join(dir, 'reference', 'Data_Sheet.pdf'))]).toEqual([...PDF])
+    const read = readBoardFile(board())
+    expect(read?.dropped).toBe(0)
+    expect(names(board())).toEqual(['Brief', 'Photos', 'Sketches', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
+    const caption = (source: string) => board().cards.find((c) => c.source === source)?.caption
+    expect(caption('reference/photo-1.png')).toBe('the desk edge')
+    expect(caption('reference/doodle-1.png')).toBe('the shape (drawn over reference/photo-1.png)')
+    expect(caption('reference/Data_Sheet.pdf')).toBe('the connector')
+    const brief = readFileSync(join(dir, 'brief.md'), 'utf8')
+    expect(brief).toContain('- reference/doodle-1.png: the shape (drawn over reference/photo-1.png)\n')
+    expect(brief).toContain('- reference/Data_Sheet.pdf: the connector\n')
+    // Sizes, rules and links live on the board only.
+    for (const absent of ['battery tray', 'No supports', 'example.com']) expect(brief).not.toContain(absent)
+  })
+
+  it('is what the first open would make: reconcile of the made folder changes nothing', async () => {
+    writeFileSync(join(files, 'desk.png'), PNG)
+    await make(request({ photos: [{ path: join(files, 'desk.png'), note: 'n' }], doodles: [{ png: PNG, note: '' }], pdfs: [{ path: pdf('a.pdf'), note: '' }] }))
+    const dir = join(ws, 'cable-clip')
+    const found = { brief: true, references: listBoardReferences(dir).map((n) => `reference/${n}`), marks: [], scans: [] }
+    expect(found.references).toEqual(['reference/photo-1.png', 'reference/doodle-1.png', 'reference/a.pdf'])
+    expect(reconcile(board(), found)).toBeNull()
+  })
+
+  it('says a doodle whose photo was taken away is drawn over a photo, naming no file', async () => {
+    await make(request({ doodles: [{ png: PNG, note: 'the shape', onPhoto: true }, { png: PNG, note: '', onPhoto: true }] }))
+    const caption = (source: string) => board().cards.find((c) => c.source === source)?.caption
+    expect(caption('reference/doodle-1.png')).toBe('the shape (drawn over a photo)')
+    expect(caption('reference/doodle-2.png')).toBe('drawn over a photo')
+    expect(readFileSync(join(ws, 'cable-clip', 'brief.md'), 'utf8')).toContain('- reference/doodle-1.png: the shape (drawn over a photo)\n')
+  })
+
+  it('names a doodle drawn over a photo by the photo as it is copied, with its own ending', async () => {
+    writeFileSync(join(files, 'a.PNG'), PNG)
+    writeFileSync(join(files, 'b.jpeg'), JPG)
+    await make(request({ photos: [{ path: join(files, 'a.PNG'), note: '' }, { path: join(files, 'b.jpeg'), note: '' }], doodles: [{ png: PNG, note: '', over: 1 }] }))
+    expect(readFileSync(join(ws, 'cable-clip', 'brief.md'), 'utf8')).toContain('- reference/doodle-1.png: drawn over reference/photo-2.jpeg\n')
+  })
+
+  describe('is refused, and nothing is made, for', () => {
+    // Refused before the hidden folder is made: no hook of the work in it is reached.
+    const refused = async (req: CreateRequest, why?: RegExp) => {
+      const reached: string[] = []
+      const error = await make(req, [], { afterTemp: () => void reached.push('temp'), beforeBoard: () => void reached.push('board'), beforeRename: () => void reached.push('rename') }).then(
+        () => null,
+        (e: Error) => e
+      )
+      expect(error).not.toBeNull()
+      if (why) expect(error?.message).toMatch(why)
+      expect(reached).toEqual([])
+      expect(readdirSync(ws)).toEqual(['lid'])
+    }
+
+    it('a PDF that is a link, a folder or not there', async () => {
+      const real = pdf('real.pdf')
+      symlinkSync(real, join(files, 'link.pdf'))
+      mkdirSync(join(files, 'dir.pdf'))
+      for (const path of [join(files, 'link.pdf'), join(files, 'dir.pdf'), join(files, 'missing.pdf'), 'relative.pdf', join(files, 'x.txt')]) {
+        await refused(request({ pdfs: [{ path: real, note: '' }, { path, note: '' }] }))
+      }
+    })
+
+    it('a PDF over 25 MB, and one that does not start %PDF-', async () => {
+      const big = pdf('big.pdf')
+      truncateSync(big, 25 * 1024 * 1024 + 1)
+      await refused(request({ pdfs: [{ path: big, note: '' }] }), /25 MB/)
+      await refused(request({ pdfs: [{ path: pdf('fake.pdf', 'PK\x03\x04 not a pdf'), note: '' }] }), /PDF/)
+      const ok = pdf('ok.pdf')
+      truncateSync(ok, 25 * 1024 * 1024)
+      expect(await make(request({ pdfs: [{ path: ok, note: '' }] }))).toEqual({ objectId: 'cable-clip' })
+    })
+
+    it('a 7th PDF, and the same PDF twice', async () => {
+      await refused(request({ pdfs: Array.from({ length: 7 }, (_, i) => ({ path: pdf(`${i}.pdf`), note: '' })) }), /At most 6 PDFs/)
+      const one = pdf('one.pdf')
+      await refused(request({ pdfs: [{ path: one, note: '' }, { path: one, note: '' }] }), /twice/)
+    })
+
+    it('a link that is not http or https, has a space or a control character, or is too long, and a 21st link', async () => {
+      for (const url of ['javascript:alert(1)', 'file:///etc/passwd', 'ftp://x.org/a', 'example.com', 'https://', 'https://a b.com', 'https://a.com/\n', 'https://a.com/\u0007', `https://a.com/${'x'.repeat(2000)}`, 'HTTP:/x']) {
+        await refused(request({ links: [{ url, note: '' }] }))
+      }
+      await refused(request({ links: [{ url: 'https://a.com', note: 'x'.repeat(301) }] }), /300/)
+      await refused(request({ links: Array.from({ length: 21 }, (_, i) => ({ url: `https://a.com/${i}`, note: '' })) }), /At most 20 links/)
+      const fine = [{ url: 'HTTPS://Example.com/a?b=1', note: 'x'.repeat(300) }, { url: `https://a.com/${'x'.repeat(1985)}`, note: '' }]
+      expect(await make(request({ links: fine }))).toEqual({ objectId: 'cable-clip' })
+      expect(board().cards.filter((c) => c.kind === 'text').map((c) => c.text?.split('\n')[0])).toEqual([fine[0].url, fine[1].url])
+    })
+
+    it('a 41st size, a size that is not whole, and rules of 4001 characters', async () => {
+      await refused(request({ sizes: Array.from({ length: 41 }, (_, i) => size(`s${i}`)) }), /At most 40 sizes/)
+      await refused(request({ sizes: [{ ...size('x'), value: '' }] }))
+      await refused(request({ sizes: [{ ...size('x'), source: 'from Claude' }] }))
+      await refused(request({ sizes: [{ ...size('x'), what: 'x'.repeat(201) }] }))
+      await refused(request({ sizes: [{ ...size('x'), value: 'v'.repeat(61) }] }))
+      await refused(request({ rules: 'r'.repeat(4001) }), /4000/)
+      await refused(request({ rules: 7 as unknown as string }))
+      const fine = await make(request({ sizes: Array.from({ length: 40 }, (_, i) => size(`s${i}`)), rules: 'r'.repeat(4000) }))
+      expect(fine).toEqual({ objectId: 'cable-clip' })
+      expect(board().cards.filter((c) => c.kind === 'size')).toHaveLength(40)
+    })
+
+    it('a doodle drawn over a photo that is not there', async () => {
+      writeFileSync(join(files, 'a.png'), PNG)
+      const photos = [{ path: join(files, 'a.png'), note: '' }]
+      for (const over of [1, -1, 0.5, Number.NaN, '0' as unknown as number]) await refused(request({ photos, doodles: [{ png: PNG, note: '', over }] }))
+      await refused(request({ doodles: [{ png: PNG, note: '', over: 0 }] }))
+    })
+
+    it('lists that are not lists', async () => {
+      for (const key of ['sizes', 'links', 'pdfs'] as const) await refused({ ...request(), [key]: undefined } as unknown as CreateRequest, /not a list/)
+    })
+  })
+
+  it('removes the temp folder when the board cannot be written', async () => {
+    await expect(make(request(), [], { beforeBoard: (temp) => writeFileSync(join(temp, '.torno'), 'in the way') })).rejects.toThrow()
     expect(readdirSync(ws)).toEqual(['lid'])
   })
 })

@@ -52,6 +52,34 @@ describe('readBoardFile', () => {
     expect(readBoardFile({ next: 30, cards: [card('C1')], arrows: [] })?.file.next).toBe(30)
   })
 
+  it('keeps a whole size on a size card, and drops a size from any other kind', () => {
+    const size = { what: 'battery tray', value: '186 x 128', unit: 'mm', source: 'measured', note: 'by the lid' }
+    const read = readBoardFile({ next: 3, cards: [card('C1', { kind: 'size', text: undefined, size }), card('C2', { size })], arrows: [] })
+    expect(read?.dropped).toBe(0)
+    expect(read?.file.cards[0].size).toEqual(size)
+    expect(read?.file.cards[1].size).toBeUndefined()
+    expect(Object.keys(read?.file.cards[1] ?? {})).not.toContain('size')
+  })
+
+  it('drops a size card whose size is missing or not whole, and keeps only the fields a size has', () => {
+    const good = { what: 'tray', value: '186', unit: 'mm', source: 'a guess' }
+    const read = readBoardFile({
+      next: 9,
+      cards: [
+        card('C1', { kind: 'size', size: { ...good, extra: 1 } }),
+        card('C2', { kind: 'size' }),
+        card('C3', { kind: 'size', size: { ...good, unit: 'cm' } }),
+        card('C4', { kind: 'size', size: { ...good, what: 'w'.repeat(201) } }),
+        card('C5', { kind: 'size', size: { ...good, source: 'from Claude' } }),
+        card('C6', { kind: 'size', by: 'agent', size: { ...good, source: 'from Claude' } })
+      ],
+      arrows: []
+    })
+    expect(read?.file.cards.map((c) => c.id)).toEqual(['C1', 'C6'])
+    expect(read?.file.cards[0].size).toEqual(good)
+    expect(read?.dropped).toBe(4)
+  })
+
   it('drops a field of the wrong shape and keeps the card', () => {
     const read = readBoardFile({ next: 2, cards: [card('C1', { text: 5, hidden: false, picture: '../x.png', camera: { position: [1] } })], arrows: [] })
     expect(read?.file.cards[0]).toEqual(card('C1', { text: undefined }))
