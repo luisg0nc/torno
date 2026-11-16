@@ -1,36 +1,24 @@
 import { constants } from 'node:fs'
-import { lstat, open, readdir, rm } from 'node:fs/promises'
+import { lstat, open, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { type Held, sweepDropped } from '../dropped'
 import type { MarkStore } from '../marks/store'
-import { FOLDER, ownTorno } from '../own'
+import { FOLDER } from '../own'
+import { NOTES_FOLDER } from './dropped'
 import { isNoteFile } from './files'
 
-// The pictures of the view notes of a project (`.torno/notes/`) that no note names are swept when the project is first
-// opened in a run, as piece 2 sweeps the pictures of the board (`board/pictures.ts`): what an edit left behind (the
-// ink of before it), what a note removed in an earlier run had, what a failed save wrote.
-
-const INSIDE = 'notes'
+// The pictures of the view notes of a project (`.torno/notes/`) that torno dropped are swept when the project is first
+// opened in a run, as piece 2 sweeps the pictures of the board (`board/pictures.ts`): the ink an edit replaced, the
+// references it took away, the files of a note removed in an earlier run, what a failed save wrote. Only those: main
+// lists each file when it drops it (`dropped.json`, `dropped.ts`), and a file that is not on the list is never deleted,
+// whatever the marks name (a branch switched to has other marks, and its pictures are the person's).
 
 /**
- * Removes the files of `.torno/notes/` no note names (`kept`): only files with a note picture's name, never the folder's
- * `.gitignore` nor anything the person put there, and none made in the last `grace` ms (a picture kept just now has no
- * note yet). Nothing when there is no folder; a `Refusal` for a link in the place of `.torno` or `notes`.
+ * Deletes the files of `.torno/notes/` torno dropped (the list of `dropped.json`) that no note holds (`held`): only
+ * files with a note picture's name, never the folder's `.gitignore` nor anything the person put there, and none changed
+ * in the last `grace` ms. Nothing when there is no folder; a `Refusal` for a link in the place of `.torno` or `notes`.
  */
-export async function sweepNotes(dir: string, kept: ReadonlySet<string>, grace = 0): Promise<void> {
-  const folder = join(dir, FOLDER, INSIDE)
-  const names = await readdir(folder).catch((e: NodeJS.ErrnoException) => {
-    if (e.code === 'ENOENT') return null
-    throw e
-  })
-  if (names === null) return
-  await ownTorno(dir, INSIDE)
-  const now = Date.now()
-  for (const name of names) {
-    if (!isNoteFile(name) || kept.has(name)) continue
-    const made = grace > 0 ? await lstat(join(folder, name)).then((s) => s.mtimeMs, () => 0) : 0
-    if (now - made >= grace) await rm(join(folder, name), { force: true })
-  }
-}
+export const sweepNotes = (dir: string, held: Held, grace = 0): Promise<void> => sweepDropped(dir, NOTES_FOLDER, isNoteFile, held, grace)
 
 /** How long a picture file is left alone, as made: a picture is kept before the note that names it is. */
 const GRACE_MS = 60_000
@@ -71,11 +59,11 @@ export async function namedAside(dir: string): Promise<Set<string>> {
 }
 
 /**
- * The sweep of the pictures no note names, made once for each project in a run, when it is first opened: before the
+ * The sweep of the pictures torno dropped, made once for each project in a run, when it is first opened: before the
  * window has anything of it to undo, so that no undo points at a file that is gone (the window forgets its undo when the
  * workspace changes, and so does this, `forget`). It is made in the turn of the project's marks, and what was taken off
- * in this run counts as named. A picture a file kept aside names is never swept (`namedAside`), and a marks file that
- * could not be read whole is not swept at all that run.
+ * in this run is kept. A picture a file kept aside names is never swept (`namedAside`), and a marks file that could not
+ * be read whole is not swept at all that run.
  */
 export class NoteSweep {
   private done = new Set<string>()
@@ -90,10 +78,10 @@ export class NoteSweep {
     if (this.done.has(dir)) return
     this.done.add(dir)
     try {
-      await this.marks.withNoteFiles(objectId, async (named, _dir, problem) => {
+      await this.marks.withNoteFiles(objectId, async (held, _dir, problem) => {
         if (problem !== null) return
-        for (const name of await namedAside(dir)) named.add(name)
-        await sweepNotes(dir, named, this.grace)
+        for (const name of await namedAside(dir)) held.kept.add(name)
+        await sweepNotes(dir, held, this.grace)
       })
     } catch (e) {
       console.error(`cannot sweep the pictures of the notes of ${objectId}: ${e instanceof Error ? e.message : String(e)}`)

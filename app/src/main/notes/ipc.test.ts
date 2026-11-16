@@ -7,6 +7,8 @@ import { REFUSED } from '../../shared/refusal'
 import type { ObjectInfo } from '../../shared/workspace'
 import { MarkStore } from '../marks/store'
 import { refusable } from '../refusal'
+import { droppedNames } from '../dropped'
+import { isNoteFile } from './files'
 import { draft, jpeg, png } from './testing'
 import { noteHandlers } from './ipc'
 
@@ -78,6 +80,14 @@ describe('notes.make', () => {
     expect(await store.list('bracket')).toEqual([])
   })
 
+  it('lists the pictures it wrote as dropped when the mark is not kept, for the sweep of a later run', async () => {
+    const failing = noteHandlers({ marks: { ...store, list: store.list.bind(store), editNote: store.editNote.bind(store), addNote: () => Promise.reject(new Error('disk full')) }, object: () => obj() })
+    await expect(failing.make(draft() as never)).rejects.toThrow(/disk full/)
+    const pictures = files().filter((n) => n !== 'dropped.json')
+    expect(pictures).toHaveLength(3)
+    expect((await droppedNames(dir, ['notes'], isNoteFile)).sort()).toEqual(pictures)
+  })
+
   it('refuses a project that is not open', async () => {
     await expect(handlers().make(draft({ objectId: 'nope' }) as never)).rejects.toThrow(/not open/)
     expect(existsSync(join(dir, '.torno'))).toBe(false)
@@ -104,6 +114,16 @@ describe('notes.edit', () => {
     const edited = (await handlers().edit('bracket', note.id, { comment: 'thicker, 4 mm' })) as NoteMark
     expect(edited).toMatchObject({ note: 'thicker, 4 mm', picture: note.picture, ink: note.ink })
     expect(files()).toEqual(before)
+  })
+
+  it('lists the pictures an edit wrote as dropped when the change is not kept', async () => {
+    const note = await made()
+    const before = files()
+    const failing = noteHandlers({ marks: { list: store.list.bind(store), addNote: store.addNote.bind(store), editNote: () => Promise.reject(new Error('disk full')) }, object: () => obj() })
+    await expect(failing.edit('bracket', note.id, { strokes: [{ width: 2, points: [[1, 1], [2, 2]] }], labels: [], inked: png(800, 600) } as never)).rejects.toThrow(/disk full/)
+    const added = files().filter((n) => !before.includes(n) && n !== 'dropped.json')
+    expect(added).toHaveLength(1)
+    expect(await droppedNames(dir, ['notes'], isNoteFile)).toEqual(added)
   })
 
   it('writes a new inked picture when strokes or labels change, and leaves the old file for the sweep', async () => {

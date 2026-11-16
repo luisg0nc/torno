@@ -7,6 +7,7 @@ import { type RegionStats, maskStem } from '../../shared/regions'
 export type RegionSaid = RegionStats & { mesh?: string; mask?: number }
 import { loadMarksFile, sanitiseMark, saveMarksFile } from './file'
 import { Refusal } from '../refusal'
+import { dropNoteFiles } from '../notes/dropped'
 
 /** What a check of a mark against a build found (`reanchorAll`), for `MarkStore.reanchor` to write. */
 export interface Reanchored {
@@ -260,6 +261,12 @@ export class MarkStore {
    * it rejects, there is no mark, and the number is given to the next.
    */
   add(objectId: string, mark: NewMark, status: 'draft' | 'sent' = 'draft', measured?: Measurement, region?: { stats: RegionSaid; before(id: string): Promise<void> }): Promise<Mark> {
+    // A note has files only main makes (`notes/ipc.ts`), and its numbers are checked there: the window does not make one here.
+    if (kind(mark) === 'note') return Promise.reject(new Refusal('a view note is made with the Draw on view sheet, not added as a mark'))
+    return this.keep(objectId, mark, status, measured, region)
+  }
+
+  private keep(objectId: string, mark: NewMark, status: 'draft' | 'sent', measured?: Measurement, region?: { stats: RegionSaid; before(id: string): Promise<void> }): Promise<Mark> {
     return this.change(
       objectId,
       (file) => {
@@ -290,7 +297,7 @@ export class MarkStore {
    * only main says of a mark is never taken from it. If it is refused, nothing is written and the number is not used.
    */
   addNote(objectId: string, note: NewNote): Promise<Mark> {
-    return this.add(objectId, { ...note, kind: 'note', author: 'user' } as NewMark)
+    return this.keep(objectId, { ...note, kind: 'note', author: 'user' } as NewMark, 'draft')
   }
 
   /**
@@ -310,6 +317,8 @@ export class MarkStore {
       // What crosses from the window is whatever it sent: a patch that is no object changes nothing.
       const asked: Record<string, unknown> = typeof patch === 'object' && patch !== null ? patch : {}
       const kept = Object.fromEntries(NOTE_KEYS.filter((key) => asked[key] !== undefined).map((key) => [key, asked[key]]))
+      // What the old ink lay over says nothing of the new: it is left to be told anew, or none.
+      if ((kept.strokes !== undefined || kept.labels !== undefined) && kept.under === undefined) kept.under = []
       const changed = sanitiseMark({ ...mark, ...kept })
       if (!changed) throw new Refusal(`that is not a valid change to ${id}`)
       if (isDeepStrictEqual(changed, mark)) return UNCHANGED
@@ -324,7 +333,14 @@ export class MarkStore {
       file.marks[at] = changed
       return changed
     })
-    return edited === UNCHANGED ? structuredClone(was as Mark) : edited
+    if (edited === UNCHANGED) return structuredClone(was as Mark)
+    // What the edit let go of (the ink it replaced, the references it took away) is what torno dropped.
+    const dir = this.deps.dirOf(objectId)
+    if (dir !== undefined && was?.kind === 'note' && edited.kind === 'note') {
+      const still = new Set(noteFileNames(edited))
+      await dropNoteFiles(dir, noteFileNames(was).filter((name) => !still.has(name)))
+    }
+    return edited
   }
 
   /**
@@ -483,14 +499,15 @@ export class MarkStore {
 
   /**
    * Runs `task` in the turn of the object's marks, so that no change lands meanwhile, with the picture files its notes
-   * name: those of the notes it has and of those removed in this run (an undo brings those back), and what was wrong
-   * with the marks file when it was read (a sweep that is told so leaves the files alone: the file kept aside may name them).
+   * name: those of the notes it has (`live`) and of those removed in this run (`kept`: an undo brings those back), and
+   * what was wrong with the marks file when it was read (a sweep that is told so leaves the files alone: the file kept
+   * aside may name them).
    */
-  withNoteFiles<T>(objectId: string, task: (named: Set<string>, dir: string, problem: string | null) => Promise<T>): Promise<T> {
+  withNoteFiles<T>(objectId: string, task: (held: { live: Set<string>; kept: Set<string> }, dir: string, problem: string | null) => Promise<T>): Promise<T> {
     return this.turn(objectId, (file, dir) => {
-      const named = new Set<string>(this.removedFiles.get(dir) ?? [])
-      for (const mark of file.marks) if (mark.kind === 'note') for (const name of noteFileNames(mark)) named.add(name)
-      return task(named, dir, this.problems.get(dir) ?? null)
+      const live = new Set<string>()
+      for (const mark of file.marks) if (mark.kind === 'note') for (const name of noteFileNames(mark)) live.add(name)
+      return task({ live, kept: new Set<string>(this.removedFiles.get(dir) ?? []) }, dir, this.problems.get(dir) ?? null)
     })
   }
 
@@ -509,8 +526,11 @@ export class MarkStore {
         this.removedFiles.set(dir, kept)
       }
       return removed
-    }).then((mark) => {
+    }).then(async (mark) => {
       this.deleted.set(objectId, { mark, mask })
+      // The files of a note taken away are what torno dropped: the sweep of a later run takes them, unless an undo has brought the note back.
+      const dir = this.deps.dirOf(objectId)
+      if (mark.kind === 'note' && dir !== undefined) await dropNoteFiles(dir, noteFileNames(mark))
     })
   }
 

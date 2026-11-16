@@ -76,8 +76,12 @@ comment), `layout`, `revision` (the build it was drawn on), `camera` and the sta
 `.torno/notes/` holds the plain view pictures and the reference images, with a `.gitignore` of `*` written by main as
 `board/pictures/` is. The inked picture is composed from the plain picture, the strokes and the labels in the window (which has the canvas), and kept beside the plain one as `n-<hex>.ink.png`, also local. The
 strokes and labels stay the source: an edit composes and sends a new inked file. Main has no canvas, so it sends the
-kept inked file rather than drawing it again (a planning call). Files no note names are swept once per run when
-the project is opened, as piece 2 sweeps board pictures (keeping what undo or a removed-this-run note still names).
+kept inked file rather than drawing it again (a planning call). Only files torno itself dropped are swept (Luis's
+decision, for the notes and for piece 2's board pictures): main lists each file it drops (a note removed, the ink an edit
+replaced, a reference taken away, what a failed save wrote; for the board a removed card's picture, a replaced sketch) in
+a local `dropped.json` in the git-ignored folder, and once per run when the project is opened the sweep deletes a listed
+file only if no mark or card names it and this run's undo cannot bring it back, then takes it off the list. A file that is
+not on the list is never deleted: a branch switch must never delete a picture.
 On a computer without the picture, the note is drawn and sent as data: its comment, labels, refs and camera, with
 "the picture is not on this computer; look through its camera", and the card says so.
 
@@ -138,8 +142,8 @@ model built again since the note was drawn is said, as today.
     `drawingOf` checks today, plus the new caps.
   - Main names every file and the window never names one. The plain picture never changes after the note is made.
   - A reference added later gets a new `r-` name.
-  - A removed reference or a deleted note leaves its files until the sweep. The sweep keeps what this run's undo can
-    still bring back, as piece 2 does for board pictures.
+  - A removed reference or a deleted note leaves its files, listed as dropped, until the sweep of a later run. The sweep
+    takes only listed files and keeps what this run's undo can still bring back, as piece 2 does for board pictures.
 - **What Claude can do.**
   - Claude can only resolve a note, with `resolve_mark`.
   - `add_mark` refuses `kind: 'note'`.

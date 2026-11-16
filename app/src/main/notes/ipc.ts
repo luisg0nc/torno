@@ -4,7 +4,8 @@ import type { ObjectInfo } from '../../shared/workspace'
 import type { MarkStore } from '../marks/store'
 import { Refusal } from '../refusal'
 import { checkNoteDraft, checkNoteEdit } from './check'
-import { readNoteFile, writeNoteFile } from './files'
+import { dropNoteFiles } from './dropped'
+import { type NoteFileKind, readNoteFile, writeNoteFile } from './files'
 
 // What the window may ask of the view notes (`notes:make`, `notes:edit`, `notes:picture`), as handlers that do not
 // need Electron (`main/ipc.ts` registers them). The window names a project and a mark by its `M<n>`; it never names a
@@ -38,34 +39,54 @@ export function noteHandlers(deps: NoteIpcDeps) {
     return mark
   }
 
+  /**
+   * Runs `task` with a way to keep pictures in the project's notes folder. What it wrote is listed as dropped (for the
+   * sweep of a later run) should `task` fail: a note not kept leaves its pictures behind, and they are torno's to take.
+   */
+  const writing = async <T>(obj: ObjectInfo, task: (write: (kind: NoteFileKind, bytes: Uint8Array, mediaType: string) => Promise<string>) => Promise<T>): Promise<T> => {
+    const written: string[] = []
+    try {
+      return await task(async (kind, bytes, mediaType) => {
+        const name = await writeNoteFile(obj.dir, kind, bytes, mediaType)
+        written.push(name)
+        return name
+      })
+    } catch (e) {
+      await dropNoteFiles(obj.dir, written)
+      throw e
+    }
+  }
+
   return {
     /** Keeps a new note, as a draft of the person: its pictures are written first, under names of main's own, then the mark. */
     async make(raw: NoteDraft): Promise<Mark> {
       const draft = checkNoteDraft(raw)
       if (draft instanceof Refusal) throw draft
       const obj = open(draft.objectId)
-      const picture = await writeNoteFile(obj.dir, 'plain', draft.plain, 'image/png')
-      const ink = await writeNoteFile(obj.dir, 'ink', draft.inked, 'image/png')
-      const references: NoteMark['references'] = []
-      for (const reference of draft.references) references.push({ file: await writeNoteFile(obj.dir, 'reference', reference.bytes, reference.mediaType), comment: reference.comment })
-      const note = {
-        kind: 'note',
-        author: 'user',
-        note: draft.comment,
-        layout: draft.layout,
-        revision: draft.revision,
-        camera: draft.camera,
-        picture,
-        ink,
-        size: draft.size,
-        strokes: draft.strokes,
-        inkColour: draft.inkColour,
-        labels: draft.labels,
-        under: draft.under,
-        references,
-        ...(draft.anchor ? { anchor: draft.anchor } : {})
-      } satisfies NewNote
-      return deps.marks.addNote(obj.id, deps.placed ? deps.placed(note, obj.id) : note)
+      return writing(obj, async (write) => {
+        const picture = await write('plain', draft.plain, 'image/png')
+        const ink = await write('ink', draft.inked, 'image/png')
+        const references: NoteMark['references'] = []
+        for (const reference of draft.references) references.push({ file: await write('reference', reference.bytes, reference.mediaType), comment: reference.comment })
+        const note = {
+          kind: 'note',
+          author: 'user',
+          note: draft.comment,
+          layout: draft.layout,
+          revision: draft.revision,
+          camera: draft.camera,
+          picture,
+          ink,
+          size: draft.size,
+          strokes: draft.strokes,
+          inkColour: draft.inkColour,
+          labels: draft.labels,
+          under: draft.under,
+          references,
+          ...(draft.anchor ? { anchor: draft.anchor } : {})
+        } satisfies NewNote
+        return deps.marks.addNote(obj.id, deps.placed ? deps.placed(note, obj.id) : note)
+      })
     },
 
     /**
@@ -82,18 +103,20 @@ export function noteHandlers(deps: NoteIpcDeps) {
       if (keep.some((i) => i >= mark.references.length)) throw new Refusal('The references to keep are not all references of the note.')
       const added = edit.addReferences ?? []
       if (keep.length + added.length > MOST_NOTE_REFERENCES) throw new Refusal(`A note has at most ${MOST_NOTE_REFERENCES} references.`)
-      const patch: NotePatch = {}
-      if (edit.comment !== undefined) patch.note = edit.comment
-      if (edit.labels !== undefined) patch.labels = edit.labels
-      if (edit.strokes !== undefined) patch.strokes = edit.strokes
-      if (edit.under !== undefined) patch.under = edit.under
-      if (edit.inked !== undefined) patch.ink = await writeNoteFile(obj.dir, 'ink', edit.inked, 'image/png')
-      if (edit.keepReferences !== undefined || added.length > 0) {
-        const references = keep.map((i) => mark.references[i])
-        for (const reference of added) references.push({ file: await writeNoteFile(obj.dir, 'reference', reference.bytes, reference.mediaType), comment: reference.comment })
-        patch.references = references
-      }
-      return deps.marks.editNote(obj.id, mark.id, patch)
+      return writing(obj, async (write) => {
+        const patch: NotePatch = {}
+        if (edit.comment !== undefined) patch.note = edit.comment
+        if (edit.labels !== undefined) patch.labels = edit.labels
+        if (edit.strokes !== undefined) patch.strokes = edit.strokes
+        if (edit.under !== undefined) patch.under = edit.under
+        if (edit.inked !== undefined) patch.ink = await write('ink', edit.inked, 'image/png')
+        if (edit.keepReferences !== undefined || added.length > 0) {
+          const references = keep.map((i) => mark.references[i])
+          for (const reference of added) references.push({ file: await write('reference', reference.bytes, reference.mediaType), comment: reference.comment })
+          patch.references = references
+        }
+        return deps.marks.editNote(obj.id, mark.id, patch)
+      })
     },
 
     /**

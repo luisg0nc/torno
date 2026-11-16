@@ -36,12 +36,17 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 - `<object>/.torno/board/pictures/` holds the picture and sketch files (`p-<12 hex>.png|jpg`) with a `.gitignore` of `*` of
   its own, written by whoever makes the folder (`pictures.ts`, as `views/` and `scans/` do). A picture may show the real
   world, so **pictures do not travel**: a board cloned without them shows a "picture not on this computer" placeholder
-  and sends no picture. A file is not deleted with its card, so that undo brings the card back whole; the files no card
-  names are swept once for each project in a run, when it is first opened (`PictureSweep`, from `onObjectOpened`), before the
-  window has any undo of it: the window forgets its undo stacks and cameras when a workspace is opened or left. Files made in
-  the last minute are left. The sweep is made in the board's turn and counts what was taken off the board in this run as named.
+  and sends no picture. A file is not deleted with its card, so that undo brings the card back whole; **only files torno itself dropped are ever
+  swept, never "whatever the board does not name"** (a branch switch brings a board that names other pictures, and the
+  pictures are not in git): `BoardStore` lists a picture in `board/pictures/dropped.json` (`main/dropped.ts`, written by
+  `board/dropped.ts` `dropPictures`, inside `changeWith`, once the board is written) when a change lets go of it (a card
+  taken off, a sketch drawn on again). The files on that list are swept once for each project in a run, when it is first
+  opened (`PictureSweep`, from `onObjectOpened`), before the window has any undo of it: the window forgets its undo stacks
+  and cameras when a workspace is opened or left. A listed file goes only if no card names it now and nothing taken off the
+  board in this run does, it is a plain file, and it was changed more than a minute ago; it then comes off the list, as does
+  a name a card holds again or a file that is gone. An unlisted file is never deleted. The sweep is made in the board's turn.
   A board that could not be read whole is not swept that run, and on every run the pictures named in a `board.json.corrupt-*` or
-  `board.json.dropped-*` file beside it are kept (read capped and never through a link): pictures are ignored by git and that
+  `board.json.dropped-*` file beside it are kept (read capped and never through a link, and stay listed): pictures are ignored by git and that
   file is the one place that still says which they are.
 - `<object>/.torno/board/told.json` (ignored through `ensureIgnored`) holds what revision of each card the agent was told. It
   is never tracked, so the tracked file carries no counters. It is written only once a prompt that carried the board line

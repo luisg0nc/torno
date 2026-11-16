@@ -828,9 +828,9 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   label: click the picture and type a line of at most 200 characters (up to 20
   labels), then drag from the label to point an arrow at something; "Remove arrow"
   and "Remove label" are beside the label while you write in it. Under the picture
-  are a comment (one line, 300 characters) and "Add a reference", which opens a
+  are a comment (one line, 2000 characters) and "Add a reference", which opens a
   dialog for a photo or a picture (or drop one on the list), up to six, each
-  scaled to 1280 px and each with a line of its own. "Done" keeps the drawing as a view
+  scaled to 1280 px and each with a line of its own (300 characters). "Done" keeps the drawing as a view
   note, a draft among the marks, and the box has the keys again, for the prompt
   it goes with. Each note that waits for it is a row above the box: its picture
   with the ink, its comment, what the ink lies over (refs that light their face
@@ -839,7 +839,8 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   with the prompt in words. Several can wait, and "Draw on view" stays open while
   they do. What the eraser took stays erased when a note is opened again. The sheet says before "Done" when the view moved under it, so what
   the ink lies over could not be worked out; the head of each arrow is looked
-  under as the ink is. A note is opened again on its own plain picture to change
+  under as the ink is. A note is opened again, from the row above the box or from its row in the
+  marks list ("Edit"), on its own plain picture to change
   its ink, labels, comment or references; one whose picture is not on this
   computer opens with its comment and references only. A note goes with your next prompt, whatever you write; once sent
   it is a sent mark like any other. The prompt carries, after the picture "Attach
@@ -860,7 +861,12 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   that light their face in the view when the pointer is on them. The terminal view
   has no "Draw on view". The pictures are kept in the project's `.torno/notes/`,
   never in the chat's log; the line of what the ink lies over, refs only, is text
-  in the log like the rest of the prompt.
+  in the log like the rest of the prompt. A picture torno let go of (the ink an edit
+  replaced, a reference taken away, a removed note's) is listed in `dropped.json`
+  beside them and deleted when the project is first opened in a later run, unless a
+  note has it again or a file kept aside (`marks.json.corrupt-…`, `marks.json.dropped-…`) names it. A picture
+  that is not on that list is never deleted, whatever the notes name: switching
+  branch never takes one.
 - **What Claude Code says of itself.** torno reads the account the CLI gives at
   the start of a turn and says what a person would miss: a warning when torno's
   tools did not connect, with what the CLI said; a warning when torno's skills
@@ -1757,8 +1763,10 @@ make to the board: before writing it compares the file with what it last wrote, 
 on top of it, and shows you the result. A pull is therefore seen at the next change, not at once. A file torno cannot read, or
 with cards that are not whole, is kept beside it (`board.json.corrupt-…`, `board.json.dropped-…`) and the board says so, with
 "Dismiss". Undo (`Ctrl+Z`) goes back up to 50 changes made in this window, and brings back what torno took off in this run. The
-pictures no card names are removed when the project is first opened in a run, except those a file kept aside names
-(`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them.
+pictures torno let go of (a removed card's, a sketch drawn on again) are listed in `dropped.json` beside them and deleted when
+the project is first opened in a later run, unless a card has them again or a file kept aside names them
+(`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on
+that list is never deleted, whatever the board names: switching branch never takes one.
 
 ## The page of projects
 

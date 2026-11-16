@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark } from '../../shared/marks'
 import * as file from './file'
+import { droppedNames } from '../dropped'
+import { isNoteFile } from '../notes/files'
 import { MarkStore } from './store'
 
 // The real file module, with its writes counted.
@@ -1053,23 +1055,48 @@ describe('a view note', () => {
     expect(changes).toHaveLength(1)
   })
 
-  it('names the files of its notes, and of those removed in this run, to whoever sweeps them', async () => {
+  it('is never added through add, which is what the window asks for: only addNote keeps one, its files being main\'s', async () => {
+    await expect(store.add('bracket', note())).rejects.toThrow(/note/)
+    expect(await store.list('bracket')).toEqual([])
+  })
+
+  it('names the files of its notes, and apart those of the notes removed in this run, to whoever sweeps them', async () => {
     await store.addNote('bracket', note({ picture: 'n-aaaaaaaaaaaa.png', ink: 'n-aaaaaaaaaaaa.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.jpg', comment: '' }] }))
     await store.addNote('bracket', note({ picture: 'n-bbbbbbbbbbbb.png', ink: 'n-bbbbbbbbbbbb.ink.png' }))
     await store.add('bracket', pin())
+    await store.remove('bracket', 'M3')
+    const seen = await store.withNoteFiles('bracket', async ({ live, kept }, dir, problem) => ({ live: [...live].sort(), kept: [...kept], dir, problem }))
+    expect(seen).toEqual({ live: ['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'n-bbbbbbbbbbbb.ink.png', 'n-bbbbbbbbbbbb.png', 'r-aaaaaaaaaaaa.jpg'], kept: [], dir: dirs.bracket, problem: null })
     await store.remove('bracket', 'M2')
-    const seen = await store.withNoteFiles('bracket', async (named, dir, problem) => ({ named: [...named].sort(), dir, problem }))
-    expect(seen).toEqual({ named: ['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'n-bbbbbbbbbbbb.ink.png', 'n-bbbbbbbbbbbb.png', 'r-aaaaaaaaaaaa.jpg'], dir: dirs.bracket, problem: null })
+    expect(await store.withNoteFiles('bracket', async ({ live, kept }) => ({ live: [...live].sort(), kept: [...kept].sort() }))).toEqual({ live: ['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'r-aaaaaaaaaaaa.jpg'], kept: ['n-bbbbbbbbbbbb.ink.png', 'n-bbbbbbbbbbbb.png'] })
   })
 
   it('forgets the files of the notes removed when the workspace is left, and keeps a restored one named', async () => {
     await store.addNote('bracket', note())
     await store.remove('bracket', 'M1')
     await store.restore('bracket', 'M1')
-    expect(await store.withNoteFiles('bracket', async (named) => [...named].sort())).toEqual(['n-0123456789ab.ink.png', 'n-0123456789ab.png'])
+    const both = ['n-0123456789ab.ink.png', 'n-0123456789ab.png']
+    expect(await store.withNoteFiles('bracket', async ({ live, kept }) => ({ live: [...live].sort(), kept: [...kept].sort() }))).toEqual({ live: both, kept: both })
     await store.remove('bracket', 'M1')
     store.forget()
-    expect(await store.withNoteFiles('bracket', async (named) => [...named])).toEqual([])
+    expect(await store.withNoteFiles('bracket', async ({ live, kept }) => [...live, ...kept])).toEqual([])
+  })
+
+  it('lists the files torno drops in the folder of the notes: those of a note removed, the ink an edit replaced, the references it took away', async () => {
+    mkdirSync(join(dirs.bracket, '.torno', 'notes'), { recursive: true })
+    const listed = (): Promise<string[]> => droppedNames(dirs.bracket, ['notes'], isNoteFile).then((names) => names.sort())
+    await store.addNote('bracket', note({ picture: 'n-aaaaaaaaaaaa.png', ink: 'n-aaaaaaaaaaaa.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.jpg', comment: '' }, { file: 'r-bbbbbbbbbbbb.jpg', comment: '' }] }))
+    expect(await listed()).toEqual([])
+    // A new ink and one reference less: the old ink and that reference are dropped, the plain picture and the other reference are not.
+    await store.editNote('bracket', 'M1', { ink: 'n-cccccccccccc.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.jpg', comment: '' }] })
+    expect(await listed()).toEqual(['n-aaaaaaaaaaaa.ink.png', 'r-bbbbbbbbbbbb.jpg'])
+    // A change that lets go of nothing lists nothing.
+    await store.editNote('bracket', 'M1', { note: 'thicker' })
+    expect(await listed()).toEqual(['n-aaaaaaaaaaaa.ink.png', 'r-bbbbbbbbbbbb.jpg'])
+    await store.remove('bracket', 'M1')
+    expect(await listed()).toEqual(['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'n-cccccccccccc.ink.png', 'r-aaaaaaaaaaaa.jpg', 'r-bbbbbbbbbbbb.jpg'])
+    // Nothing but the list was written there: the pictures are not made by the store.
+    expect(readdirSync(join(dirs.bracket, '.torno', 'notes'))).toEqual(['dropped.json'])
   })
 
   it('says what was wrong with its marks file to the sweep, which then leaves the files alone', async () => {
@@ -1120,6 +1147,18 @@ describe('a view note', () => {
     expect(onDisk('bracket').marks[0]).toEqual(edited)
     // It does not change what main alone names, nor the pictures' plain file.
     expect(edited.status).toBe('draft')
+  })
+
+  it('forgets what its ink lay over when its strokes or labels change and the edit does not say it anew', async () => {
+    await store.addNote('bracket', note())
+    const moved = await store.editNote('bracket', 'M1', { strokes: [{ width: 2, points: [[1, 1], [2, 2]] }], ink: 'n-0123456789ab.ink.png' })
+    expect(moved).toMatchObject({ under: [] })
+    await store.editNote('bracket', 'M1', { under: [under] })
+    expect(await store.editNote('bracket', 'M1', { labels: [{ x: 5, y: 6, text: 'here' }] })).toMatchObject({ under: [] })
+    // A comment alone leaves it, and an edit that says it anew keeps what it says.
+    await store.editNote('bracket', 'M1', { under: [under] })
+    expect(await store.editNote('bracket', 'M1', { note: 'thicker' })).toMatchObject({ under: [under] })
+    expect(await store.editNote('bracket', 'M1', { labels: [], under: [under, under] })).toMatchObject({ under: [under, under] })
   })
 
   it('refuses an edit to anything but a note, to a file that is not main’s, and to a note that is not there', async () => {
