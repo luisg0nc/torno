@@ -74,8 +74,7 @@ comment), `layout`, `revision` (the build it was drawn on), `camera` and the sta
 ### Pictures on disk
 
 `.torno/notes/` holds the plain view pictures and the reference images, with a `.gitignore` of `*` written by main as
-`board/pictures/` is. The inked picture is never kept: it is composed from the plain picture, the strokes and the
-labels in the window (which has the canvas), and kept beside the plain one as `n-<hex>.ink.png`, also local. The
+`board/pictures/` is. The inked picture is composed from the plain picture, the strokes and the labels in the window (which has the canvas), and kept beside the plain one as `n-<hex>.ink.png`, also local. The
 strokes and labels stay the source: an edit composes and sends a new inked file. Main has no canvas, so it sends the
 kept inked file rather than drawing it again (a planning call). Files no note names are swept once per run when
 the project is opened, as piece 2 sweeps board pictures (keeping what undo or a removed-this-run note still names).
