@@ -456,6 +456,12 @@ describe('a note mark', () => {
     expect(sanitiseMark(bare)).toEqual(bare)
   })
 
+  it('keeps an eraser stroke as one, and any other `erase` as a pen', () => {
+    const strokes = [{ width: 4, points: [[1, 2]] }, { width: 28, points: [[1, 2]], erase: true }]
+    expect(sanitiseMark(note({ strokes }))).toEqual(note({ strokes }))
+    expect(sanitiseMark(note({ strokes: [{ width: 4, points: [[1, 2]], erase: 'yes' }] }))).toEqual(note({ strokes: [{ width: 4, points: [[1, 2]] }] }))
+  })
+
   it('keeps no field it does not have', () => {
     expect(sanitiseMark({ ...note(), extra: 1, strokes: [{ width: 4, points: [[1, 2]], more: true }] })).toEqual(note({ strokes: [{ width: 4, points: [[1, 2]] }] }))
   })

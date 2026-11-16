@@ -8,7 +8,7 @@ import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './hist
 import type { ExportPlan, ExportRequest, ExportSaved } from './exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
-import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, Replacement } from './marks'
+import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, NoteStroke, Replacement } from './marks'
 import type { Scene } from './scene'
 import type { SizeFact } from './size'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
@@ -68,9 +68,9 @@ export interface NoteDraft {
   plain: Uint8Array
   inked: Uint8Array
   inkColour: string
-  strokes: Array<{ width: number; points: Array<[number, number]> }>
+  strokes: NoteStroke[]
   labels: NoteLabel[]
-  /** One per stroke that is told of (at most `MOST_STROKES_TOLD`), then one per label with an arrow. */
+  /** One per pen stroke that is told of (at most `MOST_STROKES_TOLD`), then one per label with an arrow. */
   under: StrokeUnder[]
   comment: string
   references: NoteReferenceDraft[]
@@ -86,7 +86,7 @@ export interface NoteDraft {
 export interface NoteEdit {
   comment?: string
   labels?: NoteLabel[]
-  strokes?: Array<{ width: number; points: Array<[number, number]> }>
+  strokes?: NoteStroke[]
   under?: StrokeUnder[]
   inked?: Uint8Array
   keepReferences?: number[]

@@ -65,7 +65,9 @@ export function strokeUnder(box: [number, number, number, number], found: readon
 /**
  * Stroke by stroke, what the ink lies over: pen strokes only, at their points where ink is still left (`inked`: what
  * the eraser took is not looked under); a stroke of which no ink is left is no stroke. At most `MOST_STROKES_TOLD`,
- * the rest counted; `kept` is every pen stroke with ink left, told or not. `look` is given points of the picture, in its pixels.
+ * the rest counted; `kept` is every pen stroke with ink left, told or not, with the eraser strokes among them, in the
+ * order drawn, so that the ink can be made again as it was (an eraser stroke lies over nothing, and none that comes
+ * before the first pen stroke kept is kept: it rubs out nothing). `look` is given points of the picture, in its pixels.
  */
 export function underInk(
   strokes: readonly Stroke[],
@@ -77,7 +79,10 @@ export function underInk(
   const kept: Stroke[] = []
   let more = 0
   for (const stroke of strokes) {
-    if (stroke.tool !== 'pen') continue
+    if (stroke.tool !== 'pen') {
+      if (kept.length > 0) kept.push(stroke)
+      continue
+    }
     const points = samplesOf(stroke.points).filter(([x, y]) => inked(x, y))
     if (points.length === 0) continue
     kept.push(stroke)

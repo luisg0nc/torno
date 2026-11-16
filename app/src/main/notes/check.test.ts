@@ -98,6 +98,25 @@ describe('checkNoteDraft', () => {
     expect(long.strokes[0].points).toHaveLength(400)
   })
 
+  it('keeps an eraser stroke as a stroke with `erase: true`, in its place, and tells nothing of what it lies over', () => {
+    const pen = { width: 4, points: [[1, 2], [30, 2]] }
+    const rub = { width: 28, points: [[10, 2], [20, 2]], erase: true }
+    const checked = checkNoteDraft(draft({ strokes: [pen, rub, { ...pen }], labels: [], under: [UNDER, UNDER] })) as { strokes: object[] }
+    expect(checked.strokes).toEqual([pen, rub, pen])
+    // Told of one line a pen stroke, and an eraser stroke has none.
+    refused(draft({ strokes: [pen, rub], labels: [], under: [UNDER, UNDER] }), /over/)
+    // Only `true` is an eraser; any other word is a pen.
+    const odd = checkNoteDraft(draft({ strokes: [{ ...pen, erase: 'yes' }, { ...pen, erase: false }], labels: [], under: [] })) as { strokes: object[] }
+    expect(odd.strokes).toEqual([pen, pen])
+  })
+
+  it('holds the eraser strokes to 2000 as well, apart from the pen strokes', () => {
+    const pen = { width: 4, points: [[1, 2]] }
+    const rub = { width: 28, points: [[1, 2]], erase: true }
+    expect(checkNoteDraft(draft({ strokes: [pen, ...Array.from({ length: 2000 }, () => rub)], labels: [], under: [UNDER] }))).not.toBeInstanceOf(Refusal)
+    refused(draft({ strokes: [pen, ...Array.from({ length: 2001 }, () => rub)], labels: [], under: [UNDER] }), /eraser/)
+  })
+
   it('tells of the ink of at most as many strokes as drawings tell, and of each label with an arrow', () => {
     const strokes = Array.from({ length: 40 }, () => ({ width: 4, points: [[1, 2]] }))
     const told = Array.from({ length: MOST_STROKES_TOLD }, () => UNDER)

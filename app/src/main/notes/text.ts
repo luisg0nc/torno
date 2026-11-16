@@ -1,5 +1,5 @@
 import { MOST_STROKES_TOLD } from '../../shared/drawing'
-import type { NoteMark } from '../../shared/marks'
+import { type NoteMark, penStrokes } from '../../shared/marks'
 import { describeMark } from '../marks/describe'
 import { counted, folded, overText, strokeLine } from '../sessions/drawing'
 
@@ -31,7 +31,9 @@ export function noteText(mark: NoteMark, latestRevision: number | undefined, opt
   const toolName = opts.toolName ?? ((tool: string): string => tool)
   const files = opts.files
   const lines = [describeMark(mark, latestRevision === undefined ? {} : { revision: latestRevision })]
-  const ink = mark.strokes.length > 0 ? `The ink in ${mark.inkColour}${mark.labels.length > 0 ? ' and the labels are' : ' is'}` : mark.labels.length > 0 ? 'The labels are' : ''
+  // The strokes told of are the pen strokes: an eraser stroke lies over nothing.
+  const pens = penStrokes(mark.strokes).length
+  const ink = pens > 0 ? `The ink in ${mark.inkColour}${mark.labels.length > 0 ? ' and the labels are' : ' is'}` : mark.labels.length > 0 ? 'The labels are' : ''
   const drawn = ink ? ` ${ink} the person's drawing over the picture: not the model, and not marks.` : ''
   lines.push(`Picture: the view as the person saw it when they made the note, in layout ${mark.layout}, on r${mark.revision}.${drawn} The marks in it are torno's, numbered as in the list of marks.`)
   if (files && !files.ink) lines.push('The picture is not on this computer; look through its camera.')
@@ -42,14 +44,14 @@ export function noteText(mark: NoteMark, latestRevision: number | undefined, opt
     lines.push(`The model has been built again since: r${latestRevision} is the latest${faces ? `, and the faces below are of r${mark.revision}: they may name other faces now` : ''}.`)
   }
 
-  const told = Math.min(mark.strokes.length, MOST_STROKES_TOLD)
+  const told = Math.min(pens, MOST_STROKES_TOLD)
   const arrows = mark.labels.filter((label) => label.to !== undefined).length
-  if (mark.strokes.length > 0) {
+  if (pens > 0) {
     if (mark.under.length === 0) lines.push('What the ink lies over was not worked out.')
     else {
       lines.push(`Under the ink, stroke by stroke (x and y are pixels of the ${mark.size.w}×${mark.size.h} picture; faces are of r${mark.revision}):`)
       mark.under.slice(0, told).forEach((stroke, i) => lines.push(strokeLine(stroke, i + 1)))
-      if (mark.strokes.length > told) lines.push(`(${counted(mark.strokes.length - told, 'more stroke', 'more strokes')}, not told)`)
+      if (pens > told) lines.push(`(${counted(pens - told, 'more stroke', 'more strokes')}, not told)`)
     }
   }
 
@@ -83,5 +85,5 @@ export function noteText(mark: NoteMark, latestRevision: number | undefined, opt
  */
 export function noteData(mark: NoteMark, latestRevision: number | undefined, files?: NoteFilesHere): object {
   const { picture: _picture, ink: _ink, strokes, under: _under, references, ...rest } = mark
-  return { ...rest, strokeCount: strokes.length, references: references.map((reference) => ({ comment: reference.comment })), text: noteText(mark, latestRevision, files ? { files } : {}) }
+  return { ...rest, strokeCount: penStrokes(strokes).length, references: references.map((reference) => ({ comment: reference.comment })), text: noteText(mark, latestRevision, files ? { files } : {}) }
 }

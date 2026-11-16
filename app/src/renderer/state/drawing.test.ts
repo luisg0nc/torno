@@ -50,6 +50,16 @@ describe('a note opened to edit', () => {
     expect(board.picture?.url).toBe('blob:plain')
     expect(board.strokes).toEqual([{ tool: 'pen', width: 3, points: [[1, 2], [10, 20]] }])
   })
+  it('opens an eraser stroke of the note as an eraser stroke, in its place among the pen strokes', () => {
+    const was = note()
+    was.strokes = [...was.strokes, { width: 28, points: [[5, 6], [8, 9]], erase: true }, { width: 9, points: [[3, 3]] }]
+    drawingActions.openNoteOn('s1', 'bracket', was, picture('plain'))
+    expect(drawingStore.getState().board!.strokes).toEqual([
+      { tool: 'pen', width: 3, points: [[1, 2], [10, 20]] },
+      { tool: 'eraser', width: 28, points: [[5, 6], [8, 9]] },
+      { tool: 'pen', width: 9, points: [[3, 3]] }
+    ])
+  })
   it('leaves the note as it was when it is put away: what the board drew on is a copy, and its picture is let go', () => {
     const was = note()
     drawingActions.openNoteOn('s1', 'bracket', was, picture('plain'))

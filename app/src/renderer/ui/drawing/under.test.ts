@@ -54,12 +54,25 @@ describe('underInk', () => {
   it('tells no stroke of which no ink is left', () => {
     expect(underInk([pen([[10, 50], [90, 50]])], size, () => false, look).under).toEqual([])
   })
-  it('keeps the pen strokes with ink left, every one of them, told or not, in the order drawn', () => {
+  it('keeps the pen strokes with ink left, every one of them, told or not, in the order drawn, and the eraser strokes among them', () => {
     const strokes: Stroke[] = [pen([[10, 50], [90, 50]]), { tool: 'eraser', width: 28, points: [[0, 0], [5, 5]] }, pen([[10, 10], [20, 10]]), pen([[150, 80], [190, 80]])]
     const { kept } = underInk(strokes, size, (x) => x < 140, look)
-    expect(kept).toEqual([strokes[0], strokes[2]])
+    expect(kept).toEqual([strokes[0], strokes[1], strokes[2]])
     const many = Array.from({ length: MOST_STROKES_TOLD + 2 }, (_, i) => pen([[i, 10], [i, 20]]))
     expect(underInk(many, size, () => true, look).kept).toHaveLength(MOST_STROKES_TOLD + 2)
+  })
+  it('keeps the eraser strokes among the pen strokes, in the order drawn, and looks under none of them', () => {
+    const rub = (a: number): Stroke => ({ tool: 'eraser', width: 28, points: [[a, 50], [a + 10, 50]] })
+    // An eraser before any pen stroke that is kept rubs out nothing, and is not kept; one after a stroke that is not kept is.
+    const strokes: Stroke[] = [rub(0), pen([[10, 50], [90, 50]]), rub(40), pen([[150, 80], [190, 80]]), rub(60)]
+    const looked: Array<Array<[number, number]>> = []
+    const { under, kept } = underInk(strokes, size, (x) => x < 140, (points) => (looked.push(points), look(points)))
+    expect(kept).toEqual([strokes[1], strokes[2], strokes[4]])
+    expect(under).toHaveLength(1)
+    expect(looked).toHaveLength(1)
+  })
+  it('keeps no eraser when no pen stroke is kept', () => {
+    expect(underInk([pen([[10, 50], [90, 50]]), { tool: 'eraser', width: 28, points: [[0, 50], [100, 50]] }], size, () => false, look).kept).toEqual([])
   })
   it('tells at most so many strokes, and counts the rest', () => {
     const strokes = Array.from({ length: MOST_STROKES_TOLD + 2 }, (_, i) => pen([[i, 10], [i, 20]]))

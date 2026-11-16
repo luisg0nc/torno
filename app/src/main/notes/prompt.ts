@@ -1,4 +1,4 @@
-import { type DrawnOver, MOST_STROKES_TOLD, drawnOver } from '../../shared/drawing'
+import { type DrawnOver, noteDrawnOver } from '../../shared/drawing'
 import type { NoteMark } from '../../shared/marks'
 import type { PromptBlock } from '../sessions/transport'
 import { noteFilesExist } from './files'
@@ -55,14 +55,5 @@ export async function notePrompt(dir: string, notes: readonly NoteMark[], opts: 
   return { blocks, over: notes.map((note) => noteDrawnOver(note, opts.latest)), ids: notes.map((note) => note.id), pictures: pictures.sent.length }
 }
 
-/**
- * What the ink of a note lies over, as the prompt's item shows it: refs and counts only, no kernel line, no box, no
- * camera. What a label's arrow points at is not a stroke and is left out here (the words say it).
- */
-export function noteDrawnOver(note: NoteMark, latest?: number): DrawnOver {
-  const told = Math.min(note.strokes.length, MOST_STROKES_TOLD)
-  // Ink that was not looked under (the view moved while it was drawn) is no `over`; no ink is no strokes.
-  const under = note.strokes.length > 0 && note.under.length === 0 ? null : note.under.slice(0, told)
-  const more = note.strokes.length - told
-  return { note: note.id, ...drawnOver({ revision: note.revision, under, ...(more > 0 ? { moreStrokes: more } : {}) }, latest) }
-}
+/** What the ink of a note lies over, as the prompt's item shows it (`noteDrawnOver` of `shared/drawing.ts`, which the window's row of waiting notes uses too). */
+export { noteDrawnOver }

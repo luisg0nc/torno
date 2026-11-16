@@ -105,6 +105,12 @@ describe('noteDrawnOver', () => {
     expect(noteDrawnOver(note, 5)).toMatchObject({ revision: 3, latest: 5 })
   })
 
+  it('counts the pen strokes only: an eraser stroke lies over nothing and is no stroke', async () => {
+    const rub = { width: 28, points: [[1, 1], [2, 2]] as Array<[number, number]>, erase: true as const }
+    const note = await made('M5', 0, { strokes: [{ width: 3, points: [[10, 10], [60, 40]] }, rub], under: [UNDER_ONE] })
+    expect(noteDrawnOver(note, 3).over).toMatchObject({ faces: ['lid/F12'], strokes: 1 })
+  })
+
   it('leaves out what the heads of the arrows point at, which are not strokes', async () => {
     const note = await made('M5', 0, { labels: [{ x: 5, y: 5, text: 'here', to: { x: 9, y: 9 } }], under: [UNDER_ONE, { ...UNDER_ONE, refs: [{ ref: 'base/F3' }] }] })
     expect(noteDrawnOver(note, 3).over).toMatchObject({ faces: ['lid/F12'], strokes: 1 })

@@ -434,9 +434,9 @@ test('Draw on view: a board over the agent\'s picture of the view; Done keeps a 
   await expect(draftNotes()).toHaveCount(0)
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
   await expect(drawingBoard()).toHaveCount(0)
-  // The drawing is a note now, a draft among the marks, and nothing waits above the box.
+  // The drawing is a note now, a draft among the marks, and it waits above the box.
   await expect(draftNotes()).toHaveCount(1)
-  await expect(dock().getByRole('group', { name: 'Drawing on the view' })).toHaveCount(0)
+  await expect(waitingNotes()).toHaveCount(1)
   // The keys are the box's again: what is typed next is the prompt, not a key of the view.
   await page.keyboard.type('thicker')
   await expect(composer()).toHaveValue('thicker')
@@ -700,6 +700,157 @@ test('a note whose ink was drawn while the view moved says so in the sheet, befo
   await expect(drawingBoard()).toHaveCount(0)
   await show({ objectId: 'bracket', view: 'iso' })
   await cameraSettled()
+})
+
+/** The notes that wait above the box for the next prompt, a row each. */
+const waitingNotes = () => dock().locator('.chat-note-wait')
+/** A point of the canvas over a part: the same fraction of the picture is over it too (one camera, one aspect). */
+const partSpot = () =>
+  page.evaluate(() => {
+    for (const fy of [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65]) {
+      for (const fx of [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65]) {
+        const hit = window.__tornoTest!.pickAt(fx, fy, { edges: false })
+        if (hit) return { fx, fy, part: hit.part }
+      }
+    }
+    return null
+  })
+
+test('notes wait above the box with their thumbnails: Edit opens one, Remove takes one away and Undo brings it back, and one prompt carries them all, each shown under it', async () => {
+  const spot = await partSpot()
+  expect(spot).not.toBeNull()
+  const { fx, fy, part } = spot!
+  ended = await turns().count()
+  await expect(waitingNotes()).toHaveCount(0)
+  // "Draw on view" stays enabled while a note waits: a second one is made.
+  for (const [dx, dy] of [[0.01, 0], [0, 0.01]] as const) {
+    await expect(drawButton()).toBeEnabled()
+    await drawButton().click()
+    await line(drawingBoard(), [fx - dx, fy - dy], [fx + dx, fy + dy])
+    await drawingBoard().getByRole('textbox', { name: 'Comment' }).fill(dx > 0 ? 'first one' : 'second one')
+    await drawingBoard().getByRole('button', { name: 'Done' }).click()
+    await expect(drawingBoard()).toHaveCount(0)
+  }
+  await expect(waitingNotes()).toHaveCount(2)
+  const [one, two] = (await notesNow()).filter((n) => n.status === 'draft').map((n) => n.id)
+  const first = waitingNotes().filter({ has: page.locator(`[data-ref="${one}"]`) })
+  const second = waitingNotes().filter({ has: page.locator(`[data-ref="${two}"]`) })
+  await expect(first).toContainText('first one')
+  await expect(second).toContainText('second one')
+  // Each has the thumbnail of its picture.
+  for (const row of [first, second]) {
+    await expect(row.locator('img')).toBeVisible()
+    expect(await row.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  }
+  // What the ink lies over is told before it is sent, as chips that are live: a face of the part, lit in the view by the pointer.
+  const over = first.locator('.over[data-over="known"]')
+  await expect(over).toContainText('Over')
+  const face = over.locator(`.ref-chip[data-ref^="${part}/F"]`).first()
+  await expect(face).toBeVisible()
+  const ref = (await face.getAttribute('data-ref'))!
+  expect(await peeked()).toEqual([])
+  await face.hover()
+  await expect.poll(peeked).toEqual([ref])
+  await page.mouse.move(0, 0)
+  await expect.poll(peeked).toEqual([])
+
+  // Edit opens the sheet over it, with its strokes; put away unchanged, the note is as it was.
+  await first.getByRole('button', { name: 'Edit' }).click()
+  await expect(drawingBoard()).toBeVisible()
+  await expect(drawingBoard().getByRole('textbox', { name: 'Comment' })).toHaveValue('first one')
+  await expect(drawingBoard().locator('canvas')).toHaveAttribute('data-strokes', '1')
+  await drawingBoard().getByRole('button', { name: 'Cancel' }).click()
+  await expect(drawingBoard()).toHaveCount(0)
+  await expect(waitingNotes()).toHaveCount(2)
+
+  // Remove deletes the mark, and Undo puts it back.
+  await second.getByRole('button', { name: 'Remove' }).click()
+  await expect(waitingNotes()).toHaveCount(1)
+  expect((await notesNow()).map((n) => n.id)).not.toContain(two)
+  await dock().getByRole('status').filter({ hasText: `Removed ${two}` }).getByRole('button', { name: 'Undo' }).click()
+  await expect(waitingNotes()).toHaveCount(2)
+  expect((await notesNow()).map((n) => n.id)).toContain(two)
+
+  // The pictures of one note are not on this computer (the files are not in git): it says so, and still goes with the prompt as words.
+  const dir = join(root, 'bracket', '.torno', 'notes')
+  const gone = await noteNow(two)
+  for (const file of [gone.picture, gone.ink]) rmSync(join(dir, file))
+  await second.getByRole('button', { name: 'Remove' }).click()
+  await expect(waitingNotes()).toHaveCount(1)
+  await dock().getByRole('status').filter({ hasText: `Removed ${two}` }).getByRole('button', { name: 'Undo' }).click()
+  await expect(waitingNotes()).toHaveCount(2)
+  await expect(second).toContainText('picture not on this computer')
+  await expect(second.locator('img')).toHaveCount(0)
+  await expect(first).not.toContainText('picture not on this computer')
+
+  // One prompt carries both: the rows empty, the marks are sent, and each note is shown under the prompt.
+  await say('images')
+  await expect(waitingNotes()).toHaveCount(0)
+  const user = chat().locator('.chat-user').last()
+  await expect(notesOf(user)).toHaveCount(2, { timeout: 20_000 })
+  await expect(notesOf(user).nth(0).locator(`.ref-chip[data-ref="${one}"]`)).toBeVisible()
+  await expect(notesOf(user).nth(1).locator(`.ref-chip[data-ref="${two}"]`)).toBeVisible()
+  await expect(notesOf(user).first()).toContainText('Over')
+  await finished()
+  await expect.poll(async () => (await notesNow()).filter((n) => [one, two].includes(n.id)).map((n) => n.status)).toEqual(['sent', 'sent'])
+})
+
+test('the eraser is kept in a note: a reopened note shows the erased ink erased, and the picture made again is the one made first', async () => {
+  const picked = async (id: string, which: 'ink' | 'plain', at: Array<[number, number]>): Promise<number[][]> =>
+    page.evaluate(
+      async ({ id, which, at }) => {
+        const bytes = await window.torno.notes.picture('bracket', id, which)
+        const bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: 'image/png' }))
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(bitmap, 0, 0)
+        return at.map(([fx, fy]) => [...ctx.getImageData(Math.round(fx * bitmap.width), Math.round(fy * bitmap.height), 1, 1).data])
+      },
+      { id, which, at }
+    )
+  ended = await turns().count()
+  const row = 0.2
+  const samples: Array<[number, number]> = [[0.3, row], [0.5, row], [0.7, row]]
+  await drawButton().click()
+  const board = drawingBoard()
+  await expect(board).toBeVisible()
+  // A thick line across, and the eraser through the middle of it.
+  await board.getByRole('button', { name: 'Thick pen' }).click()
+  await line(board, [0.2, row], [0.8, row])
+  await board.getByRole('button', { name: 'Eraser' }).click()
+  await line(board, [0.45, row], [0.55, row])
+  await board.getByRole('button', { name: 'Done' }).click()
+  await expect(board).toHaveCount(0)
+  const note = (await notesNow()).at(-1)!
+  expect(note.strokes.map((s) => s.erase === true)).toEqual([false, true])
+  // The eraser lies over nothing: only the pen stroke has a line of what it lies over.
+  expect(note.under.length).toBeLessThanOrEqual(1)
+  const first = await picked(note.id, 'ink', samples)
+  const plain = await picked(note.id, 'plain', samples)
+  // Ink where it was left, the picture itself where the eraser went.
+  expect(first[0]).not.toEqual(plain[0])
+  expect(first[1]).toEqual(plain[1])
+  expect(first[2]).not.toEqual(plain[2])
+
+  // Opened again and a label added: the ink is made again from the strokes it kept, and the erased part is erased still.
+  await page.evaluate((mark) => window.__tornoTest!.openNote('bracket', mark), note.id)
+  await expect(board).toBeVisible()
+  await expect(board.locator('canvas')).toHaveAttribute('data-strokes', '2')
+  await board.getByRole('button', { name: 'Label' }).click()
+  const box = (await board.locator('canvas').boundingBox())!
+  await page.mouse.click(box.x + box.width * 0.1, box.y + box.height * 0.8)
+  await page.keyboard.type('later')
+  await page.keyboard.press('Enter')
+  await board.getByRole('button', { name: 'Done' }).click()
+  await expect(board).toHaveCount(0)
+  await expect.poll(async () => (await noteNow(note.id)).labels.length).toBe(1)
+  const again = await noteNow(note.id)
+  expect(again.ink).not.toBe(note.ink)
+  expect(again.strokes.map((s) => s.erase === true)).toEqual([false, true])
+  expect(await picked(note.id, 'ink', samples)).toEqual(first)
+
+  await say('images')
+  await finished()
 })
 
 test('ink over the face a section cuts is told as the cut face of its part, not as over no part', async () => {

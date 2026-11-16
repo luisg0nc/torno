@@ -15,6 +15,7 @@ import { commandsFor, rateLine } from './foot'
 import { RefChip } from './RefChip'
 import { type Suggestion, suggest } from './suggest'
 import { Suggestions } from './Suggestions'
+import { WaitingNotes } from './WaitingNotes'
 
 /** What an IPC call failed with, without Electron's wrapping. */
 const reason = (e: unknown): string => (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']*': (Error: )?/, '')
@@ -137,7 +138,7 @@ function Commands({ offered, at, onChoose }: { offered: ReturnType<typeof comman
  * breaks the line; Escape closes the list of commands while one is offered, and else gives the keys back to the view, as a field does. While the agent works, the prompt is
  * queued by the CLI, and "Stop" interrupts it. "Attach view" adds a picture of the viewport to the next prompt only;
  * "Draw on view" opens a board over a picture of the view; Done keeps the drawing as a view note, a draft mark that goes
- * with the next prompt of itself.
+ * with the next prompt of itself and waits above the box (`WaitingNotes`) until then.
  * While a `/command` is typed the commands of the CLI are offered; and when a window of the rate limit is half
  * used, one quiet line says so.
  */
@@ -354,6 +355,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         />
       )}
       {offered.length > 0 && <Commands offered={offered} at={at} onChoose={complete} />}
+      <WaitingNotes onProblem={setProblem} />
       {(attach || boardAttached) && (
         <div className="chat-with">
           <BoardChip />

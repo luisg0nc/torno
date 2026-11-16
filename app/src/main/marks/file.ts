@@ -4,7 +4,7 @@ import { verdictOf } from '../../shared/dimension'
 import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } from '../../shared/drawing'
 import type { Anchor, DimensionMark, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, Quat, RegionMark, ShapeKind, StrokeMark, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
-import { MAX_LABEL, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE } from '../../shared/marks'
+import { MAX_LABEL, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE } from '../../shared/marks'
 import { TAG_NAME } from '../../shared/tags'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 
@@ -240,9 +240,14 @@ function noteOf(base: Omit<NoteMark, 'kind' | 'anchor' | 'picture' | 'ink' | 'si
   if (!Array.isArray(value.strokes) || !Array.isArray(value.labels) || !Array.isArray(value.under) || !Array.isArray(value.references)) return null
   if (value.labels.length > MOST_LABELS || value.references.length > MOST_NOTE_REFERENCES) return null
   const strokes: NoteMark['strokes'] = []
-  for (const raw of value.strokes.slice(0, MOST_NOTE_STROKES)) {
+  // Pen strokes and eraser strokes (`erase: true`, kept in order) are cut to their caps apart.
+  let pens = 0
+  let erases = 0
+  for (const raw of value.strokes.slice(0, MOST_NOTE_STROKES + MOST_NOTE_ERASES)) {
     if (!isRecord(raw) || !isNumber(raw.width) || !(raw.width > 0) || !Array.isArray(raw.points)) return null
-    strokes.push({ width: raw.width, points: tuples<[number, number]>(raw.points, 2) })
+    const erase = raw.erase === true
+    if (erase ? ++erases > MOST_NOTE_ERASES : ++pens > MOST_NOTE_STROKES) continue
+    strokes.push({ width: raw.width, points: tuples<[number, number]>(raw.points, 2), ...(erase ? { erase: true as const } : {}) })
   }
   const labels: NoteLabel[] = []
   for (const raw of value.labels) {

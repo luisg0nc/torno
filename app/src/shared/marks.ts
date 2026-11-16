@@ -152,8 +152,18 @@ export const MOST_LABELS = 20
 export const MAX_LABEL = 200
 export const MOST_NOTE_REFERENCES = 6
 export const MAX_REFERENCE_COMMENT = 300
+/** A stroke of a note, in pixels of its picture: a pen stroke, or (`erase`) an eraser stroke, which rubs out what the strokes before it drew. */
+export interface NoteStroke {
+  width: number
+  points: Array<[number, number]>
+  erase?: true
+}
+/** The pen strokes of a note's strokes: the ones that are ink, numbered from 1 for what is said of them. An eraser stroke lies over nothing and is not among them. */
+export const penStrokes = <S extends { erase?: true }>(strokes: readonly S[]): S[] => strokes.filter((s) => s.erase !== true)
 /** The most strokes of ink a note keeps: a person hatching a part must not lose a note. Only `MOST_STROKES_TOLD` of them get a line of what they lie over; the rest are counted. */
 export const MOST_NOTE_STROKES = 2000
+/** The most eraser strokes a note keeps, besides its strokes of ink. */
+export const MOST_NOTE_ERASES = 2000
 /** The files of a note, in `<object>/.torno/notes/`: named by main alone. The plain picture of the view, the picture with the ink on it, and a reference picture. */
 export const NOTE_PICTURE = /^n-[0-9a-f]{12}\.png$/
 export const NOTE_INK = /^n-[0-9a-f]{12}\.ink\.png$/
@@ -185,7 +195,7 @@ export interface NoteMark extends MarkBase {
   /** The picture with the ink on it: `n-<12 hex>.ink.png`. */
   ink: string
   size: { w: number; h: number }
-  strokes: Array<{ width: number; points: Array<[number, number]> }>
+  strokes: NoteStroke[]
   /** The ink, `#rrggbb`. */
   inkColour: string
   labels: NoteLabel[]

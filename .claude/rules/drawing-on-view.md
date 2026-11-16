@@ -69,8 +69,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `drawingActions.openNoteOn` in the state) reopens a note over its plain picture (`notes.picture(…, 'plain')`) with its strokes, labels, comment and references; Done
   sends only what changed through `notes.edit` (`change.ts`), the picture with the ink only when the strokes or labels did, and what the ink lies over is kept
   while the strokes and the heads of the arrows stand where they were, and is none otherwise (it is not worked out for a view that is not the picture's). A note
-  whose plain picture is not on this computer opens as a sheet of its comment and references alone (`finishNoteText`). The eraser's work is not kept in a note's strokes
-  (the vectors are whole): a reopened note shows what was erased again.The sent prompt shows what each note's ink lies over under its pictures (`notes` on the
+  whose plain picture is not on this computer opens as a sheet of its comment and references alone (`finishNoteText`). The eraser is kept in a note: its strokes are
+  kept as strokes with `erase: true` (`NoteStroke`, `shared/marks.ts`), in the order drawn among the pen strokes (`underInk`'s `kept`: an eraser
+  before the first pen stroke kept is left out), composed with `destination-out` as the board does (`paintStrokes`), and reopened as eraser strokes
+  (`openNoteOn`); an eraser stroke lies over nothing, so it has no line in `under` and no number among the strokes told of (`penStrokes`; main holds the
+  pen strokes and the eraser strokes to their caps, `MOST_NOTE_STROKES` and `MOST_NOTE_ERASES`, apart). A note waits above the box until the prompt carries
+  it (`ui/chat/WaitingNotes.tsx`, every draft note of the open project, a row each, "Draw on view" stays enabled): its picture with the ink
+  (`notes.picture(…, 'ink')`, or "picture not on this computer"), the comment, what the ink lies over as live chips (`noteDrawnOver` of
+  `shared/drawing.ts`, the one the prompt's item uses; the hover lights a face), "Edit" (`openNote`) and "Remove" (`marks.remove`, with "Undo" for
+  ten seconds, `marks.restore`); nothing is lost with the window, a note being a mark on disk. The sent prompt shows what each note's ink lies over under its pictures (`notes` on the
   user item, `ui/chat/DrawnOver.tsx` from `drawnOver` of `shared/drawing.ts`: the faces, `the cut face of lid`, scans,
   `stroke 1 partly over no part`, `stroke 2 over no part`; the hover lights a face in the view as everywhere); one drawn on an
   earlier build says its faces are of that build; one that was not worked out says so in `--warn`. "Attach view", pressed, shows a

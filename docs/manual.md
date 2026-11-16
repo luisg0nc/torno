@@ -832,7 +832,12 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   dialog for a photo or a picture (or drop one on the list), up to six, each
   scaled to 1280 px and each with a line of its own. "Done" keeps the drawing as a view
   note, a draft among the marks, and the box has the keys again, for the prompt
-  it goes with. The sheet says before "Done" when the view moved under it, so what
+  it goes with. Each note that waits for it is a row above the box: its picture
+  with the ink, its comment, what the ink lies over (refs that light their face
+  in the view under the pointer), "Edit" and "Remove" ("Undo" brings a removed note back for ten
+  seconds); one whose pictures are not on this computer says so, and still goes
+  with the prompt in words. Several can wait, and "Draw on view" stays open while
+  they do. What the eraser took stays erased when a note is opened again. The sheet says before "Done" when the view moved under it, so what
   the ink lies over could not be worked out; the head of each arrow is looked
   under as the ink is. A note is opened again on its own plain picture to change
   its ink, labels, comment or references; one whose picture is not on this

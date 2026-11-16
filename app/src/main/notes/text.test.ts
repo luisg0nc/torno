@@ -93,6 +93,16 @@ describe('noteText', () => {
     expect(text).toContain('- "thin here" → base/F3 (cylinder, r 4)')
   })
 
+  it('counts the pen strokes only: an eraser stroke is no stroke told of, and ink that is all erasing is no ink', () => {
+    const rub = { width: 28, points: [[1, 1], [2, 2]] as Array<[number, number]>, erase: true as const }
+    const text = noteText(note({ strokes: [{ width: 2, points: [[1, 1], [2, 2]] }, rub, rub], under: [BASE_UNDER, HEAD_UNDER] }), 3)
+    expect(text).toContain('- stroke 1, ')
+    expect(text).not.toContain('- stroke 2, ')
+    expect(text).not.toContain('more stroke')
+    expect(text).toContain('- "thin here" → base/F3 (cylinder, r 4)')
+    expect(noteText(note({ strokes: [rub], labels: [], under: [] }), 3)).not.toContain('What the ink lies over was not worked out.')
+  })
+
   it('says so when what the ink lies over was not worked out, and for a label arrow with no line', () => {
     const text = noteText(note({ under: [] }), 3)
     expect(text).toContain('What the ink lies over was not worked out.')

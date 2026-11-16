@@ -1,6 +1,6 @@
 import type { StrokeUnder } from '../../../shared/drawing'
 import type { NoteDraft, NoteEdit } from '../../../shared/bridge'
-import type { Anchor, NoteLabel, NoteMark } from '../../../shared/marks'
+import type { Anchor, NoteLabel, NoteMark, NoteStroke } from '../../../shared/marks'
 import { picture } from '../../state/agent'
 import { describe } from '../../state/descriptors'
 import { type Pictured, drawingActions, drawingStore, viewHost } from '../../state/drawing'
@@ -155,7 +155,7 @@ export async function finishDrawing(strokes: Stroke[], form: NoteForm): Promise<
     : () => []
   const found = underInk(strokes, size, inked, lookUnder)
   const heads = underHeads(labels, size, lookUnder)
-  const kept = found.kept.map((s) => ({ width: s.width, points: s.points.map(([x, y]) => [within(x, p.width), within(y, p.height)] as [number, number]) }))
+  const kept: NoteStroke[] = found.kept.map((s) => ({ width: s.width, points: s.points.map(([x, y]) => [within(x, p.width), within(y, p.height)] as [number, number]), ...(s.tool === 'eraser' ? { erase: true as const } : {}) }))
 
   if (board.note) return editNote(board.note, board.objectId, { strokes: kept, labels, comment, references: form.references }, png)
 

@@ -1,6 +1,6 @@
 import { MOST_STROKES_TOLD, type StrokeUnder } from '../../shared/drawing'
 import type { NoteDraft, NoteEdit, NoteReferenceDraft } from '../../shared/bridge'
-import { type Anchor, type NoteLabel, MAX_LABEL, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MOST_LABELS, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES } from '../../shared/marks'
+import { type Anchor, type NoteLabel, type NoteStroke, MAX_LABEL, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, penStrokes } from '../../shared/marks'
 import { checkedImage } from '../images'
 import { anchorOf, MAX_NOTE } from '../marks/file'
 import { Refusal } from '../refusal'
@@ -15,7 +15,7 @@ const NOT = 'The note could not be kept'
 /** The widest a stroke of ink is, in pixels of the picture. */
 const MAX_WIDTH = 1000
 
-type Stroke = { width: number; points: Array<[number, number]> }
+type Stroke = NoteStroke
 type Size = { w: number; h: number }
 
 /** A Refusal that begins as every one of these does. */
@@ -33,18 +33,22 @@ function strokeAt(v: unknown, size: Size): Stroke | null {
     if (!Array.isArray(p) || p.length !== 2 || !within(p[0], p[1], size)) return null
     points.push([p[0], p[1]])
   }
-  return { width: v.width, points }
+  // Only `true` is an eraser stroke; any other `erase` is a pen's.
+  return v.erase === true ? { width: v.width, points, erase: true } : { width: v.width, points }
 }
 
 function checkedStrokes(v: unknown, size: Size): Stroke[] | Refusal {
   if (!Array.isArray(v)) return no('its strokes are not a list')
-  if (v.length > MOST_NOTE_STROKES) return no(`it has more than ${MOST_NOTE_STROKES} strokes`)
+  if (v.length > MOST_NOTE_STROKES + MOST_NOTE_ERASES) return no(`it has more than ${MOST_NOTE_STROKES} strokes`)
   const strokes: Stroke[] = []
   for (const one of v) {
     const stroke = strokeAt(one, size)
     if (!stroke) return no('a stroke is not one within the picture')
     strokes.push(stroke)
   }
+  // The pen strokes and the eraser strokes are held to their caps apart: rubbing out is not a reason to lose a note.
+  if (penStrokes(strokes).length > MOST_NOTE_STROKES) return no(`it has more than ${MOST_NOTE_STROKES} strokes`)
+  if (strokes.length - penStrokes(strokes).length > MOST_NOTE_ERASES) return no(`it has more than ${MOST_NOTE_ERASES} eraser strokes`)
   return strokes
 }
 
@@ -149,7 +153,7 @@ export function checkNoteDraft(raw: unknown): NoteDraft | Refusal {
   if (strokes instanceof Refusal) return strokes
   const labels = checkedLabels(raw.labels, size)
   if (labels instanceof Refusal) return labels
-  const under = checkedUnder(raw.under, size, strokes.length, labels.filter((l) => l.to !== undefined).length)
+  const under = checkedUnder(raw.under, size, penStrokes(strokes).length, labels.filter((l) => l.to !== undefined).length)
   if (under instanceof Refusal) return under
   const comment = checkedComment(raw.comment)
   if (comment instanceof Refusal) return comment
@@ -202,7 +206,7 @@ export function checkNoteEdit(raw: unknown, size: Size): NoteEdit | Refusal {
     // The lines of the ink told of: up to what the strokes and the labels with an arrow of the note may have (the ones the edit leaves are not known here).
     const wrong = no('what its ink lies over is not said as it should be')
     if (!Array.isArray(raw.under) || raw.under.length > MOST_STROKES_TOLD + MOST_LABELS) return wrong
-    const checked = checkedUnder(raw.under, size, strokes?.length ?? MOST_NOTE_STROKES, labels === undefined ? MOST_LABELS : labels.filter((l) => l.to !== undefined).length)
+    const checked = checkedUnder(raw.under, size, strokes ? penStrokes(strokes).length : MOST_NOTE_STROKES, labels === undefined ? MOST_LABELS : labels.filter((l) => l.to !== undefined).length)
     if (checked instanceof Refusal) return checked
     edit.under = checked
   }

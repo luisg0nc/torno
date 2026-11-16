@@ -21,6 +21,14 @@ describe('changeOf', () => {
   it('is the comment alone when only it changed, folded to one line', () => {
     expect(changeOf(note, { ...same(), comment: ' the\nlid, thicker ' })).toEqual({ comment: 'the lid, thicker', ink: false, refs: {}, any: true })
   })
+  it('is a change of ink when an eraser stroke was added, or an eraser stroke is a pen one', () => {
+    const rubbed = same()
+    rubbed.strokes.push({ width: 28, points: [[2, 3]], erase: true })
+    expect(changeOf(note, rubbed)).toMatchObject({ ink: true })
+    const kept: NoteMark = { ...note, strokes: [...note.strokes, { width: 28, points: [[2, 3]], erase: true }] }
+    expect(changeOf(kept, { ...same(), strokes: [...kept.strokes] })).toMatchObject({ ink: false })
+    expect(changeOf(kept, { ...same(), strokes: [...kept.strokes.slice(0, 1), { width: 28, points: [[2, 3]] }] })).toMatchObject({ ink: true })
+  })
   it('is a change of ink when a stroke was drawn, or taken back', () => {
     const more = same()
     more.strokes.push({ width: 9, points: [[4, 4]] })

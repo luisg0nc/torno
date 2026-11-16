@@ -120,7 +120,7 @@ export const drawingActions = {
    */
   openNoteOn(sessionId: string, objectId: string, note: NoteMark, picture: Pictured | null): void {
     if (drawingStore.getState().board) return release(picture)
-    const strokes: Stroke[] = note.strokes.map((s) => ({ tool: 'pen', width: s.width, points: s.points.map(([x, y]) => [x, y] as [number, number]) }))
+    const strokes: Stroke[] = note.strokes.map((s) => ({ tool: s.erase ? 'eraser' : 'pen', width: s.width, points: s.points.map(([x, y]) => [x, y] as [number, number]) }))
     drawingStore.setState({ board: { sessionId, objectId, picture, strokes, note } })
   },
   /** The board put away, by Done or Cancel: the picture it was over is let go. */

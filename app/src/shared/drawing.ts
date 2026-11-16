@@ -1,3 +1,5 @@
+import { type NoteMark, penStrokes } from './marks'
+
 // What the ink of a drawing on the view lies over (the chat's "Draw on view" makes a view note of it): per stroke, as the
 // window works it out and main checks it (`main/sessions/drawing.ts`, `main/notes/check.ts`), and as the person is
 // shown it (`DrawnOver`).
@@ -83,4 +85,18 @@ export function drawnOver(d: { revision: number; under: StrokeUnder[] | null; mo
       ...(d.moreStrokes ? { moreStrokes: d.moreStrokes } : {})
     }
   }
+}
+
+/**
+ * What the ink of a note lies over, as the prompt's item shows it: refs and counts only, no kernel line, no box, no
+ * camera. What a label's arrow points at is not a stroke and is left out here (the words say it).
+ */
+export function noteDrawnOver(note: Pick<NoteMark, 'id' | 'revision' | 'strokes' | 'under'>, latest?: number): DrawnOver {
+  // Only the pen strokes are told of: an eraser stroke lies over nothing.
+  const pens = penStrokes(note.strokes).length
+  const told = Math.min(pens, MOST_STROKES_TOLD)
+  // Ink that was not looked under (the view moved while it was drawn) is no `over`; no ink is no strokes.
+  const under = pens > 0 && note.under.length === 0 ? null : note.under.slice(0, told)
+  const more = pens - told
+  return { note: note.id, ...drawnOver({ revision: note.revision, under, ...(more > 0 ? { moreStrokes: more } : {}) }, latest) }
 }
