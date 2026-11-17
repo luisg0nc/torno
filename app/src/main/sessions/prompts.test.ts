@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatItem } from '../../shared/chat'
 import type { HistoryEntry } from '../../shared/history'
 import { onNotOwn } from '../own'
@@ -78,8 +78,11 @@ describe('listPrompts', () => {
     expect((await listPrompts(dir)).map((r) => r.id)).toEqual(['a1', 'a2'])
   })
 
-  // RF4: opening the project's history reads every log; an index would be needed only if this were slow.
-  it('reads 50 conversations of 2000 lines in under 200 ms', async () => {
+  // RF4: opening the project's history reads every log; an index would be needed only if this were slow. What keeps it
+  // fast is that only the lines that say `user` are parsed, which is checked everywhere. The 200 ms itself is a
+  // wall-clock limit, held on this machine only: a shared CI runner reads the same 70 MB in anything from 100 to
+  // 250 ms, which says nothing about the code.
+  it('reads 50 conversations of 2000 lines, parsing only the prompts, in under 200 ms on a desktop', async () => {
     mkdirSync(join(dir, '.torno', 'chat'), { recursive: true })
     for (let c = 0; c < 50; c += 1) {
       const lines: string[] = []
@@ -101,6 +104,17 @@ describe('listPrompts', () => {
     // The newest 2000 of 5000, numbered as in the whole project.
     expect(rows).toHaveLength(2000)
     expect(rows.at(-1)!.number).toBe(5000)
-    expect(took).toBeLessThan(200)
+    if (!process.env.CI) expect(took).toBeLessThan(200)
+
+    // The 5000 prompt lines are parsed, none of the 95,000 lines of tools and text.
+    const parse = vi.spyOn(JSON, 'parse')
+    try {
+      expect(await listPrompts(dir)).toEqual(rows)
+      const parsed = parse.mock.calls.map(([text]) => String(text))
+      expect(parsed).toHaveLength(5000)
+      expect(parsed.filter((text) => !text.includes('"kind":"user"'))).toEqual([])
+    } finally {
+      parse.mockRestore()
+    }
   })
 })
