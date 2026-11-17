@@ -500,6 +500,8 @@ describe('contextFor', () => {
         expect(context.text).not.toContain('Open marks')
         expect(said).toContain('M7 is being sketched, not sent.')
         expect(context.sentMarkIds).toEqual(['M1', 'M2'])
+        // The window is told which, for the line under the prompt.
+        expect(context.sketching).toBe('M7')
       })
 
       it('is held back alone, and the prompt still says so', () => {
@@ -517,6 +519,7 @@ describe('contextFor', () => {
         const done = contextFor(opened, 'bracket', [sketch(7)])
         expect(done.sentMarkIds).toEqual(['M7'])
         expect(done.text).not.toContain('being sketched')
+        expect(done.sketching).toBeUndefined()
       })
 
       it('is not held back by another sketch being open, nor when it is not a draft', () => {

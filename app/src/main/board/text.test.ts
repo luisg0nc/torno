@@ -119,6 +119,14 @@ describe('the text of a board', () => {
     const changed = { ...note, note: 'thicker now' } as unknown as Mark
     expect(saysHash(c, live)).not.toBe(saysHash(c, { marks: new Map([['M5', changed]]) }))
   })
+  it('says a 3D sketch by its line, as a view note is', () => {
+    const sketch = { id: 'M7', kind: 'sketch', author: 'user', note: 'route it round the block', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 3, name: 'Hose route', take: 'flow', diameter: 19, planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0 (u = +X, v = +Y)', from: { kind: 'main', axis: 'XY', offset: 0 } }], strokes: [{ plane: 1, points2d: [[0, 0], [10, 0]], pen: 'line', revision: 3 }] } as unknown as Mark
+    const live: LiveFacts = { marks: new Map([['M7', sketch]]) }
+    const c = card({ kind: 'mark', by: 'torno', source: 'M7' })
+    const { text } = boardText(board([c]), live, OPTS)
+    expect(text).toContain(`M7 · sketch "Hose route" · flow ⌀19 mm · 1 stroke on 1 plane · draft, drawn on build 3`)
+    expect(text).not.toContain('(sketch,')
+  })
   it('calls the ink-pad card a doodle, in its head and in its picture line', () => {
     const d = card({ kind: 'sketch', picture: 'p-bbbbbbbbbbbb.png', caption: 'the latch shape' })
     const text = boardText(board([d]), LIVE, OPTS).text

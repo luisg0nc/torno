@@ -62,6 +62,34 @@ describe('what a card shows', () => {
     expect(faceOf(c, { mark: note }).picture).toBeUndefined()
   })
 
+  it('shows a 3D sketch by its name, its take, its comment and its picture, or the placeholder', () => {
+    const sketch = {
+      ...pin({ note: 'route it\nround the block', status: 'draft' }),
+      kind: 'sketch',
+      id: 'M7',
+      name: 'Hose route',
+      take: 'flow',
+      diameter: 19,
+      planes: [],
+      strokes: [{ pen: 'free', points: [[0, 0, 0], [1, 0, 0]], revision: 1 }]
+    } as unknown as Mark
+    const c = card({ kind: 'mark', source: 'M7', by: 'torno' })
+    const here = faceOf(c, { mark: sketch, picture: 'here' })
+    expect(here).toMatchObject({ label: 'Mark', chip: 'M7', chipAuthor: 'user', picture: 'here' })
+    expect(here.note).toBeUndefined()
+    expect(here.lines.map((l) => l.text)).toEqual(['Hose route', 'flow ⌀19 mm', 'route it round the block', 'draft'])
+    // The picture is of this computer's files only: without it the card says so, and keeps what it says.
+    const gone = faceOf(c, { mark: sketch, picture: 'missing' })
+    expect(gone).toMatchObject({ picture: 'missing', note: PICTURE_MISSING })
+    expect(gone.lines.map((l) => l.text)).toContain('Hose route')
+    // A sketch of Claude's that no picture has been drawn of yet is the placeholder too.
+    expect(faceOf(c, { mark: { ...sketch, picture: undefined } as Mark, picture: 'missing' }).note).toBe(PICTURE_MISSING)
+    // Without a comment the take and the name are all it says besides its status; a sketch with no name is called by its number.
+    expect(faceOf(c, { mark: { ...sketch, note: '', name: '', take: 'exact', diameter: undefined } as Mark, picture: 'here' }).lines.map((l) => l.text)).toEqual(['Sketch M7', 'exact', 'draft'])
+    // While the picture is read nothing is said of it.
+    expect(faceOf(c, { mark: sketch }).picture).toBeUndefined()
+  })
+
   it('shows its stored text, or only its id, for a mark that is not loaded', () => {
     expect(faceOf(card({ kind: 'mark', source: 'M7', text: 'stored words' }), {})).toMatchObject({ chip: 'M7', lines: [{ text: 'stored words' }] })
     expect(faceOf(card({ kind: 'mark', source: 'M7' }), {}).lines.map((l) => l.text)).toEqual(['not loaded yet'])

@@ -287,7 +287,7 @@ export interface TornoBridge {
     make(draft: NoteDraft): Promise<Mark>
     /** Changes a note. A new inked picture is a new file: the old one stays until the sweep when the project is next opened. */
     edit(objectId: string, id: string, patch: NoteEdit): Promise<Mark>
-    /** The bytes of a note's picture with the ink on it, the plain one or the reference at that index; null when the file is not on this computer. */
+    /** The bytes of a note's picture with the ink on it, the plain one or the reference at that index; of a 3D sketch, the picture of its card (`ink` or `plain`). Null when the file is not on this computer. */
     picture(objectId: string, id: string, which: 'ink' | 'plain' | number): Promise<Uint8Array | null>
   }
   /** Making a new object by onboarding. Calls reject with a plain message. */

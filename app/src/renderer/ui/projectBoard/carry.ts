@@ -2,6 +2,7 @@ import { drawable } from '../../../shared/history'
 import { goToCamera, goToSavedView } from '../../state/agent'
 import { boardActions } from '../../state/board'
 import { actions, explodeNow, store } from '../../state/store'
+import { editSketch } from '../../state/sketching'
 import { openNote } from '../drawing/make'
 import type { Opens } from './opens'
 
@@ -31,6 +32,15 @@ export async function carryOut(objectId: string, opens: Opens): Promise<string |
       // The sheet lies over the model: it is that that is shown.
       boardActions.show('model')
       return openNote(objectId, opens.id).then(() => null, wordsOf)
+    }
+    case 'sketching': {
+      const mark = store.getState().marks.find((m) => m.id === opens.id)
+      if (mark?.kind !== 'sketch') return `${opens.id} is not among the marks of this project now.`
+      // The model, from the sketch's camera, with the Draw tool in hand on it (a refusal is said in the marks panel).
+      boardActions.show('model')
+      actions.focusMark(opens.id)
+      await editSketch(mark)
+      return null
     }
     case 'scan': {
       if (!store.getState().scans.some((scan) => scan.id === opens.id)) return `${opens.id} is not among the scans of this project now.`

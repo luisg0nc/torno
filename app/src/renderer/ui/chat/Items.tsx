@@ -51,6 +51,11 @@ const Added = memo(function Added({ item }: { item: Of<'context'> }) {
         {item.marks.map((id) => (
           <RefChip key={id} value={id} />
         ))}
+        {item.sketching !== undefined && (
+          <span className="chat-added-sketching" data-part="sketching" title="This sketch was still open for drawing, so it did not go with this prompt: it goes with the next one after Done">
+            <RefChip value={item.sketching} /> is being sketched, not sent
+          </span>
+        )}
         {item.revision !== undefined && item.buildState && (
           <span className="chat-added-build">
             {item.buildState === 'failed' ? (

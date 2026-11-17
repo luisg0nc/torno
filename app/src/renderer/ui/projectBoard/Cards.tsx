@@ -76,12 +76,26 @@ const CardView = memo(
       if (file) ensurePicture(objectId, file)
     }, [objectId, file?.from, file?.file]) // eslint-disable-line react-hooks/exhaustive-deps
     const boardUrl = usePictureUrl(file)
-    // The card of a view note shows the picture with the ink, which main keeps with the note, not with the board.
-    const note = facts.mark?.kind === 'note' ? facts.mark : null
-    const inked = useNotePicture(objectId, note?.id ?? null, note?.ink ?? '')
-    const url = note ? inked.url : boardUrl
-    const state = note ? (inked.state === 'loading' ? undefined : inked.state === 'ready' ? ('here' as const) : ('missing' as const)) : boardUrl === undefined ? undefined : boardUrl === null ? ('missing' as const) : ('here' as const)
-    const face = faceOf(card, file || note ? { ...facts, ...(state === undefined ? {} : { picture: state }) } : facts)
+    // The card of a view note shows the picture with the ink, and a 3D sketch's the picture drawn from its camera: main keeps
+    // each with the mark, not with the board. A sketch no picture has been drawn of yet asks nothing, and shows the placeholder.
+    const mark = facts.mark?.kind === 'note' || facts.mark?.kind === 'sketch' ? facts.mark : null
+    const note = mark?.kind === 'note' || (mark?.kind === 'sketch' && mark.picture !== undefined) ? mark : null
+    const inked = useNotePicture(objectId, note?.id ?? null, note?.kind === 'note' ? note.ink : (note?.picture ?? ''))
+    const url = mark ? (note ? inked.url : null) : boardUrl
+    const state = mark
+      ? note
+        ? inked.state === 'loading'
+          ? undefined
+          : inked.state === 'ready'
+            ? ('here' as const)
+            : ('missing' as const)
+        : ('missing' as const)
+      : boardUrl === undefined
+        ? undefined
+        : boardUrl === null
+          ? ('missing' as const)
+          : ('here' as const)
+    const face = faceOf(card, file || mark ? { ...facts, ...(state === undefined ? {} : { picture: state }) } : facts)
     return (
       <article
         className="pboard-card"

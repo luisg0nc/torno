@@ -25,6 +25,13 @@ describe('what is drawn under an item', () => {
     expect(out).toContain('build after r1 failed')
   })
 
+  it('says a sketch is being drawn and was not sent, on the line of what torno added, with its number a chip', () => {
+    const out = drawn([user, { ...forPrompt, marks: [], sketching: 'M7' }])
+    expect(plainText(out)).toContain('M7 is being sketched, not sent')
+    expect(out).toContain('data-part="sketching"')
+    expect(plainText(drawn([user, forPrompt]))).not.toContain('being sketched')
+  })
+
   it('draws a build whose card is gone as a build where it stands', () => {
     const out = drawn([{ ...forEdit, forUser: 'gone' }])
     expect(out).toContain('chat-build')

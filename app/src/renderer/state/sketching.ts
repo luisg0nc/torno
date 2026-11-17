@@ -34,9 +34,11 @@ export interface Sketching {
   picking: 'face' | 'point' | null
   /** How many times the offset field has been asked for (`Tab`): the panel takes the keys each time. */
   offsetAsked: number
+  /** The row of the panel the pointer is on: the strokes of that plane, or of the surface, are lit in the view. */
+  lit: number | 'surface' | null
 }
 
-const INITIAL: Sketching = { open: null, plane: 'surface', pen: 'free', snapping: true, xray: false, problem: null, undoable: 0, picking: null, offsetAsked: 0 }
+const INITIAL: Sketching = { open: null, plane: 'surface', pen: 'free', snapping: true, xray: false, problem: null, undoable: 0, picking: null, offsetAsked: 0, lit: null }
 
 export const sketchStore = createStore<Sketching>(() => INITIAL)
 
@@ -410,6 +412,11 @@ export function setDiameter(diameter: number | null): void {
     return diameter === null ? rest : { ...rest, diameter }
   })
   changed(true)
+}
+
+/** The pointer is on the row of a plane (or the surface) of the panel, or leaves it (null). */
+export function setLit(lit: number | 'surface' | null): void {
+  if (state().lit !== lit) set({ lit })
 }
 
 export function setPen(pen: SketchPen): void {

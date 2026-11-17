@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DimensionMark, PinMark } from '../../shared/marks'
+import type { DimensionMark, Mark, PinMark } from '../../shared/marks'
 import type { ViewportPointer } from '../viewport/Viewport'
 import { chipSays, markChips } from './markChips'
 
@@ -13,6 +13,12 @@ describe('what a chip says at the pointer', () => {
   it('is the note of a mark, and says when there is none', () => {
     expect(chipSays(pin, 2)).toBe('too thin here')
     expect(chipSays({ ...pin, note: '' }, 2)).toBe('No note')
+  })
+
+  it('is the name and take of a 3D sketch, then its comment', () => {
+    const sketch = { ...BASE, id: 'M7', kind: 'sketch', name: 'Hose route', take: 'flow', diameter: 19, note: 'round the block', planes: [], strokes: [] } as unknown as Mark
+    expect(chipSays(sketch, 2)).toBe('Hose route, flow ⌀19 mm, round the block')
+    expect(chipSays({ ...sketch, name: '', note: '', take: 'rough' } as Mark, 2)).toBe('Sketch M7, rough')
   })
 
   it('is the numbers of a dimension: its value, what was expected, and by how much it misses', () => {

@@ -1227,7 +1227,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 | `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part) says what a click takes. Shift-click adds or takes out, `Esc` clears. "Insert" puts the selected refs in the session's prompt without sending it; "Note" leaves a mark on each. |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
-| `D` | Draw | A sketch in 3D. Strokes lie on a plane (a sheet drawn over the parts, with a handle on its normal that moves it, and a view cube in the top right: XY, XZ or YZ) or on the surface of the parts. Three pens (freehand, line, point to point) and an eraser; the pointer snaps to a vertex, a hole centre or an edge within 10 px, and a box beside it says to what; `Ctrl` held turns snapping off. X-ray draws the parts see-through. Nothing is written until the first stroke, and every stroke and every change is kept at once. Alt-drag turns the camera with this tool in hand. |
+| `D` | Draw | A sketch in 3D. Strokes lie on a plane (a sheet drawn over the parts, with a handle on its normal that moves it, and a view cube in the top right: XY, XZ or YZ) or on the surface of the parts. Three pens (freehand, line, point to point) and an eraser; the pointer snaps to a vertex, a hole centre or an edge within 10 px, and a box beside it says to what; `Ctrl` held turns snapping off. X-ray draws the parts see-through. Nothing is written until the first stroke, and every stroke and every change is kept at once. A panel floats at the left of the view while a sketch is open: its number and whether it is a draft or sent, its name, how to take it (Exact, Rough or Flow, and the diameter of a flow), a row for each plane with how many strokes are on it, one for the surface (a click makes it the one strokes go on, and the pointer on it lights its strokes), "+ New plane" from a face or a point, the offset of the plane, a comment, Undo and Done. Alt-drag turns the camera with this tool in hand. |
 | `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
 | `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
@@ -1248,6 +1248,17 @@ view, and the reticle at the end of the row ("Go to its view") always goes
 there. The pointer on a row, or the keys' focus in it, rings the mark's chip in the view, more faintly than the
 active one's, and lights the face it is on, as a mention of it in the chat
 does.
+
+A **3D sketch** has a row of its own: its name, how it is taken (`flow ⌀19 mm`), and how many strokes and planes it holds, with
+its comment as the row's note. In the view its strokes are lines in its author's colour, a dot where a point snapped, and a
+flow sketch with a diameter is also a translucent tube along its strokes; what hides behind a part is drawn dashed when the
+stroke was drawn in x-ray, and not drawn otherwise. The pointer on its row lights its strokes, and a click goes to its camera.
+"Edit" on the row of one of yours opens it again in Draw; Claude's is never yours to change. A sketch that is open is held back
+from your prompts until Done, and the line under the prompt says `M7 is being sketched, not sent`. When a turn ends, its line
+says `drew a sketch M9` for each sketch Claude drew. A sketch is also a card on the board, with its name, how it is taken, its
+comment and a picture drawn from its camera when you press Done; a sketch Claude drew while the project was not on show gets its
+picture when the project is next shown, and until then (and on a computer without the file) the card says the picture is not on
+this computer.
 
 A **view note** (see "Draw on view" under [The agent](#the-agent)) has a row like
 any other mark's: its number, a small picture of the view with your ink, and
@@ -1721,7 +1732,7 @@ The card shows the value and unit large, in the face of numbers, then what it me
 |---|---|
 | Brief | opens `brief.md` in your editor |
 | Photo of `reference/` | opens it large (`Esc` puts it away); any other file is shown in its folder |
-| Mark | shows the model with the mark selected; the card of a view note opens its sheet over the note (to change it), and shows the model first |
+| Mark | shows the model with the mark selected; the card of a view note opens its sheet over the note (to change it), and shows the model first; the card of one of your 3D sketches opens it again in Draw, from its camera |
 | Scan | shows the model with the scan on |
 | Build | shows the model and opens Compare with the live build (nothing for a build this computer does not have) |
 | View | shows the model with that view on |
@@ -2433,6 +2444,7 @@ On the screen:
 - **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
+- **The sketch panel, the sketches in 3D and their cards, by eye.** The panel at the left of the view (its rows, the segmented take, the diameter, the offset, the comment) beside the palette of tools and clear of the triad, in light and dark and in a narrow view; the lines of a sketch at 2.5 px in both mark colours, the dots of its snaps, the tube of a flow sketch at about a quarter of its colour, the dashes of an x-ray stroke behind a part, and the strokes lit by the pointer on a plane's row; a sketch's row at the panel's default width, still one line; and its card with the picture drawn from its camera, and the placeholder.
 - **The notes that wait, and the note rows and cards.** The row above the box for each draft note (its picture with the ink, its comment, what the ink lies over, "Edit" and "Remove" with its "Undo"); the row of a note in the Marks list (the small picture, its comment, the faces lit under the pointer, the empty frame of a note whose picture is not on this computer); and a note's card on the board (the picture in the card's size, the comment and status under it, the double click that opens the sheet): each legible in both themes, and the rows still one line at the panel's default width.
 - **Claude Code's own checkpoints for the asked undo (`Part of #131`).** When no copy of the build is kept, "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>

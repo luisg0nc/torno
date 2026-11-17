@@ -1,0 +1,141 @@
+/* ---- The panel of a sketch being drawn ---- */
+
+/* Floats at the left of the view, to the right of the palette of tools (a 34px button, its padding and border, and a gap), under
+   the switch of Board and Model. What does not fit the height is scrolled: the triad stands at the foot of the corner. */
+.sketchpanel {
+  position: absolute;
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
+  left: calc(var(--space-3) + 42px + var(--space-3));
+  z-index: 1;
+  display: grid;
+  gap: var(--space-3);
+  width: 252px;
+  max-width: calc(100% - 66px - var(--space-3));
+  max-height: calc(100% - var(--space-3) - var(--switch-h) - var(--space-2) - var(--triad-clear) - var(--space-3));
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.sketchpanel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sketchpanel-status {
+  color: var(--muted);
+}
+
+.sketchpanel-label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.sketchpanel-label > span,
+.sketchpanel-label-text {
+  color: var(--muted);
+}
+
+.sketchpanel-group {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.sketchpanel-name {
+  height: 26px;
+  padding: 0 7px;
+  border: var(--field-border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.sketchpanel-name:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.sketchpanel-diameter,
+.sketchpanel-offset {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sketchpanel-diameter .shape-field,
+.sketchpanel-offset .shape-field {
+  flex: 1 1 auto;
+}
+
+.sketchpanel-planes {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sketchpanel-plane {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  height: 26px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.sketchpanel-plane:hover {
+  background: var(--accent-wash);
+}
+
+.sketchpanel-plane[data-active] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.sketchpanel-plane-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sketchpanel-plane-count {
+  flex: none;
+  color: var(--muted);
+}
+
+.sketchpanel-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1);
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+}
+
+.sketchpanel-new .link-button[aria-pressed='true'] {
+  text-decoration: underline;
+}
+
+.sketchpanel-problem {
+  margin: 0;
+  color: var(--fail);
+}
+
+.sketchpanel-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

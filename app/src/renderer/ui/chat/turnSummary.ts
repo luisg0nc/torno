@@ -13,6 +13,9 @@ export interface TurnSummary {
   builds?: { from?: number; to?: number; failed: number; lastFailed: boolean }
   /** The marks the agent placed and the marks it resolved, as `M3`. */
   added: string[]
+  /** The sketches the agent drew (`add_sketch`), and those it drew again, as `M9`. */
+  sketched: string[]
+  resketched: string[]
   resolved: string[]
   /** The dimensions whose verdict at the end of the turn is another than at its start, as far as the builds measured them. */
   dimensions: Array<{ id: string; now: Verdict }>
@@ -50,6 +53,8 @@ function placedMark(result: string | undefined): string | undefined {
 export function turnSummary(items: readonly ChatItem[]): TurnSummary {
   const files = new Map<string, number>()
   const added: string[] = []
+  const sketched: string[] = []
+  const resketched: string[] = []
   const resolved: string[] = []
   let from: number | undefined
   let to: number | undefined
@@ -84,6 +89,10 @@ export function turnSummary(items: readonly ChatItem[]): TurnSummary {
       } else if (item.name === `${TORNO_TOOL_PREFIX}add_mark`) {
         const id = placedMark(item.result)
         if (id && !added.includes(id)) added.push(id)
+      } else if (item.name === `${TORNO_TOOL_PREFIX}add_sketch`) {
+        const [, how, id] = /^(made|replaced) in layout [^\n]*?: (M\d+)\b/.exec(item.result ?? '') ?? []
+        const into = how === 'made' ? sketched : how === 'replaced' ? resketched : undefined
+        if (id && into && !into.includes(id)) into.push(id)
       } else if (item.name === `${TORNO_TOOL_PREFIX}resolve_mark`) {
         const id = typeof item.input === 'object' && item.input !== null ? (item.input as { id?: unknown }).id : undefined
         if (typeof id === 'string' && /^M\d+$/.test(id) && item.result?.startsWith('resolved:') && !resolved.includes(id)) resolved.push(id)
@@ -96,13 +105,15 @@ export function turnSummary(items: readonly ChatItem[]): TurnSummary {
     files: [...files].map(([path, edits]) => ({ path, edits })),
     ...(built > 0 ? { builds: { ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), failed, lastFailed } } : {}),
     added,
+    sketched,
+    resketched,
     resolved,
     dimensions
   }
 }
 
 /** Whether the turn changed anything this can say. */
-export const isEmpty = (s: TurnSummary): boolean => s.files.length === 0 && !s.builds && s.added.length === 0 && s.resolved.length === 0 && s.dimensions.length === 0
+export const isEmpty = (s: TurnSummary): boolean => s.files.length === 0 && !s.builds && s.added.length === 0 && s.sketched.length === 0 && s.resketched.length === 0 && s.resolved.length === 0 && s.dimensions.length === 0
 
 /** The most of a kind named one by one; the rest are counted. */
 const MOST = 3
@@ -112,7 +123,7 @@ const list = (names: string[], what: string): string => (names.length <= MOST ? 
 /** What a dimension's verdict became, in words. */
 const NOW: Record<Verdict, string> = { pass: 'now passes', fail: 'now fails', none: 'is no longer measured' }
 
-/** The account as short phrases, one for each thing: `hollow.py edited ×2`, `r1 → r3 ok`, `resolved M1`, `added M5`, `M3 now passes`. */
+/** The account as short phrases, one for each thing: `hollow.py edited ×2`, `r1 → r3 ok`, `resolved M1`, `added M5`, `drew a sketch M9`, `M3 now passes`. */
 export function summaryParts(s: TurnSummary): string[] {
   const parts: string[] = []
   if (s.files.length > 0) {
@@ -130,6 +141,8 @@ export function summaryParts(s: TurnSummary): string[] {
   }
   if (s.resolved.length > 0) parts.push(`resolved ${list(s.resolved, 'marks')}`)
   if (s.added.length > 0) parts.push(`added ${list(s.added, 'marks')}`)
+  if (s.sketched.length > 0) parts.push(s.sketched.length === 1 ? `drew a sketch ${s.sketched[0]}` : `drew sketches ${list(s.sketched, 'sketches')}`)
+  if (s.resketched.length > 0) parts.push(`drew ${list(s.resketched, 'sketches')} again`)
   for (const d of s.dimensions.slice(0, MOST)) parts.push(`${d.id} ${NOW[d.now]}`)
   if (s.dimensions.length > MOST) parts.push(`${s.dimensions.length - MOST} more dimensions changed`)
   return parts

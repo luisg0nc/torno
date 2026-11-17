@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ArrowMark, PickMark, PinMark, StrokeMark, Vec3 } from '../../shared/marks'
+import type { ArrowMark, PickMark, PinMark, SketchMark, StrokeMark, Vec3 } from '../../shared/marks'
 import { noteStillBelongs, subject, unsavedNote } from './NotePopover'
 
 const CAMERA = { position: [100, -100, 80] as Vec3, target: [0, 0, 10] as Vec3, up: [0, 0, 1] as Vec3, ortho: false, fov: 35, zoom: 1 }
@@ -10,7 +10,14 @@ const pin: PinMark = { ...BASE, id: 'M2', kind: 'pin', anchor: ON }
 const arrow: ArrowMark = { ...BASE, id: 'M3', kind: 'arrow', from: ON, to: [5, 0, 14.5] }
 const profile: StrokeMark = { ...BASE, id: 'M4', kind: 'stroke', space: 'plane', anchor: ON, plane: { origin: [5, 0, 2.5], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 0.0' }, points2d: [[0, 0], [10, 0], [10, 5]] }
 
+const sketch: SketchMark = { ...BASE, id: 'M5', kind: 'sketch', name: 'Hose route', take: 'flow', diameter: 19, planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }], strokes: [{ plane: 1, points2d: [[0, 0], [1, 1]], pen: 'free', revision: 1 }] }
+
 describe('what the note says its mark is on', () => {
+  it('for a 3D sketch is its name and how it is taken, with what it holds', () => {
+    expect(subject(sketch)).toEqual({ ref: 'Hose route', detail: 'flow ⌀19 mm, 1 stroke on 1 plane', state: 'ok' })
+    expect(subject({ ...sketch, name: '', strokes: [], anchorState: 'drifted' })).toEqual({ ref: 'Sketch M5', detail: 'flow ⌀19 mm, no strokes yet, moved: check it', state: 'drifted' })
+  })
+
   it('is the ref and the kernel’s line about it', () => {
     expect(subject(pick)).toEqual({ ref: 'plate/E1', detail: 'line, 30 mm', state: 'ok' })
     expect(subject(arrow)).toEqual({ ref: '12.0 mm', detail: 'from plate/E1', state: 'ok' })

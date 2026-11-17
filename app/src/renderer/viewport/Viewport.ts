@@ -582,6 +582,12 @@ export class Viewport {
     this.invalidate()
   }
 
+  /** The strokes of a sketch that are on one plane of it (or `surface`) are lit, as when the sketch is pointed at; null for none. On screen only. */
+  setLitStrokes(lit: { id: string; plane: number | 'surface' } | null): void {
+    this.marks.setLitPlane(lit)
+    this.invalidate()
+  }
+
   hoveredMark(): string | null {
     return this.marks.hoverId
   }

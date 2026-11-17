@@ -93,6 +93,34 @@ span.mark-thumb {
   width: 32px;
 }
 
+/* A 3D sketch in its row: what it is called, how it is taken, what it holds; it gives way to its comment before the comment gives way to it. */
+.mark-sketch {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 70%;
+  white-space: nowrap;
+}
+
+.mark-sketch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mark-sketch-take {
+  flex: none;
+}
+
+.mark-sketch-counts {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
 .mark-note {
   flex: 1;
   min-width: 0;

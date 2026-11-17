@@ -32,6 +32,13 @@ describe('what a double click on a card does', () => {
     expect(doubleClickOf(card('mark', { source: 'M9' }), undefined)).toEqual({ does: 'mark', id: 'M9' })
   })
 
+  it("opens the person's 3D sketch in the tool on a double click on its card, and goes to the model for Claude's", () => {
+    const mine = { id: 'M7', kind: 'sketch', author: 'user' } as never
+    const claudes = { id: 'M8', kind: 'sketch', author: 'agent' } as never
+    expect(doubleClickOf(card('mark', { source: 'M7' }), mine)).toEqual({ does: 'sketching', id: 'M7' })
+    expect(doubleClickOf(card('mark', { source: 'M8' }), claudes)).toEqual({ does: 'mark', id: 'M8' })
+  })
+
   it('does nothing for a build whose copy it has not', () => {
     expect(doubleClickOf(card('build', { source: 'h41' }))).toBeNull()
   })

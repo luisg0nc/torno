@@ -22,7 +22,8 @@ import { endReplace, setTool, toolStore, type ToolName } from '../state/tools'
 import { alignTool, connectAlign } from '../tools/alignTool'
 import { arrowTool } from '../tools/arrowTool'
 import { connectSketching, sayRefusal, sketchTool } from '../tools/sketchTool'
-import { leaveSketch, setSketchEnv } from '../state/sketching'
+import { MissingPictures } from '../state/sketchPictures'
+import { leaveSketch, setSketchEnv, sketchStore } from '../state/sketching'
 import { measureTool } from '../tools/measureTool'
 import { commitMark, replaceMark } from '../tools/pickMarks'
 import { pinTool } from '../tools/pinTool'
@@ -47,6 +48,7 @@ import { NotePopover } from './NotePopover'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { Selection } from './Selection'
+import { SketchPanel } from './sketch/SketchPanel'
 import { ToolHint } from './ToolHint'
 import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
@@ -369,6 +371,19 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     say: sayRefusal
   })
   const offSketching = connectSketching(viewport)
+  // The cards of the sketches that have no picture (Claude's, drawn while the project was not on show) get theirs when it is shown: one at a time, each in a turn of its own.
+  const pictures = new MissingPictures({
+    later: (run) => void setTimeout(run, 30),
+    busy: () => sketchStore.getState().open !== null,
+    draw: async (mark) => {
+      const s = store.getState()
+      if (!s.scene || !s.scene.layouts.includes(mark.layout)) return null
+      return (await look(viewport, { view: mark.camera, layout: mark.layout, size: 1280, marks: true })).png
+    },
+    keep: (objectId, id, png) => window.torno.marks.sketchPicture(objectId, id, png)
+  })
+  const offered = (s: TornoState): void => pictures.offer(s.objectId !== null && s.scene !== null ? s.objectId : null, s.marks)
+  offered(store.getState())
 
   // How long an old build may take to come before the status line says it is being made again from its copy.
   const BUILDING_SAID_MS = 300
@@ -453,6 +468,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     if (s.section !== prev.section) viewport.setSection(s.section)
     if (s.selection !== prev.selection && s.objectId === prev.objectId && s.scene === prev.scene && s.layout === prev.layout) reportSelection(s)
     if (s.marks !== prev.marks || shown(s) !== shown(prev)) viewport.setMarks(s.marks, shown(s))
+    if (s.marks !== prev.marks || s.scene !== prev.scene || s.objectId !== prev.objectId) offered(s)
     if (s.activeMark !== prev.activeMark) viewport.setActiveMark(s.activeMark)
     if (s.hoveredMark !== prev.hoveredMark) viewport.setHoverMark(s.hoveredMark)
     if (s.objectId !== prev.objectId) asks.clear()
@@ -764,6 +780,7 @@ export function ViewportPane() {
           <SectionBar viewport={viewport} />
           <AlignBar />
           <RegionBar />
+          <SketchPanel />
           <AgentLine />
           <QuestionCard where="view" />
           <ToolHint />

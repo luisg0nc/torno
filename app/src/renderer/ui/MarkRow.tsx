@@ -2,10 +2,12 @@ import { pressed } from '../../shared/keys'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { exactText, shownDimension } from '../../shared/dimension'
 import { EXPLODED_TOOLS } from '../../shared/explode'
-import { type Mark, type MarkKind, type MarkPatch, type NoteMark, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
+import { type Mark, type MarkKind, type MarkPatch, type NoteMark, type SketchMark, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
 import { count, number } from '../../shared/format'
+import { countsText, sketchName, takeText } from '../../shared/sketchText'
 import { actions, explodeNow, partsInLayout, runningSession, store, useStore } from '../state/store'
 import { endReplace, startReplace, useReplacing } from '../state/tools'
+import { editSketch } from '../state/sketching'
 import { editRegion } from '../tools/regionPainting'
 import { rowLabel } from '../viewport/marks/labels'
 import { spanningMarks } from '../viewport/marks/apart'
@@ -218,6 +220,7 @@ export function MarkRow({
         {mark.kind === 'shape' ? SHAPE_ICONS[mark.shape] : KIND_ICON[mark.kind]}
       </span>
       {mark.kind === 'note' && <NoteThumb note={mark} />}
+      {mark.kind === 'sketch' && <SketchSummary mark={mark} />}
       {mark.kind === 'dimension' && <DimensionValue mark={mark} revision={revision} />}
       {mark.kind === 'region' && (
         <span className="mark-value num" title={`${count(mark.triangles)} ${mark.triangles === 1 ? 'triangle' : 'triangles'} of ${mark.scan}, ≈ ${number(mark.area)} mm² of its mesh`}>
@@ -332,6 +335,21 @@ export function MarkRow({
             <BrushIcon />
           </button>
         )}
+        {mark.kind === 'sketch' && !resolved && mark.author === 'user' && (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Edit ${mark.id}`}
+            title={exploded ?? (elsewhere ? `Edit: show the layout ${mark.layout} first` : 'Edit: open the sketch again in the Draw tool')}
+            disabled={exploded !== null || elsewhere}
+            onClick={() => {
+              actions.focusMark(mark.id)
+              void editSketch(mark)
+            }}
+          >
+            <BrushIcon />
+          </button>
+        )}
         {mark.kind === 'note' && (
           <button
             type="button"
@@ -433,6 +451,21 @@ export function MarkRow({
         </div>
       )}
     </li>
+  )
+}
+
+/**
+ * A 3D sketch's name, how it is taken (and the diameter of a flow) and what it holds, in the place a dimension has its value:
+ * its comment is the row's own note. The numbers are in the monospace face.
+ */
+export function SketchSummary({ mark }: { mark: SketchMark }) {
+  const says = `${sketchName(mark)}, ${takeText(mark)}, ${countsText(mark)}`
+  return (
+    <span className="mark-sketch" title={says}>
+      <span className="mark-sketch-name">{sketchName(mark)}</span>
+      <span className="mark-sketch-take num">{takeText(mark)}</span>
+      <span className="mark-sketch-counts num">{countsText(mark)}</span>
+    </span>
   )
 }
 

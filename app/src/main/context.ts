@@ -135,6 +135,8 @@ export const tellsInstructions = (opts: { first?: boolean; fresh?: boolean }): b
 export interface PromptContext {
   text: string
   sentMarkIds: string[]
+  /** The sketch the text says is being sketched and so not sent (its number), for the chat's line under the prompt. Absent when the text says none. */
+  sketching?: string
   /** What the text says of the build, as data for the chat's chips: the revision it names, and how that build stands. Absent where the text names none. */
   revision?: number
   buildState?: 'ok' | 'failed' | 'building'
@@ -362,9 +364,11 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
     mark.reopened || (mark.author === 'agent' && !mark.sentBefore) ? 'reopened by the user' : mark.sentBefore && (mark.author === 'agent' || !opts.fresh) ? 'changed' : undefined
   const listedDrafts = list(MARKS_HEAD, drafts, news)
   // What is held back is said, so that the agent knows the number and why it has no word of it.
+  let said: string | undefined
   if (waiting && used + 1 + BEING_SKETCHED(waiting).length <= CONTEXT_LIMIT) {
     lines.push(BEING_SKETCHED(waiting))
     used += 1 + BEING_SKETCHED(waiting).length
+    said = waiting.id
   }
   list(STILL_OPEN_HEAD, still, () => undefined)
   // The room kept for the dimensions is theirs now. The count of those that pass is still to come after them.
@@ -386,7 +390,7 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // The files Claude Code reads are the very last line; the references go before it, should they fit beside it.
   const tail = instructed ? 1 + instructed.length : 0
   const text = printed ? `${joined}\n${printed}` : `${joined}${referred && joined.length + 1 + referred.length + tail <= CONTEXT_LIMIT ? `\n${referred}` : ''}${instructed ? `\n${instructed}` : ''}`
-  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}) }
+  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(said ? { sketching: said } : {}), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}) }
   // Every part above keeps to the room it has; this holds for what none of them foresaw. What is cut is
   // the end, and no mark whose line may be among it is said to have been told.
   return { text: cutEnd(text, CONTEXT_LIMIT), sentMarkIds: [] }

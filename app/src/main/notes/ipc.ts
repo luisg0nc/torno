@@ -120,16 +120,18 @@ export function noteHandlers(deps: NoteIpcDeps) {
     },
 
     /**
-     * The bytes of one picture of a note: the one with the ink on it, the plain one, or the reference at an index. Null
+     * The bytes of one picture of a note, or of a sketch's card: the one with the ink on it, the plain one, or the reference at an index. Null
      * when the note has no such picture, or its file is not on this computer (the pictures are not in git).
      */
     async picture(objectId: string, id: string, which: 'ink' | 'plain' | number): Promise<Uint8Array | null> {
       const obj = open(objectId)
       if (typeof id !== 'string' || !MARK_ID.test(id)) return null
       const mark = (await deps.marks.list(obj.id)).find((m: Mark) => m.id === id)
-      if (mark?.kind !== 'note') return null
+      if (mark?.kind !== 'note' && mark?.kind !== 'sketch') return null
       let name: string | undefined
-      if (which === 'ink') name = mark.ink
+      // A 3D sketch has the one picture, of its card: asked either way, it is that one, and it has no references.
+      if (mark.kind === 'sketch') name = which === 'ink' || which === 'plain' ? mark.picture : undefined
+      else if (which === 'ink') name = mark.ink
       else if (which === 'plain') name = mark.picture
       else if (typeof which === 'number' && Number.isInteger(which) && which >= 0) name = mark.references[which]?.file
       if (name === undefined) return null

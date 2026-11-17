@@ -442,8 +442,9 @@ export function sketchTool(): Tool {
  * open sketch; a sketch is let go with its project and layout; and `Ctrl+Z`, which the tool is not handed (it is a chord),
  * takes the last stroke back. Returns what undoes it.
  */
-export function connectSketching(viewport: Pick<Viewport, 'setXray' | 'setSketchSheet' | 'setSketch' | 'sketchCorner'>): () => void {
+export function connectSketching(viewport: Pick<Viewport, 'setXray' | 'setSketchSheet' | 'setSketch' | 'sketchCorner' | 'setLitStrokes'>): () => void {
   let laid: unknown = null
+  let lit = ''
   const sync = (force = false): void => {
     const s = sketchStore.getState()
     const on = toolStore.getState().tool === 'draw' && s.open !== null
@@ -452,6 +453,12 @@ export function connectSketching(viewport: Pick<Viewport, 'setXray' | 'setSketch
     if (force || plane !== laid) {
       laid = plane
       viewport.setSketchSheet(plane)
+    }
+    // The strokes of the plane a row of the panel is pointed at.
+    const light = on && s.open?.id !== undefined && s.lit !== null ? { id: s.open.id, plane: s.lit } : null
+    if ((light ? `${light.id}:${light.plane}` : '') !== lit) {
+      lit = light ? `${light.id}:${light.plane}` : ''
+      viewport.setLitStrokes(light)
     }
     viewport.setSketch({
       plane: plane ? { label: planeName(plane.label), at: viewport.sketchCorner() ?? plane.origin } : null,
@@ -482,6 +489,7 @@ export function connectSketching(viewport: Pick<Viewport, 'setXray' | 'setSketch
     viewport.setSketchSheet(null)
     viewport.setSketch({ plane: null, cube: null, hint: null, marker: null })
     viewport.setXray(false)
+    viewport.setLitStrokes(null)
   }
 }
 

@@ -81,7 +81,7 @@ export interface PicturePart {
 export interface PictureHost {
   readonly renderer: THREE.WebGLRenderer
   readonly scene: THREE.Scene
-  readonly marks: Pick<MarkLayer, 'activeId' | 'setActive' | 'show' | 'showDraft' | 'extend' | 'update' | 'labels' | 'split'>
+  readonly marks: Pick<MarkLayer, 'activeId' | 'setActive' | 'setLights' | 'show' | 'showDraft' | 'extend' | 'update' | 'labels' | 'split'>
   readonly highlights: Pick<Highlights, 'setVisible'>
   readonly scans: Pick<ScanLayer, 'showOnly' | 'shown' | 'box' | 'boxIn' | 'built' | 'colourFor'>
   /** The viewport has been disposed of. */
@@ -225,6 +225,7 @@ export function asPictured<T>(host: PictureHost, state: PictureState, draw: (ext
     const around = host.scans.box()
     if (around) extent = reaching(extent.clone(), around, extent)
     host.marks.setActive(null)
+    host.marks.setLights(false)
     host.marks.show(state.withMarks ? state.layout : null, state.notDrawn)
     host.marks.showDraft(false)
     if (state.withMarks) {
@@ -244,6 +245,7 @@ export function asPictured<T>(host: PictureHost, state: PictureState, draw: (ext
     showGizmo()
     host.highlights.setVisible(true)
     host.marks.setActive(active)
+    host.marks.setLights(true)
     host.showMarks() // sized for the screen again by the next frame drawn
     host.marks.showDraft(true)
     if (otherLayout) host.layGround(host.layout())

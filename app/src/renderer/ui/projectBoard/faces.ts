@@ -2,6 +2,7 @@ import { type Card, type CardKind, firstLink } from '../../../shared/board'
 import { count } from '../../../shared/format'
 import { type Mark, markAnchors } from '../../../shared/marks'
 import { checkText, type ModelCheck } from '../../../shared/modelChecks'
+import { sketchName, takeText } from '../../../shared/sketchText'
 import { said } from '../../../shared/params'
 import type { Param } from '../../../shared/scene'
 import type { ScanInfo } from '../../../shared/scans'
@@ -95,6 +96,17 @@ function markFace(card: Card, facts: Facts): Face {
       chipAuthor: mark.author,
       // Two lines, so that the picture keeps room on a card the size of a mark's: the comment (or what it is), and its status.
       lines: [note ? { text: note } : { text: 'view note', mono: true as const }, { text: mark.status, ...(mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }],
+      ...(facts.picture ? { picture: facts.picture } : {}),
+      ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {})
+    }
+  }
+  // A 3D sketch shows the picture drawn from its camera, its name and how to take it, and its comment.
+  if (mark.kind === 'sketch') {
+    return {
+      label: LABEL.mark,
+      chip: mark.id,
+      chipAuthor: mark.author,
+      lines: [{ text: sketchName(mark) }, { text: takeText(mark), mono: true }, ...(note ? [{ text: note }] : []), { text: mark.status, ...(mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }],
       ...(facts.picture ? { picture: facts.picture } : {}),
       ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {})
     }
