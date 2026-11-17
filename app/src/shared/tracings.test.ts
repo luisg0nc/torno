@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { Vec3 } from './marks'
+import type { Sectioned } from './geometry'
+import type { Part } from './scene'
+import type { SnapData } from './snapdata'
 import { axesOfNormal, mainPlaneFrame } from './planes'
 import {
   LAYER_COLOURS,
   MOST_LAYERS,
   MOST_SHAPES,
   MOST_TRACINGS,
+  MOST_PLANE_VERTICES,
   MOST_TRACING_POINTS,
   PHOTO_MAIN_ONLY,
   TRACING_ID,
@@ -15,6 +19,7 @@ import {
   type TracingPlane,
   inPlane,
   planeOfFrom,
+  planeSnaps,
   pointCount,
   shapeCount,
   toObject,
@@ -133,5 +138,63 @@ describe('counting', () => {
     expect(pointCount(t)).toBe(5)
     expect(shapeCount(tracing())).toBe(0)
     expect(pointCount(tracing())).toBe(0)
+  })
+})
+
+describe('planeSnaps', () => {
+  const plane = { ...mainPlaneFrame('XY', 0) }
+  const partAt = (name: string, loc: Part['loc'] = { t: [0, 0, 0], q: [0, 0, 0, 1] }): Part => ({ name, loc }) as unknown as Part
+  const snapOfPoints = (points: Vec3[]): SnapData => ({ points: new Float32Array(points.flat()), circles: new Float32Array() })
+  const box: Sectioned = {
+    plane: { origin: [0, 0, 0], normal: [0, 0, 1], x: [1, 0, 0], y: [0, 1, 0] },
+    bounds: { min: [0, 0], max: [10, 10] },
+    parts: [
+      {
+        part: 'block',
+        area: 100,
+        areaExact: true,
+        open: 0,
+        how: 'cross-section of the solid',
+        loops: [{ points: [[0, 0], [10, 0], [10, 10], [0, 10]], closed: true, area: 100, areaExact: true, deflection: 0.01, corners: [[0, 0], [10, 0], [10, 10], [0, 10]], circles: [{ centre: [5, 5], radius: 2, edge: 'E4' }] }]
+      }
+    ]
+  }
+
+  it("gives a box's four corners plain, and the circle's centre with its edge", () => {
+    const snaps = planeSnaps(plane, [{ part: partAt('block') }], box)
+    expect(snaps.filter((s) => s.kind === 'corner')).toEqual([0, 1, 2, 3].map((i) => ({ kind: 'corner', uv: box.parts[0].loops[0].corners![i], part: 'block' })))
+    expect(snaps.filter((s) => s.kind === 'centre')).toEqual([{ kind: 'centre', uv: [5, 5], radius: 2, part: 'block', edge: 'E4' }])
+    expect(snaps.some((s) => 'projected' in s)).toBe(false)
+  })
+
+  it('gives a vertex in the plane plain and one 5 mm off it as projected, in the object frame of the part', () => {
+    const snaps = planeSnaps(plane, [{ part: partAt('block'), snap: snapOfPoints([[10, 0, 0.005], [3, 4, 5]]) }], box)
+    const vertices = snaps.filter((s) => s.kind === 'vertex')
+    expect(vertices).toEqual([
+      { kind: 'vertex', uv: [10, 0], part: 'block', ref: 'block/V0' },
+      { kind: 'vertex', uv: [3, 4], part: 'block', ref: 'block/V1', projected: true }
+    ])
+  })
+
+  it('applies the part\'s loc to its vertices', () => {
+    // A quarter turn about Z, then 100 mm along X: the part-local (1, 0, 0) is (100, 1, 0).
+    const s = Math.SQRT1_2
+    const loc: Part['loc'] = { t: [100, 0, 0], q: [0, 0, s, s] }
+    const snaps = planeSnaps(plane, [{ part: partAt('lid', loc), snap: snapOfPoints([[1, 0, 0]]) }], { ...box, parts: [] })
+    expect(snaps).toHaveLength(1)
+    expect(snaps[0]).toMatchObject({ kind: 'vertex', part: 'lid', ref: 'lid/V0' })
+    expect((snaps[0] as { uv: [number, number] }).uv[0]).toBeCloseTo(100, 4)
+    expect((snaps[0] as { uv: [number, number] }).uv[1]).toBeCloseTo(1, 4)
+  })
+
+  it('offers the vertices nearest the plane first and no more than the most', () => {
+    const points: Vec3[] = Array.from({ length: MOST_PLANE_VERTICES + 50 }, (_, i) => [i, 0, i % 2 === 0 ? 0 : 3 + i])
+    const snaps = planeSnaps(plane, [{ part: partAt('block'), snap: snapOfPoints(points) }], { ...box, parts: [] })
+    expect(snaps).toHaveLength(MOST_PLANE_VERTICES)
+    expect(snaps.filter((s) => 'projected' in s)).toHaveLength(MOST_PLANE_VERTICES - Math.ceil((MOST_PLANE_VERTICES + 50) / 2))
+  })
+
+  it('ignores a part with no snap data', () => {
+    expect(planeSnaps(plane, [{ part: partAt('block') }], { ...box, parts: [] })).toEqual([])
   })
 })

@@ -110,6 +110,21 @@ const bridge: TornoBridge = {
     problem: (objectId) => invokePlain('sets:problem', objectId),
     dismissProblem: (objectId) => invokePlain('sets:dismissProblem', objectId)
   },
+  tracings: {
+    list: (objectId) => invokePlain('tracings:list', objectId),
+    make: (objectId, ask) => invokePlain('tracings:make', objectId, ask),
+    edit: (objectId, id, patch) => invokePlain('tracings:edit', objectId, id, patch),
+    remove: (objectId, id) => invokePlain('tracings:remove', objectId, id),
+    restore: (objectId, id) => invokePlain('tracings:restore', objectId, id),
+    layer: (objectId, id, change) => invokePlain('tracings:layer', objectId, id, change),
+    outline: (objectId, id) => invokePlain('tracings:outline', objectId, id),
+    shown: (objectId, ids) => ipcRenderer.send('tracings:shown', objectId, ids),
+    onChanged: (cb) => subscribe('tracings:changed', cb),
+    onOutline: (cb) => subscribe('tracings:outline', cb),
+    onProblem: (cb) => subscribe('tracings:problem', cb),
+    problem: (objectId) => invokePlain('tracings:problem', objectId),
+    dismissProblem: (objectId) => invokePlain('tracings:dismissProblem', objectId)
+  },
   notes: {
     make: (draft) => invokePlain('notes:make', draft),
     edit: (objectId, id, patch) => invokePlain('notes:edit', objectId, id, patch),

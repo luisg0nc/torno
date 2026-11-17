@@ -6,6 +6,11 @@ import type { BuildState } from '../../shared/build'
 import type { Vec3 } from '../../shared/marks'
 import type { SelectorFound } from '../../shared/sets'
 import { Builds } from '../builds'
+import { nearestReply } from '../marks/reanchor'
+import { tracingHandlers } from '../tracings/ipc'
+import { Outlines } from '../tracings/outline'
+import { TracingStore } from '../tracings/store'
+import type { TracingCut } from '../../shared/tracings'
 import { type RunningKernel, startKernel } from '../kernel/client'
 import { type RefindDeps, refindAll } from './refind'
 import { SetStore } from './store'
@@ -95,5 +100,67 @@ describe('refind, against the real kernel', () => {
     await build('a')
     expect(await refindAll(deps(), 'morph')).toBe(true)
     expect((await store.list('morph'))[0].members.map((m) => ('face' in m ? m.face : ''))).toEqual([top.ref, bottom.ref])
+  }, 120_000)
+})
+
+// The tracings of a project, on the same model: a plane cut with the kernel's snap points, and a face tracing that follows its face.
+describe('tracings, against the real kernel', () => {
+  it('cuts a main plane with its corners, and a face tracing follows its face by 0.3 mm or says it is lost', async () => {
+    await build('a')
+    const tracings = new TracingStore({ dirOf: (id) => (id === 'morph' ? dir : undefined) })
+    const outlines = new Outlines({
+      tracings,
+      build: (id) => builds.scene(id),
+      query: (id, name, args) => builds.query(id, name, args, { restore: false }),
+      nearest: async (id, layout, anchors) => nearestReply(await builds.query(id, 'nearest', { layout, anchors }, { restore: false }), anchors),
+      log: () => {}
+    })
+    const door = tracingHandlers({
+      tracings,
+      outlines,
+      object: (id) => (id === 'morph' ? { id: 'morph', name: 'morph', dir, model: 'morph.py' } : undefined),
+      build: (id) => builds.scene(id),
+      view: () => undefined,
+      query: (id, name, args) => builds.query(id, name, args, { restore: false })
+    })
+
+    // A main plane through the middle of the plate: the loop's four corners, exact, in the plane's own u and v.
+    const middle = await door.make('morph', { on: { main: 'XY', offset: 0 }, layout: 'main', parts: ['plate'] })
+    const cut = (await outlines.cut('morph', middle.id)) as TracingCut
+    expect(cut.cut.parts[0]).toMatchObject({ part: 'plate', area: 1200, areaExact: true })
+    const corners = cut.snaps.filter((s) => s.kind === 'corner').map((s) => s.uv).sort((a, b) => a[0] - b[0] || a[1] - b[1])
+    expect(corners).toEqual([[-20, -15], [-20, 15], [20, -15], [20, 15]])
+    // The plate's own vertices are in the plane's neighbourhood: four above it, four below, all offered, none in the plane.
+    expect(cut.snaps.filter((s) => s.kind === 'vertex' && s.projected)).toHaveLength(8)
+
+    // Two face tracings: the underside, which stays at z = -2.5, and the top, whose origin is 0.3 mm off the face.
+    const bottom = await faceAt([10, 5, -2.5])
+    const top = await faceAt([14, 9, 2.5])
+    const under = await door.make('morph', { on: { face: bottom.ref }, layout: 'main' })
+    const over = await door.make('morph', { on: { face: top.ref }, layout: 'main' })
+    expect(under.plane.origin[2]).toBeCloseTo(-2.5, 6)
+    expect(over.plane.origin[2]).toBeCloseTo(2.5, 6)
+    await tracings.movePlane('morph', over.id, { origin: [over.plane.origin[0], over.plane.origin[1], 2.2] })
+    expect(await outlines.recut('morph')).toBe(true)
+    let [, now1, now2] = (await tracings.list('morph')).tracings
+    expect(now1.plane.origin[2]).toBeCloseTo(-2.5, 6)
+    expect(now2.plane.origin[2]).toBeCloseTo(2.5, 6)
+    expect(now2.plane.x).toEqual(over.plane.x)
+    expect(now2.lost).toBeUndefined()
+
+    // On variant b the top is 3 mm higher: further than the part's reach, and untagged, so it is not in this plane any more.
+    // The underside is where it was.
+    outlines.shown('morph', [under.id])
+    const told: number[] = []
+    outlines.on('outline', (m) => told.push(m.cut.revision))
+    const revision = await build('b')
+    expect(await outlines.recut('morph')).toBe(true)
+    ;[, now1, now2] = (await tracings.list('morph')).tracings
+    expect(now1.lost).toBeUndefined()
+    expect(now1.plane.origin[2]).toBeCloseTo(-2.5, 6)
+    expect(now2.lost).toBe(`${top.ref} is not in this plane any more`)
+    expect(now2.plane.origin[2]).toBeCloseTo(2.5, 6)
+    expect(told).toEqual([revision])
+    await build('a')
   }, 120_000)
 })

@@ -20,6 +20,8 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
+import type { LayerColour, LayerShape, Tracing, TracingCut, TracingsFile } from './tracings'
+import type { MainAxis } from './planes'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
 /** What the onboarding page asks for when the person presses "Create": the new object and everything they gave. */
@@ -327,6 +329,47 @@ export interface TornoBridge {
     /** The sets of a project, whole, as they now are, whoever changed them. */
     onChanged(cb: (m: { objectId: string; sets: NamedSet[] }) => void): () => void
     /** Something about a project's sets file the person should know, said once: a file that could not be read was set aside. */
+    onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
+    /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
+    problem(objectId: string): Promise<string | null>
+    dismissProblem(objectId: string): Promise<void>
+  }
+  /**
+   * The tracings of a project (`<project>/.torno/tracings.json`): the model laid flat in one plane at true scale. Main is their
+   * only writer and never takes an id, an author, a layer's id or author or anything it works out from the window: the window names
+   * a project, a tracing (`T<n>`) and a layer (its number), and what it says is checked. What the window makes is the person's.
+   * Calls reject with a plain message.
+   */
+  tracings: {
+    /** The file, whole: the number the next is given, and the tracings. */
+    list(objectId: string): Promise<TracingsFile>
+    /**
+     * Makes a tracing on a main plane (`main` with its `offset`), on a planar face (`face`: `block/F12`, or a tag of one face) or
+     * on the section on screen (`section: true`), of a layout and, optionally, some of its parts. Main makes the plane's frame; a
+     * face that is not planar, or no section on screen, is refused in words.
+     */
+    make(objectId: string, ask: { on: { main: MainAxis; offset?: number } | { face: string } | { section: true }; name?: string; layout: string; parts?: string[] }): Promise<Tracing>
+    /** Renames a tracing, or changes the parts it draws (`null` for all of them). */
+    edit(objectId: string, id: string, patch: { name?: string; parts?: string[] | null }): Promise<Tracing>
+    /** Removes a tracing, the agent's too. */
+    remove(objectId: string, id: string): Promise<void>
+    /** Puts back the tracing removed in this run, whole and with its number, once. */
+    restore(objectId: string, id: string): Promise<Tracing>
+    /** The person's change to a layer: a new one, changes to their own, taking one away, or hiding any layer. Answers the tracing. */
+    layer(
+      objectId: string,
+      id: string,
+      change: { make: { name: string; colour: LayerColour; shapes: LayerShape[] } } | { edit: number; name?: string; colour?: LayerColour; shapes?: LayerShape[] } | { remove: number } | { hide: number; hidden: boolean }
+    ): Promise<Tracing>
+    /** The outline of a tracing on the last good build (the kernel's cut, with the points it can be snapped to), or null when there is none to be had. */
+    outline(objectId: string, id: string): Promise<TracingCut | null>
+    /** Which tracings the window shows now (the view, the visible board cards, Show in 3D): those are cut again after every build. */
+    shown(objectId: string, ids: string[]): void
+    /** The file, whole, as it now is, whoever changed it. */
+    onChanged(cb: (m: { objectId: string; file: TracingsFile }) => void): () => void
+    /** A shown tracing cut again on a new build. */
+    onOutline(cb: (m: { objectId: string; cut: TracingCut }) => void): () => void
+    /** Something about a project's tracings file the person should know, said once: a file that could not be read was set aside. */
     onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
     /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>

@@ -30,6 +30,7 @@ import type { NearestAnchor } from './marks/reanchor'
 import { maskReadsOf, maskStampOf, meshesOf } from './marks/regions'
 import { MarkStore } from './marks/store'
 import { SetStore } from './sets/store'
+import { TracingStore } from './tracings/store'
 import { attachBoard } from './board/attach'
 import { reconcileProject } from './board/follow'
 import { liveFacts } from './board/live'
@@ -488,6 +489,8 @@ async function scalePicture(bytes: Uint8Array, edge: number): Promise<Uint8Array
   return new Uint8Array(png ? scaled.toPNG() : scaled.toJPEG(85))
 }
 // The cards of what a project has appear on its board by themselves, and go with it.
+/** The tracings of the objects of the open workspace, in `.torno/tracings.json`. */
+const tracings = new TracingStore({ dirOf: (id) => findObject(id)?.dir })
 const board = new BoardStore({
   dirOf: (id) => findObject(id)?.dir,
   // What a card shows of the project, for what `markAllTold` keeps: as the board line of a prompt reads it.
@@ -691,6 +694,7 @@ void app.whenReady().then(async () => {
     asks,
     marks,
     sets,
+    tracings,
     board,
     views: savedViews,
     onBuild: (state) => {
@@ -861,7 +865,7 @@ app.on('will-quit', (event) => {
   const waits: Promise<unknown>[] = []
   // An export still being written is given up: its check is not waited for, and the file beside the chosen one goes.
   stopExports()
-  const written = writesBeforeQuit([marks.settled(), scans.settled(), sets.settled(), sceneFilesSettled(), exportsUnderWay()])
+  const written = writesBeforeQuit([marks.settled(), scans.settled(), sets.settled(), tracings.settled(), sceneFilesSettled(), exportsUnderWay()])
   if (written) waits.push(written)
   if (sessions?.busy) waits.push(sessions.stopAll())
   // The copy of the example was torno's own, in the temporary folder: it goes with the run, last of all, once

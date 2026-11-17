@@ -1,5 +1,9 @@
+import { rotate } from './align'
+import type { Sectioned } from './geometry'
 import type { Vec3 } from './marks'
 import { type MainAxis, mainPlaneFrame } from './planes'
+import type { Part } from './scene'
+import { type SnapData, vertexAt } from './snapdata'
 
 // Tracings: the model laid flat in one plane at true scale, with a photo under it and layers over it. The pure rules both
 // sides use are here: what a tracing is, its caps, and the maths between a tracing's own [u, v] (`uv`, millimetres) and the
@@ -172,3 +176,59 @@ export const shapeCount = (t: Pick<Tracing, 'layers'>): number => t.layers.reduc
 
 /** How many points the polylines of a tracing hold, in all its layers. */
 export const pointCount = (t: Pick<Tracing, 'layers'>): number => t.layers.reduce((sum, l) => sum + l.shapes.reduce((n, s) => n + (s.kind === 'polyline' ? s.points.length : 0), 0), 0)
+
+/**
+ * What a tracing can be snapped to, in its own `[u, v]`: the corners of the cut and the centres of its circles (the kernel's,
+ * exact, from the B-rep: `SectionLoop.corners` and `.circles`), and the vertices of the parts (the build's snap data). A vertex
+ * further than `PLAIN_WITHIN` from the plane is offered too, as `projected`: where it lands on the plane, not a point of it.
+ */
+export type PlaneSnap =
+  | { kind: 'corner'; uv: [number, number]; part: string }
+  | { kind: 'centre'; uv: [number, number]; radius: number; part: string; edge?: string }
+  | { kind: 'vertex'; uv: [number, number]; part: string; ref: string; projected?: true }
+
+/** A tracing's outline of one build, as main tells the window: the kernel's cut with the points it can be snapped to. */
+export interface TracingCut {
+  tracing: string
+  /** The build it was cut on (this run's build number). */
+  revision: number
+  cut: Sectioned
+  snaps: PlaneSnap[]
+}
+
+/** How far from the plane a vertex is to lie in it, mm. */
+export const PLAIN_WITHIN = 0.01
+/** The most vertices offered as snaps for one tracing: those nearest the plane. A part of many thousands would make each outline a megabyte. */
+export const MOST_PLANE_VERTICES = 5000
+
+/**
+ * The points a tracing can be snapped to: the corners and circle centres of `cut`, then the vertices of `parts` (each with its
+ * snap data, part-local, turned by `Part.loc` into the object frame) projected onto the plane, plain within `PLAIN_WITHIN` of it
+ * and `projected` beyond, those nearest the plane first and at most `MOST_PLANE_VERTICES`. The one rule for main (the line-up
+ * and span checks) and the window (the Trace tool, the line-up).
+ */
+export function planeSnaps(plane: Pick<TracingPlane, 'origin' | 'x' | 'y'>, parts: ReadonlyArray<{ part: Part; snap?: SnapData }>, cut: Sectioned): PlaneSnap[] {
+  const snaps: PlaneSnap[] = []
+  for (const of of cut.parts) {
+    for (const loop of of.loops) {
+      for (const uv of loop.corners ?? []) snaps.push({ kind: 'corner', uv: [uv[0], uv[1]], part: of.part })
+      for (const c of loop.circles ?? []) snaps.push({ kind: 'centre', uv: [c.centre[0], c.centre[1]], radius: c.radius, part: of.part, ...(c.edge === undefined ? {} : { edge: c.edge }) })
+    }
+  }
+  const normal = cross(plane.x, plane.y)
+  const vertices: Array<{ away: number; snap: PlaneSnap }> = []
+  for (const { part, snap } of parts) {
+    if (!snap) continue
+    for (let i = 0; 3 * i + 3 <= snap.points.length; i++) {
+      const local = vertexAt(snap, i)
+      if (!local) continue
+      const turned = rotate(part.loc.q, local)
+      const p: Vec3 = [turned[0] + part.loc.t[0], turned[1] + part.loc.t[1], turned[2] + part.loc.t[2]]
+      const away = Math.abs(dot([p[0] - plane.origin[0], p[1] - plane.origin[1], p[2] - plane.origin[2]], normal))
+      vertices.push({ away, snap: { kind: 'vertex', uv: toUv(plane, p), part: part.name, ref: `${part.name}/V${i}`, ...(away > PLAIN_WITHIN ? { projected: true as const } : {}) } })
+    }
+  }
+  vertices.sort((a, b) => a.away - b.away)
+  for (const { snap } of vertices.slice(0, MOST_PLANE_VERTICES)) snaps.push(snap)
+  return snaps
+}
