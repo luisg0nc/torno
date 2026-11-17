@@ -1,6 +1,7 @@
 import { number } from '../../shared/format'
 import type { SectionLoop, Sectioned } from '../../shared/geometry'
 import type { Layer, LayerShape, Tracing, TracingCut, TracingPhoto, TracingsFile } from '../../shared/tracings'
+import { LINEUP_CLOSING, lineupSaid } from '../../shared/lineup'
 import { tracingName } from '../../shared/tracings'
 import { MAX_SECTION_POINTS, pointsFor, thinned } from '../mcp/readTools'
 
@@ -10,7 +11,7 @@ import { MAX_SECTION_POINTS, pointsFor, thinned } from '../mcp/readTools'
 // No line begins with a word the stand-in agent takes for a command (`test/fake-agent.mjs`), and every line is one line.
 
 /** What a photo's line-up always ends with: the person's clicks and the photo's own bend make it so. */
-export const PHOTO_LINEUP_CLOSING = "not exact, and true only in the tracing's plane"
+export const PHOTO_LINEUP_CLOSING = LINEUP_CLOSING
 
 export interface TracingFacts {
   /** The outline on the last good build, or null when none could be cut (`cutWhy` says why). */
@@ -110,14 +111,11 @@ function shapeLine(layer: Layer, shape: LayerShape, index: number): string {
   return `label at ${point(shape.at)} "${shape.text}"`
 }
 
-/** The photo, in words. Never said to be exact, and its line-up ends as `PHOTO_LINEUP_CLOSING` says. */
+/** The photo, in words. Never said to be exact, and its line-up ends as `PHOTO_LINEUP_CLOSING` says (`lineupSaid`). */
 function photoLine(photo: TracingPhoto, here: boolean): string {
   if (!here) return 'not on this computer'
-  if (photo.pairs.length === 0 || photo.scale === undefined) return `${photo.width} × ${photo.height} px, not lined up yet`
-  const method = photo.method === 'straight' ? `lined up by ${plural(photo.pairs.length, 'point')}, straightened:` : `lined up by ${plural(photo.pairs.length, 'point')}:`
-  const turned = photo.angle === undefined ? '' : `, turned ${number(photo.angle)}°`
-  const fit = photo.fit === undefined ? ', no spare point to check it' : `, fit ${number(photo.fit)} mm`
-  return `${method} ${number(photo.scale)} px/mm at the centre${turned}${fit}; ${PHOTO_LINEUP_CLOSING}`
+  if (photo.scale === undefined || photo.pairs.length === 0) return `${photo.width} × ${photo.height} px, not lined up yet`
+  return lineupSaid(photo)
 }
 
 /** One tracing in words: its plane, its outline (the kernel's), its layers with every shape in mm, its photo and the marks on it. */

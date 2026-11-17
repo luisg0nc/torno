@@ -125,7 +125,13 @@ const bridge: TornoBridge = {
     onOutline: (cb) => subscribe('tracings:outline', cb),
     onProblem: (cb) => subscribe('tracings:problem', cb),
     problem: (objectId) => invokePlain('tracings:problem', objectId),
-    dismissProblem: (objectId) => invokePlain('tracings:dismissProblem', objectId)
+    dismissProblem: (objectId) => invokePlain('tracings:dismissProblem', objectId),
+    photo: (objectId, id, bytes, from) => invokePlain('tracings:photo', objectId, id, bytes, from),
+    lineUp: (objectId, id, pairs, method) => invokePlain('tracings:lineUp', objectId, id, pairs, method),
+    look: (objectId, id, look) => invokePlain('tracings:look', objectId, id, look),
+    straightened: (objectId, id, bytes, of) => invokePlain('tracings:straightened', objectId, id, bytes, of),
+    photoBytes: (objectId, id, which) => invokePlain('tracings:photoBytes', objectId, id, which),
+    removePhoto: (objectId, id) => invokePlain('tracings:removePhoto', objectId, id)
   },
   notes: {
     make: (draft) => invokePlain('notes:make', draft),

@@ -37,6 +37,7 @@ import { reconcileProject } from './board/follow'
 import { liveFacts } from './board/live'
 import { PictureSweep } from './board/pictures'
 import { NoteSweep } from './notes/sweep'
+import { PhotoSweep } from './tracings/sweep'
 import { BoardStore } from './board/store'
 import { boardLine } from './board/text'
 import type { BoardCounts } from '../shared/board'
@@ -518,6 +519,8 @@ const board = new BoardStore({
 const pictureSweep = new PictureSweep(board)
 /** And the pictures of the view notes no note names, in the same turn of the run (the marks' own). */
 const noteSweep = new NoteSweep(marks)
+/** And the photos of the tracings no tracing names, in the same run, in the turn of the tracings. */
+const photoSweep = new PhotoSweep(tracings)
 /** The one line every prompt carries of the board of a project (`boardLine`), with what it will have told: undefined when there is no such project. */
 async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts } | undefined> {
   const dir = findObject(objectId)?.dir
@@ -733,7 +736,7 @@ void app.whenReady().then(async () => {
     onObjectOpened: (objectId) =>
       void followBoard(objectId).then(() => {
         const dir = findObject(objectId)?.dir
-        if (dir !== undefined) return Promise.all([pictureSweep.once(objectId, dir), noteSweep.once(objectId, dir)]).then(() => undefined)
+        if (dir !== undefined) return Promise.all([pictureSweep.once(objectId, dir), noteSweep.once(objectId, dir), photoSweep.once(objectId, dir)]).then(() => undefined)
       }),
     // What was waiting to be written was of objects of the workspace that is left.
     onWorkspaceClosed: () => {
@@ -744,6 +747,7 @@ void app.whenReady().then(async () => {
       board.forget()
       pictureSweep.forget()
       noteSweep.forget()
+      photoSweep.forget()
       // An import still running there is ended, and its importer with it: its scan is not kept, and its id not given again.
       importer?.run.stop()
       importer = null

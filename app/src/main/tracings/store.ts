@@ -1,4 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
+import { number } from '../../shared/format'
+import { type LineupPair, type LineupSnap, MOST_PAIRS, SIMILAR_NEEDS, STRAIGHT_NEEDS, fitSimilar, fitStraight, transformKey } from '../../shared/lineup'
 import type { Vec3 } from '../../shared/marks'
 import {
   LAYER_COLOURS,
@@ -12,13 +14,16 @@ import {
   type Layer,
   type LayerColour,
   type LayerShape,
+  type PlaneSnap,
   type Tracing,
   type TracingPlane,
   type TracingsFile,
   pointCount
 } from '../../shared/tracings'
 import { Refusal } from '../refusal'
+import { dropPhotos } from './dropped'
 import { diskText, loadTracingsFile, readPlane, readShape, saveTracingsFile, textOf } from './file'
+import { savePhoto } from './photos'
 
 interface TracingEvents {
   /** The tracings of a project changed: the whole file, as it now is. */
@@ -51,6 +56,59 @@ export const REMOVED_KEPT = 20
 const MOST_DIAGONALS = 10
 const MOST_PARTS = 500
 const MAX_TEXT = 200
+/** How far a snapped point of a line-up may be from the kernel's point it says it snapped to, mm. */
+const SNAP_WITHIN = 0.01
+/** The reference a photo was taken from, as the window names it: a file of the project's `reference/`. */
+const REFERENCE_PHOTO = /^reference\/[^/\\\0]{1,200}$/
+
+const finitePair = (v: unknown): v is [number, number] => Array.isArray(v) && v.length === 2 && v.every((c) => typeof c === 'number' && Number.isFinite(c))
+
+/**
+ * What a point of a line-up that says it was snapped is held to: the kernel's own point of the last build's outline (`snaps`), found
+ * by what the snap names (a corner by its place, a hole centre by its edge's ref or its place, a vertex by its ref) and no more than
+ * `SNAP_WITHIN` from the point the window gave. The point and the snap are then the kernel's, not the window's.
+ */
+function snappedPoint(n: number, uv: [number, number], raw: LineupSnap, snaps: readonly PlaneSnap[] | undefined): { uv: [number, number]; snap: LineupSnap } {
+  const where = `Point ${n}`
+  if (snaps === undefined) throw new Refusal(`${where} says what it was snapped to, and there is no outline of this tracing on a build to check that against: build the model first.`)
+  const nearest = <T extends PlaneSnap>(list: T[], to: readonly [number, number]): T | undefined => list.reduce<T | undefined>((best, one) => (best === undefined || Math.hypot(one.uv[0] - to[0], one.uv[1] - to[1]) < Math.hypot(best.uv[0] - to[0], best.uv[1] - to[1]) ? one : best), undefined)
+  const given = raw as Record<string, unknown>
+  const kinds = (['corner', 'centre', 'vertex'] as const).filter((k) => k in given)
+  if (kinds.length !== 1) throw new Refusal(`${where} was snapped to a corner, a centre or a vertex: one of them.`)
+  let found: PlaneSnap | undefined
+  let snap: LineupSnap
+  let what: string
+  if (kinds[0] === 'corner') {
+    if (!finitePair(given.corner)) throw new Refusal(`${where} says it is a corner, and a corner is a place [u, v] in millimetres.`)
+    found = nearest(snaps.filter((s) => s.kind === 'corner'), given.corner)
+    what = 'a corner of the cut'
+    snap = { corner: found?.uv ?? given.corner }
+  } else if (kinds[0] === 'centre') {
+    const centres = snaps.filter((s) => s.kind === 'centre')
+    if (typeof given.centre === 'string') {
+      const ref = given.centre
+      found = nearest(centres.filter((s) => s.edge === ref), uv)
+      what = `the hole centre of ${ref}`
+      snap = { centre: ref }
+    } else if (finitePair(given.centre)) {
+      found = nearest(centres, given.centre)
+      what = 'a hole centre'
+      snap = { centre: found?.uv ?? given.centre }
+    } else throw new Refusal(`${where} says it is a hole centre, and that is named by its edge or given as a place [u, v].`)
+  } else {
+    if (typeof given.vertex !== 'string' || given.vertex === '' || given.vertex.length > MAX_TEXT) throw new Refusal(`${where} says it is a vertex, and a vertex is named by its ref.`)
+    const ref = given.vertex
+    const there = snaps.filter((s) => s.kind === 'vertex' && s.ref === ref)
+    found = nearest(there, uv)
+    if (found?.kind === 'vertex' && found.projected) throw new Refusal(`${where}: ${ref} is not in the tracing's plane, so a point of the photo cannot be lined up with it.`)
+    what = `the vertex ${ref}`
+    snap = { vertex: ref }
+  }
+  if (found === undefined) throw new Refusal(`${where}: the outline of this tracing on the last build has no ${what.replace(/^(?:a|the) /, '')}.`)
+  const off = Math.hypot(found.uv[0] - uv[0], found.uv[1] - uv[1])
+  if (off > SNAP_WITHIN) throw new Refusal(`${where} says it was snapped to ${what}, and it is ${number(off)} mm from it: the kernel's point is at ${number(found.uv[0])}, ${number(found.uv[1])}.`)
+  return { uv: [found.uv[0], found.uv[1]], snap }
+}
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const finiteVec3 = (v: unknown): v is Vec3 => Array.isArray(v) && v.length === 3 && v.every((c) => typeof c === 'number' && Number.isFinite(c))
@@ -268,7 +326,9 @@ export class TracingStore {
         kept.push(gone)
         while (kept.length > REMOVED_KEPT) kept.shift()
         this.removed.set(dir, kept)
-      }
+      },
+      // Its photo and straightened copy are what torno dropped: the sweep of a later run takes them, unless an undo has brought the tracing back.
+      (_result, dir) => dropPhotos(dir, filesOf(taken.tracing?.photo))
     )
     return removed
   }
@@ -426,6 +486,183 @@ export class TracingStore {
     })
   }
 
+  /**
+   * Keeps a photo for a tracing: main checks the bytes (`checkedPhoto`: a PNG or a JPEG of at most 4000 px and 25 MB), names the file
+   * `p-<12 hex>.jpg|png` and holds its `sha256`, `width` and `height`. `from` is the reference it was taken from (`reference/photo-2.jpg`),
+   * named by the window and never read. A photo already there is swapped: the tracing side of its pairs is kept and their photo
+   * side is cleared (the clicks on the new photo are asked afresh), the line-up and the straightened copy go, the person's fade
+   * stays, and the old file and the copy are listed in `dropped.json`. A file whose change then failed is listed too.
+   */
+  async setPhoto(objectId: string, id: string, bytes: unknown, from?: string): Promise<Tracing> {
+    if (from !== undefined && (typeof from !== 'string' || !REFERENCE_PHOTO.test(from))) throw new Refusal('A photo taken from a reference is named as reference/<file>.')
+    const dir = this.dirOrReject(objectId)
+    const kept = await savePhoto(dir, bytes)
+    const letGo: string[] = []
+    try {
+      return await this.change(
+        objectId,
+        (file) => {
+          const t = tracingOf(file, id)
+          const old = t.photo
+          letGo.push(...filesOf(old))
+          t.photo = {
+            file: kept.file,
+            sha256: kept.sha256,
+            width: kept.width,
+            height: kept.height,
+            ...(from === undefined ? {} : { from }),
+            pairs: (old?.pairs ?? []).map((p) => ({ uv: p.uv, ...(p.snap === undefined ? {} : { snap: p.snap }) })),
+            method: old?.method ?? 'similar',
+            fade: old?.fade ?? 0.5,
+            ...(old?.hidden ? { hidden: true as const } : {})
+          }
+          return t
+        },
+        undefined,
+        (_result, where) => dropPhotos(where, letGo)
+      )
+    } catch (e) {
+      await dropPhotos(dir, [kept.file])
+      throw e
+    }
+  }
+
+  /**
+   * Lines the photo up with the tracing from 2 to 8 pairs, each a point of the photo (px of the kept file, within it) and a point of
+   * the tracing (`uv`, mm), `similar` from 2 or more and `straight` from 4 or more. Main fits them itself (`fitSimilar`, `fitStraight`)
+   * and keeps what it works out (`transform`, `scale`, `angle`, `fit`); the window's keys other than a pair's own are left out. A point
+   * that says what it snapped to is checked against `snaps`, the kernel's points of the tracing's outline on the last build, and
+   * replaced by the kernel's own point: one more than 0.01 mm from it is refused, and so is every snap when `snaps` is not given.
+   * The straightened copy is out of date and goes (listed as dropped).
+   */
+  async lineUp(objectId: string, id: string, pairs: unknown, method: unknown, snaps?: readonly PlaneSnap[]): Promise<Tracing> {
+    if (method !== 'similar' && method !== 'straight') throw new Refusal("A photo is lined up 'similar' (2 points or more) or 'straight' (4 points or more).")
+    const needs = method === 'similar' ? SIMILAR_NEEDS : STRAIGHT_NEEDS
+    if (!Array.isArray(pairs) || pairs.length < needs || pairs.length > MOST_PAIRS) throw new Refusal(`A ${method === 'similar' ? 'line-up' : 'straightening'} is made of ${needs} to ${MOST_PAIRS} points on the photo and the same on the tracing.${Array.isArray(pairs) ? ` There ${pairs.length === 1 ? 'is 1' : `are ${pairs.length}`}.` : ''}`)
+    const clean: LineupPair[] = pairs.map((raw, i) => {
+      if (!isRecord(raw) || !finitePair(raw.photo) || !finitePair(raw.uv)) throw new Refusal(`Point ${i + 1} is a point of the photo and a point of the tracing, each two finite numbers.`)
+      if (raw.snap === undefined || raw.snap === null) return { photo: [raw.photo[0], raw.photo[1]], uv: [raw.uv[0], raw.uv[1]] }
+      if (!isRecord(raw.snap)) throw new Refusal(`Point ${i + 1} says what it was snapped to as a corner, a centre or a vertex.`)
+      const { uv, snap } = snappedPoint(i + 1, raw.uv, raw.snap as LineupSnap, snaps)
+      return { photo: [raw.photo[0], raw.photo[1]], uv, snap }
+    })
+    const fitted = method === 'similar' ? fitSimilar(clean) : fitStraight(clean)
+    if ('error' in fitted) throw new Refusal(`The points do not line the photo up: ${fitted.error}.`)
+    const letGo: string[] = []
+    return this.change(
+      objectId,
+      (file) => {
+        const t = tracingOf(file, id)
+        const photo = t.photo
+        if (!photo) throw new Refusal(`${t.id} has no photo to line up: add one first.`)
+        clean.forEach((p, i) => {
+          if (p.photo[0] < 0 || p.photo[0] > photo.width || p.photo[1] < 0 || p.photo[1] > photo.height) throw new Refusal(`Point ${i + 1} is outside the photo, which is ${photo.width} × ${photo.height} px.`)
+        })
+        if (photo.straightened !== undefined) letGo.push(photo.straightened)
+        photo.pairs = clean
+        photo.method = method
+        photo.transform = fitted.transform
+        photo.scale = fitted.scale
+        photo.angle = fitted.angle
+        if (fitted.fit === undefined) delete photo.fit
+        else photo.fit = fitted.fit
+        delete photo.straightened
+        return t
+      },
+      undefined,
+      (_result, dir) => dropPhotos(dir, letGo)
+    )
+  }
+
+  /** The person's look of the photo: how faded it is (0 to 1; 0.5 when none was said) and whether it is hidden. It travels. */
+  async setLook(objectId: string, id: string, look: { fade?: number; hidden?: boolean }): Promise<Tracing> {
+    if (!isRecord(look)) throw new Refusal('That is not a look of a photo: a fade from 0 to 1, and hidden or not.')
+    const { fade, hidden } = look
+    if (fade !== undefined && (typeof fade !== 'number' || !Number.isFinite(fade) || fade < 0 || fade > 1)) throw new Refusal('The fade of a photo is a number from 0 to 1.')
+    if (hidden !== undefined && typeof hidden !== 'boolean') throw new Refusal('A photo is hidden or shown.')
+    return this.change(objectId, (file) => {
+      const t = tracingOf(file, id)
+      if (!t.photo) throw new Refusal(`${t.id} has no photo.`)
+      if (fade !== undefined) t.photo.fade = fade
+      if (hidden === true) t.photo.hidden = true
+      else if (hidden === false) delete t.photo.hidden
+      return t
+    })
+  }
+
+  /**
+   * Keeps the straightened copy the window warped from the photo through the line-up (`s-<12 hex>.jpg|png`, checked as a photo is).
+   * It is taken only for the photo (`of.sha256`) and the matrix (`of.transform`, `transformKey`) it was made from: a copy made
+   * for another photo or line-up is refused, and its file listed as dropped. The copy it replaces is listed.
+   */
+  async setStraightened(objectId: string, id: string, bytes: unknown, of: { sha256: string; transform: string }): Promise<Tracing> {
+    if (!isRecord(of) || typeof of.sha256 !== 'string' || typeof of.transform !== 'string' || of.transform.length > 1000) throw new Refusal('A straightened copy says the photo and the line-up it was made from.')
+    const made = { sha256: of.sha256, transform: of.transform }
+    const current = (t: Tracing): void => {
+      if (!t.photo?.transform) throw new Refusal(`${t.id} has no line-up to straighten the photo by.`)
+      if (t.photo.sha256 !== made.sha256 || transformKey(t.photo.transform) !== made.transform) throw new Refusal(`That copy was made of another photo or another line-up than ${t.id} has now, so it is not kept.`)
+    }
+    // Looked at before a file is written: a copy that is out of date is no file at all.
+    current(tracingOf(await this.list(objectId), id))
+    const dir = this.dirOrReject(objectId)
+    const kept = await savePhoto(dir, bytes, 's')
+    const letGo: string[] = []
+    try {
+      return await this.change(
+        objectId,
+        (file) => {
+          const t = tracingOf(file, id)
+          current(t)
+          const photo = t.photo as NonNullable<Tracing['photo']>
+          if (photo.straightened !== undefined) letGo.push(photo.straightened)
+          photo.straightened = kept.file
+          return t
+        },
+        undefined,
+        (_result, where) => dropPhotos(where, letGo)
+      )
+    } catch (e) {
+      await dropPhotos(dir, [kept.file])
+      throw e
+    }
+  }
+
+  /** Takes the photo off a tracing, with its line-up: the file and the straightened copy are listed as dropped. The pairs go with it. */
+  async removePhoto(objectId: string, id: string): Promise<Tracing> {
+    const letGo: string[] = []
+    return this.change(
+      objectId,
+      (file) => {
+        const t = tracingOf(file, id)
+        if (!t.photo) throw new Refusal(`${t.id} has no photo.`)
+        letGo.push(...filesOf(t.photo))
+        delete t.photo
+        return t
+      },
+      undefined,
+      (_result, dir) => dropPhotos(dir, letGo)
+    )
+  }
+
+  /**
+   * In the turn of a project's tracings, what the sweep of its photos is told: the photo files the tracings name now (`live`), those
+   * named by a tracing removed in this run (`kept`: an undo brings those back), the folder of the project, and what was wrong with
+   * the tracings file (a sweep that is told so leaves the files alone: the file kept aside may name them).
+   */
+  withPhotos<T>(objectId: string, task: (held: { live: Set<string>; kept: Set<string> }, dir: string, problem: string | null) => Promise<T>): Promise<T> {
+    return this.turn(objectId, (file, dir) => {
+      const live = new Set(file.tracings.flatMap((t) => filesOf(t.photo)))
+      const kept = new Set((this.removed.get(dir) ?? []).flatMap((t) => filesOf(t.photo)))
+      return task({ live, kept }, dir, this.problems.get(dir) ?? null)
+    })
+  }
+
+  private dirOrReject(objectId: string): string {
+    const dir = this.deps.dirOf(objectId)
+    if (dir === undefined) throw new Error(`no project named ${objectId} in the open workspace`)
+    return dir
+  }
+
   private now(): Date {
     return this.deps.now?.() ?? new Date()
   }
@@ -435,9 +672,10 @@ export class TracingStore {
    * write that fails, leaves the tracings as they were, and one that leaves the text as it was writes and tells nothing.
    * Before it, the file is compared with what main last read or wrote: when it was changed from outside (a git pull), the
    * disk's file is the base the change is made on, with `next` kept above what this run gave out, and the window is told.
-   * `done` runs in the same turn once the change is written, and only then.
+   * `done` runs in the same turn once the change is written, and only then; `landed` too, and also when the workspace was left meanwhile
+   * (it lists files that were let go of, which is true of the disk whoever looks at it). Neither is run for a change that changes nothing.
    */
-  private change<R>(objectId: string, edit: (file: TracingsFile, dir: string) => R, done?: (result: R, dir: string) => void): Promise<R> {
+  private change<R>(objectId: string, edit: (file: TracingsFile, dir: string) => R, done?: (result: R, dir: string) => void, landed?: (result: R, dir: string) => Promise<void>): Promise<R> {
     return this.turn(objectId, async (current, dir, epoch) => {
       let base = current
       if (epoch === this.epoch && this.disk.has(dir) && (await diskText(dir)) !== this.disk.get(dir)) {
@@ -458,6 +696,8 @@ export class TracingStore {
       if (textOf(file) === textOf(base)) return structuredClone(result)
       // Written before it is kept or told: a write that fails leaves the tracings as they were.
       await saveTracingsFile(dir, file)
+      // What the change let go of is listed once it is written, in this same turn, and whatever workspace is open now: the file is on this disk.
+      await landed?.(result, dir)
       // Told only to the workspace it was asked in: the write of one that has been left lands, and is not broadcast.
       if (epoch === this.epoch) {
         this.files.set(dir, file)
@@ -505,6 +745,11 @@ export class TracingStore {
   private emit<E extends keyof TracingEvents>(event: E, message: TracingEvents[E]): void {
     for (const cb of this.listeners[event]) cb(message)
   }
+}
+
+/** The files a tracing's photo names: the photo and its straightened copy. */
+function filesOf(photo: Tracing['photo']): string[] {
+  return photo === undefined ? [] : [photo.file, ...(photo.straightened === undefined ? [] : [photo.straightened])]
 }
 
 function tooManyPoints(t: Tracing): void {

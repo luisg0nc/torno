@@ -2,8 +2,13 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { transformKey } from '../../shared/lineup'
 import { mainPlaneFrame } from '../../shared/planes'
-import { MOST_LAYERS, MOST_SHAPES, MOST_TRACINGS, type LayerShape, type TracingPlane, type TracingsFile } from '../../shared/tracings'
+import { MOST_LAYERS, MOST_SHAPES, MOST_TRACINGS, type LayerShape, type PlaneSnap, type TracingPlane, type TracingsFile } from '../../shared/tracings'
+import { droppedNames } from '../dropped'
+import { jpeg, png } from '../notes/testing'
+import { PHOTOS_FOLDER, isPhotoName } from './dropped'
+import { readPhoto } from './photos'
 import * as fileModule from './file'
 import { TracingStore } from './store'
 
@@ -563,5 +568,295 @@ describe('what is on the disk', () => {
     await settled
     await pending
     expect(store.settled()).toBeNull()
+  })
+})
+
+/** A picture the checks read the size of, and that no other is the same as. */
+const pic = (seed: number, width = 1000, height = 800): Uint8Array => {
+  const bytes = png(width, height)
+  bytes[30] = seed
+  return bytes
+}
+const photoFiles = (): string[] => readdirSync(join(dir, '.torno', 'tracings', 'photos')).filter((n) => !n.startsWith('.') && n !== 'dropped.json').sort()
+const dropped = (): Promise<string[]> => droppedNames(dir, PHOTOS_FOLDER, isPhotoName).then((n) => n.sort())
+
+/** Four photo points on the corners of a 100 × 80 mm plate at 5 px/mm, and the same with the photo turned a little. */
+const SQUARE = [
+  { photo: [100, 100], uv: [0, 80] },
+  { photo: [600, 100], uv: [100, 80] },
+  { photo: [600, 500], uv: [100, 0] },
+  { photo: [100, 500], uv: [0, 0] }
+]
+const snaps: PlaneSnap[] = [
+  { kind: 'corner', uv: [0, 0], part: 'block' },
+  { kind: 'corner', uv: [100, 0], part: 'block' },
+  { kind: 'centre', uv: [50, 40], radius: 8, part: 'block', edge: 'block/E14' },
+  { kind: 'vertex', uv: [100, 80], part: 'block', ref: 'block/V3' },
+  { kind: 'vertex', uv: [0, 80], part: 'block', ref: 'block/V4', projected: true }
+]
+
+describe('the photo', () => {
+  beforeEach(async () => {
+    await store.make('bracket', ask('front'), 'person')
+  })
+
+  describe('setPhoto', () => {
+    it('keeps the file under a name of main, with its hash and size, and writes the tracing before it tells', async () => {
+      const bytes = pic(1, 1200, 900)
+      const t = await store.setPhoto('bracket', 'T1', bytes)
+      expect(t.photo).toMatchObject({ width: 1200, height: 900, pairs: [], method: 'similar', fade: 0.5 })
+      expect(t.photo?.file).toMatch(/^p-[0-9a-f]{12}\.png$/)
+      expect(t.photo?.sha256).toMatch(/^[0-9a-f]{64}$/)
+      expect(photoFiles()).toEqual([t.photo?.file])
+      expect(await readPhoto(dir, t.photo?.file as string)).toEqual(bytes)
+      expect(onDisk().tracings[0].photo).toEqual(t.photo)
+      expect(changes.at(-1)?.file.tracings[0].photo).toEqual(t.photo)
+      expect(await dropped()).toEqual([])
+    })
+
+    it('names the reference it was taken from, and only a file of reference/', async () => {
+      expect((await store.setPhoto('bracket', 'T1', pic(1), 'reference/photo-2.jpg')).photo?.from).toBe('reference/photo-2.jpg')
+      for (const bad of ['../secret.jpg', 'reference/../x.jpg', '/etc/passwd', 'photo-2.jpg', 7]) {
+        await expect(store.setPhoto('bracket', 'T1', pic(2), bad as string)).rejects.toThrow(/reference/)
+      }
+      expect(photoFiles()).toHaveLength(1)
+    })
+
+    it('refuses what is not a photo, and a tracing that is not there, listing a file it wrote for nothing', async () => {
+      await expect(store.setPhoto('bracket', 'T1', png(4001, 10))).rejects.toThrow(/PNG or JPEG/)
+      await expect(store.setPhoto('bracket', 'T9', pic(3))).rejects.toThrow(/no tracing T9/)
+      const [file] = photoFiles()
+      expect(await dropped()).toEqual([file])
+      expect((await store.list('bracket')).tracings[0].photo).toBeUndefined()
+    })
+
+    it('swaps: keeps the tracing side of the pairs, clears the photo side and the line-up, and lists the old files', async () => {
+      await store.setPhoto('bracket', 'T1', pic(1))
+      await store.lineUp('bracket', 'T1', SQUARE, 'straight')
+      const lined = (await store.list('bracket')).tracings[0].photo
+      const copy = await store.setStraightened('bracket', 'T1', jpeg(500, 400), { sha256: lined?.sha256 as string, transform: transformKey(lined?.transform as number[]) })
+      await store.setLook('bracket', 'T1', { fade: 0.3, hidden: true })
+      const before = copy.photo
+      const swapped = (await store.setPhoto('bracket', 'T1', pic(2, 900, 700))).photo
+      expect(swapped?.file).not.toBe(before?.file)
+      expect(swapped).toMatchObject({ width: 900, height: 700, method: 'straight', fade: 0.3, hidden: true })
+      expect(swapped?.pairs).toEqual(SQUARE.map((p) => ({ uv: p.uv })))
+      for (const gone of ['transform', 'scale', 'angle', 'fit', 'straightened', 'caption']) expect(swapped).not.toHaveProperty(gone)
+      expect(await dropped()).toEqual([before?.file, before?.straightened].sort())
+      // The tracing side is what the file keeps, and it reads back.
+      store.forget()
+      expect((await store.list('bracket')).tracings[0].photo?.pairs).toEqual(SQUARE.map((p) => ({ uv: p.uv })))
+    })
+  })
+
+  describe('lineUp', () => {
+    beforeEach(async () => {
+      await store.setPhoto('bracket', 'T1', pic(1))
+    })
+
+    it('fits a similarity from 2 points itself and keeps transform, scale and angle, with no fit', async () => {
+      const t = await store.lineUp('bracket', 'T1', [SQUARE[0], SQUARE[2]], 'similar')
+      expect(t.photo).toMatchObject({ method: 'similar', pairs: [SQUARE[0], SQUARE[2]] })
+      expect(t.photo?.scale).toBeCloseTo(5, 9)
+      expect(t.photo?.angle).toBeCloseTo(0, 9)
+      expect(t.photo?.transform).toHaveLength(9)
+      expect(t.photo).not.toHaveProperty('fit')
+      expect(onDisk().tracings[0].photo).toEqual(t.photo)
+    })
+
+    it('gives a fit when there is a spare point, and straightens from 4', async () => {
+      const three = await store.lineUp('bracket', 'T1', SQUARE.slice(0, 3), 'similar')
+      expect(three.photo?.fit).toBeLessThan(1e-9)
+      const four = await store.lineUp('bracket', 'T1', SQUARE, 'straight')
+      expect(four.photo).toMatchObject({ method: 'straight', pairs: SQUARE })
+      expect(four.photo?.scale).toBeCloseTo(5, 7)
+      expect(four.photo).not.toHaveProperty('fit')
+    })
+
+    it('ignores what the window says that is main\'s: a pair keeps only its photo, uv and snap', async () => {
+      const lie = { ...SQUARE[0], transform: [9, 9, 9, 9, 9, 9, 9, 9, 9], scale: 99, file: 'p-aaaaaaaaaaaa.png', fit: 0 }
+      const t = await store.lineUp('bracket', 'T1', [lie, SQUARE[2]], 'similar')
+      expect(t.photo?.pairs[0]).toEqual(SQUARE[0])
+      expect(t.photo?.scale).toBeCloseTo(5, 9)
+      expect(t.photo?.file).not.toBe('p-aaaaaaaaaaaa.png')
+    })
+
+    it('refuses too few, too many, a point outside the photo, a method it does not know, and a tracing with no photo', async () => {
+      await expect(store.lineUp('bracket', 'T1', [SQUARE[0]], 'similar')).rejects.toThrow(/2 to 8 points/)
+      await expect(store.lineUp('bracket', 'T1', SQUARE.slice(0, 3), 'straight')).rejects.toThrow(/4 to 8 points/)
+      await expect(store.lineUp('bracket', 'T1', Array(9).fill(SQUARE[0]), 'similar')).rejects.toThrow(/2 to 8 points/)
+      await expect(store.lineUp('bracket', 'T1', [SQUARE[0], { photo: [1001, 5], uv: [1, 1] }], 'similar')).rejects.toThrow(/outside the photo, which is 1000 × 800 px/)
+      await expect(store.lineUp('bracket', 'T1', [SQUARE[0], { photo: [Number.NaN, 5], uv: [1, 1] }], 'similar')).rejects.toThrow(/finite/)
+      await expect(store.lineUp('bracket', 'T1', SQUARE, 'curved')).rejects.toThrow(/similar/)
+      await store.make('bracket', ask('back'), 'person')
+      await expect(store.lineUp('bracket', 'T2', SQUARE, 'straight')).rejects.toThrow(/no photo to line up/)
+      expect((await store.list('bracket')).tracings[0].photo?.pairs).toEqual([])
+    })
+
+    it('refuses points that fix nothing, in words, and leaves the line-up as it was', async () => {
+      await store.lineUp('bracket', 'T1', SQUARE, 'straight')
+      const was = (await store.list('bracket')).tracings[0].photo
+      await expect(store.lineUp('bracket', 'T1', [SQUARE[0], { photo: SQUARE[0].photo, uv: [5, 5] }], 'similar')).rejects.toThrow(/on top of each other/)
+      const line = [{ photo: [100, 100], uv: [0, 80] }, { photo: [350, 101], uv: [50, 80] }, { photo: [600, 100], uv: [100, 80] }, { photo: [350, 500], uv: [50, 0] }]
+      await expect(store.lineUp('bracket', 'T1', line, 'straight')).rejects.toThrow(/almost in a line/)
+      expect((await store.list('bracket')).tracings[0].photo).toEqual(was)
+    })
+
+    it('a new line-up makes the straightened copy out of date: it goes and is listed', async () => {
+      await store.lineUp('bracket', 'T1', SQUARE, 'straight')
+      const lined = (await store.list('bracket')).tracings[0].photo
+      const copied = (await store.setStraightened('bracket', 'T1', jpeg(500, 400), { sha256: lined?.sha256 as string, transform: transformKey(lined?.transform as number[]) })).photo
+      const t = await store.lineUp('bracket', 'T1', [SQUARE[0], SQUARE[1]], 'similar')
+      expect(t.photo).not.toHaveProperty('straightened')
+      expect(await dropped()).toEqual([copied?.straightened])
+    })
+
+    describe('snapped points', () => {
+      const pairs = (uv: [number, number], snap: object) => [{ photo: [100, 500], uv, snap }, SQUARE[1]]
+
+      it('replaces a corner 0.005 mm off by the kernel\'s, and says so in what it keeps', async () => {
+        const t = await store.lineUp('bracket', 'T1', pairs([0.005, 0], { corner: [0.005, 0] }), 'similar', snaps)
+        expect(t.photo?.pairs[0]).toEqual({ photo: [100, 500], uv: [0, 0], snap: { corner: [0, 0] } })
+      })
+
+      it('refuses one 0.02 mm off, and keeps nothing', async () => {
+        await expect(store.lineUp('bracket', 'T1', pairs([0.02, 0], { corner: [0, 0] }), 'similar', snaps)).rejects.toThrow(/Point 1 says it was snapped to a corner of the cut, and it is 0\.02 mm from it/)
+        expect((await store.list('bracket')).tracings[0].photo?.pairs).toEqual([])
+      })
+
+      it('finds a hole centre by its edge or by its place, and a vertex by its ref', async () => {
+        const centre = await store.lineUp('bracket', 'T1', pairs([50.004, 40], { centre: 'block/E14' }), 'similar', snaps)
+        expect(centre.photo?.pairs[0]).toMatchObject({ uv: [50, 40], snap: { centre: 'block/E14' } })
+        const place = await store.lineUp('bracket', 'T1', pairs([50, 40.009], { centre: [50, 40] }), 'similar', snaps)
+        expect(place.photo?.pairs[0]).toMatchObject({ uv: [50, 40], snap: { centre: [50, 40] } })
+        const vertex = await store.lineUp('bracket', 'T1', [{ photo: [600, 100], uv: [100, 80], snap: { vertex: 'block/V3' } }, SQUARE[3]], 'similar', snaps)
+        expect(vertex.photo?.pairs[0]).toMatchObject({ uv: [100, 80], snap: { vertex: 'block/V3' } })
+      })
+
+      it('refuses a snap to something the outline does not have, a vertex that is only projected, and a snap that names two things', async () => {
+        await expect(store.lineUp('bracket', 'T1', pairs([5, 5], { corner: [5, 5] }), 'similar', [{ kind: 'vertex', uv: [1, 1], part: 'b', ref: 'b/V1' }])).rejects.toThrow(/has no corner of the cut/)
+        await expect(store.lineUp('bracket', 'T1', pairs([0, 80], { vertex: 'block/V4' }), 'similar', snaps)).rejects.toThrow(/not in the tracing's plane/)
+        await expect(store.lineUp('bracket', 'T1', pairs([0, 0], { vertex: 'block/V9' }), 'similar', snaps)).rejects.toThrow(/has no vertex block\/V9/)
+        await expect(store.lineUp('bracket', 'T1', pairs([0, 0], { corner: [0, 0], vertex: 'block/V3' }), 'similar', snaps)).rejects.toThrow(/one of them/)
+      })
+
+      it('refuses every snap when there is no outline to check it against', async () => {
+        await expect(store.lineUp('bracket', 'T1', pairs([0, 0], { corner: [0, 0] }), 'similar')).rejects.toThrow(/no outline of this tracing on a build/)
+      })
+
+      it('takes a point that says nothing of a snap as it is, with or without an outline', async () => {
+        const t = await store.lineUp('bracket', 'T1', [SQUARE[0], SQUARE[1]], 'similar', snaps)
+        expect(t.photo?.pairs[0]).toEqual(SQUARE[0])
+      })
+    })
+  })
+
+  describe('setLook', () => {
+    it('sets the fade and hides or shows, one at a time, and travels', async () => {
+      await store.setPhoto('bracket', 'T1', pic(1))
+      expect((await store.setLook('bracket', 'T1', { fade: 0.2 })).photo).toMatchObject({ fade: 0.2 })
+      const hidden = await store.setLook('bracket', 'T1', { hidden: true })
+      expect(hidden.photo).toMatchObject({ fade: 0.2, hidden: true })
+      expect(onDisk().tracings[0].photo).toMatchObject({ fade: 0.2, hidden: true })
+      expect((await store.setLook('bracket', 'T1', { hidden: false })).photo).not.toHaveProperty('hidden')
+      expect((await store.setLook('bracket', 'T1', { fade: 0 })).photo?.fade).toBe(0)
+    })
+
+    it('refuses a fade outside 0 to 1, a hidden that is no boolean and a tracing with no photo, and takes no other key', async () => {
+      await expect(store.setLook('bracket', 'T1', { fade: 0.5 })).rejects.toThrow(/no photo/)
+      await store.setPhoto('bracket', 'T1', pic(1))
+      for (const fade of [-0.1, 1.1, Number.NaN, '0.5']) await expect(store.setLook('bracket', 'T1', { fade } as never)).rejects.toThrow(/0 to 1/)
+      await expect(store.setLook('bracket', 'T1', { hidden: 'yes' } as never)).rejects.toThrow(/hidden or shown/)
+      const t = await store.setLook('bracket', 'T1', { fade: 0.4, scale: 3, file: 'p-aaaaaaaaaaaa.png' } as never)
+      expect(t.photo?.fade).toBe(0.4)
+      expect(t.photo).not.toHaveProperty('scale')
+    })
+  })
+
+  describe('setStraightened', () => {
+    let of: { sha256: string; transform: string }
+    beforeEach(async () => {
+      await store.setPhoto('bracket', 'T1', pic(1))
+      const t = await store.lineUp('bracket', 'T1', SQUARE, 'straight')
+      of = { sha256: t.photo?.sha256 as string, transform: transformKey(t.photo?.transform as number[]) }
+    })
+
+    it('keeps the copy as s-<12 hex> for the photo and the line-up it was made from, and lists the one it replaces', async () => {
+      const first = (await store.setStraightened('bracket', 'T1', jpeg(500, 400), of)).photo?.straightened
+      expect(first).toMatch(/^s-[0-9a-f]{12}\.jpg$/)
+      expect(await readPhoto(dir, first as string)).toEqual(jpeg(500, 400))
+      expect(await dropped()).toEqual([])
+      const second = (await store.setStraightened('bracket', 'T1', pic(7, 500, 400), of)).photo?.straightened
+      expect(second).toMatch(/^s-[0-9a-f]{12}\.png$/)
+      expect(await dropped()).toEqual([first])
+      expect(onDisk().tracings[0].photo?.straightened).toBe(second)
+    })
+
+    it('refuses a copy made for another line-up or another photo, and writes no file for it', async () => {
+      await expect(store.setStraightened('bracket', 'T1', jpeg(500, 400), { ...of, transform: '1,2,3' })).rejects.toThrow(/another photo or another line-up/)
+      await expect(store.setStraightened('bracket', 'T1', jpeg(500, 400), { ...of, sha256: 'a'.repeat(64) })).rejects.toThrow(/another photo or another line-up/)
+      expect(photoFiles()).toHaveLength(1)
+      expect((await store.list('bracket')).tracings[0].photo).not.toHaveProperty('straightened')
+    })
+
+    it('refuses a copy of the old transform once a new line-up is made, even when the line-up lands while it is kept', async () => {
+      const turned = SQUARE.map((p, i) => (i === 0 ? { ...p, photo: [120, 110] } : p))
+      const [late] = await Promise.allSettled([store.setStraightened('bracket', 'T1', jpeg(500, 400), of), store.lineUp('bracket', 'T1', turned, 'straight')])
+      expect(late.status).toBe('rejected')
+      expect((await store.list('bracket')).tracings[0].photo).not.toHaveProperty('straightened')
+      // The file it wrote is listed, so that the sweep takes it.
+      expect((await dropped()).filter((n) => n.startsWith('s-'))).toHaveLength(1)
+    })
+
+    it('refuses a copy that is no picture, a tracing with no line-up and an `of` that says nothing', async () => {
+      await expect(store.setStraightened('bracket', 'T1', png(4001, 4), of)).rejects.toThrow(/PNG or JPEG/)
+      await expect(store.setStraightened('bracket', 'T1', jpeg(5, 5), {} as never)).rejects.toThrow(/says the photo and the line-up/)
+      await store.setPhoto('bracket', 'T1', pic(9))
+      await expect(store.setStraightened('bracket', 'T1', jpeg(5, 5), of)).rejects.toThrow(/no line-up/)
+    })
+  })
+
+  describe('removing', () => {
+    it('removePhoto takes the photo and lists both files', async () => {
+      await store.setPhoto('bracket', 'T1', pic(1))
+      const t = await store.lineUp('bracket', 'T1', SQUARE, 'straight')
+      const lined = t.photo
+      const copied = (await store.setStraightened('bracket', 'T1', jpeg(500, 400), { sha256: lined?.sha256 as string, transform: transformKey(lined?.transform as number[]) })).photo
+      const gone = await store.removePhoto('bracket', 'T1')
+      expect(gone).not.toHaveProperty('photo')
+      expect(await dropped()).toEqual([copied?.file, copied?.straightened].sort())
+      await expect(store.removePhoto('bracket', 'T1')).rejects.toThrow(/no photo/)
+    })
+
+    it('removing the tracing lists its photo too, and putting it back leaves the files named', async () => {
+      const file = (await store.setPhoto('bracket', 'T1', pic(1))).photo?.file as string
+      await store.remove('bracket', 'T1', 'person')
+      expect(await dropped()).toEqual([file])
+      await store.restore('bracket', 'T1')
+      expect((await store.list('bracket')).tracings[0].photo?.file).toBe(file)
+    })
+  })
+
+  describe('withPhotos', () => {
+    it('gives the files the tracings name as live, and those of a tracing removed in this run as kept', async () => {
+      const a = (await store.setPhoto('bracket', 'T1', pic(1))).photo?.file as string
+      await store.make('bracket', ask('back'), 'person')
+      const b = (await store.setPhoto('bracket', 'T2', pic(2))).photo?.file as string
+      await store.remove('bracket', 'T2', 'person')
+      await store.withPhotos('bracket', async (held, where, problem) => {
+        expect([...held.live]).toEqual([a])
+        expect([...held.kept]).toEqual([b])
+        expect(where).toBe(dir)
+        expect(problem).toBeNull()
+      })
+    })
+
+    it('says what was wrong with the file when it was read', async () => {
+      writeFileSync(join(dir, '.torno', 'tracings.json'), 'not json')
+      store.forget()
+      await store.withPhotos('bracket', async (_held, _where, problem) => {
+        expect(problem).toMatch(/could not be read/)
+      })
+    })
   })
 })

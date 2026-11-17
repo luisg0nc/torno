@@ -8,20 +8,21 @@ import type { SectionPlane, ViewState } from '../../shared/view'
 import type { ObjectInfo } from '../../shared/workspace'
 import { NO_SECTION } from '../export/section'
 import { Refusal } from '../refusal'
+import { readPhoto, sha256Of } from './photos'
 import type { Outlines } from './outline'
 import { faceFrame, planarFace, sectionFrame } from './planes'
 import type { LayerChange, OutlineBounds, TracingStore } from './store'
 
 // What the window may ask of the tracings (`tracings:list`, `:make`, `:edit`, `:remove`, `:restore`, `:layer`, `:outline`,
-// `:shown`, `:problem`, `:dismissProblem`), as handlers that do not need Electron (`main/ipc.ts` registers them). Everything the
+// `:shown`, `:problem`, `:dismissProblem`, and of the photo `:photo`, `:lineUp`, `:look`, `:straightened`, `:photoBytes`, `:removePhoto`), as handlers that do not need Electron (`main/ipc.ts` registers them). Everything the
 // window says is untrusted: a project is one that is open, a tracing is `T<n>`, a layer is a whole number, and what only main says
-// of a tracing or a layer (`id`, `by`, `nextLayer`, `lost`, a layer's `id` and `by`, the photo and its line-up) is never taken
-// from it: a key that is not part of what is asked is left out. Main makes the plane, from a main axis and an offset, from the
+// of a tracing or a layer (`id`, `by`, `nextLayer`, `lost`, a layer's `id` and `by`, the photo's file, size and hash and its line-up: `transform`, `scale`,
+// `angle`, `fit`, `straightened`) is never taken from it: of a photo the window sends only its bytes, the pairs of points and a method: a key that is not part of what is asked is left out. Main makes the plane, from a main axis and an offset, from the
 // kernel's `describe` of a face, or from the section on screen with the axes the kernel's `section` gives. What the window makes
 // is the person's.
 
 export interface TracingIpcDeps {
-  tracings: Pick<TracingStore, 'list' | 'make' | 'edit' | 'remove' | 'restore' | 'layer' | 'hideLayer' | 'problem' | 'dismissProblem'>
+  tracings: Pick<TracingStore, 'list' | 'make' | 'edit' | 'remove' | 'restore' | 'layer' | 'hideLayer' | 'problem' | 'dismissProblem' | 'setPhoto' | 'lineUp' | 'setLook' | 'setStraightened' | 'removePhoto'>
   outlines: Pick<Outlines, 'cut' | 'shown'>
   /** A project of the open workspace. */
   object(objectId: string): ObjectInfo | undefined
@@ -282,6 +283,56 @@ export function tracingHandlers(deps: TracingIpcDeps) {
     shown(objectId: string, ids: string[]): void {
       if (typeof objectId !== 'string' || !deps.object(objectId)) return
       deps.outlines.shown(objectId, ids)
+    },
+
+    /** Keeps a photo for a tracing (its bytes, and the reference it was taken from, if any): main checks, names and hashes it. A swap clears the photo side of the pairs. */
+    async photo(objectId: string, id: string, bytes: unknown, from?: unknown): Promise<Tracing> {
+      return deps.tracings.setPhoto(project(objectId).id, tracingId(id), bytes, from === null ? undefined : (from as string | undefined))
+    },
+
+    /**
+     * Lines the photo up: the pairs of points (a point of the photo, a point of the tracing, what it was snapped to) and a method,
+     * `similar` or `straight`. Main works out the transform, scale, angle and fit itself, from the kernel's points where a point says it
+     * was snapped; no other key of a pair or of the call is taken.
+     */
+    async lineUp(objectId: string, id: string, pairs: unknown, method: unknown): Promise<Tracing> {
+      const obj = project(objectId)
+      const named = tracingId(id)
+      const clean = Array.isArray(pairs) ? pairs.map((p) => (isRecord(p) ? { photo: p.photo, uv: p.uv, ...(p.snap === undefined || p.snap === null ? {} : { snap: p.snap }) } : p)) : pairs
+      const snapped = Array.isArray(clean) && clean.some((p) => isRecord(p) && p.snap !== undefined)
+      // The outline is asked before the store's turn, which it waits for itself.
+      const cut = snapped ? await deps.outlines.cut(obj.id, named) : undefined
+      return deps.tracings.lineUp(obj.id, named, clean, method, cut === undefined || cut instanceof Refusal ? undefined : cut.snaps)
+    },
+
+    /** The person's look of the photo: its fade (0 to 1) and whether it is hidden. */
+    async look(objectId: string, id: string, raw: unknown): Promise<Tracing> {
+      const given = isRecord(raw) ? raw : {}
+      return deps.tracings.setLook(project(objectId).id, tracingId(id), { ...(given.fade === undefined ? {} : { fade: given.fade as number }), ...(given.hidden === undefined ? {} : { hidden: given.hidden as boolean }) })
+    },
+
+    /** Keeps the copy the window straightened, for the photo and the line-up it names (`of`). Refused when either is not the tracing's now. */
+    async straightened(objectId: string, id: string, bytes: unknown, of: unknown): Promise<Tracing> {
+      const given = isRecord(of) ? of : {}
+      return deps.tracings.setStraightened(project(objectId).id, tracingId(id), bytes, { sha256: given.sha256 as string, transform: given.transform as string })
+    },
+
+    /** The bytes of a tracing's photo, or of its straightened copy: null when the file is not on this computer, or is another file than the tracing names (its hash). */
+    async photoBytes(objectId: string, id: string, which: unknown): Promise<Uint8Array | null> {
+      const obj = project(objectId)
+      const named = tracingId(id)
+      if (which !== 'photo' && which !== 'straightened') throw new Refusal("A tracing's photo is asked for as 'photo' or 'straightened'.")
+      const photo = (await deps.tracings.list(obj.id)).tracings.find((t) => t.id === named)?.photo
+      const file = which === 'photo' ? photo?.file : photo?.straightened
+      if (photo === undefined || file === undefined) return null
+      const bytes = await readPhoto(obj.dir, file)
+      if (bytes === null) return null
+      return which === 'photo' && sha256Of(bytes) !== photo.sha256 ? null : bytes
+    },
+
+    /** Takes the photo off a tracing, with its line-up. */
+    async removePhoto(objectId: string, id: string): Promise<Tracing> {
+      return deps.tracings.removePhoto(project(objectId).id, tracingId(id))
     },
 
     problem(objectId: string): Promise<string | null> {

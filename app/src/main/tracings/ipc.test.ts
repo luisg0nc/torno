@@ -1,13 +1,15 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Described } from '../../shared/geometry'
+import { transformKey } from '../../shared/lineup'
 import { mainPlaneFrame } from '../../shared/planes'
 import type { Scene } from '../../shared/scene'
 import type { ViewState } from '../../shared/view'
 import type { ObjectInfo } from '../../shared/workspace'
 import { NO_SECTION } from '../export/section'
+import { jpeg, png } from '../notes/testing'
 import { Refusal } from '../refusal'
 import { type TracingIpcDeps, tracingHandlers } from './ipc'
 import { Outlines } from './outline'
@@ -22,6 +24,7 @@ let revision: number
 let view: ViewState | undefined
 let queries: Array<{ name: string; args: Record<string, unknown> }>
 let reply: (name: string, args: Record<string, any>) => unknown
+let reply0: (name: string, args: Record<string, any>) => unknown
 
 const obj = (): ObjectInfo => ({ id: 'bracket', name: 'bracket', dir, model: 'model.py' })
 const part = (name: string, layout: string, tags?: Record<string, { faces?: number[] }>) => ({ name, layout, loc: { t: [0, 0, 0], q: [0, 0, 0, 1] }, bbox: { min: [0, 0, 0], max: [10, 10, 10] }, mesh: {}, ...(tags ? { tags } : {}) })
@@ -67,6 +70,7 @@ beforeEach(() => {
     if (name === 'section') return sectionReply(args)
     throw new Error(`unexpected ${name}`)
   }
+  reply0 = reply
   outlines = new Outlines({ tracings: store, build: () => ({ revision, scene, blob: new Uint8Array(0) }), query: async (_id, name, args) => reply(name, args as Record<string, any>) as never, nearest: async () => [], refind: async () => [], log: () => {} })
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
@@ -334,5 +338,103 @@ describe('tracings:outline and tracings:shown', () => {
     const h = handlers()
     expect(await h.problem('bracket')).toBeNull()
     await h.dismissProblem('bracket')
+  })
+})
+
+describe('the photo', () => {
+  const pic = (seed: number): Uint8Array => {
+    const bytes = png(1000, 800)
+    bytes[30] = seed
+    return bytes
+  }
+  const SQUARE = [
+    { photo: [100, 100], uv: [0, 80] },
+    { photo: [600, 100], uv: [100, 80] },
+    { photo: [600, 500], uv: [100, 0] },
+    { photo: [100, 500], uv: [0, 0] }
+  ]
+  const photos = (): string[] => readdirSync(join(dir, '.torno', 'tracings', 'photos')).filter((n) => !n.startsWith('.') && n !== 'dropped.json')
+
+  beforeEach(async () => {
+    await handlers().make('bracket', ask())
+  })
+
+  it('keeps a photo from bytes alone and answers the tracing; the file, its size and hash are main\'s', async () => {
+    const t = await handlers().photo('bracket', 'T1', pic(1), 'reference/photo-2.jpg')
+    expect(t.photo).toMatchObject({ width: 1000, height: 800, from: 'reference/photo-2.jpg', method: 'similar', pairs: [] })
+    expect(t.photo?.file).toMatch(/^p-[0-9a-f]{12}\.png$/)
+    expect(photos()).toEqual([t.photo?.file])
+    expect(await refused(handlers().photo('bracket', 'T1', 'not bytes'))).toMatch(/PNG or JPEG/)
+    expect(await refused(handlers().photo('nope', 'T1', pic(2)))).toBe('That project is not open.')
+    expect(await refused(handlers().photo('bracket', 'x', pic(2)))).toMatch(/not a tracing/)
+    expect(photos()).toHaveLength(1)
+  })
+
+  it('lines the photo up and takes only the pairs and a method: transform, scale, angle, fit and file sent are ignored', async () => {
+    await handlers().photo('bracket', 'T1', pic(1))
+    const lie = SQUARE.map((p) => ({ ...p, transform: [7, 7, 7, 7, 7, 7, 7, 7, 7], scale: 50, file: 'p-aaaaaaaaaaaa.png' }))
+    const t = await handlers().lineUp('bracket', 'T1', lie, 'straight')
+    expect(t.photo?.pairs).toEqual(SQUARE)
+    expect(t.photo?.scale).toBeCloseTo(5, 7)
+    expect(t.photo?.transform?.[0]).not.toBe(7)
+    expect(t.photo?.file).not.toBe('p-aaaaaaaaaaaa.png')
+    expect(await refused(handlers().lineUp('bracket', 'T1', 'pairs', 'similar'))).toMatch(/points on the photo/)
+    expect(await refused(handlers().lineUp('bracket', 'T1', [SQUARE[0], null], 'similar'))).toMatch(/Point 2/)
+  })
+
+  it('checks a snapped point against the outline of the last build and keeps the kernel\'s point', async () => {
+    const square = [[0, 0], [100, 0], [100, 100], [0, 100]]
+    reply = (name, args) => (name === 'section' ? { plane: { ...args.plane, x: [1, 0, 0], y: [0, 0, 1] }, bounds: { min: [0, 0], max: [100, 100] }, parts: [{ part: 'block', area: 1, areaExact: true, open: 0, how: 'x', loops: [{ points: square, closed: true, area: 1, areaExact: true, deflection: 0.01, corners: square, circles: [] }] }] } : reply0(name, args))
+    await handlers().photo('bracket', 'T1', pic(1))
+    const near = [{ photo: [100, 500], uv: [0.004, 0.004], snap: { corner: [0.004, 0.004] } }, SQUARE[1]]
+    const t = await handlers().lineUp('bracket', 'T1', near, 'similar')
+    expect(t.photo?.pairs[0]).toEqual({ photo: [100, 500], uv: [0, 0], snap: { corner: [0, 0] } })
+    const far = [{ photo: [100, 500], uv: [0.02, 0], snap: { corner: [0, 0] } }, SQUARE[1]]
+    expect(await refused(handlers().lineUp('bracket', 'T1', far, 'similar'))).toMatch(/0\.02 mm from it/)
+  })
+
+  it('refuses a snap while there is no outline to check it against, and takes unsnapped points anyway', async () => {
+    await handlers().photo('bracket', 'T1', pic(1))
+    revision = 4
+    reply = () => {
+      throw new Error('the kernel is not there')
+    }
+    expect(await refused(handlers().lineUp('bracket', 'T1', [{ ...SQUARE[3], snap: { corner: [0, 0] } }, SQUARE[1]], 'similar'))).toMatch(/no outline of this tracing/)
+    expect((await handlers().lineUp('bracket', 'T1', [SQUARE[3], SQUARE[1]], 'similar')).photo?.scale).toBeCloseTo(5, 9)
+  })
+
+  it('sets the look from fade and hidden alone', async () => {
+    await handlers().photo('bracket', 'T1', pic(1))
+    const t = await handlers().look('bracket', 'T1', { fade: 0.25, hidden: true, scale: 9, file: 'x' })
+    expect(t.photo).toMatchObject({ fade: 0.25, hidden: true })
+    expect(t.photo).not.toHaveProperty('scale')
+    expect(await refused(handlers().look('bracket', 'T1', { fade: 2 }))).toMatch(/0 to 1/)
+  })
+
+  it('answers the bytes of the photo, and of the straightened copy, and null for a file that is gone or another one', async () => {
+    const bytes = pic(1)
+    const t = await handlers().photo('bracket', 'T1', bytes)
+    expect(await handlers().photoBytes('bracket', 'T1', 'photo')).toEqual(bytes)
+    expect(await handlers().photoBytes('bracket', 'T1', 'straightened')).toBeNull()
+    const lined = (await handlers().lineUp('bracket', 'T1', SQUARE, 'straight')).photo
+    const copy = jpeg(500, 400)
+    await handlers().straightened('bracket', 'T1', copy, { sha256: lined?.sha256, transform: transformKey(lined?.transform as number[]), file: 'p-aaaaaaaaaaaa.png' })
+    expect(await handlers().photoBytes('bracket', 'T1', 'straightened')).toEqual(copy)
+    // Another file under the name: its hash is not the tracing's.
+    writeFileSync(join(dir, '.torno', 'tracings', 'photos', t.photo?.file as string), pic(9))
+    expect(await handlers().photoBytes('bracket', 'T1', 'photo')).toBeNull()
+    rmSync(join(dir, '.torno', 'tracings', 'photos', t.photo?.file as string))
+    expect(await handlers().photoBytes('bracket', 'T1', 'photo')).toBeNull()
+    expect(await refused(handlers().photoBytes('bracket', 'T1', '../x'))).toMatch(/'photo' or 'straightened'/)
+  })
+
+  it('refuses a straightened copy of another line-up, and removes the photo', async () => {
+    await handlers().photo('bracket', 'T1', pic(1))
+    const lined = (await handlers().lineUp('bracket', 'T1', SQUARE, 'straight')).photo
+    expect(await refused(handlers().straightened('bracket', 'T1', jpeg(5, 5), { sha256: lined?.sha256, transform: 'old' }))).toMatch(/another photo or another line-up/)
+    expect(await refused(handlers().straightened('bracket', 'T1', jpeg(5, 5), null))).toMatch(/says the photo/)
+    const t = await handlers().removePhoto('bracket', 'T1')
+    expect(t).not.toHaveProperty('photo')
+    expect(await handlers().photoBytes('bracket', 'T1', 'photo')).toBeNull()
   })
 })

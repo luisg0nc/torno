@@ -20,6 +20,7 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
+import type { LineupPair } from './lineup'
 import type { LayerColour, LayerShape, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
 import type { MainAxis } from './planes'
 import type { Material, Printer, Profile, Profiles } from './profile'
@@ -377,6 +378,30 @@ export interface TornoBridge {
     /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
+    /**
+     * Keeps a photo for a tracing: its PNG or JPEG bytes (a long edge of at most 4000 px and 25 MB, the EXIF turn already applied) and, if it was taken from the
+     * project's references, `reference/<file>`. Main checks, names and hashes the file. A photo already there is swapped: the tracing side of its pairs stays, the
+     * photo side and the line-up go. Rejects with a plain message for anything that is not such a picture.
+     */
+    photo(objectId: string, id: string, bytes: Uint8Array, from?: string): Promise<Tracing>
+    /**
+     * Lines the photo up: 2 to 8 pairs, each a point of the photo (px of the kept file), a point of the tracing (`uv`, mm) and, if it was snapped, what to
+     * (`{ corner: [u, v] }`, `{ centre: edgeRef | [u, v] }`, `{ vertex: ref }`: main replaces the point by the kernel's and refuses one more than 0.01 mm off),
+     * and a method: `similar` (2 points or more) or `straight` (4 or more, a homography). Main works out the transform, scale, angle and fit itself; nothing
+     * else the window says is taken. Nothing of it is exact.
+     */
+    lineUp(objectId: string, id: string, pairs: LineupPair[], method: 'similar' | 'straight'): Promise<Tracing>
+    /** The person's look of a photo: its fade (0 to 1) and whether it is hidden. It travels with the tracing. */
+    look(objectId: string, id: string, look: { fade?: number; hidden?: boolean }): Promise<Tracing>
+    /**
+     * Keeps the copy of the photo the window warped through the line-up (PNG or JPEG, at most 4000 px), for the photo (`sha256`) and the matrix
+     * (`transformKey` of its `transform`) it was made from. Refused when either is not the tracing's now.
+     */
+    straightened(objectId: string, id: string, bytes: Uint8Array, of: { sha256: string; transform: string }): Promise<Tracing>
+    /** The bytes of a tracing's photo or its straightened copy; null when the file is not on this computer, or is another file than the tracing names. */
+    photoBytes(objectId: string, id: string, which: 'photo' | 'straightened'): Promise<Uint8Array | null>
+    /** Takes the photo off a tracing, with its line-up. */
+    removePhoto(objectId: string, id: string): Promise<Tracing>
   }
   /** The view notes of a project (`<project>/.torno/notes/`): main checks what is sent, names and writes the pictures, and says the rest of the mark. Calls reject with a plain message. */
   notes: {

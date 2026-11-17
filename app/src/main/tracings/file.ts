@@ -16,11 +16,13 @@ import {
   type LayerColour,
   type LayerShape,
   type LineupPair,
+  type LineupSnap,
   type Matrix3,
   type Tracing,
   type TracingFrom,
   type TracingPhoto,
   type TracingPlane,
+  type TracingSidePair,
   type TracingsFile,
   validFrame
 } from '../../shared/tracings'
@@ -125,13 +127,16 @@ export function readPlane(raw: unknown): TracingPlane | null {
   return { origin, x, y, label: raw.label, from }
 }
 
-/** What a line-up point was snapped to: a corner, a centre or a vertex, by ref; one of them, or nothing. */
-function snapOf(value: unknown): LineupPair['snap'] | undefined {
+/** What a line-up point was snapped to: a corner by its place, a centre by its edge's ref or its place, a vertex by its ref; one of them, or nothing. */
+function snapOf(value: unknown): LineupSnap | undefined {
   if (!isRecord(value)) return undefined
-  for (const kind of ['corner', 'centre', 'vertex'] as const) {
-    const ref = value[kind]
-    if (typeof ref === 'string' && ref !== '' && ref.length <= MAX_TEXT) return { [kind]: ref } as LineupPair['snap']
-  }
+  const ref = (v: unknown): v is string => typeof v === 'string' && v !== '' && v.length <= MAX_TEXT
+  const corner = pair(value.corner)
+  if (corner) return { corner }
+  const centre = pair(value.centre)
+  if (centre) return { centre }
+  if (ref(value.centre)) return { centre: value.centre }
+  if (ref(value.vertex)) return { vertex: value.vertex }
   return undefined
 }
 
@@ -139,14 +144,16 @@ function readPhoto(raw: unknown): TracingPhoto | null {
   if (!isRecord(raw)) return null
   const side = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 1 && v <= 100_000
   if (typeof raw.file !== 'string' || !PHOTO_FILE.test(raw.file) || typeof raw.sha256 !== 'string' || !SHA256.test(raw.sha256) || !side(raw.width) || !side(raw.height)) return null
-  const pairs: LineupPair[] = []
+  const pairs: Array<LineupPair | TracingSidePair> = []
   for (const p of Array.isArray(raw.pairs) ? raw.pairs : []) {
     if (!isRecord(p) || pairs.length >= MOST_PAIRS) continue
-    const photo = pair(p.photo)
     const uv = pair(p.uv)
-    if (!photo || !uv) continue
+    if (!uv) continue
+    // A photo that was swapped keeps the tracing's side of its pairs and none of the photo's, until its clicks are made.
+    const photo = p.photo === undefined ? undefined : pair(p.photo)
+    if (p.photo !== undefined && !photo) continue
     const snap = snapOf(p.snap)
-    pairs.push({ photo, uv, ...(snap ? { snap } : {}) })
+    pairs.push({ ...(photo ? { photo } : {}), uv, ...(snap ? { snap } : {}) } as LineupPair | TracingSidePair)
   }
   const transform = Array.isArray(raw.transform) && raw.transform.length === 9 && raw.transform.every(finite) ? (raw.transform.slice() as Matrix3) : undefined
   const photo: TracingPhoto = {

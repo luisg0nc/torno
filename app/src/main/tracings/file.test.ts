@@ -108,8 +108,11 @@ describe('sanitiseTracing', () => {
   })
 
   it('keeps a whole photo and drops one that is not', () => {
-    const photo = { file: 'p-0123456789ab.jpg', sha256: 'a'.repeat(64), width: 4000, height: 3000, pairs: [{ photo: [1, 2], uv: [3, 4] }, { photo: [5, 6], uv: [7, 8], snap: { corner: 'block/V1' } }], method: 'similar', fade: 0.25, transform: [1, 0, 0, 0, 1, 0, 0, 0, 1], scale: 2, angle: 1.5 }
-    expect(sanitiseTracing(raw({ photo }))?.photo).toMatchObject({ file: 'p-0123456789ab.jpg', width: 4000, fade: 0.25, method: 'similar', pairs: [{ photo: [1, 2], uv: [3, 4] }, { photo: [5, 6], uv: [7, 8], snap: { corner: 'block/V1' } }] })
+    const photo = { file: 'p-0123456789ab.jpg', sha256: 'a'.repeat(64), width: 4000, height: 3000, pairs: [{ photo: [1, 2], uv: [3, 4] }, { photo: [5, 6], uv: [7, 8], snap: { corner: [7, 8] } }], method: 'similar', fade: 0.25, transform: [1, 0, 0, 0, 1, 0, 0, 0, 1], scale: 2, angle: 1.5 }
+    expect(sanitiseTracing(raw({ photo }))?.photo).toMatchObject({ file: 'p-0123456789ab.jpg', width: 4000, fade: 0.25, method: 'similar', pairs: [{ photo: [1, 2], uv: [3, 4] }, { photo: [5, 6], uv: [7, 8], snap: { corner: [7, 8] } }] })
+    // The pairs of a photo that was swapped have the tracing's side only, and a snap is read in each of its forms.
+    const swapped = { ...photo, pairs: [{ uv: [3, 4], snap: { centre: 'block/E14' } }, { uv: [5, 6], snap: { centre: [5, 6] } }, { uv: [7, 8], snap: { vertex: 'block/V3' } }, { photo: ['x', 1], uv: [1, 1] }, { uv: [9, 9], snap: { corner: 'block/V1' } }] }
+    expect(sanitiseTracing(raw({ photo: swapped }))?.photo?.pairs).toEqual([{ uv: [3, 4], snap: { centre: 'block/E14' } }, { uv: [5, 6], snap: { centre: [5, 6] } }, { uv: [7, 8], snap: { vertex: 'block/V3' } }, { uv: [9, 9] }])
     expect(sanitiseTracing(raw({ photo: { ...photo, file: '../../etc/passwd' } }))?.photo).toBeUndefined()
     expect(sanitiseTracing(raw({ photo: { ...photo, sha256: 'zz' } }))?.photo).toBeUndefined()
     expect(sanitiseTracing(raw({ photo: { ...photo, width: 0 } }))?.photo).toBeUndefined()

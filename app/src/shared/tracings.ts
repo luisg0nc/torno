@@ -1,4 +1,5 @@
 import { rotate } from './align'
+import type { LineupPair, LineupSnap, Matrix3 } from './lineup'
 import type { Sectioned } from './geometry'
 import type { Vec3 } from './marks'
 import { type MainAxis, mainPlaneFrame } from './planes'
@@ -48,15 +49,10 @@ export interface Layer {
   revision: number
 }
 
-/** A point of the photo (pixels of the kept file) and the point of the tracing (`uv`, mm) it is lined up with, and what the point was snapped to. */
-export interface LineupPair {
-  photo: [number, number]
-  uv: [number, number]
-  snap?: { corner: string } | { centre: string } | { vertex: string }
-}
+export type { LineupPair, LineupSnap, Matrix3 }
 
-/** A 3 × 3 matrix by rows: from pixels of the photo to `uv` in mm. */
-export type Matrix3 = [number, number, number, number, number, number, number, number, number]
+/** A pair of a photo that was swapped: the tracing's side only, until the clicks on the new photo are made. */
+export type TracingSidePair = Omit<LineupPair, 'photo'>
 
 export interface TracingPhoto {
   /** `p-<12 hex>.jpg|png` in `.torno/tracings/photos/`. */
@@ -67,7 +63,7 @@ export interface TracingPhoto {
   caption?: string
   /** The reference it was taken from, `reference/photo-2.jpg`. */
   from?: string
-  pairs: LineupPair[]
+  pairs: Array<LineupPair | TracingSidePair>
   method: 'similar' | 'straight'
   transform?: Matrix3
   /** Pixels per mm at the tracing's centre. */

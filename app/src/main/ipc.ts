@@ -105,7 +105,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
-//           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
+//           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, tracings:photo, tracings:lineUp, tracings:look, tracings:straightened, tracings:photoBytes, tracings:removePhoto, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection, export:saveTracing
@@ -1224,6 +1224,12 @@ export function registerIpc(
   handle('tracings:outline', (_event, objectId: string, id: string) => tracingsOf().outline(objectId, id))
   handle('tracings:problem', (_event, objectId: string) => tracingsOf().problem(objectId))
   handle('tracings:dismissProblem', (_event, objectId: string) => tracingsOf().dismissProblem(objectId))
+  handle('tracings:photo', (_event, objectId: string, id: string, bytes: unknown, from?: unknown) => tracingsOf().photo(objectId, id, bytes, from))
+  handle('tracings:lineUp', (_event, objectId: string, id: string, pairs: unknown, method: unknown) => tracingsOf().lineUp(objectId, id, pairs, method))
+  handle('tracings:look', (_event, objectId: string, id: string, look: unknown) => tracingsOf().look(objectId, id, look))
+  handle('tracings:straightened', (_event, objectId: string, id: string, bytes: unknown, of: unknown) => tracingsOf().straightened(objectId, id, bytes, of))
+  handle('tracings:photoBytes', (_event, objectId: string, id: string, which: unknown) => tracingsOf().photoBytes(objectId, id, which))
+  handle('tracings:removePhoto', (_event, objectId: string, id: string) => tracingsOf().removePhoto(objectId, id))
   ipcMain.on('tracings:shown', (_event, objectId: string, ids: string[]) => tracingsOf().shown(objectId, ids))
 
   scans = opts.scans ?? null
