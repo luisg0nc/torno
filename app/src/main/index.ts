@@ -400,6 +400,10 @@ const toolDeps: ToolDeps = {
   marks: (objectId) => marks.list(objectId),
   // A mark made through the tools is the agent's, and it knows of it: there is nothing to send it.
   addMark: (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
+  // A sketch of the agent's is checked by the tool (`add_sketch`), and kept as the agent's: sent, with no snaps.
+  saveSketch: (objectId, draft, touches) => marks.saveSketch(objectId, draft, touches, { author: 'agent' }),
+  // A removal is the window's own: the last mark removed can be undone there.
+  removeMark: (objectId, id) => marks.remove(objectId, id),
   // A dimension is measured as it is kept, as one the person makes is (`addDimension`).
   addDimension: (objectId, mark) => addDimensionTold({ marks, query: queryObject, scene: lastScene }, objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
   // Whoever changes a mark through the tools is the agent.

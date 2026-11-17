@@ -5,6 +5,7 @@ import type { BuildState } from '../../shared/build'
 import { diagnosisText } from '../../shared/diagnosis'
 import type { Described } from '../../shared/geometry'
 import type { BuildIdentity } from '../../shared/git'
+import type { SketchDraft } from '../../shared/bridge'
 import type { Mark, MarkPatch, NewMark, NoteMark } from '../../shared/marks'
 import type { ScanInfo } from '../../shared/scans'
 import type { Scene } from '../../shared/scene'
@@ -41,10 +42,11 @@ import { onlyKeysWrong, unknownKeys } from './keys'
 import { askTool } from './askTool'
 import type { AskAnswer, AskEnd, AskRequest } from '../../shared/ask'
 import { addMarkTool, checkRef, highlightTool, resolveMarkTool } from './markTools'
+import { addSketchTool } from './sketchTools'
 import { type FeaturesToolArgs, featuresTool } from './featureTools'
 import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type SectionToolArgs, type TryFilletToolArgs, type TryParamsToolArgs, checkTool, diffTool, historyTool, measureTool, sectionTool, tryFilletTool, tryParamsTool } from './readTools'
 import { type ScanClashArgs, type ScanDeviationArgs, type ScansArgs, scanClashTool, scanDeviationTool, scansTool } from './scanTools'
-import { type AddCardArgs, type AddMarkArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
+import { type AddCardArgs, type AddMarkArgs, type AddSketchArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
 import { addCardTool, boardTool } from './boardTools'
 import { type SceneArgs, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 import type { Profile } from '../../shared/profile'
@@ -94,6 +96,13 @@ export interface ToolDeps {
    * cannot be measured, and nothing is kept. One kept without a value of the last build says why (`unmeasured`).
    */
   addDimension(objectId: string, mark: NewMark): Promise<{ mark: Mark; unmeasured?: Unmeasured; reason?: string }>
+  /**
+   * Keeps a sketch of the agent's that main has checked: new, or (with the draft's `id`) in place of one of its own, with
+   * what each stroke touches. Rejects with a text for the agent; a sketch of the person's is refused.
+   */
+  saveSketch?(objectId: string, draft: SketchDraft, touches: ReadonlyArray<readonly string[]>): Promise<Mark>
+  /** Takes a mark away, as the window's delete does: the last one removed can be undone there. Rejects with a text. */
+  removeMark?(objectId: string, id: string): Promise<void>
   /** Changes a mark. Rejects with a text that names the marks there are when there is none of that id. */
   updateMark(objectId: string, id: string, patch: MarkPatch): Promise<Mark>
   /** What the kernel says of a part, a face or an edge of the last successful build, in a layout. Rejects with a text. */
@@ -221,6 +230,7 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<ShowArgs>('show', (args) => showTool(deps, objectId, args))
   tool<SaveViewArgs>('save_view', (args) => saveViewTool(deps, objectId, args))
   tool<AddMarkArgs>('add_mark', (args) => addMarkTool(deps, objectId, args))
+  tool<AddSketchArgs>('add_sketch', (args) => addSketchTool(deps, objectId, args))
   tool<ResolveMarkArgs>('resolve_mark', (args) => resolveMarkTool(deps, objectId, args))
   tool<MeasureToolArgs>('measure', (args) => measureTool(deps, objectId, args))
   tool<SectionToolArgs>('section', (args) => sectionTool(deps, objectId, args))

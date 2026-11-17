@@ -23,7 +23,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `save_view` are in `mcp/viewTools.ts`; those that place and resolve marks in
   `mcp/markTools.ts`; those that read the part in `mcp/readTools.ts`; those
   that ask about scans in `mcp/scanTools.ts`): `scene`, `look`, `marks`,
-  `describe`, `highlight`, `ask`, `show`, `save_view`, `add_mark`, `resolve_mark`,
+  `describe`, `highlight`, `ask`, `show`, `save_view`, `add_mark`, `add_sketch`, `resolve_mark`,
   `measure`, `section`, `check`, `diff`, `history`, `board`, `add_card`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
   `board` and `add_card` (`mcp/boardTools.ts`; `ToolDeps.board`, `ToolDeps.scale`, wired in `index.ts`) are the agent's door to the
   board: `board` reads it as `boardText` does (a frame by name or id; `pictures: true` sends up to 6, each scaled to 1280 by
@@ -56,6 +56,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `kind: 'note'`; Claude's only act on a note is `resolve_mark`, and no tool edits or deletes one.
   A sketch (`SketchMark`) is told by `marks` and `describe` the same way (`sketchData`, `main/sketches/text.ts`): the mark without its strokes and
   its picture, with `strokeCount` and `text`, which has every stroke and point (`sketchText` with no cut).
+  `add_sketch` (`mcp/sketchTools.ts`; `ToolDeps.saveSketch`, `removeMark`, wired in `index.ts`) is the agent's own sketch: `strokes` of `points` (object frame, mm) or
+  `plane` + `points2d`, at most 50 strokes and 2,000 points, every number finite and within 10 diagonals of the layout's parts. Main makes the planes' frames:
+  a main plane's by `mainPlaneFrame` (`shared/planes.ts`, labelled as `viewPlane` does), a face plane's from the kernel's `describe` of that face (it must be
+  planar; `axesOfNormal` gives the axes, +X projected, else +Y), a point plane's from its normal. The sketch is `author: 'agent'`, of the last build, with no snaps, and its
+  `touches` come from `strokeTouches` through `deps.nearest`. `sketch: 'M9'` replaces one of the agent's, `remove: true` deletes it through `MarkStore.remove` (undo as for any mark);
+  a sketch of the person's is refused for either. `add_mark` refuses `kind: 'sketch'` and `'stroke'`.
   `look` and `show` take the name of a saved view as `view`, and `save_view`
   proposes one (Views). `show` changes
   the view for now and is never saved to `scene.json`; it is refused while a

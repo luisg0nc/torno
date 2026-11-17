@@ -192,7 +192,7 @@ const textOf = (result: { content: Array<{ type: string; text?: string }> }): st
 
 describe('the tool descriptions', () => {
   it('say in two or three sentences each what the tool returns and when to use it', () => {
-    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'board', 'add_card', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
+    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'add_sketch', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'board', 'add_card', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
     for (const tool of Object.values(TOOLS)) {
       expect(tool.description).toMatch(/^Returns /)
       const sentences = tool.description.match(/[.?!]"?(\s|$)/g)!.length

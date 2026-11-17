@@ -420,7 +420,7 @@ function centreOf(described: Described, part: Part): Vec3 {
  * A view of a mark the agent placed, for "go to its view" in the window: at
  * the mark from the side its surface faces, far enough back to see the parts.
  */
-function markCamera(scene: Scene, layout: string, at: Vec3, normal: Vec3 | undefined): Camera {
+export function markCamera(scene: Scene, layout: string, at: Vec3, normal: Vec3 | undefined): Camera {
   const parts = scene.parts.filter((p) => p.layout === layout)
   let diagonal = 0
   if (parts.length > 0) {
@@ -439,6 +439,7 @@ function markCamera(scene: Scene, layout: string, at: Vec3, normal: Vec3 | undef
 export async function addMarkTool(deps: ToolDeps, objectId: string, args: AddMarkArgs): Promise<ToolResult> {
   // The schema lets every value through (the SDK would drop a key it does not know without a word); the kinds are checked here.
   if ((args.kind as string) === 'note') return failure("a view note is the person's: you cannot make one. Resolve one of theirs with resolve_mark, or place a pin, a pick, an arrow, a shape or a dimension.")
+  if ((args.kind as string) === 'sketch' || (args.kind as string) === 'stroke') return failure('a sketch is made with add_sketch, whose strokes are points in mm on planes or in space: add_mark places a pin, a pick, an arrow, a shape or a dimension.')
   const found = built(deps, objectId)
   if ('content' in found) return found
   const { scene, revision } = found

@@ -92,8 +92,13 @@ describe('the system prompt', () => {
   })
 
   it('stays short', () => {
-    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board.
-    expect(FULL_PROMPT.length).toBeLessThan(8300)
+    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches.
+    expect(FULL_PROMPT.length).toBeLessThan(8400)
+  })
+
+  it('says how literally to take a sketch, and that add_sketch shows a route or an outline', () => {
+    expect(FULL_PROMPT).toContain('A sketch says how literally to take it (exact, rough or flow); follow it. Use mcp__torno__add_sketch to show the person a route or an outline.')
+    expect(SYSTEM_PROMPT).toContain('A sketch says how literally to take it (exact, rough or flow); follow it.')
   })
 
   it('says how to read the digest that comes back with an edit: numbers of the B-rep, to be held to what was meant', () => {
@@ -147,7 +152,7 @@ describe("Claude Code's prompt, with the skills", () => {
 
   it('is the whole text without the scans and the dimensions, noticeably shorter', () => {
     expect(systemPrompt((tool) => `mcp__torno__${tool}`, true)).toBe(SYSTEM_PROMPT)
-    expect(SYSTEM_PROMPT.length).toBeLessThan(7300)
+    expect(SYSTEM_PROMPT.length).toBeLessThan(7400)
     expect(FULL_PROMPT.length - SYSTEM_PROMPT.length).toBeGreaterThan(1000)
     for (const sentence of [...SCANS_TEXT, ...DIMENSIONS_TEXT]) {
       expect(FULL_PROMPT).toContain(sentence)
