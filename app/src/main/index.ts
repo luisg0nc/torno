@@ -408,7 +408,7 @@ const toolDeps: ToolDeps = {
   // The agent proposes a set through the store as the agent, and the kernel's selectors are written in a second change.
   setStore: sets,
   // A mark made through the tools is the agent's, and it knows of it: there is nothing to send it.
-  addMark: (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
+  addMark: async (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId, await sets.list(objectId).catch(() => undefined)), 'sent'),
   // A sketch of the agent's is checked by the tool (`add_sketch`), and kept as the agent's: sent, with no snaps.
   // Its anchor says how far its part is spread on this build (`placedMark`), so that the sketch moves with it.
   saveSketch: (objectId, draft, touches) => {

@@ -309,6 +309,22 @@ describe('the anchors of a mark', () => {
   })
 })
 
+describe('the label of a named set on an anchor', () => {
+  const labelled = (set: unknown): unknown => (sanitiseMark({ ...pin(), anchor: { ...ANCHOR, set } } as never) as PinMark | null)?.anchor.set
+  it('is kept as a set ref and read from the file again', () => {
+    expect(labelled('#deck')).toBe('#deck')
+    expect(labelled('#deck-face')).toBe('#deck-face')
+  })
+
+  it('is dropped when it is no set ref: another sort, a part form, white space', () => {
+    expect(labelled(3)).toBeUndefined()
+    expect(labelled('deck')).toBeUndefined()
+    expect(labelled('block/#deck')).toBeUndefined()
+    expect(labelled('#deck face')).toBeUndefined()
+    expect(labelled('#171')).toBeUndefined()
+  })
+})
+
 describe('a dimension', () => {
   const TOP = { point: [5, 3, 3], normal: [0, 0, 1], part: 'plate', ref: 'plate/F5', descriptor: 'plane, normal +Z, z = 3, 1100 mm²' }
   const BOTTOM = { point: [5, 3, -3], normal: [0, 0, -1], part: 'plate', ref: 'plate/F0' }

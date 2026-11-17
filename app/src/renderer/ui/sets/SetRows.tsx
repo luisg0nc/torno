@@ -3,7 +3,9 @@ import { pressed } from '../../../shared/keys'
 import { SET_COLOURS, SET_NAME_MAX, setNameError } from '../../../shared/sets'
 import { actions, useStore } from '../../state/store'
 import { selectableMembers, setActions, setsStore, useSets } from '../../state/sets'
+import { canTag } from '../../state/setTag'
 import { giveKeysBack } from '../typing'
+import { makeTag } from './makeTag'
 import { partsOfSet, type SetRow } from './rows'
 
 /** A set's colour as the stylesheet has it: `--set-1` to `--set-8`, so that a theme changes it with no code. */
@@ -36,6 +38,10 @@ export function SetRowView({ row, layout, indent }: { row: SetRow; layout: strin
   const shown = open || row.proposed || repicking
   const has = (action: SetRow['actions'][number]): boolean => row.actions.includes(action)
   const taken = setsStore.getState().sets.filter((s) => s.id !== row.id).map((s) => s.name)
+  const taggable = useSets((s) => {
+    const set = s.sets.find((one) => one.id === row.id)
+    return set !== undefined && canTag(set)
+  })
   const renameError = renaming === null ? null : setNameError(renaming, taken)
 
   const select = (): void => {
@@ -171,6 +177,17 @@ export function SetRowView({ row, layout, indent }: { row: SetRow; layout: strin
           {has('repick') && !repicking && (
             <button type="button" className="link-button set-button" title="Pick the lost members again: select the faces, then press Re-pick" onClick={() => setActions.startRepick(row.id)}>
               Re-pick
+            </button>
+          )}
+          {has('tag') && (
+            <button
+              type="button"
+              className="link-button set-button"
+              disabled={!taggable}
+              title={taggable ? 'Ask Claude to write this set into the model as a tag, one in each part it spans' : 'A tag names faces and edges: this set has none that the build found'}
+              onClick={() => void makeTag(row.id)}
+            >
+              Make it a tag
             </button>
           )}
           {has('delete') && (

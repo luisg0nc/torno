@@ -149,6 +149,61 @@ export function strokeLive(stroke: string, marks: readonly Mark[]): boolean {
   return mark?.kind === 'sketch' && mark.strokes.some((s) => s.id === id)
 }
 
+/** Does a set hold the face, edge or part `ref` names? A part held whole holds each of its faces and edges. A lost member and a stroke hold nothing. */
+export function setHolds(set: Pick<NamedSet, 'members'>, ref: string): boolean {
+  const parsed = parseSetRef(ref)
+  if (parsed === null) return false
+  return set.members.some((m: SetMember) => {
+    if ('stroke' in m || m.state === 'lost') return false
+    if ('part' in m) return m.part === parsed.part
+    return memberRef(m) === ref
+  })
+}
+
+/**
+ * The label a mark on a named set keeps (`Anchor.set`, `#deck`): the set of that name in the layout, when it holds `ref`;
+ * else none. `said` is the label as it came, in any case (`#Deck`): the set's own slug is what is kept.
+ */
+export function setLabelFor(sets: readonly NamedSet[] | undefined, layout: string, ref: string | undefined, said: string | undefined): string | undefined {
+  if (!sets || ref === undefined || typeof said !== 'string') return undefined
+  const split = splitSetRef(said)
+  if (split === null || split.part !== undefined) return undefined
+  const set = sets.find((s) => s.slug === split.slug && s.layout === layout)
+  return set && setHolds(set, ref) ? `#${set.slug}` : undefined
+}
+
+/**
+ * The name a tag of a set takes (`tags(p, parts)`): the set's name as a tag name the kernel's loader reads (`TAG_NAME`).
+ * It is lower case, as the set's ref is, with the marks of letters taken off and each run of anything else (white space,
+ * `/`, a letter the loader does not read) made one `_`: `deck face` is `deck_face`.
+ */
+export function tagNameOf(name: string): string {
+  const made = name.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '_')
+  return /^[a-z_]/.test(made) ? made : `_${made}`
+}
+
+const listed = (words: readonly string[]): string => (words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`)
+
+/**
+ * What "Make it a tag" asks of Claude for a set: a tag of its name in `tags(p, parts)` for the faces and edges the build found
+ * (by ref, with what each is: `descriptors` by ref), and, for a set over several parts (`parts`: the parts it spans), one
+ * tag of that name in each part, so that `block/@deck` (the model's) and `#deck` (torno's) both name it. A tag names a face
+ * or an edge: strokes and whole parts are left out and said, and so are the members that are lost. Never sent by torno; the
+ * person sends it.
+ */
+export function makeTagText(set: Pick<NamedSet, 'name' | 'slug' | 'members'>, parts: readonly string[], descriptors: Readonly<Record<string, string>>): string {
+  const found = set.members.filter((m): m is Extract<SetMember, { face: string } | { edge: string }> => ('face' in m || 'edge' in m) && m.state !== 'lost')
+  const left = [...set.members.filter((m) => 'part' in m).map((m) => `the whole part ${memberRef(m)}`), ...set.members.filter((m) => 'stroke' in m).map((m) => `the stroke ${memberRef(m)}`)]
+  const lost = set.members.filter((m) => !('stroke' in m) && m.state === 'lost' && !('part' in m)).length
+  const notTaggable = left.length > 0 ? ` Not taggable, left out: ${left.join(', ')}.` : ''
+  if (found.length === 0) return `Nothing to tag: #${set.slug} has no face or edge that the build found.${notTaggable}`
+  const kinds = found.some((m) => 'face' in m) && found.some((m) => 'edge' in m) ? 'faces and edges' : found.some((m) => 'edge' in m) ? 'edges' : 'faces'
+  const refs = found.map((m) => `${memberRef(m)}${descriptors[memberRef(m)] ? ` (${descriptors[memberRef(m)]})` : ''}`).join(', ')
+  const spans = parts.length > 1 ? ` It spans the parts ${listed(parts)}: give each part a tag of that name, with its own faces.` : ''
+  const gone = lost > 0 ? ` ${lost} ${lost === 1 ? 'member is' : 'members are'} lost and left out.` : ''
+  return `Add a tag "${tagNameOf(set.name)}" in tags(p, parts) for the ${kinds} of my named set #${set.slug}: ${refs}.${spans}${notTaggable}${gone}`
+}
+
 /** Is the member lost: found by no build (a part, a face, an edge), or a stroke that is no longer there? */
 export function isLost(m: SetMember, marks: readonly Mark[]): boolean {
   if ('stroke' in m) return !strokeLive(m.stroke, marks)

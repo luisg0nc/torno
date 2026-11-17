@@ -6,7 +6,7 @@ import { diagnosisText } from '../../shared/diagnosis'
 import type { Described } from '../../shared/geometry'
 import type { BuildIdentity } from '../../shared/git'
 import type { SketchDraft } from '../../shared/bridge'
-import type { Mark, MarkPatch, NewMark, NoteMark } from '../../shared/marks'
+import { type Mark, type MarkPatch, type NewMark, type NoteMark, markAnchors } from '../../shared/marks'
 import type { Round } from '../../shared/reviews'
 import type { NamedSet } from '../../shared/sets'
 import type { ScanInfo } from '../../shared/scans'
@@ -328,12 +328,18 @@ export const noMark = (id: string, marks: Mark[]): ToolResult => failure(`no mar
  * A region of a scan is told where the scan's alignment in its layout puts
  * it, which takes the `scans` of the object (`scansFor`).
  */
-const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string): object => ({
+const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string, sets?: readonly string[]): object => ({
   // A note is told in words, without its strokes and the names of its files: where its files are on this computer is told with it.
   // A sketch likewise: its strokes are in its `text`, in full, and its picture is a file of main's.
   ...(mark.kind === 'note' ? noteData(mark, revision, dir === undefined ? undefined : noteFilesExist(dir, mark)) : mark.kind === 'sketch' ? sketchData(mark, revision) : markData(mark, revision, scans, layout)),
-  line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}) })
+  line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}), ...(sets ? { sets } : {}) })
 })
+
+/** The slugs of the named sets, when a mark of these is on one (`Anchor.set`): a label of a set that is gone says so. Undefined when no mark is, or the sets cannot be read. */
+async function slugsFor(deps: ToolDeps, objectId: string, marks: readonly Mark[]): Promise<string[] | undefined> {
+  if (!deps.sets || !marks.some((m) => markAnchors(m).some((a) => a.set !== undefined))) return undefined
+  return deps.sets(objectId).then((all) => all.map((s) => s.slug)).catch(() => undefined)
+}
 
 /** The layout a region is told in by a tool: the one asked for, else the one on screen, else the build's first; none before a build, or for a layout the build has not (the region is then told in its own). */
 /** The refusal for a layout that was asked for and that the build has not: it is not answered in another. Null otherwise, and before anything is built. */
@@ -420,11 +426,12 @@ export async function marksTool(deps: ToolDeps, objectId: string, args: MarksArg
   const strokes = !named && listed.some((m) => m.kind === 'stroke')
   const dir = deps.object(objectId)?.dir
   const notes = listed.filter((m): m is NoteMark => m.kind === 'note')
+  const slugs = await slugsFor(deps, objectId, listed)
   const sent = notes.length > 0 && dir !== undefined && args.pictures === true ? await notePictures(dir, notes, deps.scale) : undefined
   const result = json({
     ...build,
     marks: listed.map((m) => {
-      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene, dir)
+      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene, dir, slugs)
       return named ? told : strokeSummarised(told)
     }),
     ...(wanted === 'open' && !named ? { listed: 'open marks; resolved ones with status resolved, or by ids' } : {}),
@@ -465,7 +472,7 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
     const build = ofBuild(deps, objectId)
     const wrong = noSuchLayout(deps, objectId, args.layout)
     if (wrong) return wrong
-    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene, deps.object(objectId)?.dir) }) : noMark(args.ref, marks)
+    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene, deps.object(objectId)?.dir, await slugsFor(deps, objectId, [mark])) }) : noMark(args.ref, marks)
   }
   const found = built(deps, objectId)
   if ('content' in found) return found

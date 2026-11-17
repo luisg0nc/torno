@@ -2922,18 +2922,66 @@ describe('named sets, #deck and base/#deck', () => {
     expect(JSON.parse(textOf(await describeTool(withSets(), 'bracket', { ref: '#rim', layout: 'print' }))).set).toBe('#rim')
   })
 
-  it('places a mark on the one face a set of one names, and refuses a set of several, a set of another layout and a proposal made of strokes', async () => {
-    const deps = withSets()
-    const placed = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#top' })
+  it('places a mark on the first face of a set the build found, with the set kept as its label', async () => {
+    const on = (ref: string): ToolDeps['nearest'] => async (_id, _layout, anchors) => anchors.map(({ part, point }) => ({ part, found: true, point, normal: [0, 0, 1], ref, distance: 0, descriptor: `nearest of ${part}` })) as NearestAnchor[]
+    const deps = withSets({ nearest: on('base/F1') })
+    const placed = await addMarkTool(withSets({ nearest: on('base/F5') }), 'bracket', { kind: 'pin', note: 'here', ref: '#top' })
     expect(placed.isError).toBeUndefined()
-    expect(deps.w.added[0]).toMatchObject({ anchor: { part: 'base', ref: 'base/F5' } })
     const several = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#deck' })
-    expect(textOf(several)).toBe('#deck names 3 members, not one: base/F1, base/F2, base/F5; name one of them')
-    expect(deps.w.added).toHaveLength(1)
+    expect(several.isError).toBeUndefined()
+    expect(deps.w.added[0]).toMatchObject({ kind: 'pin', anchor: { part: 'base', ref: 'base/F1', set: '#deck' } })
+    expect(textOf(several)).toContain('on base/F1')
+    expect(textOf(several)).toContain('(on #deck)')
+    expect(textOf(several)).toContain('#deck: 3 faces (2 of 5 faces lost): the mark is placed on base/F1, the first of them.')
+  })
+
+  it('places a pick, an arrow and a shape on a set as well, and takes the part form, which is the same set', async () => {
+    const deps = withSets({ nearest: async (_id, _layout, anchors) => anchors.map(({ part, point }) => ({ part, found: true, point, normal: [0, 0, 1], ref: 'base/F1', distance: 0, descriptor: 'nearest of base' })) as NearestAnchor[] })
+    await addMarkTool(deps, 'bracket', { kind: 'pick', note: 'this', ref: '#deck' })
+    await addMarkTool(deps, 'bracket', { kind: 'arrow', note: 'here', ref: '#deck', by: [0, 0, 10] })
+    await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: 'base/#deck' })
+    expect(deps.w.added.map((m) => (m as { anchor?: { set?: string }; from?: { set?: string } }).anchor?.set ?? (m as { from?: { set?: string } }).from?.set)).toEqual(['#deck', '#deck', '#deck'])
+  })
+
+  it('puts the mark of a proposal on it, and keeps the label whatever the proposal comes to', async () => {
+    const deps = withSets()
+    const placed = await addMarkTool(deps, 'bracket', { kind: 'pick', note: 'here', ref: '#ring' })
+    expect(placed.isError).toBeUndefined()
+    expect(deps.w.added[0]).toMatchObject({ anchor: { part: 'post', ref: 'post', set: '#ring' } })
+  })
+
+  it('tells a mark on a set that is gone as on a set that is no longer one, and one on a set that is there as on it', async () => {
+    const onSet = (id: string, set: string): Mark => ({ ...MARK_BASE, id, kind: 'pick', target: 'face', anchor: { point: [0, 0, 0], part: 'base', ref: 'base/F5', set } }) as Mark
+    const deps = withSets()
+    const listed = deps.marks
+    deps.marks = async (id) => [...(await listed(id)), onSet('M20', '#deck'), onSet('M21', '#dismissed')]
+    const { marks } = jsonOf(await marksTool(deps, 'bracket', { ids: ['M20', 'M21'] }))
+    expect(marks.map((m: { line: string }) => m.line)).toEqual(['M20 pick of base/F5 (on #deck)', 'M21 pick of base/F5 (on #dismissed, no longer a named set)'])
+  })
+
+  it('says so, and keeps no label, when a pin lands on a face the set does not hold', async () => {
+    // The centre of base/F1 is not on it: the face under the point is base/F9, which #deck does not hold.
+    const elsewhere = withSets({ nearest: async (_id, _layout, anchors) => anchors.map(({ part, point }) => ({ part, found: true, point, normal: [0, 0, 1], ref: 'base/F9', distance: 0, descriptor: 'nearest of base' })) as NearestAnchor[] })
+    const result = await addMarkTool(elsewhere, 'bracket', { kind: 'pin', note: 'here', ref: '#deck' })
+    expect(elsewhere.w.added[0]).toMatchObject({ anchor: { ref: 'base/F9' } })
+    expect((elsewhere.w.added[0] as { anchor: Anchor }).anchor).not.toHaveProperty('set')
+    expect(textOf(result)).toContain('#deck does not hold base/F9, so the mark is not on #deck.')
+  })
+
+  it('refuses a set the build found nothing of, a set of strokes, and a set of another layout, and places no mark', async () => {
+    const deps = withSets()
+    expect(textOf(await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#gone' }))).toBe('#gone: no member found (1 of 1 face lost): it names nothing the last build has')
     const other = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#rim', layout: 'assembly' })
     expect(textOf(other)).toContain('#rim is of layout print')
     expect(textOf(await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#rim', layout: 'print' }))).not.toContain('#rim is of layout')
     expect(textOf(await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#top', layout: 'print' }))).toContain('#top is of layout assembly')
+    expect(textOf(await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: 'post/#deck' }))).toBe('#deck has nothing in post; its parts: base')
+  })
+
+  it('still refuses a set of several as the end of a dimension, which is of one face or edge', async () => {
+    const deps = withSets()
+    const result = await addMarkTool(deps, 'bracket', { kind: 'dimension', measure: 'distance', note: 'gap', a: '#deck', b: 'base/F2' })
+    expect(textOf(result)).toBe('#deck names 3 members, not one: base/F1, base/F2, base/F5; name one of them')
   })
 })
 

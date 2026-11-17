@@ -7,6 +7,7 @@ import type { Camera } from '../../shared/view'
 import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
 import { ROUND_ID, type Round } from '../../shared/reviews'
 import { TAG_NAME } from '../../shared/tags'
+import { SET_REF } from '../../shared/sets'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 import { numberStrokes, readSketch } from '../sketches/read'
 
@@ -465,6 +466,7 @@ export function anchorOf(value: unknown): Anchor | null {
   if (typeof value.edge === 'string') anchor.edge = value.edge
   if (Array.isArray(value.between) && value.between.length === 2 && value.between.every((ref) => typeof ref === 'string')) anchor.between = [value.between[0], value.between[1]]
   if (typeof value.tag === 'string' && TAG_NAME.test(value.tag)) anchor.tag = value.tag
+  if (typeof value.set === 'string' && SET_REF.test(value.set)) anchor.set = value.set
   return anchor
 }
 

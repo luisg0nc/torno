@@ -6,7 +6,7 @@ import type { Camera } from '../../shared/view'
 import type { Hit } from '../viewport/picking'
 import type { ViewportPointer } from '../viewport/Viewport'
 import { arrowHead, arrowTool } from './arrowTool'
-import { pickMarks } from './pickMarks'
+import { pickMarks, setOfSelection } from './pickMarks'
 import { pinTool } from './pinTool'
 import { refInScope, selectTool } from './selectTool'
 import { setsStore } from '../state/sets'
@@ -486,6 +486,31 @@ describe('pick marks from a selection', () => {
   it('keeps a clicked ref the kernel cannot describe, and leaves out one with no point at all', async () => {
     const marks = await pickMarks(['gone/F1', 'gone/F2'], { 'gone/F1': { point: [1, 2, 3], normal: [1, 0, 0] } }, () => Promise.reject(new Error('no build')), placed)
     expect(marks).toEqual([{ kind: 'pick', target: 'face', author: 'user', note: '', ...placed, anchor: { point: [1, 2, 3], normal: [1, 0, 0], part: 'gone', ref: 'gone/F1' } }])
+  })
+})
+
+describe('pick marks of a selection made in the set scope', () => {
+  const placed = { layout: 'assembly', revision: 7, camera: CAMERA }
+  const deck: NamedSet = { id: 'N1', name: 'deck', slug: 'deck', comment: '', colour: 0, layout: 'assembly', by: 'person', members: [{ face: 'base/F5', point: [0, 0, 2.5], normal: [0, 0, 1], state: 'ok' }], createdAt: '2026-11-17T10:00:00.000Z' }
+  const says = async (): Promise<Described | null> => FACE
+  afterEach(() => {
+    toolStore.setState({ selectScope: 'any' })
+    setsStore.setState({ sets: [] })
+    store.setState({ layout: 'assembly' })
+  })
+
+  it('sends the set a ref is in as the anchor\'s label', async () => {
+    const marks = await pickMarks(['base/F5', 'base/F6'], { 'base/F5': { point: [1, 1, 2.5], normal: [0, 0, 1] }, 'base/F6': { point: [2, 2, 2.5], normal: [0, 0, 1] } }, says, placed, (ref) => (ref === 'base/F5' ? '#deck' : undefined))
+    expect(marks.map((m) => m.kind === 'pick' && m.anchor.set)).toEqual(['#deck', undefined])
+  })
+
+  it('is asked of the sets only in the set scope, and says the first set that holds the ref, of the layout shown', () => {
+    setsStore.setState({ sets: [deck, { ...deck, id: 'N2', name: 'second', slug: 'second' }, { ...deck, id: 'N3', name: 'printed', slug: 'printed', layout: 'print' }] })
+    expect(setOfSelection()).toBeUndefined()
+    toolStore.setState({ selectScope: 'set' })
+    const of = setOfSelection()!
+    expect(of('base/F5')).toBe('#deck')
+    expect(of('base/F6')).toBeUndefined()
   })
 })
 

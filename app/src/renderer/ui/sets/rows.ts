@@ -2,7 +2,7 @@ import type { Mark } from '../../../shared/marks'
 import { type NamedSet, lostText, memberRef } from '../../../shared/sets'
 
 /** What can be done with a set from its row. `light` is the pointer on the row; the others are buttons. */
-export type SetAction = 'light' | 'isolate' | 'rename' | 'recolour' | 'add' | 'take' | 'repick' | 'delete' | 'accept' | 'dismiss'
+export type SetAction = 'light' | 'isolate' | 'rename' | 'recolour' | 'add' | 'take' | 'repick' | 'tag' | 'delete' | 'accept' | 'dismiss'
 
 /** One set as the Layers list draws it. */
 export interface SetRow {
@@ -37,7 +37,7 @@ function rowOf(set: NamedSet, marks: readonly Mark[]): SetRow {
   const lost = lostText(set, marks)
   const actions: SetAction[] = set.proposed
     ? ['light', 'isolate', 'accept', 'dismiss']
-    : ['light', 'isolate', 'rename', 'recolour', 'add', 'take', ...(lost !== null ? (['repick'] as const) : []), 'delete']
+    : ['light', 'isolate', 'rename', 'recolour', 'add', 'take', ...(lost !== null ? (['repick'] as const) : []), 'tag', 'delete']
   return { id: set.id, ref: `#${set.slug}`, name: set.name, colour: set.colour, count: set.members.length, lost, proposed: set.proposed === true, actions }
 }
 

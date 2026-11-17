@@ -1,7 +1,7 @@
 import { apply } from '../../shared/align'
 import { groupsIn } from '../../shared/groups'
 import { expandTag, splitTagRef } from '../../shared/tags'
-import { type NamedSet, expandSet, splitSetRef } from '../../shared/sets'
+import { type NamedSet, expandSet, setHolds, splitSetRef } from '../../shared/sets'
 import type { Described } from '../../shared/geometry'
 import { expectedText, offBy, standingOf, valueText } from '../../shared/dimension'
 import { type Anchor, type DimensionMark, type Mark, type NewMark, type Quat, isUnchecked, markAnchors } from '../../shared/marks'
@@ -366,10 +366,32 @@ export async function anchorFor(
   point: Vec3 | undefined,
   kind: 'pin' | 'pick' | 'arrow' | 'shape'
 ): Promise<{ anchor: Anchor; target?: CheckedRef['target']; said?: string } | ToolResult> {
-  const placed = await anchorOn(deps, objectId, scene, layout, given, point, kind)
+  // A named set (`#deck`, `block/#deck`) is the first of its members the build found; the mark keeps the set as its label (`Anchor.set`).
+  let on = given
+  let label: string | undefined
+  let holder: NamedSet | undefined
+  let told: string | undefined
+  if (given !== undefined && isSetRef(given)) {
+    const named = await setsAt(deps, objectId)
+    if ('content' in named) return named
+    const expanded = expandSet(named.sets, scene.parts.filter((p) => p.layout === layout), layout, given, named.marks)
+    if (expanded === null) return failure(`${given} is no set`)
+    if ('error' in expanded) return failure(withLayoutHint(expanded.error))
+    if (expanded.refs.length === 0) return failure(`${expanded.said}: it names nothing the last build has`)
+    on = expanded.refs[0]
+    holder = expanded.set
+    label = `#${expanded.set.slug}`
+    if (expanded.refs.length > 1 || expanded.lost > 0) told = `${expanded.said}: the mark is placed on ${on}, the first of them.`
+  }
+  const placed = await anchorOn(deps, objectId, scene, layout, on, point, kind)
   if ('content' in placed) return placed
   // The tag the model gives what it is on (`Anchor.tag`): main's to say, from this build.
-  return { ...placed, anchor: withTag(placed.anchor, scene.parts.find((p) => p.layout === layout && p.name === placed.anchor.part)) }
+  const tagged = withTag(placed.anchor, scene.parts.find((p) => p.layout === layout && p.name === placed.anchor.part))
+  // The label is kept while the mark is on what the set holds: a pin is placed on the face under its point, which may be another's.
+  const kept = holder !== undefined && placed.anchor.ref !== undefined && setHolds(holder, placed.anchor.ref)
+  const off = label !== undefined && !kept ? `${label} does not hold ${placed.anchor.ref ?? 'that point'}, so the mark is not on ${label}.` : undefined
+  const said = [told, placed.said, off].filter((line) => line !== undefined).join('\n')
+  return { ...placed, anchor: kept ? { ...tagged, set: label } : tagged, ...(said ? { said } : {}) }
 }
 
 async function anchorOn(

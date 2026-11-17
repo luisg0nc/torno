@@ -47,7 +47,7 @@ import { reviewHandlers } from './reviews/ipc'
 import { setHandlers } from './sets/ipc'
 import { refindAll } from './sets/refind'
 import type { SetStore } from './sets/store'
-import type { NewSet, SetEdit } from '../shared/sets'
+import type { NamedSet, NewSet, SetEdit } from '../shared/sets'
 import type { RoundAsk } from '../shared/reviews'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
@@ -562,12 +562,13 @@ export function lastScene(id: string): { revision: number; scene: Scene } | unde
 
 /**
  * A mark as it is kept when it is placed (`asPlaced`): a mark that is no mark
- * is handed on as it came, for the store to refuse.
+ * is handed on as it came, for the store to refuse. The label of a named set it says it is on
+ * (`Anchor.set`) is kept only when `named`, the project's sets, has that set holding what the anchor is on.
  */
-export function placedMark<M extends NewMark>(mark: M, objectId: string): M {
+export function placedMark<M extends NewMark>(mark: M, objectId: string, named?: readonly NamedSet[]): M {
   const whole = typeof mark === 'object' && mark !== null && typeof mark.layout === 'string'
   try {
-    return whole ? asPlaced(mark, lastScene(objectId)) : mark
+    return whole ? asPlaced(mark, lastScene(objectId), named) : mark
   } catch {
     return mark
   }
@@ -1045,9 +1046,11 @@ export function registerIpc(
   // A mark made in the window is the person's. The agent's come through its tools, which call the store themselves.
   // What only main says of a mark is said here: how far its part is spread on the build it was placed on.
   // A dimension is measured as it is kept (`addDimension`): its value is the kernel's, never the window's.
+  /** The named sets of a project, for the label of a mark placed on one; none where there is no store of them or it cannot be read. */
+  const setsOf = (objectId: string): Promise<NamedSet[] | undefined> => (sets ? sets.list(objectId).catch(() => undefined) : Promise.resolve(undefined))
   const measuring = (store: MarkStore) => ({ marks: store, query: queryObject, scene: lastScene })
-  handle('marks:add', (_event, objectId: string, mark: NewMark) => {
-    const placed = placedMark({ ...mark, author: 'user' }, String(objectId))
+  handle('marks:add', async (_event, objectId: string, mark: NewMark) => {
+    const placed = placedMark({ ...mark, author: 'user' }, String(objectId), await setsOf(String(objectId)))
     return placed.kind === 'dimension' ? addDimension(measuring(requireMarks()), String(objectId), placed) : requireMarks().add(String(objectId), placed)
   })
   // Whoever resolves a mark from the window is the person.
@@ -1073,7 +1076,7 @@ export function registerIpc(
   handle('marks:replace', async (_event, objectId: string, id: string, placed: Replacement) => {
     const store = requireMarks()
     const layout = (await store.list(String(objectId))).find((m) => m.id === String(id))?.layout
-    return store.replace(String(objectId), String(id), layout === undefined ? placed : asReplaced(placed, layout, lastScene(String(objectId))))
+    return store.replace(String(objectId), String(id), layout === undefined ? placed : asReplaced(placed, layout, lastScene(String(objectId)), await setsOf(String(objectId))))
   })
   handle('board:read', (_event, objectId: string) => requireBoards().read(objectId))
   handle('board:change', (_event, objectId: string, change: PersonChange) => requireBoards().change(objectId, change))

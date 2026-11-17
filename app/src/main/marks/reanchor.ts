@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import type { Described } from '../../shared/geometry'
 import { type Anchor, type AnchorState, type Mark, type NewMark, type Replacement, type Vec3, markAnchors, strokeSamples, translated } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
+import { type NamedSet, setLabelFor } from '../../shared/sets'
 import { tagOfRef, tagRefs } from '../../shared/tags'
 import type { Builds } from '../builds'
 import { KernelError, isBusy } from '../kernel/client'
@@ -153,20 +154,31 @@ function withAnchor<M extends Mark | NewMark>(mark: M, change: (anchor: Anchor) 
  * build, or on no part of the layout, nothing is said, and the first check
  * takes the mark to be where it is.
  */
-export function asPlaced<M extends Mark | NewMark>(mark: M, last: LastBuild | undefined): M {
-  return withAnchor(mark, (anchor) => placedAnchor(anchor, mark.layout, mark.revision, last))
+export function asPlaced<M extends Mark | NewMark>(mark: M, last: LastBuild | undefined, sets?: readonly NamedSet[]): M {
+  return withAnchor(mark, (anchor) => placedAnchor(anchor, mark.layout, mark.revision, last, sets))
 }
 
 /** What a mark is put on again, said the same way (`asPlaced`). */
-export function asReplaced(placed: Replacement, layout: string, last: LastBuild | undefined): Replacement {
+export function asReplaced(placed: Replacement, layout: string, last: LastBuild | undefined, sets?: readonly NamedSet[]): Replacement {
   const anchor = (placed as Replacement | null)?.anchor
   if (typeof anchor !== 'object' || anchor === null) return placed
-  return { ...placed, anchor: placedAnchor(anchor, layout, placed.revision, last) }
+  return { ...placed, anchor: placedAnchor(anchor, layout, placed.revision, last, sets) }
 }
 
-function placedAnchor(anchor: Anchor, layout: string, revision: number, last: LastBuild | undefined): Anchor {
+function placedAnchor(anchor: Anchor, layout: string, revision: number, last: LastBuild | undefined, sets?: readonly NamedSet[]): Anchor {
   const spread = withSpread(anchor, last?.revision === revision && typeof anchor.part === 'string' ? spreadOf(last.scene, layout, anchor.part) : null)
-  return withTag(spread, last?.revision === revision ? last.scene.parts.find((p) => p.layout === layout && p.name === anchor.part) : undefined)
+  return withSet(withTag(spread, last?.revision === revision ? last.scene.parts.find((p) => p.layout === layout && p.name === anchor.part) : undefined), layout, sets)
+}
+
+/**
+ * The anchor with the label of the named set it was placed on (`Anchor.set`), kept only when the set of that name, in the
+ * mark's layout, holds the face, edge or part the anchor is on; whatever the placer said of it is otherwise not kept. A check
+ * never changes it (`reanchorAll`): a set dismissed or deleted later leaves the label on the mark.
+ */
+export function withSet(anchor: Anchor, layout: string, sets: readonly NamedSet[] | undefined): Anchor {
+  const { set: said, ...rest } = anchor
+  const label = setLabelFor(sets, layout, anchor.ref, said)
+  return label === undefined ? rest : { ...rest, set: label }
 }
 
 /**
@@ -403,7 +415,11 @@ export async function reanchorAll(deps: ReanchorDeps, objectId: string): Promise
   for (const { original, shift, shiftB, mark } of checked) {
     if (unanswered.has(mark.id)) continue
     const anchors = markAnchors(mark)
-    const now = anchors.map((anchor): Judged | undefined => (anchor.part === undefined ? { anchor, state: 'ok' } : judged.get(anchor)))
+    // The label of a named set is the mark's own: a check judges the anchor and leaves it as it was.
+    const now = anchors.map((anchor): Judged | undefined => {
+      const one = anchor.part === undefined ? { anchor, state: 'ok' as const } : judged.get(anchor)
+      return one && anchor.set !== undefined && one.anchor.set === undefined ? { ...one, anchor: { ...one.anchor, set: anchor.set } } : one
+    })
     if (!now.every((j) => j !== undefined)) continue
     const ofAnchors = WORST_FIRST.find((state) => now.some((j) => j.state === state)) ?? 'ok'
     // A region is on a scan: no build moves it or loses it, and what its scan made of it stands.

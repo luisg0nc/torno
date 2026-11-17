@@ -66,7 +66,7 @@ export function sizes(v: readonly number[]): string {
  * on show, or the one a tool was asked in) puts it (`region`): that takes the
  * `scans` of the object, and without them it has no place.
  */
-export function describeMark(mark: Mark, opts: { tag?: string; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene } = {}): string {
+export function describeMark(mark: Mark, opts: { tag?: string; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene; /** The slugs of the project's named sets: with them, a label of a set that is gone says so. */ sets?: readonly string[] } = {}): string {
   const tags = [mark.author === 'agent' ? 'yours' : '', opts.tag ?? ''].filter(Boolean).join(', ')
   const note = mark.note.replace(/\s+/g, ' ').trim()
   const unchecked = isUnchecked(mark, opts.revision) ? ` [not checked against r${opts.revision}]` : ''
@@ -271,19 +271,19 @@ function regionData(mark: RegionMark, layout: string | undefined, scans: readonl
   return { ...rest, toldIn: told, aligned: true, alignment: alignmentSaid(placed.scan, told, revision).state, area: there.area, centroid: there.centroid, size: there.box.half.map((half) => 2 * half), axes: there.box.axes, bbox: there.bbox, bboxOf: 'a box along the axes of the layout that the region lies within: not its size', plane: there.plane, flat: there.flat, approximate: REGION_APPROXIMATE }
 }
 
-function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: readonly ScanInfo[] }): string {
+function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: readonly ScanInfo[]; sets?: readonly string[] }): string {
   const { revision } = opts
   const settled = mark.anchorState === 'ok'
   switch (mark.kind) {
     case 'pin':
-      return `pin ${on(mark.anchor, settled)}at ${vector(mark.anchor.point)}`
+      return `pin ${on(mark.anchor, settled, opts.sets)}at ${vector(mark.anchor.point)}`
     case 'pick':
       // A pick is of the thing itself; where it was clicked says nothing more, unless nothing names the thing.
       if (!mark.anchor.ref) return `pick at ${vector(mark.anchor.point)}`
-      return settled ? `pick of ${named(mark.anchor)}` : `pick placed on ${mark.anchor.ref}`
+      return settled ? `pick of ${named(mark.anchor)}${onSet(mark.anchor, opts.sets)}` : `pick placed on ${mark.anchor.ref}${onSet(mark.anchor, opts.sets)}`
     case 'arrow': {
       const by = mark.to.map((c, i) => c - mark.from.point[i])
-      const from = !mark.from.ref ? 'from ' : settled ? `from ${named(mark.from)} at ` : `placed on ${mark.from.ref}, from `
+      const from = !mark.from.ref ? 'from ' : settled ? `from ${named(mark.from)}${onSet(mark.from, opts.sets)} at ` : `placed on ${mark.from.ref}${onSet(mark.from, opts.sets)}, from `
       return `arrow ${from}${vector(mark.from.point)} by ${vector(by)}, ${number(Math.hypot(...by))} mm`
     }
     case 'stroke':
@@ -323,13 +323,23 @@ function named(anchor: Anchor): string {
  * its surface or left without its part, only what it was placed on: that ref
  * may name other geometry now, and what the kernel says of it is not said.
  */
-function on(anchor: Anchor, settled: boolean): string {
+function on(anchor: Anchor, settled: boolean, sets?: readonly string[]): string {
   if (!anchor.ref) return ''
-  if (!settled) return `placed on ${anchor.ref} `
-  if (anchor.edge === undefined) return `on ${named(anchor)} `
+  if (!settled) return `placed on ${anchor.ref}${onSet(anchor, sets)} `
+  if (anchor.edge === undefined) return `on ${named(anchor)}${onSet(anchor, sets)} `
   // On an edge: which, the two faces that meet there, and what the edge is.
   const between = anchor.between ? ` between ${anchor.between[0]} and ${anchor.between[1]}` : ''
-  return `on the edge ${anchor.edge}${between}${anchor.descriptor ? ` (${anchor.descriptor})` : ''} `
+  return `on the edge ${anchor.edge}${between}${anchor.descriptor ? ` (${anchor.descriptor})` : ''}${onSet(anchor, sets)} `
+}
+
+/**
+ * ` (on #deck)`: the named set the mark was placed on, said after what it is on. A label does not follow the set: given the
+ * `sets` of the project (their slugs), one that names none says ` (on #deck, no longer a named set)`.
+ */
+function onSet(anchor: Anchor, sets?: readonly string[]): string {
+  if (anchor.set === undefined) return ''
+  const gone = sets !== undefined && !sets.includes(anchor.set.slice(1).toLowerCase())
+  return ` (on ${anchor.set}${gone ? ', no longer a named set' : ''})`
 }
 
 function stroke(mark: StrokeMark): string {

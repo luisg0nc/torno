@@ -152,6 +152,24 @@ describe('describeMark', () => {
     expect(describeMark(bare)).toBe('M4 pick of base')
   })
 
+  it('says a mark was placed on a named set, and that the set is no longer one when the sets are told and lack it', () => {
+    const pick = (anchor: object): Mark => mark({ id: 'M4', kind: 'pick', target: 'face', anchor: { point: [0, 0, 0], part: 'block', ref: 'block/F12', ...anchor } })
+    expect(describeMark(pick({ set: '#deck' }))).toBe('M4 pick of block/F12 (on #deck)')
+    expect(describeMark(pick({ set: '#deck' }), { sets: ['deck', 'intake'] })).toBe('M4 pick of block/F12 (on #deck)')
+    expect(describeMark(pick({ set: '#deck' }), { sets: ['intake'] })).toBe('M4 pick of block/F12 (on #deck, no longer a named set)')
+    expect(describeMark(pick({ set: '#deck' }), { sets: [] })).toBe('M4 pick of block/F12 (on #deck, no longer a named set)')
+    expect(describeMark(pick({ set: '#deck', descriptor: 'plane, normal +Z, z = 20' }))).toBe('M4 pick of block/F12 (plane, normal +Z, z = 20) (on #deck)')
+    const pin = mark({ id: 'M3', kind: 'pin', anchor: { point: [1, 2, 3], part: 'block', ref: 'block/F12', set: '#deck' } })
+    expect(describeMark(pin)).toBe('M3 pin on block/F12 (on #deck) at (1, 2, 3)')
+    const arrow = mark({ id: 'M5', kind: 'arrow', to: [0, 0, 10], from: { point: [0, 0, 0], part: 'block', ref: 'block/F12', set: '#deck' } })
+    expect(describeMark(arrow)).toBe('M5 arrow from block/F12 (on #deck) at (0, 0, 0) by (0, 0, 10), 10 mm')
+  })
+
+  it('says it of a mark that moved too, after the face it was placed on', () => {
+    const moved = mark({ id: 'M4', kind: 'pick', target: 'face', anchorState: 'drifted', anchor: { point: [0, 0, 0], part: 'block', ref: 'block/F12', set: '#deck' } })
+    expect(describeMark(moved)).toBe('M4 pick placed on block/F12 (on #deck) [moved since it was placed: check it]')
+  })
+
   it('gives an arrow its start, its vector and its length', () => {
     const arrow = mark({
       id: 'M5',

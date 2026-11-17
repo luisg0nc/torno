@@ -100,7 +100,7 @@ export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: 
     )
     for (const layout of [...new Set(open.map((m) => m.layout))]) {
       lines.push('', `In layout ${layout}:`, '')
-      for (const mark of open) if (mark.layout === layout) lines.push(`- ${describeMark(mark, { revision: last?.revision, layout, ...(last ? { scene: last.scene } : {}), ...(scans ? { scans } : {}) })}`)
+      for (const mark of open) if (mark.layout === layout) lines.push(`- ${describeMark(mark, { revision: last?.revision, layout, ...(last ? { scene: last.scene } : {}), ...(scans ? { scans } : {}), ...(named ? { sets: named.sets.map((s) => s.slug) } : {}) })}`)
     }
   }
   return `${lines.join('\n')}\n`

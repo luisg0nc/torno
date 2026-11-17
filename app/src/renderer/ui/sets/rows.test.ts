@@ -44,7 +44,7 @@ describe('the rows of named sets in Layers', () => {
   })
   it('gives a person\'s set every edit and a delete, and a proposal Accept and Dismiss instead', () => {
     const mine = setRows([set('N1', 'deck', [face('block/F1')])], parts, []).byPart.block[0]
-    expect(mine.actions).toEqual(['light', 'isolate', 'rename', 'recolour', 'add', 'take', 'delete'])
+    expect(mine.actions).toEqual(['light', 'isolate', 'rename', 'recolour', 'add', 'take', 'tag', 'delete'])
     const proposed = setRows([set('N2', 'ports', [face('block/F2')], { by: 'agent', proposed: true })], parts, []).byPart.block[0]
     expect(proposed.proposed).toBe(true)
     expect(proposed.actions).toEqual(['light', 'isolate', 'accept', 'dismiss'])

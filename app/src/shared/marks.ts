@@ -31,6 +31,13 @@ export interface Anchor {
    * taken from the window or from a tool.
    */
   tag?: string
+  /**
+   * The named set (`#deck`) the mark was placed on, as a label: the mark is on the set's first member the build found
+   * and is checked as any mark is, by its own anchor; it does not follow the set. A set dismissed or deleted later leaves
+   * the label (`describeMark` says so). Main says it, when the set holds `ref` in the mark's layout: a `set` the window
+   * or a tool sends is kept only then.
+   */
+  set?: string
 }
 export type MarkStatus = 'draft' | 'sent' | 'resolved'
 export type AnchorState = 'ok' | 'drifted' | 'orphaned'

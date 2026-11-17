@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import type { Mark, Vec3 } from '../../shared/marks'
-import { type MemberAsk, type NamedSet, type NewSet, type SetEdit, type SetMember, SET_COLOURS, STROKE_REF, memberRef, parseSetRef, setNameError, strokeLive } from '../../shared/sets'
+import { type MemberAsk, type NamedSet, type NewSet, type SetEdit, SET_COLOURS, STROKE_REF, memberRef, parseSetRef, setHolds, setNameError, strokeLive } from '../../shared/sets'
 import { describeWhole } from './descriptors'
 import { sketchStore } from './sketching'
 import { actions, store } from './store'
@@ -61,15 +61,7 @@ export function setsOfLayout(sets: readonly NamedSet[], layout: string): NamedSe
 }
 
 /** Does a set hold the face, edge or part `ref` names? A part held whole holds each of its faces and edges. A lost member holds nothing. */
-export function holds(set: Pick<NamedSet, 'members'>, ref: string): boolean {
-  const parsed = parseSetRef(ref)
-  if (parsed === null) return false
-  return set.members.some((m: SetMember) => {
-    if ('stroke' in m || m.state === 'lost') return false
-    if ('part' in m) return m.part === parsed.part
-    return memberRef(m) === ref
-  })
-}
+export const holds = setHolds
 
 /** The sets that hold a face, an edge or a part of the layout shown, oldest first. */
 export function setsHolding(sets: readonly NamedSet[], layout: string, ref: string): NamedSet[] {

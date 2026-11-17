@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Mark } from './marks'
-import { type NamedSet, type SetMember, expandSet, lostCount, lostText, memberRef, parseSelectorForm, parseSetRef, setNameError, setOfRef, slugOf, splitSetRef } from './sets'
+import { TAG_NAME } from './tags'
+import { type NamedSet, type SetMember, expandSet, lostCount, lostText, makeTagText, memberRef, parseSelectorForm, parseSetRef, setHolds, setLabelFor, setNameError, setOfRef, slugOf, splitSetRef, tagNameOf } from './sets'
 
 const sketch = (id: string, strokes: string[]): Mark => ({ id, kind: 'sketch', strokes: strokes.map((s) => ({ id: s })) }) as unknown as Mark
 const face = (ref: string, state: 'ok' | 'lost' = 'ok'): SetMember => ({ face: ref, point: [0, 0, 0], normal: [0, 0, 1], state })
@@ -174,5 +175,68 @@ describe('expandSet', () => {
   it('does not count a stroke of an erased sketch as found', () => {
     const only = set([{ stroke: 'M7/k3' }])
     expect(expandSet([only], parts, 'assembly', '#deck', [sketch('M7', [])])).toMatchObject({ strokes: [], lost: 1 })
+  })
+})
+
+describe('tagNameOf', () => {
+  it('makes a tag name of a set name: white space is an underscore', () => {
+    expect(tagNameOf('deck face')).toBe('deck_face')
+    expect(tagNameOf('  Intake   port RH ')).toBe('intake_port_rh')
+  })
+
+  it.each(['deck face', 'Ação 2', 'a/b', 'x'.repeat(40), 'Ünder-side', 'ねじ', 'a.b-c', 'é'])('always meets TAG_NAME: %j', (name) => {
+    expect(tagNameOf(name)).toMatch(TAG_NAME)
+  })
+
+  it('strips the marks of a letter and keeps the letter', () => {
+    expect(tagNameOf('Ação')).toBe('acao')
+  })
+})
+
+describe('setHolds and setLabelFor', () => {
+  it('holds the refs of its members that are found, and every ref of a part held whole', () => {
+    const one = set([face('block/F1'), face('block/F2', 'lost'), { part: 'lid' }])
+    expect(setHolds(one, 'block/F1')).toBe(true)
+    expect(setHolds(one, 'block/F2')).toBe(false)
+    expect(setHolds(one, 'lid/F4')).toBe(true)
+    expect(setHolds(one, 'lid')).toBe(true)
+    expect(setHolds(one, 'base')).toBe(false)
+  })
+
+  it('labels a mark with the slug of the set in its layout that holds the ref, and with nothing else', () => {
+    const one = set([face('block/F1')])
+    expect(setLabelFor([one], 'assembly', 'block/F1', '#Deck')).toBe('#deck')
+    expect(setLabelFor([one], 'print', 'block/F1', '#deck')).toBeUndefined()
+    expect(setLabelFor([one], 'assembly', 'block/F9', '#deck')).toBeUndefined()
+    expect(setLabelFor([one], 'assembly', undefined, '#deck')).toBeUndefined()
+    expect(setLabelFor([one], 'assembly', 'block/F1', 'block/#deck')).toBeUndefined()
+    expect(setLabelFor([one], 'assembly', 'block/F1', undefined)).toBeUndefined()
+    expect(setLabelFor(undefined, 'assembly', 'block/F1', '#deck')).toBeUndefined()
+  })
+})
+
+describe('makeTagText', () => {
+  const described = { 'block/F12': 'plane, normal +Z, z = 20', 'base/F3': 'cylinder, radius 4' }
+
+  it('asks for the faces of a set in one part, by ref with what each is', () => {
+    const text = makeTagText(set([face('block/F12')]), ['block'], described)
+    expect(text).toBe('Add a tag "deck" in tags(p, parts) for the faces of my named set #deck: block/F12 (plane, normal +Z, z = 20).')
+  })
+
+  it('asks for one tag of that name in each part when the set is over two', () => {
+    const text = makeTagText({ ...set([face('block/F12'), face('base/F3'), face('block/F9')]), name: 'deck face', slug: 'deck-face' }, ['block', 'base'], described)
+    expect(text).toContain('Add a tag "deck_face" in tags(p, parts) for the faces of my named set #deck-face: block/F12 (plane, normal +Z, z = 20), base/F3 (cylinder, radius 4), block/F9.')
+    expect(text).toContain('It spans the parts block and base: give each part a tag of that name, with its own faces.')
+  })
+
+  it('names edges too, and leaves out strokes, whole parts and lost members, saying so', () => {
+    const text = makeTagText(set([face('block/F1'), edge('block/E4'), { part: 'lid' }, { stroke: 'M7/k3' }, face('block/F2', 'lost')]), ['block'], {})
+    expect(text).toContain('for the faces and edges of my named set #deck: block/F1, block/E4.')
+    expect(text).toContain('Not taggable, left out: the whole part lid, the stroke M7/k3.')
+    expect(text).toContain('1 member is lost and left out.')
+  })
+
+  it('says a set with nothing to tag has none', () => {
+    expect(makeTagText(set([{ stroke: 'M7/k3' }]), [], {})).toBe('Nothing to tag: #deck has no face or edge that the build found. Not taggable, left out: the stroke M7/k3.')
   })
 })
