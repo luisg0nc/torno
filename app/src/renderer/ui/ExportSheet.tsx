@@ -1,6 +1,6 @@
 import { hint, pressed } from '../../shared/keys'
 import { useEffect, useRef, useState } from 'react'
-import { type ExportChecked, type ExportFormat, type ExportPlan, type ExportRequest, type ExportSaved, type ShareKind, FORMAT_NAMES, PICTURE_SIZES, MESH_ANGLE, MESH_ANGLES, MESH_TOLERANCE, MESH_TOLERANCES, type ModelFormat, NOT_BUILT, SCAN_WARNING, defaultLayout, megabytes } from '../../shared/exportdata'
+import { type ExportChecked, type ExportFormat, type ExportPlan, type ExportRequest, type ExportSaved, type ShareKind, FORMAT_NAMES, PICTURE_SIZES, MESH_ANGLE, MESH_ANGLES, MESH_TOLERANCE, MESH_TOLERANCES, type ModelFormat, NOT_BUILT, PHOTO_WARNING, SCAN_WARNING, defaultLayout, megabytes } from '../../shared/exportdata'
 import { count, number } from '../../shared/format'
 import { typed } from './typed'
 import { setExporting } from '../closing'
@@ -121,6 +121,8 @@ function Sheet({ of, tracing, onOpen }: { of: string[] | 'all'; tracing: string 
   const [tracings, setTracings] = useState<Tracing[]>([])
   const [drawLayers, setDrawLayers] = useState(true)
   const [drawMarks, setDrawMarks] = useState(false)
+  /** The tracing's photo is off until ticked: it may show the real world. */
+  const [drawPhoto, setDrawPhoto] = useState(false)
   const openId = useStore((s) => s.objectId)
   const onObject = useStore((s) => s.page === 'object')
   const cut = useStore((s) => s.section !== null)
@@ -236,7 +238,7 @@ function Sheet({ of, tracing, onOpen }: { of: string[] | 'all'; tracing: string 
           ? await window.torno.export.savePicture(openId, (await pictureForPerson(pictureSize, pictureMarks, pictureCues)).png)
           : source === 'section'
             ? await window.torno.export.saveSection(openId, kind)
-            : await window.torno.export.saveTracing(openId, source, kind, { layers: drawLayers, marks: drawMarks, photo: false })
+            : await window.torno.export.saveTracing(openId, source, kind, { layers: drawLayers, marks: drawMarks, photo: drawPhoto && tracings.find((one) => one.id === source)?.photo?.straightened !== undefined })
       setSaid(saved ? { saved, kept: kind } : { nothing: true })
     } catch (e) {
       setSaid({ error: e instanceof Error ? e.message : String(e) })
@@ -344,6 +346,7 @@ function Sheet({ of, tracing, onOpen }: { of: string[] | 'all'; tracing: string 
               source={source}
               layers={drawLayers}
               drawMarks={drawMarks}
+              photo={drawPhoto}
               size={pictureSize}
               marks={pictureMarks}
               cues={pictureCues}
@@ -359,6 +362,10 @@ function Sheet({ of, tracing, onOpen }: { of: string[] | 'all'; tracing: string 
               setDrawMarks={(next) => {
                 changed()
                 setDrawMarks(next)
+              }}
+              setPhoto={(next) => {
+                changed()
+                setDrawPhoto(next)
               }}
               setSize={(next) => {
                 changed()
@@ -682,7 +689,9 @@ function Sheet({ of, tracing, onOpen }: { of: string[] | 'all'; tracing: string 
 const NONE: never[] = []
 
 /** Of a picture of the view or a drawing of its section: of the open project as it is on screen, so no list of projects; the size of a picture and what is in it. */
-function ViewChoices(props: { kind: ShareKind; project: string; cut: boolean; tracings: Tracing[]; source: string; layers: boolean; drawMarks: boolean; size: number; marks: boolean; cues: boolean; disabled: boolean; setSource(source: string): void; setLayers(on: boolean): void; setDrawMarks(on: boolean): void; setSize(size: number): void; setMarks(on: boolean): void; setCues(on: boolean): void }) {
+function ViewChoices(props: { kind: ShareKind; project: string; cut: boolean; tracings: Tracing[]; source: string; layers: boolean; drawMarks: boolean; photo: boolean; size: number; marks: boolean; cues: boolean; disabled: boolean; setSource(source: string): void; setLayers(on: boolean): void; setDrawMarks(on: boolean): void; setPhoto(on: boolean): void; setSize(size: number): void; setMarks(on: boolean): void; setCues(on: boolean): void }) {
+  /** The tracing's photo can be drawn once it is lined up and has its straightened copy. */
+  const photoReady = props.tracings.find((one) => one.id === props.source)?.photo?.straightened !== undefined
   const { kind, disabled } = props
   return (
     <>
@@ -755,6 +764,12 @@ function ViewChoices(props: { kind: ShareKind; project: string; cut: boolean; tr
                 <span className="export-name">Marks on it</span>
                 <span className="export-what">With their numbers</span>
               </label>
+              <label className="export-row" data-row="photo">
+                <input type="checkbox" checked={props.photo && photoReady} disabled={disabled || !photoReady} onChange={(e) => props.setPhoto(e.target.checked)} />
+                <span className="export-name">The photo</span>
+                <span className="export-what">{photoReady ? 'Straightened, under the outline, at its fade, with its line-up in the title block (never exact)' : props.tracings.find((one) => one.id === props.source)?.photo === undefined ? 'This tracing has no photo' : 'Not lined up yet: line it up in the tracing first'}</span>
+              </label>
+              {props.photo && photoReady && <p className="export-warning">{PHOTO_WARNING}</p>}
               <p className="export-what">Within 0.01 mm of the true outlines of the tracing’s plane, in millimetres, from the last good build.</p>
             </>
           )}

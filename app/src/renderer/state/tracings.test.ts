@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HistoryList } from '../../shared/history'
-import { planeOfFrom, type Layer, type Tracing, type TracingCut, type TracingsFile } from '../../shared/tracings'
+import { planeOfFrom, type Layer, type Tracing, type TracingCut, type TracingPhoto, type TracingsFile } from '../../shared/tracings'
 import { boardActions, boardStore } from './board'
 import { actions, store } from './store'
-import { buildName, connectTracings, facePicked, nextPartsOf, shownIds, traceTarget, tracingActions, tracingsStore, useTracings } from './tracings'
+import { transformKey } from '../../shared/lineup'
+import { buildName, connectTracings, facePicked, nextPartsOf, photoDrawn, referencePhotos, setPhotoTools, shownIds, traceTarget, tracingActions, tracingsStore, useTracings } from './tracings'
 
 const plane = (axis: 'XY' | 'XZ' | 'YZ' = 'XZ', offset = 0) => planeOfFrom({ kind: 'main', axis, offset })!
 const tracing = (id: string, over: Partial<Tracing> = {}): Tracing => ({ id, by: 'person', name: '', layout: 'assembly', createdAt: '2026-11-17T10:00:00.000Z', plane: plane(), layers: [], nextLayer: 1, ...over })
@@ -13,7 +14,7 @@ const cut = (id: string, revision = 3): TracingCut => ({ tracing: id, revision, 
 /** Lets what the connection asked of main at the start answer. */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
-const NONE = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select' as const, trace: 'line' as const, into: null, layerRemoved: null }
+const NONE = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select' as const, trace: 'line' as const, into: null, layerRemoved: null, photos: {}, lining: null }
 
 /** `window.torno.tracings` as far as the window asks of it. */
 function fake(initial: TracingsFile = file()) {
@@ -440,5 +441,275 @@ describe('the tool in hand', () => {
     fake()
     tracingActions.setTrace('circle')
     expect(tracingsStore.getState().trace).toBe('circle')
+  })
+})
+
+// The photo of a tracing: added from bytes, lined up by main, straightened here and shown by an object URL the window holds.
+
+const PHOTO = { file: 'p-0123456789ab.jpg', sha256: 'f'.repeat(64), width: 200, height: 100 }
+const lined = (over: Partial<TracingPhoto> = {}): TracingPhoto => ({
+  ...PHOTO,
+  pairs: [{ photo: [0, 0], uv: [-20, 10] }, { photo: [200, 100], uv: [20, -10] }],
+  method: 'similar',
+  transform: [0.2, 0, -20, 0, -0.2, 10, 0, 0, 1],
+  scale: 5,
+  angle: 0,
+  fade: 0.5,
+  ...over
+})
+
+/** The browser's part of the photo work, as far as a test goes: bytes in, a URL out, and a copy that is the bytes it was made from. */
+function photoWork() {
+  const tools = {
+    prepare: vi.fn(async (bytes: Uint8Array, name: string) => {
+      if (name.endsWith('.txt')) throw new Error(`${name} is not a PNG, JPEG or WebP picture.`)
+      return { image: bytes, type: 'image/jpeg' as const, width: 200, height: 100, from: { width: 200, height: 100 } }
+    }),
+    makeUrl: vi.fn((bytes: Uint8Array) => `blob:${bytes[0]}`),
+    revoke: vi.fn(),
+    straighten: vi.fn(async (_bytes: Uint8Array, _transform: readonly number[], _width: number, _height: number, _scale: number) => new Uint8Array([9, 9, 9]))
+  }
+  setPhotoTools(tools)
+  return tools
+}
+
+function withPhotoApi(initial: TracingsFile) {
+  const t = fake(initial)
+  const photo = {
+    photo: vi.fn(async (_o: string, id: string, _bytes: Uint8Array, _from?: string) => tracing(id, { photo: { ...PHOTO, pairs: [], method: 'similar', fade: 0.5 } })),
+    lineUp: vi.fn(async (_o: string, id: string) => tracing(id, { photo: lined() })),
+    look: vi.fn(async (_o: string, id: string, look: { fade?: number; hidden?: boolean }) => tracing(id, { photo: lined({ ...(look.fade === undefined ? {} : { fade: look.fade }), ...(look.hidden ? { hidden: true as const } : {}) }) })),
+    straightened: vi.fn(async (_o: string, id: string) => tracing(id, { photo: lined({ straightened: 's-aaaaaaaaaaaa.png' }) })),
+    photoBytes: vi.fn(async (_o: string, _id: string, which: string) => (which === 'photo' ? new Uint8Array([1, 2, 3]) : (null as Uint8Array | null))),
+    removePhoto: vi.fn(async (_o: string, id: string) => tracing(id))
+  }
+  const all = Object.assign(t, photo)
+  vi.stubGlobal('window', { torno: { tracings: all, board: { reference: vi.fn(async () => ({ mediaType: 'image/jpeg', bytes: new Uint8Array([7]) })) } } })
+  return all
+}
+
+describe('adding a photo', () => {
+  it('sends the prepared bytes to main with the reference they came from, and opens the line-up of that tracing', async () => {
+    const tools = photoWork()
+    const api = withPhotoApi(file(tracing('T1')))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    expect(await tracingActions.addPhoto({ name: 'photo-1.jpg', bytes: async () => new Uint8Array([5, 5]), from: 'reference/photo-1.jpg' })).toBe(true)
+    expect(tools.prepare).toHaveBeenCalledWith(new Uint8Array([5, 5]), 'photo-1.jpg')
+    expect(api.photo).toHaveBeenCalledWith('bracket', 'T1', new Uint8Array([5, 5]), 'reference/photo-1.jpg')
+    expect(tracingsStore.getState().lining).toBe('T1')
+    expect(tracingsStore.getState().file?.tracings[0].photo?.file).toBe(PHOTO.file)
+  })
+
+  it('says in words what is not a picture, and opens no line-up', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1')))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    expect(await tracingActions.addPhoto({ name: 'notes.txt', bytes: async () => new Uint8Array([1]) })).toBe(false)
+    expect(tracingsStore.getState().refused).toContain('not a PNG, JPEG or WebP picture')
+    expect(api.photo).not.toHaveBeenCalled()
+    expect(tracingsStore.getState().lining).toBeNull()
+  })
+
+  it('says what main refuses', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1')))
+    api.photo.mockRejectedValueOnce(new Error('That is not a picture torno can keep'))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    expect(await tracingActions.addPhoto({ name: 'a.jpg', bytes: async () => new Uint8Array([1]) })).toBe(false)
+    expect(tracingsStore.getState().refused).toBe('That is not a picture torno can keep')
+  })
+})
+
+describe('where a photo comes from', () => {
+  it('is the first picture the photo dialog gives, read by main, and nothing when the dialog is cancelled', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1')))
+    const objects = { pickPhotos: vi.fn(async () => ['/home/me/pics/IMG_1.jpg', '/home/me/pics/IMG_2.jpg']), readPhoto: vi.fn(async () => new Uint8Array([6])) }
+    vi.stubGlobal('window', { torno: { tracings: api, objects } })
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    expect(await tracingActions.choosePhoto()).toBe(true)
+    expect(objects.readPhoto).toHaveBeenCalledWith('/home/me/pics/IMG_1.jpg')
+    expect(api.photo).toHaveBeenCalledTimes(1)
+    objects.pickPhotos.mockResolvedValueOnce([])
+    expect(await tracingActions.choosePhoto()).toBe(false)
+    expect(api.photo).toHaveBeenCalledTimes(1)
+  })
+
+  it('can be a photo of the project\'s references, named so that the tracing says where it came from', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1')))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    expect(await tracingActions.addReference('reference/photo-1.jpg')).toBe(true)
+    expect(api.photo).toHaveBeenCalledWith('bracket', 'T1', new Uint8Array([7]), 'reference/photo-1.jpg')
+  })
+})
+
+describe('lining the photo up', () => {
+  it('sends the pairs and the method, and closes the line-up when main kept them', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined() })))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    tracingActions.startLineUp()
+    expect(tracingsStore.getState().lining).toBe('T1')
+    const pairs = [{ photo: [1, 1] as [number, number], uv: [0, 0] as [number, number] }, { photo: [9, 9] as [number, number], uv: [3, 3] as [number, number] }]
+    expect(await tracingActions.lineUp(pairs, 'similar')).toBe(true)
+    expect(api.lineUp).toHaveBeenCalledWith('bracket', 'T1', pairs, 'similar')
+    expect(tracingsStore.getState().lining).toBeNull()
+  })
+
+  it('keeps the line-up open and says why when main refuses the points', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined() })))
+    api.lineUp.mockRejectedValueOnce(new Error('The points do not line the photo up: two of the points are on top of each other'))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    tracingActions.startLineUp()
+    expect(await tracingActions.lineUp([], 'similar')).toBe(false)
+    expect(tracingsStore.getState().lining).toBe('T1')
+    expect(tracingsStore.getState().refused).toContain('on top of each other')
+  })
+
+  it('leaves the line-up as it was on Cancel', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined() })))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    tracingActions.startLineUp()
+    tracingActions.cancelLineUp()
+    expect(tracingsStore.getState().lining).toBeNull()
+    expect(api.lineUp).not.toHaveBeenCalled()
+    expect(tracingsStore.getState().file?.tracings[0].photo?.scale).toBe(5)
+  })
+
+  it('does not open for a tracing with no photo, nor stay open when the tracing is gone', () => {
+    photoWork()
+    withPhotoApi(file(tracing('T1')))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1'), tracing('T2', { photo: lined() })) })
+    tracingActions.startLineUp()
+    expect(tracingsStore.getState().lining).toBeNull()
+    tracingActions.open('T2')
+    tracingActions.startLineUp()
+    expect(tracingsStore.getState().lining).toBe('T2')
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    expect(tracingsStore.getState().lining).toBeNull()
+  })
+})
+
+describe('the look of the photo', () => {
+  it('sends the fade and the hiding to main, once each call', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined() })))
+    // No copy to make meanwhile: the photo is not on this computer.
+    api.photoBytes.mockImplementation(async () => null)
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    await tracingActions.setFade(0.25)
+    expect(api.look).toHaveBeenCalledWith('bracket', 'T1', { fade: 0.25 })
+    await tracingActions.setHidden(true)
+    expect(api.look).toHaveBeenLastCalledWith('bracket', 'T1', { hidden: true })
+    expect(tracingsStore.getState().file?.tracings[0].photo?.hidden).toBe(true)
+  })
+
+  it('takes the photo off, and lets go of its pictures', async () => {
+    const tools = photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined({ straightened: 's-aaaaaaaaaaaa.png' }) })))
+    api.photoBytes.mockImplementation(async () => new Uint8Array([4]))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined({ straightened: 's-aaaaaaaaaaaa.png' }) })) })
+    await tracingActions.sync('T1')
+    expect(Object.keys(tracingsStore.getState().photos).sort()).toEqual(['p-0123456789ab.jpg', 's-aaaaaaaaaaaa.png'])
+    await tracingActions.removePhoto()
+    expect(api.removePhoto).toHaveBeenCalledWith('bracket', 'T1')
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    expect(tracingsStore.getState().photos).toEqual({})
+    expect(tools.revoke).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the straightened copy', () => {
+  it('is made here when the photo is lined up and has none, and sent to main for the photo and line-up it was made of', async () => {
+    const tools = photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined() })))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    await tracingActions.sync('T1')
+    expect(tools.straighten).toHaveBeenCalledTimes(1)
+    expect(tools.straighten.mock.calls[0].slice(1)).toEqual([[0.2, 0, -20, 0, -0.2, 10, 0, 0, 1], 200, 100, 5])
+    expect(api.straightened).toHaveBeenCalledWith('bracket', 'T1', new Uint8Array([9, 9, 9]), { sha256: PHOTO.sha256, transform: transformKey([0.2, 0, -20, 0, -0.2, 10, 0, 0, 1]) })
+    expect(tracingsStore.getState().file?.tracings[0].photo?.straightened).toBe('s-aaaaaaaaaaaa.png')
+  })
+
+  it('is made once however often it is asked for at the same time', async () => {
+    const tools = photoWork()
+    withPhotoApi(file(tracing('T1', { photo: lined() })))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    await Promise.all([tracingActions.sync('T1'), tracingActions.sync('T1'), tracingActions.sync('T1')])
+    expect(tools.straighten).toHaveBeenCalledTimes(1)
+  })
+
+  it('is made again when the copy the tracing names is not on this computer', async () => {
+    const tools = photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined({ straightened: 's-bbbbbbbbbbbb.png' }) })))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined({ straightened: 's-bbbbbbbbbbbb.png' }) })) })
+    await tracingActions.sync('T1')
+    expect(api.photoBytes).toHaveBeenCalledWith('bracket', 'T1', 'straightened')
+    expect(tools.straighten).toHaveBeenCalledTimes(1)
+  })
+
+  it('is read, and not made again, when it is on this computer', async () => {
+    const tools = photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined({ straightened: 's-bbbbbbbbbbbb.png' }) })))
+    api.photoBytes.mockImplementation(async () => new Uint8Array([8]))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined({ straightened: 's-bbbbbbbbbbbb.png' }) })) })
+    await tracingActions.sync('T1')
+    expect(tools.straighten).not.toHaveBeenCalled()
+    expect(tracingsStore.getState().photos['s-bbbbbbbbbbbb.png']).toEqual({ url: 'blob:8' })
+  })
+
+  it('is not made for a photo that is not on this computer, which is said of it', async () => {
+    const tools = photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined() })))
+    api.photoBytes.mockImplementation(async () => null)
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    await tracingActions.sync('T1')
+    expect(tools.straighten).not.toHaveBeenCalled()
+    expect(tracingsStore.getState().photos[PHOTO.file]).toEqual({ missing: true })
+  })
+
+  it('is not made for a photo that is not lined up yet', async () => {
+    const tools = photoWork()
+    withPhotoApi(file(tracing('T1', { photo: lined({ transform: undefined, scale: undefined, angle: undefined, pairs: [] }) })))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined({ transform: undefined, scale: undefined, angle: undefined, pairs: [] }) })) })
+    await tracingActions.sync('T1')
+    expect(tools.straighten).not.toHaveBeenCalled()
+  })
+
+  it('says a copy main did not take (it was made for a line-up that has since changed) is no failure', async () => {
+    photoWork()
+    const api = withPhotoApi(file(tracing('T1', { photo: lined() })))
+    api.straightened.mockRejectedValueOnce(new Error('That copy was made of another photo or another line-up'))
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { photo: lined() })) })
+    await tracingActions.sync('T1')
+    expect(tracingsStore.getState().refused).toBeNull()
+  })
+})
+
+describe('where a photo is drawn', () => {
+  const urls = { 's-aaaaaaaaaaaa.png': { url: 'blob:copy' } }
+
+  it('is by the rectangle of its corners in mm, at its fade, with its line-up said, once the copy is there', () => {
+    const drawn = photoDrawn(tracing('T1', { photo: lined({ straightened: 's-aaaaaaaaaaaa.png', fade: 0.3 }) }), urls)!
+    expect(drawn.photo).toEqual({ href: 'blob:copy', rect: { min: [-20, -10], max: [20, 10] }, fade: 0.3 })
+    expect(drawn.said).toBe("lined up by 2 points: 5 px/mm at the centre, turned 0°, no spare point to check it; not exact, and true only in the tracing's plane")
+  })
+
+  it('is nothing for a hidden photo, one with no copy yet, one not lined up, or a copy that is not here', () => {
+    expect(photoDrawn(tracing('T1', { photo: lined({ straightened: 's-aaaaaaaaaaaa.png', hidden: true }) }), urls)).toBeUndefined()
+    expect(photoDrawn(tracing('T1', { photo: lined() }), urls)).toBeUndefined()
+    expect(photoDrawn(tracing('T1', { photo: lined({ straightened: 's-aaaaaaaaaaaa.png', transform: undefined }) }), urls)).toBeUndefined()
+    expect(photoDrawn(tracing('T1', { photo: lined({ straightened: 's-aaaaaaaaaaaa.png' }) }), { 's-aaaaaaaaaaaa.png': { missing: true } })).toBeUndefined()
+    expect(photoDrawn(tracing('T1'), urls)).toBeUndefined()
+  })
+})
+
+describe('the photos of the project\'s references', () => {
+  it('are the picture files its reference cards name, in the order of the board', () => {
+    const card = (id: string, kind: string, source?: string) => ({ id, kind, source, x: 0, y: 0, w: 1, h: 1, by: 'torno' }) as never
+    expect(referencePhotos([card('C1', 'brief', 'brief'), card('C2', 'reference', 'reference/photo-1.jpg'), card('C3', 'reference', 'reference/datasheet.pdf'), card('C4', 'reference', 'reference/doodle-1.png'), card('C5', 'reference', 'reference/part.STEP')])).toEqual(['reference/photo-1.jpg', 'reference/doodle-1.png'])
   })
 })

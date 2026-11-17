@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type PointerEvent, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { number } from '../../../shared/format'
 import { hint, pressed, viewKey } from '../../../shared/keys'
 import type { DimensionMark } from '../../../shared/marks'
@@ -8,13 +8,15 @@ import { niceLength, tracingSvg } from '../../../shared/tracingSvg'
 import { isExploded } from '../../../shared/explode'
 import { memoryEpoch, onBoardForgotten } from '../../state/board'
 import { useStore } from '../../state/store'
-import { buildName, NO_OWN_LAYER, openTracing, traceTarget, tracingActions, tracingsStore, useTracings } from '../../state/tracings'
+import { buildName, NO_OWN_LAYER, openTracing, photoDrawn, traceTarget, tracingActions, tracingsStore, useTracings } from '../../state/tracings'
 import { useHistory } from '../useHistory'
 import { chosen, giveKeysBack, pointerChoice, TYPING } from '../typing'
 import { NewTracing } from './NewTracing'
 import { paintGrid } from './gridPaint'
+import { Grid, SheetLayer } from './Grid'
+import { LineUp } from './LineUp'
 import { Palette } from './Palette'
-import { axisOfDirection, countRender, PX_PER_MM, ratioText, Sheet, type View } from './Sheet'
+import { axisOfDirection, PX_PER_MM, ratioText, Sheet, type View } from './Sheet'
 import { snapAt, type Snapped } from './snap'
 import { TraceTool } from './traceTool'
 import { TracingPanel } from './TracingPanel'
@@ -47,32 +49,6 @@ const SCALE_BAR_PX = 120
 /** The rows of the title block the window shows, in its order: the build is put after the plane, and the scale is the live zoom. */
 const BLOCK_ROWS = ['Project', 'Tracing', 'Plane', 'Sheet axes', 'Photo', 'Source']
 
-/** The drawing's layer: its markup is set by the string, and nothing draws it again unless the string changes. */
-const SheetLayer = memo(function SheetLayer({ svg }: { svg: string }) {
-  countRender()
-  return <svg className="tr-drawing" width="1" height="1" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />
-})
-
-/** The millimetre grid, painted from where the sheet stands (`paintGrid`): two tilings of the whole screen and the lines of u = 0 and v = 0. Written on, never drawn again. */
-const Grid = memo(function Grid({ gridRef }: { gridRef: RefObject<SVGSVGElement | null> }) {
-  return (
-    <svg ref={gridRef} className="tr-grid-layer" aria-hidden="true">
-      <defs>
-        <pattern id="tr-pattern-fine" data-grid="fine" patternUnits="userSpaceOnUse" width="1" height="1">
-          <path data-grid="fine-path" className="tr-grid-fine" d="" />
-        </pattern>
-        <pattern id="tr-pattern-coarse" data-grid="coarse" patternUnits="userSpaceOnUse" width="1" height="1">
-          <path data-grid="coarse-path" className="tr-grid" d="" />
-        </pattern>
-      </defs>
-      <rect data-grid="fine-rect" width="100%" height="100%" fill="url(#tr-pattern-fine)" />
-      <rect width="100%" height="100%" fill="url(#tr-pattern-coarse)" />
-      <line data-grid="axis-v" className="tr-axis tr-axis-v" y1="0" y2="100%" />
-      <line data-grid="axis-u" className="tr-axis tr-axis-u" x1="0" x2="100%" />
-    </svg>
-  )
-})
-
 export function TracingView() {
   const objectId = useTracings((s) => s.objectId)
   const open = useTracings((s) => s.open)
@@ -85,6 +61,7 @@ export function TracingView() {
   const tool = useTracings((s) => s.tool)
   const traceMode = useTracings((s) => s.trace)
   const target = useTracings((s) => traceTarget(s))
+  const photos = useTracings((s) => s.photos)
   const marks = useStore((s) => s.marks)
   const scene = useStore((s) => s.scene)
   const explode = useStore((s) => s.explode)
@@ -128,6 +105,8 @@ export function TracingView() {
 
   const drawing = useMemo(() => {
     if (tracing === undefined || cut === null) return null
+    // The straightened photo under the outline, at the person's fade, by its rectangle in mm; its line-up in the title block.
+    const shown = photoDrawn(tracing, photos)
     return tracingSvg(
       cut.cut,
       {
@@ -137,11 +116,12 @@ export function TracingView() {
         date: new Date(),
         marks: marks.filter((m): m is DimensionMark => m.kind === 'dimension'),
         spread: isExploded(explode[tracing.layout]),
-        tracing: { id: tracing.id, name: tracing.name, plane: tracing.plane.label }
+        tracing: { id: tracing.id, name: tracing.name, plane: tracing.plane.label },
+        ...(shown ? { photoSaid: shown.said } : {})
       },
-      { forScreen: true, layers: tracing.layers }
+      { forScreen: true, layers: tracing.layers, ...(shown ? { photo: shown.photo } : {}) }
     )
-  }, [tracing, cut, marks, explode, objectId])
+  }, [tracing, cut, marks, explode, objectId, photos])
   down.current = drawing?.down ?? false
 
   // What is under way, drawn on the draft layer: the shapes so far to the pointer, and a ring where the pointer snapped.
@@ -269,6 +249,8 @@ export function TracingView() {
   useEffect(() => {
     if (!sheet) return
     const onKey = (e: KeyboardEvent): void => {
+      // The line-up covers the sheet and has the keys: it is its own scope.
+      if (tracingsStore.getState().lining !== null) return
       if (e.target instanceof Element && e.target.closest(TYPING)) return
       const stop = (): void => {
         e.preventDefault()
@@ -407,6 +389,21 @@ export function TracingView() {
           paint.current()
         }}
         onContextMenu={(e) => e.preventDefault()}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+          e.currentTarget.setAttribute('data-drop', '')
+        }}
+        onDragLeave={(e) => e.currentTarget.removeAttribute('data-drop')}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.currentTarget.removeAttribute('data-drop')
+          if (tracing === undefined) return
+          const dropped = [...e.dataTransfer.files].find((f) => f.type === 'image/png' || f.type === 'image/jpeg' || f.type === 'image/webp' || /\.(?:png|jpe?g|webp|heic)$/i.test(f.name))
+          if (dropped === undefined) return tracingActions.say('Drop a PNG, JPEG or WebP picture to make it the photo of this tracing')
+          void tracingActions.addPhoto({ name: dropped.name, bytes: async () => new Uint8Array(await dropped.arrayBuffer()) })
+        }}
       >
         <Grid gridRef={gridEl} />
         <div ref={layerEl} className="tr-sheet-layer">
@@ -556,6 +553,8 @@ export function TracingView() {
           </div>
         </dl>
       )}
+
+      <LineUp />
     </section>
   )
 }

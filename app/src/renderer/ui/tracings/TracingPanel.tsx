@@ -4,10 +4,12 @@ import { number } from '../../../shared/format'
 import { isExploded } from '../../../shared/explode'
 import { tracingName, type LayerColour, type Tracing, type TracingCut } from '../../../shared/tracings'
 import { layerOf, actions, useStore } from '../../state/store'
-import { nextPartsOf, buildName, traceTarget, tracingActions, useTracings } from '../../state/tracings'
+import { boardStore } from '../../state/board'
+import { nextPartsOf, buildName, referencePhotos, traceTarget, tracingActions, useTracings } from '../../state/tracings'
 import { useHistory } from '../useHistory'
 import { giveKeysBack } from '../typing'
 import { LayerRows } from './LayerRows'
+import { AddPhoto, PhotoRows } from './PhotoRows'
 import { TRACE_MODES, type TraceMode } from './traceTool'
 
 export interface TracingPanelProps {
@@ -41,6 +43,22 @@ export interface TracingPanelProps {
   tool?: 'select' | 'trace'
   traceMode?: TraceMode
   onTraceMode?: (mode: TraceMode) => void
+  /** The photo's picture (an object URL), and whether its file is on this computer. */
+  photoThumb?: string | null
+  photoHere?: boolean
+  /** The photos of the project's `reference/`, to take one from. */
+  references?: readonly string[]
+  /** A photo is being kept: Add photo waits. */
+  addingPhoto?: boolean
+  onAddPhoto?: () => void
+  onReferencePhoto?: (file: string) => void
+  /** The fade as the slider moves (the drawing follows), and where it is let go (sent once). */
+  onFade?: (fade: number) => void
+  onFadeCommit?: (fade: number) => void
+  onHidePhoto?: (hidden: boolean) => void
+  onLineUp?: () => void
+  onSwapPhoto?: () => void
+  onRemovePhoto?: () => void
 }
 
 /** `1200 mm²`, with `≈` where the kernel's area is not exact; `not cut` for a part the plane does not meet. */
@@ -61,7 +79,7 @@ function exactOutline(cut: TracingCut): boolean {
  * The panel of the tracing shown, top left of its sheet: its name, its plane and the build it was redrawn for, "Model outline"
  * with its parts, the layers, and what can be done with it. Pure, so that it is drawn the same from any state.
  */
-export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode }: TracingPanelProps) {
+export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode, photoThumb, photoHere, references, addingPhoto, onAddPhoto, onReferencePhoto, onFade, onFadeCommit, onHidePhoto, onLineUp, onSwapPhoto, onRemovePhoto }: TracingPanelProps) {
   const [renaming, setRenaming] = useState(false)
   const drawn = new Set(tracing.parts ?? parts)
   const only = parts.filter((p) => drawn.has(p)).length <= 1
@@ -152,6 +170,17 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
         <LayerRows layers={tracing.layers} into={into ?? null} onInto={onInto} onHide={onHide} onRemove={onRemoveLayer} onAdd={onAddLayer} removed={layerRemoved} onUndo={onUndoLayer} />
       </div>
 
+      <div className="tr-section" data-part="photo">
+        <div className="section-head">
+          <h3 className="tr-heading">Photo</h3>
+        </div>
+        {tracing.photo === undefined ? (
+          <AddPhoto references={references ?? []} busy={addingPhoto} onChoose={onAddPhoto} onReference={onReferencePhoto} />
+        ) : (
+          <PhotoRows photo={tracing.photo} thumb={photoThumb ?? null} here={photoHere !== false} onFade={onFade} onFadeCommit={onFadeCommit} onHide={onHidePhoto} onLineUp={onLineUp} onSwap={onSwapPhoto} onRemove={onRemovePhoto} />
+        )}
+      </div>
+
       {tool === 'trace' && (
         <div className="tr-section" data-part="trace">
           <div className="section-head">
@@ -176,9 +205,6 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
         </p>
       )}
       <div className="tr-actions">
-        <button type="button" className="bar-button" disabled title="Line the photo up with the outline">
-          Line up
-        </button>
         <button type="button" className="bar-button" disabled title="Show the tracing in the 3D view">
           Show in 3D
         </button>
@@ -206,6 +232,11 @@ export function offeredParts(tracing: Pick<Tracing, 'parts'>, inLayout: readonly
   return [...inLayout.filter((name) => named === undefined || named.includes(name) || switchedOn(name)), ...(named ?? []).filter((name) => !inLayout.includes(name))]
 }
 
+/** The photo's fade as the slider moves: written on the drawing's image, not sent. The change main is told once, where the slider is let go. */
+function liveFade(fade: number): void {
+  for (const image of document.querySelectorAll('.tr-drawing image[data-photo]')) image.setAttribute('opacity', String(fade))
+}
+
 /** The panel of the tracing that is open, with what the window has of it. */
 export function TracingPanel() {
   const objectId = useStore((s) => s.objectId)
@@ -220,6 +251,8 @@ export function TracingPanel() {
   const tool = useTracings((s) => s.tool)
   const traceMode = useTracings((s) => s.trace)
   const layerRemoved = useTracings((s) => (s.layerRemoved !== null && s.layerRemoved.tracing === s.open ? s.layerRemoved.layer : null))
+  const photoEntry = useTracings((s) => (s.open === null ? undefined : s.photos[s.file?.tracings.find((t) => t.id === s.open)?.photo?.file ?? '']))
+  const cards = boardStore.getState().board?.cards
   const history = useHistory(cut !== null)
   if (open === undefined) return null
   const inLayout = (scene?.parts ?? []).filter((p) => p.layout === open.layout).map((p) => p.name)
@@ -251,6 +284,17 @@ export function TracingPanel() {
       tool={tool}
       traceMode={traceMode}
       onTraceMode={tracingActions.setTrace}
+      photoThumb={photoEntry !== undefined && 'url' in photoEntry ? photoEntry.url : null}
+      photoHere={photoEntry === undefined || 'url' in photoEntry}
+      references={referencePhotos(cards ?? [])}
+      onAddPhoto={() => void tracingActions.choosePhoto()}
+      onReferencePhoto={(file) => void tracingActions.addReference(file)}
+      onFade={liveFade}
+      onFadeCommit={(fade) => void tracingActions.setFade(fade)}
+      onHidePhoto={(hidden) => void tracingActions.setHidden(hidden)}
+      onLineUp={tracingActions.startLineUp}
+      onSwapPhoto={() => void tracingActions.choosePhoto()}
+      onRemovePhoto={() => void tracingActions.removePhoto()}
     />
   )
 }

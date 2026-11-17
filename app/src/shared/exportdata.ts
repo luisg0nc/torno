@@ -391,6 +391,9 @@ export function megabytes(bytes: number): string {
 /** Said in the export sheet above the scans, whenever an object that is ticked has one. */
 export const SCAN_WARNING = 'A scan may show the real world: a room, a number plate. It is left out unless you tick it, and is then reduced to at most 60,000 triangles.'
 
+/** Said in the export sheet beside the tick for a tracing's photo, which is off until ticked. */
+export const PHOTO_WARNING = 'A photo may show the real world: a room, a number plate. It is left out of the drawing unless you tick it, and is then put in as it was straightened, faded as you have it.'
+
 /** Whether a record that was read from a file, or is keyed by a name someone chose, has `key` as its own: a part may be called `constructor`. */
 export function own<T>(record: Readonly<Record<string, T>> | null | undefined, key: string): T | undefined {
   return record !== null && record !== undefined && Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined

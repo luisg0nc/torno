@@ -1,5 +1,5 @@
 import { rotate } from './align'
-import type { LineupPair, LineupSnap, Matrix3 } from './lineup'
+import type { LineupPair, LineupSnap, Matrix3, UvRect } from './lineup'
 import type { Sectioned } from './geometry'
 import type { Vec3 } from './marks'
 import { type MainAxis, mainPlaneFrame } from './planes'
@@ -243,6 +243,8 @@ export interface TracingPictureRequest {
   revision: number
   cut: Sectioned
   layers: Layer[]
+  /** The tracing's straightened photo, when it has one that is shown: where it is laid (mm) and how faded. The window reads the image itself (`tracings:photoBytes`). */
+  photo?: { rect: UvRect; fade: number }
   size: number
 }
 
@@ -254,4 +256,6 @@ export interface TracingPictureResult {
   mmPerPx: number
   origin: [number, number]
   vUp: boolean
+  /** Whether the photo is in the picture: asked for, and its copy was on this computer. */
+  photo?: boolean
 }

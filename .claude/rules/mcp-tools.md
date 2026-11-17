@@ -36,7 +36,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`readOnlyHint`): the list, or one tracing as `tracingData` (`main/tracings/text.ts`: facts, with `text` holding every point of the outline and every
   shape in mm, the outline's points thinned by `pointsFor` as `section` thins them with the deflection said, areas the kernel's and `≈` where it says so,
   the lost-face sentence, the photo's words, which always end `not exact, and true only in the tracing's plane`); `picture: true` has the window draw
-  it (`requestTracingPicture`, `view:tracingPicture`, `renderer/ui/tracings/picture.ts` from `tracingSvg`'s elements, 10 mm grid, the layers; `size` as
+  it (`requestTracingPicture`, `view:tracingPicture`, `renderer/ui/tracings/picture.ts` from `tracingSvg`'s elements, 10 mm grid, the layers and, when the tracing has a straightened copy and its photo is not hidden, that photo under them (`TracingPictureRequest.photo`, the window reads the copy itself; the picture says `photo` under the outline, hidden or not drawn); `size` as
   `look`'s, 256 to 2000, default 1280), checks the PNG with `checkedImage` (one that fails is not sent, and the text says so) and says what maps it to mm
   (`1 px = 0.212 mm; u = 0 at x = 140, v = 0 at y = 860, v up`). `add_tracing` lays Claude's tracing through `TracingStore.make(…, 'agent')`: `on` is
   `{ main, offset }`, `{ face }` (planar, of the last build) or `{ origin, normal }` (a frozen plane whose axes are the kernel's `section`), main makes the

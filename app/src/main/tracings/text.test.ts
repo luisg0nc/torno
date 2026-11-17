@@ -146,6 +146,13 @@ describe('one tracing', () => {
     expect(tracingText(tracing({ photo: { ...photo, pairs: [], transform: undefined, scale: undefined } }), { cut: plate })).toMatch(/photo: .*not lined up yet/)
   })
 
+  it('says a hidden photo is hidden, and still ends its line as the photo is not exact and true only in the tracing\'s plane', () => {
+    const photo = { file: 'p-0123456789ab.jpg', sha256: 'x', width: 4000, height: 3000, pairs: [1, 2].map((i) => ({ photo: [i, i] as [number, number], uv: [i, i] as [number, number] })), method: 'similar' as const, transform: [1, 0, 0, 0, -1, 0, 0, 0, 1] as never, scale: 4.73, angle: 2.1, straightened: 's-0123456789ab.png', fade: 0.5, hidden: true as const }
+    const line = tracingText(tracing({ photo }), { cut: plate }).split('\n').find((l) => l.startsWith('photo'))!
+    expect(line).toBe("photo (hidden by the person, so not in a picture of the tracing): lined up by 2 points: 4.73 px/mm at the centre, turned 2.1°, no spare point to check it; not exact, and true only in the tracing's plane")
+    expect(line.endsWith("not exact, and true only in the tracing's plane")).toBe(true)
+  })
+
   it('says a photo swapped for another is not lined up, though the pairs keep the tracing side; the line-up is told with the data even when the photo is away', () => {
     const swapped = { file: 'p-0123456789ab.jpg', sha256: 'x', width: 4000, height: 3000, pairs: [{ uv: [1, 1] as [number, number] }, { uv: [2, 2] as [number, number] }], method: 'similar' as const, fade: 0.5 }
     expect((tracingData(tracing({ photo: swapped }), { cut: plate }) as Record<string, any>).photo).toMatchObject({ lined: false })

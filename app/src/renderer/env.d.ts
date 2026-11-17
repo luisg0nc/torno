@@ -18,6 +18,8 @@ declare global {
     __tornoTracingRenders?: number
     /** Only under test: where the tracing's sheet stands, while a tracing is shown; `ratio` is 1 at 1:1. */
     __tornoTracingSheet?: () => { x: number; y: number; k: number; ratio: number }
+    /** The line-up's panes under test: where a photo pixel or a point of the tracing is on the page, and the clicks so far. */
+    __tornoLineup?: { client(side: 'photo' | 'tracing', at: readonly [number, number]): [number, number]; clicks(): { photo: number[][]; tracing: Array<{ uv: number[]; snap?: unknown }> } }
     /** Only under test: where the board's camera stands, while the board is shown. */
     __tornoBoardCamera?: () => { x: number; y: number; k: number }
     __tornoTest?: {

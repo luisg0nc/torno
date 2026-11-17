@@ -75,6 +75,26 @@ describe('tracingSvg', () => {
     expect(titleRows).toContainEqual(['Photo', '4.73 px/mm, not exact'])
   })
 
+  it('turns the photo over with the sheet when v runs down, so that its top row stays at the greatest v', () => {
+    const href = 'data:image/png;base64,iVBORw0KGgo='
+    const down = (): Sectioned => ({ ...square(), plane: { origin: [0, 0, 5], normal: [0, -1, 0], x: [1, 0, 0], y: [0, 0, -1] } })
+    const extras = { photo: { href, rect: { min: [-25, -22], max: [25, 22] } as { min: [number, number]; max: [number, number] }, fade: 0.4 } }
+    const flipped = tracingSvg(down(), sheet, extras)
+    expect(flipped.down).toBe(true)
+    // Turned about its own middle: y' = 2 y + height.
+    const m = /<image data-photo="" [^>]*y="([\d.-]+)" width="[\d.-]+" height="([\d.-]+)" [^>]*transform="matrix\(1 0 0 -1 0 ([\d.-]+)\)"/.exec(flipped.svg)!
+    expect(Number(m[3])).toBeCloseTo(2 * Number(m[1]) + Number(m[2]), 3)
+    const screen = tracingSvg(down(), sheet, { ...extras, forScreen: true })
+    expect(screen.svg).toMatch(/<image data-photo="" [^>]*y="-22" width="50" height="44" [^>]*transform="matrix\(1 0 0 -1 0 0\)"/)
+    expect(tracingSvg(square(), sheet, extras).svg).not.toContain('transform=')
+  })
+
+  it('draws a sheet whose v runs up whatever the plane is, when asked: the way a photo from the front of the plane sees it', () => {
+    const down: Sectioned = { ...square(), plane: { origin: [0, 0, 5], normal: [0, -1, 0], x: [1, 0, 0], y: [0, 0, -1] } }
+    expect(tracingSvg(down, sheet, { forScreen: true }).down).toBe(true)
+    expect(tracingSvg(down, sheet, { forScreen: true, vUp: true }).down).toBe(false)
+  })
+
   it('draws no photo whose address is not its own bytes, in a file', () => {
     for (const href of ['http://example.com/a.png', 'file:///home/x/a.png', 'blob:abc', 'data:text/html;base64,AAAA']) {
       expect(tracingSvg(square(), sheet, { photo: { href, rect: { min: [0, 0], max: [10, 10] }, fade: 1 } }).svg).not.toContain('<image')

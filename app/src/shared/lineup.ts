@@ -259,6 +259,24 @@ export function fitStraight(pairs: readonly LineupPair[], opts: { centre?: reado
   return { transform, scale: local.scale, angle: local.angle, ...(pairs.length > STRAIGHT_NEEDS ? { fit: rms(pairs, transform) } : {}) }
 }
 
+/** A box in the tracing's `[u, v]`, mm. */
+export interface UvRect {
+  min: [number, number]
+  max: [number, number]
+}
+
+/**
+ * The box in mm that the four corners of a `width` by `height` photo land in under `transform`: where its straightened copy is
+ * placed, one rule for the window (which makes the copy) and for main (the export). Null when a corner goes to infinity.
+ */
+export function photoRect(transform: readonly number[], width: number, height: number): UvRect | null {
+  const corners = [applyLineup(transform, [0, 0]), applyLineup(transform, [width, 0]), applyLineup(transform, [width, height]), applyLineup(transform, [0, height])]
+  if (!corners.every((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))) return null
+  const us = corners.map((p) => p[0])
+  const vs = corners.map((p) => p[1])
+  return { min: [Math.min(...us), Math.min(...vs)], max: [Math.max(...us), Math.max(...vs)] }
+}
+
 /** The matrix as text, to the digit: what a straightened copy is made of, so that one made of another line-up is known. */
 export const transformKey = (transform: readonly number[]): string => transform.map(String).join(',')
 

@@ -24,6 +24,28 @@ const cutOf = (exact = true): TracingCut => ({
 const props = (over: Partial<TracingPanelProps> = {}): TracingPanelProps => ({ tracing: tracing(), cut: cutOf(), parts: ['tub', 'lid'], built: 'h57', building: false, spread: false, ...over })
 const html = (over: Partial<TracingPanelProps> = {}): string => renderToStaticMarkup(createElement(TracingPanelView, props(over)))
 
+describe('the photo in the panel', () => {
+  const photo = { file: 'p-0123456789ab.jpg', sha256: 'a'.repeat(64), width: 400, height: 300, pairs: [{ photo: [1, 1] as [number, number], uv: [0, 0] as [number, number] }, { photo: [9, 9] as [number, number], uv: [4, 4] as [number, number] }], method: 'similar' as const, transform: [1, 0, 0, 0, 1, 0, 0, 0, 1] as never, scale: 4.7312, angle: 2.1, fade: 0.5 }
+
+  it('offers to add a photo, and the references to take one from, when there is none', () => {
+    const markup = html({ references: ['reference/photo-1.jpg'] })
+    expect(plainText(markup)).toContain('Add photo')
+    expect(markup).toContain('data-reference="reference/photo-1.jpg"')
+  })
+
+  it('shows its rows when there is one: the line-up with not exact, the fade, Line up again, Swap photo and Remove photo', () => {
+    const text = plainText(html({ tracing: tracing({ photo }), photoThumb: 'blob:x', photoHere: true }))
+    for (const word of ['4.731 px/mm', '2.1°', 'not exact', 'Fade', 'Line up again', 'Swap photo', 'Remove photo', 'Hide']) expect(text).toContain(word)
+    expect(text).not.toContain('Add photo')
+  })
+
+  it('says the photo is not on this computer, with its line-up still told', () => {
+    const text = plainText(html({ tracing: tracing({ photo }), photoHere: false }))
+    expect(text).toContain('photo not on this computer')
+    expect(text).toContain('4.731 px/mm')
+  })
+})
+
 describe('the panel of a tracing', () => {
   it('says its name, its plane and the build it was redrawn for', () => {
     const text = plainText(html())
@@ -104,9 +126,9 @@ describe('the panel of a tracing', () => {
     expect(plainText(html())).toContain('No layers yet')
   })
 
-  it('has Line up, Show in 3D and Export, the first two left for their own tasks', () => {
+  it('has Show in 3D and Export, the first left for its own task; the photo has its own rows for lining up', () => {
     const markup = html()
-    expect(markup).toMatch(/<button[^>]*disabled[^>]*>Line up</)
+    expect(markup).not.toMatch(/<button[^>]*disabled[^>]*>Line up</)
     expect(markup).toMatch(/<button[^>]*disabled[^>]*>Show in 3D</)
     expect(markup).toMatch(/<button(?![^>]*disabled)[^>]*>Export</)
   })
@@ -139,7 +161,7 @@ describe('the panel of a tracing', () => {
 
   it('uses sentence case: its labels start with a capital and go on in lower case', () => {
     const text = plainText(html({ tracing: tracing({ layers: [layer()] }) }))
-    for (const label of ['Model outline', 'Layers', 'Line up', 'Show in 3D', 'Export']) expect(text).toContain(label)
+    for (const label of ['Model outline', 'Layers', 'Photo', 'Add photo', 'Show in 3D', 'Export']) expect(text).toContain(label)
     expect(text).not.toMatch(/Model Outline|Show In 3D|Line Up/)
   })
 })

@@ -82,8 +82,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   there (`no tracing T9; tracings: T1`), a layout the build lacks and a build that landed meanwhile (`NEW_BUILD`), and
   writes through `askWhere` (default `<project>-T1-r<revision>.svg`, `tracingExportPath`) and `writeExport`, or `pdfOfSvg`.
   The window sends ids and three ticks, never a path or bytes. "Layers" draws those not hidden, with a legend; "Marks on it"
-  the pins, picks and arrows whose `tracing` is this one; "The photo" is refused (`PHOTO_NOT_YET`) until the photo is in the
-  drawing. The file holds no path, no link but the SVG namespace, and an image only as a `data:` URL of a PNG or JPEG
+  the pins, picks and arrows whose `tracing` is this one; "The photo" puts the straightened copy in as a `data:` image (`photoOf`: read by main from the photos folder through `deps.photoBytes`, placed by `photoRect`, at the person's
+  fade, hidden or not since the tick is the person's; refused in words for a tracing with no photo, one not lined up or a copy not on this computer) and its `lineupSaid` in the title
+  block; the sheet ticks it off by default and warns (`PHOTO_WARNING`), and offers it once the tracing has its copy. The file holds no path, no link but the SVG namespace, and an image only as a `data:` URL of a PNG or JPEG
   (`PHOTO_FILE`). With `forScreen` the function gives the window's elements, with class names and no colour in an attribute.
 
 ## Export (`app/src/renderer`)

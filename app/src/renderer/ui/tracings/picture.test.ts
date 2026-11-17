@@ -84,3 +84,30 @@ describe('the svg of a tracing picture', () => {
     expect(drawn.svg).toContain('&lt;b&gt;&amp;')
   })
 })
+
+describe('the photo in the picture Claude is sent', () => {
+  const href = 'data:image/png;base64,iVBORw0KGgo='
+  const photo = { rect: { min: [-30, -20] as [number, number], max: [70, 50] as [number, number] }, fade: 0.5 }
+
+  it('is drawn under the outline at its fade, on the white sheet, by its rectangle in mm', () => {
+    const { svg } = pictureSvg(request({ photo }), href)
+    expect(svg).toMatch(/<image data-photo="" href="data:image\/png;base64,iVBORw0KGgo=" x="-30" y="-50" width="100" height="70"[^>]*opacity="0.5"/)
+    expect(svg.indexOf('<rect')).toBeLessThan(svg.indexOf('<image'))
+    expect(svg.indexOf('<image')).toBeLessThan(svg.indexOf('data-part="plate"'))
+  })
+
+  it('is not drawn when there is no image to put in, or the tracing shows none', () => {
+    expect(pictureSvg(request({ photo }), undefined).svg).not.toContain('<image')
+    expect(pictureSvg(request(), href).svg).not.toContain('<image')
+  })
+
+  it('stays within 2000 px on the long edge whatever the photo is, and its box is in the picture\'s mapping', () => {
+    for (const size of [1280, 2000, 99999]) {
+      const drawn = pictureSvg(request({ photo, size }), href)
+      expect(Math.max(drawn.width, drawn.height)).toBeLessThanOrEqual(2000)
+    }
+    // The photo is wider than the outline: the box grows to it, plus the margin, and a pixel is that many mm.
+    const drawn = pictureSvg(request({ photo, size: 1000 }), href)
+    expect(drawn.mmPerPx).toBeCloseTo(108 / 1000, 6)
+  })
+})

@@ -1,4 +1,5 @@
 import { number } from '../../shared/format'
+import { LINEUP_CLOSING, photoRect } from '../../shared/lineup'
 import { LAYER_COLOURS, type Tracing, TRACING_ID, type TracingPictureRequest } from '../../shared/tracings'
 import { checkedImage } from '../images'
 import { tracingData, tracingsList } from '../tracings/text'
@@ -74,6 +75,7 @@ export async function tracingsTool(deps: ToolDeps, objectId: string, args: Traci
       revision: found.cut.revision,
       cut: found.cut.cut,
       layers: t.layers,
+      ...(photoInPicture(t) ?? {}),
       size: clampSize(args.size)
     }
     try {
@@ -89,6 +91,7 @@ export async function tracingsTool(deps: ToolDeps, objectId: string, args: Traci
           mmPerPx: drawn.mmPerPx,
           origin: drawn.origin,
           vUp: drawn.vUp,
+          ...(t.photo === undefined ? {} : { photo: photoTold(t.photo, drawn.photo) }),
           said: `${image.width}×${image.height} px, 1 px = ${number(drawn.mmPerPx)} mm; u = 0 at x = ${place(drawn.origin[0])}, v = 0 at y = ${place(drawn.origin[1])}, v ${drawn.vUp ? 'up' : 'down'}`
         }
       }
@@ -98,6 +101,21 @@ export async function tracingsTool(deps: ToolDeps, objectId: string, args: Traci
   }
   content.push({ type: 'text', text: JSON.stringify(tidy({ ...of, ...data, picture })) })
   return { content }
+}
+
+/** The photo's place in the picture asked of the window: its straightened copy's rectangle and the person's fade, when the photo is lined up, has its copy and is not hidden. */
+function photoInPicture(t: Tracing): { photo: NonNullable<TracingPictureRequest['photo']> } | undefined {
+  const photo = t.photo
+  if (photo === undefined || photo.hidden === true || photo.straightened === undefined || photo.transform === undefined) return undefined
+  const rect = photoRect(photo.transform, photo.width, photo.height)
+  return rect === null ? undefined : { photo: { rect, fade: photo.fade } }
+}
+
+/** What the picture says of the photo: under the outline, hidden, or not there for want of its copy. Never exact. */
+function photoTold(photo: NonNullable<Tracing['photo']>, drawn: boolean | undefined): string {
+  if (photo.hidden === true) return 'hidden by the person, so not in the picture'
+  if (drawn === true) return `under the outline at fade ${number(photo.fade)}; ${LINEUP_CLOSING}`
+  return photo.transform === undefined ? 'not in the picture: it is not lined up yet' : 'not in the picture: its straightened copy is not on this computer'
 }
 
 export async function addTracingTool(deps: ToolDeps, objectId: string, args: AddTracingArgs): Promise<ToolResult> {

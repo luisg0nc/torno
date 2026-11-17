@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ALMOST_IN_LINE } from './align'
-import { FOLDED, MIRRORED, PHOTO_FOLDS, type LineupPair, type Matrix3, SAME_PLACE, applyLineup, fitSimilar, fitStraight, invertLineup, lineupSaid, transformKey } from './lineup'
+import { FOLDED, MIRRORED, PHOTO_FOLDS, type LineupPair, type Matrix3, SAME_PLACE, applyLineup, fitSimilar, fitStraight, invertLineup, lineupSaid, photoRect, transformKey } from './lineup'
 
 /** A similarity of a known scale (px per mm), turn (degrees) and shift: photo px (y down) to uv mm (v up). */
 const similarity = (pxPerMm: number, degrees: number, shift: [number, number]): Matrix3 => {
@@ -220,5 +220,24 @@ describe('transformKey', () => {
   it('is the same for the same matrix and another for any change of it', () => {
     expect(transformKey(homography)).toBe(transformKey([...homography]))
     expect(transformKey(homography)).not.toBe(transformKey([...homography.slice(0, 8), 1.0000001]))
+  })
+})
+
+describe('photoRect', () => {
+  it('is the box in mm of the photo\'s four corners: a turned photo has a box larger than itself', () => {
+    const upright = photoRect(similarity(5, 0, [-10, 8]), 100, 80)!
+    // x runs along u, y down is v down: u from -10 to 10, v from 8 down to -8.
+    expect(upright.min[0]).toBeCloseTo(-10, 9)
+    expect(upright.max[0]).toBeCloseTo(10, 9)
+    expect(upright.min[1]).toBeCloseTo(-8, 9)
+    expect(upright.max[1]).toBeCloseTo(8, 9)
+    const turned = photoRect(similarity(5, 90, [0, 0]), 100, 80)!
+    expect(turned.max[0] - turned.min[0]).toBeCloseTo(16, 9)
+    expect(turned.max[1] - turned.min[1]).toBeCloseTo(20, 9)
+  })
+
+  it('is null for a matrix that sends a corner to infinity or to nowhere', () => {
+    expect(photoRect([1, 0, 0, 0, 1, 0, 0, 0.01, -1], 100, 100)).toBeNull()
+    expect(photoRect([1, 0, 0, 0, 1, 0, 0, 0, Number.NaN], 100, 100)).toBeNull()
   })
 })

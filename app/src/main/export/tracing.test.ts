@@ -3,8 +3,9 @@ import type { Sectioned } from '../../shared/geometry'
 import type { Mark } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { mainPlaneFrame } from '../../shared/planes'
-import type { Layer, Tracing } from '../../shared/tracings'
-import { type TracingDrawingDeps, PHOTO_NOT_YET, makeTracingDrawing, tracingExportPath } from './tracing'
+import type { Layer, Tracing, TracingPhoto } from '../../shared/tracings'
+import { png } from '../../test/pngFixtures'
+import { type TracingDrawingDeps, makeTracingDrawing, tracingExportPath } from './tracing'
 import { NOT_BUILT } from './build'
 import { NEW_BUILD } from './model'
 
@@ -75,8 +76,57 @@ describe('makeTracingDrawing', () => {
     expect(svg).not.toContain('data-mark="M8"')
   })
 
-  it('refuses the photo until the photo is in the drawing', async () => {
-    await expect(makeTracingDrawing(deps(), 'enclosure', 'T1', { ...ticks, photo: true })).rejects.toThrow(PHOTO_NOT_YET)
+  describe('the photo', () => {
+    const lined = (over: Partial<TracingPhoto> = {}): TracingPhoto => ({
+      file: 'p-aaaaaaaaaaaa.jpg',
+      sha256: 'a'.repeat(64),
+      width: 200,
+      height: 100,
+      pairs: [{ photo: [0, 0], uv: [-20, 10] }, { photo: [200, 100], uv: [20, -10] }],
+      method: 'similar',
+      // 5 px per mm, y down is v down: the photo covers u -20 to 20 and v 10 down to -10.
+      transform: [0.2, 0, -20, 0, -0.2, 10, 0, 0, 1],
+      scale: 5,
+      angle: 0,
+      straightened: 's-bbbbbbbbbbbb.png',
+      fade: 0.4,
+      ...over
+    })
+    const withPhoto = (photo: TracingPhoto | undefined, bytes: Uint8Array | null = new Uint8Array(png(40, 20))): Partial<TracingDrawingDeps> => ({
+      tracings: async () => [tracing(photo === undefined ? {} : { photo })],
+      photoBytes: async (_id, file) => (file === 's-bbbbbbbbbbbb.png' ? bytes : null)
+    })
+
+    it('holds no image without the photo tick, even for a tracing with a photo', async () => {
+      const made = await makeTracingDrawing(deps(withPhoto(lined())), 'enclosure', 'T1', ticks)
+      expect(made.svg).not.toContain('<image')
+      expect(made.svg).not.toContain('Photo')
+    })
+
+    it('holds one data: image, at its fade, placed by its rectangle, with the line-up and that it is not exact in the title block, with the tick', async () => {
+      const made = await makeTracingDrawing(deps(withPhoto(lined())), 'enclosure', 'T1', { ...ticks, photo: true })
+      expect(made.svg.match(/<image /g)).toHaveLength(1)
+      expect(made.svg).toMatch(/<image data-photo="" href="data:image\/png;base64,[A-Za-z0-9+/=]+"/)
+      expect(made.svg).toContain('opacity="0.4"')
+      // The rectangle is 40 by 20 mm.
+      expect(made.svg).toMatch(/width="40" height="20"/)
+      expect(made.svg).toMatch(/>lined up by 2 points: 5 px\/mm at the centre, turned 0°, no spare point to check it; not exact, and true only in the tracing's plane</)
+      expect(made.svg.replace(/xmlns="[^"]+"/, "")).not.toMatch(/https?:/)
+    })
+
+    it('says in words when the photo is ticked and there is none, it is not lined up, or its copy is not on this computer', async () => {
+      const ticked = { ...ticks, photo: true }
+      await expect(makeTracingDrawing(deps(withPhoto(undefined)), 'enclosure', 'T1', ticked)).rejects.toThrow('T1 has no photo to put in the drawing')
+      await expect(makeTracingDrawing(deps(withPhoto(lined({ transform: undefined, scale: undefined, angle: undefined, straightened: undefined }))), 'enclosure', 'T1', ticked)).rejects.toThrow('The photo of T1 is not lined up yet')
+      await expect(makeTracingDrawing(deps(withPhoto(lined({ straightened: undefined }))), 'enclosure', 'T1', ticked)).rejects.toThrow('The straightened photo of T1 is not on this computer')
+      await expect(makeTracingDrawing(deps(withPhoto(lined(), null)), 'enclosure', 'T1', ticked)).rejects.toThrow('The straightened photo of T1 is not on this computer')
+      await expect(makeTracingDrawing(deps(withPhoto(lined(), new Uint8Array([1, 2, 3]))), 'enclosure', 'T1', ticked)).rejects.toThrow('is not a picture')
+    })
+
+    it('draws a hidden photo when the person ticked it: hiding is how the view looks', async () => {
+      const made = await makeTracingDrawing(deps(withPhoto(lined({ hidden: true }))), 'enclosure', 'T1', { ...ticks, photo: true })
+      expect(made.svg).toContain('<image ')
+    })
   })
 
   it('refuses with a sentence: a tracing that is not there, no build, no such project, a layout the build lacks, a build that landed meanwhile', async () => {

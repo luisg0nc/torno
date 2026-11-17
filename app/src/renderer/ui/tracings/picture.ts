@@ -2,11 +2,14 @@ import { LAYER_COLOURS } from '../../../shared/tracings'
 import type { TracingPictureRequest, TracingPictureResult } from '../../../shared/tracings'
 import { LAYER_INKS, tracingSvg } from '../../../shared/tracingSvg'
 import { pictureCanvas, pngBytes } from '../../viewport/picture'
+import { imageType } from '../onboard/images'
 
 // The picture of a tracing that Claude asks for (`tracings` with `picture: true`): the kernel's outline on a 10 mm grid with the layers over
 // it, made from `tracingSvg`'s elements (the window's own drawing, in the sheet's millimetres) on a white sheet, at a long edge of `size` px.
 // Nothing on screen is touched, and it works while the window shows another view. `pictureSvg` makes the svg and says what maps pixels to mm;
-// `drawTracingPicture` draws it on a canvas of its own. (The photo, once a tracing has one, goes under the outline here as it does in the view.)
+// `drawTracingPicture` draws it on a canvas of its own. The tracing's straightened photo goes under the outline, as in the view, as a `data:` image the
+// window reads itself (an svg drawn to a canvas loads nothing else): the picture is at most `size` px (2000 at the most) whatever the photo's, and the
+// photo is nowhere else sent to Claude.
 
 const MIN_EDGE = 256
 const MAX_EDGE = 2000
@@ -33,12 +36,12 @@ export interface PictureSvg {
   vUp: boolean
 }
 
-/** The drawing as an svg document of `width` by `height` px, and what maps its pixels to the plane's millimetres. */
-export function pictureSvg(req: TracingPictureRequest): PictureSvg {
+/** The drawing as an svg document of `width` by `height` px, and what maps its pixels to the plane's millimetres. `photoHref` is the straightened photo's `data:` address, put under the outline where `req.photo` says. */
+export function pictureSvg(req: TracingPictureRequest, photoHref?: string): PictureSvg {
   const drawn = tracingSvg(
     req.cut,
     { object: req.object, layout: req.layout, revision: req.revision, date: new Date(0), marks: [], tracing: { id: req.tracing, name: req.name, plane: req.plane } },
-    { layers: req.layers, grid: 10, forScreen: true }
+    { layers: req.layers, grid: 10, forScreen: true, ...(photoHref !== undefined && req.photo ? { photo: { href: photoHref, rect: req.photo.rect, fade: req.photo.fade } } : {}) }
   )
   const [x0, y0, w, h] = drawn.box ?? [0, 0, 1, 1]
   const edge = Math.round(Math.min(MAX_EDGE, Math.max(MIN_EDGE, Number.isFinite(req.size) ? req.size : 1280)))
@@ -58,9 +61,27 @@ export function pictureSvg(req: TracingPictureRequest): PictureSvg {
   return { svg, width, height, mmPerPx: 1 / kx, origin: [(0 - x0) * kx, (0 - y0) * ky], vUp: !drawn.down }
 }
 
+/** A photo's bytes as a `data:` address; null for bytes that are not a PNG or a JPEG. */
+function dataAddress(bytes: Uint8Array): Promise<string | null> {
+  const type = imageType(bytes)
+  if (type !== 'image/png' && type !== 'image/jpeg') return Promise.resolve(null)
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(new Blob([bytes as BlobPart], { type }))
+  })
+}
+
 /** The picture as PNG bytes, drawn on a canvas of its own. */
 export async function drawTracingPicture(req: TracingPictureRequest): Promise<TracingPictureResult> {
-  const drawn = pictureSvg(req)
+  // The photo's copy is asked of main by the tracing's ref; one that is not on this computer is left out, and the answer says so.
+  let href: string | undefined
+  if (req.photo) {
+    const bytes = await window.torno.tracings.photoBytes(req.objectId, req.tracing, 'straightened').catch(() => null)
+    href = (bytes && (await dataAddress(bytes))) || undefined
+  }
+  const drawn = pictureSvg(req, href)
   const image = new Image()
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawn.svg)}`
   await image.decode()
@@ -70,5 +91,5 @@ export async function drawTracingPicture(req: TracingPictureRequest): Promise<Tr
   ctx.fillStyle = '#FFFFFF'
   ctx.fillRect(0, 0, drawn.width, drawn.height)
   ctx.drawImage(image, 0, 0, drawn.width, drawn.height)
-  return { png: pngBytes(canvas), width: drawn.width, height: drawn.height, mmPerPx: drawn.mmPerPx, origin: drawn.origin, vUp: drawn.vUp }
+  return { png: pngBytes(canvas), width: drawn.width, height: drawn.height, mmPerPx: drawn.mmPerPx, origin: drawn.origin, vUp: drawn.vUp, ...(req.photo ? { photo: href !== undefined } : {}) }
 }

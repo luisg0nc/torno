@@ -382,6 +382,21 @@ it('has Ctrl+G, in the window scope, for naming the selection as a set, clashing
   expect(keyClashes()).toEqual([])
 })
 
+it('has the keys of lining a photo up in a scope of their own, which clash with nothing', () => {
+  const rows = KEYS.filter((r) => r.scope === 'lineup')
+  expect(rows.map((r) => [r.id, r.keys, r.context])).toEqual([
+    ['tracing.straighten', ['S'], 'Tracing'],
+    ['tracing.undoPoint', ['Backspace'], 'Tracing'],
+    ['tracing.lineupDone', ['Enter'], 'Tracing'],
+    ['tracing.lineupLeave', ['Esc'], 'Tracing']
+  ])
+  expect(keyClashes()).toEqual([])
+  expect(pressed({ key: 's' }, 'tracing.straighten')).toBe(true)
+  expect(pressed({ key: 'Backspace' }, 'tracing.undoPoint')).toBe(true)
+  expect(hint('tracing.undoPoint')).toBe('Backspace')
+  expect(rows.every((r) => r.does.startsWith('Line-up:'))).toBe(true)
+})
+
 it('has the keys of a tracing in a scope of their own: fit, true size and the tools, clashing with nothing, and Ctrl+Tab cycling the three', () => {
   const rows = KEYS.filter((r) => r.scope === 'tracing')
   expect(rows.map((r) => [r.id, r.keys, r.context])).toEqual([

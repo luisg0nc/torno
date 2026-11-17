@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BuildState } from '../../shared/build'
 import type { Described, Sectioned } from '../../shared/geometry'
+import { transformKey } from '../../shared/lineup'
 import type { Scene } from '../../shared/scene'
 import { MOST_SHAPES, type TracingPictureRequest, type TracingPictureResult, type TracingsFile } from '../../shared/tracings'
 import { checkedImage } from '../images'
@@ -325,6 +326,45 @@ describe('tracings', () => {
       expect(checkedImage(new Uint8Array(Buffer.from(image.data, 'base64')))).toMatchObject({ width: 2000, height: 1500 })
       await tracingsTool(deps, 'bracket', { tracing: 'T1', picture: true, size: 10 })
       expect(drawn[1].size).toBe(256)
+    })
+
+    describe('with a photo', () => {
+      const pairs = [{ photo: [100, 100], uv: [0, 0] }, { photo: [1100, 100], uv: [200, 0] }]
+      const lined = async (): Promise<void> => {
+        await person()
+        await store.setPhoto('bracket', 'T1', png(4000, 3000))
+        await store.lineUp('bracket', 'T1', pairs, 'similar')
+        const t = (await store.list('bracket')).tracings[0]
+        await store.setStraightened('bracket', 'T1', png(4000, 3000), { sha256: t.photo!.sha256, transform: transformKey(t.photo!.transform!) })
+      }
+
+      it('asks for the photo under the outline, by its rectangle and fade, and the picture Claude gets is still at most 2000 px', async () => {
+        await lined()
+        draw = async (req) => (drawn.push(req), { png: png(req.size, Math.round(req.size * 0.75)), width: req.size, height: Math.round(req.size * 0.75), mmPerPx: 0.1, origin: [0, 0], vUp: true, photo: true })
+        const r = await tracingsTool(deps, 'bracket', { tracing: 'T1', picture: true, size: 4000 })
+        expect(drawn[0].size).toBe(2000)
+        expect(drawn[0].photo).toEqual({ rect: { min: [-20, -580], max: [780, 20] }, fade: 0.5 })
+        const image = r.content.find((c) => c.type === 'image') as { data: string }
+        const sent = checkedImage(new Uint8Array(Buffer.from(image.data, 'base64')))!
+        expect(Math.max(sent.width, sent.height)).toBeLessThanOrEqual(2000)
+        expect(json(r).picture.photo).toBe('under the outline at fade 0.5; not exact, and true only in the tracing\'s plane')
+      })
+
+      it('leaves a hidden photo out of the request and says so', async () => {
+        await lined()
+        await store.setLook('bracket', 'T1', { hidden: true })
+        const r = await tracingsTool(deps, 'bracket', { tracing: 'T1', picture: true })
+        expect(drawn[0].photo).toBeUndefined()
+        expect(json(r).picture.photo).toBe('hidden by the person, so not in the picture')
+      })
+
+      it('says the photo is not in the picture when the window had no copy of it to draw, and says nothing of a photo for a tracing with none', async () => {
+        await lined()
+        draw = async (req) => ({ png: png(req.size, 100), width: req.size, height: 100, mmPerPx: 0.05, origin: [0, 0], vUp: true, photo: false })
+        expect(json(await tracingsTool(deps, 'bracket', { tracing: 'T1', picture: true })).picture.photo).toBe('not in the picture: its straightened copy is not on this computer')
+        await store.removePhoto('bracket', 'T1')
+        expect(json(await tracingsTool(deps, 'bracket', { tracing: 'T1', picture: true })).picture).not.toHaveProperty('photo')
+      })
     })
 
     it('sends no image the window made that the check does not pass, and says so, with the text of the tracing', async () => {

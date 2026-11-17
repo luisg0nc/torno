@@ -22,13 +22,14 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `compare`: while two builds are compared in the view; it has the key before the viewport, whose Esc is another step back.
  * - `board`: while the board of the project is shown in place of the view, which then hears nothing.
  * - `tracing`: while a tracing of the project is shown in place of the view, which then hears nothing.
+ * - `lineup`: while a tracing's photo is being lined up, which covers the tracing's view: its keys are for the clicks, and the tracing's tools hear nothing.
  * - `page`: on the page of objects; `filter`: in its field. `newobject`: on the page of a new object.
  * - `session`: in the terminal. `composer`: in the box a chat prompt is written in. `ask`: on a card of the chat that asks the person. `picture`: while a picture of the
  *   chat is shown large. `separator`: on the edge of the session pane, or the line above the marks.
  * - `field`, `menu`, `sheet`: in a field, an open menu, a sheet or a question.
  * - `dev`: under the dev server only.
  */
-export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'sketch' | 'shape' | 'compare' | 'board' | 'tracing' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
+export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'sketch' | 'shape' | 'compare' | 'board' | 'tracing' | 'lineup' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
 
 /**
  * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
@@ -194,6 +195,10 @@ const ROWS = [
   row('tracing.back', ['Backspace'], 'Trace: take the last point back', 'Tracing', 'tracing'),
   row('tracing.nosnap', ['Ctrl'], 'Trace: hold it while clicking to turn snapping off', 'Tracing', 'tracing'),
   row('tracing.leave', ['Esc'], 'Trace: give up the shape under way, then put Select back', 'Tracing', 'tracing'),
+  row('tracing.straighten', ['S'], 'Line-up: straighten the photo (4 points or more), or only turn and scale it', 'Tracing', 'lineup'),
+  row('tracing.undoPoint', ['Backspace'], 'Line-up: take the last point back', 'Tracing', 'lineup'),
+  row('tracing.lineupDone', ['Enter'], 'Line-up: done, when there are points enough', 'Tracing', 'lineup'),
+  row('tracing.lineupLeave', ['Esc'], 'Line-up: cancel, and leave the line-up as it was', 'Tracing', 'lineup'),
 
   row('page.move', [...ARROWS, 'Home', 'End'], 'Move among the cards', 'Page of projects', 'page'),
   row('page.open', ['Enter'], 'Open the card in focus', 'Page of projects', 'page'),

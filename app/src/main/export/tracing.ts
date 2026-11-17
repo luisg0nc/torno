@@ -1,13 +1,15 @@
 import { type BuildIdentity, identitySaid } from '../../shared/git'
 import type { Sectioned } from '../../shared/geometry'
+import { lineupSaid, photoRect } from '../../shared/lineup'
 import type { DimensionMark, Mark } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import type { SceneFile } from '../../shared/scenefile'
-import { type TracingSvg, tracingSvg } from '../../shared/tracingSvg'
+import { type TracingExtras, type TracingSvg, tracingSvg } from '../../shared/tracingSvg'
 import type { Tracing } from '../../shared/tracings'
 import type { FileFormat } from '../../shared/exportdata'
 import type { ObjectInfo } from '../../shared/workspace'
 import { SECTION_DEFLECTION } from '../mcp/readTools'
+import { checkedPhoto } from '../tracings/photos'
 import { NOT_BUILT, NO_OBJECT, partColors } from './build'
 import { NEW_BUILD } from './model'
 import { defaultExportPath } from './save'
@@ -17,9 +19,6 @@ import { defaultExportPath } from './save'
 // the sheet ticked (the layers, the marks on it, the photo) as an SVG at true scale (`tracingSvg`, the one drawing the window's
 // view of a tracing is made by too). It is made from the last good build of this run, like every export, and the window names
 // ids and ticks: never a path, never bytes.
-
-/** Said when the photo is ticked: it is not drawn yet. */
-export const PHOTO_NOT_YET = 'The photo cannot be put in a drawing yet'
 
 export interface TracingDrawingDeps {
   object(objectId: string): ObjectInfo | undefined
@@ -31,6 +30,8 @@ export interface TracingDrawingDeps {
   marks(objectId: string): Promise<Mark[]>
   query<T>(objectId: string, name: string, args: Record<string, unknown>): Promise<T>
   now(): Date
+  /** The bytes of a photo or straightened copy of the project's tracings by its file name, or null when it is not on this computer. */
+  photoBytes?(objectId: string, file: string): Promise<Uint8Array | null>
   /** What the build of this revision was made from (sources hash, commit, changes), when torno knows it. */
   identity?(objectId: string, revision: number): BuildIdentity | undefined
 }
@@ -54,6 +55,24 @@ export interface TracingFile extends TracingSvg {
 /** The mark's own tracing, when it names one (`MarkBase.tracing`). */
 const tracingOf = (mark: Mark): string | undefined => (mark as { tracing?: string }).tracing
 
+/**
+ * The straightened copy of the tracing's photo as a drawing carries it: its bytes as a `data:` image (read by main from its folder, never
+ * a path or a link), the box in mm it is placed by, the person's fade, and the line-up in words. A hidden photo is drawn too: the tick is the
+ * person's, and hiding is how the view looks. Throws a sentence for a photo that is not there, not lined up, or whose copy is not on this computer.
+ */
+async function photoOf(deps: TracingDrawingDeps, objectId: string, t: Tracing): Promise<{ placed: NonNullable<TracingExtras['photo']>; said: string } | undefined> {
+  const photo = t.photo
+  if (photo === undefined) throw new Error(`${t.id} has no photo to put in the drawing`)
+  if (photo.transform === undefined || photo.scale === undefined) throw new Error(`The photo of ${t.id} is not lined up yet, so it has no place in the drawing: line it up first`)
+  const bytes = photo.straightened === undefined ? null : ((await deps.photoBytes?.(objectId, photo.straightened)) ?? null)
+  if (bytes === null) throw new Error(`The straightened photo of ${t.id} is not on this computer: open ${t.id} in the window to make it again, then export`)
+  const image = checkedPhoto(bytes)
+  if (!image) throw new Error(`The straightened photo of ${t.id} is not a picture torno can draw`)
+  const rect = photoRect(photo.transform, photo.width, photo.height)
+  if (rect === null) throw new Error(`The photo of ${t.id} has no place on the tracing: line it up again`)
+  return { placed: { href: `data:${image.mediaType};base64,${Buffer.from(image.bytes).toString('base64')}`, rect, fade: photo.fade }, said: lineupSaid(photo) }
+}
+
 /** The drawing of tracing `id` of the last good build, with what was ticked. Throws a sentence for the window. */
 export async function makeTracingDrawing(deps: TracingDrawingDeps, objectId: string, id: string, ticks: TracingTicks): Promise<TracingFile> {
   const obj = deps.object(objectId)
@@ -63,7 +82,7 @@ export async function makeTracingDrawing(deps: TracingDrawingDeps, objectId: str
   const all = await deps.tracings(objectId)
   const t = all.find((one) => one.id === id)
   if (!t) throw new Error(`no tracing ${String(id)}; tracings: ${all.map((one) => one.id).join(', ') || 'none'}`)
-  if (ticks.photo) throw new Error(PHOTO_NOT_YET)
+  const photo = ticks.photo ? await photoOf(deps, objectId, t) : undefined
   const { scene, revision } = last
   if (!scene.layouts.includes(t.layout)) throw new Error(`The last build has no layout ${t.layout}, so ${t.id} cannot be drawn`)
   // The parts it draws: all of the layout, or those it names that the layout has.
@@ -94,9 +113,10 @@ export async function makeTracingDrawing(deps: TracingDrawingDeps, objectId: str
       marks: dimensions,
       tracing: { id: t.id, name: t.name, plane: plane.label },
       partColours: Object.fromEntries(colours),
+      ...(photo ? { photoSaid: photo.said } : {}),
       ...(identity ? { source: identitySaid(identity) } : {})
     },
-    { ...(ticks.layers ? { layers: t.layers } : {}), ...(onIt.length > 0 ? { marks: onIt } : {}) }
+    { ...(ticks.layers ? { layers: t.layers } : {}), ...(onIt.length > 0 ? { marks: onIt } : {}), ...(photo ? { photo: photo.placed } : {}) }
   )
   return { ...drawn, objectId, name: obj.name, id: t.id, revision }
 }

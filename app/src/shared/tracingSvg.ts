@@ -90,6 +90,8 @@ export interface TracingExtras {
   /** The grid under the outline: every 1 mm (faint) and every 10 mm (stronger), or every 10 mm alone. */
   grid?: 1 | 10
   forScreen?: true
+  /** `v` runs up the sheet whichever way the plane's `y` points in the world: a sheet seen from the front of the plane, as a photo of it is (the line-up's). */
+  vUp?: true
 }
 
 /** A drawing of a plane: the file, and what it holds of the plane. */
@@ -175,7 +177,7 @@ interface Line {
 export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: TracingExtras = {}): TracingSvgOut {
   const { plane } = cut
   const screen = extras.forScreen === true
-  const down = pointsDown(plane.y)
+  const down = extras.vUp === true ? false : pointsDown(plane.y)
   const inPlane = (p: Vec3): [number, number] => {
     const d = sub(p, plane.origin)
     return [dot(d, plane.x), dot(d, plane.y)]
@@ -286,7 +288,10 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
     const b = at([photo.rect.max[0], photo.rect.min[1]])
     const x = Math.min(a[0], b[0])
     const y = Math.min(a[1], b[1])
-    body.push(`<image data-photo="" href="${escape(photo.href)}" x="${c(x)}" y="${c(y)}" width="${c(Math.abs(b[0] - a[0]))}" height="${c(Math.abs(b[1] - a[1]))}" preserveAspectRatio="none" opacity="${c(Math.min(1, Math.max(0, photo.fade)))}"${screen ? ' class="tr-photo"' : ''}/>`)
+    const h = Math.abs(b[1] - a[1])
+    // The copy's top row is its greatest `v`: where the sheet's `v` runs down that row is the bottom, so the image is turned about its middle.
+    const turned = down ? ` transform="matrix(1 0 0 -1 0 ${c(2 * y + h)})"` : ''
+    body.push(`<image data-photo="" href="${escape(photo.href)}" x="${c(x)}" y="${c(y)}" width="${c(Math.abs(b[0] - a[0]))}" height="${c(h)}" preserveAspectRatio="none" opacity="${c(Math.min(1, Math.max(0, photo.fade)))}"${turned}${screen ? ' class="tr-photo"' : ''}/>`)
   }
 
   // The cut: one path for each part, its holes by the even-odd rule.

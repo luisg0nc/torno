@@ -1,14 +1,20 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
-import type { BoardFile } from '../../shared/board'
+import type { BoardFile, Card } from '../../shared/board'
 import type { HistoryList } from '../../shared/history'
+import { lineupSaid, type LineupPair, photoRect, transformKey } from '../../shared/lineup'
 import type { MainAxis } from '../../shared/planes'
 import { parseSetRef } from '../../shared/sets'
+import type { TracingExtras } from '../../shared/tracingSvg'
 import type { Layer, LayerColour, LayerShape, Tracing, TracingCut, TracingsFile } from '../../shared/tracings'
+import type { Prepared } from '../ui/onboard/images'
+import { imageType } from '../ui/onboard/images'
+import { preparePhoto } from '../ui/tracings/preparePhoto'
+import type { TraceMode } from '../ui/tracings/traceTool'
+import { warp } from '../ui/tracings/warp'
 import { boardActions, boardStore, type Shown } from './board'
 import { actions, store } from './store'
 import { setTool } from './tools'
-import type { TraceMode } from '../ui/tracings/traceTool'
 
 // The tracings of the open project in the window: what main last said of the file (`.torno/tracings.json`, which main alone
 // writes), which tracing is open in the view, the kernel's outline of each one that has been asked for, and what the person
@@ -42,9 +48,15 @@ export interface TracingsState {
   into: number | null
   /** The person's layer removed last, with its shapes, which Undo puts back while this stays. */
   layerRemoved: { tracing: string; layer: Layer } | null
+  /** The pictures of the photos the window holds, by file name (`p-…` the photo, `s-…` its straightened copy): an object URL, or that the file is not on this computer. */
+  photos: Record<string, PhotoEntry>
+  /** The tracing whose photo is being lined up: the split view is on; null when none is. */
+  lining: string | null
 }
 
-const NONE: TracingsState = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select', trace: 'line', into: null, layerRemoved: null }
+export type PhotoEntry = { url: string } | { missing: true }
+
+const NONE: TracingsState = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select', trace: 'line', into: null, layerRemoved: null, photos: {}, lining: null }
 
 export const tracingsStore = createStore<TracingsState>(() => NONE)
 
@@ -129,10 +141,143 @@ let queue: Promise<unknown> = Promise.resolve()
 /** Whether the project has a tracing: what `Ctrl+Tab` goes by. */
 export const hasTracing = (s: Pick<TracingsState, 'file'> = state()): boolean => (s.file?.tracings.length ?? 0) > 0
 
+/** The browser's part of the photo work, apart so that a test can stand in for it. */
+export interface PhotoTools {
+  prepare(bytes: Uint8Array, name: string): Promise<Prepared>
+  makeUrl(bytes: Uint8Array): string
+  revoke(url: string): void
+  /** The photo's bytes straightened through `transform` at `scale` px per mm: a PNG. */
+  straighten(photo: Uint8Array, transform: readonly number[], width: number, height: number, scale: number): Promise<Uint8Array>
+}
+
+const browserTools: PhotoTools = {
+  prepare: preparePhoto,
+  makeUrl: (bytes) => URL.createObjectURL(new Blob([bytes as BlobPart], { type: imageType(bytes) ?? 'application/octet-stream' })),
+  revoke: (url) => URL.revokeObjectURL(url),
+  async straighten(photo, transform, width, height, scale) {
+    const rect = photoRect(transform, width, height)
+    if (rect === null) throw new Error('the line-up sends a corner of the photo to infinity, so it cannot be straightened')
+    const bitmap = await createImageBitmap(new Blob([photo as BlobPart], { type: imageType(photo) ?? 'image/jpeg' }), { imageOrientation: 'from-image' })
+    const blob = await warp(bitmap, transform, rect, scale)
+    return new Uint8Array(await blob.arrayBuffer())
+  }
+}
+let tools: PhotoTools = browserTools
+
+/** Stands something in for the browser's photo work (a test); with nothing, the browser's own. */
+export function setPhotoTools(replacement?: PhotoTools): void {
+  tools = replacement ?? browserTools
+}
+
+/** The runs of `sync` going, by project and tracing, and those asked again while they ran. */
+const syncing = new Map<string, Promise<void>>()
+const again = new Set<string>()
+/** The runs that are to read the photo itself too (a card needs only its straightened copy). */
+const wantsOriginal = new Set<string>()
+
+/** Every file name the tracings of the project hold: the pictures of any other are let go. */
+function prunePhotos(): void {
+  const named = new Set((state().file?.tracings ?? []).flatMap((t) => (t.photo === undefined ? [] : [t.photo.file, ...(t.photo.straightened === undefined ? [] : [t.photo.straightened])])))
+  const kept: Record<string, PhotoEntry> = {}
+  let gone = false
+  for (const [file, entry] of Object.entries(state().photos)) {
+    if (named.has(file)) kept[file] = entry
+    else {
+      gone = true
+      if ('url' in entry) tools.revoke(entry.url)
+    }
+  }
+  if (gone) set({ photos: kept })
+}
+
+const keepPicture = (file: string, bytes: Uint8Array | null): void => {
+  const was = state().photos[file]
+  if (was !== undefined && 'url' in was) tools.revoke(was.url)
+  set({ photos: { ...state().photos, [file]: bytes === null ? { missing: true } : { url: tools.makeUrl(bytes) } } })
+}
+
+/** A look of the photo (`fade`, `hidden`) as one change. */
+async function look(patch: { fade?: number; hidden?: boolean }): Promise<boolean> {
+  const objectId = state().objectId
+  const id = state().open
+  if (objectId === null || id === null) return false
+  try {
+    const made = await window.torno.tracings.look(objectId, id, patch)
+    if (state().objectId === objectId) set({ file: withTracing(state().file, made), refused: null })
+    return true
+  } catch (e) {
+    set({ refused: said(e) })
+    return false
+  }
+}
+
+/** One pass of `sync`: what the tracing's photo has now, read or made. */
+async function syncOnce(objectId: string, id: string, wantOriginal: boolean): Promise<void> {
+  const photoOf = (): NonNullable<Tracing['photo']> | undefined => (state().objectId === objectId ? state().file?.tracings.find((t) => t.id === id)?.photo : undefined)
+  let photo = photoOf()
+  if (photo === undefined) return
+  const file = photo.file
+  let original: Uint8Array | null = null
+  /** The photo itself, read once into a picture of the window. */
+  const readOriginal = async (): Promise<boolean> => {
+    if (state().photos[file] === undefined) {
+      original = await window.torno.tracings.photoBytes(objectId, id, 'photo').catch(() => null)
+      if (photoOf()?.file !== file) return false
+      keepPicture(file, original)
+    }
+    return true
+  }
+  if (wantOriginal && !(await readOriginal())) return
+  photo = photoOf()
+  if (photo === undefined || photo.transform === undefined || photo.scale === undefined) return
+  const copy = photo.straightened
+  if (copy !== undefined && state().photos[copy] === undefined) {
+    const bytes = await window.torno.tracings.photoBytes(objectId, id, 'straightened').catch(() => null)
+    if (photoOf()?.straightened !== copy) return
+    if (bytes !== null) return keepPicture(copy, bytes)
+  }
+  const there = copy === undefined ? undefined : state().photos[copy]
+  if (there !== undefined && 'url' in there) return
+  // Made again here: the photo itself must be on this computer.
+  if (!(await readOriginal())) return
+  const here = state().photos[file]
+  if (here === undefined || !('url' in here)) return
+  photo = photoOf()
+  if (photo === undefined || photo.transform === undefined || photo.scale === undefined) return
+  const { transform, sha256, scale, width, height } = photo
+  try {
+    original ??= await window.torno.tracings.photoBytes(objectId, id, 'photo')
+    if (original === null) return
+    const made = await tools.straighten(original, transform, width, height, scale)
+    const told = await window.torno.tracings.straightened(objectId, id, made, { sha256, transform: transformKey(transform) })
+    if (state().objectId !== objectId) return
+    set({ file: withTracing(state().file, told) })
+    if (told.photo?.straightened !== undefined) keepPicture(told.photo.straightened, made)
+    prunePhotos()
+  } catch (e) {
+    // A copy made for a line-up that has changed since is no failure: the change asks again.
+    if (!/another photo or another line-up/.test(said(e))) set({ refused: `The photo could not be straightened: ${said(e)}` })
+  }
+}
+
+/** The photo as it is drawn under the outline: the straightened copy by its rectangle in mm at the person's fade, and the line-up in words for the title block. Nothing for a hidden photo, one not lined up, or a copy not here. */
+export function photoDrawn(t: Pick<Tracing, 'photo'>, photos: Readonly<Record<string, PhotoEntry>>): { photo: NonNullable<TracingExtras['photo']>; said: string } | undefined {
+  const photo = t.photo
+  if (photo === undefined || photo.hidden === true || photo.straightened === undefined || photo.transform === undefined) return undefined
+  const entry = photos[photo.straightened]
+  if (entry === undefined || !('url' in entry)) return undefined
+  const rect = photoRect(photo.transform, photo.width, photo.height)
+  return rect === null ? undefined : { photo: { href: entry.url, rect, fade: photo.fade }, said: lineupSaid(photo) }
+}
+
+/** The pictures of the project's `reference/` that a photo may be taken from: the cards of its references that name an image file. */
+export const referencePhotos = (cards: readonly Pick<Card, 'kind' | 'source'>[]): string[] => cards.filter((c) => c.kind === 'reference' && c.source !== undefined && /\.(?:png|jpe?g|webp)$/i.test(c.source)).map((c) => c.source as string)
+
 export const tracingActions = {
   /** The project the window shows: the tracings of another are no longer shown. */
   openProject(objectId: string | null): void {
     if (state().objectId === objectId) return
+    for (const entry of Object.values(state().photos)) if ('url' in entry) tools.revoke(entry.url)
     tracingsStore.setState({ ...NONE, objectId, building: store.getState().build?.status === 'building' }, true)
   },
 
@@ -170,16 +315,21 @@ export const tracingActions = {
     const cuts = Object.fromEntries(Object.entries(s.cuts).filter(([id]) => ids.has(id)))
     const wasOpen = s.file?.tracings.find((t) => t.id === open)
     const now = file.tracings.find((t) => t.id === open)
-    set({ file, open, cuts, removed: s.removed !== null && ids.has(s.removed.id) ? null : s.removed, ...(open === s.open ? {} : { tool: 'select' as const, into: null, layerRemoved: null }) })
+    const lining = s.lining !== null && file.tracings.find((t) => t.id === s.lining)?.photo !== undefined && open === s.open ? s.lining : null
+    set({ file, open, cuts, lining, removed: s.removed !== null && ids.has(s.removed.id) ? null : s.removed, ...(open === s.open ? {} : { tool: 'select' as const, into: null, layerRemoved: null }) })
+    prunePhotos()
     if (open !== null && (open !== s.open || cutKey(wasOpen) !== cutKey(now))) void tracingActions.refreshCut(open)
+    // The photo of the tracing shown: its pictures read, and its straightened copy made when it has none here.
+    if (open !== null && now?.photo !== undefined) void tracingActions.sync(open)
     // A project that was left on a tracing and has none when it is first read (it was removed on another branch): the model. One whose last tracing is removed now stays on the view that offers the next.
     if (s.file === null && file.tracings.length === 0) boardActions.leaveTracing()
   },
 
   /** Shows the tracing, and asks for its outline. */
   open(id: string): void {
-    set({ open: id, refused: null, tool: 'select', into: null, layerRemoved: null })
+    set({ open: id, refused: null, tool: 'select', into: null, layerRemoved: null, lining: null })
     void tracingActions.refreshCut(id)
+    if (openTracing()?.photo !== undefined) void tracingActions.sync(id)
   },
 
   /**
@@ -373,6 +523,146 @@ export const tracingActions = {
 
   forgetLayerRemoved(): void {
     if (state().layerRemoved !== null) set({ layerRemoved: null })
+  },
+
+  /**
+   * Keeps a picture as the open tracing's photo: decoded with its turn applied and scaled to 4000 px here (`prepare`), checked and named by
+   * main. The line-up opens for it (a swapped photo keeps the tracing side of the points and asks only for the photo's). True when main kept it;
+   * what went wrong is in `refused`, in words.
+   */
+  async addPhoto(source: { name: string; bytes: () => Promise<Uint8Array>; from?: string }): Promise<boolean> {
+    const objectId = state().objectId
+    const id = state().open
+    if (objectId === null || id === null) return false
+    try {
+      const prepared = await tools.prepare(await source.bytes(), source.name)
+      const made = await window.torno.tracings.photo(objectId, id, prepared.image, source.from)
+      if (state().objectId !== objectId) return true
+      set({ file: withTracing(state().file, made), refused: null, ...(state().open === id ? { lining: id, tool: 'select' as const } : {}) })
+      prunePhotos()
+      // The bytes are in hand: the picture is kept without a read.
+      if (made.photo !== undefined && state().photos[made.photo.file] === undefined) keepPicture(made.photo.file, prepared.image)
+      void tracingActions.sync(id)
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /** The photo dialog: the first picture chosen becomes the open tracing's photo (a tracing has one). Nothing when it is cancelled. */
+  async choosePhoto(): Promise<boolean> {
+    let paths: string[]
+    try {
+      paths = await window.torno.objects.pickPhotos()
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+    const path = paths[0]
+    if (path === undefined) return false
+    return tracingActions.addPhoto({ name: path.split(/[\\/]/).pop() ?? path, bytes: () => window.torno.objects.readPhoto(path) })
+  },
+
+  /** A photo of the project's `reference/` as the open tracing's photo: the copy is kept, and the reference is named so that the tracing says where it came from. */
+  async addReference(file: string): Promise<boolean> {
+    const objectId = state().objectId
+    if (objectId === null) return false
+    return tracingActions.addPhoto({
+      name: file.replace(/^reference\//, ''),
+      from: file,
+      bytes: async () => {
+        const got = await window.torno.board.reference(objectId, file)
+        if (got === null) throw new Error(`${file} is not there any more`)
+        return got.bytes
+      }
+    })
+  },
+
+  /** Opens the line-up of the open tracing's photo. */
+  startLineUp(): void {
+    const t = openTracing()
+    if (t?.photo === undefined) return
+    set({ lining: t.id, refused: null, tool: 'select' })
+  },
+
+  /** Closes the line-up and leaves what the photo had. */
+  cancelLineUp(): void {
+    if (state().lining !== null || state().refused !== null) set({ lining: null, refused: null })
+  },
+
+  /** Sends the clicks: main fits them itself and keeps the result. Closes the line-up when it did; says why when it would not. */
+  async lineUp(pairs: LineupPair[], method: 'similar' | 'straight'): Promise<boolean> {
+    const objectId = state().objectId
+    const id = state().lining
+    if (objectId === null || id === null) return false
+    try {
+      const made = await window.torno.tracings.lineUp(objectId, id, pairs, method)
+      if (state().objectId !== objectId) return true
+      set({ file: withTracing(state().file, made), refused: null, lining: null })
+      prunePhotos()
+      void tracingActions.sync(id)
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /** The photo's fade, 0 to 1, sent once. */
+  setFade(fade: number): Promise<boolean> {
+    return look({ fade })
+  },
+
+  setHidden(hidden: boolean): Promise<boolean> {
+    return look({ hidden })
+  },
+
+  /** Takes the photo off the open tracing, with its line-up. */
+  async removePhoto(): Promise<boolean> {
+    const objectId = state().objectId
+    const id = state().open
+    if (objectId === null || id === null) return false
+    try {
+      const made = await window.torno.tracings.removePhoto(objectId, id)
+      if (state().objectId !== objectId) return true
+      set({ file: withTracing(state().file, made), refused: null, lining: null })
+      prunePhotos()
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /**
+   * Has the pictures of a tracing's photo: the photo itself (its thumbnail, and what the line-up is clicked on), and its straightened copy, which
+   * is read when main has it and made here, from the photo through the line-up, when it has not (a line-up just made, or a copy that is not on this
+   * computer). One run for a tracing at a time; asked again while it runs it does it once more at the end when the photo has changed meanwhile.
+   */
+  sync(id: string, original = true): Promise<void> {
+    const objectId = state().objectId
+    if (objectId === null) return Promise.resolve()
+    const key = `${objectId}/${id}`
+    const was = syncing.get(key)
+    if (was !== undefined) {
+      again.add(key)
+      if (original) wantsOriginal.add(key)
+      return was
+    }
+    if (original) wantsOriginal.add(key)
+    const run = (async () => {
+      do {
+        again.delete(key)
+        const wanted = wantsOriginal.delete(key)
+        await syncOnce(objectId, id, wanted)
+      } while (again.has(key) && state().objectId === objectId)
+    })().finally(() => {
+      syncing.delete(key)
+      wantsOriginal.delete(key)
+    })
+    syncing.set(key, run)
+    return run
   },
 
   /** A tracing on a face: the view goes to the model with Select in hand, and the next flat face selected is the one. */

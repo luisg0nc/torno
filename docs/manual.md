@@ -1205,7 +1205,7 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__history` | The builds kept of the project (see Files torno writes, `history/`), newest first: each with its id (`h41`), when, its revision if it was made in this run, what changed from the build before it in a line that also says what caused it (Claude and the prompt, your own edit, params, a go back) and whether it failed to build (kept as a line with no copies, and the reason), the checks of the model that failed and the parts with a defect (a build that fails its checks is kept all the same), how your dimensions stood when it was checked, and whether you starred it. With `id`, one build, with the paths of the copies of its Python files, to read when going back to it. The agent never restores them itself: only your "Go back" does, and Claude is told when it has. |
 | `mcp__torno__board` | Reads the board of the project as text: each card by its id, its kind and who made it (you, Claude, or torno), with what it says, the frames first with their cards in reading order, then the arrows. A frame by its name or id gives only that frame and its cards; `pictures: true` also sends the pictures of the cards, at most 6, each scaled to 1280 px. Hidden cards are left out. |
 | `mcp__torno__add_card` | Leaves a card of Claude's on the board: some text, a size (what it measures, a value, `mm` or `°`, a note; its source is always "from Claude"), or a picture of the view drawn as `look` draws it (at 1280 px, with its camera), in a frame by name (made, and Claude's, when there is none), with an arrow from or to a card and a word. It lands in a free spot, never over a card; in a frame of yours with no room left it goes just below the frame, and Claude is told so. With `card` it changes the text of, or with `remove` takes down, a card of Claude's own, and it refuses any change to a card of yours or one torno made. |
-| `mcp__torno__tracings` | Reads the project's tracings as a list (id, name, plane, layout, who made each, how many layers and shapes), or one by `tracing` (`T1`): its plane and how it was made (a face tracing says it follows its face, or that it is lost), the build its outline is of, each part's outline (area as the kernel's, `≈` where it is not exact, loops, bounds and points in mm along the tracing's own `u` and `v`, thinned as `section` thins them and said so), the layers with every shape in mm and who made each, and the photo's line-up in words. With `picture: true` it also sends a picture of the tracing (its outline on a 10 mm grid, with the layers), at 1280 px or `size` up to 2000, and what maps its pixels to mm (`1 px = 0.212 mm; u = 0 at x = 140, v = 0 at y = 860, v up`), so that Claude can trace in mm what it sees. A photo's numbers are never exact. |
+| `mcp__torno__tracings` | Reads the project's tracings as a list (id, name, plane, layout, who made each, how many layers and shapes), or one by `tracing` (`T1`): its plane and how it was made (a face tracing says it follows its face, or that it is lost), the build its outline is of, each part's outline (area as the kernel's, `≈` where it is not exact, loops, bounds and points in mm along the tracing's own `u` and `v`, thinned as `section` thins them and said so), the layers with every shape in mm and who made each, and the photo's line-up in words. With `picture: true` it also sends a picture of the tracing (its outline on a 10 mm grid, with the layers and, when it has one that you have not hidden, the straightened photo under them at your fade: the one place the photo goes to Claude), at 1280 px or `size` up to 2000, and what maps its pixels to mm (`1 px = 0.212 mm; u = 0 at x = 140, v = 0 at y = 860, v up`), so that Claude can trace in mm what it sees. A photo's numbers are never exact. |
 | `mcp__torno__add_tracing` | Lays a tracing of Claude's own, on a main plane (`{"main": "XZ", "offset": 0}`), a flat face of the last build (`{"face": "block/F31"}`) or a plane given by a point and a normal, with a `name` and the `layout` (the one on show by default); torno makes the plane and the number, and the reply says which way `u` and `v` run. With `tracing` and `remove: true` it takes down a tracing of Claude's own; one of yours is refused by your name, and no tool changes one. |
 | `mcp__torno__add_layer` | Adds a layer of Claude's to any tracing, yours too: a `name`, one of the eight colours and `shapes` (polylines, circles and labels, in mm along the tracing's `u` and `v`), at most 500 shapes in a layer, 20 layers and 20,000 points in a tracing, every number finite and within ten diagonals of the outline. A layer of Claude's with the same name is replaced and keeps its number; a layer of yours is refused by your name. With `remove: true` it takes down Claude's layer of that name. The reply gives the layer's number. |
 | `mcp__torno__expect` | Called before an edit: what it should change, as checks (a part's `volume`, `faces`, `edges` or `size` as a `value` or a `change` with a `tolerance`; a `measure` with the number it `expected`; `unchanged` parts). The next successful build is held against it, and the answer to the edit says in a line how many checks were met and which were not, with the numbers (`≈` where the kernel's is not exact). Kept in memory for that one build, told once, no mark, and it never holds a turn back. A ref to a face of a part whose face count changed is told as moved and not measured. `scene` gives the last verdict. |
@@ -1979,8 +1979,8 @@ select is the tracing's (a face that is not flat is refused, in words). The pane
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
-tracing is cut unspread. **Line up** and **Show in 3D** are not yet available; **Export** opens the export sheet on this tracing's drawing (see
-[Export](#export)).
+tracing is cut unspread. **Show in 3D** is not yet available; **Export** opens the export sheet on this tracing's drawing (see
+[Export](#export)). The panel's **Photo** says how the photo is lined up, below.
 
 **Layers** lie over the outline: each is a named set of shapes (lines, circles and labels) in one of eight colours (blue, teal,
 violet, ochre, plum, slate, sky, olive; never red or green, which are your marks' colour and Claude's). Both you and Claude make
@@ -1999,6 +1999,32 @@ projected onto the plane is drawn fainter and says so), and the pointer's hint s
 `hole centre head/E14 ⌀16`. Hold `Ctrl` to turn snapping off. A free click is kept to a ten thousandth of a millimetre; a snapped
 one is the kernel's, in full. A drag with Trace in hand still moves the sheet, and `Esc` gives up the shape under way, then puts
 Select back.
+
+### A photo under a tracing
+
+A tracing keeps one **photo**, under the outline, lined up with it so that what is on the photo can be traced in millimetres. **Add photo** in the
+panel takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
+the same. torno turns the picture the way the camera held it, scales it to at most 4000 pixels on its long edge and keeps its own copy in
+`.torno/tracings/photos/`, a folder git ignores: a photo stays on this computer, and a tracing opened on another one says `photo not on this
+computer`, with its line-up still told. HEIC is not read (set the phone to Most compatible, or export as JPEG).
+
+The view then splits: the photo on the left, the tracing on the right, each with its own pan and zoom (the wheel or a drag moves, `Ctrl` and the
+wheel zoom, **Fit** frames). You click the same spots in order, a spot on the photo and then its twin on the tracing, and each pair is numbered `1`,
+`2`, … in one colour on both sides. Drag a marker to move its click, and `Backspace` takes the last click away. Clicks on the tracing snap, within 10
+pixels, to the exact corners of the cut and the centres of its holes (`Ctrl` held turns that off), and a snapped click is the kernel's point, not yours.
+The bar shows what the clicks say as you make them, `scale 4.73 px/mm · angle 2.1° · fit 0.4 mm (5 points)`, and **Preview** lays the photo faded over
+the tracing as soon as the points are enough. Two points give a scale, a turn and a place; the fit is only told when a point is spare (`no spare point to
+check it` with exactly two). **Straighten (4 points)**, off until you ask (`S`), fits a perspective to four points or more, for a photo taken at an
+angle. **Done** (`Enter`) sends the clicks: torno fits them again itself and keeps the result; **Cancel** (`Esc`) leaves the line-up as it was.
+Under the bar it says what a line-up is worth: true only in the tracing's plane, since what stands nearer the camera looks bigger. The tracing is shown
+here with `v` up whichever way its plane's axes point in the model, as a photo of the plane's front sees it.
+
+The photo's scale, turn and fit are never exact, and the panel says `not exact` beside them. The straightened copy of the photo (the photo warped
+into the tracing's millimetres, at its own pixels per millimetre and at most 4000) is what the sheet, the board card, the export and Claude's picture
+all place, by its rectangle in millimetres; it is made by the window when a line-up is kept, and made again when this computer has the photo and not the
+copy. The Photo section shows the thumbnail, `4.73 px/mm`, `2.1°`, how it was lined up (`5 points, straightened, fit 0.4 mm`), a **Fade** slider (sent
+once, when you let go), **Hide** (the line-up stays), **Line up again**, **Swap photo** (the points you clicked on the tracing stay, and only the
+photo's are asked for again) and **Remove photo**. Claude never lines a photo up, swaps, fades or removes it.
 
 ## The page of projects
 
@@ -2133,7 +2159,9 @@ the ending gets it).
   `<name>-T1-r<revision>.svg` or `.pdf`. It is drawn from the last good build, and a build that lands while it is
   made is refused. Its title block adds the tracing's ref, name and plane, and each part is named on its outline
   with a thin tab in the part's colour. "Layers" (ticked) draws the layers that are shown, each in its colour, with a
-  legend; "Marks on it" (not ticked) draws the pins and arrows made on the tracing. The photo is not in the drawing yet.
+  legend; "Marks on it" (not ticked) draws the pins and arrows made on the tracing; "The photo" (not ticked: a photo may show the real world) puts the
+  straightened photo under the outline as an embedded image, at its fade, with its line-up and that it is not exact in the title block. It is there to tick
+  once the photo is lined up.
 
 ## Keys
 
@@ -2237,6 +2265,10 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Tracing | `Backspace` | Trace: take the last point back |
 | Tracing | `Ctrl` | Trace: hold it while clicking to turn snapping off |
 | Tracing | `Esc` | Trace: give up the shape under way, then put Select back |
+| Tracing | `S` | Line-up: straighten the photo (4 points or more), or only turn and scale it |
+| Tracing | `Backspace` | Line-up: take the last point back |
+| Tracing | `Enter` | Line-up: done, when there are points enough |
+| Tracing | `Esc` | Line-up: cancel, and leave the line-up as it was |
 | Page of projects | `Left` `Right` `Up` `Down` `Home` `End` | Move among the cards |
 | Page of projects | `Enter` | Open the card in focus |
 | Page of projects | `/` | Filter by name: a letter or a figure does too |

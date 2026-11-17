@@ -50,6 +50,7 @@ import { followSets, refindAll } from './sets/refind'
 import type { SetStore } from './sets/store'
 import { Outlines } from './tracings/outline'
 import { tracingHandlers } from './tracings/ipc'
+import { readPhoto as readTracingPhoto } from './tracings/photos'
 import type { TracingStore } from './tracings/store'
 import type { NamedSet, NewSet, SetEdit } from '../shared/sets'
 import type { RoundAsk } from '../shared/reviews'
@@ -1681,6 +1682,11 @@ export function registerIpc(
           object: deps.object,
           last: deps.last,
           tracings: async (id) => (await requireTracings().list(id)).tracings,
+          // A file of the project's photos folder by its name, which `readTracingPhoto` takes only when it is one of main's.
+          photoBytes: async (id, file) => {
+            const dir = deps.object(id)?.dir
+            return dir === undefined ? null : readTracingPhoto(dir, file)
+          },
           sceneFile: deps.sceneFile,
           marks: deps.marks,
           query: <T>(id: string, name: string, args: Record<string, unknown>) => ws.builds.query<T>(id, name, args),

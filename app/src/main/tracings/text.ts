@@ -146,7 +146,7 @@ export function tracingText(t: Tracing, facts: TracingFacts): string {
     lines.push(`layer ${layer.id} "${layer.name}" (${layer.colour}, by ${owner(layer.by)}, ${plural(layer.shapes.length, 'shape')}, revision ${layer.revision}${layer.hidden ? ', hidden by the person' : ''})`)
     layer.shapes.forEach((shape, i) => lines.push(`  ${shapeLine(layer, shape, i)}`))
   }
-  lines.push(t.photo ? `photo: ${photoLine(t.photo, facts.photoHere !== false)}` : 'photo: none')
+  lines.push(t.photo ? `photo${t.photo.hidden ? ' (hidden by the person, so not in a picture of the tracing)' : ''}: ${photoLine(t.photo, facts.photoHere !== false)}` : 'photo: none')
   if (facts.marks !== undefined) lines.push(`marks on it: ${facts.marks.length === 0 ? 'none' : facts.marks.join(', ')}`)
   return lines.join('\n')
 }
