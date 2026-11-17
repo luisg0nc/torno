@@ -495,3 +495,34 @@ describe('numbers that are zero within the part', () => {
     expect(directionText([0.0009, 0, -1])).toBe('(0, 0, 1)')
   })
 })
+
+describe('describeMark of a mark of a review', () => {
+  const pin = (over: object = {}): Mark => mark({ id: 'M8', kind: 'pick', anchor: { point: [1, 2, 3], ref: 'lid/F12' }, ...over })
+
+  it('says the intent after the number, and the round after the line', () => {
+    expect(describeMark(pin())).toBe('M8 pick of lid/F12')
+    expect(describeMark(pin({ intent: 'dont' }))).toBe("M8 · don't want · pick of lid/F12")
+    expect(describeMark(pin({ intent: 'want', note: 'keep it' }))).toBe('M8 · want · pick of lid/F12: "keep it"')
+    expect(describeMark(pin({ intent: 'dont', round: 'R1' }))).toBe("M8 · don't want · pick of lid/F12 [in R1]")
+    expect(describeMark(pin({ round: 'R2' }))).toBe('M8 pick of lid/F12 [in R2]')
+    expect(describeMark(pin({ intent: 'dont', round: 'R1', anchorState: 'drifted' }))).toBe("M8 · don't want · pick placed on lid/F12 [moved since it was placed: check it] [in R1]")
+  })
+
+  it('says it of a note and of a sketch, whose lines have a dot after the number already', () => {
+    const note = mark({ id: 'M4', kind: 'note', intent: 'want', round: 'R1', status: 'draft', note: 'thicker', labels: [], references: [], strokes: [], revision: 12 })
+    expect(describeMark(note)).toBe('M4 · want · view note · draft: "thicker" (drawn on build 12) [in R1]')
+    const sketch = mark({ id: 'M7', kind: 'sketch', intent: 'dont', name: '', take: 'flow', planes: [], strokes: [], revision: 41, status: 'draft' }) as SketchMark
+    expect(describeMark(sketch)).toBe("M7 · don't want · Sketch M7 · flow · 0 strokes · draft, drawn on build 41")
+  })
+
+  it('leaves a shape to say its intent in its own line, and adds only the round', () => {
+    const shape = (over: object): Mark => mark({ id: 'M2', kind: 'shape', shape: 'box', position: [0, 0, 0], size: [1, 1, 1], rotation: [0, 0, 0, 1], ...over })
+    expect(describeMark(shape({ intent: 'add' }))).toBe('M2 box 1 × 1 × 1 mm centred at (0, 0, 0), intent add')
+    expect(describeMark(shape({ intent: 'remove', round: 'R1' }))).toBe('M2 box 1 × 1 × 1 mm centred at (0, 0, 0), intent remove [in R1]')
+    expect(describeMark(shape({ intent: 'add', author: 'agent' }))).toBe('(yours) M2 box 1 × 1 × 1 mm centred at (0, 0, 0), intent add')
+  })
+
+  it('gives the data its intent, round and judgment', () => {
+    expect(markData(pin({ intent: 'dont', round: 'R1', judged: { verdict: 'ok', build: 'h42' } }), 1)).toMatchObject({ intent: 'dont', round: 'R1', judged: { verdict: 'ok', build: 'h42' } })
+  })
+})

@@ -6,6 +6,7 @@ import { explodeText, isExploded } from '../shared/explode'
 import { type InstructionFile, instructionsLine } from '../shared/instructions'
 import { type DimensionMark, type Mark, type SketchMark, isUnchecked } from '../shared/marks'
 import { checksLine } from '../shared/modelChecks'
+import { type Round, type RoundsView, isHeld, roundCounts, roundItems } from '../shared/reviews'
 import type { ScanInfo } from '../shared/scans'
 import type { BuildDigest } from '../shared/sanity'
 import type { Scene } from '../shared/scene'
@@ -52,6 +53,11 @@ export const SCANS_LIMIT = 600
 export const TRIED_LIMIT = 500
 /** Said of a sketch the person has open for editing: it goes with the next prompt once they are done with it. */
 const BEING_SKETCHED = (mark: Mark): string => `${mark.id} is being sketched, not sent.`
+/** Said of a round that is held for Send review: its marks are in no prompt until the person sends it. */
+export const HELD_LINE = (round: string, n: number): string => `${round} is in review, not sent (${n} mark${n === 1 ? '' : 's'}).`
+/** Told before the marks of a round that is being sent: which build it reviews and what the person wants of each item. */
+export const REVIEW_LINE = (round: Pick<Round, 'id' | 'build'>, counts: { dont: number; want: number; plain: number }): string =>
+  `Review of ${round.build} (${round.id}): ${[...(counts.dont > 0 ? [`${counts.dont} don't want`] : []), ...(counts.want > 0 ? [`${counts.want} want`] : []), ...(counts.plain > 0 ? [`${counts.plain} plain`] : [])].join(', ')}. Answer each item by its id.`
 const MARKS_HEAD = 'Marks from the user (drawn in look pictures with these numbers):'
 const STILL_OPEN_HEAD = 'Marks still open (this conversation has not seen them):'
 /** A tool of torno's as Claude Code names it to its model: what is said when nothing says how another client does. */
@@ -137,6 +143,10 @@ export interface PromptContext {
   sentMarkIds: string[]
   /** The sketch the text says is being sketched and so not sent (its number), for the chat's line under the prompt. Absent when the text says none. */
   sketching?: string
+  /** The round the text tells of (`REVIEW_LINE`: its number), once the answer is delivered it is sent. Absent when the text tells of none. */
+  review?: string
+  /** The rounds the text says are in review and not sent (`HELD_LINE`: their numbers, joined by a comma), for the chat's line under the prompt. Absent when it says none. */
+  held?: string
   /** What the text says of the build, as data for the chat's chips: the revision it names, and how that build stands. Absent where the text names none. */
   revision?: number
   buildState?: 'ok' | 'failed' | 'building'
@@ -207,7 +217,7 @@ export interface PromptContext {
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; notice?: string } = {}): PromptContext {
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
   const { notice, ...rest } = opts
   const told = withBuild(deps, objectId, contextText(deps, objectId, marks, rest))
   return notice ? { ...told, text: told.text === '' ? notice : `${notice}\n${told.text}` } : told
@@ -242,7 +252,7 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; buildOnly?: boolean }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
@@ -250,7 +260,11 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // A sketch open for editing is not given to the agent until the person is done: it is no draft, and not an open mark.
   const sketching = deps.sketching?.(objectId) ?? null
   const waiting = sketching === null ? undefined : everyMark.find((m) => m.id === sketching && m.kind === 'sketch' && m.status === 'draft')
-  const marks = waiting ? everyMark.filter((m) => m !== waiting) : everyMark
+  const unsketched = waiting ? everyMark.filter((m) => m !== waiting) : everyMark
+  // The drafts of a round that is not sent are not told either: they go all at once with Send review (`isHeld`).
+  const heldMarks = opts.rounds ? unsketched.filter((m) => opts.rounds && isHeld(m, opts.rounds)) : []
+  const marks = heldMarks.length > 0 ? unsketched.filter((m) => !heldMarks.includes(m)) : unsketched
+  const sending = opts.rounds?.sending ? opts.rounds.rounds.find((round) => round.id === opts.rounds?.sending) : undefined
   const drafts = marks.filter((m) => m.status === 'draft')
   const open = marks.filter((m) => m.status !== 'resolved' && !drafts.includes(m))
   const pinned = open.filter((m): m is DimensionMark => m.kind === 'dimension')
@@ -266,7 +280,7 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   const checksRoom = checks ? 1 + checks.length : 0
   // Under `Dimensions:` they are listed with every prompt: not once more among the marks this conversation has not seen.
   const still = opts.fresh ? open.filter((m) => m.author === 'user' && !unmet.includes(m as DimensionMark)) : []
-  const told = drafts.length > 0 || open.length > 0 || waiting !== undefined
+  const told = drafts.length > 0 || open.length > 0 || waiting !== undefined || heldMarks.length > 0
   // The files Claude Code reads, told once, last: their room is kept before the status and the marks are given theirs.
   // `instructionsLine` is at most INSTRUCTIONS_LIMIT, so the limit below is never short of room.
   const instructed = opts.buildOnly ? '' : (instructionsLine(opts.instructions ?? []) ?? '')
@@ -362,13 +376,37 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // One of its own that is a draft and was not reopened is a dimension the person holds to another value (`sentBefore`).
   const news = (mark: Mark): string | undefined =>
     mark.reopened || (mark.author === 'agent' && !mark.sentBefore) ? 'reopened by the user' : mark.sentBefore && (mark.author === 'agent' || !opts.fresh) ? 'changed' : undefined
+  // The review line goes before the marks it is of; when none of them fit under the head, it goes too and the round stays unsent.
+  const reviewLine = sending ? `${REVIEW_LINE(sending, roundCounts(everyMark, sending.id))}${alsoIn(everyMark, sending.id)}` : ''
+  const reviewAt = lines.length
+  const reviewUsed = used
+  let reviewed = false
+  if (reviewLine && used + 1 + reviewLine.length <= CONTEXT_LIMIT) {
+    lines.push(reviewLine)
+    used += 1 + reviewLine.length
+    reviewed = true
+  }
   const listedDrafts = list(MARKS_HEAD, drafts, news)
+  if (reviewed && sending && drafts.some((m) => m.round === sending.id) && !listedDrafts.some((m) => m.round === sending.id)) {
+    lines.splice(reviewAt, 1)
+    used = reviewUsed
+    reviewed = false
+  }
   // What is held back is said, so that the agent knows the number and why it has no word of it.
   let said: string | undefined
   if (waiting && used + 1 + BEING_SKETCHED(waiting).length <= CONTEXT_LIMIT) {
     lines.push(BEING_SKETCHED(waiting))
     used += 1 + BEING_SKETCHED(waiting).length
     said = waiting.id
+  }
+  // Each round that is held says so, with how many of its marks wait: they are the person's to send.
+  const held: string[] = []
+  for (const round of opts.rounds?.rounds ?? []) {
+    const n = heldMarks.filter((m) => m.round === round.id).length
+    if (n === 0 || used + 1 + HELD_LINE(round.id, n).length > CONTEXT_LIMIT) continue
+    lines.push(HELD_LINE(round.id, n))
+    used += 1 + HELD_LINE(round.id, n).length
+    held.push(round.id)
   }
   list(STILL_OPEN_HEAD, still, () => undefined)
   // The room kept for the dimensions is theirs now. The count of those that pass is still to come after them.
@@ -390,10 +428,16 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // The files Claude Code reads are the very last line; the references go before it, should they fit beside it.
   const tail = instructed ? 1 + instructed.length : 0
   const text = printed ? `${joined}\n${printed}` : `${joined}${referred && joined.length + 1 + referred.length + tail <= CONTEXT_LIMIT ? `\n${referred}` : ''}${instructed ? `\n${instructed}` : ''}`
-  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(said ? { sketching: said } : {}), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}) }
+  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(said ? { sketching: said } : {}), ...(reviewed && sending ? { review: sending.id } : {}), ...(held.length > 0 ? { held: held.join(',') } : {}), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}) }
   // Every part above keeps to the room it has; this holds for what none of them foresaw. What is cut is
   // the end, and no mark whose line may be among it is said to have been told.
   return { text: cutEnd(text, CONTEXT_LIMIT), sentMarkIds: [] }
+}
+
+/** ` Also in it: M4, M6.`: the items of a round that were sent already, by id; nothing when there are none. */
+function alsoIn(marks: readonly Mark[], id: string): string {
+  const sent = roundItems(marks, id).filter((m) => m.status !== 'draft')
+  return sent.length === 0 ? '' : ` Also in it: ${sent.map((m) => m.id).join(', ')}.`
 }
 
 /**

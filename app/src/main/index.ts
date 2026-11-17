@@ -598,8 +598,17 @@ void app.whenReady().then(async () => {
       // What is on the board, and what of it is new to the agent: one line. A board that cannot be read is no reason to tell nothing of the build.
       const all = await marks.list(id).catch(() => [])
       const boarded = await boardLineFor(id, all, opts.toolName).catch(() => undefined)
-      const told = contextFor(promptDeps, id, all, { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
-      return notice ? { ...told, delivered: notice.done } : told
+      // The rounds of the review: a round that is not sent holds its drafts back, one being sent has its prompt now, and is sent once the answer has left (`delivered`).
+      const rounds = await marks.rounds(id).catch(() => undefined)
+      const told = contextFor(promptDeps, id, all, { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
+      const review = told.review
+      if (!notice && review === undefined) return told
+      return {
+        ...told,
+        delivered: async () => {
+          await Promise.all([notice?.done(), review === undefined ? undefined : marks.roundSent(id, review).catch((e) => console.error(`cannot mark ${review} of ${id} as sent: ${e instanceof Error ? e.message : String(e)}`))])
+        }
+      }
     },
     // An edit of the model is answered with the build it started, and a Stop held back once over a build the turn left failed or unseen.
     build: buildState,

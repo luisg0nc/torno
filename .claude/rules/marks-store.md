@@ -51,6 +51,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`main/reviews/ipc.ts`): it names a project, `R<n>` and `M<n>` only, never a build. Main finds the build on show (`shownBuild`: the
   newest kept, not failed history entry whose `sources` are the last successful build's) and stars it; it is refused while a build runs
   or failed. Start and Still wrong's next round use it; OK only names it.
+  What the agent is told (`contextFor`, `opts.rounds`): the drafts of a held round (`isHeld`) are left out of the drafts and the open marks
+  as an open sketch is, never in `sentMarkIds`, and each held round says `R1 is in review, not sent (3 marks).` (`HELD_LINE`; `held`
+  is their numbers, comma-joined). While `sending` names a round, `REVIEW_LINE` (`Review of h41 (R1): 3 don't want, 2 want. Answer each
+  item by its id.` and `Also in it: M4.` for items sent before) goes before the marks head, and `review` is that round; if none of its
+  drafts fit under the head the line is taken out again and the round stays unsent. `contextFor` writes nothing: the caller's `delivered`
+  runs `roundSent`, which sets `sentAt`, once the answer has left. `describeMark` says the intent after the number (`M8 · don't want ·
+  pick of lid/F12`; not of a shape, whose line says `intent add` already) and ` [in R1]` after the line of a round item.
 
 - A view note's card on the board is told to the agent as the note's line (`describeMark`, the same as the `marks` tool's first line), never as
   `(note, on <ref>)` of the other marks (`main/board/text.ts` `markText`).

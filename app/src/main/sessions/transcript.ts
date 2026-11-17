@@ -281,7 +281,7 @@ export class Transcript {
    * What a `UserPromptSubmit` was answered with, under the prompt it went with: the one `prompt` names if it names
    * one that is waiting, else the oldest that has none yet. Null when nothing was added, and when no prompt waits.
    */
-  context(c: { text: string; sentMarkIds: string[]; sketching?: string; prompt?: string; revision?: number; buildState?: 'ok' | 'failed' | 'building'; selection?: string[]; instructions?: number; identity?: BuildIdentity; board?: BoardCounts }): ChatItem | null {
+  context(c: { text: string; sentMarkIds: string[]; sketching?: string; review?: string; held?: string; prompt?: string; revision?: number; buildState?: 'ok' | 'failed' | 'building'; selection?: string[]; instructions?: number; identity?: BuildIdentity; board?: BoardCounts }): ChatItem | null {
     let made: ChatItem | null = null
     // Which prompt this hook took up: none until it is found one, so that a hook that matches no waiting prompt does not leave the last one's.
     this.promptTaken = undefined
@@ -305,7 +305,7 @@ export class Transcript {
       // This hook starts a turn, and the `init` that follows it is its own (unless its lifecycle said so already).
       this.explain(forUser)
       if (c.text.trim() === '' && c.sentMarkIds.length === 0) return
-      made = { kind: 'context', id: this.newId('i'), forUser, text: this.redact(c.text), marks: [...c.sentMarkIds], ...(c.sketching ? { sketching: c.sketching } : {}), ...(c.revision !== undefined ? { revision: c.revision } : {}), ...(c.buildState ? { buildState: c.buildState } : {}), ...(c.selection && c.selection.length > 0 ? { selection: c.selection.map((ref) => this.redact(ref)) } : {}), ...(c.instructions ? { instructions: c.instructions } : {}), ...(c.identity ? { identity: c.identity } : {}), ...(c.board ? { board: { total: c.board.total, new: c.board.new } } : {}) }
+      made = { kind: 'context', id: this.newId('i'), forUser, text: this.redact(c.text), marks: [...c.sentMarkIds], ...(c.sketching ? { sketching: c.sketching } : {}), ...(c.review ? { review: c.review } : {}), ...(c.held ? { held: c.held } : {}), ...(c.revision !== undefined ? { revision: c.revision } : {}), ...(c.buildState ? { buildState: c.buildState } : {}), ...(c.selection && c.selection.length > 0 ? { selection: c.selection.map((ref) => this.redact(ref)) } : {}), ...(c.instructions ? { instructions: c.instructions } : {}), ...(c.identity ? { identity: c.identity } : {}), ...(c.board ? { board: { total: c.board.total, new: c.board.new } } : {}) }
       this.put(made)
     })
     return made

@@ -1,6 +1,6 @@
 import { count as counted, number, numberWithin, scanNumber } from '../../shared/format'
 import { expectedText, lastValue, measuredValue, notMeasuredText, offBy, onBuild, standingOf, valueText } from '../../shared/dimension'
-import { type Anchor, type DimensionMark, type Mark, type NoteMark, type RegionMark, type ShapeMark, type SketchMark, type StrokeMark, isUnchecked, markAnchors } from '../../shared/marks'
+import { type Anchor, type DimensionMark, type Mark, type NoteMark, type RegionMark, type ShapeMark, type SketchMark, type StrokeMark, isUnchecked, markAnchors, markIntent } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { isFlat, regionInLayout } from '../../shared/regions'
 import { type ScanInfo, alignmentOf } from '../../shared/scans'
@@ -10,6 +10,9 @@ import { alignmentSaid } from '../scans/said'
 const ANCHOR_SUFFIX = { ok: '', drifted: ' [moved since it was placed: check it]', orphaned: ' [its part is gone]' } as const
 
 export { number }
+
+/** What the intent of a mark is called to the agent. */
+const INTENT_SAID = { want: 'want', dont: "don't want" } as const
 
 /**
  * How far across the thing is whose coordinates and sizes are being told, in millimetres: set while one mark is
@@ -73,8 +76,14 @@ export function describeMark(mark: Mark, opts: { tag?: string; revision?: number
   across = extentOf(mark, opts.scene)
   try {
     // A note is said as the person made it: what it holds, then the build it was drawn on.
-    if (mark.kind === 'note') return `${tags ? `(${tags}) ` : ''}${mark.id} · view note · ${mark.status}${note ? `: "${note}"` : ''} ${noteHolds(mark)}${suffix}${unchecked}`
-    return `${tags ? `(${tags}) ` : ''}${mark.id} ${what(mark, opts)}${note ? `: "${note}"` : ''}${suffix}${unchecked}${asMeasured(mark, opts.revision)}`
+    // A shape says its intent in its own line (`intent add`): it is not said twice.
+    const intent = mark.kind === 'shape' ? null : markIntent(mark)
+    const round = mark.round === undefined ? '' : ` [in ${mark.round}]`
+    if (mark.kind === 'note') return `${tags ? `(${tags}) ` : ''}${mark.id}${intent === null ? '' : ` · ${INTENT_SAID[intent]}`} · view note · ${mark.status}${note ? `: "${note}"` : ''} ${noteHolds(mark)}${suffix}${unchecked}${round}`
+    const said = what(mark, opts)
+    // What a sketch says begins with its own dot: the intent is put before it, and the others get one.
+    const head = intent === null ? `${mark.id} ` : `${mark.id} · ${INTENT_SAID[intent]} ${said.startsWith('· ') ? '' : '· '}`
+    return `${tags ? `(${tags}) ` : ''}${head}${said}${note ? `: "${note}"` : ''}${suffix}${unchecked}${asMeasured(mark, opts.revision)}${round}`
   } finally {
     across = 0
   }
