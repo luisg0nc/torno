@@ -20,12 +20,14 @@ export interface Tool {
   onPointer(e: ViewportPointer, ctx: ToolContext): void
   /** A key pressed outside any field. True when the tool used it: nothing else then acts on it. */
   onKey?(e: KeyboardEvent, ctx: ToolContext): boolean
+  /** The tool is taken up: the Draw tool opens its sketch. */
+  activate?(ctx: ToolContext): void
   /** The tool is put down, or its pointing is cut short: it drops whatever it had under way. */
   cancel(ctx: ToolContext): void
 }
 
 /** What a tool may do to the viewport. */
-export type ToolViewport = Pick<Viewport, 'setHover' | 'setNavigation' | 'setDraft' | 'lockedView' | 'pick' | 'bounds' | 'pickScan' | 'scanPatch'> & Partial<Pick<Viewport, 'getSection' | 'setSection' | 'sectionBox' | 'onSectionHandle' | 'sectionHandleOnScreen' | 'canvas' | 'pointerAt' | 'project' | 'partBoxes' | 'scanTree' | 'paintScan' | 'showBrush'>>
+export type ToolViewport = Pick<Viewport, 'setHover' | 'setNavigation' | 'setDraft' | 'lockedView' | 'pick' | 'bounds' | 'pickScan' | 'scanPatch'> & Partial<Pick<Viewport, 'getSection' | 'setSection' | 'sectionBox' | 'onSectionHandle' | 'sectionHandleOnScreen' | 'canvas' | 'pointerAt' | 'project' | 'partBoxes' | 'scanTree' | 'paintScan' | 'showBrush' | 'snapIndex' | 'visibleAt' | 'setSketch' | 'setSketchSheet' | 'sketchCorner' | 'onSketchHandle' | 'cubeAt' | 'xrayOn'>>
 
 /**
  * What a tool works with, as it is when the event arrives: the object on show,

@@ -31,7 +31,13 @@ import { ScanEdit } from './scanEdit'
 import { ScanLayer, rayOf, reaching, type ScanHit, type ScanLayerState } from './scans'
 import { SectionCut, nearSegmentOnScreen, segmentOnScreen } from './section'
 import { ShapeGizmo, type GizmoMode, type ShapeTransform } from './ShapeGizmo'
-import { type Theme, LIGHT_THEME, markColours, themeOf, toHex } from './theme'
+import { type Theme, LIGHT_THEME, XRAY_OPACITY, markColours, themeOf, toHex } from './theme'
+import type { MainAxis } from '../../shared/planes'
+import { type SketchHint, type SketchOverlay } from './sketchHint'
+import { HANDLE_REACH_PX, SketchSheet } from './sketchPlane'
+import { type PlaneDraft } from '../tools/sketch/planes'
+import { SnapIndex, type SnapPart } from '../tools/sketch/snap'
+import { faceAt } from './viewCube'
 import { DEFAULT_FOV, fitBelow, fitCamera, lockedViewOf, viewDirection } from './views'
 
 export interface LayerState {
@@ -54,6 +60,8 @@ type Vec3 = [number, number, number]
 const SETTLE_MS = 150
 /** How near the handle of the section's plane the pointer must be to take hold of it, in pixels. */
 export const SECTION_HANDLE_REACH_PX = 12
+/** How far behind the surface a point may be and still be taken as on it, when it is asked whether it can be seen, in millimetres. */
+const SNAP_BEHIND_MM = 0.3
 /** What `fit` and the named views frame when no part is shown. */
 const EMPTY_BOX = { min: [-50, -50, 0], max: [50, 50, 50] }
 
@@ -148,6 +156,13 @@ export class Viewport {
   private allMarks: Mark[] = []
   /** Over the canvas: the labels of the marks, and what a tool shows of itself. Drawn anew with every frame, never through React. */
   private readonly overlay: OverlayPass
+  /** The sheet of the plane a sketch is drawn on, with its handle. */
+  private readonly sketchSheet = new SketchSheet()
+  /** What a sketch is drawn with over the view (the hint, the label of its plane, the view cube): see `setSketch`. */
+  private sketchOver: SketchOverlay = { hint: null, marker: null, plane: null, cube: null }
+  /** The snap targets of the parts shown, made when a sketch first asks and kept until the parts change. */
+  private snaps: SnapIndex | null | undefined
+  private xray = false
   /** The gizmo on the shape being edited. */
   private readonly gizmo: ShapeGizmo
   private readonly pointer: PointerRouter
@@ -174,7 +189,7 @@ export class Viewport {
     this.ground.material.depthWrite = false
     this.ground.renderOrder = -1
     this.ground.frustumCulled = false
-    this.scene.add(this.ground, this.scans.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group, this.later.group)
+    this.scene.add(this.ground, this.scans.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group, this.later.group, this.sketchSheet.group)
 
     this.overlay = new OverlayPass({ canvas, marks: this.marks, camera: () => this.camera, layout: () => this.layout, style: () => ({ ...this.labelStyle(), accent: this.theme.accent }), frame: () => ({ muted: this.theme.muted, axes: [this.theme.axisX, this.theme.axisY, this.theme.axisZ] as const, gridStep: this.gridStepMm }), project: (p) => this.project(p), syncMatrices: () => this.syncMatrices(), exploded: () => this.apart.any })
     // A label drawn before its face has loaded is in the fallback face: draw again once it is there.
@@ -250,7 +265,9 @@ export class Viewport {
         const ghostsBack = this.ghosts.hide()
         const earlierBack = this.earlier.hide()
         const laterBack = this.later.hide()
+        const sheetBack = this.sketchSheet.hide()
         return () => {
+          sheetBack()
           laterBack()
           gizmoBack()
           ghostsBack()
@@ -314,6 +331,7 @@ export class Viewport {
 
     this.layouts = [...scene.layouts]
     if (!this.layouts.includes(this.layout)) this.layout = this.layouts[0] ?? ''
+    this.snaps = undefined
     this.colors = colorsOfParts(scene.parts)
     this.refresh()
     this.showGhosts(stood)
@@ -622,9 +640,110 @@ export class Viewport {
   setLayout(layout: string): void {
     if (layout === this.layout || !this.layouts.includes(layout)) return
     this.layout = layout
+    this.snaps = undefined
     this.ghosts.end()
     this.refresh()
     this.invalidate()
+  }
+
+  // ---- sketching ----
+
+  /** Draws the parts see-through (a sketch's x-ray), or solid again: strokes inside a part are placed and seen through it. */
+  setXray(on: boolean): void {
+    if (on === this.xray) return
+    this.xray = on
+    for (const entry of this.entries.values()) this.applyLook(entry)
+    this.invalidate()
+  }
+
+  /** Whether the parts are drawn see-through. */
+  xrayOn(): boolean {
+    return this.xray
+  }
+
+  /**
+   * What a sketch snaps to: the vertices, hole centres and edges of the parts shown, in the object frame, made once for the
+   * parts as they are and made again when they change. Null when no part has snap data (a kernel that does not send it).
+   */
+  snapIndex(): SnapIndex | null {
+    if (this.snaps !== undefined) return this.snaps
+    const parts: SnapPart[] = []
+    for (const { part, built } of this.entries.values()) {
+      if (!built.group.visible || !built.snap || !built.edgeTypes) continue
+      const q = new THREE.Quaternion().fromArray(part.loc.q)
+      const t = new THREE.Vector3().fromArray(part.loc.t)
+      const per = new Uint32Array(built.edgeStarts.length - 1).map((_, i) => built.edgeStarts[i + 1] - built.edgeStarts[i])
+      parts.push({
+        name: part.name,
+        toObject: (v) => new THREE.Vector3(v[0], v[1], v[2]).applyQuaternion(q).add(t).toArray() as Vec3,
+        data: built.snap,
+        edges: built.edges.geometry.getAttribute('position').array as Float32Array,
+        segmentsPerEdge: per,
+        edgeTypes: built.edgeTypes
+      })
+    }
+    return (this.snaps = parts.length > 0 ? new SnapIndex(parts) : null)
+  }
+
+  /**
+   * Whether a point of the object frame can be seen from the camera: not behind a part, and not on what a section cuts away. A
+   * point on a surface is on it to within the tessellation, so what is a little behind it counts as on it.
+   */
+  visibleAt(point: Vec3): boolean {
+    if (this.viewOnly) return false
+    this.syncMatrices()
+    const rect = this.canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return true
+    const keeps = this.section.keeps()
+    const p = new THREE.Vector3().fromArray(point)
+    if (keeps && keeps.distanceToPoint(p) < 0) return false
+    const ndc = p.clone().project(this.camera)
+    if (!(ndc.z >= -1 && ndc.z <= 1)) return false
+    const size = { width: rect.width, height: rect.height }
+    const parts = [...this.entries.values()].filter((e) => e.built.group.visible && !this.section.removed(e.built)).map((e) => ({ key: e.part.key, name: e.part.name, built: e.built }))
+    const picked = pickUnder(parts, this.camera, { x: ndc.x, y: ndc.y }, size, { edges: false, cut: keeps && { keeps } })
+    if (!picked.hit) return true
+    const ray = pointerRay(this.camera, { x: ndc.x, y: ndc.y })
+    const depth = p.sub(new THREE.Vector3().fromArray(ray.origin)).dot(new THREE.Vector3().fromArray(ray.direction))
+    return picked.hit.distance >= depth - Math.max(SNAP_BEHIND_MM, 3 * mmPerPx(this.camera, p, size.height))
+  }
+
+  /** Lays the sheet of the plane a sketch is drawn on across the parts shown; null takes it away. */
+  setSketchSheet(plane: PlaneDraft | null): void {
+    this.sketchSheet.setColour(toHex(this.theme.accent))
+    this.sketchSheet.set(plane, plane ? this.bounds() : null)
+    this.invalidate()
+  }
+
+  /** Whether the pointer is on the handle of the sheet (client pixels). */
+  onSketchHandle(clientX: number, clientY: number): boolean {
+    const at = this.sketchSheet.handlePoint()
+    if (!at) return false
+    const [x, y] = this.project(at)
+    return Math.hypot(x - clientX, y - clientY) <= HANDLE_REACH_PX
+  }
+
+  /**
+   * What the sketch tool lays over the view, in client pixels where it has any: the hint beside the pointer, where a snap
+   * would land, the plane's label, the view cube. Each of the parts is put where it is given and the others are kept.
+   */
+  setSketch(over: { hint?: SketchHint | null; marker?: Vec3 | null; plane?: SketchOverlay['plane']; cube?: SketchOverlay['cube'] }): void {
+    const rect = this.canvas.getBoundingClientRect()
+    const hint = over.hint === undefined ? this.sketchOver.hint : over.hint && over.hint.at ? { ...over.hint, at: [over.hint.at[0] - rect.left, over.hint.at[1] - rect.top] as [number, number] } : over.hint
+    this.sketchOver = { hint, marker: over.marker === undefined ? this.sketchOver.marker : over.marker, plane: over.plane === undefined ? this.sketchOver.plane : over.plane, cube: over.cube === undefined ? this.sketchOver.cube : over.cube }
+    this.overlay.sketch = this.sketchOver.hint || this.sketchOver.marker || this.sketchOver.plane || this.sketchOver.cube ? this.sketchOver : null
+    this.invalidate()
+  }
+
+  /** The corner of the sheet the plane's label stands by, in the object frame; null with no sheet. */
+  sketchCorner(): Vec3 | null {
+    return this.sketchSheet.cornerPoint()
+  }
+
+  /** The main plane whose face of the view cube is at a point (client pixels); null beside the cube or with none shown. */
+  cubeAt(clientX: number, clientY: number): MainAxis | null {
+    const rect = this.canvas.getBoundingClientRect()
+    return faceAt(this.overlay.cube, [clientX - rect.left, clientY - rect.top])
   }
 
   // ---- explode ----
@@ -731,6 +850,7 @@ export class Viewport {
     const entry = this.entries.get(key)
     if (entry) this.applyLook(entry)
     if (entry && (was?.visible !== false) !== (this.layers.get(key)?.visible !== false)) {
+      this.snaps = undefined
       // The marks on a part come and go with it.
       this.showMarks()
       this.extent = this.measured()
@@ -1198,6 +1318,7 @@ export class Viewport {
     this.controls.dispose()
     this.gizmo.dispose()
     this.section.dispose()
+    this.sketchSheet.dispose()
     this.ghosts.end(false)
     this.earlier.clear()
     this.later.clear()
@@ -1290,12 +1411,16 @@ export class Viewport {
     built.mesh.material.color.set(fade(base))
     built.edges.material.color.set(fade(edgeTint(base)))
 
-    const opacity = Math.min(Math.max(layer?.opacity ?? 1, 0), 1)
+    const own = Math.min(Math.max(layer?.opacity ?? 1, 0), 1)
+    // X-ray (a sketch's): see-through, never more opaque than the part is by its own setting.
+    const opacity = this.xray ? Math.min(own, XRAY_OPACITY) : own
     for (const material of [built.mesh.material, built.edges.material]) {
-      const transparent = opacity < 1
+      // The edges stay readable through a part that is see-through: twice as opaque.
+      const shown = this.xray && material === built.edges.material ? Math.min(own, XRAY_OPACITY * 2) : opacity
+      const transparent = shown < 1
       if (material.transparent !== transparent) material.needsUpdate = true
       material.transparent = transparent
-      material.opacity = opacity
+      material.opacity = shown
       material.depthWrite = !transparent
     }
     this.section.look(built, fade(base), opacity, fade(edgeTint(base)))
@@ -1506,6 +1631,7 @@ export class Viewport {
     this.camera.updateMatrixWorld()
     this.marks.update(this.camera, size)
     this.section.sizeHandle((at) => mmPerPx(this.camera, at, size.height))
+    this.sketchSheet.size((at) => mmPerPx(this.camera, at, size.height))
     this.section.outline()
     if (split) {
       const half = size.width / 2

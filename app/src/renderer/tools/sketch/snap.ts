@@ -83,8 +83,12 @@ export class SnapIndex {
     this.marks = [new Uint32Array(this.vertexPoints.length), new Uint32Array(this.centrePoints.length), new Uint32Array(this.segmentEdge.length)]
   }
 
-  /** The nearest snap to `pointer` (screen px) within `radiusPx`, the ray being the one through the pointer, or null. */
-  nearest(ray: { origin: Vec3; dir: Vec3 }, project: (p: Vec3) => [number, number], pointer: [number, number], radiusPx = 10): Snap | null {
+  /**
+   * The nearest snap to `pointer` (screen px) within `radiusPx`, the ray being the one through the pointer, or null. A target
+   * that `visible` says is not (hidden behind a part, or cut away) is passed over, and the next one is the answer; the index
+   * knows nothing of what hides what, the view does.
+   */
+  nearest(ray: { origin: Vec3; dir: Vec3 }, project: (p: Vec3) => [number, number], pointer: [number, number], radiusPx = 10, visible?: (p: Vec3) => boolean): Snap | null {
     if (this.cells.size === 0) return null
     const seen = this.next()
     const away = (p: Vec3): number => {
@@ -103,13 +107,13 @@ export class SnapIndex {
         if (this.marks[0][i] === seen) continue
         this.marks[0][i] = seen
         const d = away(this.vertexPoints[i])
-        if (d <= radiusPx && better(d, depth(this.vertexPoints[i]), vertex)) vertex = { i, d, t: depth(this.vertexPoints[i]) }
+        if (d <= radiusPx && better(d, depth(this.vertexPoints[i]), vertex) && (!visible || visible(this.vertexPoints[i]))) vertex = { i, d, t: depth(this.vertexPoints[i]) }
       }
       for (const i of cell.centres) {
         if (this.marks[1][i] === seen) continue
         this.marks[1][i] = seen
         const d = away(this.centrePoints[i])
-        if (d <= radiusPx && better(d, depth(this.centrePoints[i]), centre)) centre = { i, d, t: depth(this.centrePoints[i]) }
+        if (d <= radiusPx && better(d, depth(this.centrePoints[i]), centre) && (!visible || visible(this.centrePoints[i]))) centre = { i, d, t: depth(this.centrePoints[i]) }
       }
       for (const s of cell.segments) {
         if (this.marks[2][s] === seen) continue
@@ -118,7 +122,7 @@ export class SnapIndex {
         if (found.d > radiusPx) continue
         const t = found.t
         const p = this.segmentAt(s, t)
-        if (better(found.d, depth(p), edge)) edge = { s, d: found.d, t: depth(p), at: t }
+        if (better(found.d, depth(p), edge) && (!visible || visible(p))) edge = { s, d: found.d, t: depth(p), at: t }
       }
     }
     if (vertex) return { kind: 'vertex', ref: this.vertexRefs[vertex.i], point: this.vertexPoints[vertex.i] }

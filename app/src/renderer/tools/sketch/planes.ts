@@ -76,6 +76,15 @@ export function withOffset<P extends PlaneDraft>(plane: P, offset: number): P {
   }
 }
 
+/**
+ * The unit vector the plane's offset counts along: the positive axis it is across for a main plane (its offset is that
+ * coordinate, whichever way its normal x × y runs), the normal of any other. A plane of a locked view has no offset: its normal.
+ */
+export function offsetDirection(plane: PlaneDraft): Vec3 {
+  if (plane.from.kind === 'main') return [0, 1, 2].map((i) => (i === AXIS[plane.from.kind === 'main' ? plane.from.axis : 'XY'] ? 1 : 0)) as Vec3
+  return tidy(normalOf(plane))
+}
+
 type Frame = Pick<SketchPlane, 'origin' | 'x' | 'y'>
 
 /** A point of the object frame in a plane's own two axes, in mm from its origin. What is off the plane is dropped. */

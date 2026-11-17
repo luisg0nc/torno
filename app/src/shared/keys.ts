@@ -16,6 +16,8 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `window`: everywhere outside a field and the terminal. Nobody else's either.
  * - `viewport`: outside a field and the terminal, with an object on show.
  * - `measure`, `section`, `align`, `region`: with that tool in hand, which then has the key before the viewport.
+ * - `sketch`: with Draw in hand, a 3D sketch open: it has the key before the viewport, and its letters may be a mark tool's (no tool is
+ *   picked meanwhile) but never a key of the view (fit, the views, explode, section, ortho): those go on to the viewport.
  * - `shape`: while a shape of the person's is the active mark.
  * - `compare`: while two builds are compared in the view; it has the key before the viewport, whose Esc is another step back.
  * - `board`: while the board of the project is shown in place of the view, which then hears nothing.
@@ -25,7 +27,7 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `field`, `menu`, `sheet`: in a field, an open menu, a sheet or a question.
  * - `dev`: under the dev server only.
  */
-export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'shape' | 'compare' | 'board' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
+export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'sketch' | 'shape' | 'compare' | 'board' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
 
 /**
  * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
@@ -38,7 +40,7 @@ export const TOOL_KEYS = [
   { name: 'section', label: 'Section', key: 'X', group: 'inspect', does: 'Section: cut the parts by a plane', next: 'Section: drag the handle to move the plane' },
   { name: 'pin', label: 'Pin', key: 'P', group: 'mark', does: 'Pin: click a point and leave a note', next: 'Pin: click the part, then write a note' },
   { name: 'arrow', label: 'Arrow', key: 'A', group: 'mark', does: 'Arrow: drag from a point', next: 'Arrow: press on the part and drag to where it should go' },
-  { name: 'draw', label: 'Draw', key: 'D', group: 'mark', does: 'Draw: a stroke on the surface, or on a locked view', next: 'Draw: press on the part and drag to leave a stroke' },
+  { name: 'draw', label: 'Draw', key: 'D', group: 'mark', does: 'Draw: a sketch in 3D, on planes or on the surface', next: 'Draw: press on the plane or the part and drag to leave a stroke' },
   { name: 'shape', label: 'Shape', key: 'S', group: 'mark', does: 'Shape: place a box, a cylinder, a sphere or a plane', next: 'Shape: click the part to set a shape down there' },
   { name: 'region', label: 'Region of a scan', key: 'B', group: 'mark', does: 'Region of a scan: paint what something is', next: 'Region of a scan: paint on the scan what something is' },
   { name: 'align', label: 'Align scan', key: 'L', group: 'scan', does: 'Align scan: stand a scan where the model is', next: 'Align scan: choose a way in the bar, then click on the scan' }
@@ -145,6 +147,23 @@ const ROWS = [
   row('region.undo', ['Z'], 'Region: undo the last stroke', 'With a tool in hand', 'region'),
   row('region.keep', ['Enter'], 'Region: keep what is painted', 'With a tool in hand', 'region'),
 
+  row('sketch.free', ['B'], 'Sketch: the freehand pen', 'With a tool in hand', 'sketch'),
+  row('sketch.line', ['L'], 'Sketch: the line pen, press and drag or click twice', 'With a tool in hand', 'sketch'),
+  row('sketch.points', ['P'], 'Sketch: the point to point pen, a click for each point', 'With a tool in hand', 'sketch'),
+  row('sketch.erase', ['C'], 'Sketch: the eraser, a click takes the stroke under the pointer', 'With a tool in hand', 'sketch'),
+  row('sketch.plane', ['Shift+1', 'Shift+2', 'Shift+3'], 'Sketch: draw on the XY, XZ or YZ plane', 'With a tool in hand', 'sketch'),
+  row('sketch.face', ['N'], 'Sketch: draw on the plane of the face under the pointer', 'With a tool in hand', 'sketch'),
+  row('sketch.surface', ['U'], 'Sketch: draw on the surface of the parts', 'With a tool in hand', 'sketch'),
+  row('sketch.offset', ['Tab'], 'Sketch: type how far the plane is moved', 'With a tool in hand', 'sketch'),
+  row('sketch.xray', ['I'], 'Sketch: draw the parts see-through, or solid again', 'With a tool in hand', 'sketch'),
+  row('sketch.take', ['K'], 'Sketch: how literally it is taken, exact, rough or flow', 'With a tool in hand', 'sketch'),
+  row('sketch.length', ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.'], 'Sketch: type the length of the segment being drawn (with none under way, the figures are the views)', 'With a tool in hand', 'sketch'),
+  row('sketch.fix', ['Enter'], 'Sketch: fix the length typed, or end a point to point line', 'With a tool in hand', 'sketch'),
+  row('sketch.back', ['Backspace'], 'Sketch: take the last point or figure back', 'With a tool in hand', 'sketch'),
+  row('sketch.undo', ['Ctrl+Z'], 'Sketch: undo the last stroke, or the last erase', 'With a tool in hand', 'sketch'),
+  row('sketch.snap', ['Ctrl'], 'Sketch: hold it while drawing to turn snapping off', 'With a tool in hand', 'sketch'),
+  row('sketch.leave', ['Esc'], 'Sketch: give up the stroke under way, then leave the sketch (it is kept)', 'With a tool in hand', 'sketch'),
+
   row('gizmo', GIZMO_KEYS.map((g) => g.key), 'Move, rotate or size the shape with its handles', 'With a shape in hand', 'shape'),
 
   row('board.swap', ['Ctrl+Tab'], 'The board of the project, or the model again', 'Board', 'window'),
@@ -233,9 +252,10 @@ const ALONE: readonly KeyScope[] = ['global', 'window']
 
 /**
  * Scopes that are listened to together with nothing in the table to say which hears a key first: a shape in
- * hand and the viewport. (A tool in hand has a key before either, and the sheet says so.)
+ * hand and the viewport, and a sketch open and a shape in hand (the sketch's letters are never G, R or T, the gizmo's).
+ * (A tool in hand has a key before either, and the sheet says so.)
  */
-const TOGETHER: ReadonlyArray<readonly [KeyScope, KeyScope]> = [['shape', 'viewport']]
+const TOGETHER: ReadonlyArray<readonly [KeyScope, KeyScope]> = [['shape', 'viewport'], ['sketch', 'shape']]
 
 /**
  * The keys two rows would both answer to, as `F (viewport)`: two rows of one scope, a key heard
@@ -324,7 +344,7 @@ export function which(e: KeyPress, id: KeyId): number {
 }
 
 /** Scopes of the view and of the tools in hand in it: while the board is shown in its place, these hear nothing. */
-const VIEW_SCOPES: readonly KeyScope[] = ['viewport', 'measure', 'section', 'align', 'region', 'shape', 'compare']
+const VIEW_SCOPES: readonly KeyScope[] = ['viewport', 'measure', 'section', 'align', 'region', 'sketch', 'shape', 'compare']
 
 /**
  * Whether a press is a key of the view or of a tool in hand in it, as the board covers it: the board hears the press,
@@ -333,8 +353,11 @@ const VIEW_SCOPES: readonly KeyScope[] = ['viewport', 'measure', 'section', 'ali
  */
 export function viewKey(e: KeyPress): boolean {
   const name = keyName(e)
-  return name !== 'Esc' && KEYS.some((r) => VIEW_SCOPES.includes(r.scope) && r.id !== 'page' && r.keys.includes(name))
+  return name !== 'Esc' && KEYS.some((r) => VIEW_SCOPES.includes(r.scope) && r.id !== 'page' && !TYPING_KEYS.includes(r.id) && r.keys.includes(name))
 }
+
+/** Rows of a sketch that are typing, and keys a sheet or a field has by its own right: the board does not take these from them. */
+const TYPING_KEYS: readonly KeyId[] = ['sketch.length', 'sketch.undo']
 
 /** Whether a press is a key of the row. */
 export function pressed(e: KeyPress, id: KeyId): boolean {

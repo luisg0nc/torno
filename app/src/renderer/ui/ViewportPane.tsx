@@ -21,7 +21,8 @@ import { pointerMoved } from '../state/step'
 import { endReplace, setTool, toolStore, type ToolName } from '../state/tools'
 import { alignTool, connectAlign } from '../tools/alignTool'
 import { arrowTool } from '../tools/arrowTool'
-import { drawTool } from '../tools/drawTool'
+import { connectSketching, sayRefusal, sketchTool } from '../tools/sketchTool'
+import { leaveSketch, setSketchEnv } from '../state/sketching'
 import { measureTool } from '../tools/measureTool'
 import { commitMark, replaceMark } from '../tools/pickMarks'
 import { pinTool } from '../tools/pinTool'
@@ -250,7 +251,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
 
   // The one pointer subscription: every event goes to the chips of the marks first (`markChips`), then to the tool
   // in use, and to none while the parts are stale (`routePointer`). Tools made by later tasks are added here.
-  const tools: Partial<Record<ToolName, Tool>> = { select: selectTool(), pin: pinTool(), arrow: arrowTool(), draw: drawTool(), shape: shapeTool(), section: sectionTool(), measure: measureTool(), align: alignTool(), region: regionTool() }
+  const tools: Partial<Record<ToolName, Tool>> = { select: selectTool(), pin: pinTool(), arrow: arrowTool(), draw: sketchTool(), shape: shapeTool(), section: sectionTool(), measure: measureTool(), align: alignTool(), region: regionTool() }
   let tool = tools[toolStore.getState().tool]
   // A chip in the view points at its mark, and a click on one opens it, whatever tool is in hand.
   const chips = markChips({
@@ -305,6 +306,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     viewport.canvas.style.cursor = tool?.cursor ?? ''
     // The plane of a section has its handle while it is the pointer's to drag.
     viewport.showSectionHandle(tool?.id === 'section')
+    // The Draw tool opens its sketch as it is taken up: nothing is written until the first stroke.
+    tool?.activate?.(context())
   }
   pickUp()
   const offTool = toolStore.subscribe((now, before) => {
@@ -353,6 +356,19 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   viewport.setExplode(explodeNow(store.getState()))
   // The gizmo on the active mark while it is a shape, and the keys that say what it does.
   const offShape = connectShapeEdit(viewport)
+  // What a 3D sketch needs of the window: the project on show, the picture of its card (drawn as `look` draws, from the camera of the sketch), and where a refusal is said.
+  setSketchEnv({
+    marks: window.torno.marks,
+    here: () => {
+      const s = store.getState()
+      if (!s.objectId || !s.scene) return null
+      const { min, max } = viewport.bounds()
+      return { objectId: s.objectId, layout: s.layout, revision: s.revision, camera: viewport.getCamera(), centre: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2] }
+    },
+    picture: async (camera) => (await look(viewport, { view: camera, size: 1280, marks: true })).png,
+    say: sayRefusal
+  })
+  const offSketching = connectSketching(viewport)
 
   // How long an old build may take to come before the status line says it is being made again from its copy.
   const BUILDING_SAID_MS = 300
@@ -621,6 +637,10 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   return () => {
     clearTimeout(fadeTimer)
     putDown()
+    // The window goes: the sketch is closed where main can be told, and its card goes without a picture.
+    offSketching()
+    leaveSketch()
+    setSketchEnv(null)
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', endGhosts, true)
     viewport.canvas.removeEventListener('pointerdown', endGhosts, true)

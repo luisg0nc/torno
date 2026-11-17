@@ -45,6 +45,18 @@ const ray = (px: number, py: number) => ({ origin: [px + AT[0], -500, -py] as Ve
 const index = new SnapIndex([plate()])
 const at = (px: number, py: number, radius?: number): Snap | null => index.nearest(ray(px, py), screen, [px, py], radius)
 
+describe('the nearest snap, of what can be seen', () => {
+  it('passes over a target that is hidden and takes the next one: the vertex behind a part is not there to snap to', () => {
+    // V1 is hidden; the edge E0 that runs from it is not.
+    const hidden = (p: Vec3): boolean => !(p[0] === 180 && p[1] === 50 && p[2] === 0)
+    const snap = index.nearest(ray(74, -1), screen, [74, -1], 10, hidden)!
+    expect(snap).toMatchObject({ kind: 'edge', ref: 'plate/E0' })
+    // With nothing seen there is nothing to snap to; with everything seen, as before.
+    expect(index.nearest(ray(74, -1), screen, [74, -1], 10, () => false)).toBeNull()
+    expect(index.nearest(ray(74, -1), screen, [74, -1], 10, () => true)!.ref).toBe('plate/V1')
+  })
+})
+
 describe('the nearest snap', () => {
   it('is a vertex when one is within 10 px, though an edge is nearer', () => {
     // 6 px along the bottom edge from V1, and 1 px above it: the edge is 1 px away, the vertex 6.

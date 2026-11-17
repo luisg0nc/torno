@@ -1227,7 +1227,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 | `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part) says what a click takes. Shift-click adds or takes out, `Esc` clears. "Insert" puts the selected refs in the session's prompt without sending it; "Note" leaves a mark on each. |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
-| `D` | Draw | Press and draw. On a locked view (an orthographic front, back, left, right, top or bottom, not turned since; a padlock shows on its button) the stroke is a profile in millimetres on the plane that faces you. With Draw in hand a standard view you choose is taken in orthographic, so it is locked at once, and perspective comes back when you turn the view; in perspective the pointer says "Ortho to draw a profile on the XZ plane". On any other view it lies on the surface. Alt-drag turns the camera with this tool in hand. |
+| `D` | Draw | A sketch in 3D. Strokes lie on a plane (a sheet drawn over the parts, with a handle on its normal that moves it, and a view cube in the top right: XY, XZ or YZ) or on the surface of the parts. Three pens (freehand, line, point to point) and an eraser; the pointer snaps to a vertex, a hole centre or an edge within 10 px, and a box beside it says to what; `Ctrl` held turns snapping off. X-ray draws the parts see-through. Nothing is written until the first stroke, and every stroke and every change is kept at once. Alt-drag turns the camera with this tool in hand. |
 | `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
 | `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
@@ -1906,7 +1906,7 @@ the pointer, which has no keys:
 <!-- pointer: generated from POINTER in app/src/shared/pointer.ts; `TORNO_README=write pnpm -C app exec vitest run src/readme.test.ts` writes it -->
 | Pointer | What it does |
 |---|---|
-| Drag | Turn the view about the point under the pointer; with Arrow or Draw in hand, a drag that starts on the part draws instead |
+| Drag | Turn the view about the point under the pointer; with Arrow in hand a drag that starts on the part draws instead, and with Draw in hand a drag draws (Alt-drag turns the view) |
 | Right drag | Pan the view (a middle drag does too) |
 | Scroll | Zoom, towards the pointer |
 | Double click | With Measure in hand: measure something round, its diameter or its radius |
@@ -1934,7 +1934,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Viewport | `X` | Section: cut the parts by a plane |
 | Viewport | `P` | Pin: click a point and leave a note |
 | Viewport | `A` | Arrow: drag from a point |
-| Viewport | `D` | Draw: a stroke on the surface, or on a locked view |
+| Viewport | `D` | Draw: a sketch in 3D, on planes or on the surface |
 | Viewport | `S` | Shape: place a box, a cylinder, a sphere or a plane |
 | Viewport | `B` | Region of a scan: paint what something is |
 | Viewport | `L` | Align scan: stand a scan where the model is |
@@ -1957,6 +1957,22 @@ until the camera is first moved; the window remembers that in its own storage, n
 | With a tool in hand | `E` | Region: paint or rub out |
 | With a tool in hand | `Z` | Region: undo the last stroke |
 | With a tool in hand | `Enter` | Region: keep what is painted |
+| With a tool in hand | `B` | Sketch: the freehand pen |
+| With a tool in hand | `L` | Sketch: the line pen, press and drag or click twice |
+| With a tool in hand | `P` | Sketch: the point to point pen, a click for each point |
+| With a tool in hand | `C` | Sketch: the eraser, a click takes the stroke under the pointer |
+| With a tool in hand | `Shift+1` `Shift+2` `Shift+3` | Sketch: draw on the XY, XZ or YZ plane |
+| With a tool in hand | `N` | Sketch: draw on the plane of the face under the pointer |
+| With a tool in hand | `U` | Sketch: draw on the surface of the parts |
+| With a tool in hand | `Tab` | Sketch: type how far the plane is moved |
+| With a tool in hand | `I` | Sketch: draw the parts see-through, or solid again |
+| With a tool in hand | `K` | Sketch: how literally it is taken, exact, rough or flow |
+| With a tool in hand | `0` `1` `2` `3` `4` `5` `6` `7` `8` `9` `.` | Sketch: type the length of the segment being drawn (with none under way, the figures are the views) |
+| With a tool in hand | `Enter` | Sketch: fix the length typed, or end a point to point line |
+| With a tool in hand | `Backspace` | Sketch: take the last point or figure back |
+| With a tool in hand | `Ctrl+Z` | Sketch: undo the last stroke, or the last erase |
+| With a tool in hand | `Ctrl` | Sketch: hold it while drawing to turn snapping off |
+| With a tool in hand | `Esc` | Sketch: give up the stroke under way, then leave the sketch (it is kept) |
 | With a shape in hand | `G` `R` `T` | Move, rotate or size the shape with its handles |
 | Board | `Ctrl+Tab` | The board of the project, or the model again |
 | Board | `Shift+1` | Board: fit all the cards |
@@ -2363,7 +2379,7 @@ torno has since stopped running); what it drew
 was taken from the compositor and looked at afterwards. The first start drew
 the parts on the GPU at 60 frames a second on both platforms. Only one torno:
 a second start exited and the first opened the folder it was given. There is
-no menu, also on Alt. Alt-drag with the Draw tool turned the camera and drew
+no menu, also on Alt. Alt-drag with the old one-stroke Draw tool turned the camera and drew
 nothing (sent as events; no binding of the compositor's was in the way).
 `hyprctl clients` showed class `torno`. Light and dark were legible in both
 themes. A large project's thumbnail was on its card at once and the window did
