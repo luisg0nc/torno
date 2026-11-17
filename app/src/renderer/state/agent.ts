@@ -29,6 +29,7 @@ import { colorFor, colorsByName } from '../../shared/palette'
 import { explodedNote, scansNote, viewSaid } from '../viewport/picture'
 import { describeSection } from '../viewport/section'
 import { sectionPng } from '../viewport/sectionDrawing'
+import { drawTracingPicture } from '../ui/tracings/picture'
 import type { Viewport } from '../viewport/Viewport'
 import { hiddenIn, scansShown } from './savedViews'
 import { type SeeTool, replayOf } from './seeAgain'
@@ -502,8 +503,8 @@ export async function sectionDrawing(req: SectionDrawingRequest): Promise<Sectio
 }
 
 /**
- * Answer every request of main's for a picture, and for a drawing of a
- * section. Joined once, by the app, for as long as the window lives: whatever
+ * Answer every request of main's for a picture, for a drawing of a
+ * section and for a drawing of a tracing. Joined once, by the app, for as long as the window lives: whatever
  * the window shows, main is answered. Returns what undoes the joining.
  */
 export function connectLook(): () => void {
@@ -520,8 +521,16 @@ export function connectLook(): () => void {
       (e: unknown) => window.torno.view.drawSectionReply(id, said(e))
     )
   })
+  // A tracing drawn for the agent, of the outline and layers main sends: made whatever the window shows.
+  const offTracing = window.torno.view.onTracingPicture(({ id, request }) => {
+    drawTracingPicture(request).then(
+      (result) => window.torno.view.tracingPictureReply(id, result),
+      (e: unknown) => window.torno.view.tracingPictureReply(id, said(e))
+    )
+  })
   return () => {
     offLook()
     offDrawing()
+    offTracing()
   }
 }

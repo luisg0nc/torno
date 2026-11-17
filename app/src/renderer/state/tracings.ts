@@ -352,18 +352,16 @@ export const tracingActions = {
     }
   },
 
-  /** Puts the layer removed last back, with its name, colour and shapes, as a new layer (a layer's number is never given again). */
+  /** Puts the layer removed last back, as it was: main keeps it and gives it the number it had (what a mark or an offset names). */
   async undoRemoveLayer(): Promise<boolean> {
     const objectId = state().objectId
     const removed = state().layerRemoved
     if (objectId === null || removed === null) return false
     set({ layerRemoved: null })
     try {
-      const { name, colour, shapes } = removed.layer
-      const made = await window.torno.tracings.layer(objectId, removed.tracing, { make: { name, colour, shapes } })
+      const made = await window.torno.tracings.layer(objectId, removed.tracing, { restore: removed.layer.id })
       if (state().objectId !== objectId) return true
-      const back = made.layers.find((l) => l.name.toLowerCase() === name.toLowerCase())
-      set({ file: withTracing(state().file, made), refused: null, ...(back === undefined || state().open !== removed.tracing ? {} : { into: back.id }) })
+      set({ file: withTracing(state().file, made), refused: null, ...(state().open !== removed.tracing ? {} : { into: removed.layer.id }) })
       return true
     } catch (e) {
       set({ refused: said(e) })

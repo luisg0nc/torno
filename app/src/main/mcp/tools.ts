@@ -50,11 +50,14 @@ import { expandSet } from '../../shared/sets'
 import { setDescribed, withLayoutHint } from './setRefs'
 import { addSketchTool } from './sketchTools'
 import { addSetTool } from './setTools'
+import { addLayerTool, addTracingTool, tracingsTool } from './tracingTools'
+import type { tracingHandlers } from '../tracings/ipc'
+import type { TracingPictureRequest, TracingPictureResult } from '../../shared/tracings'
 import type { SetStore } from '../sets/store'
 import { type FeaturesToolArgs, featuresTool } from './featureTools'
 import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type SectionToolArgs, type TryFilletToolArgs, type TryParamsToolArgs, checkTool, diffTool, historyTool, measureTool, sectionTool, tryFilletTool, tryParamsTool } from './readTools'
 import { type ScanClashArgs, type ScanDeviationArgs, type ScansArgs, scanClashTool, scanDeviationTool, scansTool } from './scanTools'
-import { type AddCardArgs, type AddMarkArgs, type AddSetArgs, type AddSketchArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
+import { type AddCardArgs, type AddLayerArgs, type AddMarkArgs, type AddSetArgs, type AddSketchArgs, type AddTracingArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, type TracingsArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
 import { addCardTool, boardTool } from './boardTools'
 import { type SceneArgs, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 import type { Profile } from '../../shared/profile'
@@ -174,6 +177,13 @@ export interface ToolDeps {
     agent(objectId: string, change: AgentChange): Promise<AgentResult>
     live(objectId: string): Promise<LiveFacts>
   }
+  /**
+   * The tracings of a project (`.torno/tracings.json`), as Claude reads and changes them: the handlers of the window's own doors
+   * (`main/tracings/ipc.ts`), whose `agent*` ones make the planes and keep Claude to its own tracings and layers. Without it the tools say tracings are not available.
+   */
+  tracings?: Pick<ReturnType<typeof tracingHandlers>, 'list' | 'agentOutline' | 'agentMake' | 'agentRemove' | 'agentLayer'>
+  /** A picture of a tracing drawn by the window from the outline and layers given (`view:tracingPicture`), whichever project it shows. Rejects with a text. */
+  tracingPicture?(objectId: string, req: TracingPictureRequest): Promise<TracingPictureResult>
   /** A picture scaled down to a long edge of at most `edge` px, as a PNG: the pictures of the board are sent at 1280. Without it they are sent as they are kept. */
   scale?(bytes: Uint8Array, edge: number): Promise<Uint8Array>
 }
@@ -252,6 +262,9 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<AddMarkArgs>('add_mark', (args) => addMarkTool(deps, objectId, args))
   tool<AddSketchArgs>('add_sketch', (args) => addSketchTool(deps, objectId, args))
   tool<AddSetArgs>('add_set', (args) => addSetTool(deps, objectId, args))
+  tool<TracingsArgs>('tracings', (args) => tracingsTool(deps, objectId, args))
+  tool<AddTracingArgs>('add_tracing', (args) => addTracingTool(deps, objectId, args))
+  tool<AddLayerArgs>('add_layer', (args) => addLayerTool(deps, objectId, args))
   tool<ResolveMarkArgs>('resolve_mark', (args) => resolveMarkTool(deps, objectId, args))
   tool<MeasureToolArgs>('measure', (args) => measureTool(deps, objectId, args))
   tool<SectionToolArgs>('section', (args) => sectionTool(deps, objectId, args))

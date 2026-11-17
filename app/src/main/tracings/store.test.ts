@@ -282,6 +282,66 @@ describe('layers', () => {
     expect(again.layers.map((l) => l.id)).toEqual([1, 3])
   })
 
+  describe('restore', () => {
+    const add = (name: string, by: 'person' | 'agent' = 'person') => store.layer('bracket', 'T1', { make: { name, colour: 'blue', shapes: square } }, by)
+
+    it('puts a removed layer back with its own number, name, colour, shapes and revision, in its place, and keeps the numbers given', async () => {
+      await add('a')
+      await add('b')
+      await add('c')
+      await store.layer('bracket', 'T1', { edit: 2, colour: 'plum' }, 'person')
+      await store.layer('bracket', 'T1', { remove: 2 }, 'person')
+      const t = await store.layer('bracket', 'T1', { restore: 2 }, 'person')
+      expect(t.layers.map((l) => [l.id, l.name])).toEqual([[1, 'a'], [2, 'b'], [3, 'c']])
+      expect(t.layers[1]).toEqual({ id: 2, name: 'b', colour: 'plum', by: 'person', shapes: square, revision: 2 })
+      expect(t.nextLayer).toBe(4)
+      expect(onDisk().tracings[0].layers.map((l) => l.id)).toEqual([1, 2, 3])
+      // A restore is once only.
+      await expect(store.layer('bracket', 'T1', { restore: 2 }, 'person')).rejects.toThrow(/nothing to put back/)
+    })
+
+    it('puts back the agent\'s layer for the agent, and refuses the other side, naming the owner', async () => {
+      await add('its', 'agent')
+      await store.layer('bracket', 'T1', { remove: 1 }, 'agent')
+      await expect(store.layer('bracket', 'T1', { restore: 1 }, 'person')).rejects.toThrow(/Claude's/)
+      expect((await store.layer('bracket', 'T1', { restore: 1 }, 'agent')).layers[0]).toMatchObject({ id: 1, by: 'agent' })
+    })
+
+    it('refuses when the name was taken meanwhile, and leaves the file as it was', async () => {
+      await add('a')
+      await store.layer('bracket', 'T1', { remove: 1 }, 'person')
+      await add('A')
+      const before = JSON.stringify(onDisk())
+      await expect(store.layer('bracket', 'T1', { restore: 1 }, 'person')).rejects.toThrow(/taken/)
+      expect(JSON.stringify(onDisk())).toBe(before)
+    })
+
+    it('does not put back what was never removed, nor after forget', async () => {
+      await add('a')
+      await expect(store.layer('bracket', 'T1', { restore: 1 }, 'person')).rejects.toThrow(/nothing to put back/)
+      await store.layer('bracket', 'T1', { remove: 1 }, 'person')
+      store.forget()
+      await expect(store.layer('bracket', 'T1', { restore: 1 }, 'person')).rejects.toThrow(/nothing to put back/)
+    })
+
+    it('keeps the last 20 removed layers of a project', async () => {
+      for (let i = 0; i < 21; i++) await store.make('bracket', ask(`t${i}`), 'person')
+      for (let i = 0; i < 21; i++) {
+        await store.layer('bracket', `T${i + 2}`, { make: { name: 'x', colour: 'blue', shapes: [] } }, 'person')
+        await store.layer('bracket', `T${i + 2}`, { remove: 1 }, 'person')
+      }
+      await expect(store.layer('bracket', 'T2', { restore: 1 }, 'person')).rejects.toThrow(/nothing to put back/)
+      expect((await store.layer('bracket', 'T3', { restore: 1 }, 'person')).layers).toHaveLength(1)
+    })
+
+    it('is for a tracing that is there', async () => {
+      await add('a')
+      await store.layer('bracket', 'T1', { remove: 1 }, 'person')
+      await store.remove('bracket', 'T1', 'person')
+      await expect(store.layer('bracket', 'T1', { restore: 1 }, 'person')).rejects.toThrow(/no tracing T1/)
+    })
+  })
+
   it('refuses a layer that is not there, a name that is taken, a colour that is not one', async () => {
     await store.layer('bracket', 'T1', { make: { name: 'a', colour: 'blue', shapes: [] } }, 'agent')
     await store.layer('bracket', 'T1', { make: { name: 'b', colour: 'blue', shapes: [] } }, 'agent')

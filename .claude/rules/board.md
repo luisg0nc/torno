@@ -155,8 +155,8 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   so it covers what is seen however the sheet is moved; `tracingSvg`'s `grid` option is for a file and the view does not pass it.
 - Layers are `LayerRows` in the panel: colour, name, shape count, `by Claude`, an eye for any layer, Remove and the ring "trace into" on
   the person's own only (`Layer.by`). `tracingActions`: `addLayer` (never replaces: the window checks the name is free, case apart, and
-  main refuses one that is another's), `hideLayer`, `removeLayer` (the window refuses Claude's) with `undoRemoveLayer` (`make` with the
-  shapes the window kept; the layer's number is new), `addShape`. A finished shape is one `tracings:layer` `{ edit, shapes: [...own, new] }`;
+  main refuses one that is another's), `hideLayer`, `removeLayer` (the window refuses Claude's) with `undoRemoveLayer` (`{ restore: id }`: the store keeps the
+  last 20 layers removed in this run, whole, and puts one back with the number it had, which offsets name; refused when the name was taken meanwhile), `addShape`. A finished shape is one `tracings:layer` `{ edit, shapes: [...own, new] }`;
   shapes and layer changes are **queued** so that each is built on the layer as the one before left it. `traceTarget` is the layer
   traced into: the one ringed when it is the person's and there, else their last, never Claude's.
 - The layers' colours are the `--layer-*` tokens (`shared/tracings.ts` `LAYER_COLOURS`): the window draws a layer by its class

@@ -20,11 +20,11 @@ import { startHttp } from './http'
 import { buildContextFor, contextFor, tellsInstructions } from './context'
 import { takeGoBackNotice } from './goback'
 import { listReferences } from './sessions/reference'
-import { buildIdentity, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject } from './ipc'
+import { buildIdentity, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject, tracingDoors } from './ipc'
 import { forgetSketchesWith, openSketch } from './sketches/ipc'
 import { cannotStart, environmentCommand } from './kernel/client'
 import { ReadyKeeper } from './readiness'
-import { NoAnswer, latestView, requestHighlight, requestLook, requestSaveView, requestSectionDrawing, requestShow } from './look'
+import { NoAnswer, latestView, requestHighlight, requestLook, requestSaveView, requestSectionDrawing, requestShow, requestTracingPicture } from './look'
 import { addDimensionTold } from './marks/measure'
 import type { NearestAnchor } from './marks/reanchor'
 import { maskReadsOf, maskStampOf, meshesOf } from './marks/regions'
@@ -444,6 +444,17 @@ const toolDeps: ToolDeps = {
   scansBusy: (objectId) => scans.working(objectId),
   sectionDrawing(req) {
     return theWindow().then((win) => requestSectionDrawing(win, req))
+  },
+  // The tracings: Claude reads them and makes its own through the window's own doors, with the `agent*` handlers that keep it to its own.
+  tracings: {
+    list: (objectId) => tracingDoors().list(objectId),
+    agentOutline: (objectId, id) => tracingDoors().agentOutline(objectId, id),
+    agentMake: (objectId, raw) => tracingDoors().agentMake(objectId, raw),
+    agentRemove: (objectId, id) => tracingDoors().agentRemove(objectId, id),
+    agentLayer: (objectId, id, raw) => tracingDoors().agentLayer(objectId, id, raw)
+  },
+  tracingPicture(_objectId, req) {
+    return theWindow().then((win) => requestTracingPicture(win, req))
   },
   views: savedViews,
   saveView(objectId, req) {

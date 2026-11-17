@@ -232,3 +232,30 @@ export function planeSnaps(plane: Pick<TracingPlane, 'origin' | 'x' | 'y'>, part
   for (const { snap } of vertices.slice(0, MOST_PLANE_VERTICES)) snaps.push(snap)
   return snaps
 }
+
+/** What main asks the window to draw for Claude: a tracing's outline, layers and grid, at a long edge of `size` px (`view:tracingPicture`). */
+export interface TracingPictureRequest {
+  objectId: string
+  /** The project's name, for the sheet's own words. */
+  object: string
+  tracing: string
+  name: string
+  /** The plane's label: `XZ at y = 0.0 (u = +X, v = +Z)`. */
+  plane: string
+  layout: string
+  /** The build the outline is of. */
+  revision: number
+  cut: Sectioned
+  layers: Layer[]
+  size: number
+}
+
+/** The picture, and what maps it to mm: a pixel is `mmPerPx` mm, `u = 0, v = 0` is at `origin` (px from the top left), and `v` runs up the picture when `vUp`. */
+export interface TracingPictureResult {
+  png: Uint8Array
+  width: number
+  height: number
+  mmPerPx: number
+  origin: [number, number]
+  vUp: boolean
+}

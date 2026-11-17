@@ -37,6 +37,8 @@ export type LayerChange =
   | { make: Pick<Layer, 'name' | 'colour' | 'shapes'> }
   | { edit: number; name?: string; colour?: LayerColour; shapes?: LayerShape[] }
   | { remove: number }
+  /** Puts back a layer of its own that was removed in this run (the last `REMOVED_KEPT` of its project), with its number. */
+  | { restore: number }
 
 export interface TracingStoreDeps {
   dirOf(objectId: string): string | undefined
@@ -141,6 +143,8 @@ export class TracingStore {
   private disk = new Map<string, string | null>()
   /** By project folder: the tracings removed in this run (the last `REMOVED_KEPT`), whole, which `restore` may bring back. */
   private removed = new Map<string, Tracing[]>()
+  /** By project folder: the layers removed in this run (the last `REMOVED_KEPT`), whole, which `{ restore }` may bring back to their tracing. */
+  private removedLayers = new Map<string, Array<{ tracing: string; layer: Layer }>>()
   /** By project folder: what was wrong with its file when it was read, until it is dismissed. */
   private problems = new Map<string, string>()
   /** By project folder: the last thing asked of its tracings, which the next waits for. */
@@ -161,6 +165,7 @@ export class TracingStore {
     this.files.clear()
     this.disk.clear()
     this.removed.clear()
+    this.removedLayers.clear()
   }
 
   /** Null when nothing asked of the tracings is under way; else a promise that resolves once it is all written or failed. For the app, when it quits. */
@@ -293,15 +298,16 @@ export class TracingStore {
   /**
    * A change to one layer of a tracing, by the person or by the agent. `make` gives a new layer with the next number, or, when
    * a layer of the name is there (case apart), replaces that one, keeping its id; `edit` replaces what it gives of a layer by
-   * id; `remove` takes one away. A layer replaced has its `revision` bumped. Each edits and removes only their own layers: one
+   * id; `remove` takes one away, and `restore` puts one removed in this run back whole, with the number it had (what a mark or an
+   * offset names), in its place. A layer replaced has its `revision` bumped. Each edits and removes only their own layers: one
    * of the other's is refused by its owner's name. The caps hold (20 layers, 500 shapes a layer, 20 000 points a tracing), every
    * number is finite and, when the outline's `bounds` are given, within ten diagonals of them. Answers the tracing.
    */
   async layer(objectId: string, id: string, change: LayerChange, by: 'person' | 'agent', bounds?: OutlineBounds): Promise<Tracing> {
     checkedBy(by)
     if (!isRecord(change)) throw new Refusal('That is not a change to a layer.')
-    const kinds = (['make', 'edit', 'remove'] as const).filter((k) => k in change)
-    if (kinds.length !== 1) throw new Refusal('A change to a layer is make, edit or remove: one of them.')
+    const kinds = (['make', 'edit', 'remove', 'restore'] as const).filter((k) => k in change)
+    if (kinds.length !== 1) throw new Refusal('A change to a layer is make, edit, remove or restore: one of them.')
     if ('make' in change) {
       const given: Record<string, unknown> = isRecord(change.make) ? change.make : {}
       const name = nameOf(given.name, MAX_LAYER_NAME, 'a layer', true)
@@ -341,13 +347,50 @@ export class TracingStore {
         return t
       })
     }
-    return this.change(objectId, (file) => {
-      const t = tracingOf(file, id)
-      const layer = layerOf(t, change.remove)
-      ownLayer(t, layer, by)
-      t.layers.splice(t.layers.indexOf(layer), 1)
-      return t
-    })
+    if ('restore' in change) {
+      const wanted = change.restore
+      return this.change(
+        objectId,
+        (file, dir) => {
+          const t = tracingOf(file, id)
+          const back = typeof wanted === 'number' ? this.removedLayers.get(dir)?.find((r) => r.tracing === t.id && r.layer.id === wanted)?.layer : undefined
+          if (!back) throw new Refusal(`There is nothing to put back for layer ${String(wanted)} of ${t.id}: only a layer removed in this run can be.`)
+          ownLayer(t, back, by)
+          if (t.layers.some((l) => l.id === back.id)) throw new Refusal(`Layer ${back.id} of ${t.id} is already there.`)
+          const clash = t.layers.find((l) => l.name.toLowerCase() === back.name.toLowerCase())
+          if (clash) throw new Refusal(`The name ${back.name} is taken by layer ${clash.id} of ${t.id}.`)
+          if (t.layers.length >= MOST_LAYERS) throw new Refusal(`A tracing holds at most ${MOST_LAYERS} layers.`)
+          const whole = structuredClone(back)
+          const at = t.layers.findIndex((l) => l.id > whole.id)
+          t.layers.splice(at === -1 ? t.layers.length : at, 0, whole)
+          t.nextLayer = Math.max(t.nextLayer, whole.id + 1)
+          tooManyPoints(t)
+          return t
+        },
+        (result, dir) => {
+          this.removedLayers.set(dir, (this.removedLayers.get(dir) ?? []).filter((r) => !(r.tracing === result.id && r.layer.id === wanted)))
+        }
+      )
+    }
+    const taken: { layer?: Layer } = {}
+    return this.change(
+      objectId,
+      (file) => {
+        const t = tracingOf(file, id)
+        const layer = layerOf(t, change.remove)
+        ownLayer(t, layer, by)
+        t.layers.splice(t.layers.indexOf(layer), 1)
+        taken.layer = structuredClone(layer)
+        return t
+      },
+      (result, dir) => {
+        if (taken.layer === undefined) return
+        const kept = (this.removedLayers.get(dir) ?? []).filter((r) => !(r.tracing === result.id && r.layer.id === taken.layer?.id))
+        kept.push({ tracing: result.id, layer: taken.layer })
+        while (kept.length > REMOVED_KEPT) kept.shift()
+        this.removedLayers.set(dir, kept)
+      }
+    )
   }
 
   /** Hides or shows a layer: the person's, on any layer, the agent's too. It travels, and is not a change of the layer's shapes. */

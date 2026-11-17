@@ -17,7 +17,7 @@ describe('what the tools tell a client', () => {
   })
 
   it('marks the tools that only read as read-only, and the ones that change the view or the marks as neither read-only nor destructive', () => {
-    const readOnly = ['board', 'check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'try_fillet', 'try_params']
+    const readOnly = ['board', 'check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'tracings', 'try_fillet', 'try_params']
     expect(entries.filter(([, tool]) => tool.annotations.readOnlyHint).map(([name]) => name).sort()).toEqual(readOnly)
     for (const [name, tool] of entries.filter(([name]) => !readOnly.includes(name))) expect(tool.annotations, name).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false })
   })
@@ -34,7 +34,8 @@ describe('what the tools tell a client', () => {
   it('has instructions under the length Claude Code cuts them at, with a line for every tool and the words an agent searches with', () => {
     expect(SERVER_INSTRUCTIONS.length).toBeLessThan(INSTRUCTIONS_LIMIT)
     const lines = SERVER_INSTRUCTIONS.split('\n').filter((line) => line.startsWith('- '))
-    expect(lines.map((line) => line.slice(2, line.indexOf(':'))).sort()).toEqual(Object.keys(TOOLS).sort())
+    // A line may name several tools, split on ", ": the three tracing tools share one.
+    expect(lines.flatMap((line) => line.slice(2, line.indexOf(':')).split(', ')).sort()).toEqual(Object.keys(TOOLS).sort())
     for (const word of ['measure', 'wall thickness', 'section', 'clearance', 'picture', 'marks', 'overlap', 'scan']) expect(SERVER_INSTRUCTIONS, word).toContain(word)
     expect(SERVER_INSTRUCTIONS.split('\n')[0]).toContain('CAD part of the project this session works on')
   })
@@ -67,5 +68,25 @@ describe('marks and the review', () => {
     for (const own of ['add', 'remove', 'keep-out', 'reference']) expect(intent.safeParse(own).success, own).toBe(true)
     for (const review of ['want', 'dont']) expect(intent.safeParse(review).success, review).toBe(false)
     expect(TOOLS.add_mark.description).toContain("review")
+  })
+})
+
+describe('tracings', () => {
+  it('are named in one line for the three tools, which tells to look at the photo and to add layers in mm', () => {
+    const line = SERVER_INSTRUCTIONS.split('\n').find((l) => l.startsWith('- tracings, add_tracing, add_layer:'))
+    expect(line).toBe('- tracings, add_tracing, add_layer: the model flat in a plane at true scale over a photo; read them (picture: true to see the photo), make your own, add layers in mm.')
+    expect(SERVER_INSTRUCTIONS.length).toBeLessThan(INSTRUCTIONS_LIMIT)
+  })
+
+  it('tracings reads (picture is the only thing that asks the window), and add_tracing and add_layer change the project\'s tracings and nothing else', () => {
+    expect(TOOLS.tracings.annotations).toEqual({ readOnlyHint: true, openWorldHint: false })
+    for (const name of ['add_tracing', 'add_layer'] as const) expect(TOOLS[name].annotations, name).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false })
+    for (const name of ['tracings', 'add_tracing', 'add_layer'] as const) expect(TOOLS[name], name).not.toHaveProperty('meta')
+  })
+
+  it('take the keys the tools take and no author, id or number of a layer', () => {
+    expect(Object.keys(TOOLS.tracings.inputSchema).sort()).toEqual(['picture', 'size', 'tracing'])
+    expect(Object.keys(TOOLS.add_tracing.inputSchema).sort()).toEqual(['layout', 'name', 'on', 'remove', 'tracing'])
+    expect(Object.keys(TOOLS.add_layer.inputSchema).sort()).toEqual(['colour', 'name', 'remove', 'shapes', 'tracing'])
   })
 })

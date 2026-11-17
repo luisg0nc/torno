@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Part, Scene } from '../../shared/scene'
 import type { SceneFile } from '../../shared/scenefile'
 import type { Camera, HighlightRequest, LookRequest, LookResult, SaveViewRequest, SaveViewResult, SectionDrawingRequest, ShowRequest } from '../../shared/view'
+import type { TracingPictureRequest } from '../../shared/tracings'
 import { MAX_PROPOSALS } from '../../shared/views'
 import { agentStore, canPointAgain, connectAgent, connectLook, dismissHighlight, HIGHLIGHT_FOR_MS, noteTool, peek, pointAgain, seeInView, setPictures } from './agent'
 import { actions, explodeNow, sceneFileOf, store } from './store'
@@ -14,6 +15,7 @@ let onShow: (m: { id: number; request: ShowRequest }) => void
 let onHighlight: (m: { id: number; request: HighlightRequest }) => void
 let onLook: (m: { id: number; request: LookRequest }) => void
 let onDrawSection: (m: { id: number; request: SectionDrawingRequest }) => void
+let onTracingPicture: (m: { id: number; request: TracingPictureRequest }) => void
 let onSaveView: (m: { id: number; request: SaveViewRequest }) => void
 /** The scene files the window gave main to save. */
 let savedFiles: Array<{ id: string; file: SceneFile }>
@@ -53,6 +55,8 @@ beforeEach(() => {
         onLook: (cb: typeof onLook) => ((onLook = cb), off),
         onDrawSection: (cb: typeof onDrawSection) => ((onDrawSection = cb), off),
         drawSectionReply: (id: number, result: unknown) => replies.push({ id, result }),
+        onTracingPicture: (cb: typeof onTracingPicture) => ((onTracingPicture = cb), off),
+        tracingPictureReply: (id: number, result: unknown) => replies.push({ id, result }),
         lookReply: (id: number, result: unknown) => replies.push({ id, result }),
         showReply: (id: number, result: unknown) => replies.push({ id, result }),
         highlightReply: (id: number, result: unknown) => replies.push({ id, result })
@@ -639,6 +643,14 @@ describe('look, joined by the app', () => {
     onDrawSection({ id: 8, request: { objectId: 'another', layout: 'assembly', section, names: [], size: 1280 } })
     await settle()
     expect(replies).toEqual([{ id: 8, result: { error: 'the plane cuts nothing' } }])
+  })
+
+  it('takes a request for the drawing of a tracing and answers it, whatever the window shows: here, with why a canvas could not be had', async () => {
+    onTracingPicture({ id: 9, request: { objectId: 'another', object: 'another', tracing: 'T1', name: '', plane: 'XZ', layout: 'assembly', revision: 1, cut: { plane: { origin: [0, 0, 0], normal: [0, -1, 0], x: [1, 0, 0], y: [0, 0, 1] }, parts: [], bounds: null }, layers: [], size: 1280 } })
+    await settle()
+    expect(replies).toHaveLength(1)
+    expect(replies[0].id).toBe(9)
+    expect(replies[0].result).toMatchObject({ error: expect.any(String) })
   })
 
   it('says so when there is no viewport to draw it, and passes on why a picture could not be made', async () => {

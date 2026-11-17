@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { ExplodeState } from '../../shared/explode'
 import type { MeasureKind, Quat, ShapeIntent, ShapeKind } from '../../shared/marks'
 import { MAX_ASK_OPTIONS, MAX_ASK_REFS } from '../../shared/ask'
+import { LAYER_COLOURS, MAX_LABEL_TEXT, MAX_LAYER_NAME, MAX_TRACING_NAME, MOST_SHAPES } from '../../shared/tracings'
 import type { AxisPlane, SectionPlane } from '../../shared/view'
 import { unknownKeys } from './keys'
 import type { EndArg } from './markTools'
@@ -274,6 +275,31 @@ const addSetInput = {
   layout: z.string().optional().describe('The layout the set is of, whose parts its refs are of. Default: the one on screen.')
 }
 
+const tracingsInput = {
+  tracing: loose(z.string()).optional().describe('The id of one tracing (T1): its plane, outline, layers with every shape in mm, photo and marks. Default: the list of tracings.'),
+  picture: loose(z.boolean()).optional().describe("With tracing: also send a picture of it (the outline on a 10 mm grid, your layers and the person's, the photo once it has one), with what maps its pixels to mm. Default false."),
+  size: loose(z.number()).optional().describe(`With picture: the long edge in pixels, ${MIN_SIZE} to ${MAX_SIZE}. Default ${DEFAULT_SIZE}.`)
+}
+/** What `add_tracing` takes of where the tracing lies, said once for the schema and the refusal. */
+export const NO_TRACING_PLANE =
+  'on is where the tracing lies: {"main": "XZ", "offset": 40} (XY is across z, XZ across y, YZ across x, at the offset along that axis, in mm), {"face": "block/F31"} (a flat face of the last build) or {"origin": [x, y, z], "normal": [x, y, z]} in mm in the frame of the layout'
+const addTracingInput = {
+  on: loose(z.unknown()).optional().describe(`Where to lay a new tracing: ${NO_TRACING_PLANE}. Required to make one.`),
+  name: loose(z.string()).optional().describe(`What the tracing is called, one line, at most ${MAX_TRACING_NAME} characters: "Front of the block".`),
+  layout: z.string().optional().describe('The layout the tracing is of, whose frame its plane is in. Default: the one on screen.'),
+  tracing: loose(z.string()).optional().describe('The id of a tracing of your own (T3) to take away, with remove: true. A tracing of the person\'s is refused.'),
+  remove: loose(z.boolean()).optional().describe('With tracing: take that tracing of yours away. Then no other argument is needed.')
+}
+const addLayerInput = {
+  tracing: loose(z.string()).describe('The id of the tracing (T1) the layer is on: yours or the person\'s.'),
+  name: loose(z.string()).describe(`The layer's name, one line, at most ${MAX_LAYER_NAME} characters: "head bolts". A layer of yours with that name is replaced, keeping its number; a layer of the person's with it is refused.`),
+  colour: loose(z.enum(LAYER_COLOURS)).optional().describe(`The layer's colour, one of ${LAYER_COLOURS.join(', ')}. Required to make or replace a layer.`),
+  shapes: loose(z.array(z.unknown())).optional().describe(
+    `The shapes, 0 to ${MOST_SHAPES}, in mm along the tracing's own u and v (tracings says which way they run), each one of {"kind": "polyline", "points": [[u, v], ...], "closed": true, "name": "wall"}, {"kind": "circle", "centre": [u, v], "radius": 3.2, "name": "head bolt 1"} or {"kind": "label", "at": [u, v], "text": "M6"} (text up to ${MAX_LABEL_TEXT} characters). A name is how a shape is told apart; closed and name are optional. Every number is finite and within 10 diagonals of the outline.`
+  ),
+  remove: loose(z.boolean()).optional().describe('Take the layer of yours with that name away. Then no other argument is needed.')
+}
+
 const measureInput = {
   kind: z
     .enum(['distance', 'angle', 'radius', 'diameter', 'thickness', 'bbox', 'volume', 'area', 'mass'])
@@ -468,6 +494,25 @@ export interface AddSetArgs {
   refs: string[]
   layout?: string
 }
+export interface TracingsArgs {
+  tracing?: string
+  picture?: boolean
+  size?: number
+}
+export interface AddTracingArgs {
+  on?: unknown
+  name?: string
+  layout?: string
+  tracing?: string
+  remove?: boolean
+}
+export interface AddLayerArgs {
+  tracing: string
+  name: string
+  colour?: string
+  shapes?: unknown[]
+  remove?: boolean
+}
 export interface ResolveMarkArgs {
   id: string
   note?: string
@@ -629,6 +674,27 @@ export const TOOLS = {
       'Returns the id of the card you added to the person\'s board, and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own.',
     inputSchema: addCardInput
   },
+  tracings: {
+    title: 'Read tracings',
+    annotations: READ_ONLY,
+    description:
+      "Returns the project's tracings as a list, or one by id (T1): a tracing is the model laid flat in one plane at true scale, with the person's photo under it and layers over it. One tracing is told as its plane and how it was made (a face one follows its face, and says when it is lost), the build its outline is of and each part's outline (area as the kernel's, exact or ≈, loops, bounds, and points in mm along the plane's own u and v, thinned as section thins them), the layers with every shape in mm and who made each, the photo's line-up in words (never exact, and true only in the tracing's plane) and the marks on it. With picture: true it also sends a picture of the tracing at size px (the outline on a 10 mm grid with the layers, and the photo once it has one) and what maps its pixels to mm: look at it before you trace in mm.",
+    inputSchema: tracingsInput
+  },
+  add_tracing: {
+    title: 'Add a tracing',
+    annotations: CHANGES_VIEW_OR_MARKS,
+    description:
+      `Returns the id of a tracing you laid, the model's outline in a plane at true scale, which the person sees in the Tracing view and as a card on their board: on a main plane, on a flat face of the last build or on a plane given by a point and a normal, as {"on": {"main": "XZ", "offset": 0}, "name": "Front"} or {"on": {"face": "block/F31"}, "name": "Top of the block"} does, with layout (default the one on screen). The reply says which way u and v run; with tracing and remove: true it takes away a tracing of yours, and one of the person's is refused by their name. A tracing never changes the model: add layers to it with add_layer.`,
+    inputSchema: addTracingInput
+  },
+  add_layer: {
+    title: 'Add a layer to a tracing',
+    annotations: CHANGES_VIEW_OR_MARKS,
+    description:
+      `Returns the number of a layer of yours on a tracing, yours or the person's: a name, a colour and shapes (polylines, circles, labels) in mm along the tracing's own u and v, as {"tracing": "T1", "name": "head bolts", "colour": "teal", "shapes": [{"kind": "circle", "centre": [10, 5.25], "radius": 3.2, "name": "head bolt 1"}]} does. A layer of yours with that name is replaced and keeps its number, so what names it still holds, the person's layers are refused by their name, and remove: true takes away the layer of yours with that name. At most ${MOST_SHAPES} shapes in a layer, 20 layers and 20,000 points in a tracing, every number finite and within 10 diagonals of the outline; read the tracing first, with picture: true when it has a photo.`,
+    inputSchema: addLayerInput
+  },
   expect: {
     title: 'Say what an edit should change',
     annotations: CHANGES_VIEW_OR_MARKS,
@@ -675,7 +741,7 @@ export const TOOLS = {
     title: 'Measure a part against a scan',
     annotations: READ_ONLY,
     description:
-      "Returns JSON and a reading of how far a part, or some of its faces, lie from a scan: min, mean, max, rms and percentiles in mm over up to 20,000 sample points (samples is how many were measured, sampling.asked how many you asked for), signed where the part is a solid (+ where the scan is outside it, − where it is inside), the worst place, and how many samples had nothing within reach. from part samples the part and measures to the scan's triangles, from scan measures from the scan's vertices (of a region, if one is given) to the part; all of it is approximate, no better than the alignment, and refused where the scan is not aligned, and for a part torno moved for display. Use it to judge an alignment against a reference part the scan contains, or how close the surroundings come to a face.",
+      "Returns JSON and a reading of how far a part or some of its faces lie from a scan: min, mean, max, rms and percentiles in mm over up to 20,000 sample points (samples is how many were measured, sampling.asked how many you asked for), signed where the part is a solid (+ where the scan is outside it, − where it is inside), the worst place, and how many samples had nothing within reach. from part samples the part and measures to the scan's triangles, from scan measures from the scan's vertices (of a region, if one is given) to the part; all of it is approximate, no better than the alignment, and refused where the scan is not aligned, and for a part torno moved for display. Use it to judge an alignment against a reference part the scan contains, or how close the surroundings come to a face.",
     inputSchema: scanDeviationInput
   }
 }
@@ -687,34 +753,35 @@ export const TOOLS = {
  * added here (`schemas.test.ts` holds both). Claude Code cuts it at `INSTRUCTIONS_LIMIT` characters.
  */
 export const INSTRUCTIONS_LIMIT = 4096
-export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD part of the project this session works on, and shows things to the person looking at it in the torno window. Every answer is from the last build that worked, says which revision that is, and says so when a newer build is running or has failed. Numbers from measure, check, section and diff are the B-rep's and say whether they are exact; scene's sizes are for orientation. Check an edit by numbers first, then one look. The tools that only read may be called together.
+export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD part of the project this session works on, and shows things to the person in the torno window. Every answer is from the last build that worked, names its revision, and says when a newer build is running or has failed. Numbers from measure, check, section and diff are the B-rep's and say whether they are exact; scene's sizes are for orientation. Check an edit by numbers first, then one look. The tools that only read may be called together.
 
 - scene: the build status and error, what the model printed, layouts, parts with size and volume, groups, named sets (#name), params, saved views, the person's camera, section and explode. Start here.
 - look: a picture of the part as the person's viewport draws it, with the marks, from any view, camera, layout, section or explode, or framed close on one face, edge, mark or box.
-- marks: the person's marks (pins, picks, arrows, strokes, shapes, dimensions, regions of a scan, view notes with their pictures on request) and yours, with notes, status and what each is on.
-- describe: the exact geometry of a part, a face, an edge, a group of parts or a mark: area, centre, normal, radius, volume, box; of a face or an edge also a build123d selector that picks it now.
+- marks: the person's marks (pins, picks, arrows, strokes, shapes, dimensions, scan regions, view notes with pictures on request) and yours, with notes, status and what each is on.
+- describe: the exact geometry of a part, a face, an edge, a group of parts or a mark: area, centre, normal, radius, volume, box; of a face or edge also a build123d selector that picks it now.
 - measure: one exact number: distance or angle between two ends, radius, diameter, wall thickness, area, volume, mass, bounding box.
 - section: the outlines a plane cuts of the parts, with their areas, and a 2D drawing.
-- check: overlap and clearance between parts, interference of a whole layout, a closed mesh, and for printing overhangs, thin walls and bed fit.
+- check: overlap and clearance between parts, interference of a layout, a closed mesh, and for printing overhangs, thin walls, bed fit.
 - diff: what changed between two successful builds (the last two, or kept ones): parts added or removed, volume, size and face counts.
-- history: the builds kept, by id (h41), with what changed in each; diff compares any two.
-- board: the person's board: text, pictures, doodles, frames, arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
+- history: the builds kept, by id (h41), with what changed in each.
+- board: the person's board: text, pictures, doodles, frames, arrows, cards for their marks, scans, references and pinned builds; read a frame by name.
 - add_card: leave a card of yours on the board (a plan, a note, a size, a view), in a frame, with an arrow; change or remove only your own.
 - expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the next build is checked against it.
-- try_fillet: try a fillet or chamfer of some edges on the last build and throw it away: whether it works, the largest radius that does, which edges or pairs fail.
-- try_params: build the model with other values of its Params in a throwaway worker and measure or check there, to search a value without editing it.
-- features: the holes (diameter, depth, through or blind, counterbore, countersink), bosses, fillets (radius), chamfers (size) and patterns (4 holes on a square, a bolt circle) of a part, exact, with the faces they are made of.
-- scans: the scans the person imported, and how each is aligned to the model.
+- try_fillet: try a fillet or chamfer of edges on the last build, thrown away after: whether it works, the largest radius that does, which edges or pairs fail.
+- try_params: build with other Params values in a throwaway worker and measure or check there, to search a value without editing the model.
+- features: the holes (diameter, depth, through or blind, counterbore, countersink), bosses, fillets, chamfers and patterns (4 holes on a square, a bolt circle) of a part, exact, with their faces.
+- scans: the person's imported scans, and how each is aligned to the model.
 - scan_clash: what of a scan is inside a part, as clusters with their depth.
 - scan_deviation: how far a part, or some of its faces, lie from a scan (min, mean, max, percentiles).
 - highlight: tint faces or edges in the person's viewport with a note, to ask "this one?" before a costly change.
-- ask: ask the person to choose between options whose answers are refs, or to pick a face or edge, and wait for the answer.
-- show: change the person's camera, layout, visible parts, section, explode or scans, put a saved view on screen, or point their camera at a ref, mark or box.
-- save_view: propose a saved view to the person's strip, for them to keep or discard.
+- ask: ask the person to choose between options (answers are refs) or to pick a face or edge, and wait.
+- show: change the person's camera, layout, visible parts, section, explode or scans, show a saved view, or point their camera at a ref, mark or box.
+- save_view: propose a saved view for the person's strip, to keep or discard.
 - add_mark: leave a mark of yours (pin, pick, arrow, shape, or a dimension measured on every build).
-- add_sketch: draw a sketch of your own in 3D (a route, an outline, where something goes) as strokes of points; replace or remove your own.
+- add_sketch: draw your own 3D sketch (a route, an outline, where something goes) as strokes of points; replace or remove your own.
 - add_set: propose a named set of faces, edges, parts or strokes, for the person to accept; its #name works in any ref.
-- resolve_mark: resolve a mark of the person's, a view note too, with a line on what was done, for them to confirm or reopen.`
+- tracings, add_tracing, add_layer: the model flat in a plane at true scale over a photo; read them (picture: true to see the photo), make your own, add layers in mm.
+- resolve_mark: resolve a mark of the person's (a view note too) with a line on what was done, for them to confirm or reopen.`
 
 /** The keys each tool takes: those its schema names. */
 const KEYS = Object.fromEntries(Object.entries(TOOLS).map(([name, tool]) => [name, Object.keys('inputSchema' in tool ? tool.inputSchema : {})])) as Record<keyof typeof TOOLS, string[]>

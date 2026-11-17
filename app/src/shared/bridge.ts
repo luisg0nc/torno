@@ -20,7 +20,7 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
-import type { LayerColour, LayerShape, Tracing, TracingCut, TracingsFile } from './tracings'
+import type { LayerColour, LayerShape, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
 import type { MainAxis } from './planes'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
@@ -246,6 +246,9 @@ export interface TornoBridge {
     /** The agent asked for what a plane cuts: main has the outlines from the kernel, and the window draws them. */
     onDrawSection(cb: (m: { id: number; request: SectionDrawingRequest }) => void): () => void
     drawSectionReply(id: number, result: SectionDrawingResult | { error: string }): void
+    /** The agent asked for a picture of a tracing: main has the outline from the kernel and the layers, and the window draws them. */
+    onTracingPicture(cb: (m: { id: number; request: TracingPictureRequest }) => void): () => void
+    tracingPictureReply(id: number, result: TracingPictureResult | { error: string }): void
     /** The agent proposes a view: the window keeps it among the saved views of the object it shows, marked as proposed, and says what it kept. */
     onSaveView(cb: (m: { id: number; request: SaveViewRequest }) => void): () => void
     saveViewReply(id: number, result: SaveViewResult | { error: string }): void
@@ -355,11 +358,11 @@ export interface TornoBridge {
     remove(objectId: string, id: string): Promise<void>
     /** Puts back the tracing removed in this run, whole and with its number, once. */
     restore(objectId: string, id: string): Promise<Tracing>
-    /** The person's change to a layer: a new one, changes to their own, taking one away, or hiding any layer. Answers the tracing. */
+    /** The person's change to a layer: a new one, changes to their own, taking one away, putting one back that was removed in this run (with its number), or hiding any layer. Answers the tracing. */
     layer(
       objectId: string,
       id: string,
-      change: { make: { name: string; colour: LayerColour; shapes: LayerShape[] } } | { edit: number; name?: string; colour?: LayerColour; shapes?: LayerShape[] } | { remove: number } | { hide: number; hidden: boolean }
+      change: { make: { name: string; colour: LayerColour; shapes: LayerShape[] } } | { edit: number; name?: string; colour?: LayerColour; shapes?: LayerShape[] } | { remove: number } | { restore: number } | { hide: number; hidden: boolean }
     ): Promise<Tracing>
     /** The outline of a tracing on the last good build (the kernel's cut, with the points it can be snapped to), or null when there is none to be had. */
     outline(objectId: string, id: string): Promise<TracingCut | null>

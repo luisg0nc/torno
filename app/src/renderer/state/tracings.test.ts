@@ -386,7 +386,7 @@ describe('the person’s layers', () => {
     expect(tracingsStore.getState().file?.tracings[0].layers[0].hidden).toBe(true)
   })
 
-  it('are removed with their shapes kept in the window, and put back by a make with those shapes', async () => {
+  it('are removed with their shapes kept in the window, and put back by main with the number they had', async () => {
     const bridge = fake()
     const shapes = [{ kind: 'label' as const, at: [1, 1] as [number, number], text: 'a' }]
     withLayers(layer({ shapes }))
@@ -394,11 +394,11 @@ describe('the person’s layers', () => {
     expect(await tracingActions.removeLayer(1)).toBe(true)
     expect(bridge.layer).toHaveBeenLastCalledWith('bracket', 'T1', { remove: 1 })
     expect(tracingsStore.getState().layerRemoved).toMatchObject({ tracing: 'T1', layer: { name: 'Mine', shapes } })
-    bridge.layer.mockResolvedValueOnce(tracing('T1', { layers: [layer({ id: 2, shapes })], nextLayer: 3 }))
+    bridge.layer.mockResolvedValueOnce(tracing('T1', { layers: [layer({ shapes })], nextLayer: 2 }))
     expect(await tracingActions.undoRemoveLayer()).toBe(true)
-    expect(bridge.layer).toHaveBeenLastCalledWith('bracket', 'T1', { make: { name: 'Mine', colour: 'blue', shapes } })
+    expect(bridge.layer).toHaveBeenLastCalledWith('bracket', 'T1', { restore: 1 })
     expect(tracingsStore.getState().layerRemoved).toBeNull()
-    expect(tracingsStore.getState().into).toBe(2)
+    expect(tracingsStore.getState().into).toBe(1)
   })
 
   it('are not removed when they are Claude’s: that is not asked of main', async () => {

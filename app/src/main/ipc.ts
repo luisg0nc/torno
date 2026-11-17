@@ -110,9 +110,9 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection, export:saveTracing
 //   from the renderer: export:done, marks:sketching, tracings:shown, show:saveThumbnail, object:saveSceneFile, view:report, view:lookReply, view:showReply, view:highlightReply,
-//           view:drawSectionReply, view:saveViewReply, session:write, session:resize, session:insert,
+//           view:drawSectionReply, view:tracingPictureReply, view:saveViewReply, session:write, session:resize, session:insert,
 //           chat:answer, asks:answer
-//   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:saveView (sent by src/main/look.ts),
+//   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:tracingPicture, view:saveView (sent by src/main/look.ts),
 //           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested and window:closeAsked (sent by src/main/index.ts,
 //           which hears the answer, window:closeAnswer),
 //           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, tracings:changed, tracings:outline, tracings:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
@@ -168,6 +168,24 @@ let sets: SetStore | null = null
 
 /** The tracings of the objects of the open workspace, once `registerIpc` has been given them. */
 let tracings: TracingStore | null = null
+let doors: ReturnType<typeof tracingHandlers> | undefined
+/**
+ * What may be asked of the tracings, by the window (the `tracings:` channels) and by the agent's tools (`ToolDeps.tracings`): made once,
+ * the same handlers for every call, over the store and the outlines of the open workspace.
+ */
+export function tracingDoors(): ReturnType<typeof tracingHandlers> {
+  return (doors ??= tracingHandlers({
+    tracings: requireTracings(),
+    outlines: {
+      cut: async (objectId, id) => current?.outlines?.cut(objectId, id) ?? new Refusal('No workspace is open.'),
+      shown: (objectId, ids) => current?.outlines?.shown(objectId, ids)
+    },
+    object: findObject,
+    build: (id) => current?.builds.scene(id),
+    view: latestView,
+    query: queryObject
+  }))
+}
 const requireTracings = (): TracingStore => {
   if (!tracings) throw new Error('tracings are not available')
   return tracings
@@ -762,6 +780,7 @@ export function registerIpc(
 
   // The tracings of a project: the window makes and changes the person's, and is told of every change, whoever made it.
   tracings = opts.tracings ?? null
+  doors = undefined
   tracings?.on('changed', (m) => broadcast('tracings:changed', m))
   tracings?.on('problem', (m) => broadcast('tracings:problem', m))
   // The board of a project: what the person does to it in the window, and the window told of every change, whoever made it.
@@ -1195,20 +1214,7 @@ export function registerIpc(
   handle('sets:dismissProblem', (_event, objectId: string) => requireSets().dismissProblem(String(objectId)))
 
   // Tracings: the window names a project, a tracing by its `T<n>` and a layer by its number; main makes the planes and the outlines.
-  // Made once: it is the same handlers for every call, and the outlines they ask are the open workspace's.
-  let tracingDoors: ReturnType<typeof tracingHandlers> | undefined
-  const tracingsOf = (): ReturnType<typeof tracingHandlers> =>
-    (tracingDoors ??= tracingHandlers({
-      tracings: requireTracings(),
-      outlines: {
-        cut: async (objectId, id) => current?.outlines?.cut(objectId, id) ?? new Refusal('No workspace is open.'),
-        shown: (objectId, ids) => current?.outlines?.shown(objectId, ids)
-      },
-      object: findObject,
-      build: (id) => current?.builds.scene(id),
-      view: latestView,
-      query: queryObject
-    }))
+  const tracingsOf = tracingDoors
   handle('tracings:list', (_event, objectId: string) => tracingsOf().list(objectId))
   handle('tracings:make', (_event, objectId: string, ask: unknown) => tracingsOf().make(objectId, ask))
   handle('tracings:edit', (_event, objectId: string, id: string, patch: unknown) => tracingsOf().edit(objectId, id, patch))
@@ -1724,7 +1730,7 @@ export function registerIpc(
   })
 
   // What the renderer says it did for a request of main's (src/main/look.ts), each on the channel of its kind.
-  for (const channel of ['view:lookReply', 'view:showReply', 'view:highlightReply', 'view:drawSectionReply', 'view:saveViewReply']) {
+  for (const channel of ['view:lookReply', 'view:showReply', 'view:highlightReply', 'view:drawSectionReply', 'view:tracingPictureReply', 'view:saveViewReply']) {
     ipcMain.on(channel, (_event, id: number, result: object | { error: string }) => resolveRequest(id, result))
   }
 }

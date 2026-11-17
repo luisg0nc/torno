@@ -4,13 +4,13 @@ import type { MainAxis } from '../../shared/planes'
 import type { Scene } from '../../shared/scene'
 import { expandTag, splitTagRef, tagOfRef } from '../../shared/tags'
 import { type LayerColour, type LayerShape, type Tracing, type TracingCut, type TracingPlane, type TracingsFile, TRACING_ID, planeOfFrom } from '../../shared/tracings'
-import type { ViewState } from '../../shared/view'
+import type { SectionPlane, ViewState } from '../../shared/view'
 import type { ObjectInfo } from '../../shared/workspace'
 import { NO_SECTION } from '../export/section'
 import { Refusal } from '../refusal'
 import type { Outlines } from './outline'
 import { faceFrame, planarFace, sectionFrame } from './planes'
-import type { LayerChange, TracingStore } from './store'
+import type { LayerChange, OutlineBounds, TracingStore } from './store'
 
 // What the window may ask of the tracings (`tracings:list`, `:make`, `:edit`, `:remove`, `:restore`, `:layer`, `:outline`,
 // `:shown`, `:problem`, `:dismissProblem`), as handlers that do not need Electron (`main/ipc.ts` registers them). Everything the
@@ -113,11 +113,17 @@ export function tracingHandlers(deps: TracingIpcDeps) {
     return { ...frame, from: { kind: 'face', ref, ...(tag === undefined ? {} : { tag }), revision: last.revision } }
   }
 
-  const onSection = async (obj: ObjectInfo, layout: string): Promise<TracingPlane> => {
+  /** The section on screen, as it is now. */
+  const onScreenSection = (obj: ObjectInfo, layout: string): SectionPlane => {
     const view = deps.view(obj.id)
     const section = view?.section
     if (!view || !section) throw new Refusal(NO_SECTION)
     if (view.layout !== layout) throw new Refusal(`The section on screen is of the ${view.layout} layout, not ${layout}: show ${layout} first`)
+    return section
+  }
+
+  /** A plane frozen where it is: the kernel gives its axes, so that the tracing matches a section export of that plane. */
+  const onSection = async (obj: ObjectInfo, layout: string, section: SectionPlane): Promise<TracingPlane> => {
     const last = lastBuilt(obj)
     // The kernel's axes for that plane do not depend on what is cut: one part is enough to have them.
     const first = last.scene.parts.find((p) => p.layout === layout)
@@ -129,15 +135,25 @@ export function tracingHandlers(deps: TracingIpcDeps) {
     return { ...frame, from: { kind: 'section', origin: [section.origin[0], section.origin[1], section.origin[2]], normal: [section.normal[0], section.normal[1], section.normal[2]] } }
   }
 
-  /** Where the tracing is laid: exactly one of a main plane (`main`, with its `offset`), a `face` and the `section` on screen. */
+  /** Where the tracing is laid: exactly one of a main plane (`main`, with its `offset`), a `face`, the `section` on screen, or a plane given by its `origin` and `normal`. */
   const plane = async (obj: ObjectInfo, layout: string, raw: unknown): Promise<TracingPlane> => {
-    if (!isRecord(raw)) throw new Refusal('Say which plane the tracing is laid on: a main plane, a face, or the section on screen')
+    if (!isRecord(raw)) throw new Refusal('Say which plane the tracing is laid on: a main plane, a face, a point and a normal, or the section on screen')
+    // A plane given by a point and a normal is one kind, and its two keys are not a plane apart.
+    const pointed = raw.origin !== undefined || raw.normal !== undefined
     const kinds = (['main', 'face', 'section'] as const).filter((k) => raw[k] !== undefined)
-    if (kinds.length !== 1) throw new Refusal('A tracing is laid on one plane: one of a main plane (main, offset), a face, or the section on screen')
+    if (kinds.length + (pointed ? 1 : 0) !== 1) throw new Refusal('A tracing is laid on one plane: one of a main plane (main, offset), a face, a point and a normal (origin, normal), or the section on screen')
+    if (pointed) {
+      const triple = (v: unknown): Vec3 | null => (Array.isArray(v) && v.length === 3 && v.every((c) => typeof c === 'number' && Number.isFinite(c)) ? [v[0], v[1], v[2]] : null)
+      const origin = triple(raw.origin)
+      const normal = triple(raw.normal)
+      const length = normal === null ? 0 : Math.hypot(...normal)
+      if (origin === null || normal === null || !(length > 1e-9)) throw new Refusal('A plane given by a point and a normal is origin [x, y, z] and normal [x, y, z] in mm in the frame of the layout, the normal not all zeros')
+      return onSection(obj, layout, { origin, normal: [normal[0] / length, normal[1] / length, normal[2] / length] })
+    }
     if (kinds[0] === 'face') return onFace(obj, layout, raw.face)
     if (kinds[0] === 'section') {
       if (raw.section !== true) throw new Refusal('section is true: the section plane on screen')
-      return onSection(obj, layout)
+      return onSection(obj, layout, onScreenSection(obj, layout))
     }
     const axis = MAIN_AXES.find((a) => a === raw.main)
     if (!axis) throw new Refusal(`A main plane is XY, XZ or YZ: the plane two of the model's axes span`)
@@ -151,8 +167,8 @@ export function tracingHandlers(deps: TracingIpcDeps) {
   /** A change to a layer as the window may ask it: a clean copy with the keys of its kind and no others. */
   const layerChange = (raw: unknown): LayerChange | { hide: number; hidden: boolean } => {
     if (!isRecord(raw)) throw new Refusal('That is not a change to a layer.')
-    const kinds = (['make', 'edit', 'remove', 'hide'] as const).filter((k) => k in raw)
-    if (kinds.length !== 1) throw new Refusal('A change to a layer is make, edit, remove or hide: one of them.')
+    const kinds = (['make', 'edit', 'remove', 'restore', 'hide'] as const).filter((k) => k in raw)
+    if (kinds.length !== 1) throw new Refusal('A change to a layer is make, edit, remove, restore or hide: one of them.')
     if ('make' in raw) {
       const given = isRecord(raw.make) ? raw.make : {}
       return { make: { name: given.name as string, colour: given.colour as LayerColour, shapes: given.shapes as LayerShape[] } }
@@ -161,7 +177,23 @@ export function tracingHandlers(deps: TracingIpcDeps) {
       return { edit: raw.edit as number, ...(raw.name === undefined ? {} : { name: raw.name as string }), ...(raw.colour === undefined ? {} : { colour: raw.colour as LayerColour }), ...(raw.shapes === undefined ? {} : { shapes: raw.shapes as LayerShape[] }) }
     }
     if ('remove' in raw) return { remove: raw.remove as number }
+    if ('restore' in raw) return { restore: raw.restore as number }
     return { hide: raw.hide as number, hidden: raw.hidden as boolean }
+  }
+
+  /** The bounds of a tracing's outline on the last build, which a layer's numbers are held to, or none when it cannot be cut. */
+  const outlineBounds = async (objectId: string, id: string): Promise<OutlineBounds | undefined> => {
+    const cut = await deps.outlines.cut(objectId, id)
+    return cut instanceof Refusal || !cut.cut.bounds ? undefined : cut.cut.bounds
+  }
+
+  const make = async (objectId: string, raw: unknown, by: 'person' | 'agent'): Promise<Tracing> => {
+    const obj = project(objectId)
+    if (!isRecord(raw)) throw new Refusal('That is not a tracing: it names a plane, a layout and, if it has them, a name and parts.')
+    const { layout, parts } = layoutAndParts(obj, raw.layout, raw.parts)
+    const laid = await plane(obj, layout, raw.on)
+    const revision = deps.build(obj.id)?.revision
+    return deps.tracings.make(obj.id, { name: raw.name as string, layout, plane: laid, ...(parts === undefined ? {} : { parts }), ...(revision === undefined ? {} : { revision }) }, by)
   }
 
   return {
@@ -171,12 +203,29 @@ export function tracingHandlers(deps: TracingIpcDeps) {
 
     /** Makes the person's tracing: main makes the plane, takes the build it is made on, and gives the number. */
     async make(objectId: string, raw: unknown): Promise<Tracing> {
+      return make(objectId, raw, 'person')
+    },
+
+    /** Makes Claude's tracing, as `make` does and with the same checks: the tool names a plane, a layout and a name, and nothing else is taken. */
+    async agentMake(objectId: string, raw: unknown): Promise<Tracing> {
+      return make(objectId, raw, 'agent')
+    },
+
+    /** Removes a tracing of Claude's: one of the person's is refused by its owner's name. */
+    async agentRemove(objectId: string, id: string): Promise<Tracing> {
+      return deps.tracings.remove(project(objectId).id, tracingId(id), 'agent')
+    },
+
+    /**
+     * Claude's change to a layer of any tracing: `{ make }` makes or replaces (by name) a layer of its own, `{ remove }` takes one of
+     * its own away; the person's layers are refused by the owner's name. Shapes are held to the outline's bounds when it can be cut.
+     */
+    async agentLayer(objectId: string, id: string, raw: unknown): Promise<Tracing> {
       const obj = project(objectId)
-      if (!isRecord(raw)) throw new Refusal('That is not a tracing: it names a plane, a layout and, if it has them, a name and parts.')
-      const { layout, parts } = layoutAndParts(obj, raw.layout, raw.parts)
-      const laid = await plane(obj, layout, raw.on)
-      const revision = deps.build(obj.id)?.revision
-      return deps.tracings.make(obj.id, { name: raw.name as string, layout, plane: laid, ...(parts === undefined ? {} : { parts }), ...(revision === undefined ? {} : { revision }) }, 'person')
+      const named = tracingId(id)
+      if (!isRecord(raw) || (('make' in raw) === ('remove' in raw)) || Object.keys(raw).length !== 1) throw new Refusal('Claude changes a layer with make or remove: one of them.')
+      const change = layerChange(raw)
+      return deps.tracings.layer(obj.id, named, change as LayerChange, 'agent', 'make' in change ? await outlineBounds(obj.id, named) : undefined)
     },
 
     /** Renames a tracing, or changes which parts it draws (`null`: all). Whatever else is said is left out. */
@@ -214,9 +263,13 @@ export function tracingHandlers(deps: TracingIpcDeps) {
       const change = layerChange(raw)
       if ('hide' in change) return deps.tracings.hideLayer(obj.id, named, change.hide, change.hidden)
       const shaped = 'make' in change || ('edit' in change && change.shapes !== undefined)
-      const cut = shaped ? await deps.outlines.cut(obj.id, named) : undefined
-      const bounds = cut && !(cut instanceof Refusal) && cut.cut.bounds ? cut.cut.bounds : undefined
-      return deps.tracings.layer(obj.id, named, change, 'person', bounds)
+      return deps.tracings.layer(obj.id, named, change, 'person', shaped ? await outlineBounds(obj.id, named) : undefined)
+    },
+
+    /** What Claude reads of a tracing's outline: the cut, or the sentence that says why there is none (no build, a layout the build lacks, a kernel that could not). */
+    async agentOutline(objectId: string, id: string): Promise<{ cut: TracingCut } | { why: string }> {
+      const cut = await deps.outlines.cut(project(objectId).id, tracingId(id))
+      return cut instanceof Refusal ? { why: cut.message } : { cut }
     },
 
     /** The outline of a tracing on the last good build, or null when there is none to be had (not built yet, a layout the build lacks). */

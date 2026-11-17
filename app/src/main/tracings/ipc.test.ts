@@ -233,6 +233,83 @@ describe('tracings:layer', () => {
   })
 })
 
+describe('a plane given as a point and a normal', () => {
+  it('is the frozen plane of that point and normal, with the kernel\'s axes, for the person and for Claude', async () => {
+    const h = handlers()
+    const t = await h.make('bracket', { on: { origin: [0, 0, 5], normal: [0, 0, 2] }, layout: 'assembly' })
+    expect(t.plane.from).toEqual({ kind: 'section', origin: [0, 0, 5], normal: [0, 0, 1] })
+    expect(t.plane.origin).toEqual([0, 0, 5])
+    expect(queries.find((q) => q.name === 'section')?.args).toMatchObject({ layout: 'assembly', plane: { origin: [0, 0, 5], normal: [0, 0, 1] }, parts: ['block'] })
+    const agent = await h.agentMake('bracket', { on: { origin: [0, 0, 5], normal: [0, 0, 1] }, name: 'cut', layout: 'assembly' })
+    expect(agent).toMatchObject({ id: 'T2', by: 'agent', name: 'cut' })
+  })
+
+  it('is refused when it is not a point and a normal, or is given with another plane', async () => {
+    const h = handlers()
+    for (const on of [{ origin: [0, 0], normal: [0, 0, 1] }, { origin: [0, 0, 0], normal: [0, 0, 0] }, { origin: [0, 0, 0], normal: [0, 0, Number.NaN] }, { origin: [0, 0, 0] }, { normal: [0, 0, 1] }, { origin: [0, 0, 0], normal: [0, 0, 1], main: 'XZ' }]) {
+      expect(await refused(h.make('bracket', { on, layout: 'assembly' })), JSON.stringify(on)).toMatch(/plane|normal|origin/)
+    }
+    expect((await store.list('bracket')).tracings).toEqual([])
+  })
+})
+
+describe('what Claude may do through the tracings handlers', () => {
+  const square = [{ kind: 'polyline', points: [[0, 0], [10, 0], [10, 10], [0, 10]], closed: true }]
+
+  it('makes its own tracing on a main plane or a face, and removes only its own, naming the owner of another', async () => {
+    const h = handlers()
+    await h.make('bracket', ask({ name: 'mine' }))
+    const on = await h.agentMake('bracket', { on: { main: 'XZ', offset: 0 }, name: 'front', layout: 'assembly' })
+    expect(on).toMatchObject({ id: 'T2', by: 'agent', name: 'front', plane: { label: 'XZ at y = 0.0 (u = +X, v = +Z)' } })
+    const face = await h.agentMake('bracket', { on: { face: 'block/F31' }, name: 'top', layout: 'assembly' })
+    expect(face.plane.from).toMatchObject({ kind: 'face', ref: 'block/F31' })
+    expect(await refused(h.agentRemove('bracket', 'T1'))).toMatch(/the person's/)
+    expect((await store.list('bracket')).tracings.map((t) => t.id)).toEqual(['T1', 'T2', 'T3'])
+    await h.agentRemove('bracket', 'T2')
+    expect((await store.list('bracket')).tracings.map((t) => t.id)).toEqual(['T1', 'T3'])
+  })
+
+  it('refuses a face that is not flat, and keeps no key but the plane, the name and the layout', async () => {
+    const h = handlers()
+    reply = (name, args) => (name === 'describe' ? plane({ type: 'cylinder', descriptor: 'cylinder' }) : name === 'selectors' ? { selectors: [{ ref: args.refs[0], center: [1, 2, 10] }] } : sectionReply(args))
+    expect(await refused(h.agentMake('bracket', { on: { face: 'block/F31' }, layout: 'assembly' }))).toMatch(/flat|plane|planar/)
+    reply = (name, args) => (name === 'describe' ? plane() : name === 'selectors' ? { selectors: [{ ref: args.refs[0], center: [1, 2, 10] }] } : sectionReply(args))
+    const t = await h.agentMake('bracket', { on: { main: 'XY' }, layout: 'assembly', by: 'person', id: 'T9', layers: [{ id: 1 }] } as never)
+    expect(t).toMatchObject({ id: 'T1', by: 'agent', layers: [] })
+  })
+
+  it('makes and replaces its own layer by name, with the same number, and removes it; every number held to the outline', async () => {
+    const h = handlers()
+    await h.make('bracket', ask())
+    const one = await h.agentLayer('bracket', 'T1', { make: { name: 'bolts', colour: 'plum', shapes: square } })
+    expect(one.layers).toEqual([{ id: 1, name: 'bolts', colour: 'plum', by: 'agent', shapes: square, revision: 1 }])
+    const two = await h.agentLayer('bracket', 'T1', { make: { name: 'Bolts', colour: 'blue', shapes: [] } })
+    expect(two.layers).toMatchObject([{ id: 1, name: 'Bolts', colour: 'blue', revision: 2 }])
+    expect(await refused(h.agentLayer('bracket', 'T1', { make: { name: 'far', colour: 'blue', shapes: [{ kind: 'label', at: [1e6, 0], text: 'x' }] } }))).toMatch(/ten diagonals/)
+    expect((await h.agentLayer('bracket', 'T1', { remove: 1 })).layers).toEqual([])
+  })
+
+  it('does not change the person\'s layer, and takes no hide, edit or restore', async () => {
+    const h = handlers()
+    await h.make('bracket', ask())
+    await h.layer('bracket', 'T1', { make: { name: 'jacket', colour: 'teal', shapes: square } })
+    expect(await refused(h.agentLayer('bracket', 'T1', { make: { name: 'jacket', colour: 'blue', shapes: [] } }))).toMatch(/the person's/)
+    expect(await refused(h.agentLayer('bracket', 'T1', { remove: 1 }))).toMatch(/the person's/)
+    for (const change of [{ hide: 1, hidden: true }, { edit: 1, name: 'x' }, { restore: 1 }]) expect(await refused(h.agentLayer('bracket', 'T1', change as never)), JSON.stringify(change)).toMatch(/make or remove/)
+  })
+})
+
+describe('tracings:layer restore', () => {
+  it('puts the person\'s removed layer back with its number', async () => {
+    const h = handlers()
+    await h.make('bracket', ask())
+    await h.layer('bracket', 'T1', { make: { name: 'a', colour: 'blue', shapes: [] } })
+    await h.layer('bracket', 'T1', { make: { name: 'b', colour: 'blue', shapes: [] } })
+    await h.layer('bracket', 'T1', { remove: 1 })
+    expect((await h.layer('bracket', 'T1', { restore: 1 })).layers.map((l) => [l.id, l.name])).toEqual([[1, 'a'], [2, 'b']])
+  })
+})
+
 describe('tracings:outline and tracings:shown', () => {
   it('answers the outline of a tracing, or null when there is none to be had', async () => {
     const h = handlers()
