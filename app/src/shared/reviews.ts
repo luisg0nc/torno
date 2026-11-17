@@ -60,6 +60,14 @@ export function reviewName(round: Round, marks: readonly Mark[]): string {
   return ['Review of ' + round.build, ...(dont > 0 ? [`${dont} −`] : []), ...(want > 0 ? [`${want} +`] : [])].join(' · ')
 }
 
+/**
+ * The round that carried items on from `id` (what Still wrong makes) and can still take more: one that was sent or let go
+ * as plain marks is not one, for an item put in it would go out alone.
+ */
+export function carriedRound(rounds: readonly Round[], id: string): Round | undefined {
+  return rounds.find((round) => round.from === id && round.sentAt === undefined && round.plain === undefined)
+}
+
 /** A draft of a round that has not been sent, was not let go as plain marks and is not being sent now: it goes with no prompt. */
 export function isHeld(mark: Mark, view: RoundsView): boolean {
   if (mark.status !== 'draft' || mark.round === undefined) return false

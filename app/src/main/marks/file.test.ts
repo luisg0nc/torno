@@ -704,4 +704,19 @@ describe('a review in a marks file', () => {
     expect((sanitiseMarksFile({ next: 1, marks: [pin({ round: 'R4' })], rounds: [R('R4'), R('R5', { build: '' })] }) as MarksFile).nextRound).toBe(6)
     expect((sanitiseMarksFile({ next: 1, marks: [], rounds: [], nextRound: 7 }) as MarksFile).nextRound).toBe(7)
   })
+
+  it('clears a round no round of the file names, whatever the file says of its rounds', () => {
+    const marks = [pin({ id: 'M5', round: 'R3' })]
+    for (const rounds of [undefined, {}, 'x', 7, null]) {
+      const file = sanitiseMarksFile({ next: 6, marks, ...(rounds === undefined ? {} : { rounds }) }) as MarksFile
+      expect(file.marks[0]).toEqual(pin({ id: 'M5' }))
+      expect(file.nextRound).toBe(4)
+      expect(file.next).toBe(6)
+    }
+  })
+
+  it('raises the next round past the round of a mark that is left out, or that is cleared', () => {
+    expect((sanitiseMarksFile({ next: 3, marks: [{ ...pin({ id: 'M2', round: 'R8' }), kind: 'nonsense' }] }) as MarksFile).nextRound).toBe(9)
+    expect((sanitiseMarksFile({ next: 3, marks: [pin({ round: 'R3' })], rounds: [R('R1')], nextRound: 2 }) as MarksFile).nextRound).toBe(4)
+  })
 })

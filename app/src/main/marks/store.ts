@@ -3,7 +3,7 @@ import { type Anchor, type AnchorState, type DimensionMark, type Mark, type Mark
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
-import { type Round, type RoundsView, openRound, roundItems } from '../../shared/reviews'
+import { type Round, type RoundsView, carriedRound, openRound, roundItems } from '../../shared/reviews'
 
 /** What main says of a region: what it is, which mesh of its scan it is of, and which painting of it its mask holds. */
 export type RegionSaid = RegionStats & { mesh?: string; mask?: number }
@@ -898,7 +898,7 @@ export class MarkStore {
     return this.change(objectId, (file) => {
       const round = roundOf(file, id)
       if (round.endedAt !== undefined && roundItems(file.marks, id).length > 0) return UNCHANGED
-      return this.finish(file, round)
+      return this.finish(objectId, file, round)
     }).then((round) => (round === UNCHANGED ? this.round(objectId, id) : round))
   }
 
@@ -917,14 +917,14 @@ export class MarkStore {
   }
 
   /**
-   * Opens the round that carried items on from `id` (the one Still wrong made), or makes it on `of` when there is none.
-   * Refused while another round is open, and when it was sent.
+   * Opens the round that carried items on from `id` (the one Still wrong made), or makes it on `of` when there is none that
+   * can still take items (one that was sent, or let go as plain marks, is not one). Refused while another round is open.
    */
   carryRound(objectId: string, id: string, of: RoundOf): Promise<Round> {
     return this.change(objectId, (file) => {
       roundOf(file, id)
       const rounds = file.rounds ?? []
-      const next = rounds.find((round) => round.from === id)
+      const next = carriedRound(rounds, id)
       const open = openRound(rounds)
       if (open && open !== next) throw new Refusal(`${open.id} is open: end it before carrying ${id} on`)
       if (!next) {
@@ -932,12 +932,10 @@ export class MarkStore {
         file.rounds = [...rounds, made]
         return made
       }
-      if (next.sentAt !== undefined) throw new Refusal(`${next.id} carried ${id} on and was sent: start the next round instead`)
       if (next.endedAt === undefined) return UNCHANGED
       delete next.endedAt
-      delete next.plain
       return next
-    }).then((round) => (round === UNCHANGED ? this.carried(objectId, id) : round))
+    }).then(async (round) => (round === UNCHANGED ? structuredClone(carriedRound((await this.rounds(objectId)).rounds, id) as Round) : round))
   }
 
   /**
@@ -969,7 +967,7 @@ export class MarkStore {
       if (round.sentAt !== undefined) throw new Refusal(`${id} was sent already`)
       if (this.sending.get(dir) === id) this.sending.delete(dir)
       round.plain = this.now().toISOString()
-      return this.finish(file, round)
+      return this.finish(objectId, file, round)
     })
   }
 
@@ -1015,8 +1013,8 @@ export class MarkStore {
         mark.acknowledged = true
         return mark
       }
-      let next = file.rounds?.find((round) => round.from === from.id)
-      if (next?.sentAt !== undefined) throw new Refusal(`${next.id} carried ${from.id} on and was sent: start a new review instead`)
+      // One that was sent or let go as plain marks would let the item out alone: it goes into a fresh round.
+      let next = carriedRound(file.rounds ?? [], from.id)
       if (!next) {
         next = { ...madeRound(file, at.next, this.now().toISOString()), from: from.id }
         next.endedAt = next.startedAt
@@ -1030,26 +1028,28 @@ export class MarkStore {
       delete mark.resolvedBy
       delete mark.acknowledged
       mark.round = next.id
-      mark.note = mark.note === '' ? why : `${mark.note} ${why}`.slice(0, MAX_NOTE)
+      // What it says is kept whole: when the note and it do not both fit, the end of the note is what is cut.
+      const joined = mark.note === '' ? why : `${mark.note} ${why}`
+      mark.note = joined.length <= MAX_NOTE ? joined : `${mark.note.slice(0, Math.max(0, MAX_NOTE - why.length - 1))} ${why}`.trimStart().slice(0, MAX_NOTE)
       return mark
     })
   }
 
-  /** What ending or letting go of a round does to the file: it ends, or is dropped when it has no items. Returns the round as it was. */
-  private finish(file: MarksFile, round: Round): Round {
+  /**
+   * What ending or letting go of a round does to the file: it ends, or is dropped when it has no items. Never dropped when it
+   * was sent, nor while this run's undo can still bring back one of its items. Returns the round as it was.
+   */
+  private finish(objectId: string, file: MarksFile, round: Round): Round {
     if (round.endedAt === undefined) round.endedAt = this.now().toISOString()
     const done = structuredClone(round)
+    const undoable = this.deleted.get(objectId)?.mark.round === round.id
     // Its id is never given again: `nextRound` is past it already.
-    if (roundItems(file.marks, round.id).length === 0) file.rounds = (file.rounds ?? []).filter((one) => one.id !== round.id)
+    if (round.sentAt === undefined && !undoable && roundItems(file.marks, round.id).length === 0) file.rounds = (file.rounds ?? []).filter((one) => one.id !== round.id)
     return done
   }
 
   private round(objectId: string, id: string): Promise<Round> {
     return this.rounds(objectId).then(({ rounds }) => rounds.find((round) => round.id === id) ?? Promise.reject(new Refusal(`no round ${id}`)))
-  }
-
-  private carried(objectId: string, id: string): Promise<Round> {
-    return this.rounds(objectId).then(({ rounds }) => rounds.find((round) => round.from === id) ?? Promise.reject(new Refusal(`no round carries ${id} on`)))
   }
 
   private now(): Date {

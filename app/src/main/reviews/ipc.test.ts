@@ -124,6 +124,32 @@ describe('marks:round', () => {
     expect(view.rounds.find((r) => r.id === 'R2')).toMatchObject({ from: 'R1', build: 'h42', layout: 'assembly' })
   })
 
+  it('carries a round on that was carried into already, without asking for the build or starring it', async () => {
+    await handlers().round('bracket', { start: { layout: 'assembly' } })
+    await store.add('bracket', pin())
+    await handlers().round('bracket', { send: 'R1' })
+    await store.roundSent('bracket', 'R1')
+    await store.carryRound('bracket', 'R1', { layout: 'assembly', build: 'h41', sources: 'hash41', line: 'build 41' })
+    await store.add('bracket', pin())
+    await store.endRound('bracket', 'R2')
+    state = { ...ok, status: 'building' }
+    starred = []
+    const view = await handlers().round('bracket', { carry: 'R1' })
+    expect(view.rounds.find((r) => r.id === 'R2')?.endedAt).toBeUndefined()
+    expect(starred).toEqual([])
+  })
+
+  it('refuses to carry on while another round is open, without asking for the build', async () => {
+    await handlers().round('bracket', { start: { layout: 'assembly' } })
+    await store.add('bracket', pin())
+    await handlers().round('bracket', { send: 'R1' })
+    await store.roundSent('bracket', 'R1')
+    await store.startRound('bracket', { layout: 'assembly', build: 'h41', sources: 'hash41', line: 'build 41' })
+    starred = []
+    await expect(handlers().round('bracket', { carry: 'R1' })).rejects.toThrow('R2 is open')
+    expect(starred).toEqual([])
+  })
+
   it.each([
     ['two shapes', { start: {}, end: 'R1' }],
     ['no key', {}],
@@ -213,6 +239,23 @@ describe('marks:judge', () => {
     expect(starred).toContain('h42:true')
     const { rounds } = await store.rounds('bracket')
     expect(rounds.find((r) => r.id === 'R2')).toMatchObject({ from: 'R1', build: 'h42', sources: 'hash42', layout: 'assembly' })
+  })
+
+  it('Still wrong into a next round that is there already asks nothing of the build, and stars nothing', async () => {
+    await handlers().round('bracket', { start: { layout: 'assembly' } })
+    await store.add('bracket', pin())
+    await store.add('bracket', pin())
+    await handlers().round('bracket', { send: 'R1' })
+    await store.roundSent('bracket', 'R1')
+    for (const id of ['M1', 'M2']) await store.update('bracket', id, { status: 'resolved' }, 'agent')
+    entries = [entry(40), entry(41), entry(42, { sources: 'hash42' })]
+    sources = 'hash42'
+    await handlers().judge('bracket', 'M1', 'still-wrong')
+    starred = []
+    state = { ...ok, status: 'building' }
+    const second = await handlers().judge('bracket', 'M2', 'still-wrong', 'again')
+    expect(second).toMatchObject({ round: 'R2', judged: { verdict: 'still-wrong', build: 'h42' } })
+    expect(starred).toEqual([])
   })
 
   it('refuses Still wrong while a build is running', async () => {

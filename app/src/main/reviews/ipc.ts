@@ -1,7 +1,7 @@
 import type { BuildState } from '../../shared/build'
 import type { HistoryEntry } from '../../shared/history'
 import { type Mark, MAX_NOTE } from '../../shared/marks'
-import { ROUND_ID, type Round, type RoundAsk, type RoundsView, openRound } from '../../shared/reviews'
+import { ROUND_ID, type Round, type RoundAsk, type RoundsView, carriedRound, openRound } from '../../shared/reviews'
 import type { ObjectInfo } from '../../shared/workspace'
 import type { History } from '../history'
 import type { MarkStore } from '../marks/store'
@@ -114,7 +114,10 @@ export function reviewHandlers(deps: ReviewIpcDeps) {
           const id = roundId(value)
           const from = (await deps.marks.rounds(obj.id)).rounds.find((round) => round.id === id)
           if (!from) throw new Refusal(`There is no round ${id} in this project.`)
-          await deps.marks.carryRound(obj.id, id, { layout: from.layout, ...(await shown(obj.id)) })
+          // The build is asked of only when a round is to be made: one carried into already, or another that is open, needs none.
+          const rounds = (await deps.marks.rounds(obj.id)).rounds
+          const ready = carriedRound(rounds, id) ?? openRound(rounds)
+          await deps.marks.carryRound(obj.id, id, { layout: from.layout, ...(ready ? { build: ready.build, sources: ready.sources, line: ready.line } : await shown(obj.id)) })
           break
         }
         case 'send':
@@ -160,9 +163,11 @@ export function reviewHandlers(deps: ReviewIpcDeps) {
       const found = (await deps.marks.list(obj.id)).find((m) => m.id === mark)
       if (!found) throw new Refusal(`There is no mark ${mark} in this project.`)
       const from = found.round === undefined ? undefined : (await deps.marks.rounds(obj.id)).rounds.find((round) => round.id === found.round)
-      // Still wrong asks the build to be on show, as a review does. OK only names the build the person was looking at.
+      // Still wrong asks the build to be on show, as a review does, when it makes the next round. Into one that is there
+      // already, or for OK, it only names the build the person was looking at: nothing is starred, and a build that runs does not refuse it.
+      const there = from === undefined ? undefined : carriedRound((await deps.marks.rounds(obj.id)).rounds, from.id)
       let on: Shown
-      if (verdict === 'still-wrong') on = await shown(obj.id)
+      if (verdict === 'still-wrong' && !there) on = await shown(obj.id)
       else {
         const entry = await foundBuild(deps, obj)
         if (!entry) throw new Refusal(deps.lastSources(obj.id) === undefined ? NO_BUILD : NOT_KEPT)

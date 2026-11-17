@@ -1612,6 +1612,37 @@ describe('a review', () => {
       expect(isHeld((await store.list('bracket'))[0], view)).toBe(false)
     })
 
+    it('is never dropped once it was sent, however empty', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.endRound('bracket', 'R1')
+      await store.sendRound('bracket', 'R1')
+      await store.roundSent('bracket', 'R1')
+      await store.remove('bracket', 'M1')
+      expect(await store.endRound('bracket', 'R1')).toMatchObject({ id: 'R1', sentAt: expect.any(String) })
+      expect((await store.rounds('bracket')).rounds.map((r) => r.id)).toEqual(['R1'])
+      await expect(store.plainRound('bracket', 'R1')).rejects.toThrow('R1 was sent already')
+    })
+
+    it('is kept, empty, while an undo can still bring back its item', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.remove('bracket', 'M1')
+      await store.endRound('bracket', 'R1')
+      expect((await store.rounds('bracket')).rounds.map((r) => r.id)).toEqual(['R1'])
+      const back = await store.restore('bracket', 'M1')
+      expect(back.round).toBe('R1')
+      expect(isHeld(back, await store.rounds('bracket'))).toBe(true)
+    })
+
+    it('is dropped, empty, when what was removed is not from it', async () => {
+      await store.add('bracket', pick())
+      await store.startRound('bracket', OF)
+      await store.remove('bracket', 'M1')
+      await store.endRound('bracket', 'R1')
+      expect((await store.rounds('bracket')).rounds).toEqual([])
+    })
+
     it('has its items taken out one at a time', async () => {
       await store.startRound('bracket', OF)
       await store.add('bracket', pick())
@@ -1641,6 +1672,20 @@ describe('a review', () => {
       expect(openRound(view.rounds)).toBeUndefined()
     })
 
+    it('keeps all of what it says when the note is too long for both, and cuts the end of the old note', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick({ note: 'n'.repeat(1995) }))
+      await store.endRound('bracket', 'R1')
+      await store.sendRound('bracket', 'R1')
+      await store.markSent('bracket')
+      await store.roundSent('bracket', 'R1')
+      await store.update('bracket', 'M1', { status: 'resolved' }, 'agent')
+      const { note } = await store.judge('bracket', 'M1', 'still-wrong', { build: 'h42', note: 'still thin', next: NEXT })
+      expect(note).toHaveLength(2000)
+      expect(note.endsWith(' Still wrong in h42: still thin')).toBe(true)
+      expect(note.startsWith('nnnn')).toBe(true)
+    })
+
     it('puts what it says after the note, and goes into the same next round for the next one', async () => {
       await store.startRound('bracket', OF)
       await store.add('bracket', pick({ note: 'too thin' }))
@@ -1664,6 +1709,26 @@ describe('a review', () => {
       expect(carried).not.toHaveProperty('endedAt')
       expect((await store.judge('bracket', resolved.id, 'still-wrong', { build: 'h42', next: NEXT })).round).toBe('R2')
       expect((await store.rounds('bracket')).rounds).toHaveLength(2)
+    })
+
+    it('goes into a fresh round when the one it carried into was let go as plain marks, so that it is held', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.add('bracket', pick())
+      await store.endRound('bracket', 'R1')
+      await store.sendRound('bracket', 'R1')
+      await store.markSent('bracket')
+      await store.roundSent('bracket', 'R1')
+      for (const id of ['M1', 'M2']) await store.update('bracket', id, { status: 'resolved' }, 'agent')
+      await store.judge('bracket', 'M1', 'still-wrong', { build: 'h42', next: NEXT })
+      await store.plainRound('bracket', 'R2')
+      const wrong = await store.judge('bracket', 'M2', 'still-wrong', { build: 'h43', next: { ...NEXT, build: 'h43' } })
+      expect(wrong.round).toBe('R3')
+      const view = await store.rounds('bracket')
+      expect(view.rounds[2]).toMatchObject({ id: 'R3', from: 'R1', build: 'h43', endedAt: expect.any(String) })
+      expect(view.rounds[2]).not.toHaveProperty('sentAt')
+      expect(view.rounds[2]).not.toHaveProperty('plain')
+      expect(isHeld(wrong, view)).toBe(true)
     })
 
     it('is for a mark the agent resolved, that is in a round that was sent', async () => {
@@ -1709,6 +1774,13 @@ describe('a review', () => {
       const made = await store.carryRound('bracket', 'R1', NEXT)
       expect(made).toEqual({ id: 'R2', ...NEXT, from: 'R1', startedAt: '2026-10-09T12:00:00.000Z' })
       expect(await store.carryRound('bracket', 'R1', { ...NEXT, build: 'h60' })).toEqual(made)
+    })
+
+    it('makes a new round when the one it carried into was let go as plain marks or sent', async () => {
+      const resolved = await answered()
+      await store.judge('bracket', resolved.id, 'still-wrong', { build: 'h42', next: NEXT })
+      await store.plainRound('bracket', 'R2')
+      expect(await store.carryRound('bracket', 'R1', { ...NEXT, build: 'h43' })).toMatchObject({ id: 'R3', from: 'R1', build: 'h43' })
     })
 
     it('is refused while another round is open', async () => {

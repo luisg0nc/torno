@@ -43,7 +43,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `marks.json` beside the marks (`rounds`, `nextRound`; the id is never given again, whatever becomes of the round), at most one
   open. `MarkStore` is its only writer: a mark the person makes while the round of its layout is open has `round` (`add`,
   `addNote`, a new sketch; never the agent's, never from the window), and Still wrong (`judge`) moves an item into the next
-  round, made there ended and unsent, so that it is held (`isHeld`). `judged` is set by `judge` alone: `acknowledge` and "OK all"
+  round, made there ended and unsent, so that it is held (`isHeld`; a next round that was sent or let go as plain marks is not
+  used, a fresh one is made: `carriedRound`). A round that was sent is never dropped, and an empty one is kept while this run's undo
+  can bring back one of its items. `judged` is set by `judge` alone: `acknowledge` and "OK all"
   leave it. `sending` is the round whose prompt is on its way: in memory, forgotten with `forget`, told with `changed`. The
   sanitiser leaves a bad `intent`, `round` or `judged` out of a mark, drops a round that is not whole, ends all open rounds but the
   newest and makes a mark that names a round the file lacks a plain one.

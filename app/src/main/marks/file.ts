@@ -88,27 +88,32 @@ function readMarksFile(value: unknown): { file: MarksFile; dropped: number } | n
   const marks: Mark[] = []
   const seen = new Set<string>()
   let next = idNumber(value.next) ?? 1
+  // Past every round a mark names, kept or not: a round's number is never given again.
+  let nextRound = 1
   for (const raw of value.marks) {
     const given = isRecord(raw) && typeof raw.id === 'string' ? idNumber(Number(/^M(\d+)$/.exec(raw.id)?.[1])) : undefined
     if (given !== undefined) next = Math.max(next, given + 1)
+    if (isRecord(raw) && typeof raw.round === 'string' && ROUND_ID.test(raw.round)) nextRound = Math.max(nextRound, roundNumber(raw.round) + 1)
     const mark = sanitiseMark(raw)
     if (!mark || seen.has(mark.id)) continue
     seen.add(mark.id)
     marks.push(mark)
   }
-  const file: MarksFile = { next, marks }
-  const rounds = readRounds(value)
-  if (rounds) {
-    const names = new Set(rounds.rounds.map((round) => round.id))
-    // A mark that names a round this file does not have is a plain mark.
-    file.marks = marks.map((mark) => {
+  // Whatever the file says of its rounds (nothing, or what is no list), a mark that names a round it does not have is a plain mark.
+  const read = readRounds(value)
+  const names = new Set(read.rounds.map((round) => round.id))
+  const file: MarksFile = {
+    next,
+    marks: marks.map((mark) => {
       if (mark.round === undefined || names.has(mark.round)) return mark
       const { round: _gone, ...plain } = mark
       return plain as Mark
     })
-    file.rounds = rounds.rounds
-    if (rounds.next !== undefined) file.nextRound = Math.max(rounds.next, ...marks.map((mark) => (mark.round === undefined ? 0 : roundNumber(mark.round) + 1)))
   }
+  nextRound = Math.max(nextRound, read.next)
+  // A file from before there were rounds has neither key, and reads unchanged.
+  if (Array.isArray(value.rounds)) file.rounds = read.rounds
+  if (Array.isArray(value.rounds) || nextRound > 1 || idNumber(value.nextRound) !== undefined) file.nextRound = nextRound
   return { file, dropped: value.marks.length - marks.length }
 }
 
@@ -118,10 +123,9 @@ const roundNumber = (id: string): number => Number(id.slice(1))
 /**
  * The rounds of a marks file, and the number the next is given: a round that is not whole is left out, an id is kept
  * once, and only the newest round (the highest id) may be open: any other is ended, when the newest began. `next` is
- * past every id a round or the file says, kept or not. Null for a file from before there were rounds.
+ * past every id a round or the file says, kept or not. A file that has none gives none.
  */
-function readRounds(value: Record<string, unknown>): { rounds: Round[]; next: number | undefined } | null {
-  if (!Array.isArray(value.rounds) && value.nextRound === undefined) return null
+function readRounds(value: Record<string, unknown>): { rounds: Round[]; next: number } {
   const rounds: Round[] = []
   const seen = new Set<string>()
   let next = idNumber(value.nextRound) ?? 1
@@ -137,7 +141,7 @@ function readRounds(value: Record<string, unknown>): { rounds: Round[]; next: nu
     const newest = open.reduce((a, b) => (roundNumber(b.id) > roundNumber(a.id) ? b : a))
     for (const round of open) if (round !== newest) round.endedAt = newest.startedAt
   }
-  return { rounds, next: Array.isArray(value.rounds) || next > 1 ? next : undefined }
+  return { rounds, next }
 }
 
 /** A round with only the fields a round has, or null when the value is not one. */
