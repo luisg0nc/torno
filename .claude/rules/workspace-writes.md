@@ -40,7 +40,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   a chat's log for `chat/`, an export for `exports/`, a picture for `views/`, the builds' record for `builds.jsonl`, the overrides of
   `Params` for `params.json`, the board's record of what the agent was told for `board/told.json` and the
   board's pictures for `board/pictures/` (that folder has a `.gitignore` of its own). What is the
-  object's travels: `scene.json`, `marks.json`, `scans.json`, `profile.json`, `agent.json`, `board/board.json` (the cards, frames and
+  object's travels: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `profile.json`, `agent.json`, `board/board.json` (the cards, frames and
   arrows of the board; its pictures stay on the computer).
 - **`.torno` is named in one module, `src/main/own.ts`** (`FOLDER`), and every write under it goes through
   `ownTorno(dir)` first (`writeOwn` for a file written whole): a link or a file in its place is refused with a

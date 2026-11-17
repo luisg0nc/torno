@@ -3,7 +3,7 @@ import type { Viewport } from '../viewport/Viewport'
 import { actions, store } from '../state/store'
 import { toolStore } from '../state/tools'
 import { TYPING } from '../ui/typing'
-import { type Anchor, type SketchStroke, type Vec3 } from '../../shared/marks'
+import { type Anchor, type NewStroke, type Vec3 } from '../../shared/marks'
 import type { MainAxis } from '../../shared/planes'
 import { type PenSnap, type PenStroke, PenState } from './sketch/pens'
 import { type PlaneDraft, facePlane, fromPlane, mainPlane, pointPlane, rayOnPlane, toPlane, withOffset } from './sketch/planes'
@@ -101,7 +101,7 @@ export function sketchTool(): Tool {
     const state = sketchStore.getState()
     const plane = activePlane(state)
     const base = { pen: stroke.pen, revision: now.revision, ...(stroke.snaps.length > 0 ? { snaps: stroke.snaps } : {}), ...(state.xray ? { xray: true as const } : {}) }
-    const made: SketchStroke = plane ? { plane: plane.id, points2d: stroke.points as [number, number][], ...base } : { points: stroke.points as Vec3[], ...base }
+    const made: NewStroke = plane ? { plane: plane.id, points2d: stroke.points as [number, number][], ...base } : { points: stroke.points as Vec3[], ...base }
     const anchor: Anchor | undefined = started ? { point: started.point, ...(started.normal ? { normal: started.normal } : {}), part: started.part, ref: started.ref } : undefined
     started = null
     if (!addStroke(made, anchor)) return
@@ -239,7 +239,8 @@ export function sketchTool(): Tool {
       const draft = state.open?.draft
       const project = ctx.viewport.project?.bind(ctx.viewport)
       const index = draft && project ? strokeAt(draft, project, e.client) : null
-      if (index !== null) eraseStroke(index)
+      const hit = draft && index !== null ? draft.strokes[index] : undefined
+      if (hit) eraseStroke(hit)
       ctx.viewport.setNavigation(false)
       pressing = true
       return

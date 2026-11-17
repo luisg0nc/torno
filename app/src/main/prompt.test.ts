@@ -91,6 +91,14 @@ describe('the system prompt', () => {
     ]) expect(FULL_PROMPT).toContain(said)
   })
 
+  it('says what a named set is, how to write one in a ref, and that only the person accepts a proposal', () => {
+    const sentence = "Named sets are the person's names for faces, edges, parts and strokes (scene lists them): write #deck, or block/#deck for one part's, in any ref; propose one with mcp__torno__add_set when a name would help, and only the person accepts it."
+    expect(FULL_PROMPT).toContain(sentence)
+    expect(SYSTEM_PROMPT).toContain(sentence)
+    expect(systemPrompt((tool) => `torno.${tool}`)).toContain('propose one with torno.add_set when')
+    expect(TOOLS.add_set.description).toContain('Only the person accepts a proposal')
+  })
+
   it('stays short', () => {
     // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews.
     expect(FULL_PROMPT.length).toBeLessThan(8600)

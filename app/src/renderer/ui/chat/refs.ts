@@ -1,5 +1,6 @@
 import type { BoardFile, Card } from '../../../shared/board'
 import { type NoteMark, markAnchors } from '../../../shared/marks'
+import { type NamedSet, expandSet, splitSetRef } from '../../../shared/sets'
 import { splitTagRef, tagRefs } from '../../../shared/tags'
 import { layerOf, type TornoState } from '../../state/store'
 
@@ -14,6 +15,8 @@ export interface RefInfo {
   act?: 'focus' | 'select' | 'build' | 'card'
   /** For a mark, who made it: its chip is in its colour. */
   author?: 'user' | 'agent'
+  /** What a click selects, when that is not what it lights: a named set lights its strokes too, and selects faces and edges only. */
+  select?: string[]
   /** The tooltip: what it is, or why it does nothing. */
   title: string
   /** It names nothing this object has (a mark it has not, a build it has not made, a part the build lacks): in prose it is only text. */
@@ -41,6 +44,8 @@ function noteLights(s: RefState, note: NoteMark): string[] {
 export type RefState = Pick<TornoState, 'marks' | 'scene' | 'layers' | 'layout' | 'revision' | 'build'> & {
   /** The board of the project as the window has it (`state/board.ts`): without it, a `C7` is only text. */
   board?: BoardFile | null
+  /** The named sets of the project as the window has them: without them, a `#deck` is only text. */
+  sets?: readonly NamedSet[]
 }
 
 /** What names a card in a tooltip: its words when it has them, else what it shows. */
@@ -85,6 +90,7 @@ export function refInfo(s: RefState, value: string): RefInfo {
     const title = shown ? `Build ${value}, the one on show${failed ? '; the build after it failed: show why' : ''}` : `Build ${value}`
     return { kind: 'build', live: failed, lights: [], plain: n < 1 || n > s.revision, ...(failed ? { act: 'build' as const } : {}), title }
   }
+  if (splitSetRef(value)) return setInfo(s, value)
   const tagged = splitTagRef(value)
   if (tagged) {
     // A face or an edge the model names (`lid/@top`): it lights and selects what it names now, one face or several.
@@ -112,4 +118,29 @@ export function refInfo(s: RefState, value: string): RefInfo {
   if (layerOf(s.layers, name)?.visible === false) return no(`${value} is on a part that is switched off`)
   if (Number(number) >= (letter === 'F' ? found.faceCount : found.edgeCount)) return no(`${name} has no ${letter}${number}`)
   return { kind: 'geometry', live: true, lights: [value], plain: false, act: 'select', title: `Select ${value}` }
+}
+
+/** A named set's ref (`#deck`, `block/#deck`): it lights its members the shown build has, strokes among them, and a click selects its faces and edges. */
+function setInfo(s: RefState, value: string): RefInfo {
+  const no = (title: string, plain = false): RefInfo => ({ kind: 'geometry', live: false, lights: [], plain, title })
+  const sets = s.sets ?? []
+  const parts = (s.scene?.parts ?? []).filter((p) => p.layout === s.layout)
+  const expanded = expandSet(sets, parts, s.layout, value, s.marks)
+  // A name no set has is only text: `#include` in a sentence.
+  if (expanded === null || ('error' in expanded && /^no named set/.test(expanded.error))) return { kind: 'none', live: false, lights: [], plain: true, title: `${value} is not a named set of this project` }
+  if ('error' in expanded) return no(expanded.error)
+  const off = (ref: string): boolean => layerOf(s.layers, ref.split('/')[0])?.visible === false
+  const faces = expanded.refs.filter((ref) => !off(ref))
+  const lights = [...faces, ...expanded.strokes]
+  const said = expanded.said.slice(expanded.said.indexOf(':') + 2)
+  if (lights.length === 0) return no(`${value}: ${expanded.refs.length > 0 ? 'its parts are switched off' : said}`)
+  return {
+    kind: 'geometry',
+    live: true,
+    lights,
+    plain: false,
+    act: 'select',
+    select: faces.filter((ref) => /\/[FE]\d+$/.test(ref)),
+    title: `Select ${value}: ${said}`
+  }
 }

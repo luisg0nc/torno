@@ -72,3 +72,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   told `exact: false`. `thin` is never exact: the wall along the inward normal at 5 × 5 points of each face, in
   10 s at most (`THIN_BUDGET`, then `sampling.complete` false). `bed` is the layout's box from the parts' boxes
   (`tess.part_box`), exact only when every one of them is.
+- **Selectors are forms the kernel can rebuild, and named sets are found again by them** (`selectors.py`, `refind.py`). The search
+  works on forms, plain JSON (`{of, prefix, terminal}`), and the text of an expression is only ever written from a form
+  (`expression_of`, `prefix_expression`). `selector_for` answers a `form` beside its text for `by geometry`, never for `by order` (an index
+  into a sort can name the wrong face silently, so a set never keeps one). The kernel evaluates only text it made from a form that
+  `parse_form` accepted, field by field, in the no-builtins namespace (`Evaluator`); never a string torno or a file hands it, and
+  a form with an `order` terminal, an unknown key or a number out of range is refused. `selectors` (`selectors_of`) answers the
+  form, type, point and normal of several refs of one part in one pass, within `SELECTORS_BUDGET` (20 s). `refind` finds each stored
+  member again: the face still at its stored point and facing as stored wins, else the form's face when it is of the stored type and
+  faces as stored, else the nearest face within the part's tolerance that faces within `NORMAL_DEGREES` (10) of it; an edge by type
+  and the distance of its point; else `lost`. A form whose search ties, or runs past `REFIND_BUDGET` (20 s), picks nothing: the
+  members not looked at come back `lost` with `unchecked: true`, which is told, never taken for found. Both are asked of the last
+  build only, in the object frame of a layout (`kernel-diagnose` has the same search for `describe`; `sets` is main's side).

@@ -7,8 +7,9 @@ import type { Camera } from '../../shared/view'
 import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
 import { ROUND_ID, type Round } from '../../shared/reviews'
 import { TAG_NAME } from '../../shared/tags'
+import { SET_REF } from '../../shared/sets'
 import { FOLDER, ownTorno, writeOwn } from '../own'
-import { readSketch } from '../sketches/read'
+import { numberStrokes, readSketch } from '../sketches/read'
 
 const NAME = 'marks.json'
 
@@ -351,11 +352,12 @@ function noteOf(base: Omit<NoteMark, 'kind' | 'anchor' | 'picture' | 'ink' | 'si
  * A sketch: what `readSketch` keeps of it (its strokes, planes and caps), its anchor when it has one, and its picture
  * only by a name main gives one (`k-<12 hex>.png`): one named otherwise is no sketch this version keeps.
  */
-function sketchOf(base: Omit<SketchMark, 'kind' | 'name' | 'take' | 'diameter' | 'planes' | 'strokes' | 'anchor' | 'picture'>, anchor: Anchor | null, value: Record<string, unknown>): SketchMark | null {
+function sketchOf(base: Omit<SketchMark, 'kind' | 'name' | 'take' | 'diameter' | 'planes' | 'strokes' | 'nextStroke' | 'anchor' | 'picture'>, anchor: Anchor | null, value: Record<string, unknown>): SketchMark | null {
   const body = readSketch(value, 'file', base.id)
   if (typeof body === 'string') return null
   if (value.picture !== undefined && !(typeof value.picture === 'string' && SKETCH_PICTURE.test(value.picture))) return null
-  return { ...base, kind: 'sketch', ...body, ...(anchor ? { anchor } : {}), ...(typeof value.picture === 'string' ? { picture: value.picture } : {}) }
+  const { strokes, nextStroke } = numberStrokes(body.strokes, value.nextStroke)
+  return { ...base, kind: 'sketch', ...body, strokes, nextStroke, ...(anchor ? { anchor } : {}), ...(typeof value.picture === 'string' ? { picture: value.picture } : {}) }
 }
 
 function labelOf(value: unknown): NoteLabel | null {
@@ -464,6 +466,7 @@ export function anchorOf(value: unknown): Anchor | null {
   if (typeof value.edge === 'string') anchor.edge = value.edge
   if (Array.isArray(value.between) && value.between.length === 2 && value.between.every((ref) => typeof ref === 'string')) anchor.between = [value.between[0], value.between[1]]
   if (typeof value.tag === 'string' && TAG_NAME.test(value.tag)) anchor.tag = value.tag
+  if (typeof value.set === 'string' && SET_REF.test(value.set)) anchor.set = value.set
   return anchor
 }
 

@@ -23,7 +23,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `save_view` are in `mcp/viewTools.ts`; those that place and resolve marks in
   `mcp/markTools.ts`; those that read the part in `mcp/readTools.ts`; those
   that ask about scans in `mcp/scanTools.ts`): `scene`, `look`, `marks`,
-  `describe`, `highlight`, `ask`, `show`, `save_view`, `add_mark`, `add_sketch`, `resolve_mark`,
+  `describe`, `highlight`, `ask`, `show`, `save_view`, `add_mark`, `add_sketch`, `add_set`, `resolve_mark`,
   `measure`, `section`, `check`, `diff`, `history`, `board`, `add_card`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
   `board` and `add_card` (`mcp/boardTools.ts`; `ToolDeps.board`, `ToolDeps.scale`, wired in `index.ts`) are the agent's door to the
   board: `board` reads it as `boardText` does (a frame by name or id; `pictures: true` sends up to 6, each scaled to 1280 by
@@ -66,6 +66,19 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   planar; `axesOfNormal` gives the axes, +X projected, else +Y), a point plane's from its normal. The sketch is `author: 'agent'`, of the last build, with no snaps, and its
   `touches` come from `strokeTouches` through `deps.nearest`. Its `anchor` is `anchorFor` of the first point of its first stroke in space (a kernel `nearest`, with the spread `placedMark` records in `index.ts`), absent when that point is beyond tolerance of every part or there is no such stroke. `sketch: 'M9'` replaces one of the agent's, `remove: true` deletes it through `MarkStore.remove` (undo as for any mark);
   a sketch of the person's is refused for either. `add_mark` refuses `kind: 'sketch'` and `'stroke'`.
+  `add_set` (`mcp/setTools.ts`; `ToolDeps.setStore`, `sets`, `setsRefs`, wired in `index.ts`) proposes a named set: `name`, `comment`, `refs`
+  (faces, edges, parts, strokes `M7/k3`; a tag, group or set stands for its members, checked by `checkedRefs`) and `layout` (default the one on screen).
+  Before anything is written it asks the kernel's `selectors` for each part's faces and edges and refuses when that fails or gives no centre, so no member is
+  held at a placeholder point; then `SetStore.make(…, 'agent')` (a proposal, `proposed: true`) and `withSelectors`. A name in use (`#intake is taken (N1)`) or
+  a bad name is refused. No tool accepts, edits or removes a set: only the person does, in the window. `scene` lists `sets` (`sets/text.ts`
+  `setsListed`, at most 50 members each found and 50 `lostMembers`, `lost`, `stale` for a set whose refs are of an earlier build than the last, per set) and `state.md` has a Named sets section (`setsText`).
+  A ref of `#name` or `part/#name` is a named set in every tool that takes a ref (`shared/sets.ts` `splitSetRef`, `expandSet`; `markTools.ts`
+  `checkRef`, `checkedRefs`): `highlight`, `ask`, `show`, `look` (`focus`, `mcp/focus.ts`), `describe` (`mcp/setRefs.ts`: members with the kernel's
+  descriptors, 20 at most), `measure` and `add_mark`. Lost members are left out and counted in the reply, never silently; a proposal says
+  `[proposed by you, not accepted yet]` and can be used meanwhile; a set not refound against the last build is used as it is and says `not refound against r8 yet; its refs are of r7` (`SetsAt.fresh`); a set of another layout or with nothing in the part is refused in words
+  (`#deck is of layout assembly`). A tool that needs one face or edge refuses a set of several, naming them, as for a tag; `add_mark` on a set
+  is placed on its first ok member and keeps `Anchor.set` (`marks-store`); the tools that take no set (`check`, `section`, `try_fillet`,
+  `features`, the scans') say so. `describe` strips `selector.form` before the agent reads it: a form is for torno's own sets.
   `look` and `show` take the name of a saved view as `view`, and `save_view`
   proposes one (Views). `show` changes
   the view for now and is never saved to `scene.json`; it is refused while a

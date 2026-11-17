@@ -97,6 +97,19 @@ const bridge: TornoBridge = {
     problem: (objectId) => invokePlain('marks:problem', objectId),
     dismissProblem: (objectId) => invokePlain('marks:dismissProblem', objectId)
   },
+  sets: {
+    list: (objectId) => invokePlain('sets:list', objectId),
+    make: (objectId, ask, revision) => invokePlain('sets:make', objectId, ask, revision),
+    edit: (objectId, id, edit, revision) => invokePlain('sets:edit', objectId, id, edit, revision),
+    remove: (objectId, id) => invokePlain('sets:remove', objectId, id),
+    restore: (objectId, id) => invokePlain('sets:restore', objectId, id),
+    accept: (objectId, id) => invokePlain('sets:accept', objectId, id),
+    dismiss: (objectId, id) => invokePlain('sets:dismiss', objectId, id),
+    onChanged: (cb) => subscribe('sets:changed', cb),
+    onProblem: (cb) => subscribe('sets:problem', cb),
+    problem: (objectId) => invokePlain('sets:problem', objectId),
+    dismissProblem: (objectId) => invokePlain('sets:dismissProblem', objectId)
+  },
   notes: {
     make: (draft) => invokePlain('notes:make', draft),
     edit: (objectId, id, patch) => invokePlain('notes:edit', objectId, id, patch),

@@ -61,6 +61,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   tells the face's own ref and the `tag`) and refuses several, naming them. `nearest` may be given the `face` a tag
   names now (as it is given an `edge`) and says whether the part has it and how far the point is (`faceFound`,
   `faceDistance`, `facePoint`, `faceDescriptor`, `faceNormal`; an edge's `edgePoint`).
+- **`#` is torno's, `@` is the model's.** `lid/@top` is a tag the model gave a face; `#deck` and `lid/#deck` are named sets the
+  person made, kept by main (`sets`), never by the model: the kernel is never given a `#` ref and `queries.resolve` does not know one (main
+  expands a set to the faces, edges and parts it has now before it asks). A set name has no `/`, `#` or `@`, so the two forms never
+  meet. "Make it a tag" is a prompt to Claude to write the same faces into `tags(p, parts)`; torno never writes the model, and after
+  that build both forms name the faces.
 - **The model's own checks are declarations, measured by torno** (`modelchecks.py`). Under the `Params` convention an
   optional `checks(p)` returns a list of dicts in torno's vocabulary, not predicates: `name`, `kind` (`clearance`,
   `overlap`, `solids`, `volume`, `thin`, `overhang`, `mesh`, `bed`, and `interference`, which takes no part: it passes when no pair of the layout shares volume),

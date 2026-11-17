@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SketchDraft } from '../../shared/bridge'
-import type { Mark, SketchMark, SketchStroke } from '../../shared/marks'
+import type { Mark, NewStroke, SketchMark } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import { reviewStore } from './review'
 import { toolStore } from './tools'
@@ -32,7 +32,7 @@ import { mainPlane } from '../tools/sketch/planes'
 
 const CAMERA: Camera = { position: [0, -100, 0], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 
-const line = (n: number, over: Partial<SketchStroke> = {}): SketchStroke => ({ plane: 1, pen: 'line', points2d: [[n, 0], [n, 10]], revision: 3, ...over })
+const line = (n: number, over: Partial<NewStroke> = {}): NewStroke => ({ plane: 1, pen: 'line', points2d: [[n, 0], [n, 10]], revision: 3, ...over })
 
 /** An env that records what the sketch asks of main, and answers as main does: a number for a sketch made, the mark as sent. */
 function fake(over: Partial<SketchEnv> = {}) {
@@ -42,7 +42,7 @@ function fake(over: Partial<SketchEnv> = {}) {
   const said: string[] = []
   let made = 0
   let revision = 3
-  const answer = (d: SketchDraft): SketchMark => ({ ...d, kind: 'sketch', id: d.id ?? `M${++made}`, author: 'user', status: 'draft', anchorState: 'ok', createdAt: '2026-11-17T00:00:00.000Z' }) as SketchMark
+  const answer = (d: SketchDraft): SketchMark => ({ ...d, kind: 'sketch', id: d.id ?? `M${++made}`, author: 'user', status: 'draft', anchorState: 'ok', createdAt: '2026-11-17T00:00:00.000Z' }) as unknown as SketchMark
   const env: SketchEnv = {
     marks: {
       sketch: async (d) => {
@@ -168,7 +168,8 @@ describe('strokes', () => {
     startSketch('bracket')
     for (const n of [0, 5, 9]) addStroke(line(n))
     await settled()
-    eraseStroke(1)
+    // Main has not numbered them yet: the stroke itself is what is erased.
+    eraseStroke(draftOf().strokes[1])
     await settled()
     expect(f.calls.at(-1)!.strokes).toEqual([line(0), line(9)])
     expect(sketchStore.getState().undoable).toBe(4)
@@ -396,7 +397,7 @@ describe('the planes', () => {
 })
 
 describe('what main says meanwhile', () => {
-  const kept = (m: SketchMark, strokes: SketchStroke[]): SketchMark => ({ ...m, strokes })
+  const kept = (m: SketchMark, strokes: NewStroke[]): SketchMark => ({ ...m, strokes } as SketchMark)
 
   it('takes a sketch that main moved into the draft, so that the next send is not refused for what the window had as it was', async () => {
     const f = fake()
@@ -414,6 +415,33 @@ describe('what main says meanwhile', () => {
     expect(sketchStore.getState().undoable).toBe(2)
     undoStroke()
     expect(draftOf().strokes).toEqual([line(2, { revision: 4 })])
+  })
+
+  it('takes the ids main gave, and erases a stroke by its id, never by where it stands', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    startSketch('bracket')
+    for (const n of [0, 5, 9]) addStroke(line(n))
+    await settled()
+    const stored = { ...f.calls.at(-1)!, kind: 'sketch', id: 'M1', author: 'user', status: 'draft', anchorState: 'ok', createdAt: '', nextStroke: 4 } as unknown as SketchMark
+    takeMarks([kept(stored, [line(0, { id: 'k1' }), line(5, { id: 'k2' }), line(9, { id: 'k3' })]) as Mark])
+    expect(draftOf().strokes.map((s) => s.id)).toEqual(['k1', 'k2', 'k3'])
+    // Undo still knows the strokes it remembers, now with their ids.
+    expect(undoStroke()).toBe(true)
+    await settled()
+    expect(f.calls.at(-1)!.strokes.map((s) => s.id)).toEqual(['k1', 'k2'])
+    takeMarks([kept(stored, [line(0, { id: 'k1' }), line(5, { id: 'k2' })]) as Mark])
+    // Another stroke is where k2 was: an erase of k2 is of k2, wherever it stands now.
+    addStroke(line(7))
+    eraseStroke('k1')
+    await settled()
+    expect(f.calls.at(-1)!.strokes.map((s) => s.id)).toEqual(['k2', undefined])
+    // An id the draft has not is nothing to erase.
+    const sent = f.calls.length
+    eraseStroke('k9')
+    await settled()
+    expect(f.calls).toHaveLength(sent)
+    expect(draftOf().strokes).toHaveLength(2)
   })
 
   it('leaves the draft alone while a send is on its way, and when main has what the window has', async () => {

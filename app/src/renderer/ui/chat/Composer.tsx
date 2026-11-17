@@ -8,6 +8,7 @@ import { drawingActions, useDrawing } from '../../state/drawing'
 import { picture } from '../../state/agent'
 import { onboarding } from '../../state/onboard'
 import { roundsViewOf, useReview } from '../../state/review'
+import { setTagActions } from '../../state/setTag'
 import { store, useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { giveKeysBack } from '../typing'
@@ -16,6 +17,7 @@ import { commandsFor, rateLine } from './foot'
 import { RefChip } from './RefChip'
 import { ReviewChip, goingNext } from './ReviewChip'
 import { type Suggestion, suggest } from './suggest'
+import { SetTagChip, useSetTagAttached } from './SetTagChip'
 import { Suggestions } from './Suggestions'
 import { WaitingNotes } from './WaitingNotes'
 
@@ -176,6 +178,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
   const buildFailed = useStore((st) => st.build?.status === 'failed')
   const boardAttached = useBoard((st) => st.attached !== null && st.board !== null)
   const reviewAttached = useReview((st) => st.sending !== null && st.rounds.some((one) => one.id === st.sending))
+  const tagAttached = useSetTagAttached()
   // A permission or a plan waiting for the person: what is written can be the answer to it.
   const waiting = chat?.items.findLast((i) => i.kind === 'ask' && i.state === 'open' && i.toolName !== 'AskUserQuestion')
   const openAsk = waiting?.kind === 'ask' ? waiting : undefined
@@ -291,12 +294,14 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
     }
     // So is the part of the board the person attached; the same.
     const board = boardActions.takeAttached()
+    // And the request for a tag, which the person asked for with "Make it a tag": its words go after theirs.
+    const tag = setTagActions.take()
     setText('')
     unattach()
     setProblem(null)
     onSent()
     try {
-      await window.torno.chat.send(sessionId, { text: prompt, ...(viewPng ? { attachedView: viewPng } : {}), ...(board ? { board } : {}) })
+      await window.torno.chat.send(sessionId, { text: tag ? `${prompt}\n\n${tag.text}` : prompt, ...(viewPng ? { attachedView: viewPng } : {}), ...(board ? { board } : {}) })
     } catch (e) {
       // Nothing was sent: what was written is given back, unless more has been written since.
       setText((now) => (now === '' ? prompt : now))
@@ -307,6 +312,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         preview(press, Promise.resolve({ png: viewPng, objectId }))
       }
       if (board) boardActions.giveBackAttached(board)
+      if (tag) setTagActions.giveBack(tag.chip)
       setProblem(reason(e))
     }
   }
@@ -365,10 +371,11 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
       )}
       {offered.length > 0 && <Commands offered={offered} at={at} onChoose={complete} />}
       <WaitingNotes onProblem={setProblem} />
-      {(attach || boardAttached || reviewAttached) && (
+      {(attach || boardAttached || reviewAttached || tagAttached) && (
         <div className="chat-with">
           <BoardChip />
           <ReviewChip />
+          <SetTagChip />
           {attach && (
             <div className="chat-attached" role="group" aria-label="View attached">
               {attached !== null ? <img src={attached} alt="The view as it is now" draggable={false} /> : <span className="chat-attached-wait" aria-hidden="true" />}

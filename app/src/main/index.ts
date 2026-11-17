@@ -29,6 +29,7 @@ import { addDimensionTold } from './marks/measure'
 import type { NearestAnchor } from './marks/reanchor'
 import { maskReadsOf, maskStampOf, meshesOf } from './marks/regions'
 import { MarkStore } from './marks/store'
+import { SetStore } from './sets/store'
 import { attachBoard } from './board/attach'
 import { reconcileProject } from './board/follow'
 import { liveFacts } from './board/live'
@@ -291,6 +292,9 @@ const asks = new Asks(
 // A region is held against the mesh its scan has whenever the marks are listed (`meshesOf`).
 const marks: MarkStore = new MarkStore({ dirOf: (id) => findObject(id)?.dir, meshes: (objectId) => meshesOf(scans)(objectId), maskReads: (objectId, scan, stem) => maskReadsOf(scans)(objectId, scan, stem), maskStamp: (objectId, scan, stem) => maskStampOf(scans)(objectId, scan, stem) })
 
+/** The named sets of the objects of the open workspace, in `.torno/sets.json`. A stroke a set names is checked against the marks. */
+const sets: SetStore = new SetStore({ dirOf: (id) => findObject(id)?.dir, scene: (id) => lastScene(id), marks: (objectId) => marks.list(objectId) })
+
 // A `.torno` that is a link or a file is written to by no one (`ownTorno`). The person is told once for each
 // object, where what is wrong with its marks is said: nothing of that object is kept until it is a real folder.
 // A folder under it that is a link (`views`, `exports`, `scans`, `agent`) is told of the same way, by itself:
@@ -399,8 +403,12 @@ const toolDeps: ToolDeps = {
     return obj ? saveView(obj.dir, png) : Promise.reject(new Error(`unknown project: ${objectId}`))
   },
   marks: (objectId) => marks.list(objectId),
+  sets: (objectId) => sets.list(objectId),
+  setsRefs: (objectId) => sets.refsOf(objectId),
+  // The agent proposes a set through the store as the agent, and the kernel's selectors are written in a second change.
+  setStore: sets,
   // A mark made through the tools is the agent's, and it knows of it: there is nothing to send it.
-  addMark: (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
+  addMark: async (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId, await sets.list(objectId).catch(() => undefined)), 'sent'),
   // A sketch of the agent's is checked by the tool (`add_sketch`), and kept as the agent's: sent, with no snaps.
   // Its anchor says how far its part is spread on this build (`placedMark`), so that the sketch moves with it.
   saveSketch: (objectId, draft, touches) => {
@@ -425,8 +433,8 @@ const toolDeps: ToolDeps = {
   },
   ask: (objectId, req, signal) => asks.ask(objectId, req, signal),
   asking: (objectId) => asks.has(objectId),
-  highlight(objectId, layout, refs, note) {
-    return theWindow().then((win) => requestHighlight(win, { objectId, layout, refs, ...(note ? { note } : {}) }))
+  highlight(objectId, layout, refs, note, strokes) {
+    return theWindow().then((win) => requestHighlight(win, { objectId, layout, refs, ...(strokes && strokes.length > 0 ? { strokes } : {}), ...(note ? { note } : {}) }))
   },
   query: queryObject,
   trial: trialObject,
@@ -455,8 +463,12 @@ const verdicts = new Verdicts()
 const editDeps = { ...toolDeps, ...(off.has('digest') ? { digest: false } : {}), verdicts: (id: string, revision: number | undefined) => verdicts.of(id, revision) }
 
 /** `<object>/.torno/state.md` of every open object: what an agent without the tools reads instead. */
-const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile })
+const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId) })
 marks.on('changed', ({ objectId }) => stateFiles.changed(objectId))
+// The named sets are told in the state file.
+sets.on('changed', ({ objectId }) => stateFiles.changed(objectId))
+// And which build their refs are of: after each refind, even one that found nothing to write.
+sets.on('refound', ({ objectId }) => stateFiles.changed(objectId))
 // What the marks say of the last build, whenever they change: its verdicts from then on.
 marks.on('changed', ({ objectId, marks: all }) => verdicts.record(objectId, lastScene(objectId)?.revision, all))
 // Where a region is told to be follows its scan's alignment.
@@ -602,7 +614,9 @@ void app.whenReady().then(async () => {
       const boarded = await boardLineFor(id, all, opts.toolName).catch(() => undefined)
       // The rounds of the review: a round that is not sent holds its drafts back, one being sent has its prompt now, and is sent once the answer has left (`delivered`).
       const rounds = await marks.rounds(id).catch(() => undefined)
-      const told = contextFor(promptDeps, id, all, { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
+      // The names of the named sets, so that a mark labelled with one that is gone says so. Unreadable: not known, and the label is told as it is.
+      const setSlugs = await sets.list(id).then((all) => all.map((s) => s.slug), () => undefined)
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {
@@ -676,6 +690,7 @@ void app.whenReady().then(async () => {
     sessions,
     asks,
     marks,
+    sets,
     board,
     views: savedViews,
     onBuild: (state) => {
@@ -846,7 +861,7 @@ app.on('will-quit', (event) => {
   const waits: Promise<unknown>[] = []
   // An export still being written is given up: its check is not waited for, and the file beside the chosen one goes.
   stopExports()
-  const written = writesBeforeQuit([marks.settled(), scans.settled(), sceneFilesSettled(), exportsUnderWay()])
+  const written = writesBeforeQuit([marks.settled(), scans.settled(), sets.settled(), sceneFilesSettled(), exportsUnderWay()])
   if (written) waits.push(written)
   if (sessions?.busy) waits.push(sessions.stopAll())
   // The copy of the example was torno's own, in the temporary folder: it goes with the run, last of all, once

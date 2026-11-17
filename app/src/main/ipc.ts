@@ -44,6 +44,10 @@ import { boardAttachOf, boardHandlers } from './board/ipc'
 import { noteHandlers } from './notes/ipc'
 import { forgetOpenSketches, forgetRemovedSketch, sketchHandlers } from './sketches/ipc'
 import { reviewHandlers } from './reviews/ipc'
+import { setHandlers } from './sets/ipc'
+import { followSets, refindAll } from './sets/refind'
+import type { SetStore } from './sets/store'
+import type { NamedSet, NewSet, SetEdit } from '../shared/sets'
 import type { RoundAsk } from '../shared/reviews'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
@@ -96,7 +100,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
-//           marks:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
+//           marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection
@@ -106,7 +110,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:saveView (sent by src/main/look.ts),
 //           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested and window:closeAsked (sent by src/main/index.ts,
 //           which hears the answer, window:closeAnswer),
-//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
+//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
 
 /** The longest prompt the window may send. */
 const MAX_PROMPT_CHARS = 200_000
@@ -117,6 +121,8 @@ interface OpenWorkspace {
   scan: () => () => boolean
   /** Has the marks of an object checked against its last build (see `openWorkspace`). */
   reanchor?: Retrying
+  /** Has the named sets of an object found again on its last build (see `openWorkspace`). */
+  refind?: Retrying
   /** Has the alignments of an object's scans checked against its last build. */
   alignChecks?: Retrying
   /** How the model is asked where the points of an alignment are. */
@@ -147,6 +153,9 @@ let asks: Asks | null = null
 
 /** The marks of the objects of the open workspace, once `registerIpc` has been given them. */
 let marks: MarkStore | null = null
+
+/** The named sets of the objects of the open workspace, once `registerIpc` has been given them. */
+let sets: SetStore | null = null
 
 /** What torno needs and whether it is there, once `registerIpc` has been given it: told the kernel of each workspace as it starts. */
 let readiness: ReadyKeeper | null = null
@@ -333,6 +342,27 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   })
   builds.on('scene', ({ objectId }) => reanchor(objectId))
   ws.reanchor = reanchor
+  // The named sets of the object are found again on every successful build as well, by their own query and in their own
+  // turn of the store: it does not wait for the check of the marks, nor the marks for it. Never has the object built again.
+  const refind = retrying(
+    (objectId) => {
+      const store = sets
+      if (!store) return Promise.resolve(true)
+      return refindAll(
+        {
+          sets: store,
+          query: (id, name, args) => builds.query(id, name, args, { restore: false }),
+          // None once the workspace is left: nothing is asked or written for it any more.
+          scene: (id) => (current === ws ? builds.scene(id) : undefined)
+        },
+        objectId
+      )
+    },
+    console.error,
+    'refind the named sets of'
+  )
+  builds.on('scene', ({ objectId }) => refind(objectId))
+  ws.refind = refind
   // And every alignment of its scans: whether the model is still under the points it was tied to, and whether
   // torno spreads the layout's parts as it did then. Found and said, never moved or fitted again.
   // A check that could not say is tried again after a while, three times (`retrying`), without ever having the
@@ -431,11 +461,13 @@ export async function closeWorkspace(): Promise<void> {
   forgetExportScans()
   // A check of its marks that failed is not tried again: its timers would outlive it.
   ws.reanchor?.cancel()
+  ws.refind?.cancel()
   ws.alignChecks?.cancel()
   ws.stopChecking?.()
   checks.clear()
   // The next workspace may have an object of the same name, or this folder may change while it is closed.
   marks?.forget()
+  sets?.forget()
   forgetOpenSketches()
   // And its scans: an import that is still running is stopped by whoever runs it, who is told next.
   scans?.forget()
@@ -530,12 +562,13 @@ export function lastScene(id: string): { revision: number; scene: Scene } | unde
 
 /**
  * A mark as it is kept when it is placed (`asPlaced`): a mark that is no mark
- * is handed on as it came, for the store to refuse.
+ * is handed on as it came, for the store to refuse. The label of a named set it says it is on
+ * (`Anchor.set`) is kept only when `named`, the project's sets, has that set holding what the anchor is on.
  */
-export function placedMark<M extends NewMark>(mark: M, objectId: string): M {
+export function placedMark<M extends NewMark>(mark: M, objectId: string, named?: readonly NamedSet[]): M {
   const whole = typeof mark === 'object' && mark !== null && typeof mark.layout === 'string'
   try {
-    return whole ? asPlaced(mark, lastScene(objectId)) : mark
+    return whole ? asPlaced(mark, lastScene(objectId), named) : mark
   } catch {
     return mark
   }
@@ -583,6 +616,8 @@ export function registerIpc(
     /** The profile of an object changed: its state file is written anew. */
     onProfile?: (objectId: string) => void
     marks?: MarkStore
+    /** The named sets of the projects: the window reads and changes them through here, and is told when one changes. */
+    sets?: SetStore
     /** The boards of the projects: the window reads and changes them through here, and is told when one changes. */
     board?: BoardStore
     /** The views saved of a project (its scene file's): only one of them is pinned to the board. */
@@ -661,6 +696,17 @@ export function registerIpc(
   const requireMarks = (): MarkStore => {
     if (!marks) throw new Error('marks are not available')
     return marks
+  }
+
+  // The named sets of a project: the window makes and changes the person's, and is told of every change, whoever made it.
+  sets = opts.sets ?? null
+  sets?.on('changed', (m) => broadcast('sets:changed', m))
+  sets?.on('problem', (m) => broadcast('sets:problem', m))
+  // A set written with refs older than the last build (a build landed just before it, or it was put back after one) is found again.
+  if (sets) followSets(sets, (objectId) => current?.refind?.(objectId))
+  const requireSets = (): SetStore => {
+    if (!sets) throw new Error('named sets are not available')
+    return sets
   }
 
   // The board of a project: what the person does to it in the window, and the window told of every change, whoever made it.
@@ -1002,9 +1048,11 @@ export function registerIpc(
   // A mark made in the window is the person's. The agent's come through its tools, which call the store themselves.
   // What only main says of a mark is said here: how far its part is spread on the build it was placed on.
   // A dimension is measured as it is kept (`addDimension`): its value is the kernel's, never the window's.
+  /** The named sets of a project, for the label of a mark placed on one; none where there is no store of them or it cannot be read. */
+  const setsOf = (objectId: string): Promise<NamedSet[] | undefined> => (sets ? sets.list(objectId).catch(() => undefined) : Promise.resolve(undefined))
   const measuring = (store: MarkStore) => ({ marks: store, query: queryObject, scene: lastScene })
-  handle('marks:add', (_event, objectId: string, mark: NewMark) => {
-    const placed = placedMark({ ...mark, author: 'user' }, String(objectId))
+  handle('marks:add', async (_event, objectId: string, mark: NewMark) => {
+    const placed = placedMark({ ...mark, author: 'user' }, String(objectId), await setsOf(String(objectId)))
     return placed.kind === 'dimension' ? addDimension(measuring(requireMarks()), String(objectId), placed) : requireMarks().add(String(objectId), placed)
   })
   // Whoever resolves a mark from the window is the person.
@@ -1030,7 +1078,7 @@ export function registerIpc(
   handle('marks:replace', async (_event, objectId: string, id: string, placed: Replacement) => {
     const store = requireMarks()
     const layout = (await store.list(String(objectId))).find((m) => m.id === String(id))?.layout
-    return store.replace(String(objectId), String(id), layout === undefined ? placed : asReplaced(placed, layout, lastScene(String(objectId))))
+    return store.replace(String(objectId), String(id), layout === undefined ? placed : asReplaced(placed, layout, lastScene(String(objectId)), await setsOf(String(objectId))))
   })
   handle('board:read', (_event, objectId: string) => requireBoards().read(objectId))
   handle('board:change', (_event, objectId: string, change: PersonChange) => requireBoards().change(objectId, change))
@@ -1076,6 +1124,20 @@ export function registerIpc(
   handle('marks:judge', (_event, objectId: string, id: string, verdict: 'ok' | 'still-wrong', note?: string) => reviews().judge(objectId, id, verdict, note))
   handle('marks:problem', (_event, objectId: string) => requireMarks().problem(String(objectId)))
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
+
+  // Named sets: the window names a project and a set by its `N<n>`; main finds each face's selector and writes it in a second change.
+  // Made once: what is waiting on the kernel for a selector is kept in it, and a handler made for each call would not see it.
+  let namedHandlers: ReturnType<typeof setHandlers> | undefined
+  const namedSets = (): ReturnType<typeof setHandlers> => (namedHandlers ??= setHandlers({ sets: requireSets(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject }))
+  handle('sets:list', (_event, objectId: string) => namedSets().list(objectId))
+  handle('sets:make', (_event, objectId: string, ask: NewSet, revision?: number) => namedSets().make(objectId, ask, revision))
+  handle('sets:edit', (_event, objectId: string, id: string, edit: SetEdit, revision?: number) => namedSets().edit(objectId, id, edit, revision))
+  handle('sets:remove', (_event, objectId: string, id: string) => namedSets().remove(objectId, id))
+  handle('sets:restore', (_event, objectId: string, id: string) => namedSets().restore(objectId, id))
+  handle('sets:accept', (_event, objectId: string, id: string) => namedSets().accept(objectId, id))
+  handle('sets:dismiss', (_event, objectId: string, id: string) => namedSets().dismiss(objectId, id))
+  handle('sets:problem', (_event, objectId: string) => requireSets().problem(String(objectId)))
+  handle('sets:dismissProblem', (_event, objectId: string) => requireSets().dismissProblem(String(objectId)))
 
   scans = opts.scans ?? null
   scans?.on('changed', (m) => broadcast('scans:changed', m))

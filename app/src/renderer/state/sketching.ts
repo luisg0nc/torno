@@ -1,7 +1,7 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import type { SketchDraft } from '../../shared/bridge'
-import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MOST_SKETCH_PLANES, MOST_SKETCH_POINTS, MOST_SKETCH_STROKES, type Anchor, type Mark, type SketchMark, type SketchPlane, type SketchStroke, type SketchTake, type Vec3 } from '../../shared/marks'
+import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MOST_SKETCH_PLANES, MOST_SKETCH_POINTS, MOST_SKETCH_STROKES, type Anchor, type Mark, type SketchMark, type NewStroke, type SketchPlane, type SketchTake, type Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import { type PlaneDraft, mainPlane, withOffset } from '../tools/sketch/planes'
 import type { Pen } from '../tools/sketch/pens'
@@ -66,7 +66,7 @@ export function setSketchEnv(next: SketchEnv | null): void {
 // ---------------------------------------------------------------------------------------------------------------------
 // What is kept to undo, and to send.
 
-type Step = { kind: 'add'; stroke: SketchStroke } | { kind: 'erase'; stroke: SketchStroke; index: number }
+type Step = { kind: 'add'; stroke: NewStroke } | { kind: 'erase'; stroke: NewStroke; index: number }
 let history: Step[] = []
 let timer: ReturnType<typeof setTimeout> | undefined
 /** A send is waiting on main: the next waits for it, so that the sketch has its number by then. */
@@ -370,7 +370,7 @@ function refuse(message: string): void {
 }
 
 /** Adds a stroke, and sends the sketch. The first stroke makes the mark. A stroke past what a sketch keeps is refused. */
-export function addStroke(stroke: SketchStroke, anchor?: Anchor): boolean {
+export function addStroke(stroke: NewStroke, anchor?: Anchor): boolean {
   const open = state().open
   if (!open) return false
   if (open.draft.strokes.length >= MOST_SKETCH_STROKES) {
@@ -389,13 +389,17 @@ export function addStroke(stroke: SketchStroke, anchor?: Anchor): boolean {
   return true
 }
 
-/** Takes the stroke out of the sketch, one step of Undo. */
-export function eraseStroke(index: number): void {
-  const open = state().open
-  const stroke = open?.draft.strokes[index]
+/**
+ * Takes the stroke out of the sketch, one step of Undo. A stroke is told by its id (`k3`), the one main gave it; one main has
+ * not numbered yet (just drawn, not yet answered) is the stroke itself, as the sketch holds it. Where it was is kept, for Undo.
+ */
+export function eraseStroke(target: string | NewStroke): void {
+  const strokes = state().open?.draft.strokes
+  const index = strokes?.findIndex((s) => (typeof target === 'string' ? s.id === target : target.id !== undefined ? s.id === target.id : s === target)) ?? -1
+  const stroke = strokes?.[index]
   if (!stroke) return
   history.push({ kind: 'erase', stroke, index })
-  change((d) => ({ ...d, strokes: d.strokes.filter((_, i) => i !== index) }))
+  change((d) => ({ ...d, strokes: d.strokes.filter((s) => s !== stroke) }))
   counted()
   changed()
 }
@@ -495,14 +499,14 @@ export function takeMarks(marks: readonly Mark[]): void {
   // A name or a comment changed elsewhere (the row of the sketch in the marks list) is the draft's, or the next send writes it over.
   if (mine.name !== open.draft.name || mine.note !== open.draft.note) change((d) => ({ ...d, name: mine.name, note: mine.note }))
   const kept = mine
-  const bare = (stroke: SketchStroke): SketchStroke => {
+  const bare = (stroke: NewStroke): NewStroke => {
     const { touches: _touches, ...rest } = stroke
     return rest
   }
   if (equal(kept.planes, open.draft.planes) && equal(kept.strokes.map(bare), open.draft.strokes.map(bare))) return
   // Strokes as main has them: what it moved and what it vouched for, without what only it says.
   const strokes = kept.strokes.map((s) => bare(structuredClone(s)))
-  const remap = new Map<SketchStroke, SketchStroke>()
+  const remap = new Map<NewStroke, NewStroke>()
   open.draft.strokes.forEach((old, i) => {
     if (strokes[i]) remap.set(old, strokes[i])
   })

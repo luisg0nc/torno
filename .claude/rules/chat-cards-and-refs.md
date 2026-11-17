@@ -26,6 +26,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `r0`; a part the build has in no layout); a part in another layout, or a face it lacks, is an inert chip with
   its reason. Code is never searched for refs. Numbers in the person's prompt and in a card's questions and
   options are set in the monospace face like the rest.
+- **A named set is a chip** (`#deck`, `part/#deck`): `refsIn(text, slugs)` takes the names the project has (`useSetSlugs`, any case, longest
+  first; `markdown.tsx`, `RefText.tsx` and `ToolCard.tsx` pass them), and without names a `#` and a letter, so that `#171`, `# Plan` and
+  `C#deck` are never one. `refInfo` of a set lights every member through `peek` (strokes too) and `select` is its faces, edges and
+  parts; a name no set has is plain text, and a set of another layout, or with its parts switched off, an inert chip with the reason.
+  "Make it a tag" is a chip in the box beside the board's (`ui/chat/SetTagChip.tsx`, `Make #deck a tag`, in the monospace face, with
+  Remove): its text goes after the person's with the next send (`prompt + "\n\n" + text`) and is given back when the send fails;
+  nothing is sent by itself (`state/setTag.ts`).
 - Keys of the chat are rows of `shared/keys.ts` in the scopes `composer` and `picture`: `chat.send` Enter,
   `chat.newline` Shift+Enter, `chat.command` Up/Down and `chat.complete` Tab (while `/` commands are offered),
   `chat.close` Esc (a picture shown large; the focus returns to its thumbnail), `chat.stop` Ctrl+C (composer, only while the session

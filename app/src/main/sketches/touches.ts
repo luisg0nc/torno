@@ -1,4 +1,4 @@
-import { type SketchMark, type SketchStroke, type Vec3, sketchStrokePoints } from '../../shared/marks'
+import { type NewStroke, type SketchMark, type Vec3, sketchStrokePoints } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { type AskedAnchor, answered, nearestReply } from '../marks/reanchor'
 import { tolerance } from '../marks/tolerance'
@@ -29,7 +29,7 @@ function along(points: Vec3[], most: number): Vec3[] {
  * A point the kernel could say nothing of touches nothing known. Rejects when the kernel does, for the caller to decide
  * whether the sketch is kept without (main keeps it, with none).
  */
-export async function strokeTouches(kernel: TouchKernel, layout: string, mark: Pick<SketchMark, 'planes'>, strokes: readonly SketchStroke[]): Promise<string[][]> {
+export async function strokeTouches(kernel: TouchKernel, layout: string, mark: Pick<SketchMark, 'planes'>, strokes: readonly NewStroke[]): Promise<string[][]> {
   const parts = kernel.scene.parts.filter((part) => part.layout === layout)
   const asked: AskedAnchor[] = []
   const of: Array<{ stroke: number; reach: number }> = []

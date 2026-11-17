@@ -1,4 +1,4 @@
-import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_STROKE_POINTS, MOST_SKETCH_PLANES, MOST_SKETCH_POINTS, MOST_SKETCH_STROKES, type SketchPlane, type SketchPlaneFrom, type SketchSnap, type SketchStroke, type SketchTake, type Vec3 } from '../../shared/marks'
+import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_STROKE_POINTS, MOST_SKETCH_PLANES, MOST_SKETCH_POINTS, MOST_SKETCH_STROKES, type SketchPlane, type SketchPlaneFrom, type NewStroke, type SketchSnap, type SketchStroke, type SketchTake, type Vec3, STROKE_ID } from '../../shared/marks'
 
 // What a sketch is made of, read from a value that is not yet known to be one: from `marks.json` (`sanitiseMark`) and from
 // the window (`checkSketch`). One reading for both, so that what the window may send is what the file may hold. It answers
@@ -9,7 +9,33 @@ export interface SketchBody {
   take: SketchTake
   diameter?: number
   planes: SketchPlane[]
-  strokes: SketchStroke[]
+  /** As read: a stroke's `id` is kept when it is well-formed (`STROKE_ID`), and is a claim only (`numberStrokes`, `MarkStore.saveSketch`). */
+  strokes: NewStroke[]
+}
+
+/**
+ * The strokes of a sketch kept in a file, numbered. An id that is well-formed and not used before keeps it; any other
+ * stroke (none, malformed, a repeat) is numbered above the highest id there is and above `next`, the file's own count, in
+ * order: a sketch from before ids is `k1…kn` and reads the same every time. `nextStroke` is where the count stands after.
+ */
+export function numberStrokes(strokes: readonly NewStroke[], next: unknown): { strokes: SketchStroke[]; nextStroke: number } {
+  const seen = new Set<string>()
+  let top = 0
+  for (const stroke of strokes) {
+    if (typeof stroke.id !== 'string' || !STROKE_ID.test(stroke.id) || seen.has(stroke.id)) continue
+    seen.add(stroke.id)
+    top = Math.max(top, Number(stroke.id.slice(1)))
+  }
+  let count = Math.max(top + 1, isWhole(next) ? next : 1)
+  const used = new Set<string>()
+  const numbered = strokes.map((stroke): SketchStroke => {
+    if (typeof stroke.id === 'string' && seen.has(stroke.id) && !used.has(stroke.id)) {
+      used.add(stroke.id)
+      return stroke as SketchStroke
+    }
+    return { ...stroke, id: `k${count++}` }
+  })
+  return { strokes: numbered, nextStroke: count }
 }
 
 /** How far the axes of a plane may be from a frame, and still be set right (`orthonormal`). */
@@ -77,7 +103,7 @@ export function readSketch(value: Record<string, unknown>, from: 'file' | 'windo
     planes.push(plane)
   }
   if (value.strokes.length > MOST_SKETCH_STROKES) return `it has more than ${MOST_SKETCH_STROKES} strokes`
-  const strokes: SketchStroke[] = []
+  const strokes: NewStroke[] = []
   let points = 0
   for (const [n, raw] of value.strokes.entries()) {
     const stroke = strokeOf(raw, n + 1, planes, from)
@@ -128,11 +154,12 @@ function fromOf(value: unknown): SketchPlaneFrom | null {
   }
 }
 
-function strokeOf(value: unknown, n: number, planes: SketchPlane[], from: 'file' | 'window'): SketchStroke | string {
+function strokeOf(value: unknown, n: number, planes: SketchPlane[], from: 'file' | 'window'): NewStroke | string {
   if (!isRecord(value)) return `stroke ${n} is not a stroke`
   if (value.pen !== 'free' && value.pen !== 'line' && value.pen !== 'points') return `stroke ${n} has no pen: free, line or points`
   if (!isWhole(value.revision)) return `stroke ${n} does not say which build it was drawn on`
-  const stroke: SketchStroke = { pen: value.pen, revision: value.revision }
+  const stroke: NewStroke = { pen: value.pen, revision: value.revision }
+  if (typeof value.id === 'string' && STROKE_ID.test(value.id)) stroke.id = value.id
   let count: number
   if (value.plane !== undefined) {
     if (!isWhole(value.plane) || !planes.some((p) => p.id === value.plane)) return `stroke ${n} is on plane ${String(value.plane)}, which the sketch has not`

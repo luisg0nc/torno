@@ -31,7 +31,7 @@ function rig(opts: { snap?: Snap | null; face?: Hit | null; handle?: boolean; cu
   const pictures: string[] = []
   const said: string[] = []
   let made = 0
-  const answer = (d: SketchDraft): SketchMark => ({ ...d, kind: 'sketch', id: d.id ?? `M${++made}`, author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' }) as SketchMark
+  const answer = (d: SketchDraft): SketchMark => ({ ...d, kind: 'sketch', id: d.id ?? `M${++made}`, author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' }) as unknown as SketchMark
   const env: SketchEnv = {
     marks: { sketch: async (d) => (calls.push(structuredClone(d)), answer(d)) as Mark, sketchPicture: async (_o, id) => void pictures.push(id), sketching: () => {} },
     here: () => ({ objectId: 'bracket', layout: 'assembly', revision: 3, camera: FRONT, centre: [0, 0, 0] }),

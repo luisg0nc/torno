@@ -124,6 +124,16 @@ describe('highlight', () => {
     expect(replies).toEqual([{ id: 7, result: { objectId: 'bracket', layout: 'assembly', refs: ['base/F5', 'post'], revision: 3 } }])
   })
 
+  it('lights the strokes of a named set beside the refs, and refuses one the window has not', () => {
+    store.setState({ marks: [{ id: 'M9', kind: 'sketch', strokes: [{ id: 'k2' }] } as never] })
+    highlight({ refs: ['base/F5'], strokes: ['M9/k2'] })
+    expect(tinted).toEqual([['base/F5', 'M9/k2']])
+    expect(agentStore.getState().highlight).toEqual({ refs: ['base/F5'], strokes: ['M9/k2'], note: 'this one?' })
+    expect(replies).toEqual([{ id: 7, result: { objectId: 'bracket', layout: 'assembly', refs: ['base/F5'], strokes: ['M9/k2'], revision: 3 } }])
+    highlight({ refs: ['base/F5'], strokes: ['M9/k5'] })
+    expect(replies.at(-1)).toEqual({ id: 7, result: { error: 'nothing was highlighted: the window has no M9/k5' } })
+  })
+
   it('goes after a minute', () => {
     highlight()
     vi.advanceTimersByTime(HIGHLIGHT_FOR_MS - 1)

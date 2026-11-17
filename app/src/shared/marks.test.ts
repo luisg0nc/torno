@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type Anchor, type Mark, type NoteMark, type SketchMark, MAIN_ONLY_KEYS, isUnchecked, markAnchors, markIntent, markPoints, sketchStrokePoints, strokeSamples, translated } from './marks'
+import { type Anchor, type Mark, type NoteMark, type SketchMark, MAIN_ONLY_KEYS, isUnchecked, markAnchors, markIntent, markPoints, sketchStrokePoints, splitStrokeRef, STROKE_ID, strokeRef, strokeSamples, translated } from './marks'
 
 const ANCHOR: Anchor = { point: [1, 2, 20], part: 'base', ref: 'base/F4' }
 const note = (over: object = {}): NoteMark =>
@@ -63,6 +63,7 @@ const sketch = (over: object = {}): SketchMark =>
     take: 'rough',
     planes: [{ id: 1, origin: [0, 40, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 40.0', from: { kind: 'main', axis: 'XZ', offset: 40 } }],
     strokes: [],
+    nextStroke: 1,
     ...over
   }) as SketchMark
 
@@ -103,7 +104,7 @@ describe('a sketch mark', () => {
     const mark = sketch({ strokes: [{ plane: 1, pen: 'free', points2d: [[2, 3]], revision: 12 }, { pen: 'free', points: [[1, 2, 3]], revision: 12 }] })
     expect(sketchStrokePoints(mark, mark.strokes[0])).toEqual([[2, 40, 3]])
     expect(sketchStrokePoints(mark, mark.strokes[1])).toEqual([[1, 2, 3]])
-    expect(sketchStrokePoints(mark, { plane: 9, pen: 'free', points2d: [[1, 1]], revision: 1 })).toEqual([])
+    expect(sketchStrokePoints(mark, { id: 'k1', plane: 9, pen: 'free', points2d: [[1, 1]], revision: 1 })).toEqual([])
   })
 
   it('moves the origins of its planes, its surface points and its anchor, and leaves plane points alone', () => {
@@ -153,5 +154,18 @@ describe('markIntent', () => {
   it('is main only that says which round a mark is in and what was judged of it', () => {
     expect(MAIN_ONLY_KEYS).toContain('round')
     expect(MAIN_ONLY_KEYS).toContain('judged')
+  })
+})
+
+describe('a stroke of a sketch, as a set names it', () => {
+  it('is the sketch, a slash and the stroke id, and reads back', () => {
+    expect(strokeRef('M7', 'k3')).toBe('M7/k3')
+    expect(splitStrokeRef('M7/k3')).toEqual({ mark: 'M7', stroke: 'k3' })
+    for (const bad of ['M7', 'M7/3', 'M7/k0', 'M7/k1000000', 'M7/k3/x', 'N7/k3', 'M0/k3', '/k3', 'M7/K3']) expect(splitStrokeRef(bad), bad).toBeNull()
+  })
+
+  it('has an id of k and a number of one to six digits, with no leading zero', () => {
+    for (const ok of ['k1', 'k42', 'k999999']) expect(STROKE_ID.test(ok), ok).toBe(true)
+    for (const bad of ['k', 'k0', 'k01', 'k1000000', 'k-1', 'k1 ', 'x1']) expect(STROKE_ID.test(bad), bad).toBe(false)
   })
 })

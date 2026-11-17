@@ -89,9 +89,9 @@ export interface SaveViewResult { objectId: string; revision: number; view: Save
 /** What the window did for a `ShowRequest`: what it now shows, as the caption of a picture would say it, and of which object and build. */
 export interface ShowResult { caption: string; objectId: string; revision: number; stale: boolean; /** The layout now shown, and the scans drawn in it, by id. */ layout?: string; scans?: string[]; /** Its parts are now drawn apart. */ exploded?: boolean }
 /** What the agent asks the window to point out to the person: refs of the layout shown, tinted in the agent's colour, with a note. */
-export interface HighlightRequest { objectId: string; layout: string; refs: string[]; note?: string }
+export interface HighlightRequest { objectId: string; layout: string; refs: string[]; /** Strokes of sketches, `M7/k3`: of a named set's members, lit in their sketch. */ strokes?: string[]; note?: string }
 /** What the window pointed out, and of which object and build. */
-export interface HighlightResult { objectId: string; layout: string; refs: string[]; revision: number }
+export interface HighlightResult { objectId: string; layout: string; refs: string[]; strokes?: string[]; revision: number }
 
 /**
  * A section plane out of whatever was given (a file, a request): three finite

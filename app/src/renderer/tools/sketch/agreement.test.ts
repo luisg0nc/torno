@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SketchSnap, SketchStroke, Vec3 } from '../../../shared/marks'
+import type { SketchSnap, NewStroke, Vec3 } from '../../../shared/marks'
 import { bufView } from '../../../shared/scene'
 import { Refusal } from '../../../main/refusal'
 import { checkSketch } from '../../../main/sketches/check'
@@ -28,7 +28,7 @@ const snapAt = (x: number, y: number): Snap => index.nearest({ origin: [x, y, -5
 
 const CAMERA = { position: [100, -100, 80], target: [0, 0, 10], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 const draft = (planes: unknown[], strokes: unknown[]) => ({ objectId: 'bracket', layout: 'assembly', revision: 7, camera: CAMERA, name: 'Hose', note: '', take: 'rough', planes, strokes })
-function kept(raw: unknown): SketchStroke[] {
+function kept(raw: unknown): NewStroke[] {
   const result = checkSketch(raw, undefined, build)
   if (result instanceof Refusal) throw new Error(result.message)
   return result.strokes

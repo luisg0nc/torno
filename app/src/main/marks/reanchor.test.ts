@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Anchor, ArrowMark, DimensionMark, Mark, MarksFile, NewMark, PinMark, ShapeMark, StrokeMark } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
+import type { NamedSet } from '../../shared/sets'
 import { KernelError } from '../kernel/client'
 import * as file from './file'
 import { type FoundAnchor, RETRY_AFTER_MS, asPlaced, checkMarks, edgeIsUnder, coalesced, followMarks, judge, judgePin, reanchorAll, retrying, tolerance } from './reanchor'
@@ -1206,6 +1207,108 @@ describe('reanchorAll', () => {
       taller({ top: { faces: [7, 8] } })
       await run()
       expect(anchorsOf(asked[0].args as never)[0]).not.toHaveProperty('face')
+    })
+  })
+})
+
+describe('a mark on a named set', () => {
+  const sceneNow = sceneOf(['assembly:base'])
+  const deck = (more: Partial<NamedSet> = {}): NamedSet => ({
+    id: 'N1',
+    name: 'deck',
+    slug: 'deck',
+    comment: '',
+    colour: 0,
+    layout: 'assembly',
+    by: 'person',
+    members: [{ face: 'base/F4', point: [5, 3, 2.5], normal: [0, 0, 1], state: 'ok' }, { face: 'base/F7', point: [0, 0, 2.5], normal: [0, 0, 1], state: 'ok' }],
+    createdAt: '2026-11-17T10:00:00.000Z',
+    ...more
+  })
+  const ON_DECK: Anchor = { ...ON_TOP, set: '#deck' }
+  const placed = (anchor: Anchor, sets?: readonly NamedSet[], layout = 'assembly'): Anchor => (asPlaced({ ...pin(anchor), layout } as NewMark, { revision: 1, scene: sceneNow }, sets) as PinMark).anchor
+
+  it('keeps its label when the set holds the face the anchor is on', () => {
+    expect(placed(ON_DECK, [deck()]).set).toBe('#deck')
+    expect(placed({ ...ON_DECK, set: '#Deck' }, [deck()]).set).toBe('#deck')
+  })
+
+  it('keeps it when the set holds the whole part, which holds each of its faces', () => {
+    expect(placed(ON_DECK, [deck({ members: [{ part: 'base' }] })]).set).toBe('#deck')
+  })
+
+  it('loses a label that names a set which does not hold the ref, one that is not there, one of another layout, and a lost member', () => {
+    expect(placed({ ...ON_TOP, set: '#other' }, [deck(), deck({ id: 'N2', name: 'other', slug: 'other', members: [{ face: 'base/F9', point: [0, 0, 0], normal: [0, 0, 1], state: 'ok' }] })])).not.toHaveProperty('set')
+    expect(placed({ ...ON_TOP, set: '#nothing' }, [deck()])).not.toHaveProperty('set')
+    expect(placed(ON_DECK, [deck({ layout: 'print' })])).not.toHaveProperty('set')
+    expect(placed(ON_DECK, [deck({ members: [{ face: 'base/F4', point: [5, 3, 2.5], state: 'lost' }] })])).not.toHaveProperty('set')
+  })
+
+  it('says no label when it is told of no sets, and on an anchor with no ref', () => {
+    expect(placed(ON_DECK)).not.toHaveProperty('set')
+    expect(placed({ point: [0, 0, 0], set: '#deck' }, [deck()])).not.toHaveProperty('set')
+  })
+
+  it('is kept on each end of a dimension, and on an arrow', () => {
+    const both = asPlaced({ ...BASE, kind: 'dimension', measure: 'distance', a: ON_DECK, b: { ...ON_DECK, ref: 'base/F7' } } as unknown as NewMark, { revision: 1, scene: sceneNow }, [deck()]) as DimensionMark
+    expect([both.a.set, both.b?.set]).toEqual(['#deck', '#deck'])
+    expect((asPlaced(arrow(ON_DECK), { revision: 1, scene: sceneNow }, [deck()]) as ArrowMark).from.set).toBe('#deck')
+  })
+
+  describe('checked against a build', () => {
+    let root: string
+    let store: MarkStore
+    let revision = 1
+    let answer: (args: Record<string, unknown>) => unknown
+    const run = (): Promise<boolean | 'busy'> =>
+      reanchorAll({ marks: store, query: async (_id, _name, args) => answer(args as Record<string, unknown>) as never, scene: () => ({ revision, scene: sceneNow }), log: () => {} }, 'bracket')
+    const mark = async (): Promise<PinMark> => (await store.list('bracket'))[0] as PinMark
+    const at = (ref: string, distance = 0) => (args: Record<string, unknown>) => ({ anchors: (args.anchors as Array<{ part: string }>).map(({ part }) => found(part, ref, distance)) })
+
+    beforeEach(() => {
+      root = mkdtempSync(join(tmpdir(), 'torno-reanchor-set-'))
+      mkdirSync(join(root, 'bracket'))
+      store = new MarkStore({ dirOf: () => join(root, 'bracket') })
+      revision = 1
+      answer = at('base/F4')
+    })
+    afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+    it('is judged by its own anchor when the build moves the set, and the label stays', async () => {
+      await store.add('bracket', pin(placed(ON_DECK, [deck()])))
+      // A rebuild renumbers the faces: the face under the mark is F9 now, and the set (refound apart) is elsewhere.
+      revision = 2
+      answer = at('base/F9')
+      await run()
+      expect((await mark()).anchor).toMatchObject({ ref: 'base/F9', set: '#deck' })
+      expect((await mark()).anchorState).toBe('ok')
+    })
+
+    it('stays when the face is gone and the mark has drifted or is orphaned', async () => {
+      await store.add('bracket', pin(placed(ON_DECK, [deck()])))
+      revision = 2
+      answer = at('base/F9', 3)
+      await run()
+      expect(await mark()).toMatchObject({ anchorState: 'drifted', anchor: { set: '#deck' } })
+      revision = 3
+      answer = (args) => ({ anchors: (args.anchors as unknown[]).map(() => ({ part: 'base', found: false })) })
+      await run()
+      expect(await mark()).toMatchObject({ anchorState: 'orphaned', anchor: { set: '#deck' } })
+    })
+
+    it('stays on a pick of an edge, which is rebuilt from the old anchor, and on a pick of a part', async () => {
+      await store.add('bracket', { ...BASE, kind: 'pick', target: 'part', anchor: placed({ ...ON_DECK, ref: 'base' }, [deck({ members: [{ part: 'base' }] })]) } as NewMark)
+      revision = 2
+      answer = (args) => ({ anchors: (args.anchors as Array<{ part: string }>).map(({ part }) => found(part, `${part}/F1`, 0)) })
+      await run()
+      expect((await mark()).anchor.set).toBe('#deck')
+    })
+
+    it('keeps the label of a mark when the set it was placed on is dismissed or removed: the check never says it again, nor takes it away', async () => {
+      await store.add('bracket', pin(placed(ON_DECK, [deck({ by: 'agent', proposed: true })])))
+      revision = 2
+      await run()
+      expect(await mark()).toMatchObject({ id: 'M1', anchor: { ref: 'base/F4', set: '#deck' } })
     })
   })
 })

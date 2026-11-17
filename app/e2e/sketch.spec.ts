@@ -161,7 +161,7 @@ test('N takes the plane of the face under the pointer, and a freehand stroke goe
   expect(hit?.kind).toBe('face')
   await page.mouse.move(x, y)
   await page.keyboard.press('n')
-  await expect(panel().getByRole('list')).toContainText('plane through plate/F', { timeout: 10_000 })
+  await expect(panel().getByRole('list', { name: 'Planes and strokes' })).toContainText('plane through plate/F', { timeout: 10_000 })
   await drag([[16, -10, 6], [18, -4, 6], [15.5, 3, 6], [17.5, 10, 6]])
   await expect.poll(() => sketches()[0].strokes.length).toBe(2)
   const stroke = sketches()[0].strokes[1]

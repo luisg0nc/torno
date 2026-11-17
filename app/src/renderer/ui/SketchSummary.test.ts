@@ -21,7 +21,8 @@ const sketch = (over: Partial<SketchMark> = {}): SketchMark => ({
   take: 'flow',
   diameter: 19,
   planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }],
-  strokes: [{ plane: 1, points2d: [[0, 0], [1, 1]], pen: 'free', revision: 1 }, { points: [[0, 0, 0], [1, 1, 1]], pen: 'free', revision: 1 }],
+  nextStroke: 3,
+  strokes: [{ id: 'k1', plane: 1, points2d: [[0, 0], [1, 1]], pen: 'free', revision: 1 }, { id: 'k2', points: [[0, 0, 0], [1, 1, 1]], pen: 'free', revision: 1 }],
   ...over
 })
 

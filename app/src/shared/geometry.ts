@@ -1,4 +1,5 @@
 import type { Anchor, MeasureKind } from './marks'
+import type { SelectorForm } from './sets'
 
 type Vec3 = [number, number, number]
 
@@ -51,6 +52,11 @@ export interface Selector {
   expression: string
   robust: 'by geometry' | 'by order'
   checked: 'this build only'
+  /**
+   * The structured form of a selector `by geometry` (`shared/sets.ts`): what a named set stores, and the kernel rebuilds the
+   * expression from. Absent of one `by order`. Main's and the kernel's: the agent is never told it.
+   */
+  form?: SelectorForm
 }
 
 /** What `describe` adds of a face or an edge when it is asked for a selector. */

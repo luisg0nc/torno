@@ -6,8 +6,9 @@ import { diagnosisText } from '../../shared/diagnosis'
 import type { Described } from '../../shared/geometry'
 import type { BuildIdentity } from '../../shared/git'
 import type { SketchDraft } from '../../shared/bridge'
-import type { Mark, MarkPatch, NewMark, NoteMark } from '../../shared/marks'
+import { type Mark, type MarkPatch, type NewMark, type NoteMark, markAnchors } from '../../shared/marks'
 import type { Round } from '../../shared/reviews'
+import type { NamedSet } from '../../shared/sets'
 import type { ScanInfo } from '../../shared/scans'
 import type { Scene } from '../../shared/scene'
 import {
@@ -44,12 +45,16 @@ import { type ExpectArgs, type Expectations, expectTool } from './expectTools'
 import { onlyKeysWrong, unknownKeys } from './keys'
 import { askTool } from './askTool'
 import type { AskAnswer, AskEnd, AskRequest } from '../../shared/ask'
-import { addMarkTool, checkRef, highlightTool, resolveMarkTool } from './markTools'
+import { addMarkTool, checkRef, highlightTool, isSetRef, resolveMarkTool, setsAt } from './markTools'
+import { expandSet } from '../../shared/sets'
+import { setDescribed, withLayoutHint } from './setRefs'
 import { addSketchTool } from './sketchTools'
+import { addSetTool } from './setTools'
+import type { SetStore } from '../sets/store'
 import { type FeaturesToolArgs, featuresTool } from './featureTools'
 import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type SectionToolArgs, type TryFilletToolArgs, type TryParamsToolArgs, checkTool, diffTool, historyTool, measureTool, sectionTool, tryFilletTool, tryParamsTool } from './readTools'
 import { type ScanClashArgs, type ScanDeviationArgs, type ScansArgs, scanClashTool, scanDeviationTool, scansTool } from './scanTools'
-import { type AddCardArgs, type AddMarkArgs, type AddSketchArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
+import { type AddCardArgs, type AddMarkArgs, type AddSetArgs, type AddSketchArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
 import { addCardTool, boardTool } from './boardTools'
 import { type SceneArgs, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 import type { Profile } from '../../shared/profile'
@@ -92,6 +97,12 @@ export interface ToolDeps {
   saveImage(objectId: string, png: Uint8Array): Promise<string>
   /** Every mark of an object, oldest first. */
   marks(objectId: string): Promise<Mark[]>
+  /** The named sets of an object (`.torno/sets.json`), as they are now. Without it, a ref of a set (`#deck`) is refused, saying the project has none. */
+  sets?(objectId: string): Promise<NamedSet[]>
+  /** The build the refs of each set of an object are of, by set id (`SetStore.refsOf`). Without it, no set is said to be behind the last build. */
+  setsRefs?(objectId: string): Readonly<Record<string, number>>
+  /** Where a proposal of the agent's is kept (`add_set`): made as the agent's, and given the kernel's selectors in a second change. Without it, the tool says named sets are not available. */
+  setStore?: Pick<SetStore, 'make' | 'withSelectors'>
   /** The rounds of the person's reviews of an object, oldest first (`marks` with `review`). Without it, there are none. */
   rounds?(objectId: string): Promise<Round[]>
   /** Keeps a mark of the agent's and gives it its number. Rejects with a text for the agent. */
@@ -120,7 +131,7 @@ export interface ToolDeps {
   /** Changes what the window shows of the object it has open, and says what it shows then. Rejects with a text. */
   show(objectId: string, req: ShowRequest): Promise<ShowResult>
   /** Tints refs of the layout on screen in the agent's colour, with a note beside them. Rejects with a text. */
-  highlight(objectId: string, layout: string, refs: string[], note?: string): Promise<HighlightResult>
+  highlight(objectId: string, layout: string, refs: string[], note?: string, strokes?: string[]): Promise<HighlightResult>
   /**
    * Puts a question to the person in the window and waits for what ends it: their answer, or the signal (which the
    * tool fires at its time limit and when the client gives the call up). Main shows the session as `needs_input`
@@ -135,7 +146,7 @@ export interface ToolDeps {
    * Asks the kernel about the last successful build of an object: an exact measurement, what a plane cuts, a check
    * of two parts or of a mesh. Refs go with the layout in front. Rejects with a `KernelError`, whose kind says why.
    */
-  query<T = unknown>(objectId: string, name: 'measure' | 'section' | 'check' | 'scan_clash' | 'scan_deviation' | 'scan_section' | 'try_fillet' | 'features', args: object): Promise<T>
+  query<T = unknown>(objectId: string, name: 'measure' | 'section' | 'check' | 'scan_clash' | 'scan_deviation' | 'scan_section' | 'try_fillet' | 'features' | 'selectors', args: object): Promise<T>
   /**
    * Builds the model of an object with other values of its `Params` (over the person's own) in a worker the kernel
    * throws away, and answers `queries` there (`name` and `args` as `query` takes them). Nothing is kept or changed.
@@ -226,7 +237,11 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
             }))
     )
   }
-  tool<SceneArgs>('scene', async (args) => sceneTool(deps, objectId, await deps.marks(objectId).catch(() => undefined), await deps.scans(objectId).catch(() => undefined), await deps.views(objectId).catch(() => undefined), args))
+  tool<SceneArgs>('scene', async (args) => {
+    const marks = await deps.marks(objectId).catch(() => undefined)
+    const named = await deps.sets?.(objectId).then((sets) => ({ sets, refs: deps.setsRefs?.(objectId) })).catch(() => undefined)
+    return sceneTool(deps, objectId, marks, await deps.scans(objectId).catch(() => undefined), await deps.views(objectId).catch(() => undefined), args, named)
+  })
   tool<LookArgs>('look', (args) => lookTool(deps, objectId, args))
   tool<MarksArgs>('marks', (args) => marksTool(deps, objectId, args))
   tool<DescribeArgs>('describe', (args) => describeTool(deps, objectId, args))
@@ -236,6 +251,7 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<SaveViewArgs>('save_view', (args) => saveViewTool(deps, objectId, args))
   tool<AddMarkArgs>('add_mark', (args) => addMarkTool(deps, objectId, args))
   tool<AddSketchArgs>('add_sketch', (args) => addSketchTool(deps, objectId, args))
+  tool<AddSetArgs>('add_set', (args) => addSetTool(deps, objectId, args))
   tool<ResolveMarkArgs>('resolve_mark', (args) => resolveMarkTool(deps, objectId, args))
   tool<MeasureToolArgs>('measure', (args) => measureTool(deps, objectId, args))
   tool<SectionToolArgs>('section', (args) => sectionTool(deps, objectId, args))
@@ -312,12 +328,18 @@ export const noMark = (id: string, marks: Mark[]): ToolResult => failure(`no mar
  * A region of a scan is told where the scan's alignment in its layout puts
  * it, which takes the `scans` of the object (`scansFor`).
  */
-const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string): object => ({
+const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string, sets?: readonly string[]): object => ({
   // A note is told in words, without its strokes and the names of its files: where its files are on this computer is told with it.
   // A sketch likewise: its strokes are in its `text`, in full, and its picture is a file of main's.
   ...(mark.kind === 'note' ? noteData(mark, revision, dir === undefined ? undefined : noteFilesExist(dir, mark)) : mark.kind === 'sketch' ? sketchData(mark, revision) : markData(mark, revision, scans, layout)),
-  line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}) })
+  line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}), ...(sets ? { sets } : {}) })
 })
+
+/** The slugs of the named sets, when a mark of these is on one (`Anchor.set`): a label of a set that is gone says so. Undefined when no mark is, or the sets cannot be read. */
+async function slugsFor(deps: ToolDeps, objectId: string, marks: readonly Mark[]): Promise<string[] | undefined> {
+  if (!deps.sets || !marks.some((m) => markAnchors(m).some((a) => a.set !== undefined))) return undefined
+  return deps.sets(objectId).then((all) => all.map((s) => s.slug)).catch(() => undefined)
+}
 
 /** The layout a region is told in by a tool: the one asked for, else the one on screen, else the build's first; none before a build, or for a layout the build has not (the region is then told in its own). */
 /** The refusal for a layout that was asked for and that the build has not: it is not answered in another. Null otherwise, and before anything is built. */
@@ -404,11 +426,12 @@ export async function marksTool(deps: ToolDeps, objectId: string, args: MarksArg
   const strokes = !named && listed.some((m) => m.kind === 'stroke')
   const dir = deps.object(objectId)?.dir
   const notes = listed.filter((m): m is NoteMark => m.kind === 'note')
+  const slugs = await slugsFor(deps, objectId, listed)
   const sent = notes.length > 0 && dir !== undefined && args.pictures === true ? await notePictures(dir, notes, deps.scale) : undefined
   const result = json({
     ...build,
     marks: listed.map((m) => {
-      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene, dir)
+      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene, dir, slugs)
       return named ? told : strokeSummarised(told)
     }),
     ...(wanted === 'open' && !named ? { listed: 'open marks; resolved ones with status resolved, or by ids' } : {}),
@@ -449,7 +472,7 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
     const build = ofBuild(deps, objectId)
     const wrong = noSuchLayout(deps, objectId, args.layout)
     if (wrong) return wrong
-    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene, deps.object(objectId)?.dir) }) : noMark(args.ref, marks)
+    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene, deps.object(objectId)?.dir, await slugsFor(deps, objectId, [mark])) }) : noMark(args.ref, marks)
   }
   const found = built(deps, objectId)
   if ('content' in found) return found
@@ -458,16 +481,32 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
   // A group of parts: worked out here from what the kernel sent of each part with the scene, so nothing is asked of it.
   const group = groupsIn(found.scene, layout).find((g) => g.name === args.ref)
   if (group) return json({ layout, ...ofBuild(deps, objectId), ...groupDescribed(found.scene, layout, group.name, group.parts) })
+  // A named set (`#deck`, `block/#deck`): the set itself is told, with each member the last build found.
+  if (isSetRef(args.ref)) {
+    const named = await setsAt(deps, objectId)
+    if ('content' in named) return named
+    const expanded = expandSet(named.sets, found.scene.parts.filter((p) => p.layout === layout), layout, args.ref, named.marks, named.fresh)
+    if (expanded === null) return failure(`${args.ref} is no set`)
+    if ('error' in expanded) return failure(withLayoutHint(expanded.error))
+    return json({ layout, ...ofBuild(deps, objectId), ...(await setDescribed(deps, objectId, layout, expanded, named.marks, args.ref.includes('/') ? args.ref.slice(0, args.ref.indexOf('/#')) : undefined)) })
+  }
   const checked = checkRef(found.scene, layout, args.ref)
   if (typeof checked === 'string') return failure(checked)
   try {
     // A face or an edge also gets a selector that picks it now; a part has none.
-    const described = await deps.describe(objectId, layout, args.ref, checked.target === 'part' ? undefined : { selector: true })
+    const described = withoutForm(await deps.describe(objectId, layout, args.ref, checked.target === 'part' ? undefined : { selector: true }))
     // As of the answer: a build may have ended while the kernel was asked. Its centre and its box are where the part is shown.
     return json({ layout, ...ofBuild(deps, objectId), ...described, ...movedForDisplay(checked.part, layout, described), ...selectorFrame(found.scene, layout, checked.part, described) })
   } catch (e) {
     return failure(messageOf(e))
   }
+}
+
+/** What `describe` answers, without the structured form of its selector: that is for main's sets and the kernel, and the agent is told the expression. */
+function withoutForm(described: Described): Described {
+  if (described.kind === 'part' || !described.selector || !('form' in described.selector)) return described
+  const { form: _form, ...selector } = described.selector
+  return { ...described, selector }
 }
 
 /** Whether a part stands where its own function builds it: not moved, not turned. */

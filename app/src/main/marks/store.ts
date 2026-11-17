@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type SketchStroke, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
@@ -390,20 +390,27 @@ export class MarkStore {
           if (!isDeepStrictEqual(of(given), of(opts.from))) throw new SketchChanged(`${given.id} changed meanwhile: it is checked again`)
         }
         const had = given?.kind === 'sketch' ? [...given.strokes] : []
+        // The ids are main's: a stroke keeps the one it names when the stored sketch has it (once); any other is given the next
+        // number, and a number the sketch has let go of is never given again.
+        const free = new Set(had.map((one) => one.id))
+        let next = given?.kind === 'sketch' ? given.nextStroke : 1
         const strokes = Array.isArray(asked.strokes)
           ? asked.strokes.map((raw, i) => {
               if (typeof raw !== 'object' || raw === null) return raw
-              const { touches: _theirs, ...kept } = raw as SketchStroke
+              const { touches: _theirs, id: named, ...kept } = raw as NewStroke
               const { snaps: _unchecked, ...bare } = kept
-              const stroke = author === 'agent' ? bare : kept
+              const body = author === 'agent' ? bare : kept
+              const id = typeof named === 'string' && free.delete(named) ? named : `k${next++}`
+              const stroke = { id, ...body }
               if (touches[i] !== undefined) return { ...stroke, touches: [...(touches[i] as readonly string[])] }
-              const same = had.findIndex((one) => isDeepStrictEqual({ ...one, touches: undefined }, { ...stroke, touches: undefined }))
+              const same = had.findIndex((one) => isDeepStrictEqual({ ...one, id: undefined, touches: undefined }, { ...body, id: undefined, touches: undefined }))
               if (same < 0) return stroke
               const [one] = had.splice(same, 1)
               return one.touches === undefined ? stroke : { ...stroke, touches: [...one.touches] }
             })
           : asked.strokes
-        const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
+        if (next > MOST_STROKE_NUMBER + 1) throw new Refusal('this sketch has used up its stroke numbers: draw the rest in a sketch of its own')
+        const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, nextStroke: next, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
         if (!given) {
           const id = `M${file.next}`
           // What the bar of an open review said, of the person's own sketch only: the agent's are plain, and one main has keeps its own (`setIntent` changes it).

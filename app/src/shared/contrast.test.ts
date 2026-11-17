@@ -124,6 +124,17 @@ describe.each([['light', tokens(css.slice(0, dark))], ['dark', { ...tokens(css.s
   it('is no amber on near black: the warning of the dark theme is an ochre', () => {
     if (_theme === 'dark') expect(t['--warn']).toBe('#CBAA6A')
   })
+  it('has eight colours for named sets: 3:1 on the ground, 30 degrees of hue at least from either mark colour, no red or green, each its own', () => {
+    const sets = Array.from({ length: 8 }, (_v, n) => `--set-${n + 1}`)
+    expect(sets.every((name) => /^#[0-9A-F]{6}$/i.test(t[name] ?? ''))).toBe(true)
+    for (const name of sets) {
+      expect([name, 'ground', contrast(t[name], t['--surface']) >= 3]).toEqual([name, 'ground', true])
+      for (const mark of ['--user-mark', '--agent-mark']) expect([name, mark, hueApart(t[name], t[mark]) >= 30]).toEqual([name, mark, true])
+      // No verdict's hue either, which is the mark colour's.
+      for (const other of ['--ok', '--fail']) expect([name, other, hueApart(t[name], t[other]) >= 30]).toEqual([name, other, true])
+    }
+    expect(new Set(sets.map((name) => t[name].toUpperCase())).size).toBe(8)
+  })
   it('shows its marks and its verdicts on the ground, and keeps its hairlines quiet', () => {
     for (const name of ['--user-mark', '--agent-mark', '--ok', '--warn', '--fail']) expect([name, contrast(t[name], t['--surface']) >= 3]).toEqual([name, true])
     const hairline = contrast(t['--hairline'], t['--surface'])
@@ -148,6 +159,8 @@ it('has the light tokens written out where no stylesheet is read, as the stylesh
     user: light['--user-mark'],
     agent: light['--agent-mark']
   })
+  expect(LIGHT_THEME.sets).toEqual(Array.from({ length: 8 }, (_v, n) => light[`--set-${n + 1}`]))
+  expect(Array.from({ length: 8 }, (_v, n) => night[`--set-${n + 1}`])).toHaveLength(8)
   expect(SHEET).toEqual({ paper: light['--surface'], ink: light['--ink'], muted: light['--muted'], hairline: light['--hairline'] })
   const main = readFileSync(resolve(__dirname, '../main/index.ts'), 'utf8')
   expect(main).toContain(`const SURFACE = { light: '${light['--surface']}', dark: '${night['--surface']}' }`)

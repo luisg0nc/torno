@@ -8,7 +8,9 @@ import { useTool } from '../../state/tools'
 import { Field } from '../Field'
 import { MAX_NOTE } from '../MarkRow'
 import { giveKeysBack } from '../typing'
-import { planeRows, surfaceStrokes } from './rows'
+import { peek } from '../../state/agent'
+import { selectStroke } from '../../state/sets'
+import { planeRows, strokeRows, surfaceStrokes } from './rows'
 
 const TAKES: { take: SketchTake; label: string; title: string }[] = [
   { take: 'exact', label: 'Exact', title: 'Follow these points to the millimetre' },
@@ -31,6 +33,7 @@ export function SketchPanel() {
   const undoable = useSketching((s) => s.undoable)
   const problem = useSketching((s) => s.problem)
   const asked = useSketching((s) => s.offsetAsked)
+  const selection = useStore((s) => s.selection)
   const status = useStore((s) => (open?.id === undefined ? null : (s.marks.find((m) => m.id === open.id)?.status ?? null)))
   const offsetBox = useRef<HTMLDivElement>(null)
   // Tab asks for the offset: the field takes the keys, as the pointer's hint once would.
@@ -40,6 +43,7 @@ export function SketchPanel() {
   if (!inHand || !open) return null
   const { draft } = open
   const rows = planeRows(draft)
+  const strokes = strokeRows(draft, open.id)
   const surface = surfaceStrokes(draft)
   const offset = offsetOf(plane === 'surface' ? null : (draft.planes.find((p) => p.id === plane) ?? null))
   const word = status === null ? 'not kept yet' : status === 'sent' ? 'sent' : status === 'resolved' ? 'resolved' : 'draft'
@@ -119,6 +123,20 @@ export function SketchPanel() {
             <Field label="Plane offset" unit="mm" value={number(offset)} commit={(value) => setOffset(value, { typed: true })} />
           </div>
         )}
+        {strokes.length > 0 && (
+          <>
+            <span className="sketchpanel-label-text" id="sketch-stroke-list" title={`Select a stroke to put it in a named set (${hint('set.make')}); Shift adds to the selection`}>
+              Strokes
+            </span>
+            <ul className="sketchpanel-strokes" aria-labelledby="sketch-stroke-list">
+              {strokes.map((stroke) => (
+                <li key={stroke.id}>
+                  <StrokeButton ref_={stroke.ref} id={stroke.id} where={stroke.where} on={selection.includes(stroke.ref)} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         <p className="sketchpanel-new">
           <span>+ New plane: pick</span>
           <button type="button" className="link-button" aria-pressed={picking === 'face'} title={`Click a flat face: strokes go on its plane (${hint('sketch.face')})`} onClick={() => pickPlane(picking === 'face' ? null : 'face')}>
@@ -194,5 +212,27 @@ function PlaneRowView({ name, strokes, active, on }: { name: string; strokes: nu
         </span>
       </button>
     </li>
+  )
+}
+
+/** A stroke by its id: it selects the stroke, and the pointer on it lights that stroke in the view. */
+function StrokeButton({ ref_, id, where, on }: { ref_: string; id: string; where: string; on: boolean }) {
+  return (
+    <button
+      type="button"
+      className="sketchpanel-stroke"
+      aria-pressed={on}
+      aria-label={`Stroke ${id}, ${where}`}
+      title={`${ref_}, ${where}. Click selects it, Shift adds it to the selection`}
+      onClick={(e) => selectStroke(ref_, e.shiftKey)}
+      onPointerEnter={() => peek([ref_])}
+      onPointerLeave={() => peek([])}
+      onFocus={(e) => {
+        if (e.currentTarget.matches(':focus-visible')) peek([ref_])
+      }}
+      onBlur={() => peek([])}
+    >
+      {id}
+    </button>
   )
 }

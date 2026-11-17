@@ -10,7 +10,7 @@ const pin: PinMark = { ...BASE, id: 'M2', kind: 'pin', anchor: ON }
 const arrow: ArrowMark = { ...BASE, id: 'M3', kind: 'arrow', from: ON, to: [5, 0, 14.5] }
 const profile: StrokeMark = { ...BASE, id: 'M4', kind: 'stroke', space: 'plane', anchor: ON, plane: { origin: [5, 0, 2.5], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 0.0' }, points2d: [[0, 0], [10, 0], [10, 5]] }
 
-const sketch: SketchMark = { ...BASE, id: 'M5', kind: 'sketch', name: 'Hose route', take: 'flow', diameter: 19, planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }], strokes: [{ plane: 1, points2d: [[0, 0], [1, 1]], pen: 'free', revision: 1 }] }
+const sketch: SketchMark = { ...BASE, id: 'M5', kind: 'sketch', name: 'Hose route', take: 'flow', diameter: 19, nextStroke: 2, planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }], strokes: [{ id: 'k1', plane: 1, points2d: [[0, 0], [1, 1]], pen: 'free', revision: 1 }] }
 
 describe('what the note says its mark is on', () => {
   it('for a 3D sketch is its name and how it is taken, with what it holds', () => {

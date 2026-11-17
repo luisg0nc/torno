@@ -1,5 +1,6 @@
 import { Fragment, memo, useMemo, type ReactNode } from 'react'
 import { refsIn } from '../../../shared/chat'
+import { useSetSlugs } from '../../state/sets'
 import { numbered } from '../numbered'
 import { RefChip } from './RefChip'
 
@@ -170,8 +171,14 @@ export function parseMarkdown(text: string): Block[] {
 }
 
 /** Plain text: refs are chips and numbers are in the monospace face. */
-function plain(text: string, key: string): ReactNode[] {
-  return refsIn(text).map((piece, n) => (piece.ref !== undefined ? <RefChip key={`${key}${n}`} value={piece.ref} prose /> : <Fragment key={`${key}${n}`}>{numbered(piece.text)}</Fragment>))
+function plain(text: string, key: string): ReactNode {
+  return <Plain key={key} text={text} at={key} />
+}
+
+/** A run of plain text: its refs are chips, a `#deck` among them when the project has a named set of that name, and numbers are in the monospace face. */
+function Plain({ text, at }: { text: string; at: string }) {
+  const slugs = useSetSlugs()
+  return <>{refsIn(text, slugs).map((piece, n) => (piece.ref !== undefined ? <RefChip key={`${at}${n}`} value={piece.ref} prose /> : <Fragment key={`${at}${n}`}>{numbered(piece.text)}</Fragment>))}</>
 }
 
 function drawInlines(of: Inline[], key: string): ReactNode[] {
@@ -179,7 +186,7 @@ function drawInlines(of: Inline[], key: string): ReactNode[] {
     const k = `${key}.${n}`
     switch (piece.t) {
       case 'text':
-        return <Fragment key={k}>{plain(piece.text, k)}</Fragment>
+        return plain(piece.text, k)
       case 'code':
         return (
           <code key={k} className="md-inline">

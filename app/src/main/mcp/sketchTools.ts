@@ -1,5 +1,5 @@
 import type { SketchDraft } from '../../shared/bridge'
-import { type Anchor, type Mark, type SketchMark, type SketchPlane, type SketchStroke, type Vec3, MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_NOTE, MAX_STROKE_POINTS } from '../../shared/marks'
+import { type Anchor, type Mark, type SketchMark, type SketchPlane, type NewStroke, type Vec3, MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_NOTE, MAX_STROKE_POINTS } from '../../shared/marks'
 import { type MainAxis, type PlaneFrame, axesOfNormal, directionText, faceLabel, mainPlaneFrame } from '../../shared/planes'
 import type { Scene } from '../../shared/scene'
 import { describeMark, vector } from '../marks/describe'
@@ -103,13 +103,13 @@ async function strokesOf(
   layout: string,
   revision: number,
   given: unknown
-): Promise<{ planes: SketchPlane[]; strokes: SketchStroke[] } | string> {
+): Promise<{ planes: SketchPlane[]; strokes: NewStroke[] } | string> {
   if (!Array.isArray(given) || given.length === 0) return `give strokes, 1 to ${MOST_AGENT_STROKES}: ${NO_SKETCH_STROKE}`
   if (given.length > MOST_AGENT_STROKES) return `a sketch of yours has at most ${MOST_AGENT_STROKES} strokes, and this one has ${given.length}: draw the rest in a sketch of its own`
   const planes: SketchPlane[] = []
   /** The planes made, by what was said of them: two strokes on the same plane share one. */
   const made = new Map<string, number>()
-  const strokes: SketchStroke[] = []
+  const strokes: NewStroke[] = []
   const { centre, reach } = reachOf(scene, layout)
   let points = 0
   for (const [i, raw] of given.entries()) {
@@ -155,7 +155,7 @@ async function strokesOf(
 }
 
 /** Where the sketch is, for its camera: the middle of its points. */
-function middleOf(planes: SketchPlane[], strokes: SketchStroke[]): Vec3 {
+function middleOf(planes: SketchPlane[], strokes: NewStroke[]): Vec3 {
   const all: Vec3[] = strokes.flatMap((s) => (s.points ?? (s.points2d ?? []).map(([u, v]) => plus(plus((planes.find((p) => p.id === s.plane) as SketchPlane).origin, (planes.find((p) => p.id === s.plane) as SketchPlane).x, u), (planes.find((p) => p.id === s.plane) as SketchPlane).y, v))))
   const sum = all.reduce<Vec3>((a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]], [0, 0, 0])
   return tidy([sum[0] / all.length, sum[1] / all.length, sum[2] / all.length])
@@ -269,9 +269,9 @@ export async function addSketchTool(deps: ToolDeps, objectId: string, args: AddS
   const stale = why ? `, stale: ${why}, so the sketch was made on the parts of r${revision}` : ''
   const lines = [`${replacing ? 'replaced' : 'made'} in layout ${layout}: ${describeMark(saved, { scene })}`]
   for (const plane of saved.planes) lines.push(`plane ${plane.id}: ${plane.label}`)
-  saved.strokes.forEach((stroke, i) => {
+  saved.strokes.forEach((stroke) => {
     const count = (stroke.points ?? stroke.points2d ?? []).length
-    lines.push(`stroke ${i + 1}: ${count} point${count === 1 ? '' : 's'}${stroke.plane === undefined ? ' in space' : ` on plane ${stroke.plane}`}${stroke.touches && stroke.touches.length > 0 ? `, touches ${stroke.touches.join(', ')}` : ''}`)
+    lines.push(`stroke ${stroke.id}: ${count} point${count === 1 ? '' : 's'}${stroke.plane === undefined ? ' in space' : ` on plane ${stroke.plane}`}${stroke.touches && stroke.touches.length > 0 ? `, touches ${stroke.touches.join(', ')}` : ''}`)
   })
   lines.push(`Its card is on the board, and its picture shows when the project is on show in the torno window.`)
   lines.push(`revision r${revision}${stale}`)

@@ -49,6 +49,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `listReferences`: plain files of create's names, photos then doodles, twelve named at most). It is no mark, and is
   left out when it does not fit in the context's limit. The onboarding prompt names them too; the repetition is
   accepted.
+- **Named sets** (`prompt.ts`, in both prompts, after the review sentence): one fixed sentence says named sets are the person's names for faces, edges,
+  parts and strokes (`scene` lists them), to write `#deck`, or `block/#deck` for one part's, in any ref, and to propose one with
+  `mcp__torno__add_set` when a name would help, and that only the person accepts it. It fit under the same limits by shortening other lines, not by
+  raising them.
+  The list of open marks in the prompt (`context.ts`) is given the slugs of the sets (`opts.sets`, from `index.ts`), so a mark labelled with a set
+  that is gone says `(on #deck, no longer a named set)` there as the `marks` tool and `state.md` do; with the sets not known (the file unreadable)
+  it says `(on #deck)` only.
 - **Reviews** (`prompt.ts`, in both prompts, before the `add_mark` sentence): one fixed sentence says a review lists what the person does not
   want and wants on one build, to answer each item by its id with `mcp__torno__resolve_mark`, and never to bring back what an earlier review
   removed (read with `mcp__torno__marks` and `review: "all"`); it costs about 250 characters, which is why the length limits of

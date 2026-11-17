@@ -292,6 +292,18 @@ describe('a 3D sketch pointed at', () => {
     expect(widths(marks)).toEqual([2.5, 2.5])
   })
 
+  it('lights a stroke alone by its ref, the way a named set or a chip of the chat points at it', () => {
+    const marks = new MarkLayer(COLOURS)
+    marks.setMarks([{ ...sketch, nextStroke: 3, strokes: (sketch as unknown as { strokes: object[] }).strokes.map((stroke, i) => ({ ...stroke, id: `k${i + 1}` })) } as unknown as Mark])
+    marks.show('assembly')
+    marks.setLitStrokeRefs(['M7/k2', 'M8/k1'])
+    expect(widths(marks)).toEqual([2.5, 3.75])
+    marks.setLitStrokeRefs(['M7/k1', 'M7/k2'])
+    expect(widths(marks)).toEqual([3.75, 3.75])
+    marks.setLitStrokeRefs([])
+    expect(widths(marks)).toEqual([2.5, 2.5])
+  })
+
   it('is lit as it is drawn anew, and not at all in a picture for the agent', () => {
     const marks = shown()
     marks.setHover('M7')

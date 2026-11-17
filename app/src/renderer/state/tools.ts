@@ -42,12 +42,13 @@ export const ROUND: { measure: RoundMeasure; label: string; title: string }[] = 
 ]
 
 /** What a click of the Select tool takes: whatever is under the pointer, a face, an edge, or the whole part. */
-export type SelectScope = 'any' | 'face' | 'edge' | 'part'
+export type SelectScope = 'any' | 'face' | 'edge' | 'part' | 'set'
 export const SELECT_SCOPES: { scope: SelectScope; label: string; title: string }[] = [
   { scope: 'any', label: 'Any', title: 'A click takes the face or the edge under the pointer; a double click takes the whole part' },
   { scope: 'face', label: 'Face', title: 'A click takes a face; edges are passed over' },
   { scope: 'edge', label: 'Edge', title: 'A click takes an edge; faces are passed over' },
-  { scope: 'part', label: 'Part', title: 'A click takes the whole part under the pointer' }
+  { scope: 'part', label: 'Part', title: 'A click takes the whole part under the pointer' },
+  { scope: 'set', label: 'Set', title: 'A click takes every member of the named set under the pointer; Shift adds it. The pointer lights the set in its colour' }
 ]
 
 interface ToolState {

@@ -4,6 +4,7 @@ import { letGoText } from '../../shared/build'
 import { diagnosisText } from '../../shared/diagnosis'
 import { type ExplodeState, EXPLODED_NOTE, NOT_EXPLODED_AND_CUT, explodeArg, explodeText, isExploded, nothingApart, nothingApartText } from '../../shared/explode'
 import type { ScanInfo } from '../../shared/scans'
+import type { NamedSet } from '../../shared/sets'
 import { noteText } from '../../shared/modelChecks'
 import type { Scene } from '../../shared/scene'
 import { type Camera, type LookRequest, type LookResult, type SaveViewRequest, type SaveViewResult, type SectionPlane, type ShowRequest, type ShowResult, type ViewName, axisForm, planeText } from '../../shared/view'
@@ -13,6 +14,7 @@ import { FOCUS_NOT_EXPLODED } from '../../shared/focus'
 import { groupOf, groupsIn, groupVisibility, partsNamed } from '../../shared/groups'
 import { tagRefs } from '../../shared/tags'
 import { alignmentSaid } from '../scans/said'
+import { setsListed } from '../sets/text'
 import { type Focused, MARGIN_NEEDS_FOCUS, NO_SAVED_FRAME, focusOf, hiddenText, marginShare, notDrawn } from './focus'
 import { unknownKeys } from './keys'
 import { NO_LOOK_SCANS, NO_SCAN_OPACITY, NO_SHOW_SCANS, isScanOpacity, scanColourFor, scanIds } from './scanTools'
@@ -63,11 +65,16 @@ export const cameraKeys = (view: unknown): string | null => {
  */
 type ScenePart = Scene['parts'][number]
 export interface SceneArgs { layout?: string }
+/** The named sets of the object, when they could be read, and the build each one's refs are of, by set id (none for a set: not since torno opened the project). */
+export interface NamedSets {
+  sets: readonly NamedSet[]
+  refs: Readonly<Record<string, number>> | undefined
+}
 /** The most parts `scene` lists in full, and the most characters their list may take (Claude Code saves a result over 50,000 to a file). */
 const SCENE_PARTS = 200
 const SCENE_CHARS = 30_000
 
-export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], args: SceneArgs = {}): ToolResult {
+export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], args: SceneArgs = {}, named?: NamedSets): ToolResult {
   const found = built(deps, objectId)
   if ('content' in found) {
     // The first build failed: nothing was built, and what the model printed is all there is besides the error.
@@ -189,6 +196,8 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
     // The person's overrides of those Params this build was made with (value differs from default), and those let go of.
     ...(scene.overrides && (Object.keys(scene.overrides.applied).length > 0 || scene.overrides.dropped.length > 0) ? { paramsTried: scene.overrides } : {}),
     ...(groups.length > 0 ? { groups } : {}),
+    // The person's named sets (`#deck`), in every layout: each with its members by ref and how many the last build lost.
+    ...(named && named.sets.length > 0 ? { sets: setsListed(named.sets, marks ?? [], revision, named.refs) } : {}),
     parts: listing.parts,
     ...(listing.extra),
     camera: view

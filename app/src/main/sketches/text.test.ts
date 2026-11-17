@@ -4,7 +4,7 @@ import { sketchText, pointsTold } from './text'
 
 const CAMERA = { position: [100, -100, 80], target: [0, 0, 10], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 
-const stroke = (over: Partial<SketchStroke> = {}): SketchStroke => ({ pen: 'free', revision: 41, plane: 1, points2d: [[0, 0]], ...over })
+const stroke = (over: Partial<SketchStroke> = {}): SketchStroke => ({ id: 'k1', pen: 'free', revision: 41, plane: 1, points2d: [[0, 0]], ...over })
 
 const sketch = (over: Partial<SketchMark> = {}): SketchMark => ({
   id: 'M7',
@@ -24,10 +24,11 @@ const sketch = (over: Partial<SketchMark> = {}): SketchMark => ({
     { id: 1, origin: [0, 40, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 40.0 (u = +X, v = +Z)', from: { kind: 'main', axis: 'XZ', offset: 40 } },
     { id: 2, origin: [0, 0, 50], x: [1, 0, 0], y: [0, 1, 0], label: 'plane through block/F31 (u = +X, v = +Y)', from: { kind: 'face', ref: 'block/F31', offset: 12, revision: 38 } }
   ],
+  nextStroke: 4,
   strokes: [
-    stroke({ pen: 'line', points2d: [[12, 31.5], [40, 31.5]], snaps: [{ i: 0, centre: 'head/E14', radius: 8, projected: true }], touches: ['block/F3'] }),
-    stroke({ plane: 2, points2d: [[0.04, 0.06], [10.26, 5]], touches: [] }),
-    stroke({ plane: undefined, points2d: undefined, pen: 'points', points: [[1.234567, 2.345678, 3.456789], [4, 5, 6]], snaps: [{ i: 0, vertex: 'block/V12' }, { i: 1, edge: 'block/E40', approx: true }], touches: ['block/F1', 'block/F2'] })
+    stroke({ id: 'k1', pen: 'line', points2d: [[12, 31.5], [40, 31.5]], snaps: [{ i: 0, centre: 'head/E14', radius: 8, projected: true }], touches: ['block/F3'] }),
+    stroke({ id: 'k2', plane: 2, points2d: [[0.04, 0.06], [10.26, 5]], touches: [] }),
+    stroke({ id: 'k3', plane: undefined, points2d: undefined, pen: 'points', points: [[1.234567, 2.345678, 3.456789], [4, 5, 6]], snaps: [{ i: 0, vertex: 'block/V12' }, { i: 1, edge: 'block/E40', approx: true }], touches: ['block/F1', 'block/F2'] })
   ],
   ...over
 })
@@ -42,10 +43,18 @@ describe('sketchText', () => {
   })
 
   it('says each stroke with its pen, where it is, its length and what it touches', () => {
-    expect(text).toContain('stroke 1: straight line on plane 1, 28 mm long, 2 points, drawn on build 41; touches block/F3 (of build 41)')
-    expect(text).toContain('stroke 2: freehand on plane 2, 11.35 mm long, 2 points, drawn on build 41; touches nothing that was found (of build 41)')
-    expect(text).toContain('stroke 3: point to point on the surface')
+    expect(text).toContain('stroke k1: straight line on plane 1, 28 mm long, 2 points, drawn on build 41; touches block/F3 (of build 41)')
+    expect(text).toContain('stroke k2: freehand on plane 2, 11.35 mm long, 2 points, drawn on build 41; touches nothing that was found (of build 41)')
+    expect(text).toContain('stroke k3: point to point on the surface')
     expect(text).toContain('touches block/F1, block/F2 (of build 41)')
+  })
+
+  it('tells a stroke by its id, not its place: one erased leaves a gap, and the next is not k2', () => {
+    const edited = sketchText(sketch({ nextStroke: 6, strokes: [stroke({ id: 'k1' }), stroke({ id: 'k5' })] }), { revision: 41 })
+    expect(edited).toContain('stroke k1: ')
+    expect(edited).toContain('stroke k5: ')
+    expect(edited).not.toContain('stroke k2: ')
+    expect(edited).not.toContain('stroke 2: ')
   })
 
   it('gives a snapped point in full with what it is, and a free one to 0.1 mm', () => {
@@ -86,10 +95,10 @@ describe('sketchText', () => {
   })
 
   it('cuts at 2000 points and says what it left out', () => {
-    const many = sketch({ strokes: Array.from({ length: 5 }, () => stroke({ points2d: Array.from({ length: 500 }, (_, i) => [i, 0] as [number, number]) })) })
+    const many = sketch({ strokes: Array.from({ length: 5 }, (_, n) => stroke({ id: `k${n + 1}`, points2d: Array.from({ length: 500 }, (_, i) => [i, 0] as [number, number]) })) })
     const cut = sketchText(many, { revision: 41 })
-    expect(cut).toContain('stroke 4:')
-    expect(cut).not.toContain('stroke 5:')
+    expect(cut).toContain('stroke k4:')
+    expect(cut).not.toContain('stroke k5:')
     expect(cut).toContain('… 1 more stroke, 500 points: read them with marks with ids ["M7"]')
     expect(pointsTold(many, {})).toBe(2000)
     // A lower limit leaves more out.

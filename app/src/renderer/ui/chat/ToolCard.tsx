@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from 'react'
 import { type ChatItem, type ChatWhere, refsIn, shownPath, toolLabel } from '../../../shared/chat'
 import { canPointAgain, pointAgain, seeInView } from '../../state/agent'
 import { seeToolOf } from '../../state/seeAgain'
+import { useSetSlugs } from '../../state/sets'
 import { numbered } from '../numbered'
 import { Diff } from './Diff'
 import { editHunks, type Hunk, limitHunks } from './lineDiff'
@@ -82,6 +83,8 @@ export const ToolCard = memo(function ToolCard({ item, beat }: { item: Tool; bea
   const [open, setOpen] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   const where = useChatPlace()
+  // A `#deck` in the line is a chip once the project has a named set of that name.
+  const slugs = useSetSlugs()
   const label = useMemo(() => toolLabel(item.name, item.input, where), [item.name, item.input, where])
   const full = useMemo(() => toolLabel(item.name, item.input), [item.name, item.input])
   // Only an open card needs its input as text.
@@ -102,7 +105,7 @@ export const ToolCard = memo(function ToolCard({ item, beat }: { item: Tool; bea
       <div className="chat-tool-row">
         <button type="button" className="chat-tool-line" title={full} aria-label={full} aria-expanded={open} onClick={() => setOpen(!open)} />
         <span className="chat-tool-label">
-          {item.torno ? refsIn(label).map((piece, n) => (piece.ref !== undefined ? <RefChip key={n} value={piece.ref} prose /> : <span key={n}>{numbered(piece.text)}</span>)) : numbered(label)}
+          {item.torno ? refsIn(label, slugs).map((piece, n) => (piece.ref !== undefined ? <RefChip key={n} value={piece.ref} prose /> : <span key={n}>{numbered(piece.text)}</span>)) : numbered(label)}
         </span>
         {item.steps !== undefined && <span className="chat-tool-steps">{numbered(`${item.steps} ${item.steps === 1 ? 'step' : 'steps'}`)}</span>}
         <span className="chat-tool-state">

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DimensionMark, Mark } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { letGoText } from '../../shared/build'
+import { setsStore } from '../state/sets'
 import { store } from '../state/store'
 import { BuildStatus, defectsSaid, dimensionCount, goToRow } from './BuildStatus'
 import { createElement } from 'react'
@@ -162,6 +163,27 @@ describe('the status line on the New object page', () => {
     store.setState({ page: 'object' })
     expect(line()).toContain('Rebuild')
     expect(line()).toContain('Export…')
+  })
+})
+
+describe('what Ctrl+G says in the status line', () => {
+  afterEach(() => {
+    store.setState({ page: 'object', objectId: null, build: null, scene: null, revision: 0 })
+    setsStore.setState({ said: null })
+  })
+  it('is there, as a status, only while a sentence is', () => {
+    const line = (): string => {
+      const now = [vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState()), vi.spyOn(setsStore, 'getInitialState').mockReturnValue(setsStore.getState())]
+      try {
+        return renderToStaticMarkup(createElement(BuildStatus))
+      } finally {
+        for (const spy of now) spy.mockRestore()
+      }
+    }
+    store.setState({ page: 'object', objectId: 'bracket', build: { status: 'ok', revision: 1, seconds: 1 } as never, scene: SCENE, revision: 1, marks: [] })
+    expect(line()).toContain('<span class="status-said" role="status" data-notice="sets"></span>')
+    setsStore.setState({ said: 'Select faces, edges, parts or strokes first' })
+    expect(line()).toContain('data-notice="sets">Select faces, edges, parts or strokes first</span>')
   })
 })
 

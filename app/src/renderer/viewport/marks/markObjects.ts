@@ -101,12 +101,15 @@ const UNIT_SPHERE = new THREE.SphereGeometry(1, 20, 14)
 // Tip at the origin, pointing along +Z, one unit long and one unit in radius.
 const UNIT_CONE = new THREE.ConeGeometry(1, 1, 20).rotateX(Math.PI / 2).translate(0, 0, -0.5)
 
+/** Which strokes of a sketch are lit: all, those on a plane, those by their ids (`k3`), or none. */
+export type Lit = true | { plane: number | 'surface' } | { strokes: ReadonlySet<string> } | null
+
 /** What `rescale` reads from the root of a mark's objects. */
 interface Sizing {
   /** Groups kept the same size on screen: scaled by the millimetres a pixel is at their place. */
   constant: Array<{ object: THREE.Object3D; at: THREE.Vector3 }>
   /** Line materials, with their width in pixels. */
-  lines: Array<{ material: LineMaterial; width: number; /** Pixels added to it whatever the width: a casing's. */ extra?: number; /** Of a sketch's stroke: the plane it is on, or `surface`. */ on?: number | 'surface' }>
+  lines: Array<{ material: LineMaterial; width: number; /** Pixels added to it whatever the width: a casing's. */ extra?: number; /** Of a sketch's stroke: the plane it is on, or `surface`. */ on?: number | 'surface'; /** Of a sketch's stroke: its id (`k3`). */ stroke?: string }>
   /** Ticks at the ends of a dimension line: each is turned square to the line (`along`) and to the way it is looked at. */
   ticks: Array<{ object: THREE.Object3D; along: THREE.Vector3 }>
   /** Dashed ones: dash and gap in pixels, measured where the mark is. */
@@ -114,8 +117,8 @@ interface Sizing {
   /** Everything drawn, as its two passes: the one seen where a part is in front, and the one seen where none is. */
   twins: Array<{ behind: THREE.Object3D; front: THREE.Object3D }>
   active: boolean
-  /** Of a sketch: its strokes are lit, all of them or those on one plane (or the surface). */
-  lit: true | { plane: number | 'surface' } | null
+  /** Of a sketch: its strokes are lit, all of them, those on one plane (or the surface), or those of these ids. */
+  lit: Lit
 }
 
 /** Collects what a mark is made of while it is built. */
@@ -241,7 +244,7 @@ class Parts {
    * A stroke of a sketch: a line through points where it is seen in front, and where a part hides it, dashed when it was
    * drawn in x-ray and not drawn at all otherwise. Its casing goes with it. `on` says which plane it is on, for lighting.
    */
-  stroke(name: string, points: Vec3[], width: number, xray: boolean, on: number | 'surface'): THREE.Group {
+  stroke(name: string, points: Vec3[], width: number, xray: boolean, on: number | 'surface', id?: string): THREE.Group {
     const geometry = new LineGeometry().setPositions(points.flat())
     const at = new THREE.Vector3().fromArray(points[0])
     const draw = (material: LineMaterial, behind: boolean): Line2 => {
@@ -255,7 +258,7 @@ class Parts {
     const register = (group: THREE.Group, extra?: number): void => {
       group.children.forEach((child, i) => {
         const material = (child as Line2).material
-        this.sizing.lines.push({ material, width, on, ...(extra ? { extra } : {}) })
+        this.sizing.lines.push({ material, width, on, ...(id === undefined ? {} : { stroke: id }), ...(extra ? { extra } : {}) })
         if (i === 0 && xray) this.sizing.dashes.push({ material, ...XRAY_DASH_PX, at })
       })
     }
@@ -490,7 +493,7 @@ function addSketch(parts: Parts, mark: SketchMark): void {
     const points = sketchStrokePoints(mark, stroke)
     if (points.length === 0) continue
     const on = stroke.plane ?? 'surface'
-    if (points.length >= 2) root.add(parts.stroke('line', points, STROKE_PX, stroke.xray === true, on))
+    if (points.length >= 2) root.add(parts.stroke('line', points, STROKE_PX, stroke.xray === true, on, stroke.id))
     else root.add(parts.dot(points[0]))
     for (const snap of stroke.snaps ?? []) {
       const at = points[snap.i]
@@ -633,8 +636,8 @@ export function rescale(object: THREE.Object3D, mmPerPx: (at: THREE.Vector3) => 
   for (const { object: group, at } of sizing.constant) group.scale.setScalar(mmPerPx(at) * unit)
   // Where the mark is drawn, which is off where it is while its part is drawn apart.
   for (const { object: tick, along } of sizing.ticks) tick.quaternion.setFromUnitVectors(X_AXIS, acrossLine(along, DRAWN_AT.copy(tick.position).add(object.position), camera))
-  for (const { material, width, extra, on } of sizing.lines) {
-    const lit = sizing.lit === true || (sizing.lit !== null && on !== undefined && sizing.lit.plane === on)
+  for (const { material, width, extra, on, stroke } of sizing.lines) {
+    const lit = sizing.lit === true || (sizing.lit !== null && ('strokes' in sizing.lit ? stroke !== undefined && sizing.lit.strokes.has(stroke) : on !== undefined && sizing.lit.plane === on))
     material.linewidth = (width * (sizing.active || lit ? ACTIVE_WIDTH : 1) + (extra ?? 0)) * unit
   }
   for (const { material, dash, gap, at } of sizing.dashes) {
@@ -699,10 +702,10 @@ export function setDashed(object: THREE.Object3D): void {
 }
 
 /**
- * Lights the strokes of a sketch, all of them (`true`), or those on one plane or on the surface: they are drawn wider, as the
+ * Lights the strokes of a sketch, all of them (`true`), those on one plane or on the surface, or those of the ids given: they are drawn wider, as the
  * active mark's are. Takes effect at the next `rescale`. On screen only.
  */
-export function setLit(object: THREE.Object3D, lit: true | { plane: number | 'surface' } | null): void {
+export function setLit(object: THREE.Object3D, lit: Lit): void {
   const sizing = object.userData.sizing as Sizing | undefined
   if (sizing) sizing.lit = lit
 }

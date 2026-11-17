@@ -450,9 +450,10 @@ describe('a 3D sketch', () => {
     name: 'Hose route',
     take: 'rough',
     planes: [XY],
+    nextStroke: 3,
     strokes: [
-      { plane: 1, points2d: [[0, 0], [10, 0], [10, 5]], pen: 'points', snaps: [{ i: 1, vertex: 'block/V1' }, { i: 2, edge: 'block/E4', approx: true }], revision: 1 },
-      { points: [[0, 0, 5], [2, 0, 5]], pen: 'free', revision: 1 }
+      { id: 'k1', plane: 1, points2d: [[0, 0], [10, 0], [10, 5]], pen: 'points', snaps: [{ i: 1, vertex: 'block/V1' }, { i: 2, edge: 'block/E4', approx: true }], revision: 1 },
+      { id: 'k2', points: [[0, 0, 5], [2, 0, 5]], pen: 'free', revision: 1 }
     ],
     ...over
   })
@@ -509,15 +510,15 @@ describe('a 3D sketch', () => {
   })
 
   it('draws a stroke of a single point as a dot, and one with no plane of its own as nothing', () => {
-    const one = build(sketch({ strokes: [{ plane: 1, points2d: [[1, 1]], pen: 'points', revision: 1 }] }), COLOURS, 1)
+    const one = build(sketch({ strokes: [{ id: 'k1', plane: 1, points2d: [[1, 1]], pen: 'points', revision: 1 }] }), COLOURS, 1)
     expect(strokes(one)).toHaveLength(0)
     expect(one.children.filter((c) => c.name === 'dot')).toHaveLength(1)
-    const lost = build(sketch({ strokes: [{ plane: 9, points2d: [[1, 1], [2, 2]], pen: 'free', revision: 1 }] }), COLOURS, 1)
+    const lost = build(sketch({ strokes: [{ id: 'k1', plane: 9, points2d: [[1, 1], [2, 2]], pen: 'free', revision: 1 }] }), COLOURS, 1)
     expect(lost.children).toHaveLength(0)
   })
 
   it('shows what hides behind a part dashed when it was drawn in x-ray, and not at all otherwise', () => {
-    const object = build(sketch({ strokes: [{ points: [[0, 0, 5], [20, 0, 5]], pen: 'free', xray: true, revision: 1 }, { points: [[0, 0, 5], [20, 0, 5]], pen: 'free', revision: 1 }] }), COLOURS, 1)
+    const object = build(sketch({ strokes: [{ id: 'k1', points: [[0, 0, 5], [20, 0, 5]], pen: 'free', xray: true, revision: 1 }, { id: 'k2', points: [[0, 0, 5], [20, 0, 5]], pen: 'free', revision: 1 }] }), COLOURS, 1)
     rescale(object, () => 1, 1)
     const [xray, plain] = strokes(object).map(passes)
     expect(xray[0].material.depthFunc).toBe(THREE.GreaterDepth)
@@ -551,6 +552,18 @@ describe('a 3D sketch', () => {
     setLit(object, null)
     rescale(object, () => 1, 1)
     expect(width(strokes(object)[0])).toBe(2.5)
+    dispose(object)
+  })
+
+  it('lights the strokes of the ids given, and no other', () => {
+    const object = build(sketch(), COLOURS, 1)
+    const width = (stroke: THREE.Object3D): number => (passes(stroke)[1].material as LineMaterial).linewidth
+    setLit(object, { strokes: new Set(['k2']) })
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([2.5, 3.75])
+    setLit(object, { strokes: new Set(['k9']) })
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([2.5, 2.5])
     dispose(object)
   })
 

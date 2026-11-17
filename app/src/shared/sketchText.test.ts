@@ -15,7 +15,7 @@ describe('what a row, a card and the panel say of a sketch', () => {
   })
   it('counts its strokes and the planes it has', () => {
     expect(countsText({ strokes: [], planes: [{}] })).toBe('no strokes yet')
-    expect(countsText({ strokes: [{ pen: 'free', revision: 1 }], planes: [{}] })).toBe('1 stroke on 1 plane')
-    expect(countsText({ strokes: [{ pen: 'free', revision: 1 }, { pen: 'line', revision: 1 }, { pen: 'line', revision: 1 }], planes: [{}, {}] })).toBe('3 strokes on 2 planes')
+    expect(countsText({ strokes: [{ id: 'k1', pen: 'free', revision: 1 }], planes: [{}] })).toBe('1 stroke on 1 plane')
+    expect(countsText({ strokes: [{ id: 'k1', pen: 'free', revision: 1 }, { id: 'k2', pen: 'line', revision: 1 }, { id: 'k3', pen: 'line', revision: 1 }], planes: [{}, {}] })).toBe('3 strokes on 2 planes')
   })
 })
