@@ -761,11 +761,18 @@ class _Surface:
         return distance, [at.X(), at.Y(), at.Z()]
 
     def nearest_facing(
-        self, key: str, point: list[float], normal: list[float] | None, within: float, degrees: float
+        self,
+        key: str,
+        point: list[float],
+        normal: list[float] | None,
+        within: float,
+        degrees: float,
+        geom_type: str | None = None,
     ) -> int | None:
         """The index of the face nearest ``point`` among those within ``within`` mm of it whose outward normal at
         the nearest point is within ``degrees`` of ``normal`` (any, when ``normal`` is None); None when no face is.
-        Ties in distance go to the one most nearly facing ``normal``, then to the lowest index."""
+        Only a face of the surface type ``geom_type`` (a ``GeomType`` name) counts, when one is given. Ties in
+        distance go to the one most nearly facing ``normal``, then to the lowest index."""
         best: tuple[float, float, int] | None = None
         for index in self._near(self._face_boxes(), point, within):
             found = self.face_at(index, point)
@@ -778,22 +785,36 @@ class _Surface:
                 angle = _angle(normal, found[2])
                 if angle > degrees:
                     continue
+            if geom_type is not None and self._geom_type(self._faces[index], True) != geom_type:
+                continue
             rank = (round(found[0], 6), angle, index)
             if best is None or rank < best:
                 best = rank
         return None if best is None else best[2]
 
-    def nearest_edge(self, key: str, point: list[float], within: float) -> int | None:
-        """The index of the edge nearest ``point`` when it is within ``within`` mm of it; None when none is."""
+    def nearest_edge(self, key: str, point: list[float], within: float, geom_type: str | None = None) -> int | None:
+        """The index of the edge nearest ``point`` when it is within ``within`` mm of it (and of the curve type
+        ``geom_type``, when one is given); None when none is."""
         best: tuple[float, int] | None = None
         for index in self._near(self._edge_boxes(), point, within):
             found = self.edge_at(index, point)
             if found is None or found[0] > within:
                 continue
+            if geom_type is not None and self._geom_type(self._all_edges()[index], False) != geom_type:
+                continue
             rank = (round(found[0], 6), index)
             if best is None or rank < best:
                 best = rank
         return None if best is None else best[1]
+
+    @staticmethod
+    def _geom_type(shape: Any, is_face: bool) -> str | None:
+        from build123d import Edge, Face
+
+        try:
+            return str((Face if is_face else Edge)(shape).geom_type.name)
+        except Exception:
+            return None
 
     @staticmethod
     def _boxes_of(shapes: list[Any]) -> list[tuple[float, ...] | None]:

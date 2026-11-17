@@ -4,14 +4,20 @@ A stored member is what torno kept of a face or an edge: the structured form of 
 type, a point on it and, of a face, its outward normal there. A rebuild may renumber the faces and move them, and
 this finds each again, in this order:
 
-1. **by its selector.** The form is checked field by field (``selectors.parse_form``; one that fails is no form),
-   its text is written by the kernel from the form and evaluated on the part as it stands in the layout, and the
-   face or edge it gives is taken only if it is still what was stored: a face of the same surface type whose normal,
-   at the point of it nearest the stored point, is within ``NORMAL_DEGREES`` of the stored normal; an edge of the
-   same type. A prefix that gives more than one shape, where it is to give one, picks none.
-2. **by its point and normal.** The nearest face within ``within`` mm of the stored point whose normal there is
-   within ``NORMAL_DEGREES`` of the stored one; the nearest edge within ``within`` mm of the point.
-3. else it is **lost**, and the caller keeps its last point and normal.
+1. **in place.** A face of the stored type that is within ``within`` mm of the stored point and whose normal there is
+   within ``NORMAL_DEGREES`` of the stored one (an edge of the stored type within ``within`` of the point) is the
+   member, whatever the selector says: a boss added on top makes the selector give the boss, and a slot makes it
+   give a tie. It is told ``selector`` when the selector gives the same one, else ``nearest``.
+2. **by its selector**, when nothing of the type is at the stored place (the face moved). The form is checked field
+   by field (``selectors.parse_form``; one that fails is no form), its text is written by the kernel from the form and
+   evaluated on the part as it stands in the layout; a prefix that gives more than one shape where it is to give one,
+   or an end or a group that ties with another, picks none. Its face is taken only if it is still what was stored: of
+   the same surface type, with its normal at the point nearest the stored point within ``NORMAL_DEGREES`` of the
+   stored one (an edge of the same type).
+3. **by its point and normal alone**: the nearest face of any type within ``within`` that faces as stored; the
+   nearest edge within ``within`` of the point.
+4. else it is **lost**, and the caller keeps its last point and normal. Past ``REFIND_BUDGET`` the members not yet
+   looked at are told ``lost`` with ``unchecked: true`` and ``why`` "not checked", not as gone.
 
 The kernel evaluates only the text it wrote itself (``selectors.Evaluator``); nothing of the member is in it but
 numbers it has checked and names of ``GeomType``.
@@ -53,19 +59,17 @@ def refind(
     for member in wanted:
         key = f"{layout}:{member['part']}"
         if key not in shapes:
-            found.append({"found": "lost", "why": f"no part {member['part']} in layout {layout}"})
+            found.append(_lost(f"no part {member['part']} in layout {layout}"))
+            continue
+        if clock() >= deadline:
+            # Out of time: this one and every one after it is not looked at, and says so, not that it is gone.
+            found.append({**_lost("not checked: the query ran out of time"), "unchecked": True})
             continue
         surface = queries.surface_of(shapes, key, kept)
-        form = None
-        if member["form"] is not None and clock() < deadline:
-            form = selectors.parse_form(member["form"], member["kind"])
-        evaluator = None
-        if form is not None:
-            if key not in evaluators:
-                evaluators[key] = selectors.Evaluator(shapes[key])
-            evaluator = evaluators[key]
+        if key not in evaluators:
+            evaluators[key] = selectors.Evaluator(shapes[key])
         one = _face if member["kind"] == "face" else _edge
-        found.append(one(surface, key, member, form, evaluator))
+        found.append(one(surface, key, member, evaluators[key], lambda: clock() < deadline))
     return {"members": found}
 
 
@@ -111,44 +115,78 @@ def _lost(why: str) -> dict[str, Any]:
 
 
 def _face(
-    surface: Any, key: str, member: dict[str, Any], form: dict[str, Any] | None, evaluator: Any
+    surface: Any, key: str, member: dict[str, Any], evaluator: Any, in_time: Callable[[], bool]
 ) -> dict[str, Any]:
+    """A face of the stored type with its normal within ``NORMAL_DEGREES`` that is still at the stored point is the
+    face (the place wins over the selector: a boss or a slot makes the selector give another, or none); told
+    ``selector`` when the selector agrees and ``nearest`` when not. Only when none is there is the selector's
+    face taken, if it is what was stored; then the nearest face of any type that faces as stored."""
     from build123d import Face
 
-    part, point, normal = member["part"], member["point"], member["normal"]
-    if form is not None:
+    part, point, normal, within = member["part"], member["point"], member["normal"], member["within"]
+    placed = surface.nearest_facing(key, point, normal, within, NORMAL_DEGREES, geom_type=member["type"])
+    chosen = None
+    form = selectors.parse_form(member["form"], "face") if member["form"] is not None else None
+    if form is not None and in_time():
         picked = evaluator.pick(form)
         index = None if picked is None else surface.face_index(picked.wrapped)
-        if index is not None and member["type"] == Face(surface.face_shape(key, index)).geom_type.name:
+        if index is not None and member["type"] == _type_of(Face, surface.face_shape(key, index)):
             at = surface.face_at(index, point)
             if at is not None and (normal is None or (at[2] is not None and _within(normal, at[2]))):
-                return _told("selector", f"{part}/F{index}", at[1], at[2], member["type"])
-    index = surface.nearest_facing(key, point, normal, member["within"], NORMAL_DEGREES)
-    at = None if index is None else surface.face_at(index, point)
-    if index is None or at is None:
+                chosen = index
+    if placed is not None:
+        return _answer("selector" if chosen == placed else "nearest", surface, key, part, placed, point)
+    if chosen is not None:
+        return _answer("selector", surface, key, part, chosen, point)
+    index = surface.nearest_facing(key, point, normal, within, NORMAL_DEGREES)
+    if index is None:
         facing = "" if normal is None else f", facing the stored normal within {NORMAL_DEGREES:g} degrees"
-        return _lost(f"no face of {part} within {member['within']:g} mm of the stored point{facing}")
-    return _told("nearest", f"{part}/F{index}", at[1], at[2], _type_of(Face, surface.face_shape(key, index)))
+        return _lost(f"no face of {part} within {within:g} mm of the stored point{facing}")
+    return _answer("nearest", surface, key, part, index, point)
 
 
 def _edge(
-    surface: Any, key: str, member: dict[str, Any], form: dict[str, Any] | None, evaluator: Any
+    surface: Any, key: str, member: dict[str, Any], evaluator: Any, in_time: Callable[[], bool]
 ) -> dict[str, Any]:
+    """As ``_face``, of an edge: one of the stored type still within ``within`` of the stored point is the edge."""
     from build123d import Edge
 
-    part, point = member["part"], member["point"]
-    if form is not None:
+    part, point, within = member["part"], member["point"], member["within"]
+    placed = surface.nearest_edge(key, point, within, geom_type=member["type"])
+    chosen = None
+    form = selectors.parse_form(member["form"], "edge") if member["form"] is not None else None
+    if form is not None and in_time():
         picked = evaluator.pick(form)
         index = None if picked is None else surface.edge_index(picked.wrapped)
         if index is not None and member["type"] == _type_of(Edge, surface.edge_shape(key, index)):
-            at = surface.edge_at(index, point)
-            if at is not None:
-                return _told("selector", f"{part}/E{index}", at[1], None, member["type"])
-    index = surface.nearest_edge(key, point, member["within"])
-    at = None if index is None else surface.edge_at(index, point)
-    if index is None or at is None:
-        return _lost(f"no edge of {part} within {member['within']:g} mm of the stored point")
-    return _told("nearest", f"{part}/E{index}", at[1], None, _type_of(Edge, surface.edge_shape(key, index)))
+            if surface.edge_at(index, point) is not None:
+                chosen = index
+    if placed is not None:
+        return _answer("selector" if chosen == placed else "nearest", surface, key, part, placed, point, edge=True)
+    if chosen is not None:
+        return _answer("selector", surface, key, part, chosen, point, edge=True)
+    index = surface.nearest_edge(key, point, within)
+    if index is None:
+        return _lost(f"no edge of {part} within {within:g} mm of the stored point")
+    return _answer("nearest", surface, key, part, index, point, edge=True)
+
+
+def _answer(
+    how: str, surface: Any, key: str, part: str, index: int, point: list[float], edge: bool = False
+) -> dict[str, Any]:
+    """The told answer for a face or an edge found: its ref, the point of it nearest the stored one, its normal
+    there (a face's) and its type."""
+    from build123d import Edge, Face
+
+    if edge:
+        at = surface.edge_at(index, point)
+        if at is None:
+            return _lost(f"{part}/E{index} cannot be measured")
+        return _told(how, f"{part}/E{index}", at[1], None, _type_of(Edge, surface.edge_shape(key, index)))
+    face = surface.face_at(index, point)
+    if face is None:
+        return _lost(f"{part}/F{index} cannot be measured")
+    return _told(how, f"{part}/F{index}", face[1], face[2], _type_of(Face, surface.face_shape(key, index)))
 
 
 def _told(how: str, ref: str, point: list[float], normal: list[float] | None, kind: str | None) -> dict[str, Any]:

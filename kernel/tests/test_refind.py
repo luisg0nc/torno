@@ -131,13 +131,32 @@ def test_selectors_refuses_refs_of_two_parts_and_things_that_are_not_faces_or_ed
     assert caught.value.kind == "bad_request"
 
 
-def test_selectors_names_a_ref_the_part_does_not_have(built):
-    with pytest.raises(queries.QueryError) as caught:
-        selectors_of(built, ["plate/F99"])
-    assert caught.value.kind == "bad_ref"
+def test_a_stale_ref_gives_its_entry_a_selector_why_and_the_batch_goes_on(built):
+    told = selectors_of(built, ["plate/F2", "plate/F99", "plate/E99", "plate/F0"])
+    assert [t["ref"] for t in told] == ["plate/F2", "plate/F99", "plate/E99", "plate/F0"]
+    assert told[0]["selector"] is not None and told[3]["selector"] is not None
+    for stale in told[1:3]:
+        assert stale["selector"] is None and "has no" in stale["selectorWhy"] and "type" not in stale
+
+
+def test_selectors_names_a_part_the_layout_does_not_have(built):
     with pytest.raises(queries.QueryError) as caught:
         selectors_of(built, ["slab/F0"])
     assert caught.value.kind == "bad_ref"
+
+
+def test_each_ref_has_at_most_the_search_budget_of_what_is_left(built, monkeypatch):
+    seen = []
+    original = selectors.selector_for
+
+    def spy(part, target, kind, budget=selectors.BUDGET, clock=None):
+        seen.append(budget)
+        return original(part, target, kind, budget)
+
+    monkeypatch.setattr(selectors, "selector_for", spy)
+    monkeypatch.setattr(selectors, "SELECTORS_BUDGET", 1000.0)
+    selectors_of(built, ["plate/F0", "plate/F1"])
+    assert seen and all(b <= selectors.BUDGET for b in seen)
 
 
 def test_the_unknown_query_message_names_the_new_queries(built):
@@ -350,11 +369,98 @@ def test_refind_does_not_evaluate_a_form_that_is_not_in_the_grammar(built):
     assert found["found"] == "nearest"
 
 
-def test_refind_past_its_time_goes_by_point_and_normal(built, monkeypatch):
+def test_refind_past_its_time_answers_the_rest_as_not_checked(built, monkeypatch):
     entry = selectors_of(built, ["plate/F2"])[0]
     monkeypatch.setattr(refind, "REFIND_BUDGET", 0.0)
+    found = refind_of(built, [face_member(entry), face_member(entry)])
+    for one in found:
+        assert one["found"] == "lost" and one["unchecked"] is True and "not checked" in one["why"]
+
+
+def test_refind_stops_between_members_when_its_time_runs_out(built):
+    entry = selectors_of(built, ["plate/F2"])[0]
+    ticks = iter(range(0, 1000, 8))
+    found = refind.refind(
+        built,
+        {"layout": LAYOUT, "members": [face_member(entry) for _ in range(6)]},
+        None,
+        clock=lambda: float(next(ticks)),
+    )["members"]
+    assert len(found) == 6
+    assert found[0]["found"] != "lost"
+    assert found[-1].get("unchecked") is True
+    # once one is not checked none after it is
+    flags = [f.get("unchecked") is True for f in found]
+    assert flags == sorted(flags)
+
+
+# A selector is not taken where it is arbitrary, and the place wins over the selector
+
+
+def slotted():
+    """The plate with a 4 mm slot across its top, which splits the top in two halves at the same height."""
+    return shapes_of(holed(Box(40, 30, 5)) - Pos(0, 0, 3) * Box(4, 40, 6))
+
+
+def boss_on_top():
+    """The plate with a boss on its top, away from the middle: the extreme along Z is now the boss's top."""
+    return shapes_of(holed(Box(40, 30, 5)) + Pos(-15, 10, 5) * Box(6, 6, 5))
+
+
+def test_a_selector_that_splits_in_two_is_no_pick(built):
+    from torno_kernel import selectors as sel
+
+    form = selectors_of(built, [top_of(built)])[0]["selector"]["form"]
+    assert sel.Evaluator(built["main:plate"]).pick(form) is not None
+    cut = slotted()
+    assert sel.Evaluator(cut["main:plate"]).pick(form) is None
+
+
+def test_a_slot_across_the_top_leaves_the_member_on_the_half_at_its_point(built):
+    entry = selectors_of(built, [top_of(built)])[0]
+    cut = slotted()
+    on_right = face_member(entry, point=[15.0, 8.0, 2.5])
+    on_left = face_member(entry, point=[-15.0, 8.0, 2.5])
+    in_slot = face_member(entry, point=[0.0, 8.0, 2.5])
+    found = refind_of(cut, [on_right, on_left, in_slot])
+    right, left, slot = found
+    assert right["found"] == "nearest" and left["found"] == "nearest" and right["ref"] != left["ref"]
+    assert right["point"] == pytest.approx([15.0, 8.0, 2.5], abs=1e-6)
+    assert left["point"] == pytest.approx([-15.0, 8.0, 2.5], abs=1e-6)
+    # a point in the slot has no face of the top under it, and the selector is no pick: lost, not an arbitrary half
+    assert slot["found"] == "lost"
+
+
+def test_a_boss_on_top_leaves_the_member_on_the_original_top(built):
+    entry = selectors_of(built, [top_of(built)])[0]
+    grown = boss_on_top()
+    # the point is on the original top, clear of the boss: the selector now names the boss's top, the place wins
+    member = face_member(entry, point=[5.0, -5.0, 2.5])
+    found = refind_of(grown, [member])[0]
+    assert found["found"] == "nearest"
+    assert found["point"] == pytest.approx([5.0, -5.0, 2.5], abs=1e-6)
+    from torno_kernel import selectors as sel
+
+    boss = sel.Evaluator(grown["main:plate"]).pick(member["form"])
+    assert boss is not None  # the selector still picks something: the boss
+    index = int(found["ref"].split("/F")[1])
+    assert not topo.faces(grown["main:plate"])[index].IsSame(boss.wrapped)
+
+
+def test_the_selector_is_used_when_nothing_of_the_type_is_left_at_the_place(built):
+    # The top moved 3 mm up: no face is at the stored point, and the selector, which still gives it, finds it.
+    taller = shapes_of(holed(Box(40, 30, 11)))
+    entry = selectors_of(built, [top_of(built)])[0]
+    found = refind_of(taller, [face_member(entry)])[0]
+    assert found["found"] == "selector" and found["ref"] == top_of(taller)
+    assert found["point"][2] == pytest.approx(5.5, abs=1e-6)
+
+
+def test_an_edge_still_at_its_place_wins_over_its_selector(built):
+    # The selector of E16 is where an edge is; an edge of its type at the stored point is kept.
+    entry = selectors_of(built, ["plate/E16"])[0]
     found = refind_of(built, [face_member(entry)])[0]
-    assert found["found"] == "nearest" and found["ref"] == "plate/F2"
+    assert found["ref"] == "plate/E16" and found["found"] in ("selector", "nearest")
 
 
 # Through the kernel

@@ -251,11 +251,11 @@ class _Search:
             return form if len(items) == 1 and self._picks(expression_of(form)) else None
         if len(items) < 2:
             return None
+        mine = next(i for i, s in enumerate(items) if self._is_target(s))
         if "group" in terminal:
-            return form if self._group(items, terminal) and self._picks(expression_of(form)) else None
+            return form if _group_ok(items, mine, terminal) and self._picks(expression_of(form)) else None
         axis = terminal.get("end", terminal.get("order"))
         keys = [_coordinate(s, axis) for s in items]
-        mine = next(i for i, s in enumerate(items) if self._is_target(s))
         # A tie with any other makes a place in the sort, or an end of it, arbitrary.
         if any(abs(k - keys[mine]) <= TIE for i, k in enumerate(keys) if i != mine):
             return None
@@ -269,31 +269,41 @@ class _Search:
             made = {**form, "terminal": {"order": axis, "index": index}}
         return made if self._picks(expression_of(made)) else None
 
-    def _group(self, items: list[Any], terminal: dict[str, Any]) -> bool:
-        """Whether the extreme along ``then`` of the group that is the extreme along ``group`` is the target: both
-        ends strict, the group a part of the selection and not all of it."""
-        a, end, b, end2 = terminal["group"], terminal["at"], terminal["then"], terminal["thenAt"]
-        keys = [_coordinate(s, a) for s in items]
-        mine = next(i for i, s in enumerate(items) if self._is_target(s))
-        group = [i for i, k in enumerate(keys) if abs(k - keys[mine]) <= TIE]
-        outside = [keys[i] for i in range(len(items)) if i not in group]
-        if not outside:
-            return False
-        if end == 0 and any(k <= keys[mine] + TIE for k in outside):
-            return False
-        if end == -1 and any(k >= keys[mine] - TIE for k in outside):
-            return False
-        across = {i: _coordinate(items[i], b) for i in group}
-        if any(abs(k - across[mine]) <= TIE for i, k in across.items() if i != mine):
-            return False
-        return len(group) >= 2 and across[mine] == (min if end2 == 0 else max)(across.values())
-
     def _picks(self, expression: str) -> bool:
         """Whether the expression, evaluated, gives this shape. The check of every form: what is told is what it did."""
         try:
             return self._is_target(eval(expression, self.globals))  # noqa: S307 - as above
         except Exception:
             return False
+
+
+def _end_ok(items: list[Any], mine: int, axis: int, at: int) -> bool:
+    """Whether item ``mine`` is the end ``at`` (0 or -1) of the items along ``axis`` and no other is as far along it
+    (``TIE``): an end that ties with another is arbitrary, and is no pick."""
+    keys = [_coordinate(s, axis) for s in items]
+    if any(abs(k - keys[mine]) <= TIE for i, k in enumerate(keys) if i != mine):
+        return False
+    rank = sum(1 for k in keys if k < keys[mine])
+    return rank == (0 if at == 0 else len(items) - 1)
+
+
+def _group_ok(items: list[Any], mine: int, terminal: dict[str, Any]) -> bool:
+    """Whether item ``mine`` is the extreme along ``then`` of the group that is the extreme along ``group``: both
+    ends strict, the group a part of the items and not all of them."""
+    a, end, b, end2 = terminal["group"], terminal["at"], terminal["then"], terminal["thenAt"]
+    keys = [_coordinate(s, a) for s in items]
+    group = [i for i, k in enumerate(keys) if abs(k - keys[mine]) <= TIE]
+    outside = [keys[i] for i in range(len(items)) if i not in group]
+    if not outside:
+        return False
+    if end == 0 and any(k <= keys[mine] + TIE for k in outside):
+        return False
+    if end == -1 and any(k >= keys[mine] - TIE for k in outside):
+        return False
+    across = {i: _coordinate(items[i], b) for i in group}
+    if any(abs(k - across[mine]) <= TIE for i, k in across.items() if i != mine):
+        return False
+    return len(group) >= 2 and across[mine] == (min if end2 == 0 else max)(across.values())
 
 
 def _coordinate(shape: Any, axis: int) -> float:
@@ -344,21 +354,24 @@ def prefix_expression(of: str, prefix: dict[str, Any]) -> str:
     return f"{by_type}.filter_by(lambda {var}: abs({var}.{quantity} - {_n(prefix['size'])}) < {_n(prefix['within'])})"
 
 
+def terminal_expression(terminal: dict[str, Any]) -> str:
+    """What a terminal adds to a selection: the index, or the sort and the index, or the group, the sort and both."""
+    if "only" in terminal:
+        return "[0]"
+    if "end" in terminal:
+        return f".sort_by(Axis.{_AXES[terminal['end']]})[{terminal['at']}]"
+    if "group" in terminal:
+        return (
+            f".group_by(Axis.{_AXES[terminal['group']]})[{terminal['at']}]"
+            f".sort_by(Axis.{_AXES[terminal['then']]})[{terminal['thenAt']}]"
+        )
+    return f".sort_by(Axis.{_AXES[terminal['order']]})[{terminal['index']}]"
+
+
 def expression_of(form: dict[str, Any]) -> str:
     """The text of the expression on ``part`` a form says, written by the same helpers the search uses: the text
     the search answered for it, byte for byte."""
-    prefix = prefix_expression(form["of"], form["prefix"])
-    terminal = form["terminal"]
-    if "only" in terminal:
-        return f"{prefix}[0]"
-    if "end" in terminal:
-        return f"{prefix}.sort_by(Axis.{_AXES[terminal['end']]})[{terminal['at']}]"
-    if "group" in terminal:
-        return (
-            f"{prefix}.group_by(Axis.{_AXES[terminal['group']]})[{terminal['at']}]"
-            f".sort_by(Axis.{_AXES[terminal['then']]})[{terminal['thenAt']}]"
-        )
-    return f"{prefix}.sort_by(Axis.{_AXES[terminal['order']]})[{terminal['index']}]"
+    return prefix_expression(form["of"], form["prefix"]) + terminal_expression(form["terminal"])
 
 
 def parse_form(raw: Any, kind: str) -> dict[str, Any] | None:
@@ -460,23 +473,39 @@ class Evaluator:
 
     def __init__(self, part: Any) -> None:
         self.globals = namespace(part)
-        self._items: dict[str, list[Any]] = {}
+        self._items: dict[str, Any] = {}
+
+    def _selection(self, of: str, prefix: dict[str, Any]) -> Any:
+        text = prefix_expression(of, prefix)
+        if text not in self._items:
+            try:
+                self._items[text] = eval(text, self.globals)  # noqa: S307 - the text is written here
+            except Exception:
+                self._items[text] = None
+        return self._items[text]
 
     def pick(self, form: dict[str, Any]) -> Any | None:
-        """The build123d face or edge of the form (one that ``parse_form`` gave), or None when it picks none, or,
-        for ``only``, more than one."""
+        """The build123d face or edge of the form (one that ``parse_form`` gave), or None when it picks none, when
+        a prefix that is to give one gives more, or when its end or group is a tie with another (an extreme that
+        two share is arbitrary, and no pick; the checks the search made when it found the form)."""
         from build123d import Edge, Face
 
         try:
+            items = self._selection(form["of"], form["prefix"])
             terminal = form["terminal"]
+            if items is None:
+                return None
             if "only" in terminal:
-                prefix = prefix_expression(form["of"], form["prefix"])
-                if prefix not in self._items:
-                    self._items[prefix] = list(eval(prefix, self.globals))  # noqa: S307 - the text is written here
-                items = self._items[prefix]
                 picked = items[0] if len(items) == 1 else None
             else:
-                picked = eval(expression_of(form), self.globals)  # noqa: S307 - as above
+                picked = eval("items" + terminal_expression(terminal), {**self.globals, "items": items})  # noqa: S307 - as above
+                mine = next((i for i, s in enumerate(items) if s.wrapped.IsSame(picked.wrapped)), None)
+                if mine is None:
+                    return None
+                if "end" in terminal and not _end_ok(items, mine, terminal["end"], terminal["at"]):
+                    return None
+                if "group" in terminal and not _group_ok(items, mine, terminal):
+                    return None
         except Exception:
             return None
         return picked if isinstance(picked, Face if form["of"] == "faces" else Edge) else None
@@ -522,8 +551,14 @@ def selectors_of(
         key = f"{layout}:{part}"
         surface = queries.surface_of(shapes, key, surfaces)
         entry: dict[str, Any] = {"ref": ref}
+        try:
+            topods = surface.face_shape(key, index) if letter == "F" else surface.edge_shape(key, index)
+        except QueryError:
+            # A ref the build no longer has: that entry says so, and the others are answered all the same.
+            what = "face" if letter == "F" else "edge"
+            told.append({"ref": ref, "selector": None, "selectorWhy": f"the part has no {what} {letter}{index}"})
+            continue
         if letter == "F":
-            topods = surface.face_shape(key, index)
             shape = Face(topods)
             entry["type"] = shape.geom_type.name
             center = shape.center()
@@ -534,7 +569,6 @@ def selectors_of(
                 if at[2] is not None:
                     entry["normal"] = at[2]
         else:
-            topods = surface.edge_shape(key, index)
             shape = Edge(topods)
             entry["type"] = shape.geom_type.name
             try:
@@ -546,6 +580,7 @@ def selectors_of(
         if remaining <= 0:
             entry.update({"selector": None, "selectorWhy": "out of time"})
         else:
-            entry.update(selector_for(shapes[key], topods, "face" if letter == "F" else "edge", remaining, clock))
+            kind = "face" if letter == "F" else "edge"
+            entry.update(selector_for(shapes[key], topods, kind, min(BUDGET, remaining), clock))
         told.append(entry)
     return {"selectors": told}
