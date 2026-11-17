@@ -93,7 +93,7 @@ export async function addSetTool(deps: ToolDeps, objectId: string, args: AddSetA
 
   let set: NamedSet
   try {
-    set = await store.make(objectId, { name: args.name, comment: args.comment ?? '', layout, members }, 'agent')
+    set = await store.make(objectId, { name: args.name, comment: args.comment ?? '', layout, members }, 'agent', found.revision)
     // The second change: types and selector forms. A build that landed meanwhile drops it, and the members are found by place.
     set = (await store.withSelectors(objectId, set.id, found.revision, answers).catch(() => null)) ?? set
   } catch (e) {

@@ -309,10 +309,14 @@ export interface TornoBridge {
    */
   sets: {
     list(objectId: string): Promise<NamedSet[]>
-    /** Makes a set at once, from refs with the point and normal the person pointed at (and strokes as `M7/k3`); main then finds each face's selector and writes it. */
-    make(objectId: string, ask: NewSet): Promise<NamedSet>
-    /** Renames, recolours, comments, adds, takes away and re-picks lost members. Rejects, changing nothing, with why not. */
-    edit(objectId: string, id: string, edit: SetEdit): Promise<NamedSet>
+    /**
+     * Makes a set at once, from refs with the point and normal the person pointed at (and strokes as `M7/k3`); main then finds each
+     * face's selector and writes it. `revision` is the build the window shows, which the refs are of: when it is not the last, main
+     * has the set found again against the last build.
+     */
+    make(objectId: string, ask: NewSet, revision?: number): Promise<NamedSet>
+    /** Renames, recolours, comments, adds, takes away and re-picks lost members (`revision` as for `make`). Rejects, changing nothing, with why not. */
+    edit(objectId: string, id: string, edit: SetEdit, revision?: number): Promise<NamedSet>
     remove(objectId: string, id: string): Promise<void>
     /** Puts back the set deleted last, whole and with its number, once. */
     restore(objectId: string, id: string): Promise<NamedSet>

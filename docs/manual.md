@@ -1457,7 +1457,8 @@ after every build. The model's own `groups(p)` (groups of parts in the code) are
   name, a comment and one of eight colours (the next one is chosen); `Enter` makes it. With nothing selected the status
   line says what to select. A name is one line of 40 characters at most, starts with a letter and has no `/`, `#` or `@`; two
   names that make the same ref are one name (`Deck` and `deck`), and one in use is refused in the box. The set is written at once; torno
-  asks the kernel what each face and edge is a moment later. A face may be in several sets, and a set may span parts.
+  asks the kernel what each face and edge is a moment later. If the kernel cannot say where a selected face or edge is, nothing is made
+  and the status line says so: select it again. A face may be in several sets, and a set may span parts.
 - **The Set scope.** With Set chosen in the corner of Select, the pointer on a face lights the whole set in its colour and
   the readout says `#deck` (and `also in #intake`); a click selects all its faces, edges and parts. A face in no set is
   passed over. Strokes are selected from the sketch's list, and are never offered by the pointer.
@@ -1469,7 +1470,10 @@ after every build. The model's own `groups(p)` (groups of parts in the code) are
   text it was handed) and its point and normal. After a build the selector is tried first, and the face it gives is accepted
   when it has the same surface and a normal within 10 degrees of the stored one; otherwise the nearest face (or edge) at the
   stored place is taken. A part follows its name, and a stroke its sketch. What none of those finds is **lost**: it is kept with
-  its last point, the row says `2 of 5 faces lost`, and Claude is told.
+  its last point, the row says `2 of 5 faces lost`, and Claude is told which are lost, apart from those found. Each set remembers
+  which build its refs are of: one made or put back from an older build than the last, or changed while a build was being
+  looked through, is found again at once. Until it is, every reply to Claude that uses it says `#deck: not refound against r8
+  yet; its refs are of r7`, and uses its refs as they are.
 - **Re-pick.** On a set with lost members: Re-pick, then select the faces that take their place and press "Re-pick with N
   selected". The lost members go and the selection is added. It is two presses, and Cancel leaves the set as it was.
 - **Refs.** `#deck` names the set wherever its members are, and `lid/#deck` only its members in `lid`. They are told to
@@ -1481,7 +1485,7 @@ after every build. The model's own `groups(p)` (groups of parts in the code) are
   follow the set: it is checked as any mark is, and says `no longer a named set` when the set is deleted.
 - **Claude's proposals.** Claude can propose a set with `add_set`. It is drawn dashed in the view and in Layers, says
   "Proposed by Claude", and has Accept (it becomes yours) and Dismiss (it is deleted). Claude may use its `#name` meanwhile;
-  nothing it can do accepts, changes or removes a set.
+  nothing it can do accepts, changes or removes a set. Claude is told it is `proposed by you, not accepted yet`.
 - **Make it a tag.** For a script or another tool that must see the name, "Make it a tag" puts a chip, `Make #deck a tag`, in the
   box of the chat with the text to send: it asks Claude to add a tag of that name for the set's faces and edges in `tags(p,
   parts)`, one in each part the set spans, and lists what it cannot tag (whole parts, strokes, lost members). In a terminal the
@@ -1489,7 +1493,8 @@ after every build. The model's own `groups(p)` (groups of parts in the code) are
   yours until you delete it, and after the build both `lid/@deck` and `#deck` name the faces.
 - **Where they are.** In `<project>/.torno/sets.json`, which goes with the project in git and which only torno writes (ids
   `N1`, `N2`, never reused). A file torno cannot read is copied aside (`sets.json.corrupt-…`), and sets or members it had to
-  leave out are kept in `sets.json.dropped-…`; delete those files when you no longer need them.
+  leave out are kept in `sets.json.dropped-…`; delete those files when you no longer need them. Layers says so, with where the
+  file was copied aside, until you press Dismiss.
 
 The key is in [Keys](#keys), under "Viewport".
 

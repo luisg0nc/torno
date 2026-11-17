@@ -45,7 +45,7 @@ import { noteHandlers } from './notes/ipc'
 import { forgetOpenSketches, forgetRemovedSketch, sketchHandlers } from './sketches/ipc'
 import { reviewHandlers } from './reviews/ipc'
 import { setHandlers } from './sets/ipc'
-import { refindAll } from './sets/refind'
+import { followSets, refindAll } from './sets/refind'
 import type { SetStore } from './sets/store'
 import type { NamedSet, NewSet, SetEdit } from '../shared/sets'
 import type { RoundAsk } from '../shared/reviews'
@@ -702,6 +702,8 @@ export function registerIpc(
   sets = opts.sets ?? null
   sets?.on('changed', (m) => broadcast('sets:changed', m))
   sets?.on('problem', (m) => broadcast('sets:problem', m))
+  // A set written with refs older than the last build (a build landed just before it, or it was put back after one) is found again.
+  if (sets) followSets(sets, (objectId) => current?.refind?.(objectId))
   const requireSets = (): SetStore => {
     if (!sets) throw new Error('named sets are not available')
     return sets
@@ -1124,10 +1126,12 @@ export function registerIpc(
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
 
   // Named sets: the window names a project and a set by its `N<n>`; main finds each face's selector and writes it in a second change.
-  const namedSets = () => setHandlers({ sets: requireSets(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject })
+  // Made once: what is waiting on the kernel for a selector is kept in it, and a handler made for each call would not see it.
+  let namedHandlers: ReturnType<typeof setHandlers> | undefined
+  const namedSets = (): ReturnType<typeof setHandlers> => (namedHandlers ??= setHandlers({ sets: requireSets(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject }))
   handle('sets:list', (_event, objectId: string) => namedSets().list(objectId))
-  handle('sets:make', (_event, objectId: string, ask: NewSet) => namedSets().make(objectId, ask))
-  handle('sets:edit', (_event, objectId: string, id: string, edit: SetEdit) => namedSets().edit(objectId, id, edit))
+  handle('sets:make', (_event, objectId: string, ask: NewSet, revision?: number) => namedSets().make(objectId, ask, revision))
+  handle('sets:edit', (_event, objectId: string, id: string, edit: SetEdit, revision?: number) => namedSets().edit(objectId, id, edit, revision))
   handle('sets:remove', (_event, objectId: string, id: string) => namedSets().remove(objectId, id))
   handle('sets:restore', (_event, objectId: string, id: string) => namedSets().restore(objectId, id))
   handle('sets:accept', (_event, objectId: string, id: string) => namedSets().accept(objectId, id))

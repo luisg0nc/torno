@@ -99,8 +99,8 @@ export interface ToolDeps {
   marks(objectId: string): Promise<Mark[]>
   /** The named sets of an object (`.torno/sets.json`), as they are now. Without it, a ref of a set (`#deck`) is refused, saying the project has none. */
   sets?(objectId: string): Promise<NamedSet[]>
-  /** The build the sets of an object were last refound against (`SetStore.refoundRevision`): none since torno opened the project is undefined. */
-  setsRefound?(objectId: string): number | undefined
+  /** The build the refs of each set of an object are of, by set id (`SetStore.refsOf`). Without it, no set is said to be behind the last build. */
+  setsRefs?(objectId: string): Readonly<Record<string, number>>
   /** Where a proposal of the agent's is kept (`add_set`): made as the agent's, and given the kernel's selectors in a second change. Without it, the tool says named sets are not available. */
   setStore?: Pick<SetStore, 'make' | 'withSelectors'>
   /** The rounds of the person's reviews of an object, oldest first (`marks` with `review`). Without it, there are none. */
@@ -239,7 +239,7 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   }
   tool<SceneArgs>('scene', async (args) => {
     const marks = await deps.marks(objectId).catch(() => undefined)
-    const named = await deps.sets?.(objectId).then((sets) => ({ sets, refound: deps.setsRefound?.(objectId) })).catch(() => undefined)
+    const named = await deps.sets?.(objectId).then((sets) => ({ sets, refs: deps.setsRefs?.(objectId) })).catch(() => undefined)
     return sceneTool(deps, objectId, marks, await deps.scans(objectId).catch(() => undefined), await deps.views(objectId).catch(() => undefined), args, named)
   })
   tool<LookArgs>('look', (args) => lookTool(deps, objectId, args))
@@ -485,7 +485,7 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
   if (isSetRef(args.ref)) {
     const named = await setsAt(deps, objectId)
     if ('content' in named) return named
-    const expanded = expandSet(named.sets, found.scene.parts.filter((p) => p.layout === layout), layout, args.ref, named.marks)
+    const expanded = expandSet(named.sets, found.scene.parts.filter((p) => p.layout === layout), layout, args.ref, named.marks, named.fresh)
     if (expanded === null) return failure(`${args.ref} is no set`)
     if ('error' in expanded) return failure(withLayoutHint(expanded.error))
     return json({ layout, ...ofBuild(deps, objectId), ...(await setDescribed(deps, objectId, layout, expanded, named.marks, args.ref.includes('/') ? args.ref.slice(0, args.ref.indexOf('/#')) : undefined)) })

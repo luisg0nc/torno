@@ -10,7 +10,7 @@ import type { LastBuild, Refound, SetStore } from './store'
 export type { Refound }
 
 export interface RefindDeps {
-  sets: Pick<SetStore, 'list' | 'refound' | 'withSelectors'>
+  sets: Pick<SetStore, 'list' | 'refound' | 'withSelectors' | 'refsOf'>
   query: Builds['query']
   /** The last successful build of an object: a new one has another scene. */
   scene(objectId: string): LastBuild | undefined
@@ -71,6 +71,8 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
   const superseded = (): boolean => deps.scene(objectId)?.scene !== scene
   const sets = await deps.sets.list(objectId)
   if (superseded()) return true
+  // A set whose refs are of an earlier build than this one has any member still held on it for a build it has been through.
+  const refs = deps.sets.refsOf(objectId)
 
   const parts = (layout: string, name: string) => scene.parts.find((p) => p.layout === layout && p.name === name)
   const failures: string[] = []
@@ -78,7 +80,7 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
   let unchecked = 0
 
   /** Each set's members as this build leaves them, to be refined by what the kernel answers. */
-  const next: SetMember[][] = sets.map((set) => set.members.map((m) => judgedHere(set, m, scene)))
+  const next: SetMember[][] = sets.map((set) => set.members.map((m) => judgedHere(set, m, scene, (refs[set.id] ?? -1) < revision)))
   const askings = new Map<string, Asking[]>()
   sets.forEach((set, s) => {
     if (!scene.layouts.includes(set.layout)) return
@@ -112,12 +114,15 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
   }
   if (superseded()) return true
 
-  const changes: Refound[] = sets.map((set, s) => ({ id: set.id, was: set.members, members: next[s] })).filter((c) => !isDeepStrictEqual(c.members, c.was))
+  // Every set it looked at, written or not: the store says which are of this build (`refsOf`) and writes those that changed.
+  const changes: Refound[] = sets.map((set, s) => ({ id: set.id, was: set.members, members: next[s] }))
   const whole = failures.length === 0 && unchecked === 0
   const written = await deps.sets.refound(objectId, revision, changes, whole)
-  // A member found at another ref is of another face: the form it had was made of the face it was. Its selector is asked for again.
+  // A member found at another ref, or moved, is of another face: the form it had was made of the face it was. Its selector is asked for again.
+  const wrote = new Set(written.map((s) => s.id))
+  const found = sets.flatMap((set, s) => (wrote.has(set.id) || isDeepStrictEqual(next[s], set.members) ? [{ set, was: set.members, now: next[s] }] : []))
   try {
-    await selectorsAgain(deps, objectId, revision, written, sets, superseded)
+    await selectorsAgain(deps, objectId, revision, found, superseded)
   } catch (e) {
     if (!superseded()) failures.push(`selectors: ${messageOf(e)}`)
   }
@@ -127,43 +132,56 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
 }
 
 /**
- * The second change after a refind: for each set written, the members now at another ref than they were (found `nearest`, or
- * by a selector that gives another face) have the kernel's `selectors` asked of them again, one query for each layout and
- * part, and the answers are written with `withSelectors`, as when a set is made: a member that is given no form has none. The
- * store drops an answer for a build that is no longer the last. Not asked for a member that was lost or kept as it was.
+ * The second change after a refind: for each set looked at that was not edited meanwhile, the members that are now at another ref
+ * than they were (found `nearest`, or by a selector that gives another face), or that moved, or that the kernel was never asked
+ * for (made on an earlier build, so that their refs were not asked about then) have the kernel's `selectors` asked of them, one
+ * query for each layout and part, and the answers are written with `withSelectors`, as when a set is made: a member that is given
+ * no form has none. The store drops an answer for a build that is no longer the last. Not asked for a member that was lost.
  */
-async function selectorsAgain(deps: RefindDeps, objectId: string, revision: number, written: readonly NamedSet[], before: readonly NamedSet[], superseded: () => boolean): Promise<void> {
+async function selectorsAgain(
+  deps: RefindDeps,
+  objectId: string,
+  revision: number,
+  found: ReadonlyArray<{ set: NamedSet; was: readonly SetMember[]; now: readonly SetMember[] }>,
+  superseded: () => boolean
+): Promise<void> {
   /** By layout and part, the refs to ask of. */
   const wanted = new Map<string, { layout: string; refs: Set<string> }>()
   /** By set id, the refs of it that were asked. */
   const ofSet = new Map<string, Set<string>>()
-  for (const now of written) {
-    const was = before.find((s) => s.id === now.id)
-    if (!was) continue
-    now.members.forEach((member, i) => {
-      const old = was.members[i]
+  const near = (a: readonly number[], b: readonly number[]): boolean => a.every((c, i) => Math.abs(c - b[i]) <= SAME)
+  for (const { set, was, now } of found) {
+    now.forEach((member, i) => {
+      const old = was[i]
       if (!old || !('face' in member || 'edge' in member) || member.state !== 'ok') return
       const ref = refOf(member)
-      if (ref === refOf(old)) return
+      const same = ref === refOf(old) && 'point' in old && near(member.point, old.point)
+      // Never asked for: the kernel gave no type of it (it was made on an earlier build than the one its refs were read on).
+      if (same && 'type' in old && old.type !== undefined) return
       const part = partOf(member) as string
-      const key = `${now.layout}\0${part}`
-      const one = wanted.get(key) ?? { layout: now.layout, refs: new Set<string>() }
+      const key = `${set.layout}\0${part}`
+      const one = wanted.get(key) ?? { layout: set.layout, refs: new Set<string>() }
       one.refs.add(ref)
       wanted.set(key, one)
-      ofSet.set(now.id, (ofSet.get(now.id) ?? new Set<string>()).add(ref))
+      ofSet.set(set.id, (ofSet.get(set.id) ?? new Set<string>()).add(ref))
     })
   }
-  const found: SelectorFound[] = []
+  const answers: SelectorFound[] = []
   for (const { layout, refs } of wanted.values()) {
     if (superseded()) return
     const reply = await deps.query<{ selectors?: unknown }>(objectId, 'selectors', { layout, refs: [...refs] })
-    if (Array.isArray(reply?.selectors)) found.push(...(reply.selectors as SelectorFound[]))
+    if (Array.isArray(reply?.selectors)) answers.push(...(reply.selectors as SelectorFound[]))
   }
   if (superseded()) return
   for (const [id, refs] of ofSet) {
-    const mine = found.filter((one) => typeof one?.ref === 'string' && refs.has(one.ref))
+    const mine = answers.filter((one) => typeof one?.ref === 'string' && refs.has(one.ref))
     if (mine.length > 0) await deps.sets.withSelectors(objectId, id, revision, mine)
   }
+}
+
+/** Has the sets of an object found again whenever one is written with refs older than the last build (`SetStore` `behind`): after a build that landed just before it, or a restore. `refind` may coalesce. */
+export function followSets(store: Pick<SetStore, 'on'>, refind: (objectId: string) => void): void {
+  store.on('behind', ({ objectId }) => refind(objectId))
 }
 
 const partOf = (m: SetMember): string | undefined => ('part' in m ? m.part : 'face' in m ? m.face.slice(0, m.face.lastIndexOf('/')) : 'edge' in m ? m.edge.slice(0, m.edge.lastIndexOf('/')) : undefined)
@@ -173,9 +191,10 @@ const refOf = (m: SetMember): string => ('face' in m ? m.face : 'edge' in m ? m.
 /**
  * What the build alone says of a member, with nothing asked of the kernel: a part is `ok` while the layout has one of that
  * name; a face or an edge of a part that is not there, or in a layout that is not, is `lost` (and keeps its point). A stroke
- * and a member still held are as they were. A face or edge of a part that is there is as it was, to be asked about.
+ * is as it was. A member still held is too, while the set's refs are of this build; for a later one it is `lost` (`older`): it was
+ * made without a point that the kernel never gave. A face or edge of a part that is there is as it was, to be asked about.
  */
-function judgedHere(set: NamedSet, member: SetMember, scene: LastBuild['scene']): SetMember {
+function judgedHere(set: NamedSet, member: SetMember, scene: LastBuild['scene'], older: boolean): SetMember {
   if ('stroke' in member) return member
   const part = scene.parts.find((p) => p.layout === set.layout && p.name === partOf(member))
   if ('part' in member) {
@@ -184,6 +203,11 @@ function judgedHere(set: NamedSet, member: SetMember, scene: LastBuild['scene'])
       return { part: member.part }
     }
     return member.state === 'lost' ? member : { ...member, state: 'lost' }
+  }
+  // Held for a build it was not made on: the kernel never said where it is, and no build will. It is offered to be picked again.
+  if (member.held === true && older) {
+    const { held: _held, ...rest } = member
+    return { ...rest, state: 'lost' }
   }
   if (part || member.held === true) return member
   return member.state === 'lost' ? member : { ...member, state: 'lost' }

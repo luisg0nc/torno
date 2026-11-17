@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Vec3 } from '../../shared/marks'
 import { type NamedSet, type SetMember, type SetsFile, lostCount, lostText } from '../../shared/sets'
 import { KernelError } from '../kernel/client'
-import { type RefindDeps, refindAll } from './refind'
+import { type RefindDeps, followSets, refindAll } from './refind'
 import { SetStore } from './store'
 
 type Query = { layout: string; members: Array<Record<string, unknown>> }
@@ -184,15 +184,16 @@ describe('what is written of the answers', () => {
     const [got] = await nowSets()
     expect(got.members.map((m) => ('face' in m ? [m.face, m.state] : []))).toEqual([['block/F4', 'ok'], ['block/F2', 'ok'], ['block/F3', 'ok']])
     expect(got.members[1]).toMatchObject({ point: [7, 7, 7] })
-    expect(store.refoundRevision('bracket')).toBeUndefined()
+    expect(store.refsOf('bracket')).toEqual({})
     expect(logged.join('\n')).toMatch(/not looked at|ran out of time/)
   })
 
   it('says the sets were refound against the build, when every member was looked at', async () => {
-    sets(set('N1', 'deck', 'assembly', [face('block/F1')]))
-    expect(store.refoundRevision('bracket')).toBeUndefined()
+    sets(set('N1', 'deck', 'assembly', [face('block/F1')]), set('N2', 'rim', 'print', [face('block/F1')]))
+    expect(store.refsOf('bracket')).toEqual({})
     await refindAll(deps(), 'bracket')
-    expect(store.refoundRevision('bracket')).toBe(7)
+    // Each set, whether or not the answer changed it.
+    expect(store.refsOf('bracket')).toEqual({ N1: 7, N2: 7 })
   })
 
   it('makes no change when nothing moved', async () => {
@@ -226,14 +227,41 @@ describe('members the kernel is not asked about', () => {
     expect(lostCount(got, [])).toMatchObject({ parts: 2, faces: 0 })
   })
 
-  it('skips a member that has no real point yet, held at the middle of its part', async () => {
+  /** The sets are as they were made on this build: their refs are of it. */
+  const madeNow = async (): Promise<void> => {
+    const all = await nowSets()
+    await store.refound('bracket', build!.revision, all.map((s) => ({ id: s.id, was: s.members, members: s.members })))
+  }
+
+  it('skips a member that has no real point yet, held at the middle of its part, on the build it was made on', async () => {
     sets(set('N1', 'deck', 'assembly', [face('block/F1', [500, 500, 500], { held: true, state: 'ok' }), face('block/F2')]))
+    await madeNow()
     answer = () => [selector('block/F2')]
     await refindAll(deps(), 'bracket')
     expect(asked[0].members.map((m) => m.part)).toEqual(['block'])
     expect(asked[0].members).toHaveLength(1)
     const [got] = await nowSets()
     expect(got.members[0]).toMatchObject({ face: 'block/F1', point: [500, 500, 500], held: true, state: 'ok' })
+  })
+
+  it('loses a member that is still held on a later build, so that it is offered to be picked again', async () => {
+    sets(set('N1', 'deck', 'assembly', [face('block/F1', [500, 500, 500], { held: true, state: 'ok' }), edge('lid/E2'), face('block/F2')]))
+    build = builtScene(6)
+    await madeNow()
+    build = builtScene(7)
+    answer = (q) => q.members.map((m) => selector(`${m.part}/F2`))
+    await refindAll(deps(), 'bracket')
+    expect(asked[0].members.map((m) => m.part)).toEqual(['lid', 'block'])
+    const [got] = await nowSets()
+    expect(got.members[0]).toMatchObject({ face: 'block/F1', point: [500, 500, 500], state: 'lost' })
+    expect('held' in got.members[0]).toBe(false)
+    expect(lostText(got, [])).toBe('1 of 2 faces lost')
+  })
+
+  it('loses a held member of a set read from the file, which no build has refound', async () => {
+    sets(set('N1', 'deck', 'assembly', [face('block/F1', [500, 500, 500], { held: true, state: 'ok' })]))
+    await refindAll(deps(), 'bracket')
+    expect((await nowSets())[0].members[0]).toMatchObject({ state: 'lost' })
   })
 
   it('loses a face of a part the layout lacks without asking, and keeps its point', async () => {
@@ -265,7 +293,7 @@ describe('when the answer is not to be trusted or not to be had', () => {
     expect((got[0].members[0] as { face: string }).face).toBe('block/F1')
     expect((got[1].members[0] as { face: string }).face).toBe('block/F9')
     expect(logged.join('\n')).toMatch(/layout assembly: the kernel broke/)
-    expect(store.refoundRevision('bracket')).toBeUndefined()
+    expect(store.refsOf('bracket')).toEqual({})
   })
 
   it('says busy when the worker was only busy', async () => {
@@ -296,7 +324,7 @@ describe('when the answer is not to be trusted or not to be had', () => {
     }
     expect(await refindAll(deps(), 'bracket')).toBe(true)
     expect((await nowSets())[0].members[0]).toMatchObject({ face: 'block/F1' })
-    expect(store.refoundRevision('bracket')).toBeUndefined()
+    expect(store.refsOf('bracket')).toEqual({})
   })
 
   it('passes over a set that was edited while it asked, and writes the others', async () => {
@@ -309,6 +337,8 @@ describe('when the answer is not to be trusted or not to be had', () => {
     const got = await nowSets()
     expect(got[0].members.map((m) => (m as { face: string }).face)).toEqual(['block/F1', 'block/F7'])
     expect((got[1].members[0] as { face: string }).face).toBe('lid/F9')
+    // The one passed over is not said to have its refs of this build: the next refind reads it as it is now.
+    expect(store.refsOf('bracket')).toEqual({ N2: 7 })
   })
 
   it('does not hold up what is asked of the sets by anything else: it only reads and writes through the store', async () => {
@@ -342,6 +372,26 @@ describe('the selectors of members that were found at another ref', () => {
     expect(formOf(two.members[0])).toEqual(FORM)
     // The refound is one change; the new forms are later ones.
     expect(changed.mock.calls.length).toBeGreaterThan(1)
+  })
+
+  it('asks for them again for a member whose ref is the same but whose point moved, not for one that moved by float noise', async () => {
+    sets(set('N1', 'deck', 'assembly', [face('block/F1', [1, 2, 3], { selector: OLD }), face('block/F2', [2, 2, 2], { selector: OLD })]))
+    answer = () => [selector('block/F1', [1, 2, 3.5]), selector('block/F2', [2, 2, 2 + 1e-9])]
+    expect(await refindAll(deps(), 'bracket')).toBe(true)
+    expect(selectorsAsked).toEqual([{ layout: 'assembly', refs: ['block/F1'] }])
+    const [got] = await nowSets()
+    expect(formOf(got.members[0])).toEqual(FORM)
+    expect(formOf(got.members[1])).toEqual(OLD)
+  })
+
+  it('asks for the selector of a member the kernel was never asked for, as one made on an earlier build is, once the sets are refound', async () => {
+    const bare = face('block/F1', [1, 2, 3])
+    delete (bare as { type?: string }).type
+    sets(set('N1', 'deck', 'assembly', [bare, face('block/F2', [2, 2, 2], { state: 'lost' })]))
+    answer = () => [selector('block/F1', [1, 2, 3]), lost]
+    await refindAll(deps(), 'bracket')
+    expect(selectorsAsked).toEqual([{ layout: 'assembly', refs: ['block/F1'] }])
+    expect(formOf((await nowSets())[0].members[0])).toEqual(FORM)
   })
 
   it('asks nothing when no member moved to another ref', async () => {
@@ -379,5 +429,24 @@ describe('the selectors of members that were found at another ref', () => {
     expect(await refindAll(deps(), 'bracket')).toBe(true)
     expect((await nowSets())[0].members[0]).toMatchObject({ face: 'block/F11' })
     expect(logged.join('\n')).toMatch(/selectors.*no selectors today/)
+  })
+})
+
+describe('asking for the sets to be found again', () => {
+  it('is done when a set is written with refs older than the last build, and for no other write', async () => {
+    sets()
+    const asked: string[] = []
+    followSets(store, (id) => asked.push(id))
+    const ask = (name: string, ref: string) => ({ name, comment: '', layout: 'assembly', members: [{ ref, point: [1, 2, 3] as Vec3, normal: [0, 0, 1] as Vec3 }] })
+    await store.make('bracket', ask('deck', 'block/F1'), 'person', 7)
+    expect(asked).toEqual([])
+    // The window showed r6 when the build r7 had landed (b): its refs are not r7's.
+    await store.make('bracket', ask('lid', 'lid/F1'), 'person', 6)
+    expect(asked).toEqual(['bracket'])
+    // And a set put back after a rebuild (c).
+    await store.remove('bracket', 'N1')
+    build = builtScene(8)
+    await store.restore('bracket', 'N1')
+    expect(asked).toEqual(['bracket', 'bracket'])
   })
 })

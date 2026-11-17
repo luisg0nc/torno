@@ -30,26 +30,40 @@ or Claude reads it is a *named set*; the model's `groups(p)` are groups and keep
   with anything else dropped and the member kept). Never Python text. `describe` strips `form` before the agent reads it (`mcp-tools`).
 - A set is **instant and then exact**: `make` writes the members with their ref, point and normal at once; the handler then asks the kernel's
   `selectors` once per part and writes the answers in a second change (`withSelectors`, which is dropped when a newer build landed, and writes
-  the kernel's centre, normal, type and form). A member made with no point is `held` at its part's box middle until then, and `refind` skips it.
-  `add_set` asks `selectors` first and refuses when it cannot, so a proposal has no held member.
+  the kernel's centre, normal, type and form). A member made with no point is `held` at its part's box middle until then, and `refind` skips it
+  on the build it was made on; on a later one it is `lost` (so Re-pick is offered): no build looks for a held member. Nothing makes one any
+  more: `add_set` asks `selectors` first and refuses when it cannot, `sets:make`/`sets:edit` place a point-less face or edge the same way
+  (`placed` in `sets/ipc.ts`, refused with `The kernel gave no place for …`), and the window refuses the selection (`Unplaced`, said in the
+  status line) when the kernel cannot give a point.
+- **Which build a set's refs are of** (`SetStore.refsOf`, in memory only, by set id, never a file: build numbers are of a run). `make` and `edit` stamp
+  the revision the refs came from (the window sends the one it shows, `add_set` the one it read; `edit` keeps the older of that and what the set had),
+  `refound` stamps `revision` on every set it looked at and that was not edited meanwhile (`Refound` is given for each set, changed or not),
+  `restore` gives back the stamp the set had when removed. A write whose stamp is older than the last build, or unknown, emits `behind`, which
+  `ipc.ts` (`followSets`) turns into `ws.refind`; `retrying` coalesces it with a run under way, so a set edited during a refind is passed over and then
+  refound. Staleness is judged per set: `expandSet(…, fresh)` (`SetsFresh`) puts `not refound against r8 yet; its refs are of r7` in the `said` of
+  every tool reply that uses the set (the set is still used, "don't wait"), and `scene` and `state.md` say it in `stale`. `askSelectors` (which asks for what `unanswered` lists) in `sets/ipc.ts`
+  never asks `selectors` for a set whose stamp is not the last build (the same number names another face now).
 - **Found again after every build** (`refind.ts` `refindAll`, wired in `ipc.ts` `retrying` beside the marks' check, its own coalescer and store
   turn): one `refind` query per layout that has sets, each member sent with its form, point and normal and `within` (the part's `tolerance`, or
   `EDGE_TOLERANCE_MM`), a part spread otherwise than the member's `arranged` moved by the difference. Answers are written in one change
   (`SetStore.refound`) for the sets whose members are still those it was asked about, only for the last build. A part member follows its
   part's name; a stroke its sketch; a face of a part or layout the build lacks is lost. A member found at another ref has its selector asked for
-  again (second change). A query that fails or answers ill leaves its members as they were and is logged once; an `unchecked` member keeps its
-  state. A build that landed meanwhile drops everything. A set is "not refound" (`stale` in `scene`) until the last build has been checked.
+  again (second change), and so is one whose point moved by more than `SAME`, and one the kernel was never asked for (no `type`). A query that fails or answers ill leaves its members as they were and is logged once; an `unchecked` member keeps its
+  state. A build that landed meanwhile drops everything.
 - Lost members are kept, with their last point, for **Re-pick**: `edit({ repick })` removes every lost member and adds the selection, and is refused
   (`nothing lost in #deck`) when none is. `take` of a ref not in the set, `add` of one already in it (it stays one), and `restore` after a
   `remove` (once) are the other edits. `dismiss` is not undone. `accept` and `dismiss` are for a proposal only (`by: 'agent'`); the person's own
   are refused.
+- `scene` and `state.md` list the members found (`members`) apart from the lost ones (`lostMembers`), and a proposal says `proposed by you, not accepted yet`
+  (`PROPOSED_SAID`).
 - A stroke member is checked against the marks (`marks(objectId)`), live while its sketch and its id are (`strokeLive`).
 - Refs of a set in tools: `shared/sets.ts` `expandSet` (lost left out and counted); the kernel is never given a `#` ref.
 
 ## The window (`app/src/renderer/state/sets.ts`, `ui/sets`)
 
 - The store follows main (`connectSets`, `sets:changed`); nothing keeps a copy of a set that main did not say. `setActions` ask main and say what it
-  refused (`refused`, `said` in the status line, `removed` for Undo, 10 s). The selection may hold strokes while a sketch is open (`dropStrokes` when it
+  refused (`refused`, `said` in the status line, `removed` for Undo, 10 s, `problem` for what main found wrong with the file: `sets:problem` and `sets.problem`
+  at open, shown in Layers with a Dismiss that calls `sets.dismissProblem`, as the marks' notice is). The selection may hold strokes while a sketch is open (`dropStrokes` when it
   closes); `Selection.tsx` and the view never ask the kernel for a stroke.
 - Ctrl+G is `set.make` (`keys`); the popover is `MakeSetForm`, pure, with `makeError` and the same `setNameError` main uses. The select scope Set
   (`tools/selectTool.ts` `refInScope`) gives the first (oldest) set that holds the face; a face in no set is passed over.

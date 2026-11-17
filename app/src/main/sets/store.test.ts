@@ -389,7 +389,7 @@ describe('refound', () => {
     expect(saves).toHaveBeenCalledTimes(1)
     expect(changes).toHaveLength(1)
     expect((await store.list('bracket'))[0].members[0]).toMatchObject({ face: 'block/F15', state: 'ok' })
-    expect(store.refoundRevision('bracket')).toBe(4)
+    expect(store.refsOf('bracket')).toEqual({ N1: 4, N2: 4 })
   })
 
   it('passes over a set whose members are no longer what they were found from', async () => {
@@ -414,35 +414,122 @@ describe('refound', () => {
     const got = await store.refound('bracket', 4, [{ id: 'N1', was: made.members, members: made.members.map((m) => ('face' in m ? lostFace(m) : m)) }])
     expect(got).toEqual([])
     expect(saves).not.toHaveBeenCalled()
-    expect(store.refoundRevision('bracket')).toBeUndefined()
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
   })
 
-  it('says it was refound even when nothing changed, and only when the call says it was whole', async () => {
-    await store.make('bracket', ask('deck'), 'person')
-    saves.mockClear()
-    await store.refound('bracket', 4, [])
-    expect(saves).not.toHaveBeenCalled()
-    expect(store.refoundRevision('bracket')).toBe(4)
+  it('says each set was refound even when nothing changed, and only when the call says it was whole', async () => {
+    const made = await store.make('bracket', ask('deck'), 'person')
     build = lastBuild(6)
-    await store.refound('bracket', 6, [], false)
-    expect(store.refoundRevision('bracket')).toBe(4)
+    saves.mockClear()
+    await store.refound('bracket', 6, [{ id: 'N1', was: made.members, members: made.members }], false)
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    await store.refound('bracket', 6, [{ id: 'N1', was: made.members, members: made.members }])
+    expect(saves).not.toHaveBeenCalled()
+    expect(store.refsOf('bracket')).toEqual({ N1: 6 })
   })
 
-  it('tells that the sets were refound against a build, once for each build, even when nothing was written', async () => {
+  it('tells that sets were refound against a build, even when nothing was written, and only when a set had not been', async () => {
     const told: number[] = []
     store.on('refound', ({ objectId, revision }) => told.push(objectId === 'bracket' ? revision : -1))
-    await store.make('bracket', ask('deck'), 'person')
-    await store.refound('bracket', 4, [])
-    await store.refound('bracket', 4, [])
+    const made = await store.make('bracket', ask('deck'), 'person')
+    const same = [{ id: 'N1', was: made.members, members: made.members }]
+    await store.refound('bracket', 4, same)
     build = lastBuild(6)
-    await store.refound('bracket', 6, [], false)
-    await store.refound('bracket', 6, [])
-    expect(told).toEqual([4, 6])
+    await store.refound('bracket', 6, same, false)
+    await store.refound('bracket', 6, same)
+    await store.refound('bracket', 6, same)
+    expect(told).toEqual([6])
   })
 
   it('forgets which build when the workspace is left', async () => {
-    await store.refound('bracket', 4, [])
+    await store.make('bracket', ask('deck'), 'person')
     store.forget()
-    expect(store.refoundRevision('bracket')).toBeUndefined()
+    expect(store.refsOf('bracket')).toEqual({})
+  })
+})
+
+describe('the build each set\'s refs are of', () => {
+  const behind: string[] = []
+  beforeEach(() => {
+    behind.length = 0
+    store.on('behind', ({ objectId }) => behind.push(objectId))
+  })
+
+  it('is that of the last build for a set just made, and of the build the refs were given from when that is said', async () => {
+    await store.make('bracket', ask('deck'), 'person')
+    await store.make('bracket', ask('lid', ['block/F2']), 'person', 3)
+    expect(store.refsOf('bracket')).toEqual({ N1: 4, N2: 3 })
+  })
+
+  it('asks for the sets to be refound when a set is made with refs older than the last build (b)', async () => {
+    build = lastBuild(8)
+    await store.make('bracket', ask('deck'), 'person', 8)
+    expect(behind).toEqual([])
+    await store.make('bracket', ask('lid', ['block/F2']), 'agent', 7)
+    expect(behind).toEqual(['bracket'])
+    expect(store.refsOf('bracket')).toEqual({ N1: 8, N2: 7 })
+  })
+
+  it('stamps a set edited with members of a later build no later than the refs it had, and asks for a refind when that is behind', async () => {
+    build = lastBuild(5)
+    await store.make('bracket', ask('deck'), 'person', 4)
+    expect(behind).toEqual(['bracket'])
+    behind.length = 0
+    await store.edit('bracket', 'N1', { name: 'deck two' })
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    await store.edit('bracket', 'N1', { add: [{ ref: 'block/F4', point: [1, 1, 1] }] }, 5)
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    expect(behind).toEqual(['bracket', 'bracket'])
+  })
+
+  it('does not ask for a refind for a set whose refs are of the last build', async () => {
+    await store.make('bracket', ask('deck'), 'person')
+    await store.edit('bracket', 'N1', { add: [{ ref: 'block/F4', point: [1, 1, 1] }] }, 4)
+    await store.edit('bracket', 'N1', { comment: 'x' })
+    expect(behind).toEqual([])
+  })
+
+  it('a set edited while a refind runs is passed over, and is refound by the next (a)', async () => {
+    const made = await store.make('bracket', ask('deck', ['block/F1']), 'person')
+    build = lastBuild(5)
+    // The refind of r5 has read the set; the person adds to it; the refind then writes.
+    await store.edit('bracket', 'N1', { add: [{ ref: 'block/F4', point: [1, 1, 1] }] }, 5)
+    expect(behind).toEqual(['bracket'])
+    const lost = made.members.map((m) => ('face' in m ? { ...m, state: 'lost' as const } : m))
+    expect(await store.refound('bracket', 5, [{ id: 'N1', was: made.members, members: lost }])).toEqual([])
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    const now = (await store.list('bracket'))[0]
+    expect(now.members).toHaveLength(2)
+    // The refind that follows reads the set as it is now.
+    await store.refound('bracket', 5, [{ id: 'N1', was: now.members, members: now.members }])
+    expect(store.refsOf('bracket')).toEqual({ N1: 5 })
+  })
+
+  it('a set put back after a rebuild has the refs it had, and asks for a refind (c)', async () => {
+    await store.make('bracket', ask('deck'), 'person')
+    await store.remove('bracket', 'N1')
+    expect(store.refsOf('bracket')).toEqual({})
+    build = lastBuild(5)
+    await store.restore('bracket', 'N1')
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    expect(behind).toEqual(['bracket'])
+  })
+
+  it('a set put back with no build since is as fresh as it was', async () => {
+    await store.make('bracket', ask('deck'), 'person')
+    await store.remove('bracket', 'N1')
+    await store.restore('bracket', 'N1')
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    expect(behind).toEqual([])
+  })
+
+  it('a set read from the file has none until it is refound, and asks for a refind when written to', async () => {
+    await store.make('bracket', ask('deck'), 'person')
+    const again = newStore()
+    const asked: string[] = []
+    again.on('behind', ({ objectId }) => asked.push(objectId))
+    expect(again.refsOf('bracket')).toEqual({})
+    await again.edit('bracket', 'N1', { comment: 'x' })
+    expect(asked).toEqual(['bracket'])
   })
 })

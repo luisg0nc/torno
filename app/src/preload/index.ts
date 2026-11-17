@@ -99,8 +99,8 @@ const bridge: TornoBridge = {
   },
   sets: {
     list: (objectId) => invokePlain('sets:list', objectId),
-    make: (objectId, ask) => invokePlain('sets:make', objectId, ask),
-    edit: (objectId, id, edit) => invokePlain('sets:edit', objectId, id, edit),
+    make: (objectId, ask, revision) => invokePlain('sets:make', objectId, ask, revision),
+    edit: (objectId, id, edit, revision) => invokePlain('sets:edit', objectId, id, edit, revision),
     remove: (objectId, id) => invokePlain('sets:remove', objectId, id),
     restore: (objectId, id) => invokePlain('sets:restore', objectId, id),
     accept: (objectId, id) => invokePlain('sets:accept', objectId, id),

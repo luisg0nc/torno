@@ -167,9 +167,23 @@ describe('expandSet', () => {
 
   it('says a proposal is one, and a set with nothing found says so', () => {
     const proposal = { ...set([face('block/F1')]), by: 'agent' as const, proposed: true as const }
-    expect((expandSet([proposal], parts, 'assembly', '#deck', marks) as { said: string }).said).toBe('#deck: 1 face [proposed by you, not accepted]')
+    expect((expandSet([proposal], parts, 'assembly', '#deck', marks) as { said: string }).said).toBe('#deck: 1 face [proposed by you, not accepted yet]')
     const gone = set([face('block/F1', 'lost')])
     expect(expandSet([gone], parts, 'assembly', '#deck', marks)).toMatchObject({ refs: [], strokes: [], lost: 1, said: '#deck: no member found (1 of 1 face lost)' })
+  })
+
+  it('says a set not refound against the last build, with the build its refs are of, and uses its refs all the same', () => {
+    const one = set([face('block/F1')])
+    const behind = expandSet([one], parts, 'assembly', '#deck', marks, { revision: 8, refs: { N1: 7 } })
+    expect(behind).toMatchObject({ refs: ['block/F1'], stale: 'not refound against r8 yet; its refs are of r7' })
+    expect((behind as { said: string }).said).toBe('#deck: 1 face; not refound against r8 yet; its refs are of r7')
+    // Never refound since torno opened the project: its refs are of no build it knows.
+    expect(expandSet([one], parts, 'assembly', '#deck', marks, { revision: 8, refs: {} })).toMatchObject({ stale: 'not refound against r8 yet' })
+    // Of the last build, or of a later one: said nothing of. And no judgment without the revisions.
+    expect(expandSet([one], parts, 'assembly', '#deck', marks, { revision: 8, refs: { N1: 8 } })).not.toHaveProperty('stale')
+    expect(expandSet([one], parts, 'assembly', '#deck', marks)).not.toHaveProperty('stale')
+    // Strokes are the marks', not a build's.
+    expect(expandSet([set([{ stroke: 'M7/k3' }])], parts, 'assembly', '#deck', marks, { revision: 8, refs: {} })).not.toHaveProperty('stale')
   })
 
   it('does not count a stroke of an erased sketch as found', () => {

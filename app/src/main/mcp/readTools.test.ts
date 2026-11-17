@@ -178,6 +178,16 @@ describe('measure', () => {
       expect(data(result).reading).toBe('6 mm between planes, tub/F5 (#worn: 1 face (1 of 2 faces lost)) to tub/F0')
     })
 
+    it('says a set that was not refound against the last build is behind, with the build its refs are of, and measures it all the same', async () => {
+      const deps = fake(() => planes, { sets, setsRefs: () => ({ N1: 1 }) })
+      const result = await measureTool(deps, 'box', { kind: 'distance', a: '#top', b: 'tub/F0' })
+      expect(result.isError).toBeUndefined()
+      expect(deps.queries).toHaveLength(1)
+      expect(data(result).reading).toMatch(/^6 mm between planes, tub\/F5 \(#top: 1 face; not refound against r\d+ yet; its refs are of r1\) to tub\/F0$/)
+      const fresh = fake(() => planes, { sets, setsRefs: () => ({ N1: 99 }) })
+      expect(data(await measureTool(fresh, 'box', { kind: 'distance', a: '#top', b: 'tub/F0' })).reading).toBe('6 mm between planes, tub/F5 (#top) to tub/F0')
+    })
+
     it('refuses a set of several faces, naming them, and asks the kernel nothing', async () => {
       const deps = fake(() => planes, { sets })
       const result = await measureTool(deps, 'box', { kind: 'distance', a: '#deck', b: 'tub/F0' })

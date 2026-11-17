@@ -1,7 +1,7 @@
 import { apply } from '../../shared/align'
 import { groupsIn } from '../../shared/groups'
 import { expandTag, splitTagRef } from '../../shared/tags'
-import { type NamedSet, expandSet, setHolds, splitSetRef } from '../../shared/sets'
+import { type NamedSet, type SetsFresh, expandSet, setHolds, splitSetRef } from '../../shared/sets'
 import type { Described } from '../../shared/geometry'
 import { expectedText, offBy, standingOf, valueText } from '../../shared/dimension'
 import { type Anchor, type DimensionMark, type Mark, type NewMark, type Quat, isUnchecked, markAnchors } from '../../shared/marks'
@@ -60,6 +60,8 @@ export interface CheckedRef {
 export interface SetsAt {
   sets: readonly NamedSet[]
   marks: readonly Mark[]
+  /** The last build and the build each set's refs are of: a set behind it is used as it is and said to be (`expandSet`). Absent where that is not known. */
+  fresh?: SetsFresh
 }
 
 /** Whether a ref is a named set's (`#deck`, `block/#deck`): such a ref is checked against `SetsAt`, which `setsAt` reads. */
@@ -71,7 +73,8 @@ export async function setsAt(deps: ToolDeps, objectId: string): Promise<SetsAt |
   const marks = await marksOf(deps, objectId)
   if ('content' in marks) return marks
   try {
-    return { sets: await deps.sets(objectId), marks }
+    const revision = deps.scene(objectId)?.revision
+    return { sets: await deps.sets(objectId), marks, ...(deps.setsRefs && revision !== undefined ? { fresh: { revision, refs: deps.setsRefs(objectId) } } : {}) }
   } catch (e) {
     return failure(messageOf(e))
   }
@@ -85,7 +88,7 @@ export function checkRef(scene: Scene, layout: string, ref: string, named?: Sets
   const parts = scene.parts.filter((p) => p.layout === layout)
   if (isSetRef(ref)) {
     if (!named) return `${ref} is a named set, which this call does not take: give a part, part/F<n> or part/E<n>`
-    const expanded = expandSet(named.sets, parts, layout, ref, named.marks)
+    const expanded = expandSet(named.sets, parts, layout, ref, named.marks, named.fresh)
     if (expanded === null) return `${ref} is no set`
     if ('error' in expanded) return withLayoutHint(expanded.error)
     // One face, edge or part only: a set of several is a list, which `highlight` and `ask` take whole and `describe` tells.
@@ -93,7 +96,7 @@ export function checkRef(scene: Scene, layout: string, ref: string, named?: Sets
     if (members === 0) return `${expanded.said}: it names nothing the last build has`
     if (members !== 1 || expanded.refs.length !== 1) return `${ref} names ${members} members, not one: ${[...expanded.refs, ...expanded.strokes].join(', ')}; name one of them`
     const one = checkRef(scene, layout, expanded.refs[0])
-    return typeof one === 'string' ? one : { ...one, ref: expanded.refs[0], set: ref, ...(expanded.lost > 0 ? { setSaid: expanded.said } : {}) }
+    return typeof one === 'string' ? one : { ...one, ref: expanded.refs[0], set: ref, ...(expanded.lost > 0 || expanded.stale ? { setSaid: expanded.said } : {}) }
   }
   const whole = parts.find((p) => p.name === ref)
   if (whole) return { part: whole, target: 'part', ref }
@@ -290,7 +293,7 @@ export async function checkedRefs(
         if ('content' in read) return read
         sets = read
       }
-      const expanded = expandSet(sets.sets, found.scene.parts.filter((p) => p.layout === layout), layout, ref, sets.marks)
+      const expanded = expandSet(sets.sets, found.scene.parts.filter((p) => p.layout === layout), layout, ref, sets.marks, sets.fresh)
       if (expanded === null) wrong.push(`${ref} is no set`)
       else if ('error' in expanded) wrong.push(withLayoutHint(expanded.error))
       else if (expanded.refs.length + expanded.strokes.length === 0) wrong.push(`${expanded.said}: it names nothing the last build has`)
@@ -374,7 +377,7 @@ export async function anchorFor(
   if (given !== undefined && isSetRef(given)) {
     const named = await setsAt(deps, objectId)
     if ('content' in named) return named
-    const expanded = expandSet(named.sets, scene.parts.filter((p) => p.layout === layout), layout, given, named.marks)
+    const expanded = expandSet(named.sets, scene.parts.filter((p) => p.layout === layout), layout, given, named.marks, named.fresh)
     if (expanded === null) return failure(`${given} is no set`)
     if ('error' in expanded) return failure(withLayoutHint(expanded.error))
     if (expanded.refs.length === 0) return failure(`${expanded.said}: it names nothing the last build has`)
@@ -382,6 +385,7 @@ export async function anchorFor(
     holder = expanded.set
     label = `#${expanded.set.slug}`
     if (expanded.refs.length > 1 || expanded.lost > 0) told = `${expanded.said}: the mark is placed on ${on}, the first of them.`
+    else if (expanded.stale) told = `${expanded.said}: the mark is placed on ${on}.`
   }
   const placed = await anchorOn(deps, objectId, scene, layout, on, point, kind)
   if ('content' in placed) return placed

@@ -333,8 +333,25 @@ export interface SetExpansion {
   strokes: string[]
   /** How many of the members asked for are lost. */
   lost: number
-  /** `#deck: 3 faces (2 of 5 faces lost) [proposed by you, not accepted]`. */
+  /** Set when the set's refs are of an earlier build than the last (`staleText`): they are used as they are, and said so. */
+  stale?: string
+  /** `#deck: 3 faces (2 of 5 faces lost); not refound against r8 yet; its refs are of r7 [proposed by you, not accepted yet]`. */
   said: string
+}
+
+/**
+ * Which build the refs of each set are of (`refs`, by set id: absent is none known), and which is the last (`revision`). A set whose
+ * refs are of an earlier build than the last has not been refound against it: what its members name may be other geometry now.
+ */
+export interface SetsFresh {
+  revision: number
+  refs: Readonly<Record<string, number>>
+}
+
+/** Why the refs of a set may be of an earlier build, or undefined: `not refound against r8 yet; its refs are of r7` (of none known: no `its refs` clause). */
+export function staleText(revision: number, refsOf: number | undefined): string | undefined {
+  if (refsOf === undefined) return `not refound against r${revision} yet`
+  return refsOf < revision ? `not refound against r${revision} yet; its refs are of r${refsOf}` : undefined
 }
 
 const KIND_NOUNS = { faces: ['face', 'faces'], edges: ['edge', 'edges'], parts: ['part', 'parts'], strokes: ['stroke', 'strokes'] } as const
@@ -344,7 +361,7 @@ const KIND_NOUNS = { faces: ['face', 'faces'], edges: ['edge', 'edges'], parts: 
  * is. Null for a ref that is no set's. `parts` are the layout's; `marks` say which strokes are still there. A member
  * that is lost is left out and counted, never named as if it were found.
  */
-export function expandSet(sets: readonly NamedSet[], parts: readonly Pick<Part, 'name'>[], layout: string, ref: string, marks: readonly Mark[]): SetExpansion | { error: string } | null {
+export function expandSet(sets: readonly NamedSet[], parts: readonly Pick<Part, 'name'>[], layout: string, ref: string, marks: readonly Mark[], fresh?: SetsFresh): SetExpansion | { error: string } | null {
   const split = splitSetRef(ref)
   if (!split) return null
   const set = sets.find((s) => s.slug === split.slug)
@@ -376,6 +393,8 @@ export function expandSet(sets: readonly NamedSet[], parts: readonly Pick<Part, 
   const lost = members.filter((m) => isLost(m, marks)).length
   const kinds = (Object.keys(KIND_NOUNS) as Array<keyof LostCount>).filter((k) => found[k] > 0).map((k) => `${found[k]} ${KIND_NOUNS[k][found[k] === 1 ? 0 : 1]}`)
   const lostSaid = lostText({ members }, marks)
-  const said = `${split.part === undefined ? '' : `${split.part}/`}#${set.slug}: ${kinds.join(', ') || 'no member found'}${lostSaid ? ` (${lostSaid})` : ''}${set.proposed ? ' [proposed by you, not accepted]' : ''}`
-  return { set, refs, strokes, lost, said }
+  // A set of strokes alone is judged by the marks, which are not a build's.
+  const stale = fresh && set.members.some((m) => !('stroke' in m)) ? staleText(fresh.revision, fresh.refs[set.id]) : undefined
+  const said = `${split.part === undefined ? '' : `${split.part}/`}#${set.slug}: ${kinds.join(', ') || 'no member found'}${lostSaid ? ` (${lostSaid})` : ''}${stale ? `; ${stale}` : ''}${set.proposed ? ' [proposed by you, not accepted yet]' : ''}`
+  return { set, refs, strokes, lost, ...(stale ? { stale } : {}), said }
 }

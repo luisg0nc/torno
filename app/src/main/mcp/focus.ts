@@ -132,7 +132,7 @@ async function setFocus(deps: ToolDeps, objectId: string, found: { scene: Scene;
   const named = await setsAt(deps, objectId)
   if ('content' in named) return named
   const inLayout = scene.parts.filter((p) => p.layout === layout)
-  const expanded = expandSet(named.sets, inLayout, layout, given, named.marks)
+  const expanded = expandSet(named.sets, inLayout, layout, given, named.marks, named.fresh)
   if (expanded === null) return failure(`${given} is no set; ${FORMS}`)
   if ('error' in expanded) return failure(`${withLayoutHint(expanded.error)}; ${FORMS}`)
   if (expanded.refs.length + expanded.strokes.length === 0) return failure(`${expanded.said}: it names nothing the last build has, so there is nothing to frame`)

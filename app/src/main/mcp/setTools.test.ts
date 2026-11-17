@@ -80,6 +80,33 @@ beforeEach(() => {
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
+describe('add_set just after a build', () => {
+  it('stamps the proposal with the build its refs were read on, and asks for the sets to be refound when another landed meanwhile', async () => {
+    let revision = 7
+    store = new SetStore({ dirOf: (id) => (id === 'bracket' ? join(root, id) : undefined), scene: () => ({ revision, scene }), marks: async () => [sketch] })
+    deps = { ...deps, sets: (id: string) => store.list(id), setStore: store, scene: () => ({ revision, scene }) } as ToolDeps
+    const behind: string[] = []
+    store.on('behind', ({ objectId }) => behind.push(objectId))
+    // The refs are read on r7; r8 lands while the kernel is asked where the faces are.
+    kernel = async ({ refs }) => {
+      revision = 8
+      return { selectors: refs.map((ref) => answer(ref, 1)) }
+    }
+    const result = await addSetTool(deps, 'bracket', { name: 'intake', refs: ['block/F1'] })
+    expect(result.isError, text(result)).toBeUndefined()
+    expect(store.refsOf('bracket')).toEqual({ N1: 7 })
+    expect(behind).toEqual(['bracket'])
+  })
+
+  it('does not ask for a refind when the build it read is the last', async () => {
+    const behind: string[] = []
+    store.on('behind', ({ objectId }) => behind.push(objectId))
+    await addSetTool(deps, 'bracket', { name: 'intake', refs: ['block/F1'] })
+    expect(store.refsOf('bracket')).toEqual({ N1: 7 })
+    expect(behind).toEqual([])
+  })
+})
+
 describe('add_set proposes a named set', () => {
   it('stores a proposal of the agent\'s, asks the kernel for its faces first, and says what the person sees and may do', async () => {
     const result = await addSetTool(deps, 'bracket', { name: 'intake', comment: 'where the air goes in', refs: ['block/F1', 'block/F2', 'block/F3'] })
@@ -194,7 +221,7 @@ describe('add_set proposes a named set', () => {
     const result = await highlightTool(deps, 'bracket', { refs: ['#intake'] })
     expect(result.isError, text(result)).toBeUndefined()
     expect(shown).toEqual([{ layout: 'assembly', refs: ['block/F1', 'block/F2'] }])
-    expect(text(result)).toContain('[proposed by you, not accepted]')
+    expect(text(result)).toContain('[proposed by you, not accepted yet]')
   })
 
   it('writes sets.json in the project, as a proposal of the agent\'s', async () => {

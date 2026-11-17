@@ -49,8 +49,10 @@ interface SetEvents {
   changed: { objectId: string; sets: NamedSet[] }
   /** Something about an object's sets file the person should know. Said once; `problem()` answers it afterwards. */
   problem: { objectId: string; message: string }
-  /** The sets were refound against a build that is newer than the one they were last refound against: told even when nothing was written. */
+  /** Sets were refound against a build that is newer than the one their refs were of: told even when nothing was written. */
   refound: { objectId: string; revision: number }
+  /** A set was written whose refs are older than the last build (or of none known): the sets of the object are to be refound. */
+  behind: { objectId: string }
 }
 
 /** What an edit returns when it changed nothing. */
@@ -72,13 +74,13 @@ export class SetStore {
   private turns = new Map<string, Promise<unknown>>()
   /** By object folder: what was last found wrong with its sets file, until the person dismisses it. */
   private problems = new Map<string, string>()
-  /** By object id: the set removed last, kept in memory for `restore`. */
-  private deleted = new Map<string, NamedSet>()
-  /** By object id: the build the sets were last refound against, in memory only (as a mark's `checkedRevision` is for a session). */
-  private refoundAt = new Map<string, number>()
+  /** By object id: the set removed last, kept in memory for `restore`, with the build its refs were of. */
+  private deleted = new Map<string, { set: NamedSet; refs: number | undefined }>()
+  /** By object id, then set id: the build each set's refs are of. In memory only, as a mark's `checkedRevision` is: build numbers are of a session. */
+  private refsAt = new Map<string, Map<string, number>>()
   /** Counts `forget`: what was read before one is not kept after it. */
   private epoch = 0
-  private listeners: { [E in keyof SetEvents]: Array<(m: SetEvents[E]) => void> } = { changed: [], problem: [], refound: [] }
+  private listeners: { [E in keyof SetEvents]: Array<(m: SetEvents[E]) => void> } = { changed: [], problem: [], refound: [], behind: [] }
 
   constructor(private deps: SetStoreDeps) {}
 
@@ -91,7 +93,7 @@ export class SetStore {
     this.epoch += 1
     this.deleted.clear()
     this.files.clear()
-    this.refoundAt.clear()
+    this.refsAt.clear()
   }
 
   /** Null when nothing asked of the sets is under way; else a promise that resolves once it is all written or failed. For the app, when it quits. */
@@ -123,9 +125,10 @@ export class SetStore {
    * Makes a set, with the next number. Its refs are checked against the layout's last build (a part, `F<i>` below its
    * face count, `E<i>` below its edge count) and its strokes against the marks. A set made by the agent is a proposal. A
    * name whose ref is in use is refused, naming the set that has it. The selectors are asked for afterwards
-   * (`withSelectors`): until then a face is held by its point and normal.
+   * (`withSelectors`): until then a face is held by its point and normal. `refsOf` is the build the refs given are of (the
+   * window's, or the one Claude read): when that is not the last build, the sets are to be refound (`behind`).
    */
-  async make(objectId: string, ask: NewSet, by: 'person' | 'agent'): Promise<NamedSet> {
+  async make(objectId: string, ask: NewSet, by: 'person' | 'agent', refsOf?: number): Promise<NamedSet> {
     const given = isRecord(ask) ? ask : {}
     for (const key of Object.keys(given)) if (!(NEW_KEYS as readonly string[]).includes(key)) throw new Refusal(`${key} is not part of a named set that is asked for`)
     const { name, comment, colour, layout, members } = given as Partial<NewSet>
@@ -157,15 +160,17 @@ export class SetStore {
       file.next += 1
       file.sets.push(set)
       return set
-    })
+    }, (set) => this.stamped(objectId, set.id, refsOf ?? this.deps.scene(objectId)?.revision))
   }
 
   /**
    * Changes a set: its name, comment and colour; members taken (`take`, by ref, each of which must be in the set) and added
    * (`add`, a ref already there leaves one); and `repick`, which replaces the members that are lost by the selection
    * given. Members are checked as `make` checks them, against the set's own layout. A proposal stays one: only `accept` clears that.
+   * Members added come of the build `refsOf` says (the last build when none is): the set's refs are then of the older of that and
+   * the build they were of.
    */
-  async edit(objectId: string, id: string, edit: SetEdit): Promise<NamedSet> {
+  async edit(objectId: string, id: string, edit: SetEdit, refsOf?: number): Promise<NamedSet> {
     if (typeof edit !== 'object' || edit === null || Array.isArray(edit)) throw new Refusal('That is not a change to a named set.')
     for (const key of Object.keys(edit)) if (!(EDIT_KEYS as readonly string[]).includes(key)) throw new Refusal(`${key} of a named set cannot be changed this way`)
     if (edit.name !== undefined && typeof edit.name !== 'string') throw new Refusal('A named set needs a name.')
@@ -176,6 +181,7 @@ export class SetStore {
     if ((edit.add !== undefined && !Array.isArray(edit.add)) || (edit.repick !== undefined && !Array.isArray(edit.repick))) throw new Refusal('add and repick are lists of members.')
     // The marks say which strokes are there, for the strokes asked for and for those a re-pick finds lost.
     const marks = await this.marksFor(objectId, asked.some(isStroke) || edit.repick !== undefined)
+    let refs: number | undefined
     const changed = await this.change(objectId, (file) => {
       const set = setOf(file, id)
       const name = edit.name?.trim()
@@ -205,30 +211,40 @@ export class SetStore {
         add(set.members, edit.repick, set.layout, last, marks)
       }
       if (edit.add !== undefined) add(set.members, edit.add, set.layout, last, marks)
+      // What is kept of the refs a set had is as old as the oldest of them: a member of a later build does not make the rest later.
+      const had = this.refsAt.get(objectId)?.get(set.id)
+      const came = refsOf ?? last?.revision
+      refs = edit.add !== undefined || edit.repick !== undefined ? (had === undefined || came === undefined ? undefined : Math.min(had, came)) : had
       return JSON.stringify(set) === before ? UNCHANGED : set
+    }, (done) => {
+      if (done !== UNCHANGED) this.stamped(objectId, id, refs)
     })
     return changed === UNCHANGED ? setIn(await this.list(objectId), id) : changed
   }
 
   /** Takes a set away. The last one taken from each object is kept in memory, whole, for `restore`. */
   async remove(objectId: string, id: string): Promise<void> {
-    const removed = await this.write(objectId, (file) => file.sets.splice(indexOf(file, id), 1)[0])
-    this.deleted.set(objectId, removed)
+    await this.write(objectId, (file) => file.sets.splice(indexOf(file, id), 1)[0], (set) => {
+      this.deleted.set(objectId, { set, refs: this.refsAt.get(objectId)?.get(set.id) })
+      this.refsAt.get(objectId)?.delete(set.id)
+    })
   }
 
   /** Puts back the set removed last, whole and with its number, where its number puts it. Only that one, and once. */
   async restore(objectId: string, id: string): Promise<NamedSet> {
-    const kept = this.deleted.get(objectId)
-    if (!kept || kept.id !== id) throw new Refusal(`${id} cannot be put back: only the set deleted last can be, and only once`)
+    const held = this.deleted.get(objectId)
+    if (!held || held.set.id !== id) throw new Refusal(`${id} cannot be put back: only the set deleted last can be, and only once`)
+    const kept = held.set
+    // Its refs are the ones it had when it was taken away: a build since has not refound it, and it is asked to be.
     const set = await this.write(objectId, (file) => {
       if (file.sets.some((s) => s.id === id || s.slug === kept.slug)) throw new Refusal(`${id} is there already, or its name is taken`)
       const number = (s: NamedSet): number => Number(s.id.slice(1))
       const at = file.sets.findIndex((s) => number(s) > number(kept))
       file.sets.splice(at < 0 ? file.sets.length : at, 0, structuredClone(kept))
       return kept
-    })
-    if (this.deleted.get(objectId)?.id === id) this.deleted.delete(objectId)
-    return set
+    }, () => this.stamped(objectId, id, held.refs))
+    if (this.deleted.get(objectId)?.set.id === id) this.deleted.delete(objectId)
+    return structuredClone(set)
   }
 
   /** The person accepts the agent's proposal: it is theirs, and no longer proposed. Refused for a set that is not proposed. */
@@ -249,7 +265,7 @@ export class SetStore {
       if (file.sets[at].proposed !== true) throw new Refusal(`#${file.sets[at].slug} (${id}) is not a proposal: there is nothing to dismiss`)
       file.sets.splice(at, 1)
       return null
-    })
+    }, () => this.refsAt.get(objectId)?.delete(id))
   }
 
   /**
@@ -289,40 +305,66 @@ export class SetStore {
   }
 
   /**
-   * What a refind made of the sets after a build (`refind.ts`), written as one change. A set whose members are no longer the
-   * ones it was found from (it was edited meanwhile) is passed over, and so is everything when the last build is no longer
-   * `revision`. Answers the sets that were written. `whole` says the refind looked at every member it could (it did not run
-   * out of time, and no layout went unasked): only then is `refoundRevision` set, even when nothing changed.
+   * What a refind made of the sets after a build (`refind.ts`), written as one change: an item for each set it looked at, with
+   * the members it read (`was`) and what it made of them. A set whose members are no longer `was` (it was edited meanwhile) is
+   * passed over, as is everything when the last build is no longer `revision`. Answers the sets that were written. `whole` says
+   * the refind looked at every member it could (it did not run out of time, and no layout went unasked): only then are the sets
+   * it looked at, written or not, said to have refs of `revision`, which they are told of as `refound` (`refsOf`).
    */
   async refound(objectId: string, revision: number, changes: readonly Refound[], whole = true): Promise<NamedSet[]> {
     const epoch = this.epoch
     const written: NamedSet[] = []
+    const looked: string[] = []
     let current = false
-    await this.change(objectId, (file) => {
-      current = this.deps.scene(objectId)?.revision === revision
-      if (!current) return UNCHANGED
-      for (const change of changes) {
-        const set = file.sets.find((s) => s.id === change.id)
-        if (!set || !isDeepStrictEqual(set.members, change.was) || isDeepStrictEqual(change.was, change.members)) continue
-        set.members = structuredClone(change.members)
-        written.push(set)
+    await this.change(
+      objectId,
+      (file) => {
+        current = this.deps.scene(objectId)?.revision === revision
+        if (!current) return UNCHANGED
+        for (const change of changes) {
+          const set = file.sets.find((s) => s.id === change.id)
+          if (!set || !isDeepStrictEqual(set.members, change.was)) continue
+          looked.push(set.id)
+          if (isDeepStrictEqual(change.was, change.members)) continue
+          set.members = structuredClone(change.members)
+          written.push(set)
+        }
+        return written.length === 0 ? UNCHANGED : written
+      },
+      // Said once what was found is written (or there was nothing to write), and to the workspace it was asked in.
+      () => {
+        if (!current || !whole || epoch !== this.epoch) return
+        let told = false
+        for (const id of looked) {
+          const had = this.refsAt.get(objectId)?.get(id)
+          if (had === undefined || revision > had) {
+            this.stamp(objectId, id, revision)
+            told = true
+          }
+        }
+        if (told) this.emit('refound', { objectId, revision })
       }
-      return written.length === 0 ? UNCHANGED : written
-    })
-    // Said only once what was found is written (or there was nothing to write), and to the workspace it was asked in.
-    if (current && whole && epoch === this.epoch) {
-      const before = this.refoundAt.get(objectId)
-      if (before === undefined || revision > before) {
-        this.refoundAt.set(objectId, revision)
-        this.emit('refound', { objectId, revision })
-      }
-    }
+    )
     return structuredClone(written)
   }
 
-  /** The build the sets of an object were last refound against, or undefined when none has been since the workspace was opened. */
-  refoundRevision(objectId: string): number | undefined {
-    return this.refoundAt.get(objectId)
+  /** The build each set of an object has its refs of, by set id. A set refound or made since torno opened the project is there; one read from the file is not, until it is refound. */
+  refsOf(objectId: string): Readonly<Record<string, number>> {
+    return Object.fromEntries(this.refsAt.get(objectId) ?? [])
+  }
+
+  private stamp(objectId: string, id: string, revision: number | undefined): void {
+    const of = this.refsAt.get(objectId) ?? new Map<string, number>()
+    if (revision === undefined) of.delete(id)
+    else of.set(id, revision)
+    this.refsAt.set(objectId, of)
+  }
+
+  /** A set was written with refs of `revision`: kept, and the sets are asked to be refound when that is older than the last build. */
+  private stamped(objectId: string, id: string, revision: number | undefined): void {
+    this.stamp(objectId, id, revision)
+    const last = this.deps.scene(objectId)?.revision
+    if (last !== undefined && (revision === undefined || revision < last)) this.emit('behind', { objectId })
   }
 
   /** The marks of an object when a stroke is to be judged (asked for, or lost), else none: nothing else of a set needs them. */
@@ -338,24 +380,25 @@ export class SetStore {
    * Change the sets of an object: `edit` is given a copy of the file. A change that throws, or a write that fails, leaves
    * the sets as they were. One that returns UNCHANGED writes and tells nothing.
    */
-  private change<T>(objectId: string, edit: (file: SetsFile) => T | typeof UNCHANGED): Promise<T | typeof UNCHANGED> {
+  private change<T>(objectId: string, edit: (file: SetsFile) => T | typeof UNCHANGED, done?: (result: T | typeof UNCHANGED) => void): Promise<T | typeof UNCHANGED> {
     return this.turn(objectId, async (current, dir, epoch) => {
       const file = structuredClone(current)
       const result = edit(file)
-      if (result === UNCHANGED) return UNCHANGED
-      await saveSetsFile(dir, file)
-      // Told only to the workspace it was asked in: the write of one that has been left lands, and is not broadcast.
+      if (result !== UNCHANGED) await saveSetsFile(dir, file)
+      // Told only to the workspace it was asked in: the write of one that has been left lands, and is not broadcast. `done` is
+      // still in this turn, so that nothing else is done to the sets between the write and what is kept of it.
       if (epoch === this.epoch) {
-        this.files.set(dir, file)
-        this.emit('changed', { objectId, sets: structuredClone(file.sets) })
+        if (result !== UNCHANGED) this.files.set(dir, file)
+        done?.(result)
+        if (result !== UNCHANGED) this.emit('changed', { objectId, sets: structuredClone(file.sets) })
       }
-      return structuredClone(result)
+      return result === UNCHANGED ? UNCHANGED : structuredClone(result)
     })
   }
 
   /** `change` of an edit that always changes something. */
-  private write<T>(objectId: string, edit: (file: SetsFile) => T): Promise<T> {
-    return this.change(objectId, edit) as Promise<T>
+  private write<T>(objectId: string, edit: (file: SetsFile) => T, done?: (result: T) => void): Promise<T> {
+    return this.change(objectId, edit, done && ((result) => done(result as T))) as Promise<T>
   }
 
   /** Do one thing with the sets file of an object, after whatever was asked of it before. */

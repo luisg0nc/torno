@@ -404,7 +404,7 @@ const toolDeps: ToolDeps = {
   },
   marks: (objectId) => marks.list(objectId),
   sets: (objectId) => sets.list(objectId),
-  setsRefound: (objectId) => sets.refoundRevision(objectId),
+  setsRefs: (objectId) => sets.refsOf(objectId),
   // The agent proposes a set through the store as the agent, and the kernel's selectors are written in a second change.
   setStore: sets,
   // A mark made through the tools is the agent's, and it knows of it: there is nothing to send it.
@@ -463,7 +463,7 @@ const verdicts = new Verdicts()
 const editDeps = { ...toolDeps, ...(off.has('digest') ? { digest: false } : {}), verdicts: (id: string, revision: number | undefined) => verdicts.of(id, revision) }
 
 /** `<object>/.torno/state.md` of every open object: what an agent without the tools reads instead. */
-const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefound: (objectId) => sets.refoundRevision(objectId) })
+const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId) })
 marks.on('changed', ({ objectId }) => stateFiles.changed(objectId))
 // The named sets are told in the state file.
 sets.on('changed', ({ objectId }) => stateFiles.changed(objectId))
@@ -861,7 +861,7 @@ app.on('will-quit', (event) => {
   const waits: Promise<unknown>[] = []
   // An export still being written is given up: its check is not waited for, and the file beside the chosen one goes.
   stopExports()
-  const written = writesBeforeQuit([marks.settled(), scans.settled(), sceneFilesSettled(), exportsUnderWay()])
+  const written = writesBeforeQuit([marks.settled(), scans.settled(), sets.settled(), sceneFilesSettled(), exportsUnderWay()])
   if (written) waits.push(written)
   if (sessions?.busy) waits.push(sessions.stopAll())
   // The copy of the example was torno's own, in the temporary folder: it goes with the run, last of all, once

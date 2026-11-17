@@ -37,7 +37,7 @@ export const STATE_DELAY_MS = 1000
  * since the successful build before and what the shape says.
  * The file itself begins with `writtenLine`, before this.
  */
-export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: { revision: number; scene: Scene } | undefined, marks: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], digest?: BuildDigest, profile?: Profile, named?: { sets: readonly NamedSet[]; refound: number | undefined }): string {
+export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: { revision: number; scene: Scene } | undefined, marks: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], digest?: BuildDigest, profile?: Profile, named?: { sets: readonly NamedSet[]; refs: Readonly<Record<string, number>> | undefined }): string {
   const lines = [
     `# ${obj.name}`,
     '',
@@ -89,7 +89,7 @@ export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: 
     for (const scan of scans) lines.push(`- ${scanLine(scan, last)}`)
   }
   // The person's named sets: a ref of one (`#deck`) works in every tool. Their refs are of the build they were last refound against.
-  const setLines = named && last ? setsText(named.sets, marks, last.revision, named.refound) : ''
+  const setLines = named && last ? setsText(named.sets, marks, last.revision, named.refs) : ''
   if (setLines !== '') lines.push('', '## Named sets', '', 'Names the person gives faces, edges, parts and strokes: write `#deck`, or `block/#deck` for one part\'s, in a ref. A proposal is yours, not yet accepted.', '', setLines)
   lines.push('', '## Marks', '')
   const open = marks.filter((m) => m.status !== 'resolved')
@@ -176,8 +176,8 @@ export interface StateFileDeps {
   profile?(objectId: string): Profile | undefined
   /** The named sets of an object: each is told in a line. */
   sets?(objectId: string): Promise<NamedSet[]>
-  /** The build the sets were last refound against, when one has been since the project was opened. */
-  setsRefound?(objectId: string): number | undefined
+  /** The build each set's refs are of, by set id: none for a set not made or refound since the project was opened. */
+  setsRefs?(objectId: string): Readonly<Record<string, number>>
   delayMs?: number
   write?(path: string, text: string): Promise<void>
   log?(message: string): void
@@ -231,7 +231,7 @@ export class StateFiles {
     // As things are once the marks are read: a build may have ended meanwhile.
     const build = this.deps.build(objectId)
     if (!build || this.deps.object(objectId)?.dir !== obj.dir) return
-    const text = stateText(obj, build, this.deps.scene(objectId), marks, scans, views, buildDigest({ build: this.deps.build, scenes: this.deps.scenes }, objectId), this.deps.profile?.(objectId), sets ? { sets, refound: this.deps.setsRefound?.(objectId) } : undefined)
+    const text = stateText(obj, build, this.deps.scene(objectId), marks, scans, views, buildDigest({ build: this.deps.build, scenes: this.deps.scenes }, objectId), this.deps.profile?.(objectId), sets ? { sets, refs: this.deps.setsRefs?.(objectId) } : undefined)
     const path = join(obj.dir, FOLDER, NAME)
     if (this.written.get(path) === text) return
     await ownTorno(obj.dir)

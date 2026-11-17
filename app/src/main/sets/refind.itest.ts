@@ -87,7 +87,7 @@ describe('refind, against the real kernel', () => {
     const [set] = await store.list('morph')
     expect(set.members).toMatchObject([{ face: topNow.ref, state: 'ok' }, { face: bottomNow.ref, state: 'ok' }])
     expect(topNow.ref).not.toBe(top.ref)
-    expect(store.refoundRevision('morph')).toBe(revision)
+    expect(store.refsOf('morph')).toEqual({ N1: revision })
     // The top moved up 3 mm: its point is on the face where it now is.
     expect((set.members[0] as { point: Vec3 }).point[2]).toBeCloseTo(5.5, 3)
 

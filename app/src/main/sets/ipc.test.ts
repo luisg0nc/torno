@@ -115,6 +115,86 @@ describe('sets:make', () => {
   })
 })
 
+describe('a face or an edge asked for with no point', () => {
+  const bare = (ref: string) => ({ ref })
+
+  it('is placed by the kernel before the set is made, so that no member is held at the middle of its part', async () => {
+    const h = handlers()
+    const made = await h.make('bracket', { ...make(), members: [bare('block/F1'), bare('block/E2'), bare('lid')] })
+    expect(queries[0].args).toEqual({ layout: 'assembly', refs: ['block/F1', 'block/E2'] })
+    expect(made.members[0]).toMatchObject({ face: 'block/F1', point: [9, 9, 9], normal: [0, 0, 1] })
+    expect(made.members[1]).toMatchObject({ edge: 'block/E2', point: [9, 9, 9] })
+    expect(made.members.some((m) => 'held' in m)).toBe(false)
+  })
+
+  it('is refused, with nothing made, when the kernel gives no place for it or cannot be asked', async () => {
+    const h = handlers()
+    reply = (args) => ({ selectors: (args.refs as string[]).slice(1).map((ref) => ({ ref, type: 'PLANE', center: [9, 9, 9], selector: null })) })
+    expect(await refused(h.make('bracket', { ...make(), members: [bare('block/F1'), bare('block/F2')] }))).toMatch(/kernel gave no place for block\/F1/)
+    reply = () => {
+      throw new Error('kernel is gone')
+    }
+    expect(await refused(h.make('bracket', { ...make(), members: [bare('block/F1')] }))).toMatch(/kernel could not say where block\/F1 is: kernel is gone/)
+    expect(await store.list('bracket')).toEqual([])
+  })
+
+  it('is refused when the refs it was selected with are of an older build, which the kernel would answer for another face', async () => {
+    build = lastBuild(5)
+    expect(await refused(handlers().make('bracket', { ...make(), members: [bare('block/F1')] }, 4))).toMatch(/built again/)
+    expect(queries).toEqual([])
+  })
+
+  it('is placed too when it is added or picked again', async () => {
+    const h = handlers()
+    await h.make('bracket', make())
+    queries.length = 0
+    const edited = await h.edit('bracket', 'N1', { add: [bare('block/F4')] })
+    expect(edited.members[1]).toMatchObject({ face: 'block/F4', point: [9, 9, 9] })
+    reply = () => ({ selectors: [] })
+    expect(await refused(h.edit('bracket', 'N1', { add: [bare('block/F5')] }))).toMatch(/no place for block\/F5/)
+  })
+})
+
+describe('refs of an earlier build', () => {
+  it('are kept as of that build, asked to be refound, and never have their selectors asked for', async () => {
+    build = lastBuild(5)
+    const behind: string[] = []
+    store.on('behind', ({ objectId }) => behind.push(objectId))
+    const h = handlers()
+    const made = await h.make('bracket', make(), 4)
+    await h.idle()
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    expect(behind).toEqual(['bracket'])
+    expect(queries).toEqual([])
+    expect(made.members[0]).not.toHaveProperty('type')
+  })
+
+  it('a set that has such members is not asked about as a whole when it is added to: the members it had would get the selectors of other faces', async () => {
+    build = lastBuild(5)
+    const h = handlers()
+    await h.make('bracket', make(), 4)
+    await h.edit('bracket', 'N1', { add: [member('block/F4')] }, 5)
+    await h.idle()
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    expect(queries).toEqual([])
+  })
+
+  it('are of the last build when the window does not say', async () => {
+    const h = handlers()
+    await h.make('bracket', make())
+    await h.idle()
+    expect(store.refsOf('bracket')).toEqual({ N1: 4 })
+    expect(queries).toHaveLength(1)
+  })
+
+  it('the build the window says is a whole number, or nothing', async () => {
+    const h = handlers()
+    expect(await refused(h.make('bracket', make(), 'x' as never))).toMatch(/build/)
+    expect(await refused(h.make('bracket', make(), -1))).toMatch(/build/)
+    expect(await refused(h.edit('bracket', 'N1', { comment: 'x' }, 1.5))).toMatch(/build/)
+  })
+})
+
 describe('sets:edit', () => {
   it('refuses a colour out of range, an unknown key and a bad id', async () => {
     const h = handlers()

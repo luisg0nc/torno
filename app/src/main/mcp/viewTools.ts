@@ -65,10 +65,10 @@ export const cameraKeys = (view: unknown): string | null => {
  */
 type ScenePart = Scene['parts'][number]
 export interface SceneArgs { layout?: string }
-/** The named sets of the object, when they could be read, and the build they were last refound against (none: not since torno opened it). */
+/** The named sets of the object, when they could be read, and the build each one's refs are of, by set id (none for a set: not since torno opened the project). */
 export interface NamedSets {
   sets: readonly NamedSet[]
-  refound: number | undefined
+  refs: Readonly<Record<string, number>> | undefined
 }
 /** The most parts `scene` lists in full, and the most characters their list may take (Claude Code saves a result over 50,000 to a file). */
 const SCENE_PARTS = 200
@@ -197,7 +197,7 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
     ...(scene.overrides && (Object.keys(scene.overrides.applied).length > 0 || scene.overrides.dropped.length > 0) ? { paramsTried: scene.overrides } : {}),
     ...(groups.length > 0 ? { groups } : {}),
     // The person's named sets (`#deck`), in every layout: each with its members by ref and how many the last build lost.
-    ...(named && named.sets.length > 0 ? { sets: setsListed(named.sets, marks ?? [], revision, named.refound) } : {}),
+    ...(named && named.sets.length > 0 ? { sets: setsListed(named.sets, marks ?? [], revision, named.refs) } : {}),
     parts: listing.parts,
     ...(listing.extra),
     camera: view

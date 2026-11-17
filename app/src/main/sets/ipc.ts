@@ -6,11 +6,11 @@ import type { LastBuild, SetStore } from './store'
 // What the window may ask of the named sets (`sets:list`, `sets:make`, `sets:edit`, `sets:remove`, `sets:restore`,
 // `sets:accept`, `sets:dismiss`), as handlers that do not need Electron (`main/ipc.ts` registers them). Everything the window
 // says is untrusted: a project is one that is open, a set is `N<n>`, an ask has exactly the keys it may have, a colour is a
-// whole number from 0 to 7. What only main says of a set or a member (`by`, `proposed`, `state`, `type`, `selector`,
+// whole number from 0 to 7, and the build a window's refs are of (`revision`) is a whole number or nothing. What only main says of a set or a member (`by`, `proposed`, `state`, `type`, `selector`,
 // `arranged`, the slug) is never taken from the window. A set the window makes is the person's; only the agent proposes one.
 
 export interface SetIpcDeps {
-  sets: Pick<SetStore, 'list' | 'make' | 'edit' | 'remove' | 'restore' | 'accept' | 'dismiss' | 'withSelectors'>
+  sets: Pick<SetStore, 'list' | 'make' | 'edit' | 'remove' | 'restore' | 'accept' | 'dismiss' | 'withSelectors' | 'refsOf'>
   /** A project of the open workspace. */
   object(objectId: string): ObjectInfo | undefined
   /** The last successful build of a project: its number and its scene. */
@@ -87,6 +87,57 @@ export function setHandlers(deps: SetIpcDeps) {
     return raw.map(memberAsk)
   }
 
+  /** The build the refs the window sends are of: the one it shows. Nothing: they are taken to be of the last. */
+  const buildOf = (raw: unknown): number | undefined => {
+    if (raw === undefined) return undefined
+    if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0) throw new Refusal('The build the refs are of is a whole number.')
+    return raw
+  }
+
+  /**
+   * A face or an edge asked for with no point is placed by the kernel before it is kept: where it is, and for a face which way it
+   * faces. One that cannot be (the kernel does not say, or cannot be asked, or the refs are of a build that is not the last, which
+   * would name other faces) refuses the whole ask, in words: no member is kept held at the middle of its part, where no build
+   * would ever look for it.
+   */
+  const placed = async (obj: ObjectInfo, layout: string, asks: MemberAsk[], revision: number | undefined): Promise<MemberAsk[]> => {
+    const byPart = new Map<string, string[]>()
+    for (const ask of asks) {
+      if (!('ref' in ask) || ask.point !== undefined) continue
+      const parsed = parseSetRef(ask.ref)
+      if (parsed && parsed.kind !== 'part') byPart.set(parsed.part, [...(byPart.get(parsed.part) ?? []), ask.ref])
+    }
+    if (byPart.size === 0) return asks
+    const last = deps.build(obj.id)?.revision
+    if (revision !== undefined && last !== undefined && revision < last) throw new Refusal(`${obj.name} was built again since that was selected: select it again`)
+    const answers = new Map<string, SelectorFound>()
+    for (const [, refs] of byPart) {
+      try {
+        const reply = await deps.query<{ selectors?: SelectorFound[] }>(obj.id, 'selectors', { layout, refs })
+        if (!Array.isArray(reply?.selectors)) throw new Error('the kernel did not answer')
+        for (const one of reply.selectors) if (one && typeof one.ref === 'string') answers.set(one.ref, one)
+      } catch (e) {
+        throw new Refusal(`The kernel could not say where ${refs.join(', ')} ${refs.length === 1 ? 'is' : 'are'}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    const lacking: string[] = []
+    const out = asks.map((ask): MemberAsk => {
+      if (!('ref' in ask) || ask.point !== undefined) return ask
+      const parsed = parseSetRef(ask.ref)
+      if (!parsed || parsed.kind === 'part') return ask
+      const found = answers.get(ask.ref)
+      const point = finiteVec3(found?.center)
+      if (!found || point === null) {
+        lacking.push(ask.ref)
+        return ask
+      }
+      const normal = parsed.kind === 'face' ? finiteVec3(found.normal) : null
+      return { ref: ask.ref, point, ...(normal ? { normal } : {}) }
+    })
+    if (lacking.length > 0) throw new Refusal(`The kernel gave no place for ${lacking.join(', ')}: nothing was changed; select again`)
+    return out
+  }
+
   /** The follow-up of a change, which is not waited for: tests and the app's quit wait for `idle`. */
   const pending = new Set<Promise<void>>()
 
@@ -97,6 +148,8 @@ export function setHandlers(deps: SetIpcDeps) {
    */
   const askSelectors = async (obj: ObjectInfo, revision: number | undefined, set: NamedSet): Promise<void> => {
     if (revision === undefined) return
+    // Never for refs of an earlier build: the same number names another face now. The refind that follows asks for them.
+    if (deps.sets.refsOf(obj.id)[set.id] !== revision) return
     const found: SelectorFound[] = []
     try {
       for (const [, refs] of unanswered(set)) {
@@ -120,41 +173,45 @@ export function setHandlers(deps: SetIpcDeps) {
     },
 
     /** Makes the person's set at once, and then asks for the selectors of its faces and edges and writes them in a second change. */
-    async make(objectId: string, raw: NewSet): Promise<NamedSet> {
+    async make(objectId: string, raw: NewSet, refsOf?: number): Promise<NamedSet> {
       const obj = project(objectId)
+      const given = buildOf(refsOf)
       if (!isRecord(raw)) throw new Refusal('That is not a named set.')
       for (const key of Object.keys(raw)) if (!NEW_KEYS.includes(key)) throw new Refusal(`${key} is not part of a named set that is made: the name, comment, colour, layout and members are.`)
+      const layout = text(raw.layout, 'A layout')
       const ask: NewSet = {
         name: text(raw.name, 'A name'),
         comment: raw.comment === undefined ? '' : text(raw.comment, 'A comment'),
         ...(raw.colour === undefined ? {} : { colour: colour(raw.colour) }),
-        layout: text(raw.layout, 'A layout'),
-        members: memberAsks(raw.members, 'members')
+        layout,
+        members: await placed(obj, layout, memberAsks(raw.members, 'members'), given)
       }
       const revision = deps.build(obj.id)?.revision
-      const set = await deps.sets.make(obj.id, ask, 'person')
+      const set = await deps.sets.make(obj.id, ask, 'person', given)
       followed(obj, revision, set)
       return set
     },
 
     /** Changes a set: the name, the comment, the colour, members added and taken, lost ones re-picked. What was added gets its selectors. */
-    async edit(objectId: string, id: string, raw: SetEdit): Promise<NamedSet> {
+    async edit(objectId: string, id: string, raw: SetEdit, refsOf?: number): Promise<NamedSet> {
       const obj = project(objectId)
       const named = setId(id)
+      const given = buildOf(refsOf)
       if (!isRecord(raw)) throw new Refusal('That is not a change to a named set.')
       for (const key of Object.keys(raw)) if (!EDIT_KEYS.includes(key)) throw new Refusal(`${key} of a named set cannot be changed: the name, comment, colour and members can.`)
       const edit: SetEdit = {}
       if (raw.name !== undefined) edit.name = text(raw.name, 'A name')
       if (raw.comment !== undefined) edit.comment = text(raw.comment, 'A comment')
       if (raw.colour !== undefined) edit.colour = colour(raw.colour)
-      if (raw.add !== undefined) edit.add = memberAsks(raw.add, 'add')
-      if (raw.repick !== undefined) edit.repick = memberAsks(raw.repick, 'repick')
+      const layout = raw.add !== undefined || raw.repick !== undefined ? (await deps.sets.list(obj.id)).find((s) => s.id === named)?.layout : undefined
+      if (raw.add !== undefined) edit.add = layout === undefined ? memberAsks(raw.add, 'add') : await placed(obj, layout, memberAsks(raw.add, 'add'), given)
+      if (raw.repick !== undefined) edit.repick = layout === undefined ? memberAsks(raw.repick, 'repick') : await placed(obj, layout, memberAsks(raw.repick, 'repick'), given)
       if (raw.take !== undefined) {
         if (!Array.isArray(raw.take) || raw.take.length > MOST_SET_MEMBERS || !raw.take.every((t) => typeof t === 'string' && t.length <= MAX_TEXT)) throw new Refusal('take is a list of the refs of members.')
         edit.take = [...(raw.take as string[])]
       }
       const revision = deps.build(obj.id)?.revision
-      const set = await deps.sets.edit(obj.id, named, edit)
+      const set = await deps.sets.edit(obj.id, named, edit, given)
       if (edit.add !== undefined || edit.repick !== undefined) followed(obj, revision, set)
       return set
     },
