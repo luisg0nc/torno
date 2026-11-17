@@ -300,7 +300,8 @@ function sketch(mark: SketchMark): string {
   const plural = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : 's'}`
   const on = [...(mark.planes.length > 0 ? [plural(mark.planes.length, 'plane')] : []), ...(mark.strokes.some((s) => s.plane === undefined) ? ['the surface'] : [])]
   const take = `${mark.take}${mark.diameter === undefined ? '' : ` ⌀${number(mark.diameter)} mm`}`
-  return `· sketch "${mark.name}" · ${take} · ${plural(mark.strokes.length, 'stroke')}${on.length > 0 ? ` on ${on.join(' and ')}` : ''} · ${mark.status}, drawn on build ${mark.revision}`
+  const name = mark.name === '' ? `Sketch ${mark.id}` : `sketch "${mark.name}"`
+  return `· ${name} · ${take} · ${plural(mark.strokes.length, 'stroke')}${on.length > 0 ? ` on ${on.join(' and ')}` : ''} · ${mark.status}, drawn on build ${mark.revision}`
 }
 
 /** `lid/F12 (plane, normal +Z, z = 20, 1180 mm²)`, or the ref alone when the kernel has said nothing of it. */

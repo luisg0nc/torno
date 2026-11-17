@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Hit } from '../src/renderer/viewport/picking'
-import type { ArrowMark, MarksFile, PickMark, PinMark, ShapeMark, StrokeMark } from '../src/shared/marks'
+import type { ArrowMark, MarksFile, PickMark, PinMark, ShapeMark, SketchMark } from '../src/shared/marks'
 import { TOOL_KEYS, doesOf } from '../src/shared/keys'
 import { pointerLine } from '../src/shared/pointer'
 import type { Camera, LookRequest } from '../src/shared/view'
@@ -696,224 +696,34 @@ test('an orthographic standard view is locked, and says so on its button; turnin
   await expect(more).toHaveAccessibleName('More views: locked on back')
 })
 
-test('D takes the draw tool; on the locked front view a stroke beside the part is a profile on XZ, in millimetres', async () => {
+// A sketch is drawn in `e2e/sketch.spec.ts`: planes, pens, snapping, the panel and what the agent is told.
+test('D takes the draw tool and opens a sketch that writes nothing until its first stroke; Escape leaves it', async () => {
   await expect(tool('Draw')).toBeEnabled()
-  await page.keyboard.press('2')
+  await page.keyboard.press('1')
   await atRest()
-  await expect.poll(async () => (await state()).lockedView).toBe('front')
+  const before = marksOnDisk().marks.length
   await page.keyboard.press('d')
   await expect(tool('Draw')).toHaveAttribute('aria-pressed', 'true')
   await expect(canvas()).toHaveCSS('cursor', 'crosshair')
-
-  // Beside the post and above the base: three segments, 10 mm wide and 14 mm high, on the plane y = 0.
-  const path: Vec3[] = [[8, 0, 6], [18, 0, 10], [8, 0, 16], [18, 0, 20]]
-  for (const point of path) expect(await pickOver(point)).toBeNull()
-  const view = await camera()
-  const before = marksOnDisk().marks.length
-  await strokeOver(path, { hold: true })
-  // While it is drawn: the plane, and how large the drawing is on it; nothing is kept yet, and the camera stays put.
-  await expect(readout().locator('.pick-readout-ref')).toHaveText('XZ at y = 0.0 (u = +X, v = +Z)')
-  await expect(readout().locator('.pick-readout-detail')).toHaveText(/^\d+\.\d × \d+\.\d mm$/)
+  await expect(page.getByRole('complementary', { name: 'Sketch' })).toBeVisible()
   expect(marksOnDisk().marks).toHaveLength(before)
-  await page.mouse.up()
-
-  await expect(card()).toBeVisible()
-  await expect(field()).toBeFocused()
-  await expect(readout()).toBeHidden()
-  expect(await camera()).toEqual(view)
-  const stroke = marksOnDisk().marks.at(-1) as StrokeMark
-  expect(marksOnDisk().marks).toHaveLength(before + 1)
-  expect(stroke).toMatchObject({ kind: 'stroke', space: 'plane', author: 'user', status: 'draft', layout: 'assembly', plane: { x: [1, 0, 0], y: [0, 0, 1] } })
-  // The label says which way the plane's axes run: the same plane drawn on from the back would say u = -X.
-  expect(stroke.plane!.label).toMatch(/^XZ at y = -?\d+\.\d \(u = \+X, v = \+Z\)$/)
-  expect(stroke.plane!.label).toBe('XZ at y = 0.0 (u = +X, v = +Z)')
-  expect(stroke.points).toBeUndefined()
-  expect(stroke.anchor.part).toBeUndefined()
-  // Millimetres on the plane, from its origin: the extents are those of the drag.
-  const us = stroke.points2d!.map((p) => p[0])
-  const vs = stroke.points2d!.map((p) => p[1])
-  expect(stroke.points2d).toHaveLength(4)
-  expect(Math.abs(Math.max(...us) - Math.min(...us) - 10) / 10).toBeLessThan(0.05)
-  expect(Math.abs(Math.max(...vs) - Math.min(...vs) - 14) / 14).toBeLessThan(0.05)
-  // And they are where they were drawn: origin + u·x + v·y.
-  for (const [i, [u, v]] of stroke.points2d!.entries()) {
-    expect(stroke.plane!.origin[0] + u).toBeCloseTo(path[i][0], 0)
-    expect(stroke.plane!.origin[2] + v).toBeCloseTo(path[i][2], 0)
-  }
-  expect(stroke.plane!.origin[1]).toBeCloseTo(0, 6)
-  for (const [i, c] of path[0].entries()) expect(stroke.anchor.point[i]).toBeCloseTo(c, 0)
-
-  // The note is at the stroke's first point, and says which plane and how large.
-  await expect(card().locator('.note-ref')).toHaveText('XZ at y = 0.0 (u = +X, v = +Z)')
-  await expect(card().locator('.note-detail')).toHaveText(/^\d+\.\d × \d+\.\d mm$/)
-  const { box: note, at } = await noteAndPoint(path[0])
-  expect(inside(note, at, 6)).toBe(false)
-  expect(inside(note, at, 140)).toBe(true)
-  await page.keyboard.type('this profile, 3 mm thick')
-  await page.keyboard.press('Enter')
-  await expect.poll(() => marksOnDisk().marks.at(-1)?.note).toBe('this profile, 3 mm thick')
-  await expect(page.locator(`.mark-row[data-mark="${stroke.id}"] .mark-kind`)).toHaveAttribute('aria-label', 'Stroke')
-})
-
-test('while a stroke is drawn the wheel still zooms, the view stays locked, and Escape drops the stroke', async () => {
-  const before = marksOnDisk().marks.length
+  // Alt-drag turns the camera with Draw in hand, and leaves no stroke.
   const view = await camera()
-  await strokeOver([[8, 0, 6], [14, 0, 12]], { hold: true })
-  await expect(readout()).toBeVisible()
-  await page.mouse.wheel(0, -200)
-  await expect.poll(async () => (await camera()).zoom).toBeGreaterThan(view.zoom)
-  // Zoomed, not turned.
-  // (Read back from the camera's turn, to a float's noise.)
-  const up = await page.evaluate(() => window.__tornoTest!.camera().up)
-  for (let i = 0; i < 3; i++) expect(up[i]).toBeCloseTo(view.up[i], 12)
-  await page.keyboard.press('Escape')
-  await expect(readout()).toBeHidden()
-  await expect(tool('Draw')).toHaveAttribute('aria-pressed', 'true')
-  await page.mouse.up()
-  await expect(card()).toHaveCount(0)
-  expect(marksOnDisk().marks).toHaveLength(before)
-  await expect.poll(async () => (await state()).lockedView).toBe('front')
-})
-
-test('on a locked view with Draw in hand the pointer is told which plane a stroke would be on; Alt-drag turns the view', async () => {
-  await page.keyboard.press('2')
-  await atRest()
-  await expect.poll(async () => (await state()).lockedView).toBe('front')
-  const before = marksOnDisk().marks.length
-  const [x, y] = await pageXY([12, 0, 12])
-  await page.mouse.move(x, y)
-  await expect(readout()).toHaveText('Draws on XZ at y = 0.0. Alt-drag or Iso (1) to turn the view')
-
-  // With Alt the press is the camera's: no stroke, and the view is turned, so no longer locked.
-  const view = await camera()
-  await page.keyboard.down('Alt')
-  await page.mouse.down()
-  await page.mouse.move(x + 30, y)
-  await page.mouse.move(x + 60, y + 10)
-  await page.mouse.up()
-  await page.keyboard.up('Alt')
-  expect((await camera()).position).not.toEqual(view.position)
-  await expect.poll(async () => (await state()).lockedView).toBeNull()
-  await expect(lockOf('front')).not.toHaveAttribute('data-locked')
-  await expect(card()).toHaveCount(0)
-  expect(marksOnDisk().marks).toHaveLength(before)
-  await expect(tool('Draw')).toHaveAttribute('aria-pressed', 'true')
-})
-
-test('with Draw in hand a standard view in perspective is taken in orthographic, so it is locked; the pointer says how otherwise, and turning the view gives perspective back', async () => {
-  await page.getByRole('button', { name: 'Perspective', exact: true }).click()
-  await page.keyboard.press('1')
-  await atRest()
-  await expect(tool('Draw')).toHaveAttribute('aria-pressed', 'true')
-  expect((await state()).lockedView).toBeNull()
-  // Front chosen with Draw in hand: orthographic at once, so locked.
-  await page.getByRole('button', { name: 'Front', exact: true }).click()
-  await expect.poll(async () => (await state()).lockedView).toBe('front')
-  expect((await state()).ortho).toBe(true)
-  await expect(lockOf('front')).toHaveAttribute('data-locked', '')
-  // Turning the view gives perspective back.
   const box = (await canvas().boundingBox())!
   await page.mouse.move(box.x + box.width - 30, box.y + box.height - 80)
   await page.keyboard.down('Alt')
-  await page.mouse.down()
-  await page.mouse.move(box.x + box.width - 70, box.y + box.height - 90)
-  await page.mouse.move(box.x + box.width - 110, box.y + box.height - 100)
-  await page.mouse.up()
-  await page.keyboard.up('Alt')
-  await expect.poll(async () => (await state()).lockedView).toBeNull()
-  await expect.poll(async () => (await state()).ortho).toBe(false)
-})
-
-test('on a free view a stroke across the top of the base lies on the surface', async () => {
-  await page.keyboard.press('1') // iso: not a view to lock on
-  await atRest()
-  await expect.poll(async () => (await state()).lockedView).toBeNull()
-  await expect(tool('Draw')).toHaveAttribute('aria-pressed', 'true')
-  const before = marksOnDisk().marks.length
-  // From the front corner: the chip of M5 is drawn over the back one.
-  const path: Vec3[] = [[12, -12, 2.5], [16, -6, 2.5], [10, 0, 2.5], [15, 11, 2.5]]
-  const hit = (await pickOver(path[0]))!
-  expect(hit.part).toBe('base')
-  await strokeOver(path)
-  await expect(card()).toBeVisible()
-  const stroke = marksOnDisk().marks.at(-1) as StrokeMark
-  expect(marksOnDisk().marks).toHaveLength(before + 1)
-  expect(stroke).toMatchObject({ kind: 'stroke', space: 'surface', author: 'user', anchor: { part: 'base', descriptor: 'plane, normal +Z, z = 2.5, 1200 mm²' } })
-  expect(stroke.plane).toBeUndefined()
-  expect(stroke.points2d).toBeUndefined()
-  expect(stroke.points).toHaveLength(4)
-  for (const point of stroke.points!) expect(Math.abs(point[2] - 2.5)).toBeLessThan(0.01)
-  for (const [i, point] of stroke.points!.entries()) expect(length(point, path[i])).toBeLessThan(0.6)
-  expect(stroke.anchor.point).toEqual(stroke.points![0])
-  await page.keyboard.press('Escape') // the note
-  await expect(card()).toHaveCount(0)
-
-  // A press beside the part is no stroke: it turns the camera as ever.
-  const view = await camera()
-  const box = (await canvas().boundingBox())!
-  await page.mouse.move(box.x + box.width - 30, box.y + box.height - 80)
   await page.mouse.down()
   await page.mouse.move(box.x + box.width - 70, box.y + box.height - 80)
+  await page.mouse.move(box.x + box.width - 110, box.y + box.height - 90)
   await page.mouse.up()
+  await page.keyboard.up('Alt')
   expect((await camera()).position).not.toEqual(view.position)
-  expect(marksOnDisk().marks).toHaveLength(before + 1)
-  await page.keyboard.press('v')
-})
-
-test('a stroke that starts on a mark’s chip is drawn, the camera stays, and a click on a chip still opens its row', async () => {
-  await page.keyboard.press('1')
-  await atRest()
-  await page.keyboard.press('d')
-  await expect(tool('Draw')).toHaveAttribute('aria-pressed', 'true')
-  // A chip drawn over a part, with part to draw on a little further along.
-  const found = await page.evaluate(() => {
-    const t = window.__tornoTest!
-    for (const mark of t.state().marks) {
-      const at = t.markScreen(mark.id)
-      if (!at?.visible || t.chipAt(at.x, at.y) !== mark.id || !t.pickAt(at.x, at.y)) continue
-      for (const dx of [0.04, -0.04]) if (t.pickAt(at.x + dx, at.y)) return { x: at.x, y: at.y, dx }
-    }
-    return null
-  })
-  expect(found, 'a chip over a part').not.toBeNull()
-  const { x, y, dx } = found!
-  const box = (await canvas().boundingBox())!
-  const [px, py] = [box.x + x * box.width, box.y + y * box.height]
-  const view = await camera()
-  const before = marksOnDisk().marks.length
-
-  await page.mouse.move(px, py)
-  await page.mouse.down()
-  for (let i = 1; i <= 8; i++) await page.mouse.move(px + (dx * box.width * i) / 8, py)
-  await page.mouse.up()
-  await expect(card()).toBeVisible()
-  expect(marksOnDisk().marks).toHaveLength(before + 1)
-  expect(marksOnDisk().marks.at(-1)).toMatchObject({ kind: 'stroke', author: 'user' })
-  expect(await camera()).toEqual(view)
+  expect(marksOnDisk().marks).toHaveLength(before)
   await page.keyboard.press('Escape')
-  await expect(card()).toHaveCount(0)
-
-  // A click on a chip is still the chip's (found again: the stroke just drawn has put its own chip about).
-  const again = await page.evaluate(() => {
-    const t = window.__tornoTest!
-    for (const mark of t.state().marks) {
-      const at = t.markScreen(mark.id)
-      if (at?.visible && t.chipAt(at.x, at.y) === mark.id) return { id: mark.id, x: at.x, y: at.y }
-    }
-    return null
-  })
-  expect(again, 'a chip to click').not.toBeNull()
-  await page.mouse.click(box.x + again!.x * box.width, box.y + again!.y * box.height)
-  await expect.poll(async () => (await state()).activeMark).toBe(again!.id)
-  expect(marksOnDisk().marks).toHaveLength(before + 1)
-  // A draft of the person's opens its note too: put it away.
-  if (await card().count()) {
-    await page.keyboard.press('Escape')
-    await expect(card()).toHaveCount(0)
-  }
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-  await page.keyboard.press('v')
+  await page.keyboard.press('Escape')
   await expect(tool('Select')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('complementary', { name: 'Sketch' })).toHaveCount(0)
+  expect(marksOnDisk().marks).toHaveLength(before)
 })
 
 const shapeButton = () => tool('Shape')
@@ -1172,16 +982,17 @@ test('a stroke drawn across the gizmo of the active shape is kept whole: the pre
   await page.mouse.move(cx + (cy - y0) / 3, cy - (cx - x0) / 3) // and on, round a corner: the sample over the handle is the corner
   await page.mouse.up()
 
-  await expect(card()).toBeVisible()
-  expect(marksOnDisk().marks).toHaveLength(marks + 1)
-  const stroke = marksOnDisk().marks.at(-1) as StrokeMark
-  expect(stroke).toMatchObject({ kind: 'stroke', space: 'surface', anchor: { part: 'base' } })
+  // A sketch is made, with its first stroke; the press that began on the part was the pen's, not the handle's.
+  await expect.poll(() => marksOnDisk().marks.length).toBe(marks + 1)
+  const sketch = marksOnDisk().marks.at(-1) as SketchMark
+  expect(sketch).toMatchObject({ kind: 'sketch', author: 'user' })
+  expect(sketch.strokes).toHaveLength(1)
   // Every sample is there, the one taken over the handle too.
-  expect(stroke.points!.length).toBeGreaterThanOrEqual(3)
+  expect((sketch.strokes[0].points ?? sketch.strokes[0].points2d)!.length).toBeGreaterThanOrEqual(3)
   // The shape was not moved by it.
   expect(shapeOnDisk(box).position).toEqual(shape.position)
-  await page.keyboard.press('Escape') // the note
-  await expect(card()).toHaveCount(0)
+  await page.keyboard.press('Escape') // leaves the sketch, which is kept
+  await expect(page.getByRole('complementary', { name: 'Sketch' })).toHaveCount(0)
   await page.keyboard.press('s')
 })
 
@@ -1243,8 +1054,8 @@ test('a note that goes away by itself keeps what was typed; Control+A selects al
 
 // Set TORNO_SHOTS=<dir> to write tool-pin-light.png, tool-arrow-light.png,
 // tool-draw-light.png, tool-shape-light.png and their -dark twins there: the
-// note open on a fresh pin, an arrow being dragged with its readout, a profile
-// being drawn on the locked front view, and a box to remove with its gizmo and
+// note open on a fresh pin, an arrow being dragged with its readout, a sketch
+// with a stroke on the XZ plane and its panel, and a box to remove with its gizmo and
 // its fields. Each picture needs its own launch: on a hidden
 // window capturePage() delivers one image and hangs on the next call, and
 // page.screenshot() never returns.
@@ -1285,14 +1096,12 @@ for (const shot of ['pin-light', 'pin-dark', 'arrow-light', 'arrow-dark', 'draw-
         await shotPage.evaluate(() => (document.activeElement as HTMLElement).blur())
         await expect(canvas(shotPage)).toHaveAttribute('data-gizmo', 'translate')
       } else if (shot.startsWith('draw')) {
-        await shotPage.keyboard.press('o')
-        await shotPage.keyboard.press('2')
-        await expect.poll(async () => (await state(shotPage)).lockedView).toBe('front')
         await shotPage.keyboard.press('d')
-        // A gusset between the base and the post, drawn by hand: not quite straight.
+        // A gusset between the base and the post, drawn by hand on the plane the view faces: not quite straight.
         const profile: Vec3[] = [[17, 0, 2.6], [16.2, 0, 4.4], [14.1, 0, 7.2], [11.8, 0, 10.5], [9.2, 0, 13.4], [7.1, 0, 16.6], [5.2, 0, 19.3], [4.1, 0, 20.4]]
-        await strokeOver(profile, { hold: true }, shotPage)
-        await expect(readout(shotPage)).toBeVisible()
+        await shotPage.keyboard.press('Shift+2')
+        await strokeOver(profile, {}, shotPage)
+        await expect(shotPage.getByRole('complementary', { name: 'Sketch' })).toBeVisible()
       } else {
         await shotPage.keyboard.press('a')
         await dragOver([0, -4, 16], [14, -15, 16], { hold: true }, shotPage)

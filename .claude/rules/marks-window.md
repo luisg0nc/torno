@@ -46,7 +46,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   again per move. On a chip the cursor is `pointer`, the mark is `hoverMark`ed as from its row, and the readout says
   `chipSays` (a note in the face of the UI, `Readout.note`, one line cut to its width; a dimension's numbers as a
   ref's). A click opens it whatever tool is in hand (the head ruling of #74): `goToRow` (active, row in view, the
-  camera stays as it is in view) and, for a draft of the person's, `actions.openNote`. A drag that starts on a chip
+  camera stays as it is in view) and, for a draft of the person's, `actions.openNote`; for a 3D sketch of theirs that is a draft, `editSketch` instead, since its comment is in the sketch panel (a sent one only opens its row; its Edit button opens it). A drag that starts on a chip
   is the orbit's with Select in hand. With a tool that takes presses (`ChipHost.tool`: not Select, not with the parts stale
   or apart, not with Alt) the camera is held (`Viewport.holdCamera`) from the press; past the click threshold (4 px) the
   tool is handed the press as it was made and every event after it (a tool that does not drag, as Pin, gives the camera

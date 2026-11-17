@@ -139,3 +139,59 @@
   justify-content: flex-end;
   gap: var(--space-2);
 }
+
+/* ---- The pens of a sketch being drawn ---- */
+
+/* At the foot of the view, above the axis triad, where the Measure tool's strip stands (`--triad-clear`, `styles/layout.css`). */
+.sketchpens {
+  position: absolute;
+  bottom: calc(var(--triad-clear) + var(--space-1));
+  left: var(--space-3);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100% - 2 * var(--space-3));
+  padding: 3px;
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
+.sketchpens-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sketchpens-button:hover {
+  background: var(--accent-wash);
+}
+
+.sketchpens-button[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.sketchpens-button kbd {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: inherit;
+}
+
+.sketchpens-gap {
+  align-self: stretch;
+  margin: 2px 3px;
+  border-left: var(--divider);
+}

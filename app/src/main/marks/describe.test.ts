@@ -106,6 +106,10 @@ describe('describeMark of a sketch', () => {
       ...over
     })
 
+  it('calls a sketch with no name by its number, as the window does', () => {
+    expect(describeMark(sketch({ name: '' }))).toBe('M7 · Sketch M7 · flow ⌀19 mm · 3 strokes on 2 planes and the surface · draft, drawn on build 41')
+  })
+
   it('says what it is, how to take it, what it holds and the build it was drawn on', () => {
     expect(describeMark(sketch())).toBe('M7 · sketch "Breather hose route" · flow ⌀19 mm · 3 strokes on 2 planes and the surface · draft, drawn on build 41')
   })

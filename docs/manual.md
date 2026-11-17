@@ -1227,7 +1227,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 | `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part) says what a click takes. Shift-click adds or takes out, `Esc` clears. "Insert" puts the selected refs in the session's prompt without sending it; "Note" leaves a mark on each. |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
-| `D` | Draw | A sketch in 3D. Strokes lie on a plane (a sheet drawn over the parts, with a handle on its normal that moves it, and a view cube in the top right: XY, XZ or YZ) or on the surface of the parts. Three pens (freehand, line, point to point) and an eraser; the pointer snaps to a vertex, a hole centre or an edge within 10 px, and a box beside it says to what; `Ctrl` held turns snapping off. X-ray draws the parts see-through. Nothing is written until the first stroke, and every stroke and every change is kept at once. A panel floats at the left of the view while a sketch is open: its number and whether it is a draft or sent, its name, how to take it (Exact, Rough or Flow, and the diameter of a flow), a row for each plane with how many strokes are on it, one for the surface (a click makes it the one strokes go on, and the pointer on it lights its strokes), "+ New plane" from a face or a point, the offset of the plane, a comment, Undo and Done. Alt-drag turns the camera with this tool in hand. |
+| `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
 | `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
 | `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
@@ -1276,7 +1276,7 @@ the mark's row lights, and its note is read out beside the pointer on one line
 (`M1 too thin here`; for a dimension its numbers, `M3 40 mm, expected 42 ±
 0.05, 2 under`). A click on a chip makes its mark the active one and brings
 its row into view, opened, without moving the camera; for a mark of yours not
-yet sent, its note opens beside it to be written. A click on a chip is the
+yet sent, its note opens beside it to be written (a 3D sketch of yours opens in Draw, where its comment is). A click on a chip is the
 chip's whatever tool is in hand: no pin is left under it. A drag that starts on
 a chip turns the camera with Select in hand, as anywhere else; with Draw, Arrow, Shape, Region or another
 tool that drags, it goes to the tool once it has moved past a click, so a stroke may begin under a chip (and
@@ -1328,6 +1328,51 @@ the camera stays still).
   it was about keep what the last check found and say "not checked against
   r12", in their rows and wherever the agent reads them. Torno tries again
   after 2, 10 and 30 seconds, and at the next build.
+
+
+### 3D sketches
+
+With Draw in hand a sketch is open: a drawing in space that tells Claude where something goes, how it runs or what is
+meant, in millimetres in the project's own frame. A panel floats at the left of the view and a small strip of pens at its
+foot; both are there while the sketch is open.
+
+- **Planes.** A stroke lies on a **plane** or on the **surface** of the parts. A new sketch starts on the plane the view
+  faces (XY, XZ or YZ) through the middle of the parts. The plane is a sheet drawn over the parts, with a handle on its
+  normal that moves it, and a view cube at the top right of the view (XY, XZ, YZ). `Shift+1`, `Shift+2` and `Shift+3`
+  take the main planes; `N` takes the plane of the flat face under the pointer; "+ New plane" in the panel makes one from
+  a face you click or from a point (across the face there, or along an axis); `U` goes back to the surface. The offset of
+  the plane is typed in the panel (`Tab` takes you to its field). Where strokes already lie on a plane, moving it makes a
+  plane of its own, so that they stay where they were drawn.
+- **Pens.** `B` is the freehand pen, `L` a straight line (press and drag, or click twice), `P` point to point (a click
+  for each point, `Enter` ends it), `C` the eraser (a click takes the stroke under the pointer). The
+  strip at the foot of the view has a button for each, with its key, and two switches. While a segment is drawn the
+  figures type its length and `Enter` fixes it; `Backspace` takes the last point or figure back.
+- **Snapping.** The pointer snaps to a vertex, to the centre of a hole or a circle, or to a point on an edge, within 10
+  px, and a box beside it says to what. A point on a plane is the snap projected onto it. `Ctrl` held turns snapping off
+  for as long as it is held; the **Snap** switch turns it off for good. Claude is told a point is exact only when it is a
+  vertex, a circle's centre or a point on a straight or circular edge, which torno checks again against the build; any
+  other point is told to a tenth of a millimetre and as approximate.
+- **X-ray.** `I`, or the **X-ray** switch, draws the parts see-through, so that strokes can be drawn on what is hidden.
+  What lies behind a part is drawn dashed in a stroke that was drawn in x-ray, and not drawn otherwise.
+- **How to take it.** **Exact** (follow these points to the millimetre), **Rough** (the shape and the place matter, not
+  the points) or **Flow** (a route: follow its path loosely, and keep its diameter clear). `K` goes to the next. A flow
+  has a diameter, 500 mm at most, and is drawn as a translucent tube along its strokes.
+- **The panel.** The sketch's number and whether it is a draft or sent, its name, how to take it, a row for each plane
+  with how many strokes lie on it and one for the surface (a click makes it the one strokes go on; the pointer on it
+  lights its strokes), the offset, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
+  gives up a stroke under way, then leaves the sketch; what was drawn is kept. A sketch holds 200 strokes, 400 points a
+  stroke and 20,000 in all.
+- **What Claude gets.** A sketch is a draft until it goes with your next prompt, as words only, never a picture: its
+  planes and how each was made, each stroke's pen, plane, length and the faces it touches in the build it was drawn on,
+  its points (`exact: centre of plate/E4 (r 4)`, or `approximate`), how to take it, the diameter of a flow, and the camera
+  it was drawn from. A sketch that is open waits: it is not sent until Done. Each stroke and plane says which build it was
+  drawn on, and Claude is told when the model has been built again since.
+- **Afterwards.** A sketch has a row in the Marks list, a card on the board and its strokes in the view, in your
+  colour; **Edit** on its row, a click on its chip while it is a draft, or a double click on its card opens it again in
+  Draw. Claude draws sketches of its own with `add_sketch`, in green; it is not yours to change. The stroke marks of
+  earlier versions, which Draw no longer makes, are still listed and drawn.
+
+The keys of a sketch are in [Keys](#keys), under "With a tool in hand".
 
 ## Measuring and dimensions
 

@@ -102,3 +102,4 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `Shift+3`. `Ctrl` held is read off the pointer event (`ViewportPointer.ctrl`), and `Ctrl+Z` has its own listener
   (`connectSketching`), the viewport pane handing no chord to a tool. What it lays over the view (the hint, the label of its
   plane, the view cube) is drawn by `OverlayPass`, and the sheet of the plane and its handle by `SketchSheet`, never through React.
+  The strip of pens (`ui/sketch/SketchPens.tsx`, `.sketchpens` in `styles/sketch.css`, at the foot of the view above the triad as the Measure strip is) is shown while Draw has a sketch open: Free, Line, Point to point and Erase, then Snap and X-ray as switches, each a real `<button>` with its key from `hint()` and calling the actions the keys call (`setPen`, `setSnapping`, `setXray`), so a key and a button never disagree. Snap has no key of its own: it shows `Ctrl`, which turns it off while held.

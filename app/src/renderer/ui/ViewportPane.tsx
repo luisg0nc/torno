@@ -23,7 +23,7 @@ import { alignTool, connectAlign } from '../tools/alignTool'
 import { arrowTool } from '../tools/arrowTool'
 import { connectSketching, sayRefusal, sketchTool } from '../tools/sketchTool'
 import { MissingPictures } from '../state/sketchPictures'
-import { leaveSketch, setSketchEnv, sketchStore } from '../state/sketching'
+import { editSketch, leaveSketch, setSketchEnv, sketchStore } from '../state/sketching'
 import { measureTool } from '../tools/measureTool'
 import { commitMark, replaceMark } from '../tools/pickMarks'
 import { pinTool } from '../tools/pinTool'
@@ -49,6 +49,7 @@ import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { Selection } from './Selection'
 import { SketchPanel } from './sketch/SketchPanel'
+import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
 import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
@@ -280,8 +281,11 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       if (!mark || !s.objectId) return
       // Its row opens, in view; the camera stays: the person is looking at it.
       goToRow(id)
-      // A mark of the person's not yet sent: its note opens beside it, to be written.
-      if (mark.author === 'user' && mark.status === 'draft') actions.openNote({ objectId: s.objectId, layout: s.layout, id })
+      // A mark of the person's not yet sent: its note opens beside it, to be written; a 3D sketch of theirs opens in Draw instead, where its comment is.
+      if (mark.author === 'user' && mark.status === 'draft') {
+        if (mark.kind === 'sketch') void editSketch(mark)
+        else actions.openNote({ objectId: s.objectId, layout: s.layout, id })
+      }
     },
     // A tool that takes presses has the drag that starts on a chip once it passes the click threshold.
     tool: {
@@ -781,6 +785,7 @@ export function ViewportPane() {
           <AlignBar />
           <RegionBar />
           <SketchPanel />
+          <SketchPens />
           <AgentLine />
           <QuestionCard where="view" />
           <ToolHint />

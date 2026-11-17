@@ -71,7 +71,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   knows a sketch's `picture` as live, and a removed sketch's as kept for an undo. `marks:sketching` only records which
   sketch of an object is open (`openSketch(objectId)`, in memory, forgotten with the workspace and when the window loads again, its renderer
   goes or its contents are destroyed: `forgetSketchesWith`). `contextFor` leaves that sketch out of the drafts and the open marks and never marks
-  it sent (`ContextDeps.sketching`), and says `M7 is being sketched, not sent.`; a draft sketch goes with a prompt as its line (`describeMark`)
+  it sent (`ContextDeps.sketching`), and says `M7 is being sketched, not sent.`; a draft sketch goes with a prompt as its line (`describeMark`; `Sketch M7` where its name is empty, as the window says it)
   and `sketchText` (`main/sketches/text.ts`: planes and how each was made, each stroke's pen, plane, length and `touches` of its build,
   points to 0.1 mm when free and in full with what they snapped to when snapped, how to take it, the camera): at most 2000 points in a
   prompt, whole strokes, the rest counted with where to read it, and fewer when the prompt has no room. A sketch is text only: no picture

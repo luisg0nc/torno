@@ -17,6 +17,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## What crosses processes (root `CLAUDE.md`)
 
+- "Draw on view" is not the Draw tool: a drawing on the view is a picture with ink, drawn over the agent's own picture of the view (a view note); the Draw tool (`D`) is a 3D sketch, text only with no picture (`state/sketching.ts`, `marks-store`), and the two share nothing but the word. A sketch's card of the board is the one picture of it, for the person, and is never sent.
 - A drawing on the view ("Draw on view" in the chat) is a view note: "Done" makes it through `notes.make` (a draft mark with its
   pictures in `.torno/notes/`), and it goes with the next chat prompt of itself (`Sessions.sendOne`, `notes/prompt.ts`). The
   prompt names what the ink lies over by ref, with the kernel's line, and never a coordinate (the hit points are of the mesh).

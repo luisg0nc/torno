@@ -68,6 +68,7 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
 - `themes.spec.ts` has the states `onboard` and `onboard-board` for `TORNO_SHOTS`, and `view-board` for the chat's
   "Draw on view" (`e2e/chatask.spec.ts` drives it: a point of the canvas over a part is found with `pickAt` and the
   same fraction of the board is drawn on; "Done" makes a draft view note, which the next `say` carries, and the words of the note are read from what the stand-in says back, line by line).
+- `e2e/sketch.spec.ts` draws a 3D sketch on the `gauge` fixture (a line on XZ begun on the Ø8 hole's centre, a freehand stroke on the plane of the top face with `N`, Flow ⌀19, Done) with `page.mouse` and reads the marks file, the Marks list, the board's card and the pens strip. The next prompt is `say received` and its text is read from the chat's "torno added" line after "Show text": the stand-in's script never sees what the hook adds. The panel stands over the left of the view, so the points the spec aims at are on the right of the plate; a press under it is not the canvas's, and `N` finds no face.
 
 ## Light and dark (`app/e2e`)
 
