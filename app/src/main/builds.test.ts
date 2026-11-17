@@ -1168,7 +1168,8 @@ describe('watchFolder', () => {
     writeFileSync(join(dir, 'obj', 'model.py'), 'x = 2\n')
     writeFileSync(join(dir, 'obj', 'model.py'), 'x = 3\n')
     writeFileSync(join(dir, 'obj', 'notes.txt'), 'hello')
-    await sleep(600)
+    // Waited for, not slept on: the watcher's events and the debounce run on the runner's clock.
+    await expect.poll(() => paths().length, { timeout: 5000 }).toBe(1)
     expect(paths().map((burst) => [...burst].sort())).toEqual([[join(dir, 'obj', 'model.py'), join(dir, 'obj', 'notes.txt')]])
   })
 
@@ -1200,7 +1201,8 @@ describe('watchFolder', () => {
     const { changes } = await watching(join(dir, 'common'))
     mkdirSync(join(dir, 'common'))
     writeFileSync(join(dir, 'common', 'screws.py'), 'M3 = 3\n')
-    await sleep(700)
+    await expect.poll(changes, { timeout: 5000 }).toBe(1)
+    await sleep(400)
     expect(changes()).toBe(1)
   })
 
