@@ -3,12 +3,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BoardFile } from '../../shared/board'
-import { reconcileProject } from './follow'
+import type { Mark } from '../../shared/marks'
+import type { Round } from '../../shared/reviews'
+import { foundRounds, reconcileProject } from './follow'
 import { BoardStore } from './store'
 
 let dir: string
 let board: BoardStore
-let marks: Array<{ id: string; layout: string }>
+let marks: Array<{ id: string; layout: string; round?: string; author?: 'user' | 'agent'; intent?: 'want' | 'dont' }>
+let rounds: Round[]
 let scans: string[]
 let fail: boolean
 
@@ -17,8 +20,9 @@ const deps = () => ({
   object: (id: string) => (id === 'bracket' ? { id, name: id, dir, model: null } : undefined),
   marks: async () => {
     if (fail) throw new Error('unreadable')
-    return marks
+    return marks as Mark[]
   },
+  rounds: async () => rounds,
   scans: async () => scans
 })
 const read = (): BoardFile => JSON.parse(readFileSync(join(dir, '.torno', 'board', 'board.json'), 'utf8'))
@@ -28,10 +32,27 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'torno-board-follow-'))
   board = new BoardStore({ dirOf: (id) => (id === 'bracket' ? dir : undefined) })
   marks = []
+  rounds = []
   scans = []
   fail = false
 })
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+const round = (id: string, build: string, over: Partial<Round> = {}): Round => ({ id, build, sources: 'abc', line: '', layout: 'lid', startedAt: '2026-11-17T10:00:00Z', ...over })
+
+describe('foundRounds', () => {
+  it('names a round by its counts and lists the marks that are its items, with where it was carried from', () => {
+    const list = [
+      { id: 'M1', author: 'user', kind: 'pin', intent: 'dont', round: 'R1' },
+      { id: 'M2', author: 'user', kind: 'pin', intent: 'want', round: 'R2' },
+      { id: 'M3', author: 'user', kind: 'pin', round: 'R2' }
+    ] as unknown as Mark[]
+    expect(foundRounds([round('R1', 'h41'), round('R2', 'h42', { from: 'R1' })], list)).toEqual([
+      { id: 'R1', name: 'Review of h41 · 1 −', items: ['M1'] },
+      { id: 'R2', name: 'Review of h42 · 1 +', items: ['M2', 'M3'], from: 'R1' }
+    ])
+  })
+})
 
 describe('reconcileProject', () => {
   it('writes nothing for a project with nothing to show', async () => {
@@ -78,6 +99,32 @@ describe('reconcileProject', () => {
     marks = [{ id: 'M1', layout: 'lid' }]
     await reconcileProject(deps(), 'bracket')
     fail = true
+    await reconcileProject(deps(), 'bracket')
+    expect(sources()).toEqual(['mark:M1'])
+  })
+
+  it('puts the frame of a round with its first item, names it for its counts and renames it as they change', async () => {
+    rounds = [round('R1', 'h41')]
+    marks = [{ id: 'M1', layout: 'lid', round: 'R1', author: 'user', intent: 'dont' }]
+    await reconcileProject(deps(), 'bracket')
+    let board = read()
+    const frame = board.cards.find((c) => c.kind === 'frame')
+    expect(frame).toMatchObject({ source: 'R1', by: 'torno', name: 'Review of h41 · 1 −' })
+    expect(board.cards.find((c) => c.source === 'M1')?.frame).toBe(frame?.id)
+
+    marks = [...marks, { id: 'M2', layout: 'lid', round: 'R1', author: 'user', intent: 'want' }]
+    await reconcileProject(deps(), 'bracket')
+    board = read()
+    expect(board.cards.filter((c) => c.kind === 'frame')).toHaveLength(1)
+    expect(board.cards.find((c) => c.kind === 'frame')?.name).toBe('Review of h41 · 1 − · 1 +')
+    expect(board.cards.find((c) => c.source === 'M2')?.frame).toBe(frame?.id)
+  })
+
+  it('leaves the board as it is when the rounds cannot be read', async () => {
+    marks = [{ id: 'M1', layout: 'lid' }]
+    await reconcileProject(deps(), 'bracket')
+    rounds = null as never
+    marks = [...marks, { id: 'M2', layout: 'lid' }]
     await reconcileProject(deps(), 'bracket')
     expect(sources()).toEqual(['mark:M1'])
   })

@@ -236,7 +236,7 @@ function frameFor(board: BoardFile, said: unknown): { frame: Card; made: boolean
   if (typeof said !== 'string' || said.trim() === '') throw new Refusal('A frame is named by its name or its id.')
   const asked = said.trim()
   if (CARD_ID.test(asked)) {
-    const found = cardOf(board, asked)
+    const found = shown(board, asked)
     if (found.kind !== 'frame') throw new Refusal(`${asked} is not a frame of this board.`)
     return { frame: found, made: false }
   }

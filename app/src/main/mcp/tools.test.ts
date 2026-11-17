@@ -2484,6 +2484,18 @@ describe('board and add_card', () => {
     expect(after.cards.find((c) => c.id === 'C3')?.frame).toBeUndefined()
   })
 
+  it('puts a card in the frame of a round, by name or id, and leaves the frame as it was', async () => {
+    await store.torno('bracket', (b) => ({ ...b, next: 2, cards: [{ id: 'C1', kind: 'frame', x: 100, y: 100, w: 816, h: 320, by: 'torno', source: 'R1', name: 'Review of h41 · 1 −' }] }))
+    const before = (await store.read('bracket')).cards[0]
+    const named = textOf(await addCardTool(rig(), 'bracket', { text: 'I thinned the lid', frame: 'Review of h41 · 1 −' }))
+    expect(named).toContain('Review of h41 · 1 −')
+    const byIdd = await addCardTool(rig(), 'bracket', { text: 'and the rib', frame: 'C1' })
+    expect(textOf(byIdd)).not.toContain('was full')
+    const after = await store.read('bracket')
+    expect(after.cards.filter((c) => c.by === 'agent').map((c) => c.frame)).toEqual(['C1', 'C1'])
+    expect(after.cards.find((c) => c.id === 'C1')).toEqual(before)
+  })
+
   it('edits and removes a card of its own', async () => {
     const deps = rig()
     await addCardTool(deps, 'bracket', { text: 'first' })

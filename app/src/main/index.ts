@@ -491,7 +491,7 @@ async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName
   const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides })])
   return boardLine(file, told, live, toolName)
 }
-const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: async (id) => (await marks.list(id)).map((m) => ({ id: m.id, layout: m.layout })), scans: async (id) => (await scans.list(id)).map((s) => s.id) }, objectId)
+const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id) }, objectId)
 marks.on('changed', ({ objectId }) => void followBoard(objectId))
 scans.on('changed', ({ objectId }) => void followBoard(objectId))
 // A mask that did not read for a region is asked for again: what the scans are has changed.
