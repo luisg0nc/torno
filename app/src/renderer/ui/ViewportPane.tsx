@@ -51,6 +51,7 @@ import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { Selection } from './Selection'
 import { inkPicture } from './tracings/inkPicture'
+import { connectTracings3D } from '../state/tracingsIn3d'
 import { SketchPanel } from './sketch/SketchPanel'
 import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
@@ -363,6 +364,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   viewport.setHoverMark(store.getState().hoveredMark)
   viewport.setSection(store.getState().section)
   viewport.setExplode(explodeNow(store.getState()))
+  // The tracings shown in 3D, each in its plane: the viewport draws what this hands it.
+  const offTracings3D = connectTracings3D({ viewport })
   // The gizmo on the active mark while it is a shape, and the keys that say what it does.
   const offShape = connectShapeEdit(viewport)
   // What a 3D sketch needs of the window: the project on show, the picture of its card (drawn as `look` draws, from the camera of the sketch), and where a refusal is said.
@@ -643,6 +646,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
         return { count, meanMs: (performance.now() - started) / Math.max(count, 1), worstMs: worst }
       },
       scans: () => viewport.scanState(),
+      tracings: () => viewport.tracingState(),
       timeThumbnail: async (count = 10, given) => {
         const of = given ?? landed
         if (!of) throw new Error('no build yet')
@@ -682,6 +686,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', endGhosts, true)
     viewport.canvas.removeEventListener('pointerdown', endGhosts, true)
+    offTracings3D()
     offTool()
     offScene()
     offStore()

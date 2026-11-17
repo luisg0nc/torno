@@ -128,6 +128,19 @@ describe('scene file', () => {
     expect(await loadSceneFile(dir)).toEqual({ layers: {}, folded: ['flat'] })
   })
 
+  it('keeps the tracings shown in 3D as T<n> ids, each once, and drops what is none', async () => {
+    await saveSceneFile(dir, { layers: {}, tracingsShown: ['T1', 'T12'] })
+    expect(await loadSceneFile(dir)).toEqual({ layers: {}, tracingsShown: ['T1', 'T12'] })
+    for (const not of ['T1', [1], [], ['t1'], ['T0'], ['T1 '], ['../T1'], { T1: true }]) {
+      forgetSceneFiles()
+      writeFileSync(join(dir, '.torno', 'scene.json'), JSON.stringify({ layers: {}, tracingsShown: not }))
+      expect(await loadSceneFile(dir)).toEqual({ layers: {} })
+    }
+    forgetSceneFiles()
+    writeFileSync(join(dir, '.torno', 'scene.json'), JSON.stringify({ layers: {}, tracingsShown: ['T2', 'x', 'T2', 4, 'T3'] }))
+    expect(await loadSceneFile(dir)).toEqual({ layers: {}, tracingsShown: ['T2', 'T3'] })
+  })
+
   it('keeps the saved views that are views, and loses only the one that is broken', async () => {
     const hinge = view('Hinge side', { hidden: ['lid'], explode: { amount: 0.4, scale: 1, axis: 'z' } })
     await saveSceneFile(dir, { layers: {}, views: [hinge, { name: 'broken' }, view('hinge SIDE'), view('Cut', { section: { origin: [0, 0, 3], normal: [0, 0, 2] } })] } as unknown as SceneFile)

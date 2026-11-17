@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { plainText } from '../../../test/plainText'
 import { PaletteView } from './Palette'
 
-const html = (tool: 'select' | 'trace' | 'pin' | 'ink' | 'measure' | 'offset' = 'select'): string => renderToStaticMarkup(createElement(PaletteView, { tool }))
+const html = (tool: 'select' | 'trace' | 'pin' | 'ink' | 'measure' | 'offset' = 'select', shownIn3D?: boolean): string => renderToStaticMarkup(createElement(PaletteView, { tool, shownIn3D }))
 /** The markup of one tool's button. */
 const button = (markup: string, tool: string): string => markup.split('<button ').find((b) => b.includes(`data-tool="${tool}"`)) ?? ''
 
@@ -36,6 +36,18 @@ describe('the palette of a tracing', () => {
     expect(button(markup, 'offset')).toContain('aria-pressed="true"')
     expect(button(html('measure'), 'measure')).toContain('aria-pressed="true"')
     expect(button(markup, 'select')).not.toContain('disabled')
+  })
+
+  it('has Show in 3D, live, apart from the tools: it is pressed while the tracing is shown, and is no tool in hand', () => {
+    const off = html('select', false)
+    const on = html('select', true)
+    expect(button(off, 'show3d')).not.toContain('disabled')
+    expect(button(off, 'show3d')).toContain('aria-pressed="false"')
+    expect(button(on, 'show3d')).toContain('aria-pressed="true"')
+    expect(button(off, 'show3d')).toContain('aria-label="Show in 3D"')
+    // Pressing it takes no tool from the hand: Select is still the one pressed.
+    expect(button(on, 'select')).toContain('aria-pressed="true"')
+    expect(on).toContain('role="group" aria-label="View"')
   })
 
   it('is a toolbar, in sentence case', () => {

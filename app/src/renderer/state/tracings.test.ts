@@ -177,6 +177,27 @@ describe('what is told to main as shown', () => {
   })
 })
 
+describe('what is told to main as shown, of the tracings shown in 3D', () => {
+  it('is added to those the view and the board show, each once', () => {
+    expect(shownIds('model', null, null, ['T2'])).toEqual(['T2'])
+    expect(shownIds('tracing', 'T1', null, ['T2', 'T1'])).toEqual(['T1', 'T2'])
+    expect(shownIds('board', 'T1', null, ['T3'])).toEqual(['T3'])
+  })
+
+  it('is said when a tracing is shown in 3D or put away, while the view is the model', async () => {
+    const bridge = fake(file(tracing('T1'), tracing('T2')))
+    const off = connectTracings()
+    await vi.waitFor(() => expect(tracingsStore.getState().open).toBe('T1'))
+    bridge.shown.mockClear()
+    actions.setTracingShown('T2', true)
+    expect(bridge.shown).toHaveBeenLastCalledWith('bracket', ['T2'])
+    actions.setTracingShown('T2', false)
+    expect(bridge.shown).toHaveBeenLastCalledWith('bracket', [])
+    off()
+    actions.setTracingShown('T2', false)
+  })
+})
+
 describe('making a tracing', () => {
   it('asks main in the layout shown, opens the one it made, and shows it', async () => {
     const bridge = fake()

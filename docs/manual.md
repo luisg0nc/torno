@@ -1979,7 +1979,7 @@ select is the tracing's (a face that is not flat is refused, in words). The pane
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
-tracing is cut unspread. **Show in 3D** is not yet available; **Export** opens the export sheet on this tracing's drawing (see
+tracing is cut unspread. **Show in 3D** (here and at the foot of the tools) puts the tracing in the model view, as [below](#a-tracing-in-the-3d-view); **Export** opens the export sheet on this tracing's drawing (see
 [Export](#export)). The panel's **Photo** says how the photo is lined up, below.
 
 **Layers** lie over the outline: each is a named set of shapes (lines, circles and labels) in one of eight colours (blue, teal,
@@ -2055,6 +2055,25 @@ all place, by its rectangle in millimetres; it is made by the window when a line
 copy. The Photo section shows the thumbnail, `4.73 px/mm`, `2.1°`, how it was lined up (`5 points, straightened, fit 0.4 mm`), a **Fade** slider (sent
 once, when you let go), **Hide** (the line-up stays), **Line up again**, **Swap photo** (the points you clicked on the tracing stay, and only the
 photo's are asked for again) and **Remove photo**. Claude never lines a photo up, swaps, fades or removes it.
+
+### A tracing in the 3D view
+
+**Show in 3D** puts a tracing in the model view, in its plane and at true scale: its photo (the straightened copy) as a translucent picture at the
+photo's fade times 0.6, the outline of the last build in the ink colour, each layer that is not hidden in its own colour (a label is a small cross at
+its place), and a faint sheet, with its edge, a margin past all of it. It is for reading the tracing against the parts, not a surface: nothing of it is
+written into the depth of the view, so the parts show through it, and it shows through the parts the plane cuts. It is never cut by a section, as marks are
+not, and it is never picked: a click goes through to the parts. The switch is a button in the tracing's panel and one under its tools, pressed while the
+tracing is shown. A tracing is drawn in the layout it was made in. Each tracing shown has a row under **Tracings** in the layers list (there is none while no
+tracing is shown), with the eye that puts it away. Its marks are drawn with the marks, whatever is done to the tracing.
+
+Which tracings are shown is how you last looked at the project, and is kept in `scene.json` as `tracingsShown`, with the layers and the section. It is a view, not
+a change: it does not go to Claude as one, and no mark, build or file of the model changes with it. A tracing shown is cut again after every build, like the one you
+have open. A picture Claude takes with `look` draws the tracings shown on your screen, in the picture's layout, and its caption says so: `· tracing T1 shown in its
+plane`. A tracing whose photo is not on this computer is drawn without it.
+
+The marks on a tracing are drawn in 3D as their kinds are, whether the tracing is shown or not: a pin and ink as in any view; a **Measure** as a line with a tick at each end, its
+chip at the middle, reading `≈ 41.8 mm`, or `41.8 mm` when it is exact; and a **Should be here** as an arrow from where the shape is to where you say it belongs, in
+your colour, its chip at the head.
 
 ## The page of projects
 
@@ -2358,7 +2377,7 @@ place.
 
 | File | What | In git |
 |---|---|---|
-| `scene.json` | how you last looked at the project: the layout, the layer visibility, the section, the explode of each layout, how each scan is shown, and the saved views (`views`) | travels with the project |
+| `scene.json` | how you last looked at the project: the layout, the layer visibility, the section, the explode of each layout, how each scan is shown, the saved views (`views`) and the tracings shown in the 3D view (`tracingsShown`) | travels with the project |
 | `params.json` | the values you are trying in place of the model's `Params` defaults, with the default the file had; trying a value never writes the model file (a Go back puts the values back as a build had them) | ignored |
 | `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured; and the review rounds (the build each reviewed, which marks are in it, and what you judged of each) | travels |
 | `sets.json` | the named sets of the project (see "Named sets"): each with its name, comment, colour, layout, who made it, and its members: faces and edges with the kernel's selector for each, their point and normal and whether the last build found them, parts, and strokes by id (`M7/k3`) | travels |

@@ -31,6 +31,9 @@ export interface TracingPanelProps {
   onPart?: (name: string, on: boolean) => void
   onRemove?: () => void
   onExport?: () => void
+  /** The tracing is drawn in the 3D view now, and the switch that draws it there or takes it away. */
+  shownIn3D?: boolean
+  onShowIn3D?: (on: boolean) => void
   /** The person's layer the Trace tool draws into. */
   into?: number | null
   onInto?: (layer: number) => void
@@ -83,7 +86,7 @@ function exactOutline(cut: TracingCut): boolean {
  * The panel of the tracing shown, top left of its sheet: its name, its plane and the build it was redrawn for, "Model outline"
  * with its parts, the layers, and what can be done with it. Pure, so that it is drawn the same from any state.
  */
-export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode, inkPen, onInkPen, photoThumb, photoHere, references, addingPhoto, onAddPhoto, onReferencePhoto, onFade, onFadeCommit, onHidePhoto, onLineUp, onSwapPhoto, onRemovePhoto }: TracingPanelProps) {
+export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, shownIn3D, onShowIn3D, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode, inkPen, onInkPen, photoThumb, photoHere, references, addingPhoto, onAddPhoto, onReferencePhoto, onFade, onFadeCommit, onHidePhoto, onLineUp, onSwapPhoto, onRemovePhoto }: TracingPanelProps) {
   const [renaming, setRenaming] = useState(false)
   const drawn = new Set(tracing.parts ?? parts)
   const only = parts.filter((p) => drawn.has(p)).length <= 1
@@ -238,7 +241,13 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
         </p>
       )}
       <div className="tr-actions">
-        <button type="button" className="bar-button" disabled title="Show the tracing in the 3D view">
+        <button
+          type="button"
+          className="bar-button"
+          aria-pressed={shownIn3D === true}
+          onClick={() => onShowIn3D?.(shownIn3D !== true)}
+          title={shownIn3D === true ? 'Take the tracing out of the 3D view' : 'Show the tracing, its layers and its photo in the 3D view, in their plane'}
+        >
           Show in 3D
         </button>
         <button type="button" className="bar-button" onClick={onExport} title="Keep a drawing of this tracing at true scale">
@@ -278,6 +287,7 @@ export function TracingPanel() {
   const explode = useStore((s) => s.explode)
   const open = useTracings((s) => (s.open === null ? undefined : s.file?.tracings.find((t) => t.id === s.open)))
   const cut = useTracings((s) => (s.open === null ? null : (s.cuts[s.open] ?? null)))
+  const shownIn3D = useStore((s) => open !== undefined && s.tracingsShown.includes(open.id))
   const building = useTracings((s) => s.building)
   const refused = useTracings((s) => s.refused)
   const into = useTracings((s) => traceTarget(s)?.id ?? null)
@@ -308,6 +318,8 @@ export function TracingPanel() {
       }}
       onRemove={() => void tracingActions.remove(open.id)}
       onExport={() => objectId !== null && actions.exportSheet([objectId], open.id)}
+      shownIn3D={shownIn3D}
+      onShowIn3D={(on) => actions.setTracingShown(open.id, on)}
       into={into}
       onInto={tracingActions.setInto}
       onHide={(layer, hidden) => void tracingActions.hideLayer(layer, hidden)}

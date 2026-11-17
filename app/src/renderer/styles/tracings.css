@@ -1152,3 +1152,20 @@
   stroke: var(--surface);
   stroke-width: 3px;
 }
+
+/* The tracings shown in the model view, in the layers list: an outlined square for each, a sheet seen edge on, in ink. */
+.layer-tracings {
+  margin-top: var(--space-2);
+}
+
+.tracing-swatch {
+  box-sizing: border-box;
+  border: 1.25px solid var(--ink);
+  background: transparent;
+}
+
+/* Show in 3D, while it is on: the button of the panel is pressed in the accent. */
+.tr-actions .bar-button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--panel);
+}

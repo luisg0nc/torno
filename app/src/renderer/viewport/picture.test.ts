@@ -286,6 +286,26 @@ describe('what the scene is while a picture of it is drawn', () => {
   })
 })
 
+describe('the tracings shown on screen, in a picture', () => {
+  it('are drawn in the picture’s layout, take the camera’s reach with them, and the screen’s layout again after', () => {
+    const { host, log, parts } = viewport()
+    const tracings = {
+      show: (layout: string | null) => void log.push(`tracings ${layout}`),
+      drawn: (layout: string) => (layout === 'print' ? ['T2'] : []),
+      extend: (sphere: THREE.Sphere, layout: string) => {
+        log.push(`tracings extend ${layout}`)
+        return sphere.expandByPoint(new THREE.Vector3(500, 0, 0))
+      }
+    }
+    const radius = asPictured({ ...host, tracings }, { layout: 'print', shown: [parts[2]], withMarks: false, scans: null, section: null, notDrawn: new Set(), width: 64, height: 48 }, (extent) => extent.radius)
+    expect(radius).toBeGreaterThan(200)
+    expect(log.indexOf('tracings print')).toBeLessThan(log.indexOf('tracings extend print'))
+    expect(log.slice(-4)).toContain('tracings assembly')
+    // What a picture says of what it drew is the caption's: the sentence is `tracingsSaid`'s.
+    expect(tracings.drawn('print')).toEqual(['T2'])
+  })
+})
+
 describe('a picture whose parts are drawn apart', () => {
   const Z = { amount: 1, scale: 1, axis: 'z' } as const
   const HALF = { amount: 0.5, scale: 1, axis: 'centre' } as const

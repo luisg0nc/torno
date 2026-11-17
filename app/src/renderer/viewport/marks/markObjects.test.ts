@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { Line2 } from 'three/addons/lines/Line2.js'
 import type { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { describe, expect, it } from 'vitest'
-import type { ArrowMark, Mark, PickMark, PinMark, ShapeMark, SketchMark, StrokeMark, Vec3 } from '../../../shared/marks'
+import type { ArrowMark, Mark, OffsetMark, PickMark, PinMark, ShapeMark, SketchMark, SpanMark, StrokeMark, Vec3 } from '../../../shared/marks'
 import { labelText, mmPerPx, rowLabel, place, project, type Label } from './labels'
 import { MarkLayer } from './MarkLayer'
 import { BEHIND, DOT_PX, LEADER_PX, build, dispose, markPoints, rescale, setActive, setDimmed, setLit, strokePoints } from './markObjects'
@@ -574,5 +574,53 @@ describe('a 3D sketch', () => {
 
   it('bounds what it draws, and hangs its label at its anchor or its first point', () => {
     expect(markPoints(sketch())).toHaveLength(5)
+  })
+})
+
+describe('the marks on a tracing, in 3D', () => {
+  const span: SpanMark = { ...BASE, id: 'M7', kind: 'span', tracing: 'T1', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [40, 0], point: [40, 0, 0], on: 'tracing' }, value: 40, exact: true, how: 'exact on build 1', measuredOn: 1 }
+  const offset: OffsetMark = { ...BASE, id: 'M8', kind: 'offset', tracing: 'T1', layer: { id: 1, name: 'head bolts', revision: 1 }, shape: { index: 0, name: 'head bolt 3' }, was: { kind: 'circle', centre: [10, 5], radius: 3 }, by: [-1.8, 0.6], from: [10, 0, 5], to: [8.2, 0, 5.6] }
+
+  it('draws an offset as an arrow from where the shape is to where it should be, in the colour of whose it is', () => {
+    const object = build(offset, COLOURS, 1)
+    expect(names(object)).toEqual(['tail', 'shaft', 'head'])
+    const [[from, to]] = ends(child(object, 'shaft'))
+    expect(from.toArray()).toEqual([10, 0, 5])
+    expect(to.distanceTo(new THREE.Vector3(8.2, 0, 5.6))).toBeLessThan(1e-5)
+    expect(child(object, 'head').position.toArray()).toEqual([8.2, 0, 5.6])
+    const colour = (mark: Mark): string => `#${(twins(build(mark, COLOURS, 1))[0].material as THREE.MeshBasicMaterial).color.getHexString()}`
+    expect(colour(offset)).toBe(COLOURS.user)
+    expect(colour({ ...offset, author: 'agent' })).toBe(COLOURS.agent)
+    dispose(object)
+  })
+
+  it('hangs the chip of an offset at the head of its arrow, and that of a span at the middle of its line', () => {
+    expect(project([offset], new THREE.PerspectiveCamera(), { width: 100, height: 100 })[0].id).toBe('M8')
+    expect(markPoints(offset)).toEqual([[10, 0, 5], [8.2, 0, 5.6]])
+  })
+
+  it('draws a span as a dimension line, with a tick at each end', () => {
+    const object = build(span, COLOURS, 1)
+    expect(names(object)).toEqual(['line', 'tick', 'tick'])
+    const [[a, b]] = ends(child(object, 'line'))
+    expect([a.toArray(), b.toArray()]).toEqual([[0, 0, 0], [40, 0, 0]])
+    expect(twins(object).length % 2).toBe(0)
+    dispose(object)
+  })
+
+  it('draws a span of no length as a dot rather than a line that goes nowhere', () => {
+    const object = build({ ...span, b: span.a }, COLOURS, 1)
+    expect(names(object)).toEqual(['dot'])
+    dispose(object)
+  })
+
+  it('is drawn by the layer like any mark, shown or not with the marks, whatever the tracing is', () => {
+    const layer = new MarkLayer(COLOURS as never)
+    layer.setMarks([span, offset])
+    layer.show('assembly')
+    expect(layer.group.children.map((c) => c.name).sort()).toEqual(['M7', 'M8'])
+    expect(layer.anchorOf(offset).point).toEqual([8.2, 0, 5.6])
+    expect(layer.anchorOf(span).point).toEqual([20, 0, 0])
+    layer.dispose()
   })
 })

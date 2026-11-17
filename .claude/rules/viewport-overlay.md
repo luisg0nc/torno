@@ -9,6 +9,9 @@ paths:
   - "app/src/renderer/viewport/focus.test.ts"
   - "app/src/renderer/viewport/views.ts"
   - "app/src/renderer/viewport/views.test.ts"
+  - "app/src/renderer/viewport/tracings.ts"
+  - "app/src/renderer/viewport/tracings.test.ts"
+  - "app/src/renderer/state/tracingsIn3d.ts"
   - "app/src/renderer/styles/layout.css"
   - "app/src/renderer/styles/viewbars.css"
   - "app/src/renderer/ui/ToolHint.tsx"
@@ -54,6 +57,27 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`POINTER` in `shared/pointer.ts`: drag, right drag, scroll, double click with Measure; "In the view": with Arrow or
   Draw in hand a drag that starts on the part draws instead; the others' own press is in their step lines): gestures, no row of `KEYS`, searched with them and counted
   after them (the count line gives the keys, then `, N of the pointer`); the manual's table of them is held to it (`readme.test.ts`).
+
+## Tracings in the view (`app/src/renderer`)
+
+- **A tracing shown in 3D** (`TracingLayer` in `viewport/tracings.ts`, held by `Viewport`, given its list by `connectTracings3D` in
+  `state/tracingsIn3d.ts`, never through React per frame): the straightened photo as a textured quad in the tracing's plane at the photo's
+  fade times `PHOTO_SHARE` (0.6), the outline of the last cut as lines in the ink colour, each layer that is not hidden as lines in its colour
+  (`Theme.layers`, held to the tokens by `contrast.test.ts`), a faint sheet and its edge sized to the outline's bounds, the photo's rectangle and
+  the layers, plus a margin (`extend` takes it into the frame the camera reaches). Every material has `depthWrite` false and `depthTest` false (so the plane reads
+  through the parts it cuts, and the parts through it; a builder's call), `renderOrder` below the marks, and no clipping plane: **a section never cuts
+  it** (as it does not cut a mark), and it is never picked (`raycast` is a no-op). Of the layout on screen only (`show`, from `showMarks`). Made once per
+  tracing and again only when its plane, shapes, cut, photo or fade change (`drawnAsOf`); a picture is uploaded once (`textureOf` by `ImageBitmap`) and let go
+  when no tracing holds it.
+- **Which are shown** is `SceneFile.tracingsShown` (`store.tracingsShown`, `actions.setTracingShown`, `keepTracingsShown` for a tracing the project lost):
+  view state, in `scene.json`, never sent as a change. A tracing shown counts as shown for main (`shownIds`, `tracings:shown`), so each build cuts it
+  again and tells the window (`tracings:outline`); `connectTracings3D` asks for the outline of one that has none, or whose plane moved (`cutKey`), and has
+  the window read or make the photo's straightened copy.
+- **A `look` picture draws them** when they are shown on screen (`PictureHost.tracings`: `show` for the picture's layout, `extend`, `drawn`) and
+  says `· tracing T1 shown in its plane` (`tracingsSaid`). The Layers list has a "Tracings" row for each shown tracing of the layout (`ui/TracingRows.tsx`),
+  whose eye takes it out of `tracingsShown`. There is no "Marks hidden" switch in the window, so the marks of a tracing are never hidden with it.
+- A **span** is drawn as a dimension line (`line` and a `tick` at each end) with its value in its chip (`spanValue`: `≈ 41.8 mm`), an **offset** as an
+  arrow from `from` to `to` in its author's colour with its chip at `to` (`build` in `viewport/marks/markObjects.ts`), whether the tracing is shown or not.
 
 ## Explode (`app/src/renderer`)
 

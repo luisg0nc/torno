@@ -112,6 +112,8 @@ agent is never told to remove a view.
   (refused, naming theirs). One more proposal than 12 drops the oldest of
   them, and the reply says which.
 - `state.md` names the views in a line, with what of each is gone.
+- `scene.json` also keeps `tracingsShown`: the tracings (`T<n>`, each once, at most `MOST_TRACINGS`) drawn in the model view. It is view state like the
+  section, never sent as a change and in no saved view; the sanitiser drops what is not a `TRACING_ID`, and the window drops a tracing the project no longer has.
 
 ## Views (`app/src/renderer`)
 

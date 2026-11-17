@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { NO_VALUE, offBy, shownDimension } from '../../../shared/dimension'
-import { type DimensionMark, type Mark, type RegionMark, type ShapeIntent, type ReviewIntent, type Vec3, markIntent } from '../../../shared/marks'
+import { number } from '../../../shared/format'
+import { type DimensionMark, type Mark, type RegionMark, type ShapeIntent, type ReviewIntent, type SpanMark, type Vec3, markIntent } from '../../../shared/marks'
 import { INTENT_CHIP } from '../../../shared/reviews'
 import { LEADER_PX, labelAnchor } from './markObjects'
 
@@ -52,6 +53,11 @@ export function labelValue(mark: DimensionMark, revision: number | undefined): L
   }
   if (!shown.stale) return { text: NO_VALUE }
   return { text: `${shown.text} (${shown.of === undefined ? 'earlier' : `r${shown.of}`})`, stale: true }
+}
+
+/** A span's value as its chip writes it: `≈ 41.8 mm`, with `≈` unless both its ends were the kernel's points. It has no verdict, and is never of another build. */
+export function spanValue(mark: Pick<SpanMark, 'value' | 'exact'>): LabelValue {
+  return { text: `${mark.exact ? '' : '≈ '}${number(mark.value)} mm` }
 }
 
 /** How large the chip of a label is: of its text and, for a dimension, its value beside it. */
@@ -139,6 +145,7 @@ export function project(marks: Mark[], camera: THREE.Camera, size: Size, unit = 
     if (movedBy) point.add(new THREE.Vector3().fromArray(movedBy(mark)))
     const base: Pick<Label, 'id' | 'text' | 'author' | 'value'> = { id: mark.id, text: labelText(mark), author: mark.author }
     if (mark.kind === 'dimension') base.value = labelValue(mark, revision)
+    else if (mark.kind === 'span') base.value = spanValue(mark)
     const foot = toPx(point)
     if (!anchor.leader) return [{ ...base, ...foot, lean: DEFAULT_LEAN, gap: GAP_PX * unit }]
 

@@ -4,7 +4,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js'
-import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type SketchMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markIntent, markPoints, sketchStrokePoints, strokePoints } from '../../../shared/marks'
+import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type SketchMark, type SpanMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markIntent, markPoints, sketchStrokePoints, strokePoints } from '../../../shared/marks'
 import { hatched } from './hatch'
 
 // What a mark's points are is plain arithmetic, asked by main too (an export): `shared/marks.ts`.
@@ -430,7 +430,7 @@ export function build(mark: Mark, colours: MarkColours, scale: number): THREE.Ob
   const reference = mark.kind === 'shape' && mark.intent === 'reference'
   // What the person does not want keeps their colour: hatched where it is a surface, dashed where it is a line.
   const dont = markIntent(mark) === 'dont'
-  const parts = new Parts(reference ? colours.reference : colours[mark.author], mark.kind === 'dimension' ? DIMENSION_BEHIND : BEHIND, colours.casing, dont)
+  const parts = new Parts(reference ? colours.reference : colours[mark.author], mark.kind === 'dimension' || mark.kind === 'span' ? DIMENSION_BEHIND : BEHIND, colours.casing, dont)
   const { root } = parts
   root.name = mark.id
   root.userData.sizing = parts.sizing
@@ -445,20 +445,16 @@ export function build(mark: Mark, colours: MarkColours, scale: number): THREE.Ob
     case 'pick':
       root.add(parts.dot(mark.anchor.point, DOT_PX - 0.5))
       break
-    case 'arrow': {
-      const from = new THREE.Vector3().fromArray(mark.from.point)
-      const to = new THREE.Vector3().fromArray(mark.to)
-      const tail = parts.dot(mark.from.point, DOT_PX - 0.5)
-      tail.name = 'tail'
-      const cone = parts.mesh('', UNIT_CONE)
-      cone.scale.set(HEAD_RADIUS_PX, HEAD_RADIUS_PX, HEAD_LENGTH_PX)
-      const head = parts.constant(mark.to, cone)
-      head.name = 'head'
-      const along = to.clone().sub(from)
-      if (along.lengthSq() > 0) head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), along.normalize())
-      root.add(tail, parts.line('shaft', [mark.from.point, mark.to], STROKE_PX), head)
+    case 'arrow':
+      addArrow(parts, mark.from.point, mark.to)
       break
-    }
+    case 'offset':
+      // Where the shape is, to where the person says it should be: an arrow in the author's colour. The shape's own outline is on the sheet.
+      addArrow(parts, mark.from, mark.to)
+      break
+    case 'span':
+      addSpan(parts, mark)
+      break
     case 'stroke': {
       const points = strokePoints(mark)
       if (points.length >= 2) root.add(parts.line('line', points, STROKE_PX))
@@ -489,6 +485,41 @@ export function build(mark: Mark, colours: MarkColours, scale: number): THREE.Ob
   if (dont && (mark.kind === 'stroke' || mark.kind === 'arrow' || mark.kind === 'sketch')) setDashed(root)
   rescale(root, () => scale, 1)
   return root
+}
+
+/** An arrow from a point to a point: a dot at its tail, a shaft, and a head at its tip that keeps its size on screen. */
+function addArrow(parts: Parts, fromPoint: Vec3, toPoint: Vec3): void {
+  const from = new THREE.Vector3().fromArray(fromPoint)
+  const to = new THREE.Vector3().fromArray(toPoint)
+  const tail = parts.dot(fromPoint, DOT_PX - 0.5)
+  tail.name = 'tail'
+  const cone = parts.mesh('', UNIT_CONE)
+  cone.scale.set(HEAD_RADIUS_PX, HEAD_RADIUS_PX, HEAD_LENGTH_PX)
+  const head = parts.constant(toPoint, cone)
+  head.name = 'head'
+  const along = to.clone().sub(from)
+  if (along.lengthSq() > 0) head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), along.normalize())
+  parts.root.add(tail, parts.line('shaft', [fromPoint, toPoint], STROKE_PX), head)
+}
+
+/** A measure on a tracing: the line between its ends with a tick at each, as a dimension is drawn. Its value is in its chip. */
+function addSpan(parts: Parts, mark: SpanMark): void {
+  const { root } = parts
+  const [a, b] = [mark.a.point, mark.b.point]
+  const along = new THREE.Vector3().fromArray(b).sub(new THREE.Vector3().fromArray(a))
+  // Two ends on one point have no line between them.
+  if (along.lengthSq() < SAME_MM * SAME_MM) {
+    root.add(parts.dot(a))
+    return
+  }
+  along.normalize()
+  const tick = (at: Vec3): THREE.Group => {
+    const group = parts.constant(at, parts.line('', [[-TICK_PX, 0, 0], [TICK_PX, 0, 0]], DIMENSION_LINE_PX))
+    group.name = 'tick'
+    parts.sizing.ticks.push({ object: group, along })
+    return group
+  }
+  root.add(parts.line('line', [a, b], DIMENSION_LINE_PX), tick(a), tick(b))
 }
 
 /** The strokes of a sketch: a line each, a dot at each point that snapped, and of a flow sketch with a diameter a tube along each. */

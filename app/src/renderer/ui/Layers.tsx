@@ -11,6 +11,7 @@ import { type PartMarks, marksByPart } from './layerMarks'
 import { giveKeysBack } from './typing'
 import { setsOfLayout, useSets } from '../state/sets'
 import { NamedSets, SetRowView } from './sets/SetRows'
+import { TracingRows } from './TracingRows'
 import { setRows } from './sets/rows'
 
 /**
@@ -83,6 +84,7 @@ export function Layers() {
         {parts.filter((p) => !grouped.has(p.name)).map((part) => row(part))}
       </ul>
       <NamedSets rows={sets.across} layout={layout} />
+      <TracingRows layout={layout} />
     </section>
   )
 }

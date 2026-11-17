@@ -61,7 +61,7 @@ the stylesheets by area in the order of the cascade; `styles.test.ts` holds it t
   its colour on a layer of its own (`set` in `viewport/highlight.ts`, one set at a time); a proposal's faces are hatched and its edges
   dashed, and its swatch in Layers dashed, so that colour is not the only thing that says it is Claude's.
 - The eight layer colours of a tracing (`--layer-blue` … `--layer-olive`, light and dark) are held as the sets are, and told from the ink
-  the outline is drawn in (1.5:1), at 3:1 on `--surface` and `--panel`; `LAYER_INKS` in `shared/tracingSvg.ts` is the light values, for a file.
+  the outline is drawn in (1.5:1), at 3:1 on `--surface` and `--panel`; `LAYER_INKS` in `shared/tracingSvg.ts` is the light values, for a file, and `Theme.layers` in `viewport/theme.ts` the ones the 3D view draws a tracing's layers in (read from the tokens, held to them by `contrast.test.ts`).
 - The light values are written out where no stylesheet is read
   (`viewport/theme.ts` `LIGHT_THEME`, `viewport/sectionDrawing.ts` `SHEET`,
   `viewport/overlay.ts` `AXIS_COLOURS`, `SURFACE` in `src/main/index.ts`,

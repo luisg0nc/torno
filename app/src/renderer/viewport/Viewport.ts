@@ -31,6 +31,7 @@ import { PointerRouter, type ViewportPointer } from './pointer'
 import { ScanEdit } from './scanEdit'
 import { ScanLayer, rayOf, reaching, type ScanHit, type ScanLayerState } from './scans'
 import { SectionCut, nearSegmentOnScreen, segmentOnScreen } from './section'
+import { TracingLayer, type ShownTracing, type TracingState } from './tracings'
 import { ShapeGizmo, type GizmoMode, type ShapeTransform } from './ShapeGizmo'
 import { type Theme, LIGHT_THEME, XRAY_OPACITY, markColours, themeOf, toHex } from './theme'
 import type { MainAxis } from '../../shared/planes'
@@ -153,6 +154,8 @@ export class Viewport {
   /** The scan the gizmo holds while it is moved by hand, and the points of an alignment being made. */
   private readonly scanEdit = new ScanEdit(this.scans)
   private readonly marks = new MarkLayer(markColours(LIGHT_THEME), this.scans)
+  /** The tracings shown in the model view, each in its plane: never cut by the section, never picked (`tracings.ts`). */
+  private readonly tracings = new TracingLayer(LIGHT_THEME)
   /** The marks of the object as last given, resolved ones too: `focusMark` goes to any of them. */
   private allMarks: Mark[] = []
   /** Over the canvas: the labels of the marks, and what a tool shows of itself. Drawn anew with every frame, never through React. */
@@ -190,7 +193,7 @@ export class Viewport {
     this.ground.material.depthWrite = false
     this.ground.renderOrder = -1
     this.ground.frustumCulled = false
-    this.scene.add(this.ground, this.scans.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group, this.later.group, this.sketchSheet.group)
+    this.scene.add(this.ground, this.scans.group, this.tracings.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group, this.later.group, this.sketchSheet.group)
 
     this.overlay = new OverlayPass({ canvas, marks: this.marks, camera: () => this.camera, layout: () => this.layout, style: () => ({ ...this.labelStyle(), accent: this.theme.accent }), frame: () => ({ muted: this.theme.muted, axes: [this.theme.axisX, this.theme.axisY, this.theme.axisZ] as const, gridStep: this.gridStepMm }), project: (p) => this.project(p), syncMatrices: () => this.syncMatrices(), exploded: () => this.apart.any })
     // A label drawn before its face has loaded is in the fallback face: draw again once it is there.
@@ -248,6 +251,7 @@ export class Viewport {
       renderer: this.renderer,
       scene: this.scene,
       marks: this.marks,
+      tracings: this.tracings,
       highlights: this.highlights,
       scans: this.scans,
       closed: () => this.disposed,
@@ -867,9 +871,26 @@ export class Viewport {
     this.invalidate()
   }
 
-  /** Shows the marks of the layout on screen, but for those on the parts switched off. */
+  /** Shows the marks of the layout on screen, but for those on the parts switched off, and the tracings of that layout that are shown. */
   private showMarks(): void {
     this.marks.show(this.layout, this.hiddenParts(this.layout))
+    this.tracings.show(this.layout)
+  }
+
+  /**
+   * The tracings to draw in the model view, each in its plane at true scale: its outline, its layers and its straightened photo when it has
+   * them here. Of the layout on screen only. Not cut by a section, and not part of any pick.
+   */
+  setTracings(shown: readonly ShownTracing[]): void {
+    this.tracings.set(shown)
+    this.tracings.show(this.layout)
+    this.extent = this.measured()
+    this.invalidate()
+  }
+
+  /** What the tracings drawn are, for the tests (which cannot read the pixels of a hidden window). */
+  tracingState(): TracingState[] {
+    return this.tracings.state()
   }
 
   /**
@@ -1171,7 +1192,7 @@ export class Viewport {
 
   /** A sphere around everything drawn in the layout shown: the parts and the grid, the marks, the plane of the section, the scans. */
   private measured(): THREE.Sphere {
-    const sphere = this.section.extend(this.marks.extend(reachingApart(this.groundExtent, this.partsOf(this.layout), this.apart).clone(), this.layout))
+    const sphere = this.section.extend(this.tracings.extend(this.marks.extend(reachingApart(this.groundExtent, this.partsOf(this.layout), this.apart).clone(), this.layout), this.layout))
     // A scan of a room round a part the size of a hand: the camera reaches it, though it frames the parts.
     return reaching(sphere, this.scans.box(), this.groundExtent)
   }
@@ -1365,6 +1386,7 @@ export class Viewport {
     this.entries.clear()
     this.highlights.dispose()
     this.marks.dispose()
+    this.tracings.dispose()
     this.overlay.dispose()
     this.ground.geometry.dispose()
     this.ground.material.dispose()
@@ -1499,6 +1521,7 @@ export class Viewport {
     this.gizmo.setColours(toHex(this.theme.axisX), toHex(this.theme.axisY), toHex(this.theme.axisZ), toHex(this.theme.ink))
     this.highlights.setColors(this.theme)
     this.marks.setColours(markColours(this.theme))
+    this.tracings.setLook(this.theme)
     this.section.setColours(toHex(this.theme.muted), toHex(this.theme.accent))
     this.earlier.tint(toHex(this.theme.muted), toHex(this.theme.ink))
     this.later.tint(toHex(this.theme.muted), toHex(this.theme.ink))

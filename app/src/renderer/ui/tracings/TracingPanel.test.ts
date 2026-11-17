@@ -126,11 +126,18 @@ describe('the panel of a tracing', () => {
     expect(plainText(html())).toContain('No layers yet')
   })
 
-  it('has Show in 3D and Export, the first left for its own task; the photo has its own rows for lining up', () => {
+  it('has Show in 3D and Export, both live; the photo has its own rows for lining up', () => {
     const markup = html()
     expect(markup).not.toMatch(/<button[^>]*disabled[^>]*>Line up</)
-    expect(markup).toMatch(/<button[^>]*disabled[^>]*>Show in 3D</)
+    expect(markup).toMatch(/<button(?![^>]*disabled)[^>]*>Show in 3D</)
     expect(markup).toMatch(/<button(?![^>]*disabled)[^>]*>Export</)
+  })
+
+  it('says whether the tracing is shown in 3D: pressed, and what the next press does', () => {
+    expect(html()).toMatch(/aria-pressed="false"[^>]*>Show in 3D</)
+    expect(html({ shownIn3D: true })).toMatch(/aria-pressed="true"[^>]*>Show in 3D</)
+    expect(html({ shownIn3D: true })).toContain('Take the tracing out of the 3D view')
+    expect(html()).toContain('Show the tracing, its layers and its photo in the 3D view, in their plane')
   })
 
   it('says what Trace draws and its keys only while Trace is in hand', () => {

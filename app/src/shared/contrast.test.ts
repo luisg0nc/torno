@@ -179,6 +179,8 @@ it('has the light tokens written out where no stylesheet is read, as the stylesh
   expect(Array.from({ length: 8 }, (_v, n) => night[`--set-${n + 1}`])).toHaveLength(8)
   // What a layer's colour is in an exported file, where no stylesheet is: the light token of each, as the sheet is white.
   expect(LAYER_INKS).toEqual(Object.fromEntries(LAYER_COLOURS.map((name) => [name, light[`--layer-${name}`]])))
+  // The viewport draws a tracing's layers in the same.
+  expect(LIGHT_THEME.layers).toEqual(LAYER_INKS)
   expect(LAYER_COLOURS.map((name) => night[`--layer-${name}`]).every((hex) => /^#[0-9A-F]{6}$/i.test(hex ?? ''))).toBe(true)
   expect(SHEET).toEqual({ paper: light['--surface'], ink: light['--ink'], muted: light['--muted'], hairline: light['--hairline'] })
   const main = readFileSync(resolve(__dirname, '../main/index.ts'), 'utf8')

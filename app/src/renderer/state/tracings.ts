@@ -85,10 +85,11 @@ const set = (patch: Partial<TracingsState>): void => tracingsStore.setState(patc
 /** What main refused or failed at, in its words (the bridge has already taken Electron's wrapping off). */
 const said = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
-/** Which tracings main is told are shown: the open one while the main area is on a tracing, the tracings of the cards that are on the board while it is shown; none otherwise. */
-export function shownIds(shown: Shown, open: string | null, board?: BoardFile | null): string[] {
-  if (shown === 'board') return [...new Set((board?.cards ?? []).filter((c) => c.kind === 'tracing' && !c.hidden && c.source !== undefined).map((c) => c.source as string))]
-  return shown === 'tracing' && open !== null ? [open] : []
+/** Which tracings main is told are shown: the open one while the main area is on a tracing, the tracings of the cards that are on the board while it is shown, and those shown in the model view (`tracingsShown`). */
+export function shownIds(shown: Shown, open: string | null, board?: BoardFile | null, inThree: readonly string[] = []): string[] {
+  const seen = shown === 'board' ? (board?.cards ?? []).filter((c) => c.kind === 'tracing' && !c.hidden && c.source !== undefined).map((c) => c.source as string) : shown === 'tracing' && open !== null ? [open] : []
+  // The tracings shown in the model view are cut again after a build as well, whichever view is on.
+  return [...new Set([...seen, ...inThree])]
 }
 
 /**
@@ -870,13 +871,16 @@ export function connectTracings(): () => void {
   let told: { objectId: string; ids: string[] } | null = null
   const tell = (): void => {
     const objectId = state().objectId
-    const ids = objectId === null ? [] : shownIds(boardStore.getState().shown, state().open, boardStore.getState().board)
+    const ids = objectId === null ? [] : shownIds(boardStore.getState().shown, state().open, boardStore.getState().board, store.getState().tracingsShown)
     if (told !== null && told.objectId === objectId && told.ids.join() === ids.join()) return
     if (told !== null && told.objectId !== objectId && told.ids.length > 0) window.torno.tracings.shown(told.objectId, [])
     if (objectId !== null && (ids.length > 0 || (told !== null && told.objectId === objectId))) window.torno.tracings.shown(objectId, ids)
     told = objectId === null ? null : { objectId, ids }
   }
   const offBoard = boardStore.subscribe(tell)
+  const offShownIn3D = store.subscribe((s, prev) => {
+    if (s.tracingsShown !== prev.tracingsShown) tell()
+  })
   const offTracings = tracingsStore.subscribe((s, prev) => {
     if (s.open !== prev.open || s.objectId !== prev.objectId) tell()
   })
@@ -886,6 +890,7 @@ export function connectTracings(): () => void {
   return () => {
     offStore()
     offBoard()
+    offShownIn3D()
     offTracings()
     offChanged()
     offOutline()

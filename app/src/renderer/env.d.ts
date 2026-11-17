@@ -54,6 +54,8 @@ declare global {
       compare(from: string, to: string, prompt?: number): void
       /** Keeps the ghosts of the builds that land after this until a key or a click (for a capture of the window). */
       holdGhosts(held: boolean): void
+      /** The tracings the model view draws, each with whether it has its outline and its photo, and how many layers: what a hidden window cannot be read for. */
+      tracings(): Array<{ id: string; layout: string; outline: boolean; photo: boolean; layers: number }>
       /** Where the label of a mark is drawn, as such fractions, and whether it is in view; null for a mark that is not drawn. */
       markScreen(id: string): { x: number; y: number; visible: boolean } | null
       /** The mark whose chip the viewport rings as pointed at (its row or its chip hovered); null for none. */
