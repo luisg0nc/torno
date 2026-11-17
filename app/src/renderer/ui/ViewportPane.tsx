@@ -744,8 +744,8 @@ export function ViewportPane() {
   const build = useStore((s) => s.build)
   // Under the page of objects or of a new object the view stays as it is, and takes neither the pointer nor the keys.
   const covered = useStore((s) => s.page !== 'object')
-  // The board shown in its place: the view stays mounted, so nothing is built again on the swap, but it draws nothing meanwhile.
-  const boardShown = useBoard((s) => s.shown === 'board')
+  // The board or a tracing shown in its place: the view stays mounted, so nothing is built again on the swap, but it draws nothing meanwhile.
+  const boardShown = useBoard((s) => s.shown !== 'model')
   useEffect(() => {
     if (viewport) viewport.paused = boardShown
   }, [viewport, boardShown])

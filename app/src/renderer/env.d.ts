@@ -14,6 +14,10 @@ declare global {
     __tornoChatRenders?: Record<string, number>
     /** Only under test: how many times the board's layer of cards has been drawn. A pan or a zoom must not add one. */
     __tornoBoardRenders?: number
+    /** Only under test: how many times the layer of a tracing's sheet has been drawn. A pan or a zoom must not add one. */
+    __tornoTracingRenders?: number
+    /** Only under test: where the tracing's sheet stands, while a tracing is shown; `ratio` is 1 at 1:1. */
+    __tornoTracingSheet?: () => { x: number; y: number; k: number; ratio: number }
     /** Only under test: where the board's camera stands, while the board is shown. */
     __tornoBoardCamera?: () => { x: number; y: number; k: number }
     __tornoTest?: {

@@ -35,8 +35,8 @@ export function useSetKeys(): void {
       if (e.defaultPrevented || e.repeat || !pressed(e, 'set.make')) return
       if (e.target instanceof Element && e.target.closest(TYPING)) return
       const s = store.getState()
-      // Only with the model on show: the page of projects, the page of a new one and the board have keys of their own.
-      if (s.page !== 'object' || s.objectId === null || boardStore.getState().shown === 'board') return
+      // Only with the model on show: the page of projects, the page of a new one, the board and a tracing have keys of their own.
+      if (s.page !== 'object' || s.objectId === null || boardStore.getState().shown !== 'model') return
       e.preventDefault()
       setActions.startMake()
     }

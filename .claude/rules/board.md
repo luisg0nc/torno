@@ -12,6 +12,10 @@ paths:
   - "app/src/renderer/ui/chat/boardLine.ts"
   - "app/src/renderer/ui/chat/boardLine.test.ts"
   - "app/src/renderer/styles/board.css"
+  - "app/src/renderer/styles/tracings.css"
+  - "app/src/renderer/state/tracings.ts"
+  - "app/src/renderer/state/tracings.test.ts"
+  - "app/src/renderer/ui/tracings/**"
   - "app/e2e/board.spec.ts"
 ---
 
@@ -128,3 +132,21 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a doodle opens the ink pad on its
   drawing, a text edits and a frame renames (the person's only). The "Pin to board" buttons ask main (`pinToBoard`), which
   decides.
+
+## The third view: Tracing (`ui/tracings/`, `state/tracings.ts`)
+
+- The main area's switch is **Board | Model | Tracing**: `Shown` is `'board' | 'model' | 'tracing'`, remembered per project as the
+  other two are. `board.swap` (`Ctrl+Tab`) goes board, model, tracing, board (`swapped`), and passes over Tracing in a project with
+  none (`hasTracing`); a project left on a tracing that its first read finds gone opens on the model, the choice kept. Whatever is
+  not the model covers it: the 3D view stays mounted, stops drawing (`boardShown` is "not the model") and the review and set keys
+  are not heard. `viewKey` stops the view's keys in the tracing as in the board.
+- `state/tracings.ts` (`useTracings`) holds what main last said of `tracings.json`, which tracing is open, the kernel's outline of each
+  one asked for (`tracings:outline`, `tracings:changed`) and `building`; it tells main which tracing is shown (`tracings:shown`, from
+  the open one while the view is on a tracing). **Everything the window changes goes through main** (`tracingActions`: `make`,
+  `rename`, `setParts`, `remove` with `undoRemove` by `restore`); a refusal is said in main's words (`refused`). A tracing on a face
+  waits for one flat face in the selection (`facePicked`) with the model shown, and main refuses a curved one.
+- The sheet is `ui/tracings/Sheet.ts`, a plain class like the board's camera: a transform set directly on the SVG layer, in
+  millimetres of the plane from its origin, `y` down the screen (what `tracingSvg(…, { forScreen: true })` draws); `1:1` is one CSS
+  millimetre for a millimetre (`PX_PER_MM`). **No per-frame state in React**: pan, zoom, the pointer readout, the scale bar and the zoom
+  text are written on elements, and the layer counts its renders under test (`__tornoTracingRenders`). Lines are
+  `vector-effect: non-scaling-stroke` in `styles/tracings.css`; the drawing's colours are tokens only.

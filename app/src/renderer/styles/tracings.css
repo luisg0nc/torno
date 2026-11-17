@@ -1,0 +1,612 @@
+/* ---- The view of a tracing (ui/tracings/): the sheet at true scale, its panel, picker, scale bar, title block and readout ---- */
+
+/* The tracing takes the place of the view, as the board does: the part of the viewport no panel covers. */
+.tracing {
+  position: absolute;
+  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.tr-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--surface);
+  touch-action: none;
+  cursor: grab;
+}
+
+.tr-stage[data-panning] {
+  cursor: grabbing;
+}
+
+.tr-stage:focus-visible {
+  outline-offset: -2px;
+}
+
+/* One layer, moved and scaled by the sheet's transform; its unit is a millimetre of the plane, y down the screen. */
+.tr-sheet-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  transform-origin: 0 0;
+}
+
+/* Lines keep their width in pixels however the sheet is zoomed; what is a length (text, the layers' widths in the file) is in millimetres. */
+.tr-sheet-layer path,
+.tr-sheet-layer line,
+.tr-sheet-layer circle,
+.tr-sheet-layer rect {
+  vector-effect: non-scaling-stroke;
+}
+
+/* The grid: every 10 mm, and every mm between them once the sheet is zoomed in far enough to tell them apart. */
+.tr-grid-fine {
+  display: none;
+  fill: none;
+  stroke: color-mix(in srgb, var(--hairline) 60%, var(--surface));
+  stroke-width: 1px;
+}
+
+.tr-stage[data-fine] .tr-grid-fine {
+  display: inline;
+}
+
+.tr-grid {
+  fill: none;
+  stroke: var(--hairline);
+  stroke-width: 1px;
+}
+
+/* The lines of u = 0 and v = 0: the axis of the object each runs along, or the muted ink for a plane that is square to none. */
+.tr-axis {
+  stroke: var(--muted);
+  stroke-width: 1.25px;
+}
+
+.tr-stage[data-axis-u='x'] .tr-axis-u,
+.tr-stage[data-axis-v='x'] .tr-axis-v {
+  stroke: var(--axis-x);
+}
+
+.tr-stage[data-axis-u='y'] .tr-axis-u,
+.tr-stage[data-axis-v='y'] .tr-axis-v {
+  stroke: var(--axis-y);
+}
+
+.tr-stage[data-axis-u='z'] .tr-axis-u,
+.tr-stage[data-axis-v='z'] .tr-axis-v {
+  stroke: var(--axis-z);
+}
+
+.tr-cut {
+  fill: var(--panel);
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+
+.tr-open {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+
+.tr-tab {
+  fill: var(--muted);
+  stroke: none;
+}
+
+.tr-sheet-layer .tr-part-name {
+  fill: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.tr-dim {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1px;
+}
+
+.tr-dim-text {
+  fill: var(--ink);
+  stroke: none;
+  font-family: var(--font-mono);
+}
+
+/* A layer is drawn in its colour: the shapes take it from the text colour, which a layer's own class sets. */
+.tr-layer {
+  color: var(--accent);
+}
+
+.tr-layer path,
+.tr-layer circle {
+  stroke-width: 1.5px;
+}
+
+.tr-layer text {
+  font-family: var(--font-ui);
+}
+
+.tr-mark {
+  fill: none;
+  stroke-width: 1.5px;
+}
+
+.tr-mark-user {
+  stroke: var(--user-mark);
+}
+
+.tr-mark-agent {
+  stroke: var(--agent-mark);
+}
+
+.tr-mark-text {
+  stroke: none;
+  font-family: var(--font-mono);
+}
+
+.tr-mark-user .tr-mark-text {
+  fill: var(--user-mark);
+}
+
+.tr-mark-agent .tr-mark-text {
+  fill: var(--agent-mark);
+}
+
+.tr-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* ---- Over the sheet: the head at the top right, the panel at the top left, the scale bar and readout at the bottom left, the title block at the bottom right ---- */
+
+.tr-head {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--switch-h);
+  gap: 2px;
+  padding: 3px;
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.tr-picker {
+  max-width: 260px;
+  height: 26px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tr-picker:hover {
+  background: var(--accent-wash);
+}
+
+.tr-zoom {
+  min-width: 3.5em;
+  margin: 0 var(--space-2) 0 var(--space-1);
+  color: var(--muted);
+  text-align: right;
+}
+
+.tr-popover {
+  position: absolute;
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-1));
+  right: var(--space-3);
+  z-index: 4;
+  width: 300px;
+  box-sizing: border-box;
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.tr-panel {
+  position: absolute;
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
+  left: var(--space-3);
+  z-index: 3;
+  width: 284px;
+  max-height: calc(100% - var(--switch-h) - 130px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.tr-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tr-name {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-size);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tr-id {
+  flex: none;
+  color: var(--muted);
+}
+
+.tr-rename,
+.tr-new-name {
+  box-sizing: border-box;
+  width: 100%;
+  height: 26px;
+  padding: 0 var(--space-2);
+  border: var(--field-border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.tr-plane,
+.tr-built {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.tr-lost {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--warn);
+  color: var(--warn);
+}
+
+.tr-section {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: var(--divider);
+}
+
+.tr-heading {
+  margin: 0;
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.tr-exact {
+  margin-left: var(--space-1);
+  color: var(--ok);
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+
+.tr-exact[data-exact='false'] {
+  color: var(--warn);
+}
+
+.tr-parts,
+.tr-layers {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tr-part-row,
+.tr-layer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 24px;
+}
+
+.tr-part {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  cursor: pointer;
+}
+
+.tr-part-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tr-part-said {
+  flex: none;
+  color: var(--muted);
+}
+
+.tr-layer-row {
+  justify-content: flex-start;
+}
+
+.tr-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.tr-layer-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tr-layer-said {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.tr-layer-row[data-hidden] .tr-layer-name {
+  color: var(--muted);
+}
+
+.tr-note {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+}
+
+.tr-refused {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--fail);
+  color: var(--ink);
+}
+
+.tr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.tr-spacer {
+  flex: 1;
+}
+
+.tr-actions .bar-button {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.tr-actions .bar-button:disabled {
+  background: transparent;
+  color: var(--muted);
+}
+
+/* No tracing yet: the way to make one, in the middle. */
+.tr-none {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 320px;
+  box-sizing: border-box;
+  padding: var(--space-4);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+  transform: translate(-50%, -50%);
+}
+
+.tr-none-title {
+  margin: 0;
+  font-size: var(--text-size);
+  font-weight: 600;
+}
+
+.tr-none .tr-new {
+  margin-top: var(--space-3);
+}
+
+.tr-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tr-new-planes {
+  display: flex;
+  gap: 2px;
+}
+
+.tr-new-plane {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.tr-new-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.tr-new-actions .bar-button {
+  border: var(--divider);
+}
+
+.tr-new-actions .bar-button[data-primary] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.tr-new-actions .bar-button:disabled {
+  background: transparent;
+}
+
+/* A tracing on a face: over the model, saying what to click. */
+.tr-facebar {
+  position: absolute;
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
+  left: calc(var(--left-w) + var(--space-3));
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 3px 3px 3px var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.tr-facebar .tr-refused {
+  margin: 0;
+}
+
+.tr-undo {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+}
+
+.tr-undo-float {
+  position: absolute;
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-1));
+  right: var(--space-3);
+  z-index: 3;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.tr-problem {
+  position: absolute;
+  bottom: calc(var(--space-3) + 52px);
+  left: var(--space-3);
+  z-index: 3;
+  max-width: 420px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--divider);
+  border-left: 3px solid var(--fail);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+/* The scale bar, bottom left: a round length, as long on the screen as the zoom makes it (its width is set where the sheet moves). */
+.tr-scale {
+  position: absolute;
+  bottom: calc(var(--space-3) + 26px);
+  left: var(--space-3);
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+  pointer-events: none;
+}
+
+.tr-scale-bar {
+  display: inline-block;
+  width: 120px;
+  height: 6px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--ink);
+  border-top: 0;
+}
+
+/* Where the pointer is on the plane, in millimetres: written by the stage's pointer, never through React. */
+.tr-readout {
+  position: absolute;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+  pointer-events: none;
+}
+
+.tr-readout-value {
+  min-width: 11ch;
+  color: var(--ink);
+}
+
+/* The title block, bottom right: what the export's has, in the window's own type. */
+.tr-block {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 2;
+  width: 340px;
+  max-width: calc(100% - 2 * var(--space-3));
+  box-sizing: border-box;
+  margin: 0;
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  font-size: var(--text-small);
+  pointer-events: none;
+}
+
+.tr-block-row {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+}
+
+.tr-block-row + .tr-block-row {
+  border-top: var(--divider);
+}
+
+.tr-block dt {
+  color: var(--muted);
+}
+
+.tr-block dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}

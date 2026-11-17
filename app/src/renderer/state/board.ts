@@ -8,11 +8,18 @@ import { onWorkspaceSet, store } from './store'
 /** The window's storage; none where there is no window (a test under node). */
 const storageNow = (): Storage | null => (typeof window === 'undefined' ? null : windowStorage())
 
-// The board of the open project in the window: what main last said of it, which of the two (the board or the model) the
-// main area shows, and which cards are selected. The window keeps the choice of the two per project in its own storage
+// The board of the open project in the window: what main last said of it, which of the three (the board, the model or a
+// tracing) the main area shows, and which cards are selected. The window keeps the choice of the two per project in its own storage
 // (never in the workspace), and a project opens on the model until its board has a card of the person's or the agent's.
 
-export type Shown = 'board' | 'model'
+export type Shown = 'board' | 'model' | 'tracing'
+
+/** What `Ctrl+Tab` shows after `shown`: the board, the model, a tracing, the board again; a project with no tracing has the first two. */
+export function swapped(shown: Shown, hasTracing: boolean): Shown {
+  if (shown === 'board') return 'model'
+  if (shown === 'model') return hasTracing ? 'tracing' : 'board'
+  return 'board'
+}
 
 /** The tool in hand on the board: Select, or one that makes a text, a frame, an arrow, a size, a picture or a sketch. */
 export type BoardTool = 'select' | 'text' | 'frame' | 'arrow' | 'size' | 'picture' | 'sketch'
@@ -67,7 +74,7 @@ function readAll(storage: Reader): Record<string, unknown> {
 /** What the person last chose for a project, or null when they did not, or the storage says something else. */
 export function shownRead(storage: Reader, objectId: string): Shown | null {
   const kept = Object.hasOwn(readAll(storage), objectId) ? readAll(storage)[objectId] : null
-  return kept === 'board' || kept === 'model' ? kept : null
+  return kept === 'board' || kept === 'model' || kept === 'tracing' ? kept : null
 }
 
 export function shownWrite(storage: Writer, objectId: string, shown: Shown): void {
@@ -165,8 +172,14 @@ export const boardActions = {
     if (objectId !== null) shownWrite(storageNow(), objectId, which)
   },
 
-  toggle(): void {
-    boardActions.show(boardStore.getState().shown === 'board' ? 'model' : 'board')
+  /** The next of the three, as `Ctrl+Tab` goes: Tracing is passed over when the project has none. */
+  swap(hasTracing: boolean): void {
+    boardActions.show(swapped(boardStore.getState().shown, hasTracing))
+  },
+
+  /** A project that was left on a tracing has none (it was removed, or the file came from another branch): the model is shown, and the choice kept is not changed. */
+  leaveTracing(): void {
+    if (boardStore.getState().shown === 'tracing') boardStore.setState({ shown: 'model' })
   },
 
   select(ids: readonly string[], add = false): void {

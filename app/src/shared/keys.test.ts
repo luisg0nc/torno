@@ -25,7 +25,7 @@ it('puts every tool in a group, and the rows in the order of the groups: those t
 
 it('lists every tool, every view key and the gizmo in the sheet, each key once where it is listened to', () => {
   const sheet = cheatSheet()
-  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
+  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
   expect(sheet.map((g) => g.context)).toEqual(CONTEXTS.map((c) => c.name))
   for (const group of sheet) expect([group.context, group.rows.length > 0, group.when.length > 0]).toEqual([group.context, true, true])
   const viewport = KEYS.filter((row) => row.scope === 'viewport').flatMap((row) => row.keys)
@@ -380,4 +380,21 @@ it('has Ctrl+G, in the window scope, for naming the selection as a set, clashing
   expect(hint('set.make')).toBe('Ctrl+G')
   expect(KEYS.filter((row) => row.keys.includes('Ctrl+G'))).toHaveLength(1)
   expect(keyClashes()).toEqual([])
+})
+
+it('has the keys of a tracing in a scope of their own: fit and true size, clashing with nothing, and Ctrl+Tab cycling the three', () => {
+  const rows = KEYS.filter((r) => r.scope === 'tracing')
+  expect(rows.map((r) => [r.id, r.keys, r.context])).toEqual([
+    ['tracing.fit', ['Shift+1'], 'Tracing'],
+    ['tracing.actual', ['Shift+0'], 'Tracing']
+  ])
+  expect(keyClashes()).toEqual([])
+  // Shift on the figure key, whatever the layout makes of it, and only that key.
+  expect(pressed({ key: '!', code: 'Digit1', shiftKey: true }, 'tracing.fit')).toBe(true)
+  expect(pressed({ key: '0', code: 'Digit0', shiftKey: true }, 'tracing.actual')).toBe(true)
+  expect(pressed({ key: '0', code: 'Digit0' }, 'tracing.actual')).toBe(false)
+  expect(CONTEXTS.map((c) => c.name)).toContain('Tracing')
+  expect(KEYS.find((r) => r.id === 'board.swap')?.does).toBe('The board, the model and a tracing, in turn')
+  // The view hears nothing while a tracing is shown, as with the board: its own keys are no key of the view.
+  expect(viewKey({ key: '0', code: 'Digit0', shiftKey: true })).toBe(false)
 })

@@ -1856,10 +1856,11 @@ replace its own proposals (12 at most) and never a view of yours.
 ## The board
 
 Each project has a board: a canvas of cards where what the project knows is laid out, framed and put in order, so that
-you can point Claude at a frame ("work through Latch") instead of explaining it again. **Board** and **Model** swap in the main
-area by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys). The window remembers the last choice
+you can point Claude at a frame ("work through Latch") instead of explaining it again. **Board**, **Model** and **Tracing** (below) take the main
+area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); a project with no tracing goes round
+the board and the model only. The window remembers the last choice
 for each project; a project opens on the model until its board has a card of yours or Claude's. The model stays
-loaded while the board is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
+loaded while the board or a tracing is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
 
 **What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
 `brief.md` (its text, read only, scrolling), each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
@@ -1955,6 +1956,27 @@ pictures torno let go of (a removed card's, a doodle drawn on again) are listed 
 the project is first opened in a later run, unless a card has them again or a file kept aside names them
 (`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on
 that list is never deleted, whatever the board names: switching branch never takes one.
+
+### The tracing view
+
+A **tracing** lays one plane of the model flat, at true size, on a millimetre grid: the outline is the kernel's exact cut of the
+last build, drawn again after every build. **Tracing** in the switch shows it in place of the 3D view (the model stays loaded
+under it). The sheet has a faint grid every millimetre once you are zoomed in and a stronger one every 10 mm, the lines
+`u = 0` and `v = 0` in the colour of the axis they run along, each part named on its outline, a scale bar at the bottom left and
+a title block at the bottom right. Zoom is told as a ratio: `1:1` is one CSS millimetre on the screen for a millimetre of the
+model (a screen does not say its true pixel size, so this is the page's own millimetre, not a ruler's). The wheel or two fingers
+move the sheet and a drag moves it, `Ctrl` and the wheel (or a pinch) zoom about the pointer, **Fit** or `Shift+1` frames the
+outline, **1:1** or `Shift+0` sets true size. The pointer's place on the plane, `u, v` in millimetres, is read out at the bottom left.
+
+The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
+tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
+(the Section bar has **Make a tracing of this cut** too), or on a face: the view goes to the model, and the next flat face you
+select is the tracing's (a face that is not flat is refused, in words). The panel at the top left says its name (**Rename** and
+**Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
+outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
+holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
+tracing is cut unspread. **Line up** and **Show in 3D** are not yet available; **Export** opens the export sheet (see
+[Export](#export)).
 
 ## The page of projects
 
@@ -2171,7 +2193,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | With a tool in hand | `Ctrl` | Sketch: hold it while drawing to turn snapping off |
 | With a tool in hand | `Esc` | Sketch: give up the stroke under way, then leave the sketch (it is kept) |
 | With a shape in hand | `G` `R` `T` | Move, rotate or size the shape with its handles |
-| Board | `Ctrl+Tab` | The board of the project, or the model again |
+| Board | `Ctrl+Tab` | The board, the model and a tracing, in turn |
 | Board | `Shift+1` | Board: fit all the cards |
 | Board | `V` | Board, Select: click a card, drag on empty space for a box; Shift adds |
 | Board | `N` | Board, Text: a card for a note |
@@ -2185,6 +2207,8 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Board | `Delete` `Backspace` | Board: remove the selected cards and arrows (those that came by themselves are hidden) |
 | Board | `Ctrl+Z` | Board: undo the last change you made to cards (up to 50) |
 | Board | `Esc` | Board: end what is being written, then put the tool back to Select, then let go of the selection |
+| Tracing | `Shift+1` | Tracing: fit the outline |
+| Tracing | `Shift+0` | Tracing: show it at true size, 1:1 |
 | Page of projects | `Left` `Right` `Up` `Down` `Home` `End` | Move among the cards |
 | Page of projects | `Enter` | Open the card in focus |
 | Page of projects | `/` | Filter by name: a letter or a figure does too |

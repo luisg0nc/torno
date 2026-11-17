@@ -25,8 +25,8 @@ export function useReviewKeys(): void {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return
       if (e.target instanceof Element && e.target.closest(TYPING)) return
       const s = store.getState()
-      // Only with the model on show: the page of projects, the page of a new one and the board have keys of their own.
-      if (s.page !== 'object' || s.objectId === null || boardStore.getState().shown === 'board') return
+      // Only with the model on show: the page of projects, the page of a new one, the board and a tracing have keys of their own.
+      if (s.page !== 'object' || s.objectId === null || boardStore.getState().shown !== 'model') return
       if (pressed(e, 'marks.review')) {
         e.preventDefault()
         void reviewActions.start(s.layout)
