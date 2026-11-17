@@ -281,10 +281,11 @@ applies as with any tool.
 - **Measure**: a `span` mark (see "Builder's questions, settled") between two points in the plane, with `on: 'tracing' |
   'photo'` per end (main's to judge):
   - both ends snapped to the kernel's points (a corner, a hole centre, a vertex in the plane) give an **exact** value,
-    worked out by main from those kernel numbers and measured again after every build from the same refs (a corner by
-    its cut edge's ref, a centre by its edge's ref);
+    worked out by main from those kernel numbers of the build it was placed on, and said "exact on build N". A span is
+    not measured again: its points are kept, not refs, so a rebuild never silently re-targets it, and after a build it
+    says "measured on build N";
   - any end on the photo or not snapped gives `≈ 41.8 mm`, said "on the photo, lined up with fit 0.4 mm" or
-    "freehand", never exact, and not measured again.
+    "freehand", never exact.
 - **Should be here** (below).
 - **Show in 3D** toggles the tracing in the model view (below).
 - **Select** selects a mark or a layer shape; Delete removes the person's marks (undo as for any mark).
@@ -301,7 +302,7 @@ applies as with any tool.
   a readout at the pointer, `1.8 mm left, 0.6 mm up`; `Shift` keeps the drag to one axis, arrow keys nudge it 0.1 mm.
   Releasing makes the mark (one per drag; dragging the same shape again changes the draft's `by`).
 - Told as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo)`, then the move in the object
-  frame (`(−1.8, 0, +0.6) mm in X, Y, Z`), the layer, and the photo's line-up. "Left" and "up" are along `−u` and `+v`
+  frame (`≈ (−1.8, 0, +0.6) mm in X, Y, Z`: never exact, with a photo or without), the layer, and the photo's line-up. "Left" and "up" are along `−u` and `+v`
   as the tracing is shown; the plane label says what they are.
 - Never exact; never checked against a build (it is about a layer, not the model): `anchorState` stays `ok`, and the
   mark says "layer changed since" when the layer's revision is newer than the mark's.

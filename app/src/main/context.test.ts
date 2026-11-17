@@ -1627,7 +1627,7 @@ describe('the tracings line', () => {
     const offset = { id: 'M6', kind: 'offset', author: 'user', status: 'draft', anchorState: 'ok', note: '', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '', tracing: 'T1', layer: { id: 2, name: 'head bolts', revision: 3 }, shape: { index: 2, name: 'head bolt 3' }, was: { kind: 'circle', centre: [10, 5], radius: 3 }, by: [-1.8, 0.6], from: [10, 0, 5], to: [8.2, 0, 5.6] } as unknown as Mark
     const told = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [pin(), offset], { tracings: ['T1'], layers: { 'T1/2': 3 }, lineups: { T1: lineup } })
     expect(told.text).toContain(`M5 pin at (3, 4, 10) · on T1 (≈, from the photo) · photo: ${lineup}`)
-    expect(told.text).toContain(`M6 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3 · photo: ${lineup}`)
+    expect(told.text).toContain(`M6 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · ≈ (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3 · photo: ${lineup}`)
     expect(told.sentMarkIds).toEqual(['M5', 'M6'])
   })
 })

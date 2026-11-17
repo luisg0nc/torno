@@ -139,7 +139,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (id, name, revision), `shape`, `was` (a copy of the shape as it was dragged), `from` and `to` (the reference point: a circle's centre, a polyline's centroid of its points) are found by main from
   the tracing's own layers; `saveOffset` changes the person's draft offset of the same shape of the same layer (keeping its number) and makes a new mark when that one was sent or resolved. It
   says `layer changed since` (`describeMark`, given `layers`: `layerRevisions` of the tracings, by `T1/2`) when the layer's revision is newer, and keeps `was`. It says `(≈, from the photo)` only
-  when its tracing has a lined-up photo (`lineups`: `lineupsOf` of the tracings, tracing id to what the line-up says), then ends with `photo: <the line-up>`; with none it says `from the layer's shape on T1`. A pin on no part (one not
+  when its tracing has a lined-up photo (`lineups`: `lineupsOf` of the tracings, tracing id to what the line-up says), then ends with `photo: <the line-up>`; with none it says `from the layer's shape on T1 (≈)`. The move in X, Y, Z is `≈ (−1.8, 0, +0.6)` either way, and `markData` of an offset says `exact: false`. A pin on no part (one not
   tied to a face on the outline) and ink on a tracing with a lined-up photo are told `on T1 (≈, from the photo) · photo: <the line-up>` the same way, and `markData` holds that sentence as `lineup`. Both move with their tracing's plane
   (`translated`), and both are checked in the plane as any mark on a tracing is (`checkOnTracing`).
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by

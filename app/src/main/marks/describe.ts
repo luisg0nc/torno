@@ -133,7 +133,9 @@ export function markData(mark: Mark, revision: number | undefined, scans?: reado
   if (mark.kind !== 'dimension') {
     // A mark on a tracing names it (`tracing`), and says the line-up of its lined-up photo when the mark's place is a click on the photo.
     const lineup = onThePhoto(mark) || mark.kind === 'offset' ? lineupOf(mark, { lineups }) : undefined
-    return lineup === undefined ? mark : { ...mark, lineup }
+    // An offset is by eye, whatever the photo: never exact.
+    const data = mark.kind === 'offset' ? { ...mark, exact: false } : mark
+    return lineup === undefined ? data : { ...data, lineup }
   }
   if (mark.status !== 'resolved' && measuredValue(mark, revision) !== undefined) return mark
   const { value: _value, how: _how, points: _points, verdict: _verdict, ...rest } = mark
@@ -357,7 +359,7 @@ function wasWords(was: OffsetMark['was']): string {
 }
 
 /**
- * `· offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was
+ * `· offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · ≈ (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was
  * circle centre (10, 5) radius 3`: where the person says a shape of a layer should be. Left and up are along −u and +v as the tracing is
  * shown. Never exact and never checked against a build; it says `layer changed since` (or `removed`) when the layer is no longer as it was
  * (given the `layers` of the project).
@@ -370,8 +372,8 @@ function offset(mark: OffsetMark, opts: { tracings?: readonly string[]; layers?:
   // From the photo only where the tracing has a lined-up photo; else it is told against what it is relative to, the shape the layer has on the tracing.
   const lineup = lineupOf(mark, opts)
   const where = onTracingOf(mark, opts.tracings)
-  const relative = lineup === undefined ? `from the layer's shape ${where}` : `${where} (≈, from the photo)`
-  return `· offset · ${name}: ${offsetWords(mark.by)} ${relative} · (${move.map(signed).join(', ')}) mm in X, Y, Z · layer ${mark.layer.id} "${mark.layer.name}" · was ${wasWords(mark.was)}${since}${lineup === undefined ? '' : ` · photo: ${lineup}`}`
+  const relative = lineup === undefined ? `from the layer's shape ${where} (≈)` : `${where} (≈, from the photo)`
+  return `· offset · ${name}: ${offsetWords(mark.by)} ${relative} · ≈ (${move.map(signed).join(', ')}) mm in X, Y, Z · layer ${mark.layer.id} "${mark.layer.name}" · was ${wasWords(mark.was)}${since}${lineup === undefined ? '' : ` · photo: ${lineup}`}`
 }
 
 /**

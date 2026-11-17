@@ -623,12 +623,12 @@ describe('a span and an offset', () => {
   })
 
   it('tells an offset as the move in words, in the object frame, with its layer', () => {
-    expect(describeMark(offset(), { revision: 5, lineups: LINEUPS })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3 · photo: ' + LINEUP)
+    expect(describeMark(offset(), { revision: 5, lineups: LINEUPS })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · ≈ (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3 · photo: ' + LINEUP)
     expect(describeMark(offset({ shape: { index: 3, name: '' }, was: { kind: 'label', at: [1, 2], text: 'M6' }, by: [1.8, -0.6], to: [11.8, 0, 4.4] }), { revision: 5, lineups: LINEUPS })).toContain('M12 · offset · shape 4 of head bolts: 1.8 mm right, 0.6 mm down on T1')
   })
 
   it('says an offset is from the photo only when the tracing has a lined-up photo, and else what it is relative to', () => {
-    expect(describeMark(offset(), { revision: 5 })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up from the layer\'s shape on T1 · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3')
+    expect(describeMark(offset(), { revision: 5 })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up from the layer\'s shape on T1 (≈) · ≈ (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3')
     expect(describeMark(offset(), { revision: 5, lineups: {} })).not.toContain('from the photo')
     // Another tracing\'s line-up is not this one\'s.
     expect(describeMark(offset(), { lineups: { T2: LINEUP } })).not.toContain('photo')
@@ -646,6 +646,7 @@ describe('a span and an offset', () => {
 
   it('is never judged by a build: ok, never drifted', () => {
     expect(describeMark(offset(), { revision: 9 })).not.toContain('moved since')
-    expect(markData(offset(), 9)).toMatchObject({ kind: 'offset', by: [-1.8, 0.6] })
+    expect(markData(offset(), 9)).toMatchObject({ kind: 'offset', by: [-1.8, 0.6], exact: false })
+    expect(markData(offset(), 9, undefined, undefined, LINEUPS)).toMatchObject({ exact: false, lineup: LINEUP })
   })
 })

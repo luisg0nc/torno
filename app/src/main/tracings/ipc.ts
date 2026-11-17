@@ -182,10 +182,50 @@ export function tracingHandlers(deps: TracingIpcDeps) {
     return { hide: raw.hide as number, hidden: raw.hidden as boolean }
   }
 
-  /** The bounds of a tracing's outline on the last build, which a layer's numbers are held to, or none when it cannot be cut. */
+  /** The least diagonal a box of parts is counted as, in mm, so that tiny parts do not forbid a drawing beside them (as `add_sketch`). */
+  const LEAST_DIAGONAL_MM = 100
+
+  /** The box of the parts a tracing draws, in its own `u` and `v` (the corners of their boxes in the object frame, projected on its axes). */
+  const partsBounds = async (objectId: string, id: string): Promise<OutlineBounds | undefined> => {
+    const scene = deps.build(objectId)?.scene
+    const t = (await deps.tracings.list(objectId)).tracings.find((one) => one.id === id)
+    if (!scene || !t) return undefined
+    const parts = scene.parts.filter((p) => p.layout === t.layout && (t.parts === undefined || t.parts.includes(p.name)))
+    if (parts.length === 0) return undefined
+    const { origin, x, y } = t.plane
+    const min: [number, number] = [Infinity, Infinity]
+    const max: [number, number] = [-Infinity, -Infinity]
+    for (const p of parts) {
+      for (const cx of [p.bbox.min[0], p.bbox.max[0]]) {
+        for (const cy of [p.bbox.min[1], p.bbox.max[1]]) {
+          for (const cz of [p.bbox.min[2], p.bbox.max[2]]) {
+            const d = [cx - origin[0], cy - origin[1], cz - origin[2]]
+            const at = [d[0] * x[0] + d[1] * x[1] + d[2] * x[2], d[0] * y[0] + d[1] * y[1] + d[2] * y[2]]
+            for (const axis of [0, 1] as const) {
+              min[axis] = Math.min(min[axis], at[axis])
+              max[axis] = Math.max(max[axis], at[axis])
+            }
+          }
+        }
+      }
+    }
+    if (![...min, ...max].every(Number.isFinite)) return undefined
+    const diagonal = Math.hypot(max[0] - min[0], max[1] - min[1])
+    if (diagonal >= LEAST_DIAGONAL_MM) return { min, max }
+    // Grown about its middle to the least diagonal.
+    const k = diagonal === 0 ? 0 : LEAST_DIAGONAL_MM / diagonal
+    const half = (axis: 0 | 1): number => (diagonal === 0 ? LEAST_DIAGONAL_MM / 2 / Math.SQRT2 : ((max[axis] - min[axis]) / 2) * k)
+    const middle = (axis: 0 | 1): number => (min[axis] + max[axis]) / 2
+    return { min: [middle(0) - half(0), middle(1) - half(1)], max: [middle(0) + half(0), middle(1) + half(1)] }
+  }
+
+  /**
+   * The bounds a layer's numbers are held to: those of a tracing's outline on the last build, or, when it cannot be cut, the box of the
+   * parts it draws, ten diagonals of it either way; none only when there is no build to say.
+   */
   const outlineBounds = async (objectId: string, id: string): Promise<OutlineBounds | undefined> => {
     const cut = await deps.outlines.cut(objectId, id)
-    return cut instanceof Refusal || !cut.cut.bounds ? undefined : cut.cut.bounds
+    return cut instanceof Refusal || !cut.cut.bounds ? partsBounds(objectId, id) : cut.cut.bounds
   }
 
   const make = async (objectId: string, raw: unknown, by: 'person' | 'agent'): Promise<Tracing> => {

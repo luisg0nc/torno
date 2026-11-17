@@ -237,6 +237,36 @@ describe('tracings:layer', () => {
   })
 })
 
+describe('shapes of a layer when the outline cannot be cut', () => {
+  it('are held to the layout\'s parts instead, within ten diagonals of them, for the person and for Claude', async () => {
+    const h = handlers()
+    await h.make('bracket', ask({ parts: ['block'] }))
+    reply = (name, args) => {
+      if (name === 'section') throw new Error('the cut failed')
+      return reply0(name, args)
+    }
+    const far = { make: { name: 'far', colour: 'blue' as const, shapes: [{ kind: 'label' as const, at: [1e6, 0] as [number, number], text: 'x' }] } }
+    expect(await refused(h.layer('bracket', 'T1', far))).toMatch(/ten diagonals/)
+    expect(await refused(h.agentLayer('bracket', 'T1', far))).toMatch(/ten diagonals/)
+    const near = { make: { name: 'near', colour: 'teal' as const, shapes: [{ kind: 'label' as const, at: [30, 20] as [number, number], text: 'x' }] } }
+    expect((await h.agentLayer('bracket', 'T1', near)).layers.map((l) => l.name)).toEqual(['near'])
+  })
+
+  it('takes the box of the parts in the tracing\'s own u and v, and only the parts it draws', async () => {
+    const h = handlers()
+    // The XZ plane: u runs along +X and v along +Z.
+    scene = { layouts: ['assembly'], parts: [{ ...part('big', 'assembly'), bbox: { min: [0, 0, 0], max: [5000, 5000, 5000] } }, part('small', 'assembly')] } as unknown as Scene
+    await h.make('bracket', ask({ parts: ['small'] }))
+    reply = (name, args) => {
+      if (name === 'section') throw new Error('the cut failed')
+      return reply0(name, args)
+    }
+    const at = (u: number) => ({ make: { name: `at ${u}`, colour: 'blue' as const, shapes: [{ kind: 'label' as const, at: [u, 0] as [number, number], text: 'x' }] } })
+    expect(await refused(h.layer('bracket', 'T1', at(4000)))).toMatch(/ten diagonals/)
+    expect((await h.layer('bracket', 'T1', at(500))).layers).toHaveLength(1)
+  })
+})
+
 describe('a plane given as a point and a normal', () => {
   it('is the frozen plane of that point and normal, with the kernel\'s axes, for the person and for Claude', async () => {
     const h = handlers()

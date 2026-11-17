@@ -42,6 +42,14 @@ describe('tracingsLine', () => {
     expect(tracingsLine(file(), {}, tool)).toEqual({ line: '', told: {} })
   })
 
+  it('says once that every tracing it was told of was removed, and nothing after that', () => {
+    const first = tracingsLine(file(tracing(), tracing({ id: 'T2' })), {}, tool)
+    const gone = tracingsLine(file(), first.told, tool)
+    expect(gone).toEqual({ line: 'tracings: none (T1 was removed; T2 was removed)', told: {} })
+    expect(tracingsLine(file(), gone.told, tool)).toEqual({ line: '', told: {} })
+    expect(tracingsLine(file(), { T1: 'abc' }, tool).line).toBe('tracings: none (T1 was removed)')
+  })
+
   it('names every tracing, and says they are new to the agent when it was told of none', () => {
     const said = tracingsLine(file(tracing(), tracing({ id: 'T2' })), {}, tool)
     expect(said.line).toBe('tracings: T1, T2 (new to you). Read them with mcp__torno__tracings.')

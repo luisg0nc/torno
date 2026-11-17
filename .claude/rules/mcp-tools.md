@@ -40,9 +40,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `look`'s, 256 to 2000, default 1280), checks the PNG with `checkedImage` (one that fails is not sent, and the text says so) and says what maps it to mm
   (`1 px = 0.212 mm; u = 0 at x = 140, v = 0 at y = 860, v up`). `add_tracing` lays Claude's tracing through `TracingStore.make(…, 'agent')`: `on` is
   `{ main, offset }`, `{ face }` (planar, of the last build) or `{ origin, normal }` (a frozen plane whose axes are the kernel's `section`), main makes the
-  plane and the number, and `tracing` + `remove: true` takes down Claude's own: a tracing of the person's is refused by its owner's name, the file
+  plane and the number, and `tracing` + `remove: true` takes down Claude's own: a tracing of the person's is refused by its owner's name, and so is one of Claude's that holds the person's photo or a layer of theirs, the file
   untouched. `add_layer` makes or replaces (by name, case apart) a layer of Claude's on any tracing, the person's too, through `TracingStore.layer(…,
-  'agent')`, holding every number to ten diagonals of the outline (`outlines.cut` bounds), the caps (500 shapes, 20 layers, 20,000 points) and
+  'agent')`, holding every number to ten diagonals of the outline (`outlines.cut` bounds; the box of the parts the tracing draws, in its u and v, when the outline cannot be cut), the caps (500 shapes, 20 layers, 20,000 points) and
   refusing a key a shape does not take; a layer replaced keeps its number, a layer of the person's is refused by their name, `remove: true` takes down
   Claude's. `by`, `id`, a layer's number and a plane's frame are never an argument. None of the three is loaded upfront, and they share one line of
   `SERVER_INSTRUCTIONS` (`schemas.test.ts` splits a line's names on `, `).

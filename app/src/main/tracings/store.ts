@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { number } from '../../shared/format'
 import { type LineupPair, type LineupSnap, MOST_PAIRS, SIMILAR_NEEDS, STRAIGHT_NEEDS, fitSimilar, fitStraight, transformKey } from '../../shared/lineup'
 import type { Vec3 } from '../../shared/marks'
+import { faceLabel } from '../../shared/planes'
 import {
   LAYER_COLOURS,
   MAX_LAYER_NAME,
@@ -315,6 +316,14 @@ export class TracingStore {
       (file) => {
         const t = tracingOf(file, id)
         if (by === 'agent' && t.by !== 'agent') throw new Refusal(`${t.id} is ${owner(t.by)}: Claude removes only its own tracings.`)
+        if (by === 'agent') {
+          // Removing a tracing takes what is on it: the person's photo and layers are theirs even on Claude's tracing.
+          const theirs = t.layers.filter((l) => l.by === 'person').map((l) => `"${l.name}"`)
+          if (t.photo !== undefined || theirs.length > 0) {
+            const things = [...(t.photo === undefined ? [] : ['your photo']), ...(theirs.length === 0 ? [] : [`the layer${theirs.length === 1 ? '' : 's'} ${theirs.length === 1 ? theirs[0] : `${theirs.slice(0, -1).join(', ')} and ${theirs.at(-1)}`}`])]
+            throw new Refusal(`${t.id} holds ${things.join(' and ')}: Claude removes a tracing only when it holds nothing of the person's.`)
+          }
+        }
         file.tracings.splice(file.tracings.indexOf(t), 1)
         taken.tracing = structuredClone(t)
         return t
@@ -479,7 +488,11 @@ export class TracingStore {
     return this.change(objectId, (file) => {
       const t = tracingOf(file, id)
       t.plane.origin = [origin[0], origin[1], origin[2]]
-      if (face !== undefined && t.plane.from.kind === 'face' && t.plane.from.ref !== face.ref) t.plane.from = { ...t.plane.from, ref: face.ref, revision: face.revision }
+      if (face !== undefined && t.plane.from.kind === 'face' && t.plane.from.ref !== face.ref) {
+        t.plane.from = { ...t.plane.from, ref: face.ref, revision: face.revision }
+        // The label names the face: it says the face it has now.
+        t.plane.label = faceLabel(face.ref, 0, t.plane.x, t.plane.y)
+      }
       if (lost === undefined) delete t.lost
       else t.lost = lost
       return t
@@ -713,6 +726,8 @@ export class TracingStore {
     for (const t of base.tracings) {
       const mine = current.tracings.find((c) => c.id === t.id)
       if (mine?.revision !== undefined) t.revision = mine.revision
+      // A layer number given out in this run is not given again either.
+      if (mine !== undefined) t.nextLayer = Math.max(t.nextLayer, mine.nextLayer)
     }
     if (epoch === this.epoch) {
       this.files.set(dir, base)

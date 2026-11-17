@@ -112,3 +112,80 @@ describe('warpPixels', () => {
     expect(warpPixels(photoWith(10, 10, 1, 1), [0, 0, 0, 0, 0, 0, 0, 0, 1], { rect: { min: [0, 0], max: [2, 2] }, pxPerMm: 5, width: 10, height: 10 })).toBeNull()
   })
 })
+
+// The worker and the browser's bitmaps are stood in for: what is held is that a worker which fails leaves the bitmap whole for the
+// work that is then done on this thread.
+describe('warp, when the worker fails', () => {
+  type Fake = { id: string; detached: boolean; closed: boolean; width: number; height: number; close(): void }
+  const fake = (id: string): Fake => {
+    const b: Fake = { id, detached: false, closed: false, width: 4, height: 4, close: () => { b.closed = true } }
+    return b
+  }
+  const rect = { min: [0, 0] as [number, number], max: [10, 10] as [number, number] }
+  const seen: Fake[] = []
+
+  async function load(worker: unknown, here: (b: Fake) => Promise<Blob>) {
+    const { vi } = await import('vitest')
+    vi.resetModules()
+    vi.stubGlobal('Worker', worker)
+    vi.stubGlobal('createImageBitmap', async (b: Fake) => fake(`${b.id}-copy`))
+    vi.doMock('./warpCore', async (importActual) => ({ ...(await importActual<typeof import('./warpCore')>()), warpHere: async (b: Fake) => { seen.push({ ...b }); return here(b) } }))
+    return (await import('./warp')).warp
+  }
+  const reset = async () => {
+    const { vi } = await import('vitest')
+    vi.unstubAllGlobals()
+    vi.doUnmock('./warpCore')
+    seen.length = 0
+  }
+
+  it('does the work here on the bitmap it was given, whole, when the worker errors', async () => {
+    class Failing {
+      onerror?: () => void
+      terminate(): void {}
+      postMessage(_msg: unknown, transfer: Fake[]): void {
+        for (const t of transfer) t.detached = true
+        queueMicrotask(() => this.onerror?.())
+      }
+    }
+    const warp = await load(Failing, async () => new Blob(['ok']))
+    const original = fake('photo')
+    const blob = await warp(original as unknown as ImageBitmap, [1, 0, 0, 0, 1, 0, 0, 0, 1], rect, 5)
+    expect(await blob.text()).toBe('ok')
+    expect(seen).toHaveLength(1)
+    expect(seen[0]).toMatchObject({ id: 'photo', detached: false })
+    await reset()
+  })
+
+  it('does the work here when no worker can be made', async () => {
+    const Throwing = function () { throw new Error('no workers here') } as unknown
+    const warp = await load(Throwing, async () => new Blob(['ok']))
+    const blob = await warp(fake('photo') as unknown as ImageBitmap, [1, 0, 0, 0, 1, 0, 0, 0, 1], rect, 5)
+    expect(await blob.text()).toBe('ok')
+    expect(seen[0]).toMatchObject({ id: 'photo', detached: false })
+    await reset()
+  })
+
+  it('lets go of the bitmap it was given when the worker answers, and tells what a worker says is wrong', async () => {
+    class Answering {
+      onmessage?: (e: { data: unknown }) => void
+      terminate(): void {}
+      postMessage(): void {
+        queueMicrotask(() => this.onmessage?.({ data: Answering.answer }))
+      }
+      static answer: unknown
+    }
+    const warp = await load(Answering, async () => { throw new Error('not here') })
+    Answering.answer = { blob: new Blob(['made']) }
+    const first = fake('photo')
+    expect(await (await warp(first as unknown as ImageBitmap, [1, 0, 0, 0, 1, 0, 0, 0, 1], rect, 5)).text()).toBe('made')
+    expect(first.closed).toBe(true)
+    expect(seen).toHaveLength(0)
+    Answering.answer = { error: 'the line-up cannot be undone' }
+    const second = fake('photo2')
+    await expect(warp(second as unknown as ImageBitmap, [1, 0, 0, 0, 1, 0, 0, 0, 1], rect, 5)).rejects.toThrow('the line-up cannot be undone')
+    expect(second.closed).toBe(true)
+    expect(seen).toHaveLength(0)
+    await reset()
+  })
+})

@@ -94,10 +94,14 @@ export interface TracingsLine {
 /**
  * The one line every prompt carries when the project has tracings: their ids, and what changed since the agent was last told (`told`, as
  * `readTracingsTold` read it): a tracing new to it, renamed, in another plane, with other layers, with a photo lined up again, with its face
- * gone or back, or removed. Nothing for a project with none.
+ * gone or back, or removed. Nothing for a project with none, but once when it was told of some: `tracings: none (T1 was removed)`.
  */
 export function tracingsLine(file: TracingsFile, told: Readonly<Record<string, string>>, toolName: (tool: string) => string): TracingsLine {
-  if (file.tracings.length === 0) return { line: '', told: {} }
+  if (file.tracings.length === 0) {
+    // What it was told of is gone: said once, and the empty record is kept, so that the next prompt says nothing.
+    const gone = Object.keys(told)
+    return { line: gone.length === 0 ? '' : `tracings: none (${listed(gone.map((id) => `${id} was removed`), MOST_NEWS, '; ')})`, told: {} }
+  }
   const kept: Record<string, string> = {}
   const news: string[] = []
   for (const t of file.tracings) {

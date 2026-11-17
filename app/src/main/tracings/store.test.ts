@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyLineup, fitStraight, transformKey } from '../../shared/lineup'
-import { mainPlaneFrame } from '../../shared/planes'
+import { faceLabel, mainPlaneFrame } from '../../shared/planes'
 import { MOST_LAYERS, MOST_SHAPES, MOST_TRACINGS, type LayerShape, type PlaneSnap, type TracingPlane, type TracingsFile } from '../../shared/tracings'
 import { droppedNames } from '../dropped'
 import { jpeg, png } from '../notes/testing'
@@ -181,6 +181,23 @@ describe('remove and restore', () => {
     await store.remove('bracket', 'T1', 'person')
     expect(onDisk().tracings).toEqual([])
     expect(onDisk().next).toBe(4)
+  })
+
+  it('refuses the agent a tracing of its own that holds the person\'s photo or layer, naming what blocks it', async () => {
+    await store.make('bracket', ask('its'), 'agent')
+    await store.layer('bracket', 'T1', { make: { name: 'bolts', colour: 'plum', shapes: square } }, 'person')
+    await store.layer('bracket', 'T1', { make: { name: 'its own', colour: 'teal', shapes: square } }, 'agent')
+    await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow('T1 holds the layer "bolts"')
+    await store.setPhoto('bracket', 'T1', pic(1))
+    await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow('T1 holds your photo and the layer "bolts"')
+    await store.layer('bracket', 'T1', { make: { name: 'holes', colour: 'blue', shapes: square } }, 'person')
+    await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow('T1 holds your photo and the layers "bolts" and "holes"')
+    expect(onDisk().tracings).toHaveLength(1)
+    // The person may remove it, and an agent tracing with only its own layers goes.
+    await store.remove('bracket', 'T1', 'person')
+    await store.make('bracket', ask('plain'), 'agent')
+    await store.layer('bracket', 'T2', { make: { name: 'mine', colour: 'teal', shapes: square } }, 'agent')
+    expect((await store.remove('bracket', 'T2', 'agent')).id).toBe('T2')
   })
 
   it('brings back a tracing removed in this run, whole, once, in its place', async () => {
@@ -475,6 +492,14 @@ describe('movePlane', () => {
     expect((await store.movePlane('bracket', 'T2', { origin: [0, 0, 0] }, undefined, { ref: 'block/F7', revision: 5 })).plane.from).toMatchObject({ kind: 'main' })
   })
 
+  it('rebuilds the label of a face plane when the face has another ref now', async () => {
+    await store.make('bracket', ask('face', { plane: { ...plane(), label: 'plane through block/F31 offset 0 mm (u = +X, v = +Z)', from: { kind: 'face', ref: 'block/F31', revision: 1 } } }), 'person')
+    const moved = await store.movePlane('bracket', 'T1', { origin: [0, 12.5, 0] }, undefined, { ref: 'block/F7', revision: 5 })
+    expect(moved.plane.label).toBe(faceLabel('block/F7', 0, moved.plane.x, moved.plane.y))
+    expect(moved.plane.label).toContain('block/F7')
+    expect(onDisk().tracings[0].plane.label).toBe(moved.plane.label)
+  })
+
   it('writes nothing when nothing moved, and refuses an origin that is not finite', async () => {
     await store.make('bracket', ask('a'), 'person')
     saves.mockClear()
@@ -518,6 +543,19 @@ describe('what is on the disk', () => {
     text.next = 1
     writeFileSync(join(dir, '.torno', 'tracings.json'), JSON.stringify(text))
     expect((await store.make('bracket', ask('b'), 'person')).id).toBe('T7')
+  })
+
+  it('never gives again a layer number removed in this run, whatever a pulled file says next is', async () => {
+    await store.make('bracket', ask('a'), 'person')
+    await store.layer('bracket', 'T1', { make: { name: 'one', colour: 'blue', shapes: square } }, 'person')
+    await store.layer('bracket', 'T1', { make: { name: 'two', colour: 'teal', shapes: square } }, 'person')
+    await store.layer('bracket', 'T1', { remove: 2 }, 'person')
+    const text = onDisk()
+    text.tracings[0].nextLayer = 2
+    writeFileSync(join(dir, '.torno', 'tracings.json'), JSON.stringify(text))
+    const t = await store.layer('bracket', 'T1', { make: { name: 'three', colour: 'plum', shapes: square } }, 'person')
+    expect(t.layers.map((l) => l.id)).toEqual([1, 3])
+    expect(t.nextLayer).toBe(4)
   })
 
   it('keeps a build number it holds for a tracing a pull leaves in place', async () => {
