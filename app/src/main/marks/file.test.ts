@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ArrowMark, DimensionMark, Mark, MarksFile, NoteMark, PickMark, PinMark, ShapeMark, SketchMark, StrokeMark } from '../../shared/marks'
 import { markAnchors } from '../../shared/marks'
 import * as atomic from '../atomic'
-import { loadMarksFile, MAX_NOTE, MAX_STROKE_POINTS, sanitiseMark, saveMarksFile } from './file'
+import { loadMarksFile, MAX_NOTE, MAX_STROKE_POINTS, sanitiseMark, sanitiseMarksFile, saveMarksFile } from './file'
 
 // The real writes, which a test can have fail once.
 vi.mock('../atomic', async (importActual) => {
@@ -646,5 +646,62 @@ describe('a stroke of the old kind', () => {
   it('still reads through the sanitiser, on a surface and on a plane', () => {
     expect(sanitiseMark(surfaceStroke)).toEqual(surfaceStroke)
     expect(sanitiseMark(planeStroke)).toEqual(planeStroke)
+  })
+})
+
+describe('a review in a marks file', () => {
+  const R = (id: string, over: object = {}) => ({ id, build: 'h41', sources: 'abc', line: 'check it', layout: 'assembly', startedAt: '2026-11-17T10:00:00.000Z', ...over })
+
+  it('keeps an intent, a round and a judgment on a mark, and leaves a bad one out with the mark kept', () => {
+    expect(sanitiseMark(pin({ intent: 'dont', round: 'R3', judged: { verdict: 'still-wrong', build: 'h42' } }))).toMatchObject({ intent: 'dont', round: 'R3', judged: { verdict: 'still-wrong', build: 'h42' } })
+    const bad = sanitiseMark(pin({ intent: 'maybe', round: 'r3', judged: { verdict: 'fine', build: 'h42' } })) as PinMark
+    expect(bad).toEqual(pin())
+    expect('intent' in bad || 'round' in bad || 'judged' in bad).toBe(false)
+    expect(sanitiseMark(pin({ judged: { verdict: 'ok' } }))).toEqual(pin())
+    expect(sanitiseMark(pin({ round: 'R0' }))).toEqual(pin())
+  })
+
+  it('keeps a shape\'s own intent, and says no review intent of it', () => {
+    expect(sanitiseMark({ ...shape, intent: 'keep-out', round: 'R1' })).toMatchObject({ intent: 'keep-out', round: 'R1' })
+    expect(sanitiseMark({ ...shape, intent: 'want' })).toBeNull()
+  })
+
+  it('reads a file from before rounds unchanged, with no rounds in it', async () => {
+    const before = { next: 3, marks: [pin(), { ...pick }] }
+    await saveMarksFile(dir, before)
+    const text = JSON.parse(readFileSync(path(), 'utf8'))
+    expect(text).toEqual(before)
+    expect('rounds' in text || 'nextRound' in text).toBe(false)
+    expect(sanitiseMarksFile(before)).toEqual(before)
+  })
+
+  it('round trips rounds and the number of the next', async () => {
+    const file: MarksFile = { next: 3, marks: [pin({ round: 'R1', intent: 'want' })], rounds: [R('R1', { endedAt: 'x', sentAt: 'y' }), R('R2', { from: 'R1', plain: 'z' })] as MarksFile['rounds'], nextRound: 3 }
+    await saveMarksFile(dir, file)
+    expect(await loadMarksFile(dir)).toEqual({ file })
+  })
+
+  it('leaves out a round that is not whole, and keeps an id once', () => {
+    const file = sanitiseMarksFile({ next: 1, marks: [], rounds: [R('R1'), R('R1', { build: 'h50' }), R('R2', { build: 7 }), R('Q3'), 'R4', R('R5', { from: 'bad' })], nextRound: 1 }) as MarksFile
+    expect(file.rounds?.map((r) => r.id)).toEqual(['R1', 'R5'])
+    expect(file.rounds?.[0].build).toBe('h41')
+    expect(file.rounds?.[1].from).toBeUndefined()
+  })
+
+  it('leaves one round open, the newest, when a file has two', () => {
+    const file = sanitiseMarksFile({ next: 1, marks: [], rounds: [R('R1'), R('R2', { startedAt: '2026-11-17T11:00:00.000Z' })], nextRound: 3 }) as MarksFile
+    expect(file.rounds?.map((r) => r.endedAt)).toEqual(['2026-11-17T11:00:00.000Z', undefined])
+  })
+
+  it('makes a mark that names a round the file lacks a plain mark', () => {
+    const file = sanitiseMarksFile({ next: 3, marks: [pin({ round: 'R9', intent: 'dont' }), { ...pick, id: 'M2', round: 'R1' }], rounds: [R('R1')], nextRound: 10 }) as MarksFile
+    expect(file.marks[0]).toEqual(pin({ intent: 'dont' }))
+    expect(file.marks[1].round).toBe('R1')
+  })
+
+  it('raises the next round above every round the file has, and every round a mark names', () => {
+    expect((sanitiseMarksFile({ next: 1, marks: [], rounds: [R('R4')], nextRound: 1 }) as MarksFile).nextRound).toBe(5)
+    expect((sanitiseMarksFile({ next: 1, marks: [pin({ round: 'R4' })], rounds: [R('R4'), R('R5', { build: '' })] }) as MarksFile).nextRound).toBe(6)
+    expect((sanitiseMarksFile({ next: 1, marks: [], rounds: [], nextRound: 7 }) as MarksFile).nextRound).toBe(7)
   })
 })

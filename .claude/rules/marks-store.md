@@ -31,12 +31,22 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   which only main sets (`withTag`, on placing and on every check) and which a check follows before the
   nearest-point rule.
 - What only main says of a mark (`MAIN_ONLY_KEYS` in `shared/marks.ts`:
-  `resolvedBy`, `acknowledged`, `sentBefore`, `reopened`, `checkedRevision`) is never
+  `resolvedBy`, `acknowledged`, `sentBefore`, `reopened`, `checkedRevision`, `round`, `judged`) is never
   taken from the window or from a tool's arguments. A mark the agent resolved
   is under "To review" until the person acknowledges it, one at a time or all at once (`marks.acknowledge`,
   one write).
 
 ## Marks (`app/src/main`)
+
+- **Reviews** (`shared/reviews.ts`): a mark of the person's says want or don't want (`intent`, `markIntent`: a shape's `add` and
+  `remove` are those, so `setIntent` writes them; never of the agent's marks). A **round** `R<n>` is a review of one build, kept in
+  `marks.json` beside the marks (`rounds`, `nextRound`; the id is never given again, whatever becomes of the round), at most one
+  open. `MarkStore` is its only writer: a mark the person makes while the round of its layout is open has `round` (`add`,
+  `addNote`, a new sketch; never the agent's, never from the window), and Still wrong (`judge`) moves an item into the next
+  round, made there ended and unsent, so that it is held (`isHeld`). `judged` is set by `judge` alone: `acknowledge` and "OK all"
+  leave it. `sending` is the round whose prompt is on its way: in memory, forgotten with `forget`, told with `changed`. The
+  sanitiser leaves a bad `intent`, `round` or `judged` out of a mark, drops a round that is not whole, ends all open rounds but the
+  newest and makes a mark that names a round the file lacks a plain one.
 
 - A view note's card on the board is told to the agent as the note's line (`describeMark`, the same as the `marks` tool's first line), never as
   `(note, on <ref>)` of the other marks (`main/board/text.ts` `markText`).

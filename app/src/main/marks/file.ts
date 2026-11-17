@@ -2,9 +2,10 @@ import { copyFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { verdictOf } from '../../shared/dimension'
 import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } from '../../shared/drawing'
-import type { Anchor, DimensionMark, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, Quat, RegionMark, ShapeKind, SketchMark, StrokeMark, Vec3 } from '../../shared/marks'
+import type { Anchor, DimensionMark, Judged, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, Quat, RegionMark, ShapeKind, SketchMark, StrokeMark, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
+import { ROUND_ID, type Round } from '../../shared/reviews'
 import { TAG_NAME } from '../../shared/tags'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 import { readSketch } from '../sketches/read'
@@ -95,7 +96,73 @@ function readMarksFile(value: unknown): { file: MarksFile; dropped: number } | n
     seen.add(mark.id)
     marks.push(mark)
   }
-  return { file: { next, marks }, dropped: value.marks.length - marks.length }
+  const file: MarksFile = { next, marks }
+  const rounds = readRounds(value)
+  if (rounds) {
+    const names = new Set(rounds.rounds.map((round) => round.id))
+    // A mark that names a round this file does not have is a plain mark.
+    file.marks = marks.map((mark) => {
+      if (mark.round === undefined || names.has(mark.round)) return mark
+      const { round: _gone, ...plain } = mark
+      return plain as Mark
+    })
+    file.rounds = rounds.rounds
+    if (rounds.next !== undefined) file.nextRound = Math.max(rounds.next, ...marks.map((mark) => (mark.round === undefined ? 0 : roundNumber(mark.round) + 1)))
+  }
+  return { file, dropped: value.marks.length - marks.length }
+}
+
+/** The number of a round's id, `R4` of 4. */
+const roundNumber = (id: string): number => Number(id.slice(1))
+
+/**
+ * The rounds of a marks file, and the number the next is given: a round that is not whole is left out, an id is kept
+ * once, and only the newest round (the highest id) may be open: any other is ended, when the newest began. `next` is
+ * past every id a round or the file says, kept or not. Null for a file from before there were rounds.
+ */
+function readRounds(value: Record<string, unknown>): { rounds: Round[]; next: number | undefined } | null {
+  if (!Array.isArray(value.rounds) && value.nextRound === undefined) return null
+  const rounds: Round[] = []
+  const seen = new Set<string>()
+  let next = idNumber(value.nextRound) ?? 1
+  for (const raw of Array.isArray(value.rounds) ? value.rounds : []) {
+    if (isRecord(raw) && typeof raw.id === 'string' && ROUND_ID.test(raw.id)) next = Math.max(next, roundNumber(raw.id) + 1)
+    const round = roundOf(raw)
+    if (!round || seen.has(round.id)) continue
+    seen.add(round.id)
+    rounds.push(round)
+  }
+  const open = rounds.filter((round) => round.endedAt === undefined)
+  if (open.length > 1) {
+    const newest = open.reduce((a, b) => (roundNumber(b.id) > roundNumber(a.id) ? b : a))
+    for (const round of open) if (round !== newest) round.endedAt = newest.startedAt
+  }
+  return { rounds, next: Array.isArray(value.rounds) || next > 1 ? next : undefined }
+}
+
+/** A round with only the fields a round has, or null when the value is not one. */
+function roundOf(value: unknown): Round | null {
+  if (!isRecord(value)) return null
+  if (typeof value.id !== 'string' || !ROUND_ID.test(value.id)) return null
+  if (typeof value.build !== 'string' || value.build === '' || typeof value.sources !== 'string' || typeof value.line !== 'string' || typeof value.layout !== 'string' || typeof value.startedAt !== 'string') return null
+  const text = (key: 'endedAt' | 'sentAt' | 'plain'): { [k: string]: string } => (typeof value[key] === 'string' ? { [key]: value[key] as string } : {})
+  return {
+    id: value.id,
+    build: value.build,
+    sources: value.sources,
+    line: value.line,
+    layout: value.layout,
+    startedAt: value.startedAt,
+    ...text('endedAt'),
+    ...text('sentAt'),
+    ...text('plain'),
+    ...(typeof value.from === 'string' && ROUND_ID.test(value.from) ? { from: value.from } : {})
+  }
+}
+
+/** What a person says of the agent's answer, or null when it is no verdict. */
+function judgedOf(value: unknown): Judged | null {
+  return isRecord(value) && oneOf(value.verdict, ['ok', 'still-wrong'] as const) && typeof value.build === 'string' && value.build !== '' ? { verdict: value.verdict, build: value.build } : null
 }
 
 /**
@@ -152,7 +219,11 @@ export function sanitiseMark(value: unknown): Mark | null {
     ...(value.status === 'resolved' && value.resolvedBy === 'agent' && value.acknowledged === true ? { acknowledged: true as const } : {}),
     ...(value.sentBefore === true ? { sentBefore: true as const } : {}),
     ...(value.status === 'draft' && value.reopened === true ? { reopened: true as const } : {}),
-    ...(isNumber(value.checkedRevision) ? { checkedRevision: value.checkedRevision } : {})
+    ...(isNumber(value.checkedRevision) ? { checkedRevision: value.checkedRevision } : {}),
+    // A review: a bad `intent`, `round` or `judged` is left out, and the mark kept. A shape's `intent` is its own, read below.
+    ...(value.kind !== 'shape' && oneOf(value.intent, ['want', 'dont'] as const) ? { intent: value.intent } : {}),
+    ...(typeof value.round === 'string' && ROUND_ID.test(value.round) ? { round: value.round } : {}),
+    ...(judgedOf(value.judged) ? { judged: judgedOf(value.judged) as Judged } : {})
   }
   const anchor = anchorOf(value.anchor)
   switch (value.kind) {
