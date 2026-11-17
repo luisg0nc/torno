@@ -78,7 +78,9 @@ def section(shapes: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     its cut edges, each once (an edge that is closed on itself, a whole circle, has no end),
     and ``circles``, one ``{centre, radius}`` for each cut edge that is a circle or an arc of
     one, with its ``edge`` (``E<i>``, as ``topo`` numbers the part's edges) when it lies on a
-    circular edge of the part. Without ``snaps`` no loop carries either.
+    circular edge of the part. Arcs of one circle that lie on different edges are entries of their
+    own, each with its edge; entries that name the same edge are told once. Without ``snaps`` no
+    loop carries either.
     """
     layout, plane, names = args.get("layout"), args.get("plane"), args.get("parts")
     origin = as_point(plane.get("origin")) if isinstance(plane, dict) else None
@@ -107,8 +109,7 @@ def section(shapes: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     need_layout(shapes, layout)
     if names is None:
         names = [key.split(":", 1)[1] for key in shapes if key.startswith(f"{layout}:")]
-    frame = _Frame(np.array(origin), unit, deflection, axes)
-    frame.snaps = snaps
+    frame = _Frame(np.array(origin), unit, deflection, axes, snaps=snaps)
     parts = []
     for name in dict.fromkeys(names):
         parts.append({"part": name, **_cut(need_part(shapes, layout, name), frame, f"{layout}:{name}")})
@@ -199,12 +200,13 @@ class _Frame:
         normal: np.ndarray,
         deflection: float = DEFLECTION,
         axes: tuple[np.ndarray, np.ndarray] | None = None,
+        snaps: bool = False,
     ) -> None:
         self.origin = origin
         self.normal = normal
         self.deflection = deflection
         # Whether each loop is to carry its corners and circles.
-        self.snaps = False
+        self.snaps = snaps
         if axes is not None:
             self.x, self.y = axes
             return
@@ -448,7 +450,7 @@ class _Snapper:
     def __init__(self, shape: Any, frame: _Frame) -> None:
         self.shape = shape
         self.frame = frame
-        self._model: list[tuple[int, np.ndarray, float]] | None = None
+        self._model: list[tuple[int, Any, np.ndarray, float]] | None = None
 
     def of(self, wire: Any) -> dict[str, Any]:
         """``corners`` and ``circles`` of a wire of the cut, in ``[u, v]``."""
@@ -483,9 +485,14 @@ class _Snapper:
                     "centre": _out(self.frame.flat(at[None, :])[0]),
                     "radius": float(circle.Radius()),
                 }
-                index = self._on_model(at, float(circle.Radius()))
+                index = self._on_model(
+                    at, float(circle.Radius()), curve.Value((curve.FirstParameter() + curve.LastParameter()) / 2)
+                )
                 if index is not None:
                     found["edge"] = f"E{index}"
+                    # An arc cut in pieces by corners is told once, on the edge it lies on.
+                    if any(c.get("edge") == found["edge"] for c in circles):
+                        continue
                 circles.append(found)
         corners: list[list[float]] = []
         kept: list[np.ndarray] = []
@@ -495,9 +502,15 @@ class _Snapper:
                 corners.append(_out(self.frame.flat(point[None, :])[0]))
         return {"corners": corners, "circles": circles}
 
-    def _on_model(self, centre: np.ndarray, radius: float) -> int | None:
-        """The index (as ``topo`` numbers edges) of the part's circular edge in the plane with
-        this centre and radius, or None."""
+    def _on_model(self, centre: np.ndarray, radius: float, middle: Any) -> int | None:
+        """The index (as ``topo`` numbers edges) of the part's circular edge in the plane that the
+        cut edge, of this centre and radius and through the point ``middle``, lies on, or None.
+
+        Several edges may share a circle (a bore broken by slots); the one that has ``middle`` is it.
+        """
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+        from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
         if self._model is None:
             from OCP.BRepAdaptor import BRepAdaptor_Curve
             from OCP.GeomAbs import GeomAbs_CurveType
@@ -512,9 +525,13 @@ class _Snapper:
                 # Only a circle in the plane is of this cut.
                 if abs(np.array([axis.X(), axis.Y(), axis.Z()]) @ self.frame.normal) < 1 - 1e-9:
                     continue
-                self._model.append((i, np.array([at.X(), at.Y(), at.Z()]), float(circle.Radius())))
-        for i, at, r in self._model:
-            if abs(r - radius) <= _SAME and np.linalg.norm(at - centre) <= _SAME:
+                self._model.append((i, edge, np.array([at.X(), at.Y(), at.Z()]), float(circle.Radius())))
+        vertex = BRepBuilderAPI_MakeVertex(middle).Vertex()
+        for i, edge, at, r in self._model:
+            if abs(r - radius) > _SAME or np.linalg.norm(at - centre) > _SAME:
+                continue
+            apart = BRepExtrema_DistShapeShape(vertex, edge)
+            if apart.IsDone() and apart.Value() <= _SAME:
                 return i
         return None
 

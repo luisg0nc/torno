@@ -607,3 +607,40 @@ def test_without_snaps_or_axes_the_reply_is_what_it_was():
     assert json.dumps(plain) == json.dumps(section(block(), [0, 0, 0], Z, snaps=False))
     assert all("corners" not in loop and "circles" not in loop for loop in plain["parts"][0]["loops"])
     assert plain["plane"]["x"] == X and plain["plane"]["y"] == Y
+
+
+def test_arcs_of_one_circle_on_different_edges_each_name_their_own():
+    from build123d import Box, Cylinder, Pos
+
+    from torno_kernel import topo
+
+    # A bore broken by a slot through both sides: its rim is two edges on one circle.
+    shapes = {"assembly:b": Box(40, 40, 10) - Cylinder(6, 10) - Box(14, 3, 10)}
+    result = section(shapes, [0, 0, 5], Z, snaps=True, axes={"x": X, "y": Y})
+    [circles] = [loop["circles"] for loop in result["parts"][0]["loops"] if loop["circles"]]
+    assert len(circles) == 2
+    assert all(c["centre"] == pytest.approx([0, 0], abs=1e-9) and c["radius"] == pytest.approx(6) for c in circles)
+    names = [c["edge"] for c in circles]
+    assert len(set(names)) == 2
+    # Each is the edge whose arc it is: the one at +Y and the one at -Y.
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+
+    edges = topo.edges(shapes["assembly:b"])
+    sides = set()
+    for name in names:
+        curve = BRepAdaptor_Curve(edges[int(name[1:])])
+        mid = curve.Value((curve.FirstParameter() + curve.LastParameter()) / 2)
+        assert mid.Z() == pytest.approx(5)
+        sides.add(1 if mid.Y() > 0 else -1)
+    assert sides == {1, -1}
+
+
+def test_a_loop_of_one_closed_edge_that_is_no_circle_has_no_corners_and_no_circles():
+    from build123d import Cylinder
+
+    # Across a cylinder on a slant the cut is one ellipse, closed on itself.
+    result = section(
+        {"assembly:c": Cylinder(5, 20)}, [0, 0, 0], [0, 1, 1], snaps=True, axes={"x": X, "y": [0, math.sqrt(0.5), -math.sqrt(0.5)]}
+    )
+    [loop] = result["parts"][0]["loops"]
+    assert (loop["corners"], loop["circles"]) == ([], [])
