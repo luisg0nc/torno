@@ -1,6 +1,6 @@
 import type { SketchDraft } from '../../shared/bridge'
 import { type Mark, type SketchMark, type SketchPlane, type SketchStroke, type Vec3, MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_NOTE, MAX_STROKE_POINTS } from '../../shared/marks'
-import { type MainAxis, type PlaneFrame, axesOfNormal, directionText, mainPlaneFrame } from '../../shared/planes'
+import { type MainAxis, type PlaneFrame, axesOfNormal, directionText, faceLabel, mainPlaneFrame } from '../../shared/planes'
 import type { Scene } from '../../shared/scene'
 import { describeMark, vector } from '../marks/describe'
 import { oneLine, readSketch } from '../sketches/read'
@@ -30,7 +30,6 @@ const isPoint3 = (value: unknown): value is Vec3 => Array.isArray(value) && valu
 const isPoint2 = (value: unknown): value is [number, number] => Array.isArray(value) && value.length === 2 && value.every((c) => typeof c === 'number' && Number.isFinite(c))
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const isMainAxis = (value: unknown): value is MainAxis => value === 'XY' || value === 'XZ' || value === 'YZ'
-const mm = (n: number): string => String(Number(n.toFixed(3)))
 
 /** The box of the layout's parts: where its middle is and how long its diagonal is (the least, `LEAST_DIAGONAL_MM`). */
 function reachOf(scene: Scene, layout: string): { centre: Vec3; reach: number } {
@@ -79,7 +78,7 @@ async function planeOf(deps: ToolDeps, objectId: string, scene: Scene, layout: s
     const x = tidy(axes.x)
     const y = tidy(axes.y)
     const origin = tidy(plus(described.center, axes.normal, value.offset))
-    const label = `plane through ${checked.ref} offset ${mm(value.offset)} mm (u = ${directionText(x)}, v = ${directionText(y)})`
+    const label = faceLabel(checked.ref, value.offset, x, y)
     return { id, origin, x, y, label, from: { kind: 'face', ref: checked.ref, offset: value.offset, revision } }
   }
   if ('origin' in value || 'normal' in value) {

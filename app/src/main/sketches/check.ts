@@ -3,7 +3,7 @@ import { rotate } from '../../shared/align'
 import type { SketchDraft } from '../../shared/bridge'
 import { type SketchMark, type SketchPlane, type SketchSnap, type SketchStroke, type Vec3, MAX_NOTE } from '../../shared/marks'
 import { type Part, type Scene, bufView } from '../../shared/scene'
-import { type SnapData, circleOf, vertexAt } from '../../shared/snapdata'
+import { type SnapData, EDGE_CIRCLE, EDGE_LINE, circleOf, nearestOnCircle, nearestOnSegment, orthogonal, segmentParameter, vertexAt } from '../../shared/snapdata'
 import { anchorOf, cameraOf } from '../marks/file'
 import { tolerance } from '../marks/tolerance'
 import { Refusal } from '../refusal'
@@ -21,10 +21,6 @@ export const SNAP_MM = 0.01
 const SAME_MM = 0.011
 /** How far a vertex may be from the end of the polyline of the edge that ends there, and be taken for it. */
 const VERTEX_MATCH_MM = 1e-3
-
-// The kernel's curve types of an edge (OCCT's `GeomAbs_CurveType`).
-const LINE = 0
-const CIRCLE = 1
 
 /** The last build of an object, as the checks of a sketch need it: its number, its scene, the blob its buffers are in, and the snap data of a part of the layout. */
 export interface SketchBuild {
@@ -204,8 +200,8 @@ function checkSnaps(stroke: SketchStroke, n: number, planes: readonly SketchPlan
       if (!Number.isInteger(index) || index >= part.edgeCount) return new Refusal(`${ref}: ${name} has ${part.edgeCount} edges.`)
       const source = edges()
       const type = source.type(index)
-      const circle = type === CIRCLE ? circleOf(data, index) : null
-      const ends = type === LINE ? source.ends(index) : null
+      const circle = type === EDGE_CIRCLE ? circleOf(data, index) : null
+      const ends = type === EDGE_LINE ? source.ends(index) : null
       if (snap.approx || (!circle && !ends)) {
         kept = { ...snap, approx: true }
       } else {
@@ -232,15 +228,7 @@ function checkSnaps(stroke: SketchStroke, n: number, planes: readonly SketchPlan
 function onCircle(part: Part, circle: { centre: Vec3; axis: Vec3; radius: number }, p: Vec3, plane: SketchPlane | undefined): Vec3 {
   const centre = placed(part, circle.centre)
   const axis = rotate(part.loc.q, circle.axis)
-  const along = (q: Vec3): Vec3 => {
-    const v = sub(q, centre)
-    const flat = sub(v, times(axis, dot(v, axis)))
-    const length = Math.hypot(...flat)
-    // Over the centre of it every point is as near: any one.
-    const direction: Vec3 = length > 1e-12 ? times(flat, 1 / length) : orthogonal(axis)
-    return add(centre, times(direction, circle.radius))
-  }
-  if (!plane) return along(p)
+  if (!plane) return nearestOnCircle(centre, axis, circle.radius, p)
   // Put on a plane, a circle is an ellipse: look for the point of the circle whose shadow is nearest, around it.
   const u = orthogonal(axis)
   const w = cross(axis, u)
@@ -259,31 +247,15 @@ function onCircle(part: Part, circle: { centre: Vec3; axis: Vec3; radius: number
   return at((lo + hi) / 2)
 }
 
-/** Any unit vector at a right angle to `axis`. */
-function orthogonal(axis: Vec3): Vec3 {
-  const least = Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2]) ? ([1, 0, 0] as Vec3) : Math.abs(axis[1]) <= Math.abs(axis[2]) ? ([0, 1, 0] as Vec3) : ([0, 0, 1] as Vec3)
-  const c = cross(axis, least)
-  const length = Math.hypot(...c)
-  return times(c, 1 / length)
-}
-
 /** The point of a straight edge nearest to `p` (in the object frame); with a plane, the one whose shadow on the plane is nearest. */
 function onSegment(part: Part, ends: [Vec3, Vec3], p: Vec3, plane: SketchPlane | undefined): Vec3 {
   const [a, b] = ends.map((e) => placed(part, e))
   const [fa, fb] = plane ? [flatten(plane, a), flatten(plane, b)] : [a, b]
-  const t = nearestT(fa, fb, p)
-  return add(a, times(sub(b, a), t))
-}
-
-function nearestT(a: Vec3, b: Vec3, p: Vec3): number {
-  const d = sub(b, a)
-  const length2 = dot(d, d)
-  return length2 === 0 ? 0 : Math.min(1, Math.max(0, dot(sub(p, a), d) / length2))
+  return add(a, times(sub(b, a), segmentParameter(fa, fb, p)))
 }
 
 function segmentDistance(p: Vec3, a: Vec3, b: Vec3): number {
-  const t = nearestT(a, b, p)
-  return distance(p, add(a, times(sub(b, a), t)))
+  return distance(p, nearestOnSegment(a, b, p))
 }
 
 /** What the build's buffers say of a part's edges: each one's curve type, its two ends and its tessellated segments in the object frame. */

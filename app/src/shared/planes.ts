@@ -69,3 +69,8 @@ export function axesOfNormal(normal: Vec3): { x: Vec3; y: Vec3; normal: Vec3 } |
   const y: Vec3 = [n[1] * unit[2] - n[2] * unit[1], n[2] * unit[0] - n[0] * unit[2], n[0] * unit[1] - n[1] * unit[0]]
   return { x: unit, y: y.map((c) => c + 0) as Vec3, normal: n }
 }
+
+/** A plane through a face, at an offset from it: `plane through block/F31 offset 12 mm (u = +X, v = +Y)`. One label for the one main makes and the one the window makes. */
+export function faceLabel(ref: string, offset: number, x: Vec3, y: Vec3): string {
+  return `plane through ${ref} offset ${String(Number(offset.toFixed(3)))} mm (u = ${directionText(x)}, v = ${directionText(y)})`
+}

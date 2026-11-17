@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { viewPlane } from '../renderer/tools/planes'
 import type { Vec3 } from './marks'
-import { axesOfNormal, mainPlaneFrame } from './planes'
+import { axesOfNormal, faceLabel, mainPlaneFrame } from './planes'
 
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 
@@ -50,5 +50,12 @@ describe('the axes of a normal', () => {
   it('are none for a normal that is zero or not finite', () => {
     expect(axesOfNormal([0, 0, 0])).toBeNull()
     expect(axesOfNormal([NaN, 0, 1])).toBeNull()
+  })
+})
+
+describe('faceLabel', () => {
+  it('names the face, the offset in mm and the axes', () => {
+    expect(faceLabel('block/F31', 12, [1, 0, 0], [0, 1, 0])).toBe('plane through block/F31 offset 12 mm (u = +X, v = +Y)')
+    expect(faceLabel('block/F31', -0.12345, [1, 0, 0], [0, 0.6, 0.8])).toBe('plane through block/F31 offset -0.123 mm (u = +X, v = [0, 0.6, 0.8])')
   })
 })

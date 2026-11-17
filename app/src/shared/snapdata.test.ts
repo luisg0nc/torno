@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Part } from './scene'
-import { circleOf, snapOf, vertexAt, type SnapData } from './snapdata'
+import { circleOf, nearestOnCircle, nearestOnSegment, snapOf, vertexAt, type SnapData } from './snapdata'
 
 // Three vertices, and two circles on edges 2 and 5: the kernel's layout (`points`, `circles`).
 const data: SnapData = {
@@ -55,5 +55,32 @@ describe('snapOf', () => {
 
   it('is undefined when the kernel sent neither', () => {
     expect(snapOf(part({}), new ArrayBuffer(0))).toBeUndefined()
+  })
+})
+
+describe('nearestOnSegment', () => {
+  it('is the foot of the perpendicular, held to the ends', () => {
+    expect(nearestOnSegment([0, 0, 0], [10, 0, 0], [4, 3, 2])).toEqual([4, 0, 0])
+    expect(nearestOnSegment([0, 0, 0], [10, 0, 0], [-4, 3, 2])).toEqual([0, 0, 0])
+    expect(nearestOnSegment([0, 0, 0], [10, 0, 0], [14, 3, 2])).toEqual([10, 0, 0])
+  })
+
+  it('is the one end of a segment that has no length', () => {
+    expect(nearestOnSegment([1, 2, 3], [1, 2, 3], [9, 9, 9])).toEqual([1, 2, 3])
+  })
+})
+
+describe('nearestOnCircle', () => {
+  it('is the point of the circle on the line from the centre to the point seen along the axis', () => {
+    const p = nearestOnCircle([10, 10, 0], [0, 0, 1], 4, [20, 10, 7])
+    expect(p[0]).toBeCloseTo(14)
+    expect(p[1]).toBeCloseTo(10)
+    expect(p[2]).toBeCloseTo(0)
+  })
+
+  it('is some point of the circle over its centre', () => {
+    const p = nearestOnCircle([0, 0, 0], [0, 0, 1], 4, [0, 0, 9])
+    expect(Math.hypot(p[0], p[1])).toBeCloseTo(4)
+    expect(p[2]).toBeCloseTo(0)
   })
 })
