@@ -66,3 +66,6 @@ export function isHeld(mark: Mark, view: RoundsView): boolean {
   const round = view.rounds.find((one) => one.id === mark.round)
   return round !== undefined && round.sentAt === undefined && round.plain === undefined && view.sending !== round.id
 }
+
+/** What the window asks of main about the rounds (`marks:round`): exactly one of these, naming a round by its `R<n>`. */
+export type RoundAsk = { start: { layout: string } } | { end: string } | { reopen: string } | { carry: string } | { send: string } | { plain: string }

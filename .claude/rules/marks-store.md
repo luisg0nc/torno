@@ -47,6 +47,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   leave it. `sending` is the round whose prompt is on its way: in memory, forgotten with `forget`, told with `changed`. The
   sanitiser leaves a bad `intent`, `round` or `judged` out of a mark, drops a round that is not whole, ends all open rounds but the
   newest and makes a mark that names a round the file lacks a plain one.
+  The window asks for all of it through `marks:round`, `marks:rounds`, `marks:setIntent`, `marks:roundOut` and `marks:judge`
+  (`main/reviews/ipc.ts`): it names a project, `R<n>` and `M<n>` only, never a build. Main finds the build on show (`shownBuild`: the
+  newest kept, not failed history entry whose `sources` are the last successful build's) and stars it; it is refused while a build runs
+  or failed. Start and Still wrong's next round use it; OK only names it.
 
 - A view note's card on the board is told to the agent as the note's line (`describeMark`, the same as the `marks` tool's first line), never as
   `(note, on <ref>)` of the other marks (`main/board/text.ts` `markText`).
