@@ -113,6 +113,7 @@ describe('tracings, against the real kernel', () => {
       build: (id) => builds.scene(id),
       query: (id, name, args) => builds.query(id, name, args, { restore: false }),
       nearest: async (id, layout, anchors) => nearestReply(await builds.query(id, 'nearest', { layout, anchors }, { restore: false }), anchors),
+      refind: async (id, layout, members) => ((await builds.query(id, 'refind', { layout, members }, { restore: false })) as { members: unknown[] }).members,
       log: () => {}
     })
     const door = tracingHandlers({
@@ -165,13 +166,15 @@ describe('tracings, against the real kernel', () => {
   }, 120_000)
 
   it('finds a face with a hole at its centre again on an unchanged rebuild', async () => {
-    // describe's centre of the top is the middle of the hole: no surface there. The tracing's origin is a point on the face.
+    // describe's centre of the top is the middle of the hole: no surface there, so the tracing's origin is a point on the face, and
+    // that is on the rim of the hole, as near to its wall as to the top. The model numbers the wall F0 and the top F1: the kernel's
+    // refind, by type, finds the plane and not the wall.
     const holey = join(root, 'holey')
     mkdirSync(holey)
     writeFileSync(join(holey, 'variant.txt'), 'a\n')
     writeFileSync(
       join(holey, 'holey.py'),
-      'from pathlib import Path\nfrom build123d import Box, Cylinder, Pos\n\nvariant = (Path(__file__).parent / "variant.txt").read_text().strip()\nplate = Box(40, 30, 5) - Cylinder(6, 5)\nif variant == "b":\n    plate = Pos(0, 0, 0) * (Box(10, 10, 2) + plate)\n'
+      'from pathlib import Path\nfrom build123d import Box, Cylinder, Pos\n\nvariant = (Path(__file__).parent / "variant.txt").read_text().strip()\nplate = Cylinder(20, 5) - Cylinder(6, 5)\nif variant == "b":\n    plate = Pos(0, 0, 0) * (Box(10, 10, 2) + plate)\n'
     )
     const settled = (): Promise<BuildState> => new Promise((done) => builds.on('build', (state) => state.objectId === 'holey' && state.status !== 'building' && done(state)))
     const first = settled()
@@ -183,6 +186,7 @@ describe('tracings, against the real kernel', () => {
       build: (id) => builds.scene(id),
       query: (id, name, args) => builds.query(id, name, args, { restore: false }),
       nearest: async (id, layout, anchors) => nearestReply(await builds.query(id, 'nearest', { layout, anchors }, { restore: false }), anchors),
+      refind: async (id, layout, members) => ((await builds.query(id, 'refind', { layout, members }, { restore: false })) as { members: unknown[] }).members,
       log: () => {}
     })
     const door = tracingHandlers({

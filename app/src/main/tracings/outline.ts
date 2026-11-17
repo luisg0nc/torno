@@ -8,7 +8,7 @@ import { isBusy } from '../kernel/client'
 import type { AskedAnchor, Checked, NearestAnchor } from '../marks/reanchor'
 import { SECTION_DEFLECTION } from '../mcp/readTools'
 import { Refusal } from '../refusal'
-import { followFaces } from './planes'
+import { type RefindAsk, followFaces } from './planes'
 import type { TracingStore } from './store'
 
 // The outline of a tracing: what the kernel's `section` cuts of its parts in its plane, of the last good build, with the points
@@ -28,6 +28,8 @@ export interface OutlineDeps {
   query<T = unknown>(objectId: string, name: string, args: object): Promise<T>
   /** The kernel's `nearest` of a project's last build, as `nearestReply` checks it. */
   nearest(objectId: string, layout: string, anchors: AskedAnchor[]): Promise<NearestAnchor[]>
+  /** The kernel's `refind` of a project's last build: one answer for each face asked, in order. */
+  refind(objectId: string, layout: string, members: RefindAsk[]): Promise<unknown[]>
   /** Told what could not be done, once for each run. */
   log?(message: string): void
 }
@@ -119,7 +121,7 @@ export class Outlines {
     if (superseded()) return true
     const faces = file.tracings.filter((t) => t.plane.from.kind === 'face')
     if (faces.length > 0) {
-      const followed = await followFaces(faces, scene, (layout, anchors) => this.deps.nearest(objectId, layout, anchors))
+      const followed = await followFaces(faces, scene, { nearest: (layout, anchors) => this.deps.nearest(objectId, layout, anchors), refind: (layout, members) => this.deps.refind(objectId, layout, members) })
       if (superseded()) return true
       for (const t of faces) {
         const found = followed.get(t.id)

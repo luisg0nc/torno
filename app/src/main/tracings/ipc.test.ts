@@ -67,7 +67,7 @@ beforeEach(() => {
     if (name === 'section') return sectionReply(args)
     throw new Error(`unexpected ${name}`)
   }
-  outlines = new Outlines({ tracings: store, build: () => ({ revision, scene, blob: new Uint8Array(0) }), query: async (_id, name, args) => reply(name, args as Record<string, any>) as never, nearest: async () => [], log: () => {} })
+  outlines = new Outlines({ tracings: store, build: () => ({ revision, scene, blob: new Uint8Array(0) }), query: async (_id, name, args) => reply(name, args as Record<string, any>) as never, nearest: async () => [], refind: async () => [], log: () => {} })
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 

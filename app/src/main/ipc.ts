@@ -387,6 +387,11 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
     build: (id) => (current === ws ? builds.scene(id) : undefined),
     query: (id, name, args) => builds.query(id, name, args, { restore: false }),
     nearest: async (id, layout, anchors) => nearestReply(await builds.query(id, 'nearest', { layout, anchors }, { restore: false }), anchors),
+    refind: async (id, layout, members) => {
+      const reply = await builds.query<{ members?: unknown }>(id, 'refind', { layout, members }, { restore: false })
+      if (!Array.isArray(reply?.members) || reply.members.length !== members.length) throw new Error('the kernel did not answer for each face')
+      return reply.members
+    },
     log: console.error
   })
   outlines.on('outline', (m) => {
