@@ -152,11 +152,18 @@ export function toUv(plane: Pick<TracingPlane, 'origin' | 'x' | 'y'>, p: Vec3): 
   return [dot(d, plane.x), dot(d, plane.y)]
 }
 
+/** The plane's normal, `x × y`. */
+export const planeNormal = (plane: Pick<TracingPlane, 'x' | 'y'>): Vec3 => cross(plane.x, plane.y)
+
+/** How far a point is from the plane in mm, signed along its normal. */
+export function planeDistance(plane: Pick<TracingPlane, 'origin' | 'x' | 'y'>, p: Vec3): number {
+  const d: Vec3 = [p[0] - plane.origin[0], p[1] - plane.origin[1], p[2] - plane.origin[2]]
+  return dot(d, planeNormal(plane))
+}
+
 /** Whether a point lies in the plane, within `within` mm of it. */
 export function inPlane(plane: Pick<TracingPlane, 'origin' | 'x' | 'y'>, p: Vec3, within = 1e-6): boolean {
-  const n = cross(plane.x, plane.y)
-  const d: Vec3 = [p[0] - plane.origin[0], p[1] - plane.origin[1], p[2] - plane.origin[2]]
-  return Math.abs(dot(d, n)) <= within
+  return Math.abs(planeDistance(plane, p)) <= within
 }
 
 /**

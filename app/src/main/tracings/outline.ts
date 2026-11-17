@@ -23,8 +23,8 @@ import type { TracingStore } from './store'
 
 export interface OutlineDeps {
   tracings: Pick<TracingStore, 'list' | 'movePlane'>
-  /** The marks on a tracing move with its plane (`MarkStore.followTracing`). Without it none is moved. */
-  marks?: Pick<MarkStore, 'followTracing'>
+  /** The marks on a tracing move with its plane (`MarkStore.followTracing`), and those found off it are put back (`healTracings`). Without it none is moved. */
+  marks?: Pick<MarkStore, 'followTracing'> & Partial<Pick<MarkStore, 'healTracings'>>
   /** The last successful build of a project: its number, its scene and the blob its buffers are in. None once the workspace is left: nothing is asked or written then. */
   build(objectId: string): { revision: number; scene: Scene; blob: Uint8Array | ArrayBuffer } | undefined
   /** `Builds.query` that never has the project built again to be answered. */
@@ -104,7 +104,8 @@ export class Outlines {
 
   /**
    * After a successful build, for the project: the plane of each face tracing follows its face (one `nearest` query for each
-   * layout), then each shown tracing is cut again and the window told (`outline`). The others are cut when next asked. A newer
+   * layout), the marks of every tracing that are off its plane are put back onto it (`MarkStore.healTracings`), then each shown tracing is cut
+   * again and the window told (`outline`). The others are cut when next asked. A newer
    * build landing meanwhile drops everything found. Resolves true when all that was asked could be, `busy` when what failed
    * was only the kernel being busy, false otherwise; a tracing the build cannot cut (a layout it lacks) is no failure.
    */
@@ -149,6 +150,17 @@ export class Outlines {
         }
       }
       file = await this.deps.tracings.list(objectId)
+      if (superseded()) return true
+    }
+
+    // The marks of a tracing that are off its plane are put back onto it, in one rewrite: what a crash between the plane's write and its marks'
+    // left (the next build sees no move), or a tracing removed and put back. After the planes have followed their faces, with them as they now are.
+    if (file.tracings.length > 0 && this.deps.marks?.healTracings) {
+      try {
+        await this.deps.marks.healTracings(objectId, file.tracings)
+      } catch (e) {
+        failed('the marks on the tracings', e)
+      }
       if (superseded()) return true
     }
 

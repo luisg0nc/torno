@@ -23,6 +23,8 @@ let query: Fn
 let refind: Fn
 let told: Array<{ objectId: string; cut: TracingCut }>
 let followed: Array<{ objectId: string; tracing: string; by: number[]; plane?: { origin: number[] } }>
+/** What the heal pass was asked: the tracings and where their planes are. */
+let healed: Array<{ objectId: string; planes: Array<{ id: string; origin: number[] }> }>
 
 const part = (name: string, layout: string, over: Record<string, unknown> = {}) => ({ name, layout, loc: { t: [0, 0, 0], q: [0, 0, 0, 1] }, bbox: { min: [0, 0, 0], max: [10, 10, 10] }, mesh: {}, ...over })
 const sceneOf = (parts: unknown[]): Scene => ({ layouts: ['assembly', 'print'], parts }) as unknown as Scene
@@ -59,9 +61,16 @@ beforeEach(() => {
   refind = vi.fn(faceAt(10))
   told = []
   followed = []
+  healed = []
   const deps: OutlineDeps = {
     tracings: store,
-    marks: { followTracing: async (objectId, tracing, by, plane) => void followed.push({ objectId, tracing, by, plane }) },
+    marks: {
+      followTracing: async (objectId, tracing, by, plane) => void followed.push({ objectId, tracing, by, plane }),
+      healTracings: async (objectId, tracings) => {
+        healed.push({ objectId, planes: tracings.map((t) => ({ id: t.id, origin: [...t.plane.origin] })) })
+        return []
+      }
+    },
     build: (id) => (id === 'bracket' ? { revision, scene, blob: new Uint8Array(0) } : undefined),
     query: (id, name, args) => query(id, name, args),
     nearest: async () => [], refind: (_id, layout, members) => refind(layout, members),
@@ -213,6 +222,38 @@ describe('recut', () => {
     revision = 3
     await outlines.recut('bracket')
     expect(followed).toHaveLength(1)
+  })
+
+  it('puts back the marks of every tracing that are off its plane after each recut, with the planes as they then are', async () => {
+    const t = await make(face())
+    await make(main(0))
+    refind.mockImplementation(faceAt(10.3))
+    revision = 2
+    await outlines.recut('bracket')
+    // After the plane moved, so that a crash between the plane's write and its marks' is healed by the next recut.
+    expect(healed).toEqual([{ objectId: 'bracket', planes: [{ id: t.id, origin: [5, 5, 10.3] }, { id: 'T2', origin: [0, 0, 0] }] }])
+    // Again on a build that moved nothing.
+    revision = 3
+    await outlines.recut('bracket')
+    expect(healed).toHaveLength(2)
+  })
+
+  it('heals nothing for a project with no tracings or no build, and a heal that fails does not fail the recut', async () => {
+    await outlines.recut('bracket')
+    expect(healed).toEqual([])
+    await make(main(0))
+    expect(await outlines.recut('other')).toBe(true)
+    expect(healed).toEqual([])
+    const failing = new Outlines({
+      tracings: store,
+      marks: { followTracing: async () => {}, healTracings: async () => Promise.reject(new Error('disk full')) },
+      build: (id) => (id === 'bracket' ? { revision, scene, blob: new Uint8Array(0) } : undefined),
+      query: (id, name, args) => query(id, name, args),
+      nearest: async () => [],
+      refind: (_id, layout, members) => refind(layout, members),
+      log: () => {}
+    })
+    expect(await failing.recut('bracket')).toBe(false)
   })
 
   it('moves no marks of a face that is gone, or of a plane that is not a face', async () => {

@@ -10,12 +10,15 @@ import type { ScanAlignment, ScanInfo } from '../shared/scans'
 import { probe } from '../test/diagnosisFixtures'
 import { buildContextFor, CONTEXT_LIMIT, contextFor, modelOutput, tellsInstructions, type ContextDeps } from './context'
 import { STARTER_MATERIALS, printerOf } from '../shared/profile'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { BoardFile } from '../shared/board'
 import { BoardStore } from './board/store'
 import { boardLine } from './board/text'
+import { mainPlaneFrame } from '../shared/planes'
+import type { Tracing, TracingsFile } from '../shared/tracings'
+import { markTracingsTold, readTracingsTold, tracingsLine } from './tracings/told'
 import { openSketch, sketchHandlers } from './sketches/ipc'
 import { MarkStore } from './marks/store'
 import { describeMark } from './marks/describe'
@@ -1562,5 +1565,69 @@ describe('the board line', () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
+  })
+})
+
+describe('the tracings line', () => {
+  const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
+  const T = (id: string, over: Partial<Tracing> = {}): Tracing => ({ id, by: 'person', name: '', layout: 'assembly', createdAt: '', plane: { ...mainPlaneFrame('XZ', 0), from: { kind: 'main', axis: 'XZ', offset: 0 } }, layers: [], nextLayer: 1, ...over })
+  const file = (...tracings: Tracing[]): TracingsFile => ({ next: tracings.length + 1, tracings })
+  const tool = (t: string): string => `mcp__torno__${t}`
+  const said = tracingsLine(file(T('T1'), T('T2')), {}, tool)
+  const pin = (over: object = {}): Mark => ({ id: 'M5', kind: 'pin', author: 'user', status: 'draft', anchorState: 'ok', note: '', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '', anchor: { point: [3, 4, 10] }, tracing: 'T1', ...over }) as unknown as Mark
+
+  it('follows the board line, inside the limit, and hands back what it told', () => {
+    const board = boardLine({ next: 2, cards: [{ id: 'C1', kind: 'text', x: 0, y: 0, w: 200, h: 100, by: 'person', text: 'wall 2 mm' }], arrows: [] }, {}, { marks: new Map() }, tool)
+    const told = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { board: board.line, boardTold: board.told, tracingsLine: said })
+    const lines = told.text.split('\n')
+    const at = lines.indexOf('tracings: T1, T2 (new to you). Read them with mcp__torno__tracings.')
+    expect(at).toBeGreaterThan(0)
+    expect(lines[at - 1]).toMatch(/^Board:/)
+    expect(told.tracingsTold).toEqual(said.told)
+  })
+
+  it('says nothing without tracings, and none while an edit is answered', () => {
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket').text).not.toContain('tracings:')
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { tracingsLine: tracingsLine(file(), {}, tool) }).tracingsTold).toBeUndefined()
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket').tracingsTold).toBeUndefined()
+    expect(buildContextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { tracingsLine: said } as never).text).not.toContain('tracings:')
+  })
+
+  it('is counted in the limit with the marks, which give way to it, and holds with 50 tracings', () => {
+    const many = tracingsLine(file(...Array.from({ length: 50 }, (_, i) => T(`T${i + 1}`, { name: 'x'.repeat(80) }))), {}, tool)
+    const marks = Array.from({ length: 60 }, (_, i) => ({ id: `M${i + 1}`, kind: 'pin', author: 'user', status: 'draft', anchorState: 'ok', note: `note ${'x'.repeat(100)}`, layout: 'print', revision: 1, camera: CAMERA, createdAt: '', anchor: { point: [0, 0, 0], ref: 'base/F1' } }) as unknown as Mark)
+    const told = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', marks, { tracingsLine: many })
+    expect(told.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+    expect(told.text).toContain('tracings: T1, T2, T3, T4, T5, T6, T7, T8 and 42 more (new to you)')
+    expect(Object.keys(told.tracingsTold ?? {})).toHaveLength(50)
+  })
+
+  it('is news until the prompt is delivered: a prompt that never finishes leaves told.json unwritten', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'torno-tracings-context-'))
+    try {
+      mkdirSync(join(root, 'bracket'))
+      const dir = join(root, 'bracket')
+      const tracings = file(T('T1', { name: 'Front' }))
+      const prompt = async () => contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { tracingsLine: tracingsLine(tracings, await readTracingsTold(dir), tool) })
+      const first = await prompt()
+      expect(first.text).toContain('tracings: T1 (new to you)')
+      expect(await readTracingsTold(dir)).toEqual({})
+      expect(existsSync(join(dir, '.torno', 'tracings', 'told.json'))).toBe(false)
+      expect((await prompt()).text).toContain('(new to you)')
+      // Handed over: what it told is kept (`onDelivered`), and the next says none changed.
+      await markTracingsTold(dir, first.tracingsTold as Record<string, string>)
+      expect((await prompt()).text).toContain('tracings: T1 (none changed since you were told)')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('tells a draft offset with the photo\'s line-up, and a pin on the photo as ≈ on its tracing', () => {
+    const lineup = "lined up by 4 points, straightened: 4.731 px/mm at the centre, turned 2.1°, fit 0.4 mm; not exact, and true only in the tracing's plane"
+    const offset = { id: 'M6', kind: 'offset', author: 'user', status: 'draft', anchorState: 'ok', note: '', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '', tracing: 'T1', layer: { id: 2, name: 'head bolts', revision: 3 }, shape: { index: 2, name: 'head bolt 3' }, was: { kind: 'circle', centre: [10, 5], radius: 3 }, by: [-1.8, 0.6], from: [10, 0, 5], to: [8.2, 0, 5.6] } as unknown as Mark
+    const told = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [pin(), offset], { tracings: ['T1'], layers: { 'T1/2': 3 }, lineups: { T1: lineup } })
+    expect(told.text).toContain(`M5 pin at (3, 4, 10) · on T1 (≈, from the photo) · photo: ${lineup}`)
+    expect(told.text).toContain(`M6 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3 · photo: ${lineup}`)
+    expect(told.sentMarkIds).toEqual(['M5', 'M6'])
   })
 })

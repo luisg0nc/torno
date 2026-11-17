@@ -271,6 +271,18 @@ describe('tracings', () => {
     expect(json(await tracingsTool(deps, 'bracket', { tracing: 'T1' })).text).toMatch(/block 1100 mm²/)
   })
 
+  it('tells the marks on a tracing by id, and none when the marks cannot be read', async () => {
+    await person()
+    const on = (id: string, tracing?: string) => ({ id, kind: 'pin', ...(tracing === undefined ? {} : { tracing }) })
+    const told = json(await tracingsTool({ ...deps, marks: async () => [on('M1', 'T1'), on('M2'), on('M3', 'T2'), on('M4', 'T1')] } as never, 'bracket', { tracing: 'T1' }))
+    expect(told.marks).toEqual(['M1', 'M4'])
+    expect(told.text).toContain('marks on it: M1, M4')
+    expect(json(await tracingsTool({ ...deps, marks: async () => [on('M2')] } as never, 'bracket', { tracing: 'T1' })).text).toContain('marks on it: none')
+    const unread = json(await tracingsTool({ ...deps, marks: async () => Promise.reject(new Error('unreadable')) } as never, 'bracket', { tracing: 'T1' }))
+    expect(unread.text).not.toContain('marks on it')
+    expect(unread).not.toHaveProperty('marks')
+  })
+
   it('thins the points as section does and says it, with the deflection', async () => {
     await person()
     parts = [{ part: 'block', loops: [loop(ring(2000, 20)), loop(ring(2000, 10), { area: -314 })], area: 942, areaExact: false, open: 0, how: '' }]

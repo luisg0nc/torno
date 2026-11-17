@@ -18,6 +18,8 @@ export interface MeasureDeps {
   outlines: { cut(objectId: string, id: string): Promise<TracingCut | Refusal> }
   /** The last successful build of the project: its number. None before the first. */
   revision(objectId: string): number | undefined
+  /** The history id of the build of this run with this number (`h41`), or none when the history keeps no such build. */
+  historyId(objectId: string, revision: number): Promise<string | undefined>
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -63,10 +65,12 @@ export async function makeSpan(deps: MeasureDeps, objectId: string, input: unkno
   } else {
     revision = lastBuild(deps, objectId)
   }
-  const worked = spanValue(ends[0], ends[1], snaps, tracing.photo, revision)
+  // The build is named by its history id: this run's number means nothing in the next.
+  const build = await deps.historyId(objectId, revision)
+  const worked = spanValue(ends[0], ends[1], snaps, tracing.photo, build)
   const at = (e: GivenEnd): SpanEnd => ({ uv: e.uv, point: toObject(tracing.plane, e.uv), on: e.on, ...(e.snap === undefined ? {} : { snap: e.snap }) })
   const [a, b] = [at(worked.a), at(worked.b)]
-  const span = { kind: 'span', author: 'user', note, layout: tracing.layout, revision, camera, tracing: tracing.id, uv: [a.uv, b.uv], a, b, value: worked.value, exact: worked.exact, how: worked.how, measuredOn: revision } satisfies Omit<SpanMark, 'id' | 'status' | 'anchorState' | 'createdAt'>
+  const span = { kind: 'span', author: 'user', note, layout: tracing.layout, revision, camera, tracing: tracing.id, uv: [a.uv, b.uv], a, b, value: worked.value, exact: worked.exact, how: worked.how, ...(build === undefined ? {} : { build }), measuredOn: revision } satisfies Omit<SpanMark, 'id' | 'status' | 'anchorState' | 'createdAt'>
   const refusal = checkOnTracing(span as unknown as NewMark, file)
   if (refusal) throw refusal
   return deps.marks.addSpan(objectId, span as unknown as NewMark)

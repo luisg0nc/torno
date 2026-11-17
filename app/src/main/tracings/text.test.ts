@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Sectioned } from '../../shared/geometry'
 import { mainPlaneFrame } from '../../shared/planes'
 import type { Layer, Tracing, TracingCut, TracingsFile } from '../../shared/tracings'
-import { PHOTO_LINEUP_CLOSING, tracingData, tracingText, tracingsList } from './text'
+import { PHOTO_LINEUP_CLOSING, lineupsOf, tracingData, tracingText, tracingsList } from './text'
 
 const tracing = (over: Partial<Tracing> = {}): Tracing => ({
   id: 'T1',
@@ -169,5 +169,14 @@ describe('one tracing', () => {
     expect(data.photo).toBeNull()
     expect(data.text).toContain('label at [2, 3] "M6"')
     expect(JSON.stringify(data)).not.toMatch(/"points":\[/)
+  })
+})
+
+describe('lineupsOf', () => {
+  const photo = (over: object = {}) => ({ file: 'p-0123456789ab.jpg', sha256: 'x', width: 4000, height: 3000, pairs: [{}, {}, {}, {}], method: 'straight', transform: [1, 0, 0, 0, 1, 0, 0, 0, 1], scale: 4.731, angle: 2.1, fit: 0.4, fade: 0.5, ...over }) as unknown as Tracing['photo']
+  it('has what the line-up says for each tracing whose photo is lined up, and no other', () => {
+    const said = lineupsOf([tracing({ photo: photo() }), tracing({ id: 'T2', photo: photo({ transform: undefined, scale: undefined, pairs: [] }) }), tracing({ id: 'T3' })])
+    expect(Object.keys(said)).toEqual(['T1'])
+    expect(said.T1).toBe(`lined up by 4 points, straightened: 4.731 px/mm at the centre, turned 2.1°, fit 0.4 mm; ${PHOTO_LINEUP_CLOSING}`)
   })
 })

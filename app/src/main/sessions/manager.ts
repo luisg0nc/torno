@@ -316,7 +316,7 @@ export class Sessions {
        * and these marks were in it. Only ever for a UserPromptSubmit of a
        * session that is still the one of its object.
        */
-      onDelivered?: (objectId: string, sentMarkIds: string[], boardTold?: Record<string, string>) => void
+      onDelivered?: (objectId: string, sentMarkIds: string[], boardTold?: Record<string, string>, tracingsTold?: Record<string, string>) => void
       /** What is added to the agent's system prompt. */
       systemPromptFor: (adapter: AgentAdapter) => string
       mcpUrlFor: (objectId: string) => string
@@ -1474,7 +1474,7 @@ export class Sessions {
     if ((text || carried.length > 0) && !session.killTimer) {
       res.once('finish', () => {
         const delivered = [...new Set([...(text ? sentMarkIds : []), ...carried])]
-        if (delivered.length > 0 || (text && context.boardTold)) this.deps.onDelivered?.(objectId, delivered, text ? context.boardTold : undefined)
+        if (delivered.length > 0 || (text && (context.boardTold || context.tracingsTold))) this.deps.onDelivered?.(objectId, delivered, text ? context.boardTold : undefined, text ? context.tracingsTold : undefined)
         // What was kept until the answer left (a Go back's notice) is let go now; a failure of that is not the prompt's.
         if (text) void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
       })

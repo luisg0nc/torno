@@ -47,15 +47,15 @@ function checked(name: 'A' | 'B', end: GivenEnd, snaps: readonly PlaneSnap[] | u
 /**
  * The value of a measure between two ends in the tracing's plane, and how it was found. Each snapped end is checked against the last
  * build's points (`snaps`, within 0.01 mm) and replaced by the kernel's point; it is exact only when both are snapped and both on the
- * outline, and says `exact on build N` (`revision`). Any other is `≈`: `on the photo, lined up with fit 0.4 mm` when an end is on the
+ * outline, and says `exact on build h41` (`build`, the build's history id, which is the same in every run; none when the history did not keep it). Any other is `≈`: `on the photo, lined up with fit 0.4 mm` when an end is on the
  * photo, `freehand` when not. The value is in full, and is never taken again.
  */
-export function spanValue(a: GivenEnd, b: GivenEnd, snaps: readonly PlaneSnap[] | undefined, photo: TracingPhoto | undefined, revision: number): Pick<SpanMark, 'value' | 'exact' | 'how'> & { a: GivenEnd; b: GivenEnd } {
+export function spanValue(a: GivenEnd, b: GivenEnd, snaps: readonly PlaneSnap[] | undefined, photo: TracingPhoto | undefined, build: string | undefined): Pick<SpanMark, 'value' | 'exact' | 'how'> & { a: GivenEnd; b: GivenEnd } {
   const shown = photo !== undefined && photo.hidden !== true
   const ends = [checked('A', a, snaps, shown), checked('B', b, snaps, shown)] as const
   const value = Math.hypot(ends[1].uv[0] - ends[0].uv[0], ends[1].uv[1] - ends[0].uv[1])
   const exact = ends.every((e) => e.snap !== undefined && e.on === 'tracing')
-  if (exact) return { a: ends[0], b: ends[1], value, exact, how: `exact on build ${revision}` }
+  if (exact) return { a: ends[0], b: ends[1], value, exact, how: build === undefined ? 'exact on a build the history does not keep' : `exact on build ${build}` }
   if (shown && ends.some((e) => e.on === 'photo')) {
     const lined = photo.fit !== undefined ? `fit ${number(photo.fit)} mm` : `${photo.pairs.length} point${photo.pairs.length === 1 ? '' : 's'}`
     return { a: ends[0], b: ends[1], value, exact, how: `on the photo, lined up ${photo.fit !== undefined ? 'with' : 'by'} ${lined}` }

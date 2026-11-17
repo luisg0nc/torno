@@ -54,7 +54,9 @@ export async function tracingsTool(deps: ToolDeps, objectId: string, args: Traci
   } catch (e) {
     found = { why: messageOf(e) }
   }
-  const facts = 'cut' in found ? { cut: found.cut } : { cut: null, cutWhy: found.why }
+  // The marks on it, by id: told when the marks can be read.
+  const onIt = (await deps.marks?.(objectId).catch(() => undefined))?.filter((m) => m.tracing === id).map((m) => m.id)
+  const facts = { ...('cut' in found ? { cut: found.cut } : { cut: null, cutWhy: found.why }), ...(onIt === undefined ? {} : { marks: onIt }) }
   const data = tracingData(t, facts)
   if (args.picture !== true) return json({ ...of, ...data })
 

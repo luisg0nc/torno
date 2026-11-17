@@ -1049,6 +1049,8 @@ Open marks: M2 (moved), M6 (unchecked)
   sent. A mark you changed or put somewhere else is told again, as `(changed)
   M3 …`; one you reopened as `(reopened by the user)`. A dimension that is
   still a draft is told here with its value and verdict.
+- `tracings:` is there when the project has tracings: their ids, and what changed in them since the agent was last told (see "Tracings"). A mark on a tracing says `on T1` after its place;
+  one put on the photo is `≈` and carries the photo's line-up, and so does an offset.
 - `Dimensions` lists, with every prompt, each dimension the agent was sent
   that fails, is not measurable or was not measured on the last build, and how
   many pass. The head names the build the values are of, and says so while a
@@ -2019,16 +2021,16 @@ leaves its marks where they are: they say `on T1 (removed)`, and join the tracin
 intent, neither joins a round, and neither is ever checked against a build (they are never *drifted*; they stay as you made them). Both go to Claude with your next
 prompt like any mark. **Measure** (`M`): click two points; the pointer's note reads the number as you move, and a click snaps as Trace does. When both ends are
 snapped to the kernel's points of the build on show (a corner of the cut, a hole centre, a vertex in the plane) the number is exact, is worked out by torno from those
-numbers and says `exact on build 41`. Any other measure is `≈`: it says how it was found, `on the photo, lined up with fit 0.4 mm` when an end is on the photo (a
+numbers and says `exact on build h41` (the build's id in the history, which is the same in every run of torno; a build the history does not keep is said so). Any other measure is `≈`: it says how it was found, `on the photo, lined up with fit 0.4 mm` when an end is on the photo (a
 free click over the photo and off the outline) or `freehand`, and a snapped end that is not within a hundredth of a millimetre of the kernel's point is refused. A measure is made
-once and never measured again: after a later build it keeps its value and says `measured on build 41`. It has no expected value and no verdict. **Should be here**
+once and never measured again: after a later build it keeps its value and says `measured on build h41`. It has no expected value and no verdict. **Should be here**
 (`O`): press on a shape of a layer (yours or Claude's) and drag it to where it belongs. The shape stays ghosted where it was, the copy moves in your colour, and the note at
 the pointer reads `M15 head bolt 4 should be here · 1.8 mm left, 0.6 mm up` (left and up are along the sheet's `-u` and `+v`; the note says `M15` once the shape has a mark). `Shift` keeps the
 drag to the axis it has gone further along, and the arrow keys nudge it a tenth of a millimetre, while you drag and after you let go. Letting go makes the mark, one for each
 shape of a layer: dragging the same shape again changes your draft rather than adding another (one Claude has already been told of is left, and a new one is made). A shape's
 reference point is a circle's centre and the centroid of a polyline's points (the mean of them, not of its area). The mark keeps a copy of the shape as it was, so it still says
 what moved after Claude replaces the layer, and says `layer changed since` once the layer's revision is newer than the mark's. It is never exact: it is where you say a shape belongs,
-by eye. Claude is told it as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo)`, then the move in the model's frame, `(−1.8, 0, +0.6) mm in X, Y, Z`, and the layer.
+by eye. Claude is told it as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo)`, then the move in the model's frame, `(−1.8, 0, +0.6) mm in X, Y, Z`, the layer, and the photo's line-up (`photo: lined up by 4 points, straightened: 4.731 px/mm at the centre, turned 2.1°, fit 0.4 mm; not exact, and true only in the tracing's plane`). `(≈, from the photo)` is said only when the tracing has a lined-up photo; with none it says what the move is relative to, `1.8 mm left, 0.6 mm up from the layer's shape on T1`. A pin you put on the photo (one that is on no part of the model: a pin on the outline is tied to the face under it) and the ink you draw over it are told `on T1 (≈, from the photo)` with the same line-up. With every prompt Claude also gets one line when the project has tracings, `tracings: T1, T2 (1 changed since you were told: T1's photo was lined up again). Read them with tracings.`, saying what changed since its last prompt (a name, a plane, the layers, a photo, a face that is gone or back, a tracing made or removed; not a fade or what is hidden). With more than eight tracings it names eight and counts the rest. What Claude was told is kept in `tracings/told.json` once the prompt is delivered.
 
 ### A photo under a tracing
 
@@ -2385,6 +2387,7 @@ place.
 | `board/board.json` | the board (see "The board"): its cards with their places, sizes and text, the frames and the arrows; for a card that shows a build, a copy of what it says | travels |
 | `board/pictures/` | the pictures and doodles of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
 | `board/told.json` | what Claude was last told of each card, so that only what is new is said | ignored |
+| `tracings/told.json` | what Claude was last told of each tracing (its name, plane, layers and photo's line-up), so that its line says what changed | ignored |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
 | `profile.json` | the printer and material the project is made for (a copy of your choice under "Print profile") | travels with the project |
 | `agent.json` | whether Claude Code is shown as a chat or a terminal; without it, in a chat | travels |
@@ -2404,7 +2407,7 @@ yours, and is not added against. What travels with the project in git is what
 is the project's: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `board/board.json`, `profile.json` and `agent.json`.
 What changes with every build or session, or is of this machine, is
 ignored: `state.md`, `session.json`, `chat/`, the thumbnail, `builds.jsonl`, `history/`, `views/`,
-`board/pictures/`, `board/told.json` and `exports/`. Add `.torno/` to the workspace's `.gitignore` if you
+`board/pictures/`, `board/told.json`, `tracings/told.json` and `exports/`. Add `.torno/` to the workspace's `.gitignore` if you
 want none of it in git.
 
 Outside the workspace:

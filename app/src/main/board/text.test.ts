@@ -135,7 +135,17 @@ describe('the text of a board', () => {
     const live: LiveFacts = { marks: new Map([['M8', span], ['M9', offset]]) }
     const { text } = boardText(board([card({ kind: 'mark', by: 'torno', source: 'M8' }), card({ kind: 'mark', by: 'torno', source: 'M9' })]), live, OPTS)
     expect(text).toContain('M8 · span on T1: ≈ 5 mm (freehand)')
-    expect(text).toContain('M9 · offset · bolt 1: 1 mm left on T1')
+    expect(text).toContain("M9 · offset · bolt 1: 1 mm left from the layer's shape on T1")
+  })
+  it('says an offset is from the photo, with its line-up, when its tracing is known to have a lined-up photo, and a removed tracing as removed', () => {
+    const base = { author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 3, tracing: 'T1' }
+    const offset = { ...base, id: 'M9', kind: 'offset', layer: { id: 1, name: 'bolts', revision: 1 }, shape: { index: 0, name: 'bolt 1' }, was: { kind: 'circle', centre: [1, 1], radius: 1 }, by: [-1, 0], from: [1, 1, 0], to: [0, 1, 0] } as unknown as Mark
+    const photo = { file: 'p-0123456789ab.jpg', pairs: [{}, {}], method: 'similar', transform: [1, 0, 0, 0, 1, 0, 0, 0, 1], scale: 4.7, fade: 0.5 }
+    const c = card({ kind: 'mark', by: 'torno', source: 'M9' })
+    const with_ = boardText(board([c]), { marks: new Map([['M9', offset]]), tracings: new Map([['T1', { id: 'T1', photo } as unknown as Tracing]]) }, OPTS).text
+    expect(with_).toContain('1 mm left on T1 (≈, from the photo)')
+    expect(with_).toContain('photo: lined up by 2 points: 4.7 px/mm at the centre')
+    expect(boardText(board([c]), { marks: new Map([['M9', offset]]), tracings: new Map() }, OPTS).text).toContain('on T1 (removed)')
   })
   it('calls the ink-pad card a doodle, in its head and in its picture line', () => {
     const d = card({ kind: 'sketch', picture: 'p-bbbbbbbbbbbb.png', caption: 'the latch shape' })

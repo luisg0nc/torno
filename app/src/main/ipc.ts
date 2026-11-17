@@ -406,7 +406,7 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   const outlines = new Outlines({
     tracings: { list: (id) => requireTracings().list(id), movePlane: (...args) => requireTracings().movePlane(...args) },
     // `marks` is the store of the window's marks, set at the head of this function; none, none move.
-    marks: { followTracing: async (...args) => void (await marks?.followTracing(...args)) },
+    marks: { followTracing: async (...args) => void (await marks?.followTracing(...args)), healTracings: async (...args) => (await marks?.healTracings(...args)) ?? [] },
     // None once the workspace is left: nothing is asked or written for it any more.
     build: (id) => (current === ws ? builds.scene(id) : undefined),
     query: (id, name, args) => builds.query(id, name, args, { restore: false }),
@@ -1192,7 +1192,15 @@ export function registerIpc(
     tracings: { list: (id) => requireTracings().list(id) },
     marks: requireMarks(),
     outlines: { cut: async (id, tracing) => current?.outlines?.cut(id, tracing) ?? new Refusal('No workspace is open.') },
-    revision: (id) => lastScene(id)?.revision
+    revision: (id) => lastScene(id)?.revision,
+    // The newest kept build that is not a failed one and was made from the sources of the build of that number: as a review finds the build on show.
+    historyId: async (id, revision) => {
+      const dir = findObject(id)?.dir
+      const sources = buildIdentity(id, revision)?.sources
+      if (dir === undefined || sources === undefined) return undefined
+      const kept = await readHistory(dir).catch(() => [])
+      return kept.findLast((e) => e.failed !== true && e.sources === sources)?.id
+    }
   })
   handle('marks:span', (_event, objectId: string, draft: unknown) => makeSpan(measures(), String(objectId), draft))
   handle('marks:offset', (_event, objectId: string, draft: unknown) => makeOffset(measures(), String(objectId), draft))

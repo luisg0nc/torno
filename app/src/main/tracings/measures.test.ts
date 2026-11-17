@@ -23,8 +23,10 @@ let root: string
 let tracings: TracingStore
 let marks: MarkStore
 let revision: number | undefined
+/** The history ids of this run's builds, by revision (`h41` for build 1 here): what `historyId` finds. */
+let history: Record<number, string>
 let cut: TracingCut | Refusal
-const deps = (): MeasureDeps => ({ tracings, marks, outlines: { cut: async () => cut }, revision: () => revision })
+const deps = (): MeasureDeps => ({ tracings, marks, outlines: { cut: async () => cut }, revision: () => revision, historyId: async (_id, r) => history[r] })
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'torno-measures-'))
@@ -35,6 +37,7 @@ beforeEach(async () => {
   await tracings.make('bracket', { name: '', layout: 'assembly', plane: FRAME }, 'person')
   await tracings.layer('bracket', 'T1', { make: { name: 'head bolts', colour: 'blue', shapes: [{ kind: 'circle', centre: [10, 5], radius: 3 }, { name: 'head bolt 3', kind: 'circle', centre: [20, 5], radius: 3 }] } }, 'agent')
   revision = 1
+  history = { 1: 'h41' }
   cut = { tracing: 'T1', revision: 1, cut: { plane: { origin: [0, 0, 0], normal: [0, -1, 0], x: [1, 0, 0], y: [0, 0, 1] }, parts: [], bounds: null }, snaps: SNAPS }
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
@@ -45,10 +48,10 @@ const corner = (uv: [number, number]): object => end(uv, { snap: { kind: 'corner
 describe('makeSpan', () => {
   it('keeps a span between two snapped corners as exact on the build, its points the plane\'s in the object frame', async () => {
     const made = (await makeSpan(deps(), 'bracket', { tracing: 'T1', a: corner([0, 0]), b: corner([30, 40]), camera: CAMERA })) as SpanMark
-    expect(made).toMatchObject({ id: 'M1', kind: 'span', author: 'user', tracing: 'T1', layout: 'assembly', revision: 1, value: 50, exact: true, how: 'exact on build 1', measuredOn: 1, status: 'draft' })
+    expect(made).toMatchObject({ id: 'M1', kind: 'span', author: 'user', tracing: 'T1', layout: 'assembly', revision: 1, value: 50, exact: true, how: 'exact on build h41', build: 'h41', measuredOn: 1, status: 'draft' })
     expect(made.b.point).toEqual([30, 0, 40])
     expect(made.uv).toEqual([[0, 0], [30, 40]])
-    expect(describeMark(made, { revision: 1, tracings: ['T1'] })).toBe('M1 · span on T1: 50 mm, exact on build 1')
+    expect(describeMark(made, { revision: 1, tracings: ['T1'] })).toBe('M1 · span on T1: 50 mm, exact on build h41')
   })
 
   it('takes the end\'s point from the kernel, and refuses one 0.02 mm off it', async () => {
@@ -62,6 +65,13 @@ describe('makeSpan', () => {
     cut = new Refusal('no build yet')
     const made = (await makeSpan(deps(), 'bracket', { tracing: 'T1', a: end([0, 0]), b: end([3, 4]), camera: CAMERA, ...{ exact: true, value: 99, how: 'exact', measuredOn: 7 } })) as SpanMark
     expect(made).toMatchObject({ value: 5, exact: false, how: 'freehand', measuredOn: 1 })
+  })
+
+  it('names the build by its history id, and says what it can when the history has none', async () => {
+    history = {}
+    const made = (await makeSpan(deps(), 'bracket', { tracing: 'T1', a: corner([0, 0]), b: corner([30, 40]), camera: CAMERA })) as SpanMark
+    expect(made.how).toBe('exact on a build the history does not keep')
+    expect(made.build).toBeUndefined()
   })
 
   it('refuses a snapped end when the outline cannot be had, a tracing that is not there, and a project with no build', async () => {
@@ -83,7 +93,7 @@ describe('makeSpan', () => {
     await marks.reanchor('bracket', [])
     const [one] = (await marks.list('bracket')) as SpanMark[]
     expect(one).toMatchObject({ value: 5, how: 'freehand', measuredOn: 1 })
-    expect(describeMark(one, { revision: 2, tracings: ['T1'] })).toBe('M1 · span on T1: ≈ 5 mm (freehand), measured on build 1')
+    expect(describeMark(one, { revision: 2, tracings: ['T1'] })).toBe('M1 · span on T1: ≈ 5 mm (freehand), measured on build h41')
   })
 })
 

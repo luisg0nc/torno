@@ -5,6 +5,7 @@ import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } fro
 import type { Anchor, DimensionMark, Judged, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, OffsetMark, PinMark, Quat, RegionMark, ShapeKind, SketchMark, SpanEnd, SpanMark, StrokeMark, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
+import { HISTORY_ID } from '../../shared/history'
 import { ROUND_ID, type Round } from '../../shared/reviews'
 import { TAG_NAME } from '../../shared/tags'
 import { MAX_LAYER_NAME, MAX_SHAPE_NAME, type PlaneSnap, TRACING_ID } from '../../shared/tracings'
@@ -526,8 +527,10 @@ function spanOf(base: Omit<PinMark, 'kind' | 'anchor'>, value: Record<string, un
   const a = spanEndOf(value.a)
   const b = spanEndOf(value.b)
   if (!a || !b || base.tracing === undefined) return null
-  if (!isNumber(value.value) || value.value < 0 || typeof value.exact !== 'boolean' || typeof value.how !== 'string' || !isNumber(value.measuredOn)) return null
-  return { ...withoutReview(base), tracing: base.tracing, kind: 'span', a, b, value: value.value, exact: value.exact, how: value.how.slice(0, MAX_HOW), measuredOn: value.measuredOn } as SpanMark
+  if (!isNumber(value.value) || value.value < 0 || typeof value.exact !== 'boolean' || typeof value.how !== 'string') return null
+  // The build by its history id, which is the same in every run; the run's own number is of this run alone (the store drops it when it reads the file).
+  const build = typeof value.build === 'string' && HISTORY_ID.test(value.build) ? value.build : undefined
+  return { ...withoutReview(base), tracing: base.tracing, kind: 'span', a, b, value: value.value, exact: value.exact, how: value.how.slice(0, MAX_HOW), ...(build === undefined ? {} : { build }), ...(isNumber(value.measuredOn) ? { measuredOn: value.measuredOn } : {}) } as SpanMark
 }
 
 /**

@@ -114,6 +114,13 @@ function shapeLine(layer: Layer, shape: LayerShape, index: number): string {
 /** Whether a photo has a line-up: a swap keeps the tracing side of the pairs but clears the transform, so the transform is what says it. */
 const linedUp = (photo: TracingPhoto): boolean => photo.transform !== undefined && photo.scale !== undefined
 
+/** What each tracing whose photo is lined up says of its line-up, by tracing id: what a mark on the photo, or an offset, is told with (`describeMark`). */
+export function lineupsOf(tracings: ReadonlyArray<Pick<Tracing, 'id' | 'photo'>>): Record<string, string> {
+  const said: Record<string, string> = {}
+  for (const t of tracings) if (t.photo && linedUp(t.photo)) said[t.id] = lineupSaid(t.photo)
+  return said
+}
+
 /**
  * The photo, in words. Never said to be exact, and its line-up ends as `PHOTO_LINEUP_CLOSING` says (`lineupSaid`). A photo that is not
  * on this computer says so and still tells its line-up: that is in the file that travels, and the clicks do not need the photo.

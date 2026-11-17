@@ -1361,7 +1361,9 @@ describe('the transcript of a chat session', () => {
   const delivered2: string[][] = []
   /** What the board line told, as `onDelivered` was given it; and what the hook is to answer with. */
   const deliveredBoard: Array<Record<string, string> | undefined> = []
+  const deliveredTracings: Array<Record<string, string> | undefined> = []
   let boardTold: Record<string, string> | undefined
+  let tracingsTold: Record<string, string> | undefined
   let boardCounts: { total: number; new: number } | undefined
   const givenUp: string[] = []
 
@@ -1374,11 +1376,12 @@ describe('the transcript of a chat session', () => {
       viewFor: () => 'chat',
       contextFor: async () => {
         const ids = marksPerCall[hooks++] ?? marks
-        return { text: boardTold ? 'Board: 1 card (1 new: C1 text). Read it with board.' : ids.length > 0 ? `Marks: ${ids.join(' ')}` : handedOver ? 'A notice of main\'s' : '', sentMarkIds: ids, ...(handedOver ? { delivered: handedOver } : {}), ...(boardTold ? { boardTold } : {}), ...(boardTold && boardCounts ? { board: boardCounts } : {}) }
+        return { text: tracingsTold ? 'tracings: T1 (new to you). Read them with tracings.' : boardTold ? 'Board: 1 card (1 new: C1 text). Read it with board.' : ids.length > 0 ? `Marks: ${ids.join(' ')}` : handedOver ? 'A notice of main\'s' : '', sentMarkIds: ids, ...(handedOver ? { delivered: handedOver } : {}), ...(boardTold ? { boardTold } : {}), ...(tracingsTold ? { tracingsTold } : {}), ...(boardTold && boardCounts ? { board: boardCounts } : {}) }
       },
-      onDelivered: (_id, ids, told) => {
+      onDelivered: (_id, ids, told, tracingsKept) => {
         delivered2.push(ids)
         deliveredBoard.push(told)
+        deliveredTracings.push(tracingsKept)
       },
       systemPromptFor: () => '',
       mcpUrlFor: (id) => tHttp.url(`/mcp/${id}`),
@@ -1406,7 +1409,9 @@ describe('the transcript of a chat session', () => {
     givenUp.length = 0
     delivered2.length = 0
     deliveredBoard.length = 0
+    deliveredTracings.length = 0
     boardTold = undefined
+    tracingsTold = undefined
     boardCounts = undefined
   })
   afterAll(async () => {
@@ -1459,6 +1464,15 @@ describe('the transcript of a chat session', () => {
     await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
     expect(delivered2).toEqual([[]])
     expect(deliveredBoard).toEqual([{ C1: 'abc' }])
+  })
+
+  it('gives main what the tracings line told once the answer has left, with no marks to send', async () => {
+    tracingsTold = { T1: 'abc.def' }
+    const c = await start()
+    await c.send('say hi')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    expect(delivered2).toEqual([[]])
+    expect(deliveredTracings).toEqual([{ T1: 'abc.def' }])
   })
 
   it('tells main the answer was handed over, for what is kept until then (a Go back\'s notice), once it has left and not before', async () => {

@@ -124,16 +124,23 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   unchecked; a mark the move would not leave in the new plane is not moved. A mark on a tracing is **not** moved by the spread of a layout
   (`MarkStore.reanchor` keeps its points where they are and refreshes only what the kernel says of its anchor) and is not put on a part (`replace` refuses it). A
   removed tracing's marks stay and say ` · on T1 (removed)` (`onTracingWords`, given `describeMark`'s `tracings`: the prompt, `state.md` and the `marks` tool).
+  **A heal pass** (`MarkStore.healTracings`, `tracings/heal.ts` `healMarks`) runs when a project is opened and after each outline recut (`Outlines.recut`, after the face planes have followed): every mark of a
+  tracing that is off its plane (beyond 1e-6 mm) is moved back onto it by the one distance its points lie from it, in one rewrite, and told unchecked. That closes the two writes of a face tracing's
+  move (`movePlane`, then `followTracing`: a crash between leaves the plane moved and its marks not, and the next build sees no move) and a tracing removed and put back. A mark whose points lie at different distances is not bent.
 - A **span** (`kind: 'span'`, a measure on a tracing) and an **offset** (`kind: 'offset'`, "should be here") are marks of a tracing that main makes from its own numbers
   (`main/tracings/measures.ts`: `marks:span`, `marks:offset`); `MarkStore.add` refuses both (`addSpan` and `saveOffset` keep them). They carry **no review intent**:
   `markIntent` is null, `setIntent` refuses them, `withIntent` leaves them as they are, and they never join a round (`inOpenRound`). **No build judges them**: `markAnchors` is
   empty, `isUnchecked` is false, `reanchorAll` leaves them out and `MarkStore.reanchor` passes them over, so `anchorState` stays `ok`. A span's `value`, `exact`, `how` and
-  `measuredOn` are main's (`spanValue`, never taken from the window): each snapped end is the kernel's point of the last outline's `planeSnaps` (refused when the window's is more than
-  0.01 mm from it, or is a vertex only projected on the plane), and it is exact only when both ends are snapped and on the outline (`exact on build N`); else `≈` with `on the photo, lined up with fit 0.4 mm`
-  or `freehand`. It is never measured again, has no expectation and no verdict, and says `measured on build N` once a later build lands (`describeMark`). An offset's `layer`
+  `build` and `measuredOn` are main's (`spanValue`, never taken from the window): each snapped end is the kernel's point of the last outline's `planeSnaps` (refused when the window's is more than
+  0.01 mm from it, or is a vertex only projected on the plane), and it is exact only when both ends are snapped and on the outline (`exact on build h41`); else `≈` with `on the photo, lined up with fit 0.4 mm`
+  or `freehand`. The build is named by its **history id** (`build`, found by `ipc.ts` `measures().historyId` from the build's sources, as a review finds its build; none when the
+  history does not keep it, and `how` then says `exact on a build the history does not keep`), which is the same in every run: `measuredOn`, this run's number, is dropped when the file is read, as `checkedRevision` is.
+  It is never measured again, has no expectation and no verdict, and says `measured on build h41` once a later build lands (`describeMark`; `measured on an earlier build` when it has no id). An offset's `layer`
   (id, name, revision), `shape`, `was` (a copy of the shape as it was dragged), `from` and `to` (the reference point: a circle's centre, a polyline's centroid of its points) are found by main from
   the tracing's own layers; `saveOffset` changes the person's draft offset of the same shape of the same layer (keeping its number) and makes a new mark when that one was sent or resolved. It
-  says `layer changed since` (`describeMark`, given `layers`: `layerRevisions` of the tracings, by `T1/2`) when the layer's revision is newer, and keeps `was`. Both move with their tracing's plane
+  says `layer changed since` (`describeMark`, given `layers`: `layerRevisions` of the tracings, by `T1/2`) when the layer's revision is newer, and keeps `was`. It says `(≈, from the photo)` only
+  when its tracing has a lined-up photo (`lineups`: `lineupsOf` of the tracings, tracing id to what the line-up says), then ends with `photo: <the line-up>`; with none it says `from the layer's shape on T1`. A pin on no part (one not
+  tied to a face on the outline) and ink on a tracing with a lined-up photo are told `on T1 (≈, from the photo) · photo: <the line-up>` the same way, and `markData` holds that sentence as `lineup`. Both move with their tracing's plane
   (`translated`), and both are checked in the plane as any mark on a tracing is (`checkOnTracing`).
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
   the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal

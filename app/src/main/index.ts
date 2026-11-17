@@ -32,6 +32,9 @@ import { maskReadsOf, maskStampOf, meshesOf } from './marks/regions'
 import { MarkStore } from './marks/store'
 import { SetStore } from './sets/store'
 import { TracingStore } from './tracings/store'
+import { healMarks } from './tracings/heal'
+import { lineupsOf } from './tracings/text'
+import { markTracingsTold, readTracingsTold, tracingsLine as tracingsLineOf } from './tracings/told'
 import { attachBoard } from './board/attach'
 import { reconcileProject } from './board/follow'
 import { liveFacts } from './board/live'
@@ -477,7 +480,7 @@ const verdicts = new Verdicts()
 const editDeps = { ...toolDeps, ...(off.has('digest') ? { digest: false } : {}), verdicts: (id: string, revision: number | undefined) => verdicts.of(id, revision) }
 
 /** `<object>/.torno/state.md` of every open object: what an agent without the tools reads instead. */
-const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId), tracings: async (objectId) => (await tracings.list(objectId)).tracings.map((t) => t.id), layers: async (objectId) => layerRevisions((await tracings.list(objectId)).tracings) })
+const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId), tracings: async (objectId) => (await tracings.list(objectId)).tracings.map((t) => t.id), layers: async (objectId) => layerRevisions((await tracings.list(objectId)).tracings), lineups: async (objectId) => lineupsOf((await tracings.list(objectId)).tracings) })
 marks.on('changed', ({ objectId }) => stateFiles.changed(objectId))
 // The named sets are told in the state file.
 sets.on('changed', ({ objectId }) => stateFiles.changed(objectId))
@@ -644,7 +647,9 @@ void app.whenReady().then(async () => {
       const setSlugs = await sets.list(id).then((all) => all.map((s) => s.slug), () => undefined)
       // And of the tracings, so that a mark on one that was removed says so.
       const tracingFile = await tracings.list(id).then((file) => file, () => undefined)
-      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
+      // And what of them the agent was last told: the line says what has changed since (kept once the prompt is delivered).
+      const tracingsLine = tracingFile && dir !== undefined ? tracingsLineOf(tracingFile, await readTracingsTold(dir), opts.toolName) : undefined
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {
@@ -676,9 +681,11 @@ void app.whenReady().then(async () => {
     },
     // The agent has the prompt, and with it the drafts that were listed: they are sent.
     // The marks the prompt listed are sent, and what its board line told is kept: only once the answer has left, so a prompt that fails to go leaves both news.
-    onDelivered: (id, sentMarkIds, boardTold) => {
+    onDelivered: (id, sentMarkIds, boardTold, tracingsTold) => {
       if (sentMarkIds.length > 0) void marks.markSent(id, sentMarkIds).catch((e) => console.error(`cannot mark ${sentMarkIds.join(', ')} of ${id} as sent: ${e.message}`))
       if (boardTold) void board.markTold(id, boardTold).catch((e) => console.error(`cannot keep what the board line told of ${id}: ${e.message}`))
+      const dir = tracingsTold ? findObject(id)?.dir : undefined
+      if (tracingsTold && dir !== undefined) void markTracingsTold(dir, tracingsTold).catch((e) => console.error(`cannot keep what the tracings line told of ${id}: ${e.message}`))
     },
     systemPromptFor: (adapter) => systemPrompt(adapter.toolName, adapter.skills),
     mcpUrlFor,
@@ -735,11 +742,14 @@ void app.whenReady().then(async () => {
         .then(() => keepDimensions(objectId, revision, verdicts.of(objectId, revision))),
     // The saved views are named in the state file.
     onSceneFile: (objectId) => stateFiles.changed(objectId),
-    onObjectOpened: (objectId) =>
+    onObjectOpened: (objectId) => {
+      // Marks of a tracing that are off its plane (a crash between the plane's write and its marks', a tracing removed and put back) are put back first.
+      void healMarks({ tracings, marks }, objectId)
       void followBoard(objectId).then(() => {
         const dir = findObject(objectId)?.dir
         if (dir !== undefined) return Promise.all([pictureSweep.once(objectId, dir), noteSweep.once(objectId, dir), photoSweep.once(objectId, dir)]).then(() => undefined)
-      }),
+      })
+    },
     // What was waiting to be written was of objects of the workspace that is left.
     onWorkspaceClosed: () => {
       asks.end()

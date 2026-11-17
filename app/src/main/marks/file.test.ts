@@ -247,9 +247,12 @@ describe('sanitising a mark', () => {
 
   it('reads a span and an offset whole, and holds them to what a tracing mark has', () => {
     const end = (uv: number[], over: object = {}): object => ({ uv, point: [uv[0], 0, uv[1]], on: 'tracing', ...over })
-    const span = { ...BASE, id: 'M8', kind: 'span', tracing: 'T1', a: end([0, 0], { snap: { kind: 'corner', uv: [0, 0], part: 'block' } }), b: end([30, 40]), value: 50, exact: false, how: 'freehand', measuredOn: 2 }
+    const span = { ...BASE, id: 'M8', kind: 'span', tracing: 'T1', a: end([0, 0], { snap: { kind: 'corner', uv: [0, 0], part: 'block' } }), b: end([30, 40]), value: 50, exact: false, how: 'freehand', measuredOn: 2, build: 'h41' }
     expect(sanitiseMark(span)).toEqual(span)
-    for (const bad of [{ tracing: undefined }, { value: Number.NaN }, { how: 4 }, { a: end([0]) }, { b: end([1, 2], { on: 'wall' }) }, { exact: 'yes' }, { measuredOn: 'x' }]) expect(sanitiseMark({ ...span, ...bad })).toBeNull()
+    // The history id is kept only as one; the run's number is optional (the store drops it when it reads a file).
+    expect((sanitiseMark({ ...span, build: 'b41' }) as SpanMark).build).toBeUndefined()
+    expect(sanitiseMark({ ...span, measuredOn: undefined })).not.toBeNull()
+    for (const bad of [{ tracing: undefined }, { value: Number.NaN }, { how: 4 }, { a: end([0]) }, { b: end([1, 2], { on: 'wall' }) }, { exact: 'yes' }]) expect(sanitiseMark({ ...span, ...bad })).toBeNull()
     // A bad snap is left out, and the end kept; a review intent is never kept, and neither is a verdict.
     expect((sanitiseMark({ ...span, a: end([0, 0], { snap: { kind: 'wall' } }) }) as SpanMark).a.snap).toBeUndefined()
     expect(sanitiseMark({ ...span, intent: 'want', expected: 4, verdict: 'pass' })).toEqual(span)

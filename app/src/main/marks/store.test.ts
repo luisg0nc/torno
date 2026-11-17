@@ -91,6 +91,65 @@ describe('marks on a tracing', () => {
     await store.followTracing('bracket', 'T1', [0, 0, 0.5])
     expect(told).toEqual([['M1']])
   })
+
+  describe('healTracings', () => {
+    /** T1: the plane z = 10, u along X, v along Y (normal +Z). */
+    const T1 = { id: 'T1', plane: { origin: [0, 0, 10], x: [1, 0, 0], y: [0, 1, 0] } } as never
+    const T2 = { id: 'T2', plane: { origin: [0, 0, 20], x: [1, 0, 0], y: [0, 1, 0] } } as never
+
+    it('moves the marks of a tracing that are off its plane back onto it, in one write, and tells them unchecked', async () => {
+      await store.add('bracket', onT1([3, 4, 10.5]))
+      await store.add('bracket', onT1([5, 5, 9.2]))
+      await store.add('bracket', onT1([6, 6, 10]))
+      const told: string[][] = []
+      store.on('unchecked', (m) => told.push(m.ids))
+      saves.mockClear()
+      expect(await store.healTracings('bracket', [T1])).toEqual(['M1', 'M2'])
+      const marks = (await store.list('bracket')) as PinMark[]
+      expect(marks.map((m) => m.anchor.point[2])).toEqual([10, 10, 10])
+      expect(marks[0].uv).toEqual([[3, 4]])
+      expect(saves).toHaveBeenCalledTimes(1)
+      expect(told).toEqual([['M1', 'M2']])
+    })
+
+    it('writes and tells nothing when every mark is in its plane (within 1e-6 mm), or is of no tracing it is given', async () => {
+      await store.add('bracket', onT1([3, 4, 10 + 5e-7]))
+      await store.add('bracket', onT1([5, 5, 30], { tracing: 'T3' }))
+      await store.add('bracket', pin())
+      saves.mockClear()
+      expect(await store.healTracings('bracket', [T1, T2])).toEqual([])
+      expect(saves).not.toHaveBeenCalled()
+    })
+
+    it('moves a span and an offset by the one distance their points lie from the plane', async () => {
+      await store.addSpan('bracket', { ...BASE, kind: 'span', tracing: 'T1', uv: [[0, 0], [30, 40]], a: { uv: [0, 0], point: [0, 0, 10.3], on: 'tracing' }, b: { uv: [30, 40], point: [30, 40, 10.3], on: 'tracing' }, value: 50, exact: false, how: 'freehand' } as unknown as NewMark)
+      await store.saveOffset('bracket', { ...BASE, kind: 'offset', tracing: 'T1', uv: [[1, 1], [2, 2]], layer: { id: 1, name: 'l', revision: 1 }, shape: { index: 0, name: '' }, was: { kind: 'circle', centre: [1, 1], radius: 1 }, by: [1, 1], from: [1, 1, 10.3], to: [2, 2, 10.3] } as unknown as NewMark)
+      expect(await store.healTracings('bracket', [T1])).toEqual(['M1', 'M2'])
+      const [span, offset] = (await store.list('bracket')) as [SpanMark, OffsetMark]
+      expect([span.a.point[2], span.b.point[2], offset.from[2], offset.to[2]].map((z) => Math.round(z * 1e9) / 1e9)).toEqual([10, 10, 10, 10])
+    })
+
+    it('leaves a mark whose points lie at different distances: it is not bent', async () => {
+      await store.addSpan('bracket', { ...BASE, kind: 'span', tracing: 'T1', uv: [[0, 0], [3, 4]], a: { uv: [0, 0], point: [0, 0, 10.3], on: 'tracing' }, b: { uv: [3, 4], point: [3, 4, 11], on: 'tracing' }, value: 5, exact: false, how: 'freehand' } as unknown as NewMark)
+      saves.mockClear()
+      expect(await store.healTracings('bracket', [T1])).toEqual([])
+      expect(saves).not.toHaveBeenCalled()
+    })
+
+    it('puts a mark back that a tracing removed and put back left off the new plane', async () => {
+      await store.add('bracket', onT1([3, 4, 20]))
+      expect(await store.healTracings('bracket', [T1])).toEqual(['M1'])
+      expect(((await store.list('bracket')) as PinMark[])[0].anchor.point).toEqual([3, 4, 10])
+    })
+  })
+
+  it('drops the run\'s number of a span when the file is read, and keeps its history id', async () => {
+    await store.addSpan('bracket', { ...BASE, kind: 'span', tracing: 'T1', uv: [[0, 0], [3, 4]], a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [3, 4], point: [3, 4, 0], on: 'tracing' }, value: 5, exact: true, how: 'exact on build h41', build: 'h41', measuredOn: 1 } as unknown as NewMark)
+    expect(((await store.list('bracket')) as SpanMark[])[0].measuredOn).toBe(1)
+    const [read] = (await newStore().list('bracket')) as SpanMark[]
+    expect(read.measuredOn).toBeUndefined()
+    expect(read.build).toBe('h41')
+  })
 })
 
 describe('a span and an offset', () => {

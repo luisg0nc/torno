@@ -324,7 +324,7 @@ export interface SpanEnd {
 }
 /**
  * A measure on a tracing: the distance between two points in its plane. Exact only when both ends are snapped to the kernel's points of
- * the build it was placed on (`measuredOn`) and on the outline; any other is `≈` and says how it was found (`how`: `on the photo, lined up
+ * the build it was placed on (`build`, its history id) and on the outline; any other is `≈` and says how it was found (`how`: `on the photo, lined up
  * with fit 0.4 mm`, `freehand`). Its value is main's (`spanValue`), and it is never measured again: it has no expectation and no verdict,
  * and no review intent. It names its tracing.
  */
@@ -336,10 +336,12 @@ export interface SpanMark extends MarkBase {
   /** mm, in full. */
   value: number
   exact: boolean
-  /** `exact on build 41`, `on the photo, lined up with fit 0.4 mm` or `freehand`. */
+  /** `exact on build h41` (the build's history id), `on the photo, lined up with fit 0.4 mm` or `freehand`. */
   how: string
-  /** The build (this run's number) the value was taken on. */
-  measuredOn: number
+  /** The build the value was taken on, by its history id (`h41`), which is the same in every run. Absent when the history did not keep that build. */
+  build?: string
+  /** The build (this run's number) the value was taken on. Of this run alone: dropped when the file is read, as a mark's `checkedRevision` is. */
+  measuredOn?: number
 }
 /**
  * "Should be here": a shape of a layer dragged to where the person says it belongs. `was` is a copy of the shape as it was dragged, so

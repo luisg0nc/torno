@@ -56,6 +56,7 @@ const text = (skills: boolean): string => [
   'Before a costly change, call mcp__torno__highlight to show the faces or edges you mean and ask "this one?".',
   'A review lists what the person doesn\'t want and wants on one build: answer each item by its id with mcp__torno__resolve_mark, and never bring back what an earlier review removed (read them with mcp__torno__marks and review: "all").',
   'Named sets are the person\'s names for faces, edges, parts and strokes (scene lists them): write #deck, or block/#deck for one part\'s, in any ref; propose one with mcp__torno__add_set when a name would help, and only the person accepts it.',
+  'A tracing is the model laid flat in a plane at true scale over a photo: to trace the photo, look at it with mcp__torno__tracings and picture: true, then add layers in mm with mcp__torno__add_layer; a photo\'s numbers are never exact.',
   'mcp__torno__add_mark leaves a mark of your own, to show where you changed something or what you ask about.',
   'A sketch says how literally to take it (exact, rough or flow); follow it. Use mcp__torno__add_sketch to show the person a route or an outline.',
   "The board is the person's brief. A frame they attach says what to work on. Add a plan or a picture to it with mcp__torno__add_card when it helps them follow; never rearrange their cards.",

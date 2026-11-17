@@ -67,7 +67,7 @@ test('Measure between two corners of the cut is exact, made by main from the ker
   await expect.poll(async () => (await marks()).filter((m) => m.kind === 'span').length).toBe(1)
   const span = (await marks()).find((m) => m.kind === 'span') as SpanMark
   expect(span).toMatchObject({ author: 'user', tracing: 'T1', exact: true, status: 'draft' })
-  expect(span.how).toMatch(/^exact on build \d+$/)
+  expect(span.how).toMatch(/^exact on build h\d+$/)
   expect(span.value).toBeCloseTo(Math.hypot(b.uv[0] - a.uv[0], b.uv[1] - a.uv[1]), 6)
   expect(span).not.toHaveProperty('intent')
   expect(span).not.toHaveProperty('round')

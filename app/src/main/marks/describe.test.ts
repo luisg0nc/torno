@@ -545,9 +545,45 @@ describe('describeMark of a mark of a review', () => {
   })
 })
 
+const LINEUP = "lined up by 4 points, straightened: 4.731 px/mm at the centre, turned 2.1°, fit 0.4 mm; not exact, and true only in the tracing's plane"
+const LINEUPS = { T1: LINEUP }
+
+describe('a mark on a tracing', () => {
+  const pin = (over: object = {}): Mark => mark({ id: 'M5', kind: 'pin', tracing: 'T1', anchor: { point: [3, 4, 10] }, ...over })
+
+  it('says it is on its tracing, and that a pin put on the photo is ≈, with the photo\'s line-up', () => {
+    expect(describeMark(pin(), { tracings: ['T1'], lineups: LINEUPS })).toBe(`M5 pin at (3, 4, 10) · on T1 (≈, from the photo) · photo: ${LINEUP}`)
+    expect(describeMark(pin({ note: 'bolt' }), { tracings: ['T1'], lineups: LINEUPS })).toBe(`M5 pin at (3, 4, 10) · on T1 (≈, from the photo) · photo: ${LINEUP}: "bolt"`)
+  })
+
+  it('says nothing of a photo when the tracing has none lined up, or is removed', () => {
+    expect(describeMark(pin(), { tracings: ['T1'] })).toBe('M5 pin at (3, 4, 10) · on T1')
+    expect(describeMark(pin(), { tracings: ['T1'], lineups: {} })).toBe('M5 pin at (3, 4, 10) · on T1')
+    expect(describeMark(pin(), { tracings: ['T2'], lineups: LINEUPS })).toBe('M5 pin at (3, 4, 10) · on T1 (removed)')
+  })
+
+  it('is exact where a pin is tied to a face under the outline: it is not from the photo', () => {
+    const tied = pin({ anchor: { point: [3, 4, 10], part: 'block', ref: 'block/F3' } })
+    expect(describeMark(tied, { tracings: ['T1'], lineups: LINEUPS })).toBe('M5 pin on block/F3 at (3, 4, 10) · on T1')
+  })
+
+  it('tells the line-up after the ink drawn over a tracing\'s photo', () => {
+    const ink = mark({ id: 'M6', kind: 'sketch', tracing: 'T1', name: '', take: 'rough', strokes: [], planes: [] })
+    expect(describeMark(ink, { tracings: ['T1'], lineups: LINEUPS })).toContain(` · on T1 (≈, from the photo) · photo: ${LINEUP}`)
+    expect(describeMark(ink, { tracings: ['T1'] })).toContain(' · on T1')
+    expect(describeMark(ink, { tracings: ['T1'] })).not.toContain('photo')
+  })
+
+  it('gives the line-up in the data too, beside the tracing\'s id', () => {
+    expect(markData(pin(), 5, undefined, undefined, LINEUPS)).toMatchObject({ tracing: 'T1', lineup: LINEUP })
+    expect(markData(pin(), 5)).not.toHaveProperty('lineup')
+    expect(markData(pin({ anchor: { point: [3, 4, 10], part: 'block', ref: 'block/F3' } }), 5, undefined, undefined, LINEUPS)).not.toHaveProperty('lineup')
+  })
+})
+
 describe('a span and an offset', () => {
   const span = (over: object = {}): Mark =>
-    mark({ id: 'M13', kind: 'span', tracing: 'T1', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [30, 40], point: [30, 0, 40], on: 'tracing' }, value: 41.8, exact: true, how: 'exact on build 41', measuredOn: 41, ...over })
+    mark({ id: 'M13', kind: 'span', tracing: 'T1', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [30, 40], point: [30, 0, 40], on: 'tracing' }, value: 41.8, exact: true, how: 'exact on build h41', build: 'h41', measuredOn: 41, ...over })
   const offset = (over: object = {}): Mark =>
     mark({
       id: 'M12',
@@ -563,25 +599,41 @@ describe('a span and an offset', () => {
     })
 
   it('tells an exact span with the build it is exact on, and an approximate one as ≈ with how it was found', () => {
-    expect(describeMark(span(), { revision: 41 })).toBe('M13 · span on T1: 41.8 mm, exact on build 41')
-    expect(describeMark(span({ exact: false, how: 'on the photo, lined up with fit 0.4 mm', measuredOn: 1 }), { revision: 1 })).toBe('M13 · span on T1: ≈ 41.8 mm (on the photo, lined up with fit 0.4 mm)')
+    expect(describeMark(span(), { revision: 41 })).toBe('M13 · span on T1: 41.8 mm, exact on build h41')
+    expect(describeMark(span({ exact: false, build: 'h41', how: 'on the photo, lined up with fit 0.4 mm', measuredOn: 1 }), { revision: 1 })).toBe('M13 · span on T1: ≈ 41.8 mm (on the photo, lined up with fit 0.4 mm)')
     expect(describeMark(span({ exact: false, how: 'freehand', measuredOn: 1 }), { revision: 1 })).toBe('M13 · span on T1: ≈ 41.8 mm (freehand)')
   })
 
   it('keeps an approximate span\'s value after a rebuild and says which build it was measured on; it is never "not checked"', () => {
-    const line = describeMark(span({ exact: false, how: 'on the photo, lined up with fit 0.4 mm', measuredOn: 1 }), { revision: 2 })
-    expect(line).toBe('M13 · span on T1: ≈ 41.8 mm (on the photo, lined up with fit 0.4 mm), measured on build 1')
+    const line = describeMark(span({ exact: false, build: 'h41', how: 'on the photo, lined up with fit 0.4 mm', measuredOn: 1 }), { revision: 2 })
+    expect(line).toBe('M13 · span on T1: ≈ 41.8 mm (on the photo, lined up with fit 0.4 mm), measured on build h41')
     expect(line).not.toContain('not checked')
     expect(describeMark(span(), { revision: 42 })).not.toContain('not checked')
   })
 
+  it('names the build of a span read in a later run by its history id, though the run\'s number is gone', () => {
+    const later = span({ exact: false, build: 'h41', how: 'freehand', measuredOn: undefined })
+    expect(describeMark(later, { revision: 1 })).toBe('M13 · span on T1: ≈ 41.8 mm (freehand), measured on build h41')
+    // The history kept no such build: it says only that it was an earlier one.
+    expect(describeMark(span({ exact: false, build: undefined, how: 'freehand', measuredOn: undefined }), { revision: 1 })).toBe('M13 · span on T1: ≈ 41.8 mm (freehand), measured on an earlier build')
+  })
+
   it('says the note of a span, and that its tracing is removed', () => {
-    expect(describeMark(span({ note: 'bolt pitch' }), { tracings: ['T2'] })).toBe('M13 · span on T1 (removed): 41.8 mm, exact on build 41: "bolt pitch"')
+    expect(describeMark(span({ note: 'bolt pitch' }), { tracings: ['T2'] })).toBe('M13 · span on T1 (removed): 41.8 mm, exact on build h41: "bolt pitch"')
   })
 
   it('tells an offset as the move in words, in the object frame, with its layer', () => {
-    expect(describeMark(offset(), { revision: 5 })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3')
-    expect(describeMark(offset({ shape: { index: 3, name: '' }, was: { kind: 'label', at: [1, 2], text: 'M6' }, by: [1.8, -0.6], to: [11.8, 0, 4.4] }), { revision: 5 })).toContain('M12 · offset · shape 4 of head bolts: 1.8 mm right, 0.6 mm down on T1')
+    expect(describeMark(offset(), { revision: 5, lineups: LINEUPS })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3 · photo: ' + LINEUP)
+    expect(describeMark(offset({ shape: { index: 3, name: '' }, was: { kind: 'label', at: [1, 2], text: 'M6' }, by: [1.8, -0.6], to: [11.8, 0, 4.4] }), { revision: 5, lineups: LINEUPS })).toContain('M12 · offset · shape 4 of head bolts: 1.8 mm right, 0.6 mm down on T1')
+  })
+
+  it('says an offset is from the photo only when the tracing has a lined-up photo, and else what it is relative to', () => {
+    expect(describeMark(offset(), { revision: 5 })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up from the layer\'s shape on T1 · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3')
+    expect(describeMark(offset(), { revision: 5, lineups: {} })).not.toContain('from the photo')
+    // Another tracing\'s line-up is not this one\'s.
+    expect(describeMark(offset(), { lineups: { T2: LINEUP } })).not.toContain('photo')
+    expect(describeMark(offset(), { tracings: ['T2'], lineups: LINEUPS })).toContain('on T1 (removed)')
+    expect(describeMark(offset(), { tracings: ['T2'], lineups: LINEUPS })).not.toContain('photo')
   })
 
   it('says "layer changed since" once its layer has been changed, and keeps what it was', () => {

@@ -4,7 +4,7 @@ import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
 import { type Round, type RoundsView, carriedRound, openRound, roundItems } from '../../shared/reviews'
-import { type TracingPlane, inPlane } from '../../shared/tracings'
+import { type Tracing, type TracingPlane, inPlane, planeDistance, planeNormal } from '../../shared/tracings'
 
 /** What main says of a region: what it is, which mesh of its scan it is of, and which painting of it its mask holds. */
 export type RegionSaid = RegionStats & { mesh?: string; mask?: number }
@@ -849,6 +849,37 @@ export class MarkStore {
   }
 
   /**
+   * Puts back onto its plane every mark of a tracing that is off it (beyond 1e-6 mm), in one change and one write, in the turn of the
+   * marks: a crash between `TracingStore.movePlane` and `followTracing` leaves the plane moved and its marks not (the next build sees no
+   * move), and a tracing removed and put back is in a plane its marks did not follow. A mark moves by the one distance its points lie
+   * from the plane, along the normal, as `followTracing` moves it; one whose points lie at different distances is not bent, and is left.
+   * The marks moved are told as unchecked, as a build's move tells them. Resolves with their ids; nothing is written when there are none.
+   */
+  healTracings(objectId: string, tracings: ReadonlyArray<Pick<Tracing, 'id' | 'plane'>>): Promise<string[]> {
+    const moved: string[] = []
+    return this.change(
+      objectId,
+      (file) => {
+        file.marks = file.marks.map((mark) => {
+          const t = mark.tracing === undefined ? undefined : tracings.find((one) => one.id === mark.tracing)
+          if (!t) return mark
+          const off = markPoints(mark).map((p) => planeDistance(t.plane, p))
+          if (off.length === 0 || off.every((d) => Math.abs(d) <= PLANE_HEAL_WITHIN)) return mark
+          if (Math.max(...off) - Math.min(...off) > PLANE_HEAL_WITHIN) return mark
+          const mean = off.reduce((sum, d) => sum + d, 0) / off.length
+          const [nx, ny, nz] = planeNormal(t.plane)
+          const next = translated(mark, [-mean * nx, -mean * ny, -mean * nz])
+          if (markPoints(next).some((p) => !inPlane(t.plane, p, PLANE_HEAL_WITHIN))) return mark
+          moved.push(mark.id)
+          return next
+        })
+        return moved.length === 0 ? UNCHANGED : undefined
+      },
+      moved
+    ).then(() => moved)
+  }
+
+  /**
    * Writes what the kernel measured of a dimension: its value, how it was
    * taken, between which points and on which build, or that it could not be
    * measured (no value: what it had is gone). `of` is the dimension as it was
@@ -1181,6 +1212,8 @@ export class MarkStore {
           for (const mark of file.marks) {
             delete mark.checkedRevision
             if (mark.kind === 'dimension') delete mark.measuredRevision
+            // A span's build is named by its history id, which is the same in every run; the run's own number is not.
+            if (mark.kind === 'span') delete mark.measuredOn
           }
           if (loaded.problem) this.problems.set(dir, loaded.problem)
           if (epoch === this.epoch) {
@@ -1244,6 +1277,8 @@ function inOpenRound(file: MarksFile, mark: Mark): void {
 
 /** What an edit returns when it changed nothing. */
 const UNCHANGED = Symbol('unchanged')
+/** How far from its plane a mark of a tracing may lie: the frame's own noise (`PLANE_WITHIN` of `tracings/marks.ts`). */
+const PLANE_HEAL_WITHIN = 1e-6
 
 /** Where a mark is in its file; an id that is not there is an error that names the ones that are. */
 function indexOf(file: MarksFile, id: string): number {
