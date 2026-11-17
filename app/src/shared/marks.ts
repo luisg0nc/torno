@@ -350,9 +350,11 @@ const SKETCH_STROKES_CHECKED = 8
 /**
  * Of a sketch: the same for each stroke on the surface, at most 8 strokes (evenly along them, the first and the last
  * kept). The sketch's anchor is the first point of its first stroke on a face, and is checked as the anchor: that point
- * is not among the samples. A stroke on a plane lies on nothing and is not judged, nor is a point snapped to a hole's centre.
+ * is not among the samples. The agent's sketch is judged by its anchor alone. A stroke on a plane lies on nothing and is not judged, nor is a point snapped to a hole's centre.
  */
 function sketchSamples(mark: SketchMark, most: number): Vec3[] {
+  // The agent's points are its own and may be in the air (`add_sketch`): only its anchor is judged.
+  if (mark.author === 'agent') return []
   const surface = mark.strokes.filter((stroke) => stroke.plane === undefined && (stroke.points?.length ?? 0) > 0)
   const chosen =
     surface.length <= SKETCH_STROKES_CHECKED

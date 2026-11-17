@@ -73,6 +73,8 @@ let inflight: Promise<void> | null = null
 let queued = false
 /** The sketch to send once the send in the air is answered, when it was let go meanwhile (`leaveSketch`); else the open one. */
 let queuedOpen: NonNullable<Sketching['open']> | null = null
+/** `queuedOpen` was let go: it is sent as it was, with its own revision and camera (`flush`'s `own`). */
+let queuedOwn = false
 /** The marks main sent while a send was waiting or in the air: taken again once it is answered (`takeMarks`). */
 let late: readonly Mark[] | null = null
 
@@ -177,9 +179,10 @@ export function leaveSketch(send = true): void {
   if (!send) {
     queued = false
     queuedOpen = null
+    queuedOwn = false
   }
   late = null
-  if (send && open && waiting) flush(open)
+  if (send && open && waiting) flush(open, true)
   history = []
   if (open?.id && env) env.marks.sketching(open.draft.objectId, null)
   set({ ...INITIAL, pen: state().pen, snapping: state().snapping })
@@ -226,7 +229,11 @@ function changed(typed = false): void {
   else flush()
 }
 
-function flush(given?: NonNullable<Sketching['open']>): void {
+/**
+ * Sends the open sketch, or `given`. The revision and camera it is sent with are the view's as it is now, unless `own`: a
+ * sketch let go is sent as it was, with its own, the view being of another project or layout by then.
+ */
+function flush(given?: NonNullable<Sketching['open']>, own = false): void {
   const open = given ?? state().open
   if (!open || !env) return
   // A sketch is made by its first stroke: with none, there is nothing to keep, and a field changed meanwhile goes with it.
@@ -234,16 +241,17 @@ function flush(given?: NonNullable<Sketching['open']>): void {
   if (inflight) {
     queued = true
     queuedOpen = open
+    queuedOwn = own
     return
   }
   const sent = open
   const here = env.here()
   // The layout is the one the sketch was started in: a sketch does not move to another.
-  const draft: SketchDraft = { ...sent.draft, ...(sent.id ? { id: sent.id } : {}), ...(here ? { revision: here.revision, camera: here.camera } : {}) }
+  const draft: SketchDraft = { ...sent.draft, ...(sent.id ? { id: sent.id } : {}), ...(here && !own ? { revision: here.revision, camera: here.camera } : {}) }
   const call = env.marks.sketch(draft).then(
     (mark) => {
       // Let go while this made it: what waits to be sent for it goes to the sketch main made, not to a second one.
-      if (queuedOpen && !queuedOpen.id && !queuedOpen.draft.id && queuedOpen.draft.objectId === draft.objectId && !state().open) queuedOpen = { id: mark.id, draft: { ...queuedOpen.draft, id: mark.id } }
+      if (queuedOpen && !queuedOpen.id && !queuedOpen.draft.id && queuedOpen.draft.objectId === draft.objectId && (!state().open || queuedOwn)) queuedOpen = { id: mark.id, draft: { ...queuedOpen.draft, id: mark.id } }
       // Gone, or another sketch is open now.
       const now = state().open
       if (!now || (now.id ?? mark.id) !== mark.id || now.draft.objectId !== draft.objectId) return
@@ -263,10 +271,12 @@ function flush(given?: NonNullable<Sketching['open']>): void {
     inflight = null
     if (queued) {
       const next = queuedOpen
+      const own = queuedOwn
       queued = false
       queuedOpen = null
+      queuedOwn = false
       // The sketch as it is now (it has its number by now); the one that was let go meanwhile is sent as it was.
-      flush(state().open ? undefined : (next ?? undefined))
+      flush(own || !state().open ? (next ?? undefined) : undefined, own)
       return
     }
     // What main moved meanwhile is taken now that the window has nothing in the air.

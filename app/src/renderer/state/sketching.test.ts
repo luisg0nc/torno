@@ -10,6 +10,7 @@ import {
   addPlane,
   addStroke,
   cycleTake,
+  dropSketchOf,
   editSketch,
   eraseStroke,
   finishSketch,
@@ -284,6 +285,23 @@ describe('the fields', () => {
     release()
     await settled()
     expect(calls.map((d) => [d.id, d.name])).toEqual([[undefined, ''], ['M1', 'Hose']])
+  })
+
+  it('sends a sketch let go with the revision and camera it has, not those of the view it was let go for', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    startSketch('bracket')
+    addStroke(line(0))
+    await settled()
+    f.calls.length = 0
+    const other: Camera = { ...CAMERA, position: [5, 5, 5] }
+    setSketchEnv({ ...f.env, here: () => ({ objectId: 'bracket', layout: 'other', revision: 9, camera: other, centre: [0, 0, 0] }) })
+    setName('Hose')
+    // Another layout is shown within the 300 ms.
+    dropSketchOf('bracket', 'other')
+    await settled()
+    expect(f.calls).toHaveLength(1)
+    expect(f.calls[0]).toMatchObject({ id: 'M1', name: 'Hose', layout: 'assembly', revision: 3, camera: CAMERA })
   })
 
   it('sends take at once, and a diameter only of flow, kept until the take is something else', async () => {

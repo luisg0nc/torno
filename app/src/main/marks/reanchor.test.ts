@@ -352,6 +352,25 @@ describe('reanchorAll', () => {
       expect(asked0.some((a) => a.part === 'p3')).toBe(false)
     })
 
+    it('of the agent is judged by its anchor only: points in the air are its own, so it stays ok on an unchanged build', async () => {
+      await store.saveSketch('bracket', {
+        objectId: 'bracket',
+        layout: 'assembly',
+        revision: 1,
+        camera: CAMERA as never,
+        name: 'Own',
+        note: '',
+        take: 'rough',
+        planes: [],
+        strokes: [{ pen: 'line', points: [[0, 0, 2.5], [1, 0, 2.5]], revision: 1 }, { pen: 'points', points: [[0, 0, 400]], revision: 1 }] as never,
+        anchor: { ...ON_TOP, point: [0, 0, 2.5] }
+      }, [], { author: 'agent' })
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[2] > 100 ? 400 : 0)) })
+      await run()
+      expect(anchorsOf(asked[0].args)).toEqual([{ part: 'base', point: [0, 0, 2.5] }])
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
     it('is not judged by a point snapped to a hole centre, which sits in the air', async () => {
       await sketch([{ pen: 'line', points: [[0, 0, 2.5], [5, 0, 2.5], [10, 0, 2.5]], snaps: [{ i: 2, centre: 'base/E14', radius: 2 }], revision: 1 }])
       answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] === 10 ? 2 : 0)) })
