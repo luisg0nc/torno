@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type RegionMark, type SketchMark, type SketchStroke, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
@@ -56,6 +56,12 @@ interface MarkEvents {
    */
   unchecked: { objectId: string; ids: string[] }
 }
+
+/** A sketch is not what a draft was checked against: it was changed (a build moved it) between the check and the keeping. Whoever checked it checks again. */
+export class SketchChanged extends Refusal {}
+
+/** What of a sketch a draft says and a build can move: what `saveSketch` is held to when it is told which sketch the draft was checked against. */
+const SKETCH_CONTENT = ['name', 'note', 'take', 'diameter', 'planes', 'strokes', 'anchor', 'layout', 'revision', 'camera'] as const
 
 /** What a patch may change of any mark, and of a shape only. */
 const COMMON_KEYS = ['note', 'status', 'resolvedNote'] as const
@@ -354,8 +360,12 @@ export class MarkStore {
    * says that it was reopened. `touches` goes with the strokes, one list for each: a stroke given none keeps the list it has
    * (what `checkSketch` took from the stored sketch). Nothing is written when the edit changes nothing. Only these keys of
    * the draft are read: an id, an author, a status or what only main says is never taken from it.
+   *
+   * A stroke's `touches` are the `touches` given for it, or those of an identical stroke the sketch has; any the draft carries
+   * is dropped. The agent's strokes keep no `snaps`: nothing checked them. `from` is the sketch the draft was checked against:
+   * when the sketch has changed since (a build moved it), nothing is written and `SketchChanged` is thrown.
    */
-  async saveSketch(objectId: string, draft: SketchDraft, touches: ReadonlyArray<readonly string[] | undefined> = [], opts: { author?: 'user' | 'agent' } = {}): Promise<Mark> {
+  async saveSketch(objectId: string, draft: SketchDraft, touches: ReadonlyArray<readonly string[] | undefined> = [], opts: { author?: 'user' | 'agent'; from?: SketchMark } = {}): Promise<Mark> {
     const author = opts.author ?? 'user'
     let was: Mark | undefined
     const saved = await this.change(
@@ -367,7 +377,24 @@ export class MarkStore {
           if (given.kind !== 'sketch') throw new Refusal(`${given.id} is a ${given.kind}, not a sketch`)
           if (given.author !== author) throw new Refusal(author === 'user' ? `${given.id} is the agent's sketch: only the agent changes it` : `${given.id} is the person's sketch: the agent does not change it`)
         }
-        const strokes = Array.isArray(asked.strokes) ? asked.strokes.map((stroke, i) => (touches[i] !== undefined && typeof stroke === 'object' && stroke !== null ? { ...stroke, touches: [...(touches[i] as readonly string[])] } : stroke)) : asked.strokes
+        if (given && opts.from) {
+          const of = (m: Mark): unknown => SKETCH_CONTENT.map((key) => (m as unknown as Record<string, unknown>)[key])
+          if (!isDeepStrictEqual(of(given), of(opts.from))) throw new SketchChanged(`${given.id} changed meanwhile: it is checked again`)
+        }
+        const had = given?.kind === 'sketch' ? [...given.strokes] : []
+        const strokes = Array.isArray(asked.strokes)
+          ? asked.strokes.map((raw, i) => {
+              if (typeof raw !== 'object' || raw === null) return raw
+              const { touches: _theirs, ...kept } = raw as SketchStroke
+              const { snaps: _unchecked, ...bare } = kept
+              const stroke = author === 'agent' ? bare : kept
+              if (touches[i] !== undefined) return { ...stroke, touches: [...(touches[i] as readonly string[])] }
+              const same = had.findIndex((one) => isDeepStrictEqual({ ...one, touches: undefined }, { ...stroke, touches: undefined }))
+              if (same < 0) return stroke
+              const [one] = had.splice(same, 1)
+              return one.touches === undefined ? stroke : { ...stroke, touches: [...one.touches] }
+            })
+          : asked.strokes
         const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
         if (!given) {
           const id = `M${file.next}`

@@ -68,7 +68,7 @@ function sameStroke(sent: SketchStroke, kept: SketchStroke, sentPlanes: readonly
   if (sent.plane !== undefined) {
     const a = planeById(sentPlanes, sent.plane)
     const b = planeById(keptPlanes, kept.plane)
-    if (!a || !b || distance(a.origin, b.origin) > SAME_MM || distance(a.x, b.x) > 1e-6 || distance(a.y, b.y) > 1e-6) return false
+    if (!a || !b || distance(a.origin, b.origin) > SAME_MM || distance(a.x, b.x) > 1e-6 || distance(a.y, b.y) > 1e-6 || !isDeepStrictEqual(a.from, b.from)) return false
   }
   const [mine, theirs] = sent.points ? [sent.points, kept.points] : [sent.points2d, kept.points2d]
   if (!mine || !theirs || mine.length !== theirs.length) return false
@@ -88,6 +88,7 @@ export function checkSketch(raw: unknown, stored: SketchMark | undefined, build:
   if (typeof raw.layout !== 'string' || raw.layout === '' || raw.layout.length > 200) return new Refusal('A sketch is of a layout, and this one names none.')
   if (typeof raw.revision !== 'number' || !Number.isSafeInteger(raw.revision) || raw.revision < 0) return new Refusal('A sketch says which build it was drawn on, and this one does not.')
   if (raw.revision > build.revision) return new Refusal(`The sketch says it was drawn on build ${raw.revision}, and the last build is ${build.revision}.`)
+  if (stored && raw.layout !== stored.layout) return new Refusal(`${stored.id} is a sketch of the layout ${stored.layout}: a sketch does not move to another layout.`)
   const camera = cameraOf(raw.camera)
   if (!camera) return new Refusal('A sketch keeps the camera it was drawn from, and this one has none.')
   if (typeof raw.note !== 'string') return new Refusal('The comment of a sketch is text.')
@@ -180,7 +181,7 @@ function checkSnaps(stroke: SketchStroke, n: number, planes: readonly SketchPlan
     const edges = (): EdgeSource => {
       let source = cache.get(name)
       if (!source) {
-        source = edgeSource(part, build.blob)
+        source = edgeSource(part, build.blob, data)
         cache.set(name, source)
       }
       return source
@@ -204,7 +205,7 @@ function checkSnaps(stroke: SketchStroke, n: number, planes: readonly SketchPlan
       const source = edges()
       const type = source.type(index)
       const circle = type === CIRCLE ? circleOf(data, index) : null
-      const ends = type === LINE ? source.ends(index, data) : null
+      const ends = type === LINE ? source.ends(index) : null
       if (snap.approx || (!circle && !ends)) {
         kept = { ...snap, approx: true }
       } else {
@@ -289,12 +290,12 @@ function segmentDistance(p: Vec3, a: Vec3, b: Vec3): number {
 interface EdgeSource {
   type(edge: number): number
   /** The two ends of a straight edge, part-local: the ends of its polyline, set to the B-rep vertices that are there. */
-  ends(edge: number, data: SnapData): [Vec3, Vec3] | null
+  ends(edge: number): [Vec3, Vec3] | null
   /** Its segments, in the object frame. */
   polyline(edge: number): Array<[Vec3, Vec3]>
 }
 
-function edgeSource(part: Part, blob: ArrayBuffer): EdgeSource {
+function edgeSource(part: Part, blob: ArrayBuffer, data: SnapData): EdgeSource {
   const types = bufView(blob, part.mesh.edgeTypes, Uint32Array)
   const counts = bufView(blob, part.mesh.segmentsPerEdge, Uint32Array)
   const edges = bufView(blob, part.mesh.edges, Float32Array)
@@ -304,23 +305,36 @@ function edgeSource(part: Part, blob: ArrayBuffer): EdgeSource {
     starts.push(at)
     at += count
   }
+  // The vertices in a grid of cells the size of the match, made once for the part and read when an edge's ends are looked for.
+  let grid: Map<string, Vec3[]> | undefined
+  const cell = (p: Vec3): number[] => p.map((c) => Math.floor(c / VERTEX_MATCH_MM))
+  const vertexNear = (p: Vec3): Vec3 => {
+    if (!grid) {
+      grid = new Map()
+      for (let i = 0; ; i++) {
+        const v = vertexAt(data, i)
+        if (!v) break
+        const key = cell(v).join()
+        grid.set(key, [...(grid.get(key) ?? []), v])
+      }
+    }
+    const [x, y, z] = cell(p)
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+      const found = grid.get([x + dx, y + dy, z + dz].join())?.find((v) => distance(v, p) <= VERTEX_MATCH_MM)
+      if (found) return found
+    }
+    return p
+  }
   const segment = (k: number): [Vec3, Vec3] => [
     [edges[6 * k], edges[6 * k + 1], edges[6 * k + 2]],
     [edges[6 * k + 3], edges[6 * k + 4], edges[6 * k + 5]]
   ]
   return {
     type: (edge) => types[edge] ?? -1,
-    ends(edge, data) {
+    ends(edge) {
       if (!(counts[edge] > 0)) return null
       const first = segment(starts[edge])[0]
       const last = segment(starts[edge] + counts[edge] - 1)[1]
-      const vertexNear = (p: Vec3): Vec3 => {
-        for (let i = 0; ; i++) {
-          const v = vertexAt(data, i)
-          if (!v) return p
-          if (distance(v, p) <= VERTEX_MATCH_MM) return v
-        }
-      }
       return [vertexNear(first), vertexNear(last)]
     },
     polyline(edge) {

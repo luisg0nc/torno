@@ -4,7 +4,7 @@ import type { Scene } from '../../shared/scene'
 import { snapOf } from '../../shared/snapdata'
 import { checkedImage } from '../images'
 import { toArrayBuffer } from '../kernel/frames'
-import type { MarkStore } from '../marks/store'
+import { type MarkStore, SketchChanged } from '../marks/store'
 import { dropNoteFiles } from '../notes/dropped'
 import { writeNoteFile } from '../notes/files'
 import { Refusal } from '../refusal'
@@ -40,6 +40,12 @@ export function openSketch(objectId: string): string | null {
   return open.get(objectId) ?? null
 }
 
+/** The marks of a project changed: the open sketch is closed when it is among them no more (it was removed). */
+export function forgetRemovedSketch(objectId: string, marks: readonly Mark[]): void {
+  const id = open.get(objectId)
+  if (id !== undefined && !marks.some((m) => m.id === id)) open.delete(objectId)
+}
+
 /** Forgets which sketches are open, as when the workspace is left. */
 export function forgetOpenSketches(): void {
   open.clear()
@@ -61,41 +67,52 @@ export function sketchHandlers(deps: SketchIpcDeps) {
     return mark
   }
 
+  const once = async (raw: SketchDraft): Promise<Mark> => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw new Refusal('That is not a sketch.')
+    const asked: Record<string, unknown> = { ...raw }
+    const obj = project(asked.objectId)
+    const stored = asked.id === undefined ? undefined : await sketchOf(obj, asked.id)
+    if (stored && stored.author !== 'user') throw new Refusal(`${stored.id} is the agent's sketch: only the agent changes it.`)
+    const last = deps.build(obj.id)
+    if (!last) throw new Refusal('This project has not been built yet, so a sketch of it cannot be checked.')
+    // The blob is a view into a larger buffer: typed arrays need one of its own.
+    const blob = toArrayBuffer(last.blob instanceof ArrayBuffer ? new Uint8Array(last.blob) : last.blob)
+    const build = { revision: last.revision, scene: last.scene, blob, snap: (part: string) => snapped(last.scene, asked.layout, part, blob) }
+    const checked = checkSketch(raw, stored, build)
+    if (checked instanceof Refusal) throw checked
+    const anchor = checked.anchor && deps.placed ? (deps.placed({ ...checked, kind: 'sketch', author: 'user' } as unknown as NewMark, obj.id) as { anchor?: SketchDraft['anchor'] }).anchor : checked.anchor
+    const draft: SketchDraft = anchor ? { ...checked, anchor } : checked
+    // A stroke with no touches is one that is new: those that were kept carry theirs.
+    const fresh = draft.strokes.flatMap((stroke, i) => (stroke.touches === undefined ? [i] : []))
+    const touches: Array<string[] | undefined> = draft.strokes.map(() => undefined)
+    if (fresh.length > 0) {
+      let found: string[][] = fresh.map(() => [])
+      try {
+        found = await strokeTouches({ objectId: obj.id, scene: last.scene, query: deps.query }, draft.layout, draft, fresh.map((i) => draft.strokes[i]))
+      } catch {
+        // The kernel could not say: they touch nothing known, and the sketch is no less the person's.
+      }
+      fresh.forEach((i, k) => {
+        touches[i] = found[k]
+      })
+    }
+    return deps.marks.saveSketch(obj.id, draft, touches, stored ? { from: stored } : {})
+  }
+
   return {
     /**
      * Keeps a sketch of the person's: made when the draft has no `id`, else changed. What each new stroke touches is asked
      * of the kernel after the draft is checked, and a kernel that cannot say leaves it with none: the sketch is kept.
      */
     async sketch(raw: SketchDraft): Promise<Mark> {
-      if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw new Refusal('That is not a sketch.')
-      const asked: Record<string, unknown> = { ...raw }
-      const obj = project(asked.objectId)
-      const stored = asked.id === undefined ? undefined : await sketchOf(obj, asked.id)
-      if (stored && stored.author !== 'user') throw new Refusal(`${stored.id} is the agent's sketch: only the agent changes it.`)
-      const last = deps.build(obj.id)
-      if (!last) throw new Refusal('This project has not been built yet, so a sketch of it cannot be checked.')
-      // The blob is a view into a larger buffer: typed arrays need one of its own.
-      const blob = toArrayBuffer(last.blob instanceof ArrayBuffer ? new Uint8Array(last.blob) : last.blob)
-      const build = { revision: last.revision, scene: last.scene, blob, snap: (part: string) => snapped(last.scene, asked.layout, part, blob) }
-      const checked = checkSketch(raw, stored, build)
-      if (checked instanceof Refusal) throw checked
-      const anchor = checked.anchor && deps.placed ? (deps.placed({ ...checked, kind: 'sketch', author: 'user' } as unknown as NewMark, obj.id) as { anchor?: SketchDraft['anchor'] }).anchor : checked.anchor
-      const draft: SketchDraft = anchor ? { ...checked, anchor } : checked
-      // A stroke with no touches is one that is new: those that were kept carry theirs.
-      const fresh = draft.strokes.flatMap((stroke, i) => (stroke.touches === undefined ? [i] : []))
-      const touches: Array<string[] | undefined> = draft.strokes.map(() => undefined)
-      if (fresh.length > 0) {
-        let found: string[][] = fresh.map(() => [])
+      // A build can move the sketch (a part spread otherwise) between the check and the keeping: it is then checked again.
+      for (let tried = 1; ; tried++) {
         try {
-          found = await strokeTouches({ objectId: obj.id, scene: last.scene, query: deps.query }, draft.layout, draft, fresh.map((i) => draft.strokes[i]))
-        } catch {
-          // The kernel could not say: they touch nothing known, and the sketch is no less the person's.
+          return await once(raw)
+        } catch (e) {
+          if (!(e instanceof SketchChanged) || tried >= 3) throw e
         }
-        fresh.forEach((i, k) => {
-          touches[i] = found[k]
-        })
       }
-      return deps.marks.saveSketch(obj.id, draft, touches)
     },
 
     /** Keeps the picture of a sketch's card, a PNG the window drew, under a name of main's own; the one it replaces is listed as dropped. */

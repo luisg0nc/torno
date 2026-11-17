@@ -7,7 +7,7 @@ import type { SketchDraft } from '../../shared/bridge'
 import * as file from './file'
 import { droppedNames } from '../dropped'
 import { isNoteFile } from '../notes/files'
-import { MarkStore } from './store'
+import { MarkStore, SketchChanged } from './store'
 
 // The real file module, with its writes counted.
 vi.mock('./file', async (importActual) => {
@@ -1248,10 +1248,35 @@ describe('a sketch', () => {
     expect(changes.at(-1)?.marks.at(-1)).toEqual(made)
   })
 
-  it('takes the touches from main and leaves the draft\'s own alone where main says none', async () => {
+  it('takes the touches from main alone: a stroke given none by main has none, whatever the draft says', async () => {
     const strokes = draft().strokes.map((s, i) => ({ ...s, touches: [`window/F${i}`] }))
-    const made = (await store.saveSketch('bracket', draft({ strokes: [strokes[0], { ...strokes[1], touches: undefined }] }), [undefined, ['base/F9']])) as SketchMark
-    expect(made.strokes.map((s) => s.touches)).toEqual([['window/F0'], ['base/F9']])
+    const made = (await store.saveSketch('bracket', draft({ strokes }), [undefined, ['base/F9']])) as SketchMark
+    expect(made.strokes.map((s) => s.touches)).toEqual([undefined, ['base/F9']])
+  })
+
+  it('keeps the touches of a stroke the sketch already had, identical, and no others', async () => {
+    const made = (await store.saveSketch('bracket', draft(), [['base/F1'], ['base/F2']])) as SketchMark
+    const more = { pen: 'free' as const, points: [[9, 9, 9]] as Array<[number, number, number]>, revision: 3, touches: ['window/F1'] }
+    const changed = (await store.saveSketch('bracket', { ...draft(), id: made.id, strokes: [...made.strokes, more] }, [])) as SketchMark
+    expect(changed.strokes.map((s) => s.touches)).toEqual([['base/F1'], ['base/F2'], undefined])
+  })
+
+  it('stores no touches and no snaps of the agent\'s strokes that main did not say', async () => {
+    const strokes = [{ pen: 'points' as const, points: [[1, 2, 3], [4, 5, 6]] as Array<[number, number, number]>, snaps: [{ i: 0, vertex: 'base/V1' }], touches: ['window/F1'], revision: 3 }]
+    const made = (await store.saveSketch('bracket', draft({ strokes }), [], { author: 'agent' })) as SketchMark
+    expect(made.strokes[0]).not.toHaveProperty('touches')
+    expect(made.strokes[0]).not.toHaveProperty('snaps')
+    const told = (await store.saveSketch('bracket', draft({ strokes }), [['base/F4']], { author: 'agent' })) as SketchMark
+    expect(told.strokes[0].touches).toEqual(['base/F4'])
+    expect(told.strokes[0]).not.toHaveProperty('snaps')
+  })
+
+  it('is refused, for the caller to check again, when the sketch is no longer what the draft was checked against', async () => {
+    const made = (await store.saveSketch('bracket', draft(), [[], []])) as SketchMark
+    await store.reanchor('bracket', [{ id: made.id, judged: [ANCHOR], anchors: [{ ...ANCHOR, point: [1, 2, 25] }], anchorState: 'ok', shift: [0, 0, 5] }])
+    await expect(store.saveSketch('bracket', { ...draft(), id: made.id }, [[], []], { from: made })).rejects.toBeInstanceOf(SketchChanged)
+    const now = (await store.list('bracket'))[0] as SketchMark
+    expect(await store.saveSketch('bracket', { ...draft(), id: made.id, note: 'again' }, [[], []], { from: now })).toMatchObject({ note: 'again' })
   })
 
   it('is refused when it is no sketch: a number too far gone, a plane that is not a frame', async () => {

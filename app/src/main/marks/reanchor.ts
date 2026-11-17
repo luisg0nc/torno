@@ -291,7 +291,12 @@ export async function reanchorAll(deps: ReanchorDeps, objectId: string): Promise
       entries.push({ mark, anchor, asked, ...(followed ? { followed } : {}) })
       const names = scene.parts.filter((p) => p.layout === mark.layout).map((p) => p.name)
       const parts = names.length <= STROKE_PARTS && names.includes(anchor.part) ? names : [anchor.part]
-      const samples = strokeSamples(mark).map((point) => ({ id: mark.id, asked: parts.map((part) => ({ part, point })) }))
+      // The points of a sketch, which may run over many parts, are asked of those whose box they are within reach of, when the layout has too many to ask them of all.
+      const reaching = (point: Vec3): string[] => {
+        const near = scene.parts.filter((p) => p.layout === mark.layout && point.every((c, i) => c >= p.bbox.min[i] - tolerance(p.bbox) && c <= p.bbox.max[i] + tolerance(p.bbox))).map((p) => p.name)
+        return near.length > 0 ? near : [anchor.part as string]
+      }
+      const samples = strokeSamples(mark).map((point) => ({ id: mark.id, asked: (mark.kind === 'sketch' && names.length > STROKE_PARTS ? reaching(point) : parts).map((part) => ({ part, point })) }))
       if (samples.length > 0) alongStrokes.set(mark.layout, [...(alongStrokes.get(mark.layout) ?? []), ...samples])
     }
   }

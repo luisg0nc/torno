@@ -175,6 +175,16 @@ describe('what is kept of the strokes the sketch had', () => {
     expect(draft.strokes).toEqual([other, old])
   })
 
+  it('does not take on a stroke the way its plane was made, when that is another', () => {
+    const planeStroke = { plane: 1, pen: 'free', points2d: [[0, 0], [1, 1]], revision: 3 }
+    const other = { ...XY, from: { kind: 'view', label: 'Top' } }
+    expect(refused(raw({ id: 'M7', planes: [other], strokes: [planeStroke] }), stored([planeStroke]))).toMatch(/build/)
+  })
+
+  it('refuses a layout other than the one the sketch has', () => {
+    expect(refused(raw({ id: 'M7', layout: 'print' }), stored([]))).toMatch(/layout/)
+  })
+
   it('does not take a stroke from the sketch it has not got: nothing stored, so every stroke is new', () => {
     expect(refused(raw({ strokes: [old] }), undefined)).toMatch(/build/)
   })

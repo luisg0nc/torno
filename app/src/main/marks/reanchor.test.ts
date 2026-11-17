@@ -335,6 +335,23 @@ describe('reanchorAll', () => {
       expect((await byId()).M1.anchorState).toBe('ok')
     })
 
+    it('with more than 8 parts asks the points of each stroke of the parts whose box holds them, so a stroke on another part than its anchor\'s is ok', async () => {
+      const names = ['base', 'post', ...Array.from({ length: 7 }, (_, i) => `p${i + 3}`)]
+      scene = sceneOf(names.map((n) => `assembly:${n}`))
+      const post = scene.parts.find((p) => p.name === 'post')!
+      post.bbox = { min: [90, -15, -2.5], max: [130, 15, 2.5] }
+      scene.parts.filter((p) => p.name.startsWith('p') && p.name !== 'post').forEach((p) => {
+        p.bbox = { min: [500, 500, 500], max: [510, 510, 510] }
+      })
+      await sketch([{ pen: 'free', points: [[100, 0, 2.5], [101, 0, 2.5]], revision: 1 }, { pen: 'free', points: [[0, 0, 2.5], [1, 0, 2.5], [2, 0, 2.5]], revision: 1 }], { ...ON_POST, point: [100, 0, 2.5] })
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, (part === 'post') === point[0] >= 90 ? 0 : 9)) })
+      expect(await run()).toBe(true)
+      expect((await byId()).M1.anchorState).toBe('ok')
+      const asked0 = anchorsOf(asked[0].args)
+      expect(asked0.some((a) => a.part === 'base' && a.point[0] === 2)).toBe(true)
+      expect(asked0.some((a) => a.part === 'p3')).toBe(false)
+    })
+
     it('is never judged by a stroke on a plane', async () => {
       await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5], [9, 0]], revision: 1 }])
       answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] === 0 ? 0 : 9)) })

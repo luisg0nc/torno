@@ -12,7 +12,7 @@ import { isNoteFile } from '../notes/files'
 import { png, jpeg } from '../notes/testing'
 import { NoteSweep } from '../notes/sweep'
 import { refusable } from '../refusal'
-import { forgetOpenSketches, openSketch, sketchHandlers } from './ipc'
+import { forgetOpenSketches, forgetRemovedSketch, openSketch, sketchHandlers } from './ipc'
 import { fixture, VERTICES, world } from './testing'
 
 const CAMERA = { position: [100, -100, 80], target: [0, 0, 10], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
@@ -115,6 +115,51 @@ describe('marks:sketch', () => {
     expect(changed.strokes[1].touches).toEqual(['block/F2'])
     expect(asked).toHaveLength(1)
     expect(asked[0].anchors).toBe(1)
+  })
+
+  describe('when a build lands between the check and the keeping', () => {
+    const anchor = { point: [1, 2, 3] as Vec3, part: 'block', ref: 'block/F2' }
+    const earlier = { pen: 'free', points: [[1, 2, 3], [1, 2, 4]], revision: 3 }
+    const racing = (during: (id: string) => Promise<void>) => {
+      let fired = 0
+      const handlersOf = sketchHandlers({
+        marks: {
+          list: store.list.bind(store),
+          setSketchPicture: store.setSketchPicture.bind(store),
+          saveSketch: async (...args: Parameters<MarkStore['saveSketch']>) => {
+            if (fired++ === 0) await during((await store.list('bracket'))[0].id)
+            return store.saveSketch(...args)
+          }
+        },
+        object: () => obj(),
+        build: () => ({ revision: 7, scene: built!.scene, blob: Buffer.from(built!.blob) }),
+        query: async <T>() => ({ anchors: [] }) as T
+      })
+      return { handlersOf, fired: () => fired }
+    }
+    const first = async (): Promise<SketchMark> => (await store.saveSketch('bracket', draft({ anchor, strokes: [earlier] }) as never, [['block/F2']])) as SketchMark
+
+    it('keeps the sketch as the build left it when only its check changed: the keeping is not asked again', async () => {
+      const was = await first()
+      const { handlersOf, fired } = racing(async (id) => {
+        await store.reanchor('bracket', [{ id, judged: [anchor], anchors: [anchor], anchorState: 'drifted', checkedRevision: 7 }])
+      })
+      const kept = (await handlersOf.sketch(draft({ id: was.id, anchor, note: 'later', strokes: [earlier] }) as never)) as SketchMark
+      expect(fired()).toBe(1)
+      expect(kept).toMatchObject({ note: 'later', anchorState: 'ok' })
+    })
+
+    it('does not overwrite the move a build made of the sketch: it is checked again, and what the window had is of the sketch as it was', async () => {
+      const was = await first()
+      const { handlersOf, fired } = racing(async (id) => {
+        await store.reanchor('bracket', [{ id, judged: [anchor], anchors: [{ ...anchor, point: [1, 2, 8] }], anchorState: 'ok', shift: [0, 0, 5] }])
+      })
+      await expect(handlersOf.sketch(draft({ id: was.id, anchor, note: 'later', strokes: [earlier] }) as never)).rejects.toThrow(/build/)
+      expect(fired()).toBe(1)
+      const now = (await store.list('bracket'))[0] as SketchMark
+      expect(now.strokes[0].points?.[0]).toEqual([1, 2, 8])
+      expect(now.note).toBe('route it here')
+    })
   })
 
   it('keeps the strokes of an earlier build as they were, when the model was built again since', async () => {
@@ -270,6 +315,16 @@ describe('marks:sketching', () => {
     handlers().sketching('nope', 'M4')
     expect(openSketch('nope')).toBeNull()
     handlers().sketching(7 as never, 'M4')
+  })
+
+  it('is forgotten when that sketch is removed, and not when another is', async () => {
+    const sketch = await made()
+    handlers().sketching('bracket', sketch.id)
+    forgetRemovedSketch('bracket', await store.list('bracket'))
+    expect(openSketch('bracket')).toBe(sketch.id)
+    await store.remove('bracket', sketch.id)
+    forgetRemovedSketch('bracket', await store.list('bracket'))
+    expect(openSketch('bracket')).toBeNull()
   })
 
   it('is forgotten with the workspace', () => {

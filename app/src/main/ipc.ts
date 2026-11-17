@@ -42,7 +42,7 @@ import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, res
 import type { MarkStore } from './marks/store'
 import { boardAttachOf, boardHandlers } from './board/ipc'
 import { noteHandlers } from './notes/ipc'
-import { forgetOpenSketches, sketchHandlers } from './sketches/ipc'
+import { forgetOpenSketches, forgetRemovedSketch, sketchHandlers } from './sketches/ipc'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
 import { kernelDir, kernelRun } from './paths'
@@ -651,6 +651,8 @@ export function registerIpc(
   marks = opts.marks ?? null
   marks?.on('changed', (m) => broadcast('marks:changed', { ...m, marks: requireMarks().shown(m.objectId, m.marks) }))
   marks?.on('problem', (m) => broadcast('marks:problem', m))
+  // A sketch that is removed is no longer open.
+  marks?.on('changed', (m) => forgetRemovedSketch(m.objectId, m.marks))
   marks?.on('changed', () => cardsChanged())
   // A mark added, or reopened, has not been checked against the build there is: no build is on its way to do it.
   if (marks) followMarks(marks, (objectId, restore) => current?.reanchor?.(objectId, restore))
