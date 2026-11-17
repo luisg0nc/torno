@@ -462,12 +462,19 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
   if (typeof checked === 'string') return failure(checked)
   try {
     // A face or an edge also gets a selector that picks it now; a part has none.
-    const described = await deps.describe(objectId, layout, args.ref, checked.target === 'part' ? undefined : { selector: true })
+    const described = withoutForm(await deps.describe(objectId, layout, args.ref, checked.target === 'part' ? undefined : { selector: true }))
     // As of the answer: a build may have ended while the kernel was asked. Its centre and its box are where the part is shown.
     return json({ layout, ...ofBuild(deps, objectId), ...described, ...movedForDisplay(checked.part, layout, described), ...selectorFrame(found.scene, layout, checked.part, described) })
   } catch (e) {
     return failure(messageOf(e))
   }
+}
+
+/** What `describe` answers, without the structured form of its selector: that is for main's sets and the kernel, and the agent is told the expression. */
+function withoutForm(described: Described): Described {
+  if (described.kind === 'part' || !described.selector || !('form' in described.selector)) return described
+  const { form: _form, ...selector } = described.selector
+  return { ...described, selector }
 }
 
 /** Whether a part stands where its own function builds it: not moved, not turned. */

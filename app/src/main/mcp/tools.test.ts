@@ -1037,6 +1037,15 @@ describe('describe', () => {
     expect(asked).toEqual([{ ref: 'base/F5', selector: true }, { ref: 'base', selector: undefined }])
   })
 
+  it('does not tell the agent the structured form of a selector: it is for main and the kernel', async () => {
+    const form = { of: 'faces', prefix: { by: 'type', type: 'PLANE' }, terminal: { end: 2, at: -1 } }
+    const selector = { expression: 'part.faces().filter_by(GeomType.PLANE).sort_by(Axis.Z)[-1]', robust: 'by geometry', checked: 'this build only' } as const
+    const deps = fake({ describe: async (_id, layout, ref) => ({ ...FACE, ref: `${layout}:${ref}`, selector: { ...selector, form } }) as unknown as Described })
+    const face = jsonOf(await describeTool(deps, 'bracket', { ref: 'base/F5' }))
+    expect(face.selector).toEqual(selector)
+    expect(JSON.stringify(face)).not.toContain('"form"')
+  })
+
   it('says a face with no selector has none', async () => {
     const deps = fake({ describe: async () => ({ ...FACE, selector: null, selectorWhy: 'no selector picks only this face: others are as far along every axis, or have the same size' }) as Described })
     const told = jsonOf(await describeTool(deps, 'bracket', { ref: 'base/F5' }))

@@ -29,6 +29,7 @@ import { addDimensionTold } from './marks/measure'
 import type { NearestAnchor } from './marks/reanchor'
 import { maskReadsOf, maskStampOf, meshesOf } from './marks/regions'
 import { MarkStore } from './marks/store'
+import { SetStore } from './sets/store'
 import { attachBoard } from './board/attach'
 import { reconcileProject } from './board/follow'
 import { liveFacts } from './board/live'
@@ -290,6 +291,9 @@ const asks = new Asks(
 /** The marks of the objects of the open workspace, whose folders are those of the last scan. */
 // A region is held against the mesh its scan has whenever the marks are listed (`meshesOf`).
 const marks: MarkStore = new MarkStore({ dirOf: (id) => findObject(id)?.dir, meshes: (objectId) => meshesOf(scans)(objectId), maskReads: (objectId, scan, stem) => maskReadsOf(scans)(objectId, scan, stem), maskStamp: (objectId, scan, stem) => maskStampOf(scans)(objectId, scan, stem) })
+
+/** The named sets of the objects of the open workspace, in `.torno/sets.json`. A stroke a set names is checked against the marks. */
+const sets: SetStore = new SetStore({ dirOf: (id) => findObject(id)?.dir, scene: (id) => lastScene(id), marks: (objectId) => marks.list(objectId) })
 
 // A `.torno` that is a link or a file is written to by no one (`ownTorno`). The person is told once for each
 // object, where what is wrong with its marks is said: nothing of that object is kept until it is a real folder.
@@ -676,6 +680,7 @@ void app.whenReady().then(async () => {
     sessions,
     asks,
     marks,
+    sets,
     board,
     views: savedViews,
     onBuild: (state) => {

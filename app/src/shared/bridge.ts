@@ -19,6 +19,7 @@ import type { RecentFolder, WorkspaceInfo } from './workspace'
 import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
+import type { NamedSet, NewSet, SetEdit } from './sets'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
 /** What the onboarding page asks for when the person presses "Create": the new object and everything they gave. */
@@ -297,6 +298,32 @@ export interface TornoBridge {
     /** Something about an object's marks file the person should know, said once: a file that could not be read was set aside. */
     onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
     /** What `onProblem` last said of an object, for a window that was not listening then; null when nothing, or once dismissed. */
+    problem(objectId: string): Promise<string | null>
+    dismissProblem(objectId: string): Promise<void>
+  }
+  /**
+   * The named sets of a project, kept by main in <project>/.torno/sets.json: faces, edges, parts and sketch strokes under a
+   * name. The window names a project and a set (`N<n>`); everything else of a set (who made it, whether it is proposed, what
+   * is lost, each face's selector) is main's. A set the window makes is the person's. Calls reject with a plain message.
+   */
+  sets: {
+    list(objectId: string): Promise<NamedSet[]>
+    /** Makes a set at once, from refs with the point and normal the person pointed at (and strokes as `M7/k3`); main then finds each face's selector and writes it. */
+    make(objectId: string, ask: NewSet): Promise<NamedSet>
+    /** Renames, recolours, comments, adds, takes away and re-picks lost members. Rejects, changing nothing, with why not. */
+    edit(objectId: string, id: string, edit: SetEdit): Promise<NamedSet>
+    remove(objectId: string, id: string): Promise<void>
+    /** Puts back the set deleted last, whole and with its number, once. */
+    restore(objectId: string, id: string): Promise<NamedSet>
+    /** Accepts the agent's proposal: it becomes the person's. Rejects for a set that is not proposed. */
+    accept(objectId: string, id: string): Promise<NamedSet>
+    /** Turns the agent's proposal down: the set is deleted. Rejects for a set that is not proposed. */
+    dismiss(objectId: string, id: string): Promise<void>
+    /** The sets of a project, whole, as they now are, whoever changed them. */
+    onChanged(cb: (m: { objectId: string; sets: NamedSet[] }) => void): () => void
+    /** Something about a project's sets file the person should know, said once: a file that could not be read was set aside. */
+    onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
+    /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
   }

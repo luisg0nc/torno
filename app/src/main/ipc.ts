@@ -44,6 +44,9 @@ import { boardAttachOf, boardHandlers } from './board/ipc'
 import { noteHandlers } from './notes/ipc'
 import { forgetOpenSketches, forgetRemovedSketch, sketchHandlers } from './sketches/ipc'
 import { reviewHandlers } from './reviews/ipc'
+import { setHandlers } from './sets/ipc'
+import type { SetStore } from './sets/store'
+import type { NewSet, SetEdit } from '../shared/sets'
 import type { RoundAsk } from '../shared/reviews'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
@@ -96,7 +99,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
-//           marks:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
+//           marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection
@@ -106,7 +109,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:saveView (sent by src/main/look.ts),
 //           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested and window:closeAsked (sent by src/main/index.ts,
 //           which hears the answer, window:closeAnswer),
-//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
+//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
 
 /** The longest prompt the window may send. */
 const MAX_PROMPT_CHARS = 200_000
@@ -147,6 +150,9 @@ let asks: Asks | null = null
 
 /** The marks of the objects of the open workspace, once `registerIpc` has been given them. */
 let marks: MarkStore | null = null
+
+/** The named sets of the objects of the open workspace, once `registerIpc` has been given them. */
+let sets: SetStore | null = null
 
 /** What torno needs and whether it is there, once `registerIpc` has been given it: told the kernel of each workspace as it starts. */
 let readiness: ReadyKeeper | null = null
@@ -436,6 +442,7 @@ export async function closeWorkspace(): Promise<void> {
   checks.clear()
   // The next workspace may have an object of the same name, or this folder may change while it is closed.
   marks?.forget()
+  sets?.forget()
   forgetOpenSketches()
   // And its scans: an import that is still running is stopped by whoever runs it, who is told next.
   scans?.forget()
@@ -583,6 +590,8 @@ export function registerIpc(
     /** The profile of an object changed: its state file is written anew. */
     onProfile?: (objectId: string) => void
     marks?: MarkStore
+    /** The named sets of the projects: the window reads and changes them through here, and is told when one changes. */
+    sets?: SetStore
     /** The boards of the projects: the window reads and changes them through here, and is told when one changes. */
     board?: BoardStore
     /** The views saved of a project (its scene file's): only one of them is pinned to the board. */
@@ -661,6 +670,15 @@ export function registerIpc(
   const requireMarks = (): MarkStore => {
     if (!marks) throw new Error('marks are not available')
     return marks
+  }
+
+  // The named sets of a project: the window makes and changes the person's, and is told of every change, whoever made it.
+  sets = opts.sets ?? null
+  sets?.on('changed', (m) => broadcast('sets:changed', m))
+  sets?.on('problem', (m) => broadcast('sets:problem', m))
+  const requireSets = (): SetStore => {
+    if (!sets) throw new Error('named sets are not available')
+    return sets
   }
 
   // The board of a project: what the person does to it in the window, and the window told of every change, whoever made it.
@@ -1076,6 +1094,18 @@ export function registerIpc(
   handle('marks:judge', (_event, objectId: string, id: string, verdict: 'ok' | 'still-wrong', note?: string) => reviews().judge(objectId, id, verdict, note))
   handle('marks:problem', (_event, objectId: string) => requireMarks().problem(String(objectId)))
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
+
+  // Named sets: the window names a project and a set by its `N<n>`; main finds each face's selector and writes it in a second change.
+  const namedSets = () => setHandlers({ sets: requireSets(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject })
+  handle('sets:list', (_event, objectId: string) => namedSets().list(objectId))
+  handle('sets:make', (_event, objectId: string, ask: NewSet) => namedSets().make(objectId, ask))
+  handle('sets:edit', (_event, objectId: string, id: string, edit: SetEdit) => namedSets().edit(objectId, id, edit))
+  handle('sets:remove', (_event, objectId: string, id: string) => namedSets().remove(objectId, id))
+  handle('sets:restore', (_event, objectId: string, id: string) => namedSets().restore(objectId, id))
+  handle('sets:accept', (_event, objectId: string, id: string) => namedSets().accept(objectId, id))
+  handle('sets:dismiss', (_event, objectId: string, id: string) => namedSets().dismiss(objectId, id))
+  handle('sets:problem', (_event, objectId: string) => requireSets().problem(String(objectId)))
+  handle('sets:dismissProblem', (_event, objectId: string) => requireSets().dismissProblem(String(objectId)))
 
   scans = opts.scans ?? null
   scans?.on('changed', (m) => broadcast('scans:changed', m))
