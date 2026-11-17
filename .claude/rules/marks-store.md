@@ -107,6 +107,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   goes with it. The agent's own sketches are `sent` and are not told again. A sketch is checked against a
   build like a stroke is: its `anchor` (the first point on a face) is the anchor, and up to 8 points along each surface stroke
   (up to 8 strokes) are asked about; a stroke on a plane is never judged.
+  A **stroke has an id**, `k<n>` within its sketch (`SketchStroke.id`, `SketchMark.nextStroke`, `STROKE_ID`, `strokeRef`: the ref
+  `M7/k3`), which only main gives (`MarkStore.saveSketch`; the agent's strokes too): a stroke the store already has keeps its
+  id once, any other gets `k<nextStroke>`, and `nextStroke` only goes up, so an id that was erased is never given again (the window's
+  `nextStroke` is never read; 999,999 is the most). `readSketch` keeps a well-formed unique id and never refuses for one, and an old sketch
+  with none is numbered `k1…kn` in order, the same on every read (`numberStrokes`). The window sends a new stroke with no id and adopts
+  main's; it erases by id (`eraseStroke`), and `checkSketch` matches a stroke of the stored sketch by id before any by value. Texts say
+  `stroke k3`, never a position (`sketchText`, `add_sketch`'s reply). A set names a stroke by that ref (`sets`).
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
   the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal
   that names the first that is not the agent's to acknowledge. Only the person asks it (`marks:acknowledge`);
@@ -138,6 +145,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     build that gives it back. The tools take `<part>/@<tag>` (`checkRef` gives the face's own ref beside the tag;
     `highlight` and `ask` take a tag of several as its refs; the kernel resolves the tag itself for `describe` and
     `measure`).
+  - A mark placed on a **named set** (`#deck`) keeps `Anchor.set` (`'#deck'`, a label, `SET_REF`) on its anchor, as it keeps a tag, but it
+    is only a label: main sets it (`withSet`, in `asPlaced` and `asReplaced`, given the project's sets; never from the window or a
+    tool; `anchorOf` in `marks/file.ts` keeps it when it is a `SET_REF`), only when a set of the mark's layout holds the ref it is
+    on (`setHolds`: a part held whole holds its faces and edges; a lost member and a stroke hold nothing), and a check never changes it
+    (`reanchorAll` carries it over whatever `judge`, `judgePin`, `followTag` and a pick rebuild make of the anchor). The mark does not follow
+    the set: it is reanchored as any mark is, and refind and reanchor have no order between them. A label whose set is gone is told
+    `(on #deck, no longer a named set)` (`describeMark` given the slugs: the `marks` tool, `state.md` and the prompt's list), and a dimension's end
+    never carries one.
   - A check writes what it judged each mark from; `MarkStore.reanchor` passes
     over a mark whose anchors are no longer those (it was put somewhere else
     meanwhile).

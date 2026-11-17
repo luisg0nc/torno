@@ -1090,6 +1090,22 @@ describe('contextFor', () => {
   })
 })
 
+describe('marks on a named set', () => {
+  const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 4, seconds: 0.8, stale: false }
+  const onDeck = { id: 'M1', kind: 'pin', author: 'user', note: 'too thin', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 4, camera: CAMERA, createdAt: '', checkedRevision: 4, anchor: { point: [0, 0, 0], part: 'base', ref: 'base/F1', set: '#deck' } } as unknown as Mark
+
+  it('says "no longer a named set" for a label whose set is gone, as the marks tool does', () => {
+    const d = deps({ build: OK, scene: SCENE })
+    expect(contextFor(d, 'bracket', [onDeck], { sets: ['deck'] }).text).toContain('(on #deck)')
+    expect(contextFor(d, 'bracket', [onDeck], { sets: ['deck'] }).text).not.toContain('no longer')
+    expect(contextFor(d, 'bracket', [onDeck], { sets: ['intake'] }).text).toContain('(on #deck, no longer a named set)')
+    expect(contextFor(d, 'bracket', [onDeck], { sets: [] }).text).toContain('(on #deck, no longer a named set)')
+    // The sets not known: the label is told as it is.
+    expect(contextFor(d, 'bracket', [onDeck]).text).toContain('(on #deck)')
+    expect(contextFor(d, 'bracket', [onDeck]).text).not.toContain('no longer')
+  })
+})
+
 describe('scans', () => {
   const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 4, seconds: 0.8, stale: false }
   // Each model end was clicked on a part, and the last build's check found them in place, unless a test says otherwise.

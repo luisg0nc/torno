@@ -614,7 +614,9 @@ void app.whenReady().then(async () => {
       const boarded = await boardLineFor(id, all, opts.toolName).catch(() => undefined)
       // The rounds of the review: a round that is not sent holds its drafts back, one being sent has its prompt now, and is sent once the answer has left (`delivered`).
       const rounds = await marks.rounds(id).catch(() => undefined)
-      const told = contextFor(promptDeps, id, all, { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
+      // The names of the named sets, so that a mark labelled with one that is gone says so. Unreadable: not known, and the label is told as it is.
+      const setSlugs = await sets.list(id).then((all) => all.map((s) => s.slug), () => undefined)
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {

@@ -330,7 +330,8 @@ dimensions take it, `scene` lists each part's tags with the faces and edges they
 first: the mark follows the face by its name when the numbers shift, or the face moves. If the build has lost the tag
 (or it names several faces now) the mark is found by its point, as any mark is, and keeps the tag for a build that
 brings it back. A tag that names nothing the part has (a shape of another part, a face taken before an edit, an empty
-list) fails the build and says which. torno never writes `tags(p, parts)`.
+list) fails the build and says which. torno never writes `tags(p, parts)`. A tag is the model's; your own names for faces are
+[named sets](#named-sets), written `#deck` beside `lid/@top`.
 
 **Bought parts.** A printed part is usually made around something bought: a screw, a bearing, a board. A model says so
 with an optional `references(p)` beside `assembly` (name to shape, in the assembly's frame):
@@ -790,10 +791,10 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   writes nothing then. That request is for the latest turn only; a file over 200 KB or too many lines is named without
   its lines, and a file you saved after the turn is said to have changed. It is a request, not a restore: it can be
   done wrongly. Nothing is kept of a turn of an earlier session for it.
-- **Refs are live.** `M4`, `lid/F12`, `lid/E3` and `lid/@top` (a name the model
-  gives a face or an edge) in the agent's text and in
+- **Refs are live.** `M4`, `lid/F12`, `lid/E3`, `lid/@top` (a name the model
+  gives a face or an edge) and `#deck` (a named set of yours) in the agent's text and in
   the cards are chips: hovering one lights it in the view, clicking a mark
-  focuses it, clicking a face or an edge selects it (a name of several selects them all). A ref that names nothing
+  focuses it, clicking a face or an edge selects it (a name of several selects them all; a set selects its faces, edges and parts, and hovering it lights every member, strokes too). A `#name` that no set has is only text. A ref that names nothing
   now (a mark that is gone, a part not shown) says why and does nothing. What is
 no ref of this project is only text: an `M3` clearance hole when the project has
 no mark `M3`, a build `r9` that has not been made, a part the build does not have.
@@ -1188,7 +1189,7 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__scene` | The build status and error, what the model printed in the last build (`output`), the layouts, every part of one layout (the one you have on screen, or `layout`; the parts of the others are counted) with its size, bounding box, volume and whether it is visible, the model's groups of parts, your named sets (`#deck`, each with its members by ref and how many the last build lost), your camera, section and explode, the saved views, the scans, how many dimensions pass, fail and are not measured, and the checks the model declares with how each stands. It notes when the parts of the print layout were spread along X. Over 200 parts, or when the list would not fit, a part is its name, size and group only (`partsTruncated`); `describe` gives the rest. |
 | `mcp__torno__look` | A picture from the renderer you are looking at, with the marks drawn. With no arguments it is your view, cut by your section or drawn apart as you have it. It takes `view` (`iso`, `front`, `back`, `left`, `right`, `top`, `bottom`, the name of a saved view, or a camera), `layout`, `parts`, `size` (long edge, 1280 by default, 2000 at most), `marks` (false leaves them out), `section` (`'current'`, `null`, or a plane), `explode` (0 to 1, or `{amount, axis, scale}`; `null` together), `scans`, `scanColour` and `frame`. With `focus` (a ref such as `lid/F12` or `lid/E3`, a part, a group, a mark such as `M4`, or a box `{min, max}` in mm) and `margin` (a share of the box, 0.3 by default) it frames a detail up close: from the side `view` names (`front`, `iso`, …; without one, the way your camera looks), at the picture's whole resolution, with the parts drawn together. The caption says what was drawn, and, with a focus, what was framed and when the middle of it is hidden behind other parts. Also saved under `.torno/views/`. |
 | `mcp__torno__marks` | Your marks and the agent's as data, each with a line of text. It lists the marks that are not resolved, 50 at a time; `status` (`resolved` too), `ids` (`["M4"]`, any status), `limit` (200 at most) and `next` say which. A stroke is given as a summary of its points (count, first, last, box) unless `ids` names it. What was left out is said (`omitted`, `next`). `review` (`R1`, or `all`) gives instead the rounds of your reviews, oldest first: the build each reviewed, its items with want or don't want, what the agent answered and what you judged; an item you did not want and accepted says `removed on purpose; keep it out`. |
-| `mcp__torno__describe` | The geometry of a part, a face or an edge (`lid`, `lid/F12`, `lid/E3`, or one the model names, `lid/@top`), or of a group of parts by its name: the box of its parts and their volume. Of a face or an edge it also gives a `selector`: a build123d expression on `part`, such as `part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]`, that the kernel evaluated on this build and that gave exactly that shape, as `robust` `by geometry` (a direction, an extreme, a radius, a place) or `by order` (an index into a sort, which the next edit may break), and `selectorFrame`, which says in whose frame it is. |
+| `mcp__torno__describe` | The geometry of a part, a face or an edge (`lid`, `lid/F12`, `lid/E3`, or one the model names, `lid/@top`), of a named set of yours (`#deck`, or `lid/#deck` for the part's share of it: each member with what it is, and what is lost), or of a group of parts by its name: the box of its parts and their volume. Of a face or an edge it also gives a `selector`: a build123d expression on `part`, such as `part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]`, that the kernel evaluated on this build and that gave exactly that shape, as `robust` `by geometry` (a direction, an extreme, a radius, a place) or `by order` (an index into a sort, which the next edit may break), and `selectorFrame`, which says in whose frame it is. |
 | `mcp__torno__highlight` | Tints faces or edges in your viewport with a note, to ask "this one?", until you click or a minute passes. A group's name tints all of its parts. |
 | `mcp__torno__ask` | Asks you to choose and waits: a card above the box of the chat (under the view for a terminal session) with a button for each answer, and the refs of an answer light up in your view while the pointer is on its button. If it allows, you may answer with the one face or edge you select in the view instead, or with "None of these". The agent gets back what you chose, as refs. The session shows Needs input meanwhile; the question ends by itself after 10 minutes with "not answered", and when the turn ends. |
 | `mcp__torno__show` | Changes your camera, layout, visible parts (a group's name stands for its parts), section, explode and scans to show you something, or puts a saved view on screen by its name; with `focus` and `margin`, as `look` takes them, it puts your camera on a ref, a mark or a box. For now only: what `.torno/scene.json` keeps stays yours. Refused while you hold a button in the viewport. |
@@ -1233,7 +1234,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 
 | Key | Tool | What it does |
 |---|---|---|
-| `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part) says what a click takes. Shift-click adds or takes out, `Esc` clears. "Insert" puts the selected refs in the session's prompt without sending it; "Note" leaves a mark on each. |
+| `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. "Insert" puts the selected refs in the session's prompt without sending it; "Note" leaves a mark on each. |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
 | `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
@@ -1375,14 +1376,15 @@ foot; both are there while the sketch is open.
   palette, which ends the sketch as Done.
 - **The panel.** The sketch's number and whether it is a draft or sent, its name, how to take it, a row for each plane
   with how many strokes lie on it and one for the surface (a click makes it the one strokes go on; the pointer on it
-  lights its strokes), the offset, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
+  lights its strokes), a list of the strokes by id (`k1`, `k2`: a click selects `M7/k2`, to put it in a [named set](#named-sets)), the offset, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
   gives up a stroke under way, then leaves the sketch; what was drawn is kept. A sketch holds 200 strokes, 400 points a
   stroke and 20,000 in all.
 - **What Claude gets.** A sketch is a draft until it goes with your next prompt, as words only, never a picture: its
   planes and how each was made, each stroke's pen, plane, length and the faces it touches in the build it was drawn on,
   its points (`exact: centre of plate/E4 (r 4)`, or `approximate`), how to take it, the diameter of a flow, and the camera
   it was drawn from. A sketch that is open waits: it is not sent until Done. Each stroke and plane says which build it was
-  drawn on, and Claude is told when the model has been built again since.
+  drawn on, and Claude is told when the model has been built again since. A stroke has an id, `k1`, `k2` in its sketch, that
+  torno gives it and never gives again, even when the stroke is erased: Claude is told `stroke k3`, not a position.
 - **Afterwards.** A sketch has a row in the Marks list, a card on the board and its strokes in the view, in your
   colour; **Edit** on its row, a click on its chip while it is a draft, or a double click on its card opens it again in
   Draw. Claude draws sketches of its own with `add_sketch`, in green; it is not yours to change. The stroke marks of
@@ -1443,6 +1445,53 @@ and after the next build you say OK or Still wrong to each answer.
   torno writes them; they go with the project in git.
 
 The keys of a review are in [Keys](#keys), under "Viewport".
+
+### Named sets
+
+A selection is gone at the next click, and a lasting name for a few faces is otherwise a tag that only Claude can write into
+the model. A **named set** is a name of yours for faces, edges, parts and sketch strokes ("deck face", "intake port RH"),
+which you and Claude then point at by that name: `#deck`. torno keeps it in `.torno/sets.json` and finds its members again
+after every build. The model's own `groups(p)` (groups of parts in the code) are another thing and keep the word group.
+
+- **Making one.** Select faces, edges or parts (and strokes, from the sketch's list) and press `Ctrl+G`. A small box asks a
+  name, a comment and one of eight colours (the next one is chosen); `Enter` makes it. With nothing selected the status
+  line says what to select. A name is one line of 40 characters at most, starts with a letter and has no `/`, `#` or `@`; two
+  names that make the same ref are one name (`Deck` and `deck`), and one in use is refused in the box. The set is written at once; torno
+  asks the kernel what each face and edge is a moment later. A face may be in several sets, and a set may span parts.
+- **The Set scope.** With Set chosen in the corner of Select, the pointer on a face lights the whole set in its colour and
+  the readout says `#deck` (and `also in #intake`); a click selects all its faces, edges and parts. A face in no set is
+  passed over. Strokes are selected from the sketch's list, and are never offered by the pointer.
+- **Layers.** Each set is a row, under its part when all its members are of one part, else under "Named sets": its colour,
+  `#deck`, how many members, "Show only" and a menu with Rename, Colour, Add selection, Take away selection, Re-pick, Make it a
+  tag and Delete (Undo is offered for ten seconds). The pointer on the row lights the set in the view; its name selects
+  the members. A colour is only a colour: none is red or green, which are yours and Claude's.
+- **Found again after each build.** A face or an edge keeps the kernel's selector for it (a form torno can rebuild, never
+  text it was handed) and its point and normal. After a build the selector is tried first, and the face it gives is accepted
+  when it has the same surface and a normal within 10 degrees of the stored one; otherwise the nearest face (or edge) at the
+  stored place is taken. A part follows its name, and a stroke its sketch. What none of those finds is **lost**: it is kept with
+  its last point, the row says `2 of 5 faces lost`, and Claude is told.
+- **Re-pick.** On a set with lost members: Re-pick, then select the faces that take their place and press "Re-pick with N
+  selected". The lost members go and the selection is added. It is two presses, and Cancel leaves the set as it was.
+- **Refs.** `#deck` names the set wherever its members are, and `lid/#deck` only its members in `lid`. They are told to
+  every tool that takes a ref (`describe`, `measure`, `highlight`, `show`, `look`, `add_mark`, `ask`) as the faces, edges and
+  parts it has now; lost members are left out and counted. A ref of a set of several is refused where one face is needed, as
+  a tag of several is, and naming a set of another layout is refused saying so. The chat shows `#deck` as a chip.
+- **Marks on a set.** A pin, pick or arrow placed on a set (`add_mark` with `ref: "#deck"`, or a pick in the Set scope) goes
+  on the first of its members and keeps `#deck` as a label, which its row and the agent's text say: `on #deck`. It does not
+  follow the set: it is checked as any mark is, and says `no longer a named set` when the set is deleted.
+- **Claude's proposals.** Claude can propose a set with `add_set`. It is drawn dashed in the view and in Layers, says
+  "Proposed by Claude", and has Accept (it becomes yours) and Dismiss (it is deleted). Claude may use its `#name` meanwhile;
+  nothing it can do accepts, changes or removes a set.
+- **Make it a tag.** For a script or another tool that must see the name, "Make it a tag" puts a chip, `Make #deck a tag`, in the
+  box of the chat with the text to send: it asks Claude to add a tag of that name for the set's faces and edges in `tags(p,
+  parts)`, one in each part the set spans, and lists what it cannot tag (whole parts, strokes, lost members). In a terminal the
+  text is put in the prompt without sending it. Nothing is sent by itself, and torno never writes the model; the set stays
+  yours until you delete it, and after the build both `lid/@deck` and `#deck` name the faces.
+- **Where they are.** In `<project>/.torno/sets.json`, which goes with the project in git and which only torno writes (ids
+  `N1`, `N2`, never reused). A file torno cannot read is copied aside (`sets.json.corrupt-…`), and sets or members it had to
+  leave out are kept in `sets.json.dropped-…`; delete those files when you no longer need them.
+
+The key is in [Keys](#keys), under "Viewport".
 
 ## Measuring and dimensions
 
@@ -2180,6 +2229,7 @@ place.
 | `scene.json` | how you last looked at the project: the layout, the layer visibility, the section, the explode of each layout, how each scan is shown, and the saved views (`views`) | travels with the project |
 | `params.json` | the values you are trying in place of the model's `Params` defaults, with the default the file had; trying a value never writes the model file (a Go back puts the values back as a build had them) | ignored |
 | `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured; and the review rounds (the build each reviewed, which marks are in it, and what you judged of each) | travels |
+| `sets.json` | the named sets of the project (see "Named sets"): each with its name, comment, colour, layout, who made it, and its members: faces and edges with the kernel's selector for each, their point and normal and whether the last build found them, parts, and strokes by id (`M7/k3`) | travels |
 | `scans.json` | the scans of the project: where each source file is and its hash, how it was imported, and its alignment in each layout | travels |
 | `board/board.json` | the board (see "The board"): its cards with their places, sizes and text, the frames and the arrows; for a card that shows a build, a copy of what it says | travels |
 | `board/pictures/` | the pictures and doodles of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
@@ -2200,7 +2250,7 @@ place.
 "Ignored" is by `.torno/.gitignore` (or one inside the folder), which torno
 adds lines to and never rewrites; a line you negate there (`!state.md`) is
 yours, and is not added against. What travels with the project in git is what
-is the project's: `scene.json`, `marks.json`, `scans.json`, `board/board.json`, `profile.json` and `agent.json`.
+is the project's: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `board/board.json`, `profile.json` and `agent.json`.
 What changes with every build or session, or is of this machine, is
 ignored: `state.md`, `session.json`, `chat/`, the thumbnail, `builds.jsonl`, `history/`, `views/`,
 `board/pictures/`, `board/told.json` and `exports/`. Add `.torno/` to the workspace's `.gitignore` if you
@@ -2571,6 +2621,7 @@ On the screen:
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
 - **The sketch panel, the sketches in 3D and their cards, by eye.** The panel at the left of the view (its rows, the segmented take, the diameter, the offset, the comment) beside the palette of tools and clear of the triad, in light and dark and in a narrow view; the lines of a sketch at 2.5 px in both mark colours, the dots of its snaps, the tube of a flow sketch at about a quarter of its colour, the dashes of an x-ray stroke behind a part, and the strokes lit by the pointer on a plane's row; a sketch's row at the panel's default width, still one line; and its card with the picture drawn from its camera, and the placeholder.
+- **Named sets, by eye and on a large model.** The box that names a set, the rows in Layers, the dashed swatch and dashed lines of Claude's proposal and each of the eight colours, in light and dark and in a narrow column; the hatch of the faces and the colour of the edges in the view; and `Ctrl+G` and Re-pick on a model of hundreds of parts, where a rebuild asks the kernel for every member and the time it takes has not been timed. Nobody has pressed "Make it a tag" with the real Claude Code and read the tag it writes.
 - **The notes that wait, and the note rows and cards.** The row above the box for each draft note (its picture with the ink, its comment, what the ink lies over, "Edit" and "Remove" with its "Undo"); the row of a note in the Marks list (the small picture, its comment, the faces lit under the pointer, the empty frame of a note whose picture is not on this computer); and a note's card on the board (the picture in the card's size, the comment and status under it, the double click that opens the sheet): each legible in both themes, and the rows still one line at the panel's default width.
 - **Claude Code's own checkpoints for the asked undo (`Part of #131`).** When no copy of the build is kept, "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>

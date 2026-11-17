@@ -103,7 +103,7 @@ it('is laid out for a first-time reader: what it is, how to start it, a walk-thr
 })
 
 it('names the files torno writes and the variables it reads', () => {
-  for (const name of ['scene.json', 'marks.json', 'scans.json', 'session.json', 'agent.json', 'state.md', 'thumb.png', 'thumb.json', 'builds.jsonl', 'exports/', 'views/', 'config.json', 'TORNO_OZONE', 'TORNO_WORKSPACE', 'TORNO_AGENT_CMD', 'TORNO_BUILD_TIMEOUT', 'TORNO_CONFIG', 'TORNO_DEBUG', 'TORNO_TEST']) {
+  for (const name of ['scene.json', 'marks.json', 'sets.json', 'scans.json', 'session.json', 'agent.json', 'state.md', 'thumb.png', 'thumb.json', 'builds.jsonl', 'exports/', 'views/', 'config.json', 'TORNO_OZONE', 'TORNO_WORKSPACE', 'TORNO_AGENT_CMD', 'TORNO_BUILD_TIMEOUT', 'TORNO_CONFIG', 'TORNO_DEBUG', 'TORNO_TEST']) {
     expect([name, readme.includes(name)]).toEqual([name, true])
   }
 })

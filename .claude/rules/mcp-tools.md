@@ -72,6 +72,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   held at a placeholder point; then `SetStore.make(…, 'agent')` (a proposal, `proposed: true`) and `withSelectors`. A name in use (`#intake is taken (N1)`) or
   a bad name is refused. No tool accepts, edits or removes a set: only the person does, in the window. `scene` lists `sets` (`sets/text.ts`
   `setsListed`, at most 50 members each, `lost`, `stale` when not refound against the last build) and `state.md` has a Named sets section (`setsText`).
+  A ref of `#name` or `part/#name` is a named set in every tool that takes a ref (`shared/sets.ts` `splitSetRef`, `expandSet`; `markTools.ts`
+  `checkRef`, `checkedRefs`): `highlight`, `ask`, `show`, `look` (`focus`, `mcp/focus.ts`), `describe` (`mcp/setRefs.ts`: members with the kernel's
+  descriptors, 20 at most), `measure` and `add_mark`. Lost members are left out and counted in the reply, never silently; a proposal says
+  `[proposed by you, not accepted]` and can be used meanwhile; a set of another layout or with nothing in the part is refused in words
+  (`#deck is of layout assembly`). A tool that needs one face or edge refuses a set of several, naming them, as for a tag; `add_mark` on a set
+  is placed on its first ok member and keeps `Anchor.set` (`marks-store`); the tools that take no set (`check`, `section`, `try_fillet`,
+  `features`, the scans') say so. `describe` strips `selector.form` before the agent reads it: a form is for torno's own sets.
   `look` and `show` take the name of a saved view as `view`, and `save_view`
   proposes one (Views). `show` changes
   the view for now and is never saved to `scene.json`; it is refused while a

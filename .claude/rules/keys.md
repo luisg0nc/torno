@@ -108,4 +108,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `review.dont` (`-`) and `review.want` (`=`, `+`) choose what the marks made next are while a round is open on the layout shown, the
   key of the one chosen taking it back to plain. A `window` key has no other row in any scope, so none of them is `[` or `]` (the align
   patch and the region brush), and `keys.test.ts` says so. The bar's buttons take their keys from `hint()`.
+- **`set.make`** (`Ctrl+G`, scope `window`) names what is selected as a set: heard outside a field and the terminal with the model on show
+  (`useSetKeys`, `ui/sets/MakeSet.tsx`), it opens the popover (name, comment, colour; `Enter` makes it, `Esc` leaves), and with nothing selected says
+  `Select faces, edges, parts or strokes first` in the status line (`data-notice="sets"`). It is a `window` key, so no other row has it in any
+  scope; the popover's hint is `hint('set.make')`, never `Ctrl+G` written out. The select scope Set has no key of its own.
 

@@ -86,3 +86,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     `removed on purpose; keep it out`, and one judged Still wrong `still wrong in h42: <the note>`. An unknown round is an error result that
     names the rounds there are. The plain list says each mark's intent and round in its line (`describeMark`). Nothing here sets an intent: the
     agent reads rounds and sets none (`mcp-tools`).
+- **A named set in the read tools.** `describe` of `#deck` or `part/#deck` (`mcp/setRefs.ts` `setDescribed`) is the set (name, comment, layout, who made it,
+  `proposed`, `said`) with its members told by the kernel (20 at most, `omitted` counts the rest; a stroke by its sketch and id with its line from
+  `strokeLine`) and what is lost, and passes no `selector: true` for them; it never shows `selector.form`. `measure` of a set measures what it
+  measures of several refs, so a set of one face measures and a set of several is refused naming them, a lost member said in the end's words
+  (`tub/F5 (#worn: 1 face (1 of 2 faces lost))`). `look`'s `focus: '#deck'` frames the box round its parts, faces and edges (the kernel's
+  `measure bbox`, 20 queries at most, the rest covered by their part's box and told approximate) and strokes (their points, approximate),
+  leaves lost members out and says so, and refuses when nothing is found. Every number is the kernel's and says whether it is exact; nothing
+  in a set makes a number exact that it was not.

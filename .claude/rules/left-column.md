@@ -87,6 +87,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   others) and every one in the row's title; the status line counts the layout's broken parts after its parts
   (`.status-defects`, `defectsSaid` in its title). Of the build on show alone: whether a defect is new is for the
   agent's digest (`main/sanity.ts`) to say.
+- **Named sets in Layers** (`ui/Layers.tsx`, `ui/sets/SetRows.tsx`, `rows.ts` `setRows`): a set whose members (lost ones too) are all of
+  one part of the layout shown stands under that part's row, indented (`data-in-part`); any other, with members in several parts or with
+  strokes, is under a "Named sets" heading after the groups and parts (`.layer-sets`). A row is the swatch (`--set-1`…`--set-8`, dashed for
+  a proposal), the name as `#deck`, the count, "Show only" (the parts it has ok members in, `partsOfSet`) and a menu with Rename, Colour,
+  Add selection, Take away selection, Re-pick (only with lost members: two presses, "Select what takes the place of the lost ones",
+  then "Re-pick with N selected"), Make it a tag and Delete; a proposal has Accept and Dismiss and "Proposed by Claude" in
+  place of the menu. The pointer or the keys' focus on a row lights the set in the view (`setActions.hover`, `Viewport.setLitSet`), the name
+  selects its ok faces, edges and parts. `2 of 5 faces lost` is `lostText`. **Groups stay the model's**: `groups(p)` are groups
+  of parts in the code, drawn as headers and never made, renamed or deleted here; a person's names for faces are sets, and no text a person
+  or Claude reads calls one a group (code says `set`, `NamedSet`).
 
 ## The page of objects (`app/src/renderer`)
 

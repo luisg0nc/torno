@@ -217,7 +217,7 @@ export interface PromptContext {
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; /** The slugs of the project's named sets: a mark labelled with one that is gone says so. */ sets?: readonly string[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
   const { notice, ...rest } = opts
   const told = withBuild(deps, objectId, contextText(deps, objectId, marks, rest))
   return notice ? { ...told, text: told.text === '' ? notice : `${notice}\n${told.text}` } : told
@@ -252,7 +252,7 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; sets?: readonly string[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
@@ -353,7 +353,7 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
       // A note is a picture the person drew on: here only its line. A chat prompt carries a draft note's words and pictures
       // itself; this says where to read them in full, and its pictures when the prompt had none (a terminal, or a picture left out).
       const readIn = mark.kind === 'note' ? ` [its labels and references in full, and its pictures if the prompt carried none: ${toolName('marks')} with ids ["${mark.id}"] and pictures: true]` : ''
-      const first = `${describeMark(mark, { revision, ...(built ? { scene: built } : {}), ...(opts.scans ? { scans: opts.scans } : {}), ...(told ? { layout: told } : {}), ...(tag ? { tag } : {}) })}${where}${readIn}`
+      const first = `${describeMark(mark, { revision, ...(built ? { scene: built } : {}), ...(opts.scans ? { scans: opts.scans } : {}), ...(opts.sets ? { sets: opts.sets } : {}), ...(told ? { layout: told } : {}), ...(tag ? { tag } : {}) })}${where}${readIn}`
       const after = listed.length - i - 1
       // A sketch is its line and the text of its planes and strokes, as many of its points as the prompt has room for.
       const sketched = mark.kind === 'sketch' ? sketchBody(mark, CONTEXT_LIMIT - used - 1 - first.length - 1 - (after > 0 ? 1 + more(after).length : 0)) : ''
