@@ -31,6 +31,7 @@ import { type ModelDeps, checkModelFile, makeModelFile } from './export/model'
 import { defaultExportPath, exportPath, prepareExports, writeExport } from './export/save'
 import { checkedPicture } from './export/picture'
 import { makeSectionDrawing } from './export/section'
+import { makeTracingDrawing, tracingExportPath } from './export/tracing'
 import { pdfOfSvg } from './export/pdf'
 import { type InstructionList } from './instructions'
 import { KernelError, type KernelClient, type TrialResult, startKernel } from './kernel/client'
@@ -107,7 +108,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
-//           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection
+//           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection, export:saveTracing
 //   from the renderer: export:done, marks:sketching, tracings:shown, show:saveThumbnail, object:saveSceneFile, view:report, view:lookReply, view:showReply, view:highlightReply,
 //           view:drawSectionReply, view:saveViewReply, session:write, session:resize, session:insert,
 //           chat:answer, asks:answer
@@ -1648,6 +1649,42 @@ export function registerIpc(
       // The PDF is the SVG printed by a window nobody sees, before the dialog is up: it is of the build there was.
       const bytes = format === 'pdf' ? await pdfOfSvg(drawing.svg, drawing.width, drawing.height) : Buffer.from(drawing.svg, 'utf8')
       const path = await askWhere(event, defaultExportPath(obj.dir, `${drawing.name}-section`, drawing.revision, format), format)
+      if (path === null) return null
+      await writeExport(path, bytes)
+      savedHere = path
+      return { path, bytes: bytes.length, dropped: [], revision: drawing.revision }
+    })
+  )
+
+  // A drawing of one of the project's tracings, at true scale: the same SVG (or the PDF made of it) as the section's, drawn by
+  // `tracingSvg` from the tracing's own plane, with the layers, the marks on it and the photo as the sheet ticked them. The window
+  // names the project, the tracing and three ticks: never a path or bytes (`export/tracing.ts`).
+  handle('export:saveTracing', (event, objectId: unknown, tracingId: unknown, as: unknown, given: unknown) =>
+    plainly(async (): Promise<ExportSaved | null> => {
+      const ws = requireWorkspace()
+      const deps = exportDeps()
+      const said = Object(given) as { layers?: unknown; marks?: unknown; photo?: unknown }
+      const drawing = await makeTracingDrawing(
+        {
+          object: deps.object,
+          last: deps.last,
+          tracings: async (id) => (await requireTracings().list(id)).tracings,
+          sceneFile: deps.sceneFile,
+          marks: deps.marks,
+          query: <T>(id: string, name: string, args: Record<string, unknown>) => ws.builds.query<T>(id, name, args),
+          now: deps.now,
+          identity: buildIdentity
+        },
+        String(objectId),
+        String(tracingId),
+        { layers: said.layers === true, marks: said.marks === true, photo: said.photo === true }
+      )
+      const obj = deps.object(drawing.objectId)!
+      await prepareExports(obj.dir)
+      const format = as === 'pdf' ? 'pdf' : 'svg'
+      // The PDF is the SVG printed by a window nobody sees, before the dialog is up: it is of the build there was.
+      const bytes = format === 'pdf' ? await pdfOfSvg(drawing.svg, drawing.width, drawing.height) : Buffer.from(drawing.svg, 'utf8')
+      const path = await askWhere(event, tracingExportPath(obj.dir, drawing, format), format)
       if (path === null) return null
       await writeExport(path, bytes)
       savedHere = path

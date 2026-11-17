@@ -205,6 +205,7 @@ const bridge: TornoBridge = {
     save: (req) => invokePlain('export:save', req),
     savePicture: (objectId, png) => invokePlain('export:savePicture', objectId, png),
     saveSection: (objectId, as) => invokePlain('export:saveSection', objectId, as),
+    saveTracing: (objectId, tracingId, as, ticks) => invokePlain('export:saveTracing', objectId, tracingId, as, ticks),
     reveal: () => invokePlain('export:reveal'),
     openSaved: () => invokePlain('export:openSaved'),
     done: () => ipcRenderer.send('export:done')

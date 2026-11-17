@@ -6,6 +6,7 @@ import { typed } from './typed'
 import { setExporting } from '../closing'
 import { actions, sceneFileOf, store, useStore } from '../state/store'
 import { pictureForPerson } from '../state/agent'
+import { type Tracing, tracingName } from '../../shared/tracings'
 
 /** `2 parts`, the number in the face of numbers. */
 function Count({ n, one, many = `${one}s` }: { n: number; one: string; many?: string }) {
@@ -30,8 +31,8 @@ const FORMATS: Record<ExportFormat, { label: string; title: string; heading: str
 /** What each file of the view is, said on its button and above what it holds. */
 const SHARED: Record<ShareKind, { label: string; title: string; heading: string; lead: string }> = {
   png: { label: 'PNG', title: 'The view as it is, as a picture', heading: 'Save a picture of the view', lead: 'The view as it is on screen (the camera, the layout, the parts that are on, the section or the explode, the scans) as one PNG, for a forum, a chat or a document. It is not for the agent: it may be larger than the pictures the agent is given.' },
-  svg: { label: 'SVG', title: 'The section on screen, at true scale', heading: 'Save a drawing of the section', lead: "The outlines of the section on screen, laid flat in the plane's own axes at true scale in millimetres, with a scale bar, a title block and the dimensions that lie in the plane. For someone who will make the part." },
-  pdf: { label: 'PDF', title: 'The same drawing, on a page of its size', heading: 'Save a drawing of the section as a PDF', lead: 'The drawing of the section on screen (the SVG), printed on a page of its own size in millimetres: print it at 100 % and it is at true scale.' }
+  svg: { label: 'SVG', title: 'A section or a tracing, at true scale', heading: 'Save a tracing', lead: "The outlines of the section on screen or of one of the project's tracings, laid flat in the plane's own axes at true scale in millimetres, with a scale bar, a title block and the dimensions that lie in the plane. For someone who will make the part." },
+  pdf: { label: 'PDF', title: 'The same drawing, on a page of its size', heading: 'Save a tracing as a PDF', lead: 'The same drawing (the SVG), printed on a page of its own size in millimetres: print it at 100 % and it is at true scale.' }
 }
 
 /** The readers a file can be for, and what is offered each: the sheet is grouped by who will open the file. The view's own files need the open project's view. */
@@ -39,7 +40,7 @@ const READERS: Array<{ name: string; kinds: Array<ExportFormat | ShareKind>; ofV
   { name: 'A page to look at', kinds: ['html'] },
   { name: 'The CAD file', kinds: ['step', 'stl', '3mf'] },
   { name: 'A picture', kinds: ['png'], ofView: true },
-  { name: 'A drawing of a section', kinds: ['svg', 'pdf'], ofView: true }
+  { name: 'A tracing', kinds: ['svg', 'pdf'], ofView: true }
 ]
 
 type LayoutParts = NonNullable<ExportPlan['objects'][number]['layoutParts']>[number]['parts']
@@ -113,10 +114,29 @@ function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, tick
   const [pictureSize, setPictureSize] = useState(PICTURE_SIZES[0])
   const [pictureMarks, setPictureMarks] = useState(true)
   const [pictureCues, setPictureCues] = useState(true)
+  // Of a tracing (`A tracing`): the section on screen, or one of the project's tracings by its `T<n>`; null until the person picks, and what is in it.
+  const [drawing, setDrawing] = useState<string | null>(null)
+  const [tracings, setTracings] = useState<Tracing[]>([])
+  const [drawLayers, setDrawLayers] = useState(true)
+  const [drawMarks, setDrawMarks] = useState(false)
   const openId = useStore((s) => s.objectId)
   const onObject = useStore((s) => s.page === 'object')
   const cut = useStore((s) => s.section !== null)
   const ofView = openId !== null && onObject
+  // The project's tracings, to choose among, read when the sheet is of its view.
+  useEffect(() => {
+    if (!ofView || openId === null) return setTracings([])
+    let live = true
+    window.torno.tracings.list(openId).then(
+      (file) => live && setTracings(file.tracings),
+      () => live && setTracings([])
+    )
+    return () => {
+      live = false
+    }
+  }, [ofView, openId])
+  /** What the drawing is of: the person's pick if it is still there, else the section on screen, or the first tracing when there is none. */
+  const source = drawing !== null && (drawing === 'section' || tracings.some((one) => one.id === drawing)) ? drawing : cut || tracings.length === 0 ? 'section' : tracings[0].id
   const sheet = useRef<HTMLElement>(null)
   const asked = useRef(0)
   const saving = useRef(false)
@@ -209,7 +229,12 @@ function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, tick
     setBusy('saving')
     setSaid(null)
     try {
-      const saved = kind === 'png' ? await window.torno.export.savePicture(openId, (await pictureForPerson(pictureSize, pictureMarks, pictureCues)).png) : await window.torno.export.saveSection(openId, kind)
+      const saved =
+        kind === 'png'
+          ? await window.torno.export.savePicture(openId, (await pictureForPerson(pictureSize, pictureMarks, pictureCues)).png)
+          : source === 'section'
+            ? await window.torno.export.saveSection(openId, kind)
+            : await window.torno.export.saveTracing(openId, source, kind, { layers: drawLayers, marks: drawMarks, photo: false })
       setSaid(saved ? { saved, kept: kind } : { nothing: true })
     } catch (e) {
       setSaid({ error: e instanceof Error ? e.message : String(e) })
@@ -313,10 +338,26 @@ function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, tick
               kind={shared}
               project={openId === null ? '' : nameOf(openId)}
               cut={cut}
+              tracings={tracings}
+              source={source}
+              layers={drawLayers}
+              drawMarks={drawMarks}
               size={pictureSize}
               marks={pictureMarks}
               cues={pictureCues}
               disabled={busy === 'saving'}
+              setSource={(next) => {
+                changed()
+                setDrawing(next)
+              }}
+              setLayers={(next) => {
+                changed()
+                setDrawLayers(next)
+              }}
+              setDrawMarks={(next) => {
+                changed()
+                setDrawMarks(next)
+              }}
               setSize={(next) => {
                 changed()
                 setPictureSize(next)
@@ -570,7 +611,7 @@ function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, tick
         <footer className="export-foot">
           <div className="export-size" aria-live="polite" data-bytes={plan && !plan.refusal ? plan.bytes : undefined}>
             {shared ? (
-              !said?.saved && <p>{busy === 'saving' ? 'Making the file…' : shared === 'png' ? 'Drawn from the view as it is now' : cut ? 'Made from the kernel’s outlines of the section on screen' : 'There is no section on screen: close this, cut the project (the Section tool, X), and come back'}</p>
+              !said?.saved && <p>{busy === 'saving' ? 'Making the file…' : shared === 'png' ? 'Drawn from the view as it is now' : source !== 'section' ? 'Made from the kernel’s outlines of the tracing’s plane, on the last good build' : cut ? 'Made from the kernel’s outlines of the section on screen' : 'There is no section on screen: close this, cut the project (the Section tool, X), and come back'}</p>
             ) : plan?.refusal ? (
               <p data-tone={plan.bytes > 0 ? 'fail' : undefined}>{plan.refusal}</p>
             ) : model ? (
@@ -626,7 +667,7 @@ function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, tick
             <button type="button" className="button" disabled={busy === 'saving'} onClick={() => actions.exportSheet(null)}>
               {said?.saved ? 'Done' : 'Cancel'}
             </button>
-            <button type="button" className="button button-primary" disabled={shared !== null ? busy !== null || openId === null || (shared !== 'png' && !cut) : busy !== null || plan === null || plan.refusal !== undefined || (model !== null && (partsNow.length === 0 || !meshOk))} onClick={() => void save()}>
+            <button type="button" className="button button-primary" disabled={shared !== null ? busy !== null || openId === null || (shared !== 'png' && source === 'section' && !cut) : busy !== null || plan === null || plan.refusal !== undefined || (model !== null && (partsNow.length === 0 || !meshOk))} onClick={() => void save()}>
               {busy === 'saving' ? 'Exporting…' : 'Export'}
             </button>
           </div>
@@ -639,7 +680,7 @@ function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, tick
 const NONE: never[] = []
 
 /** Of a picture of the view or a drawing of its section: of the open project as it is on screen, so no list of projects; the size of a picture and what is in it. */
-function ViewChoices(props: { kind: ShareKind; project: string; cut: boolean; size: number; marks: boolean; cues: boolean; disabled: boolean; setSize(size: number): void; setMarks(on: boolean): void; setCues(on: boolean): void }) {
+function ViewChoices(props: { kind: ShareKind; project: string; cut: boolean; tracings: Tracing[]; source: string; layers: boolean; drawMarks: boolean; size: number; marks: boolean; cues: boolean; disabled: boolean; setSource(source: string): void; setLayers(on: boolean): void; setDrawMarks(on: boolean): void; setSize(size: number): void; setMarks(on: boolean): void; setCues(on: boolean): void }) {
   const { kind, disabled } = props
   return (
     <>
@@ -671,11 +712,51 @@ function ViewChoices(props: { kind: ShareKind; project: string; cut: boolean; si
           </label>
         </>
       ) : (
-        <p className="export-what" data-tone={props.cut ? undefined : 'warn'}>
-          {props.cut
-            ? 'Within 0.01 mm of the true outlines, in millimetres. Each dimension that lies in the plane, not resolved and measured on the last build, is drawn with the value torno measured and what was expected of it.'
-            : 'There is no section on screen: close this, cut the project (the Section tool, X), and come back.'}
-        </p>
+        <>
+          <h3 className="section-title">Drawing of</h3>
+          <ul className="export-list">
+            <li>
+              <label className="export-row">
+                <input type="radio" name="export-drawing" checked={props.source === 'section'} disabled={disabled} onChange={() => props.setSource('section')} />
+                <span className="export-name">The section on screen</span>
+                <span className="export-what">{props.cut ? 'As it is cut now' : 'There is none: cut the project first (the Section tool, X)'}</span>
+              </label>
+            </li>
+            {props.tracings.map((one) => (
+              <li key={one.id}>
+                <label className="export-row">
+                  <input type="radio" name="export-drawing" checked={props.source === one.id} disabled={disabled} onChange={() => props.setSource(one.id)} />
+                  <span className="export-name">
+                    <span className="num">{one.id}</span> {tracingName(one)}
+                  </span>
+                  <span className="export-what">{one.plane.label}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {props.source === 'section' ? (
+            <p className="export-what" data-tone={props.cut ? undefined : 'warn'}>
+              {props.cut
+                ? 'Within 0.01 mm of the true outlines, in millimetres. Each dimension that lies in the plane, not resolved and measured on the last build, is drawn with the value torno measured and what was expected of it.'
+                : 'There is no section on screen: close this, cut the project (the Section tool, X), and come back, or choose a tracing.'}
+            </p>
+          ) : (
+            <>
+              <h3 className="section-title">In the drawing</h3>
+              <label className="export-row">
+                <input type="checkbox" checked={props.layers} disabled={disabled} onChange={(e) => props.setLayers(e.target.checked)} />
+                <span className="export-name">Layers</span>
+                <span className="export-what">Those that are shown, in their colours, with a legend</span>
+              </label>
+              <label className="export-row">
+                <input type="checkbox" checked={props.drawMarks} disabled={disabled} onChange={(e) => props.setDrawMarks(e.target.checked)} />
+                <span className="export-name">Marks on it</span>
+                <span className="export-what">With their numbers</span>
+              </label>
+              <p className="export-what">Within 0.01 mm of the true outlines of the tracing’s plane, in millimetres, from the last good build.</p>
+            </>
+          )}
+        </>
       )}
     </>
   )

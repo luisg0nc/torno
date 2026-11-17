@@ -2060,10 +2060,10 @@ triangles, closed, volume within 0.04 % of the model`. Checked, not printed. A
 3MF can be opened once saved in the program your system opens 3MF files with,
 your slicer, when "Open it once saved" is ticked.
 
-### A picture of the view, and a drawing of its section
+### A picture of the view, and a tracing
 
 The sheet is grouped by who will open the file: **a page to look at** (the HTML page), **the CAD file** (STEP, STL,
-3MF), and, when the sheet is of the project on show, **a picture** (PNG) and **a drawing of a section** (SVG, PDF),
+3MF), and, when the sheet is of the project on show, **a picture** (PNG) and **a tracing** (SVG, PDF),
 which are of the view as it is on screen. Nothing is uploaded, and no agent has a tool for any of them: the save
 dialog opens in `.torno/exports/` with a name offered, and the file is written whole or not at all (a name without
 the ending gets it).
@@ -2084,6 +2084,12 @@ the ending gets it).
   out.
 - **PDF** is that drawing printed on a page of its own size in millimetres (`<name>-section-r<revision>.pdf`), by a
   window torno never shows.
+- **A tracing of the project** is drawn the same way, from its own plane, instead of the section on screen: choose
+  it in the list "Drawing of" (the section on screen, or `T1`, `T2` and so on), and the file is
+  `<name>-T1-r<revision>.svg` or `.pdf`. It is drawn from the last good build, and a build that lands while it is
+  made is refused. Its title block adds the tracing's ref, name and plane, and each part is named on its outline
+  with a thin tab in the part's colour. "Layers" (ticked) draws the layers that are shown, each in its colour, with a
+  legend; "Marks on it" (not ticked) draws the pins and arrows made on the tracing. The photo is not in the drawing yet.
 
 ## Keys
 

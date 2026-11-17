@@ -537,6 +537,8 @@ export interface TornoBridge {
     savePicture(objectId: string, png: Uint8Array): Promise<ExportSaved | null>
     /** Keeps a drawing (an SVG, or a PDF made of it, at true scale, with a scale bar and a title block) of the section on screen: main asks the kernel for the outlines, asks where to save and writes it there. Null when the dialog was cancelled. Rejects when there is no section on screen. The path is the dialog's alone. */
     saveSection(objectId: string, as: 'svg' | 'pdf'): Promise<ExportSaved | null>
+    /** Keeps a drawing (an SVG, or a PDF made of it, at true scale) of one of the project's tracings, `T1`: the outline of its plane, and as ticked its layers, the marks on it and its photo. Main cuts it of the last good build, asks where to save and writes it there. Null when the dialog was cancelled. Rejects when the tracing is not there or a build landed meanwhile. The window names ids and ticks, never a path or bytes. */
+    saveTracing(objectId: string, tracingId: string, as: 'svg' | 'pdf', ticks: { layers: boolean; marks: boolean; photo: boolean }): Promise<ExportSaved | null>
     /** Shows the file this sheet saved last in its folder. It takes no path: main keeps the one it wrote. Rejects when the file is gone. */
     reveal(): Promise<void>
     /** Has the system open the file this sheet saved last (a page, in the browser). No path either. */
