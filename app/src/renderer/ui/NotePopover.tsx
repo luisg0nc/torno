@@ -1,6 +1,7 @@
 import { hint, pressed } from '../../shared/keys'
 import { dimensionText, measuredValue } from '../../shared/dimension'
 import { count, number } from '../../shared/format'
+import { countsText, sketchName, takeText } from '../../shared/sketchText'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AnchorState, Mark } from '../../shared/marks'
 import { actions, store, useStore } from '../state/store'
@@ -25,6 +26,8 @@ export function subject(mark: Mark, revision = 0): { ref: string; detail: string
   if (mark.kind === 'dimension') return { ref: dimensionText(mark, revision), detail: [measuredValue(mark, revision) === undefined ? '' : (mark.how ?? ''), state === 'ok' ? '' : ANCHOR_BADGE[state]].filter(Boolean).join(', '), state }
   // A region: the scan it is on, and how much of it.
   if (mark.kind === 'region') return { ref: `${mark.scan}, ${count(mark.triangles)} ${mark.triangles === 1 ? 'triangle' : 'triangles'}`, detail: state === 'orphaned' ? 'its scan is gone or was read again' : `≈ ${number(mark.area)} mm²`, state }
+  // A 3D sketch: what it is called, how it is to be taken, and what it holds.
+  if (mark.kind === 'sketch') return { ref: sketchName(mark), detail: [takeText(mark), countsText(mark), state === 'ok' ? '' : ANCHOR_BADGE[state]].filter(Boolean).join(', '), state }
   const anchor = mark.kind === 'arrow' ? mark.from : mark.anchor
   const moved = state === 'ok' ? '' : ANCHOR_BADGE[state]
   const from = anchor?.ref ? `from ${anchor.ref}` : ''

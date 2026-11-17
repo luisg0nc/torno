@@ -246,6 +246,22 @@ const addMarkInput = {
   layout: z.string().optional().describe('The layout the mark is in, whose frame its coordinates are in. Default: the one on screen.')
 }
 
+/** What an agent's sketch may hold: fewer than a person's (`MOST_SKETCH_STROKES`), so that one answer stays a drawing and not a model. */
+export const MOST_AGENT_STROKES = 50
+export const MOST_AGENT_POINTS = 2000
+export const NO_SKETCH_STROKE =
+  'a stroke is {"points": [[x, y, z], ...]} in mm in the frame of the layout, or {"plane": <plane>, "points2d": [[u, v], ...]} in mm along the plane\'s own axes; a plane is {"main": "XZ", "offset": 40} (XY is across z, XZ across y, YZ across x, and the offset is where along that axis, in mm), {"face": "block/F31", "offset": 12} (a flat face of the last build, moved along its normal) or {"origin": [x, y, z], "normal": [x, y, z]}'
+const addSketchInput = {
+  name: loose(z.string()).optional().describe('What the sketch is called, one line, at most 80 characters: "Breather hose route". Required to make a sketch; left out to replace one, it keeps its name.'),
+  note: loose(z.string()).optional().describe('What the sketch says to the user, in a line or two.'),
+  take: loose(z.enum(['exact', 'rough', 'flow'])).optional().describe('How literally the sketch is to be taken: exact (to the millimetre), rough (the shape and the place matter, not the exact points) or flow (a route with a diameter to keep clear). Default rough.'),
+  diameter: loose(z.number()).optional().describe('Of a flow sketch only: the width of the route to keep clear, in mm, more than 0 and at most 500.'),
+  layout: z.string().optional().describe('The layout the sketch is in, whose frame its coordinates are in. Default: the one on screen, or the one the sketch being replaced is in.'),
+  sketch: loose(z.string()).optional().describe('The number of a sketch of your own (M9) to replace, or with remove to take away. A sketch of the user is refused.'),
+  remove: loose(z.boolean()).optional().describe('With sketch: take that sketch of yours away. Then no other argument is needed.'),
+  strokes: loose(z.array(z.unknown())).optional().describe(`The strokes, 1 to ${MOST_AGENT_STROKES}, with at most ${MOST_AGENT_POINTS} points in all. A stroke is {"points": [[x, y, z], ...]} in mm in the frame of the layout, or {"plane": <plane>, "points2d": [[u, v], ...]} in mm along the plane's own axes (the reply says which way u and v run). A plane is {"main": "XY" | "XZ" | "YZ", "offset": mm} (XY is across z, XZ across y, YZ across x, at the offset along that axis), {"face": "block/F31", "offset": mm} (a flat face of the last build, moved along its normal) or {"origin": [x, y, z], "normal": [x, y, z]}.`)
+}
+
 const measureInput = {
   kind: z
     .enum(['distance', 'angle', 'radius', 'diameter', 'thickness', 'bbox', 'volume', 'area', 'mass'])
@@ -418,6 +434,20 @@ export interface AddMarkArgs {
   tolerance?: number
   layout?: string
 }
+/** A plane of a stroke of `add_sketch`, as Claude gives it: whatever is given reaches the tool, which says what one is (`NO_SKETCH_PLANE`). */
+export type SketchPlaneArg = { origin: Vec3; normal: Vec3 } | { main: 'XY' | 'XZ' | 'YZ'; offset: number } | { face: string; offset: number }
+/** A stroke of `add_sketch`: points in the frame of the layout, or points on a plane in the plane's own axes. */
+export type SketchStrokeArg = { points: Vec3[] } | { plane: SketchPlaneArg; points2d: [number, number][] }
+export interface AddSketchArgs {
+  name?: string
+  note?: string
+  take?: 'exact' | 'rough' | 'flow'
+  diameter?: number
+  layout?: string
+  sketch?: string
+  remove?: boolean
+  strokes?: SketchStrokeArg[]
+}
 export interface ResolveMarkArgs {
   id: string
   note?: string
@@ -505,8 +535,15 @@ export const TOOLS = {
     title: 'Add a mark',
     annotations: CHANGES_VIEW_OR_MARKS,
     description:
-      `Returns the number and a one-line description of a mark you placed on the project, which the user sees in the viewport and in their list of marks in your colour, and the revision of the build it was placed on. Use it to show where you made a change, or to point at the place a question is about (a view note is the user's, never yours to make), as {"kind": "pin", "ref": "lid/F12", "point": [10, 0, 22], "note": "thinned this wall to 2 mm"} does; refs come from marks, scene and describe. A dimension is measured at once, in mm or degrees, and again on every build, and one you give an expected value becomes a pinned check the user sees: it is told to you again with every prompt for as long as it fails.`,
+      `Returns the number and a one-line description of a mark you placed on the project, which the user sees in the viewport and in their list of marks in your colour, and the revision of the build it was placed on. Use it to show where you made a change, or to point at the place a question is about (a view note is the user's, never yours to make, and a sketch is made with add_sketch), as {"kind": "pin", "ref": "lid/F12", "point": [10, 0, 22], "note": "thinned this wall to 2 mm"} does; refs come from marks, scene and describe. A dimension is measured at once, in mm or degrees, and again on every build, and one you give an expected value becomes a pinned check the user sees: it is told to you again with every prompt for as long as it fails.`,
     inputSchema: addMarkInput
+  },
+  add_sketch: {
+    title: 'Add a sketch',
+    annotations: CHANGES_VIEW_OR_MARKS,
+    description:
+      `Returns the number of a sketch you made, which the user sees in the viewport in your colour and as a card on their board: a drawing in 3D, of strokes through points in mm, in space or on planes you name, with what each stroke touches worked out from the last build (your points are told as you gave them, never as snapped). Use it to show a route (a hose, a cable, a duct), an outline or where something goes, as {"name": "Breather hose", "take": "flow", "diameter": 19, "strokes": [{"points": [[0, 0, 40], [60, 0, 40], [60, 30, 55]]}]} does, with at most ${MOST_AGENT_STROKES} strokes and ${MOST_AGENT_POINTS} points. With sketch (M9) it replaces a sketch of yours and with remove it takes that one away, a sketch of the user's is refused, and the picture on the card shows when the project is on show.`,
+    inputSchema: addSketchInput
   },
   resolve_mark: {
     title: 'Resolve a mark',
@@ -555,7 +592,7 @@ export const TOOLS = {
     title: 'Read the board',
     annotations: READ_ONLY,
     description:
-      'Returns the board of this project as text: each card by its id, its kind and who made it with what it says, frames first with their cards in reading order, then the arrows between them, and the pictures named, or sent with pictures: true. The board is the person\'s brief, where they lay out what they want, so read it when they point at a frame or a card, and before you plan. {"frame": "Latch"} gives only that frame and its cards.',
+      'Returns the board of this project as text: each card by its id, its kind (a doodle is one the person drew on the ink pad of the board) and who made it with what it says, frames first with their cards in reading order, then the arrows between them, and the pictures named, or sent with pictures: true. The board is the person\'s brief, where they lay out what they want, so read it when they point at a frame or a card, and before you plan. {"frame": "Latch"} gives only that frame and its cards.',
     inputSchema: boardInput
   },
   add_card: {
@@ -634,7 +671,7 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - check: overlap and clearance between parts, interference of a whole layout, a closed mesh, and for printing overhangs, thin walls and the fit on a bed.
 - diff: what changed between two successful builds (the last two, or any kept ones): parts added or removed, volume, size and face counts.
 - history: the builds kept of this project, by id (h41), with what changed in each; diff compares any two.
-- board: the person's board, where they lay out what they want: text, pictures, frames and arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
+- board: the person's board, where they lay out what they want: text, pictures, doodles, frames and arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
 - add_card: leave a card of yours on the board (a plan, a note, a size, a picture of the view), in a frame, with an arrow; change or remove only your own.
 - expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the build after it is checked against that.
 - try_fillet: try a fillet or chamfer of some edges on the last build and throw it away: whether it works, the largest radius that does, which edges or pairs fail.
@@ -648,6 +685,7 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - show: change the person's camera, layout, visible parts, section, explode or scans, put a saved view on screen, or point their camera at a ref, mark or box.
 - save_view: propose a saved view to the person's strip, for them to keep or discard.
 - add_mark: leave a mark of yours (pin, pick, arrow, shape, or a dimension measured on every build).
+- add_sketch: draw a sketch of your own in 3D (a route, an outline, where something goes) as strokes of points on planes or in space; replace or remove your own.
 - resolve_mark: resolve a mark of the person's, a view note too, with a line on what was done, for them to confirm or reopen.`
 
 /** The keys each tool takes: those its schema names. */

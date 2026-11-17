@@ -10,6 +10,11 @@ describe('refsIn', () => {
     expect(refsIn('M4 and lid/F12, r3; tub_2/E10.').map((p) => p.text).join('')).toBe('M4 and lid/F12, r3; tub_2/E10.')
   })
 
+  it('finds a vertex of a part, which a sketch snaps to', () => {
+    expect(refs('p0 is block/V88, on block/E3.')).toEqual(['block/V88', 'block/E3'])
+    expect(refs('V88 alone, block/V, block/V8x')).toEqual([])
+  })
+
   it('finds a card of the board, and nothing that only ends in one', () => {
     expect(refs('see C7 and M3')).toEqual(['C7', 'M3'])
     expect(refs('C alone, ABC7, C7x, C.')).toEqual([])

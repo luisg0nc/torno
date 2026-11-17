@@ -4,7 +4,7 @@ import { diagnosisText } from '../shared/diagnosis'
 import { standingOf, unmetDimensions } from '../shared/dimension'
 import { explodeText, isExploded } from '../shared/explode'
 import { type InstructionFile, instructionsLine } from '../shared/instructions'
-import { type DimensionMark, type Mark, isUnchecked } from '../shared/marks'
+import { type DimensionMark, type Mark, type SketchMark, isUnchecked } from '../shared/marks'
 import { checksLine } from '../shared/modelChecks'
 import type { ScanInfo } from '../shared/scans'
 import type { BuildDigest } from '../shared/sanity'
@@ -13,6 +13,7 @@ import { type ViewState, MAX_SELECTION_REPORTED, planeText } from '../shared/vie
 import type { ObjectInfo } from '../shared/workspace'
 import { type Profile, profileLine } from '../shared/profile'
 import { describeMark } from './marks/describe'
+import { MOST_POINTS_TOLD, pointsTold, sketchText } from './sketches/text'
 import { assumedKey, assumedLine, triedLine } from '../shared/params'
 import { digestText, sanity } from './sanity'
 import { alignmentSaid, shownText } from './scans/said'
@@ -49,6 +50,8 @@ const SELECTED_DESCRIPTOR_LIMIT = 100
 export const SCANS_LIMIT = 600
 /** The most the line of the person's `Params` overrides takes of the context. */
 export const TRIED_LIMIT = 500
+/** Said of a sketch the person has open for editing: it goes with the next prompt once they are done with it. */
+const BEING_SKETCHED = (mark: Mark): string => `${mark.id} is being sketched, not sent.`
 const MARKS_HEAD = 'Marks from the user (drawn in look pictures with these numbers):'
 const STILL_OPEN_HEAD = 'Marks still open (this conversation has not seen them):'
 /** A tool of torno's as Claude Code names it to its model: what is said when nothing says how another client does. */
@@ -104,6 +107,8 @@ export interface ContextDeps {
   references?(objectId: string): string[]
   /** The printer and material the project is made for: told to a new conversation (`profileLine`). None when it has none. */
   profile?(objectId: string): Profile | undefined
+  /** The sketch of the project that is open for editing in the window (`openSketch`): it is not told until the person is done. None when none is. */
+  sketching?(objectId: string): string | null
   now?(): number
   /** Takes out of text that is not torno's own what must not be told or logged (the tokens of the sessions): applied to what the model printed. */
   redact?(text: string): string
@@ -130,6 +135,8 @@ export const tellsInstructions = (opts: { first?: boolean; fresh?: boolean }): b
 export interface PromptContext {
   text: string
   sentMarkIds: string[]
+  /** The sketch the text says is being sketched and so not sent (its number), for the chat's line under the prompt. Absent when the text says none. */
+  sketching?: string
   /** What the text says of the build, as data for the chat's chips: the revision it names, and how that build stands. Absent where the text names none. */
   revision?: number
   buildState?: 'ok' | 'failed' | 'building'
@@ -235,11 +242,15 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; buildOnly?: boolean }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; toolName?: (tool: string) => string; buildOnly?: boolean }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
   const revision = deps.scene(objectId)?.revision
+  // A sketch open for editing is not given to the agent until the person is done: it is no draft, and not an open mark.
+  const sketching = deps.sketching?.(objectId) ?? null
+  const waiting = sketching === null ? undefined : everyMark.find((m) => m.id === sketching && m.kind === 'sketch' && m.status === 'draft')
+  const marks = waiting ? everyMark.filter((m) => m !== waiting) : everyMark
   const drafts = marks.filter((m) => m.status === 'draft')
   const open = marks.filter((m) => m.status !== 'resolved' && !drafts.includes(m))
   const pinned = open.filter((m): m is DimensionMark => m.kind === 'dimension')
@@ -255,7 +266,7 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
   const checksRoom = checks ? 1 + checks.length : 0
   // Under `Dimensions:` they are listed with every prompt: not once more among the marks this conversation has not seen.
   const still = opts.fresh ? open.filter((m) => m.author === 'user' && !unmet.includes(m as DimensionMark)) : []
-  const told = drafts.length > 0 || open.length > 0
+  const told = drafts.length > 0 || open.length > 0 || waiting !== undefined
   // The files Claude Code reads, told once, last: their room is kept before the status and the marks are given theirs.
   // `instructionsLine` is at most INSTRUCTIONS_LIMIT, so the limit below is never short of room.
   const instructed = opts.buildOnly ? '' : (instructionsLine(opts.instructions ?? []) ?? '')
@@ -298,6 +309,18 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
    */
   /** The last build's scene: what is nothing within a part is told as 0 (`describeMark`). */
   const built = deps.scene(objectId)?.scene
+  // The points of sketches that a prompt tells of: 2,000 in all.
+  let pointsLeft = MOST_POINTS_TOLD
+  /** What a sketch says of itself, with as many points as fit in `room` characters and in what is left of the prompt's points; as few as none. */
+  const sketchBody = (mark: SketchMark, room: number): string => {
+    for (let most = pointsLeft; ; most = Math.floor(most / 2)) {
+      const body = sketchText(mark, { mostPoints: most, toolName, ...(revision === undefined ? {} : { revision }) })
+      if (body.length <= room || most === 0) {
+        pointsLeft -= pointsTold(mark, { mostPoints: most })
+        return body
+      }
+    }
+  }
   const list = (head: string, listed: readonly Mark[], tagOf: (mark: Mark) => string | undefined, more = moreMarks): Mark[] => {
     if (listed.length === 0) return []
     if (used + 1 + head.length + 1 + more(listed.length).length > CONTEXT_LIMIT) return []
@@ -316,8 +339,11 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
       // A note is a picture the person drew on: here only its line. A chat prompt carries a draft note's words and pictures
       // itself; this says where to read them in full, and its pictures when the prompt had none (a terminal, or a picture left out).
       const readIn = mark.kind === 'note' ? ` [its labels and references in full, and its pictures if the prompt carried none: ${toolName('marks')} with ids ["${mark.id}"] and pictures: true]` : ''
-      const line = `${describeMark(mark, { revision, ...(built ? { scene: built } : {}), ...(opts.scans ? { scans: opts.scans } : {}), ...(told ? { layout: told } : {}), ...(tag ? { tag } : {}) })}${where}${readIn}`
+      const first = `${describeMark(mark, { revision, ...(built ? { scene: built } : {}), ...(opts.scans ? { scans: opts.scans } : {}), ...(told ? { layout: told } : {}), ...(tag ? { tag } : {}) })}${where}${readIn}`
       const after = listed.length - i - 1
+      // A sketch is its line and the text of its planes and strokes, as many of its points as the prompt has room for.
+      const sketched = mark.kind === 'sketch' ? sketchBody(mark, CONTEXT_LIMIT - used - 1 - first.length - 1 - (after > 0 ? 1 + more(after).length : 0)) : ''
+      const line = sketched ? `${first}\n${sketched}` : first
       // Room is kept for the line that says how many are left out, should the next one not fit.
       if (used + 1 + line.length + (after > 0 ? 1 + more(after).length : 0) > CONTEXT_LIMIT) {
         lines.push(more(listed.length - i))
@@ -337,6 +363,13 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
   const news = (mark: Mark): string | undefined =>
     mark.reopened || (mark.author === 'agent' && !mark.sentBefore) ? 'reopened by the user' : mark.sentBefore && (mark.author === 'agent' || !opts.fresh) ? 'changed' : undefined
   const listedDrafts = list(MARKS_HEAD, drafts, news)
+  // What is held back is said, so that the agent knows the number and why it has no word of it.
+  let said: string | undefined
+  if (waiting && used + 1 + BEING_SKETCHED(waiting).length <= CONTEXT_LIMIT) {
+    lines.push(BEING_SKETCHED(waiting))
+    used += 1 + BEING_SKETCHED(waiting).length
+    said = waiting.id
+  }
   list(STILL_OPEN_HEAD, still, () => undefined)
   // The room kept for the dimensions is theirs now. The count of those that pass is still to come after them.
   used -= floor - (passLine ? 1 + passLine.length : 0) - checksRoom
@@ -357,7 +390,7 @@ function contextText(deps: ContextDeps, objectId: string, marks: readonly Mark[]
   // The files Claude Code reads are the very last line; the references go before it, should they fit beside it.
   const tail = instructed ? 1 + instructed.length : 0
   const text = printed ? `${joined}\n${printed}` : `${joined}${referred && joined.length + 1 + referred.length + tail <= CONTEXT_LIMIT ? `\n${referred}` : ''}${instructed ? `\n${instructed}` : ''}`
-  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}) }
+  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(said ? { sketching: said } : {}), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}) }
   // Every part above keeps to the room it has; this holds for what none of them foresaw. What is cut is
   // the end, and no mark whose line may be among it is said to have been told.
   return { text: cutEnd(text, CONTEXT_LIMIT), sentMarkIds: [] }

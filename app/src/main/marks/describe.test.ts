@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Mark } from '../../shared/marks'
+import type { Mark, SketchMark } from '../../shared/marks'
 import type { ScanAlignment, ScanInfo } from '../../shared/scans'
 import type { Scene } from '../../shared/scene'
 import { describeMark, directionText, markData, number } from './describe'
@@ -82,6 +82,51 @@ describe('describeMark of a view note', () => {
 
   it('is data as it is held', () => {
     expect(markData(note(), 12)).toMatchObject({ id: 'M4', kind: 'note', labels: expect.any(Array) })
+  })
+})
+
+describe('describeMark of a sketch', () => {
+  const sketch = (over: object = {}): Mark =>
+    mark({
+      id: 'M7',
+      kind: 'sketch',
+      name: 'Breather hose route',
+      take: 'flow',
+      diameter: 19,
+      revision: 41,
+      planes: [
+        { id: 1, origin: [0, 40, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 40.0', from: { kind: 'main', axis: 'XZ', offset: 40 } },
+        { id: 2, origin: [0, 0, 50], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 50.0', from: { kind: 'main', axis: 'XY', offset: 50 } }
+      ],
+      strokes: [
+        { pen: 'free', plane: 1, points2d: [[0, 0]], revision: 41 },
+        { pen: 'free', plane: 2, points2d: [[0, 0]], revision: 41 },
+        { pen: 'free', points: [[0, 0, 0]], revision: 41 }
+      ],
+      ...over
+    })
+
+  it('calls a sketch with no name by its number, as the window does', () => {
+    expect(describeMark(sketch({ name: '' }))).toBe('M7 · Sketch M7 · flow ⌀19 mm · 3 strokes on 2 planes and the surface · draft, drawn on build 41')
+  })
+
+  it('says what it is, how to take it, what it holds and the build it was drawn on', () => {
+    expect(describeMark(sketch())).toBe('M7 · sketch "Breather hose route" · flow ⌀19 mm · 3 strokes on 2 planes and the surface · draft, drawn on build 41')
+  })
+
+  it('says its comment, its status and the tag, and what the last build did to it', () => {
+    expect(describeMark(sketch({ note: 'keep  clear', status: 'sent', anchorState: 'drifted' }), { tag: 'changed' })).toBe(
+      '(changed) M7 · sketch "Breather hose route" · flow ⌀19 mm · 3 strokes on 2 planes and the surface · sent, drawn on build 41: "keep clear" [moved since it was placed: check it]'
+    )
+  })
+
+  it('says only what it has', () => {
+    expect(describeMark(sketch({ take: 'rough', diameter: undefined, planes: [], strokes: [{ pen: 'free', points: [[0, 0, 0]], revision: 41 }] }))).toBe('M7 · sketch "Breather hose route" · rough · 1 stroke on the surface · draft, drawn on build 41')
+    expect(describeMark(sketch({ strokes: [{ pen: 'free', plane: 1, points2d: [[0, 0]], revision: 41 }], planes: [(sketch() as SketchMark).planes[0]] }))).toContain('1 stroke on 1 plane · ')
+  })
+
+  it('says when nothing has checked it against the last build', () => {
+    expect(describeMark(sketch({ anchor: { point: [1, 2, 3], ref: 'base/F1' } }), { revision: 42 })).toContain('[not checked against r42]')
   })
 })
 

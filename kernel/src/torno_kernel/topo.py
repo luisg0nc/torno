@@ -13,6 +13,7 @@ from .ocp import (
     TopAbs_FACE,
     TopAbs_SHELL,
     TopAbs_SOLID,
+    TopAbs_VERTEX,
     TopAbs_WIRE,
     TopExp,
     TopTools_IndexedMapOfShape,
@@ -28,6 +29,14 @@ def faces(shape: Any) -> list[Any]:
 def edges(shape: Any) -> list[Any]:
     """The shape's distinct edges as ``TopoDS_Edge``, in canonical order."""
     return _subshapes(shape, TopAbs_EDGE)
+
+
+def vertices(shape: Any) -> list[Any]:
+    """The shape's distinct vertices as ``TopoDS_Vertex``, in canonical order: ``V<i>`` is index ``i``.
+
+    The order of build123d's ``shape.vertices()``. A circle's seam has its vertex, which a rim is closed on.
+    """
+    return _subshapes(shape, TopAbs_VERTEX)
 
 
 def solids(shape: Any) -> list[Any]:

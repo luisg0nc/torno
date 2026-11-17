@@ -162,6 +162,17 @@ describe('the build after an edit, as data for the window', () => {
     expect(of(u, 'context')[0]).not.toHaveProperty('forTool')
   })
 
+  it('keeps which sketch was held back from a prompt, for the line under it', () => {
+    const t = new Transcript({ now: () => 1000 })
+    t.userSent(text('go'), false)
+    t.context({ text: '[torno] part\nM7 is being sketched, not sent.', sentMarkIds: [], sketching: 'M7', prompt: 'go' })
+    expect(of(t, 'context')[0]).toMatchObject({ marks: [], sketching: 'M7' })
+    const u = new Transcript({ now: () => 1000 })
+    u.userSent(text('go'), false)
+    u.context({ text: '[torno] part', sentMarkIds: [], prompt: 'go' })
+    expect(of(u, 'context')[0]).not.toHaveProperty('sketching')
+  })
+
   it('does not write the secret an error line holds', () => {
     const t = new Transcript({ now: () => 1000, redact: (text) => text.replaceAll('hunter2', '[secret]') })
     t.message(toolUse('toolu_9', 'Edit', { file_path: '/ws/part/part.py' }))

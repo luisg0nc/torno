@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh'
 import { CREASE_ANGLE, isFaceted } from '../../shared/faceted'
 import { bufView, type Part } from '../../shared/scene'
+import { snapOf, type SnapData } from '../../shared/snapdata'
 
 // Which part is a solid made of a mesh is asked by main too (an export): `shared/faceted.ts`.
 export { CREASE_ANGLE, isFaceted }
@@ -28,6 +29,10 @@ export interface BuiltPart {
    * belong to no edge.
    */
   edgeStarts: Uint32Array
+  /** The B-rep's vertices and circles, part-local, to snap a sketch to; undefined of a kernel that does not send them. */
+  snap?: SnapData
+  /** The kernel's curve type of each B-rep edge (`GeomAbs_CurveType`), to tell a straight edge and a circle from the rest when snapping to it. */
+  edgeTypes?: Uint32Array
 }
 
 /**
@@ -88,7 +93,7 @@ export function buildPart(part: Part, blob: ArrayBuffer, opts: { tree?: boolean 
   group.add(mesh, edges)
 
   const solid = !faceted && part.valid && part.volume > 0
-  return { group, mesh, edges, faceStarts, edgeStarts, faceted, solid }
+  return { group, mesh, edges, faceStarts, edgeStarts, faceted, solid, snap: snapOf(part, blob), edgeTypes: faceted || !m.edgeTypes ? undefined : bufView(blob, m.edgeTypes, Uint32Array).slice() }
 }
 
 /** Frees what `buildPart` made: the geometries, their bounds tree and the materials. */

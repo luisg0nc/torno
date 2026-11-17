@@ -528,7 +528,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(new_.locator('.ref-card[data-kind="photos"]')).toHaveCount(2)
           await new_.locator('.ref-card[data-kind="photos"]').first().getByLabel(/^Note for /).fill('the desk edge, seen from the front')
           const sketch = async (): Promise<void> => {
-            await new_.getByRole('button', { name: /^Sketch it/ }).click()
+            await new_.getByRole('button', { name: /^Doodle it/ }).click()
             const board = page.getByRole('dialog', { name: 'Doodle board' })
             const box = (await board.locator('canvas').boundingBox())!
             const at = (fx: number, fy: number): [number, number] => [box.x + box.width * fx, box.y + box.height * fy]

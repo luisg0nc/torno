@@ -1,5 +1,6 @@
 import { offBy, shownDimension, valueAgainstExpected } from '../../shared/dimension'
 import type { Mark } from '../../shared/marks'
+import { sketchName, takeText } from '../../shared/sketchText'
 import type { ViewportPointer } from '../viewport/Viewport'
 
 /**
@@ -7,6 +8,7 @@ import type { ViewportPointer } from '../viewport/Viewport'
  * what was expected and by how much it misses (`40 mm, expected 42 ± 0.1, 2 under`), as its row says them.
  */
 export function chipSays(mark: Mark, revision: number | undefined): string {
+  if (mark.kind === 'sketch') return [sketchName(mark), takeText(mark), mark.note].filter(Boolean).join(', ')
   if (mark.kind !== 'dimension') return mark.note === '' ? 'No note' : mark.note
   const shown = shownDimension(mark, revision)
   if (shown.value === undefined) return [shown.stale ? shown.text : '', shown.note ?? (shown.stale ? '' : shown.text)].filter(Boolean).join(', ')

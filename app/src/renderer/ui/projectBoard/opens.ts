@@ -14,6 +14,7 @@ export type Opens =
   | { does: 'sketch' }
   | { does: 'mark'; id: string }
   | { does: 'note'; id: string }
+  | { does: 'sketching'; id: string }
   | { does: 'scan'; id: string }
   | { does: 'build'; copy: BuildCopy }
   | { does: 'view'; name: string }
@@ -23,8 +24,8 @@ export type Opens =
 /** A reference the window draws as a picture, whatever its name: the ones `create.ts` gives its photos and doodles. */
 const IMAGE = /\.(?:png|jpe?g|webp)$/i
 
-/** `mark` is the mark a mark card names, when the window has it: a view note's card opens its sheet, where another mark's goes to the model. */
-export function doubleClickOf(card: Card, mark?: Pick<Mark, 'kind'>): Opens | null {
+/** `mark` is the mark a mark card names, when the window has it: a view note's card opens its sheet, the person's 3D sketch opens in the Draw tool, where another mark's goes to the model. */
+export function doubleClickOf(card: Card, mark?: Pick<Mark, 'kind'> & { author?: Mark['author'] }): Opens | null {
   switch (card.kind) {
     case 'brief':
       return { does: 'brief' }
@@ -33,7 +34,8 @@ export function doubleClickOf(card: Card, mark?: Pick<Mark, 'kind'>): Opens | nu
       return IMAGE.test(card.source) ? { does: 'large' } : { does: 'folder', file: card.source }
     case 'mark':
       if (card.source === undefined) return null
-      return mark?.kind === 'note' ? { does: 'note', id: card.source } : { does: 'mark', id: card.source }
+      if (mark?.kind === 'note') return { does: 'note', id: card.source }
+      return mark?.kind === 'sketch' && mark.author === 'user' ? { does: 'sketching', id: card.source } : { does: 'mark', id: card.source }
     case 'scan':
       return card.source === undefined ? null : { does: 'scan', id: card.source }
     case 'build':

@@ -77,7 +77,7 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
   switch (change.op) {
     case 'add': {
       const said = change.card as Partial<Card> | undefined
-      if (!said || !MADE_KINDS.includes(said.kind as Card['kind'])) throw new Refusal('The board takes a text, a picture, a sketch, a frame or a size from the person.')
+      if (!said || !MADE_KINDS.includes(said.kind as Card['kind'])) throw new Refusal('The board takes a text, a picture, a doodle, a frame or a size from the person.')
       if (board.cards.length >= MAX_CARDS) throw new Refusal(`The board holds ${MAX_CARDS} cards, and that is all it takes.`)
       const { kind, x, y, w, h } = said
       if (!finite(x) || !finite(y) || !finite(w) || !finite(h) || w <= 0 || h <= 0) throw new Refusal('A card needs a place and a size.')
@@ -127,8 +127,8 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
       if (card.by !== 'person') throw new Refusal(`${card.id} is not the person's, and its words are not theirs to change here.`)
       if (change.picture !== undefined) {
         // A sketch drawn on again: the file is one torno kept (`board:addPicture`), and it is the only card whose picture is the person's to change.
-        if (card.kind !== 'sketch') throw new Refusal(`${card.id} is not a sketch, and its picture is not changed here.`)
-        if (typeof change.picture !== 'string' || !PICTURE_NAME.test(change.picture)) throw new Refusal('A sketch names a picture torno kept.')
+        if (card.kind !== 'sketch') throw new Refusal(`${card.id} is not a doodle, and its picture is not changed here.`)
+        if (typeof change.picture !== 'string' || !PICTURE_NAME.test(change.picture)) throw new Refusal('A doodle names a picture torno kept.')
         card.picture = change.picture
       }
       if (change.size !== undefined) {

@@ -72,6 +72,12 @@ describe('the real kernel', () => {
       expect(bufView(blob, mesh.segmentsPerEdge, Uint32Array).length).toBe(part.edgeCount)
       expect(bufView(blob, mesh.faceTypes, Uint32Array).length).toBe(part.faceCount)
       expect(bufView(blob, mesh.edgeTypes, Uint32Array).length).toBe(part.edgeCount)
+      // Snap data: three floats to a vertex, eight to a circle, and a circle names an edge the part has.
+      expect(bufView(blob, mesh.points!, Float32Array).length % 3).toBe(0)
+      expect(bufView(blob, mesh.points!, Float32Array).length).toBeGreaterThan(0)
+      const circles = bufView(blob, mesh.circles!, Float32Array)
+      expect(circles.length % 8).toBe(0)
+      for (let k = 0; k < circles.length; k += 8) expect(circles[k]).toBeLessThan(part.edgeCount)
     }
   })
 

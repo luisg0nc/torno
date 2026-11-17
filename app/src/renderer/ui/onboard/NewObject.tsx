@@ -54,7 +54,7 @@ type Opened = 'sizes' | 'links' | 'rules'
 
 /**
  * The page of a new project, in place of the viewport: its name; "What are we making?" (the brief and the photos with
- * their notes); a tile for each other thing the person has (a sketch, bought parts, scans, other projects, sizes,
+ * their notes); a tile for each other thing the person has (a doodle, bought parts, scans, other projects, sizes,
  * links and PDFs, rules), which becomes its cards or rows once something is in it; and, at the right, what Claude gets
  * first and the buttons that make the project. Nothing is written until Start (`makeObject`). The draft is the window's
  * (`state/onboard.ts`); a dropped file is taken by its path, and a picture is scaled here for the prompt.
@@ -128,7 +128,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
     else leaveNewObject()
   }, [])
 
-  // The keys are the page's while it is up: Escape leaves it, S sketches, and no tool of the view under it is handed a key.
+  // The keys are the page's while it is up: Escape leaves it, S doodles, and no tool of the view under it is handed a key.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const target = e.target instanceof Element ? e.target : null
@@ -400,17 +400,17 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
             <Slot
               id="sketch"
               icon="sketch"
-              title="Sketch it"
+              title="Doodle it"
               hint="A doodle on a grid, or over a photo"
               filled={draft.doodles.length > 0}
               tile={
                 <button type="button" className="slot-tile" disabled={working || !free('doodles')} onClick={() => setBoard({ uid: null })}>
-                  <SlotWords icon="sketch" title="Sketch it" hint="A doodle on a grid, or over a photo" />
+                  <SlotWords icon="sketch" title="Doodle it" hint="A doodle on a grid, or over a photo" />
                 </button>
               }
-              add={addAnother('Sketch it', () => setBoard({ uid: null }), !free('doodles'))}
+              add={addAnother('Doodle it', () => setBoard({ uid: null }), !free('doodles'))}
             >
-              <ReferenceCards draft={draft} kinds={['doodles']} label="Sketches" onEditDoodle={(key) => setBoard({ uid: key })} />
+              <ReferenceCards draft={draft} kinds={['doodles']} label="Doodles" onEditDoodle={(key) => setBoard({ uid: key })} />
             </Slot>
 
             <Slot
@@ -541,7 +541,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
             </p>
           )}
           <p className="new-hint">
-            Drop files anywhere · paste an image · <span className="num">{hint('new.sketch')}</span> sketch
+            Drop files anywhere · paste an image · <span className="num">{hint('new.sketch')}</span> doodle
           </p>
         </div>
 

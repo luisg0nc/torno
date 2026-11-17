@@ -128,6 +128,7 @@ function viewport(far: THREE.Box3 | null = null): { host: PictureHost; log: stri
         active = id
         log.push(`active ${id}`)
       },
+      setLights: () => {},
       show: (layout, hidden) => log.push(`marks ${layout} but on ${[...(hidden ?? [])].join(',') || 'none'}`),
       showDraft: (shown) => log.push(`draft ${shown ? 'on' : 'off'}`),
       extend: (sphere, layout) => {

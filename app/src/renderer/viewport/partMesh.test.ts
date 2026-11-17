@@ -105,6 +105,22 @@ describe('buildPart', () => {
   })
 })
 
+describe('buildPart, snap data', () => {
+  it('decodes the vertices and the circles the kernel sent, and owns them', () => {
+    const points = new Float32Array([0, 0, 0, 1, 2, 3])
+    const circles = new Float32Array([4, 10, 10, 0, 0, 0, 1, 4])
+    const packed = pack({ vertices, normals, triangles, edges, trianglesPerFace: new Uint32Array([2, 4]), segmentsPerEdge: new Uint32Array([1, 1, 1]), faceTypes: new Uint32Array([0, 0]), edgeTypes: new Uint32Array([0, 0, 0]), points, circles })
+    const snapped = buildPart({ ...part, mesh: packed.bufs as unknown as Part['mesh'] }, packed.blob)
+    new Uint8Array(packed.blob).fill(0)
+    expect(Array.from(snapped.snap!.points)).toEqual(Array.from(points))
+    expect(Array.from(snapped.snap!.circles)).toEqual(Array.from(circles))
+  })
+
+  it('leaves them undefined when the kernel sent none', () => {
+    expect(buildPart(part, blob).snap).toBeUndefined()
+  })
+})
+
 describe('isFaceted', () => {
   const faces = (count: number, triangles: (i: number) => number) => Uint32Array.from({ length: count }, (_, i) => triangles(i))
 

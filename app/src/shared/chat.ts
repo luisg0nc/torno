@@ -25,8 +25,8 @@ export interface ChatImage {
 export type ChatItem =
   /** What the person sent. `queued` until the CLI takes the prompt up (a prompt sent while it works waits). `notes`: what the ink of each view note that went with it lies over (refs and counts; the pictures are among `images`, and the words of a note are not in `text`). `drawing`: the same for the drawing on the view of a log written before notes (read, never written). `board`: what was attached of the board (the counts and the frames' names, as text only: the words and pictures are not in `text`, the pictures are among `images`). */
   | { kind: 'user'; id: string; text: string; images: ChatImage[]; state: 'queued' | 'sent' | 'not-sent'; at: number; drawing?: DrawnOver; notes?: DrawnOver[]; board?: BoardSent }
-  /** What torno added to that prompt (the context a `UserPromptSubmit` was answered with), shown under it: the marks sent, the build it named and the refs it said were selected, and how many instruction files of Claude Code's it named (`instructions`) and what the board line said (`board`: how many cards there are, how many are new to the agent). Or, under a tool's card (`forUser` is then that card's id), the build an edit of the model started, as its `PostToolUse` was answered, with what that build did to the parts as data (`digest`, `main/sanity.ts`) when it worked. `forTool`: it is under a tool's card, and the window draws it as a build; `identity`: what the build `revision` names was made from (its sources' hash and the commit), as `builds.jsonl` has it, for the run it was made in; `seconds`: how long the build took; `error`: the last line of what a failed build said. */
-  | { kind: 'context'; id: string; forUser: string; forTool?: true; text: string; marks: string[]; revision?: number; buildState?: 'ok' | 'failed' | 'building'; seconds?: number; error?: string; selection?: string[]; digest?: BuildDigest; instructions?: number; identity?: BuildIdentity; board?: BoardCounts }
+  /** What torno added to that prompt (the context a `UserPromptSubmit` was answered with), shown under it: the marks sent, the build it named and the refs it said were selected, and how many instruction files of Claude Code's it named (`instructions`), what the board line said (`board`: how many cards there are, how many are new to the agent), and the sketch the person had open (`sketching`, its number: it was held back, not sent). Or, under a tool's card (`forUser` is then that card's id), the build an edit of the model started, as its `PostToolUse` was answered, with what that build did to the parts as data (`digest`, `main/sanity.ts`) when it worked. `forTool`: it is under a tool's card, and the window draws it as a build; `identity`: what the build `revision` names was made from (its sources' hash and the commit), as `builds.jsonl` has it, for the run it was made in; `seconds`: how long the build took; `error`: the last line of what a failed build said. */
+  | { kind: 'context'; id: string; forUser: string; forTool?: true; text: string; marks: string[]; sketching?: string; revision?: number; buildState?: 'ok' | 'failed' | 'building'; seconds?: number; error?: string; selection?: string[]; digest?: BuildDigest; instructions?: number; identity?: BuildIdentity; board?: BoardCounts }
   /** The agent's words, as markdown. */
   | { kind: 'text'; id: string; text: string; streaming: boolean }
   /** The agent thought. This CLI leaves the text of a thought empty. */
@@ -176,10 +176,10 @@ export const TORNO_TOOL_PREFIX = 'mcp__torno__'
 export const isTornoTool = (name: string): boolean => name.startsWith(TORNO_TOOL_PREFIX)
 
 /**
- * A mark (`M4`), a card of the board (`C7`), a build (`r12`), a face or an edge of a part (`lid/F12`, `tub_2/E10`). A letter alone, a face
+ * A mark (`M4`), a card of the board (`C7`), a build (`r12`), a face, an edge or a vertex of a part (`lid/F12`, `tub_2/E10`, `block/V88`). A letter alone, a face
  * number alone and a decimal are none, nor is the name of a part standing alone.
  */
-const REF = /(\bM\d+\b|\bC\d+\b|\br\d+\b|(?<![\w.-])[\w.-]+\/(?:[FE]\d+|@[A-Za-z_]\w*(?:[.-]\w+)*)\b)/
+const REF = /(\bM\d+\b|\bC\d+\b|\br\d+\b|(?<![\w.-])[\w.-]+\/(?:[FEV]\d+|@[A-Za-z_]\w*(?:[.-]\w+)*)\b)/
 
 /** A text in pieces: plain text and refs, in order. A piece with a `ref` is one. */
 export function refsIn(text: string): Array<{ text: string; ref?: string }> {

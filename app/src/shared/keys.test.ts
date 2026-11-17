@@ -103,6 +103,11 @@ it('has the keys of the board, and Ctrl+Tab for the swap alone in the window', (
   expect(KEYS.some((r) => r.id === 'board.attach' && r.scope === 'board')).toBe(true)
 })
 
+it('calls the board\'s ink-pad tool a Doodle, with the S key kept', () => {
+  expect(KEYS.find((r) => r.id === 'board.sketch')?.does).toBe('Board, Doodle: draw on a card')
+  expect(hint('board.sketch')).toBe('S')
+})
+
 it('says which key of a row was pressed', () => {
   expect(pressed({ key: 'f' }, 'fit')).toBe(true)
   expect(pressed({ key: 'f', ctrlKey: true }, 'fit')).toBe(false)
@@ -316,7 +321,7 @@ it('says what every tool does and waits for in plain sentences, with no key writ
 
 it('has a key for the sketch of a new project, in its own scope, with no clash with the shape tool', () => {
   const row = KEYS.find((r) => r.id === 'new.sketch')
-  expect(row).toMatchObject({ keys: ['S'], scope: 'newobject', context: 'New project' })
+  expect(row).toMatchObject({ keys: ['S'], scope: 'newobject', context: 'New project', does: 'Doodle: open the ink pad (not heard in a field)' })
   expect(keyClashes()).toEqual([])
   expect(hint('new.sketch')).toBe('S')
 })
@@ -325,4 +330,29 @@ it('has the label tool of a drawing on the view as T, in the sheet, with no clas
   expect(pressed({ key: 't' }, 'board.label')).toBe(true)
   expect(pressed({ key: 'T', shiftKey: true }, 'board.label')).toBe(true)
   expect(keyClashes()).toEqual([])
+})
+
+it('has the keys of a sketch in a scope of their own: none of them is a key of the view, but the figures while a length is typed', () => {
+  const sketch = KEYS.filter((r) => r.scope === 'sketch')
+  expect(sketch.map((r) => r.id)).toEqual(['sketch.free', 'sketch.line', 'sketch.points', 'sketch.erase', 'sketch.plane', 'sketch.face', 'sketch.surface', 'sketch.offset', 'sketch.xray', 'sketch.take', 'sketch.length', 'sketch.fix', 'sketch.back', 'sketch.undo', 'sketch.snap', 'sketch.leave'])
+  expect(keyClashes()).toEqual([])
+  // Fit, the views, explode, ortho and the Section tool keep working while sketching: the sketch has none of their keys.
+  const view = [...KEYS.filter((r) => ['fit', 'views', 'explode', 'ortho', 'tool.section'].includes(r.id)).flatMap((r) => r.keys)]
+  expect(view.sort()).toEqual(['1', '2', '3', '4', 'E', 'F', 'O', 'X'])
+  const shadowed = sketch.filter((r) => r.id !== 'sketch.length').flatMap((r) => r.keys.filter((k) => view.includes(k)))
+  expect(shadowed).toEqual([])
+  // The figures are the length's only while a segment is under way (the tool passes them on otherwise): the one exception.
+  expect(KEYS.find((r) => r.id === 'sketch.length')!.keys.filter((k) => view.includes(k))).toEqual(['1', '2', '3', '4'])
+  // Nor the gizmo's G, R and T, which a shape in hand has at the same time.
+  expect(sketch.flatMap((r) => r.keys).filter((k) => ['G', 'R', 'T'].includes(k))).toEqual([])
+  expect(keyClashes([...KEYS, extra(['G'], 'sketch')])).toEqual(['G (sketch, shape)'])
+  // The planes are Shift and a figure, whatever character the layout gives that key.
+  expect(which({ key: '!', code: 'Digit1', shiftKey: true }, 'sketch.plane')).toBe(0)
+  expect(which({ key: '@', code: 'Digit2', shiftKey: true }, 'sketch.plane')).toBe(1)
+  expect(which({ key: '#', code: 'Digit3', shiftKey: true }, 'sketch.plane')).toBe(2)
+  expect(which({ key: '2', code: 'Digit2' }, 'sketch.plane')).toBe(-1)
+  expect(pressed({ key: 'z', code: 'KeyZ', ctrlKey: true }, 'sketch.undo')).toBe(true)
+  // The board, which covers the view, takes the sketch's letters from it; not the keys of a field or a sheet.
+  expect(viewKey({ key: 'b' })).toBe(true)
+  expect(viewKey({ key: '.' })).toBe(false)
 })

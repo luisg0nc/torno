@@ -42,6 +42,9 @@ export function themeOf(): Theme {
   }
 }
 
+/** How opaque the parts are drawn while x-ray is on in a sketch: what a stroke inside a part is seen through. Never above a part's own opacity. */
+export const XRAY_OPACITY = 0.28
+
 export function markColours(theme: Theme): { user: string; agent: string; reference: string; casing: string; ink: string } {
   // The casing of a mark's lines is the panel's colour, as the border of its chip is.
   return { user: toHex(theme.user), agent: toHex(theme.agent), reference: toHex(theme.muted), casing: toHex(theme.panel), ink: toHex(theme.ink) }

@@ -53,7 +53,7 @@ function cardSaid(card: Card): string {
       return `frame ${words(card.name)}`.trim()
     case 'picture':
     case 'sketch':
-      return [card.kind, words(card.caption)].filter(Boolean).join(', ')
+      return [card.kind === 'sketch' ? 'doodle' : card.kind, words(card.caption)].filter(Boolean).join(', ')
     default:
       return [card.kind === 'reference' ? 'reference' : card.kind, card.source ?? ''].filter(Boolean).join(' ')
   }

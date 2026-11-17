@@ -4,7 +4,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js'
-import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markPoints, strokePoints } from '../../../shared/marks'
+import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type SketchMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markPoints, sketchStrokePoints, strokePoints } from '../../../shared/marks'
 
 // What a mark's points are is plain arithmetic, asked by main too (an export): `shared/marks.ts`.
 export { markPoints, strokePoints }
@@ -50,6 +50,14 @@ export const CASING_PX = 2
 const CASING_ORDER = -0.6
 
 const FILL_OPACITY = 0.25
+/** The share of its colour a flow sketch's tube has: translucent, so that the stroke along its middle and the parts read through it. */
+export const TUBE_OPACITY = 0.25
+/** How many sides a flow sketch's tube has. */
+const TUBE_SIDES = 12
+/** The most steps a tube is made of along a stroke; a stroke has at most 400 points. */
+const TUBE_STEPS = 800
+/** The dashes of a stroke drawn in x-ray where a part hides it, in pixels. */
+const XRAY_DASH_PX = { dash: 6, gap: 4 }
 /** What is left of a mark where a part is in front of it. */
 export const BEHIND = 0.35
 /** The same, of a dimension. */
@@ -97,7 +105,7 @@ interface Sizing {
   /** Groups kept the same size on screen: scaled by the millimetres a pixel is at their place. */
   constant: Array<{ object: THREE.Object3D; at: THREE.Vector3 }>
   /** Line materials, with their width in pixels. */
-  lines: Array<{ material: LineMaterial; width: number; /** Pixels added to it whatever the width: a casing's. */ extra?: number }>
+  lines: Array<{ material: LineMaterial; width: number; /** Pixels added to it whatever the width: a casing's. */ extra?: number; /** Of a sketch's stroke: the plane it is on, or `surface`. */ on?: number | 'surface' }>
   /** Ticks at the ends of a dimension line: each is turned square to the line (`along`) and to the way it is looked at. */
   ticks: Array<{ object: THREE.Object3D; along: THREE.Vector3 }>
   /** Dashed ones: dash and gap in pixels, measured where the mark is. */
@@ -105,12 +113,14 @@ interface Sizing {
   /** Everything drawn, as its two passes: the one seen where a part is in front, and the one seen where none is. */
   twins: Array<{ behind: THREE.Object3D; front: THREE.Object3D }>
   active: boolean
+  /** Of a sketch: its strokes are lit, all of them or those on one plane (or the surface). */
+  lit: true | { plane: number | 'surface' } | null
 }
 
 /** Collects what a mark is made of while it is built. */
 class Parts {
   readonly root = new THREE.Group()
-  readonly sizing: Sizing = { constant: [], lines: [], dashes: [], ticks: [], twins: [], active: false }
+  readonly sizing: Sizing = { constant: [], lines: [], dashes: [], ticks: [], twins: [], active: false, lit: null }
 
   /**
    * `behind` is what is left of the mark where a part is in front of it: more of a dimension, whose lines
@@ -129,19 +139,19 @@ class Parts {
    * pulled towards the viewer by the same hair, so what lies on a surface
    * counts as in front of it and every pixel is drawn by exactly one of them.
    */
-  private twin<M extends THREE.Material>(name: string, material: M, make: (material: M) => THREE.Object3D, shift = 0): THREE.Group {
+  private twin<M extends THREE.Material>(name: string, material: M, make: (material: M, behind: boolean) => THREE.Object3D, shift = 0): THREE.Group {
     const group = new THREE.Group()
     group.name = name
     const behind = material.clone() as M
     behind.opacity = material.opacity * this.behind
     behind.depthFunc = THREE.GreaterDepth
-    for (const [m, order] of [[behind, ORDER], [material, ORDER + 1]] as const) {
+    for (const [m, order, back] of [[behind, ORDER, true], [material, ORDER + 1, false]] as const) {
       m.transparent = true
       m.depthWrite = false
       m.polygonOffset = true
       m.polygonOffsetFactor = -2
       m.polygonOffsetUnits = -8
-      const object = make(m)
+      const object = make(m, back)
       object.renderOrder = order + shift
       object.raycast = () => {} // never picked
       group.add(object)
@@ -220,6 +230,49 @@ class Parts {
     return group
   }
 
+  /**
+   * A stroke of a sketch: a line through points where it is seen in front, and where a part hides it, dashed when it was
+   * drawn in x-ray and not drawn at all otherwise. Its casing goes with it. `on` says which plane it is on, for lighting.
+   */
+  stroke(name: string, points: Vec3[], width: number, xray: boolean, on: number | 'surface'): THREE.Group {
+    const geometry = new LineGeometry().setPositions(points.flat())
+    const at = new THREE.Vector3().fromArray(points[0])
+    const draw = (material: LineMaterial, behind: boolean): Line2 => {
+      const line = new Line2(geometry, material)
+      if (behind && xray) {
+        material.dashed = true
+        line.computeLineDistances()
+      }
+      return line
+    }
+    const register = (group: THREE.Group, extra?: number): void => {
+      group.children.forEach((child, i) => {
+        const material = (child as Line2).material
+        this.sizing.lines.push({ material, width, on, ...(extra ? { extra } : {}) })
+        if (i === 0 && xray) this.sizing.dashes.push({ material, ...XRAY_DASH_PX, at })
+      })
+    }
+    // Where a part is in front it is not drawn, unless it was drawn in x-ray.
+    const hideBehind = (group: THREE.Group): void => {
+      if (xray) return
+      group.children[0].visible = false
+      group.children[0].userData.hiddenBehind = true
+    }
+    const group = this.twin(name, new LineMaterial({ color: this.color, linewidth: width }), draw)
+    hideBehind(group)
+    register(group)
+    if (this.casing) {
+      const under = this.twin('', new LineMaterial({ color: this.casing, linewidth: width + CASING_PX }), draw, CASING_ORDER)
+      hideBehind(under)
+      register(under, CASING_PX)
+      for (const child of [...under.children]) {
+        child.userData.casing = true
+        group.add(child)
+      }
+    }
+    return group
+  }
+
   /** A group at a point whose contents are sized in pixels. */
   constant(at: Vec3, ...children: THREE.Object3D[]): THREE.Group {
     const group = new THREE.Group()
@@ -263,6 +316,9 @@ export function labelAnchor(mark: Mark, regionAt?: (mark: RegionMark) => Vec3 | 
     case 'note':
       // A picture of a view: it hangs a label only where its ink lay over a face.
       return { point: mark.anchor?.point ?? [0, 0, 0] }
+    case 'sketch':
+      // At its anchor, or at the first point drawn.
+      return { point: mark.anchor?.point ?? sketchStrokePoints(mark, mark.strokes[0] ?? { pen: 'free', revision: 0 })[0] ?? [0, 0, 0] }
     case 'arrow':
       return { point: mark.from.point }
     case 'stroke':
@@ -408,9 +464,43 @@ export function build(mark: Mark, colours: MarkColours, scale: number): THREE.Ob
     case 'note':
       // A picture, drawn in no view.
       break
+    case 'sketch':
+      addSketch(parts, mark)
+      break
   }
   rescale(root, () => scale, 1)
   return root
+}
+
+/** The strokes of a sketch: a line each, a dot at each point that snapped, and of a flow sketch with a diameter a tube along each. */
+function addSketch(parts: Parts, mark: SketchMark): void {
+  const { root } = parts
+  const tube = mark.take === 'flow' && mark.diameter !== undefined && mark.diameter > 0 ? mark.diameter / 2 : null
+  for (const stroke of mark.strokes) {
+    const points = sketchStrokePoints(mark, stroke)
+    if (points.length === 0) continue
+    const on = stroke.plane ?? 'surface'
+    if (points.length >= 2) root.add(parts.stroke('line', points, STROKE_PX, stroke.xray === true, on))
+    else root.add(parts.dot(points[0]))
+    for (const snap of stroke.snaps ?? []) {
+      const at = points[snap.i]
+      if (!at) continue
+      const dot = parts.dot(at, DOT_PX - 0.5)
+      dot.name = 'snap'
+      root.add(dot)
+    }
+    const along = tube === null ? null : tubeAlong(points, tube)
+    if (along) root.add(parts.mesh('tube', along, { opacity: TUBE_OPACITY, side: THREE.DoubleSide }))
+  }
+}
+
+/** A tube of a radius in millimetres along a polyline, or null when its points are one. */
+function tubeAlong(points: Vec3[], radius: number): THREE.BufferGeometry | null {
+  const distinct = points.filter((p, i) => i === 0 || Math.hypot(p[0] - points[i - 1][0], p[1] - points[i - 1][1], p[2] - points[i - 1][2]) > SAME_MM)
+  if (distinct.length < 2) return null
+  const path = new THREE.CurvePath<THREE.Vector3>()
+  for (let i = 1; i < distinct.length; i++) path.add(new THREE.LineCurve3(new THREE.Vector3().fromArray(distinct[i - 1]), new THREE.Vector3().fromArray(distinct[i])))
+  return new THREE.TubeGeometry(path, Math.min(TUBE_STEPS, Math.max(distinct.length * 3, 12)), radius, TUBE_SIDES, false)
 }
 
 function addDimension(parts: Parts, mark: DimensionMark): void {
@@ -533,8 +623,10 @@ export function rescale(object: THREE.Object3D, mmPerPx: (at: THREE.Vector3) => 
   for (const { object: group, at } of sizing.constant) group.scale.setScalar(mmPerPx(at) * unit)
   // Where the mark is drawn, which is off where it is while its part is drawn apart.
   for (const { object: tick, along } of sizing.ticks) tick.quaternion.setFromUnitVectors(X_AXIS, acrossLine(along, DRAWN_AT.copy(tick.position).add(object.position), camera))
-  const wider = sizing.active ? ACTIVE_WIDTH : 1
-  for (const { material, width, extra } of sizing.lines) material.linewidth = (width * wider + (extra ?? 0)) * unit
+  for (const { material, width, extra, on } of sizing.lines) {
+    const lit = sizing.lit === true || (sizing.lit !== null && on !== undefined && sizing.lit.plane === on)
+    material.linewidth = (width * (sizing.active || lit ? ACTIVE_WIDTH : 1) + (extra ?? 0)) * unit
+  }
   for (const { material, dash, gap, at } of sizing.dashes) {
     // Line distances are in millimetres; the dashes are wanted in pixels.
     material.dashScale = 1 / (mmPerPx(at) * unit)
@@ -569,6 +661,8 @@ export function setDimmed(object: THREE.Object3D, dimmed: boolean): void {
     front.visible = !dimmed
     const material = (behind as THREE.Mesh).material as THREE.Material
     material.depthFunc = dimmed ? THREE.AlwaysDepth : THREE.GreaterDepth
+    // A stroke of a sketch that is not shown where a part hides it is, while the whole of it is drawn faintly.
+    if (behind.userData.hiddenBehind) behind.visible = dimmed
   }
 }
 
@@ -592,6 +686,15 @@ export function setDashed(object: THREE.Object3D): void {
     const start = line.geometry.getAttribute('instanceStart')
     sizing.dashes.push({ material: line.material, ...SPAN_DASH_PX, at: new THREE.Vector3().fromBufferAttribute(start, 0) })
   })
+}
+
+/**
+ * Lights the strokes of a sketch, all of them (`true`), or those on one plane or on the surface: they are drawn wider, as the
+ * active mark's are. Takes effect at the next `rescale`. On screen only.
+ */
+export function setLit(object: THREE.Object3D, lit: true | { plane: number | 'surface' } | null): void {
+  const sizing = object.userData.sizing as Sizing | undefined
+  if (sizing) sizing.lit = lit
 }
 
 /** Whether the mark is the one being worked on: its lines are drawn wider, and a stroke shows its plane. Takes effect at the next `rescale`. */

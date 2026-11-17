@@ -46,7 +46,7 @@ const LABEL: Record<CardKind, string> = {
   checks: 'checks',
   text: 'text',
   picture: 'picture',
-  sketch: 'sketch',
+  sketch: 'doodle',
   frame: 'frame',
   size: 'size'
 }
@@ -62,7 +62,7 @@ const NEW_AS: Record<CardKind, string> = {
   checks: 'the checks',
   text: 'text',
   picture: 'a photo',
-  sketch: 'a sketch',
+  sketch: 'a doodle',
   frame: 'a frame',
   size: 'a size'
 }
@@ -91,8 +91,8 @@ function checksText(live: LiveFacts): string {
 function markText(card: Card, live: LiveFacts): string {
   const mark = card.source === undefined ? undefined : live.marks.get(card.source)
   if (!mark) return `${card.source ?? 'A mark'} (not among the marks of this project now)`
-  // A view note is said as everywhere else it is: by its line (what it holds, and the build its picture is of).
-  if (mark.kind === 'note') return describeMark(mark)
+  // A view note and a sketch are said as everywhere else they are: by their line (what each holds, and the build it is of).
+  if (mark.kind === 'note' || mark.kind === 'sketch') return describeMark(mark)
   const ref = markAnchors(mark)[0]?.ref
   const note = oneLine(mark.note)
   return `${mark.id} (${mark.kind}${ref ? `, on ${ref}` : ''}): ${note ? `${note}, ` : ''}${mark.status}`
@@ -217,7 +217,7 @@ export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: stri
     const picture = ((): string => {
       const state = fate.get(card.id)
       if (state === undefined) return ''
-      const what = card.kind === 'sketch' ? 'sketch' : 'picture'
+      const what = card.kind === 'sketch' ? 'doodle' : 'picture'
       const caption = card.kind === 'picture' || card.kind === 'sketch' ? (card.caption ?? '') : `of ${card.source ?? card.id}`
       const note = state === 'missing' ? MISSING : state === 'left out' ? 'not attached, read it with board' : ''
       const said = [caption, note].filter(Boolean).join(', ')

@@ -263,3 +263,50 @@ describe('a view note', () => {
     expect(marks.labels('assembly', camera, { width: 800, height: 600 }, 1, chip).map((label) => label.id)).toEqual(['M8'])
   })
 })
+
+describe('a 3D sketch pointed at', () => {
+  const XY = { id: 1, origin: [0, 0, 10] as Vec3, x: [1, 0, 0] as Vec3, y: [0, 1, 0] as Vec3, label: 'XY at z = 10.0', from: { kind: 'main' as const, axis: 'XY' as const, offset: 10 } }
+  const sketch = { ...BASE, id: 'M7', kind: 'sketch', name: 'Hose', take: 'rough', planes: [XY], strokes: [{ plane: 1, points2d: [[0, 0], [5, 0]], pen: 'line', revision: 1 }, { points: [[0, 0, 0], [0, 5, 0]], pen: 'line', revision: 1 }] } as unknown as Mark
+  const widths = (marks: MarkLayer): number[] => {
+    marks.update(new THREE.PerspectiveCamera(35, 4 / 3, 1, 1000), { width: 800, height: 600 })
+    return marks.group.getObjectByName('M7')!.children.filter((c) => c.name === 'line').map((c) => ((c.children[1] as unknown as { material: { linewidth: number } }).material.linewidth))
+  }
+  const shown = (): MarkLayer => {
+    const marks = new MarkLayer(COLOURS)
+    marks.setMarks([sketch])
+    marks.show('assembly')
+    return marks
+  }
+
+  it('lights its strokes while its row or chip is pointed at, and for the rows of its planes', () => {
+    const marks = shown()
+    expect(widths(marks)).toEqual([2.5, 2.5])
+    marks.setHover('M7')
+    expect(widths(marks)).toEqual([3.75, 3.75])
+    marks.setHover(null)
+    marks.setLitPlane({ id: 'M7', plane: 'surface' })
+    expect(widths(marks)).toEqual([2.5, 3.75])
+    marks.setLitPlane({ id: 'M7', plane: 1 })
+    expect(widths(marks)).toEqual([3.75, 2.5])
+    marks.setLitPlane(null)
+    expect(widths(marks)).toEqual([2.5, 2.5])
+  })
+
+  it('is lit as it is drawn anew, and not at all in a picture for the agent', () => {
+    const marks = shown()
+    marks.setHover('M7')
+    marks.setMarks([{ ...sketch, take: 'flow', diameter: 3 } as Mark])
+    expect(widths(marks)).toEqual([3.75, 3.75])
+    marks.setLights(false)
+    expect(widths(marks)).toEqual([2.5, 2.5])
+    marks.setLights(true)
+    expect(widths(marks)).toEqual([3.75, 3.75])
+  })
+
+  it('is not drawn again when only its name or its picture changes', () => {
+    const marks = shown()
+    const before = marks.group.getObjectByName('M7')
+    marks.setMarks([{ ...sketch, name: 'Another', picture: 'k-aaaaaaaaaaaa.png' } as Mark])
+    expect(marks.group.getObjectByName('M7')).toBe(before)
+  })
+})

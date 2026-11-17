@@ -300,6 +300,108 @@ describe('reanchorAll', () => {
     })
   })
 
+  describe('a sketch', () => {
+    const line = (count: number): Array<[number, number, number]> => Array.from({ length: count }, (_, i) => [i, 0, 2.5])
+    const sketch = (strokes: object[], anchor: Anchor | null = { ...ON_TOP, point: [0, 0, 2.5] }) =>
+      store.saveSketch('bracket', {
+        objectId: 'bracket',
+        layout: 'assembly',
+        revision: 1,
+        camera: CAMERA as never,
+        name: 'Hose',
+        note: '',
+        take: 'rough',
+        planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 0.0', from: { kind: 'main', axis: 'XZ', offset: 0 } }],
+        strokes: strokes as never,
+        ...(anchor ? { anchor } : {})
+      }, [])
+
+    it('is asked about at its anchor and at eight points along each stroke on a surface, none along a plane stroke', async () => {
+      await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5], [9, 0]], revision: 1 }, { pen: 'free', points: line(17), revision: 1 }])
+      await run()
+      const anchors = anchorsOf(asked[0].args)
+      expect(anchors[0]).toEqual({ part: 'base', point: [0, 0, 2.5] })
+      expect(anchors.slice(1).map((a) => `${a.part}@${a.point[0]}`)).toEqual([2, 4, 6, 8, 10, 12, 14, 16].flatMap((x) => [`base@${x}`, `post@${x}`]))
+      expect((await byId()).M1).toMatchObject({ anchorState: 'ok', checkedRevision: 1 })
+    })
+
+    it('has drifted when a surface stroke has a point on no surface any more, though its anchor is', async () => {
+      await sketch([{ pen: 'free', points: line(5), revision: 1 }])
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] >= 3 ? 2 : 0)) })
+      await run()
+      expect((await byId()).M1.anchorState).toBe('drifted')
+      answer = (_name, args) => still(args)
+      await run()
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
+    it('with more than 8 parts asks the points of each stroke of the parts whose box holds them, so a stroke on another part than its anchor\'s is ok', async () => {
+      const names = ['base', 'post', ...Array.from({ length: 7 }, (_, i) => `p${i + 3}`)]
+      scene = sceneOf(names.map((n) => `assembly:${n}`))
+      const post = scene.parts.find((p) => p.name === 'post')!
+      post.bbox = { min: [90, -15, -2.5], max: [130, 15, 2.5] }
+      scene.parts.filter((p) => p.name.startsWith('p') && p.name !== 'post').forEach((p) => {
+        p.bbox = { min: [500, 500, 500], max: [510, 510, 510] }
+      })
+      await sketch([{ pen: 'free', points: [[100, 0, 2.5], [101, 0, 2.5]], revision: 1 }, { pen: 'free', points: [[0, 0, 2.5], [1, 0, 2.5], [2, 0, 2.5]], revision: 1 }], { ...ON_POST, point: [100, 0, 2.5] })
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, (part === 'post') === point[0] >= 90 ? 0 : 9)) })
+      expect(await run()).toBe(true)
+      expect((await byId()).M1.anchorState).toBe('ok')
+      const asked0 = anchorsOf(asked[0].args)
+      expect(asked0.some((a) => a.part === 'base' && a.point[0] === 2)).toBe(true)
+      expect(asked0.some((a) => a.part === 'p3')).toBe(false)
+    })
+
+    it('of the agent is judged by its anchor only: points in the air are its own, so it stays ok on an unchanged build', async () => {
+      await store.saveSketch('bracket', {
+        objectId: 'bracket',
+        layout: 'assembly',
+        revision: 1,
+        camera: CAMERA as never,
+        name: 'Own',
+        note: '',
+        take: 'rough',
+        planes: [],
+        strokes: [{ pen: 'line', points: [[0, 0, 2.5], [1, 0, 2.5]], revision: 1 }, { pen: 'points', points: [[0, 0, 400]], revision: 1 }] as never,
+        anchor: { ...ON_TOP, point: [0, 0, 2.5] }
+      }, [], { author: 'agent' })
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[2] > 100 ? 400 : 0)) })
+      await run()
+      expect(anchorsOf(asked[0].args)).toEqual([{ part: 'base', point: [0, 0, 2.5] }])
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
+    it('is not judged by a point snapped to a hole centre, which sits in the air', async () => {
+      await sketch([{ pen: 'line', points: [[0, 0, 2.5], [5, 0, 2.5], [10, 0, 2.5]], snaps: [{ i: 2, centre: 'base/E14', radius: 2 }], revision: 1 }])
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] === 10 ? 2 : 0)) })
+      await run()
+      expect(anchorsOf(asked[0].args).some((a) => a.point[0] === 10)).toBe(false)
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
+    it('is never judged by a stroke on a plane', async () => {
+      await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5], [9, 0]], revision: 1 }])
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] === 0 ? 0 : 9)) })
+      await run()
+      expect(anchorsOf(asked[0].args)).toEqual([{ part: 'base', point: [0, 0, 2.5] }])
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
+    it('is orphaned with the part its anchor is on', async () => {
+      await sketch([{ pen: 'free', points: line(3), revision: 1 }], { point: [0, 0, 2.5], part: 'gone' })
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part }) => (part === 'gone' ? { part, found: false } : found(part, `${part}/F1`, 0))) })
+      await run()
+      expect((await byId()).M1.anchorState).toBe('orphaned')
+    })
+
+    it('drawn in empty space has nothing to check, and is ok, and said to be checked', async () => {
+      await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5]], revision: 1 }], null)
+      await run()
+      expect(asked).toEqual([])
+      expect((await byId()).M1).toMatchObject({ anchorState: 'ok', checkedRevision: 1 })
+    })
+  })
+
   it('writes nothing when every mark is as the build has it, and asks nothing when no mark is on a part', async () => {
     await store.add('bracket', pin(ON_TOP))
     await run()

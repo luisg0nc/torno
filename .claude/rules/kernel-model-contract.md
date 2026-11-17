@@ -89,6 +89,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `thin`, `overhang` or `mesh` check skips them, and naming one is refused when the model loads), while a STEP may
   hold it when asked. `describe` says `role: "reference"`.
 
+- **A part's mesh carries what a window snaps a sketch to** (`tess._snap`): `points`, the B-rep's vertices as float32 xyz in
+  the order `V<i>` names them (`topo.vertices`, `TopExp.MapShapes` over vertices, the order of build123d's `shape.vertices()`;
+  `i` from 0, a circle's seam vertex counted), and `circles`, eight float32 to each edge whose curve is a circle, whole or an
+  arc (`edge, cx, cy, cz, ax, ay, az, r`), where `edge` is the `E<i>` index of `topo.edges`, the one every ref uses. Both are
+  part-local like `vertices` and `edges` (the window applies `loc`); a degenerate edge and an edge of any other curve has no
+  entry, and a straight edge's ends are two vertices of `points`. Main reads them to tell a point as exact.
 - **The scene says what the model imported (`uses`).** After the load, the worker (`loader.used_files`, from
   `sys.modules`, never from a declaration) lists the Python files under the workspace (the folder above the
   model's) that it imported from outside its own folder, `common/` included, as paths from the workspace with `/`.

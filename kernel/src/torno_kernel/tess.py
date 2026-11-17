@@ -253,7 +253,7 @@ def _part(
         "triangleCount": len(arrays["triangles"]) // 3,
         "valid": bool(shape.is_valid),
         "hash": cache_id or hashlib.sha256(vertices.tobytes()).hexdigest(),
-        "mesh": {scene_key: _append(blob, array) for scene_key, array in arrays.items()},
+        "mesh": {scene_key: _append(blob, array) for scene_key, array in {**arrays, **_snap(shape, t, q)}.items()},
     }
     if volume.reversed:
         # Which solids of the part are inside out, 0-based in OCC's order: absent of a sound part.
@@ -267,6 +267,41 @@ def _part(
         told["bboxDoubt"] = drawn_at
     told.update(_sanity(shape, arrays, volume, drawn_at))
     return told
+
+
+def _snap(shape: Any, t: list[float], q: list[float]) -> dict[str, np.ndarray]:
+    """What a window snaps a point to, exact from the B-rep and part-local like the mesh.
+
+    ``points``: every vertex, three floats each, in the order ``V<i>`` names them (``topo.vertices``). ``circles``:
+    eight floats for each edge whose curve is a circle, whole or an arc: ``edge`` (its ``E<i>`` index, ``topo.edges``),
+    the centre, the axis (a unit vector) and the radius. A degenerate edge has no curve and no entry.
+    """
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+
+    rotation, shift = _rotation(q), np.array(t)
+
+    def local(point: Any) -> np.ndarray:
+        return rotation.T @ (np.array([point.X(), point.Y(), point.Z()]) - shift)
+
+    points = np.array([local(BRep_Tool.Pnt_s(v)) for v in topo.vertices(shape)], dtype="<f4").reshape(-1, 3)
+    circles = []
+    for index, edge in enumerate(topo.edges(shape)):
+        if BRep_Tool.Degenerated_s(edge):
+            continue
+        try:
+            curve = BRepAdaptor_Curve(edge)
+            if extent._kind(curve) != "CIRCLE":
+                continue
+            circle = curve.Circle()
+            direction = circle.Axis().Direction()
+            centre = local(circle.Location())
+            axis = rotation.T @ np.array([direction.X(), direction.Y(), direction.Z()])
+            circles.append([index, *centre, *axis, circle.Radius()])
+        except Exception:
+            # An edge with no curve to read: no snap on it.
+            continue
+    return {"points": points.ravel(), "circles": np.array(circles, dtype="<f4").ravel()}
 
 
 def _sanity(shape: Any, arrays: dict[str, np.ndarray], volume: extent.Volume, drawn_at: float) -> dict[str, Any]:

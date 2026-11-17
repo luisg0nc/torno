@@ -534,10 +534,10 @@ of projects and in its empty state: a folder with no project in it leads with "M
 where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
 "What are we making?": "What is it?" (what it is for, what it must fit or hold, how it will be made) and the photos, each with a note for Claude. Under them is a
-tile for each other thing you have: "Sketch it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
+tile for each other thing you have: "Doodle it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
 becomes its cards or rows once something is in it, and "Add another" (or "Add a size") adds more. Files can be dropped anywhere on the page: a picture becomes a
 photo, `.step` and `.stp` a bought part, `.pdf` a PDF, and a scan format a scan. An image pasted with `Ctrl+V` is taken as a dropped one is (only a file on the
-disk can be: a copied file is, a screenshot has none, and the page says so). `S` opens a sketch. At the right of the page,
+disk can be: a copied file is, a screenshot has none, and the page says so). `S` opens a doodle. At the right of the page,
 "What Claude gets first" shows the first prompt as it will be sent, and under it are "Claude Code on" (the model and effort), "Start: make the project and ask Claude" and "Or make it without starting Claude".
 Each slot is:
 
@@ -545,7 +545,7 @@ Each slot is:
   (a larger picture is refused with a reason on the card, before it is decoded). HEIC, the iPhone's default, is
   not read: set the phone to Most compatible, or export as JPEG. Claude gets each one attached to its first prompt, after a line naming it ("Picture 1: reference/photo-1.jpg"),
   scaled to 1280 px on its long edge; the original is copied to `reference/photo-<n>.<ext>` in the project.
-- **Sketches** ("Sketch it", or `S`): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
+- **Doodles** ("Doodle it", or `S`): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
   over a light grid (1 square = 40 px of the board, no scale, and the prompt says so), whichever theme you drew it in, and `reference/` keeps it.
 - **Bought parts** ("Bought parts", or dropped): a vendor's STEP file (`.step` or `.stp`) of a screw, a bearing, a
   board, a motor; up to 4, 50 MB each (a larger file is refused, and is never read whole). The file is copied as it is into `reference/` under its own name
@@ -576,7 +576,7 @@ name whose model file would be taken for a test (`test_*`, `*_test`). The page s
 
 "Start" (or "Or make it without starting Claude") writes one new folder in the workspace and nothing else: `<name>/<module>.py` (a placeholder, a 20 mm
 cube, to be replaced), `brief.md` (your words and a line for each reference with its note) and `reference/`, and the project's board with what you gave in frames
-(Brief, Photos, Sketches, Sizes, Rules, Links, Bought parts, PDFs); the sizes, rules and links live on the board and in the first prompt, not in `brief.md`. The
+(Brief, Photos, Doodles, Sizes, Rules, Links, Bought parts, PDFs); the sizes, rules and links live on the board and in the first prompt, not in `brief.md`. The
 `.torno/` folder is made as for any project. It is made in a hidden temporary folder beside it and renamed into
 place as the last step, so it is whole or not there, and it never goes into or over a folder that exists (an
 empty one of that name is used). A temporary folder a crash left is swept away at the next opening of the
@@ -597,7 +597,7 @@ the scans were not imported, and the page says so and where the folder is. While
 While the page is up the window is about the project being made: no project of the list is selected (the "New project" button is pressed), the Marks
 panel gives way, and the status line says "New project" with the build123d version alone. The page shows
 the first prompt Claude Code will get, as it will be sent and read-only, filled in as you go:
-your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and sketch, with "attached"
+your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and doodle, with "attached"
 or "named only" (only the first 6 pictures go with the prompt). The session pane points to it. A session of the project that was open that is
 still running stays as it is, a question waiting in it included, under a note saying whose it is: it goes on, and
 the new project gets its own. Discard or `Esc` brings everything back as it was.
@@ -1186,6 +1186,7 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__show` | Changes your camera, layout, visible parts (a group's name stands for its parts), section, explode and scans to show you something, or puts a saved view on screen by its name; with `focus` and `margin`, as `look` takes them, it puts your camera on a ref, a mark or a box. For now only: what `.torno/scene.json` keeps stays yours. Refused while you hold a button in the viewport. |
 | `mcp__torno__save_view` | Proposes a saved view: it appears in your strip marked "proposed" until you keep or discard it. Nothing on screen changes. |
 | `mcp__torno__add_mark` | Leaves a mark of the agent's, in green: a pin, a pick, an arrow, a shape, or with `kind: 'dimension'` a dimension, measured at once and on every build like yours. A point that is not on the part is refused, saying how far off it is. |
+| `mcp__torno__add_sketch` | Draws a sketch of the agent's own, in green, with a card of it on the board: strokes of points in mm, in space or on planes it names (a main plane `XY`, `XZ` or `YZ` at an offset, a flat face moved along its normal, or an origin and a normal), with a `name`, a `note`, how literally to take it (`take`: `exact`, `rough` or `flow`, a flow sketch with the `diameter` of the route to keep clear) and a `layout`. At most 50 strokes and 2,000 points; a point that is not a number, or is far from the parts, is refused. torno works out what each stroke touches from the last build; the agent's points are told as it gave them, with no snaps. With `sketch` (`M9`) it replaces a sketch of its own, and with `remove` it takes that one away, which you can undo; a sketch of yours it only reads. `add_mark` makes no sketch. The picture of the card shows when the project is on show. |
 | `mcp__torno__resolve_mark` | Resolves a mark with a line on what was done, which you then confirm or reopen. A dimension of yours with an expected value is refused: it is your check, and only you resolve it. |
 | `mcp__torno__measure` | An exact number from the geometry. See [Measuring and dimensions](#measuring-and-dimensions). |
 | `mcp__torno__section` | The outlines a plane cuts of the parts, with their areas, and a 2D drawing of the cut. See [Section](#section). |
@@ -1226,7 +1227,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 | `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part) says what a click takes. Shift-click adds or takes out, `Esc` clears. "Insert" puts the selected refs in the session's prompt without sending it; "Note" leaves a mark on each. |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
-| `D` | Draw | Press and draw. On a locked view (an orthographic front, back, left, right, top or bottom, not turned since; a padlock shows on its button) the stroke is a profile in millimetres on the plane that faces you. With Draw in hand a standard view you choose is taken in orthographic, so it is locked at once, and perspective comes back when you turn the view; in perspective the pointer says "Ortho to draw a profile on the XZ plane". On any other view it lies on the surface. Alt-drag turns the camera with this tool in hand. |
+| `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
 | `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
 | `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
@@ -1248,6 +1249,17 @@ there. The pointer on a row, or the keys' focus in it, rings the mark's chip in 
 active one's, and lights the face it is on, as a mention of it in the chat
 does.
 
+A **3D sketch** has a row of its own: its name, how it is taken (`flow ⌀19 mm`), and how many strokes and planes it holds, with
+its comment as the row's note. In the view its strokes are lines in its author's colour, a dot where a point snapped, and a
+flow sketch with a diameter is also a translucent tube along its strokes; what hides behind a part is drawn dashed when the
+stroke was drawn in x-ray, and not drawn otherwise. The pointer on its row lights its strokes, and a click goes to its camera.
+"Edit" on the row of one of yours opens it again in Draw; Claude's is never yours to change. A sketch that is open is held back
+from your prompts until Done, and the line under the prompt says `M7 is being sketched, not sent`. When a turn ends, its line
+says `drew a sketch M9` for each sketch Claude drew. A sketch is also a card on the board, with its name, how it is taken, its
+comment and a picture drawn from its camera when you press Done; a sketch Claude drew while the project was not on show gets its
+picture when the project is next shown, and until then (and on a computer without the file) the card says the picture is not on
+this computer.
+
 A **view note** (see "Draw on view" under [The agent](#the-agent)) has a row like
 any other mark's: its number, a small picture of the view with your ink, and
 its comment as the row's note. The pointer on it lights the faces under its ink
@@ -1264,7 +1276,7 @@ the mark's row lights, and its note is read out beside the pointer on one line
 (`M1 too thin here`; for a dimension its numbers, `M3 40 mm, expected 42 ±
 0.05, 2 under`). A click on a chip makes its mark the active one and brings
 its row into view, opened, without moving the camera; for a mark of yours not
-yet sent, its note opens beside it to be written. A click on a chip is the
+yet sent, its note opens beside it to be written (a 3D sketch of yours opens in Draw, where its comment is). A click on a chip is the
 chip's whatever tool is in hand: no pin is left under it. A drag that starts on
 a chip turns the camera with Select in hand, as anywhere else; with Draw, Arrow, Shape, Region or another
 tool that drags, it goes to the tool once it has moved past a click, so a stroke may begin under a chip (and
@@ -1316,6 +1328,54 @@ the camera stays still).
   it was about keep what the last check found and say "not checked against
   r12", in their rows and wherever the agent reads them. Torno tries again
   after 2, 10 and 30 seconds, and at the next build.
+
+
+### 3D sketches
+
+With Draw in hand a sketch is open: a drawing in space that tells Claude where something goes, how it runs or what is
+meant, in millimetres in the project's own frame. A panel floats at the left of the view and a small strip of pens at its
+foot; both are there while the sketch is open.
+
+- **Planes.** A stroke lies on a **plane** or on the **surface** of the parts. A new sketch starts on the plane the view
+  faces (XY, XZ or YZ) through the middle of the parts. The plane is a sheet drawn over the parts, with a handle on its
+  normal that moves it, and a view cube at the top right of the view (XY, XZ, YZ). `Shift+1`, `Shift+2` and `Shift+3`
+  take the main planes; `N` takes the plane of the flat face under the pointer; "+ New plane" in the panel makes one from
+  a face you click or from a point (across the face there, or along an axis); `U` goes back to the surface. The offset of
+  the plane is typed in the panel (`Tab` takes you to its field). Where strokes already lie on a plane, moving it makes a
+  plane of its own, so that they stay where they were drawn.
+- **Pens.** `B` is the freehand pen, `L` a straight line (press and drag, or click twice), `P` point to point (a click
+  for each point, `Enter` ends it), `C` the eraser (a click takes the stroke under the pointer). The
+  strip at the foot of the view has a button for each, with its key, and two switches. While a segment is drawn the
+  figures type its length and `Enter` fixes it; `Backspace` takes the last point or figure back.
+- **Snapping.** The pointer snaps to a vertex, to the centre of a hole or a circle, or to a point on an edge, within 10
+  px, and a box beside it says to what. A point on a plane is the snap projected onto it. `Ctrl` held turns snapping off
+  for as long as it is held; the **Snap** switch turns it off for good. Claude is told a point is exact only when it is a
+  vertex, a circle's centre or a point on a straight or circular edge, which torno checks again against the build; any
+  other point is told to a tenth of a millimetre and as approximate.
+- **X-ray.** `I`, or the **X-ray** switch, draws the parts see-through, so that strokes can be drawn on what is hidden.
+  What lies behind a part is drawn dashed in a stroke that was drawn in x-ray, and not drawn otherwise.
+- **How to take it.** **Exact** (follow these points to the millimetre), **Rough** (the shape and the place matter, not
+  the points) or **Flow** (a route: follow its path loosely, and keep its diameter clear). `K` goes to the next. A flow
+  has a diameter, 500 mm at most, and is drawn as a translucent tube along its strokes.
+- **The view's keys.** Fit, `1` to `4`, explode and orthographic work while you sketch. `X` shows or hides the cut the
+  view already has, and the sketch stays open; with no cut it does nothing. A new cut is made by picking Section in the
+  palette, which ends the sketch as Done.
+- **The panel.** The sketch's number and whether it is a draft or sent, its name, how to take it, a row for each plane
+  with how many strokes lie on it and one for the surface (a click makes it the one strokes go on; the pointer on it
+  lights its strokes), the offset, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
+  gives up a stroke under way, then leaves the sketch; what was drawn is kept. A sketch holds 200 strokes, 400 points a
+  stroke and 20,000 in all.
+- **What Claude gets.** A sketch is a draft until it goes with your next prompt, as words only, never a picture: its
+  planes and how each was made, each stroke's pen, plane, length and the faces it touches in the build it was drawn on,
+  its points (`exact: centre of plate/E4 (r 4)`, or `approximate`), how to take it, the diameter of a flow, and the camera
+  it was drawn from. A sketch that is open waits: it is not sent until Done. Each stroke and plane says which build it was
+  drawn on, and Claude is told when the model has been built again since.
+- **Afterwards.** A sketch has a row in the Marks list, a card on the board and its strokes in the view, in your
+  colour; **Edit** on its row, a click on its chip while it is a draft, or a double click on its card opens it again in
+  Draw. Claude draws sketches of its own with `add_sketch`, in green; it is not yours to change. The stroke marks of
+  earlier versions, which Draw no longer makes, are still listed and drawn.
+
+The keys of a sketch are in [Keys](#keys), under "With a tool in hand".
 
 ## Measuring and dimensions
 
@@ -1694,7 +1754,7 @@ you pin, with "Pin to board":
   Checks section of that panel, each passing or failing. Each is on a board once: pinning it again says so.
 
 You make **text** cards (a web address in one shows as a link, and a click on it opens it in your browser), **size** cards (below), **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
-Claude is sent is scaled down by the window first), **sketch** cards (drawn with the same ink pad as the doodles), named
+Claude is sent is scaled down by the window first), **doodle** cards (drawn with the Doodle tool on the same ink pad as a new project's doodles), named
 **frames** and **arrows** between cards, with an optional word on them. A card dropped inside a frame belongs to it, and a frame
 dragged takes its cards along. Claude's cards have a green edge; Claude makes text and pictures of the view (below) and
 never moves, edits or removes one of yours or one torno made.
@@ -1702,7 +1762,7 @@ never moves, edits or removes one of yours or one torno made.
 **Moving around.** The wheel or two fingers pan; `Ctrl` and the wheel, or a pinch, zoom about the pointer (10 % to 400 %); a
 middle or right drag, or `Space` and a drag, pan; `Shift+1` fits every card. A small map in the corner shows the board and
 what is on screen: click or drag in it to go there. The tools are in a palette at the foot: Select `V`, Text `N`, Frame `F`,
-Arrow `A`, Size `M`, Picture `I`, Sketch `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
+Arrow `A`, Size `M`, Picture `I`, Doodle `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
 one. `Delete` removes what is selected (the cards that came by themselves are hidden), and `Ctrl+Z` takes back the last changes
 you made here, up to 50. A board holds 2000 cards and a text card 4000 characters.
 
@@ -1720,7 +1780,7 @@ The card shows the value and unit large, in the face of numbers, then what it me
 |---|---|
 | Brief | opens `brief.md` in your editor |
 | Photo of `reference/` | opens it large (`Esc` puts it away); any other file is shown in its folder |
-| Mark | shows the model with the mark selected; the card of a view note opens its sheet over the note (to change it), and shows the model first |
+| Mark | shows the model with the mark selected; the card of a view note opens its sheet over the note (to change it), and shows the model first; the card of one of your 3D sketches opens it again in Draw, from its camera |
 | Scan | shows the model with the scan on |
 | Build | shows the model and opens Compare with the live build (nothing for a build this computer does not have) |
 | View | shows the model with that view on |
@@ -1729,7 +1789,7 @@ The card shows the value and unit large, in the face of numbers, then what it me
 | Size | opens its form (yours only) |
 | STEP file, PDF | shows the file in its folder |
 | Picture | opens it large; one Claude drew of the view goes to the model with its camera |
-| Sketch | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
+| Doodle | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
 | Frame | renames it (yours only) |
 | Arrow | edits its word |
 
@@ -1763,7 +1823,7 @@ make to the board: before writing it compares the file with what it last wrote, 
 on top of it, and shows you the result. A pull is therefore seen at the next change, not at once. A file torno cannot read, or
 with cards that are not whole, is kept beside it (`board.json.corrupt-…`, `board.json.dropped-…`) and the board says so, with
 "Dismiss". Undo (`Ctrl+Z`) goes back up to 50 changes made in this window, and brings back what torno took off in this run. The
-pictures torno let go of (a removed card's, a sketch drawn on again) are listed in `dropped.json` beside them and deleted when
+pictures torno let go of (a removed card's, a doodle drawn on again) are listed in `dropped.json` beside them and deleted when
 the project is first opened in a later run, unless a card has them again or a file kept aside names them
 (`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on
 that list is never deleted, whatever the board names: switching branch never takes one.
@@ -1905,7 +1965,7 @@ the pointer, which has no keys:
 <!-- pointer: generated from POINTER in app/src/shared/pointer.ts; `TORNO_README=write pnpm -C app exec vitest run src/readme.test.ts` writes it -->
 | Pointer | What it does |
 |---|---|
-| Drag | Turn the view about the point under the pointer; with Arrow or Draw in hand, a drag that starts on the part draws instead |
+| Drag | Turn the view about the point under the pointer; with Arrow in hand a drag that starts on the part draws instead, and with Draw in hand a drag draws (Alt-drag turns the view) |
 | Right drag | Pan the view (a middle drag does too) |
 | Scroll | Zoom, towards the pointer |
 | Double click | With Measure in hand: measure something round, its diameter or its radius |
@@ -1933,7 +1993,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Viewport | `X` | Section: cut the parts by a plane |
 | Viewport | `P` | Pin: click a point and leave a note |
 | Viewport | `A` | Arrow: drag from a point |
-| Viewport | `D` | Draw: a stroke on the surface, or on a locked view |
+| Viewport | `D` | Draw: a sketch in 3D, on planes or on the surface |
 | Viewport | `S` | Shape: place a box, a cylinder, a sphere or a plane |
 | Viewport | `B` | Region of a scan: paint what something is |
 | Viewport | `L` | Align scan: stand a scan where the model is |
@@ -1956,6 +2016,22 @@ until the camera is first moved; the window remembers that in its own storage, n
 | With a tool in hand | `E` | Region: paint or rub out |
 | With a tool in hand | `Z` | Region: undo the last stroke |
 | With a tool in hand | `Enter` | Region: keep what is painted |
+| With a tool in hand | `B` | Sketch: the freehand pen |
+| With a tool in hand | `L` | Sketch: the line pen, press and drag or click twice |
+| With a tool in hand | `P` | Sketch: the point to point pen, a click for each point |
+| With a tool in hand | `C` | Sketch: the eraser, a click takes the stroke under the pointer |
+| With a tool in hand | `Shift+1` `Shift+2` `Shift+3` | Sketch: draw on the XY, XZ or YZ plane |
+| With a tool in hand | `N` | Sketch: draw on the plane of the face under the pointer |
+| With a tool in hand | `U` | Sketch: draw on the surface of the parts |
+| With a tool in hand | `Tab` | Sketch: type how far the plane is moved |
+| With a tool in hand | `I` | Sketch: draw the parts see-through, or solid again |
+| With a tool in hand | `K` | Sketch: how literally it is taken, exact, rough or flow |
+| With a tool in hand | `0` `1` `2` `3` `4` `5` `6` `7` `8` `9` `.` | Sketch: type the length of the segment being drawn (with none under way, the figures are the views) |
+| With a tool in hand | `Enter` | Sketch: fix the length typed, or end a point to point line |
+| With a tool in hand | `Backspace` | Sketch: take the last point or figure back |
+| With a tool in hand | `Ctrl+Z` | Sketch: undo the last stroke, or the last erase |
+| With a tool in hand | `Ctrl` | Sketch: hold it while drawing to turn snapping off |
+| With a tool in hand | `Esc` | Sketch: give up the stroke under way, then leave the sketch (it is kept) |
 | With a shape in hand | `G` `R` `T` | Move, rotate or size the shape with its handles |
 | Board | `Ctrl+Tab` | The board of the project, or the model again |
 | Board | `Shift+1` | Board: fit all the cards |
@@ -1965,7 +2041,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Board | `A` | Board, Arrow: draw from one card to another |
 | Board | `M` | Board, Size: a card for a size you know |
 | Board | `I` | Board, Picture: add a photo from a file |
-| Board | `S` | Board, Sketch: draw on a card |
+| Board | `S` | Board, Doodle: draw on a card |
 | Board | `Space` | Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms) |
 | Board | `Ctrl+Enter` | Board: send the selected cards with the next prompt |
 | Board | `Delete` `Backspace` | Board: remove the selected cards and arrows (those that came by themselves are hidden) |
@@ -1978,7 +2054,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Page of projects | `Enter` | In the filter: open the first card |
 | Page of projects | `Down` | In the filter: down to the cards |
 | New project | `Esc` | Leave the page, asking first when something is in it; on the doodle board, put the board away |
-| New project | `S` | Sketch: open the doodle board (not heard in a field) |
+| New project | `S` | Doodle: open the ink pad (not heard in a field) |
 | Session | `Shift+Enter` | A new line in the prompt, not a send |
 | Session | `Ctrl+Shift+C` | Copy what is selected in the terminal |
 | Session | `Ctrl+Shift+V` | Paste into the terminal |
@@ -2028,7 +2104,7 @@ place.
 | `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured | travels |
 | `scans.json` | the scans of the project: where each source file is and its hash, how it was imported, and its alignment in each layout | travels |
 | `board/board.json` | the board (see "The board"): its cards with their places, sizes and text, the frames and the arrows; for a card that shows a build, a copy of what it says | travels |
-| `board/pictures/` | the pictures and sketches of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
+| `board/pictures/` | the pictures and doodles of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
 | `board/told.json` | what Claude was last told of each card, so that only what is new is said | ignored |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
 | `profile.json` | the printer and material the project is made for (a copy of your choice under "Print profile") | travels with the project |
@@ -2362,7 +2438,7 @@ torno has since stopped running); what it drew
 was taken from the compositor and looked at afterwards. The first start drew
 the parts on the GPU at 60 frames a second on both platforms. Only one torno:
 a second start exited and the first opened the folder it was given. There is
-no menu, also on Alt. Alt-drag with the Draw tool turned the camera and drew
+no menu, also on Alt. Alt-drag with the old one-stroke Draw tool turned the camera and drew
 nothing (sent as events; no binding of the compositor's was in the way).
 `hyprctl clients` showed class `torno`. Light and dark were legible in both
 themes. A large project's thumbnail was on its card at once and the window did
@@ -2416,6 +2492,7 @@ On the screen:
 - **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
+- **The sketch panel, the sketches in 3D and their cards, by eye.** The panel at the left of the view (its rows, the segmented take, the diameter, the offset, the comment) beside the palette of tools and clear of the triad, in light and dark and in a narrow view; the lines of a sketch at 2.5 px in both mark colours, the dots of its snaps, the tube of a flow sketch at about a quarter of its colour, the dashes of an x-ray stroke behind a part, and the strokes lit by the pointer on a plane's row; a sketch's row at the panel's default width, still one line; and its card with the picture drawn from its camera, and the placeholder.
 - **The notes that wait, and the note rows and cards.** The row above the box for each draft note (its picture with the ink, its comment, what the ink lies over, "Edit" and "Remove" with its "Undo"); the row of a note in the Marks list (the small picture, its comment, the faces lit under the pointer, the empty frame of a note whose picture is not on this computer); and a note's card on the board (the picture in the card's size, the comment and status under it, the double click that opens the sheet): each legible in both themes, and the rows still one line at the panel's default width.
 - **Claude Code's own checkpoints for the asked undo (`Part of #131`).** When no copy of the build is kept, "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>
@@ -2466,7 +2543,7 @@ On the screen:
 - **The turn summary, its builds and its buttons.** After a turn, the summary line, the strip of pictures of its builds (the dashed start, a failed build, the pictures themselves, which a test never sees), the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.
 - **The doodle board's grid.** The grid is faint on the board in light and dark, and is not in the PNG Claude gets.
-- **The board of a new project.** Make a project from a page with photos, a sketch, a few sizes, rules, a link and a PDF: it opens on its board, with a frame for each (Brief, Photos, Sketches, Sizes, Rules, Links, PDFs) laid left to right, nothing over anything else, legible in light and dark, and the cards of a frame sit inside it when the board is zoomed out to the whole.
+- **The board of a new project.** Make a project from a page with photos, a doodle, a few sizes, rules, a link and a PDF: it opens on its board, with a frame for each (Brief, Photos, Doodles, Sizes, Rules, Links, PDFs) laid left to right, nothing over anything else, legible in light and dark, and the cards of a frame sit inside it when the board is zoomed out to the whole.
 - **Size cards.** With `M` and a click make a size card: the form sits over the place the card will take, the unit and source lists open with the pointer and give the keys back when one is chosen, and the card reads at 100 % and when zoomed out, with the value large in the face of numbers, in both themes. The page of a new project has the same fields in rows.
 - **STEP and PDF cards, and a link.** A PDF or a STEP file of `reference/` is a card with its name and kind; a double click shows it in your file manager, and a click on a web address in a text card opens it in your default browser (a test only has a stand-in for the system's opener).
 - **The prompt preview of a new project.** The preview of the first prompt reads clearly and matches what is sent.

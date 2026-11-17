@@ -28,7 +28,7 @@ const ASIDE_READ = 8_000_000
 
 /** The files `marks.json` was copied to when it could not be read, or had marks left out (`marks.json.corrupt-<time>`, `marks.json.dropped-<time>`). */
 const ASIDE = /^marks\.json\.(?:corrupt|dropped)-/
-const NAMED = /\b(?:n-[0-9a-f]{12}(?:\.ink)?\.png|r-[0-9a-f]{12}\.(?:png|jpg))\b/g
+const NAMED = /\b(?:n-[0-9a-f]{12}(?:\.ink)?\.png|k-[0-9a-f]{12}\.png|r-[0-9a-f]{12}\.(?:png|jpg))\b/g
 
 /**
  * The note pictures named anywhere in the files kept aside beside `marks.json`: they are the person's pictures, git

@@ -95,4 +95,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   in place of the `≈` estimate; it is a hint, never a gate: the click is sent whatever it says. A tool is a `Tool`
   (`src/renderer/tools/Tool.ts`) and gets every pointer event the chips of the marks do not take from the one
   subscription in `ui/ViewportPane.tsx`. Nothing of a pointer move goes
-  through React or the store.
+  through React or the store. **The Draw tool is a 3D sketch** (`tools/sketchTool.ts`, `state/sketching.ts`): its keys
+  are the scope `sketch`, which has the key before the viewport and may take a letter of a mark tool, but never a key of the
+  view (fit, `1`-`4`, explode, section, ortho: `keys.test.ts`); the figures are the length of a segment only while one is
+  drawn. While a sketch is open `X` (`tool.section`) is the sketch tool's: it shows or hides the view's existing cut (`viewport.setSection(null)` or the store's plane, the store untouched, shown again when the tool is put down) and `ToolPalette` does not pick Section for it; a new cut still means picking Section, which ends the sketch as Done. Shift with a letter is that letter, so no sketch key is Shift and a letter; the planes are `Shift+1`, `Shift+2`,
+  `Shift+3`. `Ctrl` held is read off the pointer event (`ViewportPointer.ctrl`), and `Ctrl+Z` has its own listener
+  (`connectSketching`), the viewport pane handing no chord to a tool. What it lays over the view (the hint, the label of its
+  plane, the view cube) is drawn by `OverlayPass`, and the sheet of the plane and its handle by `SketchSheet`, never through React.
+  The strip of pens (`ui/sketch/SketchPens.tsx`, `.sketchpens` in `styles/sketch.css`, at the foot of the view above the triad as the Measure strip is) is shown while Draw has a sketch open: Free, Line, Point to point and Erase, then Snap and X-ray as switches, each a real `<button>` with its key from `hint()` and calling the actions the keys call (`setPen`, `setSnapping`, `setXray`), so a key and a button never disagree. Snap has no key of its own: it shows `Ctrl`, which turns it off while held.

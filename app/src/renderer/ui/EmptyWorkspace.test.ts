@@ -11,7 +11,7 @@ describe('the empty workspace', () => {
     const page = html()
     const at = (s: string): number => page.indexOf(s)
     expect(at('Make your first project')).toBeGreaterThan(-1)
-    expect(page).toContain('Say what it is, add photos or a sketch, and Claude Code writes the model.')
+    expect(page).toContain('Say what it is, add photos or a doodle, and Claude Code writes the model.')
     expect(at('Make your first project')).toBeLessThan(at('New project'))
     expect(at('New project')).toBeLessThan(at('open the example to look around'))
     expect(at('open the example to look around')).toBeLessThan(at('Already have build123d models?'))

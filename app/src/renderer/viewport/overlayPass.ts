@@ -8,6 +8,8 @@ import type { Placed } from './marks/labels'
 import { markPoints } from './marks/markObjects'
 import { chipAt, mmPerPx } from './marks/labels'
 import { SCALE_BAR_MAX, SCREEN_UNIT, chipSize, drawFrameCues, drawLabels, type LabelStyle } from './overlay'
+import { type SketchOverlay, drawSketchOverlay } from './sketchHint'
+import type { CubeFace } from './viewCube'
 
 const ORIGIN = new THREE.Vector3()
 
@@ -40,6 +42,10 @@ export class OverlayPass {
   brush: BrushRing | null = null
   /** The value of the last measurement, at the middle of its line: a readout, in ink, in no picture. */
   held: { at: Vec3; text: string } | null = null
+  /** What a sketch lays over the view: the hint beside the pointer, its plane's label, the view cube; null when none is being drawn. */
+  sketch: SketchOverlay | null = null
+  /** The faces of the view cube as the last frame drew them: what a click on it is told against. Empty when there is none. */
+  cube: CubeFace[] = []
   /** The chips of the marks as the last frame placed and drew them: what the pointer is on is read from these, not worked out again. */
   private chips: Placed[] = []
   /** Draw no chips of marks (and find none under the pointer): what is on the canvas is not the build they were made on. */
@@ -74,6 +80,7 @@ export class OverlayPass {
     ctx.stroke()
     ctx.globalAlpha = 1
     this.chips = []
+    this.cube = []
   }
 
   draw(size: { width: number; height: number }): void {
@@ -88,6 +95,7 @@ export class OverlayPass {
     this.drawFrame(ctx, size, style)
     // Not while the parts are drawn apart: a point picked on the model would be drawn where its part is not.
     if (host.exploded?.()) return
+    this.cube = this.sketch ? drawSketchOverlay(ctx, this.sketch, host.camera(), size, { accent: style.accent, ink: style.ink, paper: style.paper, hairline: host.frame().muted }) : []
     drawAlignPoints(ctx, this.alignPoints, host.camera(), size, { accent: style.accent, paper: style.paper })
     drawHeldValue(ctx, this.held, host.camera(), size, { ink: style.ink, paper: style.paper })
     drawBrushRing(ctx, this.brush, host.camera(), size, { mark: style.user, paper: style.paper })

@@ -21,7 +21,9 @@ import { pointerMoved } from '../state/step'
 import { endReplace, setTool, toolStore, type ToolName } from '../state/tools'
 import { alignTool, connectAlign } from '../tools/alignTool'
 import { arrowTool } from '../tools/arrowTool'
-import { drawTool } from '../tools/drawTool'
+import { connectSketching, sayRefusal, sketchTool } from '../tools/sketchTool'
+import { MissingPictures } from '../state/sketchPictures'
+import { editSketch, leaveSketch, setSketchEnv, sketchStore } from '../state/sketching'
 import { measureTool } from '../tools/measureTool'
 import { commitMark, replaceMark } from '../tools/pickMarks'
 import { pinTool } from '../tools/pinTool'
@@ -46,6 +48,8 @@ import { NotePopover } from './NotePopover'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { Selection } from './Selection'
+import { SketchPanel } from './sketch/SketchPanel'
+import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
 import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
@@ -250,7 +254,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
 
   // The one pointer subscription: every event goes to the chips of the marks first (`markChips`), then to the tool
   // in use, and to none while the parts are stale (`routePointer`). Tools made by later tasks are added here.
-  const tools: Partial<Record<ToolName, Tool>> = { select: selectTool(), pin: pinTool(), arrow: arrowTool(), draw: drawTool(), shape: shapeTool(), section: sectionTool(), measure: measureTool(), align: alignTool(), region: regionTool() }
+  const tools: Partial<Record<ToolName, Tool>> = { select: selectTool(), pin: pinTool(), arrow: arrowTool(), draw: sketchTool(), shape: shapeTool(), section: sectionTool(), measure: measureTool(), align: alignTool(), region: regionTool() }
   let tool = tools[toolStore.getState().tool]
   // A chip in the view points at its mark, and a click on one opens it, whatever tool is in hand.
   const chips = markChips({
@@ -277,8 +281,11 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       if (!mark || !s.objectId) return
       // Its row opens, in view; the camera stays: the person is looking at it.
       goToRow(id)
-      // A mark of the person's not yet sent: its note opens beside it, to be written.
-      if (mark.author === 'user' && mark.status === 'draft') actions.openNote({ objectId: s.objectId, layout: s.layout, id })
+      // A mark of the person's not yet sent: its note opens beside it, to be written; a 3D sketch of theirs opens in Draw instead, where its comment is.
+      if (mark.author === 'user' && mark.status === 'draft') {
+        if (mark.kind === 'sketch') void editSketch(mark)
+        else actions.openNote({ objectId: s.objectId, layout: s.layout, id })
+      }
     },
     // A tool that takes presses has the drag that starts on a chip once it passes the click threshold.
     tool: {
@@ -305,6 +312,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     viewport.canvas.style.cursor = tool?.cursor ?? ''
     // The plane of a section has its handle while it is the pointer's to drag.
     viewport.showSectionHandle(tool?.id === 'section')
+    // The Draw tool opens its sketch as it is taken up: nothing is written until the first stroke.
+    tool?.activate?.(context())
   }
   pickUp()
   const offTool = toolStore.subscribe((now, before) => {
@@ -353,6 +362,32 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   viewport.setExplode(explodeNow(store.getState()))
   // The gizmo on the active mark while it is a shape, and the keys that say what it does.
   const offShape = connectShapeEdit(viewport)
+  // What a 3D sketch needs of the window: the project on show, the picture of its card (drawn as `look` draws, from the camera of the sketch), and where a refusal is said.
+  setSketchEnv({
+    marks: window.torno.marks,
+    here: () => {
+      const s = store.getState()
+      if (!s.objectId || !s.scene) return null
+      const { min, max } = viewport.bounds()
+      return { objectId: s.objectId, layout: s.layout, revision: s.revision, camera: viewport.getCamera(), centre: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2] }
+    },
+    picture: async (camera) => (await look(viewport, { view: camera, size: 1280, marks: true })).png,
+    say: sayRefusal
+  })
+  const offSketching = connectSketching(viewport)
+  // The cards of the sketches that have no picture (Claude's, drawn while the project was not on show) get theirs when it is shown: one at a time, each in a turn of its own.
+  const pictures = new MissingPictures({
+    later: (run) => void setTimeout(run, 30),
+    busy: () => sketchStore.getState().open !== null,
+    draw: async (mark) => {
+      const s = store.getState()
+      if (!s.scene || !s.scene.layouts.includes(mark.layout)) return null
+      return (await look(viewport, { view: mark.camera, layout: mark.layout, size: 1280, marks: true })).png
+    },
+    keep: (objectId, id, png) => window.torno.marks.sketchPicture(objectId, id, png)
+  })
+  const offered = (s: TornoState): void => pictures.offer(s.objectId !== null && s.scene !== null ? s.objectId : null, s.marks)
+  offered(store.getState())
 
   // How long an old build may take to come before the status line says it is being made again from its copy.
   const BUILDING_SAID_MS = 300
@@ -437,6 +472,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     if (s.section !== prev.section) viewport.setSection(s.section)
     if (s.selection !== prev.selection && s.objectId === prev.objectId && s.scene === prev.scene && s.layout === prev.layout) reportSelection(s)
     if (s.marks !== prev.marks || shown(s) !== shown(prev)) viewport.setMarks(s.marks, shown(s))
+    if (s.marks !== prev.marks || s.scene !== prev.scene || s.objectId !== prev.objectId) offered(s)
     if (s.activeMark !== prev.activeMark) viewport.setActiveMark(s.activeMark)
     if (s.hoveredMark !== prev.hoveredMark) viewport.setHoverMark(s.hoveredMark)
     if (s.objectId !== prev.objectId) asks.clear()
@@ -621,6 +657,10 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   return () => {
     clearTimeout(fadeTimer)
     putDown()
+    // The window goes: the sketch is closed where main can be told, and its card goes without a picture.
+    offSketching()
+    leaveSketch()
+    setSketchEnv(null)
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', endGhosts, true)
     viewport.canvas.removeEventListener('pointerdown', endGhosts, true)
@@ -744,6 +784,8 @@ export function ViewportPane() {
           <SectionBar viewport={viewport} />
           <AlignBar />
           <RegionBar />
+          <SketchPanel />
+          <SketchPens />
           <AgentLine />
           <QuestionCard where="view" />
           <ToolHint />

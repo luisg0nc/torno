@@ -120,7 +120,7 @@ const HEX = /^#[0-9a-f]{6}$/i
 const middle = (a: Vec3, b: Vec3): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]
 
 /** A mark as a page tells it, on the build `revision`: a dimension with the value and the verdict torno has of that build, or with the words that say it has none. */
-function exportMark(mark: Exclude<Mark, { kind: 'region' | 'note' }>, revision: number, boxes: Record<string, { min: Vec3; max: Vec3 }>): ExportMark {
+function exportMark(mark: Exclude<Mark, { kind: 'region' | 'note' | 'sketch' }>, revision: number, boxes: Record<string, { min: Vec3; max: Vec3 }>): ExportMark {
   const part = markAnchors(mark)[0]?.part
   const ends = markEndParts(mark, boxes)
   const said: ExportMark = {
@@ -169,7 +169,7 @@ function exportMark(mark: Exclude<Mark, { kind: 'region' | 'note' }>, revision: 
   }
 }
 
-const exportable = (mark: Mark): mark is Exclude<Mark, { kind: 'region' | 'note' }> => mark.kind !== 'region' && mark.kind !== 'note' && mark.anchorState !== 'orphaned'
+const exportable = (mark: Mark): mark is Exclude<Mark, { kind: 'region' | 'note' | 'sketch' }> => mark.kind !== 'region' && mark.kind !== 'note' && mark.kind !== 'sketch' && mark.anchorState !== 'orphaned'
 
 /** The colour of each part as torno draws it, by name: the one the person gave it, or the palette's. */
 export function partColors(scene: Scene, file: SceneFile): Map<string, string> {
@@ -197,7 +197,7 @@ export function switchedOff(scene: Scene, file: SceneFile): Set<string> {
  * part is gone, not a resolved one unless those are ticked, and not one that is only on parts left out of the
  * file (it would be on nothing there).
  */
-function marksGoing(marks: readonly Mark[], req: ExportRequest, left: ReadonlySet<string>): Array<Exclude<Mark, { kind: 'region' | 'note' }>> {
+function marksGoing(marks: readonly Mark[], req: ExportRequest, left: ReadonlySet<string>): Array<Exclude<Mark, { kind: 'region' | 'note' | 'sketch' }>> {
   return marks.filter(exportable).filter((mark) => {
     if (mark.status === 'resolved' && req.resolved !== true) return false
     const on = markAnchors(mark).map((anchor) => anchor.part).filter((part): part is string => part !== undefined)

@@ -40,6 +40,18 @@ describe('the account of a turn', () => {
     expect(summaryParts(turnSummary(itemsOfTurn(items, 't1')))).toEqual(['hollow.py edited ×2', 'r1 → r3 ok', 'resolved M1', 'added M5', 'M3 now passes'])
   })
 
+  it('says the sketches it drew, and the ones it drew again', () => {
+    const made = (id: string, n: number): ChatItem => tool(id, 'mcp__torno__add_sketch', { name: 'Hose' }, { result: `made in layout main: M${n} · sketch "Hose" · flow ⌀19 mm · 2 strokes on 1 plane · sent, drawn on build 3\nrevision r3` })
+    const one = [user, prompt(1), made('s1', 9), end]
+    expect(summaryParts(turnSummary(itemsOfTurn(one, 't1')))).toEqual(['drew a sketch M9'])
+    expect(isEmpty(turnSummary(itemsOfTurn(one, 't1')))).toBe(false)
+    const more = [user, prompt(1), made('s1', 9), made('s2', 10), tool('s3', 'mcp__torno__add_sketch', { sketch: 'M9' }, { result: 'replaced in layout main: M9 · sketch "Hose" · rough · 1 stroke on 1 plane · sent, drawn on build 3' }), end]
+    expect(summaryParts(turnSummary(itemsOfTurn(more, 't1')))).toEqual(['drew sketches M9, M10', 'drew M9 again'])
+    // One that was refused, or taken away, is not a sketch drawn.
+    const refused = [user, prompt(1), tool('s1', 'mcp__torno__add_sketch', {}, { result: 'a sketch needs a name', state: 'error' }), tool('s2', 'mcp__torno__add_sketch', { sketch: 'M9', remove: true }, { result: 'removed M9, your sketch "Hose": it is gone' }), end]
+    expect(summaryParts(turnSummary(itemsOfTurn(refused, 't1')))).toEqual([])
+  })
+
   it('says a build that failed and then passed, and one that failed last', () => {
     const edits = (last: 'ok' | 'failed'): ChatItem[] => [user, prompt(2), tool('e1', 'Edit', { file_path: '/p/a.py' }), build('b1', 'e1', 'failed'), tool('e2', 'Edit', { file_path: '/p/a.py' }), build('b2', 'e2', last, last === 'ok' ? 3 : undefined), end]
     expect(summaryParts(turnSummary(itemsOfTurn(edits('ok'), 't1')))).toEqual(['a.py edited ×2', 'r2 → r3 ok after 1 failed build'])

@@ -3,7 +3,7 @@ import type { BuildState } from '../shared/build'
 import type { Part, Scene } from '../shared/scene'
 import type { ViewState } from '../shared/view'
 import type { ObjectInfo } from '../shared/workspace'
-import type { Mark } from '../shared/marks'
+import type { Mark, SketchMark } from '../shared/marks'
 import type { InstructionFile } from '../shared/instructions'
 import { instructionsLine } from '../shared/instructions'
 import type { ScanAlignment, ScanInfo } from '../shared/scans'
@@ -16,6 +16,7 @@ import { join } from 'node:path'
 import type { BoardFile } from '../shared/board'
 import { BoardStore } from './board/store'
 import { boardLine } from './board/text'
+import { openSketch, sketchHandlers } from './sketches/ipc'
 
 const BRACKET: ObjectInfo = { id: 'bracket', name: 'bracket', dir: '/ws/bracket', model: 'bracket.py' }
 
@@ -454,6 +455,95 @@ describe('contextFor', () => {
       const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', marks)
       expect(context.text).toBe([STATUS, 'Open marks: M1, M2'].join('\n'))
       expect(context.sentMarkIds).toEqual([])
+    })
+
+    describe('a 3D sketch', () => {
+      const sketch = (n: number, over: Partial<SketchMark> = {}): Mark =>
+        ({
+          id: `M${n}`,
+          kind: 'sketch',
+          author: 'user',
+          note: '',
+          status: 'draft',
+          anchorState: 'ok',
+          layout: 'assembly',
+          revision: 3,
+          camera: CAMERA,
+          createdAt: '2026-10-09T12:00:00.000Z',
+          checkedRevision: 3,
+          name: 'Hose',
+          take: 'rough',
+          planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }],
+          strokes: [{ pen: 'line', plane: 1, points2d: [[0, 0], [10, 0]], revision: 3, touches: [] }],
+          ...over
+        }) as Mark
+      const d = (sketching: string | null): ContextDeps => ({ ...deps({ build: OK, scene: SCENE }), sketching: () => sketching })
+      const lines = (marks: Mark[], sketching: string | null): string[] => contextFor(d(sketching), 'bracket', marks).text.split('\n')
+
+      it('is told as a line and the text of its planes and strokes, and is sent', () => {
+        const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [pin(1), sketch(7)])
+        expect(context.text.split('\n')).toContain('M7 · sketch "Hose" · rough · 1 stroke on 1 plane · draft, drawn on build 3')
+        expect(context.text).toContain('plane 1: XY at z = 0.0')
+        expect(context.text).toContain('stroke 1: straight line on plane 1, 10 mm long')
+        expect(context.text).toContain('Take it roughly')
+        expect(context.sentMarkIds).toEqual(['M1', 'M7'])
+        expect(context.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+      })
+
+      it('is held back while it is open for editing: the other drafts go, it does not, and it is not marked sent', () => {
+        const context = contextFor(d('M7'), 'bracket', [pin(1), sketch(7), pin(2)])
+        const said = context.text.split('\n')
+        expect(said).toContain(line(1))
+        expect(said).toContain(line(2))
+        expect(context.text).not.toContain('sketch "Hose"')
+        expect(context.text).not.toContain('plane 1')
+        expect(context.text).not.toContain('Open marks')
+        expect(said).toContain('M7 is being sketched, not sent.')
+        expect(context.sentMarkIds).toEqual(['M1', 'M2'])
+        // The window is told which, for the line under the prompt.
+        expect(context.sketching).toBe('M7')
+      })
+
+      it('is held back alone, and the prompt still says so', () => {
+        const context = contextFor(d('M7'), 'bracket', [sketch(7)])
+        expect(context.text).toBe([STATUS, 'M7 is being sketched, not sent.'].join('\n'))
+        expect(context.sentMarkIds).toEqual([])
+      })
+
+      it('goes with the next prompt once Done is said, and the others do not wait for it', () => {
+        const here = sketchHandlers({ object: () => BRACKET } as never)
+        const opened: ContextDeps = { ...deps({ build: OK, scene: SCENE }), sketching: openSketch }
+        here.sketching('bracket', 'M7')
+        expect(contextFor(opened, 'bracket', [sketch(7)]).sentMarkIds).toEqual([])
+        here.sketching('bracket', null)
+        const done = contextFor(opened, 'bracket', [sketch(7)])
+        expect(done.sentMarkIds).toEqual(['M7'])
+        expect(done.text).not.toContain('being sketched')
+        expect(done.sketching).toBeUndefined()
+      })
+
+      it('is not held back by another sketch being open, nor when it is not a draft', () => {
+        expect(lines([sketch(8)], 'M7')).toContain('M8 · sketch "Hose" · rough · 1 stroke on 1 plane · draft, drawn on build 3')
+        // Sent already, and open: it is among the open marks as ever, with no word of a draft.
+        expect(lines([sketch(7, { status: 'sent' })], 'M7')).toEqual([STATUS, 'Open marks: M7'])
+      })
+
+      it('is not sent back when the agent made it', () => {
+        const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [sketch(7, { author: 'agent', status: 'sent' })])
+        expect(context.text).toBe([STATUS, 'Open marks: M7'].join('\n'))
+        expect(context.sentMarkIds).toEqual([])
+      })
+
+      it('tells of at most 2000 points in a prompt, and names the rest, whatever the room', () => {
+        const strokes = Array.from({ length: 5 }, () => ({ pen: 'free', plane: 1, points2d: Array.from({ length: 400 }, (_, i) => [i, 0]), revision: 3, touches: [] }))
+        const text = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [sketch(7, { strokes } as never)]).text
+        expect(text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+        // 6,000 characters hold some strokes, not all five; what is left out is counted, with where to read it.
+        expect(text).toMatch(/… \d+ more strokes?, [\d,]+ points: read them with mcp__torno__marks with ids \["M7"\]/)
+        const two = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [sketch(7, { strokes } as never), sketch(8, { strokes } as never)])
+        expect(two.sentMarkIds).toEqual(['M7', 'M8'])
+        expect(two.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+      })
     })
 
     it('says of each open mark that moved, lost its part or was not checked, and then where to get their data', () => {

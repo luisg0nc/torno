@@ -46,7 +46,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   again per move. On a chip the cursor is `pointer`, the mark is `hoverMark`ed as from its row, and the readout says
   `chipSays` (a note in the face of the UI, `Readout.note`, one line cut to its width; a dimension's numbers as a
   ref's). A click opens it whatever tool is in hand (the head ruling of #74): `goToRow` (active, row in view, the
-  camera stays as it is in view) and, for a draft of the person's, `actions.openNote`. A drag that starts on a chip
+  camera stays as it is in view) and, for a draft of the person's, `actions.openNote`; for a 3D sketch of theirs that is a draft, `editSketch` instead, since its comment is in the sketch panel (a sent one only opens its row; its Edit button opens it). A drag that starts on a chip
   is the orbit's with Select in hand. With a tool that takes presses (`ChipHost.tool`: not Select, not with the parts stale
   or apart, not with Alt) the camera is held (`Viewport.holdCamera`) from the press; past the click threshold (4 px) the
   tool is handed the press as it was made and every event after it (a tool that does not drag, as Pin, gives the camera
@@ -62,6 +62,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `noteLights`: each face of `under` once, at most 60, and only those the build shown still has: a part gone, a part switched
   off or a face index past the part's count lights nothing, so a note drawn on an earlier build lights what is left of it;
   none for a note of another layout than the one shown). A click on the row and "Go to" go to the note's camera as any mark's do.
+- **A 3D sketch** (`kind: 'sketch'`): its row is `MarkRow`'s `SketchSummary` (name, take with the diameter of a flow, `countsText`; the words are `shared/sketchText.ts`, one wording for the row, the card, the note's subject and the chip) with an Edit button for the person's own (`editSketch`; Claude's is never edited). It is drawn by `markObjects` (`addSketch`): a `Parts.stroke` line each, 2.5 px, with the casing, its behind pass drawn dashed only when the stroke has `xray` and not drawn otherwise (`userData.hiddenBehind`, shown again by `setDimmed`), a `snap` dot at each snapped point, and for a flow with a diameter a `tube` (`TubeGeometry`, `TUBE_OPACITY` 0.25) along each stroke. The pointer on its row or chip lights its strokes (`setLit`: wider, as the active mark's are), and the row of a plane in the sketch panel lights only that plane's (`MarkLayer.setLitPlane`, `sketchStore.lit`); a picture for the agent lights nothing (`MarkLayer.setLights(false)` in `asPictured`).
+  The missing pictures of its card are drawn by `state/sketchPictures.ts` (`MissingPictures`, wired in `ViewportPane`): when a project is shown, each sketch with strokes and no `picture` is drawn from its camera as `look` does, one at a time, each in a turn of its own (a 30 ms timer, never in a frame), not while a sketch is open, and once per run of the project for each sketch; main keeps it (`marks:sketchPicture`).
 - When the project has checks (`isCheck`: an open dimension with an expected value) a line heads the Marks, outside
   the list's scroll (`ui/ChecksSummary.tsx`): `Checks on r12: 3 pass · 1 fails · 1 not measured`, each count a
   button to the first such check (`goToRow`), in `--ok`, `--fail`, `--warn`, never a mark's colour. The not

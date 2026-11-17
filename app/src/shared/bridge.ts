@@ -8,7 +8,7 @@ import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './hist
 import type { ExportPlan, ExportRequest, ExportSaved } from './exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
-import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, NoteStroke, Replacement } from './marks'
+import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, NoteStroke, Replacement, SketchPlane, SketchStroke, SketchTake } from './marks'
 import type { Scene } from './scene'
 import type { SizeFact } from './size'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
@@ -75,6 +75,28 @@ export interface NoteDraft {
   comment: string
   references: NoteReferenceDraft[]
   /** Where the ink first lies over a face, when it does: main says its tag and how far its part is spread. */
+  anchor?: Anchor
+}
+
+/**
+ * A 3D sketch as the window sends it to `marks:sketch`. Without `id` it makes the sketch (on the first stroke), with `id`
+ * it replaces those fields of the person's sketch. Main checks it against the last build (`main/sketches/check.ts`): each
+ * stroke that is new or changed must be of that build and have its snaps bear out; the others are taken from what main
+ * kept. An author, a status, a picture, `touches` and what else only main says is dropped.
+ */
+export interface SketchDraft {
+  objectId: string
+  id?: string
+  layout: string
+  /** The build the window showed. */
+  revision: number
+  camera: Camera
+  name: string
+  note: string
+  take: SketchTake
+  diameter?: number
+  planes: SketchPlane[]
+  strokes: SketchStroke[]
   anchor?: Anchor
 }
 
@@ -242,6 +264,16 @@ export interface TornoBridge {
     restore(objectId: string, id: string): Promise<Mark>
     /** Puts a pin, a pick or an arrow somewhere else on a part: the same mark and note, tied where it was clicked. An arrow keeps its length and direction. */
     replace(objectId: string, id: string, placed: Replacement): Promise<Mark>
+    /**
+     * Keeps a sketch the person drew: made when the draft has no `id` (on its first stroke), else the person's sketch of that
+     * id with what the draft says. Main checks it against the last build, and answers the sketch as it keeps it (a snapped
+     * point is the kernel's, what each stroke touches is main's). Rejects, keeping nothing, with why not.
+     */
+    sketch(draft: SketchDraft): Promise<Mark>
+    /** The picture of a sketch's card, drawn by the window: a PNG, kept by main under a name of its own. */
+    sketchPicture(objectId: string, id: string, png: Uint8Array): Promise<void>
+    /** Which sketch of the object is open for editing now, or none: it is held back from prompts until it is closed. */
+    sketching(objectId: string, id: string | null): void
     onChanged(cb: (m: { objectId: string; marks: Mark[] }) => void): () => void
     /** Something about an object's marks file the person should know, said once: a file that could not be read was set aside. */
     onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
@@ -255,7 +287,7 @@ export interface TornoBridge {
     make(draft: NoteDraft): Promise<Mark>
     /** Changes a note. A new inked picture is a new file: the old one stays until the sweep when the project is next opened. */
     edit(objectId: string, id: string, patch: NoteEdit): Promise<Mark>
-    /** The bytes of a note's picture with the ink on it, the plain one or the reference at that index; null when the file is not on this computer. */
+    /** The bytes of a note's picture with the ink on it, the plain one or the reference at that index; of a 3D sketch, the picture of its card (`ink` or `plain`). Null when the file is not on this computer. */
     picture(objectId: string, id: string, which: 'ink' | 'plain' | number): Promise<Uint8Array | null>
   }
   /** Making a new object by onboarding. Calls reject with a plain message. */

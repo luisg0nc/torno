@@ -2,10 +2,10 @@ import * as THREE from 'three'
 import type { Line2 } from 'three/addons/lines/Line2.js'
 import type { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { describe, expect, it } from 'vitest'
-import type { ArrowMark, Mark, PickMark, PinMark, ShapeMark, StrokeMark, Vec3 } from '../../../shared/marks'
+import type { ArrowMark, Mark, PickMark, PinMark, ShapeMark, SketchMark, StrokeMark, Vec3 } from '../../../shared/marks'
 import { labelText, mmPerPx, rowLabel, place, project, type Label } from './labels'
 import { MarkLayer } from './MarkLayer'
-import { BEHIND, DOT_PX, LEADER_PX, build, dispose, markPoints, rescale, setActive, strokePoints } from './markObjects'
+import { BEHIND, DOT_PX, LEADER_PX, build, dispose, markPoints, rescale, setActive, setDimmed, setLit, strokePoints } from './markObjects'
 
 const CAMERA = { position: [100, -100, 80] as Vec3, target: [0, 0, 10] as Vec3, up: [0, 0, 1] as Vec3, ortho: false, fov: 35, zoom: 1 }
 const BASE = { author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '2026-10-09T10:00:00.000Z' } as const
@@ -381,5 +381,128 @@ describe('the casing of a mark\'s lines', () => {
     const object = build(arrow, COLOURS, 1)
     expect(lines(object).filter((line) => line.casing)).toEqual([])
     dispose(object)
+  })
+})
+
+describe('a 3D sketch', () => {
+  const XY = { id: 1, origin: [0, 0, 10] as Vec3, x: [1, 0, 0] as Vec3, y: [0, 1, 0] as Vec3, label: 'XY at z = 10.0 (u = +X, v = +Y)', from: { kind: 'main' as const, axis: 'XY' as const, offset: 10 } }
+  const sketch = (over: Partial<SketchMark> = {}): SketchMark => ({
+    ...BASE,
+    id: 'M7',
+    kind: 'sketch',
+    name: 'Hose route',
+    take: 'rough',
+    planes: [XY],
+    strokes: [
+      { plane: 1, points2d: [[0, 0], [10, 0], [10, 5]], pen: 'points', snaps: [{ i: 1, vertex: 'block/V1' }, { i: 2, edge: 'block/E4', approx: true }], revision: 1 },
+      { points: [[0, 0, 5], [2, 0, 5]], pen: 'free', revision: 1 }
+    ],
+    ...over
+  })
+  /** The fat lines of the stroke drawings, front pass last of each pair. */
+  const strokes = (object: THREE.Object3D): THREE.Object3D[] => object.children.filter((c) => c.name === 'line')
+  const passes = (group: THREE.Object3D): Array<{ line: Line2; material: LineMaterial }> => group.children.map((line) => ({ line: line as Line2, material: (line as Line2).material }))
+
+  it('is drawn as a line for each stroke, with a dot where a point snapped', () => {
+    const object = build(sketch(), COLOURS, 1)
+    expect(strokes(object)).toHaveLength(2)
+    expect(object.children.filter((c) => c.name === 'snap')).toHaveLength(2)
+    expect(object.getObjectByName('tube')).toBeUndefined()
+    // The points of a stroke on a plane are those of the plane, in the object frame.
+    expect(ends(strokes(object)[0]).map(([a, b]) => [a.toArray(), b.toArray()])).toEqual([[[0, 0, 10], [10, 0, 10]], [[10, 0, 10], [10, 5, 10]]])
+    expect(ends(strokes(object)[1]).map(([a, b]) => [a.toArray(), b.toArray()])).toEqual([[[0, 0, 5], [2, 0, 5]]])
+    // The dots are at the points that snapped.
+    expect(object.children.filter((c) => c.name === 'snap').map((c) => c.position.toArray())).toEqual([[10, 0, 10], [10, 5, 10]])
+    dispose(object)
+  })
+
+  it('is drawn in its author’s colour, 2.5 px wide', () => {
+    for (const author of ['user', 'agent'] as const) {
+      const object = build(sketch({ author }), COLOURS, 1)
+      rescale(object, () => 1, 1)
+      for (const { material } of passes(strokes(object)[0])) {
+        expect(`#${material.color.getHexString()}`).toBe(COLOURS[author])
+        expect(material.linewidth).toBe(2.5)
+      }
+      dispose(object)
+    }
+  })
+
+  it('is a translucent tube along its strokes, at about a quarter of its colour, when it flows with a diameter', () => {
+    const object = build(sketch({ take: 'flow', diameter: 4 }), COLOURS, 1)
+    const tubes = object.children.filter((c) => c.name === 'tube')
+    expect(tubes).toHaveLength(2)
+    const [tube] = tubes
+    const front = tube.children[1] as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
+    expect(front.material.opacity).toBeCloseTo(0.25)
+    expect(`#${front.material.color.getHexString()}`).toBe(COLOURS.user)
+    // Its radius is half the diameter, in millimetres, about the first stroke's line.
+    front.geometry.computeBoundingBox()
+    const box = front.geometry.boundingBox!
+    expect(box.max.z - box.min.z).toBeGreaterThan(3.4)
+    expect(box.max.z - box.min.z).toBeLessThanOrEqual(4.0001)
+    // The centre line is the stroke's own line, still there.
+    expect(strokes(object)).toHaveLength(2)
+    dispose(object)
+  })
+
+  it('has no tube without a diameter, nor of a sketch that is not a flow', () => {
+    expect(build(sketch({ take: 'flow' }), COLOURS, 1).getObjectByName('tube')).toBeUndefined()
+    expect(build(sketch({ take: 'exact', diameter: 4 }), COLOURS, 1).getObjectByName('tube')).toBeUndefined()
+  })
+
+  it('draws a stroke of a single point as a dot, and one with no plane of its own as nothing', () => {
+    const one = build(sketch({ strokes: [{ plane: 1, points2d: [[1, 1]], pen: 'points', revision: 1 }] }), COLOURS, 1)
+    expect(strokes(one)).toHaveLength(0)
+    expect(one.children.filter((c) => c.name === 'dot')).toHaveLength(1)
+    const lost = build(sketch({ strokes: [{ plane: 9, points2d: [[1, 1], [2, 2]], pen: 'free', revision: 1 }] }), COLOURS, 1)
+    expect(lost.children).toHaveLength(0)
+  })
+
+  it('shows what hides behind a part dashed when it was drawn in x-ray, and not at all otherwise', () => {
+    const object = build(sketch({ strokes: [{ points: [[0, 0, 5], [20, 0, 5]], pen: 'free', xray: true, revision: 1 }, { points: [[0, 0, 5], [20, 0, 5]], pen: 'free', revision: 1 }] }), COLOURS, 1)
+    rescale(object, () => 1, 1)
+    const [xray, plain] = strokes(object).map(passes)
+    expect(xray[0].material.depthFunc).toBe(THREE.GreaterDepth)
+    expect(xray[0].line.visible).toBe(true)
+    expect(xray[0].material.dashed).toBe(true)
+    expect(xray[1].material.dashed).toBe(false)
+    expect(plain[0].line.visible).toBe(false)
+    expect(plain[1].line.visible).toBe(true)
+    // Under a section that took away what it is on, the whole of it is drawn faintly, as any mark is; with the plain stroke's hidden part as well.
+    setDimmed(object, true)
+    expect(plain[0].line.visible).toBe(true)
+    setDimmed(object, false)
+    expect(plain[0].line.visible).toBe(false)
+    dispose(object)
+  })
+
+  it('lights its strokes when hovered, or those of one plane or of the surface', () => {
+    const object = build(sketch(), COLOURS, 1)
+    const width = (stroke: THREE.Object3D): number => (passes(stroke)[1].material as LineMaterial).linewidth
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([2.5, 2.5])
+    setLit(object, { plane: 1 })
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([3.75, 2.5])
+    setLit(object, { plane: 'surface' })
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([2.5, 3.75])
+    setLit(object, true)
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([3.75, 3.75])
+    setLit(object, null)
+    rescale(object, () => 1, 1)
+    expect(width(strokes(object)[0])).toBe(2.5)
+    dispose(object)
+  })
+
+  it('leaves an old stroke mark as it was drawn', () => {
+    expect(names(build(surfaceStroke, COLOURS, 1))).toEqual(['line'])
+    expect(names(build(planeStroke, COLOURS, 1))).toEqual(['line', 'plane'])
+  })
+
+  it('bounds what it draws, and hangs its label at its anchor or its first point', () => {
+    expect(markPoints(sketch())).toHaveLength(5)
   })
 })

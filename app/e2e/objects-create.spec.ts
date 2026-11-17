@@ -74,7 +74,7 @@ test('create makes the folder, lists the object when it answers, and the kernel 
   expect(readdirSync(join(dir, 'reference')).sort()).toEqual(['datasheet.pdf', 'doodle-1.png', 'photo-1.png'])
   // The board is in the folder as made: frames for what was given, the PDF and the size among them, and nothing else of .torno.
   const board = JSON.parse(readFileSync(join(dir, '.torno', 'board', 'board.json'), 'utf8')) as { cards: Array<{ kind: string; name?: string; source?: string; size?: { what: string }; caption?: string }> }
-  expect(board.cards.filter((c) => c.kind === 'frame').map((c) => c.name)).toEqual(['Brief', 'Photos', 'Sketches', 'Sizes', 'PDFs'])
+  expect(board.cards.filter((c) => c.kind === 'frame').map((c) => c.name)).toEqual(['Brief', 'Photos', 'Doodles', 'Sizes', 'PDFs'])
   expect(board.cards.find((c) => c.kind === 'size')?.size?.what).toBe('cable')
   expect(board.cards.find((c) => c.source === 'reference/datasheet.pdf')?.caption).toBe('the cable')
   expect(readdirSync(join(dir, '.torno'))).toEqual(['board'])

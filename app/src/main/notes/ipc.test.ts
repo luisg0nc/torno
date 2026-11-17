@@ -8,7 +8,7 @@ import type { ObjectInfo } from '../../shared/workspace'
 import { MarkStore } from '../marks/store'
 import { refusable } from '../refusal'
 import { droppedNames } from '../dropped'
-import { isNoteFile } from './files'
+import { isNoteFile, writeNoteFile } from './files'
 import { draft, jpeg, png } from './testing'
 import { noteHandlers } from './ipc'
 
@@ -209,6 +209,22 @@ describe('notes.picture', () => {
     expect([...((await handlers().picture('bracket', note.id, 'ink')) as Uint8Array)]).toEqual([...png(800, 600)])
     expect([...((await handlers().picture('bracket', note.id, 'plain')) as Uint8Array)]).toEqual([...png(800, 600)])
     expect([...((await handlers().picture('bracket', note.id, 0)) as Uint8Array)]).toEqual([...jpeg(300, 200)])
+  })
+
+  it("gives the picture of a 3D sketch's card the way a note's is read, and null for a sketch with none", async () => {
+    const sketch = await store.saveSketch(
+      'bracket',
+      { objectId: 'bracket', layout: 'assembly', revision: 1, camera: draft().camera, name: 'Hose', note: '', take: 'rough', planes: [], strokes: [{ pen: 'free', points: [[0, 0, 0], [1, 0, 0]], revision: 1 }] } as never,
+      [[]]
+    )
+    expect(await handlers().picture('bracket', sketch.id, 'ink')).toBeNull()
+    const name = await writeNoteFile(dir, 'sketch', png(640, 480), 'image/png')
+    await store.setSketchPicture('bracket', sketch.id, name)
+    expect([...((await handlers().picture('bracket', sketch.id, 'ink')) as Uint8Array)]).toEqual([...png(640, 480)])
+    expect([...((await handlers().picture('bracket', sketch.id, 'plain')) as Uint8Array)]).toEqual([...png(640, 480)])
+    expect(await handlers().picture('bracket', sketch.id, 0)).toBeNull()
+    rmSync(join(folder(), name))
+    expect(await handlers().picture('bracket', sketch.id, 'ink')).toBeNull()
   })
 
   it('gives null for a file that is not on this computer', async () => {

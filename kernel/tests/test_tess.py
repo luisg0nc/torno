@@ -20,6 +20,8 @@ MESH_BUFFERS = {
     "faceTypes",
     "edgeTypes",
 }
+# What a build also tells for snapping: the B-rep's vertices and its circles.
+SNAP_BUFFERS = {"points", "circles"}
 
 
 @pytest.fixture(scope="module")
@@ -118,7 +120,7 @@ def test_bracket_buffers_are_aligned_and_inside_the_blob(bracket):
     scene, blob, _ = bracket
     spans = []
     for p in scene["parts"]:
-        assert set(p["mesh"]) == MESH_BUFFERS
+        assert set(p["mesh"]) == MESH_BUFFERS | SNAP_BUFFERS
         for buf in p["mesh"].values():
             assert set(buf) == {"offset", "length"}
             assert buf["offset"] % 4 == 0
@@ -568,3 +570,82 @@ def test_a_number_that_is_not_exact_comes_with_how_far_the_kernel_says_it_may_be
     assert 0 < horn["bboxDoubt"] < 1
     # A sphere's volume is exact, its box is not.
     assert "volumeDoubt" not in parts["ball"] and parts["ball"]["bboxDoubt"] > 0
+
+
+# ---- the B-rep's vertices and circles, for snapping ----
+
+
+def holed_box_scene():
+    """A box 20 x 20 x 10 with its corner at the origin and a through hole of radius 4 along Z at its centre."""
+    from build123d import Box, Cylinder, Pos
+
+    shape = Pos(10, 10, 5) * Box(20, 20, 10) - Pos(10, 10, 5) * Cylinder(4, 10)
+    scene, blob, shapes = build_scene({"main": {"plate": shape}}, "plate.py")
+    (p,) = scene["parts"]
+    return p, blob, shape, shapes["main:plate"]
+
+
+def test_a_part_carries_its_vertices_in_the_order_v_names_them():
+    p, blob, shape, kept = holed_box_scene()
+    points = read(blob, p["mesh"]["points"], "<f4").reshape(-1, 3)
+    # 8 corners, and a seam vertex on each of the hole's two rims.
+    assert len(points) == len(shape.vertices()) == 10
+    ours = [v.wrapped for v in shape.vertices()]
+    assert len(topo.vertices(kept)) == 10
+    assert all(a.IsSame(b) for a, b in zip(topo.vertices(kept), ours))
+    for point, vertex in zip(points, shape.vertices()):
+        assert np.allclose(point, [vertex.X, vertex.Y, vertex.Z], atol=1e-4)
+
+
+def test_a_part_carries_its_circles_with_the_index_the_edge_has():
+    p, blob, shape, kept = holed_box_scene()
+    circles = read(blob, p["mesh"]["circles"], "<f4").reshape(-1, 8)
+    assert len(circles) == 2
+    assert sorted(float(c[3]) for c in circles) == pytest.approx([0.0, 10.0], abs=1e-4)
+    for edge, cx, cy, cz, ax, ay, az, r in circles:
+        assert r == pytest.approx(4.0, abs=1e-5)
+        assert (cx, cy) == pytest.approx((10.0, 10.0), abs=1e-4)
+        assert (ax, ay) == pytest.approx((0.0, 0.0), abs=1e-6)
+        assert abs(az) == pytest.approx(1.0, abs=1e-6)
+        # The index is the kernel's edge index: that edge is a circle of this centre and radius.
+        from build123d import Edge
+
+        e = Edge(topo.edges(kept)[int(edge)])
+        assert e.geom_type.name == "CIRCLE"
+        assert e.radius == pytest.approx(4.0)
+        assert e.arc_center.Z == pytest.approx(cz, abs=1e-4)
+
+
+def test_an_edge_that_is_not_a_circle_has_no_circle_entry():
+    from build123d import BuildLine, BuildPart, BuildSketch, Line, Spline, extrude, make_face
+
+    # A slab with a spline edge on its outline: every other edge is a line.
+    with BuildPart() as slab:
+        with BuildSketch():
+            with BuildLine():
+                s = Spline((0, 0), (5, 3), (10, 0), (15, 4))
+                Line(s @ 1, (15, -5))
+                Line((15, -5), (0, -5))
+                Line((0, -5), s @ 0)
+            make_face()
+        extrude(amount=5)
+    scene, blob, _ = build_scene({"main": {"slab": slab.part}}, "slab.py")
+    (p,) = scene["parts"]
+    assert any(e.geom_type.name == "BSPLINE" for e in slab.part.edges())
+    assert p["mesh"]["circles"]["length"] == 0
+    assert len(read(blob, p["mesh"]["points"], "<f4")) > 0
+
+
+def test_a_posed_part_tells_its_points_part_local():
+    from build123d import Box, Cylinder, Pos, Rot
+
+    shape = Pos(30, 0, 0) * Rot(0, 0, 90) * (Box(20, 20, 10) - Cylinder(4, 10))
+    scene, blob, _ = build_scene({"main": {"p": shape}}, "p.py")
+    (p,) = scene["parts"]
+    points = read(blob, p["mesh"]["points"], "<f4")
+    local = to_object_frame(points, p["loc"]).reshape(-1, 3)
+    mine = np.array([[v.X, v.Y, v.Z] for v in shape.vertices()])
+    assert np.allclose(local, mine, atol=1e-3)
+    circles = read(blob, p["mesh"]["circles"], "<f4").reshape(-1, 8)
+    centres = to_object_frame(circles[:, 1:4].ravel(), p["loc"])
+    assert np.allclose(centres[:, :2], [30, 0], atol=1e-3)

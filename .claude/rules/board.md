@@ -27,20 +27,23 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   `S<n>`, `h<n>`, a view's name, `params`, `checks`), `layout`, `text`, `name`, `picture`, `caption`, `camera`,
   `hidden`, `copy` (a build card's copy of what it shows). An arrow has `id`, `from`, `to`, `label?`, `by`. Ids are
   `C<n>` from one count for cards and arrows, per project, given by main, never reused.
+  The ink-pad card is a **Doodle** in everything a person or Claude reads (the palette, the card's face, the key row, the board text,
+  the tool descriptions); its stored `kind` stays `sketch`, as its key id `board.sketch`, so that "sketch" can mean the 3D one.
 - A `size` card (`shared/size.ts`) holds `size: { what, value, unit, source, note? }`: `value` as typed, never parsed into the file
   (`parseSize` reads the numbers whenever they are told), `unit` `mm` or `°`, `source` one of `measured`, `from a manual or datasheet`,
   `a guess` for the person or `from Claude` for the agent alone (`checkSize`, which every door goes through, the file's
   `sanitiseCard` too: a size card without a whole size is dropped). Caps: `what` 200, `value` 60, `note` 300 on one line,
   40 sizes in a draft. Said as `C7 · size · by the person: battery tray 186 × 128 mm (measured)` and the numbers in full on the next line.
 - The window makes and edits sizes: the palette's Size tool (`M`, `board.size`, in hand until one card is made) and a click on the ground open the form of `SizeEditor.tsx` (what it measures, the value as typed in the monospace face, `mm` or `°`, one of the person's three sources, a note: `maxLength` from the caps); Enter or Done keeps it when `checkSize` takes it and otherwise says what is missing, Esc and leaving the form keep a whole size and make nothing of a half-written one. A double click edits a size card of the person's (`opens.ts`; the agent's is left alone), and Ctrl+Z takes each back (`undo.ts` sends the size before as an `edit` with `size`). The card shows value and unit large, then what it measures, then the source and note.
-- `<object>/.torno/board/pictures/` holds the picture and sketch files (`p-<12 hex>.png|jpg`) with a `.gitignore` of `*` of
+- The card of a 3D sketch (a mark card whose mark is a sketch) shows its name, take (`shared/sketchText.ts`), comment, status and the picture of the sketch's own `picture` (`k-<12 hex>.png` in `.torno/notes/`, read through `notes.picture` as a view note's is, never `board/pictures/`); a sketch with no picture, or whose file is not on this computer, shows "picture not on this computer". A double click on the person's sketch card opens it in Draw (`{ does: 'sketching' }`); on Claude's it goes to the model. The board text of it is `describeMark`'s line, as a note's is.
+- `<object>/.torno/board/pictures/` holds the picture and doodle files (`p-<12 hex>.png|jpg`) with a `.gitignore` of `*` of
   its own, written by whoever makes the folder (`pictures.ts`, as `views/` and `scans/` do). A picture may show the real
   world, so **pictures do not travel**: a board cloned without them shows a "picture not on this computer" placeholder
   and sends no picture. A file is not deleted with its card, so that undo brings the card back whole; **only files torno itself dropped are ever
   swept, never "whatever the board does not name"** (a branch switch brings a board that names other pictures, and the
   pictures are not in git): `BoardStore` lists a picture in `board/pictures/dropped.json` (`main/dropped.ts`, written by
   `board/dropped.ts` `dropPictures`, inside `changeWith`, once the board is written) when a change lets go of it (a card
-  taken off, a sketch drawn on again). The files on that list are swept once for each project in a run, when it is first
+  taken off, a doodle drawn on again). The files on that list are swept once for each project in a run, when it is first
   opened (`PictureSweep`, from `onObjectOpened`), before the window has any undo of it: the window forgets its undo stacks
   and cameras when a workspace is opened or left. A listed file goes only if no card names it now and nothing taken off the
   board in this run does, it is a plain file, and it was changed more than a minute ago; it then comes off the list, as does
@@ -71,7 +74,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 - `id`, `by` and `hidden` are main's. They are never taken from the window or from a tool's arguments: a card the window adds is
   the person's whatever it says, and the agent's is the agent's. The window may send positions, sizes, text, names, frames and
   arrows of the person's cards, pictures (checked as images, at most 2000 px and 3.75 MB, as `checkedImage` does; the window
-  scales a larger one down first, `prepareImage`), and the name of a new drawing for a sketch of its own.
+  scales a larger one down first, `prepareImage`), and the name of a new drawing for a doodle of its own.
 - A card is the person's, the agent's or torno's (`by`). **The agent never moves, edits, hides or removes a card of the
   person's or of torno's own**, whatever `add_card` is given; the answer names the owner and the file is untouched. It may
   put a card in a frame of the person's (that changes the new card, not the frame), and when the frame has no free spot the
@@ -121,6 +124,6 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   panning and zooming never draw the cards again (`__tornoBoardRenders` counts it under test). The 3D view stays mounted and
   stops drawing while the board is shown.
 - What a double click on a card does is `ui/projectBoard/opens.ts`, a table held by its test: the brief opens in the person's
-  editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a sketch opens the ink pad on its
+  editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a doodle opens the ink pad on its
   drawing, a text edits and a frame renames (the person's only). The "Pin to board" buttons ask main (`pinToBoard`), which
   decides.

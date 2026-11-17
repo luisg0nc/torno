@@ -6,6 +6,7 @@ import { count } from '../../shared/format'
 import { useRegion } from '../state/region'
 import { componentsOf, keepHeld, useHeld } from '../state/measured'
 import { scanless } from '../state/step'
+import { sketchStore } from '../state/sketching'
 import { useStore } from '../state/store'
 import { commitMark } from '../tools/pickMarks'
 import { valueText } from '../../shared/dimension'
@@ -65,6 +66,8 @@ export function ToolPalette() {
       if (e.target instanceof Element && e.target.closest(TYPING)) return
       const wanted = TOOLS.find((t) => pressed(e, `tool.${t.name}`))
       if (!wanted?.ready) return
+      // While a sketch is open X shows or hides the cut the view has (`sketchTool`); picking Section ends the sketch.
+      if (wanted.name === 'section' && sketchStore.getState().open) return
       setTool(wanted.name)
       e.preventDefault()
     }

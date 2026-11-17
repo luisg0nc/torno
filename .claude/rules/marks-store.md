@@ -1,6 +1,7 @@
 ---
 paths:
   - "app/src/main/marks/**"
+  - "app/src/main/sketches/**"
   - "app/src/shared/marks.ts"
   - "app/src/shared/tags.ts"
   - "app/src/shared/tags.test.ts"
@@ -15,7 +16,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## What crosses processes (root `CLAUDE.md`)
 
 - A mark is a pin, a pick, an arrow, a stroke, a shape, a dimension, a region
-  of a scan or a view note (a picture of the view with ink, labels and references; its pictures are files in
+  of a scan, a sketch or a view note (a picture of the view with ink, labels and references; its pictures are files in
   `.torno/notes/`, never in marks.json; its anchor is optional), with a note (`app/src/shared/marks.ts`). Ids are `M1`, `M2`, … per object, never reused,
   given by main only.
 - Main is the only writer of `<object>/.torno/marks.json`
@@ -51,6 +52,32 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   undo cannot bring it back, then takes it off the list. A file not on the list is never deleted. `add` refuses a note
   (`kind: 'note'`): only `addNote` keeps one, with files main named. `editNote` sets `under` to `[]` when it changes the
   strokes or the labels and does not say it anew.
+- A **sketch** (`kind: 'sketch'`, a 3D drawing: planes and strokes, `take` exact, rough or flow, a `diameter` of a flow one) is
+  made and changed only through `marks:sketch` (`main/sketches/ipc.ts`): the window sends a `SketchDraft`, main reads it
+  (`readSketch`, the one reading the marks file shares: at most 200 strokes, 400 points a stroke and 20 000 in all, a name of
+  80 characters on one line, planes orthonormal within 1e-6, set right and refused when worse) and checks it against the
+  **last build** (`checkSketch`). A stroke the sketch already had (same by value, the points to 0.011 mm) is taken from what
+  main stored, its `touches` and its build with it; only a stroke that is new or changed must be of the last build and have
+  its snaps borne out: the ref must exist (`V<i>` a vertex of the part's `points`, `E<i>` an edge), and the point must be
+  within 0.01 mm of what the snap data says (the part's `loc` applied; `projected` is that point put on the stroke's plane),
+  which main then keeps in its place. A snap to an edge that is neither a line nor a circle, or that says `approx`, is checked
+  for its ref alone and is kept as `approx: true`. What each new stroke touches (`touches`, faces by ref) is main's: a `nearest`
+  query on up to 8 points along it (`main/sketches/touches.ts`), `[]` when the kernel cannot say. `id`, `author`, `status`,
+  `sentBefore`, `picture` and `touches` are never taken from the window. `MarkStore.saveSketch` makes (no `id`) or replaces
+  (the person's sketch; `{ author: 'agent' }` replaces only the agent's, adds it as `sent`, and needs no snaps) and sets
+  `sentBefore` on a sent one, `reopened` on a resolved one, as `editNote` does; `add` refuses a sketch. Its card's picture
+  is the window's PNG (`marks:sketchPicture`), written by `writeNoteFile` as `k-<12 hex>.png` in `.torno/notes/`
+  (`SKETCH_PICTURE`) and set by `setSketchPicture`, which lists the one it replaces in `notes/dropped.json`; the notes sweep
+  knows a sketch's `picture` as live, and a removed sketch's as kept for an undo. `marks:sketching` only records which
+  sketch of an object is open (`openSketch(objectId)`, in memory, forgotten with the workspace and when the window loads again, its renderer
+  goes or its contents are destroyed: `forgetSketchesWith`). `contextFor` leaves that sketch out of the drafts and the open marks and never marks
+  it sent (`ContextDeps.sketching`), and says `M7 is being sketched, not sent.`; a draft sketch goes with a prompt as its line (`describeMark`; `Sketch M7` where its name is empty, as the window says it)
+  and `sketchText` (`main/sketches/text.ts`: planes and how each was made, each stroke's pen, plane, length and `touches` of its build,
+  points to 0.1 mm when free and in full with what they snapped to when snapped, how to take it, the camera): at most 2000 points in a
+  prompt, whole strokes, the rest counted with where to read it, and fewer when the prompt has no room. A sketch is text only: no picture
+  goes with it. The agent's own sketches are `sent` and are not told again. A sketch is checked against a
+  build like a stroke is: its `anchor` (the first point on a face) is the anchor, and up to 8 points along each surface stroke
+  (up to 8 strokes) are asked about; a stroke on a plane is never judged.
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
   the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal
   that names the first that is not the agent's to acknowledge. Only the person asks it (`marks:acknowledge`);

@@ -102,7 +102,7 @@ def test_build_bracket_replies_started_then_scene_and_blob(kernel, ws):
     assert scene["groups"] == []
     assert scene["uses"] == []
     bufs = [buf for p in scene["parts"] for buf in p["mesh"].values()]
-    assert len(bufs) == 4 * 8
+    assert len(bufs) == 4 * 10
     assert all(buf["offset"] % 4 == 0 for buf in bufs)
     assert max(buf["offset"] + buf["length"] for buf in bufs) == len(blob)
 

@@ -6,7 +6,7 @@ import type { ScanTransform } from '../../../shared/scans'
 import type { SectionPlane } from '../../../shared/view'
 import { type Offsets, type PartBoxes, STILL, markOffset, spanning } from './apart'
 import { mmPerPx, place, project, type Chip, type Placed, type Size } from './labels'
-import { build, dispose, labelAnchor, markPoints, rescale, setActive, setDashed, setDimmed, type MarkColours } from './markObjects'
+import { build, dispose, labelAnchor, markPoints, rescale, setActive, setDashed, setDimmed, setLit, type MarkColours } from './markObjects'
 
 /**
  * A mark as it is while the pointer is still making it: a pin where it was
@@ -49,6 +49,10 @@ export class MarkLayer {
   private hidden: ReadonlySet<string> = NO_PARTS
   private active: string | null = null
   private hovered: string | null = null
+  /** The sketch whose strokes of one plane (or the surface) are lit, from the sketch panel's rows. */
+  private litPlane: { id: string; plane: number | 'surface' } | null = null
+  /** Whether what the pointer points at is lit: not in a picture for the agent. */
+  private lights = true
   private section: SectionPlane | null = null
   /** The build on show, which the values of the dimensions are of or not. */
   private revision = 0
@@ -133,6 +137,7 @@ export class MarkLayer {
     entry.object.position.fromArray(by === 'split' ? STILL : by)
     entry.object.visible = this.shows(entry.mark)
     this.dim(entry)
+    this.light(entry.mark.id)
   }
 
   /** The colours changed, as with the colour scheme: everything is made again. */
@@ -287,7 +292,33 @@ export class MarkLayer {
 
   /** The mark the pointer is on, in its row or on its chip, or null: its chip is ringed, more lightly than the active one's. On screen only. */
   setHover(id: string | null): void {
+    const was = this.hovered
     this.hovered = id
+    this.light(was)
+    this.light(id)
+  }
+
+  /** The strokes of a sketch that are on one plane (or `surface`) are lit, as when it is pointed at; null for none. On screen only. */
+  setLitPlane(lit: { id: string; plane: number | 'surface' } | null): void {
+    const was = this.litPlane
+    this.litPlane = lit
+    this.light(was?.id ?? null)
+    this.light(lit?.id ?? null)
+  }
+
+  /** Whether what is pointed at is lit: a picture for the agent draws every mark alike, so it is turned off for the time one is drawn. */
+  setLights(on: boolean): void {
+    if (on === this.lights) return
+    this.lights = on
+    for (const id of [this.hovered, this.litPlane?.id ?? null]) this.light(id)
+  }
+
+  /** Lights a sketch's strokes as the pointer, or a plane row of the panel, says; a mark of any other kind has only its chip ringed. */
+  private light(id: string | null): void {
+    const entry = id === null ? undefined : this.entries.get(id)
+    if (!entry || entry.mark.kind !== 'sketch') return
+    const lit = !this.lights ? null : this.hovered === entry.mark.id ? true : this.litPlane?.id === entry.mark.id ? { plane: this.litPlane.plane } : null
+    setLit(entry.object, lit)
   }
 
   get hoverId(): string | null {
@@ -416,6 +447,11 @@ function drawnAsOf(mark: Mark): string {
   const { note: _note, status: _status, resolvedNote: _resolvedNote, createdAt: _createdAt, camera: _camera, revision: _revision, sentBefore: _sentBefore, reopened: _reopened, checkedRevision: _checkedRevision, ...drawn } = mark
   // Nor which build a dimension was measured on.
   if (drawn.kind === 'dimension') delete drawn.measuredRevision
+  // Nor what a sketch is called, nor the picture of its card.
+  if (drawn.kind === 'sketch') {
+    delete (drawn as Partial<typeof drawn>).name
+    delete (drawn as Partial<typeof drawn>).picture
+  }
   return JSON.stringify(drawn)
 }
 

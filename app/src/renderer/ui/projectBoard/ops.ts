@@ -92,7 +92,7 @@ export async function redrawSketch(objectId: string, id: string, bytes: Uint8Arr
     throw error
   }
   const next = await act(objectId, [id], () => send(objectId, { op: 'edit', id, picture }))
-  if (next === null) throw new Error(boardStore.getState().problem ?? 'The sketch could not be changed.')
+  if (next === null) throw new Error(boardStore.getState().problem ?? 'The doodle could not be changed.')
 }
 
 /** A frame drawn at `rect`, named: the cards whose middles are inside it join it. Nothing is made for an empty name. */

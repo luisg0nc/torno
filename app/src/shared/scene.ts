@@ -10,6 +10,10 @@ export interface PartMesh {
   segmentsPerEdge: Buf   // uint32, one per edge, in kernel edge order
   faceTypes: Buf         // uint32 GeomAbs_SurfaceType
   edgeTypes: Buf         // uint32 GeomAbs_CurveType
+  /** Float32 xyz of every B-rep vertex, part-local, in the order `V<i>` names them. Absent from a kernel that does not send it: then no snap data (`shared/snapdata.ts`). */
+  points?: Buf
+  /** Float32, 8 per circular edge (whole or an arc): `edge` (its `E<i>` index), centre xyz, axis xyz, radius; part-local. Absent as `points` is. */
+  circles?: Buf
 }
 export interface Part {
   key: string            // `${layout}:${name}`, unique in a scene

@@ -1449,7 +1449,7 @@ export class Sessions {
       context = { text: '', sentMarkIds: [] }
     }
     const { text, sentMarkIds } = context
-    session.chat?.transcript.context({ text, sentMarkIds, ...(context.board ? { board: context.board } : {}), ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
+    session.chat?.transcript.context({ text, sentMarkIds, ...(context.sketching ? { sketching: context.sketching } : {}), ...(context.board ? { board: context.board } : {}), ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
     // Which prompt this turn answers, for the builds it causes: the id of the chat's `user` item (as its log holds it), else a number of main's own.
     if (turn && session.turn === turn) {
       const taken = session.chat?.transcript.taken()
