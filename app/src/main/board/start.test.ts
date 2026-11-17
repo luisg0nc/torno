@@ -121,7 +121,7 @@ describe('startBoard', () => {
       writeFileSync(join(dir, 'brief.md'), '# x\n')
       for (const r of full.references) writeFileSync(join(dir, r.file), 'x')
       // As `follow.ts` finds it.
-      const found = { brief: true, references: listBoardReferences(dir).map((name) => `reference/${name}`), marks: [], scans: [], rounds: [] }
+      const found = { brief: true, references: listBoardReferences(dir).map((name) => `reference/${name}`), marks: [], scans: [], rounds: [], tracings: [] }
       expect(found.references).toHaveLength(full.references.length)
       expect(reconcile(startBoard(full), found)).toBeNull()
     } finally {

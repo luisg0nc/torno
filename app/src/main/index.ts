@@ -8,6 +8,7 @@ import { type Door, openDoor, projectFor } from './door'
 import type { Described } from '../shared/geometry'
 import type { Mark } from '../shared/marks'
 import { unheldNotes } from '../shared/reviews'
+import type { Tracing } from '../shared/tracings'
 import type { SavedView } from '../shared/views'
 import { heldOverrides } from './paramsfile'
 import { writeFileAtomic } from './atomic'
@@ -377,7 +378,7 @@ const toolDeps: ToolDeps = {
   board: {
     read: (objectId) => board.read(objectId),
     agent: (objectId, change) => board.agent(objectId, change),
-    live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides })
+    live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })
   },
   scale: scalePicture,
   redact: (text) => redactAddresses(text),
@@ -502,10 +503,16 @@ async function scalePicture(bytes: Uint8Array, edge: number): Promise<Uint8Array
 // The cards of what a project has appear on its board by themselves, and go with it.
 /** The tracings of the objects of the open workspace, in `.torno/tracings.json`. */
 const tracings = new TracingStore({ dirOf: (id) => findObject(id)?.dir })
+/** The tracings of a project for what a card of the board says of one; none when they cannot be read. */
+const tracingsOf = (objectId: string): Promise<Tracing[] | undefined> =>
+  tracings.list(objectId).then(
+    (file) => file.tracings,
+    () => undefined
+  )
 const board = new BoardStore({
   dirOf: (id) => findObject(id)?.dir,
   // What a card shows of the project, for what `markAllTold` keeps: as the board line of a prompt reads it.
-  live: async (id) => liveFacts({ dir: findObject(id)?.dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides })
+  live: async (id) => liveFacts({ dir: findObject(id)?.dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides, tracings: await tracingsOf(id) })
 })
 /** The pictures no card names go when a project is first opened in a run, once the window has nothing of it to undo. */
 const pictureSweep = new PictureSweep(board)
@@ -515,12 +522,14 @@ const noteSweep = new NoteSweep(marks)
 async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts } | undefined> {
   const dir = findObject(objectId)?.dir
   if (dir === undefined) return undefined
-  const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides })])
+  const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })])
   return boardLine(file, told, live, toolName)
 }
-const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id) }, objectId)
+const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id), tracings: async (id) => (await tracings.list(id)).tracings }, objectId)
 marks.on('changed', ({ objectId }) => void followBoard(objectId))
 scans.on('changed', ({ objectId }) => void followBoard(objectId))
+// A tracing made or removed brings its card or takes it away; a change of it changes what its card says, and the board line tells the agent.
+tracings.on('changed', ({ objectId }) => void followBoard(objectId))
 // A mask that did not read for a region is asked for again: what the scans are has changed.
 scans.on('changed', ({ objectId }) => marks.scansChanged(objectId))
 
@@ -600,7 +609,7 @@ void app.whenReady().then(async () => {
     attachBoard: async (objectId, ids) => {
       const dir = findObject(objectId)?.dir
       if (dir === undefined) throw new Error('That project is not open')
-      return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
+      return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides, tracings: await tracingsOf(id) }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
     },
     // The view notes that are drafts, in the order of the marks: they go with the next chat prompt, pictures and all.
     // Marks that cannot be read are no reason to send nothing. The notes of a round that is not sent are held with it (`unheldNotes`).

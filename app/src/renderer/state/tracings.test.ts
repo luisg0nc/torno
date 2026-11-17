@@ -151,6 +151,14 @@ describe('what is told to main as shown', () => {
     expect(shownIds('tracing', null)).toEqual([])
   })
 
+  it('is the tracings of the cards on the board while the board is shown, the hidden ones left out', () => {
+    const card = (id: string, source: string, over: object = {}) => ({ id, kind: 'tracing' as const, x: 0, y: 0, w: 1, h: 1, by: 'torno' as const, source, ...over })
+    const cards = [card('C1', 'T1'), card('C2', 'T2', { hidden: true }), { ...card('C3', 'M1'), kind: 'mark' as const }, card('C4', 'T3')]
+    expect(shownIds('board', 'T1', { next: 5, cards, arrows: [] })).toEqual(['T1', 'T3'])
+    expect(shownIds('model', 'T1', { next: 5, cards, arrows: [] })).toEqual([])
+    expect(shownIds('tracing', 'T2', { next: 5, cards, arrows: [] })).toEqual(['T2'])
+  })
+
   it('is said when the view or the open tracing changes', async () => {
     const bridge = fake(file(tracing('T1'), tracing('T2')))
     const off = connectTracings()

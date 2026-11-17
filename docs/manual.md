@@ -791,7 +791,7 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   writes nothing then. That request is for the latest turn only; a file over 200 KB or too many lines is named without
   its lines, and a file you saved after the turn is said to have changed. It is a request, not a restore: it can be
   done wrongly. Nothing is kept of a turn of an earlier session for it.
-- **Refs are live.** `M4`, `lid/F12`, `lid/E3`, `lid/@top` (a name the model
+- **Refs are live.** `M4`, `T1` (a tracing: a click opens it in the Tracing view), `lid/F12`, `lid/E3`, `lid/@top` (a name the model
   gives a face or an edge) and `#deck` (a named set of yours) in the agent's text and in
   the cards are chips: hovering one lights it in the view, clicking a mark
   focuses it, clicking a face or an edge selects it (a name of several selects them all; a set selects its faces, edges and parts, and hovering it lights every member, strokes too). A `#name` that no set has is only text. A ref that names nothing
@@ -1867,8 +1867,9 @@ loaded while the board or a tracing is shown, so nothing is built again on the s
 
 **What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
 `brief.md` (its text, read only, scrolling), each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
-its note and its state) and each scan. Removing one of these hides it: the mark, scan or photo is untouched, and "Hidden cards"
-at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed) its card goes with it. These
+its note and its state), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
+build with its layers; before a build of this run it says "build to see the outline", and a double click opens it in the Tracing view). Removing one of these hides it: the mark, scan, photo or tracing is untouched, and "Hidden cards"
+at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed, a tracing removed) its card goes with it. Claude is told of a tracing's card as `C9 · tracing T1 "Front of the block": XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)`, and it is new to Claude when the name, plane, layers or line-up change. These
 you pin, with "Pin to board":
 
 - a **build**, from the strip of builds under a prompt in the chat (a small "Pin" on each picture). The card keeps the
@@ -1969,7 +1970,7 @@ under it). The sheet has a faint grid every millimetre once you are zoomed in an
 a title block at the bottom right. Zoom is told as a ratio: `1:1` is one CSS millimetre on the screen for a millimetre of the
 model (a screen does not say its true pixel size, so this is the page's own millimetre, not a ruler's). The wheel or two fingers
 move the sheet and a drag moves it, `Ctrl` and the wheel (or a pinch) zoom about the pointer, **Fit** or `Shift+1` frames the
-outline, **1:1** or `Shift+0` sets true size. The pointer's place on the plane, `u, v` in millimetres, is read out at the bottom left.
+outline (clear of the panel at the top left: on a narrow window it goes right of the panel or below it), **1:1** or `Shift+0` sets true size. The pointer's place on the plane, `u, v` in millimetres, is read out at the bottom left.
 
 The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
 tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
@@ -1978,7 +1979,7 @@ select is the tracing's (a face that is not flat is refused, in words). The pane
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
-tracing is cut unspread. **Line up** and **Show in 3D** are not yet available; **Export** opens the export sheet (see
+tracing is cut unspread. **Line up** and **Show in 3D** are not yet available; **Export** opens the export sheet on this tracing's drawing (see
 [Export](#export)).
 
 **Layers** lie over the outline: each is a named set of shapes (lines, circles and labels) in one of eight colours (blue, teal,

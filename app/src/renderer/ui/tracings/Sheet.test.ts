@@ -110,6 +110,55 @@ describe('Sheet', () => {
     expect((left + right) / 2).toBeCloseTo(100 + 500, 6)
   })
 
+  describe('fit clear of the floating panel', () => {
+    const PANEL = { right: 346, bottom: 300 }
+    /** The outline's box on the element's own pixels (the page's less the element's corner). */
+    const placed = (sheet: Sheet, box: readonly [number, number, number, number], at: { left: number; top: number }) => {
+      const [x, y] = [sheet.toScreen([box[0], -box[1]]), sheet.toScreen([box[0] + box[2], -(box[1] + box[3])])]
+      return { left: x[0] - at.left, top: Math.min(x[1], y[1]) - at.top, right: y[0] - at.left, bottom: Math.max(x[1], y[1]) - at.top }
+    }
+
+    it('leaves the outline where it is when it is clear of the panel already', () => {
+      const wide = new Sheet(layerIn({ left: 100, top: 50, width: 1400, height: 1400 }), () => {})
+      wide.setBox([-10, -50, 100, 60])
+      wide.fit()
+      const was = wide.view
+      // A tall window: the panel is at the top left, and the outline is in the middle, below it.
+      const clear = new Sheet(layerIn({ left: 100, top: 50, width: 1400, height: 1400 }), () => {})
+      clear.setBox([-10, -50, 100, 60])
+      clear.fit(PANEL)
+      expect(clear.view).toEqual(was)
+    })
+
+    it('puts it where the panel is not on a narrow window, and as large as the room left allows', () => {
+      const at = { left: 100, top: 50 }
+      const sheet = new Sheet(layerIn({ ...at, width: 700, height: 600 }), () => {})
+      const box = [0, 0, 100, 60] as const
+      sheet.setBox(box)
+      sheet.fit(PANEL)
+      const out = placed(sheet, box, at)
+      // Clear of the panel: right of it or below it, with the margin, and inside the window.
+      expect(out.left >= PANEL.right + FIT_MARGIN - 1e-6 || out.top >= PANEL.bottom + FIT_MARGIN - 1e-6).toBe(true)
+      expect(out.left).toBeGreaterThanOrEqual(FIT_MARGIN - 1e-6)
+      expect(out.right).toBeLessThanOrEqual(700 - FIT_MARGIN + 1e-6)
+      expect(out.bottom).toBeLessThanOrEqual(600 - FIT_MARGIN + 1e-6)
+      // Below the panel here is the larger room (300 high against 354 wide): k by the height left.
+      expect(sheet.view.k).toBeCloseTo((600 - PANEL.bottom - 2 * FIT_MARGIN) / 60, 6)
+    })
+
+    it('goes right of the panel when that room is the larger', () => {
+      const at = { left: 100, top: 50 }
+      const sheet = new Sheet(layerIn({ ...at, width: 700, height: 500 }), () => {})
+      const box = [0, 0, 20, 100] as const
+      sheet.setBox(box)
+      sheet.fit({ right: 346, bottom: 300 })
+      const out = placed(sheet, box, at)
+      expect(out.left).toBeGreaterThanOrEqual(346 + FIT_MARGIN - 1e-6)
+      expect(out.right).toBeLessThanOrEqual(700 - FIT_MARGIN + 1e-6)
+      expect(out.bottom).toBeLessThanOrEqual(500 - FIT_MARGIN + 1e-6)
+    })
+  })
+
   it('fits a box taller than wide by its width, and a very small one no more than the greatest zoom', () => {
     const sheet = new Sheet(layerIn(), () => {})
     sheet.setBox([0, 0, 20, 400])

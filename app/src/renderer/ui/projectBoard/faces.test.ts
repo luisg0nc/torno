@@ -3,6 +3,7 @@ import type { Card } from '../../../shared/board'
 import type { Mark } from '../../../shared/marks'
 import type { ScanInfo } from '../../../shared/scans'
 import type { Round } from '../../../shared/reviews'
+import type { Tracing } from '../../../shared/tracings'
 import { faceOf, PICTURE_MISSING, refPieces, roundOfFrame } from './faces'
 
 const card = (over: Partial<Card>): Card => ({ id: 'C1', kind: 'text', x: 0, y: 0, w: 200, h: 100, by: 'person', ...over })
@@ -255,5 +256,37 @@ describe('the frame of a round', () => {
     expect(roundOfFrame(frame({ kind: 'text' }))).toBeUndefined()
     expect(roundOfFrame(frame({ source: 'brief' }))).toBeUndefined()
     expect(roundOfFrame(frame({ source: undefined }))).toBeUndefined()
+  })
+})
+
+describe('the face of a tracing', () => {
+  const tracing = (over: Partial<Tracing> = {}): Tracing => ({
+    id: 'T1',
+    by: 'person',
+    name: 'Front of the block',
+    layout: 'assembly',
+    createdAt: '2026-11-17T10:00:00.000Z',
+    plane: { origin: [0, 0, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 0.0 (u = +X, v = +Z)', from: { kind: 'main', axis: 'XZ', offset: 0 } },
+    layers: [1, 2, 3].map((id) => ({ id, name: `L${id}`, colour: 'blue' as const, by: 'person' as const, shapes: [], revision: 1 })),
+    nextLayer: 4,
+    ...over
+  })
+  const on = card({ kind: 'tracing', source: 'T1', by: 'torno' })
+
+  it('names the tracing, its plane and its layers, and asks for a build when there is no outline', () => {
+    const face = faceOf(on, { tracing: tracing(), outline: false })
+    expect(face).toMatchObject({ label: 'Tracing', chip: 'T1', title: 'Front of the block', note: 'build to see the outline' })
+    expect(face.lines).toEqual([{ text: 'XZ at y = 0.0', mono: true }, { text: '3 layers', mono: true }])
+  })
+  it('says nothing of a build when the outline is there, counts one layer, and a tracing with no name by its number', () => {
+    const face = faceOf(on, { tracing: tracing({ name: '', layers: tracing().layers.slice(0, 1) }), outline: true })
+    expect(face.note).toBeUndefined()
+    expect(face.title).toBe('Tracing T1')
+    expect(face.lines[1].text).toBe('1 layer')
+  })
+  it('says a lost face and a tracing that is not loaded, and how many marks it has when told', () => {
+    expect(faceOf(on, { tracing: tracing({ lost: 'block/F31 is not in this plane any more' }), outline: true }).note).toBe('block/F31 is not in this plane any more')
+    expect(faceOf(on, {})).toMatchObject({ chip: 'T1', lines: [{ text: 'not loaded yet' }] })
+    expect(faceOf(on, { tracing: tracing(), outline: true, tracingMarks: 5 }).lines[1].text).toBe('3 layers · 5 marks')
   })
 })

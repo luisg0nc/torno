@@ -1390,6 +1390,19 @@ describe('the page of objects', () => {
     expect(store.getState().exportOf).toBeNull()
   })
 
+  it('opens the export sheet on a tracing when asked to, and forgets it when the sheet goes', () => {
+    actions.setWorkspace(workspace('bracket', 'gear'))
+    actions.exportSheet(['bracket'], 'T2')
+    expect(store.getState()).toMatchObject({ exportOf: ['bracket'], exportTracing: 'T2' })
+    actions.exportSheet(null)
+    expect(store.getState().exportTracing).toBeNull()
+    actions.exportSheet(['bracket'])
+    expect(store.getState().exportTracing).toBeNull()
+    actions.exportSheet(['bracket'], 'T1')
+    actions.setWorkspace(workspace('other'))
+    expect(store.getState()).toMatchObject({ exportOf: null, exportTracing: null })
+  })
+
   it('is not left for an object when none is open', () => {
     actions.setWorkspace(workspace('bracket', 'gear'))
     actions.showPage('object')

@@ -7,11 +7,12 @@ import { FRAME_HEADER, GAP, MADE_SIZE, crowds, freeSpot } from './place'
 // writes. Main chooses the place of every card; the window and the agent never do.
 
 /** The size a card of each kind first has, in board units. */
-export const CARD_SIZE: Record<'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'size' | 'round', { w: number; h: number }> = {
+export const CARD_SIZE: Record<'brief' | 'reference' | 'mark' | 'scan' | 'tracing' | 'build' | 'view' | 'params' | 'checks' | 'size' | 'round', { w: number; h: number }> = {
   brief: { w: 320, h: 240 },
   reference: { w: 240, h: 180 },
   mark: { w: 240, h: 120 },
   scan: { w: 240, h: 120 },
+  tracing: { w: 240, h: 200 },
   build: { w: 240, h: 200 },
   view: { w: 240, h: 120 },
   params: { w: 280, h: 240 },
@@ -41,6 +42,8 @@ export interface Found {
   /** `round` is the round a mark is an item of (`R1`). */
   marks: Array<{ id: string; layout: string; round?: string }>
   scans: string[]
+  /** The tracings, by id (`T1`). */
+  tracings: Array<{ id: string }>
   /** The rounds, by the name their frame has (`reviewName`) and the marks they hold, in the order of the rounds. `from` is the round a carried item came from. */
   rounds: Array<{ id: string; name: string; items: string[]; from?: string }>
 }
@@ -53,7 +56,8 @@ function wanted(found: Found): Wanted[] {
     ...(found.brief ? [{ kind: 'brief' as const, source: 'brief' }] : []),
     ...found.references.map((source) => ({ kind: 'reference' as const, source })),
     ...found.marks.map((m) => ({ kind: 'mark' as const, source: m.id, layout: m.layout, ...(m.round !== undefined ? { round: m.round } : {}) })),
-    ...found.scans.map((source) => ({ kind: 'scan' as const, source }))
+    ...found.scans.map((source) => ({ kind: 'scan' as const, source })),
+    ...found.tracings.map((t) => ({ kind: 'tracing' as const, source: t.id }))
   ]
 }
 

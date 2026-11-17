@@ -177,6 +177,8 @@ export interface TornoState {
   page: 'object' | 'objects' | 'new'
   /** The export sheet, while it is up: the objects it opens with ticked, or `all` for every one that can be exported. Null when it is away. */
   exportOf: string[] | 'all' | null
+  /** The tracing the export sheet opens on (its drawing, ticked), when it was opened from one; null otherwise. */
+  exportTracing: string | null
 }
 
 const NOTHING_SELECTED: string[] = []
@@ -204,7 +206,8 @@ export const store = createStore<TornoState>(() => ({
   dockOpen: true,
   column: readColumn(windowStorage()),
   page: 'object',
-  exportOf: null
+  exportOf: null,
+  exportTracing: null
 }))
 
 function setColumn(column: ColumnPrefs): void {
@@ -230,13 +233,13 @@ export const actions = {
   setWorkspace(workspace: WorkspaceInfo | null): void {
     for (const cb of workspaceSet) cb()
     // Several objects are met on their page; one alone is the thing to open, and none has the page say what an object is.
-    store.setState({ workspace, workspaceKnown: true, versions: {}, ...NO_OBJECT, sessions: {}, page: workspace && workspace.objects.length !== 1 ? 'objects' : 'object', exportOf: null })
+    store.setState({ workspace, workspaceKnown: true, versions: {}, ...NO_OBJECT, sessions: {}, page: workspace && workspace.objects.length !== 1 ? 'objects' : 'object', exportOf: null, exportTracing: null })
   },
 
-  /** Brings up the export sheet with these objects ticked (`all`: every one that can be exported), or puts it away. */
-  exportSheet(of: string[] | 'all' | null): void {
+  /** Brings up the export sheet with these objects ticked (`all`: every one that can be exported), or puts it away. `tracing`: the sheet opens on that tracing's drawing. */
+  exportSheet(of: string[] | 'all' | null, tracing?: string): void {
     if (of !== null && store.getState().workspace === null) return
-    store.setState({ exportOf: of })
+    store.setState({ exportOf: of, exportTracing: of === null || tracing === undefined ? null : tracing })
   },
 
   /** Show the page of objects, or go back from it to the object that is open: with none open there is nothing to go back to. */

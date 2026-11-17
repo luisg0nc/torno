@@ -240,7 +240,7 @@ export function TracingPanel() {
         void tracingActions.setParts(open.id, next)
       }}
       onRemove={() => void tracingActions.remove(open.id)}
-      onExport={() => objectId !== null && actions.exportSheet([objectId])}
+      onExport={() => objectId !== null && actions.exportSheet([objectId], open.id)}
       into={into}
       onInto={tracingActions.setInto}
       onHide={(layer, hidden) => void tracingActions.hideLayer(layer, hidden)}

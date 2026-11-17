@@ -3,7 +3,9 @@ import { type Arrow, type BoardCounts, type BoardFile, type Card, type CardKind,
 import { type Mark, markAnchors } from '../../shared/marks'
 import { describeMark } from '../marks/describe'
 import { checkText, type ModelCheck } from '../../shared/modelChecks'
+import { number } from '../../shared/format'
 import { parseSize, saySize } from '../../shared/size'
+import { type Tracing, tracingName } from '../../shared/tracings'
 import { said } from '../../shared/params'
 import type { Param } from '../../shared/scene'
 import type { Overrides } from '../paramsfile'
@@ -24,6 +26,8 @@ export interface LiveFacts {
   checks?: ModelCheck[]
   /** The text of `brief.md`, cut to `MAX_TEXT_CHARS`. */
   brief?: string
+  /** The project's tracings, by id, as the tracings file has them. */
+  tracings?: ReadonlyMap<string, Tracing>
 }
 
 export const CUT_SENTENCE = 'The rest of the board is cut here: read it with board.'
@@ -40,6 +44,7 @@ const LABEL: Record<CardKind, string> = {
   reference: 'reference',
   mark: 'mark',
   scan: 'scan',
+  tracing: 'tracing',
   build: 'build',
   view: 'view',
   params: 'Params',
@@ -56,6 +61,7 @@ const NEW_AS: Record<CardKind, string> = {
   reference: 'a reference',
   mark: 'a mark',
   scan: 'a scan',
+  tracing: 'a tracing',
   build: 'a build',
   view: 'a view',
   params: 'the Params',
@@ -98,6 +104,19 @@ function markText(card: Card, live: LiveFacts): string {
   return `${mark.id} (${mark.kind}${ref ? `, on ${ref}` : ''}): ${note ? `${note}, ` : ''}${mark.status}`
 }
 
+/**
+ * What a tracing card says: `T1 "Front of the block"` and then its plane without the axes (`XZ at y = 0`), its layers and the line-up of its
+ * photo, never said to be exact. `said` is absent when the project has no such tracing now. The fade of the photo is no part of it: a fade is news to no one.
+ */
+function tracingSaid(card: Card, live: LiveFacts): { head: string; said?: string } {
+  const id = card.source ?? 'A tracing'
+  const t = card.source === undefined ? undefined : live.tracings?.get(card.source)
+  if (!t) return { head: id, said: undefined }
+  const layers = `${t.layers.length} ${t.layers.length === 1 ? 'layer' : 'layers'}`
+  const photo = t.photo === undefined ? [] : [t.photo.scale !== undefined && t.photo.pairs.length > 0 ? `photo lined up (${number(t.photo.scale)} px/mm, ≈)` : 'photo not lined up']
+  return { head: `${t.id} "${tracingName(t)}"`, said: [t.plane.label.replace(/ \(u = .*$/, ''), layers, ...photo].join(', ') }
+}
+
 const buildText = (card: Card): string => (card.copy ? `Build ${card.copy.id}: ${card.copy.line} (${card.copy.cause})` : `Build ${card.source ?? ''}`.trim())
 
 /** What a file of `reference/` that is not a picture is, for the agent, who reads it with its own tools. */
@@ -127,6 +146,10 @@ function contentOf(card: Card, live: LiveFacts): string {
       return markText(card, live)
     case 'scan':
       return `Scan ${card.source ?? ''}`.trim()
+    case 'tracing': {
+      const { head, said } = tracingSaid(card, live)
+      return said === undefined ? `${head} (not among the tracings of this project now)` : `${head}: ${said}`
+    }
     case 'build':
       return buildText(card)
     case 'view':
@@ -212,6 +235,11 @@ export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: stri
     if (card.kind === 'size') {
       const numbers = card.size ? parseSize(card.size.value, card.size.unit)?.numbers : undefined
       return [`${head}: ${contentOf(card, live)}`, ...(numbers ? [`numbers: [${numbers.join(', ')}]`] : [])].join('\n')
+    }
+    // A tracing is one line, in the head's place: its number and name, where it is, then what it says.
+    if (card.kind === 'tracing') {
+      const { head, said } = tracingSaid(card, live)
+      return said === undefined ? `${card.id} · tracing ${head} (not among the tracings of this project now)` : `${card.id} · tracing ${head}${where}: ${said}`
     }
     const body = card.kind === 'picture' || card.kind === 'sketch' ? '' : contentOf(card, live)
     const picture = ((): string => {

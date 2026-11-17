@@ -89,10 +89,11 @@ function Checked({ checked }: { checked: ExportChecked }) {
 export function ExportSheet({ onOpen }: { onOpen: (id: string, ticked: string[]) => void }) {
   const of = useStore((s) => s.exportOf)
   if (of === null) return null
-  return <Sheet key={of === 'all' ? 'all' : of.join('\n')} of={of} onOpen={onOpen} />
+  const tracing = useStore((s) => s.exportTracing)
+  return <Sheet key={`${of === 'all' ? 'all' : of.join('\n')}\0${tracing ?? ''}`} of={of} tracing={tracing} onOpen={onOpen} />
 }
 
-function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, ticked: string[]) => void }) {
+function Sheet({ of, tracing, onOpen }: { of: string[] | 'all'; tracing: string | null; onOpen: (id: string, ticked: string[]) => void }) {
   const names = useStore((s) => s.workspace?.objects ?? NONE)
   const [objects, setObjects] = useState<string[] | null>(of === 'all' ? null : of)
   const [marks, setMarks] = useState(false)
@@ -110,12 +111,13 @@ function Sheet({ of, onOpen }: { of: string[] | 'all'; onOpen: (id: string, tick
   const [angle, setAngle] = useState(String(MESH_ANGLE))
   const [openAfter, setOpenAfter] = useState(false)
   // A file of the open project's view (a picture, a drawing of its section) instead of one of the project: null for the others.
-  const [shared, setShared] = useState<ShareKind | null>(null)
+  // Opened from a tracing, the sheet is on that tracing's drawing (an SVG, as the first of its kinds), and the person may choose another.
+  const [shared, setShared] = useState<ShareKind | null>(tracing === null ? null : 'svg')
   const [pictureSize, setPictureSize] = useState(PICTURE_SIZES[0])
   const [pictureMarks, setPictureMarks] = useState(true)
   const [pictureCues, setPictureCues] = useState(true)
   // Of a tracing (`A tracing`): the section on screen, or one of the project's tracings by its `T<n>`; null until the person picks, and what is in it.
-  const [drawing, setDrawing] = useState<string | null>(null)
+  const [drawing, setDrawing] = useState<string | null>(tracing)
   const [tracings, setTracings] = useState<Tracing[]>([])
   const [drawLayers, setDrawLayers] = useState(true)
   const [drawMarks, setDrawMarks] = useState(false)

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { MAX_TEXT_CHARS } from '../../shared/board'
 import type { Mark } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
+import type { Tracing } from '../../shared/tracings'
 import type { Overrides } from '../paramsfile'
 import type { LiveFacts } from './text'
 
@@ -27,11 +28,12 @@ export async function readBrief(dir: string): Promise<string | undefined> {
   }
 }
 
-/** What main already has of a project that a card of its board shows: the marks, the last build's Params and checks, the person's tries and the brief. */
-export async function liveFacts(deps: { dir: string | undefined; marks: readonly Mark[]; scene: Scene | undefined; overrides(dir: string): Overrides }): Promise<LiveFacts> {
+/** What main already has of a project that a card of its board shows: the marks, the last build's Params and checks, the person's tries, the brief and the tracings. */
+export async function liveFacts(deps: { dir: string | undefined; marks: readonly Mark[]; scene: Scene | undefined; overrides(dir: string): Overrides; tracings?: readonly Tracing[] }): Promise<LiveFacts> {
   const brief = deps.dir === undefined ? undefined : await readBrief(deps.dir)
   return {
     marks: new Map(deps.marks.map((m) => [m.id, m])),
+    ...(deps.tracings ? { tracings: new Map(deps.tracings.map((t) => [t.id, t])) } : {}),
     ...(deps.scene?.params ? { params: deps.scene.params } : {}),
     ...(deps.dir !== undefined ? { tried: deps.overrides(deps.dir) } : {}),
     ...(deps.scene?.checks ? { checks: deps.scene.checks } : {}),

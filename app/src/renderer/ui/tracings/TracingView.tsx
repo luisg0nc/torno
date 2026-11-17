@@ -160,6 +160,15 @@ export function TracingView() {
     el.innerHTML = out
   }
 
+  // What floats over the sheet's top left, as far as its right and bottom edges on the stage: Fit leaves the outline clear of it.
+  const clearOfPanel = (): { right: number; bottom: number } | undefined => {
+    const panel = root.current?.querySelector('.tr-panel')
+    const at = stage.current?.getBoundingClientRect()
+    if (!panel || !at) return undefined
+    const p = panel.getBoundingClientRect()
+    return { right: p.right - at.left, bottom: p.bottom - at.top }
+  }
+
   // Where the label's field stands: on its point of the plane, moved with the sheet.
   const placeLabel = (made: Sheet | null = sheet): void => {
     const input = labelEl.current
@@ -224,7 +233,7 @@ export function TracingView() {
       sheet.restore(kept)
       placed.current = key
     } else if (drawing !== null && (stage.current?.getBoundingClientRect().width ?? 0) > 0) {
-      sheet.fit()
+      sheet.fit(clearOfPanel())
       placed.current = key
     }
   }, [sheet, drawing, key])
@@ -270,7 +279,7 @@ export function TracingView() {
       const onSheet = e.target === document.body || (e.target instanceof Node && stage.current?.contains(e.target) === true)
       if (pressed(e, 'tracing.fit')) {
         stop()
-        sheet.fit()
+        sheet.fit(clearOfPanel())
       } else if (pressed(e, 'tracing.actual')) {
         stop()
         sheet.actual()
@@ -463,7 +472,7 @@ export function TracingView() {
           </select>
         )}
         <span className="viewbar-rule" aria-hidden="true" />
-        <button type="button" className="bar-button" aria-keyshortcuts={hint('tracing.fit')} title={`Fit the outline (${hint('tracing.fit')})`} onClick={() => sheet?.fit()}>
+        <button type="button" className="bar-button" aria-keyshortcuts={hint('tracing.fit')} title={`Fit the outline (${hint('tracing.fit')})`} onClick={() => sheet?.fit(clearOfPanel())}>
           Fit
         </button>
         <button type="button" className="bar-button" aria-keyshortcuts={hint('tracing.actual')} title={`True size, a millimetre for a millimetre (${hint('tracing.actual')})`} onClick={() => sheet?.actual()}>

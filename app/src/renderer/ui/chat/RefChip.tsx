@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef } from 'react'
 import { peek } from '../../state/agent'
 import { boardActions, useBoard } from '../../state/board'
 import { useSets } from '../../state/sets'
+import { tracingActions, useTracings } from '../../state/tracings'
 import { actions, useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
 import { ChatEarlier } from './place'
@@ -9,7 +10,7 @@ import { type RefInfo, refInfo } from './refs'
 
 /**
  * A ref the chat shows (`M4`, `lid/F12`, `r12`) as a chip that is live: the pointer on it lights what it names in
- * the viewport, a click on a mark goes to it, a click on a face or an edge selects it, a click on a card of the board (`C7`) shows the board with it selected, and a click on the build on show opens the sheet of the build after it that failed. One that names nothing
+ * the viewport, a click on a mark goes to it, a click on a face or an edge selects it, a click on a card of the board (`C7`) shows the board with it selected, a click on a tracing (`T1`) opens it in the Tracing view, and a click on the build on show opens the sheet of the build after it that failed. One that names nothing
  * in the window now (another layout, a part not drawn, a mark that is gone) says so in its tooltip and does
  * nothing else. `value` is the ref (`ref` is React's own word). `prose`: the ref was found in running text, where one
  * the object has no such thing as (`M3` the screw, a build not made yet) is only text.
@@ -30,7 +31,10 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
   // A card of the board is followed only by a ref that names one.
   const isCard = /^C\d+$/.test(value)
   const board = useBoard((s) => (isCard ? s.board : null))
-  const info: RefInfo = useMemo(() => refInfo({ marks, scene, layers, layout, revision, build, board, sets }, value), [marks, scene, layers, layout, revision, build, board, sets, value])
+  // And a tracing only by a ref that names one.
+  const isTracing = /^T[1-9]\d*$/.test(value)
+  const tracings = useTracings((s) => (isTracing ? s.file?.tracings : undefined))
+  const info: RefInfo = useMemo(() => refInfo({ marks, scene, layers, layout, revision, build, board, sets, tracings }, value), [marks, scene, layers, layout, revision, build, board, sets, tracings, value])
   const lit = useRef(false)
   const light = (on: boolean): void => {
     if (on === lit.current) return
@@ -61,6 +65,10 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
         if (info.act === 'focus') actions.focusMark(value)
         else if (info.act === 'build') actions.setErrorOpen(true)
         else if (info.act === 'card') boardActions.reveal(value)
+        else if (info.act === 'tracing') {
+          tracingActions.open(value)
+          boardActions.show('tracing')
+        }
         else if (info.select === undefined || info.select.length > 0) actions.setSelection(info.select ?? (info.lights.length > 0 ? info.lights : [value]))
         // Made with the pointer, the next letter is the view's: what the chip did, it did to the view. (Enter on it keeps the focus.)
         if (e.detail > 0) giveKeysBack(e.currentTarget)

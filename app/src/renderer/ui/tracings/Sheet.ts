@@ -127,8 +127,12 @@ export class Sheet {
     this.apply()
   }
 
-  /** Shows the whole of the box with a margin round it, centred, as large as the screen allows. With no box, 1:1 with the origin in the middle. */
-  fit(): void {
+  /**
+   * Shows the whole of the box with a margin round it, centred, as large as the screen allows. With no box, 1:1 with the origin in the middle.
+   * `avoid` is what floats over the element's top left (the panel and the palette), as far as its right and bottom edges in pixels of the
+   * element: when the box shown that way would lie under it, it is fitted to the room right of it or below it, whichever lets it be larger.
+   */
+  fit(avoid?: { right: number; bottom: number }): void {
     const r = this.rect()
     if (this.box === null) {
       this.k = PX_PER_MM
@@ -138,10 +142,29 @@ export class Sheet {
     }
     const [bx, by, bw, bh] = this.box
     const room = (side: number, of: number): number => (of > 0 ? Math.max(1, side - 2 * FIT_MARGIN) / of : Infinity)
-    this.k = clamp(Math.min(room(r.width, bw), room(r.height, bh)))
-    this.x = r.width / 2 - (bx + bw / 2) * this.k
-    this.y = r.height / 2 - (by + bh / 2) * this.k
+    /** The zoom and corner that centre the box in the part of the element at (x, y) of w by h. */
+    const into = (x: number, y: number, w: number, h: number): View => {
+      const k = clamp(Math.min(room(w, bw), room(h, bh)))
+      return { k, x: x + w / 2 - (bx + bw / 2) * k, y: y + h / 2 - (by + bh / 2) * k }
+    }
+    let at = into(0, 0, r.width, r.height)
+    if (avoid && bw * at.k > 0 && this.under(at, avoid)) {
+      // Right of the panel, or below it: the one that gives the larger zoom (the first when they are the same).
+      const options = [into(avoid.right, 0, r.width - avoid.right, r.height), into(0, avoid.bottom, r.width, r.height - avoid.bottom)].filter((_, i) => (i === 0 ? r.width - avoid.right > 2 * FIT_MARGIN : r.height - avoid.bottom > 2 * FIT_MARGIN))
+      if (options.length > 0) at = options.reduce((best, o) => (o.k > best.k ? o : best))
+    }
+    this.k = at.k
+    this.x = at.x
+    this.y = at.y
     this.apply()
+  }
+
+  /** Whether the box, with the sheet at `view`, lies over the corner `avoid` keeps. */
+  private under(view: View, avoid: { right: number; bottom: number }): boolean {
+    const [bx, by, bw, bh] = this.box ?? [0, 0, 0, 0]
+    const left = view.x + bx * view.k
+    const top = view.y + by * view.k
+    return left < avoid.right && top < avoid.bottom && left + bw * view.k > 0 && top + bh * view.k > 0
   }
 
   /** Sets 1:1 about the middle of the screen: what is there stays there. */

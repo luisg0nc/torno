@@ -23,6 +23,11 @@ describe('what a double click on a card does', () => {
     expect(doubleClickOf(card('view', { source: 'front' }))).toEqual({ does: 'view', name: 'front' })
   })
 
+  it('opens a tracing in the Tracing view', () => {
+    expect(doubleClickOf(card('tracing', { source: 'T1' }))).toEqual({ does: 'tracing', id: 'T1' })
+    expect(doubleClickOf(card('tracing'))).toBeNull()
+  })
+
   it('opens the sheet of a view note on a double click on its card, and goes to the model for any other mark', () => {
     const note = { id: 'M4', kind: 'note' } as never
     const pin = { id: 'M3', kind: 'pin' } as never

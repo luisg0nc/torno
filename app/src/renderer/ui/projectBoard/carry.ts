@@ -3,6 +3,7 @@ import { goToCamera, goToSavedView } from '../../state/agent'
 import { boardActions } from '../../state/board'
 import { actions, explodeNow, store } from '../../state/store'
 import { editSketch } from '../../state/sketching'
+import { tracingActions, tracingsStore } from '../../state/tracings'
 import { openNote } from '../drawing/make'
 import type { Opens } from './opens'
 
@@ -47,6 +48,12 @@ export async function carryOut(objectId: string, opens: Opens): Promise<string |
       boardActions.show('model')
       actions.setScanView(opens.id, { visible: true })
       actions.frameScan(opens.id)
+      return null
+    }
+    case 'tracing': {
+      if (!tracingsStore.getState().file?.tracings.some((t) => t.id === opens.id)) return `${opens.id} is not among the tracings of this project now.`
+      tracingActions.open(opens.id)
+      boardActions.show('tracing')
       return null
     }
     case 'view': {

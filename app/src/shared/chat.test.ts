@@ -3,6 +3,17 @@ import { agentChoiceOf, EFFORTS, effortsOf, pulledFromTorno, refsIn, shownPath, 
 
 const refs = (text: string, sets?: readonly string[]): string[] => refsIn(text, sets).flatMap((piece) => (piece.ref ? [piece.ref] : []))
 
+describe('refsIn: tracings', () => {
+  it('takes T<n> as a ref, with the marks and the cards', () => {
+    expect(refs('see T1 and M3')).toEqual(['T1', 'M3'])
+    expect(refs('T12, then T3.')).toEqual(['T12', 'T3'])
+    expect(refsIn('see T1 and M3').map((p) => p.text)).toEqual(['see ', 'T1', ' and ', 'M3'])
+  })
+  it('takes T0, T01, ST1 and T1a for none', () => {
+    expect(refs('T0 and ST1 and T01 and T1a and aT1')).toEqual([])
+  })
+})
+
 describe('refsIn', () => {
   it('finds marks, builds, and faces and edges of a part, and leaves the text between them whole', () => {
     expect(refs('M4 and lid/F12, r3; tub_2/E10.')).toEqual(['M4', 'lid/F12', 'r3', 'tub_2/E10'])

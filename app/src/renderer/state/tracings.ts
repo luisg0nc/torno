@@ -1,5 +1,6 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
+import type { BoardFile } from '../../shared/board'
 import type { HistoryList } from '../../shared/history'
 import type { MainAxis } from '../../shared/planes'
 import { parseSetRef } from '../../shared/sets'
@@ -57,8 +58,9 @@ const set = (patch: Partial<TracingsState>): void => tracingsStore.setState(patc
 /** What main refused or failed at, in its words (the bridge has already taken Electron's wrapping off). */
 const said = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
-/** Which tracings main is told are shown: the open one while the main area is on a tracing; none otherwise. */
-export function shownIds(shown: Shown, open: string | null): string[] {
+/** Which tracings main is told are shown: the open one while the main area is on a tracing, the tracings of the cards that are on the board while it is shown; none otherwise. */
+export function shownIds(shown: Shown, open: string | null, board?: BoardFile | null): string[] {
+  if (shown === 'board') return [...new Set((board?.cards ?? []).filter((c) => c.kind === 'tracing' && !c.hidden && c.source !== undefined).map((c) => c.source as string))]
   return shown === 'tracing' && open !== null ? [open] : []
 }
 
@@ -89,7 +91,7 @@ export function facePicked(selection: readonly string[]): string | null {
 }
 
 /** What decides whether the outline is cut again: the layout, the plane and the parts. A rename or a layer is no reason. */
-const cutKey = (t: Tracing | undefined): string => (t === undefined ? '' : JSON.stringify([t.layout, t.plane, t.parts ?? null]))
+export const cutKey = (t: Tracing | undefined): string => (t === undefined ? '' : JSON.stringify([t.layout, t.plane, t.parts ?? null]))
 
 /** `next` with each tracing that is as it was in `prev` kept as that very object: what comes across the bridge is all new objects. */
 function sharing(prev: TracingsFile | null, next: TracingsFile): TracingsFile {
@@ -446,7 +448,7 @@ export function connectTracings(): () => void {
   let told: { objectId: string; ids: string[] } | null = null
   const tell = (): void => {
     const objectId = state().objectId
-    const ids = objectId === null ? [] : shownIds(boardStore.getState().shown, state().open)
+    const ids = objectId === null ? [] : shownIds(boardStore.getState().shown, state().open, boardStore.getState().board)
     if (told !== null && told.objectId === objectId && told.ids.join() === ids.join()) return
     if (told !== null && told.objectId !== objectId && told.ids.length > 0) window.torno.tracings.shown(told.objectId, [])
     if (objectId !== null && (ids.length > 0 || (told !== null && told.objectId === objectId))) window.torno.tracings.shown(objectId, ids)
