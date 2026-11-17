@@ -1694,7 +1694,7 @@ you pin, with "Pin to board":
   Checks section of that panel, each passing or failing. Each is on a board once: pinning it again says so.
 
 You make **text** cards (a web address in one shows as a link, and a click on it opens it in your browser), **size** cards (below), **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
-Claude is sent is scaled down by the window first), **sketch** cards (drawn with the same ink pad as the doodles), named
+Claude is sent is scaled down by the window first), **doodle** cards (drawn with the Doodle tool on the same ink pad as a new project's doodles), named
 **frames** and **arrows** between cards, with an optional word on them. A card dropped inside a frame belongs to it, and a frame
 dragged takes its cards along. Claude's cards have a green edge; Claude makes text and pictures of the view (below) and
 never moves, edits or removes one of yours or one torno made.
@@ -1702,7 +1702,7 @@ never moves, edits or removes one of yours or one torno made.
 **Moving around.** The wheel or two fingers pan; `Ctrl` and the wheel, or a pinch, zoom about the pointer (10 % to 400 %); a
 middle or right drag, or `Space` and a drag, pan; `Shift+1` fits every card. A small map in the corner shows the board and
 what is on screen: click or drag in it to go there. The tools are in a palette at the foot: Select `V`, Text `N`, Frame `F`,
-Arrow `A`, Size `M`, Picture `I`, Sketch `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
+Arrow `A`, Size `M`, Picture `I`, Doodle `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
 one. `Delete` removes what is selected (the cards that came by themselves are hidden), and `Ctrl+Z` takes back the last changes
 you made here, up to 50. A board holds 2000 cards and a text card 4000 characters.
 
@@ -1729,7 +1729,7 @@ The card shows the value and unit large, in the face of numbers, then what it me
 | Size | opens its form (yours only) |
 | STEP file, PDF | shows the file in its folder |
 | Picture | opens it large; one Claude drew of the view goes to the model with its camera |
-| Sketch | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
+| Doodle | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
 | Frame | renames it (yours only) |
 | Arrow | edits its word |
 
@@ -1763,7 +1763,7 @@ make to the board: before writing it compares the file with what it last wrote, 
 on top of it, and shows you the result. A pull is therefore seen at the next change, not at once. A file torno cannot read, or
 with cards that are not whole, is kept beside it (`board.json.corrupt-…`, `board.json.dropped-…`) and the board says so, with
 "Dismiss". Undo (`Ctrl+Z`) goes back up to 50 changes made in this window, and brings back what torno took off in this run. The
-pictures torno let go of (a removed card's, a sketch drawn on again) are listed in `dropped.json` beside them and deleted when
+pictures torno let go of (a removed card's, a doodle drawn on again) are listed in `dropped.json` beside them and deleted when
 the project is first opened in a later run, unless a card has them again or a file kept aside names them
 (`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on
 that list is never deleted, whatever the board names: switching branch never takes one.
@@ -1965,7 +1965,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Board | `A` | Board, Arrow: draw from one card to another |
 | Board | `M` | Board, Size: a card for a size you know |
 | Board | `I` | Board, Picture: add a photo from a file |
-| Board | `S` | Board, Sketch: draw on a card |
+| Board | `S` | Board, Doodle: draw on a card |
 | Board | `Space` | Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms) |
 | Board | `Ctrl+Enter` | Board: send the selected cards with the next prompt |
 | Board | `Delete` `Backspace` | Board: remove the selected cards and arrows (those that came by themselves are hidden) |
@@ -2028,7 +2028,7 @@ place.
 | `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured | travels |
 | `scans.json` | the scans of the project: where each source file is and its hash, how it was imported, and its alignment in each layout | travels |
 | `board/board.json` | the board (see "The board"): its cards with their places, sizes and text, the frames and the arrows; for a card that shows a build, a copy of what it says | travels |
-| `board/pictures/` | the pictures and sketches of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
+| `board/pictures/` | the pictures and doodles of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
 | `board/told.json` | what Claude was last told of each card, so that only what is new is said | ignored |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
 | `profile.json` | the printer and material the project is made for (a copy of your choice under "Print profile") | travels with the project |

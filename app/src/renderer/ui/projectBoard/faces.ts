@@ -71,7 +71,7 @@ const LABEL: Record<CardKind, string> = {
   checks: 'Checks',
   text: 'Text',
   picture: 'Picture',
-  sketch: 'Sketch',
+  sketch: 'Doodle',
   frame: 'Frame',
   size: 'Size'
 }

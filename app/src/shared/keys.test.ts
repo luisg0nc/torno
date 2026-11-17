@@ -103,6 +103,11 @@ it('has the keys of the board, and Ctrl+Tab for the swap alone in the window', (
   expect(KEYS.some((r) => r.id === 'board.attach' && r.scope === 'board')).toBe(true)
 })
 
+it('calls the board\'s ink-pad tool a Doodle, with the S key kept', () => {
+  expect(KEYS.find((r) => r.id === 'board.sketch')?.does).toBe('Board, Doodle: draw on a card')
+  expect(hint('board.sketch')).toBe('S')
+})
+
 it('says which key of a row was pressed', () => {
   expect(pressed({ key: 'f' }, 'fit')).toBe(true)
   expect(pressed({ key: 'f', ctrlKey: true }, 'fit')).toBe(false)

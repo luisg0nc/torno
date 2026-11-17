@@ -353,7 +353,7 @@ describe('editing', () => {
     const board = await store.person('bracket', { op: 'edit', id: 'C1', picture: 'p-bbbbbbbbbbbb.png' })
     expect(byId(board, 'C1').picture).toBe('p-bbbbbbbbbbbb.png')
     await expect(store.person('bracket', { op: 'edit', id: 'C1', picture: '../../x.png' })).rejects.toThrow(/picture/)
-    await expect(store.person('bracket', { op: 'edit', id: 'C2', picture: 'p-bbbbbbbbbbbb.png' })).rejects.toThrow(/sketch/)
+    await expect(store.person('bracket', { op: 'edit', id: 'C2', picture: 'p-bbbbbbbbbbbb.png' })).rejects.toThrow(/doodle/)
     expect(byId(await store.read('bracket'), 'C1').picture).toBe('p-bbbbbbbbbbbb.png')
   })
 

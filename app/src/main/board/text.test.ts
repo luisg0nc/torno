@@ -119,6 +119,13 @@ describe('the text of a board', () => {
     const changed = { ...note, note: 'thicker now' } as unknown as Mark
     expect(saysHash(c, live)).not.toBe(saysHash(c, { marks: new Map([['M5', changed]]) }))
   })
+  it('calls the ink-pad card a doodle, in its head and in its picture line', () => {
+    const d = card({ kind: 'sketch', picture: 'p-bbbbbbbbbbbb.png', caption: 'the latch shape' })
+    const text = boardText(board([d]), LIVE, OPTS).text
+    expect(text).toContain(`${d.id} · doodle · by the person`)
+    expect(text).toContain(`[doodle ${d.id}: the latch shape]`)
+    expect(text).not.toMatch(/sketch/i)
+  })
   it('says a picture by its caption', () => {
     const p = card({ kind: 'picture', picture: 'p-aaaaaaaaaaaa.png', caption: 'the old latch' })
     expect(boardText(board([p]), LIVE, OPTS).text).toContain(`[picture ${p.id}: the old latch]`)
@@ -217,7 +224,7 @@ describe('what is new', () => {
     const cards = [card({ kind: 'picture', picture: 'p-aaaaaaaaaaaa.png' }), text(), card({ kind: 'sketch', picture: 'p-bbbbbbbbbbbb.png' }), card({ kind: 'frame', name: 'Latch' }), card({ kind: 'frame', name: 'Snorkel' })]
     const line = boardLine(board(cards), {}, LIVE).line
     // Frames are read first, then the rest.
-    expect(line).toBe(`Board: 3 cards (5 new: ${cards[3].id} a frame, ${cards[4].id} a frame, ${cards[0].id} a photo, ${cards[1].id} text, ${cards[2].id} a sketch), frames Latch, Snorkel. Read it with board.`)
+    expect(line).toBe(`Board: 3 cards (5 new: ${cards[3].id} a frame, ${cards[4].id} a frame, ${cards[0].id} a photo, ${cards[1].id} text, ${cards[2].id} a doodle), frames Latch, Snorkel. Read it with board.`)
   })
   it('takes a pinned card as new when what its source says changes', () => {
     const params = card({ kind: 'params', source: 'params' })

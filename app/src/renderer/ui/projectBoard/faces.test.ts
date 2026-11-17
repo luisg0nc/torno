@@ -21,6 +21,9 @@ const pin = (over: Partial<Mark> = {}): Mark =>
   }) as Mark
 
 describe('what a card shows', () => {
+  it('calls the ink-pad card a Doodle', () => {
+    expect(faceOf(card({ kind: 'sketch', picture: 'p-aaaaaaaaaaaa.png' }), {}).label).toBe('Doodle')
+  })
   it('shows a mark as it is now: its chip, its kind and ref, its note and status', () => {
     const face = faceOf(card({ kind: 'mark', source: 'M1', by: 'torno' }), { mark: pin() })
     expect(face).toMatchObject({ label: 'Mark', chip: 'M1', chipAuthor: 'user' })

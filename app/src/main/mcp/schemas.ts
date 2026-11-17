@@ -555,7 +555,7 @@ export const TOOLS = {
     title: 'Read the board',
     annotations: READ_ONLY,
     description:
-      'Returns the board of this project as text: each card by its id, its kind and who made it with what it says, frames first with their cards in reading order, then the arrows between them, and the pictures named, or sent with pictures: true. The board is the person\'s brief, where they lay out what they want, so read it when they point at a frame or a card, and before you plan. {"frame": "Latch"} gives only that frame and its cards.',
+      'Returns the board of this project as text: each card by its id, its kind (a doodle is one the person drew on the ink pad of the board) and who made it with what it says, frames first with their cards in reading order, then the arrows between them, and the pictures named, or sent with pictures: true. The board is the person\'s brief, where they lay out what they want, so read it when they point at a frame or a card, and before you plan. {"frame": "Latch"} gives only that frame and its cards.',
     inputSchema: boardInput
   },
   add_card: {
@@ -634,7 +634,7 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - check: overlap and clearance between parts, interference of a whole layout, a closed mesh, and for printing overhangs, thin walls and the fit on a bed.
 - diff: what changed between two successful builds (the last two, or any kept ones): parts added or removed, volume, size and face counts.
 - history: the builds kept of this project, by id (h41), with what changed in each; diff compares any two.
-- board: the person's board, where they lay out what they want: text, pictures, frames and arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
+- board: the person's board, where they lay out what they want: text, pictures, doodles, frames and arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
 - add_card: leave a card of yours on the board (a plan, a note, a size, a picture of the view), in a frame, with an arrow; change or remove only your own.
 - expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the build after it is checked against that.
 - try_fillet: try a fillet or chamfer of some edges on the last build and throw it away: whether it works, the largest radius that does, which edges or pairs fail.

@@ -155,7 +155,7 @@ const ROWS = [
   row('board.arrow', ['A'], 'Board, Arrow: draw from one card to another', 'Board', 'board'),
   row('board.size', ['M'], 'Board, Size: a card for a size you know', 'Board', 'board'),
   row('board.picture', ['I'], 'Board, Picture: add a photo from a file', 'Board', 'board'),
-  row('board.sketch', ['S'], 'Board, Sketch: draw on a card', 'Board', 'board'),
+  row('board.sketch', ['S'], 'Board, Doodle: draw on a card', 'Board', 'board'),
   row('board.pan', ['Space'], 'Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms)', 'Board', 'board'),
   row('board.attach', ['Ctrl+Enter'], 'Board: send the selected cards with the next prompt', 'Board', 'board'),
   row('board.remove', ['Delete', 'Backspace'], 'Board: remove the selected cards and arrows (those that came by themselves are hidden)', 'Board', 'board'),

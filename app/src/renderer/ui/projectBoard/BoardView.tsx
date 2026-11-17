@@ -193,7 +193,7 @@ export function BoardView() {
     }
   }
 
-  /** A tool is chosen: Picture and Sketch do their one thing and Select is in hand again. */
+  /** A tool is chosen: Picture and Doodle do their one thing and Select is in hand again. */
   function choose(next: BoardTool): void {
     if (next === 'picture') {
       boardActions.setTool('select')
@@ -488,7 +488,7 @@ export function BoardView() {
   async function reopenSketch(card: Card): Promise<void> {
     if (objectId === null || card.picture === undefined) return
     const bytes = await window.torno.board.picture(objectId, card.picture).catch(() => null)
-    if (!bytes) return void boardActions.say('That sketch is not on this computer.')
+    if (!bytes) return void boardActions.say('That doodle is not on this computer.')
     setSketching({ card: card.id, ground: { url: URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/png' })), bytes } })
   }
 
@@ -612,15 +612,15 @@ export function BoardView() {
       {viewing && <PictureView url={viewing.url} label={viewing.label} onClose={() => setViewing(null)} />}
       {sketching && objectId !== null && (
         <InkPad
-          title="Sketch"
-          label="Sketch for the board"
-          hint={sketching.card ? 'Draw over the sketch: what you add goes on top of it.' : 'Draw what you mean: a shape, where it goes, a size. Hold Shift for a straight line.'}
+          title="Doodle"
+          label="Doodle for the board"
+          hint={sketching.card ? 'Draw over the doodle: what you add goes on top of it.' : 'Draw what you mean: a shape, where it goes, a size. Hold Shift for a straight line.'}
           size={BOARD}
           {...(sketching.ground ? { ground: sketching.ground.url } : {})}
           foot={sketching.card ? 'The card shows the new drawing, and Claude gets it as a picture when you send it.' : 'It becomes a card on the board, and Claude gets it as a picture when you send it.'}
           look={() => ({ ink: inkNow() })}
           initial={[]}
-          discard={{ label: 'Discard this sketch?', text: 'Discard this sketch? What was drawn since it was opened is not kept.' }}
+          discard={{ label: 'Discard this doodle?', text: 'Discard this doodle? What was drawn since it was opened is not kept.' }}
           onDone={async (strokes) => {
             if (strokes.length > 0) {
               if (sketching.card && sketching.ground) await redrawSketch(objectId, sketching.card, await doodlePngOver(sketching.ground.bytes, strokes))

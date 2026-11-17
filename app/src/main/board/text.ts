@@ -46,7 +46,7 @@ const LABEL: Record<CardKind, string> = {
   checks: 'checks',
   text: 'text',
   picture: 'picture',
-  sketch: 'sketch',
+  sketch: 'doodle',
   frame: 'frame',
   size: 'size'
 }
@@ -62,7 +62,7 @@ const NEW_AS: Record<CardKind, string> = {
   checks: 'the checks',
   text: 'text',
   picture: 'a photo',
-  sketch: 'a sketch',
+  sketch: 'a doodle',
   frame: 'a frame',
   size: 'a size'
 }
@@ -217,7 +217,7 @@ export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: stri
     const picture = ((): string => {
       const state = fate.get(card.id)
       if (state === undefined) return ''
-      const what = card.kind === 'sketch' ? 'sketch' : 'picture'
+      const what = card.kind === 'sketch' ? 'doodle' : 'picture'
       const caption = card.kind === 'picture' || card.kind === 'sketch' ? (card.caption ?? '') : `of ${card.source ?? card.id}`
       const note = state === 'missing' ? MISSING : state === 'left out' ? 'not attached, read it with board' : ''
       const said = [caption, note].filter(Boolean).join(', ')

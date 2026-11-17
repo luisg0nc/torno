@@ -51,7 +51,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`notes:make`, `notes:edit`); only files torno itself dropped are swept, never "whatever the marks do not name" (a branch switch must never delete
   a picture): main lists a file in the folder's `dropped.json` (`main/dropped.ts`; the same for `.torno/board/pictures/`) when it
   drops it (a note removed, the ink an edit replaced, a reference taken away, what a failed save wrote, a card taken off the
-  board, a sketch drawn on again), and the sweep, once per project per run when it is first opened (`main/notes/sweep.ts`,
+  board, a doodle drawn on again), and the sweep, once per project per run when it is first opened (`main/notes/sweep.ts`,
   `main/board/pictures.ts`), deletes a listed file only if no note or card names it, this run's undo cannot bring it back
   and no `marks.json.corrupt-*` or `.dropped-*` names it, then takes it off the list. An unlisted file is never deleted;
   nothing at all is swept when the marks file could not be read; a file changed in the last minute is left alone.)

@@ -458,10 +458,10 @@ test('a picture dropped on the board makes a picture card', async () => {
   await expect(page.locator('.pboard-card[data-kind="picture"] img')).toHaveCount(1)
 })
 
-test('S opens the ink pad, and what is drawn becomes a sketch card', async () => {
+test('S opens the ink pad, and what is drawn becomes a doodle card', async () => {
   await page.locator('.pboard-stage').focus()
   await page.keyboard.press('s')
-  const pad = page.getByRole('dialog', { name: 'Sketch for the board' })
+  const pad = page.getByRole('dialog', { name: 'Doodle for the board' })
   await expect(pad).toBeVisible()
   const area = (await pad.getByLabel('Drawing area').boundingBox())!
   await drag({ x: area.x + area.width * 0.2, y: area.y + area.height * 0.3 }, { x: area.x + area.width * 0.7, y: area.y + area.height * 0.6 })
@@ -600,10 +600,10 @@ test('a double click on a picture opens it large, and Esc puts it away', async (
   await expect(page.locator('.pboard')).toBeVisible()
 })
 
-test('a double click on a sketch opens the ink pad on its drawing, and Done gives the card its new drawing', async () => {
+test('a double click on a doodle opens the ink pad on its drawing, and Done gives the card its new drawing', async () => {
   const before = (await cardsOf('sketch'))[0]
   await cardOf('sketch').dblclick()
-  const pad = page.getByRole('dialog', { name: 'Sketch for the board' })
+  const pad = page.getByRole('dialog', { name: 'Doodle for the board' })
   await expect(pad).toBeVisible()
   // Its drawing is under the ink.
   await expect(pad.getByLabel('Drawing area')).toHaveAttribute('data-ground', '')
