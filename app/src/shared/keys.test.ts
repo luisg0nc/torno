@@ -137,6 +137,23 @@ it('gives the key of a row for a tooltip', () => {
   expect(hint('gizmo', 2)).toBe('T')
 })
 
+it('has the keys of a review in the window\'s scope, free of every other and never the brackets', () => {
+  const review = KEYS.filter((row) => row.id === 'marks.review' || row.id.startsWith('review.'))
+  expect(review.map((row) => [row.id, row.scope])).toEqual([['marks.review', 'window'], ['review.dont', 'window'], ['review.want', 'window']])
+  const keys = review.flatMap((row) => row.keys)
+  expect(keys).toEqual(['H', '-', '=', '+'])
+  // The align patch and the region brush hold the brackets.
+  for (const key of keys) expect(['[', ']']).not.toContain(key)
+  // No other row of any scope has one of them: the one scope is heard everywhere outside a field.
+  for (const key of keys) expect([key, KEYS.filter((row) => row.keys.includes(key)).map((row) => row.id)]).toEqual([key, [KEYS.find((row) => row.keys.includes(key))!.id]])
+  expect(keyClashes()).toEqual([])
+  expect(which({ key: '-' }, 'review.dont')).toBe(0)
+  expect(which({ key: '=' }, 'review.want')).toBe(0)
+  // Plus is Shift and = on some keyboards: the character is what is heard.
+  expect(which({ key: '+', shiftKey: true }, 'review.want')).toBe(1)
+  expect(which({ key: 'h' }, 'marks.review')).toBe(0)
+})
+
 it('has nothing heard while typing that typing or the terminal would take', () => {
   for (const key of ['V', '?', 'Esc', 'Enter', 'Shift+Enter', 'Left', 'Ctrl+C', 'Ctrl+R', 'Ctrl+E']) expect([key, typed(key)]).toEqual([key, true])
   for (const key of ['Ctrl+Shift+E', 'Ctrl+Shift+B', 'Ctrl+Shift+D', 'F6', 'Shift+F6', 'Ctrl+`', 'F12', 'Ctrl+Shift+I']) expect([key, typed(key)]).toEqual([key, false])

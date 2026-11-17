@@ -130,6 +130,9 @@ const ROWS = [
   row('ortho', ['O'], 'Perspective or orthographic', 'Viewport', 'viewport'),
   row('explode', ['E'], 'Draw the parts apart, or together again', 'Viewport', 'viewport'),
   row('page', ['W'], 'All projects of the folder, on one page (there a letter filters them by name)', 'Viewport', 'viewport'),
+  row('marks.review', ['H'], 'Review this build: start a round, to mark what you do not want and what you want, and send it at once', 'Viewport', 'window'),
+  row('review.dont', ['-'], 'Review: new marks are what you do not want; again, plain', 'Viewport', 'window'),
+  row('review.want', ['=', '+'], 'Review: new marks are what you want; again, plain', 'Viewport', 'window'),
   row('compare.end', ['Esc'], 'Compare: back to the live build, before any other step back', 'Viewport', 'compare'),
   row('escape', ['Esc'], 'Step back: what is under way, then the tool in hand, then the selection', 'Viewport', 'viewport'),
 

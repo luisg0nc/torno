@@ -5,6 +5,7 @@ import { picture } from '../../state/agent'
 import { describe } from '../../state/descriptors'
 import { type Pictured, drawingActions, drawingStore, viewHost } from '../../state/drawing'
 import type { Stroke } from '../../state/onboard'
+import { reviewActions } from '../../state/review'
 import { store } from '../../state/store'
 import { drawingPng } from './compose'
 import { changeOf, itsUnder } from './change'
@@ -168,9 +169,11 @@ export async function finishDrawing(strokes: Stroke[], form: NoteForm): Promise<
   const references = referenceDrafts(form.references)
   if (kept.length === 0 && labels.length === 0 && comment === '' && references.length === 0) throw new Error('Draw or write something first, or cancel')
   const anchor = anchorOf(first, lines)
+  // What the bar of an open review says of a mark made now: main checks it, and puts the note in the round.
+  const intent = reviewActions.intentForNew(p.layout)
   const draft: NoteDraft = {
     objectId: p.objectId, revision: p.revision, layout: p.layout, camera: p.camera, caption: p.caption, size: { w: p.width, h: p.height },
-    plain: p.plain, inked: png, inkColour: p.ink, strokes: kept, labels, under, comment, references, ...(anchor ? { anchor } : {})
+    plain: p.plain, inked: png, inkColour: p.ink, strokes: kept, labels, under, comment, references, ...(anchor ? { anchor } : {}), ...(intent ? { intent } : {})
   }
   await window.torno.notes.make(draft)
   drawingActions.cancel()

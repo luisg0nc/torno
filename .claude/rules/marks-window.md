@@ -90,3 +90,20 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   check it`, `its part is gone`) is a line of its own under the note (`.mark-anchor`, `late.css`). The Marks list never scrolls sideways (`e2e/reanchor.spec.ts`, with a note longer
   than the column). A dimension opened out leaves its value and verdict to its fields under the first line, so
   that `Add a note` is whole beside the buttons of the row (`marks.css`, `e2e/measure.spec.ts`).
+- **What the person says of a mark: want and don't want** (`markIntent`, `shared/marks.ts`; the person's marks only, Claude's
+  is never one, a shape's `add` is want and `remove` don't want). A mark keeps its author's colour and no new colour is
+  made: don't want is hatched, want is solid, and both say it in the chip, `− M8` / `+ M8` (`labelText`, `rowLabel`, the sign
+  in the face of numbers, `INTENT_CHIP`). The hatch is `viewport/marks/hatch.ts`, stripes cut by the fragment shader from the
+  pixel's place on the screen: a don't want shape's fill and a flow's tube (`build`), the faces of a don't want pick (the
+  `userDont` layer of `Highlights`, `MarkLayer.pickRefs(...).dont`) and a don't want region on its scan (`KeptRegion.dont`);
+  its lines, a stroke's, an arrow's and a sketch's, are dashed (`setDashed`). A person's row has an intent menu
+  (`ui/IntentMenu.tsx`: `marks:setIntent`, a shape has no plain), says `in review, not sent` while it is a draft of a round that
+  has not gone, and offers "Take out of R1" (`marks:roundOut`).
+- **A round and its bar** (`state/review.ts`, `ui/ReviewBar.tsx`). `useReview` is what main last said of the rounds (`marks:changed`,
+  `marks.rounds`) with the window's own choice (plain, don't want, want) and the panel that is open. While a round is open the bar
+  stands under the view bar (`Review of h41`, the three ways with their keys, `3 − · 2 +`, End, Send review); every place a mark is
+  made asks `reviewActions.intentForNew(layout)` (`commitMark`, a new sketch's first send, a note's draft, a region kept) and says
+  it in the draft, and main checks it and puts the mark in the round. The round is of one layout: elsewhere the bar says so and
+  its choice is off. "Review this build" is in the Marks list (`ui/ReviewSummary.tsx`, which also lists the rounds), on the build
+  row of the chat, and `marks.review`; the choice has `review.dont` and `review.want`, the key of the one chosen taking it back to
+  plain. All three are scope `window`, and none is `[` or `]`.

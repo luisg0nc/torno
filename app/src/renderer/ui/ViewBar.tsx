@@ -4,6 +4,7 @@ import type { ViewName } from '../../shared/view'
 import { actions, explodeNow, store, useStore } from '../state/store'
 import type { Viewport } from '../viewport/Viewport'
 import { CompareBar } from './CompareBar'
+import { ReviewBar } from './ReviewBar'
 import { ExplodeBar, ExplodeToggle, toggleExplode } from './ExplodeControl'
 import { TYPING } from './typing'
 import { ViewsStrip } from './ViewsStrip'
@@ -194,6 +195,7 @@ export function ViewBar({ viewport }: { viewport: Viewport }) {
       </div>
       {/* Under the bar while two builds are compared, with the boxes of what changed. */}
       <CompareBar />
+      <ReviewBar />
       {/* Under the bar while the parts are apart or its button is pressed. */}
       <ExplodeBar viewport={viewport} />
       {/* The views saved under a name, and the way to save one. */}

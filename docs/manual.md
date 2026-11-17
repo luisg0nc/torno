@@ -2002,6 +2002,9 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Viewport | `O` | Perspective or orthographic |
 | Viewport | `E` | Draw the parts apart, or together again |
 | Viewport | `W` | All projects of the folder, on one page (there a letter filters them by name) |
+| Viewport | `H` | Review this build: start a round, to mark what you do not want and what you want, and send it at once |
+| Viewport | `-` | Review: new marks are what you do not want; again, plain |
+| Viewport | `=` `+` | Review: new marks are what you want; again, plain |
 | Viewport | `Esc` | Compare: back to the live build, before any other step back |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
 | With a tool in hand | `T` | Measure: the wall under the pointer |

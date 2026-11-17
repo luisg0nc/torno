@@ -55,6 +55,19 @@ describe('the regions kept', () => {
     expect(made.tints.state().regions.map((region) => region.colour)).toEqual(['#e0709a', '#4fb894'])
   })
 
+  it('are hatched in their author\'s colour when the person does not want them, and plain again when they say otherwise', () => {
+    const { layer: made } = layer()
+    made.setLook({ plain: '#B4AFA5', surface: '#F1EFEA', marks: { user: '#b8336a', agent: '#1f7a5c' } }, false)
+    made.tints.setRegions([{ id: 'M1', scan: 'S1', author: 'user', bits: bitsOf(0, 1), dont: true }, { id: 'M2', scan: 'S1', author: 'user', bits: bitsOf(3) }])
+    const [dont, plain] = tintsOf(made).map((mesh) => mesh.material as THREE.MeshBasicMaterial)
+    expect([dont.userData.hatched, plain.userData.hatched]).toEqual([true, undefined])
+    expect(`#${dont.color.getHexString()}`).toBe('#b8336a')
+    expect(made.tints.state().regions.map((region) => region.colour)).toEqual(['#b8336a', '#b8336a'])
+    // Said again without the intent: the same bits are drawn plain.
+    made.tints.setRegions([{ id: 'M1', scan: 'S1', author: 'user', bits: bitsOf(0, 1) }, { id: 'M2', scan: 'S1', author: 'user', bits: bitsOf(3) }])
+    expect(tintsOf(made).map((mesh) => (mesh.material as THREE.MeshBasicMaterial).userData.hatched)).toEqual([undefined, undefined])
+  })
+
   it('are in the mark colours of the light tokens until a theme is given: no colour of their own', () => {
     const { layer: made } = layer()
     made.tints.setRegions([

@@ -4,7 +4,8 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js'
-import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type SketchMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markPoints, sketchStrokePoints, strokePoints } from '../../../shared/marks'
+import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type SketchMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markIntent, markPoints, sketchStrokePoints, strokePoints } from '../../../shared/marks'
+import { hatched } from './hatch'
 
 // What a mark's points are is plain arithmetic, asked by main too (an export): `shared/marks.ts`.
 export { markPoints, strokePoints }
@@ -130,7 +131,9 @@ class Parts {
     readonly color: string,
     private readonly behind = BEHIND,
     /** The colour of the casing under every line; none for no casing. */
-    private readonly casing?: string
+    private readonly casing?: string,
+    /** The mark is one the person does not want: its surfaces are hatched. */
+    private readonly dont = false
   ) {}
 
   /**
@@ -143,6 +146,8 @@ class Parts {
     const group = new THREE.Group()
     group.name = name
     const behind = material.clone() as M
+    // A clone is not hatched until it is told: what the shader is made of is not copied.
+    if (material.userData.hatched) hatched(behind as unknown as THREE.MeshBasicMaterial)
     behind.opacity = material.opacity * this.behind
     behind.depthFunc = THREE.GreaterDepth
     for (const [m, order, back] of [[behind, ORDER, true], [material, ORDER + 1, false]] as const) {
@@ -160,8 +165,10 @@ class Parts {
     return group
   }
 
-  mesh(name: string, geometry: THREE.BufferGeometry, opts: { opacity?: number; side?: THREE.Side; color?: string } = {}): THREE.Group {
+  /** `hatch`: what the person does not want is hatched here, where it is a surface (a shape's fill, a flow's tube); a dot or a head never is. */
+  mesh(name: string, geometry: THREE.BufferGeometry, opts: { opacity?: number; side?: THREE.Side; color?: string; hatch?: boolean } = {}): THREE.Group {
     const material = new THREE.MeshBasicMaterial({ color: opts.color ?? this.color, opacity: opts.opacity ?? 1, side: opts.side ?? THREE.FrontSide })
+    if (opts.hatch && this.dont) hatched(material)
     return this.twin(name, material, (m) => new THREE.Mesh(geometry, m))
   }
 
@@ -412,7 +419,9 @@ function angleArc(mark: DimensionMark, from: Vec3, to: Vec3): Extract<DimensionG
  */
 export function build(mark: Mark, colours: MarkColours, scale: number): THREE.Object3D {
   const reference = mark.kind === 'shape' && mark.intent === 'reference'
-  const parts = new Parts(reference ? colours.reference : colours[mark.author], mark.kind === 'dimension' ? DIMENSION_BEHIND : BEHIND, colours.casing)
+  // What the person does not want keeps their colour: hatched where it is a surface, dashed where it is a line.
+  const dont = markIntent(mark) === 'dont'
+  const parts = new Parts(reference ? colours.reference : colours[mark.author], mark.kind === 'dimension' ? DIMENSION_BEHIND : BEHIND, colours.casing, dont)
   const { root } = parts
   root.name = mark.id
   root.userData.sizing = parts.sizing
@@ -468,6 +477,7 @@ export function build(mark: Mark, colours: MarkColours, scale: number): THREE.Ob
       addSketch(parts, mark)
       break
   }
+  if (dont && (mark.kind === 'stroke' || mark.kind === 'arrow' || mark.kind === 'sketch')) setDashed(root)
   rescale(root, () => scale, 1)
   return root
 }
@@ -490,7 +500,7 @@ function addSketch(parts: Parts, mark: SketchMark): void {
       root.add(dot)
     }
     const along = tube === null ? null : tubeAlong(points, tube)
-    if (along) root.add(parts.mesh('tube', along, { opacity: TUBE_OPACITY, side: THREE.DoubleSide }))
+    if (along) root.add(parts.mesh('tube', along, { opacity: TUBE_OPACITY, side: THREE.DoubleSide, hatch: true }))
   }
 }
 
@@ -604,7 +614,7 @@ function addShape(parts: Parts, mark: ShapeMark): void {
 
   const dash = mark.intent === 'remove' || mark.intent === 'keep-out' ? DASH_PX[mark.intent] : undefined
   body.add(
-    parts.mesh('fill', geometry, { opacity: FILL_OPACITY, side: mark.shape === 'plane' ? THREE.DoubleSide : THREE.FrontSide }),
+    parts.mesh('fill', geometry, { opacity: FILL_OPACITY, side: mark.shape === 'plane' ? THREE.DoubleSide : THREE.FrontSide, hatch: true }),
     parts.segments('outline', outline, OUTLINE_PX, dash && { dash: dash[0], gap: dash[1], at: body.position })
   )
   parts.root.add(body)

@@ -83,7 +83,8 @@ export function noteHandlers(deps: NoteIpcDeps) {
           labels: draft.labels,
           under: draft.under,
           references,
-          ...(draft.anchor ? { anchor: draft.anchor } : {})
+          ...(draft.anchor ? { anchor: draft.anchor } : {}),
+          ...(draft.intent ? { intent: draft.intent } : {})
         } satisfies NewNote
         return deps.marks.addNote(obj.id, deps.placed ? deps.placed(note, obj.id) : note)
       })

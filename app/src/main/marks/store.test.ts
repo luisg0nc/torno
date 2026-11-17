@@ -1249,6 +1249,17 @@ describe('a sketch', () => {
     expect(changes.at(-1)?.marks.at(-1)).toEqual(made)
   })
 
+  it('is made with the intent the draft says, of the person\'s sketch only, and never changed by a later draft', async () => {
+    const made = (await store.saveSketch('bracket', draft({ intent: 'dont' }))) as SketchMark
+    expect(made.intent).toBe('dont')
+    const again = (await store.saveSketch('bracket', { ...draft({ intent: 'want', name: 'Other' }), id: made.id })) as SketchMark
+    expect(again).toMatchObject({ name: 'Other', intent: 'dont' })
+    const agents = (await store.saveSketch('bracket', draft({ intent: 'dont' }), [], { author: 'agent' })) as SketchMark
+    expect(agents).not.toHaveProperty('intent')
+    const odd = (await store.saveSketch('bracket', draft({ intent: 'add' as never }))) as SketchMark
+    expect(odd).not.toHaveProperty('intent')
+  })
+
   it('takes the touches from main alone: a stroke given none by main has none, whatever the draft says', async () => {
     const strokes = draft().strokes.map((s, i) => ({ ...s, touches: [`window/F${i}`] }))
     const made = (await store.saveSketch('bracket', draft({ strokes }), [undefined, ['base/F9']])) as SketchMark

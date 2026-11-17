@@ -79,6 +79,14 @@ describe('addRegion', () => {
     expect(plain).toMatchObject({ id: 'M3', triangles: 3 })
   })
 
+  it('keeps want or don\'t want when the bar of a review said it, and refuses any other intent', async () => {
+    expect(await addRegion(deps(), 'bracket', region({ intent: 'dont' }))).toMatchObject({ id: 'M1', intent: 'dont' })
+    expect(await addRegion(deps(), 'bracket', region({ intent: 'want' }))).toMatchObject({ id: 'M2', intent: 'want' })
+    expect(await addRegion(deps(), 'bracket', region())).not.toHaveProperty('intent')
+    await expect(addRegion(deps(), 'bracket', region({ intent: 'add' as never }))).rejects.toThrow(/intent/)
+    expect((await marks.list('bracket')).length).toBe(3)
+  })
+
   it('keeps nothing of no triangle, of bits that are not of that mesh, or of a scan that is not there', async () => {
     const refused = async (over: object): Promise<string> => addRegion(deps(), 'bracket', { ...region(), ...over } as never).then(() => 'kept', (e: Error) => e.message)
     expect(await refused({ bits: bits([]) })).toBe('a region needs at least one triangle: paint some of the scan first')

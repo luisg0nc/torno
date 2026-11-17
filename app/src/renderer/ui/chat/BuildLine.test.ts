@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatItem } from '../../../shared/chat'
 import type { BuildDigest } from '../../../shared/sanity'
+import { reviewStore } from '../../state/review'
 import { store } from '../../state/store'
 import { BuildLine, MOST_PARTS, stillLatest, verdictWord } from './BuildLine'
 import { plainText } from '../../../test/plainText'
@@ -45,6 +46,23 @@ describe('the build line under an edit', () => {
     const first = text(drawn(context({ buildState: 'failed', error: 'SyntaxError: x' })))
     expect(first).toContain('First build failed: SyntaxError: x')
     expect(first).not.toMatch(/r\d/)
+  })
+
+  it('offers "Review this build" on the build that is still the latest, and on no other, nor while a round is open', () => {
+    const item = context({ revision: 2, buildState: 'ok', seconds: 1 })
+    expect(drawn(item)).not.toContain('Review this build')
+    store.setState({ build: { objectId: 'a', status: 'ok', revision: 2, stale: false } })
+    expect(drawn(item)).toContain('Review this build')
+    store.setState({ build: { objectId: 'a', status: 'ok', revision: 3, stale: false } })
+    expect(drawn(item)).not.toContain('Review this build')
+    store.setState({ build: { objectId: 'a', status: 'ok', revision: 2, stale: false } })
+    const open = vi.spyOn(reviewStore, 'getInitialState').mockReturnValue({ ...reviewStore.getState(), rounds: [{ id: 'R1', build: 'h41', sources: 'abc', line: '', layout: 'default', startedAt: 't' }] })
+    try {
+      expect(drawn(item)).not.toContain('Review this build')
+    } finally {
+      open.mockRestore()
+    }
+    expect(drawn(context({ revision: 2, buildState: 'failed', error: 'x' }))).not.toContain('Review this build')
   })
 
   it('offers "Show error" only while that failure is the latest build', () => {

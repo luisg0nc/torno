@@ -1,10 +1,11 @@
 import * as THREE from 'three'
 import { type SetWatcher, PaintedIndex, TriangleSet, tintIndex } from './scanPaint'
+import { hatched } from './marks/hatch'
 import type { BuiltScan } from './scanMesh'
 import { LIGHT_THEME } from './theme'
 
 /** A region that was kept, as the window draws it: its mark's number, its scan, who made it, and its triangles as the bits of its mask. It is of its scan in every layout. */
-export interface KeptRegion { id: string; scan: string; author: 'user' | 'agent'; bits: Uint8Array }
+export interface KeptRegion { id: string; scan: string; author: 'user' | 'agent'; bits: Uint8Array; /** The person does not want it: it is hatched, in its author's colour. */ dont?: boolean }
 
 /** How much of a mark's colour a region lays over its scan: the scan's own colours stay readable under it. */
 export const REGION_OPACITY = 0.4
@@ -75,7 +76,7 @@ export class ScanTints {
     const wanted = new Map(this.regions.map((region) => [region.id, region]))
     for (const [id, drawn] of this.kept) {
       const now = wanted.get(id)
-      if (now && now.bits === drawn.of.bits && now.scan === drawn.of.scan && this.builtOf(now.scan) === drawn.built) {
+      if (now && now.bits === drawn.of.bits && now.scan === drawn.of.scan && (now.dont === true) === (drawn.of.dont === true) && this.builtOf(now.scan) === drawn.built) {
         drawn.of = now
         drawn.mesh.material.color.set(this.colours[now.author])
         drawn.mesh.visible = this.shows()
@@ -90,6 +91,7 @@ export class ScanTints {
       if (!built || region.bits.length !== Math.ceil(built.triangles / 8)) continue
       const index = tintIndex(new TriangleSet(built.triangles, region.bits), built.mesh.geometry.index!.array)
       const mesh = this.tint(built, new THREE.BufferAttribute(index, 1), this.colours[region.author], REGION_OPACITY)
+      if (region.dont) hatched(mesh.material)
       mesh.geometry.setDrawRange(0, index.length)
       mesh.visible = this.shows()
       this.kept.set(region.id, { of: region, built, mesh })

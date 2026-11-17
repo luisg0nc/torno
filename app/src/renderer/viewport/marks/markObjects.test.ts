@@ -212,6 +212,20 @@ describe('labels.project', () => {
     expect(labelText({ id: 'M3', anchorState: 'drifted' })).toBe('M3~') // the view's chip keeps it
   })
 
+  it('writes the person\'s want and don\'t want before the number, in the chip and in the row, and nothing for any other mark', () => {
+    expect(labelText({ ...pick, id: 'M8', intent: 'dont' })).toBe('− M8')
+    expect(labelText({ ...pick, id: 'M8', intent: 'want' })).toBe('+ M8')
+    expect(rowLabel({ ...pick, id: 'M8', intent: 'dont' })).toBe('− M8')
+    expect(labelText({ ...pick, id: 'M8', intent: 'dont', anchorState: 'drifted' })).toBe('− M8~')
+    expect(labelText({ ...pick, id: 'M8' })).toBe('M8')
+    // A shape says it as add and remove; Claude's mark is never a want or a don't want, a shape of its own included.
+    expect(labelText(shape({ id: 'M8', intent: 'remove' }))).toBe('− M8')
+    expect(labelText(shape({ id: 'M8', intent: 'add' }))).toBe('+ M8')
+    expect(labelText(shape({ id: 'M8', intent: 'keep-out' }))).toBe('M8')
+    expect(labelText(shape({ id: 'M8', intent: 'remove', author: 'agent' }))).toBe('M8')
+    expect(rowLabel({ ...pick, id: 'M8', intent: 'dont', author: 'agent' })).toBe('M8')
+  })
+
   it('puts a label where its mark is drawn', () => {
     const camera = cameraAt([0, -200, 0], [0, 0, 0])
     const [centre, right] = project([{ ...pick, anchor: { point: [0, 0, 0] } }, { ...pick, id: 'M9', author: 'agent', anchorState: 'drifted', anchor: { point: [10, 0, 5] } }], camera, SIZE)
@@ -301,20 +315,63 @@ describe('labels.place', () => {
   })
 })
 
+describe('the hatch of what the person does not want', () => {
+  const dont = (over: Partial<ShapeMark> = {}): ShapeMark => shape({ intent: 'remove', ...over })
+  const fillOf = (mark: Mark): THREE.MeshBasicMaterial => (twins(child(build(mark, COLOURS, 1), 'fill'))[1].material as THREE.MeshBasicMaterial)
+  const lineOf = (mark: Mark, name: string): LineMaterial => (twins(child(build(mark, COLOURS, 1), name))[1] as unknown as Line2).material
+
+  it('hatches the fill of a don\'t want shape in its author\'s colour, and makes no new colour', () => {
+    const material = fillOf(dont())
+    expect(material.userData.hatched).toBe(true)
+    expect(`#${material.color.getHexString()}`).toBe(COLOURS.user)
+    expect(fillOf(shape({ intent: 'add' })).userData.hatched).toBeUndefined()
+    expect(fillOf(shape({ intent: 'keep-out' })).userData.hatched).toBeUndefined()
+    // Claude's remove is what it is: no hatch, whatever the shape says.
+    expect(fillOf(dont({ author: 'agent' })).userData.hatched).toBeUndefined()
+    expect(`#${fillOf(dont({ author: 'agent' })).color.getHexString()}`).toBe(COLOURS.agent)
+  })
+
+  it('hatches both drawings of the fill, the one behind a part as well', () => {
+    const [behind, open] = twins(child(build(dont(), COLOURS, 1), 'fill')).map((m) => m.material as THREE.MeshBasicMaterial)
+    expect([behind.userData.hatched, open.userData.hatched]).toEqual([true, true])
+    expect(typeof behind.onBeforeCompile).toBe('function')
+  })
+
+  it('dashes the lines of a person\'s don\'t want stroke or sketch, in the same colour, and leaves a want solid', () => {
+    const wanted = { ...surfaceStroke, intent: 'dont' } as StrokeMark
+    expect(lineOf(wanted, 'line').dashed).toBe(true)
+    expect(lineOf({ ...surfaceStroke, intent: 'want' } as StrokeMark, 'line').dashed).toBe(false)
+    expect(lineOf(surfaceStroke, 'line').dashed).toBe(false)
+    expect(`#${lineOf(wanted, 'line').color.getHexString()}`).toBe(COLOURS.user)
+    expect(lineOf({ ...wanted, author: 'agent' } as StrokeMark, 'line').dashed).toBe(false)
+  })
+
+  it('draws a don\'t want pick as any pick, its face being tinted on the part (the layer of the hatch)', () => {
+    expect(names(build({ ...pick, intent: 'dont' } as PickMark, COLOURS, 1))).toEqual(['dot'])
+  })
+})
+
 describe('what a layout’s picks tint', () => {
+  it('keeps the faces of the person\'s don\'t want picks apart, to be hatched', () => {
+    const layer = new MarkLayer(COLOURS)
+    layer.setMarks([pick, { ...pick, id: 'M7', intent: 'dont', anchor: { point: [5, 0, 2.5], part: 'base', ref: 'base/F6' } } as PickMark, { ...pick, id: 'M8', intent: 'want', anchor: { point: [5, 0, 2.5], part: 'base', ref: 'base/F7' } } as PickMark, { ...pick, id: 'M9', author: 'agent', intent: 'dont', anchor: { point: [5, 0, 2.5], part: 'base', ref: 'base/F8' } } as PickMark])
+    expect(layer.pickRefs('assembly')).toEqual({ user: ['base/F5', 'base/F7'], agent: ['base/F8'], dont: ['base/F6'] })
+    layer.dispose()
+  })
+
   const edge = (id: string, ref: string, over: Partial<PickMark> = {}): PickMark => ({ ...BASE, id, kind: 'pick', target: 'edge', anchor: { point: [5, 0, 2.5], part: 'plate', ref }, ...over })
 
   it('is the face, edge or part each pick is on, by who made the mark', () => {
     const layer = new MarkLayer(COLOURS)
     layer.setMarks([pick, edge('M7', 'plate/E1'), edge('M8', 'plate', { author: 'agent', target: 'part' }), pin])
-    expect(layer.pickRefs('assembly')).toEqual({ user: ['base/F5', 'plate/E1'], agent: ['plate'] })
+    expect(layer.pickRefs('assembly')).toEqual({ user: ['base/F5', 'plate/E1'], agent: ['plate'], dont: [] })
     layer.dispose()
   })
 
   it('is nothing for a pick that drifted or lost its part: its ref is the one it was placed on, which may name other geometry now', () => {
     const layer = new MarkLayer(COLOURS)
     layer.setMarks([edge('M7', 'plate/E1', { anchorState: 'drifted' }), edge('M8', 'post/E2', { anchorState: 'orphaned', author: 'agent' }), edge('M9', 'plate/E4')])
-    expect(layer.pickRefs('assembly')).toEqual({ user: ['plate/E4'], agent: [] })
+    expect(layer.pickRefs('assembly')).toEqual({ user: ['plate/E4'], agent: [], dont: [] })
     // They are still drawn, at their points, with their labels.
     layer.show('assembly')
     expect(layer.markOf('assembly', 'M7')).toBeDefined()

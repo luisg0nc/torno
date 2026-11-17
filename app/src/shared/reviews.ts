@@ -1,4 +1,7 @@
-import { type Mark, markIntent } from './marks'
+import { type Mark, type ReviewIntent, markIntent } from './marks'
+
+/** What a chip, a row and the bar write before a mark's number to say what the person says of it: set in the monospace face. */
+export const INTENT_CHIP: Record<ReviewIntent, string> = { dont: '−', want: '+' }
 
 /** A round's id: `R1`, `R2`, … per project, given by main from `nextRound` and never given again. */
 export const ROUND_ID = /^R[1-9]\d{0,14}$/

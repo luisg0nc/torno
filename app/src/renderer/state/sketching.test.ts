@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SketchDraft } from '../../shared/bridge'
 import type { Mark, SketchMark, SketchStroke } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
+import { reviewStore } from './review'
 import { toolStore } from './tools'
 import {
   TYPED_MS,
@@ -119,6 +120,27 @@ describe('strokes', () => {
     expect(f.calls[1].id).toBe('M1')
     expect(f.calls[1].strokes).toEqual([line(0), line(5)])
     expect(sketchStore.getState().problem).toBeNull()
+  })
+
+  it('makes the sketch with what the bar of an open review says, until main gives it its id, and then says nothing of it', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    reviewStore.setState({ objectId: 'bracket', rounds: [{ id: 'R1', build: 'h41', sources: 'abc', line: '', layout: 'assembly', startedAt: 't' }], choice: 'dont' })
+    startSketch('bracket')
+    addStroke(line(0))
+    await settled()
+    addStroke(line(5))
+    await settled()
+    expect(f.calls[0]).toMatchObject({ intent: 'dont' })
+    expect(f.calls[1]).not.toHaveProperty('intent')
+    leaveSketch()
+    // On another layout than the round's, or with the bar on plain, it is a plain sketch.
+    reviewStore.setState({ choice: 'plain' })
+    startSketch('bracket')
+    addStroke(line(0))
+    await settled()
+    expect(f.calls[2]).not.toHaveProperty('intent')
+    reviewStore.setState({ objectId: null, rounds: [], choice: 'plain' })
   })
 
   it('waits for the first answer before sending the second, so that the second has its id, and sends the latest', async () => {

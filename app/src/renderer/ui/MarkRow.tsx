@@ -3,8 +3,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { exactText, shownDimension } from '../../shared/dimension'
 import { EXPLODED_TOOLS } from '../../shared/explode'
 import { type Mark, type MarkKind, type MarkPatch, type NoteMark, type SketchMark, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
+import { isHeld } from '../../shared/reviews'
 import { count, number } from '../../shared/format'
 import { countsText, sketchName, takeText } from '../../shared/sketchText'
+import { reviewActions, useReview } from '../state/review'
 import { actions, explodeNow, partsInLayout, runningSession, store, useStore } from '../state/store'
 import { endReplace, startReplace, useReplacing } from '../state/tools'
 import { editSketch } from '../state/sketching'
@@ -15,6 +17,7 @@ import type { ReviewStep } from './ResolvedSummary'
 import { DimensionFields, VerdictIcon, Words } from './DimensionFields'
 import { hoverMark, unhoverMark } from './markHover'
 import { Confirm } from './Confirm'
+import { IntentMenu } from './IntentMenu'
 import { ShapeFields } from './ShapeFields'
 import { useNotePicture } from './chat/useNotePicture'
 import { openNote } from './drawing/make'
@@ -130,6 +133,13 @@ export function MarkRow({
   const awaiting = awaitsAcknowledgement(mark)
   // Nothing has checked it against the build on show: its ref is of an older one.
   const unchecked = useLasting(isUnchecked(mark, revision), UNCHECKED_AFTER_MS)
+
+  // A draft of a round that has not been sent goes with no prompt: it is held until Send review, and the row says so.
+  const rounds = useReview((s) => s.rounds)
+  const sending = useReview((s) => s.sending)
+  const held = isHeld(mark, { rounds, sending })
+  // A mark of a round that has not gone can be taken out of it, where it is the person's own and a draft.
+  const takeable = mark.author === 'user' && mark.round !== undefined && rounds.some((round) => round.id === mark.round && round.sentAt === undefined)
 
   // The agent's own open mark: for the person to read or answer, and to put in the prompt while a session runs.
   const fromAgent = mark.author === 'agent' && mark.status === 'sent'
@@ -297,6 +307,16 @@ export function MarkRow({
           {PARTS_APART}
         </span>
       )}
+      {held && (
+        <span className="mark-layout" title={`${mark.round} is a round that has not been sent: this mark waits for Send review, and goes with no prompt before it`}>
+          in review, not sent
+        </span>
+      )}
+      {takeable && (
+        <button type="button" className="link-button mark-round" title={`Take it out of ${mark.round}: it stays, as a plain draft that goes with your next prompt`} onClick={(e) => (e.stopPropagation(), void reviewActions.takeOut(mark.id))}>
+          Take out of <span className="num">{mark.round}</span>
+        </button>
+      )}
       {elsewhere && <span className="mark-layout num">{mark.layout}</span>}
       {/* The heading of its group says the status; a dimension the agent has says it is pinned. */}
       {mark.kind === 'dimension' && mark.status === 'sent' && (
@@ -403,6 +423,8 @@ export function MarkRow({
         <button type="button" className="icon-button" aria-label={`Delete ${mark.id}`} title="Delete" onClick={remove}>
           <BinIcon />
         </button>
+        {/* Last: the keys' way along a row, from its note to Delete, is as it was. */}
+        {mark.author === 'user' && !resolved && <IntentMenu mark={mark} />}
       </span>
       {stopping && checks && (
         <div className="mark-stop" onClick={(e) => e.stopPropagation()}>

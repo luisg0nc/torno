@@ -206,7 +206,7 @@ describe('what the scene is while a picture of it is drawn', () => {
       'marks print but on lid',
       'draft off',
       'extend print',
-      'highlights on userMark,agentMark',
+      'highlights on userMark,userDont,agentMark',
       'tint print',
       'draw',
       'viewport 800×600',

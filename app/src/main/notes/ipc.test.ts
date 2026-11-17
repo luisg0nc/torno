@@ -66,6 +66,11 @@ describe('notes.make', () => {
     expect(note.createdAt).not.toBe('then')
   })
 
+  it('keeps the intent the bar of a review said, and says none otherwise', async () => {
+    expect(await made({ intent: 'dont' })).toMatchObject({ id: 'M1', intent: 'dont' })
+    expect(await made()).not.toHaveProperty('intent')
+  })
+
   it('has main place the anchor of the mark, and name no tag the window gave', async () => {
     const note = await made({ anchor: { point: [1, 2, 3], part: 'lid', ref: 'lid/F12', tag: 'top' } })
     expect(placed).toEqual(['bracket'])

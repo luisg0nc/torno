@@ -6,6 +6,7 @@ import { ChecksSummary } from './ChecksSummary'
 import { MarkRow } from './MarkRow'
 import { groupMarks } from './markGroups'
 import { type ReviewStep, ResolvedSummary } from './ResolvedSummary'
+import { ReviewSummary } from './ReviewSummary'
 
 /** How long "Undo" is offered after a delete. */
 const UNDO_MS = 10_000
@@ -131,6 +132,8 @@ export function MarksPanel() {
       )}
       {/* Outside the scroll of the list: the counts stay in view, and each goes to its first check. */}
       <ChecksSummary marks={marks} revision={revision} />
+      {/* And the reviews: starting one, and a row for each round. */}
+      <ReviewSummary />
       {onPart !== null && (
         <p className="marks-filter" data-part="marks-filter">
           Only marks on <span className="num">{onPart}</span>

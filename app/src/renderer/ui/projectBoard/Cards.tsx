@@ -3,6 +3,7 @@ import type { Card } from '../../../shared/board'
 import type { HistoryEntry } from '../../../shared/history'
 import { boardActions, useBoard } from '../../state/board'
 import { ensurePicture, pictureOf, usePictureUrl } from '../../state/boardPictures'
+import { roundsViewOf, useReview } from '../../state/review'
 import { useStore } from '../../state/store'
 import { useNotePicture } from '../chat/useNotePicture'
 import { useHistory } from '../useHistory'
@@ -168,6 +169,11 @@ export function Cards({ objectId, cards }: { objectId: string; cards: readonly C
   const views = useStore((s) => s.views)
   const params = useStore((s) => s.scene?.params)
   const checks = useStore((s) => s.scene?.checks)
+  // So that a mark's card can say it is held: in a round that was not sent.
+  const reviewOf = useReview((s) => s.objectId)
+  const rounds = useReview((s) => s.rounds)
+  const sending = useReview((s) => s.sending)
+  const roundsView = useMemo(() => roundsViewOf({ objectId: reviewOf, rounds, sending }, objectId), [reviewOf, rounds, sending, objectId])
   const hasBrief = cards.some((c) => c.kind === 'brief')
   const hasBuild = cards.some((c) => c.kind === 'build')
   const brief = useBrief(objectId, hasBrief, cards)
@@ -186,7 +192,7 @@ export function Cards({ objectId, cards }: { objectId: string; cards: readonly C
     switch (card.kind) {
       case 'mark': {
         const mark = card.source === undefined ? undefined : markById.get(card.source)
-        return mark ? { mark } : {}
+        return mark ? { mark, ...(roundsView ? { rounds: roundsView } : {}) } : {}
       }
       case 'scan': {
         const scan = card.source === undefined ? undefined : scanById.get(card.source)

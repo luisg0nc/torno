@@ -311,7 +311,7 @@ export interface MarksFile { next: number; marks: Mark[]; rounds?: Round[]; next
  * What the window gives to keep a region: the scan, and its triangles as the bits of a mask (bit `i & 7` of
  * byte `i >> 3` for triangle `i`). Main works out everything else from the mesh, and writes the mask.
  */
-export interface NewRegion { scan: string; note: string; layout: string; revision: number; camera: Camera; bits: Uint8Array }
+export interface NewRegion { scan: string; note: string; layout: string; revision: number; camera: Camera; bits: Uint8Array; /** What the bar of an open review says of it (main checks it). */ intent?: ReviewIntent }
 /** Where a mark is put again, by a click on a part: the anchor found there, on which build and from which view. */
 export interface Replacement { anchor: Anchor; revision: number; camera: Camera }
 
@@ -326,10 +326,10 @@ export const MAX_STROKE_POINTS = 400
  * `intent`, is what it is, not a want); a shape's `add` is want and `remove` is don't want, its other intents plain;
  * any other kind says it in its `intent`.
  */
-export function markIntent(mark: Mark): ReviewIntent | null {
+export function markIntent(mark: Pick<Mark, 'author' | 'kind'> & { intent?: ShapeIntent | ReviewIntent }): ReviewIntent | null {
   if (mark.author !== 'user') return null
   if (mark.kind === 'shape') return mark.intent === 'add' ? 'want' : mark.intent === 'remove' ? 'dont' : null
-  return mark.intent ?? null
+  return mark.intent === 'want' || mark.intent === 'dont' ? mark.intent : null
 }
 
 /** The anchors a mark carries: where it is tied to the geometry. A shape placed in empty space has none. */

@@ -284,3 +284,20 @@ describe('the plane through a face', () => {
     expect(kept(raw({ planes: [through('block/F99', 5)], strokes: stroke }), undefined, faces).planes).toHaveLength(1)
   })
 })
+
+describe('the intent a sketch is made with', () => {
+  it('is want or don\'t want, kept as the window says it, and plain when it says nothing', () => {
+    expect(kept(raw({ intent: 'dont' }))).toMatchObject({ intent: 'dont' })
+    expect(kept(raw({ intent: 'want' }))).toMatchObject({ intent: 'want' })
+    expect(kept(raw())).not.toHaveProperty('intent')
+  })
+
+  it('is refused when it is anything else, so that main keeps nothing the window made up', () => {
+    expect(refused(raw({ intent: 'add' }))).toMatch(/intent/)
+    expect(refused(raw({ intent: 7 }))).toMatch(/intent/)
+  })
+
+  it('is not changed by the draft of a sketch main has: it is the stored sketch\'s own', () => {
+    expect(kept(raw({ intent: 'want' }), stored([]))).not.toHaveProperty('intent')
+  })
+})

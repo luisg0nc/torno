@@ -406,7 +406,9 @@ export class MarkStore {
         const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
         if (!given) {
           const id = `M${file.next}`
-          const added = sanitiseMark({ ...fields, kind: 'sketch', author, id, status: author === 'agent' ? 'sent' : 'draft', anchorState: 'ok', createdAt: this.now().toISOString() })
+          // What the bar of an open review said, of the person's own sketch only: the agent's are plain, and one main has keeps its own (`setIntent` changes it).
+          const intent = author === 'user' && (asked.intent === 'want' || asked.intent === 'dont') ? { intent: asked.intent } : {}
+          const added = sanitiseMark({ ...fields, ...intent, kind: 'sketch', author, id, status: author === 'agent' ? 'sent' : 'draft', anchorState: 'ok', createdAt: this.now().toISOString() })
           if (!added) throw new Refusal('that is not a sketch: a field is missing or not of the right sort, or it is past what a sketch keeps')
           inOpenRound(file, added)
           file.next += 1
