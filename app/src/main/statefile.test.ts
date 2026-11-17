@@ -6,6 +6,7 @@ import type { BuildState } from '../shared/build'
 import type { Mark } from '../shared/marks'
 import type { ScanAlignment, ScanInfo } from '../shared/scans'
 import type { Part, Scene } from '../shared/scene'
+import type { NamedSet } from '../shared/sets'
 import type { SavedView } from '../shared/views'
 import type { ObjectInfo } from '../shared/workspace'
 import { probe } from '../test/diagnosisFixtures'
@@ -309,6 +310,24 @@ describe('StateFiles', () => {
     expect(readFileSync(path(), 'utf8')).toContain('Saved views: "Hinge side".')
     await withViews(async () => Promise.reject(new Error('EACCES'))).write('bracket')
     expect(readFileSync(path(), 'utf8')).not.toContain('Saved views')
+  })
+
+  it('lists the named sets of the object, a line each, and writes without them when they cannot be read or there are none', async () => {
+    const deck: NamedSet = { id: 'N3', name: 'deck', slug: 'deck', comment: 'the flat top', colour: 0, layout: 'assembly', by: 'person', createdAt: '', members: [{ face: 'base/F1', point: [0, 0, 0], state: 'ok' }, { face: 'base/F2', point: [0, 0, 0], state: 'lost' }] }
+    const withSets = (list: () => Promise<NamedSet[]>, refound?: number) =>
+      new StateFiles({ object: () => obj, build: () => build, scene: () => ({ revision: 3, scene: SCENE }), marks: async () => marks, sets: list, setsRefound: () => refound })
+    await withSets(async () => [deck], 3).write('bracket')
+    expect(readFileSync(path(), 'utf8')).toContain('## Named sets\n\n')
+    expect(readFileSync(path(), 'utf8')).toContain('- #deck (N3, layout assembly): base/F1, base/F2; 1 of 2 faces lost; "the flat top"\n')
+    // Not refound against the build yet: said, so that nobody reads its refs as of this build.
+    await withSets(async () => [deck], undefined).write('bracket')
+    expect(readFileSync(path(), 'utf8')).toContain('; not refound against r3 yet;')
+    await withSets(async () => []).write('bracket')
+    expect(readFileSync(path(), 'utf8')).not.toContain('## Named sets')
+    await withSets(async () => Promise.reject(new Error('sets.json cannot be read'))).write('bracket')
+    const text = readFileSync(path(), 'utf8')
+    expect(text).not.toContain('## Named sets')
+    expect(text).toContain('- M1 pin on base/F1')
   })
 
   it('lists the scans of the object, whether or not a region is among the marks, and writes without them when they cannot be read', async () => {

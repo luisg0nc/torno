@@ -49,10 +49,12 @@ import { addMarkTool, checkRef, highlightTool, isSetRef, resolveMarkTool, setsAt
 import { expandSet } from '../../shared/sets'
 import { setDescribed, withLayoutHint } from './setRefs'
 import { addSketchTool } from './sketchTools'
+import { addSetTool } from './setTools'
+import type { SetStore } from '../sets/store'
 import { type FeaturesToolArgs, featuresTool } from './featureTools'
 import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type SectionToolArgs, type TryFilletToolArgs, type TryParamsToolArgs, checkTool, diffTool, historyTool, measureTool, sectionTool, tryFilletTool, tryParamsTool } from './readTools'
 import { type ScanClashArgs, type ScanDeviationArgs, type ScansArgs, scanClashTool, scanDeviationTool, scansTool } from './scanTools'
-import { type AddCardArgs, type AddMarkArgs, type AddSketchArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
+import { type AddCardArgs, type AddMarkArgs, type AddSetArgs, type AddSketchArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
 import { addCardTool, boardTool } from './boardTools'
 import { type SceneArgs, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 import type { Profile } from '../../shared/profile'
@@ -97,6 +99,10 @@ export interface ToolDeps {
   marks(objectId: string): Promise<Mark[]>
   /** The named sets of an object (`.torno/sets.json`), as they are now. Without it, a ref of a set (`#deck`) is refused, saying the project has none. */
   sets?(objectId: string): Promise<NamedSet[]>
+  /** The build the sets of an object were last refound against (`SetStore.refoundRevision`): none since torno opened the project is undefined. */
+  setsRefound?(objectId: string): number | undefined
+  /** Where a proposal of the agent's is kept (`add_set`): made as the agent's, and given the kernel's selectors in a second change. Without it, the tool says named sets are not available. */
+  setStore?: Pick<SetStore, 'make' | 'withSelectors'>
   /** The rounds of the person's reviews of an object, oldest first (`marks` with `review`). Without it, there are none. */
   rounds?(objectId: string): Promise<Round[]>
   /** Keeps a mark of the agent's and gives it its number. Rejects with a text for the agent. */
@@ -140,7 +146,7 @@ export interface ToolDeps {
    * Asks the kernel about the last successful build of an object: an exact measurement, what a plane cuts, a check
    * of two parts or of a mesh. Refs go with the layout in front. Rejects with a `KernelError`, whose kind says why.
    */
-  query<T = unknown>(objectId: string, name: 'measure' | 'section' | 'check' | 'scan_clash' | 'scan_deviation' | 'scan_section' | 'try_fillet' | 'features', args: object): Promise<T>
+  query<T = unknown>(objectId: string, name: 'measure' | 'section' | 'check' | 'scan_clash' | 'scan_deviation' | 'scan_section' | 'try_fillet' | 'features' | 'selectors', args: object): Promise<T>
   /**
    * Builds the model of an object with other values of its `Params` (over the person's own) in a worker the kernel
    * throws away, and answers `queries` there (`name` and `args` as `query` takes them). Nothing is kept or changed.
@@ -231,7 +237,11 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
             }))
     )
   }
-  tool<SceneArgs>('scene', async (args) => sceneTool(deps, objectId, await deps.marks(objectId).catch(() => undefined), await deps.scans(objectId).catch(() => undefined), await deps.views(objectId).catch(() => undefined), args))
+  tool<SceneArgs>('scene', async (args) => {
+    const marks = await deps.marks(objectId).catch(() => undefined)
+    const named = await deps.sets?.(objectId).then((sets) => ({ sets, refound: deps.setsRefound?.(objectId) })).catch(() => undefined)
+    return sceneTool(deps, objectId, marks, await deps.scans(objectId).catch(() => undefined), await deps.views(objectId).catch(() => undefined), args, named)
+  })
   tool<LookArgs>('look', (args) => lookTool(deps, objectId, args))
   tool<MarksArgs>('marks', (args) => marksTool(deps, objectId, args))
   tool<DescribeArgs>('describe', (args) => describeTool(deps, objectId, args))
@@ -241,6 +251,7 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<SaveViewArgs>('save_view', (args) => saveViewTool(deps, objectId, args))
   tool<AddMarkArgs>('add_mark', (args) => addMarkTool(deps, objectId, args))
   tool<AddSketchArgs>('add_sketch', (args) => addSketchTool(deps, objectId, args))
+  tool<AddSetArgs>('add_set', (args) => addSetTool(deps, objectId, args))
   tool<ResolveMarkArgs>('resolve_mark', (args) => resolveMarkTool(deps, objectId, args))
   tool<MeasureToolArgs>('measure', (args) => measureTool(deps, objectId, args))
   tool<SectionToolArgs>('section', (args) => sectionTool(deps, objectId, args))

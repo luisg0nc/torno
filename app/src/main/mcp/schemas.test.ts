@@ -40,6 +40,20 @@ describe('what the tools tell a client', () => {
   })
 })
 
+describe('named sets', () => {
+  it('are named in the instructions: #name in the scene line, and a line for add_set', () => {
+    const lines = SERVER_INSTRUCTIONS.split('\n').filter((line) => line.startsWith('- '))
+    expect(lines.find((line) => line.startsWith('- scene:'))).toContain('named sets (#name)')
+    expect(lines.find((line) => line.startsWith('- add_set:'))).toMatch(/propose a named set .* for the person to accept; its #name works in any ref/)
+  })
+
+  it('add_set proposes and nothing more: it changes the view or the marks, takes name, comment, refs and layout', () => {
+    expect(TOOLS.add_set.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false })
+    expect(Object.keys(TOOLS.add_set.inputSchema).sort()).toEqual(['comment', 'layout', 'name', 'refs'])
+    expect(TOOLS.add_set.description).toContain('Only the person accepts a proposal')
+  })
+})
+
 describe('marks and the review', () => {
   it('marks takes review, a round or all, and says what it lists', () => {
     expect(Object.keys(TOOLS.marks.inputSchema)).toContain('review')

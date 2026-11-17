@@ -428,6 +428,18 @@ describe('refound', () => {
     expect(store.refoundRevision('bracket')).toBe(4)
   })
 
+  it('tells that the sets were refound against a build, once for each build, even when nothing was written', async () => {
+    const told: number[] = []
+    store.on('refound', ({ objectId, revision }) => told.push(objectId === 'bracket' ? revision : -1))
+    await store.make('bracket', ask('deck'), 'person')
+    await store.refound('bracket', 4, [])
+    await store.refound('bracket', 4, [])
+    build = lastBuild(6)
+    await store.refound('bracket', 6, [], false)
+    await store.refound('bracket', 6, [])
+    expect(told).toEqual([4, 6])
+  })
+
   it('forgets which build when the workspace is left', async () => {
     await store.refound('bracket', 4, [])
     store.forget()

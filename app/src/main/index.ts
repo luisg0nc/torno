@@ -404,6 +404,9 @@ const toolDeps: ToolDeps = {
   },
   marks: (objectId) => marks.list(objectId),
   sets: (objectId) => sets.list(objectId),
+  setsRefound: (objectId) => sets.refoundRevision(objectId),
+  // The agent proposes a set through the store as the agent, and the kernel's selectors are written in a second change.
+  setStore: sets,
   // A mark made through the tools is the agent's, and it knows of it: there is nothing to send it.
   addMark: (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
   // A sketch of the agent's is checked by the tool (`add_sketch`), and kept as the agent's: sent, with no snaps.
@@ -460,8 +463,12 @@ const verdicts = new Verdicts()
 const editDeps = { ...toolDeps, ...(off.has('digest') ? { digest: false } : {}), verdicts: (id: string, revision: number | undefined) => verdicts.of(id, revision) }
 
 /** `<object>/.torno/state.md` of every open object: what an agent without the tools reads instead. */
-const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile })
+const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefound: (objectId) => sets.refoundRevision(objectId) })
 marks.on('changed', ({ objectId }) => stateFiles.changed(objectId))
+// The named sets are told in the state file.
+sets.on('changed', ({ objectId }) => stateFiles.changed(objectId))
+// And which build their refs are of: after each refind, even one that found nothing to write.
+sets.on('refound', ({ objectId }) => stateFiles.changed(objectId))
 // What the marks say of the last build, whenever they change: its verdicts from then on.
 marks.on('changed', ({ objectId, marks: all }) => verdicts.record(objectId, lastScene(objectId)?.revision, all))
 // Where a region is told to be follows its scan's alignment.

@@ -5,6 +5,7 @@ import type { Mark } from '../shared/marks'
 import type { BuildDigest } from '../shared/sanity'
 import { type ScanInfo, importText } from '../shared/scans'
 import { groupsIn } from '../shared/groups'
+import type { NamedSet } from '../shared/sets'
 import { checkText, noteText } from '../shared/modelChecks'
 import { sourceOf, isSize, triedLine } from '../shared/params'
 import { type Profile, profileLine } from '../shared/profile'
@@ -18,6 +19,7 @@ import { buildDigest } from './context'
 import { describeMark, sizes } from './marks/describe'
 import { digestText } from './sanity'
 import { alignmentSaid } from './scans/said'
+import { setsText } from './sets/text'
 
 const NAME = 'state.md'
 const TRACEBACK_LINES = 12
@@ -35,7 +37,7 @@ export const STATE_DELAY_MS = 1000
  * since the successful build before and what the shape says.
  * The file itself begins with `writtenLine`, before this.
  */
-export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: { revision: number; scene: Scene } | undefined, marks: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], digest?: BuildDigest, profile?: Profile): string {
+export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: { revision: number; scene: Scene } | undefined, marks: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], digest?: BuildDigest, profile?: Profile, named?: { sets: readonly NamedSet[]; refound: number | undefined }): string {
   const lines = [
     `# ${obj.name}`,
     '',
@@ -86,6 +88,9 @@ export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: 
     lines.push('', '## Scans', '', 'A scan is a mesh of the real surroundings: nothing from it is exact.', '')
     for (const scan of scans) lines.push(`- ${scanLine(scan, last)}`)
   }
+  // The person's named sets: a ref of one (`#deck`) works in every tool. Their refs are of the build they were last refound against.
+  const setLines = named && last ? setsText(named.sets, marks, last.revision, named.refound) : ''
+  if (setLines !== '') lines.push('', '## Named sets', '', 'Names the person gives faces, edges, parts and strokes: write `#deck`, or `block/#deck` for one part\'s, in a ref. A proposal is yours, not yet accepted.', '', setLines)
   lines.push('', '## Marks', '')
   const open = marks.filter((m) => m.status !== 'resolved')
   if (open.length === 0) lines.push('None.')
@@ -169,6 +174,10 @@ export interface StateFileDeps {
   views?(objectId: string): Promise<SavedView[]>
   /** The printer and material the project is made for. */
   profile?(objectId: string): Profile | undefined
+  /** The named sets of an object: each is told in a line. */
+  sets?(objectId: string): Promise<NamedSet[]>
+  /** The build the sets were last refound against, when one has been since the project was opened. */
+  setsRefound?(objectId: string): number | undefined
   delayMs?: number
   write?(path: string, text: string): Promise<void>
   log?(message: string): void
@@ -217,10 +226,12 @@ export class StateFiles {
     const scans = await this.deps.scans?.(objectId).catch(() => undefined)
     // Nor are views that cannot be read a reason to write nothing.
     const views = await this.deps.views?.(objectId).catch(() => undefined)
+    // Nor are sets.
+    const sets = await this.deps.sets?.(objectId).catch(() => undefined)
     // As things are once the marks are read: a build may have ended meanwhile.
     const build = this.deps.build(objectId)
     if (!build || this.deps.object(objectId)?.dir !== obj.dir) return
-    const text = stateText(obj, build, this.deps.scene(objectId), marks, scans, views, buildDigest({ build: this.deps.build, scenes: this.deps.scenes }, objectId), this.deps.profile?.(objectId))
+    const text = stateText(obj, build, this.deps.scene(objectId), marks, scans, views, buildDigest({ build: this.deps.build, scenes: this.deps.scenes }, objectId), this.deps.profile?.(objectId), sets ? { sets, refound: this.deps.setsRefound?.(objectId) } : undefined)
     const path = join(obj.dir, FOLDER, NAME)
     if (this.written.get(path) === text) return
     await ownTorno(obj.dir)

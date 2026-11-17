@@ -49,6 +49,8 @@ interface SetEvents {
   changed: { objectId: string; sets: NamedSet[] }
   /** Something about an object's sets file the person should know. Said once; `problem()` answers it afterwards. */
   problem: { objectId: string; message: string }
+  /** The sets were refound against a build that is newer than the one they were last refound against: told even when nothing was written. */
+  refound: { objectId: string; revision: number }
 }
 
 /** What an edit returns when it changed nothing. */
@@ -76,7 +78,7 @@ export class SetStore {
   private refoundAt = new Map<string, number>()
   /** Counts `forget`: what was read before one is not kept after it. */
   private epoch = 0
-  private listeners: { [E in keyof SetEvents]: Array<(m: SetEvents[E]) => void> } = { changed: [], problem: [] }
+  private listeners: { [E in keyof SetEvents]: Array<(m: SetEvents[E]) => void> } = { changed: [], problem: [], refound: [] }
 
   constructor(private deps: SetStoreDeps) {}
 
@@ -308,7 +310,13 @@ export class SetStore {
       return written.length === 0 ? UNCHANGED : written
     })
     // Said only once what was found is written (or there was nothing to write), and to the workspace it was asked in.
-    if (current && whole && epoch === this.epoch) this.refoundAt.set(objectId, Math.max(revision, this.refoundAt.get(objectId) ?? 0))
+    if (current && whole && epoch === this.epoch) {
+      const before = this.refoundAt.get(objectId)
+      if (before === undefined || revision > before) {
+        this.refoundAt.set(objectId, revision)
+        this.emit('refound', { objectId, revision })
+      }
+    }
     return structuredClone(written)
   }
 

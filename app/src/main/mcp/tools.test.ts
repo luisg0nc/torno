@@ -194,7 +194,7 @@ const textOf = (result: { content: Array<{ type: string; text?: string }> }): st
 
 describe('the tool descriptions', () => {
   it('say in two or three sentences each what the tool returns and when to use it', () => {
-    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'add_sketch', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'board', 'add_card', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
+    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'add_sketch', 'add_set', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'board', 'add_card', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
     for (const tool of Object.values(TOOLS)) {
       expect(tool.description).toMatch(/^Returns /)
       const sentences = tool.description.match(/[.?!]"?(\s|$)/g)!.length
@@ -2956,5 +2956,29 @@ describe('look and show at a named set', () => {
     const deps = fake({ sets })
     expect(textOf(await lookTool(deps, 'bracket', { focus: '#deck', layout: 'print' }))).toContain('#deck is of layout assembly')
     expect(textOf(await lookTool(deps, 'bracket', { focus: '#dek' }))).toContain('no named set #dek (named sets: #deck); a focus is a part')
+  })
+})
+
+describe('scene lists the named sets', () => {
+  const face = (ref: string, state: 'ok' | 'lost' = 'ok'): SetMember => ({ face: ref, point: [0, 0, 0], normal: [0, 0, 1], state })
+  const deck: NamedSet = { id: 'N3', name: 'deck', slug: 'deck', comment: 'the flat top', colour: 0, layout: 'assembly', by: 'person', createdAt: '', members: [face('base/F1'), face('base/F2'), face('base/F3', 'lost'), face('base/F4', 'lost'), face('base/F5', 'lost')] }
+  const rim: NamedSet = { id: 'N4', name: 'rim', slug: 'rim', comment: '', colour: 1, layout: 'print', by: 'agent', proposed: true, createdAt: '', members: [{ part: 'base' }, { stroke: 'M9/k2' }] }
+
+  it('with each set by ref and id, its members by ref, whose it is and how many are lost, in every layout', () => {
+    const told = JSON.parse(textOf(sceneTool(fake(), 'bracket', undefined, undefined, undefined, {}, { sets: [deck, rim], refound: 3 })))
+    expect(told.sets).toEqual([
+      { ref: '#deck', id: 'N3', name: 'deck', comment: 'the flat top', layout: 'assembly', by: 'person', members: ['base/F1', 'base/F2', 'base/F3', 'base/F4', 'base/F5'], lost: '3 of 5 faces lost' },
+      { ref: '#rim', id: 'N4', name: 'rim', comment: '', layout: 'print', by: 'agent', proposed: true, members: ['base', 'M9/k2'], lost: '1 of 1 stroke lost' }
+    ])
+  })
+
+  it('has no sets key when the project has none, or when they could not be read', () => {
+    expect('sets' in JSON.parse(textOf(sceneTool(fake(), 'bracket')))).toBe(false)
+    expect('sets' in JSON.parse(textOf(sceneTool(fake(), 'bracket', undefined, undefined, undefined, {}, { sets: [], refound: 3 })))).toBe(false)
+  })
+
+  it('says a set has not been refound against the last build yet', () => {
+    const told = JSON.parse(textOf(sceneTool(fake(), 'bracket', undefined, undefined, undefined, {}, { sets: [deck], refound: undefined })))
+    expect(told.sets[0].stale).toBe(`not refound against r${told.build.revision} yet`)
   })
 })

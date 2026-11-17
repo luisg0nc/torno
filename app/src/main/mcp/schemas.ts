@@ -266,6 +266,14 @@ const addSketchInput = {
   strokes: loose(z.array(z.unknown())).optional().describe(`The strokes, 1 to ${MOST_AGENT_STROKES}, with at most ${MOST_AGENT_POINTS} points in all. A stroke is {"points": [[x, y, z], ...]} in mm in the frame of the layout, or {"plane": <plane>, "points2d": [[u, v], ...]} in mm along the plane's own axes (the reply says which way u and v run). A plane is {"main": "XY" | "XZ" | "YZ", "offset": mm} (XY is across z, XZ across y, YZ across x, at the offset along that axis), {"face": "block/F31", "offset": mm} (a flat face of the last build, moved along its normal) or {"origin": [x, y, z], "normal": [x, y, z]}.`)
 }
 
+const addSetInput = {
+  name: loose(z.string()).describe('What the set is called: 1 to 40 characters, starting with a letter, with no "/", "#" or "@". Its ref is # and the name in lower case with dashes for spaces ("intake" is #intake). A name in use is refused.'),
+  comment: loose(z.string()).optional().describe('What the set is for, in a line or two.'),
+  refs: loose(z.array(z.string()))
+    .describe('What it holds: faces (block/F12), edges (block/E3), parts (block), tags (lid/@top), sets (#deck) and strokes of a sketch (M7/k3), as scene, marks and describe give them; a tag or a set stands for its members. At least one.'),
+  layout: z.string().optional().describe('The layout the set is of, whose parts its refs are of. Default: the one on screen.')
+}
+
 const measureInput = {
   kind: z
     .enum(['distance', 'angle', 'radius', 'diameter', 'thickness', 'bbox', 'volume', 'area', 'mass'])
@@ -454,6 +462,12 @@ export interface AddSketchArgs {
   remove?: boolean
   strokes?: SketchStrokeArg[]
 }
+export interface AddSetArgs {
+  name: string
+  comment?: string
+  refs: string[]
+  layout?: string
+}
 export interface ResolveMarkArgs {
   id: string
   note?: string
@@ -550,6 +564,13 @@ export const TOOLS = {
     description:
       `Returns the number of a sketch you made, which the user sees in the viewport in your colour and as a card on their board: a drawing in 3D, of strokes through points in mm, in space or on planes you name, with what each stroke touches worked out from the last build (your points are told as you gave them, never as snapped). Use it to show a route (a hose, a cable, a duct), an outline or where something goes, as {"name": "Breather hose", "take": "flow", "diameter": 19, "strokes": [{"points": [[0, 0, 40], [60, 0, 40], [60, 30, 55]]}]} does, with at most ${MOST_AGENT_STROKES} strokes and ${MOST_AGENT_POINTS} points. With sketch (M9) it replaces a sketch of yours and with remove it takes that one away, a sketch of the user's is refused, and the picture on the card shows when the project is on show.`,
     inputSchema: addSketchInput
+  },
+  add_set: {
+    title: 'Propose a named set',
+    annotations: CHANGES_VIEW_OR_MARKS,
+    description:
+      'Returns the name, ref and number of a named set you proposed, which the person sees dashed in the viewport and in Layers until they accept or dismiss it, and what it holds. Use it when a group of faces, edges, parts or strokes would be worth a name, as {"name": "intake", "comment": "where the air goes in", "refs": ["block/F12", "block/F14", "lid/@mouth"]} does; its ref is #intake, a name in use is refused, and you may use the ref at once in any call that takes refs. Only the person accepts a proposal, and no tool changes or removes a set.',
+    inputSchema: addSetInput
   },
   resolve_mark: {
     title: 'Resolve a mark',
@@ -668,20 +689,20 @@ export const TOOLS = {
 export const INSTRUCTIONS_LIMIT = 4096
 export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD part of the project this session works on, and shows things to the person looking at it in the torno window. Every answer is from the last build that worked, says which revision that is, and says so when a newer build is running or has failed. Numbers from measure, check, section and diff are the B-rep's and say whether they are exact; scene's sizes are for orientation. Check an edit by numbers first, then one look. The tools that only read may be called together.
 
-- scene: the build status and error, what the model printed, layouts, parts with size and volume, groups, params, saved views, the person's camera, section and explode. Start here.
+- scene: the build status and error, what the model printed, layouts, parts with size and volume, groups, named sets (#name), params, saved views, the person's camera, section and explode. Start here.
 - look: a picture of the part as the person's viewport draws it, with the marks, from any view, camera, layout, section or explode, or framed close on one face, edge, mark or box.
 - marks: the person's marks (pins, picks, arrows, strokes, shapes, dimensions, regions of a scan, view notes with their pictures on request) and yours, with notes, status and what each is on.
 - describe: the exact geometry of a part, a face, an edge, a group of parts or a mark: area, centre, normal, radius, volume, box; of a face or an edge also a build123d selector that picks it now.
 - measure: one exact number: distance or angle between two ends, radius, diameter, wall thickness, area, volume, mass, bounding box.
-- section: the outlines a plane cuts of the parts, with their areas, and a 2D drawing of the cut.
-- check: overlap and clearance between parts, interference of a whole layout, a closed mesh, and for printing overhangs, thin walls and the fit on a bed.
-- diff: what changed between two successful builds (the last two, or any kept ones): parts added or removed, volume, size and face counts.
-- history: the builds kept of this project, by id (h41), with what changed in each; diff compares any two.
-- board: the person's board, where they lay out what they want: text, pictures, doodles, frames and arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
-- add_card: leave a card of yours on the board (a plan, a note, a size, a picture of the view), in a frame, with an arrow; change or remove only your own.
-- expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the build after it is checked against that.
+- section: the outlines a plane cuts of the parts, with their areas, and a 2D drawing.
+- check: overlap and clearance between parts, interference of a whole layout, a closed mesh, and for printing overhangs, thin walls and bed fit.
+- diff: what changed between two successful builds (the last two, or kept ones): parts added or removed, volume, size and face counts.
+- history: the builds kept, by id (h41), with what changed in each; diff compares any two.
+- board: the person's board: text, pictures, doodles, frames, arrows, and cards for their marks, scans, references and pinned builds; read a frame by name.
+- add_card: leave a card of yours on the board (a plan, a note, a size, a view), in a frame, with an arrow; change or remove only your own.
+- expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the next build is checked against it.
 - try_fillet: try a fillet or chamfer of some edges on the last build and throw it away: whether it works, the largest radius that does, which edges or pairs fail.
-- try_params: build the model with other values of its Params in a throwaway worker and measure or check there, to search a value without editing the model.
+- try_params: build the model with other values of its Params in a throwaway worker and measure or check there, to search a value without editing it.
 - features: the holes (diameter, depth, through or blind, counterbore, countersink), bosses, fillets (radius), chamfers (size) and patterns (4 holes on a square, a bolt circle) of a part, exact, with the faces they are made of.
 - scans: the scans the person imported, and how each is aligned to the model.
 - scan_clash: what of a scan is inside a part, as clusters with their depth.
@@ -691,7 +712,8 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - show: change the person's camera, layout, visible parts, section, explode or scans, put a saved view on screen, or point their camera at a ref, mark or box.
 - save_view: propose a saved view to the person's strip, for them to keep or discard.
 - add_mark: leave a mark of yours (pin, pick, arrow, shape, or a dimension measured on every build).
-- add_sketch: draw a sketch of your own in 3D (a route, an outline, where something goes) as strokes of points on planes or in space; replace or remove your own.
+- add_sketch: draw a sketch of your own in 3D (a route, an outline, where something goes) as strokes of points; replace or remove your own.
+- add_set: propose a named set of faces, edges, parts or strokes, for the person to accept; its #name works in any ref.
 - resolve_mark: resolve a mark of the person's, a view note too, with a line on what was done, for them to confirm or reopen.`
 
 /** The keys each tool takes: those its schema names. */
