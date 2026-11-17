@@ -135,7 +135,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   0.01 mm from it, or is a vertex only projected on the plane), and it is exact only when both ends are snapped and on the outline (`exact on build h41`); else `≈` with `on the photo, lined up with fit 0.4 mm`
   or `freehand`. The build is named by its **history id** (`build`, found by `ipc.ts` `measures().historyId` from the build's sources, as a review finds its build; none when the
   history does not keep it, and `how` then says `exact on a build the history does not keep`), which is the same in every run: `measuredOn`, this run's number, is dropped when the file is read, as `checkedRevision` is.
-  It is never measured again, has no expectation and no verdict, and says `measured on build h41` once a later build lands (`describeMark`; `measured on an earlier build` when it has no id). An offset's `layer`
+  It is never measured again, has no expectation and no verdict, and an exact one keeps saying `exact on build h41` while an approximate one says `measured on build h41` once a later build lands (`describeMark`; `measured on an earlier build` when it has no id). An offset's `layer`
   (id, name, revision), `shape`, `was` (a copy of the shape as it was dragged), `from` and `to` (the reference point: a circle's centre, a polyline's centroid of its points) are found by main from
   the tracing's own layers; `saveOffset` changes the person's draft offset of the same shape of the same layer (keeping its number) and makes a new mark when that one was sent or resolved. It
   says `layer changed since` (`describeMark`, given `layers`: `layerRevisions` of the tracings, by `T1/2`) when the layer's revision is newer, and keeps `was`. It says `(≈, from the photo)` only

@@ -189,9 +189,9 @@ describe('remove and restore', () => {
     await store.layer('bracket', 'T1', { make: { name: 'its own', colour: 'teal', shapes: square } }, 'agent')
     await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow('T1 holds the layer "bolts"')
     await store.setPhoto('bracket', 'T1', pic(1))
-    await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow('T1 holds your photo and the layer "bolts"')
+    await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow("T1 holds the person's photo and the layer \"bolts\"")
     await store.layer('bracket', 'T1', { make: { name: 'holes', colour: 'blue', shapes: square } }, 'person')
-    await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow('T1 holds your photo and the layers "bolts" and "holes"')
+    await expect(store.remove('bracket', 'T1', 'agent')).rejects.toThrow("T1 holds the person's photo and the layers \"bolts\" and \"holes\"")
     expect(onDisk().tracings).toHaveLength(1)
     // The person may remove it, and an agent tracing with only its own layers goes.
     await store.remove('bracket', 'T1', 'person')

@@ -2023,7 +2023,7 @@ prompt like any mark. **Measure** (`M`): click two points; the pointer's note re
 snapped to the kernel's points of the build on show (a corner of the cut, a hole centre, a vertex in the plane) the number is exact, is worked out by torno from those
 numbers and says `exact on build h41` (the build's id in the history, which is the same in every run of torno; a build the history does not keep is said so). Any other measure is `≈`: it says how it was found, `on the photo, lined up with fit 0.4 mm` when an end is on the photo (a
 free click over the photo and off the outline) or `freehand`, and a snapped end that is not within a hundredth of a millimetre of the kernel's point is refused. A measure is made
-once and never measured again: after a later build it keeps its value and says `measured on build h41`. It has no expected value and no verdict. **Should be here**
+once and never measured again: after a later build it keeps its value: an exact one still says `exact on build h41`, and an `≈` one says `measured on build h41`. It has no expected value and no verdict. **Should be here**
 (`O`): press on a shape of a layer (yours or Claude's) and drag it to where it belongs. The shape stays ghosted where it was, the copy moves in your colour, and the note at
 the pointer reads `M15 head bolt 4 should be here · 1.8 mm left, 0.6 mm up` (left and up are along the sheet's `-u` and `+v`; the note says `M15` once the shape has a mark). `Shift` keeps the
 drag to the axis it has gone further along, and the arrow keys nudge it a tenth of a millimetre, while you drag and after you let go. Letting go makes the mark, one for each

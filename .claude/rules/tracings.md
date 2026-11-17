@@ -33,7 +33,7 @@ other stores are in their rules: marks on a tracing, `span` and `offset` (`marks
 - Caps, applied on read and on every change: 50 tracings, 20 layers a tracing, 500 shapes a layer, 20,000 points a tracing; names to 80 and a label's text to 200.
   A layer's name is free in its tracing (case apart); a make by a name that is there replaces that layer if it is the maker's own, and is refused by the owner's name if not.
 - Owners: each edits and removes only its own layers (`by`: `person` or `agent`); the person may hide any layer and remove any tracing, Claude only its own (`agentRemove`,
-  `agentLayer`), and not one that holds the person's photo or a layer of theirs (`T3 holds your photo and the layer "bolts"`). The window's doors (`tracings:*`, `main/tracings/ipc.ts`) and Claude's tools use the same store, and the `agent*` handlers add the owner's check.
+  `agentLayer`), and not one that holds the person's photo or a layer of theirs (`T3 holds the person's photo and the layer "bolts"`). The window's doors (`tracings:*`, `main/tracings/ipc.ts`) and Claude's tools use the same store, and the `agent*` handlers add the owner's check.
 
 ## The outline and the face that is followed (`outline.ts`, `planes.ts`)
 

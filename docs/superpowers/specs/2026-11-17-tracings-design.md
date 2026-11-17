@@ -282,10 +282,10 @@ applies as with any tool.
   'photo'` per end (main's to judge):
   - both ends snapped to the kernel's points (a corner, a hole centre, a vertex in the plane) give an **exact** value,
     worked out by main from those kernel numbers of the build it was placed on, and said "exact on build N". A span is
-    not measured again: its points are kept, not refs, so a rebuild never silently re-targets it, and after a build it
-    says "measured on build N";
+    not measured again: its points are kept, not refs, so a rebuild never silently re-targets it, and it keeps saying
+    "exact on build N" after later builds;
   - any end on the photo or not snapped gives `≈ 41.8 mm`, said "on the photo, lined up with fit 0.4 mm" or
-    "freehand", never exact.
+    "freehand", never exact, and once a later build has landed it says "measured on build N".
 - **Should be here** (below).
 - **Show in 3D** toggles the tracing in the model view (below).
 - **Select** selects a mark or a layer shape; Delete removes the person's marks (undo as for any mark).
@@ -406,7 +406,7 @@ applies as with any tool.
   kernel point of this build or `free` (on the outline or on the photo). Its value is main's: exact only when both ends
   are snapped, worked out from the kernel's numbers of the build it was placed on and said "exact on build N"; else
   `≈`, with how (on the photo, fit 0.4 mm; or freehand). It has no `expected` and no verdict, and is not re-measured;
-  after a build it says "measured on build N". The `dimensions` rule is untouched.
+  an exact one keeps saying "exact on build N", an approximate one says "measured on build N" once a later build lands. The `dimensions` rule is untouched.
 - **Snap refs on a cut.** The kernel's `section` gains, per loop, its corners and the centres of its circular arcs as
   points, and for an arc that lies on a circular model edge in the plane that edge's ref. Corners carry no stable ref
   (a cut corner is no model vertex): they are snapped by point, exact for that build. A `span` keeps its points, not

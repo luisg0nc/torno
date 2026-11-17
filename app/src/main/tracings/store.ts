@@ -320,7 +320,7 @@ export class TracingStore {
           // Removing a tracing takes what is on it: the person's photo and layers are theirs even on Claude's tracing.
           const theirs = t.layers.filter((l) => l.by === 'person').map((l) => `"${l.name}"`)
           if (t.photo !== undefined || theirs.length > 0) {
-            const things = [...(t.photo === undefined ? [] : ['your photo']), ...(theirs.length === 0 ? [] : [`the layer${theirs.length === 1 ? '' : 's'} ${theirs.length === 1 ? theirs[0] : `${theirs.slice(0, -1).join(', ')} and ${theirs.at(-1)}`}`])]
+            const things = [...(t.photo === undefined ? [] : ["the person's photo"]), ...(theirs.length === 0 ? [] : [`the layer${theirs.length === 1 ? '' : 's'} ${theirs.length === 1 ? theirs[0] : `${theirs.slice(0, -1).join(', ')} and ${theirs.at(-1)}`}`])]
             throw new Refusal(`${t.id} holds ${things.join(' and ')}: Claude removes a tracing only when it holds nothing of the person's.`)
           }
         }

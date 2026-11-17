@@ -43,6 +43,7 @@ async function inWorker(bitmap: ImageBitmap, transform: readonly number[], plan:
     try {
       worker.postMessage({ bitmap: copy, transform: [...transform], plan } satisfies WarpAsk, [copy])
     } catch {
+      copy.close()
       done(() => reject(new WorkerFailed('worker')))
     }
   })
