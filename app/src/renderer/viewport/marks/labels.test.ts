@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { DimensionMark } from '../../../shared/marks'
-import { chipAt, labelValue, needsCamera, type Placed } from './labels'
+import * as THREE from 'three'
+import type { DimensionMark, SpanMark } from '../../../shared/marks'
+import { chipAt, labelValue, needsCamera, project, type Placed } from './labels'
 
 describe('bringing a selected mark into view', () => {
   it('moves the camera only for a mark whose label is not in view, or is not drawn at all', () => {
@@ -44,5 +45,23 @@ describe('the value on a failing dimension\'s chip', () => {
   it('says nothing more of one that passes, or of a value of another build', () => {
     expect(labelValue({ ...height, value: 42, verdict: 'pass' }, 2)).toEqual({ text: '42 mm', verdict: 'pass' })
     expect(labelValue(height, 3)).toEqual({ text: '40 mm (r2)', stale: true })
+  })
+})
+
+describe('the chip of a span on a tracing', () => {
+  const camera = { position: [100, -100, 80] as [number, number, number], target: [0, 0, 0] as [number, number, number], up: [0, 0, 1] as [number, number, number], ortho: false, fov: 35, zoom: 1 }
+  const span = (over: Partial<SpanMark> = {}): SpanMark => ({ id: 'M7', kind: 'span', author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1, camera, createdAt: '2026-11-17T10:00:00.000Z', tracing: 'T1', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [41.8, 0], point: [41.8, 0, 0], on: 'photo' }, value: 41.8, exact: false, how: 'freehand', measuredOn: 1, ...over })
+  const view = (): THREE.PerspectiveCamera => {
+    const c = new THREE.PerspectiveCamera(35, 1, 1, 1000)
+    c.position.set(100, -100, 80)
+    c.up.set(0, 0, 1)
+    c.lookAt(20, 0, 0)
+    c.updateMatrixWorld()
+    return c
+  }
+
+  it('writes its value beside its number, with ≈ unless it is exact', () => {
+    expect(project([span()], view(), { width: 400, height: 400 })[0].value).toEqual({ text: '≈ 41.8 mm' })
+    expect(project([span({ exact: true })], view(), { width: 400, height: 400 })[0].value).toEqual({ text: '41.8 mm' })
   })
 })

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Arrow, type BoardFile, type Card, MAX_BOARD_PICTURES, readingOrder } from '../../shared/board'
 import type { Mark } from '../../shared/marks'
+import type { Tracing } from '../../shared/tracings'
 import { BoardStore } from './store'
 import { type LiveFacts, boardLine, boardText, saysHash } from './text'
 
@@ -126,6 +127,25 @@ describe('the text of a board', () => {
     const { text } = boardText(board([c]), live, OPTS)
     expect(text).toContain(`M7 · sketch "Hose route" · flow ⌀19 mm · 1 stroke on 1 plane · draft, drawn on build 3`)
     expect(text).not.toContain('(sketch,')
+  })
+  it('says a measure and a "should be here" by their line, with what they are, not as a mark of some kind', () => {
+    const base = { author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 3, tracing: 'T1' }
+    const span = { ...base, id: 'M8', kind: 'span', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [3, 4], point: [3, 4, 0], on: 'tracing' }, value: 5, exact: false, how: 'freehand', measuredOn: 3 } as unknown as Mark
+    const offset = { ...base, id: 'M9', kind: 'offset', layer: { id: 1, name: 'bolts', revision: 1 }, shape: { index: 0, name: 'bolt 1' }, was: { kind: 'circle', centre: [1, 1], radius: 1 }, by: [-1, 0], from: [1, 1, 0], to: [0, 1, 0] } as unknown as Mark
+    const live: LiveFacts = { marks: new Map([['M8', span], ['M9', offset]]) }
+    const { text } = boardText(board([card({ kind: 'mark', by: 'torno', source: 'M8' }), card({ kind: 'mark', by: 'torno', source: 'M9' })]), live, OPTS)
+    expect(text).toContain('M8 · span on T1: ≈ 5 mm (freehand)')
+    expect(text).toContain("M9 · offset · bolt 1: 1 mm left from the layer's shape on T1")
+  })
+  it('says an offset is from the photo, with its line-up, when its tracing is known to have a lined-up photo, and a removed tracing as removed', () => {
+    const base = { author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 3, tracing: 'T1' }
+    const offset = { ...base, id: 'M9', kind: 'offset', layer: { id: 1, name: 'bolts', revision: 1 }, shape: { index: 0, name: 'bolt 1' }, was: { kind: 'circle', centre: [1, 1], radius: 1 }, by: [-1, 0], from: [1, 1, 0], to: [0, 1, 0] } as unknown as Mark
+    const photo = { file: 'p-0123456789ab.jpg', pairs: [{}, {}], method: 'similar', transform: [1, 0, 0, 0, 1, 0, 0, 0, 1], scale: 4.7, fade: 0.5 }
+    const c = card({ kind: 'mark', by: 'torno', source: 'M9' })
+    const with_ = boardText(board([c]), { marks: new Map([['M9', offset]]), tracings: new Map([['T1', { id: 'T1', photo } as unknown as Tracing]]) }, OPTS).text
+    expect(with_).toContain('1 mm left on T1 (≈, from the photo)')
+    expect(with_).toContain('photo: lined up by 2 points: 4.7 px/mm at the centre')
+    expect(boardText(board([c]), { marks: new Map([['M9', offset]]), tracings: new Map() }, OPTS).text).toContain('on T1 (removed)')
   })
   it('calls the ink-pad card a doodle, in its head and in its picture line', () => {
     const d = card({ kind: 'sketch', picture: 'p-bbbbbbbbbbbb.png', caption: 'the latch shape' })
@@ -309,5 +329,50 @@ describe('a size card', () => {
     expect(saysHash({ ...c, x: 500, y: 40, w: 300 }, LIVE)).toBe(before)
     expect(saysHash({ ...c, size: { ...(c.size as NonNullable<Card['size']>), value: '190 x 128' } }, LIVE)).not.toBe(before)
     expect(boardLine(board([c]), {}, LIVE).line).toContain(`${c.id} a size`)
+  })
+})
+
+describe('the card of a tracing', () => {
+  const lined = { file: 'p-aaaaaaaaaaaa.jpg', sha256: 'x', width: 800, height: 600, pairs: [{}, {}] as never, method: 'similar' as const, scale: 4.7312, fade: 0.5 }
+  const tracing = (over: Partial<Tracing> = {}): Tracing => ({
+    id: 'T1',
+    by: 'person',
+    name: 'Front of the block',
+    layout: 'assembly',
+    createdAt: '2026-11-17T10:00:00.000Z',
+    plane: { origin: [0, 0, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 0 (u = +X, v = +Z)', from: { kind: 'main', axis: 'XZ', offset: 0 } },
+    layers: [1, 2, 3].map((id) => ({ id, name: `L${id}`, colour: 'blue' as const, by: 'person' as const, shapes: [], revision: 1 })),
+    nextLayer: 4,
+    photo: lined,
+    ...over
+  })
+  const live = (t: Tracing): LiveFacts => ({ marks: new Map(), tracings: new Map([[t.id, t]]) })
+  const on = card({ kind: 'tracing', by: 'torno', source: 'T1' })
+
+  it('says the name, the plane, the layers and the line-up, the photo never exact', () => {
+    const out = boardText(board([on]), live(tracing()), OPTS)
+    expect(out.text).toBe(`${on.id} · tracing T1 "Front of the block": XZ at y = 0, 3 layers, photo lined up (4.731 px/mm, ≈)`)
+  })
+  it('says a photo not lined up, no photo, one layer and a tracing with no name', () => {
+    expect(boardText(board([on]), live(tracing({ photo: { ...lined, scale: undefined, pairs: [] } })), OPTS).text).toContain('3 layers, photo not lined up')
+    expect(boardText(board([on]), live(tracing({ photo: undefined, name: '', layers: [] })), OPTS).text).toBe(`${on.id} · tracing T1 "Tracing T1": XZ at y = 0, 0 layers`)
+    expect(boardText(board([on]), live(tracing({ photo: undefined, layers: tracing().layers.slice(0, 1) })), OPTS).text).toContain('1 layer')
+  })
+  it('says where it is, and a tracing that is gone', () => {
+    const f = card({ kind: 'frame', name: 'Views' })
+    expect(boardText(board([f, { ...on, frame: f.id }]), live(tracing()), OPTS).text).toContain(`${on.id} · tracing T1 "Front of the block" · in Views: XZ`)
+    expect(boardText(board([on]), LIVE, OPTS).text).toBe(`${on.id} · tracing T1 (not among the tracings of this project now)`)
+  })
+  it('is new to Claude when the name, plane, layers or line-up change, and not when the fade does or it is moved', () => {
+    const t = tracing()
+    const first = boardLine(board([on]), {}, live(t))
+    expect(first.line).toContain(`1 new: ${on.id} a tracing`)
+    const same = (over: Partial<Tracing>): string => boardLine(board([on]), first.told, live({ ...t, ...over })).line
+    expect(same({ photo: { ...lined, fade: 0.9 } })).toContain('0 new')
+    expect(boardLine(board([{ ...on, x: 700, y: 10 }]), first.told, live(t)).line).toContain('0 new')
+    expect(same({ name: 'Back' })).toContain('1 new')
+    expect(same({ layers: [...t.layers, { id: 4, name: 'L4', colour: 'teal', by: 'agent', shapes: [], revision: 1 }] })).toContain('1 new')
+    expect(same({ photo: { ...lined, scale: 5 } })).toContain('1 new')
+    expect(same({ plane: { ...t.plane, label: 'XZ at y = 5.0 (u = +X, v = +Z)' } })).toContain('1 new')
   })
 })

@@ -6,7 +6,7 @@ import { FOLDER, ownTorno, writeOwn } from '../own'
 
 const FOLDER_NAME = 'board'
 const NAME = 'board.json'
-const KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan', 'build', 'view', 'params', 'checks', 'text', 'picture', 'sketch', 'frame', 'size']
+const KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan', 'build', 'view', 'params', 'checks', 'text', 'picture', 'sketch', 'frame', 'size', 'tracing']
 
 /** The text of a board file: what is written, and what a change is compared with. */
 export const textOf = (file: BoardFile): string => `${JSON.stringify(file, null, 2)}\n`

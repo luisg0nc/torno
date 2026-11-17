@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { LAYER_COLOURS, type LayerColour } from '../../shared/tracings'
 
 // The colours the viewport draws in, as the stylesheet has them now.
 
@@ -19,10 +20,12 @@ export interface Theme {
   axisZ: string
   /** The eight colours a named set takes from, `--set-1` to `--set-8`, in order. */
   sets: string[]
+  /** The colours a layer of a tracing takes from, `--layer-blue` and the rest. */
+  layers: Record<LayerColour, string>
 }
 
 /** The light values of styles/tokens.css, used where no stylesheet is loaded. */
-export const LIGHT_THEME: Theme = { surface: '#F1EFEA', hairline: '#DAD6CE', ink: '#22252A', muted: '#646970', accent: '#1D46B8', agent: '#288156', user: '#CF3F2C', panel: '#FAF9F6', scan: '#B4AFA5', axisX: '#9A3350', axisY: '#457528', axisZ: '#2E5FA9', sets: ['#987D3E', '#838637', '#3D8C94', '#4889B1', '#7F6EC4', '#9F6BC2', '#BC5CBC', '#BF6391'] }
+export const LIGHT_THEME: Theme = { surface: '#F1EFEA', hairline: '#DAD6CE', ink: '#22252A', muted: '#646970', accent: '#1D46B8', agent: '#288156', user: '#CF3F2C', panel: '#FAF9F6', scan: '#B4AFA5', axisX: '#9A3350', axisY: '#457528', axisZ: '#2E5FA9', sets: ['#987D3E', '#838637', '#3D8C94', '#4889B1', '#7F6EC4', '#9F6BC2', '#BC5CBC', '#BF6391'], layers: { blue: '#3A63D0', teal: '#1A8794', violet: '#7A4FC9', ochre: '#A87410', plum: '#9B3E7C', slate: '#5A6878', sky: '#2785BD', olive: '#6B7A22' } }
 
 /** The theme as the stylesheet says it now; the light one where there is no stylesheet. */
 export function themeOf(): Theme {
@@ -41,7 +44,8 @@ export function themeOf(): Theme {
     axisX: read('--axis-x', LIGHT_THEME.axisX),
     axisY: read('--axis-y', LIGHT_THEME.axisY),
     axisZ: read('--axis-z', LIGHT_THEME.axisZ),
-    sets: LIGHT_THEME.sets.map((fallback, n) => read(`--set-${n + 1}`, fallback))
+    sets: LIGHT_THEME.sets.map((fallback, n) => read(`--set-${n + 1}`, fallback)),
+    layers: Object.fromEntries(LAYER_COLOURS.map((name) => [name, read(`--layer-${name}`, LIGHT_THEME.layers[name])])) as Theme['layers']
   }
 }
 

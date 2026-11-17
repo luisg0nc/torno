@@ -3,6 +3,7 @@ import { rotate } from '../../shared/align'
 import type { SketchDraft } from '../../shared/bridge'
 import { type SketchMark, type SketchPlane, type SketchSnap, type NewStroke, type SketchStroke, type Vec3, MAX_NOTE } from '../../shared/marks'
 import { type Part, type Scene, bufView } from '../../shared/scene'
+import { TRACING_ID } from '../../shared/tracings'
 import { type SnapData, EDGE_CIRCLE, EDGE_LINE, circleOf, nearestOnCircle, nearestOnSegment, orthogonal, segmentParameter, vertexAt } from '../../shared/snapdata'
 import { anchorOf, cameraOf } from '../marks/file'
 import { tolerance } from '../marks/tolerance'
@@ -92,6 +93,14 @@ export function checkSketch(raw: unknown, stored: SketchMark | undefined, build:
   if (raw.intent !== undefined && raw.intent !== 'want' && raw.intent !== 'dont') return new Refusal('The intent of a sketch is want or dont, or none.')
   const body = readSketch(raw, 'window')
   if (typeof body === 'string') return new Refusal(`That is not a sketch: ${body}.`)
+  // Ink on a tracing: the tracing is named once, by the sketch, and every plane is made from it. Whether it is there, of this layout, and its planes the tracing's own is `checkOnTracing`'s, asked once main has the tracings.
+  if (raw.tracing !== undefined && !(typeof raw.tracing === 'string' && TRACING_ID.test(raw.tracing))) return new Refusal('The tracing of a sketch is a tracing id such as T1.')
+  const tracing = raw.tracing === undefined ? stored?.tracing : raw.tracing
+  if (stored?.tracing !== undefined && tracing !== stored.tracing) return new Refusal(`${stored.id} is ink on ${stored.tracing}: a sketch does not move to another tracing.`)
+  for (const plane of body.planes) {
+    if (plane.from.kind === 'tracing' && plane.from.tracing !== tracing) return new Refusal(`Plane ${plane.id} is the plane of ${plane.from.tracing}, and the sketch is ${tracing === undefined ? 'on no tracing' : `ink on ${tracing}`}.`)
+    if (tracing !== undefined && plane.from.kind !== 'tracing') return new Refusal(`Plane ${plane.id} is not the plane of ${tracing}: ink on a tracing is drawn in its plane.`)
+  }
   let anchor = raw.anchor === undefined ? undefined : anchorOf(raw.anchor)
   if (anchor === null) return new Refusal('The anchor of a sketch is a point.')
   // Where it was already tied, main has said how its part is spread and what it is: the window's is only its point.
@@ -141,6 +150,7 @@ export function checkSketch(raw: unknown, stored: SketchMark | undefined, build:
     planes: body.planes,
     strokes,
     ...(anchor ? { anchor } : {}),
+    ...(tracing === undefined ? {} : { tracing }),
     ...(!stored && raw.intent !== undefined ? { intent: raw.intent } : {})
   }
 }

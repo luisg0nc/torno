@@ -128,3 +128,14 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a doodle opens the ink pad on its
   drawing, a text edits and a frame renames (the person's only). The "Pin to board" buttons ask main (`pinToBoard`), which
   decides.
+
+## The third view: Tracing, and its card
+
+The Tracing view, its sheet, layers, photo line-up and tools are in `tracings.md`. What the board holds of it is here.
+
+- The main area's switch is **Board | Model | Tracing**: `Shown` is `'board' | 'model' | 'tracing'`, remembered per project as the
+  other two are. `board.swap` (`Ctrl+Tab`) goes board, model, tracing, board (`swapped`), and passes over Tracing in a project with
+  none (`hasTracing`); a project left on a tracing that its first read finds gone opens on the model, the choice kept. Whatever is
+  not the model covers it: the 3D view stays mounted, stops drawing (`boardShown` is "not the model") and the review and set keys
+  are not heard. `viewKey` stops the view's keys in the tracing as in the board.
+- **A tracing is a card of torno's own** (`kind: 'tracing'`, in `AUTO_KINDS`, `source: 'T1'`, `by: 'torno'`): `Found.tracings` (from `TracingStore.list`, read by `follow.ts`; the store's `changed` runs the reconcile) makes it in a free spot (`CARD_SIZE.tracing`), removing it only hides it, and it goes with its tracing; an unreadable tracings file leaves the board as it is. The face (`faces.ts` `tracingFace`) is the name, the plane without its axes, `3 layers` (`· 5 marks` once marks on a tracing are told) and "build to see the outline" while the window has no outline; the drawing is `TracingPicture.tsx`, from `tracingSvg` (`forScreen`, layers, no grid, no marks, no file written), asking main for the outline once per card and again when the plane or the parts change (`cutKey`). `shownIds(shown, open, board)` tells main the tracings of the visible cards while the board is shown, so each build cuts them again. A double click opens `{ does: 'tracing', id }`: `tracingActions.open` and the Tracing view. The board text is `C9 · tracing T1 "Front of the block"[ · in Frame]: XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)` (`tracingSaid`, with `LiveFacts.tracings`), and `saysHash` is that line, so a name, plane, layer count or line-up is news to Claude and a fade, a move or a resize is not.

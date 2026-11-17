@@ -92,7 +92,7 @@ function nearestAlong(ray: { origin: Vec3; direction: Vec3 }, through: Vec3, alo
  * view looks along that axis the pointer says nothing of it, and the offset stays.
  */
 export function dragOffset(plane: PlaneDraft, from: { origin: Vec3; direction: Vec3 }, to: { origin: Vec3; direction: Vec3 }): number {
-  const was = plane.from.kind === 'view' ? 0 : plane.from.offset
+  const was = plane.from.kind === 'view' || plane.from.kind === 'tracing' ? 0 : plane.from.offset
   const along = offsetDirection(plane)
   const a = nearestAlong(from, plane.origin, along)
   const b = nearestAlong(to, plane.origin, along)

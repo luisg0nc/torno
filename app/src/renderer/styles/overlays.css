@@ -215,6 +215,8 @@
   align-items: center;
   gap: 4px;
   width: 100px;
+  /* In a narrow view the slider gives way before the field does: the bar's other buttons ("Make a tracing") leave it little room. */
+  min-width: 80px;
   height: 22px;
   padding: 0 6px;
   border: var(--divider);

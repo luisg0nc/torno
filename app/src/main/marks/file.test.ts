@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ArrowMark, DimensionMark, Mark, MarksFile, NoteMark, PickMark, PinMark, ShapeMark, SketchMark, StrokeMark } from '../../shared/marks'
+import type { ArrowMark, DimensionMark, Mark, MarksFile, NoteMark, PickMark, PinMark, ShapeMark, SketchMark, SpanMark, StrokeMark } from '../../shared/marks'
 import { markAnchors } from '../../shared/marks'
 import * as atomic from '../atomic'
 import { loadMarksFile, MAX_NOTE, MAX_STROKE_POINTS, sanitiseMark, sanitiseMarksFile, saveMarksFile } from './file'
@@ -234,6 +234,41 @@ describe('marks file', () => {
 })
 
 describe('sanitising a mark', () => {
+  it('keeps the tracing a mark is on and its uv, and leaves out a tracing id that is none, and uv that are no points', () => {
+    expect(sanitiseMark(pin({ tracing: 'T1', uv: [[3, 4]] }))).toMatchObject({ tracing: 'T1', uv: [[3, 4]] })
+    expect(sanitiseMark(pin({ tracing: 'T12' }))?.uv).toBeUndefined()
+    for (const tracing of ['t1', 'T0', '../T1', 4, null]) expect(sanitiseMark(pin({ tracing, uv: [[1, 2]] }))).toEqual(pin())
+    for (const uv of [[[1]], [[1, Number.NaN]], [], 'x', Array.from({ length: 17 }, () => [1, 2])]) {
+      const read = sanitiseMark(pin({ tracing: 'T1', uv }))
+      expect(read?.tracing).toBe('T1')
+      expect(read?.uv).toBeUndefined()
+    }
+  })
+
+  it('reads a span and an offset whole, and holds them to what a tracing mark has', () => {
+    const end = (uv: number[], over: object = {}): object => ({ uv, point: [uv[0], 0, uv[1]], on: 'tracing', ...over })
+    const span = { ...BASE, id: 'M8', kind: 'span', tracing: 'T1', a: end([0, 0], { snap: { kind: 'corner', uv: [0, 0], part: 'block' } }), b: end([30, 40]), value: 50, exact: false, how: 'freehand', measuredOn: 2, build: 'h41' }
+    expect(sanitiseMark(span)).toEqual(span)
+    // The history id is kept only as one; the run's number is optional (the store drops it when it reads a file).
+    expect((sanitiseMark({ ...span, build: 'b41' }) as SpanMark).build).toBeUndefined()
+    expect(sanitiseMark({ ...span, measuredOn: undefined })).not.toBeNull()
+    for (const bad of [{ tracing: undefined }, { value: Number.NaN }, { how: 4 }, { a: end([0]) }, { b: end([1, 2], { on: 'wall' }) }, { exact: 'yes' }]) expect(sanitiseMark({ ...span, ...bad })).toBeNull()
+    // A bad snap is left out, and the end kept; a review intent is never kept, and neither is a verdict.
+    expect((sanitiseMark({ ...span, a: end([0, 0], { snap: { kind: 'wall' } }) }) as SpanMark).a.snap).toBeUndefined()
+    expect(sanitiseMark({ ...span, intent: 'want', expected: 4, verdict: 'pass' })).toEqual(span)
+    const offset = { ...BASE, id: 'M9', kind: 'offset', tracing: 'T1', layer: { id: 2, name: 'head bolts', revision: 3 }, shape: { index: 2, name: 'head bolt 3' }, was: { name: 'head bolt 3', kind: 'circle', centre: [10, 5], radius: 3 }, by: [-1.8, 0.6], from: [10, 0, 5], to: [8.2, 0, 5.6] }
+    expect(sanitiseMark(offset)).toEqual(offset)
+    for (const bad of [{ tracing: undefined }, { layer: { id: 2, name: 'x' } }, { shape: { index: -1, name: '' } }, { was: { kind: 'circle', centre: [1, 1], radius: 0 } }, { by: [1] }, { from: [1, 2] }, { to: 'here' }]) expect(sanitiseMark({ ...offset, ...bad })).toBeNull()
+    expect(sanitiseMark({ ...offset, intent: 'dont' })).toEqual(offset)
+  })
+
+  it('reads a sketch whose plane is a tracing\'s, and refuses one whose tracing id is none', () => {
+    const plane = { id: 1, origin: [0, 0, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'T1', from: { kind: 'tracing', tracing: 'T1' } }
+    const sketch = { ...BASE, id: 'M7', kind: 'sketch', name: '', take: 'rough', nextStroke: 2, tracing: 'T1', planes: [plane], strokes: [{ id: 'k1', plane: 1, pen: 'free', revision: 3, points2d: [[1, 1], [2, 2]] }] }
+    expect((sanitiseMark(sketch) as SketchMark).planes[0].from).toEqual({ kind: 'tracing', tracing: 'T1' })
+    expect(sanitiseMark({ ...sketch, planes: [{ ...plane, from: { kind: 'tracing', tracing: 'nope' } }] })).toBeNull()
+  })
+
   it('keeps a whole mark as it is', () => {
     for (const mark of ALL) expect(sanitiseMark(mark)).toEqual(mark)
   })

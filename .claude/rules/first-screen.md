@@ -98,3 +98,5 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   object it is of, as a link that goes to that object (or to the page of a new one) and puts the question away
   (`closingWhy`, `leavingWhy` in `closing.ts` return those items). `ui/Confirm.tsx` stays the strip for a question
   about one panel (a scan, a mark, the session).
+- **The Board | Model | Tracing switch** is the main area's, not the first screen's: the first screen (no project open) has none, and a project opens on the model, or on the view it was left on
+  (`board.md`, `tracings.md`). A project left on a tracing that is gone opens on the model.

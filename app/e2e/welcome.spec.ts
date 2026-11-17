@@ -228,12 +228,12 @@ test('? shows every key of the one table; what is typed searches it, and no tool
   await expect(sheet()).toBeVisible()
   await expect(sheet()).toHaveAttribute('aria-modal', 'true')
   for (const line of ['Pin: click a point and leave a note', 'Draw the parts apart, or together again', 'Region: undo the last stroke', 'Export to one HTML file, or to STEP, STL or 3MF']) await expect(sheet()).toContainText(line)
-  // `P` is the Pin tool, and with a sketch open the point to point pen: two rows, each in its own group.
-  await expect(sheet().locator('kbd', { hasText: /^P$/ })).toHaveCount(2)
+  // `P` is the Pin tool, with a sketch open the point to point pen, and in a tracing the Pin tool of the sheet: three rows, each in its own group.
+  await expect(sheet().locator('kbd', { hasText: /^P$/ })).toHaveCount(3)
   // Every row that is shown is there, under where it is listened to, its keys in the monospace face.
   await expect(sheet().locator('li')).toHaveCount(POINTER.length + KEYS.filter((row) => !row.hidden).length)
   // The pointer first: gestures, not keys, so no cap of its own.
-  await expect(sheet().locator('h3')).toHaveText(['Pointer', 'Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
+  await expect(sheet().locator('h3')).toHaveText(['Pointer', 'Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
   expect(await sheet().locator('kbd').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
   // The focus is in its field: a letter searches, and is no tool's key.
   await expect(sheet().getByRole('textbox', { name: 'Search the keys' })).toBeFocused()

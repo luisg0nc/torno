@@ -170,6 +170,10 @@ export interface SectionLoop {
   areaExact: boolean
   /** How far the points may stray from the true outline, mm. */
   deflection: number
+  /** Only when the kernel was asked for `snaps`; exact, from the B-rep's cut edges, not the polyline. The ends of each cut edge, in `[u, v]`, each once (a whole circle has none). */
+  corners?: [number, number][]
+  /** Only with `snaps`: each cut edge that is a circle or an arc of one. `edge` is `E<i>` (as `topo` numbers the part's edges) when it lies on a circular edge of the part in the plane. Arcs of one circle on different edges are separate entries, each with its own `edge`; entries naming the same edge are told once. */
+  circles?: Array<{ centre: [number, number]; radius: number; edge?: string }>
 }
 
 /** What the kernel's `check` says (`kernel/src/torno_kernel/checks.py`). */

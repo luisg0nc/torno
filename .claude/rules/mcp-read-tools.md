@@ -61,6 +61,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     `how`; the faces it is made of and the ones it opens in as refs; counts of what was left out or is no feature)
     and a `reading` worded from that data alone: equal holes counted together, `≈` before a number the kernel did
     not say is exact. The reading is never worked out from a feature's numbers here.
+  - The agent's `section` tool asks the kernel for the plane and its `deflection` only. The kernel's `section` also takes `axes` (the caller's frame of the plane) and
+    `snaps` (the cut's corners and circle centres); main asks for both to cut a tracing (`kernel-measures`, `tracings`), and the tool passes neither, so what Claude is
+    told by `section` is unchanged. `tracings` is the read tool of the tracings (`mcp/tracingTools.ts`: the list, or one tracing's plane, outline, layers and photo's words, and with
+    `picture: true` the window's drawing of it, at most 2000 px): read-only, with `add_tracing` and `add_layer` beside it (`mcp-tools`, `tracings`). Whether the photo is on this
+    computer is main's own check of the file (`photoHere`), and every number of a photo is told as not exact.
   - The picture `section` returns is a 2D drawing of the kernel's outlines
     (`src/renderer/viewport/sectionDrawing.ts`), made by the window on a
     canvas of its own whichever object it shows, on the light sheet whatever

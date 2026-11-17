@@ -7,6 +7,7 @@ import { said } from '../../../shared/params'
 import { ROUND_ID, type RoundsView, isHeld } from '../../../shared/reviews'
 import type { Param } from '../../../shared/scene'
 import type { ScanInfo } from '../../../shared/scans'
+import { type Tracing, tracingName } from '../../../shared/tracings'
 import type { SavedView } from '../../../shared/views'
 
 // What a card of the board says, as data: from the card and the facts the window holds of what it shows (the mark's
@@ -16,12 +17,19 @@ import type { SavedView } from '../../../shared/views'
 export const PICTURE_MISSING = 'picture not on this computer'
 export const BUILD_MISSING = 'build not on this computer'
 export const VIEW_MISSING = 'view not saved here'
+export const OUTLINE_MISSING = 'build to see the outline'
 
 /** What the window has of what cards show. A fact that is absent has not come (yet): the face says so, or says nothing. */
 export interface Facts {
   mark?: Mark
   scan?: ScanInfo
   scanVisible?: boolean
+  /** The tracing a card names, as the window has it; absent while the tracings have not come or there is no such one. */
+  tracing?: Tracing
+  /** Whether the window has the tracing's outline (of a build of this run). */
+  outline?: boolean
+  /** How many marks are on the tracing, when it is known. */
+  tracingMarks?: number
   /** A saved view by the card's name; null when there is none of that name. */
   view?: SavedView | null
   params?: readonly Param[]
@@ -69,6 +77,7 @@ const LABEL: Record<CardKind, string> = {
   reference: 'Reference',
   mark: 'Mark',
   scan: 'Scan',
+  tracing: 'Tracing',
   build: 'Build',
   view: 'View',
   params: 'Params',
@@ -154,6 +163,21 @@ function scanFace(card: Card, facts: Facts): Face {
   }
 }
 
+/** A tracing's card: its name, its plane without the axes, how many layers (and marks) it has. The drawing is the card's own (`Cards.tsx`, from `tracingSvg`). */
+function tracingFace(card: Card, facts: Facts): Face {
+  const t = facts.tracing
+  if (!t) return { label: LABEL.tracing, ...(card.source !== undefined ? { chip: card.source } : {}), lines: [{ text: 'not loaded yet' }] }
+  const layers = `${t.layers.length} ${t.layers.length === 1 ? 'layer' : 'layers'}`
+  const marks = facts.tracingMarks === undefined ? '' : ` · ${facts.tracingMarks} ${facts.tracingMarks === 1 ? 'mark' : 'marks'}`
+  return {
+    label: LABEL.tracing,
+    chip: t.id,
+    title: tracingName(t),
+    lines: [{ text: t.plane.label.replace(/ \(u = .*$/, ''), mono: true }, { text: `${layers}${marks}`, mono: true }],
+    ...(t.lost ? { note: t.lost } : facts.outline === false ? { note: OUTLINE_MISSING } : {})
+  }
+}
+
 function paramLines(params: readonly Param[] | undefined): Line[] {
   if (!params) return [{ text: 'not built yet', tone: 'muted' }]
   if (params.length === 0) return [{ text: 'the model has no Params', tone: 'muted' }]
@@ -181,6 +205,8 @@ export function faceOf(card: Card, facts: Facts): Face {
       return markFace(card, facts)
     case 'scan':
       return scanFace(card, facts)
+    case 'tracing':
+      return tracingFace(card, facts)
     case 'brief':
       return { label: LABEL.brief, scroll: true, lines: facts.brief === null ? [{ text: 'no brief.md', tone: 'muted' }] : [], ...(typeof facts.brief === 'string' ? { body: facts.brief } : {}) }
     case 'reference': {
@@ -236,7 +262,7 @@ export function faceOf(card: Card, facts: Facts): Face {
 }
 
 /** What names a mark, a scan, a build or a card (`M3`, `S2`, `h41`, `C7`) in a text. */
-const REF = /\b([MSC][1-9]\d*|h[1-9]\d*)\b/g
+const REF = /\b([MSCT][1-9]\d*|h[1-9]\d*)\b/g
 
 /** A text cut at the refs in it, so that a ref is set apart (in the monospace face). */
 export function refPieces(text: string): Array<{ text: string; ref?: true }> {

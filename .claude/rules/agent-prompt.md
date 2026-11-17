@@ -64,3 +64,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the number and why it has no word of them; while `sending` names a round, `REVIEW_LINE` goes before the marks head, and is taken out again when none of
   the round's drafts fit under it; when the line itself does not fit, the round's drafts are left out of the marks too (they never go without it). The held rule and the review line are tested in `context.test.ts`; a change to either is a change to the manual's
   "What the agent is told" and to `marks-store`.
+- **Tracings** (`prompt.ts`, in both prompts, after the named sets sentence): one fixed sentence says a tracing is the model laid flat in a plane at true scale over a photo, to trace the photo by looking at it with
+  `mcp__torno__tracings` and `picture: true` and adding layers in mm with `mcp__torno__add_layer`, and that a photo's numbers are never exact. It did not fit in 7,600 and 8,600 with the reviews and sets sentences, so the
+  limits of `prompt.test.ts` are 7,900 and 8,900. Every prompt of a project with tracings also carries one line after the board's (`contextFor` `opts.tracingsLine`, `main/tracings/told.ts` `tracingsLine`, at most
+  `TRACINGS_LIMIT`, 500 characters, and counted in `CONTEXT_LIMIT` like the board's): `tracings: T1, T2 (1 changed since you were told: T1's photo was lined up again). Read them with tracings.` It names eight tracings
+  at most and counts the rest. A project whose last tracing was removed since the agent was told says `tracings: none (T1 was removed)` once, and an empty record is kept. A tracing's kept hash is five parts (name, plane without the origin of a face that follows its face, `lost`, layers by id, name, colour and revision, and the photo's line-up: its file's hash,
+  method, points and what they gave; never the fade or `hidden`), so the line can say which changed. What it told (`PromptContext.tracingsTold`) is kept in `.torno/tracings/told.json` (`ensureIgnored`) by `onDelivered`
+  (the manager's fourth argument) only once the answer has left, as the board's is; none is kept with the answer to an edit. A mark on a tracing is told `on T1` (`describeMark`, given `tracings`, `layers` and `lineups` by
+  `index.ts`, `statefile.ts` and the `marks` tool), with the photo's line-up when it is on the photo or an offset (`marks-store`).

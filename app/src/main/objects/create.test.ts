@@ -384,7 +384,7 @@ describe('the board a new project starts with', () => {
     writeFileSync(join(files, 'desk.png'), PNG)
     await make(request({ photos: [{ path: join(files, 'desk.png'), note: 'n' }], doodles: [{ png: PNG, note: '' }], pdfs: [{ path: pdf('a.pdf'), note: '' }] }))
     const dir = join(ws, 'cable-clip')
-    const found = { brief: true, references: listBoardReferences(dir).map((n) => `reference/${n}`), marks: [], scans: [], rounds: [] }
+    const found = { brief: true, references: listBoardReferences(dir).map((n) => `reference/${n}`), marks: [], scans: [], rounds: [], tracings: [] }
     expect(found.references).toEqual(['reference/photo-1.png', 'reference/doodle-1.png', 'reference/a.pdf'])
     expect(reconcile(board(), found)).toBeNull()
   })

@@ -31,11 +31,14 @@ import { type ModelDeps, checkModelFile, makeModelFile } from './export/model'
 import { defaultExportPath, exportPath, prepareExports, writeExport } from './export/save'
 import { checkedPicture } from './export/picture'
 import { makeSectionDrawing } from './export/section'
+import { makeTracingDrawing, tracingExportPath } from './export/tracing'
 import { pdfOfSvg } from './export/pdf'
 import { type InstructionList } from './instructions'
 import { KernelError, type KernelClient, type TrialResult, startKernel } from './kernel/client'
 import { toArrayBuffer } from './kernel/frames'
 import { forgetViews, latestView, reportView, resolveRequest } from './look'
+import { placeOnTracing } from './tracings/marks'
+import { type MeasureDeps, makeOffset, makeSpan } from './tracings/measures'
 import { type AskedAnchor, type Retrying, asPlaced, asReplaced, checkMarks, followMarks, nearestReply, retrying } from './marks/reanchor'
 import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/measure'
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, restoreMark, tendRegions } from './marks/regions'
@@ -47,6 +50,10 @@ import { reviewHandlers } from './reviews/ipc'
 import { setHandlers } from './sets/ipc'
 import { followSets, refindAll } from './sets/refind'
 import type { SetStore } from './sets/store'
+import { Outlines } from './tracings/outline'
+import { tracingHandlers } from './tracings/ipc'
+import { readPhoto as readTracingPhoto } from './tracings/photos'
+import type { TracingStore } from './tracings/store'
 import type { NamedSet, NewSet, SetEdit } from '../shared/sets'
 import type { RoundAsk } from '../shared/reviews'
 import { pinBuild } from './board/pinbuild'
@@ -99,18 +106,19 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
-//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
-//           marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
+//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:span, marks:offset, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
+//           marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
+//           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, tracings:photo, tracings:lineUp, tracings:look, tracings:straightened, tracings:photoBytes, tracings:removePhoto, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
-//           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection
-//   from the renderer: export:done, marks:sketching, show:saveThumbnail, object:saveSceneFile, view:report, view:lookReply, view:showReply, view:highlightReply,
-//           view:drawSectionReply, view:saveViewReply, session:write, session:resize, session:insert,
+//           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection, export:saveTracing
+//   from the renderer: export:done, marks:sketching, tracings:shown, show:saveThumbnail, object:saveSceneFile, view:report, view:lookReply, view:showReply, view:highlightReply,
+//           view:drawSectionReply, view:tracingPictureReply, view:saveViewReply, session:write, session:resize, session:insert,
 //           chat:answer, asks:answer
-//   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:saveView (sent by src/main/look.ts),
+//   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:tracingPicture, view:saveView (sent by src/main/look.ts),
 //           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested and window:closeAsked (sent by src/main/index.ts,
 //           which hears the answer, window:closeAnswer),
-//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
+//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, tracings:changed, tracings:outline, tracings:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
 
 /** The longest prompt the window may send. */
 const MAX_PROMPT_CHARS = 200_000
@@ -123,6 +131,10 @@ interface OpenWorkspace {
   reanchor?: Retrying
   /** Has the named sets of an object found again on its last build (see `openWorkspace`). */
   refind?: Retrying
+  /** Has the tracings of an object that are shown cut again, and the planes of those on a face moved with it, on its last build. */
+  recut?: Retrying
+  /** The outlines of the tracings of the object of this workspace. */
+  outlines?: Outlines
   /** Has the alignments of an object's scans checked against its last build. */
   alignChecks?: Retrying
   /** How the model is asked where the points of an alignment are. */
@@ -156,6 +168,31 @@ let marks: MarkStore | null = null
 
 /** The named sets of the objects of the open workspace, once `registerIpc` has been given them. */
 let sets: SetStore | null = null
+
+/** The tracings of the objects of the open workspace, once `registerIpc` has been given them. */
+let tracings: TracingStore | null = null
+let doors: ReturnType<typeof tracingHandlers> | undefined
+/**
+ * What may be asked of the tracings, by the window (the `tracings:` channels) and by the agent's tools (`ToolDeps.tracings`): made once,
+ * the same handlers for every call, over the store and the outlines of the open workspace.
+ */
+export function tracingDoors(): ReturnType<typeof tracingHandlers> {
+  return (doors ??= tracingHandlers({
+    tracings: requireTracings(),
+    outlines: {
+      cut: async (objectId, id) => current?.outlines?.cut(objectId, id) ?? new Refusal('No workspace is open.'),
+      shown: (objectId, ids) => current?.outlines?.shown(objectId, ids)
+    },
+    object: findObject,
+    build: (id) => current?.builds.scene(id),
+    view: latestView,
+    query: queryObject
+  }))
+}
+const requireTracings = (): TracingStore => {
+  if (!tracings) throw new Error('tracings are not available')
+  return tracings
+}
 
 /** What torno needs and whether it is there, once `registerIpc` has been given it: told the kernel of each workspace as it starts. */
 let readiness: ReadyKeeper | null = null
@@ -363,6 +400,38 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   )
   builds.on('scene', ({ objectId }) => refind(objectId))
   ws.refind = refind
+  // The tracings of the object: the plane of each on a face follows its face, and each that the window shows is cut again, after
+  // every successful build, in its own turn of the store. Never has the object built again; what is found for a build that has
+  // been replaced is dropped (`Outlines.recut`), and the outlines held go with the workspace.
+  const outlines = new Outlines({
+    tracings: { list: (id) => requireTracings().list(id), movePlane: (...args) => requireTracings().movePlane(...args) },
+    // `marks` is the store of the window's marks, set at the head of this function; none, none move.
+    marks: { followTracing: async (...args) => void (await marks?.followTracing(...args)), healTracings: async (...args) => (await marks?.healTracings(...args)) ?? [] },
+    // None once the workspace is left: nothing is asked or written for it any more.
+    build: (id) => (current === ws ? builds.scene(id) : undefined),
+    query: (id, name, args) => builds.query(id, name, args, { restore: false }),
+    nearest: async (id, layout, anchors) => nearestReply(await builds.query(id, 'nearest', { layout, anchors }, { restore: false }), anchors),
+    refind: async (id, layout, members) => {
+      const reply = await builds.query<{ members?: unknown }>(id, 'refind', { layout, members }, { restore: false })
+      if (!Array.isArray(reply?.members) || reply.members.length !== members.length) throw new Error('the kernel did not answer for each face')
+      return reply.members
+    },
+    log: console.error
+  })
+  outlines.on('outline', (m) => {
+    if (current === ws) broadcast('tracings:outline', m)
+  })
+  ws.outlines = outlines
+  const recut = retrying(
+    (objectId) => {
+      if (!tracings) return Promise.resolve(true)
+      return outlines.recut(objectId)
+    },
+    console.error,
+    'cut the tracings of'
+  )
+  builds.on('scene', ({ objectId }) => recut(objectId))
+  ws.recut = recut
   // And every alignment of its scans: whether the model is still under the points it was tied to, and whether
   // torno spreads the layout's parts as it did then. Found and said, never moved or fitted again.
   // A check that could not say is tried again after a while, three times (`retrying`), without ever having the
@@ -462,12 +531,15 @@ export async function closeWorkspace(): Promise<void> {
   // A check of its marks that failed is not tried again: its timers would outlive it.
   ws.reanchor?.cancel()
   ws.refind?.cancel()
+  ws.recut?.cancel()
+  ws.outlines?.forget()
   ws.alignChecks?.cancel()
   ws.stopChecking?.()
   checks.clear()
   // The next workspace may have an object of the same name, or this folder may change while it is closed.
   marks?.forget()
   sets?.forget()
+  tracings?.forget()
   forgetOpenSketches()
   // And its scans: an import that is still running is stopped by whoever runs it, who is told next.
   scans?.forget()
@@ -618,6 +690,8 @@ export function registerIpc(
     marks?: MarkStore
     /** The named sets of the projects: the window reads and changes them through here, and is told when one changes. */
     sets?: SetStore
+    /** The tracings of the projects: the window reads and changes them through here, and is told when one changes. */
+    tracings?: TracingStore
     /** The boards of the projects: the window reads and changes them through here, and is told when one changes. */
     board?: BoardStore
     /** The views saved of a project (its scene file's): only one of them is pinned to the board. */
@@ -709,6 +783,11 @@ export function registerIpc(
     return sets
   }
 
+  // The tracings of a project: the window makes and changes the person's, and is told of every change, whoever made it.
+  tracings = opts.tracings ?? null
+  doors = undefined
+  tracings?.on('changed', (m) => broadcast('tracings:changed', m))
+  tracings?.on('problem', (m) => broadcast('tracings:problem', m))
   // The board of a project: what the person does to it in the window, and the window told of every change, whoever made it.
   const boardStore = opts.board
   boardStore?.on('changed', (m) => broadcast('board:changed', m))
@@ -1052,7 +1131,13 @@ export function registerIpc(
   const setsOf = (objectId: string): Promise<NamedSet[] | undefined> => (sets ? sets.list(objectId).catch(() => undefined) : Promise.resolve(undefined))
   const measuring = (store: MarkStore) => ({ marks: store, query: queryObject, scene: lastScene })
   handle('marks:add', async (_event, objectId: string, mark: NewMark) => {
-    const placed = placedMark({ ...mark, author: 'user' }, String(objectId), await setsOf(String(objectId)))
+    // A mark on a tracing is tied (a pin on the outline) and checked against its plane before it is kept (`placeOnTracing`).
+    const placed = await placeOnTracing(
+      { tracings: { list: (id) => requireTracings().list(id) }, nearest: async (id, layout, anchors) => nearestReply(await queryObject(id, 'nearest', { layout, anchors }), anchors), scene: (id) => lastScene(id) },
+      String(objectId),
+      { ...mark, author: 'user' } as NewMark,
+      (m) => placedMark(m, String(objectId), undefined)
+    ).then(async (made) => (made.tracing === undefined ? placedMark(made, String(objectId), await setsOf(String(objectId))) : made))
     return placed.kind === 'dimension' ? addDimension(measuring(requireMarks()), String(objectId), placed) : requireMarks().add(String(objectId), placed)
   })
   // Whoever resolves a mark from the window is the person.
@@ -1100,8 +1185,25 @@ export function registerIpc(
   // A 3D sketch: main checks every stroke that is new or changed against the last build (a snapped point is the kernel's), works
   // out what each touches, and keeps it; its card's picture is the window's, named and written by main. Which sketch is open is said, not asked.
   const sketches = () =>
-    sketchHandlers({ marks: requireMarks(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject, placed: placedMark })
+    sketchHandlers({ marks: requireMarks(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject, placed: placedMark, tracings: { list: (id) => requireTracings().list(id) } })
   handle('marks:sketch', (_event, draft: SketchDraft) => sketches().sketch(draft))
+  // A measure and a "should be here" on a tracing: the window says what the person did, and main finds the rest from its own numbers.
+  const measures = (): MeasureDeps => ({
+    tracings: { list: (id) => requireTracings().list(id) },
+    marks: requireMarks(),
+    outlines: { cut: async (id, tracing) => current?.outlines?.cut(id, tracing) ?? new Refusal('No workspace is open.') },
+    revision: (id) => lastScene(id)?.revision,
+    // The newest kept build that is not a failed one and was made from the sources of the build of that number: as a review finds the build on show.
+    historyId: async (id, revision) => {
+      const dir = findObject(id)?.dir
+      const sources = buildIdentity(id, revision)?.sources
+      if (dir === undefined || sources === undefined) return undefined
+      const kept = await readHistory(dir).catch(() => [])
+      return kept.findLast((e) => e.failed !== true && e.sources === sources)?.id
+    }
+  })
+  handle('marks:span', (_event, objectId: string, draft: unknown) => makeSpan(measures(), String(objectId), draft))
+  handle('marks:offset', (_event, objectId: string, draft: unknown) => makeOffset(measures(), String(objectId), draft))
   handle('marks:sketchPicture', (_event, objectId: string, id: string, png: Uint8Array) => sketches().sketchPicture(objectId, id, png))
   ipcMain.on('marks:sketching', (_event, objectId: string, id: string | null) => sketches().sketching(objectId, id))
   // Rounds of a review: main finds the build on show in the history and stars it; the window names a project, `R<n>` and `M<n>` only.
@@ -1138,6 +1240,25 @@ export function registerIpc(
   handle('sets:dismiss', (_event, objectId: string, id: string) => namedSets().dismiss(objectId, id))
   handle('sets:problem', (_event, objectId: string) => requireSets().problem(String(objectId)))
   handle('sets:dismissProblem', (_event, objectId: string) => requireSets().dismissProblem(String(objectId)))
+
+  // Tracings: the window names a project, a tracing by its `T<n>` and a layer by its number; main makes the planes and the outlines.
+  const tracingsOf = tracingDoors
+  handle('tracings:list', (_event, objectId: string) => tracingsOf().list(objectId))
+  handle('tracings:make', (_event, objectId: string, ask: unknown) => tracingsOf().make(objectId, ask))
+  handle('tracings:edit', (_event, objectId: string, id: string, patch: unknown) => tracingsOf().edit(objectId, id, patch))
+  handle('tracings:remove', (_event, objectId: string, id: string) => tracingsOf().remove(objectId, id))
+  handle('tracings:restore', (_event, objectId: string, id: string) => tracingsOf().restore(objectId, id))
+  handle('tracings:layer', (_event, objectId: string, id: string, change: unknown) => tracingsOf().layer(objectId, id, change))
+  handle('tracings:outline', (_event, objectId: string, id: string) => tracingsOf().outline(objectId, id))
+  handle('tracings:problem', (_event, objectId: string) => tracingsOf().problem(objectId))
+  handle('tracings:dismissProblem', (_event, objectId: string) => tracingsOf().dismissProblem(objectId))
+  handle('tracings:photo', (_event, objectId: string, id: string, bytes: unknown, from?: unknown) => tracingsOf().photo(objectId, id, bytes, from))
+  handle('tracings:lineUp', (_event, objectId: string, id: string, pairs: unknown, method: unknown) => tracingsOf().lineUp(objectId, id, pairs, method))
+  handle('tracings:look', (_event, objectId: string, id: string, look: unknown) => tracingsOf().look(objectId, id, look))
+  handle('tracings:straightened', (_event, objectId: string, id: string, bytes: unknown, of: unknown) => tracingsOf().straightened(objectId, id, bytes, of))
+  handle('tracings:photoBytes', (_event, objectId: string, id: string, which: unknown) => tracingsOf().photoBytes(objectId, id, which))
+  handle('tracings:removePhoto', (_event, objectId: string, id: string) => tracingsOf().removePhoto(objectId, id))
+  ipcMain.on('tracings:shown', (_event, objectId: string, ids: string[]) => tracingsOf().shown(objectId, ids))
 
   scans = opts.scans ?? null
   scans?.on('changed', (m) => broadcast('scans:changed', m))
@@ -1575,6 +1696,47 @@ export function registerIpc(
     })
   )
 
+  // A drawing of one of the project's tracings, at true scale: the same SVG (or the PDF made of it) as the section's, drawn by
+  // `tracingSvg` from the tracing's own plane, with the layers, the marks on it and the photo as the sheet ticked them. The window
+  // names the project, the tracing and three ticks: never a path or bytes (`export/tracing.ts`).
+  handle('export:saveTracing', (event, objectId: unknown, tracingId: unknown, as: unknown, given: unknown) =>
+    plainly(async (): Promise<ExportSaved | null> => {
+      const ws = requireWorkspace()
+      const deps = exportDeps()
+      const said = Object(given) as { layers?: unknown; marks?: unknown; photo?: unknown }
+      const drawing = await makeTracingDrawing(
+        {
+          object: deps.object,
+          last: deps.last,
+          tracings: async (id) => (await requireTracings().list(id)).tracings,
+          // A file of the project's photos folder by its name, which `readTracingPhoto` takes only when it is one of main's.
+          photoBytes: async (id, file) => {
+            const dir = deps.object(id)?.dir
+            return dir === undefined ? null : readTracingPhoto(dir, file)
+          },
+          sceneFile: deps.sceneFile,
+          marks: deps.marks,
+          query: <T>(id: string, name: string, args: Record<string, unknown>) => ws.builds.query<T>(id, name, args),
+          now: deps.now,
+          identity: buildIdentity
+        },
+        String(objectId),
+        String(tracingId),
+        { layers: said.layers === true, marks: said.marks === true, photo: said.photo === true }
+      )
+      const obj = deps.object(drawing.objectId)!
+      await prepareExports(obj.dir)
+      const format = as === 'pdf' ? 'pdf' : 'svg'
+      // The PDF is the SVG printed by a window nobody sees, before the dialog is up: it is of the build there was.
+      const bytes = format === 'pdf' ? await pdfOfSvg(drawing.svg, drawing.width, drawing.height) : Buffer.from(drawing.svg, 'utf8')
+      const path = await askWhere(event, tracingExportPath(obj.dir, drawing, format), format)
+      if (path === null) return null
+      await writeExport(path, bytes)
+      savedHere = path
+      return { path, bytes: bytes.length, dropped: [], revision: drawing.revision }
+    })
+  )
+
   // The sheet was put away: what was reduced for it is let go, and the file it wrote is no longer its to show.
   ipcMain.on('export:done', () => {
     savedHere = null
@@ -1607,7 +1769,7 @@ export function registerIpc(
   })
 
   // What the renderer says it did for a request of main's (src/main/look.ts), each on the channel of its kind.
-  for (const channel of ['view:lookReply', 'view:showReply', 'view:highlightReply', 'view:drawSectionReply', 'view:saveViewReply']) {
+  for (const channel of ['view:lookReply', 'view:showReply', 'view:highlightReply', 'view:drawSectionReply', 'view:tracingPictureReply', 'view:saveViewReply']) {
     ipcMain.on(channel, (_event, id: number, result: object | { error: string }) => resolveRequest(id, result))
   }
 }

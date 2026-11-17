@@ -68,6 +68,18 @@
   --set-7: #BC5CBC;
   --set-8: #BF6391;
 
+  /* The colours of a tracing's layers, in turn: eight hues, none red or green (the person's marks and Claude's), none within
+     30 degrees of hue of either mark colour or of a verdict's, 3:1 on the paper and the panel and told from the ink the outline is
+     drawn in (shared/contrast.test.ts). The exported file carries the light values (shared/tracingSvg.ts LAYER_INKS). */
+  --layer-blue: #3A63D0;
+  --layer-teal: #1A8794;
+  --layer-violet: #7A4FC9;
+  --layer-ochre: #A87410;
+  --layer-plum: #9B3E7C;
+  --layer-slate: #5A6878;
+  --layer-sky: #2785BD;
+  --layer-olive: #6B7A22;
+
   /* Terminal: the sixteen colours an agent's CLI may ask for by name, toned to
      sit on --panel, and what the terminal draws of its own. Each is text: 4.5:1
      on the panel, the bright ones too (but the dark theme's black, which is the
@@ -156,6 +168,15 @@
     --set-6: #AB7DCA;
     --set-7: #CA7DCA;
     --set-8: #CA7DA3;
+
+    --layer-blue: #7C9FF0;
+    --layer-teal: #5CC0CC;
+    --layer-violet: #A98BEB;
+    --layer-ochre: #D9A23E;
+    --layer-plum: #D883B8;
+    --layer-slate: #98A5B5;
+    --layer-sky: #6DB8EA;
+    --layer-olive: #B0C25A;
 
     --ansi-black: #15171A;
     --ansi-red: #E8695A;

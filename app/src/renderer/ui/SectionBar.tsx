@@ -4,6 +4,7 @@ import { newCut } from '../../shared/cut'
 import { number } from '../../shared/format'
 import { useAgentHighlight } from '../state/agent'
 import { actions, useStore } from '../state/store'
+import { tracingActions } from '../state/tracings'
 import { setTool, useTool } from '../state/tools'
 import { sectionNudge, setFromFace, useFromFace } from '../tools/sectionTool'
 import { atOffset, atPlace, axisOf, flipped, placeOf, sectionExtent, sectionOffset, typedOffset, type Axis } from '../viewport/section'
@@ -221,6 +222,20 @@ export function SectionBar({ viewport }: { viewport: Viewport }) {
       >
         Off
       </button>
+      {section && (
+        <>
+          <span className="viewbar-rule" aria-hidden="true" />
+          <button
+            type="button"
+            className="bar-button"
+            disabled={nothingLeft}
+            title="Make a tracing of this cut: lay it flat at true size, to draw on and export"
+            onClick={() => void tracingActions.make({ section: true })}
+          >
+            Make a tracing
+          </button>
+        </>
+      )}
       {section && nothingLeft && (
         <>
           <span className="viewbar-rule" aria-hidden="true" />

@@ -20,6 +20,9 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
+import type { LineupPair } from './lineup'
+import type { LayerColour, LayerShape, PlaneSnap, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
+import type { MainAxis } from './planes'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
 /** What the onboarding page asks for when the person presses "Create": the new object and everything they gave. */
@@ -82,6 +85,32 @@ export interface NoteDraft {
   intent?: ReviewIntent
 }
 
+/** An end of a measure as the window sends it: where it is in the tracing's `[u, v]`, whether it was put on the outline or on the photo, and the point of the outline it says it snapped to. Main checks the snap and works out the rest. */
+export interface SpanEndDraft {
+  uv: [number, number]
+  on: 'tracing' | 'photo'
+  snap?: PlaneSnap
+}
+
+/** A measure on a tracing as the window sends it to `marks:span`: the tracing, both ends and the view it was made from. Main works out the value, whether it is exact and how it was found. */
+export interface SpanDraft {
+  tracing: string
+  a: SpanEndDraft
+  b: SpanEndDraft
+  camera: Camera
+  note?: string
+}
+
+/** A shape of a layer dragged to where it should be, as the window sends it to `marks:offset`: the tracing, the layer's id, the shape's place in the layer and `[du, dv]` in mm along the tracing's axes. Main finds the rest. */
+export interface OffsetDraft {
+  tracing: string
+  layer: number
+  shape: number
+  by: [number, number]
+  camera: Camera
+  note?: string
+}
+
 /**
  * A 3D sketch as the window sends it to `marks:sketch`. Without `id` it makes the sketch (on the first stroke), with `id`
  * it replaces those fields of the person's sketch. Main checks it against the last build (`main/sketches/check.ts`): each
@@ -103,6 +132,8 @@ export interface SketchDraft {
   /** The strokes the window has: one it had from main names its `id`, and a new one has none. A number is main's to give (`MarkStore.saveSketch`). */
   strokes: NewStroke[]
   anchor?: Anchor
+  /** The tracing (`T1`) it is ink on: every plane of it is that tracing's, `from: { kind: 'tracing' }`, and main checks that they are (`checkOnTracing`). */
+  tracing?: string
   /** What the bar of an open review said when the sketch was begun: main keeps it of a new sketch of the person's, and never changes it of one it has (`marks:setIntent` does). */
   intent?: ReviewIntent
 }
@@ -244,6 +275,9 @@ export interface TornoBridge {
     /** The agent asked for what a plane cuts: main has the outlines from the kernel, and the window draws them. */
     onDrawSection(cb: (m: { id: number; request: SectionDrawingRequest }) => void): () => void
     drawSectionReply(id: number, result: SectionDrawingResult | { error: string }): void
+    /** The agent asked for a picture of a tracing: main has the outline from the kernel and the layers, and the window draws them. */
+    onTracingPicture(cb: (m: { id: number; request: TracingPictureRequest }) => void): () => void
+    tracingPictureReply(id: number, result: TracingPictureResult | { error: string }): void
     /** The agent proposes a view: the window keeps it among the saved views of the object it shows, marked as proposed, and says what it kept. */
     onSaveView(cb: (m: { id: number; request: SaveViewRequest }) => void): () => void
     saveViewReply(id: number, result: SaveViewResult | { error: string }): void
@@ -277,6 +311,17 @@ export interface TornoBridge {
      * point is the kernel's, what each stroke touches is main's). Rejects, keeping nothing, with why not.
      */
     sketch(draft: SketchDraft): Promise<Mark>
+    /**
+     * Keeps a measure on a tracing: main takes the points of a snapped end from the kernel's own (refusing one more than 0.01 mm
+     * off), works out the value, whether it is exact (both ends snapped on the outline) and how it was found, and answers the mark.
+     * It carries no review intent and is never measured again.
+     */
+    span(objectId: string, draft: SpanDraft): Promise<Mark>
+    /**
+     * Keeps "should be here": the shape of the layer dragged by `by`. Main finds the shape as it is (kept as `was`), the layer's
+     * revision and the reference point before and after. Dragging the same shape again changes the person's draft. No review intent.
+     */
+    offset(objectId: string, draft: OffsetDraft): Promise<Mark>
     /** The picture of a sketch's card, drawn by the window: a PNG, kept by main under a name of its own. */
     sketchPicture(objectId: string, id: string, png: Uint8Array): Promise<void>
     /** Which sketch of the object is open for editing now, or none: it is held back from prompts until it is closed. */
@@ -331,6 +376,71 @@ export interface TornoBridge {
     /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
+  }
+  /**
+   * The tracings of a project (`<project>/.torno/tracings.json`): the model laid flat in one plane at true scale. Main is their
+   * only writer and never takes an id, an author, a layer's id or author or anything it works out from the window: the window names
+   * a project, a tracing (`T<n>`) and a layer (its number), and what it says is checked. What the window makes is the person's.
+   * Calls reject with a plain message.
+   */
+  tracings: {
+    /** The file, whole: the number the next is given, and the tracings. */
+    list(objectId: string): Promise<TracingsFile>
+    /**
+     * Makes a tracing on a main plane (`main` with its `offset`), on a planar face (`face`: `block/F12`, or a tag of one face) or
+     * on the section on screen (`section: true`), of a layout and, optionally, some of its parts. Main makes the plane's frame; a
+     * face that is not planar, or no section on screen, is refused in words.
+     */
+    make(objectId: string, ask: { on: { main: MainAxis; offset?: number } | { face: string } | { section: true }; name?: string; layout: string; parts?: string[] }): Promise<Tracing>
+    /** Renames a tracing, or changes the parts it draws (`null` for all of them). */
+    edit(objectId: string, id: string, patch: { name?: string; parts?: string[] | null }): Promise<Tracing>
+    /** Removes a tracing, the agent's too. */
+    remove(objectId: string, id: string): Promise<void>
+    /** Puts back the tracing removed in this run, whole and with its number, once. */
+    restore(objectId: string, id: string): Promise<Tracing>
+    /** The person's change to a layer: a new one, changes to their own, taking one away, putting one back that was removed in this run (with its number), or hiding any layer. Answers the tracing. */
+    layer(
+      objectId: string,
+      id: string,
+      change: { make: { name: string; colour: LayerColour; shapes: LayerShape[] } } | { edit: number; name?: string; colour?: LayerColour; shapes?: LayerShape[] } | { remove: number } | { restore: number } | { hide: number; hidden: boolean }
+    ): Promise<Tracing>
+    /** The outline of a tracing on the last good build (the kernel's cut, with the points it can be snapped to), or null when there is none to be had. */
+    outline(objectId: string, id: string): Promise<TracingCut | null>
+    /** Which tracings the window shows now (the view, the visible board cards, Show in 3D): those are cut again after every build. */
+    shown(objectId: string, ids: string[]): void
+    /** The file, whole, as it now is, whoever changed it. */
+    onChanged(cb: (m: { objectId: string; file: TracingsFile }) => void): () => void
+    /** A shown tracing cut again on a new build. */
+    onOutline(cb: (m: { objectId: string; cut: TracingCut }) => void): () => void
+    /** Something about a project's tracings file the person should know, said once: a file that could not be read was set aside. */
+    onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
+    /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
+    problem(objectId: string): Promise<string | null>
+    dismissProblem(objectId: string): Promise<void>
+    /**
+     * Keeps a photo for a tracing: its PNG or JPEG bytes (a long edge of at most 4000 px and 25 MB, the EXIF turn already applied) and, if it was taken from the
+     * project's references, `reference/<file>`. Main checks, names and hashes the file. A photo already there is swapped: the tracing side of its pairs stays, the
+     * photo side and the line-up go. Rejects with a plain message for anything that is not such a picture.
+     */
+    photo(objectId: string, id: string, bytes: Uint8Array, from?: string): Promise<Tracing>
+    /**
+     * Lines the photo up: 2 to 8 pairs, each a point of the photo (px of the kept file), a point of the tracing (`uv`, mm) and, if it was snapped, what to
+     * (`{ corner: [u, v] }`, `{ centre: edgeRef | [u, v] }`, `{ vertex: ref }`: main replaces the point by the kernel's and refuses one more than 0.01 mm off),
+     * and a method: `similar` (2 points or more) or `straight` (4 or more, a homography). Main works out the transform, scale, angle and fit itself; nothing
+     * else the window says is taken. Nothing of it is exact.
+     */
+    lineUp(objectId: string, id: string, pairs: LineupPair[], method: 'similar' | 'straight'): Promise<Tracing>
+    /** The person's look of a photo: its fade (0 to 1) and whether it is hidden. It travels with the tracing. */
+    look(objectId: string, id: string, look: { fade?: number; hidden?: boolean }): Promise<Tracing>
+    /**
+     * Keeps the copy of the photo the window warped through the line-up (PNG or JPEG, at most 4000 px), for the photo (`sha256`) and the matrix
+     * (`transformKey` of its `transform`) it was made from. Refused when either is not the tracing's now.
+     */
+    straightened(objectId: string, id: string, bytes: Uint8Array, of: { sha256: string; transform: string }): Promise<Tracing>
+    /** The bytes of a tracing's photo or its straightened copy; null when the file is not on this computer, or is another file than the tracing names. */
+    photoBytes(objectId: string, id: string, which: 'photo' | 'straightened'): Promise<Uint8Array | null>
+    /** Takes the photo off a tracing, with its line-up. */
+    removePhoto(objectId: string, id: string): Promise<Tracing>
   }
   /** The view notes of a project (`<project>/.torno/notes/`): main checks what is sent, names and writes the pictures, and says the rest of the mark. Calls reject with a plain message. */
   notes: {
@@ -494,6 +604,8 @@ export interface TornoBridge {
     savePicture(objectId: string, png: Uint8Array): Promise<ExportSaved | null>
     /** Keeps a drawing (an SVG, or a PDF made of it, at true scale, with a scale bar and a title block) of the section on screen: main asks the kernel for the outlines, asks where to save and writes it there. Null when the dialog was cancelled. Rejects when there is no section on screen. The path is the dialog's alone. */
     saveSection(objectId: string, as: 'svg' | 'pdf'): Promise<ExportSaved | null>
+    /** Keeps a drawing (an SVG, or a PDF made of it, at true scale) of one of the project's tracings, `T1`: the outline of its plane, and as ticked its layers, the marks on it and its photo. Main cuts it of the last good build, asks where to save and writes it there. Null when the dialog was cancelled. Rejects when the tracing is not there or a build landed meanwhile. The window names ids and ticks, never a path or bytes. */
+    saveTracing(objectId: string, tracingId: string, as: 'svg' | 'pdf', ticks: { layers: boolean; marks: boolean; photo: boolean }): Promise<ExportSaved | null>
     /** Shows the file this sheet saved last in its folder. It takes no path: main keeps the one it wrote. Rejects when the file is gone. */
     reveal(): Promise<void>
     /** Has the system open the file this sheet saved last (a page, in the browser). No path either. */

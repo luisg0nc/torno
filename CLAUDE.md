@@ -55,8 +55,8 @@ While iterating run the focused test; run all four suites before a commit. `app/
 - The HTTP server binds `127.0.0.1` only. Every request carries the session's token in `X-Torno-Session`; the token
   is never in an argument, a file or a log. The second door is one Unix socket, never a TCP port (`agent-launch-and-tokens`).
 - Images for the agent: long edge at most 2000 px, default 1280 (`export-saving` for the person's own picture).
-- Main is the only writer of `.torno/marks.json`, `scans.json`, `sets.json` and `params.json`; ids `M<n>`, `S<n>`, `N<n>` and a sketch's stroke ids `k<n>` are main's,
-  never reused (`marks-store`, `scans-store`, `sets`, `params`). torno never writes the model but through Go back (`goback`).
+- Main is the only writer of `.torno/marks.json`, `scans.json`, `sets.json`, `tracings.json` and `params.json`; ids `M<n>`, `S<n>`, `N<n>`, `T<n>` and a sketch's stroke ids `k<n>` are main's,
+  never reused (`marks-store`, `scans-store`, `sets`, `tracings`, `params`). torno never writes the model but through Go back (`goback`).
 - Lengths are millimetres, angles degrees, areas mm², volumes mm³, masses
   grams. Numbers shown go through `shared/format.ts` (four significant
   digits at most); numbers stored and returned as data are in full.
@@ -98,7 +98,7 @@ heading names the folder its text came from. Paths are as written there: from `a
   (Params, groups, tags, checks, references, `uses`), `kernel-measures`, `kernel-features`, `kernel-scans`.
 - Tests: `e2e-hidden-window` (every Electron launch), `e2e-stand-in-agent` (the stand-in, the specs, the evals).
 - Marks and the model: `marks-store`, `dimensions`, `marks-window`, `keys`, `params`, `checks-and-profile`,
-  `left-column` (layers, groups, references), `sets` (named sets), `builds-history`, `board`, `goback`, `exactness-app`.
+  `left-column` (layers, groups, references), `sets` (named sets), `tracings` (the store, the photo and its line-up, the outline, the view), `builds-history`, `board`, `goback`, `exactness-app`.
 - The view: `section`, `explode`, `saved-views`, `viewport-overlay`, `styles-themes`.
 - The agent: `mcp-tools`, `mcp-read-tools`, `build-digest`, `stop-hook`, `agent-prompt`, `instruction-files`, `asks`,
   `agent-launch-and-tokens`, `sessions`, `chat-transcript`, `chat-log-and-undo`, `session-pane`, `chat-pane`,

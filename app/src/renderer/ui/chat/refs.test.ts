@@ -16,6 +16,17 @@ beforeEach(() => {
   actions.applyScene({ objectId: 'box', revision: 3, scene: SCENE })
 })
 
+describe('a tracing ref in the chat', () => {
+  const T1 = { id: 'T1', name: 'Front of the block', plane: { label: 'XZ at y = 0.0 (u = +X, v = +Z)' } } as never
+  it('is live for a tracing the project has, and opens it', () => {
+    expect(refInfo({ ...store.getState(), tracings: [T1] }, 'T1')).toMatchObject({ kind: 'tracing', live: true, act: 'tracing', plain: false, lights: [], title: 'T1: Front of the block, XZ at y = 0.0' })
+  })
+  it('is only text for one the project does not have, or before the tracings are known', () => {
+    expect(refInfo({ ...store.getState(), tracings: [T1] }, 'T2')).toMatchObject({ kind: 'tracing', live: false, plain: true, title: 'T2 is not among the tracings of this project' })
+    expect(refInfo(store.getState(), 'T1')).toMatchObject({ live: false, plain: true })
+  })
+})
+
 describe('what a ref in the chat can do', () => {
   it('lights and focuses a mark of the object, in the colour of its author, and lights the place it is anchored at', () => {
     store.setState({ marks: [pin('M1', 'user', 'lid/F2'), pin('M2', 'agent', undefined)] })

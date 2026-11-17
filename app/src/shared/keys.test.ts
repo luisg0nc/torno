@@ -25,7 +25,7 @@ it('puts every tool in a group, and the rows in the order of the groups: those t
 
 it('lists every tool, every view key and the gizmo in the sheet, each key once where it is listened to', () => {
   const sheet = cheatSheet()
-  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
+  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
   expect(sheet.map((g) => g.context)).toEqual(CONTEXTS.map((c) => c.name))
   for (const group of sheet) expect([group.context, group.rows.length > 0, group.when.length > 0]).toEqual([group.context, true, true])
   const viewport = KEYS.filter((row) => row.scope === 'viewport').flatMap((row) => row.keys)
@@ -380,4 +380,62 @@ it('has Ctrl+G, in the window scope, for naming the selection as a set, clashing
   expect(hint('set.make')).toBe('Ctrl+G')
   expect(KEYS.filter((row) => row.keys.includes('Ctrl+G'))).toHaveLength(1)
   expect(keyClashes()).toEqual([])
+})
+
+it('has the keys of lining a photo up in a scope of their own, which clash with nothing', () => {
+  const rows = KEYS.filter((r) => r.scope === 'lineup')
+  expect(rows.map((r) => [r.id, r.keys, r.context])).toEqual([
+    ['tracing.straighten', ['S'], 'Tracing'],
+    ['tracing.undoPoint', ['Backspace'], 'Tracing'],
+    ['tracing.lineupDone', ['Enter'], 'Tracing'],
+    ['tracing.lineupLeave', ['Esc'], 'Tracing']
+  ])
+  expect(keyClashes()).toEqual([])
+  expect(pressed({ key: 's' }, 'tracing.straighten')).toBe(true)
+  expect(pressed({ key: 'Backspace' }, 'tracing.undoPoint')).toBe(true)
+  expect(hint('tracing.undoPoint')).toBe('Backspace')
+  expect(rows.every((r) => r.does.startsWith('Line-up:'))).toBe(true)
+})
+
+it('has the keys of a tracing in a scope of their own: fit, true size and the tools, clashing with nothing, and Ctrl+Tab cycling the three', () => {
+  const rows = KEYS.filter((r) => r.scope === 'tracing')
+  expect(rows.map((r) => [r.id, r.keys, r.context])).toEqual([
+    ['tracing.fit', ['Shift+1'], 'Tracing'],
+    ['tracing.actual', ['Shift+0'], 'Tracing'],
+    ['tracing.select', ['V'], 'Tracing'],
+    ['tracing.trace', ['T'], 'Tracing'],
+    ['tracing.pin', ['P'], 'Tracing'],
+    ['tracing.ink', ['I'], 'Tracing'],
+    ['tracing.measure', ['M'], 'Tracing'],
+    ['tracing.offset', ['O'], 'Tracing'],
+    ['tracing.nudge', ['Left', 'Right', 'Up', 'Down'], 'Tracing'],
+    ['tracing.end', ['Enter'], 'Tracing'],
+    ['tracing.back', ['Backspace'], 'Tracing'],
+    ['tracing.nosnap', ['Ctrl'], 'Tracing'],
+    ['tracing.leave', ['Esc'], 'Tracing'],
+    ['tracing.remove', ['Delete'], 'Tracing'],
+    ['tracing.undoInk', ['Ctrl+Z'], 'Tracing']
+  ])
+  expect(keyClashes()).toEqual([])
+  // Shift on the figure key, whatever the layout makes of it, and only that key.
+  expect(pressed({ key: '!', code: 'Digit1', shiftKey: true }, 'tracing.fit')).toBe(true)
+  expect(pressed({ key: '0', code: 'Digit0', shiftKey: true }, 'tracing.actual')).toBe(true)
+  expect(pressed({ key: '0', code: 'Digit0' }, 'tracing.actual')).toBe(false)
+  expect(pressed({ key: 'v' }, 'tracing.select')).toBe(true)
+  expect(pressed({ key: 't' }, 'tracing.trace')).toBe(true)
+  expect(pressed({ key: 'p' }, 'tracing.pin')).toBe(true)
+  expect(pressed({ key: 'i' }, 'tracing.ink')).toBe(true)
+  expect(pressed({ key: 'm' }, 'tracing.measure')).toBe(true)
+  expect(pressed({ key: 'o' }, 'tracing.offset')).toBe(true)
+  // Each arrow is its own place in the row, and Shift with one is that arrow still.
+  expect(which({ key: 'ArrowLeft' }, 'tracing.nudge')).toBe(0)
+  expect(which({ key: 'ArrowDown', shiftKey: true }, 'tracing.nudge')).toBe(3)
+  expect(pressed({ key: 'Delete' }, 'tracing.remove')).toBe(true)
+  expect(pressed({ key: 'z', ctrlKey: true, code: 'KeyZ' }, 'tracing.undoInk')).toBe(true)
+  expect(pressed({ key: 't', ctrlKey: true, code: 'KeyT' }, 'tracing.trace')).toBe(false)
+  expect(hint('tracing.nosnap')).toBe('Ctrl')
+  expect(CONTEXTS.map((c) => c.name)).toContain('Tracing')
+  expect(KEYS.find((r) => r.id === 'board.swap')?.does).toBe('The board, the model and a tracing, in turn')
+  // The view hears nothing while a tracing is shown, as with the board: its own keys are no key of the view.
+  expect(viewKey({ key: '0', code: 'Digit0', shiftKey: true })).toBe(false)
 })

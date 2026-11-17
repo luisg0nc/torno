@@ -2,6 +2,7 @@ import { hint, pressed } from '../../shared/keys'
 import { dimensionText, measuredValue } from '../../shared/dimension'
 import { count, number } from '../../shared/format'
 import { countsText, sketchName, takeText } from '../../shared/sketchText'
+import { offsetWords } from '../../shared/tracings'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AnchorState, Mark } from '../../shared/marks'
 import { actions, store, useStore } from '../state/store'
@@ -28,6 +29,9 @@ export function subject(mark: Mark, revision = 0): { ref: string; detail: string
   if (mark.kind === 'region') return { ref: `${mark.scan}, ${count(mark.triangles)} ${mark.triangles === 1 ? 'triangle' : 'triangles'}`, detail: state === 'orphaned' ? 'its scan is gone or was read again' : `≈ ${number(mark.area)} mm²`, state }
   // A 3D sketch: what it is called, how it is to be taken, and what it holds.
   if (mark.kind === 'sketch') return { ref: sketchName(mark), detail: [takeText(mark), countsText(mark), state === 'ok' ? '' : ANCHOR_BADGE[state]].filter(Boolean).join(', '), state }
+  // A measure on a tracing: its value, and how it was found. A "should be here": the shape and how far it moved. Neither is on a part.
+  if (mark.kind === 'span') return { ref: `${mark.exact ? '' : '≈ '}${number(mark.value)} mm`, detail: mark.how, state }
+  if (mark.kind === 'offset') return { ref: mark.shape.name === '' ? `shape ${mark.shape.index + 1} of ${mark.layer.name}` : mark.shape.name, detail: offsetWords(mark.by), state }
   const anchor = mark.kind === 'arrow' ? mark.from : mark.anchor
   const moved = state === 'ok' ? '' : ANCHOR_BADGE[state]
   const from = anchor?.ref ? `from ${anchor.ref}` : ''

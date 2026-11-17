@@ -24,13 +24,28 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `mcp/markTools.ts`; those that read the part in `mcp/readTools.ts`; those
   that ask about scans in `mcp/scanTools.ts`): `scene`, `look`, `marks`,
   `describe`, `highlight`, `ask`, `show`, `save_view`, `add_mark`, `add_sketch`, `add_set`, `resolve_mark`,
-  `measure`, `section`, `check`, `diff`, `history`, `board`, `add_card`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
+  `measure`, `section`, `check`, `diff`, `history`, `board`, `add_card`, `tracings`, `add_tracing`, `add_layer`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
   `board` and `add_card` (`mcp/boardTools.ts`; `ToolDeps.board`, `ToolDeps.scale`, wired in `index.ts`) are the agent's door to the
   board: `board` reads it as `boardText` does (a frame by name or id; `pictures: true` sends up to 6, each scaled to 1280 by
   `deps.scale`); `add_card` makes cards and arrows of the agent's own through `BoardStore.agent` and changes or removes only those (a
   card of the person's or of torno's own is refused by name of its owner, the file untouched). A picture is drawn by `lookTool` (its
   `capture`: not kept as a view) at 1280 px and kept by `savePicture`, with the camera when it is known. `by`, `id`, a place and `hidden`
   are never an argument.
+  `tracings`, `add_tracing` and `add_layer` (`mcp/tracingTools.ts`; `ToolDeps.tracings`, the window's own doors `tracingDoors()` of `main/ipc.ts` with the
+  `agent*` handlers of `main/tracings/ipc.ts`, and `ToolDeps.tracingPicture`, wired in `index.ts`) are Claude's door to the tracings. `tracings` reads
+  (`readOnlyHint`): the list, or one tracing as `tracingData` (`main/tracings/text.ts`: facts, with `text` holding every point of the outline and every
+  shape in mm, the outline's points thinned by `pointsFor` as `section` thins them with the deflection said, areas the kernel's and `≈` where it says so,
+  the lost-face sentence, the photo's words, which always end `not exact, and true only in the tracing's plane`, and which say `the photo is not on this computer` when `photoHere` (main's look for the file, `tracings/photos.ts`) finds none); `picture: true` has the window draw
+  it (`requestTracingPicture`, `view:tracingPicture`, `renderer/ui/tracings/picture.ts` from `tracingSvg`'s elements, 10 mm grid, the layers and, when the tracing has a straightened copy and its photo is not hidden, that photo under them (`TracingPictureRequest.photo`, the window reads the copy itself; the picture says `photo` under the outline, hidden or not drawn); `size` as
+  `look`'s, 256 to 2000, default 1280), checks the PNG with `checkedImage` (one that fails is not sent, and the text says so) and says what maps it to mm
+  (`1 px = 0.212 mm; u = 0 at x = 140, v = 0 at y = 860, v up`). `add_tracing` lays Claude's tracing through `TracingStore.make(…, 'agent')`: `on` is
+  `{ main, offset }`, `{ face }` (planar, of the last build) or `{ origin, normal }` (a frozen plane whose axes are the kernel's `section`), main makes the
+  plane and the number, and `tracing` + `remove: true` takes down Claude's own: a tracing of the person's is refused by its owner's name, and so is one of Claude's that holds the person's photo or a layer of theirs, the file
+  untouched. `add_layer` makes or replaces (by name, case apart) a layer of Claude's on any tracing, the person's too, through `TracingStore.layer(…,
+  'agent')`, holding every number to ten diagonals of the outline (`outlines.cut` bounds; the box of the parts the tracing draws, in its u and v, when the outline cannot be cut), the caps (500 shapes, 20 layers, 20,000 points) and
+  refusing a key a shape does not take; a layer replaced keeps its number, a layer of the person's is refused by their name, `remove: true` takes down
+  Claude's. `by`, `id`, a layer's number and a plane's frame are never an argument. None of the three is loaded upfront, and they share one line of
+  `SERVER_INSTRUCTIONS` (`schemas.test.ts` splits a line's names on `, `).
   `expect` (`mcp/expectTools.ts`, `Expectations`, wired in `index.ts`) is the agent's note on one edit: checks on a
   part's volume, faces, edges or size, a `measure` with `expected`, or `unchanged` parts, taken against the last
   build and held in memory for the next successful build only (never a file, never a mark, never a Stop reason). It is
@@ -90,7 +105,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   - What a client reads of a tool before it calls one is beside its description in `TOOLS`: a `title` (sentence
     case), `annotations` and, for the tools loaded upfront, `meta`. Every tool has `openWorldHint: false`; the
     ones that only read have `readOnlyHint: true` (`scene`, `look`, `marks`, `describe`, `measure`, `section`,
-    `check`, `diff`, `history`, `board`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
+    `check`, `diff`, `history`, `board`, `tracings`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
     `look` reads, the picture it writes under `.torno/views/` being torno's own), the rest `readOnlyHint: false,
     destructiveHint: false`. `scene`, `look`, `marks`, `describe` and `measure` have
     `_meta["anthropic/alwaysLoad"]` (Claude Code's tool search defers every other MCP tool until it is searched for,

@@ -85,6 +85,8 @@ export interface TornoState {
   views: SavedView[]
   /** The groups of parts (`Scene.groups`) folded in the layers list, by name: what the scene file keeps as `folded`. */
   folded: string[]
+  /** The tracings (`T1`) drawn in the model view, in their planes: what the scene file keeps as `tracingsShown`. View state, never a change of the model. */
+  tracingsShown: string[]
   /**
    * The name of the saved view that was last put on screen or saved from it, until the camera comes to rest
    * somewhere else; null for none. The strip marks it while the screen still shows what it holds (`viewMatches`).
@@ -177,6 +179,8 @@ export interface TornoState {
   page: 'object' | 'objects' | 'new'
   /** The export sheet, while it is up: the objects it opens with ticked, or `all` for every one that can be exported. Null when it is away. */
   exportOf: string[] | 'all' | null
+  /** The tracing the export sheet opens on (its drawing, ticked), when it was opened from one; null otherwise. */
+  exportTracing: string | null
 }
 
 const NOTHING_SELECTED: string[] = []
@@ -185,7 +189,7 @@ const NO_SCANS: ScanInfo[] = []
 const NOT_CLIPPED: readonly string[] = []
 const NO_VIEWS: SavedView[] = []
 const NO_SELECTION = { selection: NOTHING_SELECTED, picked: NOTHING_PICKED }
-const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, promptsOpen: false, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
+const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, promptsOpen: false, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], tracingsShown: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
 
 export const store = createStore<TornoState>(() => ({
   workspace: null,
@@ -204,7 +208,8 @@ export const store = createStore<TornoState>(() => ({
   dockOpen: true,
   column: readColumn(windowStorage()),
   page: 'object',
-  exportOf: null
+  exportOf: null,
+  exportTracing: null
 }))
 
 function setColumn(column: ColumnPrefs): void {
@@ -230,13 +235,13 @@ export const actions = {
   setWorkspace(workspace: WorkspaceInfo | null): void {
     for (const cb of workspaceSet) cb()
     // Several objects are met on their page; one alone is the thing to open, and none has the page say what an object is.
-    store.setState({ workspace, workspaceKnown: true, versions: {}, ...NO_OBJECT, sessions: {}, page: workspace && workspace.objects.length !== 1 ? 'objects' : 'object', exportOf: null })
+    store.setState({ workspace, workspaceKnown: true, versions: {}, ...NO_OBJECT, sessions: {}, page: workspace && workspace.objects.length !== 1 ? 'objects' : 'object', exportOf: null, exportTracing: null })
   },
 
-  /** Brings up the export sheet with these objects ticked (`all`: every one that can be exported), or puts it away. */
-  exportSheet(of: string[] | 'all' | null): void {
+  /** Brings up the export sheet with these objects ticked (`all`: every one that can be exported), or puts it away. `tracing`: the sheet opens on that tracing's drawing. */
+  exportSheet(of: string[] | 'all' | null, tracing?: string): void {
     if (of !== null && store.getState().workspace === null) return
-    store.setState({ exportOf: of })
+    store.setState({ exportOf: of, exportTracing: of === null || tracing === undefined ? null : tracing })
   },
 
   /** Show the page of objects, or go back from it to the object that is open: with none open there is nothing to go back to. */
@@ -261,7 +266,7 @@ export const actions = {
 
   /** Start showing an object, as its scene file left it. Its build state and scene follow. */
   openObject(objectId: string, file: SceneFile): void {
-    store.setState({ ...NO_OBJECT, page: 'object', objectId, scansKnown: false, layout: file.layout ?? '', layers: file.layers, section: sectionOf(file.section), explode: file.explode ?? {}, scanViews: file.scans ?? {}, views: file.views ?? NO_VIEWS, folded: file.folded ?? [] })
+    store.setState({ ...NO_OBJECT, page: 'object', objectId, scansKnown: false, layout: file.layout ?? '', layers: file.layers, section: sectionOf(file.section), explode: file.explode ?? {}, scanViews: file.scans ?? {}, views: file.views ?? NO_VIEWS, folded: file.folded ?? [], tracingsShown: file.tracingsShown ?? [] })
   },
 
   applyBuild(build: BuildState): void {
@@ -345,6 +350,20 @@ export const actions = {
     const s = store.getState()
     if (s.folded.includes(name) === on) return
     store.setState({ folded: on ? [...s.folded, name] : s.folded.filter((n) => n !== name), edits: s.edits + 1 })
+  },
+
+  /** Draw a tracing in the model view, in its plane, or stop. Kept in the scene file. */
+  setTracingShown(id: string, on: boolean): void {
+    const s = store.getState()
+    if (s.tracingsShown.includes(id) === on) return
+    store.setState({ tracingsShown: on ? [...s.tracingsShown, id] : s.tracingsShown.filter((one) => one !== id), edits: s.edits + 1 })
+  },
+
+  /** The tracings the project has, as main told them: one that is gone is no longer shown, as the layer of a part that is gone is dropped. */
+  keepTracingsShown(existing: readonly string[]): void {
+    const s = store.getState()
+    if (s.tracingsShown.every((id) => existing.includes(id))) return
+    store.setState({ tracingsShown: s.tracingsShown.filter((id) => existing.includes(id)), edits: s.edits + 1 })
   },
 
   /**
@@ -934,7 +953,7 @@ export function sceneFileOf(s: TornoState): SceneFile {
   if (section && layout && explode[layout]?.amount > 0) explode[layout] = { ...explode[layout], amount: 0 }
   // What says nothing but what is so anyway is left out.
   for (const [name, one] of Object.entries(explode)) if (sameExplode(one, NO_EXPLODE)) delete explode[name]
-  return { ...(layout ? { layout } : {}), layers, ...(section ? { section } : {}), ...(Object.keys(scans).length > 0 ? { scans } : {}), ...(Object.keys(explode).length > 0 ? { explode } : {}), ...(s.views.length > 0 ? { views: s.views } : {}), ...(s.folded.length > 0 ? { folded: s.folded } : {}) }
+  return { ...(layout ? { layout } : {}), layers, ...(section ? { section } : {}), ...(Object.keys(scans).length > 0 ? { scans } : {}), ...(Object.keys(explode).length > 0 ? { explode } : {}), ...(s.views.length > 0 ? { views: s.views } : {}), ...(s.folded.length > 0 ? { folded: s.folded } : {}), ...(s.tracingsShown.length > 0 ? { tracingsShown: s.tracingsShown } : {}) }
 }
 
 /**

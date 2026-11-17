@@ -16,6 +16,8 @@ export interface FollowDeps {
   rounds(objectId: string): Promise<Round[]>
   /** The ids of the project's scans. Rejects when they cannot be read. */
   scans(objectId: string): Promise<string[]>
+  /** The project's tracings, by id. Rejects when they cannot be read. */
+  tracings(objectId: string): Promise<Array<{ id: string }>>
 }
 
 /** Whether `<project>/brief.md` is a plain file (a link, or a folder, is not a brief). */
@@ -32,20 +34,21 @@ export function foundRounds(rounds: readonly Round[], marks: readonly Mark[]): F
 
 /**
  * Brings the cards that appear by themselves up to date with what the project has (its brief, `reference/`, marks, the
- * frames of its review rounds and scans). What cannot be read is not known, which is not the same as there being none: then the board is left as it is.
+ * frames of its review rounds, scans and tracings). What cannot be read is not known, which is not the same as there being none: then the board is left as it is.
  * Never rejects: the cards are no reason for a project not to open.
  */
 export async function reconcileProject(deps: FollowDeps, objectId: string): Promise<void> {
   const obj = deps.object(objectId)
   if (!obj) return
   try {
-    const [marks, scans, brief] = await Promise.all([deps.marks(objectId), deps.scans(objectId), hasBrief(obj.dir)])
+    const [marks, scans, tracings, brief] = await Promise.all([deps.marks(objectId), deps.scans(objectId), deps.tracings(objectId), hasBrief(obj.dir)])
     const rounds = await deps.rounds(objectId)
     const found: Found = {
       brief,
       references: listBoardReferences(obj.dir).map((name) => `reference/${name}`),
       marks: marks.map((m) => ({ id: m.id, layout: m.layout, ...(m.round !== undefined ? { round: m.round } : {}) })),
       scans,
+      tracings: tracings.map((t) => ({ id: t.id })),
       rounds: foundRounds(rounds, marks)
     }
     await deps.board.torno(objectId, (board) => reconcile(board, found))

@@ -264,10 +264,10 @@ export function sketchTool(): Tool {
   const onUp = (e: ViewportPointer, ctx: ToolContext): void => {
     if (handle) {
       const made = handle.now
-      const was = handle.plane.from.kind === 'view' ? null : handle.plane.from.offset
+      const was = handle.plane.from.kind === 'view' || handle.plane.from.kind === 'tracing' ? null : handle.plane.from.offset
       handle = null
       ctx.viewport.setNavigation(true)
-      if (made.from.kind !== 'view' && made.from.offset !== was) setOffset(made.from.offset)
+      if (made.from.kind !== 'view' && made.from.kind !== 'tracing' && made.from.offset !== was) setOffset(made.from.offset)
       return
     }
     // The press is over, whatever it did: the camera is the pointer's again.

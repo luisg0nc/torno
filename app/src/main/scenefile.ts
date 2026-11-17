@@ -5,6 +5,7 @@ import { FOLDER, writeOwn } from './own'
 import { type ExplodeState, NO_EXPLODE, explodeOf, sameExplode } from '../shared/explode'
 import { MIN_SCAN_OPACITY, type ScanView } from '../shared/scans'
 import type { LayerSettings, SceneFile } from '../shared/scenefile'
+import { MOST_TRACINGS, TRACING_ID } from '../shared/tracings'
 import { sectionOf } from '../shared/view'
 import { type SavedView, findView, savedViewsOf } from '../shared/views'
 
@@ -175,6 +176,11 @@ function clean(value: unknown): SceneFile {
   if (Array.isArray(value.folded)) {
     const folded = [...new Set(value.folded.filter((name): name is string => typeof name === 'string' && name.length > 0 && name.length <= MAX_LAYOUT_NAME && !/[\n\r]/.test(name)))]
     if (folded.length > 0) file.folded = folded
+  }
+  // The tracings shown in 3D: well-formed ids of the file's own kind, each once, no more than a project may hold.
+  if (Array.isArray(value.tracingsShown)) {
+    const shown = [...new Set(value.tracingsShown.filter((id): id is string => typeof id === 'string' && TRACING_ID.test(id)))].slice(0, MOST_TRACINGS)
+    if (shown.length > 0) file.tracingsShown = shown
   }
   if (!isRecord(value.layers)) return file
   for (const [name, raw] of Object.entries(value.layers)) {

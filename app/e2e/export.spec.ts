@@ -383,12 +383,12 @@ test("the sheet is grouped by who will open the file, and a picture of the view 
   await open('hollow')
   const before = (await hooks()).savePicks
   await page.getByRole('button', { name: 'Export…' }).click()
-  // One group for each reader: a page, the CAD file, a picture and a drawing of a section (the last two are of the open project's view).
+  // One group for each reader: a page, the CAD file, a picture and a tracing (the last two are of the open project's view).
   const formats = sheet().getByRole('group', { name: 'Format' })
   await expect(formats.getByRole('group', { name: 'A page to look at' }).getByRole('button')).toHaveText(['HTML page'])
   await expect(formats.getByRole('group', { name: 'The CAD file' }).getByRole('button')).toHaveText(['STEP', 'STL', '3MF'])
   await expect(formats.getByRole('group', { name: 'A picture' }).getByRole('button')).toHaveText(['PNG'])
-  await expect(formats.getByRole('group', { name: 'A drawing of a section' }).getByRole('button')).toHaveText(['SVG', 'PDF'])
+  await expect(formats.getByRole('group', { name: 'A tracing' }).getByRole('button')).toHaveText(['SVG', 'PDF'])
   await formats.getByRole('button', { name: 'PNG' }).click()
   await expect(sheet().getByRole('heading', { name: 'Save a picture of the view' })).toBeVisible()
   await sheet().getByRole('group', { name: 'Long edge, in pixels' }).getByRole('button', { name: '4000' }).click()

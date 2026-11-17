@@ -2,17 +2,18 @@ import type { BoardFile, Card } from '../../../shared/board'
 import { type NoteMark, markAnchors } from '../../../shared/marks'
 import { type NamedSet, expandSet, splitSetRef } from '../../../shared/sets'
 import { splitTagRef, tagRefs } from '../../../shared/tags'
+import { type Tracing, tracingName } from '../../../shared/tracings'
 import { layerOf, type TornoState } from '../../state/store'
 
 /** What a ref shown in the chat is, and what the window can do with it. */
 export interface RefInfo {
-  kind: 'mark' | 'build' | 'geometry' | 'card' | 'none'
+  kind: 'mark' | 'build' | 'geometry' | 'card' | 'tracing' | 'none'
   /** Whether it names something in the window now: only such a chip lights, and answers a click. */
   live: boolean
   /** The refs of the layout shown to light in the viewport while the pointer is on the chip. */
   lights: string[]
   /** What a click does: go to the mark, select the face or edge, or open the sheet of the failed build. */
-  act?: 'focus' | 'select' | 'build' | 'card'
+  act?: 'focus' | 'select' | 'build' | 'card' | 'tracing'
   /** For a mark, who made it: its chip is in its colour. */
   author?: 'user' | 'agent'
   /** What a click selects, when that is not what it lights: a named set lights its strokes too, and selects faces and edges only. */
@@ -46,6 +47,8 @@ export type RefState = Pick<TornoState, 'marks' | 'scene' | 'layers' | 'layout' 
   board?: BoardFile | null
   /** The named sets of the project as the window has them: without them, a `#deck` is only text. */
   sets?: readonly NamedSet[]
+  /** The tracings of the project as the window has them (`state/tracings.ts`): without them, a `T1` is only text. */
+  tracings?: readonly Tracing[]
 }
 
 /** What names a card in a tooltip: its words when it has them, else what it shows. */
@@ -81,6 +84,11 @@ export function refInfo(s: RefState, value: string): RefInfo {
     if (!card) return { kind: 'card', live: false, lights: [], plain: true, title: `${value} is not on the board of this project` }
     if (card.hidden) return { kind: 'card', live: false, lights: [], plain: false, title: `${value} is hidden on the board: show it again from "Hidden cards"` }
     return { kind: 'card', live: true, lights: [], plain: false, act: 'card', title: `${value}: ${cardSaid(card)}` }
+  }
+  if (/^T[1-9]\d*$/.test(value)) {
+    const tracing = s.tracings?.find((t) => t.id === value)
+    if (!tracing) return { kind: 'tracing', live: false, lights: [], plain: true, title: `${value} is not among the tracings of this project` }
+    return { kind: 'tracing', live: true, lights: [], plain: false, act: 'tracing', title: `${value}: ${tracingName(tracing)}, ${tracing.plane.label.replace(/ \(u = .*$/, '')}` }
   }
   if (/^r\d+$/.test(value)) {
     const n = Number(value.slice(1))

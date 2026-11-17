@@ -4,6 +4,7 @@ import { EXAMPLE_NOTE, type WorkspaceInfo } from '../shared/workspace'
 import { connectLook } from './state/agent'
 import { connectAsks } from './state/asks'
 import { connectBoard, useBoard } from './state/board'
+import { connectTracings } from './state/tracings'
 import { connectReview } from './state/review'
 import { connectSets, setActions } from './state/sets'
 import { actions, sceneFileOf, store, useStore } from './state/store'
@@ -28,6 +29,8 @@ import { draftHas, onboard, onboarding } from './state/onboard'
 import { ViewportPane } from './ui/ViewportPane'
 import { BoardSwitch, useBoardSwapKey } from './ui/projectBoard/BoardSwitch'
 import { BoardView } from './ui/projectBoard/BoardView'
+import { FacePickBar } from './ui/tracings/NewTracing'
+import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { RoundPanel } from './ui/review/RoundPanel'
@@ -185,6 +188,8 @@ function useMain(): void {
     const offAsks = connectAsks()
     // The board of the open project, read from main and followed.
     const offBoard = connectBoard()
+    // The tracings of the open project, read from main and followed; main is told which is shown.
+    const offTracings = connectTracings()
     // The rounds of the open project's review, read from main and followed.
     const offReview = connectReview()
     // What main found wrong with a project's sets file, as for the marks; listened for before the sets are read, which says it.
@@ -224,6 +229,7 @@ function useMain(): void {
       offBuild()
       offAsks()
       offBoard()
+      offTracings()
       offReview()
       offSets()
       offSetsProblem()
@@ -343,6 +349,8 @@ export function App() {
   const dockOpen = useStore((s) => s.dockOpen)
   // The board takes the main area's place from the model, on the project's own page.
   const boardOf = useBoard((s) => (s.shown === 'board' ? s.objectId : null))
+  // So does a tracing, on the same page.
+  const tracingOf = useBoard((s) => (s.shown === 'tracing' ? s.objectId : null))
   // The sign of the open object's session, for the dock's toggle while the dock is away.
   const dockSign = useStore((s) => signOf(s.objectId === null ? undefined : s.sessions[s.objectId]?.status))
   // While the edge is dragged the width goes straight to the CSS variable, so
@@ -502,6 +510,9 @@ export function App() {
         <BoardSwitch />
         <ViewportPane />
         {page === 'object' && boardOf !== null && <BoardView key={boardOf} />}
+        {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
+        {/* Over the model: a tracing on a face waits for the face. */}
+        <FacePickBar />
         {page === 'objects' && <ShowPage onOpen={(id) => void openObject(id)} onExample={() => leave(EXAMPLE)} />}
         {page === 'new' && <NewObject onOpen={openObject} />}
         {/* Over either: what goes into an export, asked before anything is written. */}

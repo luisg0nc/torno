@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type Anchor, type Mark, type NoteMark, type SketchMark, MAIN_ONLY_KEYS, isUnchecked, markAnchors, markIntent, markPoints, sketchStrokePoints, splitStrokeRef, STROKE_ID, strokeRef, strokeSamples, translated } from './marks'
+import { type Anchor, type Mark, type NoteMark, type OffsetMark, type SketchMark, type SpanMark, MAIN_ONLY_KEYS, isUnchecked, markAnchors, markIntent, markPoints, sketchStrokePoints, splitStrokeRef, STROKE_ID, strokeRef, strokeSamples, translated } from './marks'
 
 const ANCHOR: Anchor = { point: [1, 2, 20], part: 'base', ref: 'base/F4' }
 const note = (over: object = {}): NoteMark =>
@@ -167,5 +167,45 @@ describe('a stroke of a sketch, as a set names it', () => {
   it('has an id of k and a number of one to six digits, with no leading zero', () => {
     for (const ok of ['k1', 'k42', 'k999999']) expect(STROKE_ID.test(ok), ok).toBe(true)
     for (const bad of ['k', 'k0', 'k01', 'k1000000', 'k-1', 'k1 ', 'x1']) expect(STROKE_ID.test(bad), bad).toBe(false)
+  })
+})
+
+const CAMERA = { position: [100, -100, 80], target: [0, 0, 10], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
+const MARK_BASE = { author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '2026-11-17T10:00:00.000Z', tracing: 'T1' } as const
+const span = (over: object = {}): SpanMark =>
+  ({ ...MARK_BASE, id: 'M13', kind: 'span', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [30, 40], point: [30, 0, 40], on: 'tracing' }, value: 50, exact: false, how: 'freehand', measuredOn: 1, ...over }) as SpanMark
+const offset = (over: object = {}): OffsetMark =>
+  ({ ...MARK_BASE, id: 'M12', kind: 'offset', layer: { id: 2, name: 'head bolts', revision: 1 }, shape: { index: 2, name: 'head bolt 3' }, was: { kind: 'circle', centre: [10, 5], radius: 3 }, by: [-1.8, 0.6], from: [10, 0, 5], to: [8.2, 0, 5.6], ...over }) as OffsetMark
+
+describe('a span and an offset', () => {
+  it('carry no review intent: markIntent is null whoever made them and whatever they say', () => {
+    expect(markIntent(span())).toBeNull()
+    expect(markIntent(offset())).toBeNull()
+    expect(markIntent({ ...span(), intent: 'want' } as never)).toBeNull()
+    expect(markIntent({ ...offset(), intent: 'dont' } as never)).toBeNull()
+  })
+
+  it('are tied to no part, and no build checks them: they are never unchecked', () => {
+    expect(markAnchors(span())).toEqual([])
+    expect(markAnchors(offset())).toEqual([])
+    expect(isUnchecked(span(), 5)).toBe(false)
+    expect(isUnchecked(offset(), 5)).toBe(false)
+  })
+
+  it('hold their points in the plane: a span its two ends, an offset where the shape was and is', () => {
+    expect(markPoints(span())).toEqual([[0, 0, 0], [30, 0, 40]])
+    expect(markPoints(offset())).toEqual([[10, 0, 5], [8.2, 0, 5.6]])
+  })
+
+  it('move with their plane and keep their uv, their value and what the shape was', () => {
+    const moved = translated(span({ uv: [[0, 0], [30, 40]] }), [0, 2, 0])
+    expect(markPoints(moved)).toEqual([[0, 2, 0], [30, 2, 40]])
+    expect(moved.uv).toEqual([[0, 0], [30, 40]])
+    expect(moved.value).toBe(50)
+    const off = translated(offset(), [0, -1, 0])
+    expect(off.from).toEqual([10, -1, 5])
+    expect(off.to).toEqual([8.2, -1, 5.6])
+    expect(off.was).toEqual({ kind: 'circle', centre: [10, 5], radius: 3 })
+    expect(off.by).toEqual([-1.8, 0.6])
   })
 })

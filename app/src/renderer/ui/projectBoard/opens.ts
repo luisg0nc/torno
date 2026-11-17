@@ -16,6 +16,7 @@ export type Opens =
   | { does: 'note'; id: string }
   | { does: 'sketching'; id: string }
   | { does: 'scan'; id: string }
+  | { does: 'tracing'; id: string }
   | { does: 'build'; copy: BuildCopy }
   | { does: 'view'; name: string }
   | { does: 'params' }
@@ -38,6 +39,8 @@ export function doubleClickOf(card: Card, mark?: Pick<Mark, 'kind'> & { author?:
       return mark?.kind === 'sketch' && mark.author === 'user' ? { does: 'sketching', id: card.source } : { does: 'mark', id: card.source }
     case 'scan':
       return card.source === undefined ? null : { does: 'scan', id: card.source }
+    case 'tracing':
+      return card.source === undefined ? null : { does: 'tracing', id: card.source }
     case 'build':
       return card.copy ? { does: 'build', copy: card.copy } : null
     case 'view':

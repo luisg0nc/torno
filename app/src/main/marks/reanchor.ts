@@ -142,7 +142,7 @@ const withSpread = (anchor: Anchor, arranged: Vec3 | null): Anchor => {
 function withAnchor<M extends Mark | NewMark>(mark: M, change: (anchor: Anchor) => Anchor): M {
   if (mark.kind === 'arrow') return { ...mark, from: change(mark.from) }
   if (mark.kind === 'dimension') return { ...mark, a: change(mark.a), ...(mark.b ? { b: change(mark.b) } : {}) }
-  if (mark.kind === 'region') return mark
+  if (mark.kind === 'region' || mark.kind === 'span' || mark.kind === 'offset') return mark
   return mark.anchor ? { ...mark, anchor: change(mark.anchor) } : mark
 }
 
@@ -253,7 +253,8 @@ export async function reanchorAll(deps: ReanchorDeps, objectId: string): Promise
   if (!last) return true
   const { scene, revision } = last
   const superseded = (): boolean => deps.scene(objectId)?.scene !== scene
-  const listed = (await deps.marks.list(objectId)).filter((mark) => mark.status !== 'resolved')
+  // A measure and a "should be here" are about a number or a layer on a tracing: no build moves or loses them, so none is asked about them.
+  const listed = (await deps.marks.list(objectId)).filter((mark) => mark.status !== 'resolved' && mark.kind !== 'span' && mark.kind !== 'offset')
   if (superseded()) return true
 
   /**

@@ -122,7 +122,7 @@ afterEach(async () => {
 
 afterAll(() => http.close())
 
-const ALL = ['add_card', 'add_mark', 'add_set', 'add_sketch', 'ask', 'board', 'check', 'describe', 'diff', 'expect', 'features', 'highlight', 'history', 'look', 'marks', 'measure', 'resolve_mark', 'save_view', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'show', 'try_fillet', 'try_params']
+const ALL = ['add_card', 'add_layer', 'add_mark', 'add_set', 'add_sketch', 'add_tracing', 'ask', 'board', 'check', 'describe', 'diff', 'expect', 'features', 'highlight', 'history', 'look', 'marks', 'measure', 'resolve_mark', 'save_view', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'show', 'tracings', 'try_fillet', 'try_params']
 /** The least each tool can be called with. */
 const MINIMAL: Record<string, Record<string, unknown>> = {
   scene: {},
@@ -144,7 +144,9 @@ const MINIMAL: Record<string, Record<string, unknown>> = {
   features: { part: 'base' },
   history: {},
   board: {},
-  add_card: { text: 'A plan' }
+  add_card: { text: 'A plan' },
+  tracings: {},
+  add_tracing: { on: { main: 'XY' } }
 }
 
 describe('the MCP server', () => {
@@ -202,14 +204,14 @@ describe('the MCP server', () => {
     const instructions = client.getInstructions()
     expect(instructions).toBe(SERVER_INSTRUCTIONS)
     expect(instructions!.length).toBeLessThan(INSTRUCTIONS_LIMIT)
-    for (const name of ALL) expect(instructions, name).toContain(`- ${name}: `)
+    for (const name of ALL) expect(instructions, name).toMatch(new RegExp(`^- (?:[a-z_]+, )*${name}(?:, [a-z_]+)*: `, 'm'))
   })
 
   it('lists each tool with a title, annotations that say what only reads, and the five that load upfront', async () => {
     const client = await connect('bracket')
     const { tools } = await client.listTools()
     const readOnly = tools.filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name).sort()
-    expect(readOnly).toEqual(['board', 'check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'try_fillet', 'try_params'])
+    expect(readOnly).toEqual(['board', 'check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'tracings', 'try_fillet', 'try_params'])
     for (const tool of tools) {
       expect(tool.title, tool.name).toBeTruthy()
       expect(tool.annotations?.openWorldHint, tool.name).toBe(false)

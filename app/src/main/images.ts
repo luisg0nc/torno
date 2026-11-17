@@ -15,13 +15,14 @@ export interface ImageBytes {
 
 /**
  * A PNG or a JPEG of at most 3.75 MB whose long edge is at most 2000 px, read from its own header; null for
- * anything else (a WebP, a PDF, a picture with no size, one that is too big). Nothing is decoded.
+ * anything else (a WebP, a PDF, a picture with no size, one that is too big). Nothing is decoded. `limits` are other
+ * ceilings for the person's own pictures, which Claude is not sent (`checkedPhoto`).
  */
-export function checkedImage(bytes: unknown): ImageBytes | null {
-  if (!(bytes instanceof Uint8Array) || bytes.length < 24 || bytes.length > MAX_IMAGE_BYTES) return null
+export function checkedImage(bytes: unknown, limits: { edge: number; bytes: number } = { edge: MAX_EDGE, bytes: MAX_IMAGE_BYTES }): ImageBytes | null {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 24 || bytes.length > limits.bytes) return null
   const at = (i: number): number => bytes[i] ?? 0
   const sized = (mediaType: ImageBytes['mediaType'], width: number, height: number): ImageBytes | null =>
-    width > 0 && height > 0 && Math.max(width, height) <= MAX_EDGE ? { mediaType, width, height, bytes } : null
+    width > 0 && height > 0 && Math.max(width, height) <= limits.edge ? { mediaType, width, height, bytes } : null
   if ([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((b, i) => at(i) === b)) {
     // The header chunk is first: its length, `IHDR`, then the width and the height, 4 bytes each.
     if (![0x49, 0x48, 0x44, 0x52].every((b, i) => at(12 + i) === b)) return null

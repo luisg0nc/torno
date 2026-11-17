@@ -74,6 +74,19 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   ± tolerance`; the others are listed in `left`. What the build was made from (#62: `identitySaid` of `buildIdentity`,
   sources hash, commit and "with changes") goes in the title block as `Source` through `SectionDeps.identity`.
 
+- **A drawing of a tracing** (`export:saveTracing(objectId, tracingId, 'svg' | 'pdf', { layers, marks, photo })`,
+  `export/tracing.ts` `makeTracingDrawing`): the same file as the section's, made by the same pure function,
+  `tracingSvg` in `shared/tracingSvg.ts` (shared so that the window's view of a tracing and the file are one picture;
+  `sectionSvg` is it with nothing extra, byte for byte what it was). Main takes the tracing from the store, cuts its own
+  plane (its axes, layout and parts, `SECTION_DEFLECTION`, no snaps) of the last good build, refuses a tracing that is not
+  there (`no tracing T9; tracings: T1`), a layout the build lacks and a build that landed meanwhile (`NEW_BUILD`), and
+  writes through `askWhere` (default `<project>-T1-r<revision>.svg`, `tracingExportPath`) and `writeExport`, or `pdfOfSvg`.
+  The window sends ids and three ticks, never a path or bytes. "Layers" draws those not hidden, with a legend; "Marks on it"
+  the pins, picks and arrows whose `tracing` is this one; "The photo" puts the straightened copy in as a `data:` image (`photoOf`: read by main from the photos folder through `deps.photoBytes`, placed by `photoRect`, at the person's
+  fade, hidden or not since the tick is the person's; refused in words for a tracing with no photo, one not lined up or a copy not on this computer) and its `lineupSaid` in the title
+  block; the sheet ticks it off by default and warns (`PHOTO_WARNING`), and offers it once the tracing has its copy. The file holds no path, no link but the SVG namespace, and an image only as a `data:` URL of a PNG or JPEG
+  (`PHOTO_FILE`). With `forScreen` the function gives the window's elements, with class names and no colour in an attribute.
+
 ## Export (`app/src/renderer`)
 
 - "Export…" is a button in the status line for the open object, in the head of the page of objects for every
@@ -90,7 +103,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   of which build, and what the read-back checked (`ExportSaved.checked`), every number in the monospace face.
 - **The sheet is grouped by who will open the file** (`READERS` in `ui/ExportSheet.tsx`, inside the group "Format"): "A page to
   look at" (HTML page), "The CAD file" (STEP, STL, 3MF), and, only where the sheet is of the open project's view
-  (`ofView`: an object on show, not the page of projects), "A picture" (PNG) and "A drawing of a section" (SVG, PDF).
+  (`ofView`: an object on show, not the page of projects), "A picture" (PNG) and "A tracing" (SVG, PDF).
   A picture or a drawing is of the open project as it is on screen: the sheet then shows no list of projects, `ViewChoices`
   in its place (a picture's long edge, `PICTURE_SIZES` 1280 to 4000, "Marks", "Axes and scale bar"; a drawing needs a section on
   screen and says so, with Export off, when there is none). The window draws the picture itself (`pictureForPerson` in

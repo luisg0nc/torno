@@ -14,6 +14,12 @@ declare global {
     __tornoChatRenders?: Record<string, number>
     /** Only under test: how many times the board's layer of cards has been drawn. A pan or a zoom must not add one. */
     __tornoBoardRenders?: number
+    /** Only under test: how many times the layer of a tracing's sheet has been drawn. A pan or a zoom must not add one. */
+    __tornoTracingRenders?: number
+    /** Only under test: where the tracing's sheet stands, while a tracing is shown; `ratio` is 1 at 1:1. */
+    __tornoTracingSheet?: () => { x: number; y: number; k: number; ratio: number }
+    /** The line-up's panes under test: where a photo pixel or a point of the tracing is on the page, and the clicks so far. */
+    __tornoLineup?: { client(side: 'photo' | 'tracing', at: readonly [number, number]): [number, number]; clicks(): { photo: number[][]; tracing: Array<{ uv: number[]; snap?: unknown }> } }
     /** Only under test: where the board's camera stands, while the board is shown. */
     __tornoBoardCamera?: () => { x: number; y: number; k: number }
     __tornoTest?: {
@@ -48,6 +54,8 @@ declare global {
       compare(from: string, to: string, prompt?: number): void
       /** Keeps the ghosts of the builds that land after this until a key or a click (for a capture of the window). */
       holdGhosts(held: boolean): void
+      /** The tracings the model view draws, each with whether it has its outline and its photo, and how many layers: what a hidden window cannot be read for. */
+      tracings(): Array<{ id: string; layout: string; outline: boolean; photo: boolean; layers: number }>
       /** Where the label of a mark is drawn, as such fractions, and whether it is in view; null for a mark that is not drawn. */
       markScreen(id: string): { x: number; y: number; visible: boolean } | null
       /** The mark whose chip the viewport rings as pointed at (its row or its chip hovered); null for none. */

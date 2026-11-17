@@ -50,11 +50,15 @@ import { expandSet } from '../../shared/sets'
 import { setDescribed, withLayoutHint } from './setRefs'
 import { addSketchTool } from './sketchTools'
 import { addSetTool } from './setTools'
+import { addLayerTool, addTracingTool, tracingsTool } from './tracingTools'
+import type { tracingHandlers } from '../tracings/ipc'
+import { type TracingPictureRequest, type TracingPictureResult, layerRevisions } from '../../shared/tracings'
+import { lineupsOf } from '../tracings/text'
 import type { SetStore } from '../sets/store'
 import { type FeaturesToolArgs, featuresTool } from './featureTools'
 import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type SectionToolArgs, type TryFilletToolArgs, type TryParamsToolArgs, checkTool, diffTool, historyTool, measureTool, sectionTool, tryFilletTool, tryParamsTool } from './readTools'
 import { type ScanClashArgs, type ScanDeviationArgs, type ScansArgs, scanClashTool, scanDeviationTool, scansTool } from './scanTools'
-import { type AddCardArgs, type AddMarkArgs, type AddSetArgs, type AddSketchArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
+import { type AddCardArgs, type AddLayerArgs, type AddMarkArgs, type AddSetArgs, type AddSketchArgs, type AddTracingArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, type TracingsArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
 import { addCardTool, boardTool } from './boardTools'
 import { type SceneArgs, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 import type { Profile } from '../../shared/profile'
@@ -174,6 +178,13 @@ export interface ToolDeps {
     agent(objectId: string, change: AgentChange): Promise<AgentResult>
     live(objectId: string): Promise<LiveFacts>
   }
+  /**
+   * The tracings of a project (`.torno/tracings.json`), as Claude reads and changes them: the handlers of the window's own doors
+   * (`main/tracings/ipc.ts`), whose `agent*` ones make the planes and keep Claude to its own tracings and layers. Without it the tools say tracings are not available.
+   */
+  tracings?: Pick<ReturnType<typeof tracingHandlers>, 'list' | 'agentOutline' | 'agentMake' | 'agentRemove' | 'agentLayer'>
+  /** A picture of a tracing drawn by the window from the outline and layers given (`view:tracingPicture`), whichever project it shows. Rejects with a text. */
+  tracingPicture?(objectId: string, req: TracingPictureRequest): Promise<TracingPictureResult>
   /** A picture scaled down to a long edge of at most `edge` px, as a PNG: the pictures of the board are sent at 1280. Without it they are sent as they are kept. */
   scale?(bytes: Uint8Array, edge: number): Promise<Uint8Array>
 }
@@ -252,6 +263,9 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<AddMarkArgs>('add_mark', (args) => addMarkTool(deps, objectId, args))
   tool<AddSketchArgs>('add_sketch', (args) => addSketchTool(deps, objectId, args))
   tool<AddSetArgs>('add_set', (args) => addSetTool(deps, objectId, args))
+  tool<TracingsArgs>('tracings', (args) => tracingsTool(deps, objectId, args))
+  tool<AddTracingArgs>('add_tracing', (args) => addTracingTool(deps, objectId, args))
+  tool<AddLayerArgs>('add_layer', (args) => addLayerTool(deps, objectId, args))
   tool<ResolveMarkArgs>('resolve_mark', (args) => resolveMarkTool(deps, objectId, args))
   tool<MeasureToolArgs>('measure', (args) => measureTool(deps, objectId, args))
   tool<SectionToolArgs>('section', (args) => sectionTool(deps, objectId, args))
@@ -328,17 +342,35 @@ export const noMark = (id: string, marks: Mark[]): ToolResult => failure(`no mar
  * A region of a scan is told where the scan's alignment in its layout puts
  * it, which takes the `scans` of the object (`scansFor`).
  */
-const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string, sets?: readonly string[]): object => ({
+const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string, sets?: readonly string[], tracings?: readonly string[], layers?: Readonly<Record<string, number>>, lineups?: Readonly<Record<string, string>>): object => ({
   // A note is told in words, without its strokes and the names of its files: where its files are on this computer is told with it.
   // A sketch likewise: its strokes are in its `text`, in full, and its picture is a file of main's.
-  ...(mark.kind === 'note' ? noteData(mark, revision, dir === undefined ? undefined : noteFilesExist(dir, mark)) : mark.kind === 'sketch' ? sketchData(mark, revision) : markData(mark, revision, scans, layout)),
-  line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}), ...(sets ? { sets } : {}) })
+  ...(mark.kind === 'note' ? noteData(mark, revision, dir === undefined ? undefined : noteFilesExist(dir, mark)) : mark.kind === 'sketch' ? sketchData(mark, revision) : markData(mark, revision, scans, layout, lineups)),
+  line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}), ...(sets ? { sets } : {}), ...(tracings ? { tracings } : {}), ...(layers ? { layers } : {}), ...(lineups ? { lineups } : {}) })
 })
 
 /** The slugs of the named sets, when a mark of these is on one (`Anchor.set`): a label of a set that is gone says so. Undefined when no mark is, or the sets cannot be read. */
 async function slugsFor(deps: ToolDeps, objectId: string, marks: readonly Mark[]): Promise<string[] | undefined> {
   if (!deps.sets || !marks.some((m) => markAnchors(m).some((a) => a.set !== undefined))) return undefined
   return deps.sets(objectId).then((all) => all.map((s) => s.slug)).catch(() => undefined)
+}
+
+/** The ids of the tracings, when a mark of these is on one: a mark on a tracing that is gone says so. Undefined when no mark is, or the tracings cannot be read. */
+async function tracingIdsFor(deps: ToolDeps, objectId: string, marks: readonly Mark[]): Promise<string[] | undefined> {
+  if (!deps.tracings || !marks.some((m) => m.tracing !== undefined)) return undefined
+  return deps.tracings.list(objectId).then((file) => file.tracings.map((t) => t.id)).catch(() => undefined)
+}
+
+/** The revision of each layer of the tracings, when a mark of these is an offset: one on a layer that has changed since says so. Undefined when no mark is, or the tracings cannot be read. */
+async function layersFor(deps: ToolDeps, objectId: string, marks: readonly Mark[]): Promise<Record<string, number> | undefined> {
+  if (!deps.tracings || !marks.some((m) => m.kind === 'offset')) return undefined
+  return deps.tracings.list(objectId).then((file) => layerRevisions(file.tracings)).catch(() => undefined)
+}
+
+/** What each tracing with a lined-up photo says of its line-up, when a mark of these is on one: a mark put on the photo is told with it. Undefined when no mark is, or the tracings cannot be read. */
+async function lineupsFor(deps: ToolDeps, objectId: string, marks: readonly Mark[]): Promise<Record<string, string> | undefined> {
+  if (!deps.tracings || !marks.some((m) => m.tracing !== undefined)) return undefined
+  return deps.tracings.list(objectId).then((file) => lineupsOf(file.tracings)).catch(() => undefined)
 }
 
 /** The layout a region is told in by a tool: the one asked for, else the one on screen, else the build's first; none before a build, or for a layout the build has not (the region is then told in its own). */
@@ -427,11 +459,14 @@ export async function marksTool(deps: ToolDeps, objectId: string, args: MarksArg
   const dir = deps.object(objectId)?.dir
   const notes = listed.filter((m): m is NoteMark => m.kind === 'note')
   const slugs = await slugsFor(deps, objectId, listed)
+  const tracingIds = await tracingIdsFor(deps, objectId, listed)
+  const layers = await layersFor(deps, objectId, listed)
+  const lineups = await lineupsFor(deps, objectId, listed)
   const sent = notes.length > 0 && dir !== undefined && args.pictures === true ? await notePictures(dir, notes, deps.scale) : undefined
   const result = json({
     ...build,
     marks: listed.map((m) => {
-      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene, dir, slugs)
+      const told = withLine(m, build.revision ?? undefined, scans, layout, deps.scene(objectId)?.scene, dir, slugs, tracingIds, layers, lineups)
       return named ? told : strokeSummarised(told)
     }),
     ...(wanted === 'open' && !named ? { listed: 'open marks; resolved ones with status resolved, or by ids' } : {}),
@@ -472,7 +507,7 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
     const build = ofBuild(deps, objectId)
     const wrong = noSuchLayout(deps, objectId, args.layout)
     if (wrong) return wrong
-    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene, deps.object(objectId)?.dir, await slugsFor(deps, objectId, [mark])) }) : noMark(args.ref, marks)
+    return mark ? json({ ...build, mark: withLine(mark, build.revision ?? undefined, await scansFor(deps, objectId, [mark]), regionLayout(deps, objectId, args.layout), deps.scene(objectId)?.scene, deps.object(objectId)?.dir, await slugsFor(deps, objectId, [mark]), await tracingIdsFor(deps, objectId, [mark]), await layersFor(deps, objectId, [mark]), await lineupsFor(deps, objectId, [mark])) }) : noMark(args.ref, marks)
   }
   const found = built(deps, objectId)
   if ('content' in found) return found

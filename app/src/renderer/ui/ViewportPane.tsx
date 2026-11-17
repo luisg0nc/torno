@@ -50,6 +50,8 @@ import { MakeSet } from './sets/MakeSet'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { Selection } from './Selection'
+import { inkPicture } from './tracings/inkPicture'
+import { connectTracings3D } from '../state/tracingsIn3d'
 import { SketchPanel } from './sketch/SketchPanel'
 import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
@@ -362,6 +364,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   viewport.setHoverMark(store.getState().hoveredMark)
   viewport.setSection(store.getState().section)
   viewport.setExplode(explodeNow(store.getState()))
+  // The tracings shown in 3D, each in its plane: the viewport draws what this hands it.
+  const offTracings3D = connectTracings3D({ viewport })
   // The gizmo on the active mark while it is a shape, and the keys that say what it does.
   const offShape = connectShapeEdit(viewport)
   // What a 3D sketch needs of the window: the project on show, the picture of its card (drawn as `look` draws, from the camera of the sketch), and where a refusal is said.
@@ -374,6 +378,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       return { objectId: s.objectId, layout: s.layout, revision: s.revision, camera: viewport.getCamera(), centre: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2] }
     },
     picture: async (camera) => (await look(viewport, { view: camera, size: 1280, marks: true })).png,
+    // Ink on a tracing has its card drawn from the tracing view, not from the 3D view.
+    tracingPicture: (objectId, id) => inkPicture(objectId, id),
     say: sayRefusal
   })
   const offSketching = connectSketching(viewport)
@@ -383,6 +389,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     busy: () => sketchStore.getState().open !== null,
     draw: async (mark) => {
       const s = store.getState()
+      if (mark.tracing !== undefined) return s.objectId === null ? null : inkPicture(s.objectId, mark.id, s.marks)
       if (!s.scene || !s.scene.layouts.includes(mark.layout)) return null
       return (await look(viewport, { view: mark.camera, layout: mark.layout, size: 1280, marks: true })).png
     },
@@ -639,6 +646,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
         return { count, meanMs: (performance.now() - started) / Math.max(count, 1), worstMs: worst }
       },
       scans: () => viewport.scanState(),
+      tracings: () => viewport.tracingState(),
       timeThumbnail: async (count = 10, given) => {
         const of = given ?? landed
         if (!of) throw new Error('no build yet')
@@ -678,6 +686,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', endGhosts, true)
     viewport.canvas.removeEventListener('pointerdown', endGhosts, true)
+    offTracings3D()
     offTool()
     offScene()
     offStore()
@@ -744,8 +753,8 @@ export function ViewportPane() {
   const build = useStore((s) => s.build)
   // Under the page of objects or of a new object the view stays as it is, and takes neither the pointer nor the keys.
   const covered = useStore((s) => s.page !== 'object')
-  // The board shown in its place: the view stays mounted, so nothing is built again on the swap, but it draws nothing meanwhile.
-  const boardShown = useBoard((s) => s.shown === 'board')
+  // The board or a tracing shown in its place: the view stays mounted, so nothing is built again on the swap, but it draws nothing meanwhile.
+  const boardShown = useBoard((s) => s.shown !== 'model')
   useEffect(() => {
     if (viewport) viewport.paused = boardShown
   }, [viewport, boardShown])

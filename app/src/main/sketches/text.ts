@@ -44,6 +44,8 @@ function madeOf(plane: SketchPlane): string {
       return `plane through the point ${vector(from.point)}, normal ${directionText(from.normal)}, offset ${number(from.offset)} mm`
     case 'view':
       return `the standard view ${from.label}`
+    case 'tracing':
+      return `the plane of tracing ${from.tracing}`
   }
 }
 

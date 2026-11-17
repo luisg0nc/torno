@@ -7,10 +7,10 @@ import type { Camera as SavedCamera } from './view'
 
 export type { SavedCamera }
 
-export type CardKind = 'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'text' | 'picture' | 'sketch' | 'frame' | 'size'
+export type CardKind = 'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'text' | 'picture' | 'sketch' | 'frame' | 'size' | 'tracing'
 
 /** Cards that appear by themselves, from what the project has. */
-export const AUTO_KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan']
+export const AUTO_KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan', 'tracing']
 /** Cards the person pins from the build strip, the views, the Params and the checks. */
 export const PINNED_KINDS: readonly CardKind[] = ['build', 'view', 'params', 'checks']
 /** Cards the person makes on the board, and the agent may too (a text, a picture, a frame, a size). */
@@ -37,7 +37,7 @@ export interface Card {
   by: 'person' | 'agent' | 'torno'
   /** The id of the frame it is in. */
   frame?: string
-  /** What it shows: `brief`, a `reference/` path, `M<n>`, `S<n>`, `h<n>`, a view's name, `params` or `checks`. */
+  /** What it shows: `brief`, a `reference/` path, `M<n>`, `S<n>`, `T<n>`, `h<n>`, a view's name, `params` or `checks`. */
   source?: string
   layout?: string
   text?: string

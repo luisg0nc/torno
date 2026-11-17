@@ -9,6 +9,8 @@ import { dropNoteFiles } from '../notes/dropped'
 import { writeNoteFile } from '../notes/files'
 import { Refusal } from '../refusal'
 import type { ObjectInfo } from '../../shared/workspace'
+import { checkOnTracing } from '../tracings/marks'
+import type { TracingsFile } from '../../shared/tracings'
 import { checkSketch } from './check'
 import { strokeTouches } from './touches'
 
@@ -27,6 +29,8 @@ export interface SketchIpcDeps {
   query<T = unknown>(objectId: string, name: string, args: object): Promise<T>
   /** Says what main says of where a mark is placed (`placedMark`): how far its part is spread, its tag. */
   placed?<M extends NewMark>(mark: M, objectId: string): M
+  /** The tracings of a project, for ink on one: it is checked to be in the plane of a tracing that is there (`checkOnTracing`). Without it ink on a tracing is refused. */
+  tracings?: { list(objectId: string): Promise<TracingsFile> }
 }
 
 const NOT_OPEN = 'That project is not open.'
@@ -95,6 +99,11 @@ export function sketchHandlers(deps: SketchIpcDeps) {
     if (checked instanceof Refusal) throw checked
     const anchor = checked.anchor && deps.placed ? (deps.placed({ ...checked, kind: 'sketch', author: 'user' } as unknown as NewMark, obj.id) as { anchor?: SketchDraft['anchor'] }).anchor : checked.anchor
     const draft: SketchDraft = anchor ? { ...checked, anchor } : checked
+    if (draft.tracing !== undefined) {
+      if (!deps.tracings) throw new Refusal('This project has no tracings, so ink on one cannot be kept.')
+      const off = checkOnTracing({ ...draft, kind: 'sketch', author: 'user' } as unknown as Mark, await deps.tracings.list(obj.id))
+      if (off) throw off
+    }
     // A stroke with no touches is one that is new: those that were kept carry theirs.
     const fresh = draft.strokes.flatMap((stroke, i) => (stroke.touches === undefined ? [i] : []))
     const touches: Array<string[] | undefined> = draft.strokes.map(() => undefined)

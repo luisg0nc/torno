@@ -151,6 +151,33 @@ describe('groups of parts', () => {
     actions.applyScene({ objectId: 'bracket', revision: 2, scene: GROUPED })
     expect(store.getState().folded).toEqual(['flat'])
   })
+
+  it('keeps the tracings shown in 3D in the scene file, only when one is, and each once', () => {
+    expect(sceneFileOf(store.getState()).tracingsShown).toBeUndefined()
+    const edits = store.getState().edits
+    actions.setTracingShown('T2', true)
+    actions.setTracingShown('T1', true)
+    actions.setTracingShown('T1', true)
+    expect(store.getState().tracingsShown).toEqual(['T2', 'T1'])
+    expect(store.getState().edits).toBe(edits + 2)
+    expect(sceneFileOf(store.getState()).tracingsShown).toEqual(['T2', 'T1'])
+    actions.setTracingShown('T2', false)
+    actions.setTracingShown('T2', false)
+    expect(store.getState().tracingsShown).toEqual(['T1'])
+    actions.setTracingShown('T1', false)
+    expect(sceneFileOf(store.getState()).tracingsShown).toBeUndefined()
+  })
+
+  it('opens with the tracings the file showed, and lets go of one the project no longer has', () => {
+    actions.openObject('bracket', { layers: {}, tracingsShown: ['T1', 'T4'] })
+    expect(store.getState().tracingsShown).toEqual(['T1', 'T4'])
+    actions.keepTracingsShown(['T1', 'T2'])
+    expect(store.getState().tracingsShown).toEqual(['T1'])
+    // Nothing changes, nothing is an edit.
+    const edits = store.getState().edits
+    actions.keepTracingsShown(['T1', 'T2'])
+    expect(store.getState().edits).toBe(edits)
+  })
 })
 
 describe('layouts and layers', () => {
@@ -1388,6 +1415,19 @@ describe('the page of objects', () => {
     expect(store.getState().exportOf).toEqual(['bracket'])
     actions.setWorkspace(workspace('other'))
     expect(store.getState().exportOf).toBeNull()
+  })
+
+  it('opens the export sheet on a tracing when asked to, and forgets it when the sheet goes', () => {
+    actions.setWorkspace(workspace('bracket', 'gear'))
+    actions.exportSheet(['bracket'], 'T2')
+    expect(store.getState()).toMatchObject({ exportOf: ['bracket'], exportTracing: 'T2' })
+    actions.exportSheet(null)
+    expect(store.getState().exportTracing).toBeNull()
+    actions.exportSheet(['bracket'])
+    expect(store.getState().exportTracing).toBeNull()
+    actions.exportSheet(['bracket'], 'T1')
+    actions.setWorkspace(workspace('other'))
+    expect(store.getState()).toMatchObject({ exportOf: null, exportTracing: null })
   })
 
   it('is not left for an object when none is open', () => {

@@ -8,6 +8,7 @@ import { type Door, openDoor, projectFor } from './door'
 import type { Described } from '../shared/geometry'
 import type { Mark } from '../shared/marks'
 import { unheldNotes } from '../shared/reviews'
+import { type Tracing, layerRevisions } from '../shared/tracings'
 import type { SavedView } from '../shared/views'
 import { heldOverrides } from './paramsfile'
 import { writeFileAtomic } from './atomic'
@@ -20,21 +21,26 @@ import { startHttp } from './http'
 import { buildContextFor, contextFor, tellsInstructions } from './context'
 import { takeGoBackNotice } from './goback'
 import { listReferences } from './sessions/reference'
-import { buildIdentity, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject } from './ipc'
+import { buildIdentity, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject, tracingDoors } from './ipc'
 import { forgetSketchesWith, openSketch } from './sketches/ipc'
 import { cannotStart, environmentCommand } from './kernel/client'
 import { ReadyKeeper } from './readiness'
-import { NoAnswer, latestView, requestHighlight, requestLook, requestSaveView, requestSectionDrawing, requestShow } from './look'
+import { NoAnswer, latestView, requestHighlight, requestLook, requestSaveView, requestSectionDrawing, requestShow, requestTracingPicture } from './look'
 import { addDimensionTold } from './marks/measure'
 import type { NearestAnchor } from './marks/reanchor'
 import { maskReadsOf, maskStampOf, meshesOf } from './marks/regions'
 import { MarkStore } from './marks/store'
 import { SetStore } from './sets/store'
+import { TracingStore } from './tracings/store'
+import { healMarks } from './tracings/heal'
+import { lineupsOf } from './tracings/text'
+import { markTracingsTold, readTracingsTold, tracingsLine as tracingsLineOf } from './tracings/told'
 import { attachBoard } from './board/attach'
 import { reconcileProject } from './board/follow'
 import { liveFacts } from './board/live'
 import { PictureSweep } from './board/pictures'
 import { NoteSweep } from './notes/sweep'
+import { PhotoSweep } from './tracings/sweep'
 import { BoardStore } from './board/store'
 import { boardLine } from './board/text'
 import type { BoardCounts } from '../shared/board'
@@ -376,7 +382,7 @@ const toolDeps: ToolDeps = {
   board: {
     read: (objectId) => board.read(objectId),
     agent: (objectId, change) => board.agent(objectId, change),
-    live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides })
+    live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })
   },
   scale: scalePicture,
   redact: (text) => redactAddresses(text),
@@ -444,6 +450,17 @@ const toolDeps: ToolDeps = {
   sectionDrawing(req) {
     return theWindow().then((win) => requestSectionDrawing(win, req))
   },
+  // The tracings: Claude reads them and makes its own through the window's own doors, with the `agent*` handlers that keep it to its own.
+  tracings: {
+    list: (objectId) => tracingDoors().list(objectId),
+    agentOutline: (objectId, id) => tracingDoors().agentOutline(objectId, id),
+    agentMake: (objectId, raw) => tracingDoors().agentMake(objectId, raw),
+    agentRemove: (objectId, id) => tracingDoors().agentRemove(objectId, id),
+    agentLayer: (objectId, id, raw) => tracingDoors().agentLayer(objectId, id, raw)
+  },
+  tracingPicture(_objectId, req) {
+    return theWindow().then((win) => requestTracingPicture(win, req))
+  },
   views: savedViews,
   saveView(objectId, req) {
     const obj = findObject(objectId)
@@ -463,7 +480,7 @@ const verdicts = new Verdicts()
 const editDeps = { ...toolDeps, ...(off.has('digest') ? { digest: false } : {}), verdicts: (id: string, revision: number | undefined) => verdicts.of(id, revision) }
 
 /** `<object>/.torno/state.md` of every open object: what an agent without the tools reads instead. */
-const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId) })
+const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId), tracings: async (objectId) => (await tracings.list(objectId)).tracings.map((t) => t.id), layers: async (objectId) => layerRevisions((await tracings.list(objectId)).tracings), lineups: async (objectId) => lineupsOf((await tracings.list(objectId)).tracings) })
 marks.on('changed', ({ objectId }) => stateFiles.changed(objectId))
 // The named sets are told in the state file.
 sets.on('changed', ({ objectId }) => stateFiles.changed(objectId))
@@ -488,25 +505,37 @@ async function scalePicture(bytes: Uint8Array, edge: number): Promise<Uint8Array
   return new Uint8Array(png ? scaled.toPNG() : scaled.toJPEG(85))
 }
 // The cards of what a project has appear on its board by themselves, and go with it.
+/** The tracings of the objects of the open workspace, in `.torno/tracings.json`. */
+const tracings = new TracingStore({ dirOf: (id) => findObject(id)?.dir })
+/** The tracings of a project for what a card of the board says of one; none when they cannot be read. */
+const tracingsOf = (objectId: string): Promise<Tracing[] | undefined> =>
+  tracings.list(objectId).then(
+    (file) => file.tracings,
+    () => undefined
+  )
 const board = new BoardStore({
   dirOf: (id) => findObject(id)?.dir,
   // What a card shows of the project, for what `markAllTold` keeps: as the board line of a prompt reads it.
-  live: async (id) => liveFacts({ dir: findObject(id)?.dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides })
+  live: async (id) => liveFacts({ dir: findObject(id)?.dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides, tracings: await tracingsOf(id) })
 })
 /** The pictures no card names go when a project is first opened in a run, once the window has nothing of it to undo. */
 const pictureSweep = new PictureSweep(board)
 /** And the pictures of the view notes no note names, in the same turn of the run (the marks' own). */
 const noteSweep = new NoteSweep(marks)
+/** And the photos of the tracings no tracing names, in the same run, in the turn of the tracings. */
+const photoSweep = new PhotoSweep(tracings)
 /** The one line every prompt carries of the board of a project (`boardLine`), with what it will have told: undefined when there is no such project. */
 async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts } | undefined> {
   const dir = findObject(objectId)?.dir
   if (dir === undefined) return undefined
-  const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides })])
+  const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })])
   return boardLine(file, told, live, toolName)
 }
-const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id) }, objectId)
+const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id), tracings: async (id) => (await tracings.list(id)).tracings }, objectId)
 marks.on('changed', ({ objectId }) => void followBoard(objectId))
 scans.on('changed', ({ objectId }) => void followBoard(objectId))
+// A tracing made or removed brings its card or takes it away; a change of it changes what its card says, and the board line tells the agent.
+tracings.on('changed', ({ objectId }) => void followBoard(objectId))
 // A mask that did not read for a region is asked for again: what the scans are has changed.
 scans.on('changed', ({ objectId }) => marks.scansChanged(objectId))
 
@@ -586,7 +615,7 @@ void app.whenReady().then(async () => {
     attachBoard: async (objectId, ids) => {
       const dir = findObject(objectId)?.dir
       if (dir === undefined) throw new Error('That project is not open')
-      return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
+      return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides, tracings: await tracingsOf(id) }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
     },
     // The view notes that are drafts, in the order of the marks: they go with the next chat prompt, pictures and all.
     // Marks that cannot be read are no reason to send nothing. The notes of a round that is not sent are held with it (`unheldNotes`).
@@ -616,7 +645,11 @@ void app.whenReady().then(async () => {
       const rounds = await marks.rounds(id).catch(() => undefined)
       // The names of the named sets, so that a mark labelled with one that is gone says so. Unreadable: not known, and the label is told as it is.
       const setSlugs = await sets.list(id).then((all) => all.map((s) => s.slug), () => undefined)
-      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
+      // And of the tracings, so that a mark on one that was removed says so.
+      const tracingFile = await tracings.list(id).then((file) => file, () => undefined)
+      // And what of them the agent was last told: the line says what has changed since (kept once the prompt is delivered).
+      const tracingsLine = tracingFile && dir !== undefined ? tracingsLineOf(tracingFile, await readTracingsTold(dir), opts.toolName) : undefined
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {
@@ -648,9 +681,11 @@ void app.whenReady().then(async () => {
     },
     // The agent has the prompt, and with it the drafts that were listed: they are sent.
     // The marks the prompt listed are sent, and what its board line told is kept: only once the answer has left, so a prompt that fails to go leaves both news.
-    onDelivered: (id, sentMarkIds, boardTold) => {
+    onDelivered: (id, sentMarkIds, boardTold, tracingsTold) => {
       if (sentMarkIds.length > 0) void marks.markSent(id, sentMarkIds).catch((e) => console.error(`cannot mark ${sentMarkIds.join(', ')} of ${id} as sent: ${e.message}`))
       if (boardTold) void board.markTold(id, boardTold).catch((e) => console.error(`cannot keep what the board line told of ${id}: ${e.message}`))
+      const dir = tracingsTold ? findObject(id)?.dir : undefined
+      if (tracingsTold && dir !== undefined) void markTracingsTold(dir, tracingsTold).catch((e) => console.error(`cannot keep what the tracings line told of ${id}: ${e.message}`))
     },
     systemPromptFor: (adapter) => systemPrompt(adapter.toolName, adapter.skills),
     mcpUrlFor,
@@ -691,6 +726,7 @@ void app.whenReady().then(async () => {
     asks,
     marks,
     sets,
+    tracings,
     board,
     views: savedViews,
     onBuild: (state) => {
@@ -706,11 +742,14 @@ void app.whenReady().then(async () => {
         .then(() => keepDimensions(objectId, revision, verdicts.of(objectId, revision))),
     // The saved views are named in the state file.
     onSceneFile: (objectId) => stateFiles.changed(objectId),
-    onObjectOpened: (objectId) =>
+    onObjectOpened: (objectId) => {
+      // Marks of a tracing that are off its plane (a crash between the plane's write and its marks', a tracing removed and put back) are put back first.
+      void healMarks({ tracings, marks }, objectId)
       void followBoard(objectId).then(() => {
         const dir = findObject(objectId)?.dir
-        if (dir !== undefined) return Promise.all([pictureSweep.once(objectId, dir), noteSweep.once(objectId, dir)]).then(() => undefined)
-      }),
+        if (dir !== undefined) return Promise.all([pictureSweep.once(objectId, dir), noteSweep.once(objectId, dir), photoSweep.once(objectId, dir)]).then(() => undefined)
+      })
+    },
     // What was waiting to be written was of objects of the workspace that is left.
     onWorkspaceClosed: () => {
       asks.end()
@@ -720,6 +759,7 @@ void app.whenReady().then(async () => {
       board.forget()
       pictureSweep.forget()
       noteSweep.forget()
+      photoSweep.forget()
       // An import still running there is ended, and its importer with it: its scan is not kept, and its id not given again.
       importer?.run.stop()
       importer = null
@@ -861,7 +901,7 @@ app.on('will-quit', (event) => {
   const waits: Promise<unknown>[] = []
   // An export still being written is given up: its check is not waited for, and the file beside the chosen one goes.
   stopExports()
-  const written = writesBeforeQuit([marks.settled(), scans.settled(), sets.settled(), sceneFilesSettled(), exportsUnderWay()])
+  const written = writesBeforeQuit([marks.settled(), scans.settled(), sets.settled(), tracings.settled(), sceneFilesSettled(), exportsUnderWay()])
   if (written) waits.push(written)
   if (sessions?.busy) waits.push(sessions.stopAll())
   // The copy of the example was torno's own, in the temporary folder: it goes with the run, last of all, once

@@ -66,6 +66,8 @@ const bridge: TornoBridge = {
     highlightReply: (id, result) => ipcRenderer.send('view:highlightReply', id, result),
     onDrawSection: (cb) => subscribe('view:drawSection', cb),
     drawSectionReply: (id, result) => ipcRenderer.send('view:drawSectionReply', id, result),
+    onTracingPicture: (cb) => subscribe('view:tracingPicture', cb),
+    tracingPictureReply: (id, result) => ipcRenderer.send('view:tracingPictureReply', id, result),
     onSaveView: (cb) => subscribe('view:saveView', cb),
     saveViewReply: (id, result) => ipcRenderer.send('view:saveViewReply', id, result)
   },
@@ -85,6 +87,8 @@ const bridge: TornoBridge = {
     restore: (objectId, id) => invokePlain('marks:restore', objectId, id),
     replace: (objectId, id, placed) => invokePlain('marks:replace', objectId, id, placed),
     sketch: (draft) => invokePlain('marks:sketch', draft),
+    span: (objectId, draft) => invokePlain('marks:span', objectId, draft),
+    offset: (objectId, draft) => invokePlain('marks:offset', objectId, draft),
     sketchPicture: (objectId, id, png) => invokePlain('marks:sketchPicture', objectId, id, png),
     sketching: (objectId, id) => ipcRenderer.send('marks:sketching', objectId, id),
     round: (objectId, ask) => invokePlain('marks:round', objectId, ask),
@@ -109,6 +113,27 @@ const bridge: TornoBridge = {
     onProblem: (cb) => subscribe('sets:problem', cb),
     problem: (objectId) => invokePlain('sets:problem', objectId),
     dismissProblem: (objectId) => invokePlain('sets:dismissProblem', objectId)
+  },
+  tracings: {
+    list: (objectId) => invokePlain('tracings:list', objectId),
+    make: (objectId, ask) => invokePlain('tracings:make', objectId, ask),
+    edit: (objectId, id, patch) => invokePlain('tracings:edit', objectId, id, patch),
+    remove: (objectId, id) => invokePlain('tracings:remove', objectId, id),
+    restore: (objectId, id) => invokePlain('tracings:restore', objectId, id),
+    layer: (objectId, id, change) => invokePlain('tracings:layer', objectId, id, change),
+    outline: (objectId, id) => invokePlain('tracings:outline', objectId, id),
+    shown: (objectId, ids) => ipcRenderer.send('tracings:shown', objectId, ids),
+    onChanged: (cb) => subscribe('tracings:changed', cb),
+    onOutline: (cb) => subscribe('tracings:outline', cb),
+    onProblem: (cb) => subscribe('tracings:problem', cb),
+    problem: (objectId) => invokePlain('tracings:problem', objectId),
+    dismissProblem: (objectId) => invokePlain('tracings:dismissProblem', objectId),
+    photo: (objectId, id, bytes, from) => invokePlain('tracings:photo', objectId, id, bytes, from),
+    lineUp: (objectId, id, pairs, method) => invokePlain('tracings:lineUp', objectId, id, pairs, method),
+    look: (objectId, id, look) => invokePlain('tracings:look', objectId, id, look),
+    straightened: (objectId, id, bytes, of) => invokePlain('tracings:straightened', objectId, id, bytes, of),
+    photoBytes: (objectId, id, which) => invokePlain('tracings:photoBytes', objectId, id, which),
+    removePhoto: (objectId, id) => invokePlain('tracings:removePhoto', objectId, id)
   },
   notes: {
     make: (draft) => invokePlain('notes:make', draft),
@@ -190,6 +215,7 @@ const bridge: TornoBridge = {
     save: (req) => invokePlain('export:save', req),
     savePicture: (objectId, png) => invokePlain('export:savePicture', objectId, png),
     saveSection: (objectId, as) => invokePlain('export:saveSection', objectId, as),
+    saveTracing: (objectId, tracingId, as, ticks) => invokePlain('export:saveTracing', objectId, tracingId, as, ticks),
     reveal: () => invokePlain('export:reveal'),
     openSaved: () => invokePlain('export:openSaved'),
     done: () => ipcRenderer.send('export:done')

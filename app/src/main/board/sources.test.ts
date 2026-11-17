@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { type BoardFile, type BuildCopy, emptyBoard } from '../../shared/board'
 import { CARD_SIZE, pin, reconcile } from './sources'
 
-const none = { brief: false, references: [] as string[], marks: [] as Array<{ id: string; layout: string; round?: string }>, scans: [] as string[], rounds: [] as Array<{ id: string; name: string; items: string[]; from?: string }> }
+const none = { brief: false, references: [] as string[], marks: [] as Array<{ id: string; layout: string; round?: string }>, scans: [] as string[], rounds: [] as Array<{ id: string; name: string; items: string[]; from?: string }>, tracings: [] as Array<{ id: string }> }
 const mark = (n: number, layout = 'assembly', round?: string) => ({ id: `M${n}`, layout, ...(round !== undefined ? { round } : {}) })
 const sourcesOf = (board: BoardFile): string[] => board.cards.map((c) => `${c.kind}:${c.source}`)
 const done = (value: BoardFile | null): BoardFile => {
@@ -17,7 +17,7 @@ describe('reconcile', () => {
   })
 
   it('adds a placed card of main\'s own for each source', () => {
-    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg'], marks: [mark(1, 'lid')], scans: ['S1'], rounds: [] }))
+    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg'], marks: [mark(1, 'lid')], scans: ['S1'], rounds: [], tracings: [] }))
     expect(sourcesOf(board)).toEqual(['brief:brief', 'reference:reference/photo-1.jpg', 'mark:M1', 'scan:S1'])
     expect(board.cards.every((c) => c.by === 'torno' && !c.hidden && c.w > 0 && c.h > 0)).toBe(true)
     expect(board.cards.map((c) => c.id)).toEqual(['C1', 'C2', 'C3', 'C4'])
@@ -60,8 +60,8 @@ describe('reconcile', () => {
   })
 
   it('removes the card of a reference file that is gone, and of a brief that is gone, and of a scan', () => {
-    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg', 'reference/photo-2.jpg'], marks: [], scans: ['S1', 'S2'], rounds: [] }))
-    const after = done(reconcile(board, { brief: false, references: ['reference/photo-2.jpg'], marks: [], scans: ['S2'], rounds: [] }))
+    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg', 'reference/photo-2.jpg'], marks: [], scans: ['S1', 'S2'], rounds: [], tracings: [] }))
+    const after = done(reconcile(board, { brief: false, references: ['reference/photo-2.jpg'], marks: [], scans: ['S2'], rounds: [], tracings: [] }))
     expect(sourcesOf(after)).toEqual(['reference:reference/photo-2.jpg', 'scan:S2'])
   })
 
@@ -82,6 +82,25 @@ describe('reconcile', () => {
     const pinned = pin(emptyBoard(), { kind: 'build', copy })
     if ('refused' in pinned) throw new Error(pinned.refused)
     expect(reconcile(pinned, none)).toBeNull()
+  })
+
+  it('makes the card of a tracing by itself, of main\'s own, and takes it away with the tracing', () => {
+    const board = done(reconcile(emptyBoard(), { ...none, tracings: [{ id: 'T1' }] }))
+    expect(sourcesOf(board)).toEqual(['tracing:T1'])
+    expect(board.cards[0]).toMatchObject({ by: 'torno', w: CARD_SIZE.tracing.w, h: CARD_SIZE.tracing.h })
+    expect(reconcile(board, { ...none, tracings: [{ id: 'T1' }] })).toBeNull()
+    const two = done(reconcile(board, { ...none, tracings: [{ id: 'T1' }, { id: 'T2' }] }))
+    expect(sourcesOf(two)).toEqual(['tracing:T1', 'tracing:T2'])
+    expect(two.cards[0]).toEqual(board.cards[0])
+    expect(sourcesOf(done(reconcile(two, { ...none, tracings: [{ id: 'T2' }] })))).toEqual(['tracing:T2'])
+    expect(done(reconcile(two, none)).cards).toEqual([])
+  })
+
+  it('keeps the card of a tracing hidden through the next reconcile, and takes a hidden one away with its tracing', () => {
+    const board = done(reconcile(emptyBoard(), { ...none, tracings: [{ id: 'T1' }] }))
+    board.cards[0].hidden = true
+    expect(reconcile(board, { ...none, tracings: [{ id: 'T1' }] })).toBeNull()
+    expect(done(reconcile(board, none)).cards).toEqual([])
   })
 
   it('does not change its input', () => {

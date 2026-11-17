@@ -207,6 +207,28 @@
   background: var(--surface);
 }
 
+/* A tracing's card draws the outline and the layers (ui/projectBoard/TracingPicture.tsx) in the room its lines leave: lines keep their width in
+   pixels as in the tracing view, and the parts' names and tabs are left out, being too small to read here. */
+.pboard-tracing {
+  flex: 1;
+  min-height: 40px;
+  width: 100%;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.pboard-tracing path,
+.pboard-tracing line,
+.pboard-tracing circle,
+.pboard-tracing rect {
+  vector-effect: non-scaling-stroke;
+}
+
+.pboard-tracing .tr-tab,
+.pboard-tracing .tr-part-name {
+  display: none;
+}
+
 /* The card of a view note keeps room for its picture beside the two lines under it. */
 .pboard-card[data-kind='mark'] .pboard-picture {
   min-height: 40px;

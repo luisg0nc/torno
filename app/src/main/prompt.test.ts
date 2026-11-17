@@ -100,8 +100,19 @@ describe('the system prompt', () => {
   })
 
   it('stays short', () => {
-    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews.
-    expect(FULL_PROMPT.length).toBeLessThan(8600)
+    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews; to 8,900 for tracings.
+    expect(FULL_PROMPT.length).toBeLessThan(8900)
+  })
+
+  it('says what a tracing is and how to trace a photo, and that a photo\'s numbers are never exact', () => {
+    const sentence = "A tracing is the model laid flat in a plane at true scale over a photo: to trace the photo, look at it with mcp__torno__tracings and picture: true, then add layers in mm with mcp__torno__add_layer; a photo's numbers are never exact."
+    expect(FULL_PROMPT).toContain(sentence)
+    expect(SYSTEM_PROMPT).toContain(sentence)
+    expect(systemPrompt((tool) => `torno.${tool}`)).toContain('look at it with torno.tracings and picture: true, then add layers in mm with torno.add_layer;')
+    // After the named sets, before the marks of its own.
+    expect(FULL_PROMPT.indexOf(sentence)).toBeGreaterThan(FULL_PROMPT.indexOf('Named sets are'))
+    expect(FULL_PROMPT.indexOf(sentence)).toBeLessThan(FULL_PROMPT.indexOf('mcp__torno__add_mark leaves a mark of your own'))
+    expect(TOOLS.tracings.description).toContain('picture')
   })
 
   it('says what a review is and to answer each of its items, and never to bring back what an earlier one removed', () => {
@@ -167,7 +178,7 @@ describe("Claude Code's prompt, with the skills", () => {
 
   it('is the whole text without the scans and the dimensions, noticeably shorter', () => {
     expect(systemPrompt((tool) => `mcp__torno__${tool}`, true)).toBe(SYSTEM_PROMPT)
-    expect(SYSTEM_PROMPT.length).toBeLessThan(7600)
+    expect(SYSTEM_PROMPT.length).toBeLessThan(7900)
     expect(FULL_PROMPT.length - SYSTEM_PROMPT.length).toBeGreaterThan(1000)
     for (const sentence of [...SCANS_TEXT, ...DIMENSIONS_TEXT]) {
       expect(FULL_PROMPT).toContain(sentence)

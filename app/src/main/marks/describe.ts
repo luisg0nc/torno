@@ -1,7 +1,8 @@
 import { count as counted, number, numberWithin, scanNumber } from '../../shared/format'
 import { expectedText, lastValue, measuredValue, notMeasuredText, offBy, onBuild, standingOf, valueText } from '../../shared/dimension'
-import { type Anchor, type DimensionMark, type Mark, type NoteMark, type RegionMark, type ShapeMark, type SketchMark, type StrokeMark, isUnchecked, markAnchors, markIntent } from '../../shared/marks'
+import { type Anchor, type DimensionMark, type Mark, type NoteMark, type OffsetMark, type RegionMark, type ShapeMark, type SketchMark, type SpanMark, type StrokeMark, isUnchecked, markAnchors, markIntent } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
+import { offsetWords, onTracingWords } from '../../shared/tracings'
 import { isFlat, regionInLayout } from '../../shared/regions'
 import { type ScanInfo, alignmentOf } from '../../shared/scans'
 import { alignmentSaid } from '../scans/said'
@@ -66,7 +67,7 @@ export function sizes(v: readonly number[]): string {
  * on show, or the one a tool was asked in) puts it (`region`): that takes the
  * `scans` of the object, and without them it has no place.
  */
-export function describeMark(mark: Mark, opts: { tag?: string; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene; /** The slugs of the project's named sets: with them, a label of a set that is gone says so. */ sets?: readonly string[] } = {}): string {
+export function describeMark(mark: Mark, opts: { tag?: string; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene; /** The slugs of the project's named sets: with them, a label of a set that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is not there says it was removed. */ tracings?: readonly string[]; /** The revision of each layer of the project's tracings, by `T1/2` (`layerRevisions`): an offset on a layer that has changed since says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up, by id (`lineupsOf`): a mark put on the photo says it, and an offset is `from the photo` only where there is one. */ lineups?: Readonly<Record<string, string>> } = {}): string {
   const tags = [mark.author === 'agent' ? 'yours' : '', opts.tag ?? ''].filter(Boolean).join(', ')
   const note = mark.note.replace(/\s+/g, ' ').trim()
   const unchecked = isUnchecked(mark, opts.revision) ? ` [not checked against r${opts.revision}]` : ''
@@ -81,9 +82,11 @@ export function describeMark(mark: Mark, opts: { tag?: string; revision?: number
     const round = mark.round === undefined ? '' : ` [in ${mark.round}]`
     if (mark.kind === 'note') return `${tags ? `(${tags}) ` : ''}${mark.id}${intent === null ? '' : ` · ${INTENT_SAID[intent]}`} · view note · ${mark.status}${note ? `: "${note}"` : ''} ${noteHolds(mark)}${suffix}${unchecked}${round}`
     const said = what(mark, opts)
+    // A measure and a "should be here" say their own tracing, in their own words.
+    const onTracing = mark.kind === 'span' || mark.kind === 'offset' ? '' : `${onTracingWords(mark, opts.tracings)}${onPhoto(mark, opts)}`
     // What a sketch says begins with its own dot: the intent is put before it, and the others get one.
     const head = intent === null ? `${mark.id} ` : `${mark.id} · ${INTENT_SAID[intent]} ${said.startsWith('· ') ? '' : '· '}`
-    return `${tags ? `(${tags}) ` : ''}${head}${said}${note ? `: "${note}"` : ''}${suffix}${unchecked}${asMeasured(mark, opts.revision)}${round}`
+    return `${tags ? `(${tags}) ` : ''}${head}${said}${onTracing}${note ? `: "${note}"` : ''}${suffix}${unchecked}${asMeasured(mark, opts.revision)}${round}`
   } finally {
     across = 0
   }
@@ -125,9 +128,15 @@ function asMeasured(mark: Mark, revision: number | undefined): string {
  * (`alignment`: aligned, rough, in doubt, not checked). Never `local`: that is in the scan's own frame,
  * which is main's and the window's. One that is orphaned holds none of it.
  */
-export function markData(mark: Mark, revision: number | undefined, scans?: readonly ScanInfo[], layout?: string): object {
+export function markData(mark: Mark, revision: number | undefined, scans?: readonly ScanInfo[], layout?: string, lineups?: Readonly<Record<string, string>>): object {
   if (mark.kind === 'region') return regionData(mark, layout, scans, revision)
-  if (mark.kind !== 'dimension') return mark
+  if (mark.kind !== 'dimension') {
+    // A mark on a tracing names it (`tracing`), and says the line-up of its lined-up photo when the mark's place is a click on the photo.
+    const lineup = onThePhoto(mark) || mark.kind === 'offset' ? lineupOf(mark, { lineups }) : undefined
+    // An offset is by eye, whatever the photo: never exact.
+    const data = mark.kind === 'offset' ? { ...mark, exact: false } : mark
+    return lineup === undefined ? data : { ...data, lineup }
+  }
   if (mark.status !== 'resolved' && measuredValue(mark, revision) !== undefined) return mark
   const { value: _value, how: _how, points: _points, verdict: _verdict, ...rest } = mark
   const last = lastValue(mark)
@@ -271,7 +280,7 @@ function regionData(mark: RegionMark, layout: string | undefined, scans: readonl
   return { ...rest, toldIn: told, aligned: true, alignment: alignmentSaid(placed.scan, told, revision).state, area: there.area, centroid: there.centroid, size: there.box.half.map((half) => 2 * half), axes: there.box.axes, bbox: there.bbox, bboxOf: 'a box along the axes of the layout that the region lies within: not its size', plane: there.plane, flat: there.flat, approximate: REGION_APPROXIMATE }
 }
 
-function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: readonly ScanInfo[]; sets?: readonly string[] }): string {
+function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: readonly ScanInfo[]; sets?: readonly string[]; tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>> }): string {
   const { revision } = opts
   const settled = mark.anchorState === 'ok'
   switch (mark.kind) {
@@ -298,7 +307,73 @@ function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: re
       return 'view note'
     case 'sketch':
       return sketch(mark)
+    case 'span':
+      return span(mark, opts)
+    case 'offset':
+      return offset(mark, opts)
   }
+}
+
+/** What the lined-up photo of a mark's tracing says of its line-up, when the tracing is there and has one. */
+function lineupOf(mark: Pick<Mark, 'tracing'>, opts: { tracings?: readonly string[]; lineups?: Readonly<Record<string, string>> }): string | undefined {
+  if (mark.tracing === undefined || (opts.tracings !== undefined && !opts.tracings.includes(mark.tracing))) return undefined
+  return opts.lineups?.[mark.tracing]
+}
+
+/** Whether a mark's place is the person's eye on the photo: a pin that is on no face of the model (one on the outline is tied to its face), and ink. */
+const onThePhoto = (mark: Mark): boolean => mark.kind === 'sketch' || (mark.kind === 'pin' && mark.anchor.ref === undefined)
+
+/** ` (≈, from the photo) · photo: lined up by 4 points…`: said after `on T1` of a mark that is on the photo of a tracing with a line-up; nothing else. */
+function onPhoto(mark: Mark, opts: { tracings?: readonly string[]; lineups?: Readonly<Record<string, string>> }): string {
+  const lineup = onThePhoto(mark) ? lineupOf(mark, opts) : undefined
+  return lineup === undefined ? '' : ` (≈, from the photo) · photo: ${lineup}`
+}
+
+/** `on T1`, or `on T1 (removed)` when the project has no such tracing. */
+const onTracingOf = (mark: Pick<Mark, 'tracing'>, tracings: readonly string[] | undefined): string => onTracingWords(mark, tracings).replace(/^ · /, '')
+
+/**
+ * `· span on T1: 41.8 mm, exact on build h41`, or `· span on T1: ≈ 41.8 mm (on the photo, lined up with fit 0.4 mm)`: a measure on a tracing. It
+ * is worked out once and never measured again; once a later build has landed an approximate one says which build it was measured on.
+ */
+function span(mark: SpanMark, opts: { revision?: number; tracings?: readonly string[] }): string {
+  const value = `${number(mark.value)} mm`
+  const where = onTracingOf(mark, opts.tracings)
+  // A later build has landed: this run's number is gone from a file read in another run, and the history id (`h41`) names the build either way.
+  const later = opts.revision !== undefined && opts.revision !== mark.measuredOn ? (mark.build === undefined ? ', measured on an earlier build' : `, measured on build ${mark.build}`) : ''
+  return mark.exact ? `· span ${where}: ${value}, ${mark.how}` : `· span ${where}: ≈ ${value} (${mark.how})${later}`
+}
+
+/** A signed number of a move: `−1.8`, `0`, `+0.6`. */
+const signed = (n: number): string => {
+  const text = number(n)
+  return text === '0' ? '0' : text.startsWith('-') ? `−${text.slice(1)}` : `+${text}`
+}
+
+/** What the shape was, in the tracing's `[u, v]` in mm: a copy kept with the mark, so that it still says what moved when the layer is replaced. */
+function wasWords(was: OffsetMark['was']): string {
+  const at = (p: readonly number[]): string => `(${number(p[0])}, ${number(p[1])})`
+  if (was.kind === 'circle') return `circle centre ${at(was.centre)} radius ${number(was.radius)}`
+  if (was.kind === 'label') return `label "${was.text}" at ${at(was.at)}`
+  return `${was.closed ? 'closed ' : ''}polyline of ${was.points.length} points from ${at(was.points[0])}`
+}
+
+/**
+ * `· offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · ≈ (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was
+ * circle centre (10, 5) radius 3`: where the person says a shape of a layer should be. Left and up are along −u and +v as the tracing is
+ * shown. Never exact and never checked against a build; it says `layer changed since` (or `removed`) when the layer is no longer as it was
+ * (given the `layers` of the project).
+ */
+function offset(mark: OffsetMark, opts: { tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>> }): string {
+  const name = mark.shape.name === '' ? `shape ${mark.shape.index + 1} of ${mark.layer.name}` : mark.shape.name
+  const move = [0, 1, 2].map((i) => mark.to[i] - mark.from[i])
+  const now = opts.layers?.[`${mark.tracing}/${mark.layer.id}`]
+  const since = opts.layers === undefined ? '' : now === undefined ? ' · layer removed since' : now > mark.layer.revision ? ' · layer changed since' : ''
+  // From the photo only where the tracing has a lined-up photo; else it is told against what it is relative to, the shape the layer has on the tracing.
+  const lineup = lineupOf(mark, opts)
+  const where = onTracingOf(mark, opts.tracings)
+  const relative = lineup === undefined ? `from the layer's shape ${where} (≈)` : `${where} (≈, from the photo)`
+  return `· offset · ${name}: ${offsetWords(mark.by)} ${relative} · ≈ (${move.map(signed).join(', ')}) mm in X, Y, Z · layer ${mark.layer.id} "${mark.layer.name}" · was ${wasWords(mark.was)}${since}${lineup === undefined ? '' : ` · photo: ${lineup}`}`
 }
 
 /**

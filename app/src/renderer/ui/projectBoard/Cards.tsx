@@ -5,9 +5,11 @@ import { boardActions, useBoard } from '../../state/board'
 import { ensurePicture, pictureOf, usePictureUrl } from '../../state/boardPictures'
 import { reviewActions, roundsViewOf, useReview } from '../../state/review'
 import { useStore } from '../../state/store'
+import { useTracings } from '../../state/tracings'
 import { useNotePicture } from '../chat/useNotePicture'
 import { useHistory } from '../useHistory'
 import { type Facts, faceOf, refPieces, roundOfFrame } from './faces'
+import { TracingPicture } from './TracingPicture'
 
 // The cards of the board, drawn read-only. This layer is drawn again when a card, what a card shows, or the selection
 // changes, and never for a pan or a zoom: the camera moves the layer's transform and nothing in React hears of it.
@@ -122,6 +124,7 @@ const CardView = memo(
           <span className="pboard-id num">{card.id}</span>
         </header>
         {face.title !== undefined && face.title !== '' && <h3 className="pboard-title">{face.title}</h3>}
+        {card.kind === 'tracing' && card.source !== undefined && <TracingPicture objectId={objectId} id={card.source} />}
         {url && <img className="pboard-picture" src={url} alt="" draggable={false} />}
         {face.note && (
           <p className="pboard-note" data-missing={face.picture === 'missing' || undefined}>
@@ -173,6 +176,8 @@ export function Cards({ objectId, cards }: { objectId: string; cards: readonly C
   const scans = useStore((s) => s.scans)
   const scanViews = useStore((s) => s.scanViews)
   const views = useStore((s) => s.views)
+  const tracings = useTracings((s) => s.file?.tracings)
+  const cuts = useTracings((s) => s.cuts)
   const params = useStore((s) => s.scene?.params)
   const checks = useStore((s) => s.scene?.checks)
   // So that a mark's card can say it is held: in a round that was not sent.
@@ -186,6 +191,7 @@ export function Cards({ objectId, cards }: { objectId: string; cards: readonly C
   const history = useHistory(hasBuild)
 
   const markById = useMemo(() => new Map(marks.map((m) => [m.id, m])), [marks])
+  const tracingById = useMemo(() => new Map((tracings ?? []).map((t) => [t.id, t])), [tracings])
   const scanById = useMemo(() => new Map(scans.map((s) => [s.id, s])), [scans])
   const entries = useMemo(() => new Map<string, HistoryEntry>((history?.entries ?? []).map((e) => [e.id, e])), [history])
   const chosen = useMemo(() => new Set(selected), [selected])
@@ -203,6 +209,10 @@ export function Cards({ objectId, cards }: { objectId: string; cards: readonly C
       case 'scan': {
         const scan = card.source === undefined ? undefined : scanById.get(card.source)
         return scan ? { scan, scanVisible: scanViews[scan.id]?.visible !== false } : {}
+      }
+      case 'tracing': {
+        const tracing = card.source === undefined ? undefined : tracingById.get(card.source)
+        return tracing && card.source !== undefined ? { tracing, outline: cuts[card.source] !== undefined } : {}
       }
       case 'brief':
         return brief === undefined ? {} : { brief }

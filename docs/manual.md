@@ -791,7 +791,7 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   writes nothing then. That request is for the latest turn only; a file over 200 KB or too many lines is named without
   its lines, and a file you saved after the turn is said to have changed. It is a request, not a restore: it can be
   done wrongly. Nothing is kept of a turn of an earlier session for it.
-- **Refs are live.** `M4`, `lid/F12`, `lid/E3`, `lid/@top` (a name the model
+- **Refs are live.** `M4`, `T1` (a tracing: a click opens it in the Tracing view), `lid/F12`, `lid/E3`, `lid/@top` (a name the model
   gives a face or an edge) and `#deck` (a named set of yours) in the agent's text and in
   the cards are chips: hovering one lights it in the view, clicking a mark
   focuses it, clicking a face or an edge selects it (a name of several selects them all; a set selects its faces, edges and parts, and hovering it lights every member, strokes too). A `#name` that no set has is only text. A ref that names nothing
@@ -1049,6 +1049,8 @@ Open marks: M2 (moved), M6 (unchecked)
   sent. A mark you changed or put somewhere else is told again, as `(changed)
   M3 …`; one you reopened as `(reopened by the user)`. A dimension that is
   still a draft is told here with its value and verdict.
+- `tracings:` is there when the project has tracings: their ids, and what changed in them since the agent was last told (see "Tracings"). A mark on a tracing says `on T1` after its place;
+  one put on the photo is `≈` and carries the photo's line-up, and so does an offset.
 - `Dimensions` lists, with every prompt, each dimension the agent was sent
   that fails, is not measurable or was not measured on the last build, and how
   many pass. The head names the build the values are of, and says so while a
@@ -1205,6 +1207,9 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__history` | The builds kept of the project (see Files torno writes, `history/`), newest first: each with its id (`h41`), when, its revision if it was made in this run, what changed from the build before it in a line that also says what caused it (Claude and the prompt, your own edit, params, a go back) and whether it failed to build (kept as a line with no copies, and the reason), the checks of the model that failed and the parts with a defect (a build that fails its checks is kept all the same), how your dimensions stood when it was checked, and whether you starred it. With `id`, one build, with the paths of the copies of its Python files, to read when going back to it. The agent never restores them itself: only your "Go back" does, and Claude is told when it has. |
 | `mcp__torno__board` | Reads the board of the project as text: each card by its id, its kind and who made it (you, Claude, or torno), with what it says, the frames first with their cards in reading order, then the arrows. A frame by its name or id gives only that frame and its cards; `pictures: true` also sends the pictures of the cards, at most 6, each scaled to 1280 px. Hidden cards are left out. |
 | `mcp__torno__add_card` | Leaves a card of Claude's on the board: some text, a size (what it measures, a value, `mm` or `°`, a note; its source is always "from Claude"), or a picture of the view drawn as `look` draws it (at 1280 px, with its camera), in a frame by name (made, and Claude's, when there is none), with an arrow from or to a card and a word. It lands in a free spot, never over a card; in a frame of yours with no room left it goes just below the frame, and Claude is told so. With `card` it changes the text of, or with `remove` takes down, a card of Claude's own, and it refuses any change to a card of yours or one torno made. |
+| `mcp__torno__tracings` | Reads the project's tracings as a list (id, name, plane, layout, who made each, how many layers and shapes), or one by `tracing` (`T1`): its plane and how it was made (a face tracing says it follows its face, or that it is lost), the build its outline is of, each part's outline (area as the kernel's, `≈` where it is not exact, loops, bounds and points in mm along the tracing's own `u` and `v`, thinned as `section` thins them and said so), the layers with every shape in mm and who made each, and the photo's line-up in words (main looks for the photo's file: when it is not on this computer, the words say `the photo is not on this computer`, and the line-up is still told). With `picture: true` it also sends a picture of the tracing (its outline on a 10 mm grid, with the layers and, when it has one that you have not hidden, the straightened photo under them at your fade: the one place the photo goes to Claude), at 1280 px or `size` up to 2000, and what maps its pixels to mm (`1 px = 0.212 mm; u = 0 at x = 140, v = 0 at y = 860, v up`), so that Claude can trace in mm what it sees. A photo's numbers are never exact. |
+| `mcp__torno__add_tracing` | Lays a tracing of Claude's own, on a main plane (`{"main": "XZ", "offset": 0}`), a flat face of the last build (`{"face": "block/F31"}`) or a plane given by a point and a normal, with a `name` and the `layout` (the one on show by default); torno makes the plane and the number, and the reply says which way `u` and `v` run. With `tracing` and `remove: true` it takes down a tracing of Claude's own; one of yours is refused by your name, and no tool changes one. |
+| `mcp__torno__add_layer` | Adds a layer of Claude's to any tracing, yours too: a `name`, one of the eight colours and `shapes` (polylines, circles and labels, in mm along the tracing's `u` and `v`), at most 500 shapes in a layer, 20 layers and 20,000 points in a tracing, every number finite and within ten diagonals of the outline. A layer of Claude's with the same name is replaced and keeps its number; a layer of yours is refused by your name. With `remove: true` it takes down Claude's layer of that name. The reply gives the layer's number. |
 | `mcp__torno__expect` | Called before an edit: what it should change, as checks (a part's `volume`, `faces`, `edges` or `size` as a `value` or a `change` with a `tolerance`; a `measure` with the number it `expected`; `unchanged` parts). The next successful build is held against it, and the answer to the edit says in a line how many checks were met and which were not, with the numbers (`≈` where the kernel's is not exact). Kept in memory for that one build, told once, no mark, and it never holds a turn back. A ref to a face of a part whose face count changed is told as moved and not measured. `scene` gives the last verdict. |
 | `mcp__torno__try_fillet` | Tries a fillet (or a chamfer, `kind: 'chamfer'`) of `radius` mm of some edges of a part (`part`, `edges` as refs such as `lid/E3`) on the last good build and throws it away: whether it works, and when it does not, the edges that fail alone or in pairs and the largest radius that works, as a failed build's error says it. It changes nothing. |
 | `mcp__torno__try_params` | Builds the model with other values of its `Params` (`set`, the fields `scene` lists under `params` as editable: `{"wall": 2.4}`) in a worker of its own and throws it away, then says whether it built (or the model's error), what changed against the last build part by part, and the measurements (`measure`: `bbox`, `volume`, `area`, `mass` or `distance` of whole parts by name) and checks (`check`: as the `check` tool, parts by name) asked for, all worded as those tools word them and said to be of the trial. It changes nothing: not the model, not the values you are trying in the window, not the build on screen; it is made on top of your values, and refused when there is no memory for a second build or while a build runs. To keep a value the agent edits the model. |
@@ -1856,15 +1861,17 @@ replace its own proposals (12 at most) and never a view of yours.
 ## The board
 
 Each project has a board: a canvas of cards where what the project knows is laid out, framed and put in order, so that
-you can point Claude at a frame ("work through Latch") instead of explaining it again. **Board** and **Model** swap in the main
-area by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys). The window remembers the last choice
+you can point Claude at a frame ("work through Latch") instead of explaining it again. **Board**, **Model** and **Tracing** (below) take the main
+area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); a project with no tracing goes round
+the board and the model only. The window remembers the last choice
 for each project; a project opens on the model until its board has a card of yours or Claude's. The model stays
-loaded while the board is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
+loaded while the board or a tracing is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
 
 **What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
 `brief.md` (its text, read only, scrolling), each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
-its note and its state) and each scan. Removing one of these hides it: the mark, scan or photo is untouched, and "Hidden cards"
-at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed) its card goes with it. These
+its note and its state), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
+build with its layers; before a build of this run it says "build to see the outline", and a double click opens it in the Tracing view). Removing one of these hides it: the mark, scan, photo or tracing is untouched, and "Hidden cards"
+at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed, a tracing removed) its card goes with it. Claude is told of a tracing's card as `C9 · tracing T1 "Front of the block": XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)`, and it is new to Claude when the name, plane, layers or line-up change. These
 you pin, with "Pin to board":
 
 - a **build**, from the strip of builds under a prompt in the chat (a small "Pin" on each picture). The card keeps the
@@ -1955,6 +1962,120 @@ pictures torno let go of (a removed card's, a doodle drawn on again) are listed 
 the project is first opened in a later run, unless a card has them again or a file kept aside names them
 (`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on
 that list is never deleted, whatever the board names: switching branch never takes one.
+
+### The tracing view
+
+A **tracing** lays one plane of the model flat, at true size, on a millimetre grid: the outline is the kernel's exact cut of the
+last build, drawn again after every build. **Tracing** in the switch shows it in place of the 3D view (the model stays loaded
+under it). The sheet has a faint grid every millimetre once you are zoomed in and a stronger one every 10 mm (every 100 mm when far out), over the whole of what you see however far you move the sheet, the lines
+`u = 0` and `v = 0` in the colour of the axis they run along, each part named on its outline, a scale bar at the bottom left and
+a title block at the bottom right. Zoom is told as a ratio: `1:1` is one CSS millimetre on the screen for a millimetre of the
+model (a screen does not say its true pixel size, so this is the page's own millimetre, not a ruler's). The wheel or two fingers
+move the sheet and a drag moves it, `Ctrl` and the wheel (or a pinch) zoom about the pointer, **Fit** or `Shift+1` frames the
+outline and what is drawn on it, not a photo that is much larger than they are (clear of the panel at the top left: on a narrow window it goes right of the panel or below it), **1:1** or `Shift+0` sets true size. The pointer's place on the plane, `u, v` in millimetres, is read out at the bottom left.
+
+The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
+tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
+(the Section bar has **Make a tracing** too, which lays the cut flat), or on a face: the view goes to the model, and the next flat face you
+select is the tracing's (a face that is not flat is refused, in words). The panel at the top left says its name (**Rename** and
+**Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
+outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
+holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
+tracing is cut unspread. **Show in 3D** (here and at the foot of the tools) puts the tracing in the model view, as [below](#a-tracing-in-the-3d-view); **Export** opens the export sheet on this tracing's drawing (see
+[Export](#export)). The panel's **Photo** says how the photo is lined up, below.
+
+**Layers** lie over the outline: each is a named set of shapes (lines, circles and labels) in one of eight colours (blue, teal,
+violet, ochre, plum, slate, sky, olive; never red or green, which are your marks' colour and Claude's). Both you and Claude make
+them. The panel lists each with its colour, its name and how many shapes it has, and says `by Claude` on Claude's. The eye hides
+or shows any layer. **Add layer** makes one of your own (a name, free in this tracing, and a colour; it offers `Layer 1` and the
+first colour not yet used); the cross removes one of yours, and **Undo** puts it back, shapes and all and with the number it had, for a few seconds. You change
+and remove only your own layers, and Claude only its own: Claude's you can hide but not change.
+
+The tools are at the left edge of the sheet: **Select** (`V`) moves around the sheet by dragging and selects, **Trace** (`T`) draws into your
+layer, **Pin** (`P`) leaves a note on a point and **Ink** (`I`) draws in the plane, **Measure** (`M`) measures between two points and **Should be here** (`O`) drags a shape to where it belongs (all below). With Trace in hand the panel says what it draws: a **Line**
+(click its points; `Enter` ends it, or a click on its first point closes it; `Backspace` takes the last point back), a **Circle**
+(click its centre, then a point on it) or a **Label** (click, then type it and press `Enter`). Each finished shape is kept at
+once, in the layer ringed in the panel (click the ring on another of your layers to draw into that one). The points snap, within
+10 pixels, to the exact corners of the cut, the centres of its holes and the model's vertices in the plane (a vertex that is only
+projected onto the plane is drawn fainter and says so), and the pointer's hint says which: `corner of the cut`,
+`hole centre head/E14 ⌀16`. Hold `Ctrl` to turn snapping off. A free click is kept to a ten thousandth of a millimetre; a snapped
+one is the kernel's, in full. A drag with Trace in hand still moves the sheet, and `Esc` gives up the shape under way, then puts
+Select back.
+
+**Marks on a tracing.** A pin or ink made here is a mark like any other: it is in the marks list, goes to Claude with your next
+prompt, joins the review that is open on its layout (the bar's want or don't want applies), and ink is a card on the board as any sketch is. Claude is told which
+tracing it is on (`T1`) and lies in that plane within a millionth of a millimetre, which main checks when the mark is made. **Pin**: click
+a point, type its note where it is and press `Enter` (`Esc` gives it up; a note left empty makes no pin). On the outline, within the part's
+tolerance of a face, the pin is tied to that face as a pin in the 3D view is (its ref and the kernel's line of the face); inside the cut or over
+the photo it is a point in the plane, tied to no part. **Ink** is a sketch whose one plane is the tracing's: a freehand stroke (press and
+drag), a line (press and drag, or click its two ends) or a point to point line (a click for each point, `Enter` ends it), rough by nature,
+snapping as Trace does and not with `Ctrl` held; `I` again takes the next pen, `Backspace` takes a point back and `Ctrl+Z` a stroke. Each stroke is kept at once;
+leaving Ink (another tool, another tracing, or the model) keeps the sketch and draws its card from this view at 1280 px. The sketch is told to Claude as any
+sketch is, with its plane named as the plane of the tracing. **Select** picks the mark or the shape of a layer under the pointer within 8 pixels (a mark before
+a shape, and it is ringed); `Delete` removes the mark if it is yours, and **Undo** puts it back for ten seconds. Claude's marks are not removed here:
+it resolves them. When a build moves the plane of a tracing on a face along its normal, every mark on it moves with it by the same distance, in one change of the marks, and
+stays in the plane; a pin or ink on a tracing is not put on another part by a click in the 3D view, and the layout's spread does not move it. A tracing that is removed
+leaves its marks where they are: they say `on T1 (removed)`, and join the tracing again if it is put back.
+
+**Measure and Should be here** are about a number or a layer, not about the model, so the review's want and don't want do not apply to them: neither carries an
+intent, neither joins a round, and neither is ever checked against a build (they are never *drifted*; they stay as you made them). Both go to Claude with your next
+prompt like any mark. **Measure** (`M`): click two points; the pointer's note reads the number as you move, and a click snaps as Trace does. When both ends are
+snapped to the kernel's points of the build on show (a corner of the cut, a hole centre, a vertex in the plane) the number is exact, is worked out by torno from those
+numbers and says `exact on build h41` (the build's id in the history, which is the same in every run of torno; a build the history does not keep is said so). Any other measure is `≈`: it says how it was found, `on the photo, lined up with fit 0.4 mm` when an end is on the photo (a
+free click over the photo and off the outline) or `freehand`, and a snapped end that is not within a hundredth of a millimetre of the kernel's point is refused. A measure is made
+once and never measured again: after a later build it keeps its value: an exact one still says `exact on build h41`, and an `≈` one says `measured on build h41`. It has no expected value and no verdict. **Should be here**
+(`O`): press on a shape of a layer (yours or Claude's) and drag it to where it belongs. The shape stays ghosted where it was, the copy moves in your colour, and the note at
+the pointer reads `M15 head bolt 4 should be here · 1.8 mm left, 0.6 mm up` (left and up are along the sheet's `-u` and `+v`; the note says `M15` once the shape has a mark). `Shift` keeps the
+drag to the axis it has gone further along, and the arrow keys nudge it a tenth of a millimetre, while you drag and after you let go. Letting go makes the mark, one for each
+shape of a layer: dragging the same shape again changes your draft rather than adding another (one Claude has already been told of is left, and a new one is made). A shape's
+reference point is a circle's centre and the centroid of a polyline's points (the mean of them, not of its area). The mark keeps a copy of the shape as it was, so it still says
+what moved after Claude replaces the layer, and says `layer changed since` once the layer's revision is newer than the mark's. It is never exact: it is where you say a shape belongs,
+by eye. Claude is told it as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo)`, then the move in the model's frame, `≈ (−1.8, 0, +0.6) mm in X, Y, Z` (never exact, whatever the photo), the layer, and the photo's line-up (`photo: lined up by 4 points, straightened: 4.731 px/mm at the centre, turned 2.1°, fit 0.4 mm; not exact, and true only in the tracing's plane`). `(≈, from the photo)` is said only when the tracing has a lined-up photo; with none it says what the move is relative to and that it is not exact, `1.8 mm left, 0.6 mm up from the layer's shape on T1 (≈)`. A pin you put on the photo (one that is on no part of the model: a pin on the outline is tied to the face under it) and the ink you draw over it are told `on T1 (≈, from the photo)` with the same line-up. With every prompt Claude also gets one line when the project has tracings, `tracings: T1, T2 (1 changed since you were told: T1's photo was lined up again). Read them with tracings.`, saying what changed since its last prompt (a name, a plane, the layers, a photo, a face that is gone or back, a tracing made or removed; not a fade or what is hidden). With more than eight tracings it names eight and counts the rest. What Claude was told is kept in `tracings/told.json` once the prompt is delivered.
+
+### A photo under a tracing
+
+A tracing keeps one **photo**, under the outline, lined up with it so that what is on the photo can be traced in millimetres. **Add photo** in the
+panel takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
+the same. torno turns the picture the way the camera held it, scales it to at most 4000 pixels on its long edge and keeps its own copy in
+`.torno/tracings/photos/`, a folder git ignores: a photo stays on this computer, and a tracing opened on another one says `photo not on this
+computer`, with its line-up still told. HEIC is not read (set the phone to Most compatible, or export as JPEG).
+
+The view then splits: the photo on the left, the tracing on the right, each with its own pan and zoom (the wheel or a drag moves, `Ctrl` and the
+wheel zoom, **Fit** frames). You click the same spots in order, a spot on the photo and then its twin on the tracing, and each pair is numbered `1`,
+`2`, … in one colour on both sides. Drag a marker to move its click, and `Backspace` takes the last click away. Clicks on the tracing snap, within 10
+pixels, to the exact corners of the cut and the centres of its holes (`Ctrl` held turns that off), and a snapped click is the kernel's point, not yours.
+The bar shows what the clicks say as you make them, `scale 4.73 px/mm · angle 2.1° · fit 0.4 mm (5 points)`, and **Preview** lays the photo faded over
+the tracing as soon as the points are enough. Two points give a scale, a turn and a place; the fit is only told when a point is spare (`no spare point to
+check it` with exactly two). **Straighten (4 points)**, off until you ask (`S`), fits a perspective to four points or more, for a photo taken at an
+angle. **Done** (`Enter`) sends the clicks: torno fits them again itself and keeps the result; **Cancel** (`Esc`) leaves the line-up as it was.
+Under the bar it says what a line-up is worth: true only in the tracing's plane, since what stands nearer the camera looks bigger. The tracing is shown
+here with `v` up whichever way its plane's axes point in the model, as a photo of the plane's front sees it.
+
+The photo's scale, turn and fit are never exact, and the panel says `not exact` beside them. The straightened copy of the photo (the photo warped
+into the tracing's millimetres, at its own pixels per millimetre and at most 4000) is what the sheet, the board card, the export and Claude's picture
+all place, by its rectangle in millimetres; it is made by the window when a line-up is kept, and made again when this computer has the photo and not the
+copy. The Photo section shows the thumbnail, `4.73 px/mm`, `2.1°`, how it was lined up (`5 points, straightened, fit 0.4 mm`), a **Fade** slider (sent
+once, when you let go), **Hide** (the line-up stays), **Line up again**, **Swap photo** (the points you clicked on the tracing stay, and only the
+photo's are asked for again) and **Remove photo**. Claude never lines a photo up, swaps, fades or removes it.
+
+### A tracing in the 3D view
+
+**Show in 3D** puts a tracing in the model view, in its plane and at true scale: its photo (the straightened copy) as a translucent picture at the
+photo's fade times 0.6, the outline of the last build in the ink colour, each layer that is not hidden in its own colour (a label is a small cross at
+its place), and a faint sheet, with its edge, a margin past all of it. It is for reading the tracing against the parts, not a surface: nothing of it is
+written into the depth of the view, so the parts show through it, and it shows through the parts the plane cuts. It is never cut by a section, as marks are
+not, and it is never picked: a click goes through to the parts. The switch is a button in the tracing's panel and one under its tools, pressed while the
+tracing is shown. A tracing is drawn in the layout it was made in. Each tracing shown has a row under **Tracings** in the layers list (there is none while no
+tracing is shown), with the eye that puts it away. Its marks are drawn with the marks, whatever is done to the tracing.
+
+Which tracings are shown is how you last looked at the project, and is kept in `scene.json` as `tracingsShown`, with the layers and the section. It is a view, not
+a change: it does not go to Claude as one, and no mark, build or file of the model changes with it. A tracing shown is cut again after every build, like the one you
+have open. A picture Claude takes with `look` draws the tracings shown on your screen, in the picture's layout, and its caption says so: `· tracing T1 shown in its
+plane`. A tracing whose photo is not on this computer is drawn without it.
+
+The marks on a tracing are drawn in 3D as their kinds are, whether the tracing is shown or not: a pin and ink as in any view; a **Measure** as a line with a tick at each end, its
+chip at the middle, reading `≈ 41.8 mm`, or `41.8 mm` when it is exact; and a **Should be here** as an arrow from where the shape is to where you say it belongs, in
+your colour, its chip at the head.
 
 ## The page of projects
 
@@ -2060,10 +2181,10 @@ triangles, closed, volume within 0.04 % of the model`. Checked, not printed. A
 3MF can be opened once saved in the program your system opens 3MF files with,
 your slicer, when "Open it once saved" is ticked.
 
-### A picture of the view, and a drawing of its section
+### A picture of the view, and a tracing
 
 The sheet is grouped by who will open the file: **a page to look at** (the HTML page), **the CAD file** (STEP, STL,
-3MF), and, when the sheet is of the project on show, **a picture** (PNG) and **a drawing of a section** (SVG, PDF),
+3MF), and, when the sheet is of the project on show, **a picture** (PNG) and **a tracing** (SVG, PDF),
 which are of the view as it is on screen. Nothing is uploaded, and no agent has a tool for any of them: the save
 dialog opens in `.torno/exports/` with a name offered, and the file is written whole or not at all (a name without
 the ending gets it).
@@ -2084,6 +2205,14 @@ the ending gets it).
   out.
 - **PDF** is that drawing printed on a page of its own size in millimetres (`<name>-section-r<revision>.pdf`), by a
   window torno never shows.
+- **A tracing of the project** is drawn the same way, from its own plane, instead of the section on screen: choose
+  it in the list "Drawing of" (the section on screen, or `T1`, `T2` and so on), and the file is
+  `<name>-T1-r<revision>.svg` or `.pdf`. It is drawn from the last good build, and a build that lands while it is
+  made is refused. Its title block adds the tracing's ref, name and plane, and each part is named on its outline
+  with a thin tab in the part's colour. "Layers" (ticked) draws the layers that are shown, each in its colour, with a
+  legend; "Marks on it" (not ticked) draws the pins and arrows made on the tracing; "The photo" (not ticked: a photo may show the real world) puts the
+  straightened photo under the outline as an embedded image, at its fade, with its line-up and that it is not exact in the title block. It is there to tick
+  once the photo is lined up.
 
 ## Keys
 
@@ -2165,7 +2294,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | With a tool in hand | `Ctrl` | Sketch: hold it while drawing to turn snapping off |
 | With a tool in hand | `Esc` | Sketch: give up the stroke under way, then leave the sketch (it is kept) |
 | With a shape in hand | `G` `R` `T` | Move, rotate or size the shape with its handles |
-| Board | `Ctrl+Tab` | The board of the project, or the model again |
+| Board | `Ctrl+Tab` | The board, the model and a tracing, in turn |
 | Board | `Shift+1` | Board: fit all the cards |
 | Board | `V` | Board, Select: click a card, drag on empty space for a box; Shift adds |
 | Board | `N` | Board, Text: a card for a note |
@@ -2179,6 +2308,25 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Board | `Delete` `Backspace` | Board: remove the selected cards and arrows (those that came by themselves are hidden) |
 | Board | `Ctrl+Z` | Board: undo the last change you made to cards (up to 50) |
 | Board | `Esc` | Board: end what is being written, then put the tool back to Select, then let go of the selection |
+| Tracing | `Shift+1` | Tracing: fit the outline |
+| Tracing | `Shift+0` | Tracing: show it at true size, 1:1 |
+| Tracing | `V` | Tracing, Select: move around the sheet by dragging |
+| Tracing | `T` | Tracing, Trace: click the points of a line, the centre and edge of a circle, or the place of a label, into your layer |
+| Tracing | `P` | Tracing, Pin: click a point and type its note where it is; Enter keeps it |
+| Tracing | `I` | Tracing, Ink: draw in the plane, freehand, a line or point to point; again, the next pen |
+| Tracing | `M` | Tracing, Measure: click two points; snapped to the cut's points the number is exact, else it is ≈ and says how it was found |
+| Tracing | `O` | Tracing, Should be here: drag a shape of a layer to where it belongs; Shift keeps one axis |
+| Tracing | `Left` `Right` `Up` `Down` | Should be here: nudge the shape being dragged, or the one just placed, 0.1 mm |
+| Tracing | `Enter` | Trace, Ink: end the line (in Trace a click on its first point closes it) |
+| Tracing | `Backspace` | Trace, Ink: take the last point back |
+| Tracing | `Ctrl` | Trace, Ink: hold it while clicking or drawing to turn snapping off |
+| Tracing | `Esc` | Trace, Pin, Ink, Measure, Should be here: give up what is under way, then put Select back |
+| Tracing | `Delete` | Select: remove the mark selected, if it is yours (Undo is offered for ten seconds) |
+| Tracing | `Ctrl+Z` | Ink: take the last stroke back |
+| Tracing | `S` | Line-up: straighten the photo (4 points or more), or only turn and scale it |
+| Tracing | `Backspace` | Line-up: take the last point back |
+| Tracing | `Enter` | Line-up: done, when there are points enough |
+| Tracing | `Esc` | Line-up: cancel, and leave the line-up as it was |
 | Page of projects | `Left` `Right` `Up` `Down` `Home` `End` | Move among the cards |
 | Page of projects | `Enter` | Open the card in focus |
 | Page of projects | `/` | Filter by name: a letter or a figure does too |
@@ -2231,7 +2379,7 @@ place.
 
 | File | What | In git |
 |---|---|---|
-| `scene.json` | how you last looked at the project: the layout, the layer visibility, the section, the explode of each layout, how each scan is shown, and the saved views (`views`) | travels with the project |
+| `scene.json` | how you last looked at the project: the layout, the layer visibility, the section, the explode of each layout, how each scan is shown, the saved views (`views`) and the tracings shown in the 3D view (`tracingsShown`) | travels with the project |
 | `params.json` | the values you are trying in place of the model's `Params` defaults, with the default the file had; trying a value never writes the model file (a Go back puts the values back as a build had them) | ignored |
 | `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured; and the review rounds (the build each reviewed, which marks are in it, and what you judged of each) | travels |
 | `sets.json` | the named sets of the project (see "Named sets"): each with its name, comment, colour, layout, who made it, and its members: faces and edges with the kernel's selector for each, their point and normal and whether the last build found them, parts, and strokes by id (`M7/k3`) | travels |
@@ -2239,6 +2387,7 @@ place.
 | `board/board.json` | the board (see "The board"): its cards with their places, sizes and text, the frames and the arrows; for a card that shows a build, a copy of what it says | travels |
 | `board/pictures/` | the pictures and doodles of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
 | `board/told.json` | what Claude was last told of each card, so that only what is new is said | ignored |
+| `tracings/told.json` | what Claude was last told of each tracing (its name, plane, layers and photo's line-up), so that its line says what changed | ignored |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
 | `profile.json` | the printer and material the project is made for (a copy of your choice under "Print profile") | travels with the project |
 | `agent.json` | whether Claude Code is shown as a chat or a terminal; without it, in a chat | travels |
@@ -2258,7 +2407,7 @@ yours, and is not added against. What travels with the project in git is what
 is the project's: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `board/board.json`, `profile.json` and `agent.json`.
 What changes with every build or session, or is of this machine, is
 ignored: `state.md`, `session.json`, `chat/`, the thumbnail, `builds.jsonl`, `history/`, `views/`,
-`board/pictures/`, `board/told.json` and `exports/`. Add `.torno/` to the workspace's `.gitignore` if you
+`board/pictures/`, `board/told.json`, `tracings/told.json` and `exports/`. Add `.torno/` to the workspace's `.gitignore` if you
 want none of it in git.
 
 Outside the workspace:

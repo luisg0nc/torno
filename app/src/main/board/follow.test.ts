@@ -13,6 +13,7 @@ let board: BoardStore
 let marks: Array<{ id: string; layout: string; round?: string; author?: 'user' | 'agent'; intent?: 'want' | 'dont' }>
 let rounds: Round[]
 let scans: string[]
+let tracings: Array<{ id: string }>
 let fail: boolean
 
 const deps = () => ({
@@ -23,7 +24,8 @@ const deps = () => ({
     return marks as Mark[]
   },
   rounds: async () => rounds,
-  scans: async () => scans
+  scans: async () => scans,
+  tracings: async () => tracings
 })
 const read = (): BoardFile => JSON.parse(readFileSync(join(dir, '.torno', 'board', 'board.json'), 'utf8'))
 const sources = (): string[] => read().cards.map((c) => `${c.kind}:${c.source}`)
@@ -34,6 +36,7 @@ beforeEach(() => {
   marks = []
   rounds = []
   scans = []
+  tracings = []
   fail = false
 })
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
@@ -93,6 +96,17 @@ describe('reconcileProject', () => {
     scans = ['S1']
     await reconcileProject(deps(), 'bracket')
     expect(sources()).toEqual(['reference:reference/photo-1.jpg', 'mark:M1', 'scan:S1'])
+  })
+
+  it('shows the tracings, and leaves the board alone when they cannot be read', async () => {
+    tracings = [{ id: 'T1' }]
+    await reconcileProject(deps(), 'bracket')
+    expect(sources()).toEqual(['tracing:T1'])
+    tracings = []
+    await reconcileProject({ ...deps(), tracings: async () => Promise.reject(new Error('unreadable')) }, 'bracket')
+    expect(sources()).toEqual(['tracing:T1'])
+    await reconcileProject(deps(), 'bracket')
+    expect(sources()).toEqual([])
   })
 
   it('leaves the board alone when the marks cannot be read', async () => {

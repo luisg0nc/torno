@@ -5,6 +5,7 @@ import { number } from '../../shared/format'
 import type { Camera, ScanColouring, SectionPlane, ViewName } from '../../shared/view'
 import type { FocusBox } from '../../shared/focus'
 import { hiddenBehind } from './focus'
+import { tracingsSaid, type TracingLayer } from './tracings'
 import { MARK_LAYERS, type Highlights } from './highlight'
 import type { MarkLayer } from './marks/MarkLayer'
 import { PERSPECTIVE_NOTE, chipSize, drawDeviationLegend, drawLabels, drawOverlay, overlayFonts, overlayUnit, type LabelStyle } from './overlay'
@@ -82,6 +83,8 @@ export interface PictureHost {
   readonly renderer: THREE.WebGLRenderer
   readonly scene: THREE.Scene
   readonly marks: Pick<MarkLayer, 'activeId' | 'setActive' | 'setLights' | 'show' | 'showDraft' | 'extend' | 'update' | 'labels' | 'split'>
+  /** The tracings shown in the model view; absent where there are none to draw (a test's stand-in). */
+  readonly tracings?: Pick<TracingLayer, 'show' | 'drawn' | 'extend'>
   readonly highlights: Pick<Highlights, 'setVisible'>
   readonly scans: Pick<ScanLayer, 'showOnly' | 'shown' | 'box' | 'boxIn' | 'built' | 'colourFor'>
   /** The viewport has been disposed of. */
@@ -224,6 +227,11 @@ export function asPictured<T>(host: PictureHost, state: PictureState, draw: (ext
     // A scan may stand far from the parts: the camera reaches what is drawn of it.
     const around = host.scans.box()
     if (around) extent = reaching(extent.clone(), around, extent)
+    // A tracing shown on screen is in the picture, in the plane it is in, of the picture's layout: the camera reaches it.
+    if (host.tracings) {
+      host.tracings.show(state.layout)
+      extent = host.tracings.extend(extent.clone(), state.layout)
+    }
     host.marks.setActive(null)
     host.marks.setLights(false)
     host.marks.show(state.withMarks ? state.layout : null, state.notDrawn)
@@ -246,6 +254,7 @@ export function asPictured<T>(host: PictureHost, state: PictureState, draw: (ext
     host.highlights.setVisible(true)
     host.marks.setActive(active)
     host.marks.setLights(true)
+    host.tracings?.show(host.layout())
     host.showMarks() // sized for the screen again by the next frame drawn
     host.marks.showDraft(true)
     if (otherLayout) host.layGround(host.layout())
@@ -471,9 +480,11 @@ export class PictureMaker {
     const names = shown.map((p) => p.part.name).join(', ') || 'none'
     const projection = view.ortho ? 'orthographic' : PERSPECTIVE_NOTE
     const cutNote = section ? ` · ${describeSection(section)}` : ''
+    // The tracings shown on screen are in the picture too, and it says so.
+    const tracingNote = tracingsSaid(host.tracings?.drawn(req.layout) ?? [])
     // A scan is the surroundings: a view fitted to the parts shows a corner of it. That is said, with what takes all of it in.
     const beyond = scanBoxes.filter((one) => drawn.some((scan) => scan.id === one.id) && reachesBeyond(camera, one.box)).map((one) => one.id)
-    const caption = `view ${viewName} · layout ${req.layout} · parts ${names}${scansNote(drawn, req.layout)}${beyondNote(beyond, !req.focus && typeof req.view === 'string' && req.view !== 'current' && req.frame !== 'all')}${colouring ? colouringNote(colouring, tokens, solid) : ''}${cutNote}${explodedNote(explode, drawn.length > 0, split)}${together}${req.focus ? ' · framed on the focus' : ''} · ${projection} · ${width}×${height}`
+    const caption = `view ${viewName} · layout ${req.layout} · parts ${names}${scansNote(drawn, req.layout)}${beyondNote(beyond, !req.focus && typeof req.view === 'string' && req.view !== 'current' && req.frame !== 'all')}${colouring ? colouringNote(colouring, tokens, solid) : ''}${cutNote}${tracingNote}${explodedNote(explode, drawn.length > 0, split)}${together}${req.focus ? ' · framed on the focus' : ''} · ${projection} · ${width}×${height}`
     const layout = req.layout
     const encoded = async (): Promise<Picture> => {
       return { png: pngBytes(picture), width, height, caption, layout, scans: drawn.map((scan) => scan.id), exploded: explode !== null, ...(hiddenBy ? { hiddenBy } : {}) }

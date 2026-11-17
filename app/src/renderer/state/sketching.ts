@@ -3,6 +3,8 @@ import { createStore } from 'zustand/vanilla'
 import type { SketchDraft } from '../../shared/bridge'
 import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MOST_SKETCH_PLANES, MOST_SKETCH_POINTS, MOST_SKETCH_STROKES, type Anchor, type Mark, type SketchMark, type NewStroke, type SketchPlane, type SketchTake, type Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
+import { type Tracing } from '../../shared/tracings'
+import { inkPlane } from '../ui/tracings/inkTool'
 import { type PlaneDraft, mainPlane, withOffset } from '../tools/sketch/planes'
 import type { Pen } from '../tools/sketch/pens'
 import { reviewActions } from './review'
@@ -54,6 +56,8 @@ export interface SketchEnv {
   here(): { objectId: string; layout: string; revision: number; camera: Camera; centre: Vec3 } | null
   /** The picture of the card: the view from `camera` at 1280 px, with the marks drawn. Null when none can be drawn. */
   picture(camera: Camera): Promise<Uint8Array | null>
+  /** The picture of the card of ink on a tracing: the tracing view at 1280 px with the ink drawn. Without it the card keeps its placeholder. */
+  tracingPicture?(objectId: string, id: string): Promise<Uint8Array | null>
   /** Says why a change was not kept. */
   say(objectId: string, message: string): void
 }
@@ -61,6 +65,12 @@ export interface SketchEnv {
 let env: SketchEnv | null = null
 export function setSketchEnv(next: SketchEnv | null): void {
   env = next
+}
+
+/** The project, layout, build and camera on show, as a sketch is begun from them; null with none (the view is not up, or nothing is built). */
+export function sketchHere(): { objectId: string; layout: string; revision: number; camera: Camera } | null {
+  const here = env?.here()
+  return here ? { objectId: here.objectId, layout: here.layout, revision: here.revision, camera: here.camera } : null
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -114,6 +124,8 @@ function facing(camera: Camera): 'XY' | 'XZ' | 'YZ' {
 
 /** Opens a new sketch of the project on show, on the plane its view faces through the middle of the parts; false when there is no project on show to sketch. Nothing is written until the first stroke. */
 export function startSketch(objectId: string): boolean {
+  // Ink on a tracing is the tracing view's own: the Draw tool does not take it over, and it is let go (what it holds is kept).
+  if (inkIsOpen()) leaveSketch()
   if (state().open) return state().open!.draft.objectId === objectId
   const here = env?.here()
   if (!env || !here || here.objectId !== objectId) return false
@@ -124,6 +136,31 @@ export function startSketch(objectId: string): boolean {
   set({ open: { draft: { objectId, layout: here.layout, revision: here.revision, camera: here.camera, name: '', note: '', take: 'rough', planes: [{ id: 1, ...first }], strokes: [] } }, plane: 1, problem: null, picking: null, undoable: 0 })
   return true
 }
+
+/**
+ * Opens ink on a tracing: a sketch of the person's whose one plane is the tracing's own (`inkPlane`), rough by nature. The ink of that tracing
+ * that is open already goes on; any other sketch that is open is let go (what it held is kept). Nothing is written until the first stroke.
+ * False when there is no build on show to draw on.
+ */
+export function startInk(objectId: string, tracing: Pick<Tracing, 'id' | 'layout' | 'plane'>): boolean {
+  const open = state().open
+  if (open && open.draft.objectId === objectId && open.draft.tracing === tracing.id) return true
+  if (open) leaveSketch()
+  const here = env?.here()
+  if (!env || !here || here.objectId !== objectId) return false
+  history = []
+  set({
+    open: { draft: { objectId, layout: tracing.layout, revision: here.revision, camera: here.camera, name: '', note: '', take: 'rough', tracing: tracing.id, planes: [inkPlane(tracing)], strokes: [] } },
+    plane: 1,
+    problem: null,
+    picking: null,
+    undoable: 0
+  })
+  return true
+}
+
+/** Whether ink on a tracing is the sketch that is open. */
+export const inkIsOpen = (s: Sketching = state()): boolean => s.open?.draft.tracing !== undefined
 
 /** Opens a sketch of the person's again, in the same tool. The agent's is not the person's to change. */
 export async function editSketch(mark: SketchMark): Promise<void> {
@@ -156,6 +193,7 @@ export async function editSketch(mark: SketchMark): Promise<void> {
         ...(mark.diameter === undefined ? {} : { diameter: mark.diameter }),
         planes: mark.planes.map((p) => structuredClone(p)),
         strokes: mark.strokes.map((s) => structuredClone(s)),
+        ...(mark.tracing === undefined ? {} : { tracing: mark.tracing }),
         ...(mark.anchor ? { anchor: structuredClone(mark.anchor) } : {})
       }
     },
@@ -208,7 +246,8 @@ export async function finishSketch(): Promise<void> {
   const id = now.id
   if (id && env) {
     try {
-      const png = await env.picture(now.draft.camera)
+      // Ink on a tracing is drawn from the tracing's own view, and the sketch of the 3D view from where it was drawn.
+      const png = now.draft.tracing === undefined ? await env.picture(now.draft.camera) : ((await env.tracingPicture?.(now.draft.objectId, id)) ?? null)
       if (png) await env.marks.sketchPicture(now.draft.objectId, id, png)
     } catch {
       // The card is left with its placeholder: the sketch is none the less kept.
@@ -216,7 +255,7 @@ export async function finishSketch(): Promise<void> {
   }
   leaveSketch()
   // Done is the end of drawing: the tool in hand goes back to Select (a tool put down for another is not asked).
-  if (toolStore.getState().tool === 'draw') setTool('select')
+  if (toolStore.getState().tool === 'draw' && now.draft.tracing === undefined) setTool('select')
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -337,7 +376,7 @@ export function setPlane(plane: number | 'surface'): void {
 /** Moves the active plane to `offset` mm: where strokes are on it, it stays and a plane of its own is made at the offset. A plane of a locked view has none. */
 export function setOffset(offset: number, opts: { typed?: boolean } = {}): void {
   const plane = activePlane()
-  if (!plane || !Number.isFinite(offset) || plane.from.kind === 'view') return
+  if (!plane || !Number.isFinite(offset) || plane.from.kind === 'view' || plane.from.kind === 'tracing') return
   const moved = withOffset(plane, offset)
   if (moved === plane) return
   const { id: _id, ...draft } = moved
@@ -347,7 +386,7 @@ export function setOffset(offset: number, opts: { typed?: boolean } = {}): void 
 
 /** The offset of the active plane in mm, or null for none (the surface, a plane of a locked view). */
 export function offsetOf(plane: SketchPlane | null): number | null {
-  return plane && plane.from.kind !== 'view' ? plane.from.offset : null
+  return plane && plane.from.kind !== 'view' && plane.from.kind !== 'tracing' ? plane.from.offset : null
 }
 
 /** The next click on a part makes a plane of that face or through that point; null for no longer waiting. */

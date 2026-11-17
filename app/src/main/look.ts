@@ -16,12 +16,13 @@ import {
   sectionOf
 } from '../shared/view'
 import { explodeOf, isExploded } from '../shared/explode'
+import type { TracingPictureRequest, TracingPictureResult } from '../shared/tracings'
 import { MIN_SCAN_OPACITY } from '../shared/scans'
 
 // What the agent asks of the window is done by the renderer, which owns the
 // viewport: a picture of it (`view:look`), a change of what it shows
 // (`view:show`), something pointed out in it (`view:highlight`), a 2D
-// drawing of outlines the kernel cut (`view:drawSection`), and a view of the
+// drawing of outlines the kernel cut (`view:drawSection`), a tracing drawn for the agent (`view:tracingPicture`), and a view of the
 // agent's kept among the saved ones (`view:saveView`). Main asks
 // over the channel and is answered over `<channel>Reply` (src/main/ipc.ts
 // passes each answer to `resolveRequest`).
@@ -97,6 +98,14 @@ export function requestHighlight(win: BrowserWindow, req: HighlightRequest, time
  */
 export function requestSectionDrawing(win: BrowserWindow, req: SectionDrawingRequest, timeoutMs = 10000): Promise<SectionDrawingResult> {
   return request(win, 'view:drawSection', req, timeoutMs)
+}
+
+/**
+ * Ask a window to draw a tracing for the agent: the outline main cut, the layers and a 10 mm grid, on a canvas of its own, so it is made
+ * whatever the window shows. Rejects with the renderer's error text.
+ */
+export function requestTracingPicture(win: BrowserWindow, req: TracingPictureRequest, timeoutMs = 10000): Promise<TracingPictureResult> {
+  return request(win, 'view:tracingPicture', req, timeoutMs)
 }
 
 /**

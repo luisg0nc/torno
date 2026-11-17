@@ -38,14 +38,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   there, and adds nothing against a line the person negated (`!thumb.png`). The thumbnails ask it for
   `thumb.png` and `thumb.json`, the state file for `state.md`, a conversation put on file for `session.json`,
   a chat's log for `chat/`, an export for `exports/`, a picture for `views/`, the builds' record for `builds.jsonl`, the overrides of
-  `Params` for `params.json`, the board's record of what the agent was told for `board/told.json` and the
+  `Params` for `params.json`, the board's record of what the agent was told for `board/told.json`, the tracings' for `tracings/told.json` and the
   board's pictures for `board/pictures/` (that folder has a `.gitignore` of its own). What is the
-  object's travels: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `profile.json`, `agent.json`, `board/board.json` (the cards, frames and
-  arrows of the board; its pictures stay on the computer).
+  object's travels: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `tracings.json` (the tracings, their layers and the line-up of each photo), `profile.json`, `agent.json`, `board/board.json` (the cards, frames and
+  arrows of the board; its pictures stay on the computer). The tracings' photos (`tracings/photos/`, with a `.gitignore` of `*`) and `tracings/told.json` stay on the computer: a tracing opened on another one says `the photo is not on this computer` and still tells its line-up (`tracings.md`).
 - **`.torno` is named in one module, `src/main/own.ts`** (`FOLDER`), and every write under it goes through
   `ownTorno(dir)` first (`writeOwn` for a file written whole): a link or a file in its place is refused with a
   plain reason, nothing is written, and the person is told once for each object, in the Marks panel
-  (`onNotOwn`, wired in `index.ts`). (`.torno/views/`, `.torno/scans/`, `.torno/board/pictures/` and `.torno/notes/` each have a `.gitignore` of their own
+  (`onNotOwn`, wired in `index.ts`). (`.torno/views/`, `.torno/scans/`, `.torno/board/pictures/`, `.torno/notes/` and `.torno/tracings/photos/` each have a `.gitignore` of their own
   inside them, written by whoever makes the folder; `main/notes/files.ts` writes the pictures of the view notes, named
   `n-<12 hex>.png`, `n-<12 hex>.ink.png` and `r-<12 hex>.png|jpg`, by main alone, after `main/notes/check.ts` has checked what the window sent
   (`notes:make`, `notes:edit`); only files torno itself dropped are swept, never "whatever the marks do not name" (a branch switch must never delete
@@ -54,7 +54,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   board, a doodle drawn on again), and the sweep, once per project per run when it is first opened (`main/notes/sweep.ts`,
   `main/board/pictures.ts`), deletes a listed file only if no note or card names it, this run's undo cannot bring it back
   and no `marks.json.corrupt-*` or `.dropped-*` names it, then takes it off the list. An unlisted file is never deleted;
-  nothing at all is swept when the marks file could not be read; a file changed in the last minute is left alone.)
+  nothing at all is swept when the marks file could not be read; a file changed in the last minute is left alone. The photos of the tracings are the same: `main/tracings/photos.ts` writes `p-<12 hex>.jpg|png` (a photo, a PNG or JPEG of at most 4000 px and 25 MB, checked by `checkedPhoto` from its header) and `s-<12 hex>.jpg|png` (the copy the window straightened through the line-up) into `.torno/tracings/photos/`, by main alone, through `ownTorno(dir, 'tracings', 'photos')`; `TracingStore` lists a file in that folder's `dropped.json` (`tracings/dropped.ts` `dropPhotos`, in the turn of the change, once `tracings.json` is written) when a swap, a new line-up, a removed photo or a removed tracing lets go of it, or when a change that failed had written it; and `PhotoSweep` (`tracings/sweep.ts`, from `onObjectOpened`) deletes a listed file only if no tracing names it, no tracing removed in this run does and no `tracings.json.corrupt-*` or `.dropped-*` does, it is a plain file older than a minute, and its name has been on the list 30 days (the photos are in no git and every branch of a project shares the folder, so `dropped.json` carries the date each name was listed in `at`, and a name with no date is dated by the sweep that first sees it). `withPhotos` reads `tracings.json` again first when the disk's text is not what main last wrote.)
   - The folders torno keeps under it are held to the same rule by the same function, named after the folder:
     `ownTorno(dir, 'views')`, `ownTorno(dir, 'exports')`, `ownTorno(dir, 'scans', 'S1')` (`ownFolders` and
     `linkRefusal` of the scans are that call), `ownTorno(dir, 'chat')`. It is asked before every write into

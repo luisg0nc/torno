@@ -1,9 +1,10 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type OffsetMark, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, markPoints, translated } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
 import { type Round, type RoundsView, carriedRound, openRound, roundItems } from '../../shared/reviews'
+import { type Tracing, type TracingPlane, inPlane, planeDistance, planeNormal } from '../../shared/tracings'
 
 /** What main says of a region: what it is, which mesh of its scan it is of, and which painting of it its mask holds. */
 export type RegionSaid = RegionStats & { mesh?: string; mask?: number }
@@ -276,7 +277,41 @@ export class MarkStore {
     if (kind(mark) === 'note') return Promise.reject(new Refusal('a view note is made with the Draw on view sheet, not added as a mark'))
     // A sketch is checked against the build it names (`marks:sketch`, `saveSketch`): it is not added as any other mark is.
     if (kind(mark) === 'sketch') return Promise.reject(new Refusal('a sketch is made with the sketch tool, not added as a mark'))
+    // A span's value and an offset's shape are main's own (`marks:span`, `marks:offset`): the window does not make them here.
+    if (kind(mark) === 'span') return Promise.reject(new Refusal('a measure on a tracing is made with the Measure tool, not added as a mark'))
+    if (kind(mark) === 'offset') return Promise.reject(new Refusal('a "should be here" is made with the Should be here tool, not added as a mark'))
     return this.keep(objectId, mark, status, measured, region)
+  }
+
+  /**
+   * Keeps a measure on a tracing, as main made it (`makeSpan`: its value, whether it is exact and how, and both ends checked): a draft,
+   * with no review intent and in no round. It is never measured again.
+   */
+  addSpan(objectId: string, span: NewMark): Promise<Mark> {
+    return this.keep(objectId, span, 'draft')
+  }
+
+  /**
+   * Keeps a "should be here" as main made it (`makeOffset`). The person's draft offset of the same shape of the same layer of the same
+   * tracing is changed to this one, keeping its number: dragging the shape again changes the draft's `by`. One the agent has been
+   * told of, or resolved, is not touched: this is a new mark. No review intent, in no round.
+   */
+  saveOffset(objectId: string, offset: NewMark): Promise<Mark> {
+    const made = offset as unknown as OffsetMark
+    return this.change(objectId, (file) => {
+      const at = file.marks.findIndex((m) => m.kind === 'offset' && m.author === 'user' && m.status === 'draft' && m.tracing === made.tracing && m.layer.id === made.layer?.id && m.shape.index === made.shape?.index)
+      const given = Object.fromEntries(Object.entries(Object(offset) as object).filter(([key]) => !(MAIN_ONLY_KEYS as readonly string[]).includes(key)))
+      const was = at < 0 ? undefined : file.marks[at]
+      const next = sanitiseMark({ ...given, id: was?.id ?? `M${file.next}`, status: 'draft', anchorState: 'ok', createdAt: was?.createdAt ?? this.now().toISOString(), ...(was?.sentBefore ? { sentBefore: true } : {}) })
+      if (!next) throw new Refusal('that is not an offset: a field is missing or not a finite number')
+      if (was) file.marks[at] = next
+      else {
+        file.next += 1
+        file.marks.push(next)
+        this.remember(objectId, next)
+      }
+      return next
+    })
   }
 
   private keep(objectId: string, mark: NewMark, status: 'draft' | 'sent', measured?: Measurement, region?: { stats: RegionSaid; before(id: string): Promise<void> }): Promise<Mark> {
@@ -410,7 +445,7 @@ export class MarkStore {
             })
           : asked.strokes
         if (next > MOST_STROKE_NUMBER + 1) throw new Refusal('this sketch has used up its stroke numbers: draw the rest in a sketch of its own')
-        const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, nextStroke: next, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
+        const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, nextStroke: next, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera, ...(asked.tracing === undefined ? {} : { tracing: asked.tracing }) }
         if (!given) {
           const id = `M${file.next}`
           // What the bar of an open review said, of the person's own sketch only: the agent's are plain, and one main has keeps its own (`setIntent` changes it).
@@ -711,6 +746,7 @@ export class MarkStore {
         const mark = file.marks[at]
         if (mark.kind !== 'pin' && mark.kind !== 'pick' && mark.kind !== 'arrow') throw new Refusal(`${id} is a ${mark.kind}: only a pin, a pick or an arrow is put somewhere else`)
         if (mark.author !== 'user') throw new Refusal(`${id} is the agent's mark: it is not put somewhere else`)
+        if (mark.tracing !== undefined) throw new Refusal(`${id} is on ${mark.tracing}: it lies in that plane and is not put on a part of the 3D view`)
         if (mark.status === 'resolved') throw new Refusal(`${id} is resolved: reopen it first`)
         const anchor = (placed as Replacement | null)?.anchor
         if (typeof anchor !== 'object' || anchor === null || typeof anchor.part !== 'string') throw new Refusal(`${id} was not put on a part`)
@@ -754,14 +790,21 @@ export class MarkStore {
         const at = file.marks.findIndex((m) => m.id === id)
         if (at < 0) continue
         const mark = file.marks[at]
+        // A measure and a "should be here" lie in a tracing's plane and are about a number or a layer: no build judges them.
+        if (mark.kind === 'span' || mark.kind === 'offset') continue
         if (!isDeepStrictEqual(markAnchors(mark), judged)) continue
         // Whatever else the mark holds is moved from where it is now: a shape may have been dragged meanwhile.
-        const where = (shift || shiftB) && anchors[0] ? translated(mark, shift ?? [0, 0, 0], shiftB ?? [0, 0, 0]) : mark
+        // A mark on a tracing lies in its plane, which a build moves (`followTracing`) and the spread of a layout does not: it is not moved by a
+        // spread, and a check refreshes its ref and descriptor without taking its points from where they are.
+        const staysPut = mark.tracing !== undefined
+        const where = !staysPut && (shift || shiftB) && anchors[0] ? translated(mark, shift ?? [0, 0, 0], shiftB ?? [0, 0, 0]) : mark
+        const held = markAnchors(mark)
+        const kept = staysPut ? anchors.map((one, i) => (one && held[i] ? { ...one, point: held[i].point } : one)) : anchors
         const anchor =
           mark.kind === 'dimension'
-            ? { ...(anchors[0] ? { a: anchors[0] } : {}), ...(anchors[1] && mark.b ? { b: anchors[1] } : {}) }
-            : anchors[0]
-              ? { [mark.kind === 'arrow' ? 'from' : 'anchor']: anchors[0] }
+            ? { ...(kept[0] ? { a: kept[0] } : {}), ...(kept[1] && mark.b ? { b: kept[1] } : {}) }
+            : kept[0]
+              ? { [mark.kind === 'arrow' ? 'from' : 'anchor']: kept[0] }
               : {}
         const moved = sanitiseMark({ ...where, ...anchor, anchorState, ...(checkedRevision === undefined ? {} : { checkedRevision }) })
         if (!moved) continue
@@ -776,6 +819,64 @@ export class MarkStore {
       }
       return any ? undefined : UNCHANGED
     }).then(() => {})
+  }
+
+  /**
+   * A build moved the plane of tracing `tracing` by `by` (along its normal; its axes never change): every mark on it (`Mark.tracing`)
+   * moves by the same vector, with everything it holds in the object frame, in one change and one write, in the turn of the marks as
+   * the spread's shift is. Its `uv` stay, for they are in the plane's own axes. Given the plane as it now is, a mark the move
+   * would not leave in it (within 1e-6 mm) is left where it is: nothing is moved out of a plane. A tracing with no marks, and a
+   * move by nothing, write and tell nothing. The marks moved are told as unchecked, for their part is judged again where they now are.
+   */
+  followTracing(objectId: string, tracing: string, by: Vec3, plane?: Pick<TracingPlane, 'origin' | 'x' | 'y'>): Promise<void> {
+    if (!Array.isArray(by) || by.length !== 3 || !by.every(Number.isFinite)) return Promise.reject(new Refusal('a plane moves by three finite numbers'))
+    const moved: string[] = []
+    return this.change(
+      objectId,
+      (file) => {
+        if (by.every((c) => c === 0)) return UNCHANGED
+        file.marks = file.marks.map((mark) => {
+          if (mark.tracing !== tracing) return mark
+          const next = translated(mark, by)
+          if (plane && markPoints(next).some((p) => !inPlane(plane, p))) return mark
+          moved.push(mark.id)
+          return next
+        })
+        return moved.length === 0 ? UNCHANGED : undefined
+      },
+      moved
+    ).then(() => {})
+  }
+
+  /**
+   * Puts back onto its plane every mark of a tracing that is off it (beyond 1e-6 mm), in one change and one write, in the turn of the
+   * marks: a crash between `TracingStore.movePlane` and `followTracing` leaves the plane moved and its marks not (the next build sees no
+   * move), and a tracing removed and put back is in a plane its marks did not follow. A mark moves by the one distance its points lie
+   * from the plane, along the normal, as `followTracing` moves it; one whose points lie at different distances is not bent, and is left.
+   * The marks moved are told as unchecked, as a build's move tells them. Resolves with their ids; nothing is written when there are none.
+   */
+  healTracings(objectId: string, tracings: ReadonlyArray<Pick<Tracing, 'id' | 'plane'>>): Promise<string[]> {
+    const moved: string[] = []
+    return this.change(
+      objectId,
+      (file) => {
+        file.marks = file.marks.map((mark) => {
+          const t = mark.tracing === undefined ? undefined : tracings.find((one) => one.id === mark.tracing)
+          if (!t) return mark
+          const off = markPoints(mark).map((p) => planeDistance(t.plane, p))
+          if (off.length === 0 || off.every((d) => Math.abs(d) <= PLANE_HEAL_WITHIN)) return mark
+          if (Math.max(...off) - Math.min(...off) > PLANE_HEAL_WITHIN) return mark
+          const mean = off.reduce((sum, d) => sum + d, 0) / off.length
+          const [nx, ny, nz] = planeNormal(t.plane)
+          const next = translated(mark, [-mean * nx, -mean * ny, -mean * nz])
+          if (markPoints(next).some((p) => !inPlane(t.plane, p, PLANE_HEAL_WITHIN))) return mark
+          moved.push(mark.id)
+          return next
+        })
+        return moved.length === 0 ? UNCHANGED : undefined
+      },
+      moved
+    ).then(() => moved)
   }
 
   /**
@@ -866,6 +967,7 @@ export class MarkStore {
       const mark = file.marks[at]
       was = mark
       if (mark.author !== 'user') throw new Refusal(`${id} is the agent's mark: only the person's marks say want or don't want`)
+      if (mark.kind === 'span' || mark.kind === 'offset') throw new Refusal(`${id} is ${mark.kind === 'span' ? 'a measure' : 'a "should be here"'}, and ${mark.kind === 'span' ? 'a measure' : 'a "should be here"'} says nothing of want or don't want`)
       if (intent !== null && intent !== 'want' && intent !== 'dont') throw new Refusal(`${String(intent)} is not an intent: want, dont, or null for none`)
       let changed: Mark | null
       if (mark.kind === 'shape') {
@@ -1110,6 +1212,8 @@ export class MarkStore {
           for (const mark of file.marks) {
             delete mark.checkedRevision
             if (mark.kind === 'dimension') delete mark.measuredRevision
+            // A span's build is named by its history id, which is the same in every run; the run's own number is not.
+            if (mark.kind === 'span') delete mark.measuredOn
           }
           if (loaded.problem) this.problems.set(dir, loaded.problem)
           if (epoch === this.epoch) {
@@ -1167,11 +1271,14 @@ function roundOf(file: MarksFile, id: string): Round {
 /** A mark the person makes while the round of its layout is open is in that round. The agent's never is. */
 function inOpenRound(file: MarksFile, mark: Mark): void {
   const open = openRound(file.rounds ?? [])
-  if (open && mark.author === 'user' && open.layout === mark.layout) mark.round = open.id
+  // A measure and a "should be here" are not a review of the model: they never join a round.
+  if (open && mark.author === 'user' && open.layout === mark.layout && mark.kind !== 'span' && mark.kind !== 'offset') mark.round = open.id
 }
 
 /** What an edit returns when it changed nothing. */
 const UNCHANGED = Symbol('unchanged')
+/** How far from its plane a mark of a tracing may lie: the frame's own noise (`PLANE_WITHIN` of `tracings/marks.ts`). */
+const PLANE_HEAL_WITHIN = 1e-6
 
 /** Where a mark is in its file; an id that is not there is an error that names the ones that are. */
 function indexOf(file: MarksFile, id: string): number {
