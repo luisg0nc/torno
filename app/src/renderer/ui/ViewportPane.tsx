@@ -50,6 +50,7 @@ import { MakeSet } from './sets/MakeSet'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { Selection } from './Selection'
+import { inkPicture } from './tracings/inkPicture'
 import { SketchPanel } from './sketch/SketchPanel'
 import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
@@ -374,6 +375,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       return { objectId: s.objectId, layout: s.layout, revision: s.revision, camera: viewport.getCamera(), centre: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2] }
     },
     picture: async (camera) => (await look(viewport, { view: camera, size: 1280, marks: true })).png,
+    // Ink on a tracing has its card drawn from the tracing view, not from the 3D view.
+    tracingPicture: (objectId, id) => inkPicture(objectId, id),
     say: sayRefusal
   })
   const offSketching = connectSketching(viewport)
@@ -383,6 +386,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     busy: () => sketchStore.getState().open !== null,
     draw: async (mark) => {
       const s = store.getState()
+      if (mark.tracing !== undefined) return s.objectId === null ? null : inkPicture(s.objectId, mark.id, s.marks)
       if (!s.scene || !s.scene.layouts.includes(mark.layout)) return null
       return (await look(viewport, { view: mark.camera, layout: mark.layout, size: 1280, marks: true })).png
     },

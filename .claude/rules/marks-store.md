@@ -114,6 +114,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   with none is numbered `k1…kn` in order, the same on every read (`numberStrokes`). The window sends a new stroke with no id and adopts
   main's; it erases by id (`eraseStroke`), and `checkSketch` matches a stroke of the stored sketch by id before any by value. Texts say
   `stroke k3`, never a position (`sketchText`, `add_sketch`'s reply). A set names a stroke by that ref (`sets`).
+- A mark **on a tracing** (`Mark.tracing: 'T1'`, with `uv`, the `[u, v]` of each point it holds in the order of `markPoints`) is a pin, an arrow or ink (a
+  sketch whose every plane is `from: { kind: 'tracing', tracing }` with the tracing's own frame, strokes in `points2d`; `SketchDraft.tracing`, one the stored
+  sketch has is kept and never changed). Main checks it on placing, in `marks:add` (`placeOnTracing`) and `marks:sketch` (`checkOnTracing`): the tracing
+  exists, is of the mark's layout, and every point lies in its plane within 1e-6 mm (`tracings/marks.ts`). `uv` is main's (`withUv`), never the window's, and a
+  pin with no part that is on the outline is tied to the face under it as a pin is (`tiePin`; the point stays where it was put); elsewhere its `Anchor` has no part.
+  When a build moves a face tracing's plane (`Outlines.recut`, after `movePlane`), `MarkStore.followTracing(objectId, tracing, by, plane)` moves every mark with that
+  `tracing` by the same vector in one change (`translated`: the plane's origin and the points in the object frame, `uv` and `points2d` stay), the moved told as
+  unchecked; a mark the move would not leave in the new plane is not moved. A mark on a tracing is **not** moved by the spread of a layout
+  (`MarkStore.reanchor` keeps its points where they are and refreshes only what the kernel says of its anchor) and is not put on a part (`replace` refuses it). A
+  removed tracing's marks stay and say ` · on T1 (removed)` (`onTracingWords`, given `describeMark`'s `tracings`: the prompt, `state.md` and the `marks` tool).
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
   the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal
   that names the first that is not the agent's to acknowledge. Only the person asks it (`marks:acknowledge`);

@@ -23,6 +23,9 @@ import {
   setTake,
   settled,
   sketchStore,
+  inkIsOpen,
+  sketchHere,
+  startInk,
   startSketch,
   takeMarks,
   undoStroke,
@@ -601,5 +604,80 @@ describe('editing a sketch again', () => {
     await editSketch(stored({ author: 'agent' }))
     expect(sketchStore.getState().open).toBeNull()
     expect(f.said).toEqual(["M7 is Claude's sketch: only Claude changes it."])
+  })
+})
+
+describe('ink on a tracing', () => {
+  const tracing = { id: 'T1', layout: 'assembly', plane: { origin: [0, 0, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 10.0', from: { kind: 'main', axis: 'XY', offset: 10 } } } as never
+
+  it('opens a sketch whose one plane is the tracing\'s, rough, naming the tracing, and writes nothing until a stroke', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    expect(startInk('bracket', tracing)).toBe(true)
+    expect(inkIsOpen()).toBe(true)
+    expect(draftOf()).toMatchObject({ objectId: 'bracket', layout: 'assembly', take: 'rough', tracing: 'T1', strokes: [], planes: [{ id: 1, origin: [0, 0, 10], label: 'XY at z = 10.0', from: { kind: 'tracing', tracing: 'T1' } }] })
+    expect(sketchStore.getState().plane).toBe(1)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(f.calls).toEqual([])
+    // It goes on when asked again for the same tracing.
+    expect(startInk('bracket', tracing)).toBe(true)
+    expect(f.calls).toEqual([])
+  })
+
+  it('sends each stroke with the tracing named, on the plane, and takes the bar of an open review for a new sketch', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    reviewStore.setState({ rounds: [{ id: 'R1', layout: 'assembly', build: 'h1', sources: 'x', line: 'l', startedAt: '2026-11-17T10:00:00.000Z' }], choice: 'dont' } as never)
+    startInk('bracket', tracing)
+    addStroke({ plane: 1, pen: 'free', points2d: [[1, 1], [5, 6]], revision: 3 })
+    await settled()
+    expect(f.calls[0]).toMatchObject({ intent: 'dont', tracing: 'T1', take: 'rough', planes: [{ from: { kind: 'tracing', tracing: 'T1' } }], strokes: [{ plane: 1, points2d: [[1, 1], [5, 6]] }] })
+    reviewStore.setState({ rounds: [], choice: 'plain' } as never)
+  })
+
+  it('has its card drawn from the tracing view when it is done, and not from the 3D view', async () => {
+    const drawn: string[] = []
+    const f = fake({ tracingPicture: async (objectId, id) => (drawn.push(`${objectId}/${id}`), new Uint8Array([9, 9])), picture: async () => { throw new Error('the 3D view is not asked') } })
+    setSketchEnv(f.env)
+    startInk('bracket', tracing)
+    addStroke({ plane: 1, pen: 'line', points2d: [[0, 0], [9, 9]], revision: 3 })
+    await finishSketch()
+    expect(drawn).toEqual(['bracket/M1'])
+    expect(f.pictures).toEqual([['bracket', 'M1', 2]])
+    expect(sketchStore.getState().open).toBeNull()
+    // Done with ink does not put a tool of the 3D view back.
+    expect(toolStore.getState().tool).toBe('select')
+  })
+
+  it('leaves the card with its placeholder when there is no way to draw it', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    startInk('bracket', tracing)
+    addStroke({ plane: 1, pen: 'line', points2d: [[0, 0], [9, 9]], revision: 3 })
+    await finishSketch()
+    expect(f.pictures).toEqual([])
+  })
+
+  it('is let go, kept as main has it, when the Draw tool starts a sketch of its own; and does not start with no build on show', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    startInk('bracket', tracing)
+    expect(startSketch('bracket')).toBe(true)
+    expect(inkIsOpen()).toBe(false)
+    expect(draftOf().tracing).toBeUndefined()
+    leaveSketch()
+    setSketchEnv(fake({ here: () => null }).env)
+    expect(startInk('bracket', tracing)).toBe(false)
+    expect(sketchHere()).toBeNull()
+  })
+
+  it('is opened again from the marks list with its tracing, and the Draw tool does not change its offset', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    const mark = { id: 'M4', author: 'user', layout: 'assembly', camera: CAMERA, name: '', note: '', take: 'rough', tracing: 'T1', planes: [{ id: 1, origin: [0, 0, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'XY', from: { kind: 'tracing', tracing: 'T1' } }], strokes: [] } as unknown as SketchMark
+    await editSketch(mark)
+    expect(draftOf().tracing).toBe('T1')
+    setOffset(12)
+    expect(draftOf().planes[0].origin).toEqual([0, 0, 10])
   })
 })

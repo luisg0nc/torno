@@ -1989,8 +1989,8 @@ or shows any layer. **Add layer** makes one of your own (a name, free in this tr
 first colour not yet used); the cross removes one of yours, and **Undo** puts it back, shapes and all and with the number it had, for a few seconds. You change
 and remove only your own layers, and Claude only its own: Claude's you can hide but not change.
 
-The tools are at the left edge of the sheet: **Select** (`V`) moves around the sheet by dragging, **Trace** (`T`) draws into your
-layer. Pin, Ink, Measure and Should be here are shown and come later. With Trace in hand the panel says what it draws: a **Line**
+The tools are at the left edge of the sheet: **Select** (`V`) moves around the sheet by dragging and selects, **Trace** (`T`) draws into your
+layer, **Pin** (`P`) leaves a note on a point and **Ink** (`I`) draws in the plane (both below). Measure and Should be here are shown and come later. With Trace in hand the panel says what it draws: a **Line**
 (click its points; `Enter` ends it, or a click on its first point closes it; `Backspace` takes the last point back), a **Circle**
 (click its centre, then a point on it) or a **Label** (click, then type it and press `Enter`). Each finished shape is kept at
 once, in the layer ringed in the panel (click the ring on another of your layers to draw into that one). The points snap, within
@@ -1999,6 +1999,21 @@ projected onto the plane is drawn fainter and says so), and the pointer's hint s
 `hole centre head/E14 ⌀16`. Hold `Ctrl` to turn snapping off. A free click is kept to a ten thousandth of a millimetre; a snapped
 one is the kernel's, in full. A drag with Trace in hand still moves the sheet, and `Esc` gives up the shape under way, then puts
 Select back.
+
+**Marks on a tracing.** A pin or ink made here is a mark like any other: it is in the marks list, goes to Claude with your next
+prompt, joins the review that is open on its layout (the bar's want or don't want applies), and ink is a card on the board as any sketch is. Claude is told which
+tracing it is on (`T1`) and lies in that plane within a millionth of a millimetre, which main checks when the mark is made. **Pin**: click
+a point, type its note where it is and press `Enter` (`Esc` gives it up; a note left empty makes no pin). On the outline, within the part's
+tolerance of a face, the pin is tied to that face as a pin in the 3D view is (its ref and the kernel's line of the face); inside the cut or over
+the photo it is a point in the plane, tied to no part. **Ink** is a sketch whose one plane is the tracing's: a freehand stroke (press and
+drag), a line (press and drag, or click its two ends) or a point to point line (a click for each point, `Enter` ends it), rough by nature,
+snapping as Trace does and not with `Ctrl` held; `I` again takes the next pen, `Backspace` takes a point back and `Ctrl+Z` a stroke. Each stroke is kept at once;
+leaving Ink (another tool, another tracing, or the model) keeps the sketch and draws its card from this view at 1280 px. The sketch is told to Claude as any
+sketch is, with its plane named as the plane of the tracing. **Select** picks the mark or the shape of a layer under the pointer within 8 pixels (a mark before
+a shape, and it is ringed); `Delete` removes the mark if it is yours, and **Undo** puts it back for ten seconds. Claude's marks are not removed here:
+it resolves them. When a build moves the plane of a tracing on a face along its normal, every mark on it moves with it by the same distance, in one change of the marks, and
+stays in the plane; a pin or ink on a tracing is not put on another part by a click in the 3D view, and the layout's spread does not move it. A tracing that is removed
+leaves its marks where they are: they say `on T1 (removed)`, and join the tracing again if it is put back.
 
 ### A photo under a tracing
 
@@ -2261,10 +2276,14 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Tracing | `Shift+0` | Tracing: show it at true size, 1:1 |
 | Tracing | `V` | Tracing, Select: move around the sheet by dragging |
 | Tracing | `T` | Tracing, Trace: click the points of a line, the centre and edge of a circle, or the place of a label, into your layer |
-| Tracing | `Enter` | Trace: end the line (a click on its first point closes it) |
-| Tracing | `Backspace` | Trace: take the last point back |
-| Tracing | `Ctrl` | Trace: hold it while clicking to turn snapping off |
-| Tracing | `Esc` | Trace: give up the shape under way, then put Select back |
+| Tracing | `P` | Tracing, Pin: click a point and type its note where it is; Enter keeps it |
+| Tracing | `I` | Tracing, Ink: draw in the plane, freehand, a line or point to point; again, the next pen |
+| Tracing | `Enter` | Trace, Ink: end the line (in Trace a click on its first point closes it) |
+| Tracing | `Backspace` | Trace, Ink: take the last point back |
+| Tracing | `Ctrl` | Trace, Ink: hold it while clicking or drawing to turn snapping off |
+| Tracing | `Esc` | Trace, Pin, Ink: give up what is under way, then put Select back |
+| Tracing | `Delete` | Select: remove the mark selected, if it is yours (Undo is offered for ten seconds) |
+| Tracing | `Ctrl+Z` | Ink: take the last stroke back |
 | Tracing | `S` | Line-up: straighten the photo (4 points or more), or only turn and scale it |
 | Tracing | `Backspace` | Line-up: take the last point back |
 | Tracing | `Enter` | Line-up: done, when there are points enough |

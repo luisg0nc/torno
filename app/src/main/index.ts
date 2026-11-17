@@ -477,7 +477,7 @@ const verdicts = new Verdicts()
 const editDeps = { ...toolDeps, ...(off.has('digest') ? { digest: false } : {}), verdicts: (id: string, revision: number | undefined) => verdicts.of(id, revision) }
 
 /** `<object>/.torno/state.md` of every open object: what an agent without the tools reads instead. */
-const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId) })
+const stateFiles = new StateFiles({ object: findObject, build: buildState, scene: lastScene, scenes: keptScenes, marks: (objectId) => marks.list(objectId), scans: (objectId) => scans.list(objectId), views: savedViews, profile: toolDeps.profile, sets: (objectId) => sets.list(objectId), setsRefs: (objectId) => sets.refsOf(objectId), tracings: async (objectId) => (await tracings.list(objectId)).tracings.map((t) => t.id) })
 marks.on('changed', ({ objectId }) => stateFiles.changed(objectId))
 // The named sets are told in the state file.
 sets.on('changed', ({ objectId }) => stateFiles.changed(objectId))
@@ -642,7 +642,9 @@ void app.whenReady().then(async () => {
       const rounds = await marks.rounds(id).catch(() => undefined)
       // The names of the named sets, so that a mark labelled with one that is gone says so. Unreadable: not known, and the label is told as it is.
       const setSlugs = await sets.list(id).then((all) => all.map((s) => s.slug), () => undefined)
-      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
+      // And of the tracings, so that a mark on one that was removed says so.
+      const tracingIds = await tracings.list(id).then((file) => file.tracings.map((t) => t.id), () => undefined)
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingIds ? { tracings: tracingIds } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {

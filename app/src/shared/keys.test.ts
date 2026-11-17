@@ -404,10 +404,14 @@ it('has the keys of a tracing in a scope of their own: fit, true size and the to
     ['tracing.actual', ['Shift+0'], 'Tracing'],
     ['tracing.select', ['V'], 'Tracing'],
     ['tracing.trace', ['T'], 'Tracing'],
+    ['tracing.pin', ['P'], 'Tracing'],
+    ['tracing.ink', ['I'], 'Tracing'],
     ['tracing.end', ['Enter'], 'Tracing'],
     ['tracing.back', ['Backspace'], 'Tracing'],
     ['tracing.nosnap', ['Ctrl'], 'Tracing'],
-    ['tracing.leave', ['Esc'], 'Tracing']
+    ['tracing.leave', ['Esc'], 'Tracing'],
+    ['tracing.remove', ['Delete'], 'Tracing'],
+    ['tracing.undoInk', ['Ctrl+Z'], 'Tracing']
   ])
   expect(keyClashes()).toEqual([])
   // Shift on the figure key, whatever the layout makes of it, and only that key.
@@ -416,6 +420,10 @@ it('has the keys of a tracing in a scope of their own: fit, true size and the to
   expect(pressed({ key: '0', code: 'Digit0' }, 'tracing.actual')).toBe(false)
   expect(pressed({ key: 'v' }, 'tracing.select')).toBe(true)
   expect(pressed({ key: 't' }, 'tracing.trace')).toBe(true)
+  expect(pressed({ key: 'p' }, 'tracing.pin')).toBe(true)
+  expect(pressed({ key: 'i' }, 'tracing.ink')).toBe(true)
+  expect(pressed({ key: 'Delete' }, 'tracing.remove')).toBe(true)
+  expect(pressed({ key: 'z', ctrlKey: true, code: 'KeyZ' }, 'tracing.undoInk')).toBe(true)
   expect(pressed({ key: 't', ctrlKey: true, code: 'KeyT' }, 'tracing.trace')).toBe(false)
   expect(hint('tracing.nosnap')).toBe('Ctrl')
   expect(CONTEXTS.map((c) => c.name)).toContain('Tracing')

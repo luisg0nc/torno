@@ -6,6 +6,7 @@ import { TRACING_ID, type Tracing, type TracingCut, planeSnaps } from '../../sha
 import { toArrayBuffer } from '../kernel/frames'
 import { isBusy } from '../kernel/client'
 import type { AskedAnchor, Checked, NearestAnchor } from '../marks/reanchor'
+import type { MarkStore } from '../marks/store'
 import { SECTION_DEFLECTION } from '../mcp/readTools'
 import { Refusal } from '../refusal'
 import { type RefindAsk, followFaces } from './planes'
@@ -22,6 +23,8 @@ import type { TracingStore } from './store'
 
 export interface OutlineDeps {
   tracings: Pick<TracingStore, 'list' | 'movePlane'>
+  /** The marks on a tracing move with its plane (`MarkStore.followTracing`). Without it none is moved. */
+  marks?: Pick<MarkStore, 'followTracing'>
   /** The last successful build of a project: its number, its scene and the blob its buffers are in. None once the workspace is left: nothing is asked or written then. */
   build(objectId: string): { revision: number; scene: Scene; blob: Uint8Array | ArrayBuffer } | undefined
   /** `Builds.query` that never has the project built again to be answered. */
@@ -136,7 +139,10 @@ export class Outlines {
         const renumbered = 'ref' in found && t.plane.from.kind === 'face' && found.ref !== t.plane.from.ref ? { ref: found.ref, revision: last.revision } : undefined
         if (lost === t.lost && renumbered === undefined && origin.every((c, i) => c === t.plane.origin[i])) continue
         try {
-          await this.deps.tracings.movePlane(objectId, t.id, { origin }, lost, renumbered)
+          const moved = await this.deps.tracings.movePlane(objectId, t.id, { origin }, lost, renumbered)
+          // Its marks move with it, along the normal, in one change of the marks: they stay in the plane (`checkOnTracing`).
+          const by: Vec3 = [origin[0] - t.plane.origin[0], origin[1] - t.plane.origin[1], origin[2] - t.plane.origin[2]]
+          if (by.some((c) => c !== 0)) await this.deps.marks?.followTracing(objectId, t.id, by, moved.plane)
         } catch (e) {
           // A tracing removed meanwhile is nothing to move.
           if (!(e instanceof Refusal)) failed(t.id, e)

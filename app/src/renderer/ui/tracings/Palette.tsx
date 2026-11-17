@@ -1,18 +1,18 @@
 import type { ReactNode } from 'react'
 import { hint } from '../../../shared/keys'
-import { tracingActions, useTracings } from '../../state/tracings'
+import { tracingActions, useTracings, type TracingTool } from '../../state/tracings'
 import { ICONS } from '../ToolPalette'
 
-// The tools of a tracing, at the left edge of its sheet, as the tools of the model are at the edge of the 3D view. Select and
-// Trace are live; the rest are shown and wait for their own tasks. Each live tool has a key of the `tracing` scope.
+// The tools of a tracing, at the left edge of its sheet, as the tools of the model are at the edge of the 3D view. Select, Trace, Pin and
+// Ink are live; the rest are shown and wait for their own tasks. Each live tool has a key of the `tracing` scope.
 
-type Tool = 'select' | 'trace'
+type Tool = TracingTool
 
 interface Entry {
   id: string
   label: string
   /** The row of the table of keys, for a tool that has one. */
-  row?: 'tracing.select' | 'tracing.trace'
+  row?: 'tracing.select' | 'tracing.trace' | 'tracing.pin' | 'tracing.ink'
   does: string
   icon: ReactNode
 }
@@ -37,10 +37,10 @@ const TRACE_ICON = (
 )
 
 const TOOLS: readonly Entry[] = [
-  { id: 'select', label: 'Select', row: 'tracing.select', does: 'Drag to move around the sheet', icon: ICONS.select },
+  { id: 'select', label: 'Select', row: 'tracing.select', does: 'Click a mark or a shape to select it, Delete removes your mark; drag to move around the sheet', icon: ICONS.select },
   { id: 'trace', label: 'Trace', row: 'tracing.trace', does: 'Click points, a circle or a label into your layer, snapping to the corners and hole centres of the cut', icon: TRACE_ICON },
-  { id: 'pin', label: 'Pin', does: 'Leave a note on a point', icon: ICONS.pin },
-  { id: 'ink', label: 'Ink', does: 'Draw freehand on the sheet', icon: ICONS.draw },
+  { id: 'pin', label: 'Pin', row: 'tracing.pin', does: 'Leave a note on a point of the sheet', icon: ICONS.pin },
+  { id: 'ink', label: 'Ink', row: 'tracing.ink', does: 'Draw in the plane, freehand, a line or point to point', icon: ICONS.draw },
   { id: 'measure', label: 'Measure', does: 'Measure between two points of the sheet', icon: ICONS.measure },
   { id: 'offset', label: 'Should be here', does: 'Drag a shape to where it should be', icon: ICONS.arrow }
 ]

@@ -10,9 +10,14 @@ import type { Layer, LayerColour, LayerShape, Tracing, TracingCut, TracingsFile 
 import type { Prepared } from '../ui/onboard/images'
 import { imageType } from '../ui/onboard/images'
 import { preparePhoto } from '../ui/tracings/preparePhoto'
+import type { InkPen } from '../ui/tracings/inkTool'
+import { pinMark } from '../ui/tracings/pinTool'
+import { type Hit, canRemove } from '../ui/tracings/selectTool'
 import type { TraceMode } from '../ui/tracings/traceTool'
 import { warp } from '../ui/tracings/warp'
 import { boardActions, boardStore, type Shown } from './board'
+import { reviewActions, withIntent } from './review'
+import { sketchHere } from './sketching'
 import { actions, store } from './store'
 import { setTool } from './tools'
 
@@ -20,6 +25,9 @@ import { setTool } from './tools'
 // writes), which tracing is open in the view, the kernel's outline of each one that has been asked for, and what the person
 // has under way (a tracing on a face waits for the face). A tracing is main's; what is here is what main said. Nothing here
 // changes with a pan, a zoom or a pointer move: those are the sheet's, on its own elements (`ui/tracings/Sheet.ts`).
+
+/** What the pointer does on the sheet. */
+export type TracingTool = 'select' | 'trace' | 'pin' | 'ink'
 
 export interface TracingsState {
   /** The project the tracings are of; null while none is open. */
@@ -40,8 +48,14 @@ export interface TracingsState {
   removed: { id: string; name: string } | null
   /** What main found wrong with the tracings file (it was set aside, and where), until the person has read it. */
   problem: string | null
-  /** What the pointer does on the sheet: Select moves around it, Trace puts shapes into the person's layer. */
-  tool: 'select' | 'trace'
+  /** What the pointer does on the sheet: Select moves around it and selects a mark or a shape, Trace puts shapes into the person's layer, Pin leaves a note on a point and Ink draws in the plane. */
+  tool: TracingTool
+  /** The mark or the shape of a layer that Select has selected. */
+  selected: Hit | null
+  /** The pen Ink draws with. */
+  ink: InkPen
+  /** The mark of the person's that Delete removed last, which Undo puts back while this stays. */
+  markRemoved: string | null
   /** What the Trace tool puts down: a line, a circle or a label. */
   trace: TraceMode
   /** The person's layer the Trace tool puts shapes into, chosen in the panel; null for their last (`traceTarget`). */
@@ -56,7 +70,7 @@ export interface TracingsState {
 
 export type PhotoEntry = { url: string } | { missing: true }
 
-const NONE: TracingsState = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select', trace: 'line', into: null, layerRemoved: null, photos: {}, lining: null }
+const NONE: TracingsState = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select', selected: null, ink: 'free', markRemoved: null, trace: 'line', into: null, layerRemoved: null, photos: {}, lining: null }
 
 export const tracingsStore = createStore<TracingsState>(() => NONE)
 
@@ -316,7 +330,7 @@ export const tracingActions = {
     const wasOpen = s.file?.tracings.find((t) => t.id === open)
     const now = file.tracings.find((t) => t.id === open)
     const lining = s.lining !== null && file.tracings.find((t) => t.id === s.lining)?.photo !== undefined && open === s.open ? s.lining : null
-    set({ file, open, cuts, lining, removed: s.removed !== null && ids.has(s.removed.id) ? null : s.removed, ...(open === s.open ? {} : { tool: 'select' as const, into: null, layerRemoved: null }) })
+    set({ file, open, cuts, lining, removed: s.removed !== null && ids.has(s.removed.id) ? null : s.removed, ...(open === s.open ? {} : { tool: 'select' as const, selected: null, into: null, layerRemoved: null }) })
     prunePhotos()
     if (open !== null && (open !== s.open || cutKey(wasOpen) !== cutKey(now))) void tracingActions.refreshCut(open)
     // The photo of the tracing shown: its pictures read, and its straightened copy made when it has none here.
@@ -327,7 +341,7 @@ export const tracingActions = {
 
   /** Shows the tracing, and asks for its outline. */
   open(id: string): void {
-    set({ open: id, refused: null, tool: 'select', into: null, layerRemoved: null, lining: null })
+    set({ open: id, refused: null, tool: 'select', selected: null, into: null, layerRemoved: null, lining: null })
     void tracingActions.refreshCut(id)
     if (openTracing()?.photo !== undefined) void tracingActions.sync(id)
   },
@@ -406,14 +420,93 @@ export const tracingActions = {
   },
 
   /** The tool in hand on the sheet. Trace with no layer of the person's says what it needs. */
-  setTool(tool: 'select' | 'trace'): void {
-    set({ tool })
+  setTool(tool: TracingTool): void {
+    set({ tool, ...(tool === 'select' ? {} : { selected: null }) })
     if (tool === 'trace' && traceTarget(state()) === undefined) set({ refused: NO_OWN_LAYER })
     else if (state().refused === NO_OWN_LAYER) set({ refused: null })
   },
 
   setTrace(trace: TraceMode): void {
     set({ trace })
+  },
+
+  /** The mark or shape Select selected, or none. */
+  select(hit: Hit | null): void {
+    set({ selected: hit })
+  },
+
+  /** The pen Ink draws with. */
+  setInk(ink: InkPen): void {
+    set({ ink })
+  },
+
+  /**
+   * A pin of the person's with its note at `uv` of the tracing that is open: made through main (`marks:add`, which ties it to the face under it
+   * when it is on the outline, checks it against the plane and works out its `uv`), with the bar of an open review saying what it is. It is
+   * the mark selected after. True when main kept it; when it did not, `refused` says why.
+   */
+  async pin(uv: readonly [number, number], note: string): Promise<boolean> {
+    const objectId = state().objectId
+    const t = openTracing()
+    const here = sketchHere()
+    if (objectId === null || t === undefined) return false
+    if (here === null || here.objectId !== objectId) {
+      set({ refused: 'The project has no build to leave a pin on yet' })
+      return false
+    }
+    try {
+      const made = await window.torno.marks.add(objectId, withIntent(pinMark(t, uv, note, here), reviewActions.intentForNew(t.layout)))
+      if (state().objectId === objectId) set({ selected: { kind: 'mark', id: made.id }, refused: null })
+      return true
+    } catch (e) {
+      set({ refused: `The pin was not kept: ${said(e)}` })
+      return false
+    }
+  },
+
+  /** Delete: the selected mark is removed when it is the person's, and put back by `undoMarkRemove` for a while. The agent's is left, and the sheet says so. */
+  async removeSelected(): Promise<boolean> {
+    const objectId = state().objectId
+    const hit = state().selected
+    if (objectId === null || hit === null) return false
+    if (hit.kind !== 'mark') {
+      set({ refused: 'Only a mark is removed with Delete: change a layer in its own panel' })
+      return false
+    }
+    const mark = store.getState().marks.find((m) => m.id === hit.id)
+    if (mark === undefined) return false
+    if (!canRemove(mark)) {
+      set({ refused: `${mark.id} is Claude's mark: it is Claude's to resolve` })
+      return false
+    }
+    try {
+      await window.torno.marks.remove(objectId, mark.id)
+      if (state().objectId === objectId) set({ selected: null, markRemoved: mark.id, refused: null })
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /** Puts back the mark Delete removed last. */
+  async undoMarkRemove(): Promise<boolean> {
+    const objectId = state().objectId
+    const id = state().markRemoved
+    if (objectId === null || id === null) return false
+    set({ markRemoved: null })
+    try {
+      const back = await window.torno.marks.restore(objectId, id)
+      if (state().objectId === objectId) set({ selected: { kind: 'mark', id: back.id } })
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  forgetMarkRemoved(): void {
+    set({ markRemoved: null })
   },
 
   /** Chooses the person's layer the Trace tool draws into. */

@@ -5,11 +5,12 @@ import { isExploded } from '../../../shared/explode'
 import { tracingName, type LayerColour, type Tracing, type TracingCut } from '../../../shared/tracings'
 import { layerOf, actions, useStore } from '../../state/store'
 import { boardStore } from '../../state/board'
-import { nextPartsOf, buildName, referencePhotos, traceTarget, tracingActions, useTracings } from '../../state/tracings'
+import { nextPartsOf, buildName, referencePhotos, traceTarget, tracingActions, useTracings, type TracingTool } from '../../state/tracings'
 import { useHistory } from '../useHistory'
 import { giveKeysBack } from '../typing'
 import { LayerRows } from './LayerRows'
 import { AddPhoto, PhotoRows } from './PhotoRows'
+import { INK_PENS, type InkPen } from './inkTool'
 import { TRACE_MODES, type TraceMode } from './traceTool'
 
 export interface TracingPanelProps {
@@ -40,7 +41,10 @@ export interface TracingPanelProps {
   layerRemoved?: { name: string } | null
   onUndoLayer?: () => void
   /** The tool in hand on the sheet; with Trace, the panel says what it draws and its keys. */
-  tool?: 'select' | 'trace'
+  tool?: TracingTool
+  /** The pen Ink draws with. */
+  inkPen?: InkPen
+  onInkPen?: (pen: InkPen) => void
   traceMode?: TraceMode
   onTraceMode?: (mode: TraceMode) => void
   /** The photo's picture (an object URL), and whether its file is on this computer. */
@@ -79,7 +83,7 @@ function exactOutline(cut: TracingCut): boolean {
  * The panel of the tracing shown, top left of its sheet: its name, its plane and the build it was redrawn for, "Model outline"
  * with its parts, the layers, and what can be done with it. Pure, so that it is drawn the same from any state.
  */
-export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode, photoThumb, photoHere, references, addingPhoto, onAddPhoto, onReferencePhoto, onFade, onFadeCommit, onHidePhoto, onLineUp, onSwapPhoto, onRemovePhoto }: TracingPanelProps) {
+export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode, inkPen, onInkPen, photoThumb, photoHere, references, addingPhoto, onAddPhoto, onReferencePhoto, onFade, onFadeCommit, onHidePhoto, onLineUp, onSwapPhoto, onRemovePhoto }: TracingPanelProps) {
   const [renaming, setRenaming] = useState(false)
   const drawn = new Set(tracing.parts ?? parts)
   const only = parts.filter((p) => drawn.has(p)).length <= 1
@@ -199,6 +203,35 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
         </div>
       )}
 
+      {tool === 'pin' && (
+        <div className="tr-section" data-part="pin">
+          <div className="section-head">
+            <h3 className="tr-heading">Pin</h3>
+          </div>
+          <p className="tr-note">
+            Click a point, then type its note where it is: <kbd className="num">{hint('field.keep')}</kbd> keeps it, <kbd className="num">{hint('tracing.leave')}</kbd> gives it up. On the outline the pin is tied to the face under it; elsewhere it is a point in the plane. A pin goes to Claude with your next prompt, like any mark.
+          </p>
+        </div>
+      )}
+
+      {tool === 'ink' && (
+        <div className="tr-section" data-part="ink">
+          <div className="section-head">
+            <h3 className="tr-heading">Ink</h3>
+          </div>
+          <div className="segmented tr-trace-modes" role="group" aria-label="Ink draws">
+            {INK_PENS.map((p) => (
+              <button key={p.pen} type="button" title={p.title} aria-pressed={p.pen === (inkPen ?? 'free')} onClick={() => onInkPen?.(p.pen)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="tr-note">
+            A sketch in this plane, rough by nature. Corners and hole centres of the cut are taken within 10 px; <kbd className="num">{hint('tracing.nosnap')}</kbd> held turns that off. <kbd className="num">{hint('tracing.ink')}</kbd> takes the next pen, <kbd className="num">{hint('tracing.end')}</kbd> ends a point to point line, <kbd className="num">{hint('tracing.undoInk')}</kbd> takes a stroke back. Leaving Ink keeps the sketch.
+          </p>
+        </div>
+      )}
+
       {refused !== undefined && refused !== null && (
         <p className="tr-refused" role="status">
           {refused}
@@ -250,6 +283,7 @@ export function TracingPanel() {
   const into = useTracings((s) => traceTarget(s)?.id ?? null)
   const tool = useTracings((s) => s.tool)
   const traceMode = useTracings((s) => s.trace)
+  const inkPen = useTracings((s) => s.ink)
   const layerRemoved = useTracings((s) => (s.layerRemoved !== null && s.layerRemoved.tracing === s.open ? s.layerRemoved.layer : null))
   const photoEntry = useTracings((s) => (s.open === null ? undefined : s.photos[s.file?.tracings.find((t) => t.id === s.open)?.photo?.file ?? '']))
   const cards = boardStore.getState().board?.cards
@@ -284,6 +318,8 @@ export function TracingPanel() {
       tool={tool}
       traceMode={traceMode}
       onTraceMode={tracingActions.setTrace}
+      inkPen={inkPen}
+      onInkPen={tracingActions.setInk}
       photoThumb={photoEntry !== undefined && 'url' in photoEntry ? photoEntry.url : null}
       photoHere={photoEntry === undefined || 'url' in photoEntry}
       references={referencePhotos(cards ?? [])}

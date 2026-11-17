@@ -1,7 +1,7 @@
 import { rotate } from './align'
 import type { LineupPair, LineupSnap, Matrix3, UvRect } from './lineup'
 import type { Sectioned } from './geometry'
-import type { Vec3 } from './marks'
+import type { Mark, Vec3 } from './marks'
 import { type MainAxis, mainPlaneFrame } from './planes'
 import type { Part } from './scene'
 import { type SnapData, vertexAt } from './snapdata'
@@ -165,6 +165,12 @@ export function inPlane(plane: Pick<TracingPlane, 'origin' | 'x' | 'y'>, p: Vec3
 export function planeOfFrom(from: TracingFrom): TracingPlane | null {
   if (from.kind !== 'main') return null
   return { ...mainPlaneFrame(from.axis, from.offset), from }
+}
+
+/** What a line that tells of a mark says of its tracing: ` · on T1`, and ` · on T1 (removed)` when the tracing is not there. `existing` is the ids the project has; without it the tracing is taken to be there. */
+export function onTracingWords(mark: Pick<Mark, 'tracing'>, existing: readonly string[] | undefined): string {
+  if (mark.tracing === undefined) return ''
+  return ` · on ${mark.tracing}${existing !== undefined && !existing.includes(mark.tracing) ? ' (removed)' : ''}`
 }
 
 /** How many shapes a tracing holds, in all its layers. */

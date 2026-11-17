@@ -1,3 +1,4 @@
+import { TRACING_ID } from '../../shared/tracings'
 import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_STROKE_POINTS, MOST_SKETCH_PLANES, MOST_SKETCH_POINTS, MOST_SKETCH_STROKES, type SketchPlane, type SketchPlaneFrom, type NewStroke, type SketchSnap, type SketchStroke, type SketchTake, type Vec3, STROKE_ID } from '../../shared/marks'
 
 // What a sketch is made of, read from a value that is not yet known to be one: from `marks.json` (`sanitiseMark`) and from
@@ -147,6 +148,8 @@ function fromOf(value: unknown): SketchPlaneFrom | null {
       const normal = tuple<Vec3>(value.normal, 3)
       return point && normal && isNumber(value.offset) ? { kind: 'point', point, normal, offset: value.offset } : null
     }
+    case 'tracing':
+      return typeof value.tracing === 'string' && TRACING_ID.test(value.tracing) ? { kind: 'tracing', tracing: value.tracing } : null
     case 'view':
       return typeof value.label === 'string' ? { kind: 'view', label: oneLine(value.label).slice(0, MAX_LABEL) } : null
     default:

@@ -60,7 +60,7 @@ export function pointPlane(point: Vec3, normal: Vec3, offset: number): PlaneDraf
 /** The plane moved along its normal to `offset`: what a drag of its handle or a typed value does. A plane of a locked view has none and is as it was. */
 export function withOffset<P extends PlaneDraft>(plane: P, offset: number): P {
   const { from } = plane
-  if (from.kind === 'view') return plane
+  if (from.kind === 'view' || from.kind === 'tracing') return plane
   const moved = tidy(along(plane.origin, normalOf(plane), offset - from.offset))
   switch (from.kind) {
     case 'main': {

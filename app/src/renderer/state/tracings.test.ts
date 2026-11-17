@@ -3,6 +3,8 @@ import type { HistoryList } from '../../shared/history'
 import { planeOfFrom, type Layer, type Tracing, type TracingCut, type TracingPhoto, type TracingsFile } from '../../shared/tracings'
 import { boardActions, boardStore } from './board'
 import { actions, store } from './store'
+import { setSketchEnv } from './sketching'
+import { reviewStore } from './review'
 import { transformKey } from '../../shared/lineup'
 import { buildName, connectTracings, facePicked, nextPartsOf, photoDrawn, referencePhotos, setPhotoTools, shownIds, traceTarget, tracingActions, tracingsStore, useTracings } from './tracings'
 
@@ -14,7 +16,7 @@ const cut = (id: string, revision = 3): TracingCut => ({ tracing: id, revision, 
 /** Lets what the connection asked of main at the start answer. */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
-const NONE = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select' as const, trace: 'line' as const, into: null, layerRemoved: null, photos: {}, lining: null }
+const NONE = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select' as const, selected: null, ink: 'free' as const, markRemoved: null, trace: 'line' as const, into: null, layerRemoved: null, photos: {}, lining: null }
 
 /** `window.torno.tracings` as far as the window asks of it. */
 function fake(initial: TracingsFile = file()) {
@@ -711,5 +713,105 @@ describe('the photos of the project\'s references', () => {
   it('are the picture files its reference cards name, in the order of the board', () => {
     const card = (id: string, kind: string, source?: string) => ({ id, kind, source, x: 0, y: 0, w: 1, h: 1, by: 'torno' }) as never
     expect(referencePhotos([card('C1', 'brief', 'brief'), card('C2', 'reference', 'reference/photo-1.jpg'), card('C3', 'reference', 'reference/datasheet.pdf'), card('C4', 'reference', 'reference/doodle-1.png'), card('C5', 'reference', 'reference/part.STEP')])).toEqual(['reference/photo-1.jpg', 'reference/doodle-1.png'])
+  })
+})
+
+describe('a pin on the tracing', () => {
+  const here = { objectId: 'bracket', layout: 'assembly', revision: 3, camera: { position: [0, -100, 0], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 } }
+  const withMarks = (marks: Record<string, unknown>) => {
+    const torno = { tracings: fake(), marks }
+    vi.stubGlobal('window', { torno })
+    return torno
+  }
+  const open = () => {
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { plane: plane('XY', 10) })) })
+    tracingActions.open('T1')
+  }
+  afterEach(() => {
+    setSketchEnv(null)
+    reviewStore.setState({ rounds: [], choice: 'plain' } as never)
+  })
+
+  it('is made through main as a pin of the person\'s at the point of the plane, naming the tracing, and is selected after', async () => {
+    const add = vi.fn(async (_o: string, mark: { note: string }) => ({ id: 'M5', ...mark }))
+    withMarks({ add })
+    setSketchEnv({ here: () => ({ ...here, centre: [0, 0, 0] }) } as never)
+    open()
+    expect(await tracingActions.pin([3, 4], 'too thin')).toBe(true)
+    expect(add).toHaveBeenCalledWith('bracket', { kind: 'pin', author: 'user', note: 'too thin', layout: 'assembly', revision: 3, camera: here.camera, anchor: { point: [3, 4, 10] }, tracing: 'T1' })
+    expect(tracingsStore.getState().selected).toEqual({ kind: 'mark', id: 'M5' })
+  })
+
+  it('takes what the bar of an open review says it is', async () => {
+    const add = vi.fn(async (_o: string, mark: object) => ({ id: 'M5', ...mark }))
+    withMarks({ add })
+    setSketchEnv({ here: () => ({ ...here, centre: [0, 0, 0] }) } as never)
+    reviewStore.setState({ rounds: [{ id: 'R1', layout: 'assembly', build: 'h1', sources: 'x', line: 'l', startedAt: '2026-11-17T10:00:00.000Z' }], choice: 'dont' } as never)
+    open()
+    await tracingActions.pin([3, 4], 'no')
+    expect(add.mock.calls[0][1]).toMatchObject({ intent: 'dont' })
+  })
+
+  it('says why when main refuses it, and when there is no build on show', async () => {
+    withMarks({ add: vi.fn(async () => { throw new Error('point 1 of the mark is not in the plane of T1') }) })
+    setSketchEnv({ here: () => ({ ...here, centre: [0, 0, 0] }) } as never)
+    open()
+    expect(await tracingActions.pin([3, 4], 'x')).toBe(false)
+    expect(tracingsStore.getState().refused).toBe('The pin was not kept: point 1 of the mark is not in the plane of T1')
+    setSketchEnv(null)
+    expect(await tracingActions.pin([3, 4], 'x')).toBe(false)
+    expect(tracingsStore.getState().refused).toBe('The project has no build to leave a pin on yet')
+  })
+})
+
+describe('selecting and removing a mark', () => {
+  const mark = (id: string, author: 'user' | 'agent') => ({ id, author, kind: 'pin', tracing: 'T1', anchor: { point: [0, 0, 0] } }) as never
+  const setup = (remove = vi.fn(async () => {}), restore = vi.fn(async (_o: string, id: string) => ({ id }))) => {
+    vi.stubGlobal('window', { torno: { tracings: fake(), marks: { remove, restore } } })
+    store.setState({ marks: [mark('M1', 'user'), mark('M2', 'agent')] })
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1')) })
+    return { remove, restore }
+  }
+  afterEach(() => store.setState({ marks: [] }))
+
+  it('removes the person\'s mark that is selected, and offers it back', async () => {
+    const { remove, restore } = setup()
+    tracingActions.select({ kind: 'mark', id: 'M1' })
+    expect(await tracingActions.removeSelected()).toBe(true)
+    expect(remove).toHaveBeenCalledWith('bracket', 'M1')
+    expect(tracingsStore.getState()).toMatchObject({ selected: null, markRemoved: 'M1' })
+    expect(await tracingActions.undoMarkRemove()).toBe(true)
+    expect(restore).toHaveBeenCalledWith('bracket', 'M1')
+    expect(tracingsStore.getState()).toMatchObject({ markRemoved: null, selected: { kind: 'mark', id: 'M1' } })
+  })
+
+  it('leaves the agent\'s mark, and a shape of a layer, and says so', async () => {
+    const { remove } = setup()
+    tracingActions.select({ kind: 'mark', id: 'M2' })
+    expect(await tracingActions.removeSelected()).toBe(false)
+    expect(tracingsStore.getState().refused).toBe("M2 is Claude's mark: it is Claude's to resolve")
+    tracingActions.select({ kind: 'shape', layer: 1, index: 0 })
+    expect(await tracingActions.removeSelected()).toBe(false)
+    expect(remove).not.toHaveBeenCalled()
+  })
+
+  it('lets go of the selection when another tool is taken, and when another tracing is opened', () => {
+    setup()
+    tracingActions.select({ kind: 'mark', id: 'M1' })
+    tracingActions.setTool('pin')
+    expect(tracingsStore.getState().selected).toBeNull()
+    tracingActions.select({ kind: 'mark', id: 'M1' })
+    tracingActions.setTool('select')
+    expect(tracingsStore.getState().selected).not.toBeNull()
+    tracingActions.open('T1')
+    expect(tracingsStore.getState().selected).toBeNull()
+  })
+
+  it('takes Pin and Ink in hand', () => {
+    setup()
+    tracingActions.setTool('ink')
+    expect(tracingsStore.getState().tool).toBe('ink')
+    tracingActions.setInk('line')
+    expect(tracingsStore.getState().ink).toBe('line')
   })
 })

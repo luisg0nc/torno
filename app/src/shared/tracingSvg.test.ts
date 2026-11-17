@@ -120,6 +120,65 @@ describe('tracingSvg', () => {
     expect(svg).not.toContain('data-mark="M6"')
   })
 
+  describe('marks on the tracing', () => {
+    const base = { note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 3, camera: {}, createdAt: '' }
+    const ink = (over: Record<string, unknown> = {}): Mark =>
+      ({
+        ...base,
+        id: 'M7',
+        kind: 'sketch',
+        author: 'user',
+        name: '',
+        take: 'rough',
+        nextStroke: 3,
+        tracing: 'T1',
+        planes: [{ id: 1, origin: [0, 0, 5], x: [1, 0, 0], y: [0, 1, 0], label: 'XY', from: { kind: 'tracing', tracing: 'T1' } }],
+        strokes: [
+          { id: 'k1', plane: 1, pen: 'free', revision: 3, points2d: [[0, 0], [10, 5], [20, 5]] },
+          { id: 'k2', plane: 1, pen: 'points', revision: 3, points2d: [[-10, -10], [-10, 10]] }
+        ],
+        ...over
+      }) as unknown as Mark
+
+    it('draws ink as a path through the points of each stroke in the plane, in the person\'s colour, with its id', () => {
+      const { svg } = tracingSvg(square(), sheet, { marks: [ink()], forScreen: undefined })
+      expect(svg).toMatch(/data-mark="M7"[^>]*stroke="#C23B3B"/)
+      expect(svg).toContain('data-stroke="k1"')
+      expect(svg).toContain('data-stroke="k2"')
+      const k1 = /data-stroke="k1">\s*<path d="([^"]+)"/.exec(svg)![1]
+      expect(pairs(k1)).toHaveLength(3)
+      // A point to point stroke marks its points.
+      expect(svg.match(/data-stroke="k2"[\s\S]*?<\/g>/)![0]).toContain('<circle')
+    })
+
+    it('draws ink on the screen with the stylesheet\'s classes, v up the screen as y is down, the strokes in the millimetres of the sheet', () => {
+      const { svg } = tracingSvg(square(), sheet, { marks: [ink()], forScreen: true })
+      expect(svg).toContain('class="tr-mark tr-mark-user"')
+      const k1 = /data-stroke="k1">\s*<path d="([^"]+)"/.exec(svg)![1]
+      expect(pairs(k1)).toEqual([[0, 0], [10, -5], [20, -5]])
+    })
+
+    it('leaves out ink on another tracing, ink resolved, and a plane that is not a tracing\'s', () => {
+      const other = ink({ id: 'M8', tracing: 'T2', planes: [{ id: 1, origin: [0, 0, 5], x: [1, 0, 0], y: [0, 1, 0], label: 'XY', from: { kind: 'tracing', tracing: 'T2' } }] })
+      const done = ink({ id: 'M9', status: 'resolved' })
+      const plain = ink({ id: 'M10', tracing: undefined, planes: [{ id: 1, origin: [0, 0, 5], x: [1, 0, 0], y: [0, 1, 0], label: 'XY', from: { kind: 'main', axis: 'XY', offset: 5 } }] })
+      const { svg } = tracingSvg(square(), sheet, { marks: [other, done, plain] })
+      for (const id of ['M8', 'M9', 'M10']) expect(svg).not.toContain(`data-mark="${id}"`)
+    })
+
+    it('grows the sheet to hold ink that lies beyond the outline', () => {
+      const wide = ink({ strokes: [{ id: 'k1', plane: 1, pen: 'line', revision: 3, points2d: [[0, 0], [90, 0]] }] })
+      const plain = tracingSvg(square(), sheet, { forScreen: true })
+      const grown = tracingSvg(square(), sheet, { marks: [wide], forScreen: true })
+      expect(grown.box![2]).toBeGreaterThan(plain.box![2] + 40)
+    })
+
+    it('draws a pin with its note beside its id, on the screen and in the file', () => {
+      const pin = { ...base, id: 'M4', kind: 'pin', author: 'user', tracing: 'T1', note: 'too thin here', anchor: { point: [10, 5, 5] } } as unknown as PinMark
+      expect(tracingSvg(square(), sheet, { marks: [pin] }).svg).toContain('M4 too thin here')
+    })
+  })
+
   describe('for the screen', () => {
     it('gives the elements with class names, no inline colour, no sheet and no title block', () => {
       const out = tracingSvg(square(), { ...sheet, partColours: { block: '#3355AA' } }, { forScreen: true, layers: [layer()], grid: 1 })

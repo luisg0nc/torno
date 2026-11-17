@@ -37,6 +37,7 @@ import { type InstructionList } from './instructions'
 import { KernelError, type KernelClient, type TrialResult, startKernel } from './kernel/client'
 import { toArrayBuffer } from './kernel/frames'
 import { forgetViews, latestView, reportView, resolveRequest } from './look'
+import { placeOnTracing } from './tracings/marks'
 import { type AskedAnchor, type Retrying, asPlaced, asReplaced, checkMarks, followMarks, nearestReply, retrying } from './marks/reanchor'
 import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/measure'
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, restoreMark, tendRegions } from './marks/regions'
@@ -403,6 +404,8 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   // been replaced is dropped (`Outlines.recut`), and the outlines held go with the workspace.
   const outlines = new Outlines({
     tracings: { list: (id) => requireTracings().list(id), movePlane: (...args) => requireTracings().movePlane(...args) },
+    // `marks` is the store of the window's marks, set at the head of this function; none, none move.
+    marks: { followTracing: async (...args) => void (await marks?.followTracing(...args)) },
     // None once the workspace is left: nothing is asked or written for it any more.
     build: (id) => (current === ws ? builds.scene(id) : undefined),
     query: (id, name, args) => builds.query(id, name, args, { restore: false }),
@@ -1127,7 +1130,13 @@ export function registerIpc(
   const setsOf = (objectId: string): Promise<NamedSet[] | undefined> => (sets ? sets.list(objectId).catch(() => undefined) : Promise.resolve(undefined))
   const measuring = (store: MarkStore) => ({ marks: store, query: queryObject, scene: lastScene })
   handle('marks:add', async (_event, objectId: string, mark: NewMark) => {
-    const placed = placedMark({ ...mark, author: 'user' }, String(objectId), await setsOf(String(objectId)))
+    // A mark on a tracing is tied (a pin on the outline) and checked against its plane before it is kept (`placeOnTracing`).
+    const placed = await placeOnTracing(
+      { tracings: { list: (id) => requireTracings().list(id) }, nearest: async (id, layout, anchors) => nearestReply(await queryObject(id, 'nearest', { layout, anchors }), anchors), scene: (id) => lastScene(id) },
+      String(objectId),
+      { ...mark, author: 'user' } as NewMark,
+      (m) => placedMark(m, String(objectId), undefined)
+    ).then(async (made) => (made.tracing === undefined ? placedMark(made, String(objectId), await setsOf(String(objectId))) : made))
     return placed.kind === 'dimension' ? addDimension(measuring(requireMarks()), String(objectId), placed) : requireMarks().add(String(objectId), placed)
   })
   // Whoever resolves a mark from the window is the person.
@@ -1175,7 +1184,7 @@ export function registerIpc(
   // A 3D sketch: main checks every stroke that is new or changed against the last build (a snapped point is the kernel's), works
   // out what each touches, and keeps it; its card's picture is the window's, named and written by main. Which sketch is open is said, not asked.
   const sketches = () =>
-    sketchHandlers({ marks: requireMarks(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject, placed: placedMark })
+    sketchHandlers({ marks: requireMarks(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject, placed: placedMark, tracings: { list: (id) => requireTracings().list(id) } })
   handle('marks:sketch', (_event, draft: SketchDraft) => sketches().sketch(draft))
   handle('marks:sketchPicture', (_event, objectId: string, id: string, png: Uint8Array) => sketches().sketchPicture(objectId, id, png))
   ipcMain.on('marks:sketching', (_event, objectId: string, id: string | null) => sketches().sketching(objectId, id))

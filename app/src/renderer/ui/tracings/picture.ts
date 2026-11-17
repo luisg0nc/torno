@@ -1,3 +1,4 @@
+import type { Mark } from '../../../shared/marks'
 import { LAYER_COLOURS } from '../../../shared/tracings'
 import type { TracingPictureRequest, TracingPictureResult } from '../../../shared/tracings'
 import { LAYER_INKS, tracingSvg } from '../../../shared/tracingSvg'
@@ -24,6 +25,12 @@ const STYLE = `
 .tr-tab{fill:#646970}
 .tr-part-name{font-family:ui-monospace,monospace;fill:#646970}
 text{font-family:system-ui,sans-serif}
+.tr-mark{fill:none;stroke-width:.3}
+.tr-mark-user{stroke:#C23B3B}
+.tr-mark-agent{stroke:#2E8B57}
+.tr-mark-text{stroke:none;font-family:ui-monospace,monospace}
+.tr-mark-user .tr-mark-text{fill:#C23B3B}
+.tr-mark-agent .tr-mark-text{fill:#2E8B57}
 ${LAYER_COLOURS.map((c) => `.tr-layer-${c}{color:${LAYER_INKS[c]}}`).join('\n')}
 `
 
@@ -37,11 +44,11 @@ export interface PictureSvg {
 }
 
 /** The drawing as an svg document of `width` by `height` px, and what maps its pixels to the plane's millimetres. `photoHref` is the straightened photo's `data:` address, put under the outline where `req.photo` says. */
-export function pictureSvg(req: TracingPictureRequest, photoHref?: string): PictureSvg {
+export function pictureSvg(req: TracingPictureRequest, photoHref?: string, marks: readonly Mark[] = []): PictureSvg {
   const drawn = tracingSvg(
     req.cut,
     { object: req.object, layout: req.layout, revision: req.revision, date: new Date(0), marks: [], tracing: { id: req.tracing, name: req.name, plane: req.plane } },
-    { layers: req.layers, grid: 10, forScreen: true, ...(photoHref !== undefined && req.photo ? { photo: { href: photoHref, rect: req.photo.rect, fade: req.photo.fade } } : {}) }
+    { layers: req.layers, ...(marks.length > 0 ? { marks } : {}), grid: 10, forScreen: true, ...(photoHref !== undefined && req.photo ? { photo: { href: photoHref, rect: req.photo.rect, fade: req.photo.fade } } : {}) }
   )
   const [x0, y0, w, h] = drawn.box ?? [0, 0, 1, 1]
   const edge = Math.round(Math.min(MAX_EDGE, Math.max(MIN_EDGE, Number.isFinite(req.size) ? req.size : 1280)))
@@ -74,14 +81,14 @@ function dataAddress(bytes: Uint8Array): Promise<string | null> {
 }
 
 /** The picture as PNG bytes, drawn on a canvas of its own. */
-export async function drawTracingPicture(req: TracingPictureRequest): Promise<TracingPictureResult> {
+export async function drawTracingPicture(req: TracingPictureRequest, marks: readonly Mark[] = []): Promise<TracingPictureResult> {
   // The photo's copy is asked of main by the tracing's ref; one that is not on this computer is left out, and the answer says so.
   let href: string | undefined
   if (req.photo) {
     const bytes = await window.torno.tracings.photoBytes(req.objectId, req.tracing, 'straightened').catch(() => null)
     href = (bytes && (await dataAddress(bytes))) || undefined
   }
-  const drawn = pictureSvg(req, href)
+  const drawn = pictureSvg(req, href, marks)
   const image = new Image()
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawn.svg)}`
   await image.decode()

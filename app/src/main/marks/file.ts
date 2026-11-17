@@ -7,6 +7,7 @@ import type { Camera } from '../../shared/view'
 import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
 import { ROUND_ID, type Round } from '../../shared/reviews'
 import { TAG_NAME } from '../../shared/tags'
+import { TRACING_ID } from '../../shared/tracings'
 import { SET_REF } from '../../shared/sets'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 import { numberStrokes, readSketch } from '../sketches/read'
@@ -228,7 +229,10 @@ export function sanitiseMark(value: unknown): Mark | null {
     // A review: a bad `intent`, `round` or `judged` is left out, and the mark kept. A shape's `intent` is its own, read below.
     ...(value.kind !== 'shape' && oneOf(value.intent, ['want', 'dont'] as const) ? { intent: value.intent } : {}),
     ...(typeof value.round === 'string' && ROUND_ID.test(value.round) ? { round: value.round } : {}),
-    ...(judgedOf(value.judged) ? { judged: judgedOf(value.judged) as Judged } : {})
+    ...(judgedOf(value.judged) ? { judged: judgedOf(value.judged) as Judged } : {}),
+    // A mark on a tracing says which, and where in its own `[u, v]` each of its points was placed; a tracing id that is none, or uv that are no points, are left out.
+    ...(typeof value.tracing === 'string' && TRACING_ID.test(value.tracing) ? { tracing: value.tracing } : {}),
+    ...(typeof value.tracing === 'string' && TRACING_ID.test(value.tracing) && uvOf(value.uv) ? { uv: uvOf(value.uv) as [number, number][] } : {})
   }
   const anchor = anchorOf(value.anchor)
   switch (value.kind) {
@@ -482,6 +486,16 @@ export function cameraOf(value: unknown): Camera | null {
 /** A copy of `value` when it is exactly `length` finite numbers. */
 function tuple<T extends number[]>(value: unknown, length: T['length']): T | null {
   return Array.isArray(value) && value.length === length && value.every(isNumber) ? ([...value] as T) : null
+}
+
+/** The most points a mark on a tracing holds the `uv` of: a pin has one, an arrow two, a shape's box eight. */
+const MOST_UV = 16
+
+/** The `uv` of a mark on a tracing: a list of `[u, v]` of finite numbers, or null for what is none. */
+function uvOf(value: unknown): [number, number][] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MOST_UV) return null
+  const points = value.map((p) => tuple<[number, number]>(p, 2))
+  return points.every((p) => p !== null) ? (points as [number, number][]) : null
 }
 
 /** The points of a stroke that are points, up to the most a stroke keeps. */

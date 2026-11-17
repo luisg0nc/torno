@@ -89,6 +89,13 @@ interface MarkBase {
   round?: string
   /** What the person said of the agent's answer in the round panel. Main's alone; only OK and Still wrong set it. */
   judged?: Judged
+  /**
+   * The tracing (`T1`) the mark was made on: every point it holds lies in that tracing's plane within 1e-6 mm (`checkOnTracing`),
+   * and a build that moves a face tracing's plane moves the mark with it (`MarkStore.followTracing`). Its layout is the tracing's.
+   */
+  tracing?: string
+  /** Of a mark on a tracing: the `[u, v]` in mm of each point it holds, in the order of `markPoints`, as it was placed. A move of the plane along its normal leaves them. */
+  uv?: [number, number][]
 }
 export interface PinMark extends MarkBase, Reviewable { kind: 'pin'; anchor: Anchor }
 export interface PickMark extends MarkBase, Reviewable { kind: 'pick'; target: 'face' | 'edge' | 'part'; anchor: Anchor }
@@ -244,6 +251,7 @@ export type SketchPlaneFrom =
   | { kind: 'face'; ref: string; offset: number; revision: number }
   | { kind: 'point'; point: Vec3; normal: Vec3; offset: number }
   | { kind: 'view'; label: string }
+  | { kind: 'tracing'; tracing: string }
 /** An orthonormal frame in the object frame (the normal is x × y), numbered within its sketch. */
 export interface SketchPlane {
   id: number

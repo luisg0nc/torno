@@ -111,3 +111,31 @@ describe('the photo in the picture Claude is sent', () => {
     expect(drawn.mmPerPx).toBeCloseTo(108 / 1000, 6)
   })
 })
+
+describe('ink on the picture', () => {
+  const ink = {
+    id: 'M7',
+    kind: 'sketch',
+    author: 'user',
+    status: 'draft',
+    note: '',
+    tracing: 'T1',
+    planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ', from: { kind: 'tracing', tracing: 'T1' } }],
+    strokes: [{ id: 'k1', plane: 1, pen: 'free', revision: 7, points2d: [[5, 5], [30, 20]] }]
+  } as never
+
+  it('draws the marks it is given in their colours, with the stylesheet a canvas has none of, and nothing without them', () => {
+    const drawn = pictureSvg(request(), undefined, [ink])
+    expect(drawn.svg).toContain('data-mark="M7"')
+    expect(drawn.svg).toContain('data-stroke="k1"')
+    expect(drawn.svg).toContain('.tr-mark-user{stroke:#C23B3B}')
+    expect(pictureSvg(request()).svg).not.toContain('data-mark')
+  })
+
+  it('still maps its pixels to mm with ink beyond the outline: the box grows to hold it', () => {
+    const far = { ...(ink as object), strokes: [{ id: 'k1', plane: 1, pen: 'line', revision: 7, points2d: [[5, 5], [100, 5]] }] } as never
+    const drawn = pictureSvg(request(), undefined, [far])
+    expect(drawn.width).toBe(1280)
+    expect(drawn.mmPerPx).toBeGreaterThan(pictureSvg(request()).mmPerPx)
+  })
+})

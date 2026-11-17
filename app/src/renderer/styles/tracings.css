@@ -21,8 +21,10 @@
   cursor: grabbing;
 }
 
-/* With Trace in hand a click puts a point down. */
-.tr-stage[data-tool='trace'] {
+/* With Trace, Pin or Ink in hand a click puts a point down, or a press draws. */
+.tr-stage[data-tool='trace'],
+.tr-stage[data-tool='pin'],
+.tr-stage[data-tool='ink'] {
   cursor: crosshair;
 }
 
@@ -199,6 +201,20 @@
 .tr-draft-at {
   fill: currentColor;
   stroke: none;
+}
+
+/* What Select selected: a ring round a point, a wide faint line along a stroke or a shape. Widths are pixels. */
+.tr-selected {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+
+.tr-selected-line {
+  stroke-width: 7px;
+  stroke-opacity: 0.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .tr-snap {

@@ -106,6 +106,8 @@ export interface SketchDraft {
   /** The strokes the window has: one it had from main names its `id`, and a new one has none. A number is main's to give (`MarkStore.saveSketch`). */
   strokes: NewStroke[]
   anchor?: Anchor
+  /** The tracing (`T1`) it is ink on: every plane of it is that tracing's, `from: { kind: 'tracing' }`, and main checks that they are (`checkOnTracing`). */
+  tracing?: string
   /** What the bar of an open review said when the sketch was begun: main keeps it of a new sketch of the person's, and never changes it of one it has (`marks:setIntent` does). */
   intent?: ReviewIntent
 }

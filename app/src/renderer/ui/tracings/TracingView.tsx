@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { number } from '../../../shared/format'
 import { hint, pressed, viewKey } from '../../../shared/keys'
-import type { DimensionMark } from '../../../shared/marks'
+import { MAX_NOTE, type DimensionMark, type NewStroke } from '../../../shared/marks'
 import { colorsOfParts } from '../../../shared/palette'
 import { MAX_LABEL_TEXT } from '../../../shared/tracings'
 import { niceLength, tracingSvg } from '../../../shared/tracingSvg'
 import { isExploded } from '../../../shared/explode'
 import { memoryEpoch, onBoardForgotten } from '../../state/board'
-import { useStore } from '../../state/store'
+import { addStroke, finishSketch, startInk, undoStroke } from '../../state/sketching'
+import { store, useStore } from '../../state/store'
 import { buildName, NO_OWN_LAYER, openTracing, photoDrawn, traceTarget, tracingActions, tracingsStore, useTracings } from '../../state/tracings'
 import { useHistory } from '../useHistory'
 import { chosen, giveKeysBack, pointerChoice, TYPING } from '../typing'
@@ -17,6 +18,9 @@ import { Grid, SheetLayer } from './Grid'
 import { LineUp } from './LineUp'
 import { Palette } from './Palette'
 import { axisOfDirection, PX_PER_MM, ratioText, Sheet, type View } from './Sheet'
+import { INK_PENS, InkTool } from './inkTool'
+import { PinTool } from './pinTool'
+import { hitTest, selectedElements, selectedShapeElements } from './selectTool'
 import { snapAt, type Snapped } from './snap'
 import { TraceTool } from './traceTool'
 import { TracingPanel } from './TracingPanel'
@@ -60,6 +64,9 @@ export function TracingView() {
   const removed = useTracings((s) => s.removed)
   const tool = useTracings((s) => s.tool)
   const traceMode = useTracings((s) => s.trace)
+  const inkPen = useTracings((s) => s.ink)
+  const selected = useTracings((s) => s.selected)
+  const markRemoved = useTracings((s) => s.markRemoved)
   const target = useTracings((s) => traceTarget(s))
   const photos = useTracings((s) => s.photos)
   const marks = useStore((s) => s.marks)
@@ -70,18 +77,21 @@ export function TracingView() {
   const [sheet, setSheet] = useState<Sheet | null>(null)
   /** Where a label waits for its text, in the plane. */
   const [labelAt, setLabelAt] = useState<[number, number] | null>(null)
+  /** Where a pin waits for its note, in the plane. */
+  const [pinAt, setPinAt] = useState<[number, number] | null>(null)
   const root = useRef<HTMLElement>(null)
   const stage = useRef<HTMLDivElement>(null)
   const layerEl = useRef<HTMLDivElement>(null)
   const gridEl = useRef<SVGSVGElement>(null)
   const draftEl = useRef<SVGSVGElement>(null)
   const labelEl = useRef<HTMLInputElement>(null)
+  const pinEl = useRef<HTMLInputElement>(null)
   const hintEl = useRef<HTMLSpanElement>(null)
   const readout = useRef<HTMLSpanElement>(null)
   const bar = useRef<HTMLSpanElement>(null)
   const barLabel = useRef<HTMLSpanElement>(null)
   /** A press on the sheet: where it was last moved to, where it began, and whether it is a click that may become a drag. */
-  const press = useRef<{ x: number; y: number; from: { x: number; y: number }; click: boolean; moved: boolean } | null>(null)
+  const press = useRef<{ x: number; y: number; from: { x: number; y: number }; click: boolean; moved: boolean; draw?: boolean } | null>(null)
   /** Where the pointer is on the plane, and what it snapped to: for the draft, never state. */
   const hover = useRef<{ uv: [number, number]; snap?: Snapped } | null>(null)
   const down = useRef(false)
@@ -103,6 +113,31 @@ export function TracingView() {
     )
   }
 
+  // The Pin tool: a point waits for its note, typed where the point is; a note typed makes the pin through main.
+  const pin = useRef<PinTool | null>(null)
+  if (pin.current === null) {
+    pin.current = new PinTool(
+      (uv, _snapped, note) => void tracingActions.pin(uv, note),
+      () => {
+        paint.current()
+        setPinAt(pin.current?.draft ?? null)
+      }
+    )
+  }
+
+  // The Ink tool: a stroke under way; a finished one is added to the ink, a sketch of the plane that the sketch state keeps and sends.
+  const ink = useRef<InkTool | null>(null)
+  if (ink.current === null) {
+    ink.current = new InkTool(
+      (stroke) => {
+        const revision = tracingsStore.getState().cuts[tracingsStore.getState().open ?? '']?.revision
+        const sent: NewStroke = { pen: stroke.pen, plane: 1, points2d: stroke.points2d, ...(stroke.snaps ? { snaps: stroke.snaps } : {}), revision: revision ?? 0 }
+        if (!addStroke(sent)) tracingActions.say('There is no build to draw on yet')
+      },
+      () => paint.current()
+    )
+  }
+
   const drawing = useMemo(() => {
     if (tracing === undefined || cut === null) return null
     // The straightened photo under the outline, at the person's fade, by its rectangle in mm; its line-up in the title block.
@@ -119,7 +154,7 @@ export function TracingView() {
         tracing: { id: tracing.id, name: tracing.name, plane: tracing.plane.label },
         ...(shown ? { photoSaid: shown.said } : {})
       },
-      { forScreen: true, layers: tracing.layers, ...(shown ? { photo: shown.photo } : {}) }
+      { forScreen: true, layers: tracing.layers, marks: marks.filter((m) => m.tracing === tracing.id), ...(shown ? { photo: shown.photo } : {}) }
     )
   }, [tracing, cut, marks, explode, objectId, photos])
   down.current = drawing?.down ?? false
@@ -129,10 +164,22 @@ export function TracingView() {
     const el = draftEl.current
     const t = trace.current
     if (!el || !t) return
-    const on = tracingsStore.getState().tool === 'trace'
+    const now = tracingsStore.getState()
+    const on = now.tool === 'trace'
     const k = sheet?.view.k ?? PX_PER_MM
     let out = on ? t.elements(hover.current?.uv ?? null, down.current, k) : ''
-    const snap = on ? hover.current?.snap : undefined
+    if (now.tool === 'pin') out += pin.current?.elements(down.current, k) ?? ''
+    if (now.tool === 'ink') out += ink.current?.elements(hover.current?.uv ?? null, down.current, k) ?? ''
+    // The mark Select selected, ringed or haloed whatever the tool in hand is.
+    const picked = now.selected?.kind === 'mark' ? store.getState().marks.find((m) => m.id === (now.selected as { id: string }).id) : undefined
+    const open_ = openTracing(now)
+    if (picked && open_ && picked.tracing === open_.id) out += selectedElements(picked, open_, down.current, k)
+    if (now.selected?.kind === 'shape' && open_) {
+      const chosen_ = now.selected
+      const shape = open_.layers.find((l) => l.id === chosen_.layer)?.shapes[chosen_.index]
+      if (shape) out += selectedShapeElements(shape, down.current, k)
+    }
+    const snap = now.tool === 'trace' || now.tool === 'pin' || now.tool === 'ink' ? hover.current?.snap : undefined
     if (snap) {
       const [x, y] = [snap.uv[0], down.current ? snap.uv[1] : -snap.uv[1]]
       out += `<circle class="tr-snap${snap.snap.kind === 'vertex' && snap.snap.projected ? ' tr-snap-projected' : ''}" cx="${Math.round(x * 1000) / 1000 + 0}" cy="${Math.round(y * 1000) / 1000 + 0}" r="${Math.round((6 / k) * 1000) / 1000}"/>`
@@ -171,13 +218,13 @@ export function TracingView() {
       const length = niceLength(SCALE_BAR_PX / made.view.k)
       if (bar.current) bar.current.style.width = `${length * made.view.k}px`
       if (barLabel.current) barLabel.current.textContent = `${number(length)} mm`
-      if (tracingsStore.getState().tool === 'trace') paint.current()
-      const input = labelEl.current
-      const at = trace.current?.draft.label
-      if (input && at) {
-        const [x, y] = made.toScreen(at)
-        const r = stageEl.getBoundingClientRect()
-        input.style.transform = `translate(${Math.round(x - r.left)}px, ${Math.round(y - r.top)}px)`
+      if (tracingsStore.getState().tool !== 'select') paint.current()
+      for (const [input, at] of [[labelEl.current, trace.current?.draft.label], [pinEl.current, pin.current?.draft]] as const) {
+        if (input && at) {
+          const [x, y] = made.toScreen(at)
+          const r = stageEl.getBoundingClientRect()
+          input.style.transform = `translate(${Math.round(x - r.left)}px, ${Math.round(y - r.top)}px)`
+        }
       }
     })
     const epoch = memoryEpoch()
@@ -223,10 +270,39 @@ export function TracingView() {
     const t = trace.current!
     t.cancel()
     t.setMode(traceMode)
+    pin.current?.cancel()
+    ink.current?.cancel()
+    ink.current?.setPen(inkPen)
     hover.current = null
     if (hintEl.current) hintEl.current.textContent = ''
     paint.current()
-  }, [tool, traceMode, target?.id])
+  }, [tool, traceMode, target?.id, inkPen])
+
+  // The selection and the marks are drawn on the draft layer: a mark selected is ringed, and it goes when the mark does.
+  useEffect(() => paint.current(), [selected, marks, tool, tracing?.id])
+
+  // Ink is a sketch of this tracing's plane, begun when the tool is taken and kept when it is put down, the tracing is changed or the view is left:
+  // its card's picture is then drawn from this view and kept by main. Nothing is written until the first stroke.
+  useEffect(() => {
+    if (tool !== 'ink' || tracing === undefined || objectId === null || cut === null) return
+    if (!startInk(objectId, tracing)) tracingActions.say('There is no build to draw on yet')
+    return () => {
+      ink.current?.cancel()
+      void finishSketch()
+    }
+  }, [tool, tracing?.id, objectId, cut === null])
+
+  // The pin's field takes the focus where it opens, and stands on its point.
+  useEffect(() => {
+    if (pinAt === null) return
+    const input = pinEl.current
+    if (sheet && input) {
+      const [x, y] = sheet.toScreen(pinAt)
+      const r = stage.current?.getBoundingClientRect()
+      input.style.transform = `translate(${Math.round(x - (r?.left ?? 0))}px, ${Math.round(y - (r?.top ?? 0))}px)`
+    }
+    input?.focus({ preventScroll: true })
+  }, [pinAt])
 
   // The label's field takes the focus where it opens, and stands on its point.
   useEffect(() => {
@@ -256,7 +332,10 @@ export function TracingView() {
         e.preventDefault()
         e.stopPropagation()
       }
-      const tracing_ = tracingsStore.getState().tool === 'trace'
+      const inHand = tracingsStore.getState().tool
+      const tracing_ = inHand === 'trace'
+      const inking = inHand === 'ink'
+      const pinning = inHand === 'pin'
       // The tool's keys are for the sheet: not for a button of the panel that has the focus.
       const onSheet = e.target === document.body || (e.target instanceof Node && stage.current?.contains(e.target) === true)
       if (pressed(e, 'tracing.fit')) {
@@ -271,14 +350,29 @@ export function TracingView() {
       } else if (!e.repeat && pressed(e, 'tracing.trace')) {
         stop()
         tracingActions.setTool('trace')
-      } else if (tracing_ && onSheet && pressed(e, 'tracing.end')) {
-        if (trace.current?.end()) stop()
-      } else if (tracing_ && onSheet && pressed(e, 'tracing.back')) {
-        if (trace.current?.back()) stop()
-      } else if (tracing_ && pressed(e, 'tracing.leave')) {
+      } else if (!e.repeat && pressed(e, 'tracing.pin')) {
+        stop()
+        tracingActions.setTool('pin')
+      } else if (!e.repeat && pressed(e, 'tracing.ink')) {
+        stop()
+        // Taken again, it takes the next pen.
+        if (inking) tracingActions.setInk(INK_PENS[(INK_PENS.findIndex((p) => p.pen === tracingsStore.getState().ink) + 1) % INK_PENS.length].pen)
+        else tracingActions.setTool('ink')
+      } else if (inHand === 'select' && onSheet && pressed(e, 'tracing.remove')) {
+        stop()
+        void tracingActions.removeSelected()
+      } else if (inking && pressed(e, 'tracing.undoInk')) {
+        stop()
+        undoStroke()
+      } else if ((tracing_ || inking) && onSheet && pressed(e, 'tracing.end')) {
+        if ((tracing_ ? trace.current?.end() : ink.current?.end()) === true) stop()
+      } else if ((tracing_ || inking) && onSheet && pressed(e, 'tracing.back')) {
+        if ((tracing_ ? trace.current?.back() : ink.current?.back()) === true) stop()
+      } else if ((tracing_ || inking || pinning) && pressed(e, 'tracing.leave')) {
         stop()
         // What is under way first, then the tool.
-        if (!trace.current?.cancel()) tracingActions.setTool('select')
+        const gaveUp = tracing_ ? trace.current?.cancel() : inking ? ink.current?.cancel() : pin.current?.cancel()
+        if (!gaveUp) tracingActions.setTool('select')
       } else if (viewKey(e)) e.stopPropagation()
     }
     window.addEventListener('keydown', onKey, true)
@@ -291,6 +385,11 @@ export function TracingView() {
     const timer = setTimeout(tracingActions.forgetRemoved, 10_000)
     return () => clearTimeout(timer)
   }, [removed])
+  useEffect(() => {
+    if (markRemoved === null) return
+    const timer = setTimeout(tracingActions.forgetMarkRemoved, 10_000)
+    return () => clearTimeout(timer)
+  }, [markRemoved])
   const layerRemoved = useTracings((s) => s.layerRemoved)
   useEffect(() => {
     if (layerRemoved === null) return
@@ -302,7 +401,7 @@ export function TracingView() {
   function under(e: PointerEvent<HTMLElement>): { uv: [number, number]; snap?: Snapped } | null {
     if (!sheet) return null
     const raw = sheet.toUv(e.clientX, e.clientY)
-    const snap = tool === 'trace' ? snapAt(cut?.snaps ?? [], raw, sheet.view.k, e.ctrlKey) : null
+    const snap = tool === 'trace' || tool === 'pin' || tool === 'ink' ? snapAt(cut?.snaps ?? [], raw, sheet.view.k, e.ctrlKey) : null
     return snap === null ? { uv: raw } : { uv: snap.uv, snap }
   }
 
@@ -310,7 +409,7 @@ export function TracingView() {
     const at = under(e)
     if (!at || !readout.current) return
     readout.current.textContent = `${number(at.uv[0])}, ${number(at.uv[1])}`
-    if (tool !== 'trace') return
+    if (tool !== 'trace' && tool !== 'pin' && tool !== 'ink') return
     hover.current = at
     const el = hintEl.current
     if (el) {
@@ -326,14 +425,25 @@ export function TracingView() {
     e.currentTarget.focus({ preventScroll: true })
     e.preventDefault()
     // With Trace in hand the left button places a point; a press that moves far is a drag, which moves the sheet as it always did.
-    press.current = { x: e.clientX, y: e.clientY, from: { x: e.clientX, y: e.clientY }, click: tool === 'trace' && e.button === 0, moved: false }
+    // With Ink in hand the left button draws; with Trace, Pin or Select it is a click, and a press that moves far is a drag, which moves the sheet as it always did.
+    const draw = tool === 'ink' && e.button === 0
+    press.current = { x: e.clientX, y: e.clientY, from: { x: e.clientX, y: e.clientY }, click: (tool === 'trace' || tool === 'pin' || tool === 'select') && e.button === 0, moved: false, ...(draw ? { draw } : {}) }
     e.currentTarget.setPointerCapture(e.pointerId)
+    if (draw) {
+      const at = under(e)
+      if (at) ink.current?.press({ uv: at.uv, ...(at.snap ? { snap: at.snap.snap } : {}) }, sheet.view.k)
+    }
   }
 
   function onPointerMove(e: PointerEvent<HTMLDivElement>): void {
     point(e)
     const was = press.current
     if (!was || !sheet) return
+    if (was.draw) {
+      const at = under(e)
+      if (at) ink.current?.move({ uv: at.uv }, sheet.view.k)
+      return
+    }
     if (was.click && !was.moved) {
       if (Math.hypot(e.clientX - was.from.x, e.clientY - was.from.y) < CLICK_SLOP) return
       was.moved = true
@@ -350,14 +460,28 @@ export function TracingView() {
     press.current = null
     e.currentTarget.removeAttribute('data-panning')
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+    if (was.draw && sheet) {
+      if (e.type === 'pointerup') {
+        const at = under(e)
+        if (at) ink.current?.release({ uv: at.uv, ...(at.snap ? { snap: at.snap.snap } : {}) }, sheet.view.k)
+      } else ink.current?.cancel()
+      return
+    }
     if (e.type === 'pointerup' && was.click && !was.moved && sheet) placePoint(e)
   }
 
   /** A click with Trace in hand: a point of the shape under way, or a refusal when there is no layer of the person's to put it in. */
   function placePoint(e: PointerEvent<HTMLElement>): void {
-    if (traceTarget(tracingsStore.getState()) === undefined) return tracingActions.say(NO_OWN_LAYER)
     const at = under(e)
-    if (at && sheet) trace.current?.click({ uv: at.uv, snapped: at.snap !== undefined }, sheet.view.k)
+    if (!at || !sheet) return
+    // Select: the mark or shape under the pointer, or none. Pin: the point whose note is asked for.
+    if (tool === 'select') {
+      if (tracing !== undefined) tracingActions.select(hitTest(marks, tracing.layers, tracing, at.uv, sheet.view.k))
+      return
+    }
+    if (tool === 'pin') return pin.current?.click({ uv: at.uv, snapped: at.snap !== undefined })
+    if (traceTarget(tracingsStore.getState()) === undefined) return tracingActions.say(NO_OWN_LAYER)
+    trace.current?.click({ uv: at.uv, snapped: at.snap !== undefined }, sheet.view.k)
   }
 
   const axes = tracing === undefined ? null : { u: axisOfDirection(tracing.plane.x), v: axisOfDirection(tracing.plane.y) }
@@ -430,6 +554,27 @@ export function TracingView() {
               }
             }}
             onBlur={(e) => void trace.current?.text(e.currentTarget.value)}
+          />
+        )}
+        {pinAt !== null && (
+          <input
+            ref={pinEl}
+            className="tr-label-input tr-pin-input"
+            aria-label="Note of the pin"
+            maxLength={MAX_NOTE}
+            placeholder="Note"
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              const keep = pressed(e, 'field.keep')
+              if (keep || pressed(e, 'field.leave')) {
+                if (!keep) e.currentTarget.value = ''
+                e.preventDefault()
+                e.stopPropagation()
+                e.currentTarget.blur()
+                giveKeysBack(e.currentTarget)
+              }
+            }}
+            onBlur={(e) => void pin.current?.text(e.currentTarget.value)}
           />
         )}
       </div>
@@ -508,6 +653,15 @@ export function TracingView() {
         <p className="tr-undo tr-undo-float" role="status">
           {removed.name === '' ? removed.id : `${removed.id} ${removed.name}`} removed.{' '}
           <button type="button" className="link-button" onClick={() => void tracingActions.undoRemove()}>
+            Undo
+          </button>
+        </p>
+      )}
+
+      {markRemoved !== null && (
+        <p className="tr-undo tr-undo-float" role="status">
+          Deleted <span className="num">{markRemoved}</span> ·{' '}
+          <button type="button" className="link-button" onClick={() => void tracingActions.undoMarkRemove()}>
             Undo
           </button>
         </p>

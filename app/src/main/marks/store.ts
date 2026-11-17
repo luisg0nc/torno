@@ -1,9 +1,10 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, markPoints, translated } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
 import { type Round, type RoundsView, carriedRound, openRound, roundItems } from '../../shared/reviews'
+import { type TracingPlane, inPlane } from '../../shared/tracings'
 
 /** What main says of a region: what it is, which mesh of its scan it is of, and which painting of it its mask holds. */
 export type RegionSaid = RegionStats & { mesh?: string; mask?: number }
@@ -410,7 +411,7 @@ export class MarkStore {
             })
           : asked.strokes
         if (next > MOST_STROKE_NUMBER + 1) throw new Refusal('this sketch has used up its stroke numbers: draw the rest in a sketch of its own')
-        const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, nextStroke: next, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
+        const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, nextStroke: next, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera, ...(asked.tracing === undefined ? {} : { tracing: asked.tracing }) }
         if (!given) {
           const id = `M${file.next}`
           // What the bar of an open review said, of the person's own sketch only: the agent's are plain, and one main has keeps its own (`setIntent` changes it).
@@ -711,6 +712,7 @@ export class MarkStore {
         const mark = file.marks[at]
         if (mark.kind !== 'pin' && mark.kind !== 'pick' && mark.kind !== 'arrow') throw new Refusal(`${id} is a ${mark.kind}: only a pin, a pick or an arrow is put somewhere else`)
         if (mark.author !== 'user') throw new Refusal(`${id} is the agent's mark: it is not put somewhere else`)
+        if (mark.tracing !== undefined) throw new Refusal(`${id} is on ${mark.tracing}: it lies in that plane and is not put on a part of the 3D view`)
         if (mark.status === 'resolved') throw new Refusal(`${id} is resolved: reopen it first`)
         const anchor = (placed as Replacement | null)?.anchor
         if (typeof anchor !== 'object' || anchor === null || typeof anchor.part !== 'string') throw new Refusal(`${id} was not put on a part`)
@@ -756,12 +758,17 @@ export class MarkStore {
         const mark = file.marks[at]
         if (!isDeepStrictEqual(markAnchors(mark), judged)) continue
         // Whatever else the mark holds is moved from where it is now: a shape may have been dragged meanwhile.
-        const where = (shift || shiftB) && anchors[0] ? translated(mark, shift ?? [0, 0, 0], shiftB ?? [0, 0, 0]) : mark
+        // A mark on a tracing lies in its plane, which a build moves (`followTracing`) and the spread of a layout does not: it is not moved by a
+        // spread, and a check refreshes its ref and descriptor without taking its points from where they are.
+        const staysPut = mark.tracing !== undefined
+        const where = !staysPut && (shift || shiftB) && anchors[0] ? translated(mark, shift ?? [0, 0, 0], shiftB ?? [0, 0, 0]) : mark
+        const held = markAnchors(mark)
+        const kept = staysPut ? anchors.map((one, i) => (one && held[i] ? { ...one, point: held[i].point } : one)) : anchors
         const anchor =
           mark.kind === 'dimension'
-            ? { ...(anchors[0] ? { a: anchors[0] } : {}), ...(anchors[1] && mark.b ? { b: anchors[1] } : {}) }
-            : anchors[0]
-              ? { [mark.kind === 'arrow' ? 'from' : 'anchor']: anchors[0] }
+            ? { ...(kept[0] ? { a: kept[0] } : {}), ...(kept[1] && mark.b ? { b: kept[1] } : {}) }
+            : kept[0]
+              ? { [mark.kind === 'arrow' ? 'from' : 'anchor']: kept[0] }
               : {}
         const moved = sanitiseMark({ ...where, ...anchor, anchorState, ...(checkedRevision === undefined ? {} : { checkedRevision }) })
         if (!moved) continue
@@ -776,6 +783,33 @@ export class MarkStore {
       }
       return any ? undefined : UNCHANGED
     }).then(() => {})
+  }
+
+  /**
+   * A build moved the plane of tracing `tracing` by `by` (along its normal; its axes never change): every mark on it (`Mark.tracing`)
+   * moves by the same vector, with everything it holds in the object frame, in one change and one write, in the turn of the marks as
+   * the spread's shift is. Its `uv` stay, for they are in the plane's own axes. Given the plane as it now is, a mark the move
+   * would not leave in it (within 1e-6 mm) is left where it is: nothing is moved out of a plane. A tracing with no marks, and a
+   * move by nothing, write and tell nothing. The marks moved are told as unchecked, for their part is judged again where they now are.
+   */
+  followTracing(objectId: string, tracing: string, by: Vec3, plane?: Pick<TracingPlane, 'origin' | 'x' | 'y'>): Promise<void> {
+    if (!Array.isArray(by) || by.length !== 3 || !by.every(Number.isFinite)) return Promise.reject(new Refusal('a plane moves by three finite numbers'))
+    const moved: string[] = []
+    return this.change(
+      objectId,
+      (file) => {
+        if (by.every((c) => c === 0)) return UNCHANGED
+        file.marks = file.marks.map((mark) => {
+          if (mark.tracing !== tracing) return mark
+          const next = translated(mark, by)
+          if (plane && markPoints(next).some((p) => !inPlane(plane, p))) return mark
+          moved.push(mark.id)
+          return next
+        })
+        return moved.length === 0 ? UNCHANGED : undefined
+      },
+      moved
+    ).then(() => {})
   }
 
   /**

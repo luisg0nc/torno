@@ -2,6 +2,7 @@ import { count as counted, number, numberWithin, scanNumber } from '../../shared
 import { expectedText, lastValue, measuredValue, notMeasuredText, offBy, onBuild, standingOf, valueText } from '../../shared/dimension'
 import { type Anchor, type DimensionMark, type Mark, type NoteMark, type RegionMark, type ShapeMark, type SketchMark, type StrokeMark, isUnchecked, markAnchors, markIntent } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
+import { onTracingWords } from '../../shared/tracings'
 import { isFlat, regionInLayout } from '../../shared/regions'
 import { type ScanInfo, alignmentOf } from '../../shared/scans'
 import { alignmentSaid } from '../scans/said'
@@ -66,7 +67,7 @@ export function sizes(v: readonly number[]): string {
  * on show, or the one a tool was asked in) puts it (`region`): that takes the
  * `scans` of the object, and without them it has no place.
  */
-export function describeMark(mark: Mark, opts: { tag?: string; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene; /** The slugs of the project's named sets: with them, a label of a set that is gone says so. */ sets?: readonly string[] } = {}): string {
+export function describeMark(mark: Mark, opts: { tag?: string; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene; /** The slugs of the project's named sets: with them, a label of a set that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is not there says it was removed. */ tracings?: readonly string[] } = {}): string {
   const tags = [mark.author === 'agent' ? 'yours' : '', opts.tag ?? ''].filter(Boolean).join(', ')
   const note = mark.note.replace(/\s+/g, ' ').trim()
   const unchecked = isUnchecked(mark, opts.revision) ? ` [not checked against r${opts.revision}]` : ''
@@ -83,7 +84,7 @@ export function describeMark(mark: Mark, opts: { tag?: string; revision?: number
     const said = what(mark, opts)
     // What a sketch says begins with its own dot: the intent is put before it, and the others get one.
     const head = intent === null ? `${mark.id} ` : `${mark.id} · ${INTENT_SAID[intent]} ${said.startsWith('· ') ? '' : '· '}`
-    return `${tags ? `(${tags}) ` : ''}${head}${said}${note ? `: "${note}"` : ''}${suffix}${unchecked}${asMeasured(mark, opts.revision)}${round}`
+    return `${tags ? `(${tags}) ` : ''}${head}${said}${onTracingWords(mark, opts.tracings)}${note ? `: "${note}"` : ''}${suffix}${unchecked}${asMeasured(mark, opts.revision)}${round}`
   } finally {
     across = 0
   }

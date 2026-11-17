@@ -186,7 +186,17 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
   const paint = (file: string, cls: string): string => (screen ? ` class="${cls}"` : ` ${file}`)
   const layers = (extras.layers ?? []).filter((layer) => layer.hidden !== true)
   const photo = extras.photo && finite(...extras.photo.rect.min, ...extras.photo.rect.max, extras.photo.fade) && (screen ? PHOTO_SCREEN : PHOTO_FILE).test(extras.photo.href) ? extras.photo : undefined
-  const marks = (extras.marks ?? []).filter((mark) => mark.status !== 'resolved' && (mark.kind === 'pin' || mark.kind === 'pick' || mark.kind === 'arrow'))
+  // Ink on a tracing is a sketch whose planes are the tracing's: its strokes are drawn in this plane's own [u, v], from the plane they are on.
+  const inkOf = (mark: Mark): Array<{ id: string; pen: string; points: Array<[number, number]> }> =>
+    mark.kind !== 'sketch' || (info.tracing !== undefined && mark.tracing !== info.tracing.id)
+      ? []
+      : mark.strokes.flatMap((stroke) => {
+          const plane = mark.planes.find((p) => p.id === stroke.plane)
+          const on = plane?.from.kind === 'tracing' && (info.tracing === undefined || plane.from.tracing === info.tracing.id)
+          const points = (stroke.points2d ?? []).filter((p) => finite(p[0], p[1]))
+          return on && points.length > 0 ? [{ id: stroke.id, pen: stroke.pen, points }] : []
+        })
+  const marks = (extras.marks ?? []).filter((mark) => mark.status !== 'resolved' && (mark.kind === 'pin' || mark.kind === 'pick' || mark.kind === 'arrow' || (mark.kind === 'sketch' && inkOf(mark).length > 0)))
 
   // The dimensions that lie in the plane.
   const lines: Line[] = []
@@ -239,7 +249,8 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
     grow(photo.rect.max)
   }
   for (const mark of marks) {
-    if (mark.kind === 'pin' || mark.kind === 'pick') grow(inPlane(mark.anchor.point))
+    if (mark.kind === 'sketch') for (const stroke of inkOf(mark)) stroke.points.forEach(grow)
+    else if (mark.kind === 'pin' || mark.kind === 'pick') grow(inPlane(mark.anchor.point))
     else if (mark.kind === 'arrow') {
       grow(inPlane(mark.from.point))
       grow(inPlane(mark.to))
@@ -375,10 +386,26 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
   for (const mark of marks) {
     const ink = MARK_INK[mark.author]
     const look = paint(`stroke="${ink}" stroke-width="0.3" fill="none"`, `tr-mark tr-mark-${mark.author}`)
-    const words = (x: number, y: number): string => `<text x="${c(x)}" y="${c(y)}" font-size="${TEXT * 0.85}"${paint(`font-family="${MONO}" fill="${ink}" stroke="none"`, 'tr-mark-text')}>${escape(mark.id)}</text>`
-    if (mark.kind === 'pin' || mark.kind === 'pick') {
+    // The mark's id, and for a pin or a pick the start of its note (one line, at most 40 characters).
+    const words = (x: number, y: number, note = ''): string => {
+      const said = note.replace(/\s+/g, ' ').trim()
+      const text = said === '' ? mark.id : `${mark.id} ${said.length > 40 ? `${said.slice(0, 39)}…` : said}`
+      return `<text x="${c(x)}" y="${c(y)}" font-size="${TEXT * 0.85}"${paint(`font-family="${MONO}" fill="${ink}" stroke="none"`, 'tr-mark-text')}>${escape(text)}</text>`
+    }
+    if (mark.kind === 'sketch') {
+      // Each stroke is a path through its points; a point to point stroke marks them. The id is said at the first point of the first stroke.
+      const strokes = inkOf(mark)
+      body.push(`<g data-mark="${escape(mark.id)}"${look}>`)
+      for (const stroke of strokes) {
+        const through = stroke.points.map((p) => at(p))
+        const dots = stroke.pen === 'points' ? through.map(([x, y]) => `<circle cx="${c(x)}" cy="${c(y)}" r="0.7"/>`) : []
+        body.push(`<g data-stroke="${escape(stroke.id)}">`, `<path d="M${through.map((p) => p.map(c).join(' ')).join(' L')}" stroke-linejoin="round" stroke-linecap="round"/>`, ...dots, `</g>`)
+      }
+      const [x, y] = at(strokes[0].points[0])
+      body.push(words(x + 2, y - 1.4), `</g>`)
+    } else if (mark.kind === 'pin' || mark.kind === 'pick') {
       const [x, y] = at(inPlane(mark.anchor.point))
-      body.push(`<g data-mark="${escape(mark.id)}"${look}>`, `<circle cx="${c(x)}" cy="${c(y)}" r="1.1"/>`, words(x + 2, y - 1.4), `</g>`)
+      body.push(`<g data-mark="${escape(mark.id)}"${look}>`, `<circle cx="${c(x)}" cy="${c(y)}" r="1.1"/>`, words(x + 2, y - 1.4, mark.note), `</g>`)
     } else if (mark.kind === 'arrow') {
       const [x1, y1] = at(inPlane(mark.from.point))
       const [x2, y2] = at(inPlane(mark.to))

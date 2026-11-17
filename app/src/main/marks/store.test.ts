@@ -56,6 +56,43 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true })
 })
 
+describe('marks on a tracing', () => {
+  const onT1 = (point: [number, number, number], over: Record<string, unknown> = {}): NewMark => ({ ...BASE, kind: 'pin', anchor: { point }, tracing: 'T1', uv: [[point[0], point[1]]], ...over }) as NewMark
+
+  it('is not put on a part of the 3D view: it lies in its plane', async () => {
+    await store.add('bracket', onT1([3, 4, 10]))
+    const replacement = { anchor: { point: [0, 0, 0], part: 'base', ref: 'base/F4' }, revision: 1, camera: CAMERA } as Replacement
+    await expect(store.replace('bracket', 'M1', replacement)).rejects.toThrow('M1 is on T1: it lies in that plane and is not put on a part of the 3D view')
+  })
+
+  it('is not moved by the spread of its layout, and a check does not take its point from where it is', async () => {
+    const spread = { ...ANCHOR, point: [3, 4, 10], arranged: [0, 0, 0] } as Anchor
+    const mark = await store.add('bracket', onT1([3, 4, 10], { anchor: spread }))
+    await store.reanchor('bracket', [{ id: mark.id, judged: [spread], anchors: [{ ...spread, point: [9, 9, 9], ref: 'base/F9', arranged: [5, 0, 0] }], anchorState: 'ok', shift: [5, 0, 0], checkedRevision: 2 } as never])
+    const [after] = (await store.list('bracket')) as PinMark[]
+    expect(after.anchor).toMatchObject({ point: [3, 4, 10], ref: 'base/F9' })
+    expect(after.uv).toEqual([[3, 4]])
+  })
+
+  it('followTracing refuses what is not a vector, and moves the marks of that tracing alone', async () => {
+    await store.add('bracket', onT1([3, 4, 10]))
+    await store.add('bracket', onT1([5, 5, 20], { tracing: 'T2' }))
+    await expect(store.followTracing('bracket', 'T1', [0, 0, Number.NaN])).rejects.toThrow('three finite numbers')
+    await store.followTracing('bracket', 'T1', [0, 0, 0.5])
+    const [one, two] = (await store.list('bracket')) as PinMark[]
+    expect(one.anchor.point).toEqual([3, 4, 10.5])
+    expect(two.anchor.point).toEqual([5, 5, 20])
+  })
+
+  it('tells the marks it moved as unchecked, after their change', async () => {
+    await store.add('bracket', onT1([3, 4, 10]))
+    const told: string[][] = []
+    store.on('unchecked', (m) => told.push(m.ids))
+    await store.followTracing('bracket', 'T1', [0, 0, 0.5])
+    expect(told).toEqual([['M1']])
+  })
+})
+
 describe('adding marks', () => {
   it('numbers them M1, M2, and fills in what main decides', async () => {
     const first = await store.add('bracket', pin('first'))

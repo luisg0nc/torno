@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { NewMark, SketchMark, Vec3 } from '../../shared/marks'
 import { SKETCH_PICTURE } from '../../shared/marks'
 import { REFUSED } from '../../shared/refusal'
+import type { TracingsFile } from '../../shared/tracings'
 import type { ObjectInfo } from '../../shared/workspace'
 import { droppedNames } from '../dropped'
 import { MarkStore } from '../marks/store'
@@ -26,6 +27,7 @@ let built: ReturnType<typeof fixture> | undefined
 let asked: Array<{ name: string; anchors: number }>
 let placed: string[]
 let kernelFails: boolean
+let tracingsFile: TracingsFile | undefined
 
 const obj = (): ObjectInfo => ({ id: 'bracket', name: 'bracket', dir, model: 'model.py' })
 const handlers = () =>
@@ -42,7 +44,8 @@ const handlers = () =>
     placed: <M extends NewMark>(mark: M): M => {
       placed.push(mark.kind)
       return mark
-    }
+    },
+    ...(tracingsFile ? { tracings: { list: async () => tracingsFile as TracingsFile } } : {})
   })
 const folder = (): string => join(dir, '.torno', 'notes')
 const files = (): string[] => (existsSync(folder()) ? readdirSync(folder()).filter((n) => n !== '.gitignore' && n !== 'dropped.json').sort() : [])
@@ -72,6 +75,7 @@ beforeEach(() => {
   asked = []
   placed = []
   kernelFails = false
+  tracingsFile = undefined
   forgetOpenSketches()
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
@@ -354,5 +358,70 @@ describe('marks:sketching', () => {
     expect(open()).toBe('M3')
     contents.emit('destroyed')
     expect(openSketch('bracket')).toBeNull()
+  })
+})
+
+describe('ink on a tracing', () => {
+  const T1_PLANE = { id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'tracing', tracing: 'T1' } }
+  const ink = (over: Record<string, unknown> = {}): Record<string, unknown> =>
+    draft({ name: '', note: 'trim here', take: 'rough', diameter: undefined, tracing: 'T1', planes: [T1_PLANE], strokes: [{ pen: 'free', plane: 1, points2d: [[1, 1], [5, 6]], revision: 7 }], ...over })
+  const asTracings = (over: Record<string, unknown> = {}): TracingsFile => ({
+    next: 2,
+    tracings: [{ id: 'T1', by: 'person', name: '', layout: 'assembly', createdAt: '2026-11-17T10:00:00.000Z', plane: { origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }, layers: [], nextLayer: 1, ...over }]
+  })
+  const refusedWith = async (over: Record<string, unknown>): Promise<string> => {
+    try {
+      await handlers().sketch(ink(over) as never)
+    } catch (e) {
+      return (e as Error).message
+    }
+    return 'kept'
+  }
+
+  it('is kept as a sketch whose plane is the tracing\'s, and reads back from the file with it', async () => {
+    tracingsFile = asTracings()
+    const sketch = (await handlers().sketch(ink() as never)) as SketchMark
+    expect(sketch).toMatchObject({ id: 'M1', kind: 'sketch', author: 'user', take: 'rough', tracing: 'T1' })
+    expect(sketch.planes[0].from).toEqual({ kind: 'tracing', tracing: 'T1' })
+    const [again] = (await new MarkStore({ dirOf: () => dir }).list('bracket')) as SketchMark[]
+    expect(again.planes[0].from.kind).toBe('tracing')
+    expect(again.tracing).toBe('T1')
+    expect(again.strokes[0].points2d).toEqual([[1, 1], [5, 6]])
+  })
+
+  it('is refused when the tracing is not there, is of another layout, or the project has none', async () => {
+    tracingsFile = asTracings()
+    expect(await refusedWith({ tracing: 'T4', planes: [{ ...T1_PLANE, from: { kind: 'tracing', tracing: 'T4' } }] })).toMatch(/no tracing T4; tracings: T1/)
+    tracingsFile = asTracings({ layout: 'print' })
+    expect(await refusedWith({})).toMatch(/T1 is a tracing of the layout print, not assembly/)
+    tracingsFile = undefined
+    expect(await refusedWith({})).toMatch(/no tracings/)
+  })
+
+  it('is refused when its plane is not the tracing\'s own, or a plane is of another tracing, or a plain plane carries a tracing', async () => {
+    tracingsFile = asTracings()
+    expect(await refusedWith({ planes: [{ ...T1_PLANE, origin: [0, 0, 1] }] })).toMatch(/plane 1 of the sketch is not the plane of T1/)
+    expect(await refusedWith({ planes: [{ ...T1_PLANE, from: { kind: 'tracing', tracing: 'T2' } }] })).toMatch(/Plane 1 is the plane of T2/)
+    expect(await refusedWith({ planes: [XY] })).toMatch(/Plane 1 is not the plane of T1/)
+    expect(await refusedWith({ tracing: 'x' })).toMatch(/a tracing id such as T1/)
+  })
+
+  it('is refused when a stroke is on the surface, off the plane', async () => {
+    tracingsFile = asTracings()
+    expect(await refusedWith({ strokes: [{ pen: 'free', points: [[0, 0, 2]], revision: 7 }] })).toMatch(/not in the plane of T1/)
+  })
+
+  it('a sketch that is on no tracing cannot name one of its planes from a tracing', async () => {
+    tracingsFile = asTracings()
+    expect(await refusedWith({ tracing: undefined })).toMatch(/Plane 1 is the plane of T1, and the sketch is on no tracing/)
+  })
+
+  it('keeps ink on its tracing when it is edited, and refuses to move it to another', async () => {
+    tracingsFile = asTracings()
+    const first = (await handlers().sketch(ink() as never)) as SketchMark
+    const again = (await handlers().sketch(ink({ id: first.id, note: 'and here', strokes: first.strokes }) as never)) as SketchMark
+    expect(again).toMatchObject({ id: first.id, tracing: 'T1', note: 'and here' })
+    expect(await refusedWith({ id: first.id, tracing: 'T2', planes: [{ ...T1_PLANE, from: { kind: 'tracing', tracing: 'T2' } }] })).toMatch(/is ink on T1: a sketch does not move/)
+    expect(await refusedWith({ id: first.id, tracing: undefined, planes: [XY] })).toMatch(/not the plane of T1/)
   })
 })

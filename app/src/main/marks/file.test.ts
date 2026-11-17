@@ -234,6 +234,24 @@ describe('marks file', () => {
 })
 
 describe('sanitising a mark', () => {
+  it('keeps the tracing a mark is on and its uv, and leaves out a tracing id that is none, and uv that are no points', () => {
+    expect(sanitiseMark(pin({ tracing: 'T1', uv: [[3, 4]] }))).toMatchObject({ tracing: 'T1', uv: [[3, 4]] })
+    expect(sanitiseMark(pin({ tracing: 'T12' }))?.uv).toBeUndefined()
+    for (const tracing of ['t1', 'T0', '../T1', 4, null]) expect(sanitiseMark(pin({ tracing, uv: [[1, 2]] }))).toEqual(pin())
+    for (const uv of [[[1]], [[1, Number.NaN]], [], 'x', Array.from({ length: 17 }, () => [1, 2])]) {
+      const read = sanitiseMark(pin({ tracing: 'T1', uv }))
+      expect(read?.tracing).toBe('T1')
+      expect(read?.uv).toBeUndefined()
+    }
+  })
+
+  it('reads a sketch whose plane is a tracing\'s, and refuses one whose tracing id is none', () => {
+    const plane = { id: 1, origin: [0, 0, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'T1', from: { kind: 'tracing', tracing: 'T1' } }
+    const sketch = { ...BASE, id: 'M7', kind: 'sketch', name: '', take: 'rough', nextStroke: 2, tracing: 'T1', planes: [plane], strokes: [{ id: 'k1', plane: 1, pen: 'free', revision: 3, points2d: [[1, 1], [2, 2]] }] }
+    expect((sanitiseMark(sketch) as SketchMark).planes[0].from).toEqual({ kind: 'tracing', tracing: 'T1' })
+    expect(sanitiseMark({ ...sketch, planes: [{ ...plane, from: { kind: 'tracing', tracing: 'nope' } }] })).toBeNull()
+  })
+
   it('keeps a whole mark as it is', () => {
     for (const mark of ALL) expect(sanitiseMark(mark)).toEqual(mark)
   })

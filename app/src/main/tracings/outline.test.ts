@@ -22,6 +22,7 @@ type Fn = Mock<(...args: any[]) => any>
 let query: Fn
 let refind: Fn
 let told: Array<{ objectId: string; cut: TracingCut }>
+let followed: Array<{ objectId: string; tracing: string; by: number[]; plane?: { origin: number[] } }>
 
 const part = (name: string, layout: string, over: Record<string, unknown> = {}) => ({ name, layout, loc: { t: [0, 0, 0], q: [0, 0, 0, 1] }, bbox: { min: [0, 0, 0], max: [10, 10, 10] }, mesh: {}, ...over })
 const sceneOf = (parts: unknown[]): Scene => ({ layouts: ['assembly', 'print'], parts }) as unknown as Scene
@@ -57,8 +58,10 @@ beforeEach(() => {
   })
   refind = vi.fn(faceAt(10))
   told = []
+  followed = []
   const deps: OutlineDeps = {
     tracings: store,
+    marks: { followTracing: async (objectId, tracing, by, plane) => void followed.push({ objectId, tracing, by, plane }) },
     build: (id) => (id === 'bracket' ? { revision, scene, blob: new Uint8Array(0) } : undefined),
     query: (id, name, args) => query(id, name, args),
     nearest: async () => [], refind: (_id, layout, members) => refind(layout, members),
@@ -193,6 +196,32 @@ describe('recut', () => {
     revision = 5
     await outlines.recut('bracket')
     expect(told.map((m) => m.cut.tracing)).toEqual(['T1', 'T1', 'T2'])
+  })
+
+  it('has the marks of a face tracing move by what its plane moved, with the plane as it now is, once', async () => {
+    const t = await make(face())
+    refind.mockImplementation(faceAt(10.3))
+    revision = 2
+    await outlines.recut('bracket')
+    expect(followed).toHaveLength(1)
+    expect(followed[0].tracing).toBe(t.id)
+    expect(followed[0].by[0]).toBe(0)
+    expect(followed[0].by[1]).toBe(0)
+    expect(followed[0].by[2]).toBeCloseTo(0.3, 12)
+    expect(followed[0].plane?.origin).toEqual([5, 5, 10.3])
+    // The face where it was: nothing moves.
+    revision = 3
+    await outlines.recut('bracket')
+    expect(followed).toHaveLength(1)
+  })
+
+  it('moves no marks of a face that is gone, or of a plane that is not a face', async () => {
+    await make(face())
+    await make(main(0))
+    refind.mockImplementation(faceAt(null))
+    revision = 2
+    await outlines.recut('bracket')
+    expect(followed).toEqual([])
   })
 
   it('keeps of what is shown only what is a tracing id, and a recut passes over a tracing that is not there', async () => {
