@@ -53,7 +53,7 @@ test.describe('a new object', () => {
   const cards = (kind: string) => newPage().locator(`.ref-card[data-kind="${kind}"]`)
   const board = () => page.getByRole('dialog', { name: 'Doodle board' })
   const startButton = () => newPage().getByRole('button', { name: /^Start: make the project and ask Claude/ })
-  const sketchIt = () => newPage().getByRole('button', { name: /^Sketch it/ })
+  const doodleIt = () => newPage().getByRole('button', { name: /^Doodle it/ })
   const slot = (id: string) => newPage().locator(`[data-slot="${id}"]`)
 
   /** Draws a stroke on the board between two fractions of the canvas, with real pointer events. */
@@ -208,7 +208,7 @@ test.describe('a new object', () => {
   })
 
   test('a doodle is drawn with the pointer, undone, put away with Escape, kept with Done, and opened again to change', async () => {
-    await sketchIt().click()
+    await doodleIt().click()
     await expect(board()).toBeVisible()
     await expect(board().locator('canvas')).toHaveAttribute('data-strokes', '0')
     await expect(board().getByRole('button', { name: 'Done' })).toBeDisabled()
@@ -226,7 +226,7 @@ test.describe('a new object', () => {
     await expect(board()).toHaveCount(0)
     await expect(cards('doodles')).toHaveCount(0)
 
-    await sketchIt().click()
+    await doodleIt().click()
     await board().getByRole('button', { name: 'Thick pen' }).click()
     await stroke([0.2, 0.3], [0.8, 0.3])
     await stroke([0.5, 0.2], [0.5, 0.8])
@@ -260,7 +260,7 @@ test.describe('a new object', () => {
   })
 
   test('the doodle board fills the window, has a grid, and Shift draws a straight line from where the stroke began', async () => {
-    await sketchIt().click()
+    await doodleIt().click()
     const canvas = board().locator('canvas')
     await expect(canvas).toHaveAttribute('data-grid', '')
     const box = (await canvas.boundingBox())!
@@ -282,7 +282,7 @@ test.describe('a new object', () => {
   })
 
   test('a doodle is drawn over one of the photos: the photo is under the ink in its picture, there is no grid, and it is opened again on the photo', async () => {
-    await sketchIt().click()
+    await doodleIt().click()
     await expect(board().locator('canvas')).toHaveAttribute('data-grid', '')
     await board().getByLabel('Draw over').selectOption({ label: 'Photo 2, bench.webp' })
     await expect(board().locator('canvas')).not.toHaveAttribute('data-grid')
@@ -357,7 +357,7 @@ test.describe('a new object', () => {
     await expect(newPage().locator('.new-will')).toContainText('4 files')
   })
 
-  test('sizes, rules, a link and a PDF are given in their slots, the preview says them, and S opens the sketch', async () => {
+  test('sizes, rules, a link and a PDF are given in their slots, the preview says them, and S opens the doodle', async () => {
     // A tile becomes its rows once opened, and the first field takes the focus.
     await newPage().getByRole('button', { name: /^Sizes I know/ }).click()
     await expect(slot('sizes')).toContainText('Sizes I know')
@@ -379,7 +379,7 @@ test.describe('a new object', () => {
     await expect(startButton()).toBeDisabled()
     await newPage().getByLabel('Remove size 2').click()
     await expect(startButton()).toBeEnabled()
-    // S is a letter in a field, and the sketch on the page.
+    // S is a letter in a field, and the doodle on the page.
     await newPage().getByLabel('Note for size 1').press('s')
     await expect(newPage().getByLabel('Note for size 1')).toHaveValue('s')
     await expect(board()).toHaveCount(0)
@@ -415,7 +415,7 @@ test.describe('a new object', () => {
     await expect(text).toContainText('reference/Datasheet.pdf')
     await expect(newPage().locator('.new-will')).toContainText('5 files')
 
-    // The sketch, from the keyboard, with the page in focus.
+    // The doodle, from the keyboard, with the page in focus.
     await newPage().focus()
     await page.keyboard.press('s')
     await expect(board()).toBeVisible()
@@ -440,7 +440,7 @@ test.describe('a new object', () => {
     // The project opens on its board, with a frame for each kind of what was given.
     const frames = page.locator('.pboard-card[data-kind="frame"]')
     await expect(frames).toHaveCount(8, { timeout: 30_000 })
-    await expect(frames).toContainText(['Brief', 'Photos', 'Sketches', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
+    await expect(frames).toContainText(['Brief', 'Photos', 'Doodles', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
     await expect(page.locator('.pboard-card[data-kind="size"]')).toContainText('battery tray')
 
     // The folder: the template, the brief with every note, the originals copied as they were, and nothing else.

@@ -534,10 +534,10 @@ of projects and in its empty state: a folder with no project in it leads with "M
 where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
 "What are we making?": "What is it?" (what it is for, what it must fit or hold, how it will be made) and the photos, each with a note for Claude. Under them is a
-tile for each other thing you have: "Sketch it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
+tile for each other thing you have: "Doodle it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
 becomes its cards or rows once something is in it, and "Add another" (or "Add a size") adds more. Files can be dropped anywhere on the page: a picture becomes a
 photo, `.step` and `.stp` a bought part, `.pdf` a PDF, and a scan format a scan. An image pasted with `Ctrl+V` is taken as a dropped one is (only a file on the
-disk can be: a copied file is, a screenshot has none, and the page says so). `S` opens a sketch. At the right of the page,
+disk can be: a copied file is, a screenshot has none, and the page says so). `S` opens a doodle. At the right of the page,
 "What Claude gets first" shows the first prompt as it will be sent, and under it are "Claude Code on" (the model and effort), "Start: make the project and ask Claude" and "Or make it without starting Claude".
 Each slot is:
 
@@ -545,7 +545,7 @@ Each slot is:
   (a larger picture is refused with a reason on the card, before it is decoded). HEIC, the iPhone's default, is
   not read: set the phone to Most compatible, or export as JPEG. Claude gets each one attached to its first prompt, after a line naming it ("Picture 1: reference/photo-1.jpg"),
   scaled to 1280 px on its long edge; the original is copied to `reference/photo-<n>.<ext>` in the project.
-- **Sketches** ("Sketch it", or `S`): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
+- **Doodles** ("Doodle it", or `S`): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
   over a light grid (1 square = 40 px of the board, no scale, and the prompt says so), whichever theme you drew it in, and `reference/` keeps it.
 - **Bought parts** ("Bought parts", or dropped): a vendor's STEP file (`.step` or `.stp`) of a screw, a bearing, a
   board, a motor; up to 4, 50 MB each (a larger file is refused, and is never read whole). The file is copied as it is into `reference/` under its own name
@@ -576,7 +576,7 @@ name whose model file would be taken for a test (`test_*`, `*_test`). The page s
 
 "Start" (or "Or make it without starting Claude") writes one new folder in the workspace and nothing else: `<name>/<module>.py` (a placeholder, a 20 mm
 cube, to be replaced), `brief.md` (your words and a line for each reference with its note) and `reference/`, and the project's board with what you gave in frames
-(Brief, Photos, Sketches, Sizes, Rules, Links, Bought parts, PDFs); the sizes, rules and links live on the board and in the first prompt, not in `brief.md`. The
+(Brief, Photos, Doodles, Sizes, Rules, Links, Bought parts, PDFs); the sizes, rules and links live on the board and in the first prompt, not in `brief.md`. The
 `.torno/` folder is made as for any project. It is made in a hidden temporary folder beside it and renamed into
 place as the last step, so it is whole or not there, and it never goes into or over a folder that exists (an
 empty one of that name is used). A temporary folder a crash left is swept away at the next opening of the
@@ -597,7 +597,7 @@ the scans were not imported, and the page says so and where the folder is. While
 While the page is up the window is about the project being made: no project of the list is selected (the "New project" button is pressed), the Marks
 panel gives way, and the status line says "New project" with the build123d version alone. The page shows
 the first prompt Claude Code will get, as it will be sent and read-only, filled in as you go:
-your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and sketch, with "attached"
+your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and doodle, with "attached"
 or "named only" (only the first 6 pictures go with the prompt). The session pane points to it. A session of the project that was open that is
 still running stays as it is, a question waiting in it included, under a note saying whose it is: it goes on, and
 the new project gets its own. Discard or `Esc` brings everything back as it was.
@@ -1978,7 +1978,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Page of projects | `Enter` | In the filter: open the first card |
 | Page of projects | `Down` | In the filter: down to the cards |
 | New project | `Esc` | Leave the page, asking first when something is in it; on the doodle board, put the board away |
-| New project | `S` | Sketch: open the doodle board (not heard in a field) |
+| New project | `S` | Doodle: open the ink pad (not heard in a field) |
 | Session | `Shift+Enter` | A new line in the prompt, not a send |
 | Session | `Ctrl+Shift+C` | Copy what is selected in the terminal |
 | Session | `Ctrl+Shift+V` | Paste into the terminal |
@@ -2466,7 +2466,7 @@ On the screen:
 - **The turn summary, its builds and its buttons.** After a turn, the summary line, the strip of pictures of its builds (the dashed start, a failed build, the pictures themselves, which a test never sees), the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.
 - **The doodle board's grid.** The grid is faint on the board in light and dark, and is not in the PNG Claude gets.
-- **The board of a new project.** Make a project from a page with photos, a sketch, a few sizes, rules, a link and a PDF: it opens on its board, with a frame for each (Brief, Photos, Sketches, Sizes, Rules, Links, PDFs) laid left to right, nothing over anything else, legible in light and dark, and the cards of a frame sit inside it when the board is zoomed out to the whole.
+- **The board of a new project.** Make a project from a page with photos, a doodle, a few sizes, rules, a link and a PDF: it opens on its board, with a frame for each (Brief, Photos, Doodles, Sizes, Rules, Links, PDFs) laid left to right, nothing over anything else, legible in light and dark, and the cards of a frame sit inside it when the board is zoomed out to the whole.
 - **Size cards.** With `M` and a click make a size card: the form sits over the place the card will take, the unit and source lists open with the pointer and give the keys back when one is chosen, and the card reads at 100 % and when zoomed out, with the value large in the face of numbers, in both themes. The page of a new project has the same fields in rows.
 - **STEP and PDF cards, and a link.** A PDF or a STEP file of `reference/` is a card with its name and kind; a double click shows it in your file manager, and a click on a web address in a text card opens it in your default browser (a test only has a stand-in for the system's opener).
 - **The prompt preview of a new project.** The preview of the first prompt reads clearly and matches what is sent.

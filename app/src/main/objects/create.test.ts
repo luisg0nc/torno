@@ -368,7 +368,7 @@ describe('the board a new project starts with', () => {
     expect([...readFileSync(join(dir, 'reference', 'Data_Sheet.pdf'))]).toEqual([...PDF])
     const read = readBoardFile(board())
     expect(read?.dropped).toBe(0)
-    expect(names(board())).toEqual(['Brief', 'Photos', 'Sketches', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
+    expect(names(board())).toEqual(['Brief', 'Photos', 'Doodles', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
     const caption = (source: string) => board().cards.find((c) => c.source === source)?.caption
     expect(caption('reference/photo-1.png')).toBe('the desk edge')
     expect(caption('reference/doodle-1.png')).toBe('the shape (drawn over reference/photo-1.png)')

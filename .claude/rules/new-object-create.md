@@ -54,10 +54,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   whole) before the temp folder is made, so a PDF that is no good makes nothing. A doodle may say `over`, the index of the photo in
   `photos` it is drawn over (an integer of a photo given, else refused): its brief line and its card's caption say "(drawn over
   reference/photo-2.jpg)" after the note; `onPhoto: true` (the photo was taken from the draft, the picture still has it under the ink; anything but `true` is refused)
-  says "(drawn over a photo)" and names no file. `startBoard` puts a file in the Photos or Sketches frame only when it ends in an image ending (`png`, `jpg`, `jpeg`, `webp`): a PDF or a STEP named `photo-1.pdf` is in its own frame only.
+  says "(drawn over a photo)" and names no file. `startBoard` puts a file in the Photos or Doodles frame only when it ends in an image ending (`png`, `jpg`, `jpeg`, `webp`): a PDF or a STEP named `photo-1.pdf` is in its own frame only.
 - The board is written into the temp folder as the last file, before the rename: `.torno/board/board.json` (`startBoard`, `main/board/start.ts`,
   text by `textOf`; nothing else of `.torno/`: the store adds the `.gitignore` lines when it first writes what they are for). A frame for
-  each of Brief, Photos, Sketches, Sizes, Rules, Links, Bought parts and PDFs that holds something (a person's), laid left to right, wrapping at
+  each of Brief, Photos, Doodles, Sizes, Rules, Links, Bought parts and PDFs that holds something (a person's), laid left to right, wrapping at
   3200, 40 apart. The brief and the reference cards in them are main's own (`by: 'torno'`, `caption` the note), exactly what `reconcile` makes
   for the folder, so that the first open changes nothing; sizes, the rules and each link (the URL, then its note on the next line) are the
   person's cards. They are held before the temp folder is made: at most 40 sizes (`checkSize`, as the person), rules of at most 4000 characters,

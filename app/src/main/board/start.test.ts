@@ -31,10 +31,10 @@ const inside = (b: BoardFile, name: string) => b.cards.filter((c) => c.frame ===
 describe('startBoard', () => {
   it('makes the frames in order, each with its cards, and nothing for what is empty', () => {
     const board = startBoard(full)
-    expect(frames(board).map((f) => f.name)).toEqual(['Brief', 'Photos', 'Sketches', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
+    expect(frames(board).map((f) => f.name)).toEqual(['Brief', 'Photos', 'Doodles', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
     expect(inside(board, 'Brief').map((c) => [c.kind, c.source, c.by])).toEqual([['brief', 'brief', 'torno']])
     expect(inside(board, 'Photos').map((c) => c.source)).toEqual(['reference/photo-1.jpg', 'reference/photo-2.png'])
-    expect(inside(board, 'Sketches').map((c) => c.source)).toEqual(['reference/doodle-1.png'])
+    expect(inside(board, 'Doodles').map((c) => c.source)).toEqual(['reference/doodle-1.png'])
     expect(inside(board, 'Bought parts').map((c) => c.source)).toEqual(['reference/608zz.step'])
     expect(inside(board, 'PDFs').map((c) => c.source)).toEqual(['reference/datasheet.pdf'])
     expect(inside(board, 'Sizes').map((c) => [c.kind, c.by, c.size?.what])).toEqual([['size', 'person', 'battery tray'], ['size', 'person', 'lid']])
@@ -47,7 +47,7 @@ describe('startBoard', () => {
   it('puts a PDF or a STEP named like a photo or a sketch in one frame only', () => {
     const board = startBoard({ ...full, references: [{ file: 'reference/photo-1.pdf', note: '' }, { file: 'reference/doodle-2.step', note: '' }, { file: 'reference/photo-2.jpg', note: '' }] })
     expect(inside(board, 'Photos').map((c) => c.source)).toEqual(['reference/photo-2.jpg'])
-    expect(frames(board).map((f) => f.name)).not.toContain('Sketches')
+    expect(frames(board).map((f) => f.name)).not.toContain('Doodles')
     expect(inside(board, 'PDFs').map((c) => c.source)).toEqual(['reference/photo-1.pdf'])
     expect(inside(board, 'Bought parts').map((c) => c.source)).toEqual(['reference/doodle-2.step'])
     expect(board.cards.filter((c) => c.kind === 'reference')).toHaveLength(3)

@@ -321,7 +321,7 @@ it('says what every tool does and waits for in plain sentences, with no key writ
 
 it('has a key for the sketch of a new project, in its own scope, with no clash with the shape tool', () => {
   const row = KEYS.find((r) => r.id === 'new.sketch')
-  expect(row).toMatchObject({ keys: ['S'], scope: 'newobject', context: 'New project' })
+  expect(row).toMatchObject({ keys: ['S'], scope: 'newobject', context: 'New project', does: 'Doodle: open the ink pad (not heard in a field)' })
   expect(keyClashes()).toEqual([])
   expect(hint('new.sketch')).toBe('S')
 })

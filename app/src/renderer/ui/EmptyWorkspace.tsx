@@ -11,7 +11,7 @@ export function EmptyWorkspace({ name, hasProject, hasExample, onNew, onExample 
     <div className="show-empty">
       <Logo />
       <h3>Make your first project</h3>
-      <p>Say what it is, add photos or a sketch, and Claude Code writes the model.</p>
+      <p>Say what it is, add photos or a doodle, and Claude Code writes the model.</p>
       <p className="show-empty-where">No projects in {name} yet.</p>
       <button type="button" className="button button-primary show-empty-new" onClick={onNew}>
         New project

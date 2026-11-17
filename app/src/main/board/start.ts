@@ -46,7 +46,7 @@ function groups(req: StartRequest): Group[] {
   const all: Group[] = [
     { name: 'Brief', kind: { size: CARD_SIZE.brief, perRow: 1 }, parts: req.description.trim() !== '' ? [{ kind: 'brief', by: 'torno', source: 'brief' }] : [] },
     { name: 'Photos', kind: REFERENCES, parts: of(/^reference\/photo-\d+\.(?:png|jpe?g|webp)$/) },
-    { name: 'Sketches', kind: REFERENCES, parts: of(/^reference\/doodle-\d+\.(?:png|jpe?g|webp)$/) },
+    { name: 'Doodles', kind: REFERENCES, parts: of(/^reference\/doodle-\d+\.(?:png|jpe?g|webp)$/) },
     { name: 'Sizes', kind: { size: CARD_SIZE.size, perRow: 4 }, parts: req.sizes.map((size) => ({ kind: 'size', by: 'person', size })) },
     { name: 'Rules', kind: RULES, parts: req.rules.trim() !== '' ? [{ kind: 'text', by: 'person', text: req.rules.trim() }] : [] },
     { name: 'Links', kind: LINKS, parts: req.links.map((l) => ({ kind: 'text', by: 'person', text: l.note === '' ? l.url : `${l.url}\n${l.note}` })) },

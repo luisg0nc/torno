@@ -171,7 +171,7 @@ const ROWS = [
   row('filter.down', ['Down'], 'In the filter: down to the cards', 'Page of projects', 'filter'),
 
   row('new.back', ['Esc'], 'Leave the page, asking first when something is in it; on the doodle board, put the board away', 'New project', 'newobject'),
-  row('new.sketch', ['S'], 'Sketch: open the doodle board (not heard in a field)', 'New project', 'newobject'),
+  row('new.sketch', ['S'], 'Doodle: open the ink pad (not heard in a field)', 'New project', 'newobject'),
 
   row('session.newline', ['Shift+Enter'], 'A new line in the prompt, not a send', 'Session', 'session'),
   row('session.copy', ['Ctrl+Shift+C'], 'Copy what is selected in the terminal', 'Session', 'session'),
