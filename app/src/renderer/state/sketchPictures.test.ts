@@ -17,7 +17,8 @@ const sketch = (n: number, over: Partial<SketchMark> = {}): SketchMark => ({
   name: 'Hose',
   take: 'rough',
   planes: [],
-  strokes: [{ points: [[0, 0, 0], [1, 1, 1]], pen: 'free', revision: 1 }],
+  nextStroke: 2,
+  strokes: [{ id: 'k1', points: [[0, 0, 0], [1, 1, 1]], pen: 'free', revision: 1 }],
   ...over
 })
 const pin = { id: 'M1', kind: 'pin' } as unknown as Mark

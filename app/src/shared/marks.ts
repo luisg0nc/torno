@@ -254,6 +254,8 @@ export interface SketchPlane {
 export type SketchSnap = ({ i: number } & ({ vertex: string } | { centre: string; radius: number } | { edge: string; approx?: true })) & { projected?: true }
 /** One stroke: on a plane of the sketch (`plane` is its id, with `points2d`) or on the surface (`points`). */
 export interface SketchStroke {
+  /** `k<n>`, main's: numbered within its sketch, never given again once the stroke is gone (`SketchMark.nextStroke`). A named set holds a stroke as `M7/k3`. */
+  id: string
   plane?: number
   points?: Vec3[]
   points2d?: [number, number][]
@@ -265,6 +267,19 @@ export interface SketchStroke {
   revision: number
   /** The faces it lies on or crosses, as of `revision`. Main's alone: never taken from the window or a tool. */
   touches?: string[]
+}
+/** A stroke not yet numbered by main (what the window or a tool sends, and what `readSketch` reads from either): its `id`, if it names one, is only a claim to the stroke the sketch has by that number. */
+export type NewStroke = Omit<SketchStroke, 'id'> & { id?: string }
+/** The id of a sketch's stroke. */
+export const STROKE_ID = /^k[1-9]\d{0,5}$/
+/** The highest number a stroke id has (`STROKE_ID`). */
+export const MOST_STROKE_NUMBER = 999999
+/** A stroke as a set names it: the sketch's mark id, a slash and the stroke's id (`M7/k3`). */
+export const strokeRef = (markId: string, strokeId: string): string => `${markId}/${strokeId}`
+/** The two halves of `M7/k3`, or null when it is not one. */
+export function splitStrokeRef(ref: string): { mark: string; stroke: string } | null {
+  const [mark, stroke, ...more] = ref.split('/')
+  return more.length === 0 && stroke !== undefined && /^M[1-9]\d{0,14}$/.test(mark) && STROKE_ID.test(stroke) ? { mark, stroke } : null
 }
 /**
  * A drawing in 3D: strokes on planes and on the surface, made to say where a part goes, how a hose runs, what to cut.
@@ -278,6 +293,8 @@ export interface SketchMark extends MarkBase, Reviewable {
   diameter?: number
   planes: SketchPlane[]
   strokes: SketchStroke[]
+  /** The number the next new stroke gets (`k<nextStroke>`). Main's alone: it only goes up, so that an id the sketch let go of is never given again. */
+  nextStroke: number
   /** The first point of the first stroke that lies on a face; none when it was drawn in empty space. */
   anchor?: Anchor
   picture?: string
@@ -476,7 +493,7 @@ export function strokePoints(mark: StrokeMark): Vec3[] {
 }
 
 /** The points of a stroke of a sketch in the object frame: its own on the surface, or those of its plane, `origin + x·u + y·v`; none for a plane the sketch lacks. */
-export function sketchStrokePoints(mark: Pick<SketchMark, 'planes'>, stroke: SketchStroke): Vec3[] {
+export function sketchStrokePoints(mark: Pick<SketchMark, 'planes'>, stroke: NewStroke): Vec3[] {
   if (stroke.plane === undefined) return stroke.points ?? []
   const plane = mark.planes.find((p) => p.id === stroke.plane)
   if (!plane) return []

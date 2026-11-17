@@ -477,7 +477,7 @@ describe('contextFor', () => {
           name: 'Hose',
           take: 'rough',
           planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }],
-          strokes: [{ pen: 'line', plane: 1, points2d: [[0, 0], [10, 0]], revision: 3, touches: [] }],
+          strokes: [{ id: 'k1', pen: 'line', plane: 1, points2d: [[0, 0], [10, 0]], revision: 3, touches: [] }],
           ...over
         }) as Mark
       const d = (sketching: string | null): ContextDeps => ({ ...deps({ build: OK, scene: SCENE }), sketching: () => sketching })
@@ -487,7 +487,7 @@ describe('contextFor', () => {
         const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [pin(1), sketch(7)])
         expect(context.text.split('\n')).toContain('M7 · sketch "Hose" · rough · 1 stroke on 1 plane · draft, drawn on build 3')
         expect(context.text).toContain('plane 1: XY at z = 0.0')
-        expect(context.text).toContain('stroke 1: straight line on plane 1, 10 mm long')
+        expect(context.text).toContain('stroke k1: straight line on plane 1, 10 mm long')
         expect(context.text).toContain('Take it roughly')
         expect(context.sentMarkIds).toEqual(['M1', 'M7'])
         expect(context.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)

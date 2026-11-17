@@ -99,7 +99,7 @@ describe('add_sketch makes a sketch of Claude\'s own', () => {
     expect(asked[0].anchors.every((a) => a.part === 'block')).toBe(true)
     const [made] = await sketches()
     expect(made.strokes.map((s) => s.touches)).toEqual([['block/F2'], []])
-    expect(text(ok)).toContain('stroke 1: 2 points in space, touches block/F2')
+    expect(text(ok)).toContain('stroke k1: 2 points in space, touches block/F2')
   })
 
   it('is tied to the part under the first point of its first stroke in space, as the person\'s is, and to none when that point is on no part', async () => {

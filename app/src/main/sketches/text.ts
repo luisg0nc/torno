@@ -62,11 +62,11 @@ function snapText(snap: SketchSnap): string {
 
 const length = (points: ReadonlyArray<readonly number[]>): number => points.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - points[i][0], p[1] - points[i][1], p[2] - points[i][2]), 0)
 
-function strokeLines(mark: SketchMark, stroke: SketchStroke, n: number): string[] {
+function strokeLines(mark: SketchMark, stroke: SketchStroke): string[] {
   const points = sketchStrokePoints(mark, stroke)
   const where = stroke.plane === undefined ? 'on the surface' : `on plane ${stroke.plane}${mark.planes.some((p) => p.id === stroke.plane) ? '' : ' (the sketch has none)'}`
   const touches = stroke.touches === undefined || stroke.touches.length === 0 ? 'touches nothing that was found' : `touches ${stroke.touches.join(', ')}`
-  const lines = [`stroke ${n}: ${PENS[stroke.pen]} ${where}, ${number(length(points))} mm long, ${points.length} ${points.length === 1 ? 'point' : 'points'}, drawn on build ${stroke.revision}; ${touches} (of build ${stroke.revision})`]
+  const lines = [`stroke ${stroke.id}: ${PENS[stroke.pen]} ${where}, ${number(length(points))} mm long, ${points.length} ${points.length === 1 ? 'point' : 'points'}, drawn on build ${stroke.revision}; ${touches} (of build ${stroke.revision})`]
   const snapped = new Map((stroke.snaps ?? []).map((snap) => [snap.i, snap]))
   points.forEach((point, i) => {
     const snap = snapped.get(i)
@@ -107,8 +107,8 @@ export function sketchText(mark: SketchMark, opts: SketchTextOptions): string {
   if (opts.revision !== undefined && opts.revision > mark.revision) lines.push(`The model has been built again since: r${opts.revision} is the latest, and the refs and faces here are of the builds named, which may name other geometry now.`)
   lines.push(`${TAKE_SENTENCES[mark.take]}${mark.diameter === undefined ? '' : ` Its diameter is ⌀${number(mark.diameter)} mm.`}`)
   if (mark.planes.length > 0) lines.push(`Planes (a point on one is its origin + u·(its u) + v·(its v)):`, ...mark.planes.map(planeLine))
-  if (mark.strokes.length > 0) lines.push('Strokes (every point is in the object frame; a point without a snap is approximate):')
-  told.forEach((stroke, i) => lines.push(...strokeLines(mark, stroke, i + 1)))
+  if (mark.strokes.length > 0) lines.push('Strokes (each by its id; every point is in the object frame; a point without a snap is approximate):')
+  told.forEach((stroke) => lines.push(...strokeLines(mark, stroke)))
   if (left.length > 0) {
     const points = left.reduce((sum, stroke) => sum + sketchStrokePoints(mark, stroke).length, 0)
     lines.push(`… ${count(left.length)} more ${left.length === 1 ? 'stroke' : 'strokes'}, ${count(points)} ${points === 1 ? 'point' : 'points'}: read them with ${toolName('marks')} with ids ["${mark.id}"]`)

@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 import { rotate } from '../../shared/align'
 import type { SketchDraft } from '../../shared/bridge'
-import { type SketchMark, type SketchPlane, type SketchSnap, type SketchStroke, type Vec3, MAX_NOTE } from '../../shared/marks'
+import { type SketchMark, type SketchPlane, type SketchSnap, type NewStroke, type SketchStroke, type Vec3, MAX_NOTE } from '../../shared/marks'
 import { type Part, type Scene, bufView } from '../../shared/scene'
 import { type SnapData, EDGE_CIRCLE, EDGE_LINE, circleOf, nearestOnCircle, nearestOnSegment, orthogonal, segmentParameter, vertexAt } from '../../shared/snapdata'
 import { anchorOf, cameraOf } from '../marks/file'
@@ -42,7 +42,7 @@ const mm = (n: number): string => String(Number(n.toFixed(3)))
 
 const planeById = (planes: readonly SketchPlane[], id: number | undefined): SketchPlane | undefined => (id === undefined ? undefined : planes.find((p) => p.id === id))
 /** The point of a stroke in the object frame. */
-function pointOf(stroke: SketchStroke, plane: SketchPlane | undefined, i: number): Vec3 {
+function pointOf(stroke: NewStroke, plane: SketchPlane | undefined, i: number): Vec3 {
   if (stroke.points) return stroke.points[i]
   const [u, v] = (stroke.points2d as [number, number][])[i]
   const p = plane as SketchPlane
@@ -59,7 +59,7 @@ const flatten = (plane: SketchPlane, q: Vec3): Vec3 => {
 }
 
 /** Whether a stroke the window sends is one the sketch had: same pen, build, plane and snaps, and the same points to within what main moved them by. */
-function sameStroke(sent: SketchStroke, kept: SketchStroke, sentPlanes: readonly SketchPlane[], keptPlanes: readonly SketchPlane[]): boolean {
+function sameStroke(sent: NewStroke, kept: SketchStroke, sentPlanes: readonly SketchPlane[], keptPlanes: readonly SketchPlane[]): boolean {
   if (sent.pen !== kept.pen || sent.revision !== kept.revision || (sent.xray === true) !== (kept.xray === true) || sent.plane !== kept.plane) return false
   if (sent.plane !== undefined) {
     const a = planeById(sentPlanes, sent.plane)
@@ -109,9 +109,12 @@ export function checkSketch(raw: unknown, stored: SketchMark | undefined, build:
   }
 
   const unused = [...(stored?.strokes ?? [])]
-  const strokes: SketchStroke[] = []
+  const strokes: Array<NewStroke | SketchStroke> = []
   for (const [n, stroke] of body.strokes.entries()) {
-    const same = unused.findIndex((kept) => sameStroke(stroke, kept, body.planes, stored?.planes ?? []))
+    // One the window names is the one the sketch has by that id, before any that is the same by value.
+    const found = (kept: SketchStroke): boolean => sameStroke(stroke, kept, body.planes, stored?.planes ?? [])
+    const named = unused.findIndex((kept) => kept.id === stroke.id && found(kept))
+    const same = named >= 0 ? named : unused.findIndex(found)
     if (same >= 0) {
       strokes.push(structuredClone(unused[same]))
       unused.splice(same, 1)
@@ -161,7 +164,7 @@ const placed = (part: Part, p: Vec3): Vec3 => add(rotate(part.loc.q, p), part.lo
  * which main then keeps in its place. A snap to an edge that is neither straight nor circular, or that says `approx`, is
  * checked for its ref only, and is said to be approximate.
  */
-function checkSnaps(stroke: SketchStroke, n: number, planes: readonly SketchPlane[], layout: string, build: SketchBuild): SketchStroke | Refusal {
+function checkSnaps(stroke: NewStroke, n: number, planes: readonly SketchPlane[], layout: string, build: SketchBuild): NewStroke | Refusal {
   if (!stroke.snaps || stroke.snaps.length === 0) {
     const { snaps: _none, ...bare } = stroke
     return bare

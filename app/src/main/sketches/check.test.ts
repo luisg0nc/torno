@@ -175,6 +175,17 @@ describe('what is kept of the strokes the sketch had', () => {
     expect(draft.strokes).toEqual([other, old])
   })
 
+  it('keeps the id of the stroke it takes from what main stored, and prefers the one the window names among identical strokes', () => {
+    const twin = (id: string, touches: string[]) => surface([[9, 9, 9]], { id, revision: 3, touches })
+    const draft = kept(raw({ id: 'M7', strokes: [{ ...twin('k2', []), touches: undefined }, { ...twin('k1', []), touches: undefined }] }), stored([twin('k1', ['a/F1']), twin('k2', ['b/F2'])]))
+    expect(draft.strokes.map((one) => [one.id, one.touches])).toEqual([['k2', ['b/F2']], ['k1', ['a/F1']]])
+  })
+
+  it('reads an id of a stroke only when it is one, and never refuses a sketch for one', () => {
+    const draft = kept(raw({ strokes: [surface([[1, 1, 1]], { id: 'k3' }), surface([[2, 2, 2]], { id: 'x9' }), surface([[3, 3, 3]], { id: 7 })] }))
+    expect(draft.strokes.map((one) => one.id)).toEqual(['k3', undefined, undefined])
+  })
+
   it('does not take on a stroke the way its plane was made, when that is another', () => {
     const planeStroke = { plane: 1, pen: 'free', points2d: [[0, 0], [1, 1]], revision: 3 }
     const other = { ...XY, from: { kind: 'view', label: 'Top' } }

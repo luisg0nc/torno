@@ -145,7 +145,7 @@ export function memberRef(m: SetMember): string {
 export function strokeLive(stroke: string, marks: readonly Mark[]): boolean {
   const [sketch, id] = stroke.split('/')
   const mark = marks.find((m) => m.id === sketch)
-  return mark?.kind === 'sketch' && mark.strokes.some((s) => (s as { id?: string }).id === id)
+  return mark?.kind === 'sketch' && mark.strokes.some((s) => s.id === id)
 }
 
 /** Is the member lost: found by no build (a part, a face, an edge), or a stroke that is no longer there? */

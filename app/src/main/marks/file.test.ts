@@ -522,9 +522,10 @@ describe('a sketch mark', () => {
     take: 'flow',
     diameter: 19,
     planes: [PLANE],
+    nextStroke: 3,
     strokes: [
-      { plane: 1, pen: 'free', points2d: [[0, 0], [10, 0], [10, 5]], revision: 3 },
-      { pen: 'points', points: [[1, 2, 20], [2, 2, 20]], snaps: [{ i: 0, vertex: 'base/V3' }, { i: 1, centre: 'base/E4', radius: 8, projected: true }], revision: 3, touches: ['base/F4'], xray: true }
+      { id: 'k1', plane: 1, pen: 'free', points2d: [[0, 0], [10, 0], [10, 5]], revision: 3 },
+      { id: 'k2', pen: 'points', points: [[1, 2, 20], [2, 2, 20]], snaps: [{ i: 0, vertex: 'base/V3' }, { i: 1, centre: 'base/E4', radius: 8, projected: true }], revision: 3, touches: ['base/F4'], xray: true }
     ],
     anchor: ANCHOR,
     picture: 'k-0123456789ab.png',
@@ -536,6 +537,31 @@ describe('a sketch mark', () => {
     expect(sanitiseMark(mark)).toEqual(mark)
     await saveMarksFile(dir, { next: 8, marks: [mark as unknown as Mark] })
     expect((await loadMarksFile(dir)).file.marks).toEqual([mark])
+  })
+
+  it('numbers the strokes of a sketch from before ids k1 to kn in order, and reads it the same way every time', () => {
+    const old = sketch({ nextStroke: undefined, strokes: (sketch().strokes as Array<Record<string, unknown>>).map(({ id: _id, ...rest }) => rest) }) as Record<string, unknown>
+    const first = sanitiseMark(old) as SketchMark
+    expect(first.strokes.map((s) => s.id)).toEqual(['k1', 'k2'])
+    expect(first.nextStroke).toBe(3)
+    expect(sanitiseMark(old)).toEqual(first)
+    expect(sanitiseMark(first)).toEqual(first)
+  })
+
+  it('keeps the ids that are well-formed and unique, and numbers the rest above the highest and above nextStroke', () => {
+    const [a, b] = sketch().strokes as Array<Record<string, unknown>>
+    const read = (strokes: unknown[], nextStroke?: unknown) => sanitiseMark(sketch({ strokes, nextStroke })) as SketchMark
+    const mixed = read([{ ...a, id: 'k7' }, { ...b, id: 'k7' }, { ...a, id: 'K3' }, { ...b, id: undefined }, { ...a, id: 'k2' }], 3)
+    expect(mixed.strokes.map((s) => s.id)).toEqual(['k7', 'k8', 'k9', 'k10', 'k2'])
+    expect(mixed.nextStroke).toBe(11)
+    // A count the file keeps above the ids it has is not lowered: an id once given is not given again.
+    const gone = read([{ ...a, id: 'k2' }], 9)
+    expect(gone.strokes.map((s) => s.id)).toEqual(['k2'])
+    expect(gone.nextStroke).toBe(9)
+    // A count below the highest id is no count.
+    expect(read([{ ...a, id: 'k5' }], 2).nextStroke).toBe(6)
+    expect(read([{ ...a, id: 'k5' }], 'x').nextStroke).toBe(6)
+    expect(read([{ ...a, id: 'k0' }, { ...b, id: 'k1000000' }]).strokes.map((s) => s.id)).toEqual(['k1', 'k2'])
   })
 
   it('may be drawn in empty space: no anchor, no picture, no stroke', () => {

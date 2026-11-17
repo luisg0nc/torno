@@ -1298,6 +1298,82 @@ describe('a sketch', () => {
     expect((await store.add('bracket', pin())).id).toBe('M1')
   })
 
+  describe('stroke ids', () => {
+    const idsOf = (m: Mark): string[] => (m as SketchMark).strokes.map((s) => s.id)
+    const three = (): SketchDraft => draft({ strokes: [0, 1, 2].map((n) => ({ plane: 1, pen: 'free' as const, points2d: [[n, 0], [n, 10]] as Array<[number, number]>, revision: 3 })) })
+
+    it('are k1, k2, k3 for a new sketch of three strokes, with nextStroke 4, whatever the window names', async () => {
+      const made = (await store.saveSketch('bracket', three())) as SketchMark
+      expect(idsOf(made)).toEqual(['k1', 'k2', 'k3'])
+      expect(made.nextStroke).toBe(4)
+      const named = (await store.saveSketch('bracket', { ...three(), strokes: three().strokes.map((s, n) => ({ ...s, id: `k${9 - n}` })) })) as SketchMark
+      expect(idsOf(named)).toEqual(['k1', 'k2', 'k3'])
+      expect(onDisk('bracket')).toMatchObject({ marks: [made, named] })
+    })
+
+    it('are kept by a stroke that stays, and an erase of k2 with one added gives k1, k3, k4', async () => {
+      const made = (await store.saveSketch('bracket', three())) as SketchMark
+      const [k1, , k3] = made.strokes
+      const fresh = { plane: 1, pen: 'free' as const, points2d: [[7, 0], [7, 10]] as Array<[number, number]>, revision: 3 }
+      const changed = (await store.saveSketch('bracket', { ...three(), id: made.id, strokes: [k1, k3, fresh] }, [])) as SketchMark
+      expect(idsOf(changed)).toEqual(['k1', 'k3', 'k4'])
+      expect(changed.nextStroke).toBe(5)
+      expect(changed.strokes[1]).toEqual(k3)
+    })
+
+    it('are never given again: k2 sent again after its erase is a new stroke, k5', async () => {
+      const made = (await store.saveSketch('bracket', three())) as SketchMark
+      const [k1, k2, k3] = made.strokes
+      const erased = (await store.saveSketch('bracket', { ...three(), id: made.id, strokes: [k1, k3] })) as SketchMark
+      expect(idsOf(erased)).toEqual(['k1', 'k3'])
+      expect(erased.nextStroke).toBe(4)
+      // The window, with its own copy of the erased stroke, sends it again with the other: a new stroke.
+      const again = (await store.saveSketch('bracket', { ...three(), id: made.id, strokes: [k1, k3, k2] })) as SketchMark
+      expect(idsOf(again)).toEqual(['k1', 'k3', 'k4'])
+      // Erasing the last and sending it again must not reuse its number either.
+      const lastGone = (await store.saveSketch('bracket', { ...three(), id: made.id, strokes: [k1, k3] })) as SketchMark
+      expect(lastGone.nextStroke).toBe(5)
+      expect(idsOf(await store.saveSketch('bracket', { ...three(), id: made.id, strokes: [k1, k3, again.strokes[2]] }))).toEqual(['k1', 'k3', 'k5'])
+    })
+
+    it('a repeated id in a draft is kept once: the second stroke is new', async () => {
+      const made = (await store.saveSketch('bracket', three())) as SketchMark
+      const [k1] = made.strokes
+      const twice = (await store.saveSketch('bracket', { ...three(), id: made.id, strokes: [k1, { ...k1 }] })) as SketchMark
+      expect(idsOf(twice)).toEqual(['k1', 'k4'])
+    })
+
+    it('never take nextStroke from the draft, and keep it with an edit that adds nothing', async () => {
+      const made = (await store.saveSketch('bracket', three())) as SketchMark
+      const edit = await store.saveSketch('bracket', { ...three(), id: made.id, strokes: made.strokes, nextStroke: 1, note: 'again' } as SketchDraft)
+      expect(edit).toMatchObject({ nextStroke: 4, note: 'again' })
+      const fresh = (await store.saveSketch('bracket', { ...three(), nextStroke: 1 } as SketchDraft)) as SketchMark
+      expect(fresh.nextStroke).toBe(4)
+    })
+
+    it('number the agent\'s strokes the same way, from its own sketch', async () => {
+      const made = (await store.saveSketch('bracket', three(), [], { author: 'agent' })) as SketchMark
+      expect(idsOf(made)).toEqual(['k1', 'k2', 'k3'])
+      const replaced = (await store.saveSketch('bracket', { ...three(), id: made.id }, [], { author: 'agent' })) as SketchMark
+      expect(idsOf(replaced)).toEqual(['k4', 'k5', 'k6'])
+      expect(replaced.nextStroke).toBe(7)
+    })
+
+    it('are read from a file that has none, in order, and are the same after a restart', async () => {
+      const made = (await store.saveSketch('bracket', three())) as SketchMark
+      const old = JSON.parse(JSON.stringify(onDisk('bracket'))) as { marks: Array<Record<string, unknown>> }
+      for (const stroke of old.marks[0].strokes as Array<Record<string, unknown>>) delete stroke.id
+      delete old.marks[0].nextStroke
+      writeFileSync(join(dirs.bracket, '.torno', 'marks.json'), JSON.stringify(old))
+      store.forget()
+      const first = (await store.list('bracket'))[0] as SketchMark
+      expect(idsOf(first)).toEqual(['k1', 'k2', 'k3'])
+      expect(first.nextStroke).toBe(made.nextStroke)
+      store.forget()
+      expect((await store.list('bracket'))[0]).toEqual(first)
+    })
+  })
+
   it('is never added through add, which is what the window and the agent ask for', async () => {
     await expect(store.add('bracket', { ...BASE, ...draft(), kind: 'sketch' } as unknown as NewMark)).rejects.toThrow(/sketch/)
     expect(await store.list('bracket')).toEqual([])
@@ -1306,7 +1382,7 @@ describe('a sketch', () => {
   it('is replaced when it has an id of a sketch of the person: the number, the creation and the picture stay', async () => {
     const made = await store.saveSketch('bracket', draft(), [[], []])
     await store.setSketchPicture('bracket', made.id, 'k-0123456789ab.png')
-    const changed = (await store.saveSketch('bracket', { ...draft({ name: 'Hose, longer', take: 'exact', diameter: undefined }), id: made.id }, [[], []])) as SketchMark
+    const changed = (await store.saveSketch('bracket', { ...draft({ name: 'Hose, longer', take: 'exact', diameter: undefined, strokes: (made as SketchMark).strokes }), id: made.id }, [[], []])) as SketchMark
     expect(changed).toMatchObject({ id: 'M1', name: 'Hose, longer', take: 'exact', createdAt: made.createdAt, picture: 'k-0123456789ab.png', status: 'draft' })
     expect(changed).not.toHaveProperty('diameter')
     expect(await store.list('bracket')).toEqual([changed])
@@ -1316,7 +1392,7 @@ describe('a sketch', () => {
     mkdirSync(join(dirs.bracket, '.torno', 'notes'), { recursive: true })
     const made = await store.saveSketch('bracket', draft(), [[], []])
     await store.setSketchPicture('bracket', made.id, 'k-aaaaaaaaaaaa.png')
-    const more: SketchStroke = { pen: 'free', points: [[3, 2, 20], [4, 2, 20]], revision: 3 }
+    const more: SketchStroke = { id: 'k1', pen: 'free', points: [[3, 2, 20], [4, 2, 20]], revision: 3 }
     const changed = (await store.saveSketch('bracket', { ...draft({ strokes: [...draft().strokes, more] }), id: made.id }, [])) as SketchMark
     expect(changed).not.toHaveProperty('picture')
     expect(await droppedNames(dirs.bracket, ['notes'], isNoteFile)).toEqual(['k-aaaaaaaaaaaa.png'])

@@ -8,7 +8,7 @@ import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './hist
 import type { ExportPlan, ExportRequest, ExportSaved } from './exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
-import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, NoteStroke, Replacement, ReviewIntent, SketchPlane, SketchStroke, SketchTake } from './marks'
+import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NewStroke, NoteLabel, NoteStroke, Replacement, ReviewIntent, SketchPlane, SketchTake } from './marks'
 import type { Scene } from './scene'
 import type { SizeFact } from './size'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
@@ -100,7 +100,8 @@ export interface SketchDraft {
   take: SketchTake
   diameter?: number
   planes: SketchPlane[]
-  strokes: SketchStroke[]
+  /** The strokes the window has: one it had from main names its `id`, and a new one has none. A number is main's to give (`MarkStore.saveSketch`). */
+  strokes: NewStroke[]
   anchor?: Anchor
   /** What the bar of an open review said when the sketch was begun: main keeps it of a new sketch of the person's, and never changes it of one it has (`marks:setIntent` does). */
   intent?: ReviewIntent
