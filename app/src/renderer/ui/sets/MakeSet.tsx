@@ -3,7 +3,7 @@ import { hint, pressed } from '../../../shared/keys'
 import { SET_COLOURS, SET_COMMENT_MAX, SET_NAME_MAX, parseSetRef, setNameError } from '../../../shared/sets'
 import { boardStore } from '../../state/board'
 import { describe, descriptorOf } from '../../state/descriptors'
-import { isStrokeRef, nextColour, selectionAsks, setActions, suggestName, useSets } from '../../state/sets'
+import { isStrokeRef, nextColour, setActions, suggestName, useSets } from '../../state/sets'
 import { store, useStore } from '../../state/store'
 import { giveKeysBack, TYPING } from '../typing'
 import { setColourVar } from './SetRows'
@@ -161,17 +161,25 @@ function NameSet() {
   const make = (): void => {
     setBusy(true)
     setError(null)
-    void selectionAsks().then(
-      (members) => setActions.make({ name: name.trim(), comment: comment.trim(), colour, layout, members }).then(
-        () => {
-          setBusy(false)
-          close()
-        },
-        (e: unknown) => {
-          setBusy(false)
-          setError(e instanceof Error ? e.message : String(e))
-        }
-      )
+    void setActions.asks().then(
+      (members) => {
+        // The kernel could not say where a face is: the status line and the popover say so, and it stays open as it was.
+        if (members === null) return setBusy(false)
+        return setActions.make({ name: name.trim(), comment: comment.trim(), colour, layout, members }).then(
+          () => {
+            setBusy(false)
+            close()
+          },
+          (e: unknown) => {
+            setBusy(false)
+            setError(e instanceof Error ? e.message : String(e))
+          }
+        )
+      },
+      (e: unknown) => {
+        setBusy(false)
+        setError(e instanceof Error ? e.message : String(e))
+      }
     )
   }
   return (

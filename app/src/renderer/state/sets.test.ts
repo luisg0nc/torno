@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NamedSet, SetMember } from '../../shared/sets'
-import { NOTHING_SELECTED, asksFor, connectSets, dropStrokes, holds, litSet, nextColour, selectableMembers, setActions, setsHolding, setsStore, suggestName } from './sets'
+import { NOTHING_SELECTED, Unplaced, asksFor, connectSets, dropStrokes, holds, litSet, nextColour, selectableMembers, setActions, setsHolding, setsStore, suggestName } from './sets'
 import { store } from './store'
 
 const set = (over: Partial<NamedSet> & { members?: SetMember[] } = {}): NamedSet => ({ id: 'N1', name: 'deck', slug: 'deck', comment: '', colour: 0, layout: 'assembly', by: 'person', members: [], createdAt: '2026-11-17T10:00:00.000Z', ...over })
@@ -16,7 +16,10 @@ function fake() {
     restore: vi.fn(async (_o: string, id: string) => set({ id })),
     accept: vi.fn(async (_o: string, id: string) => set({ id })),
     dismiss: vi.fn(async () => {}),
-    onChanged: vi.fn(() => () => {})
+    onChanged: vi.fn(() => () => {}),
+    onProblem: vi.fn(() => () => {}),
+    problem: vi.fn(async () => null as string | null),
+    dismissProblem: vi.fn(async () => {})
   }
   vi.stubGlobal('window', { torno: { sets } })
   return sets
@@ -24,13 +27,13 @@ function fake() {
 
 beforeEach(() => {
   store.setState({ objectId: 'bracket', layout: 'assembly', selection: [], picked: {} })
-  setsStore.setState({ objectId: 'bracket', sets: [], making: false, hovered: null, repicking: null, removed: null, said: null, refused: null })
+  setsStore.setState({ objectId: 'bracket', sets: [], making: false, hovered: null, repicking: null, removed: null, said: null, refused: null, problem: null })
 })
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.useRealTimers()
   store.setState({ objectId: null, selection: [], picked: {} })
-  setsStore.setState({ objectId: null, sets: [], making: false, hovered: null, repicking: null, removed: null, said: null, refused: null })
+  setsStore.setState({ objectId: null, sets: [], making: false, hovered: null, repicking: null, removed: null, said: null, refused: null, problem: null })
 })
 
 describe('the name a set is suggested', () => {
@@ -100,9 +103,15 @@ describe('the members asked for from a selection', () => {
     const asks = await asksFor(['block/F12', 'block/E3', 'lid', 'M7/k3'], { 'block/F12': { point: [1, 2, 20], normal: [0, 0, 1] }, 'block/E3': { point: [4, 0, 0], normal: null } }, async () => null)
     expect(asks).toEqual([{ ref: 'block/F12', point: [1, 2, 20], normal: [0, 0, 1] }, { ref: 'block/E3', point: [4, 0, 0] }, { ref: 'lid' }, { stroke: 'M7/k3' }])
   })
-  it('asks the kernel for the middle of a face that was selected without a pick, and sends it bare when the kernel cannot say', async () => {
-    const asks = await asksFor(['block/F1', 'block/F2'], {}, async (ref) => (ref === 'block/F1' ? { center: [5, 5, 5], normal: [1, 0, 0] } : null))
-    expect(asks).toEqual([{ ref: 'block/F1', point: [5, 5, 5], normal: [1, 0, 0] }, { ref: 'block/F2' }])
+  it('asks the kernel for the middle of a face that was selected without a pick', async () => {
+    const asks = await asksFor(['block/F1', 'block/E2'], {}, async (ref) => (ref === 'block/F1' ? { center: [5, 5, 5], normal: [1, 0, 0] } : { center: [6, 6, 6], normal: null }))
+    expect(asks).toEqual([{ ref: 'block/F1', point: [5, 5, 5], normal: [1, 0, 0] }, { ref: 'block/E2', point: [6, 6, 6] }])
+  })
+  it('refuses, in a sentence, when the kernel cannot say where a face or an edge is: no member is sent for main to hold at a guess', async () => {
+    const refusal = asksFor(['block/F1', 'block/F2', 'block/E3', 'lid'], {}, async (ref) => (ref === 'block/F1' ? { center: [5, 5, 5], normal: [1, 0, 0] } : null))
+    await expect(refusal).rejects.toBeInstanceOf(Unplaced)
+    await expect(refusal).rejects.toThrow('The kernel could not say where block/F2 and block/E3 are: select them again, or click them in the view')
+    await expect(asksFor(['block/F2'], {}, async () => null)).rejects.toThrow('The kernel could not say where block/F2 is: select it again, or click it in the view')
   })
 })
 
@@ -134,10 +143,33 @@ describe('what is asked of main', () => {
     const sets = fake()
     setsStore.setState({ making: true })
     const made = await setActions.make({ name: 'deck', comment: '', layout: 'assembly', members: [{ ref: 'lid' }] })
-    expect(sets.make).toHaveBeenCalledWith('bracket', { name: 'deck', comment: '', layout: 'assembly', members: [{ ref: 'lid' }] })
+    expect(sets.make).toHaveBeenCalledWith('bracket', { name: 'deck', comment: '', layout: 'assembly', members: [{ ref: 'lid' }] }, undefined)
     expect(made.id).toBe('N7')
     expect(setsStore.getState().making).toBe(false)
     expect(setsStore.getState().sets.map((s) => s.id)).toEqual(['N7'])
+  })
+  it('says which build the refs it sends are of: the one it shows', async () => {
+    const sets = fake()
+    store.setState({ scene: { model: 'm.py', layouts: ['assembly'], parts: [], seconds: 0, output: '' } as never, revision: 4, selection: ['lid'], picked: {} })
+    await setActions.make({ name: 'deck', comment: '', layout: 'assembly', members: [{ ref: 'lid' }] })
+    expect(sets.make).toHaveBeenLastCalledWith('bracket', expect.anything(), 4)
+    setsStore.setState({ sets: [set()] })
+    await setActions.addSelection('N1')
+    expect(sets.edit).toHaveBeenLastCalledWith('bracket', 'N1', { add: [{ ref: 'lid' }] }, 4)
+    store.setState({ scene: null, revision: 0 })
+  })
+  it('refuses the selection, saying so in the status line and in the notices, when the kernel cannot place a face of it', async () => {
+    const sets = fake()
+    vi.stubGlobal('window', { torno: { sets, geometry: { describe: vi.fn(async () => { throw new Error('kernel is gone') }) } } })
+    setsStore.setState({ sets: [set()] })
+    store.setState({ selection: ['block/F2'], picked: {} })
+    expect(await setActions.addSelection('N1')).toBe(false)
+    expect(sets.edit).not.toHaveBeenCalled()
+    const sentence = 'The kernel could not say where block/F2 is: select it again, or click it in the view'
+    expect(setsStore.getState().refused).toBe(sentence)
+    expect(setsStore.getState().said).toBe(sentence)
+    expect(await setActions.repick('N1')).toBe(false)
+    expect(sets.edit).not.toHaveBeenCalled()
   })
   it('says main\'s words when it refuses an edit, and changes nothing', async () => {
     const sets = fake()
@@ -151,11 +183,11 @@ describe('what is asked of main', () => {
     setsStore.setState({ sets: [set({ members: [face('block/F12')] })] })
     store.setState({ selection: ['lid'], picked: {} })
     expect(await setActions.addSelection('N1')).toBe(true)
-    expect(sets.edit).toHaveBeenLastCalledWith('bracket', 'N1', { add: [{ ref: 'lid' }] })
+    expect(sets.edit).toHaveBeenLastCalledWith('bracket', 'N1', { add: [{ ref: 'lid' }] }, undefined)
     setsStore.setState({ sets: [set({ members: [face('block/F12')] })] })
     store.setState({ selection: ['block/F12', 'lid'] })
     expect(await setActions.takeSelection('N1')).toBe(true)
-    expect(sets.edit).toHaveBeenLastCalledWith('bracket', 'N1', { take: ['block/F12'] })
+    expect(sets.edit).toHaveBeenLastCalledWith('bracket', 'N1', { take: ['block/F12'] }, undefined)
     store.setState({ selection: ['lid'] })
     expect(await setActions.takeSelection('N1')).toBe(false)
     expect(setsStore.getState().refused).toBe('None of what is selected is in this set')
@@ -198,8 +230,33 @@ describe('Re-pick', () => {
     expect(setsStore.getState().refused).toBe(NOTHING_SELECTED)
     store.setState({ selection: ['block/F3'], picked: { 'block/F3': { point: [0, 0, 5], normal: [0, 0, 1] } } })
     expect(await setActions.repick('N1')).toBe(true)
-    expect(sets.edit).toHaveBeenLastCalledWith('bracket', 'N1', { repick: [{ ref: 'block/F3', point: [0, 0, 5], normal: [0, 0, 1] }] })
+    expect(sets.edit).toHaveBeenLastCalledWith('bracket', 'N1', { repick: [{ ref: 'block/F3', point: [0, 0, 5], normal: [0, 0, 1] }] }, undefined)
     expect(setsStore.getState().repicking).toBeNull()
+  })
+})
+
+describe('what main found wrong with the sets file', () => {
+  it('keeps it for the open project, and not for another, until it is dismissed', async () => {
+    const sets = fake()
+    setActions.problemTold({ objectId: 'other', message: 'not ours' })
+    expect(setsStore.getState().problem).toBeNull()
+    setActions.problemTold({ objectId: 'bracket', message: 'The named sets file of this project could not be read. It was kept as .torno/sets.json.bad-1, and a new list was started.' })
+    expect(setsStore.getState().problem).toBe('The named sets file of this project could not be read. It was kept as .torno/sets.json.bad-1, and a new list was started.')
+    setActions.told({ objectId: 'bracket', sets: [] })
+    expect(setsStore.getState().problem).not.toBeNull()
+    setActions.dismissProblem()
+    expect(setsStore.getState().problem).toBeNull()
+    expect(sets.dismissProblem).toHaveBeenCalledWith('bracket')
+  })
+  it('is asked for when a project opens, as the window may not have been listening when it was said, and let go with the project', async () => {
+    const sets = fake()
+    sets.problem.mockResolvedValueOnce('The named sets file of this project could not be read.')
+    const off = connectSets()
+    await vi.waitFor(() => expect(setsStore.getState().problem).toBe('The named sets file of this project could not be read.'))
+    expect(sets.problem).toHaveBeenCalledWith('bracket')
+    setActions.open('two')
+    expect(setsStore.getState().problem).toBeNull()
+    off()
   })
 })
 

@@ -130,4 +130,15 @@ describe('the named sets in Layers', () => {
     expect(out).toContain('>Undo</button>')
     expect(out).toContain('None of what is selected is in this set')
   })
+
+  it('says what main found wrong with the sets file, and where the file was copied aside, with a Dismiss that lets main know', () => {
+    store.setState({ scene, layout: 'assembly', layers: {}, folded: [], marks: [] })
+    setsStore.setState({ sets: [], removed: null, refused: null, problem: 'The named sets file of this project could not be read. It was kept as .torno/sets.json.bad-1, and a new list was started.' })
+    const out = rows()
+    expect(out).toContain('data-part="sets-problem"')
+    expect(out).toContain('It was kept as .torno/sets.json.bad-1')
+    expect(out).toContain('>Dismiss</button>')
+    setsStore.setState({ problem: null })
+    expect(rows()).not.toContain('sets-problem')
+  })
 })

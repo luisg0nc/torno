@@ -243,7 +243,8 @@ function RepickButton({ id }: { id: string }) {
 export function NamedSets({ rows, layout }: { rows: SetRow[]; layout: string }) {
   const removed = useSets((s) => s.removed)
   const refused = useSets((s) => s.refused)
-  if (rows.length === 0 && removed === null && refused === null) return null
+  const problem = useSets((s) => s.problem)
+  if (rows.length === 0 && removed === null && refused === null && problem === null) return null
   return (
     <div className="layer-sets" data-part="named-sets">
       {rows.length > 0 && <h3 className="layer-sets-head">Named sets</h3>}
@@ -259,12 +260,21 @@ export function NamedSets({ rows, layout }: { rows: SetRow[]; layout: string }) 
   )
 }
 
-/** What happened to a set that the person should read: what was deleted, with Undo, and why main refused a change. Shown once, wherever the sets are. */
+/** What happened to a set that the person should read: what was deleted, with Undo, why main refused a change, and what main found wrong with the sets file. Shown once, wherever the sets are. */
 export function SetsNotes() {
   const removed = useSets((s) => s.removed)
   const refused = useSets((s) => s.refused)
+  const problem = useSets((s) => s.problem)
   return (
     <>
+      {problem !== null && (
+        <p className="set-note selectable" role="status" data-part="sets-problem">
+          {problem}{' '}
+          <button type="button" className="link-button" onClick={() => setActions.dismissProblem()}>
+            Dismiss
+          </button>
+        </p>
+      )}
       {removed !== null && (
         <p className="set-note" role="status">
           Deleted <span className="num">{removed.name}</span> ·{' '}

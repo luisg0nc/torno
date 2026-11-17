@@ -28,9 +28,11 @@ export interface SetsState {
   said: string | null
   /** Why main refused the last change, in its words. */
   refused: string | null
+  /** What main found wrong with the sets file of the project (it was set aside, and where), until the person has read it. */
+  problem: string | null
 }
 
-const INITIAL: SetsState = { objectId: null, sets: [], making: false, hovered: null, repicking: null, removed: null, said: null, refused: null }
+const INITIAL: SetsState = { objectId: null, sets: [], making: false, hovered: null, repicking: null, removed: null, said: null, refused: null, problem: null }
 
 export const setsStore = createStore<SetsState>(() => INITIAL)
 
@@ -123,14 +125,20 @@ export const isStrokeRef = (ref: string): boolean => STROKE_REF.test(ref)
 
 type Picked = Record<string, { point: Vec3; normal: Vec3 | null }>
 
+/** The kernel could not say where some of the faces and edges selected are: nothing is made of them, for none is kept held at a guess. */
+export class Unplaced extends Error {}
+
+const listed = (words: readonly string[]): string => (words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`)
+
 /**
  * The members asked for from what is selected. A face or an edge goes with where it was picked (point and normal), so that no
  * member is held at the middle of its part's box; one that was selected without a pick (from the chat, from Layers) is asked
  * of the kernel for its middle and normal. A stroke is its own. `describeAt` says what the kernel knows of a ref, and null when
- * it cannot: that member is then sent bare, and main finds its place.
+ * it cannot: then the whole ask is refused (`Unplaced`), with a sentence that names them.
  */
 export async function asksFor(selection: readonly string[], picked: Picked, describeAt: (ref: string) => Promise<{ center?: Vec3; normal?: Vec3 | null } | null>): Promise<MemberAsk[]> {
   const asks: MemberAsk[] = []
+  const unplaced: string[] = []
   for (const ref of selection) {
     if (isStrokeRef(ref)) {
       asks.push({ stroke: ref })
@@ -149,7 +157,11 @@ export async function asksFor(selection: readonly string[], picked: Picked, desc
     }
     const found = await describeAt(ref)
     if (found?.center) asks.push(parsed.kind === 'face' && found.normal ? { ref, point: found.center, normal: found.normal } : { ref, point: found.center })
-    else asks.push({ ref })
+    else unplaced.push(ref)
+  }
+  if (unplaced.length > 0) {
+    const one = unplaced.length === 1
+    throw new Unplaced(`The kernel could not say where ${listed(unplaced)} ${one ? 'is' : 'are'}: select ${one ? 'it' : 'them'} again, or click ${one ? 'it' : 'them'} in the view`)
   }
   return asks
 }
@@ -161,6 +173,12 @@ export function selectionAsks(): Promise<MemberAsk[]> {
       const found = objectId === null ? null : await describeWhole(objectId, revision, layout, ref)
       return found !== null && found.kind !== 'part' ? { center: found.center, normal: found.kind === 'face' ? found.normal : null } : null
     })
+}
+
+/** The build the window shows, which the refs it sends main are of; none while no scene is shown. */
+const shownRevision = (): number | undefined => {
+  const s = store.getState()
+  return s.scene ? s.revision : undefined
 }
 
 let undoTimer: ReturnType<typeof setTimeout> | undefined
@@ -216,7 +234,7 @@ export const setActions = {
   async make(ask: NewSet): Promise<NamedSet> {
     const objectId = state().objectId
     if (objectId === null) throw new Error('No project is open')
-    const made = await window.torno.sets.make(objectId, ask)
+    const made = await window.torno.sets.make(objectId, ask, shownRevision())
     setActions.told({ objectId, sets: [...state().sets.filter((x) => x.id !== made.id), made] })
     set({ making: false, refused: null })
     return made
@@ -227,7 +245,7 @@ export const setActions = {
     const objectId = state().objectId
     if (objectId === null) return false
     try {
-      const made = await window.torno.sets.edit(objectId, id, edit)
+      const made = await window.torno.sets.edit(objectId, id, edit, shownRevision())
       setActions.told({ objectId, sets: state().sets.map((x) => (x.id === made.id ? made : x)) })
       set({ refused: null })
       return true
@@ -237,9 +255,25 @@ export const setActions = {
     }
   },
 
+  /**
+   * The selection as members asked for. Null when the kernel cannot say where a face or an edge of it is: the status line and the
+   * notices say so, and nothing is sent. Any other failure rejects.
+   */
+  async asks(): Promise<MemberAsk[] | null> {
+    try {
+      return await selectionAsks()
+    } catch (e) {
+      if (!(e instanceof Unplaced)) throw e
+      setActions.say(e.message)
+      set({ refused: e.message })
+      return null
+    }
+  },
+
   /** The selection is added to the set. */
   async addSelection(id: string): Promise<boolean> {
-    const add = await selectionAsks()
+    const add = await setActions.asks()
+    if (add === null) return false
     if (add.length === 0) {
       set({ refused: NOTHING_SELECTED })
       return false
@@ -329,7 +363,8 @@ export const setActions = {
 
   /** Re-pick, second press: the selection is sent as `repick`, which takes the place of every member that is lost. */
   async repick(id: string): Promise<boolean> {
-    const repick = await selectionAsks()
+    const repick = await setActions.asks()
+    if (repick === null) return false
     if (repick.length === 0) {
       set({ refused: NOTHING_SELECTED })
       return false
@@ -337,6 +372,18 @@ export const setActions = {
     const done = await setActions.edit(id, { repick })
     if (done) set({ repicking: null })
     return done
+  },
+
+  /** Main said what was wrong with a project's sets file: kept while it is the project shown, until it is dismissed. */
+  problemTold(m: { objectId: string; message: string }): void {
+    if (m.objectId === state().objectId) set({ problem: m.message })
+  },
+
+  /** The person has read what was wrong with the sets file: main is told, which answers the same to every window until then. */
+  dismissProblem(): void {
+    const objectId = state().objectId
+    set({ problem: null })
+    if (objectId !== null) void window.torno.sets.dismissProblem(objectId).catch(() => {})
   },
 
   /** The sets that hold a face, an edge or a part of the layout shown, oldest first. */
@@ -373,6 +420,13 @@ export function connectSets(): () => void {
     void window.torno.sets.list(objectId).then(
       (sets) => setActions.told({ objectId, sets }),
       () => {} // a project with no folder yet has none
+    )
+    // What main found wrong with the file is told once, and this window may not have been listening then.
+    void window.torno.sets.problem(objectId).then(
+      (message) => {
+        if (message !== null) setActions.problemTold({ objectId, message })
+      },
+      () => {}
     )
   }
   if (open !== null) load(open)

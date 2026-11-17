@@ -5,7 +5,7 @@ import { connectLook } from './state/agent'
 import { connectAsks } from './state/asks'
 import { connectBoard, useBoard } from './state/board'
 import { connectReview } from './state/review'
-import { connectSets } from './state/sets'
+import { connectSets, setActions } from './state/sets'
 import { actions, sceneFileOf, store, useStore } from './state/store'
 import { BuildStatus } from './ui/BuildStatus'
 import { closingWhy, isExporting, leavingWhy, unkept, type Reason } from './closing'
@@ -187,6 +187,8 @@ function useMain(): void {
     const offBoard = connectBoard()
     // The rounds of the open project's review, read from main and followed.
     const offReview = connectReview()
+    // What main found wrong with a project's sets file, as for the marks; listened for before the sets are read, which says it.
+    const offSetsProblem = window.torno.sets.onProblem(setActions.problemTold)
     // The named sets of the open project, read from main and followed.
     const offSets = connectSets()
 
@@ -224,6 +226,7 @@ function useMain(): void {
       offBoard()
       offReview()
       offSets()
+      offSetsProblem()
       offMarks()
       offMarksProblem()
       offScans()

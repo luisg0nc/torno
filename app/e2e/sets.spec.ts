@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
@@ -187,4 +187,31 @@ test('a proposal of Claude is marked until the person accepts it, and then it is
   await expect.poll(() => setsOnDisk().find((s) => s.id === 'N2')?.proposed).toBeUndefined()
   expect(setsOnDisk().find((s) => s.id === 'N2')).toMatchObject({ by: 'person', name: 'end faces' })
   expect(setsOnDisk().map((s) => s.id)).toEqual(['N1', 'N2'])
+})
+
+test('what was wrong with a sets file is said in Layers with where it was kept, to a window that was not listening too, until it is dismissed', async () => {
+  // Main reads the file of a project the window is not showing: nobody hears the problem said.
+  const CORRUPT = '{"next": 4, "sets": ['
+  mkdirSync(join(root, 'plain', '.torno'), { recursive: true })
+  writeFileSync(join(root, 'plain', '.torno', 'sets.json'), CORRUPT)
+  expect(await page.evaluate(() => window.torno.sets.list('plain'))).toEqual([])
+  const aside = readdirSync(join(root, 'plain', '.torno')).find((name) => name.startsWith('sets.json.corrupt-'))!
+  expect(readFileSync(join(root, 'plain', '.torno', aside), 'utf8')).toBe(CORRUPT)
+
+  const sentence = `The named sets file of this project could not be read. It was kept as .torno/${aside}, and a new list was started.`
+  const line = page.locator('[data-part="sets-problem"]')
+  await openListed(page, 'plain')
+  await expect(line).toContainText(sentence)
+  // Still there after the window is loaded anew.
+  await page.reload()
+  await page.waitForSelector('[data-region="left"]')
+  await openListed(page, 'plain')
+  await expect(line).toContainText(sentence)
+
+  await line.getByRole('button', { name: 'Dismiss' }).click()
+  await expect(line).toHaveCount(0)
+  await page.reload()
+  await page.waitForSelector('[data-region="left"]')
+  await openListed(page, 'plain')
+  await expect(line).toHaveCount(0)
 })
