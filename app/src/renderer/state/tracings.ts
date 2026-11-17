@@ -3,10 +3,11 @@ import { createStore } from 'zustand/vanilla'
 import type { HistoryList } from '../../shared/history'
 import type { MainAxis } from '../../shared/planes'
 import { parseSetRef } from '../../shared/sets'
-import type { Tracing, TracingCut, TracingsFile } from '../../shared/tracings'
+import type { Layer, LayerColour, LayerShape, Tracing, TracingCut, TracingsFile } from '../../shared/tracings'
 import { boardActions, boardStore, type Shown } from './board'
 import { actions, store } from './store'
 import { setTool } from './tools'
+import type { TraceMode } from '../ui/tracings/traceTool'
 
 // The tracings of the open project in the window: what main last said of the file (`.torno/tracings.json`, which main alone
 // writes), which tracing is open in the view, the kernel's outline of each one that has been asked for, and what the person
@@ -32,9 +33,17 @@ export interface TracingsState {
   removed: { id: string; name: string } | null
   /** What main found wrong with the tracings file (it was set aside, and where), until the person has read it. */
   problem: string | null
+  /** What the pointer does on the sheet: Select moves around it, Trace puts shapes into the person's layer. */
+  tool: 'select' | 'trace'
+  /** What the Trace tool puts down: a line, a circle or a label. */
+  trace: TraceMode
+  /** The person's layer the Trace tool puts shapes into, chosen in the panel; null for their last (`traceTarget`). */
+  into: number | null
+  /** The person's layer removed last, with its shapes, which Undo puts back while this stays. */
+  layerRemoved: { tracing: string; layer: Layer } | null
 }
 
-const NONE: TracingsState = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null }
+const NONE: TracingsState = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select', trace: 'line', into: null, layerRemoved: null }
 
 export const tracingsStore = createStore<TracingsState>(() => NONE)
 
@@ -100,6 +109,21 @@ export function openTracing(s: Pick<TracingsState, 'file' | 'open'> = state()): 
   return s.open === null ? undefined : s.file?.tracings.find((t) => t.id === s.open)
 }
 
+/** What the Trace tool is told when the person has no layer of their own to draw into. */
+export const NO_OWN_LAYER = 'Add a layer of your own to trace into'
+
+/**
+ * The layer the Trace tool puts shapes into: the one chosen in the panel when it is the person's and still there, else the
+ * person's last layer; undefined when they have none. Claude's layers are never traced into.
+ */
+export function traceTarget(s: Pick<TracingsState, 'file' | 'open' | 'into'>): Layer | undefined {
+  const layers = openTracing(s)?.layers.filter((l) => l.by === 'person') ?? []
+  return layers.find((l) => l.id === s.into) ?? layers.at(-1)
+}
+
+/** Shapes and layer changes go to main one after the other, each built on the layer as the one before left it. */
+let queue: Promise<unknown> = Promise.resolve()
+
 /** Whether the project has a tracing: what `Ctrl+Tab` goes by. */
 export const hasTracing = (s: Pick<TracingsState, 'file'> = state()): boolean => (s.file?.tracings.length ?? 0) > 0
 
@@ -144,7 +168,7 @@ export const tracingActions = {
     const cuts = Object.fromEntries(Object.entries(s.cuts).filter(([id]) => ids.has(id)))
     const wasOpen = s.file?.tracings.find((t) => t.id === open)
     const now = file.tracings.find((t) => t.id === open)
-    set({ file, open, cuts, removed: s.removed !== null && ids.has(s.removed.id) ? null : s.removed })
+    set({ file, open, cuts, removed: s.removed !== null && ids.has(s.removed.id) ? null : s.removed, ...(open === s.open ? {} : { tool: 'select' as const, into: null, layerRemoved: null }) })
     if (open !== null && (open !== s.open || cutKey(wasOpen) !== cutKey(now))) void tracingActions.refreshCut(open)
     // A project that was left on a tracing and has none when it is first read (it was removed on another branch): the model. One whose last tracing is removed now stays on the view that offers the next.
     if (s.file === null && file.tracings.length === 0) boardActions.leaveTracing()
@@ -152,7 +176,7 @@ export const tracingActions = {
 
   /** Shows the tracing, and asks for its outline. */
   open(id: string): void {
-    set({ open: id, refused: null })
+    set({ open: id, refused: null, tool: 'select', into: null, layerRemoved: null })
     void tracingActions.refreshCut(id)
   },
 
@@ -227,6 +251,128 @@ export const tracingActions = {
       set({ refused: said(e) })
       return false
     }
+  },
+
+  /** The tool in hand on the sheet. Trace with no layer of the person's says what it needs. */
+  setTool(tool: 'select' | 'trace'): void {
+    set({ tool })
+    if (tool === 'trace' && traceTarget(state()) === undefined) set({ refused: NO_OWN_LAYER })
+    else if (state().refused === NO_OWN_LAYER) set({ refused: null })
+  },
+
+  setTrace(trace: TraceMode): void {
+    set({ trace })
+  },
+
+  /** Chooses the person's layer the Trace tool draws into. */
+  setInto(layer: number): void {
+    set({ into: layer })
+    if (state().refused === NO_OWN_LAYER) set({ refused: null })
+  },
+
+  /**
+   * One finished shape into the person's layer: the layer as it now is with the shape after its own, as one change of that
+   * layer. Shapes sent together are kept, each sent on the layer as the one before left it. True when main took it.
+   */
+  addShape(shape: LayerShape): Promise<boolean> {
+    const objectId = state().objectId
+    const tracing = state().open
+    const target = traceTarget(state())
+    if (objectId === null || tracing === null) return Promise.resolve(false)
+    if (target === undefined) {
+      set({ refused: NO_OWN_LAYER })
+      return Promise.resolve(false)
+    }
+    const run = queue.then(async () => {
+      const layer = state().file?.tracings.find((t) => t.id === tracing)?.layers.find((l) => l.id === target.id)
+      if (layer === undefined || state().objectId !== objectId) return false
+      try {
+        const made = await window.torno.tracings.layer(objectId, tracing, { edit: layer.id, shapes: [...layer.shapes, shape] })
+        if (state().objectId === objectId) set({ file: withTracing(state().file, made), refused: null })
+        return true
+      } catch (e) {
+        set({ refused: said(e) })
+        return false
+      }
+    })
+    queue = run
+    return run
+  },
+
+  /** A new, empty layer of the person's, traced into from then on. */
+  async addLayer(name: string, colour: LayerColour): Promise<boolean> {
+    const objectId = state().objectId
+    const tracing = state().open
+    if (objectId === null || tracing === null) return false
+    try {
+      const made = await window.torno.tracings.layer(objectId, tracing, { make: { name, colour, shapes: [] } })
+      if (state().objectId !== objectId) return true
+      const wanted = name.trim().toLowerCase()
+      const layer = made.layers.find((l) => l.name.toLowerCase() === wanted)
+      set({ file: withTracing(state().file, made), refused: null, ...(layer === undefined ? {} : { into: layer.id }) })
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /** Hides or shows a layer, whoever's it is. */
+  async hideLayer(layer: number, hidden: boolean): Promise<boolean> {
+    const objectId = state().objectId
+    const tracing = state().open
+    if (objectId === null || tracing === null) return false
+    try {
+      const made = await window.torno.tracings.layer(objectId, tracing, { hide: layer, hidden })
+      if (state().objectId === objectId) set({ file: withTracing(state().file, made), refused: null })
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /** Takes one of the person's layers away, its shapes kept here so that `undoRemoveLayer` can put it back. Claude's is not the person's to remove. */
+  async removeLayer(layer: number): Promise<boolean> {
+    const objectId = state().objectId
+    const tracing = state().open
+    const was = openTracing()?.layers.find((l) => l.id === layer)
+    if (objectId === null || tracing === null || was === undefined) return false
+    if (was.by !== 'person') {
+      set({ refused: `${was.name} is Claude's layer: Claude changes and removes its own` })
+      return false
+    }
+    try {
+      const made = await window.torno.tracings.layer(objectId, tracing, { remove: layer })
+      if (state().objectId === objectId) set({ file: withTracing(state().file, made), layerRemoved: { tracing, layer: was }, refused: null })
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /** Puts the layer removed last back, with its name, colour and shapes, as a new layer (a layer's number is never given again). */
+  async undoRemoveLayer(): Promise<boolean> {
+    const objectId = state().objectId
+    const removed = state().layerRemoved
+    if (objectId === null || removed === null) return false
+    set({ layerRemoved: null })
+    try {
+      const { name, colour, shapes } = removed.layer
+      const made = await window.torno.tracings.layer(objectId, removed.tracing, { make: { name, colour, shapes } })
+      if (state().objectId !== objectId) return true
+      const back = made.layers.find((l) => l.name.toLowerCase() === name.toLowerCase())
+      set({ file: withTracing(state().file, made), refused: null, ...(back === undefined || state().open !== removed.tracing ? {} : { into: back.id }) })
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  forgetLayerRemoved(): void {
+    if (state().layerRemoved !== null) set({ layerRemoved: null })
   },
 
   /** A tracing on a face: the view goes to the model with Select in hand, and the next flat face selected is the one. */

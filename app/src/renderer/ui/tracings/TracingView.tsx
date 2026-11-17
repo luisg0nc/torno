@@ -3,21 +3,27 @@ import { number } from '../../../shared/format'
 import { hint, pressed, viewKey } from '../../../shared/keys'
 import type { DimensionMark } from '../../../shared/marks'
 import { colorsOfParts } from '../../../shared/palette'
+import { MAX_LABEL_TEXT } from '../../../shared/tracings'
 import { niceLength, tracingSvg } from '../../../shared/tracingSvg'
 import { isExploded } from '../../../shared/explode'
 import { memoryEpoch, onBoardForgotten } from '../../state/board'
 import { useStore } from '../../state/store'
-import { buildName, openTracing, tracingActions, useTracings } from '../../state/tracings'
+import { buildName, NO_OWN_LAYER, openTracing, traceTarget, tracingActions, tracingsStore, useTracings } from '../../state/tracings'
 import { useHistory } from '../useHistory'
-import { chosen, pointerChoice, TYPING } from '../typing'
+import { chosen, giveKeysBack, pointerChoice, TYPING } from '../typing'
 import { NewTracing } from './NewTracing'
+import { paintGrid } from './gridPaint'
+import { Palette } from './Palette'
 import { axisOfDirection, countRender, PX_PER_MM, ratioText, Sheet, type View } from './Sheet'
+import { snapAt, type Snapped } from './snap'
+import { TraceTool } from './traceTool'
 import { TracingPanel } from './TracingPanel'
 
 // A tracing at true scale, in place of the 3D view: a sheet with the kernel's outline on a millimetre grid, which the sheet's
 // own transform moves and scales (`Sheet`), a panel of what the tracing is, a picker of which is shown, the scale bar and the
-// title block, and a readout of where the pointer is on the plane. Panning, zooming and the readout are made on the elements
-// and never go through React state, so nothing is drawn again for them (`__tornoTracingRenders` counts the layer's draws under
+// title block, and a readout of where the pointer is on the plane. The Trace tool puts a line, a circle or a label into the
+// person's layer, snapping to the cut's own points; what is under way is drawn on a layer of its own. Panning, zooming, the
+// readout, the grid and the draft are made on the elements and never go through React state, so nothing is drawn again for them (`__tornoTracingRenders` counts the layer's draws under
 // test). The 3D view stays mounted under it and draws nothing meanwhile.
 
 /** Where each tracing's sheet was left, so that it comes back as it was in this window. */
@@ -32,8 +38,8 @@ const wheelPixels = (e: WheelEvent): number => (e.deltaMode === 1 ? 16 : e.delta
 /** The picker's last choice, which makes a tracing rather than showing one. */
 const NEW = '__new'
 
-/** The 1 mm grid is drawn from this zoom: further out its lines are a few pixels apart and only blur. */
-const FINE_GRID_FROM = 0.8
+/** How far the pointer may move with a button down for the press still to be a click, in pixels. */
+const CLICK_SLOP = 4
 
 /** How long the scale bar is meant to be on screen, in pixels, before it is made a round length. */
 const SCALE_BAR_PX = 120
@@ -42,9 +48,29 @@ const SCALE_BAR_PX = 120
 const BLOCK_ROWS = ['Project', 'Tracing', 'Plane', 'Sheet axes', 'Photo', 'Source']
 
 /** The drawing's layer: its markup is set by the string, and nothing draws it again unless the string changes. */
-const SheetLayer = memo(function SheetLayer({ svg, layerRef }: { svg: string; layerRef: RefObject<SVGSVGElement | null> }) {
+const SheetLayer = memo(function SheetLayer({ svg }: { svg: string }) {
   countRender()
-  return <svg ref={layerRef} className="tr-sheet-layer" width="1" height="1" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />
+  return <svg className="tr-drawing" width="1" height="1" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />
+})
+
+/** The millimetre grid, painted from where the sheet stands (`paintGrid`): two tilings of the whole screen and the lines of u = 0 and v = 0. Written on, never drawn again. */
+const Grid = memo(function Grid({ gridRef }: { gridRef: RefObject<SVGSVGElement | null> }) {
+  return (
+    <svg ref={gridRef} className="tr-grid-layer" aria-hidden="true">
+      <defs>
+        <pattern id="tr-pattern-fine" data-grid="fine" patternUnits="userSpaceOnUse" width="1" height="1">
+          <path data-grid="fine-path" className="tr-grid-fine" d="" />
+        </pattern>
+        <pattern id="tr-pattern-coarse" data-grid="coarse" patternUnits="userSpaceOnUse" width="1" height="1">
+          <path data-grid="coarse-path" className="tr-grid" d="" />
+        </pattern>
+      </defs>
+      <rect data-grid="fine-rect" width="100%" height="100%" fill="url(#tr-pattern-fine)" />
+      <rect width="100%" height="100%" fill="url(#tr-pattern-coarse)" />
+      <line data-grid="axis-v" className="tr-axis tr-axis-v" y1="0" y2="100%" />
+      <line data-grid="axis-u" className="tr-axis tr-axis-u" x1="0" x2="100%" />
+    </svg>
+  )
 })
 
 export function TracingView() {
@@ -56,23 +82,49 @@ export function TracingView() {
   const building = useTracings((s) => s.building)
   const problem = useTracings((s) => s.problem)
   const removed = useTracings((s) => s.removed)
+  const tool = useTracings((s) => s.tool)
+  const traceMode = useTracings((s) => s.trace)
+  const target = useTracings((s) => traceTarget(s))
   const marks = useStore((s) => s.marks)
   const scene = useStore((s) => s.scene)
   const explode = useStore((s) => s.explode)
   const history = useHistory(cut !== null)
   const [making, setMaking] = useState(false)
   const [sheet, setSheet] = useState<Sheet | null>(null)
+  /** Where a label waits for its text, in the plane. */
+  const [labelAt, setLabelAt] = useState<[number, number] | null>(null)
   const root = useRef<HTMLElement>(null)
   const stage = useRef<HTMLDivElement>(null)
-  const layerEl = useRef<SVGSVGElement>(null)
+  const layerEl = useRef<HTMLDivElement>(null)
+  const gridEl = useRef<SVGSVGElement>(null)
+  const draftEl = useRef<SVGSVGElement>(null)
+  const labelEl = useRef<HTMLInputElement>(null)
+  const hintEl = useRef<HTMLSpanElement>(null)
   const readout = useRef<HTMLSpanElement>(null)
   const bar = useRef<HTMLSpanElement>(null)
   const barLabel = useRef<HTMLSpanElement>(null)
-  const panning = useRef<{ x: number; y: number } | null>(null)
+  /** A press on the sheet: where it was last moved to, where it began, and whether it is a click that may become a drag. */
+  const press = useRef<{ x: number; y: number; from: { x: number; y: number }; click: boolean; moved: boolean } | null>(null)
+  /** Where the pointer is on the plane, and what it snapped to: for the draft, never state. */
+  const hover = useRef<{ uv: [number, number]; snap?: Snapped } | null>(null)
+  const down = useRef(false)
+  const paint = useRef<() => void>(() => {})
   /** The sheet that was last fitted or restored: a tracing is fitted the first time its outline is there, and then left where the person put it. */
   const placed = useRef<string | null>(null)
   const built = cut === null ? null : buildName(history, cut.revision)
   const key = objectId !== null && open !== null ? `${objectId}/${open}` : null
+
+  // The Trace tool's own state: what is put down so far. A finished shape goes to main; a label waits for its text.
+  const trace = useRef<TraceTool | null>(null)
+  if (trace.current === null) {
+    trace.current = new TraceTool(
+      (shape) => void tracingActions.addShape(shape),
+      () => {
+        paint.current()
+        setLabelAt(trace.current?.draft.label ?? null)
+      }
+    )
+  }
 
   const drawing = useMemo(() => {
     if (tracing === undefined || cut === null) return null
@@ -87,24 +139,57 @@ export function TracingView() {
         spread: isExploded(explode[tracing.layout]),
         tracing: { id: tracing.id, name: tracing.name, plane: tracing.plane.label }
       },
-      { forScreen: true, grid: 1, layers: tracing.layers }
+      { forScreen: true, layers: tracing.layers }
     )
   }, [tracing, cut, marks, explode, objectId])
+  down.current = drawing?.down ?? false
+
+  // What is under way, drawn on the draft layer: the shapes so far to the pointer, and a ring where the pointer snapped.
+  paint.current = () => {
+    const el = draftEl.current
+    const t = trace.current
+    if (!el || !t) return
+    const on = tracingsStore.getState().tool === 'trace'
+    const k = sheet?.view.k ?? PX_PER_MM
+    let out = on ? t.elements(hover.current?.uv ?? null, down.current, k) : ''
+    const snap = on ? hover.current?.snap : undefined
+    if (snap) {
+      const [x, y] = [snap.uv[0], down.current ? snap.uv[1] : -snap.uv[1]]
+      out += `<circle class="tr-snap${snap.snap.kind === 'vertex' && snap.snap.projected ? ' tr-snap-projected' : ''}" cx="${Math.round(x * 1000) / 1000 + 0}" cy="${Math.round(y * 1000) / 1000 + 0}" r="${Math.round((6 / k) * 1000) / 1000}"/>`
+    }
+    el.innerHTML = out
+  }
+
+  // Where the label's field stands: on its point of the plane, moved with the sheet.
+  const placeLabel = (made: Sheet | null = sheet): void => {
+    const input = labelEl.current
+    const at = trace.current?.draft.label
+    if (!input || !made || !at) return
+    const [x, y] = made.toScreen(at)
+    const r = stage.current?.getBoundingClientRect()
+    input.style.transform = `translate(${Math.round(x - (r?.left ?? 0))}px, ${Math.round(y - (r?.top ?? 0))}px)`
+  }
 
   // The sheet: made once for the element, and its own while the view is on. What it does is written on the elements.
   useEffect(() => {
     const stageEl = stage.current!
     const root_ = root.current!
     const made: Sheet = new Sheet(layerEl.current!, () => {
-      const ratio = made.zoomRatio()
-      if (ratio >= FINE_GRID_FROM) stageEl.setAttribute('data-fine', '')
-      else stageEl.removeAttribute('data-fine')
-      const text = ratioText(ratio)
+      const text = ratioText(made.zoomRatio())
       for (const el of root_.querySelectorAll('[data-zoom]')) el.textContent = text
+      if (gridEl.current) paintGrid(gridEl.current, made.view)
       // The scale bar is a round length that is about as long on screen as it always is.
       const length = niceLength(SCALE_BAR_PX / made.view.k)
       if (bar.current) bar.current.style.width = `${length * made.view.k}px`
       if (barLabel.current) barLabel.current.textContent = `${number(length)} mm`
+      if (tracingsStore.getState().tool === 'trace') paint.current()
+      const input = labelEl.current
+      const at = trace.current?.draft.label
+      if (input && at) {
+        const [x, y] = made.toScreen(at)
+        const r = stageEl.getBoundingClientRect()
+        input.style.transform = `translate(${Math.round(x - r.left)}px, ${Math.round(y - r.top)}px)`
+      }
     })
     const epoch = memoryEpoch()
     setSheet(made)
@@ -144,6 +229,23 @@ export function TracingView() {
     }
   }, [sheet, drawing, key])
 
+  // What is traced follows the palette and the panel: another way of tracing, another layer, or another tool gives up what was under way.
+  useEffect(() => {
+    const t = trace.current!
+    t.cancel()
+    t.setMode(traceMode)
+    hover.current = null
+    if (hintEl.current) hintEl.current.textContent = ''
+    paint.current()
+  }, [tool, traceMode, target?.id])
+
+  // The label's field takes the focus where it opens, and stands on its point.
+  useEffect(() => {
+    if (labelAt === null) return
+    placeLabel()
+    labelEl.current?.focus({ preventScroll: true })
+  }, [labelAt])
+
   // Each part's tab in its own colour: the drawing names the part, and the palette is the 3D view's.
   useEffect(() => {
     const colours = colorsOfParts(scene?.parts ?? [])
@@ -159,14 +261,33 @@ export function TracingView() {
     if (!sheet) return
     const onKey = (e: KeyboardEvent): void => {
       if (e.target instanceof Element && e.target.closest(TYPING)) return
-      if (pressed(e, 'tracing.fit')) {
+      const stop = (): void => {
         e.preventDefault()
         e.stopPropagation()
+      }
+      const tracing_ = tracingsStore.getState().tool === 'trace'
+      // The tool's keys are for the sheet: not for a button of the panel that has the focus.
+      const onSheet = e.target === document.body || (e.target instanceof Node && stage.current?.contains(e.target) === true)
+      if (pressed(e, 'tracing.fit')) {
+        stop()
         sheet.fit()
       } else if (pressed(e, 'tracing.actual')) {
-        e.preventDefault()
-        e.stopPropagation()
+        stop()
         sheet.actual()
+      } else if (!e.repeat && pressed(e, 'tracing.select')) {
+        stop()
+        tracingActions.setTool('select')
+      } else if (!e.repeat && pressed(e, 'tracing.trace')) {
+        stop()
+        tracingActions.setTool('trace')
+      } else if (tracing_ && onSheet && pressed(e, 'tracing.end')) {
+        if (trace.current?.end()) stop()
+      } else if (tracing_ && onSheet && pressed(e, 'tracing.back')) {
+        if (trace.current?.back()) stop()
+      } else if (tracing_ && pressed(e, 'tracing.leave')) {
+        stop()
+        // What is under way first, then the tool.
+        if (!trace.current?.cancel()) tracingActions.setTool('select')
       } else if (viewKey(e)) e.stopPropagation()
     }
     window.addEventListener('keydown', onKey, true)
@@ -179,35 +300,73 @@ export function TracingView() {
     const timer = setTimeout(tracingActions.forgetRemoved, 10_000)
     return () => clearTimeout(timer)
   }, [removed])
+  const layerRemoved = useTracings((s) => s.layerRemoved)
+  useEffect(() => {
+    if (layerRemoved === null) return
+    const timer = setTimeout(tracingActions.forgetLayerRemoved, 10_000)
+    return () => clearTimeout(timer)
+  }, [layerRemoved])
+
+  /** What the pointer is on: a point of the cut's it snaps to, or the point of the plane under it. */
+  function under(e: PointerEvent<HTMLElement>): { uv: [number, number]; snap?: Snapped } | null {
+    if (!sheet) return null
+    const raw = sheet.toUv(e.clientX, e.clientY)
+    const snap = tool === 'trace' ? snapAt(cut?.snaps ?? [], raw, sheet.view.k, e.ctrlKey) : null
+    return snap === null ? { uv: raw } : { uv: snap.uv, snap }
+  }
 
   function point(e: PointerEvent<HTMLElement>): void {
-    if (!sheet || !readout.current) return
-    const [u, v] = sheet.toUv(e.clientX, e.clientY)
-    readout.current.textContent = `${number(u)}, ${number(v)}`
+    const at = under(e)
+    if (!at || !readout.current) return
+    readout.current.textContent = `${number(at.uv[0])}, ${number(at.uv[1])}`
+    if (tool !== 'trace') return
+    hover.current = at
+    const el = hintEl.current
+    if (el) {
+      el.textContent = at.snap?.hint ?? ''
+      const r = stage.current?.getBoundingClientRect()
+      el.style.transform = `translate(${Math.round(e.clientX - (r?.left ?? 0) + 14)}px, ${Math.round(e.clientY - (r?.top ?? 0) + 18)}px)`
+    }
+    paint.current()
   }
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>): void {
     if (e.button > 2 || !sheet) return
     e.currentTarget.focus({ preventScroll: true })
     e.preventDefault()
-    panning.current = { x: e.clientX, y: e.clientY }
+    // With Trace in hand the left button places a point; a press that moves far is a drag, which moves the sheet as it always did.
+    press.current = { x: e.clientX, y: e.clientY, from: { x: e.clientX, y: e.clientY }, click: tool === 'trace' && e.button === 0, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
-    e.currentTarget.setAttribute('data-panning', '')
   }
 
   function onPointerMove(e: PointerEvent<HTMLDivElement>): void {
     point(e)
-    const was = panning.current
+    const was = press.current
     if (!was || !sheet) return
+    if (was.click && !was.moved) {
+      if (Math.hypot(e.clientX - was.from.x, e.clientY - was.from.y) < CLICK_SLOP) return
+      was.moved = true
+    }
+    e.currentTarget.setAttribute('data-panning', '')
     sheet.pan(e.clientX - was.x, e.clientY - was.y)
-    panning.current = { x: e.clientX, y: e.clientY }
+    was.x = e.clientX
+    was.y = e.clientY
   }
 
   function onPointerEnd(e: PointerEvent<HTMLDivElement>): void {
-    if (!panning.current) return
-    panning.current = null
+    const was = press.current
+    if (!was) return
+    press.current = null
     e.currentTarget.removeAttribute('data-panning')
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+    if (e.type === 'pointerup' && was.click && !was.moved && sheet) placePoint(e)
+  }
+
+  /** A click with Trace in hand: a point of the shape under way, or a refusal when there is no layer of the person's to put it in. */
+  function placePoint(e: PointerEvent<HTMLElement>): void {
+    if (traceTarget(tracingsStore.getState()) === undefined) return tracingActions.say(NO_OWN_LAYER)
+    const at = under(e)
+    if (at && sheet) trace.current?.click({ uv: at.uv, snapped: at.snap !== undefined }, sheet.view.k)
   }
 
   const axes = tracing === undefined ? null : { u: axisOfDirection(tracing.plane.x), v: axisOfDirection(tracing.plane.y) }
@@ -225,16 +384,48 @@ export function TracingView() {
         aria-label="Sheet of the tracing"
         aria-description={`Drag moves around, Ctrl and the wheel zooms, ${hint('tracing.fit')} fits the outline and ${hint('tracing.actual')} shows it at true size`}
         tabIndex={0}
+        data-tool={tool}
         data-axis-u={axes?.u ?? undefined}
         data-axis-v={axes?.v ?? undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
-        onPointerLeave={() => readout.current && (readout.current.textContent = '–')}
+        onPointerLeave={() => {
+          if (readout.current) readout.current.textContent = '–'
+          hover.current = null
+          if (hintEl.current) hintEl.current.textContent = ''
+          paint.current()
+        }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <SheetLayer svg={drawing?.svg ?? ''} layerRef={layerEl} />
+        <Grid gridRef={gridEl} />
+        <div ref={layerEl} className="tr-sheet-layer">
+          <SheetLayer svg={drawing?.svg ?? ''} />
+          <svg ref={draftEl} className={`tr-draft tr-layer-${target?.colour ?? 'slate'}`} width="1" height="1" aria-hidden="true" />
+        </div>
+        <span ref={hintEl} className="tr-pointer-hint" aria-hidden="true" />
+        {labelAt !== null && (
+          <input
+            ref={labelEl}
+            className="tr-label-input"
+            aria-label="Text of the label"
+            maxLength={MAX_LABEL_TEXT}
+            placeholder="Label"
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              const keep = pressed(e, 'field.keep')
+              if (keep || pressed(e, 'field.leave')) {
+                if (!keep) e.currentTarget.value = ''
+                e.preventDefault()
+                e.stopPropagation()
+                e.currentTarget.blur()
+                giveKeysBack(e.currentTarget)
+              }
+            }}
+            onBlur={(e) => void trace.current?.text(e.currentTarget.value)}
+          />
+        )}
       </div>
 
       {tracing !== undefined && drawing === null && (
@@ -242,6 +433,8 @@ export function TracingView() {
           {building ? 'Building…' : 'Build to see the outline'}
         </p>
       )}
+
+      {tracing !== undefined && <Palette />}
 
       <div className="tr-head">
         {tracings !== undefined && tracings.length > 0 && (

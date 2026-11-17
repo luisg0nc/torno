@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { pressed } from '../../../shared/keys'
-import { count, number } from '../../../shared/format'
+import { hint, pressed } from '../../../shared/keys'
+import { number } from '../../../shared/format'
 import { isExploded } from '../../../shared/explode'
-import { tracingName, type Layer, type Tracing, type TracingCut } from '../../../shared/tracings'
+import { tracingName, type LayerColour, type Tracing, type TracingCut } from '../../../shared/tracings'
 import { layerOf, actions, useStore } from '../../state/store'
-import { nextPartsOf, buildName, tracingActions, useTracings } from '../../state/tracings'
+import { nextPartsOf, buildName, traceTarget, tracingActions, useTracings } from '../../state/tracings'
 import { useHistory } from '../useHistory'
 import { giveKeysBack } from '../typing'
+import { LayerRows } from './LayerRows'
+import { TRACE_MODES, type TraceMode } from './traceTool'
 
 export interface TracingPanelProps {
   tracing: Tracing
@@ -26,6 +28,19 @@ export interface TracingPanelProps {
   onPart?: (name: string, on: boolean) => void
   onRemove?: () => void
   onExport?: () => void
+  /** The person's layer the Trace tool draws into. */
+  into?: number | null
+  onInto?: (layer: number) => void
+  onHide?: (layer: number, hidden: boolean) => void
+  onRemoveLayer?: (layer: number) => void
+  onAddLayer?: (name: string, colour: LayerColour) => void
+  /** The layer the person removed last, which Undo puts back. */
+  layerRemoved?: { name: string } | null
+  onUndoLayer?: () => void
+  /** The tool in hand on the sheet; with Trace, the panel says what it draws and its keys. */
+  tool?: 'select' | 'trace'
+  traceMode?: TraceMode
+  onTraceMode?: (mode: TraceMode) => void
 }
 
 /** `1200 mm²`, with `≈` where the kernel's area is not exact; `not cut` for a part the plane does not meet. */
@@ -42,13 +57,11 @@ function exactOutline(cut: TracingCut): boolean {
   return cutParts.length > 0 && cutParts.every((p) => p.areaExact)
 }
 
-const shapesText = (layer: Layer): string => (layer.shapes.length === 0 ? 'no shapes' : `${count(layer.shapes.length)} ${layer.shapes.length === 1 ? 'shape' : 'shapes'}`)
-
 /**
  * The panel of the tracing shown, top left of its sheet: its name, its plane and the build it was redrawn for, "Model outline"
  * with its parts, the layers, and what can be done with it. Pure, so that it is drawn the same from any state.
  */
-export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport }: TracingPanelProps) {
+export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode }: TracingPanelProps) {
   const [renaming, setRenaming] = useState(false)
   const drawn = new Set(tracing.parts ?? parts)
   const only = parts.filter((p) => drawn.has(p)).length <= 1
@@ -136,23 +149,26 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
         <div className="section-head">
           <h3 className="tr-heading">Layers</h3>
         </div>
-        {tracing.layers.length === 0 ? (
-          <p className="tr-note">No layers yet. Claude's and yours appear here.</p>
-        ) : (
-          <ul className="tr-layers">
-            {tracing.layers.map((layer) => (
-              <li key={layer.id} className={`tr-layer-row tr-layer-${layer.colour}`} data-layer={layer.id} data-hidden={layer.hidden ? '' : undefined}>
-                <span className="tr-swatch" aria-hidden="true" />
-                <span className="tr-layer-name">{layer.name}</span>
-                <span className="tr-layer-said">
-                  {shapesText(layer)}, {layer.by === 'agent' ? 'Claude' : 'you'}
-                  {layer.hidden ? ', hidden' : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <LayerRows layers={tracing.layers} into={into ?? null} onInto={onInto} onHide={onHide} onRemove={onRemoveLayer} onAdd={onAddLayer} removed={layerRemoved} onUndo={onUndoLayer} />
       </div>
+
+      {tool === 'trace' && (
+        <div className="tr-section" data-part="trace">
+          <div className="section-head">
+            <h3 className="tr-heading">Trace</h3>
+          </div>
+          <div className="segmented tr-trace-modes" role="group" aria-label="Trace draws">
+            {TRACE_MODES.map((m) => (
+              <button key={m.mode} type="button" title={m.title} aria-pressed={m.mode === (traceMode ?? 'line')} onClick={() => onTraceMode?.(m.mode)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className="tr-note">
+            Into the layer ringed above. Corners and hole centres of the cut are taken within 10 px; <kbd className="num">{hint('tracing.nosnap')}</kbd> held turns that off. <kbd className="num">{hint('tracing.end')}</kbd> ends a line, <kbd className="num">{hint('tracing.back')}</kbd> takes a point back, <kbd className="num">{hint('tracing.leave')}</kbd> gives it up.
+          </p>
+        </div>
+      )}
 
       {refused !== undefined && refused !== null && (
         <p className="tr-refused" role="status">
@@ -200,6 +216,10 @@ export function TracingPanel() {
   const cut = useTracings((s) => (s.open === null ? null : (s.cuts[s.open] ?? null)))
   const building = useTracings((s) => s.building)
   const refused = useTracings((s) => s.refused)
+  const into = useTracings((s) => traceTarget(s)?.id ?? null)
+  const tool = useTracings((s) => s.tool)
+  const traceMode = useTracings((s) => s.trace)
+  const layerRemoved = useTracings((s) => (s.layerRemoved !== null && s.layerRemoved.tracing === s.open ? s.layerRemoved.layer : null))
   const history = useHistory(cut !== null)
   if (open === undefined) return null
   const inLayout = (scene?.parts ?? []).filter((p) => p.layout === open.layout).map((p) => p.name)
@@ -221,6 +241,16 @@ export function TracingPanel() {
       }}
       onRemove={() => void tracingActions.remove(open.id)}
       onExport={() => objectId !== null && actions.exportSheet([objectId])}
+      into={into}
+      onInto={tracingActions.setInto}
+      onHide={(layer, hidden) => void tracingActions.hideLayer(layer, hidden)}
+      onRemoveLayer={(layer) => void tracingActions.removeLayer(layer)}
+      onAddLayer={(name, colour) => void tracingActions.addLayer(name, colour)}
+      layerRemoved={layerRemoved}
+      onUndoLayer={() => void tracingActions.undoRemoveLayer()}
+      tool={tool}
+      traceMode={traceMode}
+      onTraceMode={tracingActions.setTrace}
     />
   )
 }

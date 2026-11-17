@@ -150,3 +150,20 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   millimetre for a millimetre (`PX_PER_MM`). **No per-frame state in React**: pan, zoom, the pointer readout, the scale bar and the zoom
   text are written on elements, and the layer counts its renders under test (`__tornoTracingRenders`). Lines are
   `vector-effect: non-scaling-stroke` in `styles/tracings.css`; the drawing's colours are tokens only.
+- The sheet's mm grid is not in the drawing: `Grid` (`TracingView.tsx`) is an SVG of two tilings and the `u = 0`, `v = 0` lines over the
+  whole stage, painted in pixels by `gridPaint.ts` from where the sheet stands (1 mm from 3 px a millimetre, 10 mm, 100 mm when far out),
+  so it covers what is seen however the sheet is moved; `tracingSvg`'s `grid` option is for a file and the view does not pass it.
+- Layers are `LayerRows` in the panel: colour, name, shape count, `by Claude`, an eye for any layer, Remove and the ring "trace into" on
+  the person's own only (`Layer.by`). `tracingActions`: `addLayer` (never replaces: the window checks the name is free, case apart, and
+  main refuses one that is another's), `hideLayer`, `removeLayer` (the window refuses Claude's) with `undoRemoveLayer` (`make` with the
+  shapes the window kept; the layer's number is new), `addShape`. A finished shape is one `tracings:layer` `{ edit, shapes: [...own, new] }`;
+  shapes and layer changes are **queued** so that each is built on the layer as the one before left it. `traceTarget` is the layer
+  traced into: the one ringed when it is the person's and there, else their last, never Claude's.
+- The layers' colours are the `--layer-*` tokens (`shared/tracings.ts` `LAYER_COLOURS`): the window draws a layer by its class
+  (`tr-layer-<colour>` sets `color`, shapes use `currentColor`); a file takes `LAYER_INKS`, which `contrast.test.ts` holds to the light
+  tokens. None is red or green.
+- The tools: `Palette.tsx` (Select, Trace live; Pin, Ink, Measure, Should be here wait), `tool` and `trace` in the store, keys of scope
+  `tracing`. **Trace** is `traceTool.ts` (a class, no DOM: `click`, `end`, `back`, `cancel`, `text`, `elements` for the draft) and
+  `snap.ts` (`snapAt`: 10 px, `Ctrl` is none, corners then centres then plain then projected vertices at the same place). What is under
+  way is drawn on `.tr-draft`, written on the element from the pointer, never state; only a label's field is React state. With Trace a
+  left press that moves under 4 px is a click, a longer one pans. A free click is kept to 1e-4 mm, a snapped one in full.

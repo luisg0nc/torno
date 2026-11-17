@@ -382,17 +382,27 @@ it('has Ctrl+G, in the window scope, for naming the selection as a set, clashing
   expect(keyClashes()).toEqual([])
 })
 
-it('has the keys of a tracing in a scope of their own: fit and true size, clashing with nothing, and Ctrl+Tab cycling the three', () => {
+it('has the keys of a tracing in a scope of their own: fit, true size and the tools, clashing with nothing, and Ctrl+Tab cycling the three', () => {
   const rows = KEYS.filter((r) => r.scope === 'tracing')
   expect(rows.map((r) => [r.id, r.keys, r.context])).toEqual([
     ['tracing.fit', ['Shift+1'], 'Tracing'],
-    ['tracing.actual', ['Shift+0'], 'Tracing']
+    ['tracing.actual', ['Shift+0'], 'Tracing'],
+    ['tracing.select', ['V'], 'Tracing'],
+    ['tracing.trace', ['T'], 'Tracing'],
+    ['tracing.end', ['Enter'], 'Tracing'],
+    ['tracing.back', ['Backspace'], 'Tracing'],
+    ['tracing.nosnap', ['Ctrl'], 'Tracing'],
+    ['tracing.leave', ['Esc'], 'Tracing']
   ])
   expect(keyClashes()).toEqual([])
   // Shift on the figure key, whatever the layout makes of it, and only that key.
   expect(pressed({ key: '!', code: 'Digit1', shiftKey: true }, 'tracing.fit')).toBe(true)
   expect(pressed({ key: '0', code: 'Digit0', shiftKey: true }, 'tracing.actual')).toBe(true)
   expect(pressed({ key: '0', code: 'Digit0' }, 'tracing.actual')).toBe(false)
+  expect(pressed({ key: 'v' }, 'tracing.select')).toBe(true)
+  expect(pressed({ key: 't' }, 'tracing.trace')).toBe(true)
+  expect(pressed({ key: 't', ctrlKey: true, code: 'KeyT' }, 'tracing.trace')).toBe(false)
+  expect(hint('tracing.nosnap')).toBe('Ctrl')
   expect(CONTEXTS.map((c) => c.name)).toContain('Tracing')
   expect(KEYS.find((r) => r.id === 'board.swap')?.does).toBe('The board, the model and a tracing, in turn')
   // The view hears nothing while a tracing is shown, as with the board: its own keys are no key of the view.

@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { contrast } from './contrast'
+import { LAYER_COLOURS } from './tracings'
+import { LAYER_INKS } from './tracingSvg'
 
 it('is the ratio WCAG gives', () => {
   expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 5)
@@ -135,6 +137,20 @@ describe.each([['light', tokens(css.slice(0, dark))], ['dark', { ...tokens(css.s
     }
     expect(new Set(sets.map((name) => t[name].toUpperCase())).size).toBe(8)
   })
+  it('has eight colours for the layers of a tracing: 3:1 on the paper and the panel, told from the ink, no red or green, each its own', () => {
+    const layers = LAYER_COLOURS.map((name) => `--layer-${name}`)
+    expect(layers).toHaveLength(8)
+    expect(layers.every((name) => /^#[0-9A-F]{6}$/i.test(t[name] ?? ''))).toBe(true)
+    for (const name of layers) {
+      // A layer is drawn: 3:1 on the sheet it is drawn on, and on the panel its swatch is in.
+      for (const ground of ['--surface', '--panel']) expect([name, ground, contrast(t[name], t[ground]) >= 3]).toEqual([name, ground, true])
+      // The outline is in ink, and a layer's line over it is told from it.
+      expect([name, 'ink', contrast(t[name], t['--ink']) >= 1.5]).toEqual([name, 'ink', true])
+      // Red and green are the person's and Claude's: no layer within 30 degrees of hue of either mark colour, or of a verdict's.
+      for (const other of ['--user-mark', '--agent-mark', '--ok', '--fail']) expect([name, other, hueApart(t[name], t[other]) >= 30]).toEqual([name, other, true])
+    }
+    expect(new Set(layers.map((name) => t[name].toUpperCase())).size).toBe(8)
+  })
   it('shows its marks and its verdicts on the ground, and keeps its hairlines quiet', () => {
     for (const name of ['--user-mark', '--agent-mark', '--ok', '--warn', '--fail']) expect([name, contrast(t[name], t['--surface']) >= 3]).toEqual([name, true])
     const hairline = contrast(t['--hairline'], t['--surface'])
@@ -161,6 +177,9 @@ it('has the light tokens written out where no stylesheet is read, as the stylesh
   })
   expect(LIGHT_THEME.sets).toEqual(Array.from({ length: 8 }, (_v, n) => light[`--set-${n + 1}`]))
   expect(Array.from({ length: 8 }, (_v, n) => night[`--set-${n + 1}`])).toHaveLength(8)
+  // What a layer's colour is in an exported file, where no stylesheet is: the light token of each, as the sheet is white.
+  expect(LAYER_INKS).toEqual(Object.fromEntries(LAYER_COLOURS.map((name) => [name, light[`--layer-${name}`]])))
+  expect(LAYER_COLOURS.map((name) => night[`--layer-${name}`]).every((hex) => /^#[0-9A-F]{6}$/i.test(hex ?? ''))).toBe(true)
   expect(SHEET).toEqual({ paper: light['--surface'], ink: light['--ink'], muted: light['--muted'], hairline: light['--hairline'] })
   const main = readFileSync(resolve(__dirname, '../main/index.ts'), 'utf8')
   expect(main).toContain(`const SURFACE = { light: '${light['--surface']}', dark: '${night['--surface']}' }`)

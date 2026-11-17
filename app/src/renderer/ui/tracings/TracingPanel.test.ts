@@ -111,6 +111,22 @@ describe('the panel of a tracing', () => {
     expect(markup).toMatch(/<button(?![^>]*disabled)[^>]*>Export</)
   })
 
+  it('says what Trace draws and its keys only while Trace is in hand', () => {
+    const markup = html({ tool: 'trace', traceMode: 'circle' })
+    expect(plainText(markup)).toContain('Trace')
+    expect(markup).toMatch(/aria-pressed="true"[^>]*>Circle</)
+    expect(markup).toMatch(/aria-pressed="false"[^>]*>Line</)
+    expect(plainText(markup)).toContain('Ctrl held turns that off')
+    expect(html({ tool: 'select' })).not.toContain('data-part="trace"')
+    expect(html()).not.toContain('data-part="trace"')
+  })
+
+  it('has Remove on the person’s layer only, among the layers it lists', () => {
+    const markup = html({ tracing: tracing({ layers: [layer(), layer({ id: 2, name: 'Mine', by: 'person', shapes: [] })] }) })
+    expect(markup).toContain('aria-label="Remove layer Mine"')
+    expect(markup).not.toContain('aria-label="Remove layer Hinge marks"')
+  })
+
   it('says the face a tracing lost, in the words main gave', () => {
     expect(plainText(html({ tracing: tracing({ lost: 'block/F31 is not in this plane any more' }) }))).toContain('block/F31 is not in this plane any more')
   })

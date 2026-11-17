@@ -1961,7 +1961,7 @@ that list is never deleted, whatever the board names: switching branch never tak
 
 A **tracing** lays one plane of the model flat, at true size, on a millimetre grid: the outline is the kernel's exact cut of the
 last build, drawn again after every build. **Tracing** in the switch shows it in place of the 3D view (the model stays loaded
-under it). The sheet has a faint grid every millimetre once you are zoomed in and a stronger one every 10 mm, the lines
+under it). The sheet has a faint grid every millimetre once you are zoomed in and a stronger one every 10 mm (every 100 mm when far out), over the whole of what you see however far you move the sheet, the lines
 `u = 0` and `v = 0` in the colour of the axis they run along, each part named on its outline, a scale bar at the bottom left and
 a title block at the bottom right. Zoom is told as a ratio: `1:1` is one CSS millimetre on the screen for a millimetre of the
 model (a screen does not say its true pixel size, so this is the page's own millimetre, not a ruler's). The wheel or two fingers
@@ -1977,6 +1977,24 @@ outline was cut on (`of build h57; building…` while a new one runs). "Model ou
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
 tracing is cut unspread. **Line up** and **Show in 3D** are not yet available; **Export** opens the export sheet (see
 [Export](#export)).
+
+**Layers** lie over the outline: each is a named set of shapes (lines, circles and labels) in one of eight colours (blue, teal,
+violet, ochre, plum, slate, sky, olive; never red or green, which are your marks' colour and Claude's). Both you and Claude make
+them. The panel lists each with its colour, its name and how many shapes it has, and says `by Claude` on Claude's. The eye hides
+or shows any layer. **Add layer** makes one of your own (a name, free in this tracing, and a colour; it offers `Layer 1` and the
+first colour not yet used); the cross removes one of yours, and **Undo** puts it back, shapes and all, for a few seconds. You change
+and remove only your own layers, and Claude only its own: Claude's you can hide but not change.
+
+The tools are at the left edge of the sheet: **Select** (`V`) moves around the sheet by dragging, **Trace** (`T`) draws into your
+layer. Pin, Ink, Measure and Should be here are shown and come later. With Trace in hand the panel says what it draws: a **Line**
+(click its points; `Enter` ends it, or a click on its first point closes it; `Backspace` takes the last point back), a **Circle**
+(click its centre, then a point on it) or a **Label** (click, then type it and press `Enter`). Each finished shape is kept at
+once, in the layer ringed in the panel (click the ring on another of your layers to draw into that one). The points snap, within
+10 pixels, to the exact corners of the cut, the centres of its holes and the model's vertices in the plane (a vertex that is only
+projected onto the plane is drawn fainter and says so), and the pointer's hint says which: `corner of the cut`,
+`hole centre head/E14 ⌀16`. Hold `Ctrl` to turn snapping off. A free click is kept to a ten thousandth of a millimetre; a snapped
+one is the kernel's, in full. A drag with Trace in hand still moves the sheet, and `Esc` gives up the shape under way, then puts
+Select back.
 
 ## The page of projects
 
@@ -2209,6 +2227,12 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Board | `Esc` | Board: end what is being written, then put the tool back to Select, then let go of the selection |
 | Tracing | `Shift+1` | Tracing: fit the outline |
 | Tracing | `Shift+0` | Tracing: show it at true size, 1:1 |
+| Tracing | `V` | Tracing, Select: move around the sheet by dragging |
+| Tracing | `T` | Tracing, Trace: click the points of a line, the centre and edge of a circle, or the place of a label, into your layer |
+| Tracing | `Enter` | Trace: end the line (a click on its first point closes it) |
+| Tracing | `Backspace` | Trace: take the last point back |
+| Tracing | `Ctrl` | Trace: hold it while clicking to turn snapping off |
+| Tracing | `Esc` | Trace: give up the shape under way, then put Select back |
 | Page of projects | `Left` `Right` `Up` `Down` `Home` `End` | Move among the cards |
 | Page of projects | `Enter` | Open the card in focus |
 | Page of projects | `/` | Filter by name: a letter or a figure does too |

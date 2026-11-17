@@ -188,6 +188,12 @@ const ROWS = [
 
   row('tracing.fit', ['Shift+1'], 'Tracing: fit the outline', 'Tracing', 'tracing'),
   row('tracing.actual', ['Shift+0'], 'Tracing: show it at true size, 1:1', 'Tracing', 'tracing'),
+  row('tracing.select', ['V'], 'Tracing, Select: move around the sheet by dragging', 'Tracing', 'tracing'),
+  row('tracing.trace', ['T'], 'Tracing, Trace: click the points of a line, the centre and edge of a circle, or the place of a label, into your layer', 'Tracing', 'tracing'),
+  row('tracing.end', ['Enter'], 'Trace: end the line (a click on its first point closes it)', 'Tracing', 'tracing'),
+  row('tracing.back', ['Backspace'], 'Trace: take the last point back', 'Tracing', 'tracing'),
+  row('tracing.nosnap', ['Ctrl'], 'Trace: hold it while clicking to turn snapping off', 'Tracing', 'tracing'),
+  row('tracing.leave', ['Esc'], 'Trace: give up the shape under way, then put Select back', 'Tracing', 'tracing'),
 
   row('page.move', [...ARROWS, 'Home', 'End'], 'Move among the cards', 'Page of projects', 'page'),
   row('page.open', ['Enter'], 'Open the card in focus', 'Page of projects', 'page'),

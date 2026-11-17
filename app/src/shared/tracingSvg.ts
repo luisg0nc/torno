@@ -35,15 +35,19 @@ const MARK_INK = { user: '#C23B3B', agent: '#2E8B57' } as const
 const MONO = "'IBM Plex Mono', ui-monospace, monospace"
 const SANS = "'IBM Plex Sans', system-ui, sans-serif"
 
-/** What a layer's colour is in a file: the window takes `--layer-*` of the stylesheet instead. */
+/**
+ * What a layer's colour is in a file, where there is no stylesheet: the light value of each `--layer-*` token of
+ * `styles/tokens.css`, the sheet being white (`contrast.test.ts` holds the two together). The window takes the tokens themselves,
+ * by the class of a layer, so that its colours follow the theme.
+ */
 export const LAYER_INKS: Readonly<Record<LayerColour, string>> = {
-  blue: '#2B5BC4',
-  teal: '#0F8B8D',
+  blue: '#3A63D0',
+  teal: '#1A8794',
   violet: '#7A4FC9',
-  ochre: '#B07A12',
+  ochre: '#A87410',
   plum: '#9B3E7C',
   slate: '#5A6878',
-  sky: '#2C93D0',
+  sky: '#2785BD',
   olive: '#6B7A22'
 }
 

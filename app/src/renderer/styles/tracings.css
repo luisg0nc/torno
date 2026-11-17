@@ -21,17 +21,32 @@
   cursor: grabbing;
 }
 
+/* With Trace in hand a click puts a point down. */
+.tr-stage[data-tool='trace'] {
+  cursor: crosshair;
+}
+
 .tr-stage:focus-visible {
   outline-offset: -2px;
 }
 
-/* One layer, moved and scaled by the sheet's transform; its unit is a millimetre of the plane, y down the screen. */
+/* One layer, moved and scaled by the sheet's transform; its unit is a millimetre of the plane, y down the screen. It holds the
+   drawing and, over it, what the Trace tool has under way. */
 .tr-sheet-layer {
   position: absolute;
   top: 0;
   left: 0;
+  width: 0;
+  height: 0;
   overflow: visible;
   transform-origin: 0 0;
+}
+
+.tr-sheet-layer > svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
 }
 
 /* Lines keep their width in pixels however the sheet is zoomed; what is a length (text, the layers' widths in the file) is in millimetres. */
@@ -42,16 +57,20 @@
   vector-effect: non-scaling-stroke;
 }
 
-/* The grid: every 10 mm, and every mm between them once the sheet is zoomed in far enough to tell them apart. */
+/* The grid, under the drawing and over the whole screen, in pixels: every 10 mm, and every mm between them once the sheet is zoomed
+   in far enough to tell them apart (gridPaint.ts writes where each stands). */
+.tr-grid-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .tr-grid-fine {
-  display: none;
   fill: none;
   stroke: color-mix(in srgb, var(--hairline) 60%, var(--surface));
   stroke-width: 1px;
-}
-
-.tr-stage[data-fine] .tr-grid-fine {
-  display: inline;
 }
 
 .tr-grid {
@@ -121,6 +140,129 @@
 /* A layer is drawn in its colour: the shapes take it from the text colour, which a layer's own class sets. */
 .tr-layer {
   color: var(--accent);
+}
+
+.tr-layer-blue {
+  color: var(--layer-blue);
+}
+
+.tr-layer-teal {
+  color: var(--layer-teal);
+}
+
+.tr-layer-violet {
+  color: var(--layer-violet);
+}
+
+.tr-layer-ochre {
+  color: var(--layer-ochre);
+}
+
+.tr-layer-plum {
+  color: var(--layer-plum);
+}
+
+.tr-layer-slate {
+  color: var(--layer-slate);
+}
+
+.tr-layer-sky {
+  color: var(--layer-sky);
+}
+
+.tr-layer-olive {
+  color: var(--layer-olive);
+}
+
+/* What the Trace tool has under way, in the colour of the layer it is for: the line so far, its points, a ring where a click would close
+   it, the label's place, and the ring where the pointer snapped. Widths are pixels. */
+.tr-draft-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 3;
+  stroke-linejoin: round;
+}
+
+.tr-draft-dot {
+  fill: var(--panel);
+  stroke: currentColor;
+  stroke-width: 1.5px;
+}
+
+.tr-draft-close {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5px;
+}
+
+.tr-draft-at {
+  fill: currentColor;
+  stroke: none;
+}
+
+.tr-snap {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+}
+
+/* A vertex that is only projected onto the plane: fainter, and dashed. */
+.tr-snap-projected {
+  stroke: var(--muted);
+  stroke-dasharray: 2 2;
+}
+
+/* What the pointer snapped to, beside it. */
+.tr-pointer-hint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  padding: 1px var(--space-2);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tr-pointer-hint:empty {
+  display: none;
+}
+
+/* The field a label is typed in, on its point. */
+.tr-label-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  width: 180px;
+  height: 26px;
+  margin: -13px 0 0 -4px;
+  padding: 0 var(--space-2);
+  border: var(--field-border);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* While Trace is in hand, the panel says what it draws: the choice, and its keys. */
+.tr-trace-modes {
+  margin-top: var(--space-1);
+}
+
+.tr-panel kbd {
+  color: var(--ink);
+}
+
+.tr-palette {
+  z-index: 3;
 }
 
 .tr-layer path,
@@ -229,7 +371,8 @@
 .tr-panel {
   position: absolute;
   top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  left: var(--space-3);
+  /* Beside the palette at the left edge, not under it. */
+  left: calc(var(--space-3) + 42px + var(--space-2));
   z-index: 3;
   width: 284px;
   max-height: calc(100% - var(--switch-h) - 130px);
@@ -362,6 +505,7 @@
 
 .tr-layer-name {
   min-width: 0;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -375,6 +519,61 @@
 
 .tr-layer-row[data-hidden] .tr-layer-name {
   color: var(--muted);
+}
+
+.tr-layer-row[data-hidden] .tr-swatch {
+  opacity: 0.4;
+}
+
+/* The person's layer carries a button for being traced into: its swatch is ringed while it is the one. */
+.tr-swatch-pick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tr-swatch-pick:hover {
+  background: var(--accent-wash);
+}
+
+.tr-swatch-pick[aria-pressed='true'] .tr-swatch {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.tr-layer-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.tr-colours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tr-colour {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: currentColor;
+  cursor: pointer;
+}
+
+.tr-colour[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px currentColor;
 }
 
 .tr-note {

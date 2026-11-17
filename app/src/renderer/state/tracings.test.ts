@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HistoryList } from '../../shared/history'
-import { planeOfFrom, type Tracing, type TracingCut, type TracingsFile } from '../../shared/tracings'
+import { planeOfFrom, type Layer, type Tracing, type TracingCut, type TracingsFile } from '../../shared/tracings'
 import { boardActions, boardStore } from './board'
 import { actions, store } from './store'
-import { buildName, connectTracings, facePicked, nextPartsOf, shownIds, tracingActions, tracingsStore, useTracings } from './tracings'
+import { buildName, connectTracings, facePicked, nextPartsOf, shownIds, traceTarget, tracingActions, tracingsStore, useTracings } from './tracings'
 
 const plane = (axis: 'XY' | 'XZ' | 'YZ' = 'XZ', offset = 0) => planeOfFrom({ kind: 'main', axis, offset })!
 const tracing = (id: string, over: Partial<Tracing> = {}): Tracing => ({ id, by: 'person', name: '', layout: 'assembly', createdAt: '2026-11-17T10:00:00.000Z', plane: plane(), layers: [], nextLayer: 1, ...over })
@@ -13,7 +13,7 @@ const cut = (id: string, revision = 3): TracingCut => ({ tracing: id, revision, 
 /** Lets what the connection asked of main at the start answer. */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
-const NONE = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null }
+const NONE = { objectId: null, file: null, open: null, cuts: {}, building: false, refused: null, facing: false, removed: null, problem: null, tool: 'select' as const, trace: 'line' as const, into: null, layerRemoved: null }
 
 /** `window.torno.tracings` as far as the window asks of it. */
 function fake(initial: TracingsFile = file()) {
@@ -301,5 +301,136 @@ describe('a tracing on a face', () => {
 describe('the store as the window reads it', () => {
   it('is a hook over the store', () => {
     expect(typeof useTracings).toBe('function')
+  })
+})
+
+const layer = (over: Partial<Layer> = {}): Layer => ({ id: 1, name: 'Mine', colour: 'blue', by: 'person', shapes: [], revision: 1, ...over })
+/** A tracing with layers, made the open one. */
+function withLayers(...layers: Layer[]) {
+  const t = tracing('T1', { layers, nextLayer: layers.length + 1 })
+  tracingActions.told({ objectId: 'bracket', file: file(t) })
+  return t
+}
+
+describe('the layer the person traces into', () => {
+  it('is the one chosen when it is theirs, else their last, and none when they have none', () => {
+    const agent = layer({ id: 1, by: 'agent', name: 'Claude’s' })
+    const a = layer({ id: 2, name: 'A' })
+    const b = layer({ id: 3, name: 'B' })
+    expect(traceTarget({ file: file(tracing('T1', { layers: [agent] })), open: 'T1', into: null })).toBeUndefined()
+    expect(traceTarget({ file: file(tracing('T1', { layers: [agent, a, b] })), open: 'T1', into: null })?.id).toBe(3)
+    expect(traceTarget({ file: file(tracing('T1', { layers: [agent, a, b] })), open: 'T1', into: 2 })?.id).toBe(2)
+    // Claude's layer is never traced into, and one that is gone is not either.
+    expect(traceTarget({ file: file(tracing('T1', { layers: [agent, a] })), open: 'T1', into: 1 })?.id).toBe(2)
+    expect(traceTarget({ file: file(tracing('T1', { layers: [agent, a] })), open: 'T1', into: 9 })?.id).toBe(2)
+  })
+})
+
+describe('shapes traced into a layer', () => {
+  it('are sent one to a layer change, after the shapes the layer has', async () => {
+    const bridge = fake()
+    const first = { kind: 'label' as const, at: [1, 1] as [number, number], text: 'a' }
+    withLayers(layer({ shapes: [first] }))
+    const circle = { kind: 'circle' as const, centre: [20, 15] as [number, number], radius: 8 }
+    bridge.layer.mockResolvedValueOnce(tracing('T1', { layers: [layer({ shapes: [first, circle] })], nextLayer: 2 }))
+    expect(await tracingActions.addShape(circle)).toBe(true)
+    expect(bridge.layer).toHaveBeenCalledWith('bracket', 'T1', { edit: 1, shapes: [first, circle] })
+    expect(tracingsStore.getState().file?.tracings[0].layers[0].shapes).toHaveLength(2)
+  })
+
+  it('are all kept when two come at once: each is sent on the layer as the one before left it', async () => {
+    const bridge = fake()
+    withLayers(layer())
+    const a = { kind: 'polyline' as const, points: [[0, 0], [1, 0]] as [number, number][] }
+    const b = { kind: 'circle' as const, centre: [5, 5] as [number, number], radius: 2 }
+    bridge.layer.mockImplementation(async (_o: string, _id: string, change: { shapes: Layer['shapes'] }) => tracing('T1', { layers: [layer({ shapes: change.shapes })], nextLayer: 2 }))
+    await Promise.all([tracingActions.addShape(a), tracingActions.addShape(b)])
+    expect(bridge.layer).toHaveBeenNthCalledWith(1, 'bracket', 'T1', { edit: 1, shapes: [a] })
+    expect(bridge.layer).toHaveBeenNthCalledWith(2, 'bracket', 'T1', { edit: 1, shapes: [a, b] })
+  })
+
+  it('are not sent with no layer of the person’s, and the window says why', async () => {
+    const bridge = fake()
+    withLayers(layer({ by: 'agent' }))
+    expect(await tracingActions.addShape({ kind: 'label', at: [0, 0], text: 'x' })).toBe(false)
+    expect(bridge.layer).not.toHaveBeenCalled()
+    expect(tracingsStore.getState().refused).toBe('Add a layer of your own to trace into')
+  })
+
+  it('say what main refused', async () => {
+    const bridge = fake()
+    withLayers(layer())
+    bridge.layer.mockRejectedValueOnce(new Error('A layer holds at most 500 shapes.'))
+    expect(await tracingActions.addShape({ kind: 'label', at: [0, 0], text: 'x' })).toBe(false)
+    expect(tracingsStore.getState().refused).toBe('A layer holds at most 500 shapes.')
+  })
+})
+
+describe('the person’s layers', () => {
+  it('are added empty with a name and a colour, and traced into from then on', async () => {
+    const bridge = fake()
+    withLayers(layer({ id: 1, by: 'agent' }))
+    bridge.layer.mockResolvedValueOnce(tracing('T1', { layers: [layer({ id: 1, by: 'agent' }), layer({ id: 2, name: 'Water jacket', colour: 'teal' })], nextLayer: 3 }))
+    expect(await tracingActions.addLayer('Water jacket', 'teal')).toBe(true)
+    expect(bridge.layer).toHaveBeenCalledWith('bracket', 'T1', { make: { name: 'Water jacket', colour: 'teal', shapes: [] } })
+    expect(tracingsStore.getState().into).toBe(2)
+    expect(traceTarget(tracingsStore.getState())?.name).toBe('Water jacket')
+  })
+
+  it('are hidden or shown, Claude’s too', async () => {
+    const bridge = fake()
+    withLayers(layer({ by: 'agent' }))
+    bridge.layer.mockResolvedValueOnce(tracing('T1', { layers: [layer({ by: 'agent', hidden: true })] }))
+    await tracingActions.hideLayer(1, true)
+    expect(bridge.layer).toHaveBeenCalledWith('bracket', 'T1', { hide: 1, hidden: true })
+    expect(tracingsStore.getState().file?.tracings[0].layers[0].hidden).toBe(true)
+  })
+
+  it('are removed with their shapes kept in the window, and put back by a make with those shapes', async () => {
+    const bridge = fake()
+    const shapes = [{ kind: 'label' as const, at: [1, 1] as [number, number], text: 'a' }]
+    withLayers(layer({ shapes }))
+    bridge.layer.mockResolvedValueOnce(tracing('T1', { layers: [], nextLayer: 2 }))
+    expect(await tracingActions.removeLayer(1)).toBe(true)
+    expect(bridge.layer).toHaveBeenLastCalledWith('bracket', 'T1', { remove: 1 })
+    expect(tracingsStore.getState().layerRemoved).toMatchObject({ tracing: 'T1', layer: { name: 'Mine', shapes } })
+    bridge.layer.mockResolvedValueOnce(tracing('T1', { layers: [layer({ id: 2, shapes })], nextLayer: 3 }))
+    expect(await tracingActions.undoRemoveLayer()).toBe(true)
+    expect(bridge.layer).toHaveBeenLastCalledWith('bracket', 'T1', { make: { name: 'Mine', colour: 'blue', shapes } })
+    expect(tracingsStore.getState().layerRemoved).toBeNull()
+    expect(tracingsStore.getState().into).toBe(2)
+  })
+
+  it('are not removed when they are Claude’s: that is not asked of main', async () => {
+    const bridge = fake()
+    withLayers(layer({ by: 'agent' }))
+    expect(await tracingActions.removeLayer(1)).toBe(false)
+    expect(bridge.layer).not.toHaveBeenCalled()
+    expect(tracingsStore.getState().refused).toMatch(/Claude/)
+  })
+
+  it('forget what was removed after a while, and when another tracing is opened', () => {
+    fake()
+    tracingsStore.setState({ layerRemoved: { tracing: 'T1', layer: layer() } })
+    tracingActions.forgetLayerRemoved()
+    expect(tracingsStore.getState().layerRemoved).toBeNull()
+  })
+})
+
+describe('the tool in hand', () => {
+  it('is Select until the Trace tool is taken, and Select again when the tracing is changed', () => {
+    fake()
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1'), tracing('T2')) })
+    expect(tracingsStore.getState().tool).toBe('select')
+    tracingActions.setTool('trace')
+    expect(tracingsStore.getState().tool).toBe('trace')
+    tracingActions.open('T2')
+    expect(tracingsStore.getState().tool).toBe('select')
+  })
+
+  it('traces a line, a circle or a label', () => {
+    fake()
+    tracingActions.setTrace('circle')
+    expect(tracingsStore.getState().trace).toBe('circle')
   })
 })
