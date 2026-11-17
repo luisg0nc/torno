@@ -1,4 +1,5 @@
 import type { Described, Sectioned } from '../../shared/geometry'
+import type { Vec3 } from '../../shared/marks'
 import type { MainAxis } from '../../shared/planes'
 import type { Scene } from '../../shared/scene'
 import { expandTag, splitTagRef, tagOfRef } from '../../shared/tags'
@@ -8,7 +9,7 @@ import type { ObjectInfo } from '../../shared/workspace'
 import { NO_SECTION } from '../export/section'
 import { Refusal } from '../refusal'
 import type { Outlines } from './outline'
-import { faceFrame, sectionFrame } from './planes'
+import { faceFrame, planarFace, sectionFrame } from './planes'
 import type { LayerChange, TracingStore } from './store'
 
 // What the window may ask of the tracings (`tracings:list`, `:make`, `:edit`, `:remove`, `:restore`, `:layer`, `:outline`,
@@ -101,7 +102,13 @@ export function tracingHandlers(deps: TracingIpcDeps) {
     if (!part) throw new Refusal(`${obj.name} has no part ${match[1]} in the ${layout} layout (parts: ${inLayout.map((p) => p.name).join(', ') || 'none'})`)
     const described = await asked<Described>(obj, `what ${ref} is`, 'describe', { ref: `${layout}:${ref}` })
     if (deps.build(obj.id)?.revision !== last.revision) throw new Refusal(`A new build landed while ${ref} was looked at: ask again`)
-    const frame = faceFrame(ref, described)
+    planarFace(ref, described)
+    // A point ON the face: `describe`'s centre of a face with a hole at its centre is in the hole, where the face is not found again.
+    const found = await asked<{ selectors?: Array<{ ref?: unknown; center?: unknown }> }>(obj, `a point on ${ref}`, 'selectors', { layout, refs: [ref] })
+    const on = found?.selectors?.find((one) => one?.ref === ref)?.center
+    if (deps.build(obj.id)?.revision !== last.revision) throw new Refusal(`A new build landed while ${ref} was looked at: ask again`)
+    if (!Array.isArray(on) || on.length !== 3 || !on.every((c) => typeof c === 'number' && Number.isFinite(c))) throw new Refusal(`The kernel gave no point on ${ref}, so a tracing cannot be laid on it`)
+    const frame = faceFrame(ref, described, on as Vec3)
     const tag = tagOfRef(part, ref)
     return { ...frame, from: { kind: 'face', ref, ...(tag === undefined ? {} : { tag }), revision: last.revision } }
   }

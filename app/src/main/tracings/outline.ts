@@ -130,9 +130,11 @@ export class Outlines {
         }
         const lost = 'lost' in found ? found.lost : undefined
         const origin = 'origin' in found ? found.origin : t.plane.origin
-        if (lost === t.lost && origin.every((c, i) => c === t.plane.origin[i])) continue
+        // The ref the face has on this build, when it is not the one the tracing names.
+        const renumbered = 'ref' in found && t.plane.from.kind === 'face' && found.ref !== t.plane.from.ref ? { ref: found.ref, revision: last.revision } : undefined
+        if (lost === t.lost && renumbered === undefined && origin.every((c, i) => c === t.plane.origin[i])) continue
         try {
-          await this.deps.tracings.movePlane(objectId, t.id, { origin }, lost)
+          await this.deps.tracings.movePlane(objectId, t.id, { origin }, lost, renumbered)
         } catch (e) {
           // A tracing removed meanwhile is nothing to move.
           if (!(e instanceof Refusal)) failed(t.id, e)

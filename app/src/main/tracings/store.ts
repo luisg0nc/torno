@@ -365,14 +365,18 @@ export class TracingStore {
   /**
    * Main's own, after a build: moves the plane's origin (along its normal, for a face tracing: the axes never change, so the
    * photo, the layers and every `uv` stay) and says in `lost` that a face is no longer in it, or clears that when none is.
+   * `face` is the ref the face has now, and the build that is of, which a face tracing keeps in place of the ref it was made with
+   * (the model may number its faces otherwise); a ref that is the same changes nothing, so no build writes the file for it.
    */
-  async movePlane(objectId: string, id: string, plane: Pick<TracingPlane, 'origin'>, lost?: string): Promise<Tracing> {
+  async movePlane(objectId: string, id: string, plane: Pick<TracingPlane, 'origin'>, lost?: string, face?: { ref: string; revision: number }): Promise<Tracing> {
     if (!isRecord(plane) || !finiteVec3(plane.origin)) throw new Refusal('The origin of a plane is three finite numbers.')
     if (lost !== undefined && (typeof lost !== 'string' || lost === '' || lost.length > 500)) throw new Refusal('What is lost of a plane is a sentence.')
+    if (face !== undefined && !(isRecord(face) && typeof face.ref === 'string' && face.ref !== '' && face.ref.length <= MAX_TEXT && Number.isSafeInteger(face.revision) && face.revision >= 1)) throw new Refusal('The face a plane follows is its ref and the build that is of.')
     const origin = plane.origin
     return this.change(objectId, (file) => {
       const t = tracingOf(file, id)
       t.plane.origin = [origin[0], origin[1], origin[2]]
+      if (face !== undefined && t.plane.from.kind === 'face' && t.plane.from.ref !== face.ref) t.plane.from = { ...t.plane.from, ref: face.ref, revision: face.revision }
       if (lost === undefined) delete t.lost
       else t.lost = lost
       return t

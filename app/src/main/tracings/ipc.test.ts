@@ -63,6 +63,7 @@ beforeEach(() => {
   queries = []
   reply = (name, args) => {
     if (name === 'describe') return plane()
+    if (name === 'selectors') return { selectors: [{ ref: args.refs[0], type: 'PLANE', center: [1, 2, 10], normal: [0, 0, 1], selector: null }] }
     if (name === 'section') return sectionReply(args)
     throw new Error(`unexpected ${name}`)
   }
@@ -81,13 +82,15 @@ describe('tracings:make', () => {
 
   it('makes one on a planar face from the kernel\'s describe, with the tag the model gives that face', async () => {
     const t = await handlers().make('bracket', ask({ on: { face: 'block/F31' } }))
-    expect(queries).toEqual([{ name: 'describe', args: { ref: 'assembly:block/F31' } }])
-    expect(t.plane).toEqual({ origin: [5, 5, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'plane through block/F31 offset 0 mm (u = +X, v = +Y)', from: { kind: 'face', ref: 'block/F31', tag: 'top', revision: 4 } })
+    expect(queries).toEqual([{ name: 'describe', args: { ref: 'assembly:block/F31' } }, { name: 'selectors', args: { layout: 'assembly', refs: ['block/F31'] } }])
+    // The origin is the point on the face the kernel gives, not the centre `describe` says (which a hole may be at).
+    expect(t.plane).toEqual({ origin: [1, 2, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'plane through block/F31 offset 0 mm (u = +X, v = +Y)', from: { kind: 'face', ref: 'block/F31', tag: 'top', revision: 4 } })
   })
 
   it('takes a tag that names one face as that face', async () => {
     const t = await handlers().make('bracket', ask({ on: { face: 'block/@top' } }))
     expect(queries[0].args).toEqual({ ref: 'assembly:block/F31' })
+    expect(queries[1].args).toEqual({ layout: 'assembly', refs: ['block/F31'] })
     expect(t.plane.from).toMatchObject({ kind: 'face', ref: 'block/F31', tag: 'top' })
   })
 
@@ -98,6 +101,11 @@ describe('tracings:make', () => {
     expect(await refused(handlers().make('bracket', ask({ on: { face: 'nowhere/F1' } })))).toMatch(/no part nowhere/)
     expect(await refused(handlers().make('bracket', ask({ on: { face: 'block/@nothing' } })))).toMatch(/no tag @nothing/)
     expect((await store.list('bracket')).tracings).toEqual([])
+  })
+
+  it('refuses a face the kernel gives no point on', async () => {
+    reply = (name) => (name === 'describe' ? plane() : { selectors: [{ ref: 'block/F31', selector: null, selectorWhy: 'the part has no face F31' }] })
+    expect(await refused(handlers().make('bracket', ask({ on: { face: 'block/F31' } })))).toMatch(/no point on block\/F31/)
   })
 
   it('refuses a face the kernel cannot describe, saying why', async () => {

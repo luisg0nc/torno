@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -162,5 +162,50 @@ describe('tracings, against the real kernel', () => {
     expect(now2.plane.origin[2]).toBeCloseTo(2.5, 6)
     expect(told).toEqual([revision])
     await build('a')
+  }, 120_000)
+
+  it('finds a face with a hole at its centre again on an unchanged rebuild', async () => {
+    // describe's centre of the top is the middle of the hole: no surface there. The tracing's origin is a point on the face.
+    const holey = join(root, 'holey')
+    mkdirSync(holey)
+    writeFileSync(join(holey, 'variant.txt'), 'a\n')
+    writeFileSync(
+      join(holey, 'holey.py'),
+      'from pathlib import Path\nfrom build123d import Box, Cylinder, Pos\n\nvariant = (Path(__file__).parent / "variant.txt").read_text().strip()\nplate = Box(40, 30, 5) - Cylinder(6, 5)\nif variant == "b":\n    plate = Pos(0, 0, 0) * (Box(10, 10, 2) + plate)\n'
+    )
+    const settled = (): Promise<BuildState> => new Promise((done) => builds.on('build', (state) => state.objectId === 'holey' && state.status !== 'building' && done(state)))
+    const first = settled()
+    builds.open({ id: 'holey', name: 'holey', dir: holey, model: 'holey.py' })
+    expect(await first).toMatchObject({ status: 'ok' })
+    const tracings = new TracingStore({ dirOf: (id) => (id === 'holey' ? holey : undefined) })
+    const outlines = new Outlines({
+      tracings,
+      build: (id) => builds.scene(id),
+      query: (id, name, args) => builds.query(id, name, args, { restore: false }),
+      nearest: async (id, layout, anchors) => nearestReply(await builds.query(id, 'nearest', { layout, anchors }, { restore: false }), anchors),
+      log: () => {}
+    })
+    const door = tracingHandlers({
+      tracings,
+      outlines,
+      object: (id) => (id === 'holey' ? { id: 'holey', name: 'holey', dir: holey, model: 'holey.py' } : undefined),
+      build: (id) => builds.scene(id),
+      view: () => undefined,
+      query: (id, name, args) => builds.query(id, name, args, { restore: false })
+    })
+    const top = (await builds.query<{ anchors: Array<{ ref: string }> }>('holey', 'nearest', { layout: 'main', anchors: [{ part: 'plate', point: [14, 9, 2.5] }] })).anchors[0].ref
+    const made = await door.make('holey', { on: { face: top }, layout: 'main' })
+    // On the face itself, not in the hole.
+    expect(Math.hypot(made.plane.origin[0], made.plane.origin[1])).toBeGreaterThan(5.999)
+    expect(made.plane.origin[2]).toBeCloseTo(2.5, 6)
+
+    const again = settled()
+    builds.rebuild('holey')
+    await again
+    expect(await outlines.recut('holey')).toBe(true)
+    const [now] = (await tracings.list('holey')).tracings
+    expect(now.lost).toBeUndefined()
+    expect(now.plane.origin).toEqual(made.plane.origin)
+    expect(now.plane.from).toMatchObject({ kind: 'face', ref: top })
   }, 120_000)
 })

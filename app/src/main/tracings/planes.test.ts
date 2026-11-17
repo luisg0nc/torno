@@ -25,26 +25,30 @@ describe('followFace', () => {
     const nearest = asking(() => found({}))
     const got = await followFace(tracing(), scene(), nearest)
     // 0.3 mm along the normal: the point of the face the kernel gave (7, 2) is not where the origin goes.
-    expect(got).toEqual({ origin: [5, 5, 10.3] })
+    expect(got).toEqual({ origin: [5, 5, 10.3], ref: 'block/F31' })
     expect(nearest).toHaveBeenCalledWith('assembly', [{ part: 'block', point: [5, 5, 10] }])
   })
 
   it('follows the face a tag names first, whatever number it has now, however far it moved', async () => {
     const nearest = asking((a) => (a.face === 'block/F7' ? found({ faceFound: true, faceDistance: 4, facePoint: [1, 1, 14], faceNormal: [0, 0, 1], faceDescriptor: 'plane, normal +Z, z = 14, 100 mm²', ref: 'block/F2', distance: 0 }) : found({})))
     const plane: TracingPlane = { ...top, from: { kind: 'face', ref: 'block/F31', tag: 'top', revision: 1 } }
-    expect(await followFace(tracing('T1', plane), scene({ top: { faces: [7] } }), nearest)).toEqual({ origin: [5, 5, 14] })
+    expect(await followFace(tracing('T1', plane), scene({ top: { faces: [7] } }), nearest)).toEqual({ origin: [5, 5, 14], ref: 'block/F7' })
     expect(nearest).toHaveBeenCalledWith('assembly', [{ part: 'block', point: [5, 5, 10], face: 'block/F7' }])
+  })
+
+  it('names the face it found by position when that is numbered otherwise now', async () => {
+    expect(await followFace(tracing(), scene(), asking(() => found({ ref: 'block/F12' })))).toEqual({ origin: [5, 5, 10.3], ref: 'block/F12' })
   })
 
   it('asks by position when the tag is on no single face now', async () => {
     const nearest = asking(() => found({}))
     const plane: TracingPlane = { ...top, from: { kind: 'face', ref: 'block/F31', tag: 'gone', revision: 1 } }
-    expect(await followFace(tracing('T1', plane), scene({ top: { faces: [7] } }), nearest)).toEqual({ origin: [5, 5, 10.3] })
+    expect(await followFace(tracing('T1', plane), scene({ top: { faces: [7] } }), nearest)).toEqual({ origin: [5, 5, 10.3], ref: 'block/F31' })
     expect(nearest).toHaveBeenCalledWith('assembly', [{ part: 'block', point: [5, 5, 10] }])
   })
 
   it('does not move an origin that the face is still in', async () => {
-    expect(await followFace(tracing(), scene(), asking(() => found({ point: [7, 2, 10], distance: 0 })))).toEqual({ origin: [5, 5, 10] })
+    expect(await followFace(tracing(), scene(), asking(() => found({ point: [7, 2, 10], distance: 0 })))).toEqual({ origin: [5, 5, 10], ref: 'block/F31' })
   })
 
   it('is lost when the face is gone: nothing within reach, no part, the layout has no such part', async () => {
@@ -66,7 +70,7 @@ describe('followFace', () => {
   })
 
   it('takes a face that now looks the other way as still parallel', async () => {
-    expect(await followFace(tracing(), scene(), asking(() => found({ normal: [0, 0, -1] })))).toEqual({ origin: [5, 5, 10.3] })
+    expect(await followFace(tracing(), scene(), asking(() => found({ normal: [0, 0, -1] })))).toEqual({ origin: [5, 5, 10.3], ref: 'block/F31' })
   })
 
   it('works along a slanted normal, not along an axis', async () => {
@@ -89,9 +93,9 @@ describe('followFaces', () => {
     const nearest = asking((a) => found({ point: [0, 0, a.point[2] + 1] }))
     const got = await followFaces([tracing('T1'), tracing('T2', { ...top, origin: [5, 5, 20] }), tracing('T3', top, 'print')], scene(), nearest)
     expect(nearest).toHaveBeenCalledTimes(2)
-    expect(got.get('T1')).toEqual({ origin: [5, 5, 11] })
-    expect(got.get('T2')).toEqual({ origin: [5, 5, 21] })
-    expect(got.get('T3')).toEqual({ origin: [5, 5, 11] })
+    expect(got.get('T1')).toEqual({ origin: [5, 5, 11], ref: 'block/F31' })
+    expect(got.get('T2')).toEqual({ origin: [5, 5, 21], ref: 'block/F31' })
+    expect(got.get('T3')).toEqual({ origin: [5, 5, 11], ref: 'block/F31' })
   })
 
   it('says of the tracings of a layout whose query failed that it failed, and still answers the others', async () => {
@@ -100,7 +104,7 @@ describe('followFaces', () => {
       return anchors.map(() => found({}))
     })
     const got = await followFaces([tracing('T1'), tracing('T3', top, 'print')], scene(), nearest)
-    expect(got.get('T1')).toEqual({ origin: [5, 5, 10.3] })
+    expect(got.get('T1')).toEqual({ origin: [5, 5, 10.3], ref: 'block/F31' })
     expect(got.get('T3')).toMatchObject({ failed: expect.objectContaining({ message: 'the kernel is still busy' }) })
   })
 })
@@ -108,14 +112,15 @@ describe('followFaces', () => {
 const face = (over: Partial<Extract<Described, { kind: 'face' }>> = {}): Described => ({ kind: 'face', ref: 'block/F31', type: 'plane', area: 100, center: [5, 5, 10], normal: [0, 0, 1], radius: null, descriptor: 'plane, normal +Z, z = 10, 100 mm²', ...over })
 
 describe('faceFrame', () => {
-  it('makes the frame of a planar face: its centre, axes from its normal, the label', () => {
-    expect(faceFrame('block/F31', face())).toEqual({ origin: [5, 5, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'plane through block/F31 offset 0 mm (u = +X, v = +Y)' })
+  it('makes the frame of a planar face: a point on it, axes from its normal, the label', () => {
+    expect(faceFrame('block/F31', face(), [1, 2, 10])).toEqual({ origin: [1, 2, 10], x: [1, 0, 0], y: [0, 1, 0], label: 'plane through block/F31 offset 0 mm (u = +X, v = +Y)' })
   })
 
   it('refuses a curved face, an edge, and a face with no normal, in words', () => {
-    expect(() => faceFrame('block/F2', face({ type: 'cylinder', normal: [1, 0, 0], radius: 5 }))).toThrow(new Refusal('block/F2 is a cylinder, not a plane: a tracing lies on a flat face'))
-    expect(() => faceFrame('block/E2', { kind: 'edge', ref: 'block/E2', type: 'line', length: 4, center: [0, 0, 0], descriptor: 'line' })).toThrow(/block\/E2 is an edge/)
-    expect(() => faceFrame('block/F2', face({ normal: null }))).toThrow(Refusal)
+    expect(() => faceFrame('block/F2', face({ type: 'cylinder', normal: [1, 0, 0], radius: 5 }), [0, 0, 0])).toThrow(new Refusal('block/F2 is a cylinder, not a plane: a tracing lies on a flat face'))
+    expect(() => faceFrame('block/E2', { kind: 'edge', ref: 'block/E2', type: 'line', length: 4, center: [0, 0, 0], descriptor: 'line' }, [0, 0, 0])).toThrow(/block\/E2 is an edge/)
+    expect(() => faceFrame('block/F2', face({ normal: null }), [0, 0, 0])).toThrow(Refusal)
+    expect(() => faceFrame('block/F2', face(), [0, Number.NaN, 0] as never)).toThrow(Refusal)
   })
 })
 

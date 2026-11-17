@@ -12,8 +12,8 @@ import { Refusal } from '../refusal'
 // The planes of tracings that need the kernel: a face's frame when a tracing is made on it, the section on screen frozen, and
 // a face tracing following its face from build to build. The main planes are `mainPlaneFrame` (`shared/planes.ts`).
 
-/** Where a face tracing's plane is now, or why it is not in the plane of its face any more. */
-export type Followed = { origin: Vec3 } | { lost: string }
+/** Where a face tracing's plane is now, and the ref its face has on this build, or why it is not in the plane of its face any more. */
+export type Followed = { origin: Vec3; ref: string } | { lost: string }
 
 /** The kernel's `nearest`, as `reanchor` asks it and `nearestReply` checks it: one answer for each anchor, in order. */
 export type NearestFn = (layout: string, anchors: AskedAnchor[]) => Promise<NearestAnchor[]>
@@ -47,9 +47,11 @@ function asking(t: Tracing, scene: Scene): Asking {
 }
 
 /** The origin a face tracing's plane has when it is in the planar face `said` (found by tag or by position), or why it is lost. */
-function judged(t: Tracing, scene: Scene, said: NearestAnchor, tagged: boolean): Followed {
-  const ref = (t.plane.from as { ref: string }).ref
-  const lost = { lost: lostSaid(ref) }
+function judged(t: Tracing, scene: Scene, said: NearestAnchor, tagged: boolean, asked: AskedAnchor): Followed {
+  const was = (t.plane.from as { ref: string }).ref
+  const lost = { lost: lostSaid(was) }
+  // The face as this build numbers it: the one the tag names, or the one found by position.
+  let ref = was
   if (!said.found || said.error !== undefined) return lost
   const part = scene.parts.find((p) => p.layout === t.layout && p.name === said.part)
   let point: Vec3 | undefined
@@ -57,12 +59,14 @@ function judged(t: Tracing, scene: Scene, said: NearestAnchor, tagged: boolean):
   let descriptor: string | null | undefined
   if (tagged) {
     if (said.faceFound !== true) return lost
+    ref = (asked as { face: string }).face
     point = said.facePoint
     normal = said.faceNormal
     descriptor = said.faceDescriptor
   } else {
     // By position: only a face within the part's reach of where the plane was.
     if (said.distance > tolerance(part?.bbox)) return lost
+    ref = said.ref
     point = said.point
     normal = said.normal
     descriptor = said.descriptor
@@ -75,7 +79,7 @@ function judged(t: Tracing, scene: Scene, said: NearestAnchor, tagged: boolean):
   const away = dot([point[0] - t.plane.origin[0], point[1] - t.plane.origin[1], point[2] - t.plane.origin[2]], n)
   const by = Math.abs(away) < SAME ? 0 : away
   const o = t.plane.origin
-  return { origin: by === 0 ? [o[0], o[1], o[2]] : [o[0] + n[0] * by, o[1] + n[1] * by, o[2] + n[2] * by] }
+  return { origin: by === 0 ? [o[0], o[1], o[2]] : [o[0] + n[0] * by, o[1] + n[1] * by, o[2] + n[2] * by], ref }
 }
 
 /**
@@ -97,9 +101,9 @@ export async function followFaces(tracings: readonly Tracing[], scene: Scene, ne
       const asked = entries.map((e) => e.anchor)
       const said = await nearest(layout, asked)
       if (!Array.isArray(said) || said.length !== asked.length) throw new Error('the kernel did not answer for each anchor')
-      entries.forEach(({ t, tagged }, i) => {
+      entries.forEach(({ t, tagged, anchor }, i) => {
         const one = said[i]
-        out.set(t.id, one.found && one.error !== undefined ? { failed: new Error(one.error) } : judged(t, scene, one, tagged))
+        out.set(t.id, one.found && one.error !== undefined ? { failed: new Error(one.error) } : judged(t, scene, one, tagged, anchor))
       })
     } catch (e) {
       for (const { t } of entries) out.set(t.id, { failed: e instanceof Error ? e : new Error(String(e)) })
@@ -122,15 +126,23 @@ export async function followFace(t: Tracing, scene: Scene, nearest: NearestFn): 
 }
 
 /**
- * The frame of the planar face a `describe` answer is of, for a tracing made on it: its centre, axes from its normal
+ * The frame of the planar face a `describe` answer is of, for a tracing made on it: `point`, a point ON the face (the kernel's
+ * `selectors` gives one: `describe`'s centre of a face with a hole at its centre is in the hole), axes from its normal
  * (`axesOfNormal`) and the label. A face that is not planar, or a ref that is not a face, is refused in words.
  */
-export function faceFrame(ref: string, described: Described): PlaneFrame {
+export function faceFrame(ref: string, described: Described, point: Vec3): PlaneFrame {
+  const axes = planarFace(ref, described)
+  if (!Array.isArray(point) || point.length !== 3 || !point.every(Number.isFinite)) throw new Refusal(`The kernel could not say where ${ref} lies, so a tracing cannot be laid on it`)
+  return { origin: [point[0], point[1], point[2]], x: axes.x, y: axes.y, label: faceLabel(ref, 0, axes.x, axes.y) }
+}
+
+/** The axes of a planar face from its normal; a face that is not planar, a ref that is not a face, or a face with no normal is refused in words. */
+export function planarFace(ref: string, described: Described): { x: Vec3; y: Vec3 } {
   if (described.kind !== 'face') throw new Refusal(`${ref} is ${described.kind === 'edge' ? 'an edge' : 'a part'}, not a face: a tracing lies on a flat face`)
   if (described.type !== 'plane') throw new Refusal(`${ref} is a ${described.type}, not a plane: a tracing lies on a flat face`)
   const axes = described.normal === null ? null : axesOfNormal(described.normal)
-  if (!axes || !Array.isArray(described.center) || !described.center.every(Number.isFinite)) throw new Refusal(`The kernel could not say where ${ref} lies, so a tracing cannot be laid on it`)
-  return { origin: [described.center[0], described.center[1], described.center[2]], x: axes.x, y: axes.y, label: faceLabel(ref, 0, axes.x, axes.y) }
+  if (!axes) throw new Refusal(`The kernel could not say where ${ref} lies, so a tracing cannot be laid on it`)
+  return axes
 }
 
 const number = (n: number): string => String(Number(n.toFixed(3)) + 0)

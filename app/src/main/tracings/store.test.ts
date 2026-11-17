@@ -395,6 +395,21 @@ describe('movePlane', () => {
     expect(found).not.toHaveProperty('lost')
   })
 
+  it('names the face now found by a new ref and the build it is of, only for a face tracing and only when asked', async () => {
+    await store.make('bracket', ask('face', { plane: { ...plane(), from: { kind: 'face', ref: 'block/F31', tag: 'top', revision: 1 } } }), 'person')
+    await store.make('bracket', ask('main'), 'person')
+    const moved = await store.movePlane('bracket', 'T1', { origin: [0, 12.5, 0] }, undefined, { ref: 'block/F7', revision: 5 })
+    expect(moved.plane.from).toEqual({ kind: 'face', ref: 'block/F7', tag: 'top', revision: 5 })
+    expect(onDisk().tracings[0].plane.from).toEqual({ kind: 'face', ref: 'block/F7', tag: 'top', revision: 5 })
+    // Nothing is written for the same ref again, whatever build it is asked on.
+    saves.mockClear()
+    await store.movePlane('bracket', 'T1', { origin: [0, 12.5, 0] }, undefined, { ref: 'block/F7', revision: 9 })
+    expect(saves).not.toHaveBeenCalled()
+    await expect(store.movePlane('bracket', 'T1', { origin: [0, 12.5, 0] }, undefined, { ref: '', revision: 9 })).rejects.toThrow(/face/)
+    // A tracing that is not on a face keeps its plane's origin.
+    expect((await store.movePlane('bracket', 'T2', { origin: [0, 0, 0] }, undefined, { ref: 'block/F7', revision: 5 })).plane.from).toMatchObject({ kind: 'main' })
+  })
+
   it('writes nothing when nothing moved, and refuses an origin that is not finite', async () => {
     await store.make('bracket', ask('a'), 'person')
     saves.mockClear()

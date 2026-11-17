@@ -220,6 +220,19 @@ describe('recut', () => {
     expect(told.map((m) => m.cut.revision)).toEqual([2])
   })
 
+  it('names the face by the ref it has now, and the build, when the model numbers it otherwise', async () => {
+    await make(face())
+    nearest.mockImplementation(async (_layout: string, anchors: AskedAnchor[]) => anchors.map((a) => ({ part: a.part, found: true, ref: 'block/F12', point: [1, 1, 10], normal: [0, 0, 1], distance: 0, descriptor: 'plane, normal +Z, z = 10, 100 mm²' }) as NearestAnchor))
+    revision = 6
+    await outlines.recut('bracket')
+    expect((await store.list('bracket')).tracings[0].plane.from).toEqual({ kind: 'face', ref: 'block/F12', revision: 6 })
+    // Lost, it is still said by that ref.
+    nearest.mockImplementation(faceAt(null))
+    revision = 7
+    await outlines.recut('bracket')
+    expect((await store.list('bracket')).tracings[0].lost).toBe('block/F12 is not in this plane any more')
+  })
+
   it('follows the face of a tracing that is not shown too, so that it is where it should be when asked', async () => {
     const t = await make(face())
     nearest.mockImplementation(faceAt(10.3))
