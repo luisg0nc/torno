@@ -39,3 +39,19 @@ describe('what the tools tell a client', () => {
     expect(SERVER_INSTRUCTIONS.split('\n')[0]).toContain('CAD part of the project this session works on')
   })
 })
+
+describe('marks and the review', () => {
+  it('marks takes review, a round or all, and says what it lists', () => {
+    expect(Object.keys(TOOLS.marks.inputSchema)).toContain('review')
+    expect(TOOLS.marks.description).toContain('review')
+    expect(TOOLS.marks.description).toContain('removed on purpose')
+  })
+
+  it('add_mark and add_sketch offer no want or don\'t want: Claude\'s marks are plain', () => {
+    expect(Object.keys(TOOLS.add_sketch.inputSchema)).not.toContain('intent')
+    const intent = (TOOLS.add_mark.inputSchema as Record<string, { safeParse(value: unknown): { success: boolean } }>).intent
+    for (const own of ['add', 'remove', 'keep-out', 'reference']) expect(intent.safeParse(own).success, own).toBe(true)
+    for (const review of ['want', 'dont']) expect(intent.safeParse(review).success, review).toBe(false)
+    expect(TOOLS.add_mark.description).toContain("review")
+  })
+})

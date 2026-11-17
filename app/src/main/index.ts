@@ -411,6 +411,7 @@ const toolDeps: ToolDeps = {
   // A dimension is measured as it is kept, as one the person makes is (`addDimension`).
   addDimension: (objectId, mark) => addDimensionTold({ marks, query: queryObject, scene: lastScene }, objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
   // Whoever changes a mark through the tools is the agent.
+  rounds: async (objectId) => (await marks.rounds(objectId)).rounds,
   updateMark: (objectId, id, patch) => marks.update(objectId, id, patch, 'agent'),
   describe: (objectId, layout, ref, options) => queryObject<Described>(objectId, 'describe', { ref: `${layout}:${ref}`, ...(options?.selector ? { selector: true } : {}) }),
   async nearest(objectId, layout, anchors) {

@@ -436,10 +436,15 @@ export function markCamera(scene: Scene, layout: string, at: Vec3, normal: Vec3 
   return { position, target: at, up: [0, 0, 1], ortho: false, fov: FOV, zoom: 1 }
 }
 
+/** What `add_mark` and `add_sketch` say to a review intent: Claude's marks are plain. */
+export const REVIEW_INTENT_REFUSED = "a review's want and don't want are the person's: your marks are plain"
+
 export async function addMarkTool(deps: ToolDeps, objectId: string, args: AddMarkArgs): Promise<ToolResult> {
   // The schema lets every value through (the SDK would drop a key it does not know without a word); the kinds are checked here.
   if ((args.kind as string) === 'note') return failure("a view note is the person's: you cannot make one. Resolve one of theirs with resolve_mark, or place a pin, a pick, an arrow, a shape or a dimension.")
   if ((args.kind as string) === 'sketch' || (args.kind as string) === 'stroke') return failure('a sketch is made with add_sketch, whose strokes are points in mm on planes or in space: add_mark places a pin, a pick, an arrow, a shape or a dimension.')
+  if (args.intent !== undefined && !(INTENTS as readonly string[]).includes(args.intent as string)) return failure(`${REVIEW_INTENT_REFUSED}: a shape's intent is one of ${INTENTS.join(', ')}`)
+  if (args.intent !== undefined && args.kind !== 'shape') return failure(`${REVIEW_INTENT_REFUSED}: only a shape takes an intent (${INTENTS.join(', ')}), to say what it is`)
   const found = built(deps, objectId)
   if ('content' in found) return found
   const { scene, revision } = found

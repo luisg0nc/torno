@@ -8,6 +8,7 @@ import type { Part, Scene } from '../../shared/scene'
 import type { ScanAlignment, ScanInfo } from '../../shared/scans'
 import type { Described } from '../../shared/geometry'
 import type { Anchor, Mark, MarkPatch, NewMark } from '../../shared/marks'
+import type { Round } from '../../shared/reviews'
 import type { Camera, LookRequest, LookResult, SaveViewRequest, ShowRequest, ViewState } from '../../shared/view'
 import type { SavedView } from '../../shared/views'
 import type { ObjectInfo } from '../../shared/workspace'
@@ -19,7 +20,7 @@ import { BoardStore } from '../board/store'
 import { writeNoteFile } from '../notes/files'
 import { addCardTool, boardTool } from './boardTools'
 import { addMarkTool, highlightTool, resolveMarkTool } from './markTools'
-import { TOOLS, refusedKeys } from './schemas'
+import { type AddMarkArgs, TOOLS, refusedKeys } from './schemas'
 import { describeTool, marksTool, selectorFrame, type ToolDeps } from './tools'
 import { MESH_NOTE, OPEN_NOTE, REVERSED_NOTE, explodeAsked, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 
@@ -2713,5 +2714,80 @@ describe('view notes, as Claude reads them', () => {
   it('has no tool that edits or deletes a note of the person: resolving is all it does to one', () => {
     expect(Object.keys(TOOLS).filter((name) => /update|delete|remove|edit|change|note/.test(name))).toEqual([])
     expect(Object.keys(TOOLS.resolve_mark.inputSchema)).toEqual(['id', 'note'])
+  })
+})
+
+describe('marks with review', () => {
+  const round = (id: string, more: Partial<Round> = {}): Round => ({ id, build: 'h41', sources: 'abc', line: `Review of h41 (${id})`, layout: 'assembly', startedAt: '2026-11-17T10:00:00.000Z', ...more })
+  const withRounds = (): ReturnType<typeof fake> => {
+    const deps = fake({ rounds: async () => [round('R2', { build: 'h42', from: 'R1', endedAt: 'x' }), round('R1', { endedAt: 'x', sentAt: 'y' })] })
+    deps.w.list = [
+      { ...deps.w.list[0], round: 'R1', intent: 'dont', note: 'the rib', status: 'resolved', resolvedBy: 'agent', resolvedNote: 'took it out', judged: { verdict: 'ok', build: 'h42' } } as Mark,
+      { ...deps.w.list[1], round: 'R1', intent: 'want', note: 'a lip', status: 'sent' } as Mark,
+      { ...deps.w.list[3], round: 'R2', status: 'draft' } as Mark
+    ]
+    return deps
+  }
+
+  it('lists the items of a round with their intents and judgments', async () => {
+    const out = jsonOf(await marksTool(withRounds(), 'bracket', { review: 'R1' }))
+    expect(out.rounds.map((r: { id: string }) => r.id)).toEqual(['R1'])
+    expect(out.rounds[0].items).toMatchObject([
+      { id: 'M1', intent: 'dont', status: 'resolved', resolvedNote: 'took it out', judged: { verdict: 'ok', build: 'h42' }, said: 'removed on purpose; keep it out' },
+      { id: 'M2', intent: 'want', status: 'sent', said: 'not answered yet' }
+    ])
+    expect(out).not.toHaveProperty('marks')
+  })
+
+  it('lists every round, oldest first', async () => {
+    const out = jsonOf(await marksTool(withRounds(), 'bracket', { review: 'all' }))
+    expect(out.rounds.map((r: { id: string }) => r.id)).toEqual(['R1', 'R2'])
+  })
+
+  it('refuses a round there is none of, naming the rounds there are', async () => {
+    const result = await marksTool(withRounds(), 'bracket', { review: 'R9' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe('no round R9; rounds: R1, R2')
+  })
+
+  it('says there are no rounds when the app keeps none of them', async () => {
+    const result = await marksTool(fake(), 'bracket', { review: 'all' })
+    expect(jsonOf(result)).toMatchObject({ rounds: [] })
+  })
+
+  it('still tells every mark\'s intent, round and judgment in the list', async () => {
+    const [first] = jsonOf(await marksTool(withRounds(), 'bracket', { ids: ['M1'] })).marks
+    expect(first).toMatchObject({ intent: 'dont', round: 'R1', judged: { verdict: 'ok', build: 'h42' } })
+  })
+})
+
+describe('add_mark and the review', () => {
+  it('refuses a want or a don\'t want on a pin, an arrow, a pick or a dimension: Claude\'s marks are plain', async () => {
+    for (const intent of ['want', 'dont']) {
+      const deps = fake()
+      const result = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: 'base/F5', intent } as never)
+      expect(result.isError, intent).toBe(true)
+      expect(textOf(result)).toContain("a review's want and don't want are the person's")
+      expect(deps.w.added).toEqual([])
+    }
+    const arrow = await addMarkTool(fake(), 'bracket', { kind: 'arrow', note: 'x', ref: 'base/F5', by: [0, 0, 5], intent: 'want' } as never)
+    expect(arrow.isError).toBe(true)
+  })
+
+  it('refuses a review intent on a shape too, which keeps its own: add, remove, keep-out or reference', async () => {
+    const shape = { kind: 'shape', note: 'x', shape: 'box', size: [1, 1, 1], position: [0, 0, 0] } satisfies Partial<AddMarkArgs> as Partial<AddMarkArgs>
+    const deps = fake()
+    const refused = await addMarkTool(deps, 'bracket', { ...shape, intent: 'want' } as never)
+    expect(refused.isError).toBe(true)
+    expect(deps.w.added).toEqual([])
+    const ok = await addMarkTool(deps, 'bracket', { ...shape, intent: 'remove' } as AddMarkArgs)
+    expect(ok.isError).toBeUndefined()
+    expect(deps.w.added[0]).toMatchObject({ kind: 'shape', intent: 'remove' })
+  })
+
+  it('places a pin with no intent as before', async () => {
+    const deps = fake()
+    expect((await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: 'base/F5' })).isError).toBeUndefined()
+    expect(deps.w.added[0]).not.toHaveProperty('intent')
   })
 })

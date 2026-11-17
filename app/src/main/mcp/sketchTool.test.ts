@@ -271,6 +271,19 @@ describe('add_mark and the list of tools', () => {
     expect(await store.list('bracket')).toEqual([])
   })
 
+  it('add_sketch takes no intent: a sketch of Claude\'s is plain, and a review intent is refused with a word of why', async () => {
+    for (const intent of ['want', 'dont']) {
+      const result = await addSketchTool(deps, 'bracket', { ...hose, intent } as never)
+      expect(result.isError, intent).toBe(true)
+      expect(text(result)).toContain("a review's want and don't want are the person's")
+    }
+    expect(await sketches()).toEqual([])
+    const ok = await addSketchTool(deps, 'bracket', hose)
+    expect(ok.isError, text(ok)).toBeUndefined()
+    expect(await sketches()).toHaveLength(1)
+    expect(await sketches()).toEqual([expect.not.objectContaining({ intent: expect.anything() })])
+  })
+
   it('add_sketch is a tool that changes the marks, neither read-only nor destructive, with a title and a line in the instructions', () => {
     expect(TOOLS.add_sketch.title).toBe('Add a sketch')
     expect(TOOLS.add_sketch.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false })

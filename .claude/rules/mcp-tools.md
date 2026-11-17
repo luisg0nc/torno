@@ -54,6 +54,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   label arrow lie over, the comment, `reference <n>: <comment>`); `marks` with `pictures: true` attaches each listed note's inked picture,
   then its references (`notePictures`, `main/notes/pictures.ts`), at most 6 in all and 1280 px, naming the rest. `add_mark` refuses
   `kind: 'note'`; Claude's only act on a note is `resolve_mark`, and no tool edits or deletes one.
+  `marks` with `review` (`R1` or `all`) answers with the rounds (`reviewData`, `main/reviews/text.ts`; `ToolDeps.rounds`, wired in `index.ts`) in place
+  of the list: each round's build, line and layout, and its items with intent, status, `resolvedNote`, `judged` and a `said` sentence (a don't want item judged OK says
+  `removed on purpose; keep it out`); an unknown round is refused, naming the rounds there are. Claude's marks are plain: `add_mark` refuses any intent that is not a
+  shape's own (`add`, `remove`, `keep-out`, `reference`) and `add_sketch` any `intent` (`REVIEW_INTENT_REFUSED`).
   A sketch (`SketchMark`) is told by `marks` and `describe` the same way (`sketchData`, `main/sketches/text.ts`): the mark without its strokes and
   its picture, with `strokeCount` and `text`, which has every stroke and point (`sketchText` with no cut).
   `add_sketch` (`mcp/sketchTools.ts`; `ToolDeps.saveSketch`, `removeMark`, wired in `index.ts`) is the agent's own sketch: `strokes` of `points` (object frame, mm) or

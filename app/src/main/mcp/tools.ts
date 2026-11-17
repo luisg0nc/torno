@@ -7,6 +7,7 @@ import type { Described } from '../../shared/geometry'
 import type { BuildIdentity } from '../../shared/git'
 import type { SketchDraft } from '../../shared/bridge'
 import type { Mark, MarkPatch, NewMark, NoteMark } from '../../shared/marks'
+import type { Round } from '../../shared/reviews'
 import type { ScanInfo } from '../../shared/scans'
 import type { Scene } from '../../shared/scene'
 import {
@@ -32,6 +33,8 @@ import { sketchData } from '../sketches/text'
 import { noteFilesExist } from '../notes/files'
 import { MOST_NOTE_PICTURES, notePictures } from '../notes/pictures'
 import { noteData } from '../notes/text'
+import { Refusal } from '../refusal'
+import { reviewData } from '../reviews/text'
 import { number } from '../../shared/format'
 import { groupsIn } from '../../shared/groups'
 import type { Unmeasured } from '../marks/measure'
@@ -89,6 +92,8 @@ export interface ToolDeps {
   saveImage(objectId: string, png: Uint8Array): Promise<string>
   /** Every mark of an object, oldest first. */
   marks(objectId: string): Promise<Mark[]>
+  /** The rounds of the person's reviews of an object, oldest first (`marks` with `review`). Without it, there are none. */
+  rounds?(objectId: string): Promise<Round[]>
   /** Keeps a mark of the agent's and gives it its number. Rejects with a text for the agent. */
   addMark(objectId: string, mark: NewMark): Promise<Mark>
   /**
@@ -371,6 +376,17 @@ function strokeSummarised(data: object): object {
 export async function marksTool(deps: ToolDeps, objectId: string, args: MarksArgs): Promise<ToolResult> {
   const marks = await marksOf(deps, objectId)
   if ('content' in marks) return marks
+  if (args.review !== undefined) {
+    if (typeof args.review !== 'string') return failure('review is a round, R1, or all')
+    let rounds: Round[]
+    try {
+      rounds = (await deps.rounds?.(objectId)) ?? []
+    } catch (e) {
+      return failure(messageOf(e))
+    }
+    const told = reviewData(rounds, marks, args.review)
+    return told instanceof Refusal ? failure(told.message) : json({ ...ofBuild(deps, objectId), ...told })
+  }
   const wanted = args.status ?? (args.ids ? undefined : 'open')
   const build = ofBuild(deps, objectId)
   const named = args.ids && new Set(args.ids)
