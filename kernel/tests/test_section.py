@@ -450,3 +450,160 @@ def test_a_part_of_a_solid_and_a_loose_face_says_the_face_is_not_cut():
     [part] = section({"assembly:mixed": Compound([Box(10, 10, 10), loose])}, [0, 0, 0], Z)["parts"]
     assert (part["how"], part["area"], part["open"]) == (MIXED, pytest.approx(100), 0)
     assert len(part["loops"]) == 1
+
+
+# Axes of the caller's and the points to snap to
+
+
+def block():
+    from build123d import Box
+
+    return {"assembly:block": Box(40, 20, 10)}
+
+
+def corners_of(result) -> list[list[float]]:
+    [part] = result["parts"]
+    [loop] = part["loops"]
+    return loop["corners"]
+
+
+def test_a_box_cut_across_z_gives_its_four_corners_exactly():
+    result = section(block(), [0, 0, 0], Z, snaps=True, axes={"x": X, "y": Y})
+    assert result["plane"]["x"] == X and result["plane"]["y"] == Y
+    corners = corners_of(result)
+    assert sorted(map(tuple, corners)) == [
+        pytest.approx((-20, -10), abs=1e-9),
+        pytest.approx((-20, 10), abs=1e-9),
+        pytest.approx((20, -10), abs=1e-9),
+        pytest.approx((20, 10), abs=1e-9),
+    ]
+    assert result["parts"][0]["loops"][0]["circles"] == []
+
+
+def test_the_corners_are_in_the_callers_frame():
+    result = section(block(), [0, 0, 0], Z, snaps=True, axes={"x": Y, "y": [-1, 0, 0]})
+    assert result["plane"]["x"] == Y and result["plane"]["y"] == [-1, 0, 0]
+    assert sorted(map(tuple, corners_of(result))) == [
+        pytest.approx((-10, -20), abs=1e-9),
+        pytest.approx((-10, 20), abs=1e-9),
+        pytest.approx((10, -20), abs=1e-9),
+        pytest.approx((10, 20), abs=1e-9),
+    ]
+    # The outline is in that frame too: the points are those of the corners, turned.
+    [loop] = result["parts"][0]["loops"]
+    assert sorted(map(tuple, loop["points"])) == sorted(map(tuple, corners_of(result)))
+    assert result["bounds"] == {"min": pytest.approx([-10, -20]), "max": pytest.approx([10, 20])}
+
+
+def test_axes_alone_change_the_frame_and_add_no_snaps():
+    result = section(block(), [0, 0, 0], Z, axes={"x": Y, "y": [-1, 0, 0]})
+    [loop] = result["parts"][0]["loops"]
+    assert "corners" not in loop and "circles" not in loop
+    assert result["bounds"] == {"min": pytest.approx([-10, -20]), "max": pytest.approx([10, 20])}
+
+
+def drilled():
+    from build123d import Box, Cylinder, Pos
+
+    return {"assembly:plate": Box(60, 40, 10) - Pos(5, 3, 0) * Cylinder(8, 10)}
+
+
+def test_a_hole_is_a_circle_with_its_centre_and_radius_exactly():
+    result = section(drilled(), [0, 0, 0], Z, snaps=True, axes={"x": X, "y": Y})
+    outer, hole = result["parts"][0]["loops"]
+    assert outer["circles"] == []
+    [circle] = hole["circles"]
+    assert circle["centre"] == pytest.approx([5, 3], abs=1e-9)
+    assert circle["radius"] == pytest.approx(8, abs=1e-9)
+    # The plane cuts the bore across, which is no edge of the model.
+    assert "edge" not in circle
+    # A full circle has no end to be a corner of: only the plate's own are.
+    assert len(outer["corners"]) == 4 and hole["corners"] == []
+
+
+def test_a_hole_cut_on_its_rim_names_its_edge():
+    from torno_kernel import topo
+
+    shapes = drilled()
+    result = section(shapes, [0, 0, 5], Z, snaps=True, axes={"x": Y, "y": [-1, 0, 0]})
+    hole = next(loop for loop in result["parts"][0]["loops"] if loop["circles"])
+    [circle] = hole["circles"]
+    assert circle["centre"] == pytest.approx([3, -5], abs=1e-9)
+    assert circle["radius"] == pytest.approx(8, abs=1e-9)
+    index = int(circle["edge"][1:])
+    assert circle["edge"] == f"E{index}"
+    rim = topo.edges(shapes["assembly:plate"])[index]
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_CurveType
+
+    curve = BRepAdaptor_Curve(rim)
+    assert curve.GetType() == GeomAbs_CurveType.GeomAbs_Circle
+    centre = curve.Circle().Location()
+    assert (centre.X(), centre.Y(), centre.Z()) == pytest.approx((5, 3, 5), abs=1e-9)
+    assert curve.Circle().Radius() == pytest.approx(8)
+
+
+def test_a_part_without_a_solid_gives_its_snaps_too():
+    from build123d import Plane, Rectangle
+
+    shapes = {"assembly:sheet": Plane.XY * Rectangle(10, 6)}
+    result = section(shapes, [0, 0, 0], Z, snaps=True, axes={"x": X, "y": Y})
+    [loop] = result["parts"][0]["loops"]
+    assert sorted(map(tuple, loop["corners"])) == [
+        pytest.approx((-5, -3)),
+        pytest.approx((-5, 3)),
+        pytest.approx((5, -3)),
+        pytest.approx((5, 3)),
+    ]
+
+
+@pytest.mark.parametrize(
+    "axes",
+    [
+        {"x": X, "y": [1, 1, 0]},  # not at right angles, y not a unit
+        {"x": X, "y": [0.6, 0.8, 0]},  # unit both, not at right angles
+        {"x": [2, 0, 0], "y": Y},  # not a unit
+        {"x": X, "y": [0, -1, 0]},  # right-handed against the normal
+        {"x": X, "y": X},
+        {"x": X, "y": [0, 1, 1e-4]},  # off by more than 1e-6
+        {"x": X, "y": [0, 1]},
+        {"x": X},
+        {"x": X, "y": Y, "z": Z},
+        {"x": X, "y": [0, 1, "a"]},
+        [X, Y],
+        "xy",
+    ],
+)
+def test_axes_that_are_not_a_right_handed_orthonormal_pair_along_the_normal_are_refused(axes):
+    kind, _ = refused(
+        block(), {"layout": "assembly", "plane": {"origin": [0, 0, 0], "normal": Z}, "axes": axes}
+    )
+    assert kind == "bad_request"
+
+
+def test_axes_are_judged_against_the_normal_of_the_plane():
+    # x = +X, y = +Y is right for a normal along +Z, not for one along -Z or +X.
+    for normal in ([0, 0, -1], X):
+        kind, _ = refused(
+            block(),
+            {"layout": "assembly", "plane": {"origin": [0, 0, 0], "normal": normal}, "axes": {"x": X, "y": Y}},
+        )
+        assert kind == "bad_request"
+    # A normal that is not a unit is still along the pair's cross product.
+    section(block(), [0, 0, 0], [0, 0, 7], axes={"x": X, "y": Y})
+
+
+def test_snaps_that_are_not_true_or_false_are_refused():
+    kind, _ = refused(
+        block(), {"layout": "assembly", "plane": {"origin": [0, 0, 0], "normal": Z}, "snaps": "yes"}
+    )
+    assert kind == "bad_request"
+
+
+def test_without_snaps_or_axes_the_reply_is_what_it_was():
+    import json
+
+    plain = section(block(), [0, 0, 0], Z)
+    assert json.dumps(plain) == json.dumps(section(block(), [0, 0, 0], Z, snaps=False))
+    assert all("corners" not in loop and "circles" not in loop for loop in plain["parts"][0]["loops"])
+    assert plain["plane"]["x"] == X and plain["plane"]["y"] == Y

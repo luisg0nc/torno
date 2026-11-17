@@ -67,6 +67,18 @@ def section(shapes: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     is the sum.
 
     ``bounds`` is the box of every point in ``[u, v]``, null when nothing is cut.
+
+    ``axes`` (``x`` and ``y``, each three numbers) is the caller's own frame for the plane,
+    used in place of the one above: the two must be unit vectors at right angles within
+    1e-6 whose ``x × y`` is along the normal, else ``bad_request``. Every ``[u, v]`` of the
+    reply is then along them, and the reply's ``plane`` says them.
+
+    ``snaps: true`` gives each loop, besides, what a point can be snapped to, all exact (of
+    the B-rep's own cut edges, never of the polyline): ``corners``, ``[u, v]`` at the ends of
+    its cut edges, each once (an edge that is closed on itself, a whole circle, has no end),
+    and ``circles``, one ``{centre, radius}`` for each cut edge that is a circle or an arc of
+    one, with its ``edge`` (``E<i>``, as ``topo`` numbers the part's edges) when it lies on a
+    circular edge of the part. Without ``snaps`` no loop carries either.
     """
     layout, plane, names = args.get("layout"), args.get("plane"), args.get("parts")
     origin = as_point(plane.get("origin")) if isinstance(plane, dict) else None
@@ -87,10 +99,16 @@ def section(shapes: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     if length < _ZERO:
         raise QueryError("bad_request", "the normal of the section plane has no length")
     deflection = _deflection(args.get("deflection"))
+    unit = np.array(normal) / length
+    axes = _axes(args.get("axes"), unit)
+    snaps = args.get("snaps", False)
+    if not isinstance(snaps, bool):
+        raise QueryError("bad_request", "args.snaps of section, if given, is true or false")
     need_layout(shapes, layout)
     if names is None:
         names = [key.split(":", 1)[1] for key in shapes if key.startswith(f"{layout}:")]
-    frame = _Frame(np.array(origin), np.array(normal) / length, deflection)
+    frame = _Frame(np.array(origin), unit, deflection, axes)
+    frame.snaps = snaps
     parts = []
     for name in dict.fromkeys(names):
         parts.append({"part": name, **_cut(need_part(shapes, layout, name), frame, f"{layout}:{name}")})
@@ -112,6 +130,40 @@ def section(shapes: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
         "parts": parts,
         "bounds": bounds,
     }
+
+
+# How far the caller's axes may be from a right-handed orthonormal pair along the normal.
+_AXES_TOLERANCE = 1e-6
+
+
+def _axes(asked: Any, normal: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
+    """The caller's axes for the plane, or None when it gave none; ``bad_request`` for a pair
+    that is not of unit vectors at right angles with ``x × y`` along ``normal``."""
+    if asked is None:
+        return None
+    pair = None
+    if isinstance(asked, dict) and set(asked) == {"x", "y"}:
+        x, y = as_point(asked["x"]), as_point(asked["y"])
+        if x is not None and y is not None:
+            pair = np.array(x), np.array(y)
+    if pair is None:
+        raise QueryError(
+            "bad_request", "args.axes of section, if given, is {x, y}, each three finite numbers"
+        )
+    x, y = pair
+    off = max(
+        abs(float(np.linalg.norm(x)) - 1),
+        abs(float(np.linalg.norm(y)) - 1),
+        abs(float(x @ y)),
+        float(np.max(np.abs(np.cross(x, y) - normal))),
+    )
+    if off > _AXES_TOLERANCE:
+        raise QueryError(
+            "bad_request",
+            "args.axes of section are not a right-handed pair of unit vectors at right angles "
+            f"with x × y along the plane's normal (within {_AXES_TOLERANCE:g})",
+        )
+    return x, y
 
 
 def _deflection(asked: Any) -> float:
@@ -141,10 +193,21 @@ def _deflection(asked: Any) -> float:
 class _Frame:
     """A plane, the two axes its points are told along, and how finely its outlines are drawn."""
 
-    def __init__(self, origin: np.ndarray, normal: np.ndarray, deflection: float = DEFLECTION) -> None:
+    def __init__(
+        self,
+        origin: np.ndarray,
+        normal: np.ndarray,
+        deflection: float = DEFLECTION,
+        axes: tuple[np.ndarray, np.ndarray] | None = None,
+    ) -> None:
         self.origin = origin
         self.normal = normal
         self.deflection = deflection
+        # Whether each loop is to carry its corners and circles.
+        self.snaps = False
+        if axes is not None:
+            self.x, self.y = axes
+            return
         # argmin takes the first of equals: X before Y before Z.
         least = np.eye(3)[int(np.argmin(np.abs(normal)))]
         along = least - (least @ normal) * normal
@@ -171,11 +234,12 @@ def _cut(shape: Any, frame: _Frame, key: str) -> dict[str, Any]:
     """What ``section`` says of one part, but its name."""
     wrapped = getattr(shape, "wrapped", shape)
     solids = topo.solids(wrapped)
+    snapper = _Snapper(wrapped, frame) if frame.snaps else None
     if solids:
-        loops, area, exact = _cross_section(solids, frame, key)
+        loops, area, exact = _cross_section(solids, frame, key, snapper)
         how = MIXED if topo.loose_faces(wrapped) else SOLID
     else:
-        loops, exact = _outline(wrapped, frame, key)
+        loops, exact = _outline(wrapped, frame, key, snapper)
         closed = all(loop["closed"] for loop in loops)
         # Of an outline that is not closed, what it bounds cannot be told.
         area = sum(loop["area"] for loop in loops) if closed else None
@@ -192,7 +256,7 @@ def _cut(shape: Any, frame: _Frame, key: str) -> dict[str, Any]:
 
 
 def _cross_section(
-    solids: list[Any], frame: _Frame, key: str
+    solids: list[Any], frame: _Frame, key: str, snapper: "_Snapper | None" = None
 ) -> tuple[list[dict[str, Any]], float, bool]:
     """The loops round what of the plane is in each solid, their area and whether it is exact.
 
@@ -216,7 +280,8 @@ def _cross_section(
         for face in topo.faces(common.Shape()):
             rim = BRepTools.OuterWire_s(face)
             around = [
-                _ring(plane, wire, frame, hole=not wire.IsSame(rim)) for wire in topo.wires(face)
+                _ring(plane, wire, frame, hole=not wire.IsSame(rim), snapper=snapper)
+                for wire in topo.wires(face)
             ]
             around = [loop for loop in around if loop is not None]
             area = _face_area(face)
@@ -263,6 +328,7 @@ def _ring(
     frame: _Frame,
     hole: bool,
     drawn: tuple[np.ndarray | None, float] | None = None,
+    snapper: "_Snapper | None" = None,
 ) -> dict[str, Any] | None:
     """A closed loop as it is told: its points turning the way that says what it bounds.
 
@@ -276,13 +342,16 @@ def _ring(
     if (_shoelace(outline) < 0) != hole:
         outline = outline[::-1]
     points, deflection = _within_limit(outline, True, drawn_at)
-    return {
+    ring = {
         "points": points,
         "closed": True,
         "area": -area if hole else area,
         "areaExact": exact,
         "deflection": deflection,
     }
+    if snapper is not None:
+        ring.update(snapper.of(wire))
+    return ring
 
 
 def _closed_outline(wire: Any, frame: _Frame) -> tuple[np.ndarray | None, float]:
@@ -315,7 +384,9 @@ def _drawn(wire: Any, frame: _Frame) -> tuple[np.ndarray, float]:
         deflection = min(DEFLECTION, deflection * 2)
 
 
-def _outline(shape: Any, frame: _Frame, key: str) -> tuple[list[dict[str, Any]], bool]:
+def _outline(
+    shape: Any, frame: _Frame, key: str, snapper: "_Snapper | None" = None
+) -> tuple[list[dict[str, Any]], bool]:
     """The loops a plane cuts of a shape that is no solid, and whether their areas are exact.
 
     The cut is loose edges, joined end to end. A loop inside an odd number of
@@ -345,19 +416,107 @@ def _outline(shape: Any, frame: _Frame, key: str) -> tuple[list[dict[str, Any]],
             continue
         if len(outline) >= 2:
             points, deflection = _within_limit(outline, False, drawn_at)
-            loops.append(
-                {
-                    "points": points,
-                    "closed": False,
-                    "area": None,
-                    "areaExact": True,
-                    "deflection": deflection,
-                }
-            )
+            loop = {
+                "points": points,
+                "closed": False,
+                "area": None,
+                "areaExact": True,
+                "deflection": deflection,
+            }
+            if snapper is not None:
+                loop.update(snapper.of(wire.wrapped))
+            loops.append(loop)
     for wire, outline, drawn_at in closed:
         depth = sum(1 for _, other, _ in closed if other is not outline and _inside(outline[0], other))
-        loops.append(_ring(plane, wire, frame, hole=depth % 2 == 1, drawn=(outline, drawn_at)))
+        loops.append(
+            _ring(plane, wire, frame, hole=depth % 2 == 1, drawn=(outline, drawn_at), snapper=snapper)
+        )
     return loops, all(loop["areaExact"] for loop in loops)
+
+
+# How near a model edge's circle is to the cut's, mm, to be the same one.
+_SAME = 1e-6
+
+
+class _Snapper:
+    """What of the cut a point may be snapped to, from the B-rep's own edges: the ends of each
+    cut edge, and the centre and radius of each that is a circle.
+
+    ``model`` is the part's circular edges, found once and only when a circle is cut.
+    """
+
+    def __init__(self, shape: Any, frame: _Frame) -> None:
+        self.shape = shape
+        self.frame = frame
+        self._model: list[tuple[int, np.ndarray, float]] | None = None
+
+    def of(self, wire: Any) -> dict[str, Any]:
+        """``corners`` and ``circles`` of a wire of the cut, in ``[u, v]``."""
+        from OCP.BRep import BRep_Tool
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        from OCP.BRepTools import BRepTools_WireExplorer
+        from OCP.GeomAbs import GeomAbs_CurveType
+        from OCP.TopExp import TopExp
+        from OCP.TopoDS import TopoDS_Vertex
+
+        ends: list[np.ndarray] = []
+        circles: list[dict[str, Any]] = []
+        walk = BRepTools_WireExplorer(wire)
+        while walk.More():
+            edge = walk.Current()
+            walk.Next()
+            if BRep_Tool.Degenerated_s(edge):
+                continue
+            first, last = TopoDS_Vertex(), TopoDS_Vertex()
+            TopExp.Vertices_s(edge, first, last, True)
+            # A circle closed on itself has no end, only the seam its vertex is on.
+            if not first.IsSame(last):
+                for vertex in (first, last):
+                    p = BRep_Tool.Pnt_s(vertex)
+                    ends.append(np.array([p.X(), p.Y(), p.Z()]))
+            curve = BRepAdaptor_Curve(edge)
+            if curve.GetType() == GeomAbs_CurveType.GeomAbs_Circle:
+                circle = curve.Circle()
+                centre = circle.Location()
+                at = np.array([centre.X(), centre.Y(), centre.Z()])
+                found: dict[str, Any] = {
+                    "centre": _out(self.frame.flat(at[None, :])[0]),
+                    "radius": float(circle.Radius()),
+                }
+                index = self._on_model(at, float(circle.Radius()))
+                if index is not None:
+                    found["edge"] = f"E{index}"
+                circles.append(found)
+        corners: list[list[float]] = []
+        kept: list[np.ndarray] = []
+        for point in ends:
+            if not any(np.linalg.norm(point - other) <= _JOIN for other in kept):
+                kept.append(point)
+                corners.append(_out(self.frame.flat(point[None, :])[0]))
+        return {"corners": corners, "circles": circles}
+
+    def _on_model(self, centre: np.ndarray, radius: float) -> int | None:
+        """The index (as ``topo`` numbers edges) of the part's circular edge in the plane with
+        this centre and radius, or None."""
+        if self._model is None:
+            from OCP.BRepAdaptor import BRepAdaptor_Curve
+            from OCP.GeomAbs import GeomAbs_CurveType
+
+            self._model = []
+            for i, edge in enumerate(topo.edges(self.shape)):
+                curve = BRepAdaptor_Curve(edge)
+                if curve.GetType() != GeomAbs_CurveType.GeomAbs_Circle:
+                    continue
+                circle = curve.Circle()
+                at, axis = circle.Location(), circle.Axis().Direction()
+                # Only a circle in the plane is of this cut.
+                if abs(np.array([axis.X(), axis.Y(), axis.Z()]) @ self.frame.normal) < 1 - 1e-9:
+                    continue
+                self._model.append((i, np.array([at.X(), at.Y(), at.Z()]), float(circle.Radius())))
+        for i, at, r in self._model:
+            if abs(r - radius) <= _SAME and np.linalg.norm(at - centre) <= _SAME:
+                return i
+        return None
 
 
 def _polyline(wire: Any, deflection: float) -> np.ndarray:
