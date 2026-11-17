@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 import type { Vec3 } from '../../shared/marks'
-import { GEOM_TYPES, type NamedSet, type SetMember, finiteVec3 } from '../../shared/sets'
+import { GEOM_TYPES, type NamedSet, type SelectorFound, type SetMember, finiteVec3 } from '../../shared/sets'
 import type { Builds } from '../builds'
 import { isBusy } from '../kernel/client'
 import { EDGE_TOLERANCE_MM, tolerance } from '../marks/tolerance'
@@ -10,7 +10,7 @@ import type { LastBuild, Refound, SetStore } from './store'
 export type { Refound }
 
 export interface RefindDeps {
-  sets: Pick<SetStore, 'list' | 'refound'>
+  sets: Pick<SetStore, 'list' | 'refound' | 'withSelectors'>
   query: Builds['query']
   /** The last successful build of an object: a new one has another scene. */
   scene(objectId: string): LastBuild | undefined
@@ -114,10 +114,56 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
 
   const changes: Refound[] = sets.map((set, s) => ({ id: set.id, was: set.members, members: next[s] })).filter((c) => !isDeepStrictEqual(c.members, c.was))
   const whole = failures.length === 0 && unchecked === 0
-  await deps.sets.refound(objectId, revision, changes, whole)
+  const written = await deps.sets.refound(objectId, revision, changes, whole)
+  // A member found at another ref is of another face: the form it had was made of the face it was. Its selector is asked for again.
+  try {
+    await selectorsAgain(deps, objectId, revision, written, sets, superseded)
+  } catch (e) {
+    if (!superseded()) failures.push(`selectors: ${messageOf(e)}`)
+  }
   const told = [...failures, ...(unchecked > 0 ? [`${unchecked} ${unchecked === 1 ? 'member was' : 'members were'} not looked at, the query ran out of time`] : [])]
   if (told.length > 0) (deps.log ?? console.error)(`cannot refind the named sets of ${objectId} against its last build: ${told.join('; ')}`)
   return whole ? true : busy ? 'busy' : false
+}
+
+/**
+ * The second change after a refind: for each set written, the members now at another ref than they were (found `nearest`, or
+ * by a selector that gives another face) have the kernel's `selectors` asked of them again, one query for each layout and
+ * part, and the answers are written with `withSelectors`, as when a set is made: a member that is given no form has none. The
+ * store drops an answer for a build that is no longer the last. Not asked for a member that was lost or kept as it was.
+ */
+async function selectorsAgain(deps: RefindDeps, objectId: string, revision: number, written: readonly NamedSet[], before: readonly NamedSet[], superseded: () => boolean): Promise<void> {
+  /** By layout and part, the refs to ask of. */
+  const wanted = new Map<string, { layout: string; refs: Set<string> }>()
+  /** By set id, the refs of it that were asked. */
+  const ofSet = new Map<string, Set<string>>()
+  for (const now of written) {
+    const was = before.find((s) => s.id === now.id)
+    if (!was) continue
+    now.members.forEach((member, i) => {
+      const old = was.members[i]
+      if (!old || !('face' in member || 'edge' in member) || member.state !== 'ok') return
+      const ref = refOf(member)
+      if (ref === refOf(old)) return
+      const part = partOf(member) as string
+      const key = `${now.layout}\0${part}`
+      const one = wanted.get(key) ?? { layout: now.layout, refs: new Set<string>() }
+      one.refs.add(ref)
+      wanted.set(key, one)
+      ofSet.set(now.id, (ofSet.get(now.id) ?? new Set<string>()).add(ref))
+    })
+  }
+  const found: SelectorFound[] = []
+  for (const { layout, refs } of wanted.values()) {
+    if (superseded()) return
+    const reply = await deps.query<{ selectors?: unknown }>(objectId, 'selectors', { layout, refs: [...refs] })
+    if (Array.isArray(reply?.selectors)) found.push(...(reply.selectors as SelectorFound[]))
+  }
+  if (superseded()) return
+  for (const [id, refs] of ofSet) {
+    const mine = found.filter((one) => typeof one?.ref === 'string' && refs.has(one.ref))
+    if (mine.length > 0) await deps.sets.withSelectors(objectId, id, revision, mine)
+  }
 }
 
 const partOf = (m: SetMember): string | undefined => ('part' in m ? m.part : 'face' in m ? m.face.slice(0, m.face.lastIndexOf('/')) : 'edge' in m ? m.edge.slice(0, m.edge.lastIndexOf('/')) : undefined)

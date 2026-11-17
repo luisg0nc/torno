@@ -17,6 +17,8 @@ let store: SetStore
 let build: { revision: number; scene: { layouts: string[]; parts: Array<Record<string, unknown>> } } | undefined
 let asked: Query[]
 let answer: (query: Query) => Answer[] | Promise<Answer[]>
+let selectorsAsked: Array<{ layout: string; refs: string[] }>
+let selectorsAnswer: (args: { layout: string; refs: string[] }) => unknown
 let logged: string[]
 
 const box = (size: number) => ({ min: [0, 0, 0], max: [size, size, size] })
@@ -41,6 +43,10 @@ const newStore = (): SetStore => new SetStore({ dirOf: (id) => (id === 'bracket'
 const deps = (): RefindDeps => ({
   sets: store,
   query: (async (_id: string, name: string, args: object) => {
+    if (name === 'selectors') {
+      selectorsAsked.push(structuredClone(args as { layout: string; refs: string[] }))
+      return selectorsAnswer(args as { layout: string; refs: string[] })
+    }
     expect(name).toBe('refind')
     asked.push(structuredClone(args as Query))
     return { members: await answer(args as Query) }
@@ -53,6 +59,7 @@ const onDisk = (): SetsFile => JSON.parse(readFileSync(join(dir, '.torno', 'sets
 
 const selector = (ref: string, point: Vec3 = [1, 2, 3], extra: Answer = {}): Answer => ({ found: 'selector', ref, point, normal: [0, 0, 1], type: 'PLANE', ...extra })
 const nearest = (ref: string, point: Vec3 = [1, 2, 3]): Answer => ({ ...selector(ref, point), found: 'nearest' })
+const FORM = { of: 'faces', prefix: { by: 'type', type: 'PLANE' }, terminal: { end: 2, at: -1 } }
 const lost: Answer = { found: 'lost', why: 'no face within 0.5 mm' }
 const unchecked: Answer = { found: 'lost', unchecked: true, why: 'not checked: the query ran out of time' }
 
@@ -62,6 +69,8 @@ beforeEach(() => {
   mkdirSync(dir)
   build = builtScene(7)
   asked = []
+  selectorsAsked = []
+  selectorsAnswer = () => ({ selectors: [] })
   logged = []
   answer = (query) => query.members.map((m) => (m.kind === 'edge' ? { ...selector(`${m.part}/E1`), type: 'LINE' } : selector(`${m.part}/F1`)))
   store = newStore()
@@ -307,5 +316,68 @@ describe('when the answer is not to be trusted or not to be had', () => {
     const read = vi.spyOn(store, 'list')
     await refindAll(deps(), 'bracket')
     expect(read).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('the selectors of members that were found at another ref', () => {
+  const formOf = (m: SetMember): unknown => ('selector' in m ? m.selector : undefined)
+  const OLD = { of: 'faces', prefix: { by: 'type', type: 'CYLINDER' }, terminal: { only: true } }
+  beforeEach(() => {
+    selectorsAnswer = (args) => ({ selectors: args.refs.map((ref) => ({ ref, type: 'PLANE', center: [1, 2, 3], normal: [0, 0, 1], selector: { expression: 'x', form: FORM } })) })
+  })
+
+  it('asks the kernel for them again, once for each layout and part, and writes the new forms in a later change', async () => {
+    sets(
+      set('N1', 'deck', 'assembly', [face('block/F1', [1, 2, 3], { selector: OLD }), face('block/F2', [2, 2, 2], { selector: OLD }), face('lid/F4', [3, 3, 3], { selector: OLD })]),
+      set('N2', 'more', 'assembly', [face('block/F1', [1, 2, 3], { selector: OLD })])
+    )
+    // block/F1 is now F11 (twice, in two sets), block/F2 has not moved, lid/F4 is now F5.
+    answer = (q) => q.members.map((m, i) => (m.part === 'lid' ? selector('lid/F5', [3, 3, 3]) : i === 1 ? selector('block/F2', [2, 2, 2]) : selector('block/F11', [1, 2, 3])))
+    const changed = vi.fn()
+    store.on('changed', changed)
+    expect(await refindAll(deps(), 'bracket')).toBe(true)
+    expect(selectorsAsked.map((a) => [a.layout, a.refs]).sort()).toEqual([['assembly', ['block/F11']], ['assembly', ['lid/F5']]])
+    const [one, two] = await nowSets()
+    expect(one.members.map((m) => [(m as { face: string }).face, formOf(m)])).toEqual([['block/F11', FORM], ['block/F2', OLD], ['lid/F5', FORM]])
+    expect(formOf(two.members[0])).toEqual(FORM)
+    // The refound is one change; the new forms are later ones.
+    expect(changed.mock.calls.length).toBeGreaterThan(1)
+  })
+
+  it('asks nothing when no member moved to another ref', async () => {
+    sets(set('N1', 'deck', 'assembly', [face('block/F1')]))
+    answer = () => [selector('block/F1')]
+    await refindAll(deps(), 'bracket')
+    expect(selectorsAsked).toEqual([])
+  })
+
+  it('leaves a member with no form when the kernel gives none, and does not ask for a member that was lost or passed over', async () => {
+    sets(set('N1', 'deck', 'assembly', [face('block/F1', [1, 2, 3], { selector: OLD }), face('block/F2', [2, 2, 2], { selector: OLD })]))
+    answer = () => [selector('block/F11'), lost]
+    selectorsAnswer = (args) => ({ selectors: args.refs.map((ref) => ({ ref, type: 'PLANE', center: [1, 2, 3], normal: [0, 0, 1], selector: null, selectorWhy: 'by order only' })) })
+    await refindAll(deps(), 'bracket')
+    expect(selectorsAsked).toEqual([{ layout: 'assembly', refs: ['block/F11'] }])
+    const [got] = await nowSets()
+    expect(formOf(got.members[0])).toBeUndefined()
+    expect(formOf(got.members[1])).toEqual(OLD)
+  })
+
+  it('is not told to anyone when a newer build lands while it asks, and logs a kernel that cannot say', async () => {
+    sets(set('N1', 'deck', 'assembly', [face('block/F1', [1, 2, 3], { selector: OLD })]))
+    answer = () => [selector('block/F11')]
+    selectorsAnswer = () => {
+      build = builtScene(8)
+      return { selectors: [{ ref: 'block/F11', type: 'PLANE', center: [1, 2, 3], normal: [0, 0, 1], selector: { form: FORM } }] }
+    }
+    expect(await refindAll(deps(), 'bracket')).toBe(true)
+    expect(formOf((await nowSets())[0].members[0])).toEqual(OLD)
+    sets(set('N1', 'deck', 'assembly', [face('block/F1', [1, 2, 3], { selector: OLD })]))
+    build = builtScene(7)
+    selectorsAnswer = () => {
+      throw new KernelError('internal', 'no selectors today')
+    }
+    expect(await refindAll(deps(), 'bracket')).toBe(true)
+    expect((await nowSets())[0].members[0]).toMatchObject({ face: 'block/F11' })
+    expect(logged.join('\n')).toMatch(/selectors.*no selectors today/)
   })
 })
