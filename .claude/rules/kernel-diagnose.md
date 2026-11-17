@@ -76,3 +76,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `geom_type.name`) and numbers written to 4 decimals, nothing of a tool's arguments (the ref says only which shape),
   and `eval` has no builtins but `abs` (`_Search.globals`). It has `BUDGET` (10 s) of the query's 30, read between
   candidates; past it, or with no form, `selector` is `null` with `selectorWhy`. The selector is checked on this build only.
+  A selector `by geometry` also carries its `form`, plain JSON (`{of, prefix, terminal}`: the prefixes `type`, `axis`,
+  `at`, `radius`, `size`; the terminals `only`, `end`, `group`), and its text is written from the form alone
+  (`expression_of`). `by order` has no form. `parse_form` checks a form from outside field by field and refuses
+  anything else, an `order` terminal included. Two queries use forms: `selectors` (the forms, types, points and
+  normals of several refs of one part in one pass, sharing `SELECTORS_BUDGET`, 20 s; the point told is on the face,
+  nearest to its centre) and `refind` (`refind.py`; each stored member found again by its form, taken only when its
+  type matches and its normal is within `NORMAL_DEGREES`, 10, of the stored one, else by the nearest face within
+  `within` of the stored point whose normal is within 10° of it, the nearest edge within `within` of an edge's point,
+  else `lost`).

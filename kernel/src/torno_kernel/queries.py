@@ -89,6 +89,14 @@ def run(
         if not isinstance(ref, str):
             raise QueryError("bad_request", "describe needs args.ref, a string")
         return describe(shapes, ref, kept, selector=args.get("selector") is True)
+    if name == "selectors":
+        from . import selectors
+
+        return selectors.selectors_of(shapes, args.get("layout"), args.get("refs"), kept)
+    if name == "refind":
+        from . import refind
+
+        return refind.refind(shapes, args, kept)
     if name == "nearest":
         layout, anchors = args.get("layout"), args.get("anchors")
         if not isinstance(layout, str) or not isinstance(anchors, list):
@@ -99,7 +107,8 @@ def run(
     raise QueryError(
         "bad_request",
         f"unknown query {name!r}; the queries are describe, nearest, measure, section, check, "
-        "scan_clash, scan_deviation, scan_section, export, export_check, features, try_fillet and match_edges",
+        "scan_clash, scan_deviation, scan_section, export, export_check, features, try_fillet, match_edges, "
+        "selectors and refind",
     )
 
 
@@ -317,6 +326,24 @@ def need_part(shapes: dict[str, Any], layout: str, part: str) -> Any:
     return shapes[key]
 
 
+def subshape(ref: Any) -> tuple[str, str, int]:
+    """The part, the letter (``F`` or ``E``) and the index of a ref of a face or an edge without its layout
+    (``lid/F12``); a ``bad_request`` for anything else."""
+    match = _SUBSHAPE.match(ref) if isinstance(ref, str) else None
+    if match is None:
+        raise QueryError("bad_request", f"{ref!r} is not a face or an edge: its ref is part/F<i> or part/E<i>")
+    return match["key"], match["kind"], _index(match)
+
+
+def surface_of(shapes: dict[str, Any], key: str, kept: dict[Any, Any] | None) -> "_Surface":
+    """The part ``key``'s surface (``_Surface``), taken apart once for as long as ``kept`` is (as ``nearest`` does)."""
+    if kept is None:
+        return _Surface(shapes[key])
+    if key not in kept:
+        kept[key] = _Surface(shapes[key])
+    return kept[key]
+
+
 def volume_of(shape: Any, key: str, kept: dict[Any, Any] | None) -> extent.Volume:
     """The volume of the part ``key`` and whether it is exact: measured once for as long as ``kept`` is."""
     return _held(kept, "volume", key, lambda: extent.volume(shape))
@@ -496,6 +523,8 @@ class _Surface:
         self._edges: list[Any] | None = None  # in the kernel's order, once an anchor names one
         self._edge_index: Any = None  # the map topo.edges walks, once a point is on an edge
         self._edge_descriptors: dict[int, str | None] = {}
+        self._face_box_list: list[tuple[float, ...] | None] | None = None  # the boxes of the faces, once a point is looked for
+        self._edge_box_list: list[tuple[float, ...] | None] | None = None
 
     def nearest(self, part: str, key: str, point: list[float]) -> dict[str, Any]:
         from build123d import Face, Vector
@@ -668,6 +697,143 @@ class _Surface:
             "faceNormal": normal,
         }
 
+    # The faces and edges found again by where they are (``refind``, ``selectors``)
+
+    def face_shape(self, key: str, index: int) -> Any:
+        """The ``TopoDS`` face ``F<index>`` of the part ``key``, or a ``bad_ref`` naming how many it has."""
+        return _pick(self._faces, index, key, "faces", "F")
+
+    def edge_shape(self, key: str, index: int) -> Any:
+        """The ``TopoDS`` edge ``E<index>`` of the part ``key``, or a ``bad_ref`` naming how many it has."""
+        return _pick(self._all_edges(), index, key, "edges", "E")
+
+    def face_index(self, face: Any) -> int | None:
+        """The index in the kernel's order of a face of this part, or None for one it does not have."""
+        number = self._index.FindIndex(face)
+        return number - 1 if number >= 1 else None
+
+    def edge_index(self, edge: Any) -> int | None:
+        """The index in the kernel's order of an edge of this part, or None for one it does not have."""
+        return self._edge_number(edge)
+
+    def _all_edges(self) -> list[Any]:
+        if self._edges is None:
+            self._edges = topo.edges(self._shape)
+        return self._edges
+
+    @staticmethod
+    def _probe(shape: Any, point: list[float]) -> tuple[float, Any] | None:
+        """How far ``point`` is from a face or an edge, and the point of it nearest, or None when that cannot be said."""
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+        from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+        from OCP.gp import gp_Pnt
+
+        try:
+            vertex = BRepBuilderAPI_MakeVertex(gp_Pnt(*point)).Vertex()
+            extrema = BRepExtrema_DistShapeShape(vertex, shape)
+            if not (extrema.IsDone() and extrema.NbSolution() >= 1):
+                return None
+            return float(extrema.Value()), extrema.PointOnShape2(1)
+        except Exception:
+            return None
+
+    def face_at(self, index: int, point: list[float]) -> tuple[float, list[float], list[float] | None] | None:
+        """How far ``point`` is from face ``index``, the point of it nearest and the face's outward normal there
+        (None where the surface has none); None when the distance cannot be measured."""
+        from build123d import Face, Vector
+
+        probed = self._probe(self._faces[index], point)
+        if probed is None:
+            return None
+        distance, at = probed
+        try:
+            normal = _xyz(Face(self._faces[index]).normal_at(Vector(at.X(), at.Y(), at.Z())))
+        except Exception:
+            normal = None
+        return distance, [at.X(), at.Y(), at.Z()], normal
+
+    def edge_at(self, index: int, point: list[float]) -> tuple[float, list[float]] | None:
+        """How far ``point`` is from edge ``index`` and the point of it nearest; None when that cannot be measured."""
+        probed = self._probe(self._all_edges()[index], point)
+        if probed is None:
+            return None
+        distance, at = probed
+        return distance, [at.X(), at.Y(), at.Z()]
+
+    def nearest_facing(
+        self, key: str, point: list[float], normal: list[float] | None, within: float, degrees: float
+    ) -> int | None:
+        """The index of the face nearest ``point`` among those within ``within`` mm of it whose outward normal at
+        the nearest point is within ``degrees`` of ``normal`` (any, when ``normal`` is None); None when no face is.
+        Ties in distance go to the one most nearly facing ``normal``, then to the lowest index."""
+        best: tuple[float, float, int] | None = None
+        for index in self._near(self._face_boxes(), point, within):
+            found = self.face_at(index, point)
+            if found is None or found[0] > within:
+                continue
+            angle = 0.0
+            if normal is not None:
+                if found[2] is None:
+                    continue
+                angle = _angle(normal, found[2])
+                if angle > degrees:
+                    continue
+            rank = (round(found[0], 6), angle, index)
+            if best is None or rank < best:
+                best = rank
+        return None if best is None else best[2]
+
+    def nearest_edge(self, key: str, point: list[float], within: float) -> int | None:
+        """The index of the edge nearest ``point`` when it is within ``within`` mm of it; None when none is."""
+        best: tuple[float, int] | None = None
+        for index in self._near(self._edge_boxes(), point, within):
+            found = self.edge_at(index, point)
+            if found is None or found[0] > within:
+                continue
+            rank = (round(found[0], 6), index)
+            if best is None or rank < best:
+                best = rank
+        return None if best is None else best[1]
+
+    @staticmethod
+    def _boxes_of(shapes: list[Any]) -> list[tuple[float, ...] | None]:
+        from OCP.BRepBndLib import BRepBndLib
+        from OCP.Bnd import Bnd_Box
+
+        boxes: list[tuple[float, ...] | None] = []
+        for shape in shapes:
+            try:
+                box = Bnd_Box()
+                BRepBndLib.Add_s(shape, box, False)
+                low, high = (None, None) if box.IsVoid() else (box.CornerMin(), box.CornerMax())
+                boxes.append(None if low is None else (low.X(), low.Y(), low.Z(), high.X(), high.Y(), high.Z()))
+            except Exception:
+                boxes.append(None)
+        return boxes
+
+    def _face_boxes(self) -> list[tuple[float, ...] | None]:
+        if self._face_box_list is None:
+            self._face_box_list = self._boxes_of(self._faces)
+        return self._face_box_list
+
+    def _edge_boxes(self) -> list[tuple[float, ...] | None]:
+        if self._edge_box_list is None:
+            self._edge_box_list = self._boxes_of(self._all_edges())
+        return self._edge_box_list
+
+    @staticmethod
+    def _near(boxes: list[tuple[float, ...] | None], point: list[float], within: float) -> list[int]:
+        """The indices of the boxes ``within`` mm of ``point``: the only ones whose shape can be that near."""
+        x, y, z = point
+        return [
+            i
+            for i, box in enumerate(boxes)
+            if box is not None
+            and box[0] - within <= x <= box[3] + within
+            and box[1] - within <= y <= box[4] + within
+            and box[2] - within <= z <= box[5] + within
+        ]
+
     def _descriptor(self, key: str, index: int) -> str | None:
         """The descriptor of a face, or None for one that cannot be described."""
         if index not in self._descriptors:
@@ -709,6 +875,14 @@ class _Surface:
                 self._shape, self._kinds[kind], TopAbs_FACE, self._around[kind]
             )
         return self._around[kind]
+
+
+def _angle(a: list[float], b: list[float]) -> float:
+    """The angle between two vectors, degrees."""
+    la, lb = math.sqrt(sum(c * c for c in a)), math.sqrt(sum(c * c for c in b))
+    if la == 0 or lb == 0:
+        return 180.0
+    return math.degrees(math.acos(max(-1.0, min(1.0, sum(x * y for x, y in zip(a, b)) / (la * lb)))))
 
 
 def _pnt(point: Any) -> tuple[float, float, float]:

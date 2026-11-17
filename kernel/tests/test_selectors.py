@@ -1,5 +1,6 @@
 """A build123d selector that picks a face or an edge now (``describe`` with ``selector``)."""
 
+import json
 import re
 
 import pytest
@@ -68,6 +69,7 @@ def test_the_top_of_a_plate_is_the_extreme_of_its_planar_faces_across_z(built):
         "expression": "part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]",
         "robust": "by geometry",
         "checked": "this build only",
+        "form": {"of": "faces", "prefix": {"by": "axis", "axis": 2}, "terminal": {"end": 2, "at": -1}},
     }
     assert "descriptor" in reply and reply["kind"] == "face"
 
@@ -328,3 +330,182 @@ def test_the_kernel_answers_describe_with_a_selector_when_asked(tmp_path):
     assert asked["ok"] is True and asked["result"]["selector"]["robust"] == "by geometry"
     assert asked["result"]["selector"]["expression"].startswith("part.faces()")
     assert plain["ok"] is True and "selector" not in plain["result"]
+
+
+# The forms: each selector by geometry is made of a structured form, and the text is written from that form alone
+
+# What each ref of the plate said before forms existed: the text must not change by a byte.
+PLATE_EXPRESSIONS = {
+    "F0": "part.faces().filter_by(Axis.X).sort_by(Axis.X)[0]",
+    "F1": "part.faces().filter_by(Axis.Y).sort_by(Axis.Y)[0]",
+    "F2": "part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]",
+    "F3": "part.faces().filter_by(Axis.Y).sort_by(Axis.Y)[-1]",
+    "F4": "part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[0]",
+    "F5": "part.faces().filter_by(Axis.X).sort_by(Axis.X)[-1]",
+    "F6": "part.faces().filter_by(GeomType.CYLINDER).sort_by(Axis.X)[0]",
+    "F7": "part.faces().filter_by(GeomType.CYLINDER).sort_by(Axis.X)[-1]",
+    "E0": "part.edges().filter_by(Axis.Z).group_by(Axis.X)[0].sort_by(Axis.Y)[0]",
+    "E1": "part.edges().filter_by(Axis.Y).group_by(Axis.Z)[-1].sort_by(Axis.X)[0]",
+    "E2": "part.edges().filter_by(Axis.Z).group_by(Axis.X)[0].sort_by(Axis.Y)[-1]",
+    "E3": "part.edges().filter_by(Axis.Y).group_by(Axis.Z)[0].sort_by(Axis.X)[0]",
+    "E4": "part.edges().filter_by(Axis.X).group_by(Axis.Z)[0].sort_by(Axis.Y)[0]",
+    "E5": "part.edges().filter_by(Axis.Z).group_by(Axis.X)[-1].sort_by(Axis.Y)[0]",
+    "E6": "part.edges().filter_by(Axis.X).group_by(Axis.Z)[-1].sort_by(Axis.Y)[0]",
+    "E7": "part.edges().filter_by(Axis.X).group_by(Axis.Z)[-1].sort_by(Axis.Y)[-1]",
+    "E8": "part.edges().filter_by(Axis.Y).group_by(Axis.Z)[-1].sort_by(Axis.X)[-1]",
+    "E9": "part.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(Axis.X)[0]",
+    "E10": "part.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(Axis.X)[-1]",
+    "E11": "part.edges().filter_by(Axis.X).group_by(Axis.Z)[0].sort_by(Axis.Y)[-1]",
+    "E12": "part.edges().filter_by(Axis.Z).group_by(Axis.X)[-1].sort_by(Axis.Y)[-1]",
+    "E13": "part.edges().filter_by(Axis.Y).group_by(Axis.Z)[0].sort_by(Axis.X)[-1]",
+    "E14": "part.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[0].sort_by(Axis.X)[0]",
+    "E15": "part.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[0].sort_by(Axis.X)[-1]",
+    "E16": "part.edges().filter_by(GeomType.LINE).filter_by(lambda e: (e.center() - Vector(-8, 0, 0)).length < 0.001)[0]",
+    "E17": "part.edges().filter_by(GeomType.LINE).filter_by(lambda e: (e.center() - Vector(14, 0, 0)).length < 0.001)[0]",
+}
+
+
+def test_every_selector_of_the_plate_is_the_text_it_was_before_forms(built):
+    assert set(every_ref(built)) == set(PLATE_EXPRESSIONS)
+    for ref, expected in PLATE_EXPRESSIONS.items():
+        assert described(built, ref)["selector"]["expression"] == expected, ref
+
+
+def test_each_selector_by_geometry_has_a_form_that_writes_its_expression(built):
+    for ref in every_ref(built):
+        selector = described(built, ref)["selector"]
+        assert selector["robust"] == "by geometry"
+        form = selector["form"]
+        assert selectors.parse_form(form, "face" if ref[0] == "F" else "edge") == form, ref
+        assert selectors.expression_of(form) == selector["expression"], ref
+        # plain JSON: it goes through a file and back as it is
+        assert json.loads(json.dumps(form)) == form
+
+
+def test_a_form_is_the_prefix_and_terminal_the_search_made(built):
+    top = described(built, "F2")["selector"]["form"]
+    assert top == {"of": "faces", "prefix": {"by": "axis", "axis": 2}, "terminal": {"end": 2, "at": -1}}
+    corner = described(built, "E0")["selector"]["form"]
+    assert corner["terminal"] == {"group": 0, "at": 0, "then": 1, "thenAt": 0}
+    where = described(built, "E16")["selector"]["form"]
+    assert where["prefix"]["by"] == "at" and where["prefix"]["type"] == "LINE"
+    assert where["prefix"]["center"] == pytest.approx([-8.0, 0.0, 0.0], abs=1e-9)
+    assert where["terminal"] == {"only": True}
+
+
+def test_a_selector_by_order_has_no_form(monkeypatch, built):
+    original = selectors._Search._candidates
+
+    def only_by_order(self, facts):
+        return (c for c in original(self, facts) if c[0] == "by order")
+
+    monkeypatch.setattr(selectors._Search, "_candidates", only_by_order)
+    reply = described(built, "F0")
+    assert reply["selector"] is not None and reply["selector"]["robust"] == "by order"
+    assert "form" not in reply["selector"]
+
+
+def test_the_forms_by_radius_and_by_size_write_the_text_they_always_did():
+    radius = {"of": "faces", "prefix": {"by": "radius", "type": "CYLINDER", "radius": 4.0}, "terminal": {"only": True}}
+    assert (
+        selectors.expression_of(radius)
+        == "part.faces().filter_by(GeomType.CYLINDER).filter_by(lambda f: abs(f.radius - 4) < 0.001)[0]"
+    )
+    size = {
+        "of": "edges",
+        "prefix": {"by": "size", "type": "LINE", "size": 30.0, "within": 0.003},
+        "terminal": {"end": 0, "at": -1},
+    }
+    assert (
+        selectors.expression_of(size)
+        == "part.edges().filter_by(GeomType.LINE).filter_by(lambda e: abs(e.length - 30) < 0.003).sort_by(Axis.X)[-1]"
+    )
+    area = {
+        "of": "faces",
+        "prefix": {"by": "size", "type": "PLANE", "size": 1180.5, "within": 0.11805},
+        "terminal": {"group": 2, "at": -1, "then": 0, "thenAt": 0},
+    }
+    assert (
+        selectors.expression_of(area)
+        == "part.faces().filter_by(GeomType.PLANE).filter_by(lambda f: abs(f.area - 1180.5) < 0.1181)"
+        ".group_by(Axis.Z)[-1].sort_by(Axis.X)[0]"
+    )
+
+
+def test_the_search_still_finds_by_radius_and_by_size_with_the_same_text(monkeypatch, built):
+    # Where only a value tells the face, the form is by radius or by size and its text is what the search wrote.
+    original = selectors._Search._candidates
+
+    def only_values(self, facts):
+        return (c for c in original(self, facts) if c[0] == "by geometry" and c[1]["prefix"]["by"] in ("radius", "size"))
+
+    monkeypatch.setattr(selectors._Search, "_candidates", only_values)
+    reply = described(built, "F6")
+    selector = reply["selector"]
+    assert selector is not None and selector["form"]["prefix"]["by"] in ("radius", "size")
+    assert selectors.expression_of(selector["form"]) == selector["expression"]
+
+
+GOOD = {"of": "faces", "prefix": {"by": "type", "type": "PLANE"}, "terminal": {"only": True}}
+
+
+def with_(prefix=None, terminal=None, of="faces", **more):
+    form = {"of": of, "prefix": prefix if prefix is not None else {"by": "type", "type": "PLANE"}, "terminal": terminal if terminal is not None else {"only": True}}
+    form.update(more)
+    return form
+
+
+REFUSED = {
+    "an order terminal": with_(terminal={"order": 2, "index": 1}),
+    "axis 3": with_(prefix={"by": "axis", "axis": 3}, terminal={"end": 2, "at": -1}),
+    "axis -1": with_(prefix={"by": "axis", "axis": -1}),
+    "an axis that is a float": with_(prefix={"by": "axis", "axis": 2.0}),
+    "an axis that is a bool": with_(prefix={"by": "axis", "axis": True}),
+    "a type that is text": with_(prefix={"by": "type", "type": "PLANE) or True or (1"}),
+    "a type that is no GeomType": with_(prefix={"by": "type", "type": "BLOB"}),
+    "a lowercase type": with_(prefix={"by": "type", "type": "plane"}),
+    "a NaN centre": with_(prefix={"by": "at", "type": "PLANE", "center": [float("nan"), 0, 0]}),
+    "an infinite centre": with_(prefix={"by": "at", "type": "PLANE", "center": [float("inf"), 0, 0]}),
+    "a centre of two": with_(prefix={"by": "at", "type": "PLANE", "center": [0, 0]}),
+    "an unknown key in a prefix": with_(prefix={"by": "type", "type": "PLANE", "extra": 1}),
+    "an unknown prefix": with_(prefix={"by": "everything"}),
+    "a string where a number is": with_(prefix={"by": "radius", "type": "CYLINDER", "radius": "4"}),
+    "a bool where a number is": with_(prefix={"by": "radius", "type": "CYLINDER", "radius": True}),
+    "a within of zero": with_(prefix={"by": "size", "type": "PLANE", "size": 10, "within": 0}),
+    "a huge number": with_(prefix={"by": "radius", "type": "CYLINDER", "radius": 1e300}),
+    "an end of 1": with_(terminal={"end": 2, "at": 1}),
+    "an end that is text": with_(terminal={"end": "2", "at": 0}),
+    "a terminal with two kinds": with_(terminal={"only": True, "end": 2, "at": 0}),
+    "an unknown key in a terminal": with_(terminal={"end": 2, "at": 0, "x": 1}),
+    "an only that is not true": with_(terminal={"only": False}),
+    "a group on one axis": with_(terminal={"group": 1, "at": 0, "then": 1, "thenAt": 0}),
+    "a group with a bad end": with_(terminal={"group": 0, "at": 0, "then": 1, "thenAt": 2}),
+    "an unknown key in the form": with_(extra="x"),
+    "a form that is text": "part.faces()[0]",
+    "a form that is a list": [GOOD],
+    "no form": None,
+    "edges for a face": with_(of="edges"),
+    "an unknown of": with_(of="shells"),
+}
+
+
+@pytest.mark.parametrize("name", list(REFUSED))
+def test_parse_form_refuses_what_it_did_not_make_and_never_raises(name):
+    assert selectors.parse_form(REFUSED[name], "face") is None
+
+
+def test_parse_form_takes_the_forms_the_search_makes_and_checks_the_kind():
+    assert selectors.parse_form(GOOD, "face") == GOOD
+    assert selectors.parse_form(GOOD, "edge") is None  # a form of faces is no form of an edge
+    assert selectors.parse_form(with_(of="edges"), "edge") == with_(of="edges")
+    assert selectors.parse_form(GOOD, "wire") is None
+    # whole numbers are numbers, and the answer does not share the caller's lists
+    raw = with_(prefix={"by": "at", "type": "PLANE", "center": [1, 2, 3]})
+    parsed = selectors.parse_form(raw, "face")
+    assert parsed == raw and parsed["prefix"]["center"] is not raw["prefix"]["center"]
+
+
+def test_the_kernel_never_evaluates_a_text_it_did_not_make(built):
+    hostile = with_(prefix={"by": "type", "type": "PLANE) or __import__('os').system('true') or (1"})
+    assert selectors.parse_form(hostile, "face") is None
+    assert selectors.expression_of(GOOD) == "part.faces().filter_by(GeomType.PLANE)[0]"
