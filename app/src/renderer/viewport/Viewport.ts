@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { type ExplodeState, cameraBack, isExploded, sameExplode } from '../../shared/explode'
 import type { Mark, Quat } from '../../shared/marks'
 import type { Part, Scene } from '../../shared/scene'
+import { STROKE_REF } from '../../shared/sets'
 import type { ScanInfo, ScanTransform, ScanView } from '../../shared/scans'
 import type { Camera, SectionPlane, ViewName } from '../../shared/view'
 import type { AlignPoint } from './alignPoints'
@@ -1197,14 +1198,27 @@ export class Viewport {
     this.highlight('selection', refs)
   }
 
-  /** Marks what the agent points at, in the colour of its marks. */
+  /** Marks what the agent points at, in the colour of its marks. A stroke of a sketch (`M7/k3`) among the refs is lit in its sketch. */
   setAgentHighlight(refs: string[]): void {
-    this.highlight('agent', refs)
+    this.highlight('agent', refs.filter((ref) => !STROKE_REF.test(ref)))
+    this.lightStrokes('agent', refs)
   }
 
   /** Lights what the pointer is on elsewhere (a ref of the chat, a mark's row or chip), in the accent: never in a mark's colour. */
   setPointed(refs: string[]): void {
-    this.highlight('point', refs)
+    this.highlight('point', refs.filter((ref) => !STROKE_REF.test(ref)))
+    this.lightStrokes('point', refs)
+  }
+
+  /** The strokes each of the agent's pointing and the pointer's names, as refs (`M7/k3`): the sketches draw them wider. */
+  private readonly strokesLit = { agent: [] as string[], point: [] as string[] }
+
+  private lightStrokes(layer: 'agent' | 'point', refs: string[]): void {
+    const strokes = refs.filter((ref) => STROKE_REF.test(ref))
+    if (strokes.length === this.strokesLit[layer].length && strokes.every((ref, n) => ref === this.strokesLit[layer][n])) return
+    this.strokesLit[layer] = strokes
+    this.marks.setLitStrokeRefs([...new Set([...this.strokesLit.agent, ...this.strokesLit.point])])
+    this.invalidate()
   }
 
   /** The refs each layer of highlights is drawn for: for the tests, which cannot read the pixels of the hidden window. */

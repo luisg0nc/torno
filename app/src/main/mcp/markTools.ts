@@ -1,6 +1,7 @@
 import { apply } from '../../shared/align'
 import { groupsIn } from '../../shared/groups'
 import { expandTag, splitTagRef } from '../../shared/tags'
+import { type NamedSet, expandSet, splitSetRef } from '../../shared/sets'
 import type { Described } from '../../shared/geometry'
 import { expectedText, offBy, standingOf, valueText } from '../../shared/dimension'
 import { type Anchor, type DimensionMark, type Mark, type NewMark, type Quat, isUnchecked, markAnchors } from '../../shared/marks'
@@ -16,6 +17,7 @@ import { onlyKeysWrong, unknownKeys } from './keys'
 import type { ScanInfo } from '../../shared/scans'
 import type { AlignmentSaid } from '../scans/said'
 import { regionLost, scanFor } from './scanTools'
+import { withLayoutHint } from './setRefs'
 import { type AddMarkArgs, type HighlightArgs, type ResolveMarkArgs, FOV, INTENTS, MEASURES, SHAPES } from './schemas'
 import {
   type ToolDeps,
@@ -48,14 +50,51 @@ export interface CheckedRef {
   ref: string
   /** Of a ref that is a tag, its name (`top`). */
   tag?: string
+  /** Of a ref that is a named set of exactly one face, edge or part, its ref (`#top`). */
+  set?: string
+  /** Of such a set that has members the last build lost, what is said of it (`#top: 1 face (1 of 2 faces lost)`): the one is not all it was. */
+  setSaid?: string
+}
+
+/** The named sets of a project and its marks (which say which strokes are still there), as the refs of a call are checked against them. */
+export interface SetsAt {
+  sets: readonly NamedSet[]
+  marks: readonly Mark[]
+}
+
+/** Whether a ref is a named set's (`#deck`, `block/#deck`): such a ref is checked against `SetsAt`, which `setsAt` reads. */
+export const isSetRef = (ref: unknown): boolean => typeof ref === 'string' && splitSetRef(ref) !== null
+
+/** The named sets of an object, with its marks. Without `deps.sets` there are none, and a ref of a set is refused saying so. */
+export async function setsAt(deps: ToolDeps, objectId: string): Promise<SetsAt | ToolResult> {
+  if (!deps.sets) return { sets: [], marks: [] }
+  const marks = await marksOf(deps, objectId)
+  if ('content' in marks) return marks
+  try {
+    return { sets: await deps.sets(objectId), marks }
+  } catch (e) {
+    return failure(messageOf(e))
+  }
 }
 
 /**
  * What a ref names in a layout of a build, or why it names nothing there, in
  * words that say what there is: the parts, or how many faces or edges the part has.
  */
-export function checkRef(scene: Scene, layout: string, ref: string): CheckedRef | string {
+export function checkRef(scene: Scene, layout: string, ref: string, named?: SetsAt): CheckedRef | string {
   const parts = scene.parts.filter((p) => p.layout === layout)
+  if (isSetRef(ref)) {
+    if (!named) return `${ref} is a named set, which this call does not take: give a part, part/F<n> or part/E<n>`
+    const expanded = expandSet(named.sets, parts, layout, ref, named.marks)
+    if (expanded === null) return `${ref} is no set`
+    if ('error' in expanded) return withLayoutHint(expanded.error)
+    // One face, edge or part only: a set of several is a list, which `highlight` and `ask` take whole and `describe` tells.
+    const members = expanded.refs.length + expanded.strokes.length
+    if (members === 0) return `${expanded.said}: it names nothing the last build has`
+    if (members !== 1 || expanded.refs.length !== 1) return `${ref} names ${members} members, not one: ${[...expanded.refs, ...expanded.strokes].join(', ')}; name one of them`
+    const one = checkRef(scene, layout, expanded.refs[0])
+    return typeof one === 'string' ? one : { ...one, ref: expanded.refs[0], set: ref, ...(expanded.lost > 0 ? { setSaid: expanded.said } : {}) }
+  }
   const whole = parts.find((p) => p.name === ref)
   if (whole) return { part: whole, target: 'part', ref }
   const tagged = expandTag(parts, ref)
@@ -133,6 +172,7 @@ export interface End {
 export async function endsOf(deps: ToolDeps, objectId: string, scene: Scene, revision: number, layout: string, asked: Array<['a' | 'b', EndArg]>): Promise<End[] | ToolResult> {
   const ends: End[] = []
   let marks: Mark[] | undefined
+  let named: SetsAt | undefined
   for (const [name, arg] of asked) {
     if (typeof arg === 'string' && MARK_ID.test(arg)) {
       if (!marks) {
@@ -184,9 +224,16 @@ export async function endsOf(deps: ToolDeps, objectId: string, scene: Scene, rev
     const given = endOf(arg)
     if (!given) return failure(noEnd(name))
     const { ref, point } = given
-    const checked = ref === undefined ? undefined : checkRef(scene, layout, ref)
+    if (isSetRef(ref) && !named) {
+      const read = await setsAt(deps, objectId)
+      if ('content' in read) return read
+      named = read
+    }
+    const checked = ref === undefined ? undefined : checkRef(scene, layout, ref, named)
     if (typeof checked === 'string') return failure(checked)
-    ends.push({ ...(ref === undefined ? {} : { ref: checked?.ref ?? ref }), ...(point ? { point } : {}), ...(checked ? { part: checked.part } : {}), text: ref ?? vector(point!) })
+    // A set of one stands for that one: it is measured, and told as `base/F5 (#top)`.
+    const text = checked?.set === undefined ? (ref ?? vector(point!)) : `${checked.ref} (${checked.setSaid ?? checked.set})`
+    ends.push({ ...(ref === undefined ? {} : { ref: checked?.ref ?? ref }), ...(point ? { point } : {}), ...(checked ? { part: checked.part } : {}), text })
   }
   return ends
 }
@@ -195,10 +242,20 @@ export async function endsOf(deps: ToolDeps, objectId: string, scene: Scene, rev
  * Refs as an agent gave them (a mark's number, a group's name, a ref), turned into refs of the layout and checked
  * against the last build; or the error to answer with, naming all that is wrong (`what`: "highlighted", "asked").
  */
-export async function checkedRefs(deps: ToolDeps, objectId: string, found: { scene: Scene; revision: number }, layout: string, given: readonly string[], what: string): Promise<string[] | ToolResult> {
+export async function checkedRefs(
+  deps: ToolDeps,
+  objectId: string,
+  found: { scene: Scene; revision: number },
+  layout: string,
+  given: readonly string[],
+  what: string,
+  /** Where the strokes of a named set go (`M7/k3`), and what is said of each set that is a ref: without it, a set's strokes are left out. */
+  out?: { strokes: string[]; said: string[] }
+): Promise<string[] | ToolResult> {
   const refs: string[] = []
   const wrong: string[] = []
   let marks: Mark[] | undefined
+  let sets: SetsAt | undefined
   for (const ref of given) {
     let named = ref
     if (MARK_ID.test(ref)) {
@@ -226,6 +283,24 @@ export async function checkedRefs(deps: ToolDeps, objectId: string, found: { sce
       for (const name of group.parts) if (!refs.includes(name)) refs.push(name)
       continue
     }
+    // A named set stands for its members that the last build found, as a group does for its parts.
+    if (named === ref && isSetRef(ref)) {
+      if (!sets) {
+        const read = await setsAt(deps, objectId)
+        if ('content' in read) return read
+        sets = read
+      }
+      const expanded = expandSet(sets.sets, found.scene.parts.filter((p) => p.layout === layout), layout, ref, sets.marks)
+      if (expanded === null) wrong.push(`${ref} is no set`)
+      else if ('error' in expanded) wrong.push(withLayoutHint(expanded.error))
+      else if (expanded.refs.length + expanded.strokes.length === 0) wrong.push(`${expanded.said}: it names nothing the last build has`)
+      else {
+        for (const one of expanded.refs) if (!refs.includes(one)) refs.push(one)
+        for (const one of expanded.strokes) if (out && !out.strokes.includes(one)) out.strokes.push(one)
+        out?.said.push(expanded.said)
+      }
+      continue
+    }
     // A tag stands for the faces and edges it names, as a group does for its parts.
     const tagged = expandTag(found.scene.parts.filter((p) => p.layout === layout), named)
     if (tagged && 'refs' in tagged) {
@@ -247,13 +322,14 @@ export async function highlightTool(deps: ToolDeps, objectId: string, args: High
   const layout = layoutFor(deps, objectId, found.scene, args.layout)
   if (typeof layout !== 'string') return layout
 
-  const refs = await checkedRefs(deps, objectId, found, layout, args.refs, 'highlighted')
+  const out = { strokes: [] as string[], said: [] as string[] }
+  const refs = await checkedRefs(deps, objectId, found, layout, args.refs, 'highlighted', out)
   if (!Array.isArray(refs)) return refs
 
   const note = args.note?.trim().slice(0, MAX_NOTE)
   let done: HighlightResult
   try {
-    done = await deps.highlight(objectId, layout, refs, note || undefined)
+    done = await deps.highlight(objectId, layout, refs, note || undefined, out.strokes.length > 0 ? out.strokes : undefined)
   } catch (e) {
     return failure(messageOf(e))
   }
@@ -263,7 +339,7 @@ export async function highlightTool(deps: ToolDeps, objectId: string, args: High
     content: [
       {
         type: 'text',
-        text: `highlighted ${done.refs.join(', ')} in layout ${done.layout} for the user${note ? `, with the note "${note}"` : ''}, until they click in the viewport or 60 s pass.${newer}`
+        text: `highlighted ${[...done.refs, ...(done.strokes ?? [])].join(', ')} in layout ${done.layout} for the user${note ? `, with the note "${note}"` : ''}, until they click in the viewport or 60 s pass.${newer}${out.said.map((line) => `\n${line}`).join('')}`
       }
     ]
   }
@@ -331,7 +407,9 @@ async function anchorOn(
       return { anchor: { point }, said: 'The point is on no part of this layout, so the mark is tied to none.' }
     }
 
-    const checked = checkRef(scene, layout, given)
+    const named = isSetRef(given) ? await setsAt(deps, objectId) : undefined
+    if (named && 'content' in named) return named
+    const checked = checkRef(scene, layout, given, named)
     if (typeof checked === 'string') return failure(checked)
     const { part, target, ref } = checked
     const described = await deps.describe(objectId, layout, ref)

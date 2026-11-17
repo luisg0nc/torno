@@ -6,7 +6,7 @@ import type { ScanTransform } from '../../../shared/scans'
 import type { SectionPlane } from '../../../shared/view'
 import { type Offsets, type PartBoxes, STILL, markOffset, spanning } from './apart'
 import { mmPerPx, place, project, type Chip, type Placed, type Size } from './labels'
-import { build, dispose, labelAnchor, markPoints, rescale, setActive, setDashed, setDimmed, setLit, type MarkColours } from './markObjects'
+import { build, dispose, labelAnchor, markPoints, rescale, setActive, setDashed, setDimmed, setLit, type Lit, type MarkColours } from './markObjects'
 
 /**
  * A mark as it is while the pointer is still making it: a pin where it was
@@ -51,6 +51,8 @@ export class MarkLayer {
   private hovered: string | null = null
   /** The sketch whose strokes of one plane (or the surface) are lit, from the sketch panel's rows. */
   private litPlane: { id: string; plane: number | 'surface' } | null = null
+  /** The strokes lit by their refs (`M7/k3`: what a named set, the agent or a chip of the chat points at), by their sketch's number. */
+  private litStrokes = new Map<string, Set<string>>()
   /** Whether what the pointer points at is lit: not in a picture for the agent. */
   private lights = true
   private section: SectionPlane | null = null
@@ -306,18 +308,31 @@ export class MarkLayer {
     this.light(lit?.id ?? null)
   }
 
+  /** The strokes named by these refs (`M7/k3`) are lit, each alone; none for no refs. On screen only. */
+  setLitStrokeRefs(refs: readonly string[]): void {
+    const was = [...this.litStrokes.keys()]
+    this.litStrokes = new Map()
+    for (const ref of refs) {
+      const [sketch, id] = ref.split('/')
+      if (sketch === undefined || id === undefined) continue
+      this.litStrokes.set(sketch, (this.litStrokes.get(sketch) ?? new Set()).add(id))
+    }
+    for (const id of new Set([...was, ...this.litStrokes.keys()])) this.light(id)
+  }
+
   /** Whether what is pointed at is lit: a picture for the agent draws every mark alike, so it is turned off for the time one is drawn. */
   setLights(on: boolean): void {
     if (on === this.lights) return
     this.lights = on
-    for (const id of [this.hovered, this.litPlane?.id ?? null]) this.light(id)
+    for (const id of new Set([this.hovered, this.litPlane?.id ?? null, ...this.litStrokes.keys()])) this.light(id)
   }
 
   /** Lights a sketch's strokes as the pointer, or a plane row of the panel, says; a mark of any other kind has only its chip ringed. */
   private light(id: string | null): void {
     const entry = id === null ? undefined : this.entries.get(id)
     if (!entry || entry.mark.kind !== 'sketch') return
-    const lit = !this.lights ? null : this.hovered === entry.mark.id ? true : this.litPlane?.id === entry.mark.id ? { plane: this.litPlane.plane } : null
+    const strokes = this.litStrokes.get(entry.mark.id)
+    const lit: Lit = !this.lights ? null : this.hovered === entry.mark.id ? true : this.litPlane?.id === entry.mark.id ? { plane: this.litPlane.plane } : strokes ? { strokes } : null
     setLit(entry.object, lit)
   }
 

@@ -555,6 +555,18 @@ describe('a 3D sketch', () => {
     dispose(object)
   })
 
+  it('lights the strokes of the ids given, and no other', () => {
+    const object = build(sketch(), COLOURS, 1)
+    const width = (stroke: THREE.Object3D): number => (passes(stroke)[1].material as LineMaterial).linewidth
+    setLit(object, { strokes: new Set(['k2']) })
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([2.5, 3.75])
+    setLit(object, { strokes: new Set(['k9']) })
+    rescale(object, () => 1, 1)
+    expect([width(strokes(object)[0]), width(strokes(object)[1])]).toEqual([2.5, 2.5])
+    dispose(object)
+  })
+
   it('leaves an old stroke mark as it was drawn', () => {
     expect(names(build(surfaceStroke, COLOURS, 1))).toEqual(['line'])
     expect(names(build(planeStroke, COLOURS, 1))).toEqual(['line', 'plane'])

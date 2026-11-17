@@ -75,6 +75,11 @@ function strokeLines(mark: SketchMark, stroke: SketchStroke): string[] {
   return lines
 }
 
+/** What the sketch's text says of one stroke, in a line: `stroke k3: freehand on plane 1, …` (its points are not listed). */
+export function strokeLine(mark: SketchMark, stroke: SketchStroke): string {
+  return strokeLines(mark, stroke)[0]
+}
+
 /** The strokes that are told whole within `most` points, and the rest. */
 function split(mark: SketchMark, most: number): { told: SketchStroke[]; points: number; left: SketchStroke[] } {
   const told: SketchStroke[] = []

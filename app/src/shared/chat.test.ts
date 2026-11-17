@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { agentChoiceOf, EFFORTS, effortsOf, pulledFromTorno, refsIn, shownPath, toolLabel, type Effort } from './chat'
 
-const refs = (text: string): string[] => refsIn(text).flatMap((piece) => (piece.ref ? [piece.ref] : []))
+const refs = (text: string, sets?: readonly string[]): string[] => refsIn(text, sets).flatMap((piece) => (piece.ref ? [piece.ref] : []))
 
 describe('refsIn', () => {
   it('finds marks, builds, and faces and edges of a part, and leaves the text between them whole', () => {
@@ -22,6 +22,18 @@ describe('refsIn', () => {
 
   it('finds a face or an edge the model names, without the full stop or comma that ends the sentence', () => {
     expect(refs('the lid/@top and tub/@screw_holes, then lid/@a.b-c. Not lid/@ or @top.')).toEqual(['lid/@top', 'tub/@screw_holes', 'lid/@a.b-c'])
+  })
+
+  it('finds a named set, #deck and block/#deck, and never #171, a heading or a colour of one letter', () => {
+    expect(refs('see #deck and #171, then block/#deck-face. Not ## Plan or # Plan or C#deck.')).toEqual(['#deck', 'block/#deck-face'])
+  })
+
+  it('with names given, finds only those, whatever the case, the longest first', () => {
+    expect(refs('see #deck and #171 and #other', ['deck'])).toEqual(['#deck'])
+    expect(refs('#deck face and block/#Deck.', ['deck', 'deck face'])).toEqual(['#deck face', 'block/#Deck'])
+    expect(refs('## Plan', ['deck'])).toEqual([])
+    expect(refs('#decks and #deck-x', ['deck'])).toEqual([])
+    expect(refsIn('a #deck.').map((p) => p.text)).toEqual(['a ', '#deck', '.'])
   })
 
   it('never takes a letter, a bare face number or a decimal for one', () => {

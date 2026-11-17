@@ -1,4 +1,5 @@
 import type { Mark, Vec3 } from './marks'
+import type { Part } from './scene'
 
 // Named sets: faces, edges, parts and sketch strokes the person (or Claude, as a proposal) gathers under a name. The rules
 // here are the pure ones both sides use: what a set is, what a name may be, what a member's ref is and how many are lost.
@@ -239,4 +240,87 @@ export function parseSelectorForm(raw: unknown, kind: 'face' | 'edge'): Selector
   const prefix = parsePrefix(raw.prefix)
   const terminal = parseTerminal(raw.terminal)
   return prefix && terminal ? { of, prefix, terminal } : null
+}
+
+// ---- refs: `#deck` and `block/#deck` name a set ----
+
+/** A set's ref: `#` and its slug (`#deck-face`): it starts with a letter and has no white space, `/`, `#` or `@`. `#171` is none. */
+export const SET_REF = /^#(\p{L}[^/#@\s]{0,39})$/u
+/** A set's ref for one part of it: `block/#deck`, the members of the set that are of `block`. */
+export const PART_SET_REF = /^(.+)\/#(\p{L}[^/#@\s]{0,39})$/u
+
+/** A ref that is a set's, taken apart: the slug (lower case) and, for `block/#deck`, the part. Null for any other ref. */
+export function splitSetRef(ref: string): { part?: string; slug: string } | null {
+  if (typeof ref !== 'string') return null
+  const whole = SET_REF.exec(ref)
+  if (whole) return { slug: whole[1].toLowerCase() }
+  const some = PART_SET_REF.exec(ref)
+  return some ? { part: some[1], slug: some[2].toLowerCase() } : null
+}
+
+/** The set a ref names, whichever of the two forms it has, or undefined: a ref that is no set's, or of a name no set has. */
+export function setOfRef(sets: readonly NamedSet[], ref: string): NamedSet | undefined {
+  const split = splitSetRef(ref)
+  return split ? sets.find((s) => s.slug === split.slug) : undefined
+}
+
+/** The members of a set that are of one part: the part itself, and its faces and edges. A stroke is of no part. */
+export function membersOfPart(members: readonly SetMember[], part: string): SetMember[] {
+  return members.filter((m) => !('stroke' in m) && (memberRef(m) === part || memberRef(m).startsWith(`${part}/`)))
+}
+
+/** A set as the tools use it: what is found of it in the last build, what is not, and a sentence that says both. */
+export interface SetExpansion {
+  set: NamedSet
+  /** The ok faces, edges and parts, in the set's order. `block/#deck` keeps those of `block`. */
+  refs: string[]
+  /** The ok strokes of sketches, `M7/k3`. Left out by `block/#deck`: a stroke is of no part. */
+  strokes: string[]
+  /** How many of the members asked for are lost. */
+  lost: number
+  /** `#deck: 3 faces (2 of 5 faces lost) [proposed by you, not accepted]`. */
+  said: string
+}
+
+const KIND_NOUNS = { faces: ['face', 'faces'], edges: ['edge', 'edges'], parts: ['part', 'parts'], strokes: ['stroke', 'strokes'] } as const
+
+/**
+ * What a ref of a set (`#deck`, `block/#deck`) names in a layout, or why it names nothing, in words that say what there
+ * is. Null for a ref that is no set's. `parts` are the layout's; `marks` say which strokes are still there. A member
+ * that is lost is left out and counted, never named as if it were found.
+ */
+export function expandSet(sets: readonly NamedSet[], parts: readonly Pick<Part, 'name'>[], layout: string, ref: string, marks: readonly Mark[]): SetExpansion | { error: string } | null {
+  const split = splitSetRef(ref)
+  if (!split) return null
+  const set = sets.find((s) => s.slug === split.slug)
+  if (!set) return { error: sets.length === 0 ? `no named set #${split.slug}: the project has no named sets` : `no named set #${split.slug} (named sets: ${sets.map((s) => `#${s.slug}`).join(', ')})` }
+  if (set.layout !== layout) return { error: `#${set.slug} is of layout ${set.layout}` }
+  let members = set.members
+  if (split.part !== undefined) {
+    const of = split.part
+    if (!parts.some((p) => p.name === of)) return { error: `no part '${of}' (parts: ${parts.map((p) => p.name).join(', ') || 'none'})` }
+    members = membersOfPart(set.members, of)
+    if (members.length === 0) {
+      const names = [...new Set(set.members.filter((m) => !('stroke' in m) && !isLost(m, marks)).map((m) => memberRef(m).split('/')[0]))]
+      return { error: `#${set.slug} has nothing in ${of}; its parts: ${names.join(', ') || 'none'}` }
+    }
+  }
+  const refs: string[] = []
+  const strokes: string[] = []
+  const found: LostCount = { faces: 0, edges: 0, parts: 0, strokes: 0 }
+  for (const m of members) {
+    if (isLost(m, marks)) continue
+    if ('stroke' in m) {
+      strokes.push(m.stroke)
+      found.strokes += 1
+    } else {
+      refs.push(memberRef(m))
+      found['face' in m ? 'faces' : 'edge' in m ? 'edges' : 'parts'] += 1
+    }
+  }
+  const lost = members.filter((m) => isLost(m, marks)).length
+  const kinds = (Object.keys(KIND_NOUNS) as Array<keyof LostCount>).filter((k) => found[k] > 0).map((k) => `${found[k]} ${KIND_NOUNS[k][found[k] === 1 ? 0 : 1]}`)
+  const lostSaid = lostText({ members }, marks)
+  const said = `${split.part === undefined ? '' : `${split.part}/`}#${set.slug}: ${kinds.join(', ') || 'no member found'}${lostSaid ? ` (${lostSaid})` : ''}${set.proposed ? ' [proposed by you, not accepted]' : ''}`
+  return { set, refs, strokes, lost, said }
 }

@@ -176,16 +176,44 @@ export const TORNO_TOOL_PREFIX = 'mcp__torno__'
 export const isTornoTool = (name: string): boolean => name.startsWith(TORNO_TOOL_PREFIX)
 
 /**
- * A mark (`M4`), a card of the board (`C7`), a build (`r12`), a face, an edge or a vertex of a part (`lid/F12`, `tub_2/E10`, `block/V88`). A letter alone, a face
- * number alone and a decimal are none, nor is the name of a part standing alone.
+ * A mark (`M4`), a card of the board (`C7`), a build (`r12`), a face, an edge or a vertex of a part (`lid/F12`, `tub_2/E10`, `block/V88`),
+ * a tag the model names (`lid/@top`) or a named set (`#deck`, `block/#deck`). A letter alone, a face number alone and a
+ * decimal are none, nor is the name of a part standing alone. A `#` is a set's only before a letter and after nothing that
+ * is part of a word, so `#171`, a heading (`## Plan`) and `C#` are none.
  */
-const REF = /(\bM\d+\b|\bC\d+\b|\br\d+\b|(?<![\w.-])[\w.-]+\/(?:[FEV]\d+|@[A-Za-z_]\w*(?:[.-]\w+)*)\b)/
+const NOT_AFTER = String.raw`(?<![\p{L}\p{N}_#/@.-])`
+/** A name `#` may be followed by when the sets are not known: a letter, then letters, digits, `_`, `.` and `-`, not ending in `.` or `-`. */
+const SET_ANY = String.raw`\p{L}(?:[\p{L}\p{N}_.-]*[\p{L}\p{N}_])?`
+const SET_END = String.raw`(?![\p{L}\p{N}_-])`
 
-/** A text in pieces: plain text and refs, in order. A piece with a `ref` is one. */
-export function refsIn(text: string): Array<{ text: string; ref?: string }> {
+/** One name as a pattern that matches it in any case (`deck` is `[dD][eE]…`): only the names of sets are case-blind, never `M4` or `r3`. */
+const blind = (name: string): string => [...name].map((c) => (c.toLowerCase() !== c.toUpperCase() ? `[${c.toLowerCase()}${c.toUpperCase()}]` : c.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&'))).join('')
+
+const patterns = new Map<string, RegExp>()
+
+/** The pattern of a ref: one capture group round the whole ref. `sets` are the slugs of the sets there are, or undefined when they are not known. */
+function refPattern(sets: readonly string[] | undefined): RegExp {
+  const key = sets === undefined ? '' : `|${[...sets].sort().join('\n')}`
+  let found = patterns.get(key)
+  if (!found) {
+    // The longest name first, so that `#deck face` is not `#deck` and a tail.
+    const names = sets === undefined ? SET_ANY : [...new Set(sets.filter((n) => n !== ''))].sort((a, b) => b.length - a.length).map(blind).join('|')
+    const set = names === '' ? null : String.raw`#(?:${names})${SET_END}`
+    const tail = set === null ? '' : String.raw`|(?<![\w.-])[\w.-]+\/${set}|${NOT_AFTER}${set}`
+    found = new RegExp(String.raw`(\bM\d+\b|\bC\d+\b|\br\d+\b|(?<![\w.-])[\w.-]+\/(?:[FEV]\d+|@[A-Za-z_]\w*(?:[.-]\w+)*)\b${tail})`, 'u')
+    patterns.set(key, found)
+  }
+  return found
+}
+
+/**
+ * A text in pieces: plain text and refs, in order. A piece with a `ref` is one. `sets` are the slugs of the named sets
+ * of the project (`deck`): only those match, whatever the case, the longest first. Without it, any `#` and a name does.
+ */
+export function refsIn(text: string, sets?: readonly string[]): Array<{ text: string; ref?: string }> {
   if (text === '') return []
   const pieces: Array<{ text: string; ref?: string }> = []
-  text.split(REF).forEach((piece, n) => {
+  text.split(refPattern(sets)).forEach((piece, n) => {
     if (piece === '') return
     pieces.push(n % 2 === 1 ? { text: piece, ref: piece } : { text: piece })
   })

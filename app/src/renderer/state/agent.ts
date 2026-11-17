@@ -23,6 +23,7 @@ import { FOCUS_NOT_EXPLODED } from '../../shared/focus'
 import { spanningMarks } from '../viewport/marks/apart'
 import { tenth } from '../../shared/format'
 import { partsNamed } from '../../shared/groups'
+import { strokeLive } from '../../shared/sets'
 import { type ScanView, MIN_SCAN_OPACITY, standingOf } from '../../shared/scans'
 import { colorFor, colorsByName } from '../../shared/palette'
 import { explodedNote, scansNote, viewSaid } from '../viewport/picture'
@@ -44,6 +45,8 @@ const MAX_NOTE = 2000
 /** What the agent is pointing at in the viewport: refs of the layout shown, and what it says of them. */
 export interface AgentHighlight {
   refs: string[]
+  /** Strokes of sketches it points at (`M7/k3`), beside the refs. */
+  strokes?: string[]
   note: string
 }
 
@@ -273,6 +276,10 @@ export function connectAgent(viewport: Pick<Viewport, 'setView' | 'getCamera' | 
     const parts = partsInLayout(s)
     const gone = req.refs.map((ref) => missing(ref, parts)).filter((m) => m !== null)
     if (gone.length > 0) throw new Error(`nothing was highlighted: the window shows r${s.revision}, which has ${gone.join(', ')}`)
+    // A stroke is of a sketch the window has: one that was erased since is not pointed at.
+    const strokes = req.strokes ?? []
+    const noStroke = strokes.filter((ref) => !strokeLive(ref, s.marks))
+    if (noStroke.length > 0) throw new Error(`nothing was highlighted: the window has no ${noStroke.join(', ')}`)
     // A part that is switched off is not drawn, and nothing of it would be tinted.
     const hidden = parts.filter((p) => layerOf(s.layers, p.name)?.visible === false).map((p) => p.name)
     const unseen = hidden.filter((name) => req.refs.some((ref) => ref === name || ref.startsWith(`${name}/`)))
@@ -285,10 +292,10 @@ export function connectAgent(viewport: Pick<Viewport, 'setView' | 'getCamera' | 
     }
     clear()
     // What the pointer is on stays lit meanwhile, in the accent beside it.
-    viewport.setAgentHighlight(req.refs)
-    agentStore.setState({ highlight: { refs: req.refs, note: (req.note ?? '').slice(0, MAX_NOTE) } })
+    viewport.setAgentHighlight([...req.refs, ...strokes])
+    agentStore.setState({ highlight: { refs: req.refs, ...(strokes.length > 0 ? { strokes } : {}), note: (req.note ?? '').slice(0, MAX_NOTE) } })
     timer = setTimeout(clear, HIGHLIGHT_FOR_MS)
-    return { objectId: req.objectId, layout: s.layout, refs: req.refs, revision: s.revision }
+    return { objectId: req.objectId, layout: s.layout, refs: req.refs, ...(strokes.length > 0 ? { strokes } : {}), revision: s.revision }
   }
 
   pointing = highlight

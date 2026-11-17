@@ -19,6 +19,7 @@ import { flushCut, probe } from '../../test/diagnosisFixtures'
 import { BoardStore } from '../board/store'
 import { writeNoteFile } from '../notes/files'
 import { addCardTool, boardTool } from './boardTools'
+import type { NamedSet, SetMember } from '../../shared/sets'
 import { addMarkTool, highlightTool, resolveMarkTool } from './markTools'
 import { type AddMarkArgs, TOOLS, refusedKeys } from './schemas'
 import { describeTool, marksTool, selectorFrame, type ToolDeps } from './tools'
@@ -74,7 +75,7 @@ interface World {
   /** How far from the edge it names the kernel finds a point. */
   edgeDistance: number | undefined
   shows: ShowRequest[]
-  highlights: Array<{ layout: string; refs: string[]; note?: string }>
+  highlights: Array<{ layout: string; refs: string[]; note?: string; strokes?: string[] }>
   /** How far from the surface the kernel finds each point asked about. */
   distance: (part: string, point: number[]) => number
 }
@@ -132,9 +133,9 @@ function world(): Pick<ToolDeps, 'marks' | 'addMark' | 'updateMark' | 'describe'
       w.shows.push(req)
       return { caption: 'view top · layout assembly · parts base, post · orthographic', objectId, revision: 3, stale: false }
     },
-    highlight: async (objectId, layout, refs, note) => {
-      w.highlights.push({ layout, refs, ...(note === undefined ? {} : { note }) })
-      return { objectId, layout, refs, revision: 3 }
+    highlight: async (objectId, layout, refs, note, strokes) => {
+      w.highlights.push({ layout, refs, ...(note === undefined ? {} : { note }), ...(strokes === undefined ? {} : { strokes }) })
+      return { objectId, layout, refs, ...(strokes === undefined ? {} : { strokes }), revision: 3 }
     }
   }
 }
@@ -2199,6 +2200,20 @@ describe('ask', () => {
     expect(told).toEqual([1, 0])
   })
 
+  it('takes the faces of a named set for an option, and refuses a name no set has before it asks', async () => {
+    const sets = async (): Promise<NamedSet[]> => [{ id: 'N1', name: 'deck', slug: 'deck', comment: '', colour: 0, layout: 'assembly', by: 'person', createdAt: '', members: [{ face: 'base/F1', point: [0, 0, 0], state: 'ok' }, { face: 'base/F2', point: [0, 0, 0], state: 'ok' }, { face: 'base/F3', point: [0, 0, 0], state: 'lost' }] }]
+    const { deps, asks } = asking({ sets })
+    const waiting = askTool(deps, 'bracket', { question: 'Which?', options: [{ label: 'The deck', refs: ['#deck', 'base/F1'] }] })
+    await settle()
+    const [open] = asks.open()
+    expect(open.options).toEqual([{ label: 'The deck', refs: ['base/F1', 'base/F2'] }])
+    asks.answer(open.id, { kind: 'declined' })
+    await waiting
+    const refused = askTool(deps, 'bracket', { question: 'Which?', options: [{ label: 'x', refs: ['#dek'] }] })
+    expect(textOf(await refused)).toBe('nothing was asked: no named set #dek (named sets: #deck)')
+    expect(asks.open()).toEqual([])
+  })
+
   it('returns a face the person picked, when it is allowed, and ignores a pick when it is not', async () => {
     const { deps, asks } = asking()
     const waiting = askTool(deps, 'bracket', { question: 'Which face?', options: [], pick: true })
@@ -2827,5 +2842,119 @@ describe('add_mark and the review', () => {
     const deps = fake()
     expect((await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: 'base/F5' })).isError).toBeUndefined()
     expect(deps.w.added[0]).not.toHaveProperty('intent')
+  })
+})
+
+describe('named sets, #deck and base/#deck', () => {
+  const face = (ref: string, state: 'ok' | 'lost' = 'ok'): SetMember => ({ face: ref, point: [0, 0, 0], normal: [0, 0, 1], state })
+  const named = (slug: string, members: SetMember[], more: Partial<NamedSet> = {}): NamedSet => ({ id: 'N1', name: slug, slug, comment: '', colour: 0, layout: 'assembly', by: 'person', members, createdAt: '2026-11-17T10:00:00.000Z', ...more })
+  const SETS: NamedSet[] = [
+    named('deck', [face('base/F1'), face('base/F2'), face('base/F5'), face('base/F3', 'lost'), face('base/F4', 'lost')], { id: 'N1', comment: 'the flat top' }),
+    named('top', [face('base/F5')], { id: 'N2' }),
+    named('rim', [face('base/F1')], { id: 'N3', layout: 'print' }),
+    named('ring', [{ part: 'post' }, face('base/F2'), { stroke: 'M9/k2' }, { stroke: 'M9/k7' }], { id: 'N4', by: 'agent', proposed: true }),
+    named('gone', [face('base/F3', 'lost')], { id: 'N5' })
+  ]
+  const sketch = { ...MARK_BASE, id: 'M9', kind: 'sketch', name: 'run', planes: [], strokes: [{ id: 'k2', pen: 'line', revision: 3, points: [[0, 0, 0], [10, 0, 5]] }], nextStroke: 3, take: 'exact', picture: '' } as unknown as Mark
+  const withSets = (over: Partial<ToolDeps> = {}): Fake => {
+    const deps = fake({ sets: async () => structuredClone(SETS), ...over })
+    const marks = deps.marks
+    deps.marks = async (id) => [...(await marks(id)), structuredClone(sketch)]
+    return deps
+  }
+
+  it('highlights the faces of a set that the build found, and says what is lost', async () => {
+    const deps = withSets()
+    const result = await highlightTool(deps, 'bracket', { refs: ['#deck'] })
+    expect(result.isError).toBeUndefined()
+    expect(deps.w.highlights).toEqual([{ layout: 'assembly', refs: ['base/F1', 'base/F2', 'base/F5'] }])
+    expect(textOf(result)).toBe('highlighted base/F1, base/F2, base/F5 in layout assembly for the user, until they click in the viewport or 60 s pass.\n#deck: 3 faces (2 of 5 faces lost)')
+  })
+
+  it('highlights the strokes of a set by lighting them in their sketch, and says a proposal is one', async () => {
+    const deps = withSets()
+    const result = await highlightTool(deps, 'bracket', { refs: ['#ring', 'base/#deck'] })
+    expect(deps.w.highlights).toEqual([{ layout: 'assembly', refs: ['post', 'base/F2', 'base/F1', 'base/F5'], strokes: ['M9/k2'] }])
+    expect(textOf(result)).toContain('#ring: 1 face, 1 part, 1 stroke (1 of 2 strokes lost) [proposed by you, not accepted]')
+    expect(textOf(result)).toContain('base/#deck: 3 faces (2 of 5 faces lost)')
+  })
+
+  it('refuses a name no set has, a set of another layout, a part it has nothing in, and a set with nothing found', async () => {
+    const deps = withSets()
+    expect(textOf(await highlightTool(deps, 'bracket', { refs: ['#dek'] }))).toBe('nothing was highlighted: no named set #dek (named sets: #deck, #top, #rim, #ring, #gone)')
+    expect(textOf(await highlightTool(deps, 'bracket', { refs: ['#rim'] }))).toContain('#rim is of layout print')
+    expect(textOf(await highlightTool(deps, 'bracket', { refs: ['post/#deck'] }))).toBe('nothing was highlighted: #deck has nothing in post; its parts: base')
+    expect(textOf(await highlightTool(deps, 'bracket', { refs: ['#gone'] }))).toContain('#gone: no member found (1 of 1 face lost)')
+    expect(deps.w.highlights).toEqual([])
+    expect(textOf(await highlightTool(fake(), 'bracket', { refs: ['#deck'] }))).toBe('nothing was highlighted: no named set #deck: the project has no named sets')
+  })
+
+  it('describes a set: its name, comment, layout and author, each member with the kernel\'s descriptor, and what is lost', async () => {
+    const deps = withSets()
+    const told = JSON.parse(textOf(await describeTool(deps, 'bracket', { ref: '#deck' })))
+    expect(told).toMatchObject({ set: '#deck', id: 'N1', name: 'deck', comment: 'the flat top', layout: 'assembly', by: 'person', lost: '2 of 5 faces lost', lostMembers: [{ ref: 'base/F3', state: 'lost' }, { ref: 'base/F4', state: 'lost' }] })
+    expect(told.members).toEqual(['base/F1', 'base/F2', 'base/F5'].map((ref) => ({ ref, kind: 'face', descriptor: FACE.descriptor })))
+    expect(told.proposed).toBeUndefined()
+    expect(deps.w.described.map((d) => d.ref)).toEqual(['base/F1', 'base/F2', 'base/F5'])
+  })
+
+  it('describes a proposal as one, its strokes by sketch and stroke id with the sketch\'s line, and a part of a set by itself', async () => {
+    const deps = withSets()
+    const told = JSON.parse(textOf(await describeTool(deps, 'bracket', { ref: '#ring' })))
+    expect(told).toMatchObject({ by: 'agent', proposed: true, lost: '1 of 2 strokes lost' })
+    expect(told.strokes).toHaveLength(1)
+    expect(told.strokes[0]).toMatchObject({ ref: 'M9/k2', sketch: 'M9', stroke: 'k2' })
+    expect(told.strokes[0].line).toMatch(/^stroke k2: straight line on the surface/)
+    const one = JSON.parse(textOf(await describeTool(deps, 'bracket', { ref: 'base/#deck' })))
+    expect(one.members.map((m: { ref: string }) => m.ref)).toEqual(['base/F1', 'base/F2', 'base/F5'])
+    expect(one.set).toBe('base/#deck')
+  })
+
+  it('describes at most 20 members and counts the rest', async () => {
+    const many = named('many', Array.from({ length: 25 }, (_, i) => face(`base/F${i}`)))
+    const told = JSON.parse(textOf(await describeTool(withSets({ sets: async () => [many] }), 'bracket', { ref: '#many' })))
+    expect(told.members).toHaveLength(20)
+    expect(told.omitted).toBe(5)
+  })
+
+  it('refuses a set of another layout, naming how to ask for it', async () => {
+    expect(textOf(await describeTool(withSets(), 'bracket', { ref: '#rim' }))).toBe('#rim is of layout print: give layout "print"')
+    expect(JSON.parse(textOf(await describeTool(withSets(), 'bracket', { ref: '#rim', layout: 'print' }))).set).toBe('#rim')
+  })
+
+  it('places a mark on the one face a set of one names, and refuses a set of several, a set of another layout and a proposal made of strokes', async () => {
+    const deps = withSets()
+    const placed = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#top' })
+    expect(placed.isError).toBeUndefined()
+    expect(deps.w.added[0]).toMatchObject({ anchor: { part: 'base', ref: 'base/F5' } })
+    const several = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#deck' })
+    expect(textOf(several)).toBe('#deck names 3 members, not one: base/F1, base/F2, base/F5; name one of them')
+    expect(deps.w.added).toHaveLength(1)
+    const other = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#rim', layout: 'assembly' })
+    expect(textOf(other)).toContain('#rim is of layout print')
+    expect(textOf(await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#rim', layout: 'print' }))).not.toContain('#rim is of layout')
+    expect(textOf(await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: '#top', layout: 'print' }))).toContain('#top is of layout assembly')
+  })
+})
+
+describe('look and show at a named set', () => {
+  const sets = async (): Promise<NamedSet[]> => [
+    { id: 'N1', name: 'deck', slug: 'deck', comment: '', colour: 0, layout: 'assembly', by: 'person', createdAt: '', members: [{ part: 'post' }, { face: 'base/F5', point: [0, 0, 0], state: 'ok' }, { edge: 'base/E7', point: [0, 0, 0], state: 'ok' }, { face: 'base/F1', point: [0, 0, 0], state: 'lost' }] }
+  ]
+  it('frames the box round the boxes of its parts, faces and edges, and says a member was lost', async () => {
+    const asked: string[] = []
+    const query = (async (_id: string, _name: string, args: { a: { ref: string } }) => (asked.push(args.a.ref), { kind: 'bbox', min: [-20, -15, 2.5], max: [20, 15, 2.5], exact: true })) as ToolDeps['query']
+    const deps = fake({ sets, query })
+    const result = await lookTool(deps, 'bracket', { focus: '#deck', parts: ['base', 'post'] })
+    expect(result.isError).toBeUndefined()
+    expect(asked).toEqual(['assembly:base/F5', 'assembly:base/E7'])
+    expect(deps.looks[0].req.focus).toMatchObject({ min: [-20, -15, 2.5], max: [20, 15, 22.50499] })
+    expect(textOf(result)).toContain('focus #deck: 1 face, 1 edge, 1 part (1 of 2 faces lost); box (-20, -15, 2.5) to (20, 15, 22.5) mm, exact')
+  })
+
+  it('refuses a set of another layout and a name no set has, with what a focus may be', async () => {
+    const deps = fake({ sets })
+    expect(textOf(await lookTool(deps, 'bracket', { focus: '#deck', layout: 'print' }))).toContain('#deck is of layout assembly')
+    expect(textOf(await lookTool(deps, 'bracket', { focus: '#dek' }))).toContain('no named set #dek (named sets: #deck); a focus is a part')
   })
 })

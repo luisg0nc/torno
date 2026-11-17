@@ -8,6 +8,7 @@ import type { BuildIdentity } from '../../shared/git'
 import type { SketchDraft } from '../../shared/bridge'
 import type { Mark, MarkPatch, NewMark, NoteMark } from '../../shared/marks'
 import type { Round } from '../../shared/reviews'
+import type { NamedSet } from '../../shared/sets'
 import type { ScanInfo } from '../../shared/scans'
 import type { Scene } from '../../shared/scene'
 import {
@@ -44,7 +45,9 @@ import { type ExpectArgs, type Expectations, expectTool } from './expectTools'
 import { onlyKeysWrong, unknownKeys } from './keys'
 import { askTool } from './askTool'
 import type { AskAnswer, AskEnd, AskRequest } from '../../shared/ask'
-import { addMarkTool, checkRef, highlightTool, resolveMarkTool } from './markTools'
+import { addMarkTool, checkRef, highlightTool, isSetRef, resolveMarkTool, setsAt } from './markTools'
+import { expandSet } from '../../shared/sets'
+import { setDescribed, withLayoutHint } from './setRefs'
 import { addSketchTool } from './sketchTools'
 import { type FeaturesToolArgs, featuresTool } from './featureTools'
 import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type SectionToolArgs, type TryFilletToolArgs, type TryParamsToolArgs, checkTool, diffTool, historyTool, measureTool, sectionTool, tryFilletTool, tryParamsTool } from './readTools'
@@ -92,6 +95,8 @@ export interface ToolDeps {
   saveImage(objectId: string, png: Uint8Array): Promise<string>
   /** Every mark of an object, oldest first. */
   marks(objectId: string): Promise<Mark[]>
+  /** The named sets of an object (`.torno/sets.json`), as they are now. Without it, a ref of a set (`#deck`) is refused, saying the project has none. */
+  sets?(objectId: string): Promise<NamedSet[]>
   /** The rounds of the person's reviews of an object, oldest first (`marks` with `review`). Without it, there are none. */
   rounds?(objectId: string): Promise<Round[]>
   /** Keeps a mark of the agent's and gives it its number. Rejects with a text for the agent. */
@@ -120,7 +125,7 @@ export interface ToolDeps {
   /** Changes what the window shows of the object it has open, and says what it shows then. Rejects with a text. */
   show(objectId: string, req: ShowRequest): Promise<ShowResult>
   /** Tints refs of the layout on screen in the agent's colour, with a note beside them. Rejects with a text. */
-  highlight(objectId: string, layout: string, refs: string[], note?: string): Promise<HighlightResult>
+  highlight(objectId: string, layout: string, refs: string[], note?: string, strokes?: string[]): Promise<HighlightResult>
   /**
    * Puts a question to the person in the window and waits for what ends it: their answer, or the signal (which the
    * tool fires at its time limit and when the client gives the call up). Main shows the session as `needs_input`
@@ -458,6 +463,15 @@ export async function describeTool(deps: ToolDeps, objectId: string, args: Descr
   // A group of parts: worked out here from what the kernel sent of each part with the scene, so nothing is asked of it.
   const group = groupsIn(found.scene, layout).find((g) => g.name === args.ref)
   if (group) return json({ layout, ...ofBuild(deps, objectId), ...groupDescribed(found.scene, layout, group.name, group.parts) })
+  // A named set (`#deck`, `block/#deck`): the set itself is told, with each member the last build found.
+  if (isSetRef(args.ref)) {
+    const named = await setsAt(deps, objectId)
+    if ('content' in named) return named
+    const expanded = expandSet(named.sets, found.scene.parts.filter((p) => p.layout === layout), layout, args.ref, named.marks)
+    if (expanded === null) return failure(`${args.ref} is no set`)
+    if ('error' in expanded) return failure(withLayoutHint(expanded.error))
+    return json({ layout, ...ofBuild(deps, objectId), ...(await setDescribed(deps, objectId, layout, expanded, named.marks, args.ref.includes('/') ? args.ref.slice(0, args.ref.indexOf('/#')) : undefined)) })
+  }
   const checked = checkRef(found.scene, layout, args.ref)
   if (typeof checked === 'string') return failure(checked)
   try {

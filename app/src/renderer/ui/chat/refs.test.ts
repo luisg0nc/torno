@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Mark } from '../../../shared/marks'
 import type { Part, Scene } from '../../../shared/scene'
+import type { NamedSet, SetMember } from '../../../shared/sets'
 import { actions, store } from '../../state/store'
 import { refInfo } from './refs'
 
@@ -121,5 +122,31 @@ describe('a card of the board in the chat', () => {
     expect(refInfo(state, 'C5')).toMatchObject({ live: false, plain: false, title: 'C5 is hidden on the board: show it again from "Hidden cards"' })
     // The board not read yet: nothing is claimed.
     expect(refInfo(store.getState(), 'C9')).toMatchObject({ live: false, plain: true })
+  })
+})
+
+describe('a named set in the chat', () => {
+  const face = (ref: string, state: 'ok' | 'lost' = 'ok'): SetMember => ({ face: ref, point: [0, 0, 0], normal: [0, 0, 1], state })
+  const named = (slug: string, members: SetMember[], layout = 'assembly'): NamedSet => ({ id: 'N1', name: slug, slug, comment: '', colour: 0, layout, by: 'person', members, createdAt: '' })
+  const sketch = { id: 'M9', kind: 'sketch', strokes: [{ id: 'k2' }] } as unknown as Mark
+  const state = (sets: NamedSet[]) => ({ ...store.getState(), marks: [sketch], sets })
+
+  it('lights its members through peek, strokes too, and a click selects its faces and edges', () => {
+    const sets = [named('deck', [face('lid/F1'), face('lid/F2', 'lost'), { edge: 'tub/E3', point: [0, 0, 0], state: 'ok' }, { part: 'tub' }, { stroke: 'M9/k2' }, { stroke: 'M9/k8' }])]
+    const info = refInfo(state(sets), '#deck')
+    expect(info).toMatchObject({ kind: 'geometry', live: true, act: 'select', lights: ['lid/F1', 'tub/E3', 'tub', 'M9/k2'], select: ['lid/F1', 'tub/E3'] })
+    expect(info.title).toBe('Select #deck: 1 face, 1 edge, 1 part, 1 stroke (1 of 2 faces lost, 1 of 2 strokes lost)')
+    expect(refInfo(state(sets), 'tub/#deck')).toMatchObject({ live: true, lights: ['tub/E3', 'tub'], select: ['tub/E3'] })
+  })
+
+  it('is only text for a name no set has, and does nothing for a set of another layout', () => {
+    expect(refInfo(state([]), '#deck')).toMatchObject({ live: false, plain: true })
+    expect(refInfo(store.getState(), '#deck')).toMatchObject({ live: false, plain: true })
+    expect(refInfo(state([named('deck', [face('lid/F1')], 'print')]), '#deck')).toMatchObject({ live: false, plain: false, title: '#deck is of layout print' })
+  })
+
+  it('lights nothing of a part that is switched off', () => {
+    store.setState({ layers: { lid: { visible: false } } as never })
+    expect(refInfo(state([named('deck', [face('lid/F1')])]), '#deck')).toMatchObject({ live: false, lights: [] })
   })
 })

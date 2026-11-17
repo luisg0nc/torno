@@ -1,13 +1,15 @@
 import { type FocusBox, DEFAULT_FOCUS_MARGIN, MAX_FOCUS_MARGIN, focusMargin } from '../../shared/focus'
-import { markAnchors, markPoints } from '../../shared/marks'
+import { markAnchors, markPoints, sketchStrokePoints } from '../../shared/marks'
 import { number } from '../../shared/format'
 import { groupsIn } from '../../shared/groups'
+import { expandSet } from '../../shared/sets'
 import type { Scene } from '../../shared/scene'
 import { vector } from '../marks/describe'
 import { wire } from '../marks/measure'
 import { movedForDisplay } from '../marks/spread'
 import { unknownKeys } from './keys'
-import { checkRef } from './markTools'
+import { checkRef, isSetRef, setsAt } from './markTools'
+import { MOST_DESCRIBED, withLayoutHint } from './setRefs'
 import { refusal } from './readTools'
 import { type ToolDeps, type ToolResult, MARK_ID, failure, marksOf, noMark } from './tools'
 
@@ -95,6 +97,9 @@ export async function focusOf(deps: ToolDeps, objectId: string, found: { scene: 
     return framed(box, `${given} (a group of ${members.length} part${members.length === 1 ? '' : 's'})`, exactText(box, exact), group.parts, movedText(moved, layout))
   }
 
+  // A named set (`#deck`, `block/#deck`): the box round its members' boxes.
+  if (isSetRef(given)) return setFocus(deps, objectId, found, layout, given, framed, drawn)
+
   const checked = checkRef(scene, layout, given)
   if (typeof checked === 'string') return failure(`${checked}; ${FORMS}`)
   const moved = Object.keys(movedForDisplay(checked.part, layout)).length > 0 ? movedText([checked.part.name], layout) : ''
@@ -113,6 +118,73 @@ export async function focusOf(deps: ToolDeps, objectId: string, found: { scene: 
   // As of the answer: a build may have ended while the kernel was asked, and the box is of the one it was asked about.
   if (deps.scene(objectId)?.revision !== found.revision) return failure(`${deps.object(objectId)?.name ?? objectId} was built again while the kernel was asked: call again`)
   return framed({ min: measured.min, max: measured.max }, given, exactText({ min: measured.min, max: measured.max }, measured.exact === true), [checked.part.name], moved)
+}
+
+type Framer = (box: { min: Vec3; max: Vec3 }, of: string, how: string, parts: string[], moved?: string) => Focused | ToolResult
+
+/**
+ * The box round the members a named set has in the last build: a part's from the scene, a face's or an edge's from the
+ * kernel as one face's is (20 of them at most; a member past those is covered by its part's box, which makes the box
+ * approximate). Lost members are left out and said. A stroke is framed by its points.
+ */
+async function setFocus(deps: ToolDeps, objectId: string, found: { scene: Scene; revision: number }, layout: string, given: string, framed: Framer, drawn: (parts: string[]) => ToolResult | null): Promise<Focused | ToolResult> {
+  const { scene } = found
+  const named = await setsAt(deps, objectId)
+  if ('content' in named) return named
+  const inLayout = scene.parts.filter((p) => p.layout === layout)
+  const expanded = expandSet(named.sets, inLayout, layout, given, named.marks)
+  if (expanded === null) return failure(`${given} is no set; ${FORMS}`)
+  if ('error' in expanded) return failure(`${withLayoutHint(expanded.error)}; ${FORMS}`)
+  if (expanded.refs.length + expanded.strokes.length === 0) return failure(`${expanded.said}: it names nothing the last build has, so there is nothing to frame`)
+
+  const boxes: Array<{ min: Vec3; max: Vec3 }> = []
+  let exact = true
+  const names: string[] = []
+  const queried: string[] = []
+  for (const ref of expanded.refs) {
+    const part = inLayout.find((p) => p.name === ref || ref.startsWith(`${p.name}/`))
+    if (!part) continue
+    if (!names.includes(part.name)) names.push(part.name)
+    if (ref === part.name) {
+      boxes.push(part.bbox)
+      exact = exact && part.bboxExact === true
+    } else if (queried.length < MOST_DESCRIBED) queried.push(ref)
+    else {
+      // Past the most that are asked of the kernel: its part's box covers it.
+      boxes.push(part.bbox)
+      exact = false
+    }
+  }
+  // Before the kernel is asked: a part the picture leaves out is not worth a query.
+  const out = drawn(names)
+  if (out) return out
+  for (const ref of queried) {
+    let measured: { min?: unknown; max?: unknown; exact?: unknown }
+    try {
+      measured = await deps.query(objectId, 'measure', wire({ kind: 'bbox', layout, a: { ref } }))
+    } catch (e) {
+      return refusal(e, layout, 'box')
+    }
+    if (!isVec(measured?.min) || !isVec(measured?.max)) return failure('the kernel did not answer with a box')
+    boxes.push({ min: measured.min, max: measured.max })
+    exact = exact && measured.exact === true
+  }
+  // As of the answer: a build may have ended while the kernel was asked, and the box is of the one it was asked about.
+  if (queried.length > 0 && deps.scene(objectId)?.revision !== found.revision) return failure(`${deps.object(objectId)?.name ?? objectId} was built again while the kernel was asked: call again`)
+  for (const ref of expanded.strokes) {
+    const [sketch, id] = ref.split('/')
+    const mark = named.marks.find((m) => m.id === sketch)
+    const stroke = mark?.kind === 'sketch' ? mark.strokes.find((s) => s.id === id) : undefined
+    if (!mark || mark.kind !== 'sketch' || !stroke) continue
+    const points = sketchStrokePoints(mark, stroke)
+    if (points.length === 0) continue
+    boxes.push({ min: [0, 1, 2].map((i) => Math.min(...points.map((p) => p[i]))) as Vec3, max: [0, 1, 2].map((i) => Math.max(...points.map((p) => p[i]))) as Vec3 })
+    exact = false
+  }
+  if (boxes.length === 0) return failure(`${expanded.said}: it has no box to frame`)
+  const box = { min: [0, 1, 2].map((i) => Math.min(...boxes.map((b) => b.min[i]))) as Vec3, max: [0, 1, 2].map((i) => Math.max(...boxes.map((b) => b.max[i]))) as Vec3 }
+  const moved = inLayout.filter((p) => names.includes(p.name) && Object.keys(movedForDisplay(p, layout)).length > 0).map((p) => p.name)
+  return framed(box, given, `${expanded.said.slice(expanded.said.indexOf(': ') + 2)}; ${exactText(box, exact)}`, names, movedText(moved, layout))
 }
 
 const exactText = (box: { min: Vec3; max: Vec3 }, exact: boolean): string => `box ${exact ? '' : '≈ '}${vector(box.min)} to ${vector(box.max)} mm, ${exact ? 'exact' : 'approximate'}`

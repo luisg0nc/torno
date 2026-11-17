@@ -403,6 +403,7 @@ const toolDeps: ToolDeps = {
     return obj ? saveView(obj.dir, png) : Promise.reject(new Error(`unknown project: ${objectId}`))
   },
   marks: (objectId) => marks.list(objectId),
+  sets: (objectId) => sets.list(objectId),
   // A mark made through the tools is the agent's, and it knows of it: there is nothing to send it.
   addMark: (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
   // A sketch of the agent's is checked by the tool (`add_sketch`), and kept as the agent's: sent, with no snaps.
@@ -429,8 +430,8 @@ const toolDeps: ToolDeps = {
   },
   ask: (objectId, req, signal) => asks.ask(objectId, req, signal),
   asking: (objectId) => asks.has(objectId),
-  highlight(objectId, layout, refs, note) {
-    return theWindow().then((win) => requestHighlight(win, { objectId, layout, refs, ...(note ? { note } : {}) }))
+  highlight(objectId, layout, refs, note, strokes) {
+    return theWindow().then((win) => requestHighlight(win, { objectId, layout, refs, ...(strokes && strokes.length > 0 ? { strokes } : {}), ...(note ? { note } : {}) }))
   },
   query: queryObject,
   trial: trialObject,

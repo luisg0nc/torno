@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { BuildState } from '../../shared/build'
 import type { Described, SectionLoop, Sectioned } from '../../shared/geometry'
 import type { Mark, NewMark } from '../../shared/marks'
+import type { NamedSet } from '../../shared/sets'
 import type { Param, Part, Scene } from '../../shared/scene'
 import type { Camera, LookRequest, SectionDrawingRequest, ShowRequest, ViewState } from '../../shared/view'
 import { KernelError, type TrialResult } from '../kernel/client'
@@ -154,6 +155,42 @@ describe('measure', () => {
     expect(deps.queries).toEqual([{ name: 'measure', args: { kind: 'distance', a: { ref: 'assembly:tub/F5' }, b: { ref: 'assembly:tub/F0' } } }])
     const wrong = await measureTool(deps, 'box', { kind: 'distance', a: 'tub/@nope', b: 'tub/F0' })
     expect(wrong.isError).toBe(true)
+  })
+
+  describe('with a named set for an end', () => {
+    const F = (ref: string, state: 'ok' | 'lost' = 'ok') => ({ face: ref, point: [0, 0, 0] as [number, number, number], normal: [0, 0, 1] as [number, number, number], state })
+    const set = (slug: string, members: object[], layout = 'assembly'): NamedSet => ({ id: 'N1', name: slug, slug, comment: '', colour: 0, layout, by: 'person', createdAt: '', members }) as NamedSet
+    const sets = async (): Promise<NamedSet[]> => [set('top', [F('tub/F5')]), set('deck', [F('tub/F1'), F('tub/F2'), F('tub/F3')]), set('worn', [F('tub/F5'), F('tub/F6', 'lost')]), set('rim', [F('tub/F1')], 'print')]
+
+    it('measures a set of one face as that face, and tells which set it was', async () => {
+      const deps = fake(() => planes, { sets })
+      const result = await measureTool(deps, 'box', { kind: 'distance', a: '#top', b: 'tub/F0' })
+      expect(result.isError).toBeUndefined()
+      expect(deps.queries).toEqual([{ name: 'measure', args: { kind: 'distance', a: { ref: 'assembly:tub/F5' }, b: { ref: 'assembly:tub/F0' } } }])
+      expect(data(result).reading).toBe('6 mm between planes, tub/F5 (#top) to tub/F0')
+      const withPoint = fake(() => planes, { sets })
+      await measureTool(withPoint, 'box', { kind: 'distance', a: { ref: '#top', point: [1, 2, 3] }, b: 'tub/F0' })
+      expect(withPoint.queries[0].args).toMatchObject({ a: { ref: 'assembly:tub/F5', point: [1, 2, 3] } })
+    })
+
+    it('says what a set of one is when members were lost', async () => {
+      const result = await measureTool(fake(() => planes, { sets }), 'box', { kind: 'distance', a: '#worn', b: 'tub/F0' })
+      expect(data(result).reading).toBe('6 mm between planes, tub/F5 (#worn: 1 face (1 of 2 faces lost)) to tub/F0')
+    })
+
+    it('refuses a set of several faces, naming them, and asks the kernel nothing', async () => {
+      const deps = fake(() => planes, { sets })
+      const result = await measureTool(deps, 'box', { kind: 'distance', a: '#deck', b: 'tub/F0' })
+      expect(text(result)).toBe('#deck names 3 members, not one: tub/F1, tub/F2, tub/F3; name one of them')
+      expect(result.isError).toBe(true)
+      expect(deps.queries).toEqual([])
+    })
+
+    it('refuses a set of another layout, and a name no set has, or any set when the project has none', async () => {
+      expect(text(await measureTool(fake(() => planes, { sets }), 'box', { kind: 'area', a: '#rim' }))).toBe('#rim is of layout print: give layout "print"')
+      expect(text(await measureTool(fake(() => planes, { sets }), 'box', { kind: 'area', a: '#top2' }))).toBe('no named set #top2 (named sets: #top, #deck, #worn, #rim)')
+      expect(text(await measureTool(fake(() => planes), 'box', { kind: 'area', a: '#top' }))).toBe('no named set #top: the project has no named sets')
+    })
   })
 
   it('reads a diameter, a radius of a torus, an angle, and a wall with the point it was moved to', async () => {
