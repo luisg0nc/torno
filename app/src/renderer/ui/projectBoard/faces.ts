@@ -4,7 +4,7 @@ import { type Mark, markAnchors, markIntent } from '../../../shared/marks'
 import { checkText, type ModelCheck } from '../../../shared/modelChecks'
 import { sketchName, takeText } from '../../../shared/sketchText'
 import { said } from '../../../shared/params'
-import { type RoundsView, isHeld } from '../../../shared/reviews'
+import { ROUND_ID, type RoundsView, isHeld } from '../../../shared/reviews'
 import type { Param } from '../../../shared/scene'
 import type { ScanInfo } from '../../../shared/scans'
 import type { SavedView } from '../../../shared/views'
@@ -170,6 +170,11 @@ function checkLines(checks: readonly ModelCheck[] | undefined): Line[] {
 }
 
 /** What a card says, from the card and what the window knows of what it shows. */
+/** The round a frame is the frame of (main's own, `source: 'R1'`), for the way from the frame to the round's panel; undefined for any other card. */
+export function roundOfFrame(card: Card): string | undefined {
+  return card.kind === 'frame' && card.by === 'torno' && card.source !== undefined && ROUND_ID.test(card.source) ? card.source : undefined
+}
+
 export function faceOf(card: Card, facts: Facts): Face {
   switch (card.kind) {
     case 'mark':

@@ -107,3 +107,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   its choice is off. "Review this build" is in the Marks list (`ui/ReviewSummary.tsx`, which also lists the rounds), on the build
   row of the chat, and `marks.review`; the choice has `review.dont` and `review.want`, the key of the one chosen taking it back to
   plain. All three are scope `window`, and none is `[` or `]`.
+- **The follow-up of a round** (`ui/review/RoundPanel.tsx`, rows in `ui/review/rows.ts`). `reviewActions.openPanel(id)` (the "Open" of a round's row,
+  the bar's "Items", "Open" on the head of a round's board frame) shows the panel over the view: each item's chip, note and Claude's
+  `resolvedNote`, and for one the agent resolved OK (`marks:judge` `ok`) and Still wrong (a field for a note, then "Send back":
+  `still-wrong` with it, which moves the item into the next round). `acknowledged` without `judged` reads `OK (accepted)`; an item not
+  resolved says `Not answered yet`. With the panel up, `actions.compare(round.build, newest)` shows the reviewed build faint beside the
+  live one and `endCompare` ends it when the panel closes (only if it is still that comparing). Compare is off, with the words, when the
+  history has no entry of the round's id (`the build is no longer kept`), when that id has other `sources` (`the reviewed build is not
+  on this computer`) and when nothing was built since. "Start round N" (`{ carry }`) is offered for a round that was sent while none is
+  open; "Open again" (`{ reopen }`) and "Send as plain marks" (`{ plain }`) while it is unsent. The chip in the composer
+  (`ui/chat/ReviewChip.tsx`) shows while `sending` names a round, `Review of h41 · 3 − · 2 +`, with Remove (`{ plain }`); main clears
+  `sending` when the prompt is delivered, and a refused ask leaves it. The drafts of a round not sent are not in the "Goes with your next
+  prompt" line (`goingNext`).

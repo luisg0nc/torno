@@ -82,6 +82,9 @@ export function ReviewBar() {
         <span className="reviewbar-counts num" title="What the round has: marks you don't want, marks you want, and plain ones">
           {`${dont} ${INTENT_CHIP.dont} · ${want} ${INTENT_CHIP.want}${plain > 0 ? ` · ${plain} plain` : ''}`}
         </span>
+        <button type="button" className="bar-button" aria-label={`Open the panel of ${round.id}`} title="The items of the round, one by one" onClick={() => reviewActions.openPanel(round.id)}>
+          Items
+        </button>
         <button type="button" className="bar-button" title="End the round without sending it: its marks stay drafts, held, and it can be opened again from its panel" onClick={() => void reviewActions.end(round.id)}>
           End
         </button>

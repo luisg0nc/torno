@@ -31,6 +31,14 @@ afterEach(() => {
 })
 
 describe('the review bar', () => {
+  it('has a way to the panel of its round, which lists the items', () => {
+    reviewStore.setState({ rounds: [round()] })
+    store.setState({ marks: items })
+    const markup = html()
+    expect(markup).toContain('aria-label="Open the panel of R1"')
+    expect(plainText(markup)).toContain('Items')
+  })
+
   it('is nothing while no round is open', () => {
     reviewStore.setState({ rounds: [] })
     expect(html()).toBe('')

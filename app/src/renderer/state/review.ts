@@ -101,6 +101,16 @@ export const reviewActions = {
   async send(id: string): Promise<boolean> {
     return ask({ send: id })
   },
+  /** Opens a round that was ended and not sent again. */
+  async reopen(id: string): Promise<boolean> {
+    return ask({ reopen: id })
+  },
+  /** Starts the next round from a round that was sent: its Still wrong items are in it, and its bar opens. The panel of the round before is put away. */
+  async carry(id: string): Promise<boolean> {
+    const done = await ask({ carry: id })
+    if (done) set({ panel: null })
+    return done
+  },
   /** Lets the round go as plain marks: they are ordinary drafts, and it is never sent. */
   async plain(id: string): Promise<boolean> {
     return ask({ plain: id })
@@ -131,6 +141,20 @@ export const reviewActions = {
     if (objectId === null) return false
     try {
       await window.torno.marks.setIntent(objectId, id, intent)
+      set({ refused: null })
+      return true
+    } catch (e) {
+      set({ refused: said(e) })
+      return false
+    }
+  },
+
+  /** The person's verdict on what Claude did with an item of a round that was sent: OK, or Still wrong with a note of why, which puts it in the next round. */
+  async judge(id: string, verdict: 'ok' | 'still-wrong', note?: string): Promise<boolean> {
+    const objectId = state().objectId
+    if (objectId === null) return false
+    try {
+      await (note === undefined ? window.torno.marks.judge(objectId, id, verdict) : window.torno.marks.judge(objectId, id, verdict, note))
       set({ refused: null })
       return true
     } catch (e) {

@@ -118,3 +118,122 @@
 .intent-menu-list button[aria-checked='true'] {
   color: var(--accent);
 }
+
+/* ---- The follow-up of a round (ui/review/RoundPanel.tsx): over the part of the view no panel covers ---- */
+
+.round-panel-layer {
+  position: absolute;
+  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
+  /* Only the panel takes the pointer: beside it the view is the person's. */
+  pointer-events: none;
+  z-index: 5;
+}
+
+.round-panel {
+  position: absolute;
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
+  right: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(360px, calc(100% - 2 * var(--space-3)));
+  max-height: calc(100% - var(--switch-h) - 3 * var(--space-3));
+  padding: var(--space-3);
+  overflow-y: auto;
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  pointer-events: auto;
+}
+
+.round-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.round-panel-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-size);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.round-panel-line,
+.round-panel-compare {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.round-panel-compare[data-compare='off'] {
+  color: var(--muted);
+}
+
+.round-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.round-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--space-2);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+}
+
+.round-item-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.round-item-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* What Claude said it did: the agent's, said after its name in the muted face. */
+.round-item-answer {
+  color: var(--ink);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.round-item-by {
+  color: var(--muted);
+}
+
+.round-item-said {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.round-item[data-said='Still wrong'] .round-item-said {
+  color: var(--fail);
+}
+
+.round-item-actions,
+.round-panel-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.round-item-wrong {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.round-item-field {
+  width: 100%;
+  resize: vertical;
+}

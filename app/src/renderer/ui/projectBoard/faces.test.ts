@@ -3,7 +3,7 @@ import type { Card } from '../../../shared/board'
 import type { Mark } from '../../../shared/marks'
 import type { ScanInfo } from '../../../shared/scans'
 import type { Round } from '../../../shared/reviews'
-import { faceOf, PICTURE_MISSING, refPieces } from './faces'
+import { faceOf, PICTURE_MISSING, refPieces, roundOfFrame } from './faces'
 
 const card = (over: Partial<Card>): Card => ({ id: 'C1', kind: 'text', x: 0, y: 0, w: 200, h: 100, by: 'person', ...over })
 const pin = (over: Partial<Mark> = {}): Mark =>
@@ -242,5 +242,18 @@ describe('a mark of a review', () => {
     expect(faceOf(c, { mark: note }).lines.at(-1)).toEqual({ text: 'OK in h42', tone: 'ok' })
     const sketch = { ...pin({ id: 'M8' }), intent: 'want', judged: { verdict: 'still-wrong', build: 'h42' }, kind: 'sketch', name: '', strokes: [], take: 'sketched' } as unknown as Mark
     expect(faceOf(c, { mark: sketch }).lines.at(-1)).toEqual({ text: 'Still wrong', tone: 'fail' })
+  })
+})
+
+describe('the frame of a round', () => {
+  const frame = (over: Partial<Card> = {}): Card => ({ id: 'C1', kind: 'frame', x: 0, y: 0, w: 10, h: 10, by: 'torno', source: 'R1', name: 'Review of h41', ...over })
+  it('names its round, the way to the panel', () => {
+    expect(roundOfFrame(frame())).toBe('R1')
+  })
+  it('is no round\'s when the person made it, or it is a card of another kind, or its source is not a round', () => {
+    expect(roundOfFrame(frame({ by: 'person' }))).toBeUndefined()
+    expect(roundOfFrame(frame({ kind: 'text' }))).toBeUndefined()
+    expect(roundOfFrame(frame({ source: 'brief' }))).toBeUndefined()
+    expect(roundOfFrame(frame({ source: undefined }))).toBeUndefined()
   })
 })

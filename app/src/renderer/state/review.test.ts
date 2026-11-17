@@ -18,6 +18,7 @@ function fake(answer: RoundsView = { rounds: [], sending: null }) {
     rounds: vi.fn(async () => answer),
     add: vi.fn(async (objectId: string, mark: NewMark) => (added.push({ objectId, mark }), { ...mark, id: 'M1' } as unknown as Mark)),
     setIntent: vi.fn(async () => ({}) as Mark),
+    judge: vi.fn(async () => ({}) as Mark),
     roundOut: vi.fn(async () => ({}) as Mark),
     onChanged: vi.fn(() => () => {})
   }
@@ -102,6 +103,42 @@ describe('the round and what is asked of main', () => {
     await reviewActions.plain('R1')
     expect(asked).toEqual([{ end: 'R1' }, { send: 'R1' }, { plain: 'R1' }])
     expect(reviewStore.getState().sending).toBe('R1')
+  })
+
+  it('opens a round that was ended again, and starts the next round from a sent one, by its id', async () => {
+    const { asked } = fake({ rounds: [round({ endedAt: 'x', sentAt: 'y' }), round({ id: 'R2', from: 'R1' })], sending: null })
+    reviewStore.setState({ panel: 'R1' })
+    expect(await reviewActions.reopen('R2')).toBe(true)
+    expect(await reviewActions.carry('R1')).toBe(true)
+    expect(asked).toEqual([{ reopen: 'R2' }, { carry: 'R1' }])
+    // The bar of the next round is what shows now: the panel of the one before is put away.
+    expect(reviewStore.getState().panel).toBeNull()
+  })
+
+  it('keeps the panel when the next round was refused', async () => {
+    vi.stubGlobal('window', { torno: { marks: { round: async () => Promise.reject(new Error('A build is running: review the build once it lands.')) } } })
+    reviewStore.setState({ rounds: [round({ sentAt: 'y' })], panel: 'R1' })
+    expect(await reviewActions.carry('R1')).toBe(false)
+    expect(reviewStore.getState().panel).toBe('R1')
+    expect(reviewStore.getState().refused).toContain('A build is running')
+  })
+
+  it('judges an item OK with no note, and Still wrong with the note, as the verdict of the person', async () => {
+    const { marks } = fake()
+    expect(await reviewActions.judge('M1', 'ok')).toBe(true)
+    expect(await reviewActions.judge('M2', 'still-wrong', 'the rib is back')).toBe(true)
+    expect(await reviewActions.judge('M3', 'still-wrong')).toBe(true)
+    expect(marks.judge.mock.calls).toEqual([
+      ['bracket', 'M1', 'ok'],
+      ['bracket', 'M2', 'still-wrong', 'the rib is back'],
+      ['bracket', 'M3', 'still-wrong']
+    ])
+  })
+
+  it('says why main would not take a verdict', async () => {
+    vi.stubGlobal('window', { torno: { marks: { judge: async () => Promise.reject(new Error('M1 was not resolved by the agent: there is nothing to judge')) } } })
+    expect(await reviewActions.judge('M1', 'ok')).toBe(false)
+    expect(reviewStore.getState().refused).toContain('nothing to judge')
   })
 
   it('says why main refused, and changes nothing', async () => {
