@@ -1179,7 +1179,9 @@ describe('a chat session', () => {
     expect(items().filter((i) => i.kind === 'text').map((i) => (i as { text: string }).text)).toContain('banana')
     expect(items().filter((i) => i.kind === 'text').map((i) => (i as { text: string }).text)).toContain('cherry')
     await expect.poll(() => c.statuses.at(-1)).toBe('idle')
-    expect(c.messages.filter((m) => m.type === 'command_lifecycle' && m.state === 'completed')).toHaveLength(3)
+    // The CLI says `completed` after the turn's `result`, on lines of their own: they may come in a later read of
+    // the pipe than the result, and the idle came before both (from the Stop hook).
+    await expect.poll(() => c.messages.filter((m) => m.type === 'command_lifecycle' && m.state === 'completed').length).toBe(3)
   })
 
   it('is idle after a prompt that is no turn, followed by one that is: no result is waited for', async () => {
