@@ -88,8 +88,8 @@ function Checked({ checked }: { checked: ExportChecked }) {
  */
 export function ExportSheet({ onOpen }: { onOpen: (id: string, ticked: string[]) => void }) {
   const of = useStore((s) => s.exportOf)
-  if (of === null) return null
   const tracing = useStore((s) => s.exportTracing)
+  if (of === null) return null
   return <Sheet key={`${of === 'all' ? 'all' : of.join('\n')}\0${tracing ?? ''}`} of={of} tracing={tracing} onOpen={onOpen} />
 }
 

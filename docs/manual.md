@@ -1974,7 +1974,7 @@ outline (clear of the panel at the top left: on a narrow window it goes right of
 
 The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
 tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
-(the Section bar has **Make a tracing of this cut** too), or on a face: the view goes to the model, and the next flat face you
+(the Section bar has **Make a tracing** too, which lays the cut flat), or on a face: the view goes to the model, and the next flat face you
 select is the tracing's (a face that is not flat is refused, in words). The panel at the top left says its name (**Rename** and
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and

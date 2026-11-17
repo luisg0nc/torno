@@ -229,10 +229,10 @@ export function SectionBar({ viewport }: { viewport: Viewport }) {
             type="button"
             className="bar-button"
             disabled={nothingLeft}
-            title="Lay this cut flat at true size, as a tracing you can draw on and export"
+            title="Make a tracing of this cut: lay it flat at true size, to draw on and export"
             onClick={() => void tracingActions.make({ section: true })}
           >
-            Make a tracing of this cut
+            Make a tracing
           </button>
         </>
       )}
