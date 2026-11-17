@@ -91,6 +91,8 @@ export interface TracingExtras {
   /** The grid under the outline: every 1 mm (faint) and every 10 mm (stronger), or every 10 mm alone. */
   grid?: 1 | 10
   forScreen?: true
+  /** With `forScreen`: the box (what Fit frames) holds the outline and what is drawn on it, not a photo larger than they are; the photo frames it only when there is nothing else. */
+  frameOutline?: true
   /** `v` runs up the sheet whichever way the plane's `y` points in the world: a sheet seen from the front of the plane, as a photo of it is (the line-up's). */
   vUp?: true
 }
@@ -245,7 +247,10 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
       } else if (shape.kind === 'label') grow(shape.at)
     }
   }
-  if (photo) {
+  // With `frameOutline` the box is the outline's and what is drawn on it, not the photo's: a photo lined up from far away can be many times
+  // larger than the part, and Fit would show a speck. It frames the photo only when there is nothing else (no outline, no layer, no dimension).
+  const nothingElse = cut.bounds === null && lines.length === 0 && layers.every((l) => l.shapes.length === 0)
+  if (photo && (extras.frameOutline !== true || nothingElse)) {
     grow(photo.rect.min)
     grow(photo.rect.max)
   }

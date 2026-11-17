@@ -25,11 +25,18 @@ export function pictureOf(t: Pick<Tracing, 'photo'>, photos: Readonly<Record<str
 /** What the glue needs of the viewport, and of the browser. */
 export interface Tracings3DDeps {
   viewport: { setTracings(shown: readonly ShownTracing[]): void }
-  /** A picture by its address; the default reads it through `fetch` and `createImageBitmap`. */
+  /** A picture by its address; the default reads it through an `<img>` and `createImageBitmap`. */
   decode?: (url: string) => Promise<ImageBitmap>
 }
 
-const decodeUrl = async (url: string): Promise<ImageBitmap> => createImageBitmap(await (await fetch(url)).blob())
+// Through an `<img>`, not `fetch`: the window's policy lets an image load a `blob:` address (`img-src`), and `fetch` of one is refused (`connect-src` is `'self'`).
+const decodeUrl = (url: string): Promise<ImageBitmap> =>
+  new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => createImageBitmap(image).then(resolve, reject)
+    image.onerror = () => reject(new Error('The picture could not be read'))
+    image.src = url
+  })
 
 /**
  * Keeps the viewport drawing the tracings shown in 3D. Reads the store and the tracings' own at each change and gives the viewport the list, unless

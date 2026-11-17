@@ -181,7 +181,7 @@ export function TracingView() {
         tracing: { id: tracing.id, name: tracing.name, plane: tracing.plane.label },
         ...(shown ? { photoSaid: shown.said } : {})
       },
-      { forScreen: true, layers: tracing.layers, marks: marks.filter((m) => m.tracing === tracing.id), ...(shown ? { photo: shown.photo } : {}) }
+      { forScreen: true, frameOutline: true, layers: tracing.layers, marks: marks.filter((m) => m.tracing === tracing.id), ...(shown ? { photo: shown.photo } : {}) }
     )
   }, [tracing, cut, marks, explode, objectId, photos])
   down.current = drawing?.down ?? false

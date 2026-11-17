@@ -61,3 +61,12 @@ export async function readPhoto(dir: string, name: string): Promise<Uint8Array |
     return null
   }
 }
+
+/**
+ * Whether a tracing's photo is on this computer: its file is in the photos folder and is the file the tracing names (its hash), which
+ * is what `tracings:photoBytes` serves. What the agent is told of the photo is this check, never an assumption.
+ */
+export async function photoHere(dir: string, photo: { file: string; sha256: string }): Promise<boolean> {
+  const bytes = await readPhoto(dir, photo.file)
+  return bytes !== null && sha256Of(bytes) === photo.sha256
+}

@@ -40,8 +40,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   a chat's log for `chat/`, an export for `exports/`, a picture for `views/`, the builds' record for `builds.jsonl`, the overrides of
   `Params` for `params.json`, the board's record of what the agent was told for `board/told.json`, the tracings' for `tracings/told.json` and the
   board's pictures for `board/pictures/` (that folder has a `.gitignore` of its own). What is the
-  object's travels: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `profile.json`, `agent.json`, `board/board.json` (the cards, frames and
-  arrows of the board; its pictures stay on the computer).
+  object's travels: `scene.json`, `marks.json`, `sets.json`, `scans.json`, `tracings.json` (the tracings, their layers and the line-up of each photo), `profile.json`, `agent.json`, `board/board.json` (the cards, frames and
+  arrows of the board; its pictures stay on the computer). The tracings' photos (`tracings/photos/`, with a `.gitignore` of `*`) and `tracings/told.json` stay on the computer: a tracing opened on another one says `the photo is not on this computer` and still tells its line-up (`tracings.md`).
 - **`.torno` is named in one module, `src/main/own.ts`** (`FOLDER`), and every write under it goes through
   `ownTorno(dir)` first (`writeOwn` for a file written whole): a link or a file in its place is refused with a
   plain reason, nothing is written, and the person is told once for each object, in the Marks panel

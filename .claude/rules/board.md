@@ -12,10 +12,6 @@ paths:
   - "app/src/renderer/ui/chat/boardLine.ts"
   - "app/src/renderer/ui/chat/boardLine.test.ts"
   - "app/src/renderer/styles/board.css"
-  - "app/src/renderer/styles/tracings.css"
-  - "app/src/renderer/state/tracings.ts"
-  - "app/src/renderer/state/tracings.test.ts"
-  - "app/src/renderer/ui/tracings/**"
   - "app/e2e/board.spec.ts"
 ---
 
@@ -133,40 +129,13 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   drawing, a text edits and a frame renames (the person's only). The "Pin to board" buttons ask main (`pinToBoard`), which
   decides.
 
-## The third view: Tracing (`ui/tracings/`, `state/tracings.ts`)
+## The third view: Tracing, and its card
+
+The Tracing view, its sheet, layers, photo line-up and tools are in `tracings.md`. What the board holds of it is here.
 
 - The main area's switch is **Board | Model | Tracing**: `Shown` is `'board' | 'model' | 'tracing'`, remembered per project as the
   other two are. `board.swap` (`Ctrl+Tab`) goes board, model, tracing, board (`swapped`), and passes over Tracing in a project with
   none (`hasTracing`); a project left on a tracing that its first read finds gone opens on the model, the choice kept. Whatever is
   not the model covers it: the 3D view stays mounted, stops drawing (`boardShown` is "not the model") and the review and set keys
   are not heard. `viewKey` stops the view's keys in the tracing as in the board.
-- `state/tracings.ts` (`useTracings`) holds what main last said of `tracings.json`, which tracing is open, the kernel's outline of each
-  one asked for (`tracings:outline`, `tracings:changed`) and `building`; it tells main which tracing is shown (`tracings:shown`, from
-  the open one while the view is on a tracing). **Everything the window changes goes through main** (`tracingActions`: `make`,
-  `rename`, `setParts`, `remove` with `undoRemove` by `restore`); a refusal is said in main's words (`refused`). A tracing on a face
-  waits for one flat face in the selection (`facePicked`) with the model shown, and main refuses a curved one.
-- The sheet is `ui/tracings/Sheet.ts`, a plain class like the board's camera: a transform set directly on the SVG layer, in
-  millimetres of the plane from its origin, `y` down the screen (what `tracingSvg(…, { forScreen: true })` draws); `1:1` is one CSS
-  millimetre for a millimetre (`PX_PER_MM`). **No per-frame state in React**: pan, zoom, the pointer readout, the scale bar and the zoom
-  text are written on elements, and the layer counts its renders under test (`__tornoTracingRenders`). Lines are
-  `vector-effect: non-scaling-stroke` in `styles/tracings.css`; the drawing's colours are tokens only.
-- The sheet's mm grid is not in the drawing: `Grid` (`TracingView.tsx`) is an SVG of two tilings and the `u = 0`, `v = 0` lines over the
-  whole stage, painted in pixels by `gridPaint.ts` from where the sheet stands (1 mm from 3 px a millimetre, 10 mm, 100 mm when far out),
-  so it covers what is seen however the sheet is moved; `tracingSvg`'s `grid` option is for a file and the view does not pass it.
-- Layers are `LayerRows` in the panel: colour, name, shape count, `by Claude`, an eye for any layer, Remove and the ring "trace into" on
-  the person's own only (`Layer.by`). `tracingActions`: `addLayer` (never replaces: the window checks the name is free, case apart, and
-  main refuses one that is another's), `hideLayer`, `removeLayer` (the window refuses Claude's) with `undoRemoveLayer` (`{ restore: id }`: the store keeps the
-  last 20 layers removed in this run, whole, and puts one back with the number it had, which offsets name; refused when the name was taken meanwhile), `addShape`. A finished shape is one `tracings:layer` `{ edit, shapes: [...own, new] }`;
-  shapes and layer changes are **queued** so that each is built on the layer as the one before left it. `traceTarget` is the layer
-  traced into: the one ringed when it is the person's and there, else their last, never Claude's.
 - **A tracing is a card of torno's own** (`kind: 'tracing'`, in `AUTO_KINDS`, `source: 'T1'`, `by: 'torno'`): `Found.tracings` (from `TracingStore.list`, read by `follow.ts`; the store's `changed` runs the reconcile) makes it in a free spot (`CARD_SIZE.tracing`), removing it only hides it, and it goes with its tracing; an unreadable tracings file leaves the board as it is. The face (`faces.ts` `tracingFace`) is the name, the plane without its axes, `3 layers` (`· 5 marks` once marks on a tracing are told) and "build to see the outline" while the window has no outline; the drawing is `TracingPicture.tsx`, from `tracingSvg` (`forScreen`, layers, no grid, no marks, no file written), asking main for the outline once per card and again when the plane or the parts change (`cutKey`). `shownIds(shown, open, board)` tells main the tracings of the visible cards while the board is shown, so each build cuts them again. A double click opens `{ does: 'tracing', id }`: `tracingActions.open` and the Tracing view. The board text is `C9 · tracing T1 "Front of the block"[ · in Frame]: XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)` (`tracingSaid`, with `LiveFacts.tracings`), and `saysHash` is that line, so a name, plane, layer count or line-up is news to Claude and a fade, a move or a resize is not.
-- **The photo** (`ui/tracings/`, `state/tracings.ts`): Add photo is a drop on the sheet, `tracingActions.choosePhoto` (`objects.pickPhotos` and `readPhoto`) or `addReference` (a `reference/` card of an image, `board.reference`); `preparePhoto.ts` decodes with the EXIF turn applied and scales to at most 4000 px (a PNG stays a PNG unless over 24 MB), main checks and names it (`tracings:photo`). `LineUp.tsx` covers the view (`state.lining`, scope `lineup` in `shared/keys.ts`: `S`, `Backspace`, `Enter`, `Esc`): two `LineupPane`s (a `Sheet` each; the photo's y down in its pixels, the tracing with **`v` up whatever way the plane's axes point**, because `shared/lineup.ts` takes a photo's y down to `v` up, and `tracingSvg`'s `vUp` draws it so), clicks held by `LineupTool` (no DOM: pairs in photo-then-tracing order, a swapped photo keeps the tracing side and asks only for the photo's, 2 pairs or 4 with Straighten), snaps through `snapAt` (a vertex only projected is not offered; a snap goes to main as `corner` by place, `centre` by edge or place, `vertex` by ref). Markers, bar, preview (the photo as a `matrix3d` of the live fit, faded, in the tracing's layer) and Done are written on the elements, never React state; Done is `tracings:lineUp`, which main fits again. The straightened copy is `warpPixels` (`warpCore.ts`: inverse mapping, bilinear, top row at the greatest `v`, clear where the photo does not cover) run in `warp.worker.ts` through `warp.ts`, at the photo's own px/mm and at most 4000 px, placed by `photoRect` (`shared/lineup.ts`) in mm; `tracingActions.sync(id)` reads the pictures (object URLs in `state.photos` by file name, revoked when no tracing names the file) and remakes the copy when this computer has the photo and not the copy (`tracings:straightened` names the photo and `transformKey`), once at a time for a tracing. `photoDrawn` is the one place the view, the card (`TracingPicture`, `sync(id, false)`: no read of the photo itself) and the export get the photo from. A hidden photo is drawn nowhere but the export when ticked. In a sheet whose `v` runs down, `tracingSvg` turns the photo about its middle so its top row stays at the greatest `v`.
-- **Fit leaves the outline clear of the panel**: `Sheet.fit({ right, bottom })` is given the panel's right and bottom edges on the stage (`clearOfPanel` in `TracingView.tsx`); when the box would lie under that corner it is fitted into the room right of the panel or below it, whichever allows the larger zoom. **Export** on the panel opens the sheet on that tracing (`actions.exportSheet(of, tracing)`, `exportTracing`: the SVG kind with its drawing chosen).
-- The layers' colours are the `--layer-*` tokens (`shared/tracings.ts` `LAYER_COLOURS`): the window draws a layer by its class
-  (`tr-layer-<colour>` sets `color`, shapes use `currentColor`); a file takes `LAYER_INKS`, which `contrast.test.ts` holds to the light
-  tokens. None is red or green.
-- The tools: `Palette.tsx` (Select, Trace live; Pin, Ink, Measure, Should be here wait), `tool` and `trace` in the store, keys of scope
-  `tracing`. **Trace** is `traceTool.ts` (a class, no DOM: `click`, `end`, `back`, `cancel`, `text`, `elements` for the draft) and
-  `snap.ts` (`snapAt`: 10 px, `Ctrl` is none, corners then centres then plain then projected vertices at the same place). What is under
-  way is drawn on `.tr-draft`, written on the element from the pointer, never state; only a label's field is React state. With Trace a
-  left press that moves under 4 px is a click, a longer one pans. A free click is kept to 1e-4 mm, a snapped one in full.

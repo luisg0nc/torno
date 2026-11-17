@@ -6,6 +6,8 @@ paths:
   - "kernel/src/torno_kernel/measure.py"
   - "kernel/src/torno_kernel/checks.py"
   - "kernel/src/torno_kernel/describe.py"
+  - "kernel/src/torno_kernel/section.py"
+  - "kernel/tests/test_section.py"
   - "kernel/tests/test_extent.py"
   - "kernel/tests/test_tess.py"
   - "kernel/tests/test_printable.py"
@@ -84,3 +86,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   and the distance of its point; else `lost`. A form whose search ties, or runs past `REFIND_BUDGET` (20 s), picks nothing: the
   members not looked at come back `lost` with `unchecked: true`, which is told, never taken for found. Both are asked of the last
   build only, in the object frame of a layout (`kernel-diagnose` has the same search for `describe`; `sets` is main's side).
+- **`section` takes the caller's axes and gives the cut's snap points** (`section.py`, for a tracing; the agent's `section` tool passes neither). `axes: {x, y}` is the
+  caller's own frame for the plane: each three finite numbers, unit, at right angles within 1e-6 and `x × y` the unit normal within 1e-6, else `bad_request`; without it the
+  fallback frame is unchanged, so a section export is as it was. `snaps: true` (a bool, else `bad_request`) adds to each loop of a solid, and to the closed and open loops of a
+  non-solid, `corners` (the oriented vertices of each cut edge as `[u, v]`, deduped at 1e-6; a circle closed on itself has none) and `circles` (`{centre, radius}` of each cut edge that is a
+  circle, with `edge: "E<i>"` when a circular model edge of the same centre and radius, whose axis is along the normal and on which the cut edge's middle lies, exists: the index is
+  `topo.edges`'s, with no part name, the loop's part being the part). Circles that name the same edge are told once. These are the B-rep's own points, so they are exact; without
+  `snaps` neither key is written and the reply is byte for byte what it was. They are what a tracing snaps to and what a span's exactness is judged against (`tracings.md`).

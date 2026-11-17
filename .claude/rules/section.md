@@ -64,3 +64,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   is the resize cursor nearest to the way its arrow points on screen
   (`handleCursor`), and `ns-resize` where the view looks along the normal and
   the drag goes by the pointer's height.
+- **Make a tracing of this cut** (`ui/SectionBar.tsx`, the bar's "Make a tracing"): the section on screen laid flat as a tracing, frozen where it was cut (`tracings:make` with
+  `{ section: true }`, `main/tracings/planes.ts` `sectionFrame`). Main asks the kernel for the plane's own axes (`section` without a tracing's `axes`) and the tracing keeps that frame, so
+  its outline matches the section export of the same plane. It is a tracing of the layout on view, refused when the section is of another; it does not follow the section when the bar moves it
+  afterwards, and it never changes the view's section (`tracings.md`). The bar's label is the short "Make a tracing" so that the plane's field keeps its room.

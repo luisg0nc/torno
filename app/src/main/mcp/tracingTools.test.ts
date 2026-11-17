@@ -362,6 +362,19 @@ describe('tracings', () => {
         expect(json(r).picture.photo).toBe('under the outline at fade 0.5; not exact, and true only in the tracing\'s plane')
       })
 
+      it('tells the photo is here when its file is in the photos folder, and that it is not on this computer when the file is gone', async () => {
+        await lined()
+        const here = json(await tracingsTool(deps, 'bracket', { tracing: 'T1' }))
+        expect(here.photo.here).toBe(true)
+        expect(here.text).not.toContain('not on this computer')
+        const file = (await store.list('bracket')).tracings[0].photo!.file
+        rmSync(join(dir, '.torno', 'tracings', 'photos', file))
+        const gone = json(await tracingsTool(deps, 'bracket', { tracing: 'T1' }))
+        expect(gone.photo.here).toBe(false)
+        expect(gone.text).toContain('the photo is not on this computer; ')
+        expect(gone.text).toMatch(/not exact/)
+      })
+
       it('leaves a hidden photo out of the request and says so', async () => {
         await lined()
         await store.setLook('bracket', 'T1', { hidden: true })

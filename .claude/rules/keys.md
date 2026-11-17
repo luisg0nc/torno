@@ -112,4 +112,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`useSetKeys`, `ui/sets/MakeSet.tsx`), it opens the popover (name, comment, colour; `Enter` makes it, `Esc` leaves), and with nothing selected says
   `Select faces, edges, parts or strokes first` in the status line (`data-notice="sets"`). It is a `window` key, so no other row has it in any
   scope; the popover's hint is `hint('set.make')`, never `Ctrl+G` written out. The select scope Set has no key of its own.
-
+- **`board.swap`** (`Ctrl+Tab`, scope `window`) goes Board, Model, Tracing and back to Board, and passes over Tracing in a project with no tracing (`swapped`, `state/board.ts`).
+  **The `tracing` scope** is heard only while the Tracing view is shown (`ui/tracings/TracingView.tsx`, which also stops the view's own keys, `viewKey`): fit and 1:1 (`Shift+1`, `Shift+0`), the
+  tools (`V` Select, `T` Trace, `P` Pin, `I` Ink, `M` Measure, `O` Should be here), the arrows that nudge a shape (`tracing.nudge`, which is four keys in one row), and `Enter`, `Backspace`,
+  `Ctrl` (snapping off), `Esc`, `Delete` and `Ctrl+Z` for what is under way. **The `lineup` scope** is the photo's line-up, which covers the view while it is open (`S`, `Backspace`, `Enter`,
+  `Esc`): its rows are `tracing.*` ids in the scope `lineup`, so a key the tracing scope has too (`Backspace`, `Enter`, `Esc`) is not heard twice. Neither scope takes a key of another scope
+  with the same chord (`keyClashes`), and the buttons and hints take their keys from `hint()`, never written out. The tests of `tools/*.test.ts` and `keys.test.ts` hold the table, and the
+  manual's key table is generated from it (`readme.test.ts`).

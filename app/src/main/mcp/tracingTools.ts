@@ -2,6 +2,7 @@ import { number } from '../../shared/format'
 import { LINEUP_CLOSING, photoRect } from '../../shared/lineup'
 import { LAYER_COLOURS, type Tracing, TRACING_ID, type TracingPictureRequest } from '../../shared/tracings'
 import { checkedImage } from '../images'
+import { photoHere } from '../tracings/photos'
 import { tracingData, tracingsList } from '../tracings/text'
 import { unknownKeys } from './keys'
 import { type AddLayerArgs, type AddTracingArgs, type TracingsArgs, NO_TRACING_PLANE } from './schemas'
@@ -56,7 +57,10 @@ export async function tracingsTool(deps: ToolDeps, objectId: string, args: Traci
   }
   // The marks on it, by id: told when the marks can be read.
   const onIt = (await deps.marks?.(objectId).catch(() => undefined))?.filter((m) => m.tracing === id).map((m) => m.id)
-  const facts = { ...('cut' in found ? { cut: found.cut } : { cut: null, cutWhy: found.why }), ...(onIt === undefined ? {} : { marks: onIt }) }
+  // Whether the photo is on this computer is looked for, not assumed: the file travels with no one, and the line-up does.
+  const dir = deps.object(objectId)?.dir
+  const here = t.photo === undefined ? undefined : dir !== undefined && (await photoHere(dir, t.photo).catch(() => false))
+  const facts = { ...('cut' in found ? { cut: found.cut } : { cut: null, cutWhy: found.why }), ...(onIt === undefined ? {} : { marks: onIt }), ...(here === undefined ? {} : { photoHere: here }) }
   const data = tracingData(t, facts)
   if (args.picture !== true) return json({ ...of, ...data })
 

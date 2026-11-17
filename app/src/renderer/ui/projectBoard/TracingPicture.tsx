@@ -23,7 +23,7 @@ export function TracingPicture({ objectId, id }: { objectId: string; id: string 
   const drawn = useMemo(() => {
     if (tracing === undefined || cut === null) return null
     const shown = photoDrawn(tracing, photos)
-    return tracingSvg(cut.cut, { object: objectId, layout: tracing.layout, revision: cut.revision, date: new Date(0), marks: [], tracing: { id: tracing.id, name: tracing.name, plane: tracing.plane.label } }, { forScreen: true, layers: tracing.layers, ...(shown ? { photo: shown.photo } : {}) })
+    return tracingSvg(cut.cut, { object: objectId, layout: tracing.layout, revision: cut.revision, date: new Date(0), marks: [], tracing: { id: tracing.id, name: tracing.name, plane: tracing.plane.label } }, { forScreen: true, frameOutline: true, layers: tracing.layers, ...(shown ? { photo: shown.photo } : {}) })
   }, [tracing, cut, objectId, photos])
   if (drawn?.box === undefined) return null
   const [x, y, w, h] = drawn.box

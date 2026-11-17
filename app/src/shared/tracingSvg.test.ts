@@ -173,6 +173,22 @@ describe('tracingSvg', () => {
       expect(grown.box![2]).toBeGreaterThan(plain.box![2] + 40)
     })
 
+    it('frames the outline on the screen, not a photo far larger than it, while a file still holds the photo', () => {
+      const href = `data:image/png;base64,${'A'.repeat(8)}`
+      const huge = { photo: { href, rect: { min: [-900, -700] as [number, number], max: [1100, 800] as [number, number] }, fade: 0.5 } }
+      const plain = tracingSvg(square(), sheet, { forScreen: true })
+      expect(tracingSvg(square(), sheet, { ...huge, forScreen: true, frameOutline: true }).box).toEqual(plain.box)
+      expect(tracingSvg(square(), sheet, { ...huge, forScreen: true }).box![2]).toBeGreaterThan(2000)
+      expect(tracingSvg(square(), sheet, huge).width).toBeGreaterThan(tracingSvg(square(), sheet).width + 1000)
+    })
+
+    it('frames the photo on the screen when there is nothing else to frame', () => {
+      const href = `data:image/png;base64,${'A'.repeat(8)}`
+      const none = { ...square(), bounds: null, parts: [] } as unknown as ReturnType<typeof square>
+      const out = tracingSvg(none, sheet, { photo: { href, rect: { min: [-30, -20], max: [30, 20] }, fade: 0.5 }, forScreen: true, frameOutline: true })
+      expect(out.box).toEqual([-34, -24, 68, 48])
+    })
+
     it('draws a pin with its note beside its id, on the screen and in the file', () => {
       const pin = { ...base, id: 'M4', kind: 'pin', author: 'user', tracing: 'T1', note: 'too thin here', anchor: { point: [10, 5, 5] } } as unknown as PinMark
       expect(tracingSvg(square(), sheet, { marks: [pin] }).svg).toContain('M4 too thin here')
