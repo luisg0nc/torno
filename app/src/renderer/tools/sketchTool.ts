@@ -387,6 +387,12 @@ export function sketchTool(): Tool {
         askOffset()
         return true
       }
+      // X shows or hides the cut the view already has, and the sketch goes on; a new cut is made by picking Section, which ends it.
+      if (pressed(e, 'tool.section')) {
+        const cut = store.getState().section
+        if (cut) ctx.viewport.setSection?.(ctx.viewport.getSection?.() ? null : cut)
+        return true
+      }
       if (pressed(e, 'sketch.xray')) {
         setXray(!state.xray)
         return true
@@ -430,6 +436,9 @@ export function sketchTool(): Tool {
       now = ctx
       forget(ctx)
       ctx.viewport.setSketch?.({ plane: null, cube: null })
+      // A cut the sketch hid is shown again.
+      const cut = store.getState().section
+      if (cut && !ctx.viewport.getSection?.()) ctx.viewport.setSection?.(cut)
       // The tool is put down for another: what was drawn is kept, and the card has its picture.
       void finishSketch()
     }

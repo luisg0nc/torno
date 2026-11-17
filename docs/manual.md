@@ -1357,6 +1357,9 @@ foot; both are there while the sketch is open.
 - **How to take it.** **Exact** (follow these points to the millimetre), **Rough** (the shape and the place matter, not
   the points) or **Flow** (a route: follow its path loosely, and keep its diameter clear). `K` goes to the next. A flow
   has a diameter, 500 mm at most, and is drawn as a translucent tube along its strokes.
+- **The view's keys.** Fit, `1` to `4`, explode and orthographic work while you sketch. `X` shows or hides the cut the
+  view already has, and the sketch stays open; with no cut it does nothing. A new cut is made by picking Section in the
+  palette, which ends the sketch as Done.
 - **The panel.** The sketch's number and whether it is a draft or sent, its name, how to take it, a row for each plane
   with how many strokes lie on it and one for the surface (a click makes it the one strokes go on; the pointer on it
   lights its strokes), the offset, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`

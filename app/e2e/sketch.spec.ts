@@ -111,6 +111,11 @@ test('D opens a sketch: the panel and the pens are over the view, and nothing is
   await pens().getByRole('button', { name: /^Free/ }).click()
   await expect(pens().getByRole('button', { name: /^Free/ })).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.press('l')
+  // X shows or hides the view's cut and is not the Section tool's while sketching: with no cut it does nothing, and the sketch stays open.
+  await page.keyboard.press('x')
+  await expect(tool('Draw')).toHaveAttribute('aria-pressed', 'true')
+  await expect(tool('Section')).toHaveAttribute('aria-pressed', 'false')
+  await expect(panel()).toBeVisible()
   // Nothing is written until the first stroke.
   expect(sketches()).toHaveLength(0)
 })

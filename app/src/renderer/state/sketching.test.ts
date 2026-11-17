@@ -226,6 +226,66 @@ describe('the fields', () => {
     expect(f.calls[0]).toMatchObject({ id: 'M1', name: 'Br' })
   })
 
+  it('sends what is waiting when the sketch is let go, a typed field or what queued behind a send', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    startSketch('bracket')
+    addStroke(line(0))
+    await settled()
+    f.calls.length = 0
+    setName('Hose')
+    leaveSketch()
+    await settled()
+    expect(sketchStore.getState().open).toBeNull()
+    expect(f.calls).toHaveLength(1)
+    expect(f.calls[0]).toMatchObject({ id: 'M1', name: 'Hose' })
+    // Nothing waits any more: the timer is gone.
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(f.calls).toHaveLength(1)
+  })
+
+  it('sends what queued behind a send in the air when the sketch is let go', async () => {
+    let release: () => void = () => {}
+    const calls: SketchDraft[] = []
+    const f = fake({})
+    const slow: SketchEnv['marks']['sketch'] = async (d) => {
+      calls.push(structuredClone(d))
+      if (calls.length === 2) await new Promise<void>((r) => (release = r))
+      return { ...d, kind: 'sketch', id: d.id ?? 'M1', author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' } as unknown as SketchMark
+    }
+    setSketchEnv({ ...f.env, marks: { ...f.env.marks, sketch: slow } })
+    startSketch('bracket')
+    addStroke(line(0))
+    await settled()
+    addStroke(line(5)) // in the air
+    setName('Hose') // typed: waits 300 ms
+    leaveSketch()
+    release()
+    await settled()
+    expect(calls).toHaveLength(3)
+    expect(calls[2]).toMatchObject({ id: 'M1', name: 'Hose' })
+    expect(calls[2].strokes).toHaveLength(2)
+  })
+
+  it('sends what waits for a sketch let go while its first send is in the air to the sketch main made, and makes no second one', async () => {
+    let release: () => void = () => {}
+    const calls: SketchDraft[] = []
+    const f = fake()
+    const slow: SketchEnv['marks']['sketch'] = async (d) => {
+      calls.push(structuredClone(d))
+      if (calls.length === 1) await new Promise<void>((r) => (release = r))
+      return { ...d, kind: 'sketch', id: d.id ?? 'M1', author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' } as unknown as SketchMark
+    }
+    setSketchEnv({ ...f.env, marks: { ...f.env.marks, sketch: slow } })
+    startSketch('bracket')
+    addStroke(line(0))
+    setName('Hose')
+    leaveSketch()
+    release()
+    await settled()
+    expect(calls.map((d) => [d.id, d.name])).toEqual([[undefined, ''], ['M1', 'Hose']])
+  })
+
   it('sends take at once, and a diameter only of flow, kept until the take is something else', async () => {
     const f = fake()
     setSketchEnv(f.env)
@@ -326,6 +386,48 @@ describe('what main says meanwhile', () => {
     const stored = { ...f.calls.at(-1)!, kind: 'sketch', id: 'M1', author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' } as unknown as SketchMark
     takeMarks([{ ...stored, strokes: [{ ...stored.strokes[0], touches: ['block/F2'] }] } as Mark])
     expect(draftOf()).toBe(before)
+  })
+
+  it('takes the name and the comment main has, while nothing is waiting, so that a comment typed in the marks row is not written over', async () => {
+    const f = fake()
+    setSketchEnv(f.env)
+    startSketch('bracket')
+    addStroke(line(0))
+    await settled()
+    const stored = { ...f.calls.at(-1)!, kind: 'sketch', id: 'M1', author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' } as unknown as SketchMark
+    takeMarks([{ ...stored, note: 'from the row', name: 'Renamed' } as Mark])
+    expect(draftOf()).toMatchObject({ note: 'from the row', name: 'Renamed' })
+    f.calls.length = 0
+    addStroke(line(5))
+    await settled()
+    expect(f.calls.at(-1)).toMatchObject({ note: 'from the row', name: 'Renamed' })
+    // Not while a typed field waits.
+    setName('Typed')
+    takeMarks([{ ...stored, note: 'later', name: 'Other' } as Mark])
+    expect(draftOf()).toMatchObject({ name: 'Typed', note: 'from the row' })
+  })
+
+  it('takes again what main moved during a send, once the send is answered', async () => {
+    let release: () => void = () => {}
+    let n = 0
+    const f = fake()
+    const slow: SketchEnv['marks']['sketch'] = async (d) => {
+      n += 1
+      if (n === 2) await new Promise<void>((r) => (release = r))
+      return { ...d, kind: 'sketch', id: d.id ?? 'M1', author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' } as unknown as SketchMark
+    }
+    setSketchEnv({ ...f.env, marks: { ...f.env.marks, sketch: slow } })
+    startSketch('bracket')
+    addStroke(line(0))
+    await settled()
+    addStroke(line(5)) // the send is in the air
+    const stored = { ...draftOf(), kind: 'sketch', id: 'M1', author: 'user', status: 'draft', anchorState: 'ok', createdAt: '' } as unknown as SketchMark
+    const moved = [line(2, { revision: 4 }), line(7, { revision: 4 })]
+    takeMarks([{ ...stored, strokes: moved } as Mark])
+    expect(draftOf().strokes).toEqual([line(0), line(5)])
+    release()
+    await settled()
+    expect(draftOf().strokes).toEqual(moved)
   })
 
   it('closes a sketch that main no longer has', async () => {

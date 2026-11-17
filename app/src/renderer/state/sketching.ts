@@ -71,6 +71,10 @@ let timer: ReturnType<typeof setTimeout> | undefined
 /** A send is waiting on main: the next waits for it, so that the sketch has its number by then. */
 let inflight: Promise<void> | null = null
 let queued = false
+/** The sketch to send once the send in the air is answered, when it was let go meanwhile (`leaveSketch`); else the open one. */
+let queuedOpen: NonNullable<Sketching['open']> | null = null
+/** The marks main sent while a send was waiting or in the air: taken again once it is answered (`takeMarks`). */
+let late: readonly Mark[] | null = null
 
 const state = (): Sketching => sketchStore.getState()
 const set = (patch: Partial<Sketching>): void => sketchStore.setState(patch)
@@ -161,12 +165,21 @@ export async function editSketch(mark: SketchMark): Promise<void> {
   if (toolStore.getState().tool !== 'draw') setTool('draw')
 }
 
-/** Closes the sketch, as it is: what was drawn is kept (main has it), and nothing more is sent. */
-export function leaveSketch(): void {
+/**
+ * Closes the sketch, as it is: what was drawn is kept (main has it). What was waiting to be sent (a typed field, or what
+ * queued behind a send) is sent first, unless `send` is false (main no longer has the sketch).
+ */
+export function leaveSketch(send = true): void {
   const open = state().open
+  const waiting = timer !== undefined || queued
   clearTimeout(timer)
   timer = undefined
-  queued = false
+  if (!send) {
+    queued = false
+    queuedOpen = null
+  }
+  late = null
+  if (send && open && waiting) flush(open)
   history = []
   if (open?.id && env) env.marks.sketching(open.draft.objectId, null)
   set({ ...INITIAL, pen: state().pen, snapping: state().snapping })
@@ -213,13 +226,14 @@ function changed(typed = false): void {
   else flush()
 }
 
-function flush(): void {
-  const open = state().open
+function flush(given?: NonNullable<Sketching['open']>): void {
+  const open = given ?? state().open
   if (!open || !env) return
   // A sketch is made by its first stroke: with none, there is nothing to keep, and a field changed meanwhile goes with it.
   if (!open.id && open.draft.strokes.length === 0) return
   if (inflight) {
     queued = true
+    queuedOpen = open
     return
   }
   const sent = open
@@ -228,6 +242,8 @@ function flush(): void {
   const draft: SketchDraft = { ...sent.draft, ...(sent.id ? { id: sent.id } : {}), ...(here ? { revision: here.revision, camera: here.camera } : {}) }
   const call = env.marks.sketch(draft).then(
     (mark) => {
+      // Let go while this made it: what waits to be sent for it goes to the sketch main made, not to a second one.
+      if (queuedOpen && !queuedOpen.id && !queuedOpen.draft.id && queuedOpen.draft.objectId === draft.objectId && !state().open) queuedOpen = { id: mark.id, draft: { ...queuedOpen.draft, id: mark.id } }
       // Gone, or another sketch is open now.
       const now = state().open
       if (!now || (now.id ?? mark.id) !== mark.id || now.draft.objectId !== draft.objectId) return
@@ -246,8 +262,18 @@ function flush(): void {
   inflight = call.finally(() => {
     inflight = null
     if (queued) {
+      const next = queuedOpen
       queued = false
-      flush()
+      queuedOpen = null
+      // The sketch as it is now (it has its number by now); the one that was let go meanwhile is sent as it was.
+      flush(state().open ? undefined : (next ?? undefined))
+      return
+    }
+    // What main moved meanwhile is taken now that the window has nothing in the air.
+    if (late && timer === undefined) {
+      const marks = late
+      late = null
+      takeMarks(marks)
     }
   })
 }
@@ -445,10 +471,16 @@ export function takeMarks(marks: readonly Mark[]): void {
   const mine = marks.find((m) => m.id === open.id)
   if (!mine || mine.kind !== 'sketch') {
     // Taken away (deleted, or undone): nothing is open any more, and nothing is sent.
-    leaveSketch()
+    leaveSketch(false)
     return
   }
-  if (inflight || queued || timer !== undefined) return
+  if (inflight || queued || timer !== undefined) {
+    late = marks
+    return
+  }
+  late = null
+  // A name or a comment changed elsewhere (the row of the sketch in the marks list) is the draft's, or the next send writes it over.
+  if (mine.name !== open.draft.name || mine.note !== open.draft.note) change((d) => ({ ...d, name: mine.name, note: mine.note }))
   const kept = mine
   const bare = (stroke: SketchStroke): SketchStroke => {
     const { touches: _touches, ...rest } = stroke

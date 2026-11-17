@@ -3,6 +3,7 @@ import type { SketchDraft } from '../../shared/bridge'
 import type { Mark, SketchMark, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import { activePlane, addStroke, leaveSketch, setPen, setSketchEnv, setSnapping, settled, sketchStore, setXray, type SketchEnv } from '../state/sketching'
+import { store } from '../state/store'
 import { toolStore } from '../state/tools'
 import type { Hit } from '../viewport/picking'
 import type { ViewportPointer } from '../viewport/Viewport'
@@ -54,6 +55,9 @@ function rig(opts: { snap?: Snap | null; face?: Hit | null; handle?: boolean; cu
   }
   const seen: Vec3[] = []
   let hidden = false
+  // The plane the view draws: the store's, unless the sketch hid it.
+  const cut: { drawn: unknown } = { drawn: null }
+  const cuts: unknown[] = []
   const ctx: ToolContext = {
     viewport: {
       setHover: () => {},
@@ -72,7 +76,9 @@ function rig(opts: { snap?: Snap | null; face?: Hit | null; handle?: boolean; cu
       sketchCorner: () => [0, 0, 0],
       onSketchHandle: () => opts.handle === true,
       cubeAt: () => opts.cube ?? null,
-      pointerAt: () => [0, 0]
+      pointerAt: () => [0, 0],
+      getSection: () => cut.drawn as never,
+      setSection: (plane) => void (cuts.push(plane), (cut.drawn = plane))
     },
     readout: { show: () => {}, describe: () => {}, say: (_a, m) => void said.push(m), hide: () => {} },
     objectId: 'bracket',
@@ -88,7 +94,7 @@ function rig(opts: { snap?: Snap | null; face?: Hit | null; handle?: boolean; cu
   }
   const tool = sketchTool()
   tool.activate?.(ctx)
-  return { tool, ctx, calls, pictures, said, asked, navigation, drafts, sketch, sheets, hide: (on: boolean) => void (hidden = on), seen }
+  return { tool, ctx, calls, pictures, said, asked, navigation, drafts, sketch, sheets, hide: (on: boolean) => void (hidden = on), seen, cut, cuts }
 }
 
 /** Lets the promises a tool left behind run out. */
@@ -442,7 +448,29 @@ describe('the keys', () => {
     expect(sketchStore.getState().xray).toBe(true)
     expect(r.tool.onKey!(key('k'), r.ctx)).toBe(true)
     expect(sketchStore.getState().open!.draft.take).toBe('flow')
-    for (const k of ['f', 'o', 'e', 'x', '1', '2', '3', '4', 'w']) expect([k, r.tool.onKey!(key(k), r.ctx)]).toEqual([k, false])
+    for (const k of ['f', 'o', 'e', '1', '2', '3', '4', 'w']) expect([k, r.tool.onKey!(key(k), r.ctx)]).toEqual([k, false])
+  })
+
+  it('X hides the view\'s cut and shows it again without leaving the sketch, and with no cut does nothing', () => {
+    const r = rig({ snap: null })
+    const plane = { origin: [0, 0, 0], normal: [0, 1, 0] } as never
+    // No cut: the key is the sketch's, and it picks no tool.
+    expect(r.tool.onKey!(key('x'), r.ctx)).toBe(true)
+    expect(r.cuts).toEqual([])
+    store.setState({ section: plane })
+    r.cut.drawn = plane
+    expect(r.tool.onKey!(key('x'), r.ctx)).toBe(true)
+    expect(r.cuts).toEqual([null])
+    expect(sketchStore.getState().open).not.toBeNull()
+    expect(r.calls).toEqual([])
+    expect(r.tool.onKey!(key('x'), r.ctx)).toBe(true)
+    expect(r.cuts).toEqual([null, plane])
+    // Put down while the cut is hidden, it is shown again.
+    r.tool.onKey!(key('x'), r.ctx)
+    expect(r.cut.drawn).toBeNull()
+    r.tool.cancel(r.ctx)
+    expect(r.cut.drawn).toBe(plane)
+    store.setState({ section: null })
   })
 
   it('Tab asks for the offset field, and the field is none on the surface', () => {
