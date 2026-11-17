@@ -267,8 +267,9 @@ A new `TOOLS` entry (`CHANGES_VIEW_OR_MARKS`; `mcp-tools` rule, the manual and `
 
 ### Storage and IPC
 
-- The sketch is in `marks.json` with the other marks; it has no files of its own. Its board card's picture is in
-  `board/pictures/` (git-ignored), dropped through `dropped.json` when replaced (the rule piece 2 and view notes use).
+- The sketch is in `marks.json` with the other marks. Its one file is its card's picture, `k-<12 hex>.png` in
+  `.torno/notes/` (git-ignored), named in its `picture` field and listed in `notes/dropped.json` when replaced (see
+  "Showing a sketch").
 - `marks:sketch` (window → main): `{ objectId, id?, layout, revision, camera, name, note, take, diameter?, planes,
   strokes, anchor? }`. Without `id` it makes the sketch (on the first stroke), with `id` it replaces those fields of the
   person's sketch. Main checks every number is finite, planes are orthonormal (re-orthonormalising within 1e-6 and
