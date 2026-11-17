@@ -103,3 +103,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`connectSketching`), the viewport pane handing no chord to a tool. What it lays over the view (the hint, the label of its
   plane, the view cube) is drawn by `OverlayPass`, and the sheet of the plane and its handle by `SketchSheet`, never through React.
   The strip of pens (`ui/sketch/SketchPens.tsx`, `.sketchpens` in `styles/sketch.css`, at the foot of the view above the triad as the Measure strip is) is shown while Draw has a sketch open: Free, Line, Point to point and Erase, then Snap and X-ray as switches, each a real `<button>` with its key from `hint()` and calling the actions the keys call (`setPen`, `setSnapping`, `setXray`), so a key and a button never disagree. Snap has no key of its own: it shows `Ctrl`, which turns it off while held.
+- **The keys of a review** are three rows of scope `window`, heard outside a field and the terminal with the model on show
+  (`useReviewKeys`, `ui/ReviewBar.tsx`): `marks.review` (`H`) starts a round on the build on show, or finds the one that is open;
+  `review.dont` (`-`) and `review.want` (`=`, `+`) choose what the marks made next are while a round is open on the layout shown, the
+  key of the one chosen taking it back to plain. A `window` key has no other row in any scope, so none of them is `[` or `]` (the align
+  patch and the region brush), and `keys.test.ts` says so. The bar's buttons take their keys from `hint()`.
+

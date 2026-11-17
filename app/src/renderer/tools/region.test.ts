@@ -13,6 +13,7 @@ import type { BrushRing } from '../viewport/brushRing'
 import type { TriangleSet } from '../viewport/scanPaint'
 import type { ScanHit } from '../viewport/scans'
 import type { ViewportPointer } from '../viewport/Viewport'
+import { reviewStore } from '../state/review'
 import { toolStore } from '../state/tools'
 import * as scanPaint from '../viewport/scanPaint'
 import { CLEARED, GROWING, IN_HAND, KEEPING, NOT_INDEXED, NOTHING_PAINTED, NO_SCAN, clearRegion, editRegion, forgetPaintings, growRegion, keepRegion, undoStroke, waiting } from './regionPainting'
@@ -333,6 +334,22 @@ describe('keeping', () => {
     expect(regionStore.getState()).toMatchObject({ refused: 'S1 was read again or converted while the region was being kept: paint it again', count, sending: false })
     expect(painted.set!.count).toBe(count)
     expect(notes).toEqual([])
+  })
+
+  it('keeps a region made while a round is open with what the bar says, and a plain one with nothing', async () => {
+    reviewStore.setState({ objectId: 'bracket', rounds: [{ id: 'R1', build: 'h41', sources: 'abc', line: '', layout: 'assembly', startedAt: 't' }], choice: 'dont' })
+    try {
+      const { ctx } = fake()
+      stroke(regionTool(), ctx)
+      await keepRegion(ctx)
+      expect(asked[0].region).toMatchObject({ intent: 'dont' })
+      reviewStore.setState({ choice: 'plain' })
+      stroke(regionTool(), ctx)
+      await keepRegion(ctx)
+      expect(asked[1].region).not.toHaveProperty('intent')
+    } finally {
+      reviewStore.setState({ objectId: null, rounds: [], choice: 'plain' })
+    }
   })
 
   it('keeps nothing of no triangle: main is not asked', async () => {

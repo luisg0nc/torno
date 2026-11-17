@@ -17,6 +17,9 @@ import type { BoardFile } from '../shared/board'
 import { BoardStore } from './board/store'
 import { boardLine } from './board/text'
 import { openSketch, sketchHandlers } from './sketches/ipc'
+import { MarkStore } from './marks/store'
+import { describeMark } from './marks/describe'
+import type { Round, RoundsView } from '../shared/reviews'
 
 const BRACKET: ObjectInfo = { id: 'bracket', name: 'bracket', dir: '/ws/bracket', model: 'bracket.py' }
 
@@ -543,6 +546,134 @@ describe('contextFor', () => {
         const two = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [sketch(7, { strokes } as never), sketch(8, { strokes } as never)])
         expect(two.sentMarkIds).toEqual(['M7', 'M8'])
         expect(two.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+      })
+    })
+
+    describe('a review', () => {
+      const round = (over: Partial<Round> = {}): Round => ({ id: 'R1', build: 'h41', sources: 'abc', line: 'Review of h41', layout: 'assembly', startedAt: '2026-11-17T10:00:00.000Z', ...over })
+      const view = (rounds: Round[], sending: string | null = null): RoundsView => ({ rounds, sending })
+      const item = (n: number, over: Partial<Mark> = {}): Mark => pin(n, { round: 'R1', intent: 'dont', ...over } as Partial<Mark>)
+      const told = (marks: Mark[], rounds: RoundsView, deps_: ContextDeps = deps({ build: OK, scene: SCENE })) => contextFor(deps_, 'bracket', marks, { rounds })
+
+      it('holds a round that is not sent back: the other drafts go, its items do not, and it says so', () => {
+        const context = told([item(1), pin(2), item(3, { intent: 'want' })], view([round()]))
+        const said = context.text.split('\n')
+        expect(said).toContain(line(2))
+        expect(context.text).not.toContain('M1 ')
+        expect(context.text).not.toContain('M3 ')
+        expect(said).toContain('R1 is in review, not sent (2 marks). Wait until the review is sent: do not resolve its marks.')
+        expect(context.sentMarkIds).toEqual(['M2'])
+        expect(context.held).toBe('R1')
+        expect(context).not.toHaveProperty('review')
+        expect(context.text).not.toContain('Review of')
+      })
+
+      it('says one mark in the singular, and tells of the held round when nothing else goes', () => {
+        const context = told([item(1)], view([round()]))
+        expect(context.text).toBe([STATUS, 'R1 is in review, not sent (1 mark). Wait until the review is sent: do not resolve its marks.'].join('\n'))
+        expect(context.sentMarkIds).toEqual([])
+      })
+
+      it('holds an ended round just the same, and each round that is held has its line', () => {
+        const rounds = [round({ endedAt: '2026-11-17T10:05:00.000Z' }), round({ id: 'R2', build: 'h42' })]
+        const context = told([item(1), item(2, { round: 'R2' })], view(rounds))
+        expect(context.text).toContain('R1 is in review, not sent (1 mark).')
+        expect(context.text).toContain('R2 is in review, not sent (1 mark).')
+        expect(context.held).toBe('R1,R2')
+      })
+
+      it('sends the review line before the marks head while the round is being sent, each item saying its intent', () => {
+        const marks = [item(1), item(2, { intent: 'want' }), item(3), pin(4)]
+        const context = told(marks, view([round({ endedAt: '2026-11-17T10:05:00.000Z' })], 'R1'))
+        expect(context.text.split('\n')).toEqual([
+          STATUS,
+          "Review of h41 (R1): 2 don't want, 1 want. Answer each item by its id.",
+          HEAD,
+          "M1 · don't want · pin on base/F1 (plane, normal +Z, z = 5, 1200 mm²) at (1, 0, 5): \"note 1\" [in R1]",
+          'M2 · want · pin on base/F1 (plane, normal +Z, z = 5, 1200 mm²) at (2, 0, 5): "note 2" [in R1]',
+          "M3 · don't want · pin on base/F1 (plane, normal +Z, z = 5, 1200 mm²) at (3, 0, 5): \"note 3\" [in R1]",
+          line(4)
+        ])
+        expect(context.review).toBe('R1')
+        expect(context).not.toHaveProperty('held')
+        expect(context.sentMarkIds).toEqual(['M1', 'M2', 'M3', 'M4'])
+      })
+
+      it('names the items of the round that were sent before, by id', () => {
+        const marks = [item(1), item(4, { status: 'sent' }), item(6, { status: 'resolved', intent: 'want' })]
+        const context = told(marks, view([round({ endedAt: '2026-11-17T10:05:00.000Z' })], 'R1'))
+        expect(context.text).toContain("Review of h41 (R1): 2 don't want, 1 want. Answer each item by its id. Also in it: M4, M6.")
+        expect(context.sentMarkIds).toEqual(['M1'])
+      })
+
+      it('sends the drafts of a round let go as plain marks as drafts with their intents, and no review line', () => {
+        const context = told([item(1), item(2, { intent: 'want' })], view([round({ endedAt: '2026-11-17T10:05:00.000Z', plain: '2026-11-17T10:06:00.000Z' })]))
+        expect(context.text).toContain("M1 · don't want · pin")
+        expect(context.text).toContain('M2 · want · pin')
+        expect(context.text).not.toContain('Review of')
+        expect(context.text).not.toContain('in review')
+        expect(context.sentMarkIds).toEqual(['M1', 'M2'])
+        expect(context).not.toHaveProperty('review')
+        expect(context).not.toHaveProperty('held')
+      })
+
+      it('goes with a draft that has an intent outside any round, saying it', () => {
+        const context = told([pin(1, { intent: 'want' } as Partial<Mark>)], view([]))
+        expect(context.text).toContain('M1 · want · pin on base/F1')
+        expect(context.text).not.toContain('[in R')
+        expect(context.sentMarkIds).toEqual(['M1'])
+      })
+
+      it('says nothing of intent for a shape of the agent, whose add is no want', () => {
+        const shape = { id: 'M5', kind: 'shape', author: 'agent', note: '', status: 'sent', anchorState: 'ok', layout: 'assembly', revision: 3, camera: CAMERA, createdAt: '', checkedRevision: 3, shape: 'box', position: [0, 0, 0], size: [1, 1, 1], rotation: [0, 0, 0, 1], intent: 'add' } as unknown as Mark
+        expect(describeMark(shape)).not.toContain('want')
+        expect(describeMark(shape)).toContain('intent add')
+      })
+
+      it('no longer holds a round that was sent', () => {
+        const sent = told([item(1)], view([round({ endedAt: '2026-11-17T10:05:00.000Z', sentAt: '2026-11-17T10:06:00.000Z' })]))
+        expect(sent.text).toContain("M1 · don't want · pin")
+        expect(sent.text).not.toContain('in review')
+        expect(sent.sentMarkIds).toEqual(['M1'])
+      })
+
+      it('leaves the round unsent when its items did not fit, so that it is sent with the next prompt', () => {
+        const many = Array.from({ length: 80 }, (_, n) => item(n + 1, { note: 'x'.repeat(100) }))
+        const context = told(many, view([round({ endedAt: '2026-11-17T10:05:00.000Z' })], 'R1'))
+        expect(context.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+        expect(context.review).toBe('R1')
+        expect(context.sentMarkIds.length).toBeGreaterThan(0)
+        expect(context.sentMarkIds.length).toBeLessThan(80)
+      })
+
+      it('sends no draft of the round that is being sent when its review line does not fit: they go with the line or not at all', () => {
+        // The items sent before are named in the line, and there are so many that it cannot fit.
+        const before = Array.from({ length: 1300 }, (_, n) => item(n + 10, { status: 'sent' }))
+        const marks = [item(1), item(2, { intent: 'want' }), pin(3), ...before]
+        const context = told(marks, view([round({ endedAt: '2026-11-17T10:05:00.000Z' })], 'R1'))
+        expect(context.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+        expect(context.text).not.toContain('Review of h41 (R1)')
+        expect(context).not.toHaveProperty('review')
+        // The round stays unsent: none of its drafts is told or said to have been, but the plain mark goes.
+        expect(context.sentMarkIds).toEqual(['M3'])
+        expect(context.text).not.toMatch(/\bM[12] ·/)
+      })
+
+      it('sets no sentAt: a context that is never delivered leaves the round unsent, and delivery is what sets it', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'torno-review-'))
+        try {
+          const store = new MarkStore({ dirOf: () => dir })
+          await store.startRound('bracket', { build: 'h41', sources: 'abc', line: 'Review of h41', layout: 'assembly' })
+          await store.add('bracket', { kind: 'pin', note: 'low', author: 'user', layout: 'assembly', revision: 3, camera: CAMERA, anchor: { point: [0, 0, 0] } } as never)
+          await store.sendRound('bracket', 'R1')
+          const context = contextFor(deps({ build: OK, scene: SCENE }), 'bracket', await store.list('bracket'), { rounds: await store.rounds('bracket') })
+          expect(context.review).toBe('R1')
+          expect((await store.rounds('bracket')).rounds[0].sentAt).toBeUndefined()
+          await store.roundSent('bracket', context.review as string)
+          expect((await store.rounds('bracket')).rounds[0].sentAt).toBeDefined()
+        } finally {
+          rmSync(dir, { recursive: true, force: true })
+        }
       })
     })
 

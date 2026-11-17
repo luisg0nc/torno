@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Card } from '../../../shared/board'
 import type { Mark } from '../../../shared/marks'
 import type { ScanInfo } from '../../../shared/scans'
-import { faceOf, PICTURE_MISSING, refPieces } from './faces'
+import type { Round } from '../../../shared/reviews'
+import { faceOf, PICTURE_MISSING, refPieces, roundOfFrame } from './faces'
 
 const card = (over: Partial<Card>): Card => ({ id: 'C1', kind: 'text', x: 0, y: 0, w: 200, h: 100, by: 'person', ...over })
 const pin = (over: Partial<Mark> = {}): Mark =>
@@ -197,5 +198,62 @@ describe('refs in a text', () => {
       { text: ' now' }
     ])
     expect(refPieces('no refs here, MM3 or h')).toEqual([{ text: 'no refs here, MM3 or h' }])
+  })
+})
+
+describe('a mark of a review', () => {
+  const c = card({ kind: 'mark', source: 'M8', by: 'torno' })
+  const round = (over: Partial<Round> = {}): Round => ({ id: 'R1', build: 'h41', sources: 'abc', line: '', layout: 'assembly', startedAt: '2026-11-17T10:00:00Z', ...over })
+  const wanted = (over: Record<string, unknown> = {}): Mark => ({ ...pin({ id: 'M8', status: 'draft', round: 'R1' }), intent: 'want', ...over }) as Mark
+
+  it('shows its intent in its chip: − for what the person does not want, + for what they want', () => {
+    expect(faceOf(c, { mark: wanted({ intent: 'dont' }) })).toMatchObject({ chip: '− M8', chipAuthor: 'user' })
+    expect(faceOf(c, { mark: wanted() })).toMatchObject({ chip: '+ M8' })
+    expect(faceOf(c, { mark: pin({ id: 'M8' }) }).chip).toBe('M8')
+  })
+
+  it('shows the intent of a shape by its add and remove, and of a view note and a sketch as of any mark', () => {
+    const shape = { ...pin({ id: 'M8' }), kind: 'shape', intent: 'remove' } as unknown as Mark
+    expect(faceOf(c, { mark: shape }).chip).toBe('− M8')
+    const note = { ...pin({ id: 'M8' }), intent: 'dont', kind: 'note', labels: [], references: [], strokes: [], under: [] } as unknown as Mark
+    expect(faceOf(c, { mark: note }).chip).toBe('− M8')
+    const sketch = { ...pin({ id: 'M8' }), intent: 'want', kind: 'sketch', name: '', strokes: [], take: 'sketched' } as unknown as Mark
+    expect(faceOf(c, { mark: sketch }).chip).toBe('+ M8')
+  })
+
+  it('says of a held item that it is in a review and not sent', () => {
+    const held = faceOf(c, { mark: wanted(), rounds: { rounds: [round()], sending: null } })
+    expect(held.lines.at(-1)).toEqual({ text: 'in review, not sent', tone: 'muted' })
+    // Sent, or being sent now, or not told of the rounds: nothing of it.
+    expect(faceOf(c, { mark: wanted(), rounds: { rounds: [round({ sentAt: '2026-11-17T11:00:00Z' })], sending: null } }).lines.map((l) => l.text)).not.toContain('in review, not sent')
+    expect(faceOf(c, { mark: wanted(), rounds: { rounds: [round()], sending: 'R1' } }).lines.map((l) => l.text)).not.toContain('in review, not sent')
+    expect(faceOf(c, { mark: wanted() }).lines.map((l) => l.text)).not.toContain('in review, not sent')
+  })
+
+  it('shows OK in the build it was judged on, and Still wrong', () => {
+    const ok = faceOf(c, { mark: wanted({ status: 'resolved', judged: { verdict: 'ok', build: 'h42' } }) })
+    expect(ok.lines.at(-1)).toEqual({ text: 'OK in h42', tone: 'ok' })
+    const wrong = faceOf(c, { mark: wanted({ status: 'draft', judged: { verdict: 'still-wrong', build: 'h42' } }) })
+    expect(wrong.lines.at(-1)).toEqual({ text: 'Still wrong', tone: 'fail' })
+  })
+
+  it('shows a judgment on a view note and a 3D sketch too', () => {
+    const note = { ...pin({ id: 'M8' }), intent: 'dont', judged: { verdict: 'ok', build: 'h42' }, kind: 'note', labels: [], references: [], strokes: [], under: [] } as unknown as Mark
+    expect(faceOf(c, { mark: note }).lines.at(-1)).toEqual({ text: 'OK in h42', tone: 'ok' })
+    const sketch = { ...pin({ id: 'M8' }), intent: 'want', judged: { verdict: 'still-wrong', build: 'h42' }, kind: 'sketch', name: '', strokes: [], take: 'sketched' } as unknown as Mark
+    expect(faceOf(c, { mark: sketch }).lines.at(-1)).toEqual({ text: 'Still wrong', tone: 'fail' })
+  })
+})
+
+describe('the frame of a round', () => {
+  const frame = (over: Partial<Card> = {}): Card => ({ id: 'C1', kind: 'frame', x: 0, y: 0, w: 10, h: 10, by: 'torno', source: 'R1', name: 'Review of h41', ...over })
+  it('names its round, the way to the panel', () => {
+    expect(roundOfFrame(frame())).toBe('R1')
+  })
+  it('is no round\'s when the person made it, or it is a card of another kind, or its source is not a round', () => {
+    expect(roundOfFrame(frame({ by: 'person' }))).toBeUndefined()
+    expect(roundOfFrame(frame({ kind: 'text' }))).toBeUndefined()
+    expect(roundOfFrame(frame({ source: 'brief' }))).toBeUndefined()
+    expect(roundOfFrame(frame({ source: undefined }))).toBeUndefined()
   })
 })

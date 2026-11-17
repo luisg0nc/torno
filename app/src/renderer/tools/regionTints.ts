@@ -1,4 +1,4 @@
-import type { Mark } from '../../shared/marks'
+import { type Mark, markIntent } from '../../shared/marks'
 import { maskStem } from '../../shared/regions'
 import { maskBits } from '../../shared/scans'
 import { regionStore } from '../state/region'
@@ -39,7 +39,7 @@ export function tintRegions(viewport: Pick<Viewport, 'setRegions'>): () => void 
     const now: KeptRegion[] = []
     for (const { mark, key, triangles } of wanted) {
       const have = bits.get(key)
-      if (have) now.push({ id: mark.id, scan: mark.scan, author: mark.author, bits: have })
+      if (have) now.push({ id: mark.id, scan: mark.scan, author: mark.author, bits: have, ...(markIntent(mark) === 'dont' ? { dont: true } : {}) })
       if (have !== undefined || !s.objectId) continue
       bits.set(key, null)
       window.torno.scans.mask(s.objectId, mark.scan, maskStem(mark)).then(
@@ -56,7 +56,7 @@ export function tintRegions(viewport: Pick<Viewport, 'setRegions'>): () => void 
       )
     }
     for (const key of bits.keys()) if (!wanted.some((one) => one.key === key)) bits.delete(key)
-    if (now.length === told.length && now.every((region, n) => region.id === told[n].id && region.bits === told[n].bits && region.author === told[n].author)) return
+    if (now.length === told.length && now.every((region, n) => region.id === told[n].id && region.bits === told[n].bits && region.author === told[n].author && region.dont === told[n].dont)) return
     told = now
     viewport.setRegions(now)
   }

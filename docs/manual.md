@@ -702,7 +702,8 @@ is a new line, and a prompt sent while the agent is at work waits its turn
 - **What torno added.** Under each prompt, a "torno added" line shows what went
   with it: the marks sent, as chips in their colours, the build (`r12 ok`, or
   `build after r12 failed`), and the selection; "Show text" opens the exact text the agent was given. Above the
-  box, "Goes with your next prompt" says what will go.
+  box, "Goes with your next prompt" says what will go. A prompt that carried a review says `review R1 sent`, and one sent
+  while a round waits says `R1 is in review, not sent`; the marks of a round that was not sent are not among what goes (see [Reviews](#reviews)).
 - **The build an edit started.** When the agent edits the model, the build that
   follows is a line of its own under the edit's card: `Built r2 · ok · 1.2 s`,
   or `Build after r2 failed: NameError: name 'WAL' is not defined` in the fail
@@ -929,7 +930,8 @@ instruction files Claude Code reads on its own, it lists the paths and sizes
 - Hooks: `--settings`; it posts them to torno, which follows its status by
   them (idle, working, needs input, ended) and adds to its prompts.
 - What you marked goes with your next prompt, by itself, and counts as sent
-  once the prompt's hook has been answered with it.
+  once the prompt's hook has been answered with it. The marks of a review round that you have not sent are the
+  exception: they wait for **Send review** (see [Reviews](#reviews)).
 - The instruction files Claude Code reads for the project are listed in the
   session pane, in a quiet line under the view's buttons ("Claude Code also
   reads, by default, `~/objects/CLAUDE.md` 7 KB"), for the chat and for the terminal. It is
@@ -1056,6 +1058,12 @@ Open marks: M2 (moved), M6 (unchecked)
   could not be measured or were not run, and each that did not pass with its value and what was wanted
   (`Checks (the model's own, on r3): 2 pass, 1 fails: lid fits the tub (0.12 mm, wanted 0.15 to 0.25 mm)`). It says
   what was measured and never that the part is verified; passes that were found by sampling or are approximate are counted.
+- A mark of yours that says what you want or do not want has it after its number (`M8 · don't want · pick on lid/F12 …`),
+  and one in a round `[in R1]` at the end. A round that is not sent is left out of every prompt, and one line says so
+  (`R1 is in review, not sent (3 marks). Wait until the review is sent: do not resolve its marks.`). `resolve_mark` refuses a draft of such a round until it is sent, and a view note of it does not go with a prompt either. The prompt that carries a sent round has, before its marks,
+  `Review of h41 (R1): 3 don't want, 2 want. Answer each item by its id.`, with `Also in it: M4.` for items sent before.
+  The system prompt says a review lists what you do not want and want on one build, to answer each item with `resolve_mark`,
+  and not to bring back what an earlier review removed (read with `marks` and `review: "all"`).
 - `Open marks` are the numbers of the marks still open, each with what the
   last build did to it. After `/clear`, or after the conversation was
   compacted, the first prompt that follows lists your open marks once more.
@@ -1179,13 +1187,13 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 |---|---|
 | `mcp__torno__scene` | The build status and error, what the model printed in the last build (`output`), the layouts, every part of one layout (the one you have on screen, or `layout`; the parts of the others are counted) with its size, bounding box, volume and whether it is visible, the model's groups of parts, your camera, section and explode, the saved views, the scans, how many dimensions pass, fail and are not measured, and the checks the model declares with how each stands. It notes when the parts of the print layout were spread along X. Over 200 parts, or when the list would not fit, a part is its name, size and group only (`partsTruncated`); `describe` gives the rest. |
 | `mcp__torno__look` | A picture from the renderer you are looking at, with the marks drawn. With no arguments it is your view, cut by your section or drawn apart as you have it. It takes `view` (`iso`, `front`, `back`, `left`, `right`, `top`, `bottom`, the name of a saved view, or a camera), `layout`, `parts`, `size` (long edge, 1280 by default, 2000 at most), `marks` (false leaves them out), `section` (`'current'`, `null`, or a plane), `explode` (0 to 1, or `{amount, axis, scale}`; `null` together), `scans`, `scanColour` and `frame`. With `focus` (a ref such as `lid/F12` or `lid/E3`, a part, a group, a mark such as `M4`, or a box `{min, max}` in mm) and `margin` (a share of the box, 0.3 by default) it frames a detail up close: from the side `view` names (`front`, `iso`, …; without one, the way your camera looks), at the picture's whole resolution, with the parts drawn together. The caption says what was drawn, and, with a focus, what was framed and when the middle of it is hidden behind other parts. Also saved under `.torno/views/`. |
-| `mcp__torno__marks` | Your marks and the agent's as data, each with a line of text. It lists the marks that are not resolved, 50 at a time; `status` (`resolved` too), `ids` (`["M4"]`, any status), `limit` (200 at most) and `next` say which. A stroke is given as a summary of its points (count, first, last, box) unless `ids` names it. What was left out is said (`omitted`, `next`). |
+| `mcp__torno__marks` | Your marks and the agent's as data, each with a line of text. It lists the marks that are not resolved, 50 at a time; `status` (`resolved` too), `ids` (`["M4"]`, any status), `limit` (200 at most) and `next` say which. A stroke is given as a summary of its points (count, first, last, box) unless `ids` names it. What was left out is said (`omitted`, `next`). `review` (`R1`, or `all`) gives instead the rounds of your reviews, oldest first: the build each reviewed, its items with want or don't want, what the agent answered and what you judged; an item you did not want and accepted says `removed on purpose; keep it out`. |
 | `mcp__torno__describe` | The geometry of a part, a face or an edge (`lid`, `lid/F12`, `lid/E3`, or one the model names, `lid/@top`), or of a group of parts by its name: the box of its parts and their volume. Of a face or an edge it also gives a `selector`: a build123d expression on `part`, such as `part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]`, that the kernel evaluated on this build and that gave exactly that shape, as `robust` `by geometry` (a direction, an extreme, a radius, a place) or `by order` (an index into a sort, which the next edit may break), and `selectorFrame`, which says in whose frame it is. |
 | `mcp__torno__highlight` | Tints faces or edges in your viewport with a note, to ask "this one?", until you click or a minute passes. A group's name tints all of its parts. |
 | `mcp__torno__ask` | Asks you to choose and waits: a card above the box of the chat (under the view for a terminal session) with a button for each answer, and the refs of an answer light up in your view while the pointer is on its button. If it allows, you may answer with the one face or edge you select in the view instead, or with "None of these". The agent gets back what you chose, as refs. The session shows Needs input meanwhile; the question ends by itself after 10 minutes with "not answered", and when the turn ends. |
 | `mcp__torno__show` | Changes your camera, layout, visible parts (a group's name stands for its parts), section, explode and scans to show you something, or puts a saved view on screen by its name; with `focus` and `margin`, as `look` takes them, it puts your camera on a ref, a mark or a box. For now only: what `.torno/scene.json` keeps stays yours. Refused while you hold a button in the viewport. |
 | `mcp__torno__save_view` | Proposes a saved view: it appears in your strip marked "proposed" until you keep or discard it. Nothing on screen changes. |
-| `mcp__torno__add_mark` | Leaves a mark of the agent's, in green: a pin, a pick, an arrow, a shape, or with `kind: 'dimension'` a dimension, measured at once and on every build like yours. A point that is not on the part is refused, saying how far off it is. |
+| `mcp__torno__add_mark` | Leaves a mark of the agent's, in green: a pin, a pick, an arrow, a shape, or with `kind: 'dimension'` a dimension, measured at once and on every build like yours. A point that is not on the part is refused, saying how far off it is. The agent's marks are plain: it sets no want or don't want and is refused an `intent` that is not a shape's own. |
 | `mcp__torno__add_sketch` | Draws a sketch of the agent's own, in green, with a card of it on the board: strokes of points in mm, in space or on planes it names (a main plane `XY`, `XZ` or `YZ` at an offset, a flat face moved along its normal, or an origin and a normal), with a `name`, a `note`, how literally to take it (`take`: `exact`, `rough` or `flow`, a flow sketch with the `diameter` of the route to keep clear) and a `layout`. At most 50 strokes and 2,000 points; a point that is not a number, or is far from the parts, is refused. torno works out what each stroke touches from the last build; the agent's points are told as it gave them, with no snaps. With `sketch` (`M9`) it replaces a sketch of its own, and with `remove` it takes that one away, which you can undo; a sketch of yours it only reads. `add_mark` makes no sketch. The picture of the card shows when the project is on show. |
 | `mcp__torno__resolve_mark` | Resolves a mark with a line on what was done, which you then confirm or reopen. A dimension of yours with an expected value is refused: it is your check, and only you resolve it. |
 | `mcp__torno__measure` | An exact number from the geometry. See [Measuring and dimensions](#measuring-and-dimensions). |
@@ -1228,7 +1236,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
 | `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
-| `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. |
+| `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. A shape to add reads as what you want (`+`) and one to remove as what you do not want (`−`); see [Reviews](#reviews). |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
 | `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
 | `L`, `B` | Align scan, Region of a scan | See [Scans](#scans). |
@@ -1239,7 +1247,8 @@ you leave it any other way, such as ``Ctrl+` `` to the terminal: what you
 typed goes with the prompt you type next.
 
 Every mark has a number (`M1`, `M2`, never reused), a note, and a row in the
-Marks list. Yours are drawn in red, the agent's in green. A mark is a **draft**
+Marks list. Yours are drawn in red, the agent's in green. A mark of yours can also say what you
+**want** or **do not want**: the chip carries `+` or `−`, and what you do not want is drawn hatched (see [Reviews](#reviews)). A mark is a **draft**
 until it has been carried to the agent (see [The agent](#the-agent)),
 then **sent**, then **resolved** by you or by the agent, with a line on what
 was done. Clicking a row makes its mark the active one and opens the row; the
@@ -1284,6 +1293,9 @@ the camera stays still).
 
 - A mark you change after it was sent (its note, or a shape's place, size,
   kind or intent) is a draft again, and is told once more as `(changed)`.
+- At the head of the Marks list, outside its scroll, are **Review this build** and a row for each review round (see
+  [Reviews](#reviews)). A draft of a round that has not gone says `in review, not sent`, and its row offers
+  **Take out of R1**. Your own rows have a small menu (`±`, `−` or `+`) to say plain, do not want or want of that mark at any time.
 - The Marks list is grouped by who acts next: **Checks** (every dimension that
   has an expected value and is not resolved, sent or not: the failing first,
   then those with no value of the build, then those that pass; a draft one says
@@ -1376,6 +1388,60 @@ foot; both are there while the sketch is open.
   earlier versions, which Draw no longer makes, are still listed and drawn.
 
 The keys of a sketch are in [Keys](#keys), under "With a tool in hand".
+
+### Reviews
+
+When a build is partly wrong, go over it once, marking what you do not want ("these clamps hold nothing") and what you want
+("a handle along the top"), and send it all together. A **round** is one such pass over one build. Claude answers each item,
+and after the next build you say OK or Still wrong to each answer.
+
+- **Want and don't want.** Any mark of yours can say one of them, in a round or not: the chip and the row carry `+` (want) or `−`
+  (don't want) before the number, `− M8`, in the face of numbers; a mark that says neither is plain, as before. What you do
+  not want is drawn hatched in your colour and dashed where a mark is a line, what you want is drawn solid; the colour is still
+  yours, so a mark of yours never looks like Claude's. A shape to add is a want and a shape to remove is a don't want, and they say
+  so in their chips whether or not a round is open; keep-out and reference shapes say neither. The menu on a row of yours changes
+  it at any time (a mark already sent becomes a draft again and is told `(changed)`). The agent's marks are always plain, and
+  neither `add_mark` nor `add_sketch` takes an intent.
+- **Making a round.** **Review this build** (at the head of the Marks list, on the line of the build that is on show in the chat, or the
+  key `H`) starts round `R1` on the build you have on show, `h41`, and stars that build in the history so that it is never let
+  go while it is reviewed. A bar appears under the view's buttons: `Review of h41`, a choice **Plain**, **− Don't want**, **+ Want**
+  for the marks you make next, their count (`3 − · 2 +`, and plain ones when there are any), **Items**, **End** and **Send review**. Any tool
+  works while it is open: a pin, an arrow, a pick, a shape, a 3D sketch, a view note, a region of a scan, a dimension; the
+  mark gets the choice and joins the round. While a round is open, `-` chooses don't want and `=` (or `+`) want, and pressing the key of the one chosen
+  goes back to plain; `H`, `-` and `=` are for the view and are not heard in a field or the terminal. Marks made in another layout than the round's do not join it, and the bar says so.
+  A build that is running or that failed cannot be reviewed, and there is one open round at a time (a second **Review this
+  build** opens the one that is open). Setting want or don't want on a mark that already exists does not put it in a round.
+- **Held until you send.** The marks of a round that was not sent go to Claude with no prompt, as a sketch that is open does not:
+  each says `in review, not sent` in its row and on the board, and the line under the next prompt says
+  `R1 is in review, not sent`. **End** closes the bar and keeps them held, and the round can be opened again from its panel
+  while it is unsent. **Send as plain marks** (in the panel) lets them go as ordinary drafts, with their signs, and the round is never sent.
+- **Sending.** **Send review** puts a chip above the box of the chat, `Review of h41 · 3 − · 2 +`, with **Remove** (the same
+  as Send as plain marks). It goes with the next prompt you type, whatever you write. The prompt carries one line before the
+  marks, `Review of h41 (R1): 3 don't want, 2 want. Answer each item by its id.`, and the line of each mark says its intent
+  (`M8 · don't want · pick on lid/F12 …`). The line under the prompt says `review R1 sent`. In a terminal session the line goes
+  in the same way, with the next prompt. Claude is asked to answer each item by its number with `resolve_mark`, and not
+  to bring back what an earlier review took out.
+- **After the next build.** **Open** on a round's row (or on the head of its frame on the board, or **Items** in the bar) opens
+  the round's panel at the top right of the view: each item with its chip, its note, what Claude said when it resolved it, and, for
+  an item Claude resolved, **OK** (you accept it, and the row says `OK in h42`) and **Still wrong** (a field for an
+  optional note, then **Send back**). An item Claude has not resolved says `Not answered yet`. One you accepted with "OK all" or in
+  "To review" says `OK (accepted)`. While the panel is open the reviewed build is drawn faint beside the live one (Compare);
+  when it cannot be, the panel says why (the build is no longer kept, it is not the build of this computer, or none has
+  been made since).
+- **Still wrong** opens the item again, with your note added to its note as `Still wrong in h42: …`, and puts it in the
+  next round, which torno makes on the build on show (`R2`, held, so that it goes with no prompt of its own). **Start round 2**
+  in the panel of a sent round opens that round's bar. Items you said OK to stay in the round they were in.
+- **On the board.** Each round has a frame of torno's own, `Review of h41 · 3 − · 2 +`, made with its first item, holding the
+  cards of its items. A card says its sign, `in review, not sent` while it is held, and `OK in h42` or `Still wrong` once you have
+  judged it; a Still wrong card moves into the frame of the next round. You may move or resize a frame or put
+  a card elsewhere, and what you did stays; removing a frame hides it (see [The board](#the-board)).
+- **What Claude reads.** `marks` lists each mark's intent and round, and with `review` (`R1`, or `all`) the rounds of your
+  reviews: the build each reviewed, its items, what the agent answered and what you judged. An item you did not want and accepted says
+  `removed on purpose; keep it out`.
+- **Where the rounds are.** In `marks.json`, beside the marks: `rounds`, each mark's `intent` and `round`, and `judged`. Only
+  torno writes them; they go with the project in git.
+
+The keys of a review are in [Keys](#keys), under "Viewport".
 
 ## Measuring and dimensions
 
@@ -1753,6 +1819,13 @@ you pin, with "Pin to board":
 - the **Params**, from their panel, with each value and the ones you are trying marked as tried; and the **checks**, from the
   Checks section of that panel, each passing or failing. Each is on a board once: pinning it again says so.
 
+Each **review round** (see [Reviews](#reviews)) has a frame of torno's own, `Review of h41 · 3 − · 2 +`, made with its first item and holding
+the cards of its items: a mark card says `− M8` or `+ M8`, `in review, not sent` while it waits, and `OK in h42` or `Still wrong` once you
+judged it. The head of the frame has **Open**, which opens the round's panel. The name is torno's: the frame follows the round's counts, and neither you
+nor Claude can rename it. A card goes into its round's frame when it is first placed, and a Still wrong card goes into the
+frame of the next round; a card you put in another frame, or took out, stays where you left it. Remove a round's frame and it is hidden
+(it is not made again while the round has items). Claude may add a card into it.
+
 You make **text** cards (a web address in one shows as a link, and a click on it opens it in your browser), **size** cards (below), **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
 Claude is sent is scaled down by the window first), **doodle** cards (drawn with the Doodle tool on the same ink pad as a new project's doodles), named
 **frames** and **arrows** between cards, with an optional word on them. A card dropped inside a frame belongs to it, and a frame
@@ -1790,7 +1863,7 @@ The card shows the value and unit large, in the face of numbers, then what it me
 | STEP file, PDF | shows the file in its folder |
 | Picture | opens it large; one Claude drew of the view goes to the model with its camera |
 | Doodle | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
-| Frame | renames it (yours only) |
+| Frame | renames it (yours only; a round's frame is torno's, and its **Open** shows the round's panel) |
 | Arrow | edits its word |
 
 **What Claude is told.** Every prompt carries one line: how many cards the board has, how many are new and what they are, the
@@ -2002,6 +2075,9 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Viewport | `O` | Perspective or orthographic |
 | Viewport | `E` | Draw the parts apart, or together again |
 | Viewport | `W` | All projects of the folder, on one page (there a letter filters them by name) |
+| Viewport | `H` | Review this build: start a round, to mark what you do not want and what you want, and send it at once |
+| Viewport | `-` | Review: new marks are what you do not want; again, plain |
+| Viewport | `=` `+` | Review: new marks are what you want; again, plain |
 | Viewport | `Esc` | Compare: back to the live build, before any other step back |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
 | With a tool in hand | `T` | Measure: the wall under the pointer |
@@ -2101,7 +2177,7 @@ place.
 |---|---|---|
 | `scene.json` | how you last looked at the project: the layout, the layer visibility, the section, the explode of each layout, how each scan is shown, and the saved views (`views`) | travels with the project |
 | `params.json` | the values you are trying in place of the model's `Params` defaults, with the default the file had; trying a value never writes the model file (a Go back puts the values back as a build had them) | ignored |
-| `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured | travels |
+| `marks.json` | the marks of the project: yours and the agent's, with their notes, anchors and status; of a dimension also what is expected of it and the value last measured; and the review rounds (the build each reviewed, which marks are in it, and what you judged of each) | travels |
 | `scans.json` | the scans of the project: where each source file is and its hash, how it was imported, and its alignment in each layout | travels |
 | `board/board.json` | the board (see "The board"): its cards with their places, sizes and text, the frames and the arrows; for a card that shows a build, a copy of what it says | travels |
 | `board/pictures/` | the pictures and doodles of the board's cards | ignored (`board/pictures/.gitignore`; a picture may show the real world) |
@@ -2555,6 +2631,7 @@ On the screen:
 - **Prompts only and Earlier conversations.** The toggle in the chat's head (`Chat | Prompts only`) and the History button: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.
 - **Go back's question.** On a turn after a prompt that edited the model: the list of files to write, to delete, to leave alone and changed since, the Params, and the prompts undone, in the monospace face for names and numbers; then "Go back" puts the files back in your own editor and folder (it was only tried on temporary folders), the note in the chat and the faded row appear, and the next prompt tells Claude. With no copy kept, the sentence about asking Claude instead.
 - **The edge of the panel.** The line between the open panel and the view drags without lag and keeps its place at start.
+- **A review, by eye.** Make a round with a pick and a shape you do not want and a 3D sketch you want, on a high-resolution screen and on an ordinary one, in both themes: the hatch of what you do not want reads as stripes in your colour and not as noise, the dashes of a stroke are clear, `−` and `+` are legible in the chips, the bar under the view's buttons and the round's panel at the top right sit well with Compare drawn beside them, and the panel does not cover what it is about. The panel does not close with `Esc`. The real Claude Code is yet to be seen answering a review item by item.
 - **The edges of a field and F6.** A focused field shows its edge in both themes, and F6 moves the focus between the regions in a sensible order.
 - **The ask card.** A question from the agent shows its options and the faces they light in the view; legible in both themes.
 - **The edits menu.** The menu beside the model shows the three modes and the one in force, in both themes.

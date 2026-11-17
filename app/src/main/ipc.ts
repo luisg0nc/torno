@@ -43,6 +43,8 @@ import type { MarkStore } from './marks/store'
 import { boardAttachOf, boardHandlers } from './board/ipc'
 import { noteHandlers } from './notes/ipc'
 import { forgetOpenSketches, forgetRemovedSketch, sketchHandlers } from './sketches/ipc'
+import { reviewHandlers } from './reviews/ipc'
+import type { RoundAsk } from '../shared/reviews'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
 import { kernelDir, kernelRun } from './paths'
@@ -93,7 +95,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
-//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:problem (also sent to the renderer),
+//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
@@ -1054,6 +1056,24 @@ export function registerIpc(
   handle('marks:sketch', (_event, draft: SketchDraft) => sketches().sketch(draft))
   handle('marks:sketchPicture', (_event, objectId: string, id: string, png: Uint8Array) => sketches().sketchPicture(objectId, id, png))
   ipcMain.on('marks:sketching', (_event, objectId: string, id: string | null) => sketches().sketching(objectId, id))
+  // Rounds of a review: main finds the build on show in the history and stars it; the window names a project, `R<n>` and `M<n>` only.
+  const reviews = () =>
+    reviewHandlers({
+      marks: requireMarks(),
+      object: findObject,
+      build: (id) => current?.builds.state(id),
+      history: requireWorkspace().history,
+      readHistory,
+      lastSources: (id) => {
+        const revision = current?.builds.scene(id)?.revision
+        return revision === undefined ? undefined : buildIdentity(id, revision)?.sources
+      }
+    })
+  handle('marks:round', (_event, objectId: string, ask: RoundAsk) => reviews().round(objectId, ask))
+  handle('marks:rounds', (_event, objectId: string) => reviews().rounds(objectId))
+  handle('marks:setIntent', (_event, objectId: string, id: string, intent: 'want' | 'dont' | null) => reviews().setIntent(objectId, id, intent))
+  handle('marks:roundOut', (_event, objectId: string, id: string) => reviews().roundOut(objectId, id))
+  handle('marks:judge', (_event, objectId: string, id: string, verdict: 'ok' | 'still-wrong', note?: string) => reviews().judge(objectId, id, verdict, note))
   handle('marks:problem', (_event, objectId: string) => requireMarks().problem(String(objectId)))
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
 

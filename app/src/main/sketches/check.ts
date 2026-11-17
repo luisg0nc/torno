@@ -88,6 +88,8 @@ export function checkSketch(raw: unknown, stored: SketchMark | undefined, build:
   const camera = cameraOf(raw.camera)
   if (!camera) return new Refusal('A sketch keeps the camera it was drawn from, and this one has none.')
   if (typeof raw.note !== 'string') return new Refusal('The comment of a sketch is text.')
+  // What the bar of a review said when the sketch was begun: a new sketch keeps it, one main has keeps its own.
+  if (raw.intent !== undefined && raw.intent !== 'want' && raw.intent !== 'dont') return new Refusal('The intent of a sketch is want or dont, or none.')
   const body = readSketch(raw, 'window')
   if (typeof body === 'string') return new Refusal(`That is not a sketch: ${body}.`)
   let anchor = raw.anchor === undefined ? undefined : anchorOf(raw.anchor)
@@ -135,7 +137,8 @@ export function checkSketch(raw: unknown, stored: SketchMark | undefined, build:
     ...(body.diameter === undefined ? {} : { diameter: body.diameter }),
     planes: body.planes,
     strokes,
-    ...(anchor ? { anchor } : {})
+    ...(anchor ? { anchor } : {}),
+    ...(!stored && raw.intent !== undefined ? { intent: raw.intent } : {})
   }
 }
 

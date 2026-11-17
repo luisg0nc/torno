@@ -2,6 +2,7 @@ import type { Described } from '../../shared/geometry'
 import type { Anchor, Mark, NewMark, PickMark, Replacement, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import { describeWhole } from '../state/descriptors'
+import { reviewActions, withIntent } from '../state/review'
 import { actions, store, type PickedAt } from '../state/store'
 import { parseRef } from '../viewport/picking'
 import { DESCRIBE_WITHIN_MS, within } from './Tool'
@@ -12,7 +13,8 @@ import { DESCRIBE_WITHIN_MS, within } from './Tool'
  * refuses, the marks panel says so, and the promise is rejected.
  */
 export function commitMark(objectId: string, mark: NewMark): Promise<Mark> {
-  return window.torno.marks.add(objectId, mark).catch((e: unknown) => {
+  // While a round is open the bar says what a mark made now is (want, don't want or plain): main checks it, and puts the mark in the round.
+  return window.torno.marks.add(objectId, withIntent(mark, reviewActions.intentForNew(mark.layout))).catch((e: unknown) => {
     // A dimension the kernel would not measure: the Measure tool says why at the pointer, and nothing is left to dismiss.
     if (mark.kind === 'dimension') throw e
     actions.setMarksProblem({ objectId, message: `The mark was not kept: ${e instanceof Error ? e.message : String(e)}` })

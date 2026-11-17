@@ -167,7 +167,8 @@ export function checkNoteDraft(raw: unknown): NoteDraft | Refusal {
     const { tag: _tag, ...rest } = given
     anchor = rest
   }
-  return { objectId, revision: raw.revision, layout, camera, caption, size, plain, inked, inkColour: raw.inkColour, strokes, labels, under, comment, references, ...(anchor ? { anchor } : {}) }
+  if (raw.intent !== undefined && raw.intent !== 'want' && raw.intent !== 'dont') return no('its intent is not want or dont')
+  return { objectId, revision: raw.revision, layout, camera, caption, size, plain, inked, inkColour: raw.inkColour, strokes, labels, under, comment, references, ...(anchor ? { anchor } : {}), ...(raw.intent === undefined ? {} : { intent: raw.intent }) }
 }
 
 /**

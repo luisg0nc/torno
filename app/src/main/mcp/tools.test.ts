@@ -8,6 +8,7 @@ import type { Part, Scene } from '../../shared/scene'
 import type { ScanAlignment, ScanInfo } from '../../shared/scans'
 import type { Described } from '../../shared/geometry'
 import type { Anchor, Mark, MarkPatch, NewMark } from '../../shared/marks'
+import type { Round } from '../../shared/reviews'
 import type { Camera, LookRequest, LookResult, SaveViewRequest, ShowRequest, ViewState } from '../../shared/view'
 import type { SavedView } from '../../shared/views'
 import type { ObjectInfo } from '../../shared/workspace'
@@ -19,7 +20,7 @@ import { BoardStore } from '../board/store'
 import { writeNoteFile } from '../notes/files'
 import { addCardTool, boardTool } from './boardTools'
 import { addMarkTool, highlightTool, resolveMarkTool } from './markTools'
-import { TOOLS, refusedKeys } from './schemas'
+import { type AddMarkArgs, TOOLS, refusedKeys } from './schemas'
 import { describeTool, marksTool, selectorFrame, type ToolDeps } from './tools'
 import { MESH_NOTE, OPEN_NOTE, REVERSED_NOTE, explodeAsked, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 
@@ -2483,6 +2484,18 @@ describe('board and add_card', () => {
     expect(after.cards.find((c) => c.id === 'C3')?.frame).toBeUndefined()
   })
 
+  it('puts a card in the frame of a round, by name or id, and leaves the frame as it was', async () => {
+    await store.torno('bracket', (b) => ({ ...b, next: 2, cards: [{ id: 'C1', kind: 'frame', x: 100, y: 100, w: 816, h: 320, by: 'torno', source: 'R1', name: 'Review of h41 · 1 −' }] }))
+    const before = (await store.read('bracket')).cards[0]
+    const named = textOf(await addCardTool(rig(), 'bracket', { text: 'I thinned the lid', frame: 'Review of h41 · 1 −' }))
+    expect(named).toContain('Review of h41 · 1 −')
+    const byIdd = await addCardTool(rig(), 'bracket', { text: 'and the rib', frame: 'C1' })
+    expect(textOf(byIdd)).not.toContain('was full')
+    const after = await store.read('bracket')
+    expect(after.cards.filter((c) => c.by === 'agent').map((c) => c.frame)).toEqual(['C1', 'C1'])
+    expect(after.cards.find((c) => c.id === 'C1')).toEqual(before)
+  })
+
   it('edits and removes a card of its own', async () => {
     const deps = rig()
     await addCardTool(deps, 'bracket', { text: 'first' })
@@ -2710,8 +2723,100 @@ describe('view notes, as Claude reads them', () => {
     expect(textOf(result)).toBe('resolved: M5 · view note · resolved: "wall 5 is too thin" (1 label, 1 reference, drawn on build 3)\nnote: thickened to 3 mm')
   })
 
+  it('refuses a draft of a round that is not sent, saying to wait until the review is sent', async () => {
+    const round = { id: 'R1', build: 'h41', sources: 'abc', line: 'Review of h41 (R1)', layout: 'assembly', startedAt: '2026-11-17T10:00:00.000Z' }
+    const deps = fake({ rounds: async () => [round, { ...round, id: 'R2', sentAt: 'x' }, { ...round, id: 'R3', plain: 'x' }] })
+    deps.w.list = [
+      { ...deps.w.list[0], round: 'R1', status: 'draft' } as Mark,
+      { ...deps.w.list[1], round: 'R2', status: 'draft' } as Mark,
+      { ...deps.w.list[2], round: 'R3', status: 'draft' } as Mark
+    ]
+    const held = await resolveMarkTool(deps, 'bracket', { id: deps.w.list[0].id, note: 'done' })
+    expect(held.isError).toBe(true)
+    expect(textOf(held)).toBe(`${deps.w.list[0].id} is in review R1, which is not sent: wait until the review is sent, and it is told to you with the next prompt.`)
+    expect(deps.w.updates).toEqual([])
+    // A draft of a round that was sent, or let go as plain marks, is resolved as any other.
+    expect((await resolveMarkTool(deps, 'bracket', { id: deps.w.list[1].id })).isError).toBeUndefined()
+    expect((await resolveMarkTool(deps, 'bracket', { id: deps.w.list[2].id })).isError).toBeUndefined()
+  })
+
   it('has no tool that edits or deletes a note of the person: resolving is all it does to one', () => {
     expect(Object.keys(TOOLS).filter((name) => /update|delete|remove|edit|change|note/.test(name))).toEqual([])
     expect(Object.keys(TOOLS.resolve_mark.inputSchema)).toEqual(['id', 'note'])
+  })
+})
+
+describe('marks with review', () => {
+  const round = (id: string, more: Partial<Round> = {}): Round => ({ id, build: 'h41', sources: 'abc', line: `Review of h41 (${id})`, layout: 'assembly', startedAt: '2026-11-17T10:00:00.000Z', ...more })
+  const withRounds = (): ReturnType<typeof fake> => {
+    const deps = fake({ rounds: async () => [round('R2', { build: 'h42', from: 'R1', endedAt: 'x' }), round('R1', { endedAt: 'x', sentAt: 'y' })] })
+    deps.w.list = [
+      { ...deps.w.list[0], round: 'R1', intent: 'dont', note: 'the rib', status: 'resolved', resolvedBy: 'agent', resolvedNote: 'took it out', judged: { verdict: 'ok', build: 'h42' } } as Mark,
+      { ...deps.w.list[1], round: 'R1', intent: 'want', note: 'a lip', status: 'sent' } as Mark,
+      { ...deps.w.list[3], round: 'R2', status: 'draft' } as Mark
+    ]
+    return deps
+  }
+
+  it('lists the items of a round with their intents and judgments', async () => {
+    const out = jsonOf(await marksTool(withRounds(), 'bracket', { review: 'R1' }))
+    expect(out.rounds.map((r: { id: string }) => r.id)).toEqual(['R1'])
+    expect(out.rounds[0].items).toMatchObject([
+      { id: 'M1', intent: 'dont', status: 'resolved', resolvedNote: 'took it out', judged: { verdict: 'ok', build: 'h42' }, said: 'removed on purpose; keep it out' },
+      { id: 'M2', intent: 'want', status: 'sent', said: 'not answered yet' }
+    ])
+    expect(out).not.toHaveProperty('marks')
+  })
+
+  it('lists every round, oldest first', async () => {
+    const out = jsonOf(await marksTool(withRounds(), 'bracket', { review: 'all' }))
+    expect(out.rounds.map((r: { id: string }) => r.id)).toEqual(['R1', 'R2'])
+  })
+
+  it('refuses a round there is none of, naming the rounds there are', async () => {
+    const result = await marksTool(withRounds(), 'bracket', { review: 'R9' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe('no round R9; rounds: R1, R2')
+  })
+
+  it('says there are no rounds when the app keeps none of them', async () => {
+    const result = await marksTool(fake(), 'bracket', { review: 'all' })
+    expect(jsonOf(result)).toMatchObject({ rounds: [] })
+  })
+
+  it('still tells every mark\'s intent, round and judgment in the list', async () => {
+    const [first] = jsonOf(await marksTool(withRounds(), 'bracket', { ids: ['M1'] })).marks
+    expect(first).toMatchObject({ intent: 'dont', round: 'R1', judged: { verdict: 'ok', build: 'h42' } })
+  })
+})
+
+describe('add_mark and the review', () => {
+  it('refuses a want or a don\'t want on a pin, an arrow, a pick or a dimension: Claude\'s marks are plain', async () => {
+    for (const intent of ['want', 'dont']) {
+      const deps = fake()
+      const result = await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: 'base/F5', intent } as never)
+      expect(result.isError, intent).toBe(true)
+      expect(textOf(result)).toContain("a review's want and don't want are the person's")
+      expect(deps.w.added).toEqual([])
+    }
+    const arrow = await addMarkTool(fake(), 'bracket', { kind: 'arrow', note: 'x', ref: 'base/F5', by: [0, 0, 5], intent: 'want' } as never)
+    expect(arrow.isError).toBe(true)
+  })
+
+  it('refuses a review intent on a shape too, which keeps its own: add, remove, keep-out or reference', async () => {
+    const shape = { kind: 'shape', note: 'x', shape: 'box', size: [1, 1, 1], position: [0, 0, 0] } satisfies Partial<AddMarkArgs> as Partial<AddMarkArgs>
+    const deps = fake()
+    const refused = await addMarkTool(deps, 'bracket', { ...shape, intent: 'want' } as never)
+    expect(refused.isError).toBe(true)
+    expect(deps.w.added).toEqual([])
+    const ok = await addMarkTool(deps, 'bracket', { ...shape, intent: 'remove' } as AddMarkArgs)
+    expect(ok.isError).toBeUndefined()
+    expect(deps.w.added[0]).toMatchObject({ kind: 'shape', intent: 'remove' })
+  })
+
+  it('places a pin with no intent as before', async () => {
+    const deps = fake()
+    expect((await addMarkTool(deps, 'bracket', { kind: 'pin', note: 'here', ref: 'base/F5' })).isError).toBeUndefined()
+    expect(deps.w.added[0]).not.toHaveProperty('intent')
   })
 })

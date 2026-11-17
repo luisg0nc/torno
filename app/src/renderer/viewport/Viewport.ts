@@ -1209,7 +1209,7 @@ export class Viewport {
 
   /** The refs each layer of highlights is drawn for: for the tests, which cannot read the pixels of the hidden window. */
   highlighted(): Record<HighlightLayer, readonly string[]> {
-    return { hover: this.highlights.refsOf('hover'), selection: this.highlights.refsOf('selection'), agent: this.highlights.refsOf('agent'), userMark: this.highlights.refsOf('userMark'), agentMark: this.highlights.refsOf('agentMark'), point: this.highlights.refsOf('point') }
+    return { hover: this.highlights.refsOf('hover'), selection: this.highlights.refsOf('selection'), agent: this.highlights.refsOf('agent'), userMark: this.highlights.refsOf('userMark'), userDont: this.highlights.refsOf('userDont'), agentMark: this.highlights.refsOf('agentMark'), point: this.highlights.refsOf('point') }
   }
 
   /**
@@ -1376,6 +1376,7 @@ export class Viewport {
     const refs = this.marks.pickRefs(layout)
     const partNamed = (name: string): BuiltPart | undefined => this.entries.get(`${layout}:${name}`)?.built
     this.highlights.set('userMark', refs.user)
+    this.highlights.set('userDont', refs.dont)
     this.highlights.set('agentMark', refs.agent)
     for (const layer of MARK_LAYERS) this.highlights.apply(partNamed, layer)
   }

@@ -56,6 +56,22 @@ const Added = memo(function Added({ item }: { item: Of<'context'> }) {
             <RefChip value={item.sketching} /> is being sketched, not sent
           </span>
         )}
+        {item.review !== undefined && (
+          <span className="chat-added-review" data-part="review" title="This prompt carried the review: the line that names its build, and each item with what you want of it">
+            review <span className="num">{item.review}</span> sent
+          </span>
+        )}
+        {item.held !== undefined && (
+          <span className="chat-added-held" data-part="held" title="The marks of this round wait for Send review: they go with no other prompt">
+            {item.held.split(',').map((id, i) => (
+              <span key={id}>
+                {i > 0 && ', '}
+                <span className="num">{id}</span>
+              </span>
+            ))}{' '}
+            {item.held.includes(',') ? 'are' : 'is'} in review, not sent
+          </span>
+        )}
         {item.revision !== undefined && item.buildState && (
           <span className="chat-added-build">
             {item.buildState === 'failed' ? (

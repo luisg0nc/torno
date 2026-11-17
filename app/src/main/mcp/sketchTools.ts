@@ -8,7 +8,7 @@ import { strokeTouches } from '../sketches/touches'
 import { unknownKeys } from './keys'
 import { type AddSketchArgs, MOST_AGENT_POINTS, MOST_AGENT_STROKES, NO_SKETCH_STROKE } from './schemas'
 import { type ToolDeps, type ToolResult, MARK_ID, behind, built, failure, layoutFor, marksOf, messageOf, noMark } from './tools'
-import { anchorFor, checkRef, markCamera } from './markTools'
+import { REVIEW_INTENT_REFUSED, anchorFor, checkRef, markCamera } from './markTools'
 
 // `add_sketch`: Claude's own drawing in 3D, made, replaced or removed. Main makes the planes' frames (a main plane's axes as
 // `viewPlane` labels them, a face plane from the kernel's `describe` of that face), checks every number, the reach of the
@@ -191,6 +191,7 @@ export async function addSketchTool(deps: ToolDeps, objectId: string, args: AddS
 
   const replacing = args.sketch === undefined ? undefined : await ownSketch(deps, objectId, args.sketch, 'change')
   if (replacing && 'content' in replacing) return replacing
+  if ((args as { intent?: unknown }).intent !== undefined) return failure(`${REVIEW_INTENT_REFUSED}: add_sketch takes no intent`)
   const wrong = unknownKeys(args, SKETCH_KEYS, 'add_sketch')
   if (wrong) return failure(wrong)
 

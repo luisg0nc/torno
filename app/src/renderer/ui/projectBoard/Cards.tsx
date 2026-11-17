@@ -3,10 +3,11 @@ import type { Card } from '../../../shared/board'
 import type { HistoryEntry } from '../../../shared/history'
 import { boardActions, useBoard } from '../../state/board'
 import { ensurePicture, pictureOf, usePictureUrl } from '../../state/boardPictures'
+import { reviewActions, roundsViewOf, useReview } from '../../state/review'
 import { useStore } from '../../state/store'
 import { useNotePicture } from '../chat/useNotePicture'
 import { useHistory } from '../useHistory'
-import { type Facts, faceOf, refPieces } from './faces'
+import { type Facts, faceOf, refPieces, roundOfFrame } from './faces'
 
 // The cards of the board, drawn read-only. This layer is drawn again when a card, what a card shows, or the selection
 // changes, and never for a pan or a zoom: the camera moves the layer's transform and nothing in React hears of it.
@@ -96,6 +97,7 @@ const CardView = memo(
           ? ('missing' as const)
           : ('here' as const)
     const face = faceOf(card, file || mark ? { ...facts, ...(state === undefined ? {} : { picture: state }) } : facts)
+    const round = roundOfFrame(card)
     return (
       <article
         className="pboard-card"
@@ -111,6 +113,11 @@ const CardView = memo(
             <span className={face.chipAuthor ? 'mark-chip num' : 'pboard-chip num'} data-author={face.chipAuthor}>
               {face.chip}
             </span>
+          )}
+          {round !== undefined && (
+            <button type="button" className="link-button" data-link="" aria-label={`Open the panel of ${round}`} title="The items of the review, and what Claude did with each" onClick={() => reviewActions.openPanel(round)}>
+              Open
+            </button>
           )}
           <span className="pboard-id num">{card.id}</span>
         </header>
@@ -168,6 +175,11 @@ export function Cards({ objectId, cards }: { objectId: string; cards: readonly C
   const views = useStore((s) => s.views)
   const params = useStore((s) => s.scene?.params)
   const checks = useStore((s) => s.scene?.checks)
+  // So that a mark's card can say it is held: in a round that was not sent.
+  const reviewOf = useReview((s) => s.objectId)
+  const rounds = useReview((s) => s.rounds)
+  const sending = useReview((s) => s.sending)
+  const roundsView = useMemo(() => roundsViewOf({ objectId: reviewOf, rounds, sending }, objectId), [reviewOf, rounds, sending, objectId])
   const hasBrief = cards.some((c) => c.kind === 'brief')
   const hasBuild = cards.some((c) => c.kind === 'build')
   const brief = useBrief(objectId, hasBrief, cards)
@@ -186,7 +198,7 @@ export function Cards({ objectId, cards }: { objectId: string; cards: readonly C
     switch (card.kind) {
       case 'mark': {
         const mark = card.source === undefined ? undefined : markById.get(card.source)
-        return mark ? { mark } : {}
+        return mark ? { mark, ...(roundsView ? { rounds: roundsView } : {}) } : {}
       }
       case 'scan': {
         const scan = card.source === undefined ? undefined : scanById.get(card.source)

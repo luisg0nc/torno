@@ -9,7 +9,7 @@ export const ROW_WIDTH = 2400
 /** The room a frame keeps at its top for its name. */
 export const FRAME_HEADER = 32
 
-interface Box {
+export interface Box {
   x: number
   y: number
   w: number
@@ -17,7 +17,7 @@ interface Box {
 }
 
 /** Whether two boxes are closer than `GAP`, or overlap. */
-const crowds = (a: Box, b: Box): boolean => a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP
+export const crowds = (a: Box, b: Box): boolean => a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP
 
 const clear = (spot: Box, among: readonly Box[]): boolean => !among.some((c) => crowds(spot, c))
 

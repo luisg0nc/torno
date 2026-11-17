@@ -173,6 +173,19 @@ describe('the build after an edit, as data for the window', () => {
     expect(of(u, 'context')[0]).not.toHaveProperty('sketching')
   })
 
+  it('keeps which round was told and which was held, for the line under the prompt', () => {
+    const t = new Transcript({ now: () => 1000 })
+    t.userSent(text('go'), false)
+    t.context({ text: '[torno] part\nReview of h41 (R1): 1 want. Answer each item by its id.', sentMarkIds: ['M1'], review: 'R1', prompt: 'go' })
+    expect(of(t, 'context')[0]).toMatchObject({ marks: ['M1'], review: 'R1' })
+    expect(of(t, 'context')[0]).not.toHaveProperty('held')
+    const u = new Transcript({ now: () => 1000 })
+    u.userSent(text('go'), false)
+    u.context({ text: '[torno] part\nR1 is in review, not sent (2 marks).', sentMarkIds: [], held: 'R1', prompt: 'go' })
+    expect(of(u, 'context')[0]).toMatchObject({ marks: [], held: 'R1' })
+    expect(of(u, 'context')[0]).not.toHaveProperty('review')
+  })
+
   it('does not write the secret an error line holds', () => {
     const t = new Transcript({ now: () => 1000, redact: (text) => text.replaceAll('hunter2', '[secret]') })
     t.message(toolUse('toolu_9', 'Edit', { file_path: '/ws/part/part.py' }))

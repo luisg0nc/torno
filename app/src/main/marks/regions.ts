@@ -76,9 +76,10 @@ export async function addRegion(deps: RegionDeps, objectId: string, given: NewRe
   const asked = Object(given) as Partial<NewRegion>
   const bits = bytesOf(asked.bits)
   if (!bits) throw new Refusal('a region is given as the bits of its triangles')
+  if (asked.intent !== undefined && asked.intent !== 'want' && asked.intent !== 'dont') throw new Refusal('the intent of a region is want or dont, or none')
   const scan = await scanOf(deps, objectId, asked.scan)
   const stats = await said(deps, objectId, scan, bits)
-  const mark = { kind: 'region', author: 'user', scan: scan.id, note: asked.note, layout: asked.layout, revision: asked.revision, camera: asked.camera } as NewMark
+  const mark = { kind: 'region', author: 'user', scan: scan.id, note: asked.note, layout: asked.layout, revision: asked.revision, camera: asked.camera, ...(asked.intent ? { intent: asked.intent } : {}) } as NewMark
   let stem: string | null = null
   try {
     return await deps.marks.add(objectId, mark, 'draft', undefined, {

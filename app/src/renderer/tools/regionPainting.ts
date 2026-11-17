@@ -5,6 +5,7 @@ import { maskStem } from '../../shared/regions'
 import { maskBits } from '../../shared/scans'
 import type { Camera } from '../../shared/view'
 import { NOTHING_PAINTED_STATE, radiusOf, regionStore, usualRadius } from '../state/region'
+import { reviewActions } from '../state/review'
 import { actions, store } from '../state/store'
 import { setTool, toolStore } from '../state/tools'
 import { TriangleSet, growFlat } from '../viewport/scanPaint'
@@ -225,7 +226,10 @@ export async function keepRegion(ctx?: Keeper): Promise<void> {
   regionStore.setState({ sending: true, refused: null, notice: null })
   try {
     const bits = hand.set.bits.slice()
-    const mark = hand.editing ? await window.torno.marks.repaintRegion(hand.objectId, hand.editing, bits) : await window.torno.marks.addRegion(hand.objectId, { scan: hand.scan, note: '', layout: ctx?.layout ?? s.layout, revision: ctx?.revision ?? s.revision, camera, bits })
+    const layout = ctx?.layout ?? s.layout
+    // What the bar of an open review says of a region made now (a region painted again keeps what it was).
+    const intent = reviewActions.intentForNew(layout)
+    const mark = hand.editing ? await window.torno.marks.repaintRegion(hand.objectId, hand.editing, bits) : await window.torno.marks.addRegion(hand.objectId, { scan: hand.scan, note: '', layout, revision: ctx?.revision ?? s.revision, camera, bits, ...(intent ? { intent } : {}) })
     sending = false
     regionStore.setState({ sending: false })
     // What was in hand went into it.

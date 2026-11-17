@@ -3,7 +3,8 @@ import type { ChatItem } from '../../../shared/chat'
 import { stillLatest } from '../../../shared/build'
 import { identitySaid } from '../../../shared/git'
 import type { Verdict } from '../../../shared/sanity'
-import { actions, useStore } from '../../state/store'
+import { openRoundNow, reviewActions, useReview } from '../../state/review'
+import { actions, store, useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { seconds } from '../BuildStatus'
 import { RefChip } from './RefChip'
@@ -30,6 +31,9 @@ export const BuildLine = memo(function BuildLine({ item }: { item: Context }) {
   const [open, setOpen] = useState(false)
   const latest = useStore((s) => stillLatest(s.build, item))
   const errorShown = useStore((s) => s.errorOpen)
+  // A round of a review is of the build on show: offered on the build row that is still it, while none is open.
+  const onShow = useStore((s) => item.buildState === 'ok' && item.revision !== undefined && s.build?.status === 'ok' && s.build.revision === item.revision)
+  const reviewing = useReview((s) => openRoundNow(s) !== undefined)
   const digest = item.digest
   const of = item.identity ? identitySaid(item.identity) : undefined
   const parts = digest?.parts ?? []
@@ -56,6 +60,11 @@ export const BuildLine = memo(function BuildLine({ item }: { item: Context }) {
         {/* Main writes it once, when the edit's answer could wait no longer, and never again: true when read later too. */}
         {item.buildState === 'building' && <span className="chat-build-head">Still building when Claude Code was answered</span>}
         {item.buildState === undefined && <span className="chat-build-head">Build</span>}
+        {onShow && !reviewing && (
+          <button type="button" className="chat-more" title="Start a round on this build: mark what you don't want and what you want, then send it at once" onClick={() => void reviewActions.start(store.getState().layout)}>
+            Review this build
+          </button>
+        )}
         {item.buildState === 'failed' && latest && (
           <button type="button" className="chat-more" aria-expanded={errorShown} onClick={() => actions.setErrorOpen(!errorShown)}>
             {errorShown ? 'Hide error' : 'Show error'}

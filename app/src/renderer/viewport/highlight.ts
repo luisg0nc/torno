@@ -4,6 +4,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js'
 import type { BuiltPart } from './partMesh'
+import { hatched } from './marks/hatch'
 import { parseRef } from './picking'
 
 /**
@@ -11,10 +12,10 @@ import { parseRef } from './picking'
  * on, and what a ref or a mark the pointer is on elsewhere (a chip of the chat, a mark's row or its chip in the view)
  * is on (`point`).
  */
-export type HighlightLayer = 'hover' | 'selection' | 'agent' | 'userMark' | 'agentMark' | 'point'
+export type HighlightLayer = 'hover' | 'selection' | 'agent' | 'userMark' | 'userDont' | 'agentMark' | 'point'
 
 /** The layers that belong to marks: they are in a picture when the marks are. */
-export const MARK_LAYERS: HighlightLayer[] = ['userMark', 'agentMark']
+export const MARK_LAYERS: HighlightLayer[] = ['userMark', 'userDont', 'agentMark']
 
 // `order` is the order of drawing: a selection is drawn over the tint of a mark
 // on the same face, and both show, since each is see-through. What is pointed at
@@ -26,6 +27,8 @@ const LAYERS: Record<HighlightLayer, { color: 'accent' | 'agent' | 'user'; tint:
   selection: { color: 'accent', tint: 0.42, line: 3.5, order: 4 },
   agent: { color: 'agent', tint: 0.45, line: 3.5, order: 3 },
   userMark: { color: 'user', tint: 0.4, line: 3.5, order: 2 },
+  // What the person does not want, in their colour and hatched: the tint is cut into stripes (`marks/hatch.ts`), a little stronger to read as one.
+  userDont: { color: 'user', tint: 0.55, line: 3.5, order: 2 },
   agentMark: { color: 'agent', tint: 0.4, line: 3.5, order: 1 }
 }
 const NAMES = Object.keys(LAYERS) as HighlightLayer[]
@@ -56,9 +59,8 @@ export class Highlights {
   private readonly suppressed = new Set<BuiltPart>()
 
   constructor() {
-    const make = (name: HighlightLayer): LayerState => ({
-      refs: [],
-      tint: new THREE.MeshBasicMaterial({
+    const make = (name: HighlightLayer): LayerState => {
+      const tint = new THREE.MeshBasicMaterial({
         transparent: true,
         opacity: LAYERS[name].tint,
         depthWrite: false,
@@ -66,10 +68,9 @@ export class Highlights {
         polygonOffset: true,
         polygonOffsetFactor: 0.5,
         polygonOffsetUnits: 0.5
-      }),
-      line: new LineMaterial({ linewidth: LAYERS[name].line }),
-      overlays: new Map()
-    })
+      })
+      return { refs: [], tint: name === 'userDont' ? hatched(tint) : tint, line: new LineMaterial({ linewidth: LAYERS[name].line }), overlays: new Map() }
+    }
     this.layers = Object.fromEntries(NAMES.map((name) => [name, make(name)])) as Record<HighlightLayer, LayerState>
   }
 

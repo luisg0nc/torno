@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type Anchor, type NoteMark, type SketchMark, isUnchecked, markAnchors, markPoints, sketchStrokePoints, strokeSamples, translated } from './marks'
+import { type Anchor, type Mark, type NoteMark, type SketchMark, MAIN_ONLY_KEYS, isUnchecked, markAnchors, markIntent, markPoints, sketchStrokePoints, strokeSamples, translated } from './marks'
 
 const ANCHOR: Anchor = { point: [1, 2, 20], part: 'base', ref: 'base/F4' }
 const note = (over: object = {}): NoteMark =>
@@ -124,5 +124,34 @@ describe('a sketch mark', () => {
   it('is unchecked like a pick: open, and not checked against the last build', () => {
     expect(isUnchecked(sketch(), 3)).toBe(true)
     expect(isUnchecked(sketch({ checkedRevision: 3 }), 3)).toBe(false)
+  })
+})
+
+describe('markIntent', () => {
+  const pick = (over: object = {}): Mark => ({ ...note(), kind: 'pick', target: 'face', anchor: ANCHOR, ...over }) as unknown as Mark
+  const shape = (over: object = {}): Mark => ({ ...note(), kind: 'shape', shape: 'box', intent: 'add', position: [0, 0, 0], rotation: [0, 0, 0, 1], size: [1, 1, 1], ...over }) as unknown as Mark
+
+  it('is what a pick says of itself', () => {
+    expect(markIntent(pick({ intent: 'want' }))).toBe('want')
+    expect(markIntent(pick({ intent: 'dont' }))).toBe('dont')
+    expect(markIntent(pick())).toBeNull()
+  })
+
+  it("reads a person's shape: add is want, remove is don't want, the rest plain", () => {
+    expect(markIntent(shape({ intent: 'add' }))).toBe('want')
+    expect(markIntent(shape({ intent: 'remove' }))).toBe('dont')
+    expect(markIntent(shape({ intent: 'keep-out' }))).toBeNull()
+    expect(markIntent(shape({ intent: 'reference' }))).toBeNull()
+  })
+
+  it("is null for every mark of the agent's, a shape's add and remove included", () => {
+    expect(markIntent(shape({ author: 'agent', intent: 'add' }))).toBeNull()
+    expect(markIntent(shape({ author: 'agent', intent: 'remove' }))).toBeNull()
+    expect(markIntent(pick({ author: 'agent', intent: 'want' }))).toBeNull()
+  })
+
+  it('is main only that says which round a mark is in and what was judged of it', () => {
+    expect(MAIN_ONLY_KEYS).toContain('round')
+    expect(MAIN_ONLY_KEYS).toContain('judged')
   })
 })

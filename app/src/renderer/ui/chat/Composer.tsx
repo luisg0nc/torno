@@ -7,12 +7,14 @@ import { useChat } from '../../state/chat'
 import { drawingActions, useDrawing } from '../../state/drawing'
 import { picture } from '../../state/agent'
 import { onboarding } from '../../state/onboard'
+import { roundsViewOf, useReview } from '../../state/review'
 import { store, useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { giveKeysBack } from '../typing'
 import { openDrawing } from '../drawing/make'
 import { commandsFor, rateLine } from './foot'
 import { RefChip } from './RefChip'
+import { ReviewChip, goingNext } from './ReviewChip'
 import { type Suggestion, suggest } from './suggest'
 import { Suggestions } from './Suggestions'
 import { WaitingNotes } from './WaitingNotes'
@@ -62,8 +64,14 @@ function Next() {
   )
   // The failed build goes too: the next prompt carries its error, so the person need not paste it.
   const buildFailed = useStore((s) => s.build?.status === 'failed')
+  // The marks of a round that was not sent are held: they go with Send review, not with a prompt.
+  const objectId = useStore((s) => s.objectId)
+  const reviewOf = useReview((s) => s.objectId)
+  const rounds = useReview((s) => s.rounds)
+  const sending = useReview((s) => s.sending)
+  const view = objectId === null ? undefined : roundsViewOf({ objectId: reviewOf, rounds, sending }, objectId)
   const things = [
-    ...marks.filter((m) => m.status === 'draft').map((m) => ({ id: m.id, word: '' })),
+    ...goingNext(marks, view).map((m) => ({ id: m.id, word: '' })),
     ...failing.map((m) => ({ id: m.id, word: 'fails' })),
     ...unmeasured.map((m) => ({ id: m.id, word: 'no value' }))
   ]
@@ -167,6 +175,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
   const layouts = useStore((st) => st.scene?.layouts)
   const buildFailed = useStore((st) => st.build?.status === 'failed')
   const boardAttached = useBoard((st) => st.attached !== null && st.board !== null)
+  const reviewAttached = useReview((st) => st.sending !== null && st.rounds.some((one) => one.id === st.sending))
   // A permission or a plan waiting for the person: what is written can be the answer to it.
   const waiting = chat?.items.findLast((i) => i.kind === 'ask' && i.state === 'open' && i.toolName !== 'AskUserQuestion')
   const openAsk = waiting?.kind === 'ask' ? waiting : undefined
@@ -356,9 +365,10 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
       )}
       {offered.length > 0 && <Commands offered={offered} at={at} onChoose={complete} />}
       <WaitingNotes onProblem={setProblem} />
-      {(attach || boardAttached) && (
+      {(attach || boardAttached || reviewAttached) && (
         <div className="chat-with">
           <BoardChip />
+          <ReviewChip />
           {attach && (
             <div className="chat-attached" role="group" aria-label="View attached">
               {attached !== null ? <img src={attached} alt="The view as it is now" draggable={false} /> : <span className="chat-attached-wait" aria-hidden="true" />}

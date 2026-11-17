@@ -1,9 +1,10 @@
 import { type Card, type CardKind, firstLink } from '../../../shared/board'
 import { count } from '../../../shared/format'
-import { type Mark, markAnchors } from '../../../shared/marks'
+import { type Mark, markAnchors, markIntent } from '../../../shared/marks'
 import { checkText, type ModelCheck } from '../../../shared/modelChecks'
 import { sketchName, takeText } from '../../../shared/sketchText'
 import { said } from '../../../shared/params'
+import { ROUND_ID, type RoundsView, isHeld } from '../../../shared/reviews'
 import type { Param } from '../../../shared/scene'
 import type { ScanInfo } from '../../../shared/scans'
 import type { SavedView } from '../../../shared/views'
@@ -31,6 +32,8 @@ export interface Facts {
   buildHere?: boolean
   /** Whether the picture of the card is on this computer: undefined while it is being read. */
   picture?: 'here' | 'missing'
+  /** The rounds of the project's reviews and which is being sent, so that a mark can say it is held. Absent while they are not known. */
+  rounds?: RoundsView
 }
 
 export type Tone = 'ok' | 'fail' | 'tried' | 'muted'
@@ -80,6 +83,20 @@ const LABEL: Record<CardKind, string> = {
 const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim()
 const IMAGE = /\.(?:png|jpe?g|webp)$/i
 
+/** A mark's chip: its id, with `−` before it when the person does not want what it points at and `+` when they want it. */
+function markChip(mark: Mark): string {
+  const intent = markIntent(mark)
+  return intent === 'dont' ? `− ${mark.id}` : intent === 'want' ? `+ ${mark.id}` : mark.id
+}
+
+/** What a mark of a review says besides its status: that it is held in a review not sent, and what the person judged of Claude's answer. */
+function reviewLines(mark: Mark, facts: Facts): Line[] {
+  return [
+    ...(facts.rounds && isHeld(mark, facts.rounds) ? [{ text: 'in review, not sent', tone: 'muted' as const }] : []),
+    ...(mark.judged ? [mark.judged.verdict === 'ok' ? { text: `OK in ${mark.judged.build}`, tone: 'ok' as const } : { text: 'Still wrong', tone: 'fail' as const }] : [])
+  ]
+}
+
 function markFace(card: Card, facts: Facts): Face {
   const mark = facts.mark
   if (!mark) {
@@ -92,10 +109,10 @@ function markFace(card: Card, facts: Facts): Face {
   if (mark.kind === 'note') {
     return {
       label: LABEL.mark,
-      chip: mark.id,
+      chip: markChip(mark),
       chipAuthor: mark.author,
       // Two lines, so that the picture keeps room on a card the size of a mark's: the comment (or what it is), and its status.
-      lines: [note ? { text: note } : { text: 'view note', mono: true as const }, { text: mark.status, ...(mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }],
+      lines: [note ? { text: note } : { text: 'view note', mono: true as const }, { text: mark.status, ...(mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }, ...reviewLines(mark, facts)],
       ...(facts.picture ? { picture: facts.picture } : {}),
       ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {})
     }
@@ -104,9 +121,9 @@ function markFace(card: Card, facts: Facts): Face {
   if (mark.kind === 'sketch') {
     return {
       label: LABEL.mark,
-      chip: mark.id,
+      chip: markChip(mark),
       chipAuthor: mark.author,
-      lines: [{ text: sketchName(mark) }, { text: takeText(mark), mono: true }, ...(note ? [{ text: note }] : []), { text: mark.status, ...(mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }],
+      lines: [{ text: sketchName(mark) }, { text: takeText(mark), mono: true }, ...(note ? [{ text: note }] : []), { text: mark.status, ...(mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }, ...reviewLines(mark, facts)],
       ...(facts.picture ? { picture: facts.picture } : {}),
       ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {})
     }
@@ -115,12 +132,13 @@ function markFace(card: Card, facts: Facts): Face {
   const status = [mark.status, ...(fails ? ['fails'] : []), ...(mark.anchorState === 'orphaned' ? ['anchor lost'] : [])].join(', ')
   return {
     label: LABEL.mark,
-    chip: mark.id,
+    chip: markChip(mark),
     chipAuthor: mark.author,
     lines: [
       { text: `${mark.kind}${ref ? ` · ${ref}` : ''}`, mono: true },
       ...(note ? [{ text: note }] : []),
-      { text: status, ...(fails || mark.anchorState === 'orphaned' ? { tone: 'fail' as const } : mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }
+      { text: status, ...(fails || mark.anchorState === 'orphaned' ? { tone: 'fail' as const } : mark.status === 'resolved' ? { tone: 'ok' as const } : {}) },
+      ...reviewLines(mark, facts)
     ]
   }
 }
@@ -152,6 +170,11 @@ function checkLines(checks: readonly ModelCheck[] | undefined): Line[] {
 }
 
 /** What a card says, from the card and what the window knows of what it shows. */
+/** The round a frame is the frame of (main's own, `source: 'R1'`), for the way from the frame to the round's panel; undefined for any other card. */
+export function roundOfFrame(card: Card): string | undefined {
+  return card.kind === 'frame' && card.by === 'torno' && card.source !== undefined && ROUND_ID.test(card.source) ? card.source : undefined
+}
+
 export function faceOf(card: Card, facts: Facts): Face {
   switch (card.kind) {
     case 'mark':

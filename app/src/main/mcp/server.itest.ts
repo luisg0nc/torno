@@ -75,7 +75,7 @@ const deps: ToolDeps = {
   },
   updateMark: async (_objectId, id, patch) => {
     if (id !== 'M1') throw new Error(`no mark ${id}; marks: M1`)
-    return { ...PIN, ...patch }
+    return { ...PIN, ...patch } as Mark
   },
   describe: async (_objectId, layout, ref) => ({ kind: 'face', ref: `${layout}:${ref}`, type: 'plane', area: 1200, center: [20, 15, 5], normal: [0, 0, 1], radius: null, descriptor: 'plane, normal +Z, z = 5, 1200 mm²' }),
   nearest: async (_objectId, _layout, anchors) => anchors.map(({ part, point }) => ({ part, found: true, point, normal: [0, 0, 1], ref: `${part}/F5`, distance: 0, descriptor: null })),

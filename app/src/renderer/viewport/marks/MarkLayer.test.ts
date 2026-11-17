@@ -38,7 +38,7 @@ describe('the marks of a part that is switched off', () => {
     marks.show('assembly', new Set(['post']))
     expect(drawn()).toEqual(['M1', 'M3'])
     expect(labelled()).toEqual(['M1', 'M3'])
-    expect(marks.pickRefs('assembly')).toEqual({ user: [], agent: [] })
+    expect(marks.pickRefs('assembly')).toEqual({ user: [], agent: [], dont: [] })
     expect(marks.markOf('assembly', 'M2')).toBeUndefined()
     expect(marks.markOf('assembly', 'M1')).toBe(onBase)
 
@@ -53,7 +53,7 @@ describe('the marks of a part that is switched off', () => {
     // Switched on again, they are back.
     marks.show('assembly')
     expect(drawn()).toEqual(['M1', 'M2', 'M3'])
-    expect(marks.pickRefs('assembly')).toEqual({ user: ['post/F0'], agent: [] })
+    expect(marks.pickRefs('assembly')).toEqual({ user: ['post/F0'], agent: [], dont: [] })
   })
 
   it('a picture is labelled by the parts it draws, whatever is switched off on screen', () => {

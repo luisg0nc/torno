@@ -4,6 +4,7 @@ import { EXAMPLE_NOTE, type WorkspaceInfo } from '../shared/workspace'
 import { connectLook } from './state/agent'
 import { connectAsks } from './state/asks'
 import { connectBoard, useBoard } from './state/board'
+import { connectReview } from './state/review'
 import { actions, sceneFileOf, store, useStore } from './state/store'
 import { BuildStatus } from './ui/BuildStatus'
 import { closingWhy, isExporting, leavingWhy, unkept, type Reason } from './closing'
@@ -28,6 +29,7 @@ import { BoardSwitch, useBoardSwapKey } from './ui/projectBoard/BoardSwitch'
 import { BoardView } from './ui/projectBoard/BoardView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
+import { RoundPanel } from './ui/review/RoundPanel'
 import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
 import { LEFT_DEFAULT, VIEWPORT_MIN } from './state/column'
@@ -182,6 +184,8 @@ function useMain(): void {
     const offAsks = connectAsks()
     // The board of the open project, read from main and followed.
     const offBoard = connectBoard()
+    // The rounds of the open project's review, read from main and followed.
+    const offReview = connectReview()
 
     // Layer and layout changes are written to <object>/.torno/scene.json, once they stop coming.
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -215,6 +219,7 @@ function useMain(): void {
       offBuild()
       offAsks()
       offBoard()
+      offReview()
       offMarks()
       offMarksProblem()
       offScans()
@@ -496,6 +501,8 @@ export function App() {
         <ExportSheet onOpen={openThenExport} />
         {/* Over the view: a drawing on it for the chat, while its board is open. */}
         <ViewBoard />
+        {/* Over the model or the board: the follow-up of a review, with the reviewed build faint beside the live one. */}
+        {page === 'object' && <RoundPanel />}
       </main>
 
       <aside className="dock" data-region="session" aria-label="Session" hidden={!dockOpen}>

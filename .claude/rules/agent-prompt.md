@@ -49,3 +49,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `listReferences`: plain files of create's names, photos then doodles, twelve named at most). It is no mark, and is
   left out when it does not fit in the context's limit. The onboarding prompt names them too; the repetition is
   accepted.
+- **Reviews** (`prompt.ts`, in both prompts, before the `add_mark` sentence): one fixed sentence says a review lists what the person does not
+  want and wants on one build, to answer each item by its id with `mcp__torno__resolve_mark`, and never to bring back what an earlier review
+  removed (read with `mcp__torno__marks` and `review: "all"`); it costs about 250 characters, which is why the length limits of
+  `prompt.test.ts` are 7,600 and 8,600. Every round that is not sent is **held**: `contextFor` (`opts.rounds`) leaves its drafts out of the drafts and
+  the open marks as an open sketch is, never in `sentMarkIds`, and says `R1 is in review, not sent (3 marks). Wait until the review is sent: do not resolve its marks.` (`HELD_LINE`; `resolve_mark` refuses those drafts) so that the agent knows
+  the number and why it has no word of them; while `sending` names a round, `REVIEW_LINE` goes before the marks head, and is taken out again when none of
+  the round's drafts fit under it; when the line itself does not fit, the round's drafts are left out of the marks too (they never go without it). The held rule and the review line are tested in `context.test.ts`; a change to either is a change to the manual's
+  "What the agent is told" and to `marks-store`.

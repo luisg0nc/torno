@@ -1,5 +1,6 @@
 import type { StrokeUnder } from './drawing'
 import type { Camera } from './view'
+import type { Round } from './reviews'
 export type Vec3 = [number, number, number]
 export type Quat = [number, number, number, number]            // x y z w
 
@@ -35,6 +36,17 @@ export type MarkStatus = 'draft' | 'sent' | 'resolved'
 export type AnchorState = 'ok' | 'drifted' | 'orphaned'
 export type ShapeKind = 'box' | 'cylinder' | 'sphere' | 'plane'
 export type ShapeIntent = 'add' | 'remove' | 'keep-out' | 'reference'
+/** What a person says of a mark in a review: they want it, or they do not. Absent: plain. */
+export type ReviewIntent = 'want' | 'dont'
+/** The person's verdict on what the agent did with an item of a review, on a build (`h42`). Main's alone. */
+export interface Judged {
+  verdict: 'ok' | 'still-wrong'
+  build: string
+}
+/** Every kind but a shape says want or don't want here: a shape keeps `intent` for what it is (`ShapeIntent`), and `add` and `remove` are its want and don't want. */
+interface Reviewable {
+  intent?: ReviewIntent
+}
 
 interface MarkBase {
   id: string               // 'M3'
@@ -66,11 +78,15 @@ interface MarkBase {
    * dropped when it is read.
    */
   checkedRevision?: number
+  /** The round (`R1`) the person made it in, or that Still wrong carried it into. Main's alone; a round's marks are held until it is sent. */
+  round?: string
+  /** What the person said of the agent's answer in the round panel. Main's alone; only OK and Still wrong set it. */
+  judged?: Judged
 }
-export interface PinMark extends MarkBase { kind: 'pin'; anchor: Anchor }
-export interface PickMark extends MarkBase { kind: 'pick'; target: 'face' | 'edge' | 'part'; anchor: Anchor }
-export interface ArrowMark extends MarkBase { kind: 'arrow'; from: Anchor; to: Vec3 }
-export interface StrokeMark extends MarkBase {
+export interface PinMark extends MarkBase, Reviewable { kind: 'pin'; anchor: Anchor }
+export interface PickMark extends MarkBase, Reviewable { kind: 'pick'; target: 'face' | 'edge' | 'part'; anchor: Anchor }
+export interface ArrowMark extends MarkBase, Reviewable { kind: 'arrow'; from: Anchor; to: Vec3 }
+export interface StrokeMark extends MarkBase, Reviewable {
   kind: 'stroke'
   space: 'surface' | 'plane'
   anchor: Anchor                                         // first point
@@ -100,7 +116,7 @@ export interface DimensionSample {
   revision: number
   value?: number
 }
-export interface DimensionMark extends MarkBase {
+export interface DimensionMark extends MarkBase, Reviewable {
   kind: 'dimension'
   measure: MeasureKind
   a: Anchor                 // first end; for radius, diameter and thickness the only one
@@ -127,7 +143,7 @@ export interface DimensionMark extends MarkBase {
  * or its mesh is another than the one the region was painted on. It is of its scan in every layout: `layout`
  * is only where it was painted.
  */
-export interface RegionMark extends MarkBase {
+export interface RegionMark extends MarkBase, Reviewable {
   kind: 'region'
   scan: string                 // 'S1'
   triangles: number
@@ -197,7 +213,7 @@ export interface NoteReference {
  * The strokes and labels are in pixels of the picture (`size`) and stay the source: an edit makes a new inked file.
  * Its anchor is where the ink first lies over a face, when it does: like a pick's, but optional.
  */
-export interface NoteMark extends MarkBase {
+export interface NoteMark extends MarkBase, Reviewable {
   kind: 'note'
   anchor?: Anchor
   /** The plain picture of the view: `n-<12 hex>.png`. */
@@ -254,7 +270,7 @@ export interface SketchStroke {
  * A drawing in 3D: strokes on planes and on the surface, made to say where a part goes, how a hose runs, what to cut.
  * Its `picture` is the board card's, `k-<12 hex>.png` in `.torno/notes/`; main names it, and marks.json never holds the bytes.
  */
-export interface SketchMark extends MarkBase {
+export interface SketchMark extends MarkBase, Reviewable {
   kind: 'sketch'
   name: string
   take: SketchTake
@@ -270,7 +286,7 @@ export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | Dim
 export type MarkKind = Mark['kind']
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 /** What main alone says of a mark: no caller supplies these. */
-export const MAIN_ONLY_KEYS = ['resolvedBy', 'acknowledged', 'sentBefore', 'reopened', 'checkedRevision'] as const
+export const MAIN_ONLY_KEYS = ['resolvedBy', 'acknowledged', 'sentBefore', 'reopened', 'checkedRevision', 'round', 'judged'] as const
 /** What main alone says of a dimension: what the kernel measured or why it could not, on which build, and the verdict. No caller supplies these either. */
 export const MEASURED_KEYS = ['value', 'how', 'points', 'measuredRevision', 'refused', 'verdict'] as const
 /** What the kernel's measurement leaves on a dimension (`MEASURED_KEYS`). */
@@ -289,12 +305,13 @@ export type MarkPatch = Partial<Pick<MarkBase, 'note' | 'status' | 'resolvedNote
 export type NewNote = Extract<NewMark, { kind: 'note' }>
 /** What a person changes of a note; `ink` is the file of the picture with the new ink on it. */
 export type NotePatch = Partial<Pick<NoteMark, 'note' | 'labels' | 'strokes' | 'under' | 'references' | 'ink'>>
-export interface MarksFile { next: number; marks: Mark[] }
+/** `rounds` and `nextRound` are there once a review has been started: a file from before has neither. */
+export interface MarksFile { next: number; marks: Mark[]; rounds?: Round[]; nextRound?: number }
 /**
  * What the window gives to keep a region: the scan, and its triangles as the bits of a mask (bit `i & 7` of
  * byte `i >> 3` for triangle `i`). Main works out everything else from the mesh, and writes the mask.
  */
-export interface NewRegion { scan: string; note: string; layout: string; revision: number; camera: Camera; bits: Uint8Array }
+export interface NewRegion { scan: string; note: string; layout: string; revision: number; camera: Camera; bits: Uint8Array; /** What the bar of an open review says of it (main checks it). */ intent?: ReviewIntent }
 /** Where a mark is put again, by a click on a part: the anchor found there, on which build and from which view. */
 export interface Replacement { anchor: Anchor; revision: number; camera: Camera }
 
@@ -303,6 +320,17 @@ export const MIN_SHAPE_SIZE = 0.1
 
 /** The most points a stroke keeps. Main cuts a longer one there; whoever draws one sends no more. */
 export const MAX_STROKE_POINTS = 400
+
+/**
+ * What the person says of a mark in a review. Never of the agent's marks (a shape of the agent's, whatever its
+ * `intent`, is what it is, not a want); a shape's `add` is want and `remove` is don't want, its other intents plain;
+ * any other kind says it in its `intent`.
+ */
+export function markIntent(mark: Pick<Mark, 'author' | 'kind'> & { intent?: ShapeIntent | ReviewIntent }): ReviewIntent | null {
+  if (mark.author !== 'user') return null
+  if (mark.kind === 'shape') return mark.intent === 'add' ? 'want' : mark.intent === 'remove' ? 'dont' : null
+  return mark.intent === 'want' || mark.intent === 'dont' ? mark.intent : null
+}
 
 /** The anchors a mark carries: where it is tied to the geometry. A shape placed in empty space has none. */
 export function markAnchors(mark: Mark): Anchor[] {

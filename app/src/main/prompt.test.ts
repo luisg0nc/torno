@@ -92,8 +92,15 @@ describe('the system prompt', () => {
   })
 
   it('stays short', () => {
-    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches.
-    expect(FULL_PROMPT.length).toBeLessThan(8400)
+    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews.
+    expect(FULL_PROMPT.length).toBeLessThan(8600)
+  })
+
+  it('says what a review is and to answer each of its items, and never to bring back what an earlier one removed', () => {
+    const said = 'A review lists what the person doesn\'t want and wants on one build: answer each item by its id with mcp__torno__resolve_mark, and never bring back what an earlier review removed (read them with mcp__torno__marks and review: "all").'
+    expect(FULL_PROMPT).toContain(said)
+    expect(SYSTEM_PROMPT).toContain(said)
+    expect(systemPrompt((tool) => `torno_${tool}`, true)).toContain('with torno_resolve_mark, and never bring back what an earlier review removed (read them with torno_marks and review: "all")')
   })
 
   it('says how literally to take a sketch, and that add_sketch shows a route or an outline', () => {
@@ -152,7 +159,7 @@ describe("Claude Code's prompt, with the skills", () => {
 
   it('is the whole text without the scans and the dimensions, noticeably shorter', () => {
     expect(systemPrompt((tool) => `mcp__torno__${tool}`, true)).toBe(SYSTEM_PROMPT)
-    expect(SYSTEM_PROMPT.length).toBeLessThan(7400)
+    expect(SYSTEM_PROMPT.length).toBeLessThan(7600)
     expect(FULL_PROMPT.length - SYSTEM_PROMPT.length).toBeGreaterThan(1000)
     for (const sentence of [...SCANS_TEXT, ...DIMENSIONS_TEXT]) {
       expect(FULL_PROMPT).toContain(sentence)

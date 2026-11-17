@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { type BoardFile, type BuildCopy, emptyBoard } from '../../shared/board'
-import { pin, reconcile } from './sources'
+import { CARD_SIZE, pin, reconcile } from './sources'
 
-const none = { brief: false, references: [] as string[], marks: [] as Array<{ id: string; layout: string }>, scans: [] as string[] }
-const mark = (n: number, layout = 'assembly') => ({ id: `M${n}`, layout })
+const none = { brief: false, references: [] as string[], marks: [] as Array<{ id: string; layout: string; round?: string }>, scans: [] as string[], rounds: [] as Array<{ id: string; name: string; items: string[]; from?: string }> }
+const mark = (n: number, layout = 'assembly', round?: string) => ({ id: `M${n}`, layout, ...(round !== undefined ? { round } : {}) })
 const sourcesOf = (board: BoardFile): string[] => board.cards.map((c) => `${c.kind}:${c.source}`)
 const done = (value: BoardFile | null): BoardFile => {
   if (value === null) throw new Error('expected a board')
@@ -17,7 +17,7 @@ describe('reconcile', () => {
   })
 
   it('adds a placed card of main\'s own for each source', () => {
-    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg'], marks: [mark(1, 'lid')], scans: ['S1'] }))
+    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg'], marks: [mark(1, 'lid')], scans: ['S1'], rounds: [] }))
     expect(sourcesOf(board)).toEqual(['brief:brief', 'reference:reference/photo-1.jpg', 'mark:M1', 'scan:S1'])
     expect(board.cards.every((c) => c.by === 'torno' && !c.hidden && c.w > 0 && c.h > 0)).toBe(true)
     expect(board.cards.map((c) => c.id)).toEqual(['C1', 'C2', 'C3', 'C4'])
@@ -60,8 +60,8 @@ describe('reconcile', () => {
   })
 
   it('removes the card of a reference file that is gone, and of a brief that is gone, and of a scan', () => {
-    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg', 'reference/photo-2.jpg'], marks: [], scans: ['S1', 'S2'] }))
-    const after = done(reconcile(board, { brief: false, references: ['reference/photo-2.jpg'], marks: [], scans: ['S2'] }))
+    const board = done(reconcile(emptyBoard(), { brief: true, references: ['reference/photo-1.jpg', 'reference/photo-2.jpg'], marks: [], scans: ['S1', 'S2'], rounds: [] }))
+    const after = done(reconcile(board, { brief: false, references: ['reference/photo-2.jpg'], marks: [], scans: ['S2'], rounds: [] }))
     expect(sourcesOf(after)).toEqual(['reference:reference/photo-2.jpg', 'scan:S2'])
   })
 
@@ -88,6 +88,179 @@ describe('reconcile', () => {
     const board = emptyBoard()
     reconcile(board, { ...none, brief: true })
     expect(board).toEqual(emptyBoard())
+  })
+})
+
+describe('reconcile: the frame of a round', () => {
+  const r1 = (items: string[], name = 'Review of h41 · 1 −'): { id: string; name: string; items: string[]; from?: string } => ({ id: 'R1', name, items })
+  const found = (marks: ReturnType<typeof mark>[], rounds: Array<ReturnType<typeof r1>>) => ({ ...none, marks, rounds })
+  const frameOf = (board: BoardFile, source: string) => board.cards.find((c) => c.kind === 'frame' && c.source === source)
+  const cardOf = (board: BoardFile, id: string) => board.cards.find((c) => c.kind === 'mark' && c.source === id)
+  const inside = (card: { x: number; y: number; w: number; h: number }, frame: { x: number; y: number; w: number; h: number }): boolean =>
+    card.x >= frame.x && card.y >= frame.y && card.x + card.w <= frame.x + frame.w && card.y + card.h <= frame.y + frame.h
+
+  it('makes the frame of a round with its first item, and puts the new mark card in it', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    const frame = frameOf(board, 'R1')
+    expect(frame).toMatchObject({ kind: 'frame', by: 'torno', source: 'R1', name: 'Review of h41 · 1 −', w: CARD_SIZE.round.w, h: CARD_SIZE.round.h })
+    const card = cardOf(board, 'M1')
+    expect(card?.frame).toBe(frame?.id)
+    expect(inside(card!, frame!)).toBe(true)
+  })
+
+  it('makes no frame for a round with no items, and none again for one it has', () => {
+    expect(reconcile(emptyBoard(), found([], [r1([])]))).toBeNull()
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    expect(reconcile(board, found([mark(1, 'assembly', 'R1')], [r1(['M1'])]))).toBeNull()
+  })
+
+  it('keeps the frame of a round that is still there when its items are all gone, and takes it away with the round', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    // The only item was removed or carried on: the round is still in the rounds, so its frame stays.
+    const empty = reconcile(board, found([], [r1([])]))
+    expect(frameOf(empty ?? board, 'R1')).toBeDefined()
+    // Round gone: its frame goes.
+    expect(frameOf(done(reconcile(board, found([], []))), 'R1')).toBeUndefined()
+  })
+
+  it('renames the frame when the counts change, and keeps its place and size', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    const moved = structuredClone(board)
+    const frame = frameOf(moved, 'R1')!
+    frame.x = 900
+    frame.w = 1000
+    const after = done(reconcile(moved, found([mark(1, 'assembly', 'R1'), mark(2, 'assembly', 'R1')], [r1(['M1', 'M2'], 'Review of h41 · 1 − · 1 +')])))
+    expect(frameOf(after, 'R1')).toMatchObject({ name: 'Review of h41 · 1 − · 1 +', x: 900, w: 1000 })
+    expect(cardOf(after, 'M2')?.frame).toBe(frame.id)
+  })
+
+  it('puts a frame in a free spot, clear of the cards there', () => {
+    const board = done(reconcile(emptyBoard(), { ...none, brief: true, references: ['reference/a.jpg'], marks: [mark(1, 'assembly', 'R1')], rounds: [r1(['M1'])] }))
+    const frame = frameOf(board, 'R1')!
+    for (const c of board.cards.filter((c) => c !== frame && c.kind !== 'mark')) {
+      expect(c.x + c.w <= frame.x || frame.x + frame.w <= c.x || c.y + c.h <= frame.y || frame.y + frame.h <= c.y).toBe(true)
+    }
+  })
+
+  it('makes the frame big enough for the items it is made with', () => {
+    const marks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => mark(n, 'assembly', 'R1'))
+    const board = done(reconcile(emptyBoard(), found(marks, [r1(marks.map((m) => m.id))])))
+    const frame = frameOf(board, 'R1')!
+    expect(frame.h).toBeGreaterThan(CARD_SIZE.round.h)
+    for (const m of marks) {
+      const card = cardOf(board, m.id)!
+      expect(card.frame).toBe(frame.id)
+      expect(inside(card, frame)).toBe(true)
+    }
+    // No two cards of the round lie on each other.
+    const spots = new Set(marks.map((m) => `${cardOf(board, m.id)!.x},${cardOf(board, m.id)!.y}`))
+    expect(spots.size).toBe(10)
+  })
+
+  it('grows the frame by a row when a later item has no room, and does not when something is in the way', () => {
+    let marks = [1, 2, 3, 4, 5, 6].map((n) => mark(n, 'assembly', 'R1'))
+    let board = done(reconcile(emptyBoard(), found(marks, [r1(marks.map((m) => m.id))])))
+    const before = frameOf(board, 'R1')!.h
+    marks = [...marks, mark(7, 'assembly', 'R1')]
+    board = done(reconcile(board, found(marks, [r1(marks.map((m) => m.id))])))
+    const frame = frameOf(board, 'R1')!
+    expect(frame.h).toBeGreaterThan(before)
+    expect(cardOf(board, 'M7')?.frame).toBe(frame.id)
+    expect(inside(cardOf(board, 'M7')!, frame)).toBe(true)
+
+    // A card of the person's just under the frame: the new item is not put in it, and the frame stays as it is.
+    const blocked = structuredClone(board)
+    const f = frameOf(blocked, 'R1')!
+    blocked.cards.push({ id: `C${blocked.next}`, kind: 'text', x: f.x, y: f.y + f.h + 10, w: f.w, h: 100, by: 'person', text: 'in the way' })
+    blocked.next += 1
+    const more = [...marks, mark(8, 'assembly', 'R1'), mark(9, 'assembly', 'R1'), mark(10, 'assembly', 'R1')]
+    const after = done(reconcile(blocked, found(more, [r1(more.map((m) => m.id))])))
+    expect(frameOf(after, 'R1')!.h).toBe(f.h)
+    const placed = cardOf(after, 'M10')!
+    expect(placed.frame).toBeUndefined()
+    expect(inside(placed, frameOf(after, 'R1')!)).toBe(false)
+  })
+
+  it('moves a carried item from the frame of the round it came from into the next one', () => {
+    const first = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1'), mark(2, 'assembly', 'R1')], [r1(['M1', 'M2'])])))
+    const both = { id: 'R2', name: 'Review of h42 · 1 −', items: ['M1'], from: 'R1' }
+    const after = done(reconcile(first, found([mark(1, 'assembly', 'R2'), mark(2, 'assembly', 'R1')], [r1(['M2']), both])))
+    const f1 = frameOf(after, 'R1')!
+    const f2 = frameOf(after, 'R2')!
+    expect(f2).toMatchObject({ name: 'Review of h42 · 1 −', by: 'torno' })
+    const card = cardOf(after, 'M1')!
+    expect(card.frame).toBe(f2.id)
+    expect(inside(card, f2)).toBe(true)
+    expect(cardOf(after, 'M2')?.frame).toBe(f1.id)
+    // The card did not take another card's place.
+    expect(`${card.x},${card.y}`).not.toBe(`${cardOf(after, 'M2')!.x},${cardOf(after, 'M2')!.y}`)
+  })
+
+  it('leaves the card of a person\'s frame in it when its mark joins a round or is carried (Review Focus 5)', () => {
+    let board = done(reconcile(emptyBoard(), { ...none, marks: [mark(1, 'assembly')] }))
+    // The person's own frame round the card.
+    const card = cardOf(board, 'M1')!
+    board = structuredClone(board)
+    const mine = { id: `C${board.next}`, kind: 'frame' as const, x: card.x - 40, y: card.y - 40, w: 400, h: 300, by: 'person' as const, name: 'Mine' }
+    board.next += 1
+    board.cards.push(mine)
+    cardOf(board, 'M1')!.frame = mine.id
+    const joined = done(reconcile(board, found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    expect(cardOf(joined, 'M1')).toMatchObject({ frame: mine.id, x: card.x, y: card.y })
+    expect(frameOf(joined, 'R1')).toBeDefined()
+    // Then carried to the next round.
+    const next = done(reconcile(joined, found([mark(1, 'assembly', 'R2')], [{ id: 'R2', name: 'Review of h42 · 1 −', items: ['M1'], from: 'R1' }])))
+    expect(cardOf(next, 'M1')).toMatchObject({ frame: mine.id, x: card.x, y: card.y })
+  })
+
+  it('leaves a card the person took out of the frame where it is', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    const out = structuredClone(board)
+    delete cardOf(out, 'M1')!.frame
+    cardOf(out, 'M1')!.x = 5000
+    const marks = [mark(1, 'assembly', 'R1'), mark(2, 'assembly', 'R1')]
+    const after = done(reconcile(out, found(marks, [r1(['M1', 'M2'], 'Review of h41 · 2 −')])))
+    expect(cardOf(after, 'M1')).toMatchObject({ x: 5000 })
+    expect(cardOf(after, 'M1')?.frame).toBeUndefined()
+  })
+
+  it('keeps a frame that was removed hidden, and puts no new card in it', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    const hidden = structuredClone(board)
+    frameOf(hidden, 'R1')!.hidden = true
+    expect(reconcile(hidden, found([mark(1, 'assembly', 'R1')], [r1(['M1'])]))).toBeNull()
+    const marks = [mark(1, 'assembly', 'R1'), mark(2, 'assembly', 'R1')]
+    const after = done(reconcile(hidden, found(marks, [r1(['M1', 'M2'], 'Review of h41 · 2 −')])))
+    expect(after.cards.filter((c) => c.kind === 'frame')).toHaveLength(1)
+    expect(frameOf(after, 'R1')).toMatchObject({ hidden: true, name: 'Review of h41 · 2 −' })
+    expect(cardOf(after, 'M2')?.frame).toBeUndefined()
+  })
+
+  it('takes the frame away with its round, hidden or not, and lets what it held go', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    const after = done(reconcile(board, found([mark(1, 'assembly')], [])))
+    expect(frameOf(after, 'R1')).toBeUndefined()
+    expect(cardOf(after, 'M1')?.frame).toBeUndefined()
+    const hidden = structuredClone(board)
+    frameOf(hidden, 'R1')!.hidden = true
+    expect(frameOf(done(reconcile(hidden, found([mark(1, 'assembly')], []))), 'R1')).toBeUndefined()
+  })
+
+  it('puts a restored item back into the frame of its round (Review Focus 4)', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1'), mark(2, 'assembly', 'R1')], [r1(['M1', 'M2'], 'Review of h41 · 2 −')])))
+    const removed = done(reconcile(board, found([mark(2, 'assembly', 'R1')], [r1(['M2'])])))
+    expect(cardOf(removed, 'M1')).toBeUndefined()
+    const back = done(reconcile(removed, found([mark(1, 'assembly', 'R1'), mark(2, 'assembly', 'R1')], [r1(['M1', 'M2'], 'Review of h41 · 2 −')])))
+    const frame = frameOf(back, 'R1')!
+    expect(cardOf(back, 'M1')?.frame).toBe(frame.id)
+    expect(inside(cardOf(back, 'M1')!, frame)).toBe(true)
+  })
+
+  it('does not touch the frames of the person or the agent, or a made card in a round frame', () => {
+    const board = emptyBoard()
+    board.cards.push({ id: 'C1', kind: 'frame', x: 0, y: 0, w: 500, h: 400, by: 'person', name: 'Latch', source: 'R1' })
+    board.next = 2
+    expect(reconcile(board, none)).toBeNull()
   })
 })
 

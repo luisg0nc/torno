@@ -18,6 +18,13 @@ describe('checkNoteDraft', () => {
     expect((checked as { references: unknown[] }).references).toHaveLength(1)
   })
 
+  it('keeps want or don\'t want, plain when it says none, and refuses what is neither', () => {
+    expect(checkNoteDraft(draft({ intent: 'dont' }))).toMatchObject({ intent: 'dont' })
+    expect(checkNoteDraft(draft({ intent: 'want' }))).toMatchObject({ intent: 'want' })
+    expect(checkNoteDraft(draft())).not.toHaveProperty('intent')
+    refused(draft({ intent: 'remove' }), /intent/)
+  })
+
   it('refuses what is no object', () => {
     refused(null, /not one/)
     refused('note', /not one/)

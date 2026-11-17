@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { shownDimension } from '../../../shared/dimension'
 import { apply } from '../../../shared/align'
-import { type Mark, type RegionMark, type ShapeMark, type Vec3, markAnchors } from '../../../shared/marks'
+import { type Mark, type RegionMark, type ShapeMark, type Vec3, markAnchors, markIntent } from '../../../shared/marks'
 import type { ScanTransform } from '../../../shared/scans'
 import type { SectionPlane } from '../../../shared/view'
 import { type Offsets, type PartBoxes, STILL, markOffset, spanning } from './apart'
@@ -353,9 +353,13 @@ export class MarkLayer {
    * none: it keeps the ref it was placed on, which in the build on show may
    * name other geometry, or none. It is still drawn at its point, with its label.
    */
-  pickRefs(layout: string): { user: string[]; agent: string[] } {
-    const refs = { user: [] as string[], agent: [] as string[] }
-    for (const mark of this.marksOf(layout)) if (mark.kind === 'pick' && mark.anchorState === 'ok' && mark.anchor.ref) refs[mark.author].push(mark.anchor.ref)
+  pickRefs(layout: string): { user: string[]; agent: string[]; dont: string[] } {
+    const refs = { user: [] as string[], agent: [] as string[], dont: [] as string[] }
+    for (const mark of this.marksOf(layout)) {
+      if (mark.kind !== 'pick' || mark.anchorState !== 'ok' || !mark.anchor.ref) continue
+      // What the person does not want is tinted in their colour too, hatched: it is a layer of its own.
+      refs[markIntent(mark) === 'dont' ? 'dont' : mark.author].push(mark.anchor.ref)
+    }
     return refs
   }
 

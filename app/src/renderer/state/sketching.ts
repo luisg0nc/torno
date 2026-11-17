@@ -5,6 +5,7 @@ import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MOST_SKETCH_PLANES, MOST_SKETCH_P
 import type { Camera } from '../../shared/view'
 import { type PlaneDraft, mainPlane, withOffset } from '../tools/sketch/planes'
 import type { Pen } from '../tools/sketch/pens'
+import { reviewActions } from './review'
 import { setTool, toolStore } from './tools'
 
 // A 3D sketch being drawn (the Draw tool, `tools/sketchTool.ts`; the panel is `ui/sketch/`). The draft is the whole sketch as
@@ -247,7 +248,9 @@ function flush(given?: NonNullable<Sketching['open']>, own = false): void {
   const sent = open
   const here = env.here()
   // The layout is the one the sketch was started in: a sketch does not move to another.
-  const draft: SketchDraft = { ...sent.draft, ...(sent.id ? { id: sent.id } : {}), ...(here && !own ? { revision: here.revision, camera: here.camera } : {}) }
+  // What the bar of an open review says is said of a new sketch only; main keeps it of the sketch it makes, and never changes it of one it has.
+  const intent = sent.id || sent.draft.id ? undefined : reviewActions.intentForNew(sent.draft.layout)
+  const draft: SketchDraft = { ...sent.draft, ...(sent.id ? { id: sent.id } : {}), ...(here && !own ? { revision: here.revision, camera: here.camera } : {}), ...(intent ? { intent } : {}) }
   const call = env.marks.sketch(draft).then(
     (mark) => {
       // Let go while this made it: what waits to be sent for it goes to the sketch main made, not to a second one.

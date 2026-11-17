@@ -1,8 +1,9 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type RegionMark, type SketchMark, type SketchStroke, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type SketchStroke, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
+import { type Round, type RoundsView, carriedRound, openRound, roundItems } from '../../shared/reviews'
 
 /** What main says of a region: what it is, which mesh of its scan it is of, and which painting of it its mask holds. */
 export type RegionSaid = RegionStats & { mesh?: string; mask?: number }
@@ -44,8 +45,8 @@ export interface Remeasured {
 }
 
 interface MarkEvents {
-  /** The marks of an object changed: the whole list, as it now is. */
-  changed: { objectId: string; marks: Mark[] }
+  /** The marks of an object changed: the whole list, as it now is, with its rounds and the one being sent. */
+  changed: { objectId: string; marks: Mark[]; rounds: Round[]; sending: string | null }
   /** Something about an object's marks file the person should know, as a sentence. Said once; `problem()` answers it afterwards. */
   problem: { objectId: string; message: string }
   /**
@@ -103,6 +104,8 @@ export class MarkStore {
    * brings a removed note back, and its pictures with it. Cleared with the rest by `forget`, as the window forgets its undo.
    */
   private removedFiles = new Map<string, Set<string>>()
+  /** By object folder: the round whose prompt is on its way (`sendRound`), in memory only: its items go with that prompt. */
+  private sending = new Map<string, string>()
   /** Counts `forget`: what was read before one is not kept after it. */
   private epoch = 0
   private listeners: { [E in keyof MarkEvents]: Array<(m: MarkEvents[E]) => void> } = { changed: [], problem: [], unchecked: [] }
@@ -126,6 +129,7 @@ export class MarkStore {
     this.deleted.clear()
     this.removedFiles.clear()
     this.files.clear()
+    this.sending.clear()
     this.histories.clear()
     this.unread.clear()
   }
@@ -284,8 +288,11 @@ export class MarkStore {
         const own = of === 'dimension' ? { keys: MEASURED_KEYS as readonly string[], says: measured } : of === 'region' ? { keys: REGION_KEYS as readonly string[], says: region?.stats } : { keys: [], says: undefined }
         const mainOnly: readonly string[] = [...MAIN_ONLY_KEYS, ...own.keys]
         const given = Object.fromEntries(Object.entries(Object(mark) as object).filter(([key]) => !mainOnly.includes(key)))
+        // The agent's marks are plain: a review intent is the person's to say (a shape's own is what it is).
+        if (given.author === 'agent' && of !== 'shape') delete given.intent
         const added = sanitiseMark({ ...given, ...own.says, id: `M${file.next}`, status, anchorState: 'ok', createdAt: this.now().toISOString() })
         if (!added) throw new Refusal('that is not a mark: its kind is unknown, or a field is missing or not a finite number')
+        inOpenRound(file, added)
         file.next += 1
         file.marks.push(added)
         this.remember(objectId, added)
@@ -399,8 +406,11 @@ export class MarkStore {
         const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
         if (!given) {
           const id = `M${file.next}`
-          const added = sanitiseMark({ ...fields, kind: 'sketch', author, id, status: author === 'agent' ? 'sent' : 'draft', anchorState: 'ok', createdAt: this.now().toISOString() })
+          // What the bar of an open review said, of the person's own sketch only: the agent's are plain, and one main has keeps its own (`setIntent` changes it).
+          const intent = author === 'user' && (asked.intent === 'want' || asked.intent === 'dont') ? { intent: asked.intent } : {}
+          const added = sanitiseMark({ ...fields, ...intent, kind: 'sketch', author, id, status: author === 'agent' ? 'sent' : 'draft', anchorState: 'ok', createdAt: this.now().toISOString() })
           if (!added) throw new Refusal('that is not a sketch: a field is missing or not of the right sort, or it is past what a sketch keeps')
+          inOpenRound(file, added)
           file.next += 1
           file.marks.push(added)
           return added
@@ -831,6 +841,219 @@ export class MarkStore {
     }).then((sent) => (sent === UNCHANGED ? [] : sent))
   }
 
+  /** The rounds of an object and which is being sent now. */
+  rounds(objectId: string): Promise<RoundsView> {
+    return this.turn(objectId, (file, dir) => ({ rounds: structuredClone(file.rounds ?? []), sending: this.sending.get(dir) ?? null }))
+  }
+
+  /**
+   * Says what the person wants or does not want of a mark of theirs. A shape's is `add` or `remove` (its other intents
+   * are set in its fields, so `null` is refused); any other kind keeps it as `intent`, and `null` takes it away. A mark the
+   * agent was sent is a draft again, told as changed (`sentBefore`); a resolved mark stays as it is, as with any change of
+   * a shape's intent. It never puts the mark in a round: only making one there does.
+   */
+  setIntent(objectId: string, id: string, intent: ReviewIntent | null): Promise<Mark> {
+    let was: Mark | undefined
+    return this.change(objectId, (file) => {
+      const at = indexOf(file, id)
+      const mark = file.marks[at]
+      was = mark
+      if (mark.author !== 'user') throw new Refusal(`${id} is the agent's mark: only the person's marks say want or don't want`)
+      if (intent !== null && intent !== 'want' && intent !== 'dont') throw new Refusal(`${String(intent)} is not an intent: want, dont, or null for none`)
+      let changed: Mark | null
+      if (mark.kind === 'shape') {
+        if (intent === null) throw new Refusal(`${id} is a shape: keep-out and reference are set in its fields, and want or don't want make it add or remove`)
+        changed = sanitiseMark({ ...mark, intent: intent === 'want' ? 'add' : 'remove' })
+      } else {
+        const { intent: _was, ...rest } = mark
+        changed = sanitiseMark(intent === null ? rest : { ...rest, intent })
+      }
+      if (!changed) throw new Refusal(`that is not a valid change to ${id}`)
+      if (isDeepStrictEqual(changed, mark)) return UNCHANGED
+      if (mark.status === 'sent') {
+        changed.status = 'draft'
+        changed.sentBefore = true
+      }
+      file.marks[at] = changed
+      return changed
+    }).then((changed) => (changed === UNCHANGED ? structuredClone(was as Mark) : changed))
+  }
+
+  /**
+   * Opens a round on `of` (a build, its sources hash and its line, in a layout), given the next `R<n>`. When one is
+   * open already, that one is returned as it is.
+   */
+  startRound(objectId: string, of: RoundOf): Promise<Round> {
+    return this.change(objectId, (file) => {
+      if (openRound(file.rounds ?? [])) return UNCHANGED
+      const round = madeRound(file, of, this.now().toISOString())
+      file.rounds = [...(file.rounds ?? []), round]
+      return round
+    }).then(async (round) => (round === UNCHANGED ? structuredClone(openRound((await this.rounds(objectId)).rounds) as Round) : round))
+  }
+
+  /**
+   * Ends a round without sending it: its marks stay drafts, held, and it can be reopened while unsent. A round with no
+   * items is dropped, and its id is not given again.
+   */
+  endRound(objectId: string, id: string): Promise<Round> {
+    return this.change(objectId, (file) => {
+      const round = roundOf(file, id)
+      if (round.endedAt !== undefined && roundItems(file.marks, id).length > 0) return UNCHANGED
+      return this.finish(objectId, file, round)
+    }).then((round) => (round === UNCHANGED ? this.round(objectId, id) : round))
+  }
+
+  /** Opens a round that was ended and not sent again. Refused for a sent one, or while another is open. */
+  reopenRound(objectId: string, id: string): Promise<Round> {
+    return this.change(objectId, (file) => {
+      const round = roundOf(file, id)
+      if (round.sentAt !== undefined) throw new Refusal(`${id} was sent: start the next round instead`)
+      if (round.endedAt === undefined) return UNCHANGED
+      const open = openRound(file.rounds ?? [])
+      if (open) throw new Refusal(`${open.id} is open: end it before reopening ${id}`)
+      delete round.endedAt
+      delete round.plain
+      return round
+    }).then((round) => (round === UNCHANGED ? this.round(objectId, id) : round))
+  }
+
+  /**
+   * Opens the round that carried items on from `id` (the one Still wrong made), or makes it on `of` when there is none that
+   * can still take items (one that was sent, or let go as plain marks, is not one). Refused while another round is open.
+   */
+  carryRound(objectId: string, id: string, of: RoundOf): Promise<Round> {
+    return this.change(objectId, (file) => {
+      roundOf(file, id)
+      const rounds = file.rounds ?? []
+      const next = carriedRound(rounds, id)
+      const open = openRound(rounds)
+      if (open && open !== next) throw new Refusal(`${open.id} is open: end it before carrying ${id} on`)
+      if (!next) {
+        const made = { ...madeRound(file, of, this.now().toISOString()), from: id }
+        file.rounds = [...rounds, made]
+        return made
+      }
+      if (next.endedAt === undefined) return UNCHANGED
+      delete next.endedAt
+      return next
+    }).then(async (round) => (round === UNCHANGED ? structuredClone(carriedRound((await this.rounds(objectId)).rounds, id) as Round) : round))
+  }
+
+  /**
+   * Ends a round and has its prompt go: while `sending` names it, its items are let through. Told with `changed`. A round
+   * with nothing in it has nothing to send, and is refused.
+   */
+  sendRound(objectId: string, id: string): Promise<Round> {
+    const dir = this.deps.dirOf(objectId)
+    const before = dir === undefined ? undefined : this.sending.get(dir)
+    return this.change(objectId, (file, dir) => {
+      const round = roundOf(file, id)
+      if (round.sentAt !== undefined) throw new Refusal(`${id} was sent already`)
+      if (roundItems(file.marks, id).length === 0) throw new Refusal(`${id} has no items to send`)
+      if (round.endedAt === undefined) round.endedAt = this.now().toISOString()
+      delete round.plain
+      this.sending.set(dir, id)
+      // Always written, so that `changed` tells that it is being sent.
+      return round
+    }).catch((e: unknown) => {
+      if (dir !== undefined) before === undefined ? this.sending.delete(dir) : this.sending.set(dir, before)
+      throw e
+    })
+  }
+
+  /** Lets a round go as plain marks: it ends, unsent, and its items are ordinary drafts. A round with no items is dropped. */
+  plainRound(objectId: string, id: string): Promise<Round> {
+    return this.change(objectId, (file, dir) => {
+      const round = roundOf(file, id)
+      if (round.sentAt !== undefined) throw new Refusal(`${id} was sent already`)
+      if (this.sending.get(dir) === id) this.sending.delete(dir)
+      round.plain = this.now().toISOString()
+      return this.finish(objectId, file, round)
+    })
+  }
+
+  /** The prompt of a round has been delivered: it is sent, and no longer being sent. */
+  roundSent(objectId: string, id: string): Promise<Round> {
+    return this.change(objectId, (file, dir) => {
+      const round = roundOf(file, id)
+      if (this.sending.get(dir) === id) this.sending.delete(dir)
+      round.sentAt = this.now().toISOString()
+      if (round.endedAt === undefined) round.endedAt = round.sentAt
+      return round
+    })
+  }
+
+  /** Takes a mark out of its round, which stays as it was otherwise. */
+  roundOut(objectId: string, markId: string): Promise<Mark> {
+    return this.change(objectId, (file) => {
+      const mark = file.marks[indexOf(file, markId)]
+      if (mark.round === undefined) throw new Refusal(`${markId} is in no round`)
+      delete mark.round
+      return mark
+    })
+  }
+
+  /**
+   * The person's verdict on what the agent did with an item of a round that was sent (the mark is resolved by the agent):
+   * `ok` sets `judged` and acknowledges it; `still-wrong` sets `judged`, makes it a draft again, reopened, with `Still wrong
+   * in <build>: <note>` added to its note, and moves it into the next round, which is made here when it is missing (on
+   * `next`, from the judged round, ended and unsent), so that it is held there with the others. `at.build` is the build on show.
+   */
+  judge(objectId: string, markId: string, verdict: 'ok' | 'still-wrong', at: { build: string; note?: string; next: RoundOf }): Promise<Mark> {
+    return this.change(objectId, (file) => {
+      const index = indexOf(file, markId)
+      const mark = file.marks[index]
+      if (verdict !== 'ok' && verdict !== 'still-wrong') throw new Refusal(`${String(verdict)} is not a verdict: ok or still-wrong`)
+      if (typeof at?.build !== 'string' || at.build === '') throw new Refusal('a verdict names the build it is judged on')
+      if (mark.status !== 'resolved' || mark.resolvedBy !== 'agent') throw new Refusal(`${markId} was not resolved by the agent: there is nothing to judge`)
+      const from = mark.round === undefined ? undefined : file.rounds?.find((round) => round.id === mark.round)
+      if (!from?.sentAt) throw new Refusal(`${markId} is in no round that was sent: there is nothing to judge`)
+      const judged = { verdict, build: at.build }
+      if (verdict === 'ok') {
+        mark.judged = judged
+        mark.acknowledged = true
+        return mark
+      }
+      // One that was sent or let go as plain marks would let the item out alone: it goes into a fresh round.
+      let next = carriedRound(file.rounds ?? [], from.id)
+      if (!next) {
+        next = { ...madeRound(file, at.next, this.now().toISOString()), from: from.id }
+        next.endedAt = next.startedAt
+        file.rounds = [...(file.rounds ?? []), next]
+      }
+      const why = typeof at.note === 'string' && at.note.trim() !== '' ? `Still wrong in ${at.build}: ${at.note.trim()}` : `Still wrong in ${at.build}`
+      mark.judged = judged
+      mark.status = 'draft'
+      mark.sentBefore = true
+      mark.reopened = true
+      delete mark.resolvedBy
+      delete mark.acknowledged
+      mark.round = next.id
+      // What it says is kept whole: when the note and it do not both fit, the end of the note is what is cut.
+      const joined = mark.note === '' ? why : `${mark.note} ${why}`
+      mark.note = joined.length <= MAX_NOTE ? joined : `${mark.note.slice(0, Math.max(0, MAX_NOTE - why.length - 1))} ${why}`.trimStart().slice(0, MAX_NOTE)
+      return mark
+    })
+  }
+
+  /**
+   * What ending or letting go of a round does to the file: it ends, or is dropped when it has no items. Never dropped when it
+   * was sent, nor while this run's undo can still bring back one of its items. Returns the round as it was.
+   */
+  private finish(objectId: string, file: MarksFile, round: Round): Round {
+    if (round.endedAt === undefined) round.endedAt = this.now().toISOString()
+    const done = structuredClone(round)
+    const undoable = this.deleted.get(objectId)?.mark.round === round.id
+    // Its id is never given again: `nextRound` is past it already.
+    if (round.sentAt === undefined && !undoable && roundItems(file.marks, round.id).length === 0) file.rounds = (file.rounds ?? []).filter((one) => one.id !== round.id)
+    return done
+  }
+
+  private round(objectId: string, id: string): Promise<Round> {
+    return this.rounds(objectId).then(({ rounds }) => rounds.find((round) => round.id === id) ?? Promise.reject(new Refusal(`no round ${id}`)))
+  }
+
   private now(): Date {
     return this.deps.now?.() ?? new Date()
   }
@@ -842,10 +1065,10 @@ export class MarkStore {
    * returns UNCHANGED writes and tells nothing. `moved` are marks the edit
    * tied to other geometry: they are told as unchecked, like those added.
    */
-  private change<T>(objectId: string, edit: (file: MarksFile) => T, moved: readonly string[] = [], before?: (result: T) => Promise<void>): Promise<T> {
+  private change<T>(objectId: string, edit: (file: MarksFile, dir: string) => T, moved: readonly string[] = [], before?: (result: T) => Promise<void>): Promise<T> {
     return this.turn(objectId, async (current, dir, epoch) => {
       const file = structuredClone(current)
-      const result = edit(file)
+      const result = edit(file, dir)
       if (result === UNCHANGED) return result
       // What must be on the disk before the mark that names it: when it fails, nothing of the change is kept.
       await before?.(result)
@@ -853,7 +1076,7 @@ export class MarkStore {
       // Told only to the workspace it was asked in: the write of one that has been left lands, and is not broadcast.
       if (epoch === this.epoch) {
         this.files.set(dir, file)
-        this.emit('changed', { objectId, marks: structuredClone(file.marks) })
+        this.emit('changed', { objectId, marks: structuredClone(file.marks), rounds: structuredClone(file.rounds ?? []), sending: this.sending.get(dir) ?? null })
         const was = new Map(current.marks.map((m) => [m.id, m.status]))
         const unchecked = file.marks.filter((m) => m.status !== 'resolved' && ((was.get(m.id) ?? 'resolved') === 'resolved' || moved.includes(m.id))).map((m) => m.id)
         if (unchecked.length > 0) this.emit('unchecked', { objectId, ids: unchecked })
@@ -914,6 +1137,31 @@ function withMeasurement(mark: DimensionMark, result: Measurement): Mark | null 
 const through = (d: Pick<DimensionMark, 'a' | 'b'>): unknown[] => [d.a.point, d.a.ref, d.b?.point, d.b?.ref]
 
 const kind = (mark: unknown): unknown => (mark as { kind?: unknown } | null)?.kind
+
+/** What a round is started on: the layout it is of, the build on show, that build's sources hash and the line of the review. */
+type RoundOf = Pick<Round, 'layout' | 'build' | 'sources' | 'line'>
+
+/** A new round, open, with the next number, which the file is given past (never used again, whatever becomes of the round). */
+function madeRound(file: MarksFile, of: RoundOf, at: string): Round {
+  const given = typeof of === 'object' && of !== null ? of : ({} as Partial<RoundOf>)
+  if (typeof given.layout !== 'string' || typeof given.build !== 'string' || given.build === '' || typeof given.sources !== 'string' || typeof given.line !== 'string') throw new Refusal('a round is of a layout, a build, its sources hash and a line')
+  const number = Math.max(file.nextRound ?? 1, ...(file.rounds ?? []).map((round) => Number(round.id.slice(1)) + 1))
+  file.nextRound = number + 1
+  return { id: `R${number}`, build: given.build, sources: given.sources, line: given.line, layout: given.layout, startedAt: at }
+}
+
+/** The round of the file named `id`: the one in the file itself, to change; a round that is not there is refused. */
+function roundOf(file: MarksFile, id: string): Round {
+  const round = file.rounds?.find((one) => one.id === id)
+  if (!round) throw new Refusal(`no round ${String(id)}; rounds: ${(file.rounds ?? []).map((one) => one.id).join(', ') || 'none'}`)
+  return round
+}
+
+/** A mark the person makes while the round of its layout is open is in that round. The agent's never is. */
+function inOpenRound(file: MarksFile, mark: Mark): void {
+  const open = openRound(file.rounds ?? [])
+  if (open && mark.author === 'user' && open.layout === mark.layout) mark.round = open.id
+}
 
 /** What an edit returns when it changed nothing. */
 const UNCHANGED = Symbol('unchanged')

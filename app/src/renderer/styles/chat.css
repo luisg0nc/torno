@@ -133,7 +133,8 @@
 }
 
 .chat-added-instructions,
-.chat-added-board {
+.chat-added-board,
+.chat-added-held {
   color: var(--muted);
 }
 

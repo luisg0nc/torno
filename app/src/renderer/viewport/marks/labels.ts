@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { NO_VALUE, offBy, shownDimension } from '../../../shared/dimension'
-import type { DimensionMark, Mark, RegionMark, Vec3 } from '../../../shared/marks'
+import { type DimensionMark, type Mark, type RegionMark, type ShapeIntent, type ReviewIntent, type Vec3, markIntent } from '../../../shared/marks'
+import { INTENT_CHIP } from '../../../shared/reviews'
 import { LEADER_PX, labelAnchor } from './markObjects'
 
 export interface Size {
@@ -80,14 +81,23 @@ export function needsCamera(label: Pick<Label, 'visible'> | null): boolean {
   return label?.visible !== true
 }
 
-/** What a mark is called on screen and in pictures. */
-export function labelText(mark: Pick<Mark, 'id' | 'anchorState'>): string {
-  return mark.id + (mark.anchorState === 'drifted' ? '~' : mark.anchorState === 'orphaned' ? '?' : '')
+/** What a mark carries of who made it and what the person says of it: enough to tell `− M8` from `M8`. */
+type Said = Pick<Mark, 'id' | 'anchorState'> & Partial<Pick<Mark, 'author' | 'kind'>> & { intent?: ShapeIntent | ReviewIntent }
+
+/** `− ` or `+ ` before a mark's number when the person says they do not want it or want it, nothing for any other mark (the agent's never). */
+function said(mark: Said): string {
+  const intent = mark.author === undefined || mark.kind === undefined ? null : markIntent({ author: mark.author, kind: mark.kind, intent: mark.intent })
+  return intent === null ? '' : `${INTENT_CHIP[intent]} `
 }
 
-/** What a mark is called in its row: the row says in words what the last build did to it, so its chip is the id alone. */
-export function rowLabel(mark: Pick<Mark, 'id' | 'anchorState'>): string {
-  return mark.id
+/** What a mark is called on screen and in pictures. */
+export function labelText(mark: Said): string {
+  return said(mark) + mark.id + (mark.anchorState === 'drifted' ? '~' : mark.anchorState === 'orphaned' ? '?' : '')
+}
+
+/** What a mark is called in its row: the row says in words what the last build did to it, so its chip is the number alone, with what the person says of it. */
+export function rowLabel(mark: Said): string {
+  return said(mark) + mark.id
 }
 
 /**

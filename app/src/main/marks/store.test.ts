@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark, SketchMark, SketchStroke } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
+import { isHeld, openRound, roundCounts, roundItems } from '../../shared/reviews'
 import * as file from './file'
 import { droppedNames } from '../dropped'
 import { isNoteFile } from '../notes/files'
@@ -67,7 +68,7 @@ describe('adding marks', () => {
 
   it('tells of each change with the whole list', async () => {
     const first = await store.add('bracket', pin())
-    expect(changes).toEqual([{ objectId: 'bracket', marks: [first] }])
+    expect(changes).toEqual([{ objectId: 'bracket', marks: [first], rounds: [], sending: null }])
   })
 
   it('never reuses an id after a remove, in this run or the next', async () => {
@@ -160,7 +161,7 @@ describe('updating a mark', () => {
     const updated = await store.update('bracket', 'M1', { note: 'thicker, 4 mm' })
     expect(updated).toMatchObject({ id: 'M1', note: 'thicker, 4 mm', status: 'draft' })
     expect(onDisk('bracket').marks).toEqual([updated])
-    expect(changes.at(-1)).toEqual({ objectId: 'bracket', marks: [updated] })
+    expect(changes.at(-1)).toEqual({ objectId: 'bracket', marks: [updated], rounds: [], sending: null })
   })
 
   it('moves status forward, to resolved from anywhere, and back to draft when asked', async () => {
@@ -470,7 +471,7 @@ describe('re-anchoring after a build', () => {
     expect(marks[3]).toMatchObject({ id: 'M4', anchor: ANCHOR, anchorState: 'ok' })
     expect(marks[4]).not.toHaveProperty('anchor')
     expect(saves).toHaveBeenCalledTimes(1)
-    expect(changes).toEqual([{ objectId: 'bracket', marks }])
+    expect(changes).toEqual([{ objectId: 'bracket', marks, rounds: [], sending: null }])
     expect(onDisk('bracket').marks).toEqual(marks)
   })
 
@@ -544,7 +545,7 @@ describe('putting a mark somewhere else', () => {
     expect(moved.status).toBe('draft')
     expect(unchecked).toEqual([['M1']])
     expect(onDisk('bracket').marks).toEqual([moved])
-    expect(changes.at(-1)).toEqual({ objectId: 'bracket', marks: [moved] })
+    expect(changes.at(-1)).toEqual({ objectId: 'bracket', marks: [moved], rounds: [], sending: null })
   })
 
   it('moves the start of an arrow and keeps its length and direction', async () => {
@@ -1248,6 +1249,17 @@ describe('a sketch', () => {
     expect(changes.at(-1)?.marks.at(-1)).toEqual(made)
   })
 
+  it('is made with the intent the draft says, of the person\'s sketch only, and never changed by a later draft', async () => {
+    const made = (await store.saveSketch('bracket', draft({ intent: 'dont' }))) as SketchMark
+    expect(made.intent).toBe('dont')
+    const again = (await store.saveSketch('bracket', { ...draft({ intent: 'want', name: 'Other' }), id: made.id })) as SketchMark
+    expect(again).toMatchObject({ name: 'Other', intent: 'dont' })
+    const agents = (await store.saveSketch('bracket', draft({ intent: 'dont' }), [], { author: 'agent' })) as SketchMark
+    expect(agents).not.toHaveProperty('intent')
+    const odd = (await store.saveSketch('bracket', draft({ intent: 'add' as never }))) as SketchMark
+    expect(odd).not.toHaveProperty('intent')
+  })
+
   it('takes the touches from main alone: a stroke given none by main has none, whatever the draft says', async () => {
     const strokes = draft().strokes.map((s, i) => ({ ...s, touches: [`window/F${i}`] }))
     const made = (await store.saveSketch('bracket', draft({ strokes }), [undefined, ['base/F9']])) as SketchMark
@@ -1399,5 +1411,419 @@ describe('a sketch', () => {
     expect(await store.withNoteFiles('bracket', async ({ live }) => [...live])).toEqual(['k-aaaaaaaaaaaa.png'])
     await store.setSketchPicture('bracket', made.id, 'k-bbbbbbbbbbbb.png')
     expect(await store.withNoteFiles('bracket', async ({ live }) => [...live])).toEqual(['k-bbbbbbbbbbbb.png'])
+  })
+})
+
+describe('a review', () => {
+  const OF = { layout: 'assembly', build: 'h41', sources: 'abc123', line: 'check the lid' }
+  const NEXT = { layout: 'assembly', build: 'h42', sources: 'def456', line: 'check the lid again' }
+  const aNote = (): NewNote =>
+    ({ ...BASE, note: 'too thin', kind: 'note', anchor: ANCHOR, picture: 'n-0123456789ab.png', ink: 'n-0123456789ab.ink.png', size: { w: 8, h: 6 }, strokes: [], inkColour: '#ff00ff', labels: [], under: [], references: [] }) as unknown as NewNote
+  const pick = (over: object = {}): NewMark => ({ ...BASE, kind: 'pick', target: 'face', anchor: ANCHOR, ...over }) as NewMark
+  const sketch = (over: Partial<SketchDraft> = {}): SketchDraft => ({
+    objectId: 'bracket',
+    layout: 'assembly',
+    revision: 3,
+    camera: CAMERA as SketchDraft['camera'],
+    name: 'Hose',
+    note: '',
+    take: 'rough',
+    planes: [],
+    strokes: [{ pen: 'free', points: [[1, 2, 20], [2, 2, 20]], revision: 3 }],
+    anchor: ANCHOR,
+    ...over
+  })
+  /** A mark of the person's in round R1 that the agent resolved and R1's prompt carried. */
+  async function answered(intent: 'want' | 'dont' = 'dont'): Promise<Mark> {
+    await store.startRound('bracket', OF)
+    const made = await store.add('bracket', pick({ intent }))
+    await store.endRound('bracket', 'R1')
+    await store.sendRound('bracket', 'R1')
+    await store.markSent('bracket')
+    await store.roundSent('bracket', 'R1')
+    return store.update('bracket', made.id, { status: 'resolved', resolvedNote: 'thicker now' }, 'agent')
+  }
+
+  describe('a mark made in a round', () => {
+    it('is in the open round of its layout', async () => {
+      await store.startRound('bracket', OF)
+      expect(await store.add('bracket', pick({ intent: 'dont' }))).toMatchObject({ round: 'R1', intent: 'dont' })
+      expect((await store.addNote('bracket', aNote())) as Mark).toMatchObject({ round: 'R1' })
+      expect(await store.saveSketch('bracket', sketch())).toMatchObject({ round: 'R1' })
+    })
+
+    it('is in none when it was made in another layout, before the round, or by the agent', async () => {
+      expect((await store.add('bracket', pick())).round).toBeUndefined()
+      await store.startRound('bracket', OF)
+      expect((await store.add('bracket', pick({ layout: 'print' }))).round).toBeUndefined()
+      expect((await store.add('bracket', pick({ author: 'agent' }), 'sent')).round).toBeUndefined()
+      expect((await store.saveSketch('bracket', sketch({ layout: 'print' }))).round).toBeUndefined()
+      expect((await store.saveSketch('bracket', sketch(), [], { author: 'agent' })).round).toBeUndefined()
+    })
+
+    it('is in none once the round has ended', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.endRound('bracket', 'R1')
+      expect((await store.add('bracket', pick())).round).toBeUndefined()
+    })
+
+    it("takes no round and no judgment from the window's mark, and no review intent from the agent", async () => {
+      const made = await store.add('bracket', pick({ round: 'R7', judged: { verdict: 'ok', build: 'h9' } }))
+      expect(made).not.toHaveProperty('round')
+      expect(made).not.toHaveProperty('judged')
+      expect(await store.add('bracket', pick({ author: 'agent', intent: 'want' }), 'sent')).not.toHaveProperty('intent')
+      await store.startRound('bracket', OF)
+      const inRound = await store.add('bracket', pick({ round: 'R7', judged: { verdict: 'ok', build: 'h9' } }))
+      expect(inRound).toMatchObject({ round: 'R1' })
+      expect(inRound).not.toHaveProperty('judged')
+    })
+  })
+
+  describe('want and don\'t want', () => {
+    it('is set on a mark of the person\'s, and taken away', async () => {
+      await store.add('bracket', pick())
+      expect(await store.setIntent('bracket', 'M1', 'dont')).toMatchObject({ intent: 'dont', status: 'draft' })
+      expect(await store.setIntent('bracket', 'M1', 'want')).toMatchObject({ intent: 'want' })
+      expect(await store.setIntent('bracket', 'M1', null)).not.toHaveProperty('intent')
+    })
+
+    it('never puts the mark in a round', async () => {
+      await store.add('bracket', pick())
+      await store.startRound('bracket', OF)
+      expect(await store.setIntent('bracket', 'M1', 'want')).not.toHaveProperty('round')
+    })
+
+    it('makes a sent mark a draft again, told as changed', async () => {
+      await store.add('bracket', pick())
+      await store.markSent('bracket')
+      expect(await store.setIntent('bracket', 'M1', 'dont')).toMatchObject({ status: 'draft', sentBefore: true, intent: 'dont' })
+    })
+
+    it('says nothing and writes nothing when it is what it was', async () => {
+      await store.add('bracket', pick({ intent: 'want' }))
+      saves.mockClear()
+      expect(await store.setIntent('bracket', 'M1', 'want')).toMatchObject({ intent: 'want' })
+      expect(saves).not.toHaveBeenCalled()
+    })
+
+    it('is add or remove on a shape, and its other intents are not for this', async () => {
+      await store.add('bracket', shape())
+      expect(await store.setIntent('bracket', 'M1', 'dont')).toMatchObject({ intent: 'remove' })
+      expect(await store.setIntent('bracket', 'M1', 'want')).toMatchObject({ intent: 'add' })
+      await expect(store.setIntent('bracket', 'M1', null)).rejects.toThrow('M1 is a shape: keep-out and reference are set in its fields')
+    })
+
+    it('is refused for a mark of the agent\'s, and for a mark that is not there', async () => {
+      await store.add('bracket', pick({ author: 'agent' }), 'sent')
+      await expect(store.setIntent('bracket', 'M1', 'want')).rejects.toThrow("M1 is the agent's mark")
+      await expect(store.setIntent('bracket', 'M9', 'want')).rejects.toThrow('no mark M9')
+    })
+  })
+
+  describe('a round', () => {
+    it('is started on the build, once: asking again gives the one that is open', async () => {
+      const first = await store.startRound('bracket', OF)
+      expect(first).toEqual({ id: 'R1', ...OF, startedAt: '2026-10-09T12:00:00.000Z' })
+      expect(await store.startRound('bracket', { ...OF, build: 'h50' })).toEqual(first)
+      expect((await store.rounds('bracket')).rounds).toEqual([first])
+      expect(onDisk('bracket')).toMatchObject({ rounds: [first], nextRound: 2 })
+    })
+
+    it('is told with the rounds and what is being sent', async () => {
+      const round = await store.startRound('bracket', OF)
+      expect(changes.at(-1)).toEqual({ objectId: 'bracket', marks: [], rounds: [round], sending: null })
+    })
+
+    it('is refused when it is not of a build', async () => {
+      await expect(store.startRound('bracket', { ...OF, build: '' })).rejects.toThrow('a round is of')
+      await expect(store.startRound('bracket', null as never)).rejects.toThrow('a round is of')
+    })
+
+    it('is dropped when it ends with no items, and its number is not given again', async () => {
+      await store.startRound('bracket', OF)
+      await store.endRound('bracket', 'R1')
+      expect((await store.rounds('bracket')).rounds).toEqual([])
+      expect((await store.startRound('bracket', OF)).id).toBe('R2')
+      await store.endRound('bracket', 'R2')
+      expect((await store.startRound('bracket', OF)).id).toBe('R3')
+      // And the next run: the number is in the file.
+      store.forget()
+      expect((await store.startRound('bracket', OF)).id).toBe('R3')
+    })
+
+    it('ends with its items, which stay drafts, and is reopened while unsent', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick({ intent: 'dont' }))
+      const ended = await store.endRound('bracket', 'R1')
+      expect(ended.endedAt).toBe('2026-10-09T12:00:00.000Z')
+      expect((await store.list('bracket'))[0]).toMatchObject({ status: 'draft', round: 'R1', intent: 'dont' })
+      const reopened = await store.reopenRound('bracket', 'R1')
+      expect(reopened).not.toHaveProperty('endedAt')
+      expect(await store.startRound('bracket', OF)).toEqual(reopened)
+    })
+
+    it('is not reopened while another is open, or once it was sent; one id that is not there is refused', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.endRound('bracket', 'R1')
+      await store.startRound('bracket', OF)
+      await expect(store.reopenRound('bracket', 'R1')).rejects.toThrow('R2 is open')
+      await store.endRound('bracket', 'R2')
+      await store.sendRound('bracket', 'R1')
+      await store.roundSent('bracket', 'R1')
+      await expect(store.reopenRound('bracket', 'R1')).rejects.toThrow('R1 was sent')
+      await expect(store.endRound('bracket', 'R9')).rejects.toThrow('no round R9; rounds: R1')
+    })
+
+    it('is being sent from sendRound until it is sent, and told so', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      const sending = await store.sendRound('bracket', 'R1')
+      expect(sending.endedAt).toBeDefined()
+      expect(sending.sentAt).toBeUndefined()
+      expect(await store.rounds('bracket')).toEqual({ rounds: [sending], sending: 'R1' })
+      expect(changes.at(-1)).toMatchObject({ sending: 'R1' })
+      const sent = await store.roundSent('bracket', 'R1')
+      expect(sent.sentAt).toBe('2026-10-09T12:00:00.000Z')
+      expect((await store.rounds('bracket')).sending).toBeNull()
+      expect(changes.at(-1)).toMatchObject({ sending: null })
+    })
+
+    it('is told being sent again, when it was ended already, and forgets it with the workspace', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.endRound('bracket', 'R1')
+      const told = changes.length
+      await store.sendRound('bracket', 'R1')
+      expect(changes).toHaveLength(told + 1)
+      store.forget()
+      expect((await store.rounds('bracket')).sending).toBeNull()
+    })
+
+    it('is not sent with nothing in it, nor twice', async () => {
+      await store.startRound('bracket', OF)
+      await expect(store.sendRound('bracket', 'R1')).rejects.toThrow('R1 has no items')
+      expect((await store.rounds('bracket')).sending).toBeNull()
+      await store.add('bracket', pick())
+      await store.sendRound('bracket', 'R1')
+      await store.roundSent('bracket', 'R1')
+      await expect(store.sendRound('bracket', 'R1')).rejects.toThrow('R1 was sent already')
+    })
+
+    it('is let go as plain marks: ended, unsent, its items no longer held', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.sendRound('bracket', 'R1')
+      const plain = await store.plainRound('bracket', 'R1')
+      expect(plain.plain).toBe('2026-10-09T12:00:00.000Z')
+      expect(plain.endedAt).toBeDefined()
+      const view = await store.rounds('bracket')
+      expect(view.sending).toBeNull()
+      expect(isHeld((await store.list('bracket'))[0], view)).toBe(false)
+    })
+
+    it('is never dropped once it was sent, however empty', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.endRound('bracket', 'R1')
+      await store.sendRound('bracket', 'R1')
+      await store.roundSent('bracket', 'R1')
+      await store.remove('bracket', 'M1')
+      expect(await store.endRound('bracket', 'R1')).toMatchObject({ id: 'R1', sentAt: expect.any(String) })
+      expect((await store.rounds('bracket')).rounds.map((r) => r.id)).toEqual(['R1'])
+      await expect(store.plainRound('bracket', 'R1')).rejects.toThrow('R1 was sent already')
+    })
+
+    it('is kept, empty, while an undo can still bring back its item', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.remove('bracket', 'M1')
+      await store.endRound('bracket', 'R1')
+      expect((await store.rounds('bracket')).rounds.map((r) => r.id)).toEqual(['R1'])
+      const back = await store.restore('bracket', 'M1')
+      expect(back.round).toBe('R1')
+      expect(isHeld(back, await store.rounds('bracket'))).toBe(true)
+    })
+
+    it('is dropped, empty, when what was removed is not from it', async () => {
+      await store.add('bracket', pick())
+      await store.startRound('bracket', OF)
+      await store.remove('bracket', 'M1')
+      await store.endRound('bracket', 'R1')
+      expect((await store.rounds('bracket')).rounds).toEqual([])
+    })
+
+    it('has its items taken out one at a time', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      expect(await store.roundOut('bracket', 'M1')).not.toHaveProperty('round')
+      await expect(store.roundOut('bracket', 'M1')).rejects.toThrow('M1 is in no round')
+    })
+  })
+
+  describe('a verdict', () => {
+    it('OK is kept, with the build, and acknowledges the mark', async () => {
+      const resolved = await answered()
+      const judged = await store.judge('bracket', resolved.id, 'ok', { build: 'h42', next: NEXT })
+      expect(judged).toMatchObject({ status: 'resolved', acknowledged: true, judged: { verdict: 'ok', build: 'h42' }, round: 'R1' })
+      expect((await store.rounds('bracket')).rounds).toHaveLength(1)
+    })
+
+    it('Still wrong makes the mark a draft again, in a next round that is ended, unsent and holds it', async () => {
+      const resolved = await answered()
+      const wrong = await store.judge('bracket', resolved.id, 'still-wrong', { build: 'h42', note: 'still thin', next: NEXT })
+      expect(wrong).toMatchObject({ status: 'draft', reopened: true, sentBefore: true, round: 'R2', judged: { verdict: 'still-wrong', build: 'h42' } })
+      expect(wrong).not.toHaveProperty('resolvedBy')
+      expect(wrong).not.toHaveProperty('acknowledged')
+      expect(wrong.note).toBe('Still wrong in h42: still thin')
+      const view = await store.rounds('bracket')
+      expect(view.rounds[1]).toEqual({ id: 'R2', ...NEXT, startedAt: '2026-10-09T12:00:00.000Z', endedAt: '2026-10-09T12:00:00.000Z', from: 'R1' })
+      expect(isHeld(wrong, view)).toBe(true)
+      expect(openRound(view.rounds)).toBeUndefined()
+    })
+
+    it('keeps all of what it says when the note is too long for both, and cuts the end of the old note', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick({ note: 'n'.repeat(1995) }))
+      await store.endRound('bracket', 'R1')
+      await store.sendRound('bracket', 'R1')
+      await store.markSent('bracket')
+      await store.roundSent('bracket', 'R1')
+      await store.update('bracket', 'M1', { status: 'resolved' }, 'agent')
+      const { note } = await store.judge('bracket', 'M1', 'still-wrong', { build: 'h42', note: 'still thin', next: NEXT })
+      expect(note).toHaveLength(2000)
+      expect(note.endsWith(' Still wrong in h42: still thin')).toBe(true)
+      expect(note.startsWith('nnnn')).toBe(true)
+    })
+
+    it('puts what it says after the note, and goes into the same next round for the next one', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick({ note: 'too thin' }))
+      await store.add('bracket', pick({ note: 'bad hole' }))
+      await store.endRound('bracket', 'R1')
+      await store.sendRound('bracket', 'R1')
+      await store.markSent('bracket')
+      await store.roundSent('bracket', 'R1')
+      for (const id of ['M1', 'M2']) await store.update('bracket', id, { status: 'resolved' }, 'agent')
+      expect((await store.judge('bracket', 'M1', 'still-wrong', { build: 'h42', note: 'still', next: NEXT })).note).toBe('too thin Still wrong in h42: still')
+      expect((await store.judge('bracket', 'M2', 'still-wrong', { build: 'h42', next: NEXT })).note).toBe('bad hole Still wrong in h42')
+      const { rounds } = await store.rounds('bracket')
+      expect(rounds.map((r) => r.id)).toEqual(['R1', 'R2'])
+      expect(roundItems(await store.list('bracket'), 'R2').map((m) => m.id)).toEqual(['M1', 'M2'])
+    })
+
+    it('goes into the next round when that was opened (carried on) already', async () => {
+      const resolved = await answered()
+      const carried = await store.carryRound('bracket', 'R1', NEXT)
+      expect(carried).toMatchObject({ id: 'R2', from: 'R1' })
+      expect(carried).not.toHaveProperty('endedAt')
+      expect((await store.judge('bracket', resolved.id, 'still-wrong', { build: 'h42', next: NEXT })).round).toBe('R2')
+      expect((await store.rounds('bracket')).rounds).toHaveLength(2)
+    })
+
+    it('goes into a fresh round when the one it carried into was let go as plain marks, so that it is held', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await store.add('bracket', pick())
+      await store.endRound('bracket', 'R1')
+      await store.sendRound('bracket', 'R1')
+      await store.markSent('bracket')
+      await store.roundSent('bracket', 'R1')
+      for (const id of ['M1', 'M2']) await store.update('bracket', id, { status: 'resolved' }, 'agent')
+      await store.judge('bracket', 'M1', 'still-wrong', { build: 'h42', next: NEXT })
+      await store.plainRound('bracket', 'R2')
+      const wrong = await store.judge('bracket', 'M2', 'still-wrong', { build: 'h43', next: { ...NEXT, build: 'h43' } })
+      expect(wrong.round).toBe('R3')
+      const view = await store.rounds('bracket')
+      expect(view.rounds[2]).toMatchObject({ id: 'R3', from: 'R1', build: 'h43', endedAt: expect.any(String) })
+      expect(view.rounds[2]).not.toHaveProperty('sentAt')
+      expect(view.rounds[2]).not.toHaveProperty('plain')
+      expect(isHeld(wrong, view)).toBe(true)
+    })
+
+    it('is for a mark the agent resolved, that is in a round that was sent', async () => {
+      await store.startRound('bracket', OF)
+      await store.add('bracket', pick())
+      await expect(store.judge('bracket', 'M1', 'ok', { build: 'h42', next: NEXT })).rejects.toThrow('M1 was not resolved by the agent')
+      await store.update('bracket', 'M1', { status: 'resolved' }, 'agent')
+      await expect(store.judge('bracket', 'M1', 'ok', { build: 'h42', next: NEXT })).rejects.toThrow('M1 is in no round that was sent')
+      await store.add('bracket', pick({ author: 'agent' }), 'sent')
+      await store.update('bracket', 'M2', { status: 'resolved' }, 'agent')
+      await expect(store.judge('bracket', 'M2', 'ok', { build: 'h42', next: NEXT })).rejects.toThrow('M2 is in no round that was sent')
+      await expect(store.judge('bracket', 'M1', 'fine' as never, { build: 'h42', next: NEXT })).rejects.toThrow('not a verdict')
+    })
+
+    it('is set by the verdict alone: OK all and the acknowledge of the list leave it unset', async () => {
+      const resolved = await answered()
+      const [acknowledged] = await store.acknowledge('bracket', [resolved.id])
+      expect(acknowledged).toMatchObject({ acknowledged: true, round: 'R1' })
+      expect(acknowledged).not.toHaveProperty('judged')
+      expect(await store.update('bracket', resolved.id, { acknowledged: true })).not.toHaveProperty('judged')
+    })
+
+    it('is not lost when the mark is sent again, and the round is not either', async () => {
+      const resolved = await answered()
+      await store.judge('bracket', resolved.id, 'still-wrong', { build: 'h42', next: NEXT })
+      await store.markSent('bracket', [resolved.id])
+      expect((await store.list('bracket'))[0]).toMatchObject({ status: 'sent', judged: { verdict: 'still-wrong', build: 'h42' }, round: 'R2' })
+    })
+  })
+
+  describe('carrying on', () => {
+    it('opens the round the Still wrong items were moved into, or makes one on the build', async () => {
+      const resolved = await answered()
+      await store.judge('bracket', resolved.id, 'still-wrong', { build: 'h42', next: NEXT })
+      const opened = await store.carryRound('bracket', 'R1', NEXT)
+      expect(opened).toMatchObject({ id: 'R2', from: 'R1', build: 'h42' })
+      expect(opened).not.toHaveProperty('endedAt')
+      expect((await store.rounds('bracket')).rounds).toHaveLength(2)
+    })
+
+    it('makes the next round on the build when nothing was carried, and has the one open from then on', async () => {
+      await answered('want')
+      const made = await store.carryRound('bracket', 'R1', NEXT)
+      expect(made).toEqual({ id: 'R2', ...NEXT, from: 'R1', startedAt: '2026-10-09T12:00:00.000Z' })
+      expect(await store.carryRound('bracket', 'R1', { ...NEXT, build: 'h60' })).toEqual(made)
+    })
+
+    it('makes a new round when the one it carried into was let go as plain marks or sent', async () => {
+      const resolved = await answered()
+      await store.judge('bracket', resolved.id, 'still-wrong', { build: 'h42', next: NEXT })
+      await store.plainRound('bracket', 'R2')
+      expect(await store.carryRound('bracket', 'R1', { ...NEXT, build: 'h43' })).toMatchObject({ id: 'R3', from: 'R1', build: 'h43' })
+    })
+
+    it('is refused while another round is open', async () => {
+      await answered()
+      await store.startRound('bracket', NEXT)
+      await expect(store.carryRound('bracket', 'R1', NEXT)).rejects.toThrow('R2 is open')
+      await expect(store.carryRound('bracket', 'R9', NEXT)).rejects.toThrow('no round R9')
+    })
+  })
+
+  describe('an item taken away and put back', () => {
+    it('comes back with its round, its intent and its judgment, and the round counts what it did', async () => {
+      const resolved = await answered('dont')
+      await store.judge('bracket', resolved.id, 'ok', { build: 'h42', next: NEXT })
+      const before = roundCounts(await store.list('bracket'), 'R1')
+      expect(before).toEqual({ dont: 1, want: 0, plain: 0 })
+      await store.remove('bracket', resolved.id)
+      expect(roundCounts(await store.list('bracket'), 'R1')).toEqual({ dont: 0, want: 0, plain: 0 })
+      const back = await store.restore('bracket', resolved.id)
+      expect(back).toMatchObject({ round: 'R1', intent: 'dont', judged: { verdict: 'ok', build: 'h42' } })
+      expect(roundCounts(await store.list('bracket'), 'R1')).toEqual(before)
+      expect(onDisk('bracket').marks[0]).toMatchObject({ round: 'R1', intent: 'dont', judged: { verdict: 'ok', build: 'h42' } })
+    })
+  })
+
+  it('is kept in marks.json, and is there in the next run', async () => {
+    await store.startRound('bracket', OF)
+    await store.add('bracket', pick({ intent: 'want' }))
+    await store.sendRound('bracket', 'R1')
+    store.forget()
+    const again = newStore()
+    expect(await again.rounds('bracket')).toEqual({ rounds: [expect.objectContaining({ id: 'R1', endedAt: expect.any(String) })], sending: null })
+    expect((await again.list('bracket'))[0]).toMatchObject({ round: 'R1', intent: 'want' })
   })
 })

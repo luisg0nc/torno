@@ -39,7 +39,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `overText`; the one-shot `ViewDrawing`, `drawingOf` and `drawingText` are gone). `chat:send` takes `attachedView` (the bytes of
   the picture "Attach view" showed, checked by `Sessions.sendOne` as any picture for the agent and attached in place of a fresh
   `deps.picture`), `attachView` and `board`; no `drawing`. `Sessions.sendOne` puts in the prompt, in order: the text, the
-  board's words and pictures, the attached view, then each draft note of the project (`deps.draftNotes`: status draft, mark
+  board's words and pictures, the attached view, then each draft note of the project (`deps.draftNotes`: status draft, not held in a round that is not sent (`unheldNotes`), mark
   order) as `notePrompt` words it: `noteText` (the one wording `marks` shares), the picture with the ink, then its
   references, scaled to 1280 (`deps.scalePicture`), within the 6 pictures a prompt carries (what the board and the view hold
   counts): a picture past the room is named in the words of its note (`Not attached: M5 reference 2`), not attached, and a
@@ -85,7 +85,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   before the first pen stroke kept is left out), composed with `destination-out` as the board does (`paintStrokes`), and reopened as eraser strokes
   (`openNoteOn`); an eraser stroke lies over nothing, so it has no line in `under` and no number among the strokes told of (`penStrokes`; main holds the
   pen strokes and the eraser strokes to their caps, `MOST_NOTE_STROKES` and `MOST_NOTE_ERASES`, apart). A note waits above the box until the prompt carries
-  it (`ui/chat/WaitingNotes.tsx`, every draft note of the open project, a row each, "Draw on view" stays enabled): its picture with the ink
+  it (`ui/chat/WaitingNotes.tsx`, every draft note of the open project that is not held in an unsent round, a row each, "Draw on view" stays enabled): its picture with the ink
   (`notes.picture(…, 'ink')`, or "picture not on this computer"), the comment, what the ink lies over as live chips (`noteDrawnOver` of
   `shared/drawing.ts`, the one the prompt's item uses; the hover lights a face), "Edit" (`openNote`) and "Remove" (`marks.remove`, with "Undo" for
   ten seconds, `marks.restore`); nothing is lost with the window, a note being a mark on disk. The sent prompt shows what each note's ink lies over under its pictures (`notes` on the

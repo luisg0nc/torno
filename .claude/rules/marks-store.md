@@ -3,10 +3,16 @@ paths:
   - "app/src/main/marks/**"
   - "app/src/main/sketches/**"
   - "app/src/shared/marks.ts"
+  - "app/src/main/reviews/**"
+  - "app/src/shared/reviews.ts"
+  - "app/src/shared/reviews.test.ts"
+  - "app/src/renderer/state/review.ts"
+  - "app/src/renderer/state/review.test.ts"
   - "app/src/shared/tags.ts"
   - "app/src/shared/tags.test.ts"
   - "app/e2e/marks*.spec.ts"
   - "app/e2e/reanchor.spec.ts"
+  - "app/e2e/review.spec.ts"
 ---
 
 # Marks: the store, checking them against a build, their status
@@ -31,12 +37,35 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   which only main sets (`withTag`, on placing and on every check) and which a check follows before the
   nearest-point rule.
 - What only main says of a mark (`MAIN_ONLY_KEYS` in `shared/marks.ts`:
-  `resolvedBy`, `acknowledged`, `sentBefore`, `reopened`, `checkedRevision`) is never
+  `resolvedBy`, `acknowledged`, `sentBefore`, `reopened`, `checkedRevision`, `round`, `judged`) is never
   taken from the window or from a tool's arguments. A mark the agent resolved
   is under "To review" until the person acknowledges it, one at a time or all at once (`marks.acknowledge`,
   one write).
 
 ## Marks (`app/src/main`)
+
+- **Reviews** (`shared/reviews.ts`): a mark of the person's says want or don't want (`intent`, `markIntent`: a shape's `add` and
+  `remove` are those, so `setIntent` writes them; never of the agent's marks). A **round** `R<n>` is a review of one build, kept in
+  `marks.json` beside the marks (`rounds`, `nextRound`; the id is never given again, whatever becomes of the round), at most one
+  open. `MarkStore` is its only writer: a mark the person makes while the round of its layout is open has `round` (`add`,
+  `addNote`, a new sketch; never the agent's, never from the window), and Still wrong (`judge`) moves an item into the next
+  round, made there ended and unsent, so that it is held (`isHeld`; a next round that was sent or let go as plain marks is not
+  used, a fresh one is made: `carriedRound`). A round that was sent is never dropped, and an empty one is kept while this run's undo
+  can bring back one of its items. `judged` is set by `judge` alone: `acknowledge` and "OK all"
+  leave it. `sending` is the round whose prompt is on its way: in memory, forgotten with `forget`, told with `changed`. The
+  sanitiser leaves a bad `intent`, `round` or `judged` out of a mark, drops a round that is not whole, ends all open rounds but the
+  newest and makes a mark that names a round the file lacks a plain one.
+  The window asks for all of it through `marks:round`, `marks:rounds`, `marks:setIntent`, `marks:roundOut` and `marks:judge`
+  (`main/reviews/ipc.ts`): it names a project, `R<n>` and `M<n>` only, never a build. Main finds the build on show (`shownBuild`: the
+  newest kept, not failed history entry whose `sources` are the last successful build's) and stars it; it is refused while a build runs
+  or failed. Start and Still wrong's next round use it; OK only names it.
+  What the agent is told (`contextFor`, `opts.rounds`): the drafts of a held round (`isHeld`) are left out of the drafts and the open marks
+  as an open sketch is, never in `sentMarkIds`, and each held round says `R1 is in review, not sent (3 marks). Wait until the review is sent: do not resolve its marks.` (`HELD_LINE`; `held`
+  is their numbers, comma-joined). While `sending` names a round, `REVIEW_LINE` (`Review of h41 (R1): 3 don't want, 2 want. Answer each
+  item by its id.` and `Also in it: M4.` for items sent before) goes before the marks head, and `review` is that round; if none of its
+  drafts fit under the head the line is taken out again and the round stays unsent; if the line does not fit at all, the round's drafts are left out of the marks too. A draft view note of a held round goes with no prompt (`unheldNotes`, which `draftNotes` and `WaitingNotes` use; when the rounds cannot be read every note that has a round is held). `contextFor` writes nothing: the caller's `delivered`
+  runs `roundSent`, which sets `sentAt`, once the answer has left. `describeMark` says the intent after the number (`M8 · don't want ·
+  pick of lid/F12`; not of a shape, whose line says `intent add` already) and ` [in R1]` after the line of a round item.
 
 - A view note's card on the board is told to the agent as the note's line (`describeMark`, the same as the `marks` tool's first line), never as
   `(note, on <ref>)` of the other marks (`main/board/text.ts` `markText`).

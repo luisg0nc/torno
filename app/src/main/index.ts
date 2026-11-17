@@ -6,7 +6,8 @@ import { dirname, join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme } from 'electron'
 import { type Door, openDoor, projectFor } from './door'
 import type { Described } from '../shared/geometry'
-import type { Mark, NoteMark } from '../shared/marks'
+import type { Mark } from '../shared/marks'
+import { unheldNotes } from '../shared/reviews'
 import type { SavedView } from '../shared/views'
 import { heldOverrides } from './paramsfile'
 import { writeFileAtomic } from './atomic'
@@ -411,6 +412,7 @@ const toolDeps: ToolDeps = {
   // A dimension is measured as it is kept, as one the person makes is (`addDimension`).
   addDimension: (objectId, mark) => addDimensionTold({ marks, query: queryObject, scene: lastScene }, objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
   // Whoever changes a mark through the tools is the agent.
+  rounds: async (objectId) => (await marks.rounds(objectId)).rounds,
   updateMark: (objectId, id, patch) => marks.update(objectId, id, patch, 'agent'),
   describe: (objectId, layout, ref, options) => queryObject<Described>(objectId, 'describe', { ref: `${layout}:${ref}`, ...(options?.selector ? { selector: true } : {}) }),
   async nearest(objectId, layout, anchors) {
@@ -490,7 +492,7 @@ async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName
   const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides })])
   return boardLine(file, told, live, toolName)
 }
-const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: async (id) => (await marks.list(id)).map((m) => ({ id: m.id, layout: m.layout })), scans: async (id) => (await scans.list(id)).map((s) => s.id) }, objectId)
+const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id) }, objectId)
 marks.on('changed', ({ objectId }) => void followBoard(objectId))
 scans.on('changed', ({ objectId }) => void followBoard(objectId))
 // A mask that did not read for a region is asked for again: what the scans are has changed.
@@ -575,8 +577,8 @@ void app.whenReady().then(async () => {
       return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
     },
     // The view notes that are drafts, in the order of the marks: they go with the next chat prompt, pictures and all.
-    // Marks that cannot be read are no reason to send nothing.
-    draftNotes: async (id) => (await marks.list(id).catch((): Mark[] => [])).filter((m): m is NoteMark => m.kind === 'note' && m.status === 'draft'),
+    // Marks that cannot be read are no reason to send nothing. The notes of a round that is not sent are held with it (`unheldNotes`).
+    draftNotes: async (id) => unheldNotes(await marks.list(id).catch((): Mark[] => []), await marks.rounds(id).catch(() => undefined)),
     scalePicture,
     // The viewport as the person has it, for a prompt that attaches the view: of the object the session is of.
     picture: async (obj) => {
@@ -598,8 +600,17 @@ void app.whenReady().then(async () => {
       // What is on the board, and what of it is new to the agent: one line. A board that cannot be read is no reason to tell nothing of the build.
       const all = await marks.list(id).catch(() => [])
       const boarded = await boardLineFor(id, all, opts.toolName).catch(() => undefined)
-      const told = contextFor(promptDeps, id, all, { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
-      return notice ? { ...told, delivered: notice.done } : told
+      // The rounds of the review: a round that is not sent holds its drafts back, one being sent has its prompt now, and is sent once the answer has left (`delivered`).
+      const rounds = await marks.rounds(id).catch(() => undefined)
+      const told = contextFor(promptDeps, id, all, { fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(notice ? { notice: notice.text } : {}) })
+      const review = told.review
+      if (!notice && review === undefined) return told
+      return {
+        ...told,
+        delivered: async () => {
+          await Promise.all([notice?.done(), review === undefined ? undefined : marks.roundSent(id, review).catch((e) => console.error(`cannot mark ${review} of ${id} as sent: ${e instanceof Error ? e.message : String(e)}`))])
+        }
+      }
     },
     // An edit of the model is answered with the build it started, and a Stop held back once over a build the turn left failed or unseen.
     build: buildState,

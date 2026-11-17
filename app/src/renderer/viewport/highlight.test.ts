@@ -52,6 +52,21 @@ const colourOf = (object: THREE.Object3D): string => {
 describe('Highlights', () => {
   const COLOURS = { accent: '#1d46b8', agent: '#2b8a5c', user: '#cf3f2c' }
 
+  it('tints the faces of what the person does not want in their colour, hatched, and no other layer is', () => {
+    const built = square()
+    const highlights = new Highlights()
+    highlights.setColors(COLOURS)
+    highlights.set('userDont', ['plate/F1'])
+    highlights.set('userMark', ['plate/F0'])
+    highlights.apply((name) => (name === 'plate' ? built : undefined))
+    const drawn = shown(built)
+    expect(drawn.map(colourOf)).toEqual([COLOURS.user, COLOURS.user])
+    const materials = drawn.map((d) => (d as THREE.Mesh).material as THREE.MeshBasicMaterial[])
+    const hatchedOnes = drawn.filter((_, i) => materials[i][0].userData.hatched === true)
+    expect(hatchedOnes).toHaveLength(1)
+    expect((hatchedOnes[0] as THREE.Mesh).geometry.groups).toEqual([{ start: 6, count: 6, materialIndex: 0 }])
+  })
+
   it('tints a face for a selection and for a pick mark at once: both are drawn, the selection over the mark', () => {
     const built = square()
     const highlights = new Highlights()

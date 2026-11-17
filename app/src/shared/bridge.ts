@@ -8,7 +8,7 @@ import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './hist
 import type { ExportPlan, ExportRequest, ExportSaved } from './exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
-import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, NoteStroke, Replacement, SketchPlane, SketchStroke, SketchTake } from './marks'
+import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, NoteStroke, Replacement, ReviewIntent, SketchPlane, SketchStroke, SketchTake } from './marks'
 import type { Scene } from './scene'
 import type { SizeFact } from './size'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
@@ -18,6 +18,7 @@ import type { HighlightRequest, HighlightResult, LookRequest, LookResult, SaveVi
 import type { RecentFolder, WorkspaceInfo } from './workspace'
 import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
+import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
 /** What the onboarding page asks for when the person presses "Create": the new object and everything they gave. */
@@ -76,6 +77,8 @@ export interface NoteDraft {
   references: NoteReferenceDraft[]
   /** Where the ink first lies over a face, when it does: main says its tag and how far its part is spread. */
   anchor?: Anchor
+  /** What the bar of an open review says of it: want or don't want, none for plain. Main checks it, and keeps it only for a note it makes. */
+  intent?: ReviewIntent
 }
 
 /**
@@ -98,6 +101,8 @@ export interface SketchDraft {
   planes: SketchPlane[]
   strokes: SketchStroke[]
   anchor?: Anchor
+  /** What the bar of an open review said when the sketch was begun: main keeps it of a new sketch of the person's, and never changes it of one it has (`marks:setIntent` does). */
+  intent?: ReviewIntent
 }
 
 /**
@@ -274,7 +279,21 @@ export interface TornoBridge {
     sketchPicture(objectId: string, id: string, png: Uint8Array): Promise<void>
     /** Which sketch of the object is open for editing now, or none: it is held back from prompts until it is closed. */
     sketching(objectId: string, id: string | null): void
-    onChanged(cb: (m: { objectId: string; marks: Mark[] }) => void): () => void
+    /**
+     * Asks one thing of the rounds of a review and answers them as they are then. A round is started on the build on show,
+     * which main finds in the history and stars (it is never the window's word); it is refused while a build is running or
+     * has failed. Rejects, changing nothing, with why not.
+     */
+    round(objectId: string, ask: RoundAsk): Promise<RoundsView>
+    /** The rounds of a project and which is being sent. */
+    rounds(objectId: string): Promise<RoundsView>
+    /** Says what the person wants (`want`), does not want (`dont`) or says nothing of (`null`) of a mark of theirs. It does not put the mark in a round. */
+    setIntent(objectId: string, id: string, intent: 'want' | 'dont' | null): Promise<Mark>
+    /** Takes a mark out of its round. */
+    roundOut(objectId: string, id: string): Promise<Mark>
+    /** The person's verdict on an item of a round the agent resolved, on the build on show; Still wrong carries it into the next round. */
+    judge(objectId: string, id: string, verdict: 'ok' | 'still-wrong', note?: string): Promise<Mark>
+    onChanged(cb: (m: { objectId: string; marks: Mark[]; rounds: Round[]; sending: string | null }) => void): () => void
     /** Something about an object's marks file the person should know, said once: a file that could not be read was set aside. */
     onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
     /** What `onProblem` last said of an object, for a window that was not listening then; null when nothing, or once dismissed. */

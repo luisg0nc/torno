@@ -763,3 +763,60 @@ describe('the agent’s own changes', () => {
     expect(onDisk().cards).toHaveLength(3)
   })
 })
+
+describe('the frame of a round', () => {
+  /** What reconcile makes: a frame of main's own for R1 with a mark card of main's own in it. */
+  async function withRound(): Promise<void> {
+    await store.torno('bracket', (b) => ({
+      ...b,
+      next: 3,
+      cards: [
+        { id: 'C1', kind: 'frame', x: 100, y: 100, w: 816, h: 480, by: 'torno', source: 'R1', name: 'Review of h41 · 1 −' },
+        { id: 'C2', kind: 'mark', x: 124, y: 132, w: 240, h: 120, by: 'torno', source: 'M1', frame: 'C1' }
+      ]
+    }))
+  }
+
+  it('is hidden when the person removes it, not lost, and can be brought back', async () => {
+    await withRound()
+    const board = await store.person('bracket', { op: 'remove', ids: ['C1'] })
+    expect(byId(board, 'C1')).toMatchObject({ kind: 'frame', hidden: true, source: 'R1' })
+    expect(byId(board, 'C2').frame).toBe('C1')
+    expect(byId(await store.person('bracket', { op: 'unhide', id: 'C1' }), 'C1').hidden).toBeUndefined()
+  })
+
+  it('has a name that is main’s: the person does not change it, nor does the agent', async () => {
+    await withRound()
+    await expect(store.person('bracket', { op: 'edit', id: 'C1', name: 'Mine' })).rejects.toThrow(/not the person's/)
+    await expect(store.agent('bracket', { op: 'edit', id: 'C1', text: 'Mine' })).rejects.toThrow(/torno's own/)
+    await expect(store.agent('bracket', { op: 'remove', id: 'C1' })).rejects.toThrow(/torno's own/)
+    expect(byId(await store.read('bracket'), 'C1')).toMatchObject({ name: 'Review of h41 · 1 −' })
+  })
+
+  it('takes the person’s move and resize, and what it holds goes with a move', async () => {
+    await withRound()
+    const board = await store.person('bracket', { op: 'move', moves: [{ id: 'C1', x: 300, y: 300, w: 900, h: 400 }] })
+    expect(byId(board, 'C1')).toMatchObject({ x: 300, y: 300, w: 900, h: 400 })
+    expect(byId(board, 'C2')).toMatchObject({ x: 324, y: 332 })
+  })
+
+  it('takes a card the agent adds, by id or name, and stays as it was', async () => {
+    await withRound()
+    const before = byId(await store.read('bracket'), 'C1')
+    const byIdd = await store.agent('bracket', { op: 'add', text: 'I thinned the lid', frame: 'C1' })
+    const named = await store.agent('bracket', { op: 'add', text: 'and the rib', frame: 'review of h41 · 1 −' })
+    expect(byId(byIdd.board, byIdd.id as string)).toMatchObject({ by: 'agent', frame: 'C1' })
+    expect(byId(named.board, named.id as string)).toMatchObject({ by: 'agent', frame: 'C1' })
+    expect(named.board.cards.filter((c) => c.kind === 'frame')).toHaveLength(1)
+    expect(byId(named.board, 'C1')).toEqual(before)
+    const inside = byId(named.board, named.id as string)
+    expect(inside.x).toBeGreaterThanOrEqual(124)
+    expect(inside.x + inside.w).toBeLessThanOrEqual(916)
+  })
+
+  it('takes no card of the agent once it is hidden, by id', async () => {
+    await withRound()
+    await store.person('bracket', { op: 'remove', ids: ['C1'] })
+    await expect(store.agent('bracket', { op: 'add', text: 'x', frame: 'C1' })).rejects.toThrow(/no card C1/)
+  })
+})
