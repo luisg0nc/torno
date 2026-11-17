@@ -9,6 +9,9 @@ import { DEFECT_MEANS, partDefects } from '../../shared/sanity'
 import { SectionTitle } from './SectionTitle'
 import { type PartMarks, marksByPart } from './layerMarks'
 import { giveKeysBack } from './typing'
+import { setsOfLayout, useSets } from '../state/sets'
+import { NamedSets, SetRowView } from './sets/SetRows'
+import { setRows } from './sets/rows'
 
 /**
  * The parts of the layout shown: colour, name, an opacity slider that appears
@@ -33,6 +36,9 @@ export function Layers() {
   const onPart = useStore((s) => s.marksOnPart)
   // The same assignment as the viewport's, so a swatch matches its part.
   const colors = useMemo(() => colorsOfParts(scene?.parts ?? []), [scene])
+  const named = useSets((s) => s.sets)
+  // The named sets of the layout: each under its part when it is of one part, the rest in a section of their own.
+  const sets = useMemo(() => setRows(setsOfLayout(named, layout), (scene?.parts ?? []).filter((p) => p.layout === layout), marks), [named, layout, scene, marks])
   if (!scene) return null
   const parts = scene.parts.filter((p) => p.layout === layout)
   const groups = groupsIn(scene, layout)
@@ -40,9 +46,10 @@ export function Layers() {
   const byName = new Map(parts.map((p) => [p.name, p]))
   const counts = marksByPart(marks, layout, revision)
   const hidden = parts.filter((p) => layerOf(layers, p.name)?.visible === false)
-  const row = (part: Part, inGroup?: string) => (
-    <LayerRow key={part.key} part={part} layout={layout} layer={layerOf(layers, part.name)} color={colors.get(part.name)} inGroup={inGroup} marks={counts.get(part.name)} listed={onPart === part.name} />
-  )
+  const row = (part: Part, inGroup?: string) => [
+    <LayerRow key={part.key} part={part} layout={layout} layer={layerOf(layers, part.name)} color={colors.get(part.name)} inGroup={inGroup} marks={counts.get(part.name)} listed={onPart === part.name} />,
+    ...(sets.byPart[part.name] ?? []).map((set) => <SetRowView key={`set:${set.id}`} row={set} layout={layout} indent />)
+  ]
 
   return (
     <section className="section layers" aria-label="Layers">
@@ -75,6 +82,7 @@ export function Layers() {
         })}
         {parts.filter((p) => !grouped.has(p.name)).map((part) => row(part))}
       </ul>
+      <NamedSets rows={sets.across} layout={layout} />
     </section>
   )
 }

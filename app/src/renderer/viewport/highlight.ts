@@ -12,7 +12,7 @@ import { parseRef } from './picking'
  * on, and what a ref or a mark the pointer is on elsewhere (a chip of the chat, a mark's row or its chip in the view)
  * is on (`point`).
  */
-export type HighlightLayer = 'hover' | 'selection' | 'agent' | 'userMark' | 'userDont' | 'agentMark' | 'point'
+export type HighlightLayer = 'hover' | 'selection' | 'agent' | 'userMark' | 'userDont' | 'agentMark' | 'point' | 'set'
 
 /** The layers that belong to marks: they are in a picture when the marks are. */
 export const MARK_LAYERS: HighlightLayer[] = ['userMark', 'userDont', 'agentMark']
@@ -21,17 +21,23 @@ export const MARK_LAYERS: HighlightLayer[] = ['userMark', 'userDont', 'agentMark
 // on the same face, and both show, since each is see-through. What is pointed at
 // from elsewhere is in the accent, whoever made the mark it is of: a mark's colour
 // says who made it, and nothing else is drawn in it.
-const LAYERS: Record<HighlightLayer, { color: 'accent' | 'agent' | 'user'; tint: number; line: number; order: number }> = {
+// A named set the pointer is on (`set`) is in the colour of that set, one of the eight the theme has (`Theme.sets`); the layer holds one
+// set at a time, and a proposal of the agent's is drawn dashed: its faces hatched, its edges in dashes.
+const LAYERS: Record<HighlightLayer, { color: 'accent' | 'agent' | 'user' | 'set'; tint: number; line: number; order: number }> = {
   point: { color: 'accent', tint: 0.3, line: 2.5, order: 6 },
   hover: { color: 'accent', tint: 0.26, line: 2.5, order: 5 },
   selection: { color: 'accent', tint: 0.42, line: 3.5, order: 4 },
   agent: { color: 'agent', tint: 0.45, line: 3.5, order: 3 },
+  set: { color: 'set', tint: 0.42, line: 3.5, order: 3 },
   userMark: { color: 'user', tint: 0.4, line: 3.5, order: 2 },
   // What the person does not want, in their colour and hatched: the tint is cut into stripes (`marks/hatch.ts`), a little stronger to read as one.
   userDont: { color: 'user', tint: 0.55, line: 3.5, order: 2 },
   agentMark: { color: 'agent', tint: 0.4, line: 3.5, order: 1 }
 }
 const NAMES = Object.keys(LAYERS) as HighlightLayer[]
+/** A proposal's edges are drawn in dashes of this length and gap, in millimetres of the part. */
+const DASH_MM = 2.5
+const DASH_GAP_MM = 1.75
 
 interface Overlay {
   /** The part's own surface again, of which only the highlighted faces are drawn. */
@@ -42,6 +48,8 @@ interface Overlay {
 interface LayerState {
   refs: string[]
   tint: THREE.MeshBasicMaterial
+  /** The same tint hatched, for a layer that can be dashed (a proposal): the set's. */
+  dashedTint?: THREE.MeshBasicMaterial
   line: LineMaterial
   overlays: Map<BuiltPart, Overlay>
 }
@@ -57,6 +65,9 @@ export class Highlights {
   private readonly hidden = new Set<HighlightLayer>()
   /** The parts nothing is drawn on for now: those a section leaves nothing of. */
   private readonly suppressed = new Set<BuiltPart>()
+  /** The theme's colours for named sets, and which is drawn on the `set` layer: the colour of the set lit, and whether it is a proposal. */
+  private setColours: string[] = []
+  private look = { colour: 0, proposed: false }
 
   constructor() {
     const make = (name: HighlightLayer): LayerState => {
@@ -69,17 +80,45 @@ export class Highlights {
         polygonOffsetFactor: 0.5,
         polygonOffsetUnits: 0.5
       })
-      return { refs: [], tint: name === 'userDont' ? hatched(tint) : tint, line: new LineMaterial({ linewidth: LAYERS[name].line }), overlays: new Map() }
+      const dashedTint = name === 'set' ? hatched(tint.clone()) : undefined
+      return { refs: [], tint: name === 'userDont' ? hatched(tint) : tint, ...(dashedTint ? { dashedTint } : {}), line: new LineMaterial({ linewidth: LAYERS[name].line }), overlays: new Map() }
     }
     this.layers = Object.fromEntries(NAMES.map((name) => [name, make(name)])) as Record<HighlightLayer, LayerState>
   }
 
-  setColors(colors: { accent: string; agent: string; user: string }): void {
+  setColors(colors: { accent: string; agent: string; user: string; sets?: readonly string[] }): void {
+    this.setColours = [...(colors.sets ?? [])]
     for (const name of NAMES) {
-      const color = colors[LAYERS[name].color]
-      this.layers[name].tint.color.set(color)
-      this.layers[name].line.color.set(color)
+      const color = this.colourOf(name, colors)
+      const state = this.layers[name]
+      state.tint.color.set(color)
+      state.dashedTint?.color.set(color)
+      state.line.color.set(color)
     }
+  }
+
+  private colourOf(name: HighlightLayer, colors: { accent: string; agent: string; user: string }): string {
+    const which = LAYERS[name].color
+    if (which !== 'set') return colors[which]
+    // One of the theme's eight, never a colour of its own; the accent where the theme has none.
+    return this.setColours[this.look.colour] ?? colors.accent
+  }
+
+  /** Which set the `set` layer is drawn for: its colour (0 to 7, the theme's) and whether it is a proposal, which is dashed. Returns false when that is what it was. */
+  setLook(colour: number, proposed: boolean): boolean {
+    if (colour === this.look.colour && proposed === this.look.proposed) return false
+    this.look = { colour, proposed }
+    const state = this.layers.set
+    const color = this.setColours[colour]
+    if (color !== undefined) {
+      state.tint.color.set(color)
+      state.dashedTint?.color.set(color)
+      state.line.color.set(color)
+    }
+    state.line.dashed = proposed
+    state.line.dashSize = DASH_MM
+    state.line.gapSize = DASH_GAP_MM
+    return true
   }
 
   /** What every tint and line is clipped by: the planes of a section, or null for none. */
@@ -158,6 +197,7 @@ export class Highlights {
     for (const state of Object.values(this.layers)) {
       for (const built of [...state.overlays.keys()]) this.forget(built)
       state.tint.dispose()
+      state.dashedTint?.dispose()
       state.line.dispose()
     }
   }
@@ -165,6 +205,8 @@ export class Highlights {
   private applyLayer(name: HighlightLayer, partNamed: (name: string) => BuiltPart | undefined): void {
     const state = this.layers[name]
     for (const [built, overlay] of state.overlays) {
+      // A proposal is hatched, whatever the layer drew before.
+      if (state.dashedTint) overlay.faces.material = [this.look.proposed ? state.dashedTint : state.tint]
       overlay.faces.geometry.clearGroups()
       overlay.faces.visible = false
       this.dropLines(built, overlay)
@@ -197,6 +239,7 @@ export class Highlights {
     for (const [built, positions] of segments) {
       const overlay = this.overlayFor(name, built)
       const lines = new LineSegments2(new LineSegmentsGeometry().setPositions(positions), state.line)
+      if (state.line.dashed) lines.computeLineDistances()
       lines.renderOrder = LAYERS[name].order + NAMES.length
       overlay.lines = lines
       this.show(name, built, overlay)
@@ -213,7 +256,7 @@ export class Highlights {
       geometry.setAttribute('position', source.getAttribute('position'))
       geometry.setIndex(source.getIndex())
       geometry.boundingSphere = source.boundingSphere
-      const faces = new THREE.Mesh(geometry, [state.tint])
+      const faces = new THREE.Mesh(geometry, [state.dashedTint && this.look.proposed ? state.dashedTint : state.tint])
       faces.renderOrder = LAYERS[name].order
       faces.visible = false
       faces.raycast = () => {} // never picked

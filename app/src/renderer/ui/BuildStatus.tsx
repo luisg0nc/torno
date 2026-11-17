@@ -8,6 +8,7 @@ import { partDefects } from '../../shared/sanity'
 import { makesEnvironment } from './readyLines'
 import { landedOn } from '../state/landing'
 import { compareStatus } from '../state/compare'
+import { useSets } from '../state/sets'
 import { actions, partsInLayout, useStore } from '../state/store'
 import { BuildErrorSheet } from './BuildErrorSheet'
 import { withRefs } from './CompareBar'
@@ -115,6 +116,8 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
   // The history of the project is "Prompts only" in the session pane: this button puts it up and away.
   const historyOpen = useStore((st) => st.promptsOpen)
   const compare = useStore((st) => st.compare)
+  // Why Ctrl+G did nothing, for a moment.
+  const setSaid = useSets((s) => s.said)
 
   // The sheet shows the failure of the build it was opened for, no longer.
   useEffect(() => {
@@ -210,6 +213,10 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
           )}
         </>
       )}
+      {/* Always there, so that a screen reader is told when it fills: why Ctrl+G did nothing. */}
+      <span className="status-said" role="status" data-notice="sets">
+        {setSaid}
+      </span>
       <span className="spacer" />
       {/* Always there, so that a screen reader is told when it fills: a session somewhere waits for the answer. */}
       <span className="status-asking" role="status">

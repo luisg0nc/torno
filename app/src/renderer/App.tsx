@@ -5,6 +5,7 @@ import { connectLook } from './state/agent'
 import { connectAsks } from './state/asks'
 import { connectBoard, useBoard } from './state/board'
 import { connectReview } from './state/review'
+import { connectSets } from './state/sets'
 import { actions, sceneFileOf, store, useStore } from './state/store'
 import { BuildStatus } from './ui/BuildStatus'
 import { closingWhy, isExporting, leavingWhy, unkept, type Reason } from './closing'
@@ -186,6 +187,8 @@ function useMain(): void {
     const offBoard = connectBoard()
     // The rounds of the open project's review, read from main and followed.
     const offReview = connectReview()
+    // The named sets of the open project, read from main and followed.
+    const offSets = connectSets()
 
     // Layer and layout changes are written to <object>/.torno/scene.json, once they stop coming.
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -220,6 +223,7 @@ function useMain(): void {
       offAsks()
       offBoard()
       offReview()
+      offSets()
       offMarks()
       offMarksProblem()
       offScans()

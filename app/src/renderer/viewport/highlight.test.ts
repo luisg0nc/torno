@@ -111,6 +111,53 @@ describe('Highlights', () => {
     expect(shown(built).map(colourOf)).toContain(COLOURS.agent)
   })
 
+  describe('a named set', () => {
+    const SETS = ['#987D3E', '#838637', '#3D8C94', '#4889B1', '#7F6EC4', '#9F6BC2', '#BC5CBC', '#BF6391']
+    const lit = (look: [number, boolean]) => {
+      const built = square()
+      const highlights = new Highlights()
+      highlights.setColors({ ...COLOURS, sets: SETS })
+      highlights.setLook(...look)
+      highlights.set('set', ['plate/F1', 'plate/E0'])
+      highlights.apply((name) => (name === 'plate' ? built : undefined))
+      return { built, highlights, drawn: shown(built) }
+    }
+
+    it('is lit in the set\'s colour from the theme, face and edge alike, and makes no colour of its own', () => {
+      const { drawn } = lit([3, false])
+      expect(drawn).toHaveLength(2)
+      expect(drawn.map(colourOf)).toEqual([SETS[3].toLowerCase(), SETS[3].toLowerCase()])
+      for (const colour of SETS) expect([COLOURS.accent, COLOURS.agent, COLOURS.user]).not.toContain(colour.toLowerCase())
+      const face = drawn.find((d) => (d as THREE.Mesh).isMesh) as THREE.Mesh
+      expect((face.material as THREE.MeshBasicMaterial[])[0].userData.hatched).toBeUndefined()
+    })
+    it('takes the colour of the next set when the pointer goes to it, without the refs changing', () => {
+      const { built, highlights } = lit([0, false])
+      highlights.setLook(5, false)
+      highlights.apply((name) => (name === 'plate' ? built : undefined), 'set')
+      expect(shown(built).map(colourOf)).toEqual([SETS[5].toLowerCase(), SETS[5].toLowerCase()])
+    })
+    it('is hatched in the faces and dashed in the edges while it is a proposal, in the same colour', () => {
+      const { drawn } = lit([2, true])
+      expect(drawn.map(colourOf)).toEqual([SETS[2].toLowerCase(), SETS[2].toLowerCase()])
+      const face = drawn.find((d) => (d as THREE.Mesh).isMesh) as THREE.Mesh
+      expect((face.material as THREE.MeshBasicMaterial[])[0].userData.hatched).toBe(true)
+      const edge = drawn.find((d) => !(d as THREE.Mesh).isMesh || (d as { isLineSegments2?: boolean }).isLineSegments2) as unknown as { material: { dashed: boolean } }
+      expect(edge.material.dashed).toBe(true)
+    })
+    it('is drawn under a selection and over nothing of the agent\'s: the agent\'s layer is its own', () => {
+      const built = square()
+      const highlights = new Highlights()
+      highlights.setColors({ ...COLOURS, sets: SETS })
+      highlights.set('set', ['plate/F1'])
+      highlights.set('selection', ['plate/F1'])
+      highlights.apply((name) => (name === 'plate' ? built : undefined))
+      const drawn = shown(built)
+      const [set, selection] = [drawn.find((d) => colourOf(d) === SETS[0].toLowerCase())!, drawn.find((d) => colourOf(d) === COLOURS.accent)!]
+      expect(selection.renderOrder).toBeGreaterThan(set.renderOrder)
+    })
+  })
+
   it('a ref that names nothing in the scene tints nothing, and does not throw', () => {
     const built = square()
     const highlights = new Highlights()

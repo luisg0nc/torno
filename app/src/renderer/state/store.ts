@@ -136,6 +136,8 @@ export interface TornoState {
    * What the person has picked: refs in the layout shown (`lid/F12`, `lid/E3`),
    * in the order picked. They name geometry of the revision on screen, so the
    * selection is emptied when the object, the layout or the revision changes.
+   * While a sketch is open it may also hold strokes of it (`M7/k3`, picked in the
+   * sketch panel's list); they are let go once it is closed (`dropStrokes`).
    */
   selection: string[]
   /** By selected ref, where it was clicked: a note left on the selection is anchored there. */

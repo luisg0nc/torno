@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef } from 'react'
 import { peek } from '../../state/agent'
 import { boardActions, useBoard } from '../../state/board'
+import { useSets } from '../../state/sets'
 import { actions, useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
 import { ChatEarlier } from './place'
@@ -23,10 +24,13 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
   const layout = useStore((s) => s.layout)
   const revision = useStore((s) => s.revision)
   const build = useStore((s) => s.build)
+  // The named sets are followed only by a ref that names one: `#deck` lights its members, and is only text where the project has no such set.
+  const isSet = value.includes('#')
+  const sets = useSets((s) => (isSet ? s.sets : undefined))
   // A card of the board is followed only by a ref that names one.
   const isCard = /^C\d+$/.test(value)
   const board = useBoard((s) => (isCard ? s.board : null))
-  const info: RefInfo = useMemo(() => refInfo({ marks, scene, layers, layout, revision, build, board }, value), [marks, scene, layers, layout, revision, build, board, value])
+  const info: RefInfo = useMemo(() => refInfo({ marks, scene, layers, layout, revision, build, board, sets }, value), [marks, scene, layers, layout, revision, build, board, sets, value])
   const lit = useRef(false)
   const light = (on: boolean): void => {
     if (on === lit.current) return

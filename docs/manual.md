@@ -2079,6 +2079,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Viewport | `H` | Review this build: start a round, to mark what you do not want and what you want, and send it at once |
 | Viewport | `-` | Review: new marks are what you do not want; again, plain |
 | Viewport | `=` `+` | Review: new marks are what you want; again, plain |
+| Viewport | `Ctrl+G` | Name the selected faces, edges, parts or strokes as a set |
 | Viewport | `Esc` | Compare: back to the live build, before any other step back |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
 | With a tool in hand | `T` | Measure: the wall under the pointer |

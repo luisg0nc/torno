@@ -1195,7 +1195,25 @@ export class Viewport {
 
   /** Marks the selection, in the accent colour. Refs are of the layout shown: `lid/F12`, `lid/E3`, `lid`. */
   setSelection(refs: string[]): void {
-    this.highlight('selection', refs)
+    this.highlight('selection', refs.filter((ref) => !STROKE_REF.test(ref)))
+    this.lightStrokes('selection', refs)
+  }
+
+  /**
+   * Lights a named set in its colour (`colour` is 0 to 7, the theme's `--set-n`), its strokes with it, dashed for a proposal; null
+   * for none. Refs are of the layout shown. What the pointer is on in Layers or over the view: the set's members, never a
+   * selection.
+   */
+  setLitSet(lit: { refs: string[]; colour: number; proposed: boolean } | null): void {
+    const refs = lit?.refs ?? []
+    const looked = lit !== null && this.highlights.setLook(lit.colour, lit.proposed)
+    const faces = refs.filter((ref) => !STROKE_REF.test(ref))
+    // The look may change under refs that did not: the same refs are then drawn again, in the new colour or dashes.
+    if (this.highlights.set('set', faces) || looked) {
+      this.highlights.apply(this.partNamed, 'set')
+      this.invalidate()
+    }
+    this.lightStrokes('set', refs)
   }
 
   /** Marks what the agent points at, in the colour of its marks. A stroke of a sketch (`M7/k3`) among the refs is lit in its sketch. */
@@ -1211,19 +1229,19 @@ export class Viewport {
   }
 
   /** The strokes each of the agent's pointing and the pointer's names, as refs (`M7/k3`): the sketches draw them wider. */
-  private readonly strokesLit = { agent: [] as string[], point: [] as string[] }
+  private readonly strokesLit = { agent: [] as string[], point: [] as string[], set: [] as string[], selection: [] as string[] }
 
-  private lightStrokes(layer: 'agent' | 'point', refs: string[]): void {
+  private lightStrokes(layer: 'agent' | 'point' | 'set' | 'selection', refs: string[]): void {
     const strokes = refs.filter((ref) => STROKE_REF.test(ref))
     if (strokes.length === this.strokesLit[layer].length && strokes.every((ref, n) => ref === this.strokesLit[layer][n])) return
     this.strokesLit[layer] = strokes
-    this.marks.setLitStrokeRefs([...new Set([...this.strokesLit.agent, ...this.strokesLit.point])])
+    this.marks.setLitStrokeRefs([...new Set(Object.values(this.strokesLit).flat())])
     this.invalidate()
   }
 
   /** The refs each layer of highlights is drawn for: for the tests, which cannot read the pixels of the hidden window. */
   highlighted(): Record<HighlightLayer, readonly string[]> {
-    return { hover: this.highlights.refsOf('hover'), selection: this.highlights.refsOf('selection'), agent: this.highlights.refsOf('agent'), userMark: this.highlights.refsOf('userMark'), userDont: this.highlights.refsOf('userDont'), agentMark: this.highlights.refsOf('agentMark'), point: this.highlights.refsOf('point') }
+    return { hover: this.highlights.refsOf('hover'), selection: this.highlights.refsOf('selection'), agent: this.highlights.refsOf('agent'), userMark: this.highlights.refsOf('userMark'), userDont: this.highlights.refsOf('userDont'), agentMark: this.highlights.refsOf('agentMark'), point: this.highlights.refsOf('point'), set: this.highlights.refsOf('set') }
   }
 
   /**

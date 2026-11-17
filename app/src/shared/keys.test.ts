@@ -373,3 +373,11 @@ it('has the keys of a sketch in a scope of their own: none of them is a key of t
   expect(viewKey({ key: 'b' })).toBe(true)
   expect(viewKey({ key: '.' })).toBe(false)
 })
+
+it('has Ctrl+G, in the window scope, for naming the selection as a set, clashing with nothing', () => {
+  const rows = KEYS.filter((row) => row.id === 'set.make')
+  expect(rows.map((row) => [row.keys, row.scope])).toEqual([[['Ctrl+G'], 'window']])
+  expect(hint('set.make')).toBe('Ctrl+G')
+  expect(KEYS.filter((row) => row.keys.includes('Ctrl+G'))).toHaveLength(1)
+  expect(keyClashes()).toEqual([])
+})

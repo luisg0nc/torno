@@ -133,6 +133,7 @@ const ROWS = [
   row('marks.review', ['H'], 'Review this build: start a round, to mark what you do not want and what you want, and send it at once', 'Viewport', 'window'),
   row('review.dont', ['-'], 'Review: new marks are what you do not want; again, plain', 'Viewport', 'window'),
   row('review.want', ['=', '+'], 'Review: new marks are what you want; again, plain', 'Viewport', 'window'),
+  row('set.make', ['Ctrl+G'], 'Name the selected faces, edges, parts or strokes as a set', 'Viewport', 'window'),
   row('compare.end', ['Esc'], 'Compare: back to the live build, before any other step back', 'Viewport', 'compare'),
   row('escape', ['Esc'], 'Step back: what is under way, then the tool in hand, then the selection', 'Viewport', 'viewport'),
 

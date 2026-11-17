@@ -1,0 +1,265 @@
+/* Named sets: their rows in Layers, the popover Ctrl+G opens, the stroke list of a sketch's panel. A set's colour is one of the
+   eight tokens --set-1 to --set-8, so that a theme changes it with no code; none is a mark's colour. */
+
+/* A row of a set: under its part or in "Named sets". A second line holds what is said of it and what can be done. */
+.layer-set {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 28px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  row-gap: 2px;
+}
+
+.layer-set[data-in-part] {
+  padding-left: calc(var(--space-4) + var(--space-3));
+}
+
+.set-swatch {
+  background: var(--set-colour);
+}
+
+/* Claude's proposal, not yet the person's: the swatch is dashed and empty, as the set is drawn dashed in the view. */
+.set-swatch[data-proposed] {
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--set-colour);
+  background: transparent;
+}
+
+.set-name {
+  color: var(--ink);
+}
+
+.layer-set[data-proposed] .set-name {
+  font-style: italic;
+}
+
+.set-line {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: calc(10px + var(--space-2));
+  font-size: var(--text-small);
+}
+
+.set-lost {
+  color: var(--warn);
+}
+
+.set-proposed,
+.set-hint {
+  color: var(--muted);
+}
+
+.set-error {
+  color: var(--fail);
+}
+
+.set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-3);
+}
+
+.set-actions .button {
+  height: 24px;
+  padding: 0 var(--space-2);
+  font-weight: 400;
+}
+
+.set-button:disabled {
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* The dots: out of the way until the row is pointed at, as "Show only" is. */
+.set-more {
+  opacity: 0;
+}
+
+.layer-set:hover .set-more,
+.set-more:focus-visible,
+.set-more[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.set-rename {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 5px;
+  border: var(--field-border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.set-rename:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.set-rename[aria-invalid='true'] {
+  border-color: var(--fail);
+}
+
+.set-colours {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.set-colour {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 2px solid var(--panel);
+  border-radius: 50%;
+  background: var(--set-colour);
+  box-shadow: 0 0 0 1px var(--field-edge);
+}
+
+.set-colour[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.layer-sets {
+  margin-top: var(--space-2);
+}
+
+.layer-sets-head {
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 500;
+}
+
+.set-note {
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--text-small);
+}
+
+/* The popover of Ctrl+G: over the selection bar, at the foot of the view. */
+.setmake {
+  position: absolute;
+  bottom: calc(var(--space-3) + var(--bar-lift) + 44px);
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  display: grid;
+  gap: var(--space-2);
+  width: 300px;
+  max-width: calc(100% - 2 * var(--stack-side));
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-palette);
+  background: var(--panel);
+  box-shadow: var(--palette-shadow);
+  font-size: var(--text-small);
+}
+
+.setmake-title {
+  margin: 0;
+  font-size: var(--text-size);
+  font-weight: 500;
+}
+
+.setmake-label {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--muted);
+}
+
+.setmake-name,
+.setmake-comment {
+  border: var(--field-border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--text-size);
+}
+
+.setmake-name {
+  height: 28px;
+  padding: 0 7px;
+}
+
+.setmake-comment {
+  padding: 4px 7px;
+  resize: none;
+}
+
+.setmake-name:focus,
+.setmake-comment:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.setmake-name[aria-invalid='true'] {
+  border-color: var(--fail);
+}
+
+.setmake-swatches {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.setmake-error {
+  margin: 0;
+  color: var(--fail);
+}
+
+.setmake-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.setmake-what {
+  flex: 1;
+  color: var(--muted);
+}
+
+/* A sketch's strokes by their ids, in its panel: each one selects it, and the pointer on it lights it in the view. */
+.sketchpanel-strokes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sketchpanel-stroke {
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.sketchpanel-stroke:hover {
+  background: var(--accent-wash);
+}
+
+.sketchpanel-stroke[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.sketchpanel-stroke:disabled {
+  color: var(--muted);
+}

@@ -3,6 +3,7 @@ import { tagLabel } from '../../shared/tags'
 import { useEffect, useState } from 'react'
 import { EXPLODED_TOOLS } from '../../shared/explode'
 import { describe, descriptorOf } from '../state/descriptors'
+import { isStrokeRef } from '../state/sets'
 import { actions, explodeNow, runningSession, store, useStore } from '../state/store'
 import { useTool } from '../state/tools'
 import { noteSelection } from '../tools/pickMarks'
@@ -36,7 +37,8 @@ export function Selection({ viewport }: { viewport: Viewport }) {
     if (!objectId) return
     let live = true
     for (const ref of selection) {
-      if (descriptorOf(objectId, revision, layout, ref) !== undefined) continue
+      // A stroke of a sketch is no face of the build: the kernel has nothing to say of it.
+      if (isStrokeRef(ref) || descriptorOf(objectId, revision, layout, ref) !== undefined) continue
       void describe(objectId, revision, layout, ref).then((text) => {
         if (live && text !== null) setArrived((n) => n + 1)
       })

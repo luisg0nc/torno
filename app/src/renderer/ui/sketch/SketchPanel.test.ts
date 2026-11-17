@@ -7,7 +7,8 @@ import { plainText } from '../../../test/plainText'
 import { leaveSketch, setLit, setTake, sketchStore } from '../../state/sketching'
 import { store } from '../../state/store'
 import { setTool, toolStore } from '../../state/tools'
-import { planeRows, surfaceStrokes } from './rows'
+import { selectStroke } from '../../state/sets'
+import { planeRows, strokeRows, surfaceStrokes } from './rows'
 import { SketchPanel } from './SketchPanel'
 
 const CAMERA = { position: [100, -100, 80] as Vec3, target: [0, 0, 10] as Vec3, up: [0, 0, 1] as Vec3, ortho: false, fov: 35, zoom: 1 }
@@ -34,6 +35,20 @@ describe('the rows of planes and strokes', () => {
     ])
     expect(surfaceStrokes(draft())).toBe(1)
     expect(planeRows(draft({ strokes: [] })).map((r) => r.strokes)).toEqual([0, 0])
+  })
+})
+
+describe('the strokes of a sketch by their ids', () => {
+  const kept = draft({ id: 'M7', strokes: [stroke({ id: 'k1' }), stroke({ id: 'k3', plane: 2 }), stroke({ id: 'k4', plane: undefined, points: [[0, 0, 0], [1, 1, 1]], points2d: undefined }), stroke()] })
+  it('lists those main has numbered, each with `M7/k3` and where it is, in the order drawn', () => {
+    expect(strokeRows(kept, 'M7')).toEqual([
+      { id: 'k1', ref: 'M7/k1', where: 'XZ at y = 40.0' },
+      { id: 'k3', ref: 'M7/k3', where: 'XY at z = 12.0' },
+      { id: 'k4', ref: 'M7/k4', where: 'On surfaces' }
+    ])
+  })
+  it('lists none for a sketch that is not kept yet, which has no number to name a stroke by', () => {
+    expect(strokeRows(kept, undefined)).toEqual([])
   })
 })
 
@@ -105,6 +120,30 @@ describe('the sketch panel', () => {
     sketchStore.setState({ undoable: 2 })
     expect(html()).not.toMatch(/<button[^>]*disabled=""[^>]*>Undo<\/button>/)
     expect(plainText(html())).toContain('Done')
+  })
+
+  it('has a button for each stroke by its id, the selected ones pressed, and none before the sketch is kept', () => {
+    expect(html()).not.toContain('sketchpanel-stroke')
+    sketchStore.setState({ open: { id: 'M7', draft: draft({ id: 'M7', strokes: [stroke({ id: 'k1' }), stroke({ id: 'k3' })] }) } })
+    store.setState({ selection: ['M7/k3'] })
+    const out = html()
+    expect(plainText(out)).toContain('Strokes')
+    const buttons = [...out.matchAll(/<button type="button" class="sketchpanel-stroke" aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)]
+    expect(buttons.map((m) => [m[2], m[1]])).toEqual([['k1', 'false'], ['k3', 'true']])
+    store.setState({ selection: [] })
+  })
+
+  it('puts the stroke in the selection when it is selected in the panel, and Shift adds to it', () => {
+    store.setState({ selection: [], picked: {} })
+    selectStroke('M7/k3')
+    expect(store.getState().selection).toEqual(['M7/k3'])
+    selectStroke('M7/k4', true)
+    expect(store.getState().selection).toEqual(['M7/k3', 'M7/k4'])
+    selectStroke('M7/k3', true)
+    expect(store.getState().selection).toEqual(['M7/k4'])
+    selectStroke('block/F1')
+    expect(store.getState().selection).toEqual(['M7/k4'])
+    store.setState({ selection: [] })
   })
 
   it('lights the strokes of the row the pointer is on, and lets go', () => {

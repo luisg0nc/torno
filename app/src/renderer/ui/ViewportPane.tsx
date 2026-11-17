@@ -15,6 +15,7 @@ import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
 import { isLive } from '../state/compare'
 import { useBoard } from '../state/board'
+import { isStrokeRef, litSet, setsStore } from '../state/sets'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
 import { pointerMoved } from '../state/step'
@@ -45,6 +46,7 @@ import { goToRow } from './BuildStatus'
 import { hoverMark } from './markHover'
 import { RegionBar } from './RegionBar'
 import { NotePopover } from './NotePopover'
+import { MakeSet } from './sets/MakeSet'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { Selection } from './Selection'
@@ -141,7 +143,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     report()
     const { objectId, revision, layout, selection } = s
     if (!objectId || selection.length === 0) return
-    const asked = selection.slice(0, MAX_SELECTION_REPORTED).filter((ref) => descriptorOf(objectId, revision, layout, ref) === undefined)
+    const asked = selection.slice(0, MAX_SELECTION_REPORTED).filter((ref) => !isStrokeRef(ref) && descriptorOf(objectId, revision, layout, ref) === undefined)
     if (asked.length === 0) return
     void Promise.all(asked.map((ref) => describe(objectId, revision, layout, ref))).then(() => {
       if (store.getState().selection === selection) report()
@@ -509,6 +511,18 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   })
 
   // After the store's own subscription above: by then the viewport has the scans as they now are.
+  // The named set the pointer is on (its row in Layers, or the Set scope over the view) is lit in its colour.
+  const lightSet = (): void => {
+    const { sets, hovered } = setsStore.getState()
+    const { layout, marks } = store.getState()
+    viewport.setLitSet(litSet(sets, hovered, layout, marks))
+  }
+  const offSets = setsStore.subscribe((s, prev) => {
+    if (s.hovered !== prev.hovered || s.sets !== prev.sets) lightSet()
+  })
+  const offSetsOfStore = store.subscribe((s, prev) => {
+    if (s.layout !== prev.layout || s.marks !== prev.marks || s.scene !== prev.scene) lightSet()
+  })
   const offAlign = connectAlign(viewport)
   // The regions kept are tinted on their scans, and what is being painted is the tool's.
   const offRegion = connectRegion(viewport)
@@ -668,6 +682,9 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     offScene()
     offStore()
     offShape()
+    offSets()
+    offSetsOfStore()
+    viewport.setLitSet(null)
     offAlign()
     offRegion()
     setPictures(null)
@@ -781,6 +798,7 @@ export function ViewportPane() {
           <ViewBar viewport={viewport} />
           <ToolPalette />
           <Selection viewport={viewport} />
+          <MakeSet />
           <SectionBar viewport={viewport} />
           <AlignBar />
           <RegionBar />

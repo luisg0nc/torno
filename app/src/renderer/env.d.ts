@@ -53,7 +53,7 @@ declare global {
       /** The mark whose chip the viewport rings as pointed at (its row or its chip hovered); null for none. */
       hoveredMark(): string | null
       /** The refs each layer of highlights is drawn for: `point` (in the accent) for what a chip, a row or a ref of the chat points at, `agent` for what the agent points at. */
-      highlighted(): Record<'hover' | 'selection' | 'agent' | 'userMark' | 'userDont' | 'agentMark' | 'point', readonly string[]>
+      highlighted(): Record<'hover' | 'selection' | 'agent' | 'userMark' | 'userDont' | 'agentMark' | 'point' | 'set', readonly string[]>
       /** The mark whose chip is drawn at a point of the canvas, in fractions of it: a press there is the chip's, whatever tool is in hand. Null for none. */
       chipAt(fx: number, fy: number): string | null
       /** What the pointer is making, drawn now: a pending measurement, or the last one held (`held` is its value); null for none. */

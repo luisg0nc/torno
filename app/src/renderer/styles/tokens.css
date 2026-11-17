@@ -57,6 +57,17 @@
   /* A reference, a bought part: neutral, in no theme's palette */
   --part-reference: #9AA1A8;
 
+  /* Named sets, picked in turn: eight muted hues, none red or green (those say who made a mark: the person, Claude) and none
+     within 30 degrees of hue of either mark colour; 3:1 on the ground (shared/contrast.test.ts). The dark theme has its own. */
+  --set-1: #987D3E;
+  --set-2: #838637;
+  --set-3: #3D8C94;
+  --set-4: #4889B1;
+  --set-5: #7F6EC4;
+  --set-6: #9F6BC2;
+  --set-7: #BC5CBC;
+  --set-8: #BF6391;
+
   /* Terminal: the sixteen colours an agent's CLI may ask for by name, toned to
      sit on --panel, and what the terminal draws of its own. Each is text: 4.5:1
      on the panel, the bright ones too (but the dark theme's black, which is the
@@ -136,6 +147,15 @@
     --axis-y: #9CC56C;
     --axis-z: #82A6EA;
     --palette-shadow: 0 6px 20px rgb(0 0 0 / 0.32);
+
+    --set-1: #CAB37D;
+    --set-2: #C7CA7D;
+    --set-3: #7DC2CA;
+    --set-4: #7DACCA;
+    --set-5: #8C7DCA;
+    --set-6: #AB7DCA;
+    --set-7: #CA7DCA;
+    --set-8: #CA7DA3;
 
     --ansi-black: #15171A;
     --ansi-red: #E8695A;

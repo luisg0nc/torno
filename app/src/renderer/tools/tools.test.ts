@@ -8,7 +8,9 @@ import type { ViewportPointer } from '../viewport/Viewport'
 import { arrowHead, arrowTool } from './arrowTool'
 import { pickMarks } from './pickMarks'
 import { pinTool } from './pinTool'
-import { selectTool } from './selectTool'
+import { refInScope, selectTool } from './selectTool'
+import { setsStore } from '../state/sets'
+import type { NamedSet } from '../../shared/sets'
 import { actions, store } from '../state/store'
 import { EXPLODED_TOOLS } from '../../shared/explode'
 import { DESCRIBE_WITHIN_MS, anchorFromHit, routePointer, type Tool, type ToolContext } from './Tool'
@@ -578,5 +580,82 @@ describe('what a click of the Select tool takes', () => {
     click(tool)
     click(tool)
     expect(store.getState().selection).toEqual(['lid'])
+  })
+})
+
+describe('the Select tool in the set scope', () => {
+  const named = (id: string, name: string, members: NamedSet['members'], over: Partial<NamedSet> = {}): NamedSet => ({ id, name, slug: name, comment: '', colour: 0, layout: 'assembly', by: 'person', members, createdAt: '2026-11-17T10:00:00.000Z', ...over })
+  const face = (ref: string, state: 'ok' | 'lost' = 'ok') => ({ face: ref, point: [0, 0, 0] as Vec3, normal: [0, 0, 1] as Vec3, state })
+  const deck = named('N1', 'deck', [face('lid/F3'), face('lid/F4'), { edge: 'base/E2', point: [0, 0, 0], state: 'ok' as const }, face('lid/F9', 'lost')])
+  const intake = named('N2', 'intake', [face('lid/F3')])
+  const lid: Hit = { ...hitAt([1, 2, 3]), part: 'lid', ref: 'lid/F3' }
+  const bare: Hit = { ...hitAt([1, 2, 3]), part: 'lid', ref: 'lid/F7' }
+  const move = (tool: Tool, hit: Hit | null, fakeCtx = fake()) => {
+    tool.onPointer(pointer('move', 1, 2, { hit }), fakeCtx.ctx)
+    return fakeCtx
+  }
+  afterEach(() => {
+    toolStore.setState({ selectScope: 'any' })
+    actions.setSelection([])
+    setsStore.setState({ sets: [], hovered: null })
+  })
+
+  it('has a scope called Set, after Part', async () => {
+    const { SELECT_SCOPES } = await import('../state/tools')
+    expect(SELECT_SCOPES.map((c) => [c.scope, c.label]).slice(-2)).toEqual([['part', 'Part'], ['set', 'Set']])
+  })
+
+  it('gives the ref of the first set that holds the face, and null for a face in none', () => {
+    expect(refInScope(lid, 'set', [deck, intake], 'assembly')).toBe('#deck')
+    expect(refInScope(bare, 'set', [deck, intake], 'assembly')).toBeNull()
+    // A lost member holds nothing, and a set of another layout is not of this view.
+    expect(refInScope({ ...lid, ref: 'lid/F9' }, 'set', [deck], 'assembly')).toBeNull()
+    expect(refInScope(lid, 'set', [{ ...deck, layout: 'print' }], 'assembly')).toBeNull()
+  })
+
+  it('lights the set the pointer is on, names it in the readout with the others it is in, and lets go off a face of none', () => {
+    setsStore.setState({ sets: [deck, intake] })
+    toolStore.setState({ selectScope: 'set' })
+    const tool = selectTool()
+    const { said } = move(tool, lid)
+    expect(setsStore.getState().hovered).toBe('N1')
+    expect(said).toEqual(['#deck | also in #intake'])
+    const hid: string[] = []
+    const second = fake({ readout: { show: () => {}, describe: () => {}, say: () => {}, hide: () => void hid.push('hide') } })
+    move(tool, bare, second)
+    expect(setsStore.getState().hovered).toBeNull()
+    expect(hid).toEqual(['hide'])
+    move(tool, { ...lid, ref: 'lid/F4' })
+    expect(setsStore.getState().hovered).toBe('N1')
+    move(tool, null)
+    expect(setsStore.getState().hovered).toBeNull()
+  })
+
+  it('says only #deck for a face in one set, and asks the kernel nothing', async () => {
+    vi.useFakeTimers()
+    setsStore.setState({ sets: [deck] })
+    toolStore.setState({ selectScope: 'set' })
+    const asked: string[] = []
+    const run = fake({ describe: async (ref) => (asked.push(ref), FACE) })
+    move(selectTool(), lid, run)
+    vi.advanceTimersByTime(500)
+    await settled()
+    expect(run.said).toEqual(['#deck | '])
+    expect(asked).toEqual([])
+  })
+
+  it('selects every member the build found on a click, Shift adds them, and a face in no set changes nothing', () => {
+    setsStore.setState({ sets: [deck, intake] })
+    toolStore.setState({ selectScope: 'set' })
+    const tool = selectTool()
+    const click = (hit: Hit, shift = false): void => tool.onPointer(pointer('click', 1, 2, { hit, shift }), fake().ctx)
+    click(lid)
+    expect(store.getState().selection).toEqual(['lid/F3', 'lid/F4', 'base/E2'])
+    expect(store.getState().picked['lid/F3']).toEqual({ point: [1, 2, 3], normal: [0, 0, 1] })
+    click(bare)
+    expect(store.getState().selection).toEqual(['lid/F3', 'lid/F4', 'base/E2'])
+    actions.setSelection(['base/F1'])
+    click(lid, true)
+    expect(store.getState().selection).toEqual(['base/F1', 'lid/F3', 'lid/F4', 'base/E2'])
   })
 })
