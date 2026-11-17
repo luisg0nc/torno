@@ -42,6 +42,7 @@ import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, res
 import type { MarkStore } from './marks/store'
 import { boardAttachOf, boardHandlers } from './board/ipc'
 import { noteHandlers } from './notes/ipc'
+import { forgetOpenSketches, sketchHandlers } from './sketches/ipc'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
 import { kernelDir, kernelRun } from './paths'
@@ -54,7 +55,7 @@ import { forgetSceneFiles, loadSceneFile, saveSceneFile, sceneFileNow } from './
 import { EFFORTS, isEffort, isMode, MODES, MODEL_ALIASES, MODEL_NAME, type ChatAnswer } from '../shared/chat'
 import type { BoardOpen, PersonChange, PinWhat } from '../shared/board'
 import type { SavedView } from '../shared/views'
-import type { AgentView, CreateRequest, NoteDraft, NoteEdit, OnboardDraft, PromptPreviewDraft } from '../shared/bridge'
+import type { AgentView, CreateRequest, NoteDraft, NoteEdit, OnboardDraft, PromptPreviewDraft, SketchDraft } from '../shared/bridge'
 import { readChoice, writeChoice } from './sessions/choice'
 import type { Asks } from './asks'
 import type { Sessions } from './sessions/manager'
@@ -92,12 +93,12 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
-//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:problem (also sent to the renderer),
+//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection
-//   from the renderer: export:done, show:saveThumbnail, object:saveSceneFile, view:report, view:lookReply, view:showReply, view:highlightReply,
+//   from the renderer: export:done, marks:sketching, show:saveThumbnail, object:saveSceneFile, view:report, view:lookReply, view:showReply, view:highlightReply,
 //           view:drawSectionReply, view:saveViewReply, session:write, session:resize, session:insert,
 //           chat:answer, asks:answer
 //   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:saveView (sent by src/main/look.ts),
@@ -433,6 +434,7 @@ export async function closeWorkspace(): Promise<void> {
   checks.clear()
   // The next workspace may have an object of the same name, or this folder may change while it is closed.
   marks?.forget()
+  forgetOpenSketches()
   // And its scans: an import that is still running is stopped by whoever runs it, who is told next.
   scans?.forget()
   onWorkspaceClosed?.()
@@ -1043,6 +1045,13 @@ export function registerIpc(
   handle('notes:make', (_event, draft: NoteDraft) => notes().make(draft))
   handle('notes:edit', (_event, objectId: string, id: string, patch: NoteEdit) => notes().edit(objectId, id, patch))
   handle('notes:picture', (_event, objectId: string, id: string, which: 'ink' | 'plain' | number) => notes().picture(objectId, id, which))
+  // A 3D sketch: main checks every stroke that is new or changed against the last build (a snapped point is the kernel's), works
+  // out what each touches, and keeps it; its card's picture is the window's, named and written by main. Which sketch is open is said, not asked.
+  const sketches = () =>
+    sketchHandlers({ marks: requireMarks(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject, placed: placedMark })
+  handle('marks:sketch', (_event, draft: SketchDraft) => sketches().sketch(draft))
+  handle('marks:sketchPicture', (_event, objectId: string, id: string, png: Uint8Array) => sketches().sketchPicture(objectId, id, png))
+  ipcMain.on('marks:sketching', (_event, objectId: string, id: string | null) => sketches().sketching(objectId, id))
   handle('marks:problem', (_event, objectId: string) => requireMarks().problem(String(objectId)))
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
 

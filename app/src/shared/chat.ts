@@ -176,10 +176,10 @@ export const TORNO_TOOL_PREFIX = 'mcp__torno__'
 export const isTornoTool = (name: string): boolean => name.startsWith(TORNO_TOOL_PREFIX)
 
 /**
- * A mark (`M4`), a card of the board (`C7`), a build (`r12`), a face or an edge of a part (`lid/F12`, `tub_2/E10`). A letter alone, a face
+ * A mark (`M4`), a card of the board (`C7`), a build (`r12`), a face, an edge or a vertex of a part (`lid/F12`, `tub_2/E10`, `block/V88`). A letter alone, a face
  * number alone and a decimal are none, nor is the name of a part standing alone.
  */
-const REF = /(\bM\d+\b|\bC\d+\b|\br\d+\b|(?<![\w.-])[\w.-]+\/(?:[FE]\d+|@[A-Za-z_]\w*(?:[.-]\w+)*)\b)/
+const REF = /(\bM\d+\b|\bC\d+\b|\br\d+\b|(?<![\w.-])[\w.-]+\/(?:[FEV]\d+|@[A-Za-z_]\w*(?:[.-]\w+)*)\b)/
 
 /** A text in pieces: plain text and refs, in order. A piece with a `ref` is one. */
 export function refsIn(text: string): Array<{ text: string; ref?: string }> {

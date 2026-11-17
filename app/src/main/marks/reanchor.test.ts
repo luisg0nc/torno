@@ -300,6 +300,64 @@ describe('reanchorAll', () => {
     })
   })
 
+  describe('a sketch', () => {
+    const line = (count: number): Array<[number, number, number]> => Array.from({ length: count }, (_, i) => [i, 0, 2.5])
+    const sketch = (strokes: object[], anchor: Anchor | null = { ...ON_TOP, point: [0, 0, 2.5] }) =>
+      store.saveSketch('bracket', {
+        objectId: 'bracket',
+        layout: 'assembly',
+        revision: 1,
+        camera: CAMERA as never,
+        name: 'Hose',
+        note: '',
+        take: 'rough',
+        planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 0.0', from: { kind: 'main', axis: 'XZ', offset: 0 } }],
+        strokes: strokes as never,
+        ...(anchor ? { anchor } : {})
+      }, [])
+
+    it('is asked about at its anchor and at eight points along each stroke on a surface, none along a plane stroke', async () => {
+      await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5], [9, 0]], revision: 1 }, { pen: 'free', points: line(17), revision: 1 }])
+      await run()
+      const anchors = anchorsOf(asked[0].args)
+      expect(anchors[0]).toEqual({ part: 'base', point: [0, 0, 2.5] })
+      expect(anchors.slice(1).map((a) => `${a.part}@${a.point[0]}`)).toEqual([2, 4, 6, 8, 10, 12, 14, 16].flatMap((x) => [`base@${x}`, `post@${x}`]))
+      expect((await byId()).M1).toMatchObject({ anchorState: 'ok', checkedRevision: 1 })
+    })
+
+    it('has drifted when a surface stroke has a point on no surface any more, though its anchor is', async () => {
+      await sketch([{ pen: 'free', points: line(5), revision: 1 }])
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] >= 3 ? 2 : 0)) })
+      await run()
+      expect((await byId()).M1.anchorState).toBe('drifted')
+      answer = (_name, args) => still(args)
+      await run()
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
+    it('is never judged by a stroke on a plane', async () => {
+      await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5], [9, 0]], revision: 1 }])
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] === 0 ? 0 : 9)) })
+      await run()
+      expect(anchorsOf(asked[0].args)).toEqual([{ part: 'base', point: [0, 0, 2.5] }])
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
+    it('is orphaned with the part its anchor is on', async () => {
+      await sketch([{ pen: 'free', points: line(3), revision: 1 }], { point: [0, 0, 2.5], part: 'gone' })
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part }) => (part === 'gone' ? { part, found: false } : found(part, `${part}/F1`, 0))) })
+      await run()
+      expect((await byId()).M1.anchorState).toBe('orphaned')
+    })
+
+    it('drawn in empty space has nothing to check, and is ok, and said to be checked', async () => {
+      await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5]], revision: 1 }], null)
+      await run()
+      expect(asked).toEqual([])
+      expect((await byId()).M1).toMatchObject({ anchorState: 'ok', checkedRevision: 1 })
+    })
+  })
+
   it('writes nothing when every mark is as the build has it, and asks nothing when no mark is on a part', async () => {
     await store.add('bracket', pin(ON_TOP))
     await run()

@@ -2,19 +2,19 @@ import { randomBytes } from 'node:crypto'
 import { lstatSync } from 'node:fs'
 import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type NoteMark, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE } from '../../shared/marks'
+import { type NoteMark, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
 import { writeFileAtomic } from '../atomic'
 import { FOLDER, ownTorno } from '../own'
 import { Refusal } from '../refusal'
 
 // The pictures of the view notes of a project: `<project>/.torno/notes/`. Main names every file in it:
 // `n-<12 hex>.png` (the plain picture of the view), `n-<12 hex>.ink.png` (the picture with the ink on it) and
-// `r-<12 hex>.png|jpg` (a reference). A note names its files; marks.json never holds their bytes. The folder ignores
+// `r-<12 hex>.png|jpg` (a reference) and, of a 3D sketch's card, `k-<12 hex>.png`. A note names its files; marks.json never holds their bytes. The folder ignores
 // itself for git: a picture of a view may show the real world.
 
 const INSIDE = 'notes'
 
-export type NoteFileKind = 'plain' | 'ink' | 'reference'
+export type NoteFileKind = 'plain' | 'ink' | 'reference' | 'sketch'
 
 /**
  * Keeps a picture of a note under a name of main's own and returns the name. The picture of the view and the one with
@@ -22,13 +22,13 @@ export type NoteFileKind = 'plain' | 'ink' | 'reference'
  * Throws a `Refusal` for a kind of picture that is not kept, or where a link stands in the folder's place.
  */
 export async function writeNoteFile(dir: string, kind: NoteFileKind, bytes: Uint8Array, mediaType: string): Promise<string> {
-  const stem = kind === 'reference' ? 'r' : 'n'
+  const stem = kind === 'reference' ? 'r' : kind === 'sketch' ? 'k' : 'n'
   let extension: string
   if (kind === 'reference') {
     if (mediaType !== 'image/png' && mediaType !== 'image/jpeg') throw new Refusal('A reference picture is a PNG or JPEG.')
     extension = mediaType === 'image/png' ? 'png' : 'jpg'
   } else {
-    if (mediaType !== 'image/png') throw new Refusal('The picture of a note is a PNG.')
+    if (mediaType !== 'image/png') throw new Refusal(`The picture of a ${kind === 'sketch' ? 'sketch' : 'note'} is a PNG.`)
     extension = kind === 'ink' ? 'ink.png' : 'png'
   }
   // Before anything is made or written: a `notes` that is a link holds someone else's files.
@@ -42,7 +42,7 @@ export async function writeNoteFile(dir: string, kind: NoteFileKind, bytes: Uint
   return name
 }
 
-export const isNoteFile = (name: string): boolean => NOTE_PICTURE.test(name) || NOTE_INK.test(name) || NOTE_REFERENCE.test(name)
+export const isNoteFile = (name: string): boolean => NOTE_PICTURE.test(name) || NOTE_INK.test(name) || NOTE_REFERENCE.test(name) || SKETCH_PICTURE.test(name)
 
 /** The bytes of a file of a note, or null when there is none of that name (or the name is not main's, or a link or folder stands in its place). */
 export async function readNoteFile(dir: string, name: string): Promise<Buffer | null> {

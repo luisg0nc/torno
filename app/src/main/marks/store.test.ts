@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark } from '../../shared/marks'
+import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark, SketchMark } from '../../shared/marks'
+import type { SketchDraft } from '../../shared/bridge'
 import * as file from './file'
 import { droppedNames } from '../dropped'
 import { isNoteFile } from '../notes/files'
@@ -1219,5 +1220,148 @@ describe('a view note', () => {
     const [mark] = await store.list('bracket')
     await store.reanchor('bracket', [{ id: 'M1', judged: [ANCHOR], anchors: [{ ...ANCHOR, ref: 'base/F9' }], anchorState: 'drifted', checkedRevision: 2 }])
     expect(await store.list('bracket')).toEqual([{ ...mark, anchor: { ...ANCHOR, ref: 'base/F9' }, anchorState: 'drifted', checkedRevision: 2 }])
+  })
+})
+
+describe('a sketch', () => {
+  const draft = (over: Partial<SketchDraft> = {}): SketchDraft => ({
+    objectId: 'bracket',
+    layout: 'assembly',
+    revision: 3,
+    camera: CAMERA as SketchDraft['camera'],
+    name: 'Hose',
+    note: 'route it here',
+    take: 'flow',
+    diameter: 19,
+    planes: [{ id: 1, origin: [0, 40, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 40.0', from: { kind: 'main', axis: 'XZ', offset: 40 } }],
+    strokes: [{ plane: 1, pen: 'free', points2d: [[0, 0], [10, 0]], revision: 3 }, { pen: 'free', points: [[1, 2, 20], [2, 2, 20]], revision: 3 }],
+    anchor: ANCHOR,
+    ...over
+  })
+
+  it('is made when it has no id: the next number, a draft of the person, with what main worked out of its strokes', async () => {
+    await store.add('bracket', pin())
+    const made = (await store.saveSketch('bracket', draft(), [[], ['base/F4']])) as SketchMark
+    expect(made).toMatchObject({ id: 'M2', kind: 'sketch', author: 'user', status: 'draft', anchorState: 'ok', name: 'Hose', take: 'flow', diameter: 19, createdAt: '2026-10-09T12:00:00.000Z' })
+    expect(made.strokes.map((s) => s.touches)).toEqual([[], ['base/F4']])
+    expect(onDisk('bracket')).toEqual({ next: 3, marks: [(await store.list('bracket'))[0], made] })
+    expect(changes.at(-1)?.marks.at(-1)).toEqual(made)
+  })
+
+  it('takes the touches from main and leaves the draft\'s own alone where main says none', async () => {
+    const strokes = draft().strokes.map((s, i) => ({ ...s, touches: [`window/F${i}`] }))
+    const made = (await store.saveSketch('bracket', draft({ strokes: [strokes[0], { ...strokes[1], touches: undefined }] }), [undefined, ['base/F9']])) as SketchMark
+    expect(made.strokes.map((s) => s.touches)).toEqual([['window/F0'], ['base/F9']])
+  })
+
+  it('is refused when it is no sketch: a number too far gone, a plane that is not a frame', async () => {
+    await expect(store.saveSketch('bracket', draft({ diameter: 600 }), [[], []])).rejects.toThrow(/sketch/)
+    expect(await store.list('bracket')).toEqual([])
+    await expect(store.saveSketch('bracket', draft({ planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [1, 1, 0], label: 'x', from: { kind: 'view', label: 'x' } }] }), [[], []])).rejects.toThrow(/sketch/)
+    expect((await store.add('bracket', pin())).id).toBe('M1')
+  })
+
+  it('is never added through add, which is what the window and the agent ask for', async () => {
+    await expect(store.add('bracket', { ...BASE, ...draft(), kind: 'sketch' } as unknown as NewMark)).rejects.toThrow(/sketch/)
+    expect(await store.list('bracket')).toEqual([])
+  })
+
+  it('is replaced when it has an id of a sketch of the person: the number, the creation and the picture stay', async () => {
+    const made = await store.saveSketch('bracket', draft(), [[], []])
+    await store.setSketchPicture('bracket', made.id, 'k-0123456789ab.png')
+    const changed = (await store.saveSketch('bracket', { ...draft({ name: 'Hose, longer', take: 'exact', diameter: undefined }), id: made.id }, [[], []])) as SketchMark
+    expect(changed).toMatchObject({ id: 'M1', name: 'Hose, longer', take: 'exact', createdAt: made.createdAt, picture: 'k-0123456789ab.png', status: 'draft' })
+    expect(changed).not.toHaveProperty('diameter')
+    expect(await store.list('bracket')).toEqual([changed])
+  })
+
+  it('is a draft again when it was sent, and says it was sent before, and that is what it asks to be checked for', async () => {
+    const made = await store.saveSketch('bracket', draft(), [[], []])
+    await store.markSent('bracket')
+    const unchecked: string[][] = []
+    store.on('unchecked', (u) => unchecked.push(u.ids))
+    const changed = await store.saveSketch('bracket', { ...draft({ note: 'longer' }), id: made.id }, [[], []])
+    expect(changed).toMatchObject({ status: 'draft', sentBefore: true, note: 'longer', anchorState: 'ok' })
+    expect(unchecked).toEqual([['M1']])
+  })
+
+  it('is a draft again, reopened, when it was resolved', async () => {
+    const made = await store.saveSketch('bracket', draft(), [[], []])
+    await store.markSent('bracket')
+    await store.update('bracket', made.id, { status: 'resolved' }, 'agent')
+    const changed = await store.saveSketch('bracket', { ...draft({ note: 'again' }), id: made.id }, [[], []])
+    expect(changed).toMatchObject({ status: 'draft', sentBefore: true, reopened: true })
+    expect(changed).not.toHaveProperty('resolvedBy')
+  })
+
+  it('writes and tells nothing when the edit changes nothing', async () => {
+    const made = (await store.saveSketch('bracket', draft(), [[], ['base/F4']])) as SketchMark
+    saves.mockClear()
+    changes = []
+    const again = await store.saveSketch('bracket', { ...draft(), id: made.id, strokes: made.strokes }, [])
+    expect(again).toEqual(made)
+    expect(saves).not.toHaveBeenCalled()
+    expect(changes).toEqual([])
+  })
+
+  it('refuses an id that is not a sketch of the person\'s: another kind, one the agent made, one that is not there', async () => {
+    await store.add('bracket', pin())
+    await expect(store.saveSketch('bracket', { ...draft(), id: 'M1' }, [[], []])).rejects.toThrow('M1 is a pin, not a sketch')
+    const agents = await store.saveSketch('bracket', draft(), [[], []], { author: 'agent' })
+    expect(agents).toMatchObject({ author: 'agent', status: 'sent' })
+    await expect(store.saveSketch('bracket', { ...draft(), id: agents.id }, [[], []])).rejects.toThrow(/the agent's sketch/)
+    await expect(store.saveSketch('bracket', { ...draft(), id: 'M9' }, [[], []])).rejects.toThrow('no mark M9')
+  })
+
+  it('may be replaced by the agent only when it is the agent\'s own, and is then not told to it again', async () => {
+    const mine = await store.saveSketch('bracket', draft(), [[], []])
+    const agents = await store.saveSketch('bracket', draft(), [[], []], { author: 'agent' })
+    await expect(store.saveSketch('bracket', { ...draft(), id: mine.id }, [[], []], { author: 'agent' })).rejects.toThrow(/person's sketch/)
+    const changed = await store.saveSketch('bracket', { ...draft({ name: 'Other route' }), id: agents.id }, [[], []], { author: 'agent' })
+    expect(changed).toMatchObject({ id: agents.id, author: 'agent', status: 'sent', name: 'Other route' })
+    expect(changed).not.toHaveProperty('sentBefore')
+  })
+
+  it('names itself Sketch and its number when the name is empty', async () => {
+    expect(await store.saveSketch('bracket', draft({ name: '' }), [[], []])).toMatchObject({ name: 'Sketch M1' })
+  })
+
+  it('has its picture set apart from its edits: the one it replaces is listed as dropped, and nothing is told but the change', async () => {
+    const made = await store.saveSketch('bracket', draft(), [[], []])
+    mkdirSync(join(dirs.bracket, '.torno', 'notes'), { recursive: true })
+    const first = await store.setSketchPicture('bracket', made.id, 'k-aaaaaaaaaaaa.png')
+    expect(first).toMatchObject({ id: 'M1', picture: 'k-aaaaaaaaaaaa.png', status: 'draft' })
+    expect(await droppedNames(dirs.bracket, ['notes'], isNoteFile)).toEqual([])
+    await store.setSketchPicture('bracket', made.id, 'k-bbbbbbbbbbbb.png')
+    expect(await droppedNames(dirs.bracket, ['notes'], isNoteFile)).toEqual(['k-aaaaaaaaaaaa.png'])
+    await expect(store.setSketchPicture('bracket', made.id, 'n-bbbbbbbbbbbb.png')).rejects.toThrow(/picture/)
+    await store.add('bracket', pin())
+    await expect(store.setSketchPicture('bracket', 'M2', 'k-cccccccccccc.png')).rejects.toThrow('M2 is a pin, not a sketch')
+  })
+
+  it('does not send a draft back to the agent when only its picture was set', async () => {
+    const made = await store.saveSketch('bracket', draft(), [[], []])
+    await store.markSent('bracket')
+    expect(await store.setSketchPicture('bracket', made.id, 'k-aaaaaaaaaaaa.png')).toMatchObject({ status: 'sent' })
+  })
+
+  it('is taken away and put back whole, with its picture, and its picture is not swept while it can come back', async () => {
+    const made = await store.saveSketch('bracket', draft(), [[], ['base/F4']])
+    const pictured = await store.setSketchPicture('bracket', made.id, 'k-aaaaaaaaaaaa.png')
+    mkdirSync(join(dirs.bracket, '.torno', 'notes'), { recursive: true })
+    await store.remove('bracket', made.id)
+    expect(await store.list('bracket')).toEqual([])
+    expect(await store.withNoteFiles('bracket', async ({ live, kept }) => ({ live: [...live], kept: [...kept] }))).toEqual({ live: [], kept: ['k-aaaaaaaaaaaa.png'] })
+    expect(await droppedNames(dirs.bracket, ['notes'], isNoteFile)).toEqual(['k-aaaaaaaaaaaa.png'])
+    expect(await store.restore('bracket', made.id)).toEqual(pictured)
+    expect(await store.list('bracket')).toEqual([pictured])
+  })
+
+  it('names its picture as live, and the one it replaced as no longer', async () => {
+    const made = await store.saveSketch('bracket', draft(), [[], []])
+    await store.setSketchPicture('bracket', made.id, 'k-aaaaaaaaaaaa.png')
+    expect(await store.withNoteFiles('bracket', async ({ live }) => [...live])).toEqual(['k-aaaaaaaaaaaa.png'])
+    await store.setSketchPicture('bracket', made.id, 'k-bbbbbbbbbbbb.png')
+    expect(await store.withNoteFiles('bracket', async ({ live }) => [...live])).toEqual(['k-bbbbbbbbbbbb.png'])
   })
 })

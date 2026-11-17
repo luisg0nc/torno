@@ -4,7 +4,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js'
-import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markPoints, strokePoints } from '../../../shared/marks'
+import { type DimensionMark, type Mark, type RegionMark, type ShapeKind, type ShapeMark, type StrokeMark, type Vec3, MIN_SHAPE_SIZE, markPoints, sketchStrokePoints, strokePoints } from '../../../shared/marks'
 
 // What a mark's points are is plain arithmetic, asked by main too (an export): `shared/marks.ts`.
 export { markPoints, strokePoints }
@@ -263,6 +263,9 @@ export function labelAnchor(mark: Mark, regionAt?: (mark: RegionMark) => Vec3 | 
     case 'note':
       // A picture of a view: it hangs a label only where its ink lay over a face.
       return { point: mark.anchor?.point ?? [0, 0, 0] }
+    case 'sketch':
+      // At its anchor, or at the first point drawn.
+      return { point: mark.anchor?.point ?? sketchStrokePoints(mark, mark.strokes[0] ?? { pen: 'free', revision: 0 })[0] ?? [0, 0, 0] }
     case 'arrow':
       return { point: mark.from.point }
     case 'stroke':

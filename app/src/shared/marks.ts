@@ -170,6 +170,14 @@ export const MOST_NOTE_ERASES = 2000
 export const NOTE_PICTURE = /^n-[0-9a-f]{12}\.png$/
 export const NOTE_INK = /^n-[0-9a-f]{12}\.ink\.png$/
 export const NOTE_REFERENCE = /^r-[0-9a-f]{12}\.(png|jpg)$/
+/** The picture of a sketch's card, kept beside the notes' pictures: named by main alone. */
+export const SKETCH_PICTURE = /^k-[0-9a-f]{12}\.png$/
+/** What a sketch keeps: the longest name, the most strokes, the most points in all (a stroke keeps `MAX_STROKE_POINTS`), the most planes, the biggest diameter (mm). */
+export const MAX_SKETCH_NAME = 80
+export const MOST_SKETCH_STROKES = 200
+export const MOST_SKETCH_POINTS = 20000
+export const MOST_SKETCH_PLANES = 50
+export const MAX_SKETCH_DIAMETER = 500
 
 /** A word on the picture of a note, at a point of it in pixels, with an arrow to another point when it has one. */
 export interface NoteLabel {
@@ -205,7 +213,60 @@ export interface NoteMark extends MarkBase {
   under: StrokeUnder[]
   references: NoteReference[]
 }
-export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | DimensionMark | RegionMark | NoteMark
+/** How literally a sketch is to be taken: to the millimetre, the shape and the place, or as a route with a diameter to keep clear. */
+export type SketchTake = 'exact' | 'rough' | 'flow'
+/** How a sketch's plane was made: a main plane, a planar face (its ref as of its build), a plane through a picked point, or a locked standard view. */
+export type SketchPlaneFrom =
+  | { kind: 'main'; axis: 'XY' | 'XZ' | 'YZ'; offset: number }
+  | { kind: 'face'; ref: string; offset: number; revision: number }
+  | { kind: 'point'; point: Vec3; normal: Vec3; offset: number }
+  | { kind: 'view'; label: string }
+/** An orthonormal frame in the object frame (the normal is x × y), numbered within its sketch. */
+export interface SketchPlane {
+  id: number
+  origin: Vec3
+  x: Vec3
+  y: Vec3
+  label: string
+  from: SketchPlaneFrom
+}
+/**
+ * Which point of a stroke snapped, and to what, as of the build the stroke is of: a vertex (`part/V12`), the centre of a
+ * circular edge (`part/E14`, with its radius), or a point on an edge (`part/E40`; `approx` of one that is neither straight
+ * nor circular, which only its ref says). `projected`: the point is that one put on the stroke's plane.
+ */
+export type SketchSnap = ({ i: number } & ({ vertex: string } | { centre: string; radius: number } | { edge: string; approx?: true })) & { projected?: true }
+/** One stroke: on a plane of the sketch (`plane` is its id, with `points2d`) or on the surface (`points`). */
+export interface SketchStroke {
+  plane?: number
+  points?: Vec3[]
+  points2d?: [number, number][]
+  pen: 'free' | 'line' | 'points'
+  snaps?: SketchSnap[]
+  /** Drawn with x-ray on, so that its picture shows it where parts hide it. */
+  xray?: true
+  /** The build it was drawn on: its snaps and what it touches are of that one. */
+  revision: number
+  /** The faces it lies on or crosses, as of `revision`. Main's alone: never taken from the window or a tool. */
+  touches?: string[]
+}
+/**
+ * A drawing in 3D: strokes on planes and on the surface, made to say where a part goes, how a hose runs, what to cut.
+ * Its `picture` is the board card's, `k-<12 hex>.png` in `.torno/notes/`; main names it, and marks.json never holds the bytes.
+ */
+export interface SketchMark extends MarkBase {
+  kind: 'sketch'
+  name: string
+  take: SketchTake
+  /** mm; of a flow sketch only. */
+  diameter?: number
+  planes: SketchPlane[]
+  strokes: SketchStroke[]
+  /** The first point of the first stroke that lies on a face; none when it was drawn in empty space. */
+  anchor?: Anchor
+  picture?: string
+}
+export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | DimensionMark | RegionMark | NoteMark | SketchMark
 export type MarkKind = Mark['kind']
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 /** What main alone says of a mark: no caller supplies these. */
@@ -254,6 +315,7 @@ export function markAnchors(mark: Mark): Anchor[] {
       return [mark.from]
     case 'shape':
     case 'note':
+    case 'sketch':
       return mark.anchor ? [mark.anchor] : []
     case 'dimension':
       return mark.b ? [mark.a, mark.b] : [mark.a]
@@ -273,10 +335,36 @@ export const STROKE_SAMPLES = 8
  * nothing.
  */
 export function strokeSamples(mark: Mark, most = STROKE_SAMPLES): Vec3[] {
+  if (mark.kind === 'sketch') return sketchSamples(mark, most)
   if (mark.kind !== 'stroke' || mark.space !== 'surface') return []
   const rest = (mark.points ?? []).slice(1)
-  if (rest.length <= most) return rest
-  return Array.from({ length: most }, (_, i) => rest[Math.round(((i + 1) * rest.length) / most) - 1])
+  return evenly(rest, most)
+}
+
+/** At most `most` of `points`, evenly spaced along the list and ending with its last. */
+const evenly = (points: Vec3[], most: number): Vec3[] => (points.length <= most ? points : Array.from({ length: most }, (_, i) => points[Math.round(((i + 1) * points.length) / most) - 1]))
+
+/** The most strokes of a sketch that are checked against a build. */
+const SKETCH_STROKES_CHECKED = 8
+
+/**
+ * Of a sketch: the same for each stroke on the surface, at most 8 strokes (evenly along them, the first and the last
+ * kept). The sketch's anchor is the first point of its first stroke on a face, and is checked as the anchor: that point
+ * is not among the samples. A stroke on a plane lies on nothing and is not judged.
+ */
+function sketchSamples(mark: SketchMark, most: number): Vec3[] {
+  const surface = mark.strokes.filter((stroke) => stroke.plane === undefined && (stroke.points?.length ?? 0) > 0)
+  const chosen =
+    surface.length <= SKETCH_STROKES_CHECKED
+      ? surface
+      : Array.from({ length: SKETCH_STROKES_CHECKED }, (_, i) => surface[Math.round((i * (surface.length - 1)) / (SKETCH_STROKES_CHECKED - 1))])
+  const anchor = mark.anchor?.point
+  return chosen.flatMap((stroke, n) => {
+    const points = stroke.points ?? []
+    // Only the first stroke on the surface can hold the anchor, as its first point.
+    const first = n === 0 && anchor !== undefined && points[0].every((c, i) => c === anchor[i])
+    return first ? evenly(points.slice(1), most) : evenly(points, most)
+  })
 }
 
 /**
@@ -329,6 +417,14 @@ export function translated<M extends Mark>(mark: M, by: Vec3, byB: Vec3 = by): M
     case 'note':
       // Its picture is of a view, and the ink is in pixels of it: only where it is tied to the model moves.
       return m.anchor ? ({ ...m, anchor: at(m.anchor) } as M) : mark
+    case 'sketch':
+      return {
+        ...m,
+        planes: m.planes.map((plane) => ({ ...plane, origin: moved(plane.origin, by), from: plane.from.kind === 'point' ? { ...plane.from, point: moved(plane.from.point, by) } : plane.from })),
+        // The points of a stroke on a plane are in mm of its plane's axes, and move with the plane.
+        strokes: m.strokes.map((stroke) => (stroke.points ? { ...stroke, points: stroke.points.map((p) => moved(p, by)) } : stroke)),
+        ...(m.anchor ? { anchor: at(m.anchor) } : {})
+      } as M
     case 'region':
       // What it holds is in its scan's frame, and a scan is never spread.
       return mark
@@ -344,6 +440,14 @@ export function strokePoints(mark: StrokeMark): Vec3[] {
   const plane = mark.plane
   if (!plane) return []
   return (mark.points2d ?? []).map(([u, v]) => plane.origin.map((o, i) => o + plane.x[i] * u + plane.y[i] * v) as Vec3)
+}
+
+/** The points of a stroke of a sketch in the object frame: its own on the surface, or those of its plane, `origin + x·u + y·v`; none for a plane the sketch lacks. */
+export function sketchStrokePoints(mark: Pick<SketchMark, 'planes'>, stroke: SketchStroke): Vec3[] {
+  if (stroke.plane === undefined) return stroke.points ?? []
+  const plane = mark.planes.find((p) => p.id === stroke.plane)
+  if (!plane) return []
+  return (stroke.points2d ?? []).map(([u, v]) => [plane.origin[0] + plane.x[0] * u + plane.y[0] * v, plane.origin[1] + plane.x[1] * u + plane.y[1] * v, plane.origin[2] + plane.x[2] * u + plane.y[2] * v])
 }
 
 /** A vector turned by a rotation; one that is no rotation at all (all zeros) turns nothing. */
@@ -373,6 +477,8 @@ export function markPoints(mark: Mark): Vec3[] {
     }
     case 'dimension':
       return [mark.a.point, ...(mark.b ? [mark.b.point] : []), ...(mark.points ?? [])]
+    case 'sketch':
+      return mark.strokes.flatMap((stroke) => sketchStrokePoints(mark, stroke))
     case 'note':
       // It is a picture, drawn in no view: nothing of it needs the camera to keep it in.
       return []

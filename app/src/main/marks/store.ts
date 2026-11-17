@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type RegionMark, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, markAnchors, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NoteMark, type NotePatch, type Replacement, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MEASURED_KEYS, REGION_KEYS, SKETCH_PICTURE, markAnchors, translated } from '../../shared/marks'
+import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
 
@@ -263,6 +264,8 @@ export class MarkStore {
   add(objectId: string, mark: NewMark, status: 'draft' | 'sent' = 'draft', measured?: Measurement, region?: { stats: RegionSaid; before(id: string): Promise<void> }): Promise<Mark> {
     // A note has files only main makes (`notes/ipc.ts`), and its numbers are checked there: the window does not make one here.
     if (kind(mark) === 'note') return Promise.reject(new Refusal('a view note is made with the Draw on view sheet, not added as a mark'))
+    // A sketch is checked against the build it names (`marks:sketch`, `saveSketch`): it is not added as any other mark is.
+    if (kind(mark) === 'sketch') return Promise.reject(new Refusal('a sketch is made with the sketch tool, not added as a mark'))
     return this.keep(objectId, mark, status, measured, region)
   }
 
@@ -341,6 +344,82 @@ export class MarkStore {
       await dropNoteFiles(dir, noteFileNames(was).filter((name) => !still.has(name)))
     }
     return edited
+  }
+
+  /**
+   * Keeps a sketch, checked already against the last build (`checkSketch`): made, without an `id`, as a draft of whoever
+   * `author` is (the person's by default; the agent's is `sent`, there being nothing to tell it), or, with the `id` of a
+   * sketch of that author, replaced in what the draft says of it, and checked again against the build (`unchecked`). The
+   * person's sketch that the agent was sent, or settled, is a draft again, told as one it was sent before; one it resolved
+   * says that it was reopened. `touches` goes with the strokes, one list for each: a stroke given none keeps the list it has
+   * (what `checkSketch` took from the stored sketch). Nothing is written when the edit changes nothing. Only these keys of
+   * the draft are read: an id, an author, a status or what only main says is never taken from it.
+   */
+  async saveSketch(objectId: string, draft: SketchDraft, touches: ReadonlyArray<readonly string[] | undefined> = [], opts: { author?: 'user' | 'agent' } = {}): Promise<Mark> {
+    const author = opts.author ?? 'user'
+    let was: Mark | undefined
+    const saved = await this.change(
+      objectId,
+      (file) => {
+        const asked: Partial<SketchDraft> = typeof draft === 'object' && draft !== null ? draft : {}
+        const given = asked.id === undefined ? undefined : file.marks[indexOf(file, String(asked.id))]
+        if (given) {
+          if (given.kind !== 'sketch') throw new Refusal(`${given.id} is a ${given.kind}, not a sketch`)
+          if (given.author !== author) throw new Refusal(author === 'user' ? `${given.id} is the agent's sketch: only the agent changes it` : `${given.id} is the person's sketch: the agent does not change it`)
+        }
+        const strokes = Array.isArray(asked.strokes) ? asked.strokes.map((stroke, i) => (touches[i] !== undefined && typeof stroke === 'object' && stroke !== null ? { ...stroke, touches: [...(touches[i] as readonly string[])] } : stroke)) : asked.strokes
+        const fields = { name: asked.name, note: asked.note, take: asked.take, diameter: asked.diameter, planes: asked.planes, strokes, anchor: asked.anchor, layout: asked.layout, revision: asked.revision, camera: asked.camera }
+        if (!given) {
+          const id = `M${file.next}`
+          const added = sanitiseMark({ ...fields, kind: 'sketch', author, id, status: author === 'agent' ? 'sent' : 'draft', anchorState: 'ok', createdAt: this.now().toISOString() })
+          if (!added) throw new Refusal('that is not a sketch: a field is missing or not of the right sort, or it is past what a sketch keeps')
+          file.next += 1
+          file.marks.push(added)
+          return added
+        }
+        was = given
+        const at = file.marks.indexOf(given)
+        const content = sanitiseMark({ ...given, ...fields })
+        if (!content) throw new Refusal(`that is not a valid change to ${given.id}`)
+        if (isDeepStrictEqual(content, given)) return UNCHANGED
+        // Nothing has checked it where it is now.
+        const changed = sanitiseMark({ ...content, anchorState: 'ok', checkedRevision: undefined }) as Mark
+        if (author === 'user' && given.status !== 'draft') {
+          // What the agent was told, or settled, no longer holds: it is told again.
+          changed.status = 'draft'
+          changed.sentBefore = true
+          if (given.status === 'resolved') changed.reopened = true
+          delete changed.resolvedBy
+          delete changed.acknowledged
+        }
+        file.marks[at] = changed
+        return changed
+      },
+      draft?.id === undefined ? [] : [String(draft.id)]
+    )
+    return saved === UNCHANGED ? structuredClone(was as Mark) : saved
+  }
+
+  /**
+   * Sets the picture of a sketch's board card to the file `name` (`k-<12 hex>.png`, which main has written) and lists the
+   * picture it replaces as dropped, for the sweep of a later run. Nothing about the sketch is news by it: its status stays.
+   */
+  async setSketchPicture(objectId: string, id: string, name: string): Promise<Mark> {
+    let old: string | undefined
+    let was: Mark | undefined
+    const set = await this.change(objectId, (file) => {
+      const mark = file.marks[indexOf(file, id)]
+      if (mark.kind !== 'sketch') throw new Refusal(`${id} is a ${mark.kind}, not a sketch`)
+      if (typeof name !== 'string' || !SKETCH_PICTURE.test(name)) throw new Refusal(`${String(name)} is not the name of a sketch's picture`)
+      was = mark
+      if (mark.picture === name) return UNCHANGED
+      old = mark.picture
+      mark.picture = name
+      return mark
+    })
+    const dir = this.deps.dirOf(objectId)
+    if (old !== undefined && dir !== undefined) await dropNoteFiles(dir, [old])
+    return set === UNCHANGED ? structuredClone(was as Mark) : set
   }
 
   /**
@@ -506,7 +585,7 @@ export class MarkStore {
   withNoteFiles<T>(objectId: string, task: (held: { live: Set<string>; kept: Set<string> }, dir: string, problem: string | null) => Promise<T>): Promise<T> {
     return this.turn(objectId, (file, dir) => {
       const live = new Set<string>()
-      for (const mark of file.marks) if (mark.kind === 'note') for (const name of noteFileNames(mark)) live.add(name)
+      for (const mark of file.marks) if (mark.kind === 'note' || mark.kind === 'sketch') for (const name of noteFileNames(mark)) live.add(name)
       return task({ live, kept: new Set<string>(this.removedFiles.get(dir) ?? []) }, dir, this.problems.get(dir) ?? null)
     })
   }
@@ -520,7 +599,7 @@ export class MarkStore {
       const [removed] = file.marks.splice(indexOf(file, id), 1)
       // Inside the turn, so that a sweep that comes next names its files.
       const dir = this.deps.dirOf(objectId)
-      if (removed.kind === 'note' && dir !== undefined) {
+      if ((removed.kind === 'note' || removed.kind === 'sketch') && dir !== undefined) {
         const kept = this.removedFiles.get(dir) ?? new Set<string>()
         for (const name of noteFileNames(removed)) kept.add(name)
         this.removedFiles.set(dir, kept)
@@ -530,7 +609,7 @@ export class MarkStore {
       this.deleted.set(objectId, { mark, mask })
       // The files of a note taken away are what torno dropped: the sweep of a later run takes them, unless an undo has brought the note back.
       const dir = this.deps.dirOf(objectId)
-      if (mark.kind === 'note' && dir !== undefined) await dropNoteFiles(dir, noteFileNames(mark))
+      if ((mark.kind === 'note' || mark.kind === 'sketch') && dir !== undefined) await dropNoteFiles(dir, noteFileNames(mark))
     })
   }
 
@@ -786,8 +865,8 @@ export class MarkStore {
   }
 }
 
-/** The picture files a note names: its view, the view with its ink and each reference. */
-const noteFileNames = (note: NoteMark): string[] => [note.picture, note.ink, ...note.references.map((r) => r.file)]
+/** The picture files a note names: its view, the view with its ink and each reference; a sketch's is its card's picture, when it has one. */
+const noteFileNames = (mark: NoteMark | SketchMark): string[] => (mark.kind === 'sketch' ? (mark.picture === undefined ? [] : [mark.picture]) : [mark.picture, mark.ink, ...mark.references.map((r) => r.file)])
 
 /** A dimension with what the kernel now says of it in place of what it said before; the verdict follows from the value. */
 function withMeasurement(mark: DimensionMark, result: Measurement): Mark | null {

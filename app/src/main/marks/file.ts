@@ -2,11 +2,12 @@ import { copyFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { verdictOf } from '../../shared/dimension'
 import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } from '../../shared/drawing'
-import type { Anchor, DimensionMark, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, Quat, RegionMark, ShapeKind, StrokeMark, Vec3 } from '../../shared/marks'
+import type { Anchor, DimensionMark, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, Quat, RegionMark, ShapeKind, SketchMark, StrokeMark, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
-import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE } from '../../shared/marks'
+import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
 import { TAG_NAME } from '../../shared/tags'
 import { FOLDER, ownTorno, writeOwn } from '../own'
+import { readSketch } from '../sketches/read'
 
 const NAME = 'marks.json'
 
@@ -181,6 +182,8 @@ export function sanitiseMark(value: unknown): Mark | null {
       return regionOf(base, value)
     case 'note':
       return noteOf(base, anchor, value)
+    case 'sketch':
+      return sketchOf(base, anchor, value)
     default:
       return null
   }
@@ -267,6 +270,17 @@ function noteOf(base: Omit<NoteMark, 'kind' | 'anchor' | 'picture' | 'ink' | 'si
     under.push(one)
   }
   return { ...base, kind: 'note', ...(anchor ? { anchor } : {}), picture: value.picture, ink: value.ink, size: { w: size.w, h: size.h }, strokes, inkColour: value.inkColour, labels, under, references }
+}
+
+/**
+ * A sketch: what `readSketch` keeps of it (its strokes, planes and caps), its anchor when it has one, and its picture
+ * only by a name main gives one (`k-<12 hex>.png`): one named otherwise is no sketch this version keeps.
+ */
+function sketchOf(base: Omit<SketchMark, 'kind' | 'name' | 'take' | 'diameter' | 'planes' | 'strokes' | 'anchor' | 'picture'>, anchor: Anchor | null, value: Record<string, unknown>): SketchMark | null {
+  const body = readSketch(value, 'file', base.id)
+  if (typeof body === 'string') return null
+  if (value.picture !== undefined && !(typeof value.picture === 'string' && SKETCH_PICTURE.test(value.picture))) return null
+  return { ...base, kind: 'sketch', ...body, ...(anchor ? { anchor } : {}), ...(typeof value.picture === 'string' ? { picture: value.picture } : {}) }
 }
 
 function labelOf(value: unknown): NoteLabel | null {
@@ -378,7 +392,7 @@ export function anchorOf(value: unknown): Anchor | null {
   return anchor
 }
 
-function cameraOf(value: unknown): Camera | null {
+export function cameraOf(value: unknown): Camera | null {
   if (!isRecord(value)) return null
   const position = tuple<Vec3>(value.position, 3)
   const target = tuple<Vec3>(value.target, 3)

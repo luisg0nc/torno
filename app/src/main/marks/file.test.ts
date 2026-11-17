@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ArrowMark, DimensionMark, Mark, MarksFile, NoteMark, PickMark, PinMark, ShapeMark, StrokeMark } from '../../shared/marks'
+import type { ArrowMark, DimensionMark, Mark, MarksFile, NoteMark, PickMark, PinMark, ShapeMark, SketchMark, StrokeMark } from '../../shared/marks'
 import { markAnchors } from '../../shared/marks'
 import * as atomic from '../atomic'
 import { loadMarksFile, MAX_NOTE, MAX_STROKE_POINTS, sanitiseMark, saveMarksFile } from './file'
@@ -509,5 +509,142 @@ describe('a note mark', () => {
 
   it('keeps what main says of it as of any mark', () => {
     expect(sanitiseMark(note({ sentBefore: true, checkedRevision: 4 }))).toMatchObject({ sentBefore: true, checkedRevision: 4 })
+  })
+})
+
+describe('a sketch mark', () => {
+  const PLANE = { id: 1, origin: [0, 40, 0], x: [1, 0, 0], y: [0, 0, 1], label: 'XZ at y = 40.0', from: { kind: 'main', axis: 'XZ', offset: 40 } }
+  const sketch = (over: object = {}): Record<string, unknown> => ({
+    ...BASE,
+    id: 'M7',
+    kind: 'sketch',
+    name: 'Breather hose',
+    take: 'flow',
+    diameter: 19,
+    planes: [PLANE],
+    strokes: [
+      { plane: 1, pen: 'free', points2d: [[0, 0], [10, 0], [10, 5]], revision: 3 },
+      { pen: 'points', points: [[1, 2, 20], [2, 2, 20]], snaps: [{ i: 0, vertex: 'base/V3' }, { i: 1, centre: 'base/E4', radius: 8, projected: true }], revision: 3, touches: ['base/F4'], xray: true }
+    ],
+    anchor: ANCHOR,
+    picture: 'k-0123456789ab.png',
+    ...over
+  })
+
+  it('is kept whole, and read back as it was written', async () => {
+    const mark = sketch()
+    expect(sanitiseMark(mark)).toEqual(mark)
+    await saveMarksFile(dir, { next: 8, marks: [mark as unknown as Mark] })
+    expect((await loadMarksFile(dir)).file.marks).toEqual([mark])
+  })
+
+  it('may be drawn in empty space: no anchor, no picture, no stroke', () => {
+    const bare = sketch({ anchor: undefined, picture: undefined, strokes: [] })
+    expect(sanitiseMark(bare)).toMatchObject({ kind: 'sketch', strokes: [] })
+    expect(sanitiseMark(bare)).not.toHaveProperty('anchor')
+    expect(sanitiseMark(bare)).not.toHaveProperty('picture')
+  })
+
+  it('names itself Sketch and its number when it has no name, and keeps the name to one line of 80', () => {
+    expect((sanitiseMark(sketch({ name: '' })) as SketchMark).name).toBe('Sketch M7')
+    expect((sanitiseMark(sketch({ name: '  two\nlines ' })) as SketchMark).name).toBe('two lines')
+    expect((sanitiseMark(sketch({ name: 'n'.repeat(90) })) as SketchMark).name).toHaveLength(80)
+  })
+
+  it('is rough when it says nothing of how to take it, and is no sketch with a take that is not one', () => {
+    expect((sanitiseMark(sketch({ take: undefined, diameter: undefined })) as SketchMark).take).toBe('rough')
+    expect(sanitiseMark(sketch({ take: 'loose', diameter: undefined }))).toBeNull()
+  })
+
+  it('has a diameter only when it is a flow sketch, more than 0 and at most 500', () => {
+    expect(sanitiseMark(sketch({ take: 'rough' }))).toBeNull()
+    expect(sanitiseMark(sketch({ take: 'exact' }))).toBeNull()
+    expect(sanitiseMark(sketch({ diameter: 0 }))).toBeNull()
+    expect(sanitiseMark(sketch({ diameter: -3 }))).toBeNull()
+    expect(sanitiseMark(sketch({ diameter: 500.5 }))).toBeNull()
+    expect(sanitiseMark(sketch({ diameter: 500 }))).not.toBeNull()
+    expect(sanitiseMark(sketch({ diameter: undefined }))).not.toBeNull()
+  })
+
+  it('is dropped for a 201st stroke, a 401st point, or past 20 000 points in all', () => {
+    const free = (n: number) => ({ pen: 'free', points: Array.from({ length: n }, (_, i) => [i, 0, 0]), revision: 3 })
+    expect(sanitiseMark(sketch({ strokes: Array.from({ length: 200 }, () => free(1)) }))).not.toBeNull()
+    expect(sanitiseMark(sketch({ strokes: Array.from({ length: 201 }, () => free(1)) }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [free(MAX_STROKE_POINTS)] }))).not.toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [free(MAX_STROKE_POINTS + 1)] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: Array.from({ length: 50 }, () => free(400)) }))).not.toBeNull()
+    expect(sanitiseMark(sketch({ strokes: Array.from({ length: 51 }, () => free(400)) }))).toBeNull()
+  })
+
+  it('is dropped for a number that is not finite, or a stroke on a plane it does not have', () => {
+    expect(sanitiseMark(sketch({ strokes: [{ pen: 'free', points: [[1, NaN, 3]], revision: 3 }] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [{ plane: 2, pen: 'free', points2d: [[1, 1]], revision: 3 }] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [{ plane: 1, pen: 'free', points: [[1, 1, 1]], revision: 3 }] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [{ pen: 'free', points2d: [[1, 1]], revision: 3 }] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [{ pen: 'laser', points: [[1, 1, 1]], revision: 3 }] }))).toBeNull()
+  })
+
+  it('is dropped for a snap of a point the stroke does not have, or of a ref that is not main\'s kind', () => {
+    const stroke = (snaps: object[]) => ({ pen: 'points', points: [[1, 2, 20], [2, 2, 20]], snaps, revision: 3 })
+    expect(sanitiseMark(sketch({ strokes: [stroke([{ i: 1, vertex: 'base/V3' }])] }))).not.toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [stroke([{ i: 2, vertex: 'base/V3' }])] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [stroke([{ i: 0, vertex: 'base/E3' }])] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [stroke([{ i: 0, edge: 'base/V3' }])] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [stroke([{ i: 0, centre: 'base/E3' }])] }))).toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [stroke([{ i: 0, edge: 'base/E3', approx: true }])] }))).not.toBeNull()
+    expect(sanitiseMark(sketch({ strokes: [stroke([{ i: 0, vertex: 'base/V3', approx: true }])] }))).toMatchObject({ strokes: [{ snaps: [{ i: 0, vertex: 'base/V3' }] }] })
+  })
+
+  it('has planes whose axes are one apart, each of length one, or is dropped', () => {
+    const plane = (over: object) => ({ ...PLANE, ...over })
+    expect(sanitiseMark(sketch({ planes: [plane({ x: [1, 0, 0], y: [1, 1, 0] })] }))).toBeNull()
+    expect(sanitiseMark(sketch({ planes: [plane({ x: [2, 0, 0] })] }))).toBeNull()
+    expect(sanitiseMark(sketch({ planes: [plane({ x: [1, 0, 0], y: [0, 1e-2, 1] })] }))).toBeNull()
+    expect(sanitiseMark(sketch({ planes: [plane({ id: 1 }), plane({ id: 1 })] }))).toBeNull()
+  })
+
+  it('sets right a plane that is off by less than a millionth, and leaves an exact one as it is', () => {
+    const kept = sanitiseMark(sketch({ planes: [{ ...PLANE, x: [1 + 4e-7, 0, 0], y: [2e-7, 0, 1] }] })) as SketchMark
+    const [x, y] = [kept.planes[0].x, kept.planes[0].y]
+    expect(Math.hypot(...x)).toBeCloseTo(1, 12)
+    expect(Math.hypot(...y)).toBeCloseTo(1, 12)
+    expect(x[0] * y[0] + x[1] * y[1] + x[2] * y[2]).toBeCloseTo(0, 12)
+    expect(sanitiseMark(kept)).toEqual(kept)
+    expect(sanitiseMark(sketch())).toEqual(sketch())
+  })
+
+  it('says how each plane was made, of the four ways, or is dropped', () => {
+    const from = (f: object) => sketch({ planes: [{ ...PLANE, from: f }] })
+    expect(sanitiseMark(from({ kind: 'face', ref: 'base/F31', offset: 12, revision: 3 }))).not.toBeNull()
+    expect(sanitiseMark(from({ kind: 'point', point: [1, 2, 3], normal: [0, 0, 1], offset: 0 }))).not.toBeNull()
+    expect(sanitiseMark(from({ kind: 'view', label: 'Front' }))).not.toBeNull()
+    expect(sanitiseMark(from({ kind: 'main', axis: 'XW', offset: 1 }))).toBeNull()
+    expect(sanitiseMark(from({ kind: 'face', ref: 'base/E31', offset: 12, revision: 3 }))).toBeNull()
+    expect(sanitiseMark(from({ kind: 'face', ref: 'base/F31', offset: 12 }))).toBeNull()
+    expect(sanitiseMark(from({ kind: 'cloud' }))).toBeNull()
+  })
+
+  it('keeps a picture only by a name main gives one', () => {
+    expect(sanitiseMark(sketch({ picture: 'k-0123456789ab.png' }))).not.toBeNull()
+    expect(sanitiseMark(sketch({ picture: 'n-0123456789ab.png' }))).toBeNull()
+    expect(sanitiseMark(sketch({ picture: '../k-0123456789ab.png' }))).toBeNull()
+    expect(sanitiseMark(sketch({ picture: 'k-0123456789ab.ink.png' }))).toBeNull()
+    expect(sanitiseMark(sketch({ picture: 7 }))).toBeNull()
+  })
+
+  it('keeps what main says of any mark', () => {
+    expect(sanitiseMark(sketch({ sentBefore: true, checkedRevision: 4 }))).toMatchObject({ sentBefore: true, checkedRevision: 4 })
+  })
+
+  it('is cut to the touches a stroke may have, and to refs', () => {
+    const kept = sanitiseMark(sketch({ strokes: [{ pen: 'free', points: [[1, 2, 3]], revision: 3, touches: ['base/F4', 7, 'base/F5'] }] })) as SketchMark
+    expect(kept.strokes[0].touches).toEqual(['base/F4', 'base/F5'])
+  })
+})
+
+describe('a stroke of the old kind', () => {
+  it('still reads through the sanitiser, on a surface and on a plane', () => {
+    expect(sanitiseMark(surfaceStroke)).toEqual(surfaceStroke)
+    expect(sanitiseMark(planeStroke)).toEqual(planeStroke)
   })
 })

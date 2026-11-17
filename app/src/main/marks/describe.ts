@@ -287,6 +287,9 @@ function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: re
       return region(mark, opts)
     case 'note':
       return 'view note'
+    case 'sketch':
+      // What Claude is told of a sketch's strokes is `describe`'s next piece; this is its first line.
+      return `sketch "${mark.name}", ${mark.take}${mark.diameter === undefined ? '' : ` ⌀${number(mark.diameter)} mm`}, ${mark.strokes.length} ${mark.strokes.length === 1 ? 'stroke' : 'strokes'} on ${mark.planes.length} ${mark.planes.length === 1 ? 'plane' : 'planes'} and the surface`
   }
 }
 
