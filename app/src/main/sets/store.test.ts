@@ -347,3 +347,90 @@ describe('across runs', () => {
     expect(made.map((s) => s.id)).toEqual(['N1', 'N2', 'N3', 'N4'])
   })
 })
+
+describe('a member asked for with no point', () => {
+  const noPoint = { name: 'deck', comment: '', layout: 'assembly', members: [{ ref: 'block/F1' }, { ref: 'block/E2' }] }
+  const found = (ref: string): SelectorFound => ({ ref, type: 'PLANE', center: [9, 8, 7], normal: [0, 1, 0], selector: null }) as SelectorFound
+
+  it('is held at the middle of its part until the kernel says where it is, and is written so', async () => {
+    const made = await store.make('bracket', noPoint, 'agent')
+    expect(made.members[0]).toMatchObject({ face: 'block/F1', point: [5, 5, 5], held: true })
+    expect(made.members[1]).toMatchObject({ edge: 'block/E2', point: [5, 5, 5], held: true })
+    expect(onDisk().sets[0].members[0]).toMatchObject({ held: true })
+    const got = await store.withSelectors('bracket', 'N1', 4, [found('block/F1')])
+    expect(got?.members[0]).not.toHaveProperty('held')
+    expect(got?.members[0]).toMatchObject({ point: [9, 8, 7] })
+    expect(got?.members[1]).toMatchObject({ held: true })
+  })
+
+  it('is not held when it was asked for with a point', async () => {
+    const made = await store.make('bracket', ask('deck'), 'person')
+    expect(made.members[0]).not.toHaveProperty('held')
+  })
+
+  it('is read back held from the file', async () => {
+    await store.make('bracket', noPoint, 'agent')
+    const again = newStore()
+    expect((await again.list('bracket'))[0].members[0]).toMatchObject({ held: true })
+  })
+})
+
+describe('refound', () => {
+  const lostFace = (f: Extract<NamedSet['members'][number], { face: string }>) => ({ ...f, state: 'lost' as const })
+
+  it('writes the members found as one change, and says which build they were found against', async () => {
+    const made = await store.make('bracket', ask('deck', ['block/F1', 'block/F2']), 'person')
+    await store.make('bracket', ask('lid', ['block/F3']), 'person')
+    changes = []
+    saves.mockClear()
+    const moved = made.members.map((m) => ('face' in m ? { ...m, face: m.face === 'block/F1' ? 'block/F15' : m.face } : m))
+    const got = await store.refound('bracket', 4, [{ id: 'N1', was: made.members, members: moved }])
+    expect(got.map((s) => s.id)).toEqual(['N1'])
+    expect(saves).toHaveBeenCalledTimes(1)
+    expect(changes).toHaveLength(1)
+    expect((await store.list('bracket'))[0].members[0]).toMatchObject({ face: 'block/F15', state: 'ok' })
+    expect(store.refoundRevision('bracket')).toBe(4)
+  })
+
+  it('passes over a set whose members are no longer what they were found from', async () => {
+    const made = await store.make('bracket', ask('deck', ['block/F1']), 'person')
+    await store.make('bracket', ask('lid', ['block/F3']), 'person')
+    await store.edit('bracket', 'N1', { add: [{ ref: 'block/F4', point: [1, 1, 1] }] })
+    const one = (await store.list('bracket'))[1]
+    const got = await store.refound('bracket', 4, [
+      { id: 'N1', was: made.members, members: made.members.map(lostFace as never) },
+      { id: 'N2', was: one.members, members: one.members.map((m) => ('face' in m ? lostFace(m) : m)) }
+    ])
+    expect(got.map((s) => s.id)).toEqual(['N2'])
+    const now = await store.list('bracket')
+    expect(now[0].members.every((m) => 'state' in m && m.state === 'ok')).toBe(true)
+    expect(now[1].members[0]).toMatchObject({ state: 'lost' })
+  })
+
+  it('writes nothing when a newer build has landed, and does not say it was refound', async () => {
+    const made = await store.make('bracket', ask('deck', ['block/F1']), 'person')
+    build = lastBuild(5)
+    saves.mockClear()
+    const got = await store.refound('bracket', 4, [{ id: 'N1', was: made.members, members: made.members.map((m) => ('face' in m ? lostFace(m) : m)) }])
+    expect(got).toEqual([])
+    expect(saves).not.toHaveBeenCalled()
+    expect(store.refoundRevision('bracket')).toBeUndefined()
+  })
+
+  it('says it was refound even when nothing changed, and only when the call says it was whole', async () => {
+    await store.make('bracket', ask('deck'), 'person')
+    saves.mockClear()
+    await store.refound('bracket', 4, [])
+    expect(saves).not.toHaveBeenCalled()
+    expect(store.refoundRevision('bracket')).toBe(4)
+    build = lastBuild(6)
+    await store.refound('bracket', 6, [], false)
+    expect(store.refoundRevision('bracket')).toBe(4)
+  })
+
+  it('forgets which build when the workspace is left', async () => {
+    await store.refound('bracket', 4, [])
+    store.forget()
+    expect(store.refoundRevision('bracket')).toBeUndefined()
+  })
+})

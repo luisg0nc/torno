@@ -171,7 +171,7 @@ function readMember(raw: unknown): SetMember | null {
   const arranged = raw.arranged === undefined ? undefined : (finiteVec3(raw.arranged) ?? undefined)
   const selector = parseSelectorForm(raw.selector, face ? 'face' : 'edge') ?? undefined
   const type = typeof raw.type === 'string' && GEOM_TYPES.includes(raw.type) ? raw.type : undefined
-  const common = { ...(type === undefined ? {} : { type }), ...(selector === undefined ? {} : { selector }), point: point as Vec3, ...(arranged === undefined ? {} : { arranged }), state: raw.state === 'lost' ? ('lost' as const) : ('ok' as const) }
+  const common = { ...(type === undefined ? {} : { type }), ...(selector === undefined ? {} : { selector }), point: point as Vec3, ...(arranged === undefined ? {} : { arranged }), ...(raw.held === true ? { held: true as const } : {}), state: raw.state === 'lost' ? ('lost' as const) : ('ok' as const) }
   if (!face) return { edge: ref, ...common }
   return { face: ref, ...common, ...(normal ? { normal } : {}) }
 }

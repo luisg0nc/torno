@@ -45,6 +45,7 @@ import { noteHandlers } from './notes/ipc'
 import { forgetOpenSketches, forgetRemovedSketch, sketchHandlers } from './sketches/ipc'
 import { reviewHandlers } from './reviews/ipc'
 import { setHandlers } from './sets/ipc'
+import { refindAll } from './sets/refind'
 import type { SetStore } from './sets/store'
 import type { NewSet, SetEdit } from '../shared/sets'
 import type { RoundAsk } from '../shared/reviews'
@@ -120,6 +121,8 @@ interface OpenWorkspace {
   scan: () => () => boolean
   /** Has the marks of an object checked against its last build (see `openWorkspace`). */
   reanchor?: Retrying
+  /** Has the named sets of an object found again on its last build (see `openWorkspace`). */
+  refind?: Retrying
   /** Has the alignments of an object's scans checked against its last build. */
   alignChecks?: Retrying
   /** How the model is asked where the points of an alignment are. */
@@ -339,6 +342,27 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
   })
   builds.on('scene', ({ objectId }) => reanchor(objectId))
   ws.reanchor = reanchor
+  // The named sets of the object are found again on every successful build as well, by their own query and in their own
+  // turn of the store: it does not wait for the check of the marks, nor the marks for it. Never has the object built again.
+  const refind = retrying(
+    (objectId) => {
+      const store = sets
+      if (!store) return Promise.resolve(true)
+      return refindAll(
+        {
+          sets: store,
+          query: (id, name, args) => builds.query(id, name, args, { restore: false }),
+          // None once the workspace is left: nothing is asked or written for it any more.
+          scene: (id) => (current === ws ? builds.scene(id) : undefined)
+        },
+        objectId
+      )
+    },
+    console.error,
+    'refind the named sets of'
+  )
+  builds.on('scene', ({ objectId }) => refind(objectId))
+  ws.refind = refind
   // And every alignment of its scans: whether the model is still under the points it was tied to, and whether
   // torno spreads the layout's parts as it did then. Found and said, never moved or fitted again.
   // A check that could not say is tried again after a while, three times (`retrying`), without ever having the
@@ -437,6 +461,7 @@ export async function closeWorkspace(): Promise<void> {
   forgetExportScans()
   // A check of its marks that failed is not tried again: its timers would outlive it.
   ws.reanchor?.cancel()
+  ws.refind?.cancel()
   ws.alignChecks?.cancel()
   ws.stopChecking?.()
   checks.clear()

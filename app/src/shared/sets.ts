@@ -38,10 +38,14 @@ export interface SelectorForm {
   terminal: SelectorTerminal
 }
 
+/**
+ * A member. `held` says a face or edge that was asked for with no point: its `point` is the middle of its part's box, a
+ * place holder, until the kernel says where the face is (`withSelectors`). A build does not look for it before that.
+ */
 export type SetMember =
   | { part: string; state?: 'lost' }
-  | { face: string; type?: string; selector?: SelectorForm; point: Vec3; normal?: Vec3; arranged?: Vec3; state: 'ok' | 'lost' }
-  | { edge: string; type?: string; selector?: SelectorForm; point: Vec3; arranged?: Vec3; state: 'ok' | 'lost' }
+  | { face: string; type?: string; selector?: SelectorForm; point: Vec3; normal?: Vec3; arranged?: Vec3; held?: true; state: 'ok' | 'lost' }
+  | { edge: string; type?: string; selector?: SelectorForm; point: Vec3; arranged?: Vec3; held?: true; state: 'ok' | 'lost' }
   | { stroke: string }
 
 export interface NamedSet {

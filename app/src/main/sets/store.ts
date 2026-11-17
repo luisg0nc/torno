@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import type { Mark, Vec3 } from '../../shared/marks'
 import type { Part, Scene } from '../../shared/scene'
 import {
@@ -40,6 +41,9 @@ export interface SetStoreDeps {
   marks?(objectId: string): Promise<readonly Mark[]>
 }
 
+/** What a refind made of the members of one set: they are written only if the set still has `was`. */
+export type Refound = { id: string; was: SetMember[]; members: SetMember[] }
+
 interface SetEvents {
   /** The sets of an object changed: the whole list, as it now is. */
   changed: { objectId: string; sets: NamedSet[] }
@@ -68,6 +72,8 @@ export class SetStore {
   private problems = new Map<string, string>()
   /** By object id: the set removed last, kept in memory for `restore`. */
   private deleted = new Map<string, NamedSet>()
+  /** By object id: the build the sets were last refound against, in memory only (as a mark's `checkedRevision` is for a session). */
+  private refoundAt = new Map<string, number>()
   /** Counts `forget`: what was read before one is not kept after it. */
   private epoch = 0
   private listeners: { [E in keyof SetEvents]: Array<(m: SetEvents[E]) => void> } = { changed: [], problem: [] }
@@ -83,6 +89,7 @@ export class SetStore {
     this.epoch += 1
     this.deleted.clear()
     this.files.clear()
+    this.refoundAt.clear()
   }
 
   /** Null when nothing asked of the sets is under way; else a promise that resolves once it is all written or failed. For the app, when it quits. */
@@ -265,6 +272,7 @@ export class SetStore {
         if (type === undefined || center === null) continue
         member.type = type
         member.point = center
+        delete member.held
         if ('face' in member) {
           const normal = finiteVec3(answer.normal)
           if (normal) member.normal = normal
@@ -276,6 +284,37 @@ export class SetStore {
       return JSON.stringify(set.members) === before ? UNCHANGED : set
     })
     return result === UNCHANGED ? null : result
+  }
+
+  /**
+   * What a refind made of the sets after a build (`refind.ts`), written as one change. A set whose members are no longer the
+   * ones it was found from (it was edited meanwhile) is passed over, and so is everything when the last build is no longer
+   * `revision`. Answers the sets that were written. `whole` says the refind looked at every member it could (it did not run
+   * out of time, and no layout went unasked): only then is `refoundRevision` set, even when nothing changed.
+   */
+  async refound(objectId: string, revision: number, changes: readonly Refound[], whole = true): Promise<NamedSet[]> {
+    const epoch = this.epoch
+    const written: NamedSet[] = []
+    let current = false
+    await this.change(objectId, (file) => {
+      current = this.deps.scene(objectId)?.revision === revision
+      if (!current) return UNCHANGED
+      for (const change of changes) {
+        const set = file.sets.find((s) => s.id === change.id)
+        if (!set || !isDeepStrictEqual(set.members, change.was) || isDeepStrictEqual(change.was, change.members)) continue
+        set.members = structuredClone(change.members)
+        written.push(set)
+      }
+      return written.length === 0 ? UNCHANGED : written
+    })
+    // Said only once what was found is written (or there was nothing to write), and to the workspace it was asked in.
+    if (current && whole && epoch === this.epoch) this.refoundAt.set(objectId, Math.max(revision, this.refoundAt.get(objectId) ?? 0))
+    return structuredClone(written)
+  }
+
+  /** The build the sets of an object were last refound against, or undefined when none has been since the workspace was opened. */
+  refoundRevision(objectId: string): number | undefined {
+    return this.refoundAt.get(objectId)
   }
 
   /** The marks of an object when a stroke is to be judged (asked for, or lost), else none: nothing else of a set needs them. */
@@ -419,6 +458,7 @@ function placedMember(ask: Record<string, unknown>, layout: string, parts: LastB
   // Where the person pointed; a member given none is held at the middle of its part until the kernel says where the face is.
   const at: Vec3 = point ?? [(part.bbox.min[0] + part.bbox.max[0]) / 2, (part.bbox.min[1] + part.bbox.max[1]) / 2, (part.bbox.min[2] + part.bbox.max[2]) / 2]
   const arranged: Vec3 = part.arranged ? [part.arranged[0], part.arranged[1], part.arranged[2]] : [0, 0, 0]
-  if (parsed.kind === 'face') return { face: ask.ref, point: at, ...(normal ? { normal } : {}), arranged, state: 'ok' }
-  return { edge: ask.ref, point: at, arranged, state: 'ok' }
+  const held = point === undefined ? { held: true as const } : {}
+  if (parsed.kind === 'face') return { face: ask.ref, point: at, ...(normal ? { normal } : {}), arranged, ...held, state: 'ok' }
+  return { edge: ask.ref, point: at, arranged, ...held, state: 'ok' }
 }
