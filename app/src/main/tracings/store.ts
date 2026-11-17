@@ -533,9 +533,10 @@ export class TracingStore {
    * and keeps what it works out (`transform`, `scale`, `angle`, `fit`); the window's keys other than a pair's own are left out. A point
    * that says what it snapped to is checked against `snaps`, the kernel's points of the tracing's outline on the last build, and
    * replaced by the kernel's own point: one more than 0.01 mm from it is refused, and so is every snap when `snaps` is not given.
+   * A homography's scale and angle are told at `centre`, the middle of the tracing's outline (its clicks' own middle when none is given).
    * The straightened copy is out of date and goes (listed as dropped).
    */
-  async lineUp(objectId: string, id: string, pairs: unknown, method: unknown, snaps?: readonly PlaneSnap[]): Promise<Tracing> {
+  async lineUp(objectId: string, id: string, pairs: unknown, method: unknown, snaps?: readonly PlaneSnap[], centre?: readonly [number, number]): Promise<Tracing> {
     if (method !== 'similar' && method !== 'straight') throw new Refusal("A photo is lined up 'similar' (2 points or more) or 'straight' (4 points or more).")
     const needs = method === 'similar' ? SIMILAR_NEEDS : STRAIGHT_NEEDS
     if (!Array.isArray(pairs) || pairs.length < needs || pairs.length > MOST_PAIRS) throw new Refusal(`A ${method === 'similar' ? 'line-up' : 'straightening'} is made of ${needs} to ${MOST_PAIRS} points on the photo and the same on the tracing.${Array.isArray(pairs) ? ` There ${pairs.length === 1 ? 'is 1' : `are ${pairs.length}`}.` : ''}`)
@@ -546,8 +547,7 @@ export class TracingStore {
       const { uv, snap } = snappedPoint(i + 1, raw.uv, raw.snap as LineupSnap, snaps)
       return { photo: [raw.photo[0], raw.photo[1]], uv, snap }
     })
-    const fitted = method === 'similar' ? fitSimilar(clean) : fitStraight(clean)
-    if ('error' in fitted) throw new Refusal(`The points do not line the photo up: ${fitted.error}.`)
+    if (centre !== undefined && !finitePair(centre)) throw new Refusal('The centre of a tracing is a place [u, v] in millimetres.')
     const letGo: string[] = []
     return this.change(
       objectId,
@@ -558,6 +558,9 @@ export class TracingStore {
         clean.forEach((p, i) => {
           if (p.photo[0] < 0 || p.photo[0] > photo.width || p.photo[1] < 0 || p.photo[1] > photo.height) throw new Refusal(`Point ${i + 1} is outside the photo, which is ${photo.width} × ${photo.height} px.`)
         })
+        // Fitted here, where the photo's size is known: its four corners must lie in front of a homography's vanishing line.
+        const fitted = method === 'similar' ? fitSimilar(clean) : fitStraight(clean, { size: [photo.width, photo.height], ...(centre === undefined ? {} : { centre }) })
+        if ('error' in fitted) throw new Refusal(`The points do not line the photo up: ${fitted.error}.`)
         if (photo.straightened !== undefined) letGo.push(photo.straightened)
         photo.pairs = clean
         photo.method = method
@@ -650,7 +653,9 @@ export class TracingStore {
    * the tracings file (a sweep that is told so leaves the files alone: the file kept aside may name them).
    */
   withPhotos<T>(objectId: string, task: (held: { live: Set<string>; kept: Set<string> }, dir: string, problem: string | null) => Promise<T>): Promise<T> {
-    return this.turn(objectId, (file, dir) => {
+    return this.turn(objectId, async (current, dir, epoch) => {
+      // Of the file as it is on the disk now: a pull may have brought tracings that name photos this run has never heard of.
+      const file = await this.current(objectId, current, dir, epoch)
       const live = new Set(file.tracings.flatMap((t) => filesOf(t.photo)))
       const kept = new Set((this.removed.get(dir) ?? []).flatMap((t) => filesOf(t.photo)))
       return task({ live, kept }, dir, this.problems.get(dir) ?? null)
@@ -677,20 +682,7 @@ export class TracingStore {
    */
   private change<R>(objectId: string, edit: (file: TracingsFile, dir: string) => R, done?: (result: R, dir: string) => void, landed?: (result: R, dir: string) => Promise<void>): Promise<R> {
     return this.turn(objectId, async (current, dir, epoch) => {
-      let base = current
-      if (epoch === this.epoch && this.disk.has(dir) && (await diskText(dir)) !== this.disk.get(dir)) {
-        base = await this.load(objectId, dir, epoch)
-        // A number given out in this run is not given again, whatever the file that came says is next; and a build number is this run's own.
-        base.next = Math.max(base.next, current.next)
-        for (const t of base.tracings) {
-          const mine = current.tracings.find((c) => c.id === t.id)
-          if (mine?.revision !== undefined) t.revision = mine.revision
-        }
-        if (epoch === this.epoch) {
-          this.files.set(dir, base)
-          if (textOf(base) !== textOf(current)) this.emit('changed', { objectId, file: structuredClone(base) })
-        }
-      }
+      const base = await this.current(objectId, current, dir, epoch)
       const file = structuredClone(base)
       const result = edit(file, dir)
       if (textOf(file) === textOf(base)) return structuredClone(result)
@@ -707,6 +699,26 @@ export class TracingStore {
       }
       return structuredClone(result)
     })
+  }
+
+  /**
+   * The file a turn builds on: the one in memory, or, when what the disk holds is not what main last read or wrote (a git pull), the
+   * disk's, with `next` kept above what this run gave out and the builds' numbers kept; the window is told when that is another file.
+   */
+  private async current(objectId: string, current: TracingsFile, dir: string, epoch: number): Promise<TracingsFile> {
+    if (!(epoch === this.epoch && this.disk.has(dir) && (await diskText(dir)) !== this.disk.get(dir))) return current
+    const base = await this.load(objectId, dir, epoch)
+    // A number given out in this run is not given again, whatever the file that came says is next; and a build number is this run's own.
+    base.next = Math.max(base.next, current.next)
+    for (const t of base.tracings) {
+      const mine = current.tracings.find((c) => c.id === t.id)
+      if (mine?.revision !== undefined) t.revision = mine.revision
+    }
+    if (epoch === this.epoch) {
+      this.files.set(dir, base)
+      if (textOf(base) !== textOf(current)) this.emit('changed', { objectId, file: structuredClone(base) })
+    }
+    return base
   }
 
   /** Reads the tracings file of a project again, keeping what it says and what was wrong with it. */

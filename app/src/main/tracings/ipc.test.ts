@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Described } from '../../shared/geometry'
-import { transformKey } from '../../shared/lineup'
+import { applyLineup, fitStraight, transformKey } from '../../shared/lineup'
 import { mainPlaneFrame } from '../../shared/planes'
 import type { Scene } from '../../shared/scene'
 import type { ViewState } from '../../shared/view'
@@ -391,6 +391,21 @@ describe('the photo', () => {
     expect(t.photo?.pairs[0]).toEqual({ photo: [100, 500], uv: [0, 0], snap: { corner: [0, 0] } })
     const far = [{ photo: [100, 500], uv: [0.02, 0], snap: { corner: [0, 0] } }, SQUARE[1]]
     expect(await refused(handlers().lineUp('bracket', 'T1', far, 'similar'))).toMatch(/0\.02 mm from it/)
+  })
+
+  it('tells a straightening\'s scale at the middle of the outline, which it fetches for every straight line-up, snapped or not', async () => {
+    await handlers().photo('bracket', 'T1', pic(1))
+    const H = [0.21, 0.02, -30, -0.015, -0.19, 160, 0.00004, 0.00007, 1]
+    const pairs = [[120, 90], [880, 130], [900, 700], [60, 640]].map((photo) => ({ photo, uv: applyLineup(H, photo as [number, number]) }))
+    const t = await handlers().lineUp('bracket', 'T1', pairs, 'straight')
+    // The outline of the tracing is 0 to 10 in each: its middle is [5, 5].
+    const known = fitStraight(pairs as never, { centre: [5, 5] })
+    if ('error' in known) throw new Error(known.error)
+    expect(t.photo?.scale).toBeCloseTo(known.scale, 9)
+    // And not at the middle of the clicks.
+    const clicks = fitStraight(pairs as never)
+    if ('error' in clicks) throw new Error(clicks.error)
+    expect(t.photo?.scale).not.toBeCloseTo(clicks.scale, 3)
   })
 
   it('refuses a snap while there is no outline to check it against, and takes unsnapped points anyway', async () => {

@@ -10,14 +10,20 @@ import type { TracingStore } from './store'
 // opened in a run, as the pictures of the board are (`board/pictures.ts`): the photo a swap replaced, the straightened copy a new
 // line-up made out of date, what a removed photo or tracing left, what a failed save wrote. Only those: main lists each file when
 // it drops it (`dropped.json`, `dropped.ts`), and a file that is not on the list is never deleted, whatever the tracings name (a
-// branch switched to has other tracings, and its photos are the person's, and are in no git).
+// branch switched to has other tracings, and its photos are the person's, and are in no git), and a listed one goes only 30 days after it was listed.
+
+/**
+ * How long a name is on the list before its file goes. The photos are in no git and every branch of the project shares the folder: a photo
+ * this branch has let go of may be the one another branch names, so the sweep waits (`dropped.json` dates each name).
+ */
+const LISTED_FOR_MS = 30 * 86_400_000
 
 /**
  * Deletes the files of `.torno/tracings/photos/` torno dropped (the list of `dropped.json`) that no tracing holds (`held`): only
  * files with a photo's name, never the folder's `.gitignore` nor anything the person put there, no link, and none changed in the
- * last `grace` ms. Nothing when there is no folder; a `Refusal` for a link in the place of `.torno`, `tracings` or `photos`.
+ * last `grace` ms and none listed for less than `listedFor` ms (30 days unless said). Nothing when there is no folder; a `Refusal` for a link in the place of `.torno`, `tracings` or `photos`.
  */
-export const sweepPhotos = (dir: string, held: Held, grace = 0): Promise<void> => sweepDropped(dir, PHOTOS_FOLDER, isPhotoName, held, grace)
+export const sweepPhotos = (dir: string, held: Held, grace = 0, listedFor = LISTED_FOR_MS): Promise<void> => sweepDropped(dir, PHOTOS_FOLDER, isPhotoName, held, grace, listedFor)
 
 /** How long a photo file is left alone, as made: a photo is kept before the tracing that names it is changed. */
 const GRACE_MS = 60_000
@@ -68,7 +74,8 @@ export class PhotoSweep {
 
   constructor(
     private tracings: Pick<TracingStore, 'withPhotos'>,
-    private grace = GRACE_MS
+    private grace = GRACE_MS,
+    private listedFor = LISTED_FOR_MS
   ) {}
 
   /** Never rejects: a project is no less open for a sweep that failed. */
@@ -79,7 +86,7 @@ export class PhotoSweep {
       await this.tracings.withPhotos(objectId, async (held, _dir, problem) => {
         if (problem !== null) return
         for (const name of await namedAside(dir)) held.kept.add(name)
-        await sweepPhotos(dir, held, this.grace)
+        await sweepPhotos(dir, held, this.grace, this.listedFor)
       })
     } catch (e) {
       console.error(`cannot sweep the photos of the tracings of ${objectId}: ${e instanceof Error ? e.message : String(e)}`)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ALMOST_IN_LINE } from './align'
-import { FOLDED, type LineupPair, type Matrix3, SAME_PLACE, applyLineup, fitSimilar, fitStraight, invertLineup, lineupSaid, transformKey } from './lineup'
+import { FOLDED, MIRRORED, PHOTO_FOLDS, type LineupPair, type Matrix3, SAME_PLACE, applyLineup, fitSimilar, fitStraight, invertLineup, lineupSaid, transformKey } from './lineup'
 
 /** A similarity of a known scale (px per mm), turn (degrees) and shift: photo px (y down) to uv mm (v up). */
 const similarity = (pxPerMm: number, degrees: number, shift: [number, number]): Matrix3 => {
@@ -115,8 +115,8 @@ describe('fitStraight', () => {
 
   it('tells the scale at the point asked: nearer the camera is bigger', () => {
     const pairs = through(homography, photos)
-    const near = fitStraight(pairs, applyLineup(homography, [100, 100]))
-    const far = fitStraight(pairs, applyLineup(homography, [900, 700]))
+    const near = fitStraight(pairs, { centre: applyLineup(homography, [100, 100]) })
+    const far = fitStraight(pairs, { centre: applyLineup(homography, [900, 700]) })
     if ('error' in near || 'error' in far) throw new Error('refused')
     expect(near.scale).not.toBeCloseTo(far.scale, 3)
     // The scale there is one over the root of the area a pixel covers: checked by a step.
@@ -151,6 +151,33 @@ describe('fitStraight', () => {
     const uv: Array<[number, number]> = [[0, 100], [100, 100], [0, 0], [100, 0]]
     const square: Array<[number, number]> = [[0, 0], [400, 0], [400, 300], [0, 300]]
     expect(fitStraight(square.map((photo, i) => ({ photo, uv: uv[i] })))).toEqual({ error: FOLDED })
+  })
+
+  it('refuses a fit whose vanishing line crosses the photo\'s corners, though not the clicked points: the photo would fold', () => {
+    // w = 1 - 0.0015 x: positive for x < 667. Clicks are well inside; the photo reaches x = 1000.
+    const bent: Matrix3 = [0.2, 0, 0, 0, -0.2, 0, -0.0015, 0, 1]
+    const clicks: Array<[number, number]> = [[100, 100], [500, 120], [520, 600], [90, 580]]
+    const pairs = through(bent, clicks)
+    expect('error' in fitStraight(pairs)).toBe(false)
+    expect(fitStraight(pairs, { size: [1000, 800] })).toEqual({ error: PHOTO_FOLDS })
+    expect('error' in fitStraight(pairs, { size: [600, 700] })).toBe(false)
+    expect(PHOTO_FOLDS).toMatch(/the photo would fold/)
+  })
+
+  it('refuses a mirrored straightening: the photo laid on the tracing the wrong way round', () => {
+    const mirror: Matrix3 = [homography[0], homography[1], homography[2], -homography[3], -homography[4], -homography[5], homography[6], homography[7], homography[8]]
+    expect(fitStraight(through(mirror, photos))).toEqual({ error: MIRRORED })
+    expect('error' in fitStraight(through(homography, photos))).toBe(false)
+  })
+
+  it('refuses photo points under 1 px apart, in both fits', () => {
+    const close1 = (list: LineupPair[]): LineupPair[] => list.map((p, i) => (i === 1 ? { ...p, photo: [p.photo[0] + 0.5, p.photo[1]] as [number, number] } : i === 0 ? p : p))
+    const four = through(homography, photos)
+    four[1] = { ...four[1], photo: [photos[0][0] + 0.5, photos[0][1]] }
+    expect(fitStraight(four)).toEqual({ error: SAME_PLACE })
+    expect(fitSimilar(close1([{ photo: [10, 10], uv: [0, 0] }, { photo: [10, 10], uv: [5, 5] }]))).toEqual({ error: SAME_PLACE })
+    expect(fitSimilar([{ photo: [10, 10], uv: [0, 0] }, { photo: [10.5, 10], uv: [5, 5] }])).toEqual({ error: SAME_PLACE })
+    expect('error' in fitSimilar([{ photo: [10, 10], uv: [0, 0] }, { photo: [11, 10], uv: [5, 5] }])).toBe(false)
   })
 
   it('refuses points on top of each other, and fewer than 4', () => {

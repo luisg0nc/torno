@@ -111,11 +111,17 @@ function shapeLine(layer: Layer, shape: LayerShape, index: number): string {
   return `label at ${point(shape.at)} "${shape.text}"`
 }
 
-/** The photo, in words. Never said to be exact, and its line-up ends as `PHOTO_LINEUP_CLOSING` says (`lineupSaid`). */
+/** Whether a photo has a line-up: a swap keeps the tracing side of the pairs but clears the transform, so the transform is what says it. */
+const linedUp = (photo: TracingPhoto): boolean => photo.transform !== undefined && photo.scale !== undefined
+
+/**
+ * The photo, in words. Never said to be exact, and its line-up ends as `PHOTO_LINEUP_CLOSING` says (`lineupSaid`). A photo that is not
+ * on this computer says so and still tells its line-up: that is in the file that travels, and the clicks do not need the photo.
+ */
 function photoLine(photo: TracingPhoto, here: boolean): string {
-  if (!here) return 'not on this computer'
-  if (photo.scale === undefined || photo.pairs.length === 0) return `${photo.width} × ${photo.height} px, not lined up yet`
-  return lineupSaid(photo)
+  const away = here ? '' : 'the photo is not on this computer'
+  if (!linedUp(photo)) return here ? `${photo.width} × ${photo.height} px, not lined up yet` : away
+  return here ? lineupSaid(photo) : `${away}; ${lineupSaid(photo)}`
 }
 
 /** One tracing in words: its plane, its outline (the kernel's), its layers with every shape in mm, its photo and the marks on it. */
@@ -184,7 +190,7 @@ export function tracingData(t: Tracing, facts: TracingFacts): Record<string, unk
     outline,
     ...(outline === null && facts.cutWhy ? { outlineWhy: facts.cutWhy } : {}),
     layers: t.layers.map((l) => ({ id: l.id, name: l.name, colour: l.colour, by: l.by, ...(l.hidden ? { hidden: true } : {}), shapes: l.shapes.length, revision: l.revision })),
-    photo: t.photo ? { here: facts.photoHere !== false, ...(t.photo.scale === undefined ? {} : { scale: t.photo.scale }), lined: t.photo.pairs.length > 0, exact: false } : null,
+    photo: t.photo ? { here: facts.photoHere !== false, ...(t.photo.scale === undefined ? {} : { scale: t.photo.scale }), ...(t.photo.angle === undefined ? {} : { angle: t.photo.angle }), ...(t.photo.fit === undefined ? {} : { fit: t.photo.fit }), lined: linedUp(t.photo), exact: false } : null,
     ...(facts.marks === undefined ? {} : { marks: [...facts.marks] }),
     text: tracingText(t, facts)
   }

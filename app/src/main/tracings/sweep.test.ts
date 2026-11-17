@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -25,6 +25,14 @@ const aged = (...files: string[]): void => {
   for (const file of files) utimesSync(join(folder(), file), long, long)
 }
 const agedAll = (): void => aged(...names().filter((n) => !n.startsWith('.')))
+/** The list as it was written, with the dates the names were put on it set `days` back (a list is read as it is: nothing is kept in memory). */
+const listedAgo = (days: number): void => {
+  const path = join(folder(), 'dropped.json')
+  const list = JSON.parse(readFileSync(path, 'utf8')) as { dropped: string[]; at?: Record<string, string> }
+  const then = new Date(Date.now() - days * 86_400_000).toISOString()
+  writeFileSync(path, JSON.stringify({ dropped: list.dropped, at: Object.fromEntries(list.dropped.map((n) => [n, then])) }))
+}
+const datesOf = (): Record<string, string> => (JSON.parse(readFileSync(join(folder(), 'dropped.json'), 'utf8')) as { at?: Record<string, string> }).at ?? {}
 const newStore = (): TracingStore => new TracingStore({ dirOf: (id) => (id === 'bracket' ? dir : undefined) })
 const pic = (seed: number): Uint8Array => {
   const bytes = png(1000, 800)
@@ -55,7 +63,7 @@ describe('sweepPhotos', () => {
     put('.gitignore', A, B, S, 'mine.jpg', 'notes.txt')
     aged(A, B, S)
     await dropPhotos(dir, [B, S, 'mine.jpg'])
-    await sweepPhotos(dir, none, 60_000)
+    await sweepPhotos(dir, none, 60_000, 0)
     expect(names()).toEqual(['.gitignore', 'mine.jpg', 'notes.txt', A])
     expect(await listed()).toEqual([])
   })
@@ -63,10 +71,10 @@ describe('sweepPhotos', () => {
   it('never removes a file that is not on the list, whatever no tracing names: another branch has other tracings', async () => {
     put(A, B)
     aged(A, B)
-    await sweepPhotos(dir, none, 60_000)
+    await sweepPhotos(dir, none, 60_000, 0)
     expect(names()).toEqual([A, B])
     await dropPhotos(dir, [B])
-    await sweepPhotos(dir, none, 60_000)
+    await sweepPhotos(dir, none, 60_000, 0)
     expect(names()).toEqual([A])
   })
 
@@ -74,7 +82,7 @@ describe('sweepPhotos', () => {
     put(A, B)
     aged(A)
     await dropPhotos(dir, [A, B])
-    await sweepPhotos(dir, none, 60_000)
+    await sweepPhotos(dir, none, 60_000, 0)
     expect(names()).toEqual(['dropped.json', B])
     expect(await listed()).toEqual([B])
   })
@@ -84,7 +92,7 @@ describe('sweepPhotos', () => {
     writeFileSync(join(dir, 'else.jpg'), 'x')
     symlinkSync(join(dir, 'else.jpg'), join(folder(), A))
     await dropPhotos(dir, [A])
-    await sweepPhotos(dir, none, 0)
+    await sweepPhotos(dir, none, 0, 0)
     expect(names()).toContain(A)
     expect(existsSync(join(dir, 'else.jpg'))).toBe(true)
   })
@@ -104,6 +112,47 @@ describe('sweepPhotos', () => {
   })
 })
 
+describe('the date a file was listed', () => {
+  it('is written with the name, kept when the name is listed again, and a file is taken only 30 days after it', async () => {
+    put(A, B)
+    aged(A, B)
+    await dropPhotos(dir, [A])
+    const first = datesOf()[A]
+    expect(Math.abs(Date.parse(first) - Date.now())).toBeLessThan(10_000)
+    listedAgo(2)
+    const earlier = datesOf()[A]
+    await dropPhotos(dir, [A, B])
+    expect(datesOf()[A]).toBe(earlier)
+    expect(Date.parse(datesOf()[B])).toBeGreaterThan(Date.parse(earlier))
+    // Not yet: the sweep leaves both, and keeps the dates.
+    await sweepPhotos(dir, none, 60_000)
+    expect(names()).toEqual(['dropped.json', A, B])
+    expect(datesOf()[A]).toBe(earlier)
+    listedAgo(30.5)
+    await sweepPhotos(dir, none, 60_000)
+    expect(names()).toEqual([])
+  })
+
+  it('stamps a listed name that has no date (a list of an older version, or written by hand) when the sweep first sees it, and takes the file 30 days after that', async () => {
+    put(A)
+    aged(A)
+    writeFileSync(join(folder(), 'dropped.json'), `{"dropped":["${A}"]}`)
+    await sweepPhotos(dir, none, 60_000)
+    expect(names()).toEqual(['dropped.json', A])
+    expect(Math.abs(Date.parse(datesOf()[A]) - Date.now())).toBeLessThan(10_000)
+    listedAgo(31)
+    await sweepPhotos(dir, none, 60_000)
+    expect(names()).toEqual([])
+  })
+
+  it('does not date the lists of the notes and of the board', async () => {
+    const { dropNoteFiles } = await import('../notes/dropped')
+    mkdirSync(join(dir, '.torno', 'notes'), { recursive: true })
+    await dropNoteFiles(dir, ['n-aaaaaaaaaaaa.png'])
+    expect(readFileSync(join(dir, '.torno', 'notes', 'dropped.json'), 'utf8')).not.toContain('"at"')
+  })
+})
+
 describe('namedAside', () => {
   it('finds the photos a tracings file kept aside names, and none a file in use names', async () => {
     mkdirSync(join(dir, '.torno'))
@@ -119,19 +168,26 @@ describe('namedAside', () => {
 })
 
 describe('PhotoSweep', () => {
-  it('sweeps, after a swap, the old photo and its straightened copy a minute later, in the next run', async () => {
+  it('sweeps, after a swap, the old photo and its straightened copy once they have been on the list 30 days, in a later run', async () => {
+    let sweepAgain: PhotoSweep
     await make()
     await store.setPhoto('bracket', 'T1', pic(1))
     const lined = (await store.lineUp('bracket', 'T1', SQUARE, 'straight')).photo
     const before = (await store.setStraightened('bracket', 'T1', jpeg(500, 400), { sha256: lined?.sha256 as string, transform: transformKey(lined?.transform as number[]) })).photo
     const now = (await store.setPhoto('bracket', 'T1', pic(2))).photo
     expect(await listed()).toEqual([before?.file, before?.straightened].sort())
-    // Young: left alone.
+    // Young, and listed today: left alone, and still listed.
     await new PhotoSweep(newStore()).once('bracket', dir)
     expect(names()).toContain(before?.file)
-    // A minute later, in a run of its own.
+    // Old files, but on the list for 29 days: still left alone. They are photos the person may want on another branch.
     agedAll()
+    listedAgo(29)
     await new PhotoSweep(newStore()).once('bracket', dir)
+    expect(names()).toContain(before?.file)
+    // On the list for 31 days: taken.
+    listedAgo(31)
+    sweepAgain = new PhotoSweep(newStore())
+    await sweepAgain.once('bracket', dir)
     expect(names().filter((n) => !n.startsWith('.'))).toEqual([now?.file])
     expect(await listed()).toEqual([])
   })
@@ -141,10 +197,10 @@ describe('PhotoSweep', () => {
     const file = (await store.setPhoto('bracket', 'T1', pic(1))).photo?.file as string
     await store.remove('bracket', 'T1', 'person')
     agedAll()
-    await new PhotoSweep(store).once('bracket', dir)
+    await new PhotoSweep(store, 60_000, 0).once('bracket', dir)
     expect(names()).toContain(file)
     expect(await listed()).toEqual([file])
-    await new PhotoSweep(newStore()).once('bracket', dir)
+    await new PhotoSweep(newStore(), 60_000, 0).once('bracket', dir)
     expect(names()).not.toContain(file)
   })
 
@@ -154,9 +210,9 @@ describe('PhotoSweep', () => {
     await store.remove('bracket', 'T1', 'person')
     await store.restore('bracket', 'T1')
     agedAll()
-    await new PhotoSweep(store).once('bracket', dir)
+    await new PhotoSweep(store, 60_000, 0).once('bracket', dir)
     expect(names()).toContain(file)
-    await new PhotoSweep(newStore()).once('bracket', dir)
+    await new PhotoSweep(newStore(), 60_000, 0).once('bracket', dir)
     expect(names()).toContain(file)
     // It is on the list no more: the tracing holds it.
     expect(await listed()).toEqual([])
@@ -166,7 +222,7 @@ describe('PhotoSweep', () => {
     await make()
     put('p-eeeeeeeeeeee.jpg')
     agedAll()
-    await new PhotoSweep(newStore()).once('bracket', dir)
+    await new PhotoSweep(newStore(), 60_000, 0).once('bracket', dir)
     expect(names()).toContain('p-eeeeeeeeeeee.jpg')
   })
 
@@ -176,7 +232,7 @@ describe('PhotoSweep', () => {
     aged(A)
     await dropPhotos(dir, [A])
     writeFileSync(join(dir, '.torno', 'tracings.json.dropped-2026'), `{ "file": "${A}" }`)
-    await new PhotoSweep(newStore()).once('bracket', dir)
+    await new PhotoSweep(newStore(), 60_000, 0).once('bracket', dir)
     expect(names()).toContain(A)
     expect(await listed()).toEqual([A])
   })
@@ -187,13 +243,13 @@ describe('PhotoSweep', () => {
     put(A)
     aged(A)
     await dropPhotos(dir, [A])
-    await new PhotoSweep(newStore()).once('bracket', dir)
+    await new PhotoSweep(newStore(), 60_000, 0).once('bracket', dir)
     expect(names()).toContain(A)
   })
 
   it('sweeps once for each project in a run, until it is forgotten, and never rejects', async () => {
     await make()
-    const sweep = new PhotoSweep(newStore())
+    const sweep = new PhotoSweep(newStore(), 60_000, 0)
     await sweep.once('bracket', dir)
     put(A)
     aged(A)
@@ -203,6 +259,6 @@ describe('PhotoSweep', () => {
     sweep.forget()
     await sweep.once('bracket', dir)
     expect(names()).not.toContain(A)
-    await expect(new PhotoSweep(newStore()).once('nope', join(dir, 'gone'))).resolves.toBeUndefined()
+    await expect(new PhotoSweep(newStore(), 60_000, 0).once('nope', join(dir, 'gone'))).resolves.toBeUndefined()
   })
 })

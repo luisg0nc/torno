@@ -133,14 +133,25 @@ describe('one tracing', () => {
   })
 
   it('says the photo\'s line-up words, always ending as the photo is not exact and true only in the tracing\'s plane', () => {
-    const photo = { file: 'p-0123456789ab.jpg', sha256: 'x', width: 4000, height: 3000, pairs: [1, 2, 3, 4].map((i) => ({ photo: [i, i] as [number, number], uv: [i, i] as [number, number] })), method: 'straight' as const, scale: 4.73, angle: 2.1, fit: 0.4, straightened: 's-0123456789ab.jpg', fade: 0.5 }
+    const photo = { file: 'p-0123456789ab.jpg', sha256: 'x', width: 4000, height: 3000, pairs: [1, 2, 3, 4].map((i) => ({ photo: [i, i] as [number, number], uv: [i, i] as [number, number] })), method: 'straight' as const, transform: [1, 0, 0, 0, -1, 0, 0, 0, 1] as never, scale: 4.73, angle: 2.1, fit: 0.4, straightened: 's-0123456789ab.jpg', fade: 0.5 }
     const t = tracingText(tracing({ photo }), { cut: plate })
     expect(t).toContain('photo: lined up by 4 points, straightened: 4.73 px/mm at the centre, turned 2.1°, fit 0.4 mm; not exact, and true only in the tracing\'s plane')
     expect(PHOTO_LINEUP_CLOSING).toBe("not exact, and true only in the tracing's plane")
     const none = { ...photo, pairs: photo.pairs.slice(0, 2), method: 'similar' as const, fit: undefined }
     expect(tracingText(tracing({ photo: none }), { cut: plate })).toContain('lined up by 2 points: 4.73 px/mm at the centre, turned 2.1°, no spare point to check it; not exact')
-    expect(tracingText(tracing({ photo }), { cut: plate, photoHere: false })).toContain('photo: not on this computer')
-    expect(tracingText(tracing({ photo: { ...photo, pairs: [], scale: undefined } }), { cut: plate })).toMatch(/photo: .*not lined up yet/)
+    // The photo is not on this computer, and the line-up is still told: it is in the file that travels.
+    const away = tracingText(tracing({ photo }), { cut: plate, photoHere: false })
+    expect(away).toContain("photo: the photo is not on this computer; lined up by 4 points, straightened: 4.73 px/mm at the centre, turned 2.1°, fit 0.4 mm; not exact, and true only in the tracing's plane")
+    expect(tracingText(tracing({ photo: { ...photo, pairs: [], transform: undefined, scale: undefined } }), { cut: plate, photoHere: false })).toContain('photo: the photo is not on this computer')
+    expect(tracingText(tracing({ photo: { ...photo, pairs: [], transform: undefined, scale: undefined } }), { cut: plate })).toMatch(/photo: .*not lined up yet/)
+  })
+
+  it('says a photo swapped for another is not lined up, though the pairs keep the tracing side; the line-up is told with the data even when the photo is away', () => {
+    const swapped = { file: 'p-0123456789ab.jpg', sha256: 'x', width: 4000, height: 3000, pairs: [{ uv: [1, 1] as [number, number] }, { uv: [2, 2] as [number, number] }], method: 'similar' as const, fade: 0.5 }
+    expect((tracingData(tracing({ photo: swapped }), { cut: plate }) as Record<string, any>).photo).toMatchObject({ lined: false })
+    expect(tracingText(tracing({ photo: swapped }), { cut: plate })).toMatch(/photo: .*not lined up yet/)
+    const lined = { ...swapped, pairs: [{ photo: [1, 1] as [number, number], uv: [1, 1] as [number, number] }, { photo: [9, 9] as [number, number], uv: [2, 2] as [number, number] }], transform: [1, 0, 0, 0, -1, 0, 0, 0, 1] as never, scale: 4.73, angle: 2.1, fit: 0.4 }
+    expect((tracingData(tracing({ photo: lined }), { cut: plate, photoHere: false }) as Record<string, any>).photo).toEqual({ here: false, lined: true, scale: 4.73, angle: 2.1, fit: 0.4, exact: false })
   })
 
   it('has data with the facts and the text, and no shapes or points of its own beyond the text', () => {

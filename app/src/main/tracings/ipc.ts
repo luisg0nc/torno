@@ -300,9 +300,13 @@ export function tracingHandlers(deps: TracingIpcDeps) {
       const named = tracingId(id)
       const clean = Array.isArray(pairs) ? pairs.map((p) => (isRecord(p) ? { photo: p.photo, uv: p.uv, ...(p.snap === undefined || p.snap === null ? {} : { snap: p.snap }) } : p)) : pairs
       const snapped = Array.isArray(clean) && clean.some((p) => isRecord(p) && p.snap !== undefined)
-      // The outline is asked before the store's turn, which it waits for itself.
-      const cut = snapped ? await deps.outlines.cut(obj.id, named) : undefined
-      return deps.tracings.lineUp(obj.id, named, clean, method, cut === undefined || cut instanceof Refusal ? undefined : cut.snaps)
+      // The outline is asked before the store's turn, which it waits for itself: for the points it can be snapped to, and for its middle,
+      // where a straightening's scale and angle are told (a similarity has one scale everywhere).
+      const cut = snapped || method === 'straight' ? await deps.outlines.cut(obj.id, named) : undefined
+      const found = cut === undefined || cut instanceof Refusal ? undefined : cut
+      const bounds = found?.cut.bounds
+      const centre: [number, number] | undefined = bounds ? [(bounds.min[0] + bounds.max[0]) / 2, (bounds.min[1] + bounds.max[1]) / 2] : undefined
+      return deps.tracings.lineUp(obj.id, named, clean, method, found?.snaps, centre)
     },
 
     /** The person's look of the photo: its fade (0 to 1) and whether it is hidden. */

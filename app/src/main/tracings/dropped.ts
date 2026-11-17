@@ -8,5 +8,5 @@ export const PHOTO_NAME = /^[ps]-[0-9a-f]{12}\.(?:jpg|png)$/
 
 export const isPhotoName = (name: string): boolean => PHOTO_NAME.test(name)
 
-/** Lists files of `.torno/tracings/photos/` torno dropped (`recordDropped`): the sweep of a later run may take them. Never rejects. */
-export const dropPhotos = (dir: string, names: Iterable<string>): Promise<void> => recordDropped(dir, PHOTOS_FOLDER, names, isPhotoName)
+/** Lists files of `.torno/tracings/photos/` torno dropped (`recordDropped`): the sweep of a later run may take them, 30 days after (`listedFor`): the list holds the day each was listed. Never rejects. */
+export const dropPhotos = (dir: string, names: Iterable<string>): Promise<void> => recordDropped(dir, PHOTOS_FOLDER, names, isPhotoName, { dated: true })

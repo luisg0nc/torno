@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { transformKey } from '../../shared/lineup'
+import { applyLineup, fitStraight, transformKey } from '../../shared/lineup'
 import { mainPlaneFrame } from '../../shared/planes'
 import { MOST_LAYERS, MOST_SHAPES, MOST_TRACINGS, type LayerShape, type PlaneSnap, type TracingPlane, type TracingsFile } from '../../shared/tracings'
 import { droppedNames } from '../dropped'
@@ -673,6 +673,28 @@ describe('the photo', () => {
       expect(four.photo).not.toHaveProperty('fit')
     })
 
+    it('tells a homography\'s scale and angle at the centre it is given (the middle of the outline), not at the clicks', async () => {
+      const H = [0.21, 0.02, -30, -0.015, -0.19, 160, 0.00004, 0.00007, 1]
+      const pairs = [[120, 90], [880, 130], [900, 700], [60, 640]].map((photo) => ({ photo, uv: applyLineup(H, photo as [number, number]) }))
+      const centre: [number, number] = applyLineup(H, [100, 100])
+      const at = (await store.lineUp('bracket', 'T1', pairs, 'straight', undefined, centre)).photo
+      const clicks = (await store.lineUp('bracket', 'T1', pairs, 'straight')).photo
+      const known = fitStraight(pairs as never, { centre })
+      if ('error' in known) throw new Error(known.error)
+      expect(at?.scale).toBeCloseTo(known.scale, 9)
+      expect(at?.angle).toBeCloseTo(known.angle, 9)
+      expect(at?.scale).not.toBeCloseTo(clicks?.scale as number, 3)
+    })
+
+    it('refuses a straightening whose vanishing line crosses the photo, by the photo\'s own size, and one that would be mirrored', async () => {
+      // The photo is 1000 × 800 px; w = 1 - 0.0015 x is zero at x = 667, outside the clicks and inside the photo.
+      const bent = [[100, 100], [500, 120], [520, 600], [90, 580]].map(([x, y]) => ({ photo: [x, y], uv: [0.2 * x / (1 - 0.0015 * x), -0.2 * y / (1 - 0.0015 * x)] }))
+      await expect(store.lineUp('bracket', 'T1', bent, 'straight')).rejects.toThrow(/the photo would fold/)
+      const mirrored = SQUARE.map((p) => ({ photo: p.photo, uv: [p.uv[0], 80 - p.uv[1]] }))
+      await expect(store.lineUp('bracket', 'T1', mirrored, 'straight')).rejects.toThrow(/mirrored/)
+      expect((await store.list('bracket')).tracings[0].photo?.pairs).toEqual([])
+    })
+
     it('ignores what the window says that is main\'s: a pair keeps only its photo, uv and snap', async () => {
       const lie = { ...SQUARE[0], transform: [9, 9, 9, 9, 9, 9, 9, 9, 9], scale: 99, file: 'p-aaaaaaaaaaaa.png', fit: 0 }
       const t = await store.lineUp('bracket', 'T1', [lie, SQUARE[2]], 'similar')
@@ -849,6 +871,20 @@ describe('the photo', () => {
         expect(where).toBe(dir)
         expect(problem).toBeNull()
       })
+    })
+
+    it('reads tracings.json again when the disk text is not what main last wrote (a git pull), so the photos a pull brought are live', async () => {
+      const mine = (await store.setPhoto('bracket', 'T1', pic(1))).photo?.file as string
+      const text = onDisk()
+      text.tracings.push({ ...structuredClone(text.tracings[0]), id: 'T2', photo: { file: 'p-ffffffffffff.png', sha256: 'a'.repeat(64), width: 10, height: 10, pairs: [], method: 'similar', fade: 0.5 } })
+      text.next = 3
+      writeFileSync(join(dir, '.torno', 'tracings.json'), `${JSON.stringify(text, null, 2)}\n`)
+      await store.withPhotos('bracket', async (held) => {
+        expect([...held.live].sort()).toEqual([mine, 'p-ffffffffffff.png'].sort())
+      })
+      // What was read is kept, and the window is told of it, as any change does.
+      expect((await store.list('bracket')).tracings.map((t) => t.id)).toEqual(['T1', 'T2'])
+      expect(changes.at(-1)?.file.tracings.map((t) => t.id)).toEqual(['T1', 'T2'])
     })
 
     it('says what was wrong with the file when it was read', async () => {
