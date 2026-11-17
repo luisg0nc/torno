@@ -1,0 +1,282 @@
+import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import type { BoardFile } from '../src/shared/board'
+import type { Mark, MarksFile } from '../src/shared/marks'
+import type { TornoState } from '../src/renderer/state/store'
+import { openPanel } from './helpers'
+import { openListed } from './objects'
+
+// A round of a review made in the hidden window, on the `gauge` fixture (a 40 × 30 × 6 plate with one Ø8 hole): "Review this
+// build" starts R1 on h1, a face is picked as what is not wanted (the `-` key), a sketch is drawn as what is wanted, and a prompt
+// sent meanwhile carries neither (they are held). Send review puts the round in the composer, the next prompt carries the review
+// line and both items, and the stand-in agent resolves both. After the plate is built again (h2) the round's panel says OK to
+// one item and Still wrong to the other, and the board holds two frames of rounds, the Still wrong card in the second.
+// Everything is read from marks.json, board.json, the store, the DOM and what the stand-in is told: no screenshots.
+const appDir = resolve(__dirname, '..')
+const fixtures = resolve(appDir, '../kernel/tests/fixtures/ws')
+const fakeAgent = resolve(appDir, 'test/fake-agent.mjs')
+
+test.describe.configure({ mode: 'serial' })
+
+type Vec3 = [number, number, number]
+
+let root: string
+let home: string
+let app: ElectronApplication
+let page: Page
+
+test.beforeAll(async () => {
+  root = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-review-'))
+  home = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-review-home-'))
+  cpSync(fixtures, root, { recursive: true, filter: (source) => !source.endsWith('__pycache__') })
+  // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
+  app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, HOME: home, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
+  page = await app.firstWindow()
+  await page.waitForSelector('[data-region="left"]')
+})
+
+test.afterAll(async () => {
+  await app?.close()
+  rmSync(root, { recursive: true, force: true })
+  rmSync(home, { recursive: true, force: true })
+})
+
+const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
+const camera = () => page.evaluate(() => window.__tornoTest!.camera())
+const canvas = () => page.locator('.viewport-canvas canvas').first()
+const dock = () => page.locator('[data-region="session"]')
+const chat = () => dock().locator('.chat')
+const composer = () => dock().locator('[data-chat-composer]')
+const bar = () => page.getByRole('toolbar', { name: 'Review' })
+const sketchPanel = () => page.getByRole('complementary', { name: 'Sketch' })
+const roundPanel = () => page.locator('[data-part="round-panel"]')
+
+const marksFile = (): MarksFile => JSON.parse(readFileSync(join(root, 'gauge', '.torno', 'marks.json'), 'utf8')) as MarksFile
+const marks = (): Mark[] => {
+  try {
+    return marksFile().marks
+  } catch {
+    return []
+  }
+}
+const mark = (id: string): Mark | undefined => marks().find((m) => m.id === id)
+const boardFile = (): BoardFile | undefined => {
+  try {
+    return JSON.parse(readFileSync(join(root, 'gauge', '.torno', 'board', 'board.json'), 'utf8')) as BoardFile
+  } catch {
+    return undefined
+  }
+}
+
+/** Where a point of the object frame is drawn, in the page's pixels. */
+async function pageXY(point: Vec3): Promise<[number, number]> {
+  const [fx, fy] = await page.evaluate((at) => window.__tornoTest!.project(at), point)
+  const box = (await canvas().boundingBox())!
+  return [box.x + fx * box.width, box.y + fy * box.height]
+}
+
+/** Press where the first point is drawn and draw through the others, one move each, then let go. */
+async function drag(points: Vec3[]): Promise<void> {
+  const at: [number, number][] = []
+  for (const point of points) at.push(await pageXY(point))
+  await page.mouse.move(...at[0])
+  await page.mouse.down()
+  for (const [x, y] of at.slice(1)) await page.mouse.move(x, y)
+  await page.mouse.up()
+}
+
+/** Waits until the camera has stopped: a view asked for by key is gone to over a quarter of a second. */
+async function atRest(): Promise<void> {
+  let last = ''
+  await expect
+    .poll(
+      async () => {
+        const now = JSON.stringify(await camera())
+        const still = now === last
+        last = now
+        return still
+      },
+      { intervals: [120] }
+    )
+    .toBe(true)
+}
+
+/** Types a script of the stand-in into the box of the chat, a line at a time, and sends it. */
+async function send(lines: string[]): Promise<void> {
+  await composer().focus()
+  for (const [n, line] of lines.entries()) {
+    await page.keyboard.type(line)
+    if (n < lines.length - 1) await page.keyboard.press('Shift+Enter')
+  }
+  await page.keyboard.press('Enter')
+}
+
+/** The text torno added to the n-th prompt of the chat, as the agent was given it (the stand-in's script never sees it). */
+async function added(n: number): Promise<string> {
+  const item = chat().locator('.chat-added').nth(n)
+  await expect(item).toContainText('torno added', { timeout: 30_000 })
+  await item.getByRole('button', { name: 'Show text' }).click()
+  return (await item.locator('.chat-added-text').textContent()) ?? ''
+}
+
+test('Review this build starts R1 on the build on show, and the keys choose what the next marks are', async () => {
+  await openListed(page, 'gauge')
+  await openPanel(page, 'Marks')
+  await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok' })
+  await page.keyboard.press('1')
+  await atRest()
+  await expect(bar()).toHaveCount(0)
+  await page.getByRole('button', { name: 'Review this build' }).click()
+  await expect(bar()).toBeVisible()
+  await expect(bar()).toContainText('Review of h1')
+  await expect(bar()).toContainText('0 − · 0 +')
+  await expect.poll(() => marksFile().rounds?.map((r) => [r.id, r.build])).toEqual([['R1', 'h1']])
+  // The key of the choice takes it, and the same key again goes back to plain.
+  const choice = (name: string) => bar().getByRole('radio', { name: new RegExp(name) })
+  await expect(choice('Plain')).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('-')
+  await expect(choice("Don't want")).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('-')
+  await expect(choice('Plain')).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('-')
+  await expect(choice("Don't want")).toHaveAttribute('aria-checked', 'true')
+})
+
+test('a face picked while "don\'t want" is chosen is a mark of the round, with its sign', async () => {
+  // The top of the plate, clear of the hole.
+  const top: Vec3 = [16, -10, 6]
+  const hit = await page.evaluate((at) => {
+    const [fx, fy] = window.__tornoTest!.project(at)
+    return window.__tornoTest!.pickAt(fx, fy, { edges: false })
+  }, top)
+  expect(hit?.kind).toBe('face')
+  const [x, y] = await pageXY(top)
+  await page.mouse.click(x, y)
+  await page.getByRole('group', { name: 'Selection' }).getByRole('button', { name: 'Note' }).click()
+  const note = page.getByRole('textbox', { name: 'Note on M1' })
+  await note.fill('nothing holds here')
+  await note.press('Enter')
+  await expect.poll(() => mark('M1')).toMatchObject({ kind: 'pick', author: 'user', status: 'draft', intent: 'dont', round: 'R1' })
+  await expect(bar()).toContainText('1 − · 0 +')
+  // Its row says what it is, and that it waits.
+  const row = page.locator('.mark-row[data-mark="M1"]')
+  await expect(row).toContainText('− M1')
+  await expect(row).toContainText('in review, not sent')
+})
+
+test('a sketch drawn while "want" is chosen is the round\'s second item', async () => {
+  await bar().getByRole('radio', { name: /Want/ }).click()
+  await expect(bar().getByRole('radio', { name: /Want/ })).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('d')
+  await expect(sketchPanel()).toBeVisible()
+  await page.keyboard.press('Shift+2')
+  await expect(sketchPanel()).toContainText('XZ at y = 0')
+  await drag([[10, 0, 6], [-10, 0, 14], [-14, 0, 14]])
+  await expect.poll(() => mark('M2')).toMatchObject({ kind: 'sketch', author: 'user', intent: 'want', round: 'R1' })
+  await sketchPanel().getByRole('button', { name: 'Done' }).click()
+  await expect(sketchPanel()).toHaveCount(0)
+  await expect(bar()).toContainText('1 − · 1 +')
+  await expect(page.locator('.mark-row[data-mark="M2"]')).toContainText('+ M2')
+})
+
+test('a prompt sent now carries neither item: the round is held until Send review', async () => {
+  await dock().getByRole('button', { name: 'New session' }).click()
+  await expect(chat()).toBeVisible()
+  await expect(composer()).toBeEnabled()
+  await send(['say received'])
+  const text = await added(0)
+  expect(text).toContain('R1 is in review, not sent (2 marks).')
+  // The board's line names the round's frame, but no review line and no item is in it.
+  expect(text).not.toContain('Review of h1 (R1)')
+  expect(text).not.toContain("don't want")
+  expect(text).not.toMatch(/\bM[12] ·/)
+  expect(text).not.toContain('Sketch M2')
+  await expect(chat().locator('.chat-added').first().locator('[data-part="held"]')).toContainText('in review, not sent')
+  // Neither was sent: both are drafts still, in their round.
+  expect([mark('M1')?.status, mark('M2')?.status]).toEqual(['draft', 'draft'])
+  await expect(chat().locator('.chat-user').first()).toContainText('say received')
+})
+
+test('Send review puts the round in the composer; the next prompt carries its line and both items, and the agent resolves both', async () => {
+  await bar().getByRole('button', { name: 'Send review' }).click()
+  await expect(bar()).toHaveCount(0)
+  const chip = dock().getByRole('group', { name: 'Review attached' })
+  await expect(chip).toBeVisible()
+  await expect(chip).toContainText('Review of h1 · 1 − · 1 +')
+  // The stand-in's script: it says it, and resolves both items as the agent would.
+  await send(['say answering the review', 'tool mcp__torno__resolve_mark {"id":"M1","note":"the clamp is gone"}', 'tool mcp__torno__resolve_mark {"id":"M2","note":"a handle along the top"}'])
+  const text = await added(1)
+  expect(text).toContain('Review of h1 (R1): 1 don\'t want, 1 want. Answer each item by its id.')
+  expect(text).toContain("don't want")
+  expect(text).toMatch(/M1 · don't want/)
+  expect(text).toMatch(/M2 · want/)
+  await expect(chat().locator('.chat-added').nth(1).locator('[data-part="review"]')).toContainText('R1')
+  await expect(chip).toHaveCount(0)
+  // Claude answered both, and the round is sent.
+  await expect.poll(() => [mark('M1')?.status, mark('M2')?.status], { timeout: 30_000 }).toEqual(['resolved', 'resolved'])
+  expect(mark('M1')).toMatchObject({ resolvedBy: 'agent', resolvedNote: 'the clamp is gone' })
+  expect(mark('M2')).toMatchObject({ resolvedBy: 'agent', resolvedNote: 'a handle along the top' })
+  await expect.poll(() => marksFile().rounds?.[0]?.sentAt).toBeTruthy()
+})
+
+test('after a rebuild the panel of R1 says OK to one item and Still wrong to the other', async () => {
+  // The model saved again (the history goes by the Python files, so a line of comment makes another build, h2), which the panel shows against h1.
+  const model = join(root, 'gauge', 'gauge.py')
+  writeFileSync(model, `${readFileSync(model, 'utf8')}\n# a second look\n`)
+  await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok', revision: 2, stale: false })
+  await page.getByRole('button', { name: 'Open the panel of R1' }).click()
+  await expect(roundPanel()).toBeVisible()
+  await expect(roundPanel()).toContainText('Review of h1 · 1 − · 1 +')
+  await expect(roundPanel()).toContainText('h1 is shown faint beside h2', { timeout: 30_000 })
+  const m1 = roundPanel().locator('[data-mark="M1"]')
+  const m2 = roundPanel().locator('[data-mark="M2"]')
+  await expect(m1).toContainText('the clamp is gone')
+  await expect(m2).toContainText('a handle along the top')
+  await m1.getByRole('button', { name: 'OK', exact: true }).click()
+  await expect.poll(() => mark('M1')?.judged).toEqual({ verdict: 'ok', build: 'h2' })
+  await expect(m1).toContainText('OK in h2')
+  await m2.getByRole('button', { name: 'Still wrong' }).click()
+  await m2.getByRole('textbox').fill('the handle is on the wrong side')
+  await m2.getByRole('button', { name: 'Send back' }).click()
+  await expect.poll(() => mark('M2')?.judged).toEqual({ verdict: 'still-wrong', build: 'h2' })
+  // It is open again, in the next round, which main made on the build on show.
+  expect(mark('M2')).toMatchObject({ status: 'draft', round: 'R2' })
+  expect(mark('M1')).toMatchObject({ round: 'R1' })
+  expect(marksFile().rounds?.map((r) => [r.id, r.build, r.from ?? null])).toEqual([
+    ['R1', 'h1', null],
+    ['R2', 'h2', 'R1']
+  ])
+  await roundPanel().getByRole('button', { name: 'Close the review' }).click()
+  await expect(roundPanel()).toHaveCount(0)
+})
+
+test('the board holds a frame for each round, with the Still wrong card in the second', async () => {
+  await page.keyboard.press('Control+Tab')
+  const frames = page.locator('.pboard-card[data-kind="frame"][data-by="torno"]')
+  await expect(frames).toHaveCount(2, { timeout: 20_000 })
+  // R1 keeps the item that was accepted; its name follows its counts, and the other item has gone into the next round.
+  await expect(frames.nth(0)).toContainText('Review of h1 · 1 −')
+  await expect(frames.nth(1)).toContainText('Review of h2 · 1 +')
+  const m1 = page.locator('.pboard-card[data-kind="mark"]', { hasText: 'M1' })
+  const m2 = page.locator('.pboard-card[data-kind="mark"]', { hasText: 'M2' })
+  await expect(m1).toContainText('OK in h2')
+  await expect(m2).toContainText('Still wrong')
+  // Who is in which frame is main's reading of the file.
+  await expect
+    .poll(() => {
+      const board = boardFile()
+      if (!board) return null
+      const frameOf = (source: string): string | undefined => board.cards.find((c) => c.kind === 'frame' && c.by === 'torno' && c.source === source)?.id
+      const inFrame = (id: string): string | undefined => board.cards.find((c) => c.kind === 'mark' && c.source === id)?.frame
+      const [r1, r2] = [frameOf('R1'), frameOf('R2')]
+      return r1 !== undefined && r2 !== undefined && r1 !== r2 && inFrame('M1') === r1 && inFrame('M2') === r2
+    })
+    .toBe(true)
+  // The head of a frame has the way to the panel of its round.
+  await frames.nth(1).getByRole('button', { name: 'Open the panel of R2' }).click()
+  await expect(roundPanel()).toBeVisible()
+  await expect(roundPanel()).toContainText('Review of h2 · 1 +')
+  await page.keyboard.press('Control+Tab')
+})

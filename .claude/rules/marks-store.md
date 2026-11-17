@@ -3,10 +3,16 @@ paths:
   - "app/src/main/marks/**"
   - "app/src/main/sketches/**"
   - "app/src/shared/marks.ts"
+  - "app/src/main/reviews/**"
+  - "app/src/shared/reviews.ts"
+  - "app/src/shared/reviews.test.ts"
+  - "app/src/renderer/state/review.ts"
+  - "app/src/renderer/state/review.test.ts"
   - "app/src/shared/tags.ts"
   - "app/src/shared/tags.test.ts"
   - "app/e2e/marks*.spec.ts"
   - "app/e2e/reanchor.spec.ts"
+  - "app/e2e/review.spec.ts"
 ---
 
 # Marks: the store, checking them against a build, their status

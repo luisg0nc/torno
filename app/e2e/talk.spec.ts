@@ -266,6 +266,8 @@ test('OK all acknowledges every mark the agent resolved, in one write', async ()
 test('a mark on a part that is switched off is not drawn, in the window or in a picture; its row stays, and says why', async () => {
   await tool('Pin').click()
   await clickOver(ON_POST)
+  // Typed only once the note has the keys: before, `s`, `h` and `o` were keys of the window (`h` starts a review round).
+  await expect(page.locator('.note-card textarea')).toBeFocused()
   await page.keyboard.type('shorter')
   await page.keyboard.press('Enter')
   await page.keyboard.press('Escape')

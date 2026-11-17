@@ -71,3 +71,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   let go of, when its session is released or dropped), its file name as the thumbnail's title, the frame empty
   while it comes; one main has no plain file for says `reference/doodle-1.png is no longer there`, the path in the
   monospace face. A tool's picture says "Picture of an earlier build, not kept"; any other "Picture not kept".
+- **A review in the chat** (`ui/chat/ReviewChip.tsx`, `ui/chat/Composer.tsx`, `ui/chat/Items.tsx`, `ui/chat/BuildLine.tsx`). While `sending` names a round
+  the composer draws, in the `chat-with` row, a chip `Review of h41 · 3 − · 2 +` in the face of numbers (`reviewName`) with "Remove"
+  (`marks:round` `{ plain }`); a refused ask leaves it. "Goes with your next prompt" lists the drafts that really go (`goingNext`: not those of a round
+  that is held, `isHeld`). The line under a prompt (`Items.tsx`, from `item.review` and `item.held` of the `context` item, never from its text) says
+  `review R1 sent` for the round the prompt carried, and `R1 is in review, not sent` for each round that waits. The build line of the build still on show has
+  "Review this build" (`reviewActions.start`). The terminal has no chip: its review line goes with the hook's context for the next prompt.

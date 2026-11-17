@@ -80,3 +80,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     the dimensions the person keeps do through `addDimension`, kept `sent`. One kept
     without a value of the last build is answered `NOT MEASURED: …` first
     (`keptUnmeasured`), so that its line is not taken for a measurement.
+  - `marks` is the tool that reads the rounds of a review. With `review` (`R1` or `all`) `marksTool` (`mcp/tools.ts`) answers with
+    `reviewData` (`main/reviews/text.ts`, `ToolDeps.rounds`) in place of the list, oldest round first: the build, line and layout of each, and
+    its items with `intent` (`want`, `dont` or `plain`), status, `resolvedNote`, `judged` and a `said` sentence; a don't want item judged OK says
+    `removed on purpose; keep it out`, and one judged Still wrong `still wrong in h42: <the note>`. An unknown round is an error result that
+    names the rounds there are. The plain list says each mark's intent and round in its line (`describeMark`). Nothing here sets an intent: the
+    agent reads rounds and sets none (`mcp-tools`).
