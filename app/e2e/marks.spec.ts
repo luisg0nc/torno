@@ -617,6 +617,83 @@ test('a mark\'s chip in the view answers the pointer: its line at the pointer, i
   }
 })
 
+test('a view note in the list has its picture and its comment; the pointer on it lights only the faces under its ink that the build still has; a click goes to its camera', async () => {
+  test.setTimeout(120_000)
+  const own = copyFixtures()
+  const ownApp = await launch({ TORNO_WORKSPACE: own })
+  try {
+    const p = await ownApp.firstWindow()
+    await p.waitForSelector('[data-region="left"]')
+    await openObject('bracket', p)
+    const now = await state(p)
+    const face = now.scene!.parts.find((part) => part.name === 'base')!
+    expect(face.faceCount).toBeGreaterThan(1)
+    // The note was made from another view than the one on show.
+    const seen = { position: [120, -90, 60], target: [0, 0, 6], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
+    const made = await p.evaluate(
+      async ({ camera, layout, ref, gone }) => {
+        const canvas = new OffscreenCanvas(160, 100)
+        const ctx = canvas.getContext('2d')!
+        ctx.fillStyle = '#d9d4c8'
+        ctx.fillRect(0, 0, 160, 100)
+        const plain = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
+        ctx.strokeStyle = '#d4342c'
+        ctx.lineWidth = 6
+        ctx.beginPath()
+        ctx.moveTo(20, 30)
+        ctx.lineTo(120, 60)
+        ctx.stroke()
+        const inked = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
+        const strokeUnder = { box: [20, 30, 120, 60], refs: [{ ref }, { ref: gone }], cuts: [], scans: [], bare: false }
+        return window.torno.notes.make({
+          objectId: 'bracket', revision: 1, layout, camera, caption: 'the bracket from the front', size: { w: 160, h: 100 }, plain, inked, inkColour: '#d4342c',
+          strokes: [{ width: 6, points: [[20, 30], [120, 60]] }], labels: [], under: [strokeUnder], comment: 'make the base thicker here', references: [],
+          // A note hangs a label only where its ink first lay over a face (one with no anchor is a picture in no place).
+          anchor: { point: [0, 0, 0], part: 'base', ref }
+        } as never)
+      },
+      { camera: seen, layout: now.layout, ref: `base/F0`, gone: `base/F${face.faceCount + 40}` }
+    )
+    const id = made.id
+    const mark = row(id, p)
+    await expect(mark).toHaveCount(1)
+    // Its picture with the ink, and its comment.
+    await expect(mark.locator('img.mark-thumb')).toBeVisible()
+    await expect(mark.locator('.mark-note')).toHaveText('make the base thicker here')
+    // The faces under the ink that the build has light up; the one it does not have lights nothing.
+    await p.mouse.move(900, 450)
+    await mark.hover()
+    await expect.poll(() => p.evaluate(() => window.__tornoTest!.peeked())).toEqual(['base/F0'])
+    await p.mouse.move(900, 450)
+    await expect.poll(() => p.evaluate(() => window.__tornoTest!.peeked())).toEqual([])
+    // A click on the row, and the reticle, go to the camera the note was made from.
+    const apart = async (): Promise<number> => {
+      const c = await camera(p)
+      return Math.max(...c.position.map((v, i) => Math.abs(v - seen.position[i])), ...c.target.map((v, i) => Math.abs(v - seen.target[i])))
+    }
+    await p.getByRole('button', { name: 'Top', exact: true }).click()
+    await resting(p)
+    expect(await apart()).toBeGreaterThan(1)
+    // Close in on a corner of the view, far from where the note hangs its label: it is out of view, and a click goes to its camera.
+    const canvas = (await p.locator('.viewport-canvas canvas').first().boundingBox())!
+    await p.mouse.move(canvas.x + 20, canvas.y + canvas.height - 20)
+    for (let i = 0; i < 16; i++) await p.mouse.wheel(0, -400)
+    await expect.poll(async () => (await markScreen(id, p))?.visible).toBe(false)
+    await resting(p)
+    await mark.locator('.mark-chip').click()
+    await expect(mark).toHaveAttribute('aria-current', 'true')
+    await expect.poll(apart).toBeLessThan(1e-6)
+    await p.getByRole('button', { name: 'Top', exact: true }).click()
+    await resting(p)
+    await mark.hover()
+    await p.getByRole('button', { name: `Go to ${id}`, exact: true }).click()
+    await expect.poll(apart).toBeLessThan(1e-6)
+  } finally {
+    await ownApp.close()
+    rmSync(own, { recursive: true, force: true })
+  }
+})
+
 // Set TORNO_SHOTS=<dir> to write marks-light.png and marks-dark.png there: the
 // window with the bracket and five marks, one of each kind, three of them the
 // person's and two the agent's; and marks-look.png, the picture the agent gets

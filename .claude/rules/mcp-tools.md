@@ -49,6 +49,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `history:thumbnail` and `history:source` answer null for a failed entry, and `ghosts` never names one.
   Each part is compared by `partDiff` of `shared/diff.ts`, which the window's status line and ghosts use too,
   from what the kernel sent with each, asking it nothing: a number is `exact` only where both builds say so.
+  A view note (`NoteMark`) is told by `marks` and `describe` as data without its strokes or the names of its files, with `strokeCount`
+  and `text` (`noteText`, `main/notes/text.ts`: its line, the build, the ink, the camera and how to `look` from it, what the ink and each
+  label arrow lie over, the comment, `reference <n>: <comment>`); `marks` with `pictures: true` attaches each listed note's inked picture,
+  then its references (`notePictures`, `main/notes/pictures.ts`), at most 6 in all and 1280 px, naming the rest. `add_mark` refuses
+  `kind: 'note'`; Claude's only act on a note is `resolve_mark`, and no tool edits or deletes one.
   `look` and `show` take the name of a saved view as `view`, and `save_view`
   proposes one (Views). `show` changes
   the view for now and is never saved to `scene.json`; it is refused while a

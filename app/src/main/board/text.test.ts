@@ -108,6 +108,17 @@ describe('the text of a board', () => {
     expect(text).toContain('lid fits (0.2 mm, wanted 0.15 to 0.25 mm)')
     expect(text).toContain('A bracket for a pipe.')
   })
+  it('says a view note by its line, not as a mark of some kind', () => {
+    const note = { id: 'M5', kind: 'note', author: 'user', note: 'this rib\nis too thin', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 3, anchor: { point: [0, 0, 0], ref: 'lid/F2' }, labels: [{ x: 1, y: 2, text: 'here' }], references: [], strokes: [], under: [] } as unknown as Mark
+    const live: LiveFacts = { marks: new Map([['M5', note]]) }
+    const c = card({ kind: 'mark', by: 'torno', source: 'M5' })
+    const { text } = boardText(board([c]), live, OPTS)
+    expect(text).toContain('M5 · view note · draft: "this rib is too thin" (1 label, drawn on build 3)')
+    expect(text).not.toContain('(note,')
+    // What the card says is what is told as news to the line: a change of the comment changes it.
+    const changed = { ...note, note: 'thicker now' } as unknown as Mark
+    expect(saysHash(c, live)).not.toBe(saysHash(c, { marks: new Map([['M5', changed]]) }))
+  })
   it('says a picture by its caption', () => {
     const p = card({ kind: 'picture', picture: 'p-aaaaaaaaaaaa.png', caption: 'the old latch' })
     expect(boardText(board([p]), LIVE, OPTS).text).toContain(`[picture ${p.id}: the old latch]`)

@@ -89,6 +89,11 @@ const bridge: TornoBridge = {
     problem: (objectId) => invokePlain('marks:problem', objectId),
     dismissProblem: (objectId) => invokePlain('marks:dismissProblem', objectId)
   },
+  notes: {
+    make: (draft) => invokePlain('notes:make', draft),
+    edit: (objectId, id, patch) => invokePlain('notes:edit', objectId, id, patch),
+    picture: (objectId, id, which) => invokePlain('notes:picture', objectId, id, which)
+  },
   board: {
     read: (objectId) => invokePlain('board:read', objectId),
     change: (objectId, change) => invokePlain('board:change', objectId, change),

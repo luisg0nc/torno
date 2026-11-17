@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import { constants } from 'node:fs'
-import { lstat, mkdir, open, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, open, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BOARD_PICTURE_EDGE, PICTURE_NAME } from '../../shared/board'
+import { type Held, sweepDropped } from '../dropped'
+import { PICTURES_FOLDER, isPictureName } from './dropped'
 import type { BoardStore } from './store'
 import type { BoardPicture } from './text'
 import { checkedImage } from '../images'
@@ -12,8 +14,10 @@ import { writeFileAtomic } from '../atomic'
 import { Refusal } from '../refusal'
 
 // The picture and sketch files of a board: `<project>/.torno/board/pictures/p-<12 hex>.png|jpg`. A card names its
-// file; a file no card names is swept when the project is opened (so that undo brings a removed card back whole).
-// A picture may show the real world, so the folder ignores itself for git.
+// file. A file torno dropped (the picture of a card taken off, the sketch drawn on again) is listed in `dropped.json`
+// beside them (`dropped.ts`) and swept when the project is next opened, so that undo brings a removed card back whole;
+// a file that is not on that list is never swept, whatever the board names. A picture may show the real world, so the
+// folder ignores itself for git.
 
 const INSIDE = ['board', 'pictures'] as const
 
@@ -48,24 +52,11 @@ export async function readPicture(dir: string, name: string): Promise<Uint8Array
 }
 
 /**
- * Removes the pictures no card names (`kept`): only files with a picture's name, never the folder's `.gitignore` nor
- * anything the person put there, and none made in the last `grace` ms (a picture kept just now has no card yet).
+ * Deletes the pictures torno dropped (the list of `dropped.json`) that no card holds (`held`): only files with a
+ * picture's name, never the folder's `.gitignore` nor anything the person put there, and none changed in the last
+ * `grace` ms. Nothing when there is no folder; an error for a link in the place of one of the folders.
  */
-export async function sweepPictures(dir: string, kept: ReadonlySet<string>, grace = 0): Promise<void> {
-  const folder = join(dir, FOLDER, ...INSIDE)
-  const names = await readdir(folder).catch((e: NodeJS.ErrnoException) => {
-    if (e.code === 'ENOENT') return null
-    throw e
-  })
-  if (names === null) return
-  await ownTorno(dir, ...INSIDE)
-  const now = Date.now()
-  for (const name of names) {
-    if (!PICTURE_NAME.test(name) || kept.has(name)) continue
-    const made = grace > 0 ? await lstat(join(folder, name)).then((s) => s.mtimeMs, () => 0) : 0
-    if (now - made >= grace) await rm(join(folder, name), { force: true })
-  }
-}
+export const sweepPictures = (dir: string, held: Held, grace = 0): Promise<void> => sweepDropped(dir, PICTURES_FOLDER, isPictureName, held, grace)
 
 /** How long a picture file is left alone, as made: a person's picture is kept before the card that names it is made. */
 const GRACE_MS = 60_000
@@ -105,10 +96,10 @@ export async function namedAside(dir: string): Promise<Set<string>> {
 }
 
 /**
- * The sweep of the pictures no card names, made once for each project in a run, when it is first opened: before the
+ * The sweep of the pictures torno dropped, made once for each project in a run, when it is first opened: before the
  * window has anything of it to undo, so that no undo points at a file that is gone (the window forgets its undo when the
  * workspace changes, and so does this, `forget`). It is made in the turn of the board, and what was taken off the board in
- * this run counts as named. A picture a file kept aside names is never swept (`namedAside`), and a board that could not be
+ * this run is kept. A picture a file kept aside names is never swept (`namedAside`), and a board that could not be
  * read whole is not swept at all that run.
  */
 export class PictureSweep {
@@ -124,10 +115,10 @@ export class PictureSweep {
     if (this.done.has(dir)) return
     this.done.add(dir)
     try {
-      await this.board.withPictures(objectId, async (named, _dir, problem) => {
+      await this.board.withPictures(objectId, async (held, _dir, problem) => {
         if (problem !== null) return
-        for (const name of await namedAside(dir)) named.add(name)
-        await sweepPictures(dir, named, this.grace)
+        for (const name of await namedAside(dir)) held.kept.add(name)
+        await sweepPictures(dir, held, this.grace)
       })
     } catch (e) {
       console.error(`cannot sweep the pictures of the board of ${objectId}: ${e instanceof Error ? e.message : String(e)}`)

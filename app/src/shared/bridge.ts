@@ -8,15 +8,15 @@ import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './hist
 import type { ExportPlan, ExportRequest, ExportSaved } from './exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from './geometry'
 import type { InstructionFile } from './instructions'
-import type { Mark, MarkPatch, NewMark, NewRegion, Replacement } from './marks'
+import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NoteLabel, NoteStroke, Replacement } from './marks'
 import type { Scene } from './scene'
 import type { SizeFact } from './size'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
 import type { SceneFile } from './scenefile'
 import type { ObjectCard, ThumbnailOf } from './show'
-import type { HighlightRequest, HighlightResult, LookRequest, LookResult, SaveViewRequest, SaveViewResult, SectionDrawingRequest, SectionDrawingResult, ShowRequest, ShowResult, ViewState } from './view'
+import type { HighlightRequest, HighlightResult, LookRequest, LookResult, SaveViewRequest, SaveViewResult, SectionDrawingRequest, SectionDrawingResult, ShowRequest, ShowResult, ViewState, Camera } from './view'
 import type { RecentFolder, WorkspaceInfo } from './workspace'
-import type { ViewDrawing } from './drawing'
+import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
@@ -42,6 +42,55 @@ export interface CreateRequest {
   links: Array<{ url: string; note: string }>
   /** PDF files (at most 6, 25 MB each, starting `%PDF-`): copied into `reference/` under their own names (`referenceFiles`). */
   pdfs: Array<{ path: string; note: string }>
+}
+
+/** A picture the person gave with a note: a PNG or a JPEG, and what they say it is (one line, at most 300 characters). */
+export interface NoteReferenceDraft {
+  bytes: Uint8Array
+  mediaType: 'image/png' | 'image/jpeg'
+  comment: string
+}
+
+/**
+ * A view note as the window sends it to `notes:make`: the picture of the view and the one with the ink on it (PNGs of
+ * `size`, at most 2000 px), the strokes and labels in pixels of that picture, what the ink lies over, the comment and the
+ * reference pictures. Main checks every field (`main/notes/check.ts`), names and writes every file, and says everything
+ * else of the mark: an id, an author, a status or a file name sent here is dropped.
+ */
+export interface NoteDraft {
+  objectId: string
+  revision: number
+  layout: string
+  camera: Camera
+  /** The caption of the picture, as `look` made it: checked, but not kept with the mark. */
+  caption: string
+  size: { w: number; h: number }
+  plain: Uint8Array
+  inked: Uint8Array
+  inkColour: string
+  strokes: NoteStroke[]
+  labels: NoteLabel[]
+  /** One per pen stroke that is told of (at most `MOST_STROKES_TOLD`), then one per label with an arrow. */
+  under: StrokeUnder[]
+  comment: string
+  references: NoteReferenceDraft[]
+  /** Where the ink first lies over a face, when it does: main says its tag and how far its part is spread. */
+  anchor?: Anchor
+}
+
+/**
+ * What the window changes of a note (`notes:edit`). `inked` is the picture with the new ink on it, and is required
+ * when `strokes` or `labels` change. `keepReferences` are the indexes of the references the note has that stay (all
+ * of them when it is absent); `addReferences` are new ones.
+ */
+export interface NoteEdit {
+  comment?: string
+  labels?: NoteLabel[]
+  strokes?: NoteStroke[]
+  under?: StrokeUnder[]
+  inked?: Uint8Array
+  keepReferences?: number[]
+  addReferences?: NoteReferenceDraft[]
 }
 
 /**
@@ -199,6 +248,15 @@ export interface TornoBridge {
     /** What `onProblem` last said of an object, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
+  }
+  /** The view notes of a project (`<project>/.torno/notes/`): main checks what is sent, names and writes the pictures, and says the rest of the mark. Calls reject with a plain message. */
+  notes: {
+    /** Keeps a new note, as a draft: its pictures are written, then the mark. */
+    make(draft: NoteDraft): Promise<Mark>
+    /** Changes a note. A new inked picture is a new file: the old one stays until the sweep when the project is next opened. */
+    edit(objectId: string, id: string, patch: NoteEdit): Promise<Mark>
+    /** The bytes of a note's picture with the ink on it, the plain one or the reference at that index; null when the file is not on this computer. */
+    picture(objectId: string, id: string, which: 'ink' | 'plain' | number): Promise<Uint8Array | null>
   }
   /** Making a new object by onboarding. Calls reject with a plain message. */
   /** The board of a project (`<project>/.torno/board/`): main is its only writer, and it never takes an id, an author or `hidden` from the window. */
@@ -420,12 +478,12 @@ export interface TornoBridge {
     /** The slash commands and models the session's CLI has, told when it has said them (a history had earlier may lack them). */
     onCapabilities(cb: (m: { sessionId: string; commands: ChatCommand[]; models: ChatModel[]; seq: number }) => void): () => void
     /**
-     * Sends a prompt; with `attachedView`, main adds that picture (the one "Attach view" showed, checked as any picture for the agent) and no other; with `attachView` alone, a picture of the viewport as it is now; with `drawing`,
-     * the person's drawing on the view, after a caption main writes; with `board`, the cards and frames it names (or all
-     * the board), read as they are now and told in text with up to six of their pictures. Rejects, sending nothing, when a picture cannot be
-     * made, the drawing is not one or the board cannot be read.
+     * Sends a prompt; with `attachedView`, main adds that picture (the one "Attach view" showed, checked as any picture for the agent) and no other; with `attachView` alone, a picture of the viewport as it is now; with `board`, the cards and frames it names (or all
+     * the board), read as they are now and told in text with up to six of their pictures. The project's draft view notes (`notes.make`)
+     * go with it of themselves, in the order of the marks, within the 6 pictures a prompt carries. Rejects, sending nothing, when a picture cannot be
+     * made or the board cannot be read.
      */
-    send(sessionId: string, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; drawing?: ViewDrawing; board?: BoardAttach }): Promise<void>
+    send(sessionId: string, prompt: { text: string; attachView?: boolean; attachedView?: Uint8Array; board?: BoardAttach }): Promise<void>
     /** Answers a request of the agent's. The tool runs with the input it asked with; only the answers of `AskUserQuestion` are taken from the window. */
     answer(sessionId: string, requestId: string, answer: ChatAnswer): void
     interrupt(sessionId: string): Promise<void>

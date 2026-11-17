@@ -834,6 +834,203 @@
   font-size: var(--text-small);
 }
 
+/* ---- A view note's sheet: labels over the picture, the comment and the references under it ---- */
+
+/* The canvas and the layer of labels over it, of one size. The sheet is taller than a doodle's, so the picture has less of the window. */
+.board-frame {
+  --board-reserve: 440px;
+  position: relative;
+  width: min(100%, calc((100vh - var(--board-reserve)) * var(--board-aspect, 1.5)));
+}
+
+.board-frame .board-canvas {
+  width: 100%;
+}
+
+/* A container, so that the field of a label is as large on screen as the label is in the picture (cqw). */
+.board-labels {
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+  pointer-events: none;
+}
+
+.board-labels[data-labelling] {
+  pointer-events: auto;
+  cursor: text;
+}
+
+.label-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.label-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.label-svg .label {
+  pointer-events: none;
+  user-select: none;
+}
+
+.board-labels[data-labelling] .label {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.label-edit {
+  position: absolute;
+}
+
+.label-field {
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  background: var(--panel);
+  color: var(--drawing-ink);
+  font: 500 var(--label-px) var(--font-ui);
+}
+
+.label-field:focus-visible {
+  outline: none;
+}
+
+.label-actions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  padding: var(--space-1);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
+.note-aside {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.note-comment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.note-field {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-size);
+}
+
+.note-field:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.note-count {
+  flex: none;
+}
+
+.note-refs {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-control);
+}
+
+.note-refs[data-over] {
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+.note-refs-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.note-refs-head h3 {
+  font-size: var(--text-size);
+  font-weight: 500;
+}
+
+.note-refs-hint {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.note-refs-list {
+  display: grid;
+  gap: var(--space-1);
+  max-height: 132px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+.note-ref {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.note-ref img,
+.note-ref-none {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: var(--divider);
+  border-radius: 4px;
+  object-fit: cover;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.note-ref-none {
+  overflow: hidden;
+  line-height: 1.1;
+}
+
+.note-ref-comment {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.note-warn {
+  color: var(--warn);
+  font-size: var(--text-small);
+}
+
+/* A note whose picture is not here: a sheet of its own, narrower than a picture. */
+.board-sheet-text {
+  width: min(100%, 640px);
+  justify-self: center;
+}
+
 /* ---- The session pane while a new object is made ---- */
 
 .draft-pane {

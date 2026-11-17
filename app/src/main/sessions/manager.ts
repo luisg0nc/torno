@@ -11,7 +11,10 @@ import type { BuildTurn } from '../../shared/history'
 import { modelsOf } from './models'
 import { type BuildState, errorLine, failedAfter } from '../../shared/build'
 import type { BoardAttach, BoardSent } from '../../shared/board'
-import { type DrawnOver, type ViewDrawing, drawnOver } from '../../shared/drawing'
+import type { DrawnOver } from '../../shared/drawing'
+import type { NoteMark } from '../../shared/marks'
+import { notePrompt } from '../notes/prompt'
+import { MOST_NOTE_PICTURES } from '../notes/pictures'
 import type { BoardAttachment } from '../board/attach'
 import type { Scene } from '../../shared/scene'
 import type { ObjectInfo } from '../../shared/workspace'
@@ -25,7 +28,6 @@ import type { Trust } from '../trust'
 import type { AgentAdapter } from './adapter'
 import { appendItems, readLog, trimLog } from './chatlog'
 import { checkedImage } from '../images'
-import { drawingText } from './drawing'
 import { sessionRules } from './permissions'
 import { agentEnv } from './agentEnv'
 import { findCommand } from './choice'
@@ -106,6 +108,12 @@ interface Session {
   heard: boolean
   /** A chat session: those waiting to know whether the CLI began (`Sessions.began`). */
   watchers: Array<(began: Began) => void>
+  /**
+   * A chat session: the view notes each prompt carried, by the id of its `user` item, while it waits for its hook. That
+   * prompt's own hook counts them among the marks sent, and no other: until then they are drafts that another prompt
+   * does not carry again, and a prompt that never goes (the session ends) leaves them drafts.
+   */
+  carried: Map<string, string[]>
   /** A chat session: what a prompt waits for when it is sent with a picture, so that prompts reach the CLI in the order they were sent. */
   sending: Promise<void>
   exited: Promise<void>
@@ -260,12 +268,11 @@ export interface StartOptions extends AgentChoice {
   skills?: false
 }
 
-/** What a chat prompt may carry besides its words: the view as it is or as it was shown, the person's drawing on it, part of the board. */
+/** What a chat prompt may carry besides its words: the view as it is or as it was shown, part of the board. The project's draft view notes go with it of themselves (`draftNotes`). */
 export interface SendPrompt {
   text: string
   attachView?: boolean
   attachedView?: Uint8Array
-  drawing?: ViewDrawing
   board?: BoardAttach
 }
 
@@ -325,6 +332,10 @@ export class Sessions {
       trust?: Pick<Trust, 'pending' | 'accept'>
       /** What the person attached of the board of an object (`attachBoard`): read as it is when the prompt is sent. Rejects with why not. Absent: none can be attached. */
       attachBoard?: (objectId: string, ids: string[] | 'all') => Promise<BoardAttachment>
+      /** The view notes of an object that are drafts, in the order of the marks: they go with the next chat prompt, pictures and all. Absent: none go. */
+      draftNotes?: (objectId: string) => Promise<readonly NoteMark[]>
+      /** A picture scaled down to a long edge of at most `edge` px (the pictures of a note go at 1280). Absent: they go as they are kept. */
+      scalePicture?: (bytes: Uint8Array, edge: number) => Promise<Uint8Array>
       /** A PNG of the viewport of an object as the person sees it now, for a prompt that attaches the view. Absent: none can be attached. */
       picture?: (obj: ObjectInfo) => Promise<Uint8Array>
       /** How the build of an object stands now. Absent: tool hooks are not read, and a Stop is never held back. */
@@ -478,6 +489,7 @@ export class Sessions {
       prompts: 0,
       compacted: false,
       firstPrompt: true,
+      carried: new Map(),
       status: 'starting',
       cols,
       rows,
@@ -768,14 +780,16 @@ export class Sessions {
    * A chat session: a prompt for its agent, which queues it if it is at work. Nothing for a terminal session
    * (its prompts are typed: `write`) or one that has ended or been told to.
    */
-  prompt(sessionId: string, content: PromptBlock[], drawing?: DrawnOver, board?: BoardSent): void {
+  prompt(sessionId: string, content: PromptBlock[], notes?: DrawnOver[], board?: BoardSent, carried: readonly string[] = []): void {
     const s = this.chat(sessionId, 'prompt')
     if (!s?.agent || !s.chat) return
     // It waits when the agent is at work, or has been sent a prompt it has not taken up yet (its hook has not moved the status).
     const queued = s.status === 'working' || s.status === 'needs_input' || s.chat.transcript.untakenCount() > 0
     // Its own id: the CLI says in `command_lifecycle` when it queues, begins and ends the prompt it names.
     const uuid = randomUUID()
-    s.chat.transcript.userSent(content, queued, uuid, drawing, board)
+    const item = s.chat.transcript.userSent(content, queued, uuid, notes, board)
+    // The notes the prompt carries are sent when its own hook is answered, whether or not it lists them.
+    if (carried.length > 0 && item.kind === 'user' && item.state !== 'not-sent') s.carried.set(item.id, [...carried])
     s.agent.prompt(content, s.conversationId, uuid)
   }
 
@@ -802,9 +816,12 @@ export class Sessions {
   }
 
   /**
-   * A chat session: what the person typed, then the person's drawing on the view after its caption when `drawing`,
-   * then the part of the board the person attached when `board` (its text, then its pictures; read now), then the picture of the view the person was shown when `attachedView` (checked here), or else a picture of the viewport as it is now when `attachView` (made through the window: `deps.picture`). Rejects,
-   * sending nothing, when the picture cannot be made, the drawing is of another object, or the session has ended.
+   * A chat session: what the person typed, then the part of the board the person attached when `board` (its text, then
+   * its pictures; read now), then the picture of the view the person was shown when `attachedView` (checked here), or
+   * else a picture of the viewport as it is now when `attachView` (made through the window: `deps.picture`), then the
+   * project's draft view notes in the order of the marks (`draftNotes`: each one's words, its picture with the ink, its
+   * references), as many pictures as the 6 a prompt carries leave room for. Rejects, sending nothing, when the picture
+   * cannot be made or the session has ended.
    */
   async send(sessionId: string, prompt: SendPrompt): Promise<void> {
     const s = this.chat(sessionId, 'send')
@@ -821,7 +838,6 @@ export class Sessions {
 
   private async sendOne(sessionId: string, s: Session, prompt: SendPrompt): Promise<void> {
     const content: PromptBlock[] = []
-    let over: DrawnOver | undefined
     let boarded: BoardSent | undefined
     if (prompt.text !== '') content.push({ type: 'text', text: prompt.text })
     if (prompt.board) {
@@ -831,16 +847,6 @@ export class Sessions {
       content.push({ type: 'text', text: attached.text })
       for (const picture of attached.pictures) content.push({ type: 'image', source: { type: 'base64', media_type: picture.mediaType, data: Buffer.from(picture.bytes).toString('base64') } })
       boarded = attached.sent
-    }
-    if (prompt.drawing) {
-      // Drawn on the view of this session's object, or not sent.
-      if (prompt.drawing.objectId !== s.object.id) throw new Error(`The drawing is of ${prompt.drawing.objectId}, not of ${s.object.id}`)
-      // What the agent reads of it right before it. The transcript shows the text and the picture, and under them what
-      // the ink lies over as data (`DrawnOver`, refs only), not the caption's words.
-      const latest = this.deps.build?.(s.object.id)?.revision
-      content.push({ type: 'text', text: drawingText(prompt.drawing, { revision: latest, toolName: this.deps.adapter.toolName }) })
-      over = drawnOver(prompt.drawing, latest)
-      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: Buffer.from(prompt.drawing.png).toString('base64') } })
     }
     if (prompt.attachedView !== undefined) {
       // The picture the person was shown before sending, and no other: held to the rule for any picture the agent is given.
@@ -852,10 +858,18 @@ export class Sessions {
       const png = await this.deps.picture(s.object)
       content.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: Buffer.from(png).toString('base64') } })
     }
+    // The draft notes of the project, as they are now: words, then pictures, in what room the view and the board left.
+    // Those a prompt that waits for its hook already carries are left to it: they are still drafts until that hook is answered.
+    const carrying = new Set([...s.carried].filter(([item]) => s.chat?.transcript.awaitsHook(item)).flatMap(([, ids]) => ids))
+    // A slash command carries none: the CLI runs it itself, and has no hook to say they were taken.
+    const command = prompt.text.trimStart().startsWith('/')
+    const drafts = command ? [] : ((await this.deps.draftNotes?.(s.object.id)) ?? []).filter((note) => !carrying.has(note.id))
+    const noted = await notePrompt(s.object.dir, drafts, { latest: this.deps.build?.(s.object.id)?.revision, toolName: this.deps.adapter.toolName, ...(this.deps.scalePicture ? { scale: this.deps.scalePicture } : {}), room: MOST_NOTE_PICTURES - content.filter((block) => block.type === 'image').length })
+    content.push(...noted.blocks)
     if (content.length === 0) return
     // The picture took a moment, and the prompts before this one: the session may have gone meanwhile.
     if (!this.chat(sessionId, 'send')) throw new Error('This session has ended')
-    this.prompt(sessionId, content, over, boarded)
+    this.prompt(sessionId, content, noted.over.length > 0 ? noted.over : undefined, boarded, noted.ids)
   }
 
   /**
@@ -1096,6 +1110,8 @@ export class Sessions {
       for (const watcher of session.watchers.splice(0)) watcher({ began: false, why: why || 'The session ended.' })
       // What was open ends in a stated state, and the log has all of it before the session counts as gone.
       session.chat?.transcript.ended()
+      // The prompts that never went carried notes that stay drafts.
+      session.carried.clear()
       this.advance(session, 'exit')
       void session.logging.then(ended)
     })
@@ -1448,11 +1464,19 @@ export class Sessions {
     if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}${text ? `, answered with: ${text}` : ''}`)
     // Marks are sent once the answer that names them has been handed over whole: not when the agent hung
     // up first, and not to a session that has been hung up on, whose prompt nobody will answer.
-    if (text && !session.killTimer) {
+    // The view notes the prompt this hook took up carried (its pictures, its words) are sent with that answer, even where
+    // its list left them out, and even where it says nothing: they are in the prompt itself. Another prompt's wait for its own.
+    const carried = (session.chat?.transcript.takenItems() ?? []).flatMap((item) => {
+      const ids = session.carried.get(item) ?? []
+      session.carried.delete(item)
+      return ids
+    })
+    if ((text || carried.length > 0) && !session.killTimer) {
       res.once('finish', () => {
-        if (sentMarkIds.length > 0 || context.boardTold) this.deps.onDelivered?.(objectId, sentMarkIds, context.boardTold)
+        const delivered = [...new Set([...(text ? sentMarkIds : []), ...carried])]
+        if (delivered.length > 0 || (text && context.boardTold)) this.deps.onDelivered?.(objectId, delivered, text ? context.boardTold : undefined)
         // What was kept until the answer left (a Go back's notice) is let go now; a failure of that is not the prompt's.
-        void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
+        if (text) void Promise.resolve(context.delivered?.()).catch((e) => console.error(`cannot finish handing over the context of ${objectId}: ${e instanceof Error ? e.message : String(e)}`))
       })
     }
     sendJson(res, 200, text ? { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } } : {})

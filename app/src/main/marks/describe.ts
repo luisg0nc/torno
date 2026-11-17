@@ -1,6 +1,6 @@
 import { count as counted, number, numberWithin, scanNumber } from '../../shared/format'
 import { expectedText, lastValue, measuredValue, notMeasuredText, offBy, onBuild, standingOf, valueText } from '../../shared/dimension'
-import { type Anchor, type DimensionMark, type Mark, type RegionMark, type ShapeMark, type StrokeMark, isUnchecked, markAnchors } from '../../shared/marks'
+import { type Anchor, type DimensionMark, type Mark, type NoteMark, type RegionMark, type ShapeMark, type StrokeMark, isUnchecked, markAnchors } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { isFlat, regionInLayout } from '../../shared/regions'
 import { type ScanInfo, alignmentOf } from '../../shared/scans'
@@ -72,10 +72,18 @@ export function describeMark(mark: Mark, opts: { tag?: string; revision?: number
   const suffix = mark.kind === 'region' ? regionDoubt(mark, opts) : mark.kind === 'dimension' && mark.anchorState === 'orphaned' ? '' : ANCHOR_SUFFIX[mark.anchorState]
   across = extentOf(mark, opts.scene)
   try {
+    // A note is said as the person made it: what it holds, then the build it was drawn on.
+    if (mark.kind === 'note') return `${tags ? `(${tags}) ` : ''}${mark.id} · view note · ${mark.status}${note ? `: "${note}"` : ''} ${noteHolds(mark)}${suffix}${unchecked}`
     return `${tags ? `(${tags}) ` : ''}${mark.id} ${what(mark, opts)}${note ? `: "${note}"` : ''}${suffix}${unchecked}${asMeasured(mark, opts.revision)}`
   } finally {
     across = 0
   }
+}
+
+/** `(3 labels, 2 references, drawn on build 12)`: what a note holds besides its comment, and the build its picture is of. */
+function noteHolds(mark: NoteMark): string {
+  const of = (n: number, what: string): string[] => (n === 0 ? [] : [`${n} ${what}${n === 1 ? '' : 's'}`])
+  return `(${[...of(mark.labels.length, 'label'), ...of(mark.references.length, 'reference'), `drawn on build ${mark.revision}`].join(', ')})`
 }
 
 /**
@@ -277,6 +285,8 @@ function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: re
       return dimension(mark, revision)
     case 'region':
       return region(mark, opts)
+    case 'note':
+      return 'view note'
   }
 }
 

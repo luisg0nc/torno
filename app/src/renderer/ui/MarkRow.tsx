@@ -2,7 +2,7 @@ import { pressed } from '../../shared/keys'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { exactText, shownDimension } from '../../shared/dimension'
 import { EXPLODED_TOOLS } from '../../shared/explode'
-import { type Mark, type MarkKind, type MarkPatch, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
+import { type Mark, type MarkKind, type MarkPatch, type NoteMark, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
 import { count, number } from '../../shared/format'
 import { actions, explodeNow, partsInLayout, runningSession, store, useStore } from '../state/store'
 import { endReplace, startReplace, useReplacing } from '../state/tools'
@@ -14,14 +14,16 @@ import { DimensionFields, VerdictIcon, Words } from './DimensionFields'
 import { hoverMark, unhoverMark } from './markHover'
 import { Confirm } from './Confirm'
 import { ShapeFields } from './ShapeFields'
+import { useNotePicture } from './chat/useNotePicture'
+import { openNote } from './drawing/make'
 import { insertIntoSession } from './insertIntoSession'
 import { ICONS, SHAPE_ICONS } from './ToolPalette'
 
 /** The longest note a mark keeps (main cuts there); the field stops at it, so nothing is cut unseen. */
 export const MAX_NOTE = 2000
 
-const KIND_ICON: Record<MarkKind, ReactNode> = { pin: ICONS.pin, pick: ICONS.select, arrow: ICONS.arrow, stroke: ICONS.draw, shape: ICONS.shape, dimension: ICONS.measure, region: ICONS.region }
-const KIND_NAME: Record<MarkKind, string> = { pin: 'Pin', pick: 'Pick', arrow: 'Arrow', stroke: 'Stroke', shape: 'Shape', dimension: 'Dimension', region: 'Region' }
+const KIND_ICON: Record<MarkKind, ReactNode> = { pin: ICONS.pin, pick: ICONS.select, arrow: ICONS.arrow, stroke: ICONS.draw, shape: ICONS.shape, dimension: ICONS.measure, region: ICONS.region, note: ICONS.draw }
+const KIND_NAME: Record<MarkKind, string> = { pin: 'Pin', pick: 'Pick', arrow: 'Arrow', stroke: 'Stroke', shape: 'Shape', dimension: 'Dimension', region: 'Region', note: 'View note' }
 /** What the row says of a dimension the agent has been given: it stays, with its value, until it is resolved. */
 export const PINNED = 'pinned'
 /** What the row of a check the agent has not been given says: it is under Checks, not under To send. */
@@ -215,6 +217,7 @@ export function MarkRow({
       <span className="mark-kind" title={what} aria-label={what} role="img">
         {mark.kind === 'shape' ? SHAPE_ICONS[mark.shape] : KIND_ICON[mark.kind]}
       </span>
+      {mark.kind === 'note' && <NoteThumb note={mark} />}
       {mark.kind === 'dimension' && <DimensionValue mark={mark} revision={revision} />}
       {mark.kind === 'region' && (
         <span className="mark-value num" title={`${count(mark.triangles)} ${mark.triangles === 1 ? 'triangle' : 'triangles'} of ${mark.scan}, ≈ ${number(mark.area)} mm² of its mesh`}>
@@ -329,6 +332,21 @@ export function MarkRow({
             <BrushIcon />
           </button>
         )}
+        {mark.kind === 'note' && (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Edit ${mark.id}`}
+            title="Edit: open the drawing again to change its ink, labels, comment or references"
+            onClick={() => {
+              const objectId = store.getState().objectId
+              // Why not (a drawing already open, another project) is not said here: the sheet simply does not open.
+              if (objectId) void openNote(objectId, mark.id).catch(() => {})
+            }}
+          >
+            <BrushIcon />
+          </button>
+        )}
         <button type="button" className="icon-button" aria-label={`Go to ${mark.id}`} title={gone ? LAYOUT_GONE : 'Go to its view'} disabled={gone} onClick={() => actions.focusMark(mark.id)}>
           <FocusIcon />
         </button>
@@ -416,6 +434,17 @@ export function MarkRow({
       )}
     </li>
   )
+}
+
+/**
+ * A view note's picture with its ink, small, in the place a dimension has its value. A note whose picture is not on this
+ * computer (the pictures are not in git) shows an empty frame that says so; its comment is the row's own note.
+ */
+function NoteThumb({ note }: { note: NoteMark }) {
+  const objectId = useStore((s) => s.objectId)
+  const picture = useNotePicture(objectId ?? '', objectId === null ? null : note.id, note.ink)
+  if (picture.url !== null) return <img className="mark-thumb" src={picture.url} alt="" draggable={false} title="The view as it was drawn on" />
+  return <span className="mark-thumb" data-picture={picture.state} title={picture.state === 'missing' ? 'The picture is not on this computer' : undefined} aria-hidden="true" />
 }
 
 /**

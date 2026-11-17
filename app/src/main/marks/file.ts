@@ -1,17 +1,16 @@
 import { copyFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { verdictOf } from '../../shared/dimension'
-import type { Anchor, DimensionMark, Mark, MarksFile, Quat, RegionMark, ShapeKind, StrokeMark, Vec3 } from '../../shared/marks'
+import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } from '../../shared/drawing'
+import type { Anchor, DimensionMark, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, Quat, RegionMark, ShapeKind, StrokeMark, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
-import { MAX_STROKE_POINTS, MIN_SHAPE_SIZE } from '../../shared/marks'
+import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE } from '../../shared/marks'
 import { TAG_NAME } from '../../shared/tags'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 
 const NAME = 'marks.json'
 
-/** The longest note a mark keeps, in characters. */
-export const MAX_NOTE = 2000
-export { MAX_STROKE_POINTS }
+export { MAX_NOTE, MAX_STROKE_POINTS }
 
 /**
  * The marks of the object in `dir`. A missing file is an empty list, and
@@ -180,6 +179,8 @@ export function sanitiseMark(value: unknown): Mark | null {
       return dimensionOf(base, value)
     case 'region':
       return regionOf(base, value)
+    case 'note':
+      return noteOf(base, anchor, value)
     default:
       return null
   }
@@ -221,6 +222,75 @@ function regionOf(base: Omit<RegionMark, 'kind' | 'scan' | 'triangles' | 'area' 
     ...(typeof value.mesh === 'string' && value.mesh !== '' && value.mesh.length <= 200 ? { mesh: value.mesh } : {}),
     ...(isNumber(value.mask) && Number.isSafeInteger(value.mask) && value.mask >= 1 && value.mask < 1e9 ? { mask: value.mask } : {})
   }
+}
+
+/**
+ * A note: files of main's by the names main gives them, a picture size, ink and labels in pixels of the picture, and
+ * what the ink lies over. One with a file named otherwise, or more labels or references than a note keeps, or a longer
+ * label or comment, is no note this version keeps. Its anchor is optional: the ink may have lain over no face.
+ */
+function noteOf(base: Omit<NoteMark, 'kind' | 'anchor' | 'picture' | 'ink' | 'size' | 'strokes' | 'inkColour' | 'labels' | 'under' | 'references'>, anchor: Anchor | null, value: Record<string, unknown>): NoteMark | null {
+  if (typeof value.picture !== 'string' || !NOTE_PICTURE.test(value.picture)) return null
+  if (typeof value.ink !== 'string' || !NOTE_INK.test(value.ink)) return null
+  const size = isRecord(value.size) ? value.size : {}
+  if (!isNumber(size.w) || !isNumber(size.h) || !(size.w > 0) || !(size.h > 0)) return null
+  if (typeof value.inkColour !== 'string' || !/^#[0-9a-f]{6}$/i.test(value.inkColour)) return null
+  if (!Array.isArray(value.strokes) || !Array.isArray(value.labels) || !Array.isArray(value.under) || !Array.isArray(value.references)) return null
+  if (value.labels.length > MOST_LABELS || value.references.length > MOST_NOTE_REFERENCES) return null
+  const strokes: NoteMark['strokes'] = []
+  // Pen strokes and eraser strokes (`erase: true`, kept in order) are cut to their caps apart.
+  let pens = 0
+  let erases = 0
+  for (const raw of value.strokes.slice(0, MOST_NOTE_STROKES + MOST_NOTE_ERASES)) {
+    if (!isRecord(raw) || !isNumber(raw.width) || !(raw.width > 0) || !Array.isArray(raw.points)) return null
+    const erase = raw.erase === true
+    if (erase ? ++erases > MOST_NOTE_ERASES : ++pens > MOST_NOTE_STROKES) continue
+    strokes.push({ width: raw.width, points: tuples<[number, number]>(raw.points, 2), ...(erase ? { erase: true as const } : {}) })
+  }
+  const labels: NoteLabel[] = []
+  for (const raw of value.labels) {
+    const label = labelOf(raw)
+    if (!label) return null
+    labels.push(label)
+  }
+  const references: NoteReference[] = []
+  for (const raw of value.references) {
+    if (!isRecord(raw) || typeof raw.file !== 'string' || !NOTE_REFERENCE.test(raw.file) || typeof raw.comment !== 'string' || raw.comment.length > MAX_REFERENCE_COMMENT) return null
+    references.push({ file: raw.file, comment: raw.comment })
+  }
+  // One for each stroke and then one for each label with an arrow: no more than there is ink to lie over something.
+  if (value.under.length > MOST_NOTE_STROKES + MOST_LABELS) return null
+  const under: StrokeUnder[] = []
+  for (const raw of value.under) {
+    const one = underOf(raw)
+    if (!one) return null
+    under.push(one)
+  }
+  return { ...base, kind: 'note', ...(anchor ? { anchor } : {}), picture: value.picture, ink: value.ink, size: { w: size.w, h: size.h }, strokes, inkColour: value.inkColour, labels, under, references }
+}
+
+function labelOf(value: unknown): NoteLabel | null {
+  if (!isRecord(value) || !isNumber(value.x) || !isNumber(value.y) || typeof value.text !== 'string' || value.text.length > MAX_LABEL) return null
+  if (value.to === undefined) return { x: value.x, y: value.y, text: value.text }
+  if (!isRecord(value.to) || !isNumber(value.to.x) || !isNumber(value.to.y)) return null
+  return { x: value.x, y: value.y, text: value.text, to: { x: value.to.x, y: value.to.y } }
+}
+
+/** What one stroke lies over, as a note keeps it: the box, the faces (each with the kernel's line when it had one), the cut parts, the scans and whether some of it lies over nothing. */
+function underOf(value: unknown): StrokeUnder | null {
+  if (!isRecord(value) || !Array.isArray(value.refs) || !Array.isArray(value.cuts) || !Array.isArray(value.scans) || typeof value.bare !== 'boolean') return null
+  const box = tuple<[number, number, number, number]>(value.box, 4)
+  if (!box || value.refs.length > MOST_REFS_TOLD || value.cuts.length > MOST_CUTS_TOLD || value.scans.length > MOST_SCANS_TOLD) return null
+  const cuts = value.cuts
+  const scans = value.scans
+  if (!cuts.every((c): c is string => typeof c === 'string' && c.length <= 200) || !scans.every((c): c is string => typeof c === 'string' && c.length <= 200)) return null
+  const refs: StrokeUnder['refs'] = []
+  for (const one of value.refs) {
+    if (!isRecord(one) || typeof one.ref !== 'string' || one.ref.length > 200) return null
+    refs.push(typeof one.descriptor === 'string' ? { ref: one.ref, descriptor: one.descriptor.slice(0, 300) } : { ref: one.ref })
+  }
+  const more = isNumber(value.moreRefs) && Number.isSafeInteger(value.moreRefs) && value.moreRefs > 0
+  return { box, refs, ...(more ? { moreRefs: value.moreRefs as number } : {}), cuts: [...cuts], scans: [...scans], bare: value.bare }
 }
 
 /** The longest account of how a value was taken that a dimension keeps. */
@@ -290,7 +360,7 @@ function strokeOf(base: Omit<StrokeMark, 'kind' | 'space' | 'anchor'>, anchor: A
 }
 
 /** An anchor needs its point; what else it says is kept when it is of the right sort. */
-function anchorOf(value: unknown): Anchor | null {
+export function anchorOf(value: unknown): Anchor | null {
   if (!isRecord(value)) return null
   const point = tuple<Vec3>(value.point, 3)
   if (!point) return null

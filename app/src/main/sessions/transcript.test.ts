@@ -263,6 +263,30 @@ describe('what is sent', () => {
     expect(t.items().filter((i) => i.kind === 'user').map((i) => i.id)).toContain(t.taken()!.item)
   })
 
+  it('says which prompts the last hook took up, and which still wait for theirs', () => {
+    const t = new Transcript()
+    expect(t.takenItems()).toEqual([])
+    const first = t.userSent(text('first'), false, 'uuid-1')
+    const second = t.userSent(text('second'), true, 'uuid-2')
+    expect(t.awaitsHook(first.id)).toBe(true)
+    expect(t.awaitsHook(second.id)).toBe(true)
+    t.context({ text: '', sentMarkIds: [], prompt: 'first' })
+    expect(t.takenItems()).toEqual([first.id])
+    expect(t.awaitsHook(first.id)).toBe(false)
+    expect(t.awaitsHook(second.id)).toBe(true)
+    t.context({ text: '', sentMarkIds: [], prompt: 'second' })
+    expect(t.takenItems()).toEqual([second.id])
+    expect(t.awaitsHook(second.id)).toBe(false)
+    t.context({ text: '', sentMarkIds: [], prompt: 'typed elsewhere' })
+    expect(t.takenItems()).toEqual([])
+  })
+
+  it('does not say a command waits for a hook: it has none', () => {
+    const t = new Transcript()
+    const command = t.userSent(text('/compact'), false, 'uuid-1')
+    expect(t.awaitsHook(command.id)).toBe(false)
+  })
+
   it('says no prompt was taken when a hook matches none that waits, not the one before', () => {
     const t = new Transcript()
     const first = t.userSent(text('first'), false, 'uuid-1')
@@ -283,15 +307,24 @@ describe('what is sent', () => {
     expect(t.userSent([...text('look'), img], false)).toMatchObject({ text: 'look' })
   })
 
-  it('keeps what the ink of a drawing lies over on the user item, as data, and the caption it came with out of its text', () => {
+  it('keeps what the ink of each note lies over on the user item, as data, and the words of the notes out of its text', () => {
     const t = new Transcript({ redact: (x) => x.replaceAll('secret-token', '[redacted]') })
     const img = { type: 'image', source: { type: 'base64', media_type: 'image/png', data: PNG_1X1 } } as const
-    const over = { revision: 3, over: { faces: ['tub/F3', 'secret-token/F1'], cuts: ['lid'], scans: [], bare: [2], partly: [1], strokes: 2 } }
-    const item = t.userSent([...text('thicker'), ...text('Picture: the view as the person saw it when they drew on it, on r3 (...)'), img], false, undefined, over)
-    expect(item).toMatchObject({ kind: 'user', text: 'thicker', drawing: { revision: 3, over: { faces: ['tub/F3', '[redacted]/F1'], cuts: ['lid'], bare: [2], partly: [1], strokes: 2 } } })
-    expect(JSON.stringify(item)).not.toContain('Picture: the view')
-    // A prompt with none has no field.
-    expect(t.userSent(text('plain'), false)).not.toHaveProperty('drawing')
+    const over = [
+      { note: 'M4', revision: 3, over: { faces: ['tub/F3', 'secret-token/F1'], cuts: ['lid'], scans: [], bare: [2], partly: [1], strokes: 2 } },
+      { note: 'M5', revision: 3, over: null }
+    ]
+    const words = (id: string): string => `${id} · view note · draft: "thicker" (drawn on build 3)\nIt was seen from {"position":[1,2,3]}: look draws it again.`
+    // The first note has a picture, the second none: its words come after a picture and before nothing.
+    const item = t.userSent([...text('thicker'), ...text(words('M4')), img, ...text(words('M5'))], false, undefined, over)
+    expect(item).toMatchObject({ kind: 'user', text: 'thicker', notes: [{ note: 'M4', over: { faces: ['tub/F3', '[redacted]/F1'], cuts: ['lid'], bare: [2], partly: [1], strokes: 2 } }, { note: 'M5', over: null }] })
+    expect(JSON.stringify(item)).not.toContain('view note')
+    expect(JSON.stringify(item)).not.toContain('position')
+    // A prompt of notes alone has no text of its own.
+    expect(t.userSent([...text(words('M4')), img], false, undefined, over)).toMatchObject({ text: '' })
+    // A prompt with none has no field, and one the person typed that begins like the words of a note keeps them.
+    expect(t.userSent(text('plain'), false)).not.toHaveProperty('notes')
+    expect(t.userSent(text(words('M9')), false)).toMatchObject({ text: words('M9') })
   })
 
   it('names the file in reference/ of a picture of the first prompt, and of no other picture', () => {

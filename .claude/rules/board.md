@@ -36,12 +36,17 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 - `<object>/.torno/board/pictures/` holds the picture and sketch files (`p-<12 hex>.png|jpg`) with a `.gitignore` of `*` of
   its own, written by whoever makes the folder (`pictures.ts`, as `views/` and `scans/` do). A picture may show the real
   world, so **pictures do not travel**: a board cloned without them shows a "picture not on this computer" placeholder
-  and sends no picture. A file is not deleted with its card, so that undo brings the card back whole; the files no card
-  names are swept once for each project in a run, when it is first opened (`PictureSweep`, from `onObjectOpened`), before the
-  window has any undo of it: the window forgets its undo stacks and cameras when a workspace is opened or left. Files made in
-  the last minute are left. The sweep is made in the board's turn and counts what was taken off the board in this run as named.
+  and sends no picture. A file is not deleted with its card, so that undo brings the card back whole; **only files torno itself dropped are ever
+  swept, never "whatever the board does not name"** (a branch switch brings a board that names other pictures, and the
+  pictures are not in git): `BoardStore` lists a picture in `board/pictures/dropped.json` (`main/dropped.ts`, written by
+  `board/dropped.ts` `dropPictures`, inside `changeWith`, once the board is written) when a change lets go of it (a card
+  taken off, a sketch drawn on again). The files on that list are swept once for each project in a run, when it is first
+  opened (`PictureSweep`, from `onObjectOpened`), before the window has any undo of it: the window forgets its undo stacks
+  and cameras when a workspace is opened or left. A listed file goes only if no card names it now and nothing taken off the
+  board in this run does, it is a plain file, and it was changed more than a minute ago; it then comes off the list, as does
+  a name a card holds again or a file that is gone. An unlisted file is never deleted. The sweep is made in the board's turn.
   A board that could not be read whole is not swept that run, and on every run the pictures named in a `board.json.corrupt-*` or
-  `board.json.dropped-*` file beside it are kept (read capped and never through a link): pictures are ignored by git and that
+  `board.json.dropped-*` file beside it are kept (read capped and never through a link, and stay listed): pictures are ignored by git and that
   file is the one place that still says which they are.
 - `<object>/.torno/board/told.json` (ignored through `ensureIgnored`) holds what revision of each card the agent was told. It
   is never tracked, so the tracked file carries no counters. It is written only once a prompt that carried the board line
@@ -92,7 +97,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 
 - There is **one text form** of a board, `board/text.ts` (`boardText`), shared by what goes with a prompt and what the `board` tool
   answers: the frames by name, then their cards in reading order (left to right, top to bottom; tops within half a card's
-  height are one row), each by id with what it says (a text card's text, a mark's ref and note, a build's id and line, the
+  height are one row), each by id with what it says (a text card's text, a mark's ref and note, a view note's card by the note's line, `describeMark`: its comment, how many labels and references, the build its picture is of, a build's id and line, the
   Params' values, and so on), then the arrows (`C3 → C7: like this`). Hidden cards are left out.
 - **Every prompt** carries one line (`boardLine`, in `contextFor`, inside `CONTEXT_LIMIT`): how many cards there are, how many are
   new, frames by name, and "Read it with `board`". It never carries the board. A card is new when it was added or what it
@@ -106,6 +111,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   with the head and the notes, and past that it ends with the sentence that says to read the rest with `board`.
   The ids sent are card ids only (never an arrow's); the line under the prompt says what went ("board: Latch, 3 cards, 1
   arrow").
+- A mark's card for a view note shows the picture with the ink (`notes.picture(…, 'ink')` through `useNotePicture`, not the board's `pictures/`: it is of this computer, "picture not on this computer" otherwise) and its comment and status (`faces.ts` `markFace`); the card appears by itself as any mark's does (`follow.ts`), and is never news to the agent, as no mark card is.
 - `C<n>` is a ref like `M<n>` (`refsIn`): the chat shows it as a chip (`RefChip`), and a click shows the board with that card
   selected. One the board does not have, or has hidden, is only text.
 
@@ -115,6 +121,6 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   panning and zooming never draw the cards again (`__tornoBoardRenders` counts it under test). The 3D view stays mounted and
   stops drawing while the board is shown.
 - What a double click on a card does is `ui/projectBoard/opens.ts`, a table held by its test: the brief opens in the person's
-  editor, a photo opens large, a mark, scan, build, view and the Params go to the model, a sketch opens the ink pad on its
+  editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a sketch opens the ink pad on its
   drawing, a text edits and a frame renames (the person's only). The "Pin to board" buttons ask main (`pinToBoard`), which
   decides.

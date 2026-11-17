@@ -14,8 +14,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## What crosses processes (root `CLAUDE.md`)
 
-- A mark is a pin, a pick, an arrow, a stroke, a shape, a dimension or a region
-  of a scan, with a note (`app/src/shared/marks.ts`). Ids are `M1`, `M2`, … per object, never reused,
+- A mark is a pin, a pick, an arrow, a stroke, a shape, a dimension, a region
+  of a scan or a view note (a picture of the view with ink, labels and references; its pictures are files in
+  `.torno/notes/`, never in marks.json; its anchor is optional), with a note (`app/src/shared/marks.ts`). Ids are `M1`, `M2`, … per object, never reused,
   given by main only.
 - Main is the only writer of `<object>/.torno/marks.json`
   (`src/main/marks/store.ts`): one change at a time per object, written
@@ -36,6 +37,20 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Marks (`app/src/main`)
 
+- A view note's card on the board is told to the agent as the note's line (`describeMark`, the same as the `marks` tool's first line), never as
+  `(note, on <ref>)` of the other marks (`main/board/text.ts` `markText`).
+- A view note is made and edited through `notes:make` and `notes:edit` (`main/notes/ipc.ts`): the window sends the pictures
+  and what the ink lies over, main checks them (`checkNoteDraft`, `checkNoteEdit`: the caps of a note, the checks of a
+  drawing), writes the files, then calls `MarkStore.addNote` / `editNote`. A note keeps up to 2000 strokes
+  (`MOST_NOTE_STROKES`), and only the first `MOST_STROKES_TOLD` get a line of what they lie over (`under`), then one per
+  label with an arrow. `MarkStore.withNoteFiles` runs the sweep of `.torno/notes/` in the turn of the marks, naming the
+  files of the notes it has (`live`) and of those removed in this run (`kept`: `remove` records them; `forget` clears them).
+  **Only files torno itself dropped are swept** (`main/dropped.ts`): `remove` of a note, `editNote` (the ink it replaced, the
+  references it took away) and a failed `notes:make` / `notes:edit` (what it wrote) list the files in
+  `.torno/notes/dropped.json` (`notes/dropped.ts`); the sweep deletes a listed file only if no note names it and this run's
+  undo cannot bring it back, then takes it off the list. A file not on the list is never deleted. `add` refuses a note
+  (`kind: 'note'`): only `addNote` keeps one, with files main named. `editNote` sets `under` to `[]` when it changes the
+  strokes or the labels and does not say it anew.
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
   the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal
   that names the first that is not the agent's to acknowledge. Only the person asks it (`marks:acknowledge`);

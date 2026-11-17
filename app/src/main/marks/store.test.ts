@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, PinMark, Replacement, ShapeMark } from '../../shared/marks'
+import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark } from '../../shared/marks'
 import * as file from './file'
+import { droppedNames } from '../dropped'
+import { isNoteFile } from '../notes/files'
 import { MarkStore } from './store'
 
 // The real file module, with its writes counted.
@@ -1024,5 +1026,198 @@ describe('what a dimension measured on the builds of this run', () => {
     expect((await shownOf()).history).toEqual([{ revision: 3, value: 6 }])
     store.forget()
     expect((await shownOf()).history).toBeUndefined()
+  })
+})
+
+describe('a view note', () => {
+  const under = { box: [10, 10, 60, 40] as [number, number, number, number], refs: [{ ref: 'base/F4' }], cuts: [], scans: [], bare: false }
+  const note = (over: object = {}): NewNote =>
+    ({
+      ...BASE,
+      note: 'too thin here',
+      kind: 'note',
+      anchor: ANCHOR,
+      picture: 'n-0123456789ab.png',
+      ink: 'n-0123456789ab.ink.png',
+      size: { w: 800, h: 600 },
+      strokes: [{ width: 4, points: [[10, 10], [60, 40]] }],
+      inkColour: '#ff00ff',
+      labels: [],
+      under: [under],
+      references: [],
+      ...over
+    }) as unknown as NewNote
+
+  it('is added as a draft of the person, with its number', async () => {
+    const added = await store.addNote('bracket', note())
+    expect(added).toMatchObject({ id: 'M1', kind: 'note', author: 'user', status: 'draft', anchorState: 'ok', note: 'too thin here', picture: 'n-0123456789ab.png' })
+    expect(onDisk('bracket')).toEqual({ next: 2, marks: [added] })
+    expect(changes).toHaveLength(1)
+  })
+
+  it('is never added through add, which is what the window asks for: only addNote keeps one, its files being main\'s', async () => {
+    await expect(store.add('bracket', note())).rejects.toThrow(/note/)
+    expect(await store.list('bracket')).toEqual([])
+  })
+
+  it('names the files of its notes, and apart those of the notes removed in this run, to whoever sweeps them', async () => {
+    await store.addNote('bracket', note({ picture: 'n-aaaaaaaaaaaa.png', ink: 'n-aaaaaaaaaaaa.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.jpg', comment: '' }] }))
+    await store.addNote('bracket', note({ picture: 'n-bbbbbbbbbbbb.png', ink: 'n-bbbbbbbbbbbb.ink.png' }))
+    await store.add('bracket', pin())
+    await store.remove('bracket', 'M3')
+    const seen = await store.withNoteFiles('bracket', async ({ live, kept }, dir, problem) => ({ live: [...live].sort(), kept: [...kept], dir, problem }))
+    expect(seen).toEqual({ live: ['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'n-bbbbbbbbbbbb.ink.png', 'n-bbbbbbbbbbbb.png', 'r-aaaaaaaaaaaa.jpg'], kept: [], dir: dirs.bracket, problem: null })
+    await store.remove('bracket', 'M2')
+    expect(await store.withNoteFiles('bracket', async ({ live, kept }) => ({ live: [...live].sort(), kept: [...kept].sort() }))).toEqual({ live: ['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'r-aaaaaaaaaaaa.jpg'], kept: ['n-bbbbbbbbbbbb.ink.png', 'n-bbbbbbbbbbbb.png'] })
+  })
+
+  it('forgets the files of the notes removed when the workspace is left, and keeps a restored one named', async () => {
+    await store.addNote('bracket', note())
+    await store.remove('bracket', 'M1')
+    await store.restore('bracket', 'M1')
+    const both = ['n-0123456789ab.ink.png', 'n-0123456789ab.png']
+    expect(await store.withNoteFiles('bracket', async ({ live, kept }) => ({ live: [...live].sort(), kept: [...kept].sort() }))).toEqual({ live: both, kept: both })
+    await store.remove('bracket', 'M1')
+    store.forget()
+    expect(await store.withNoteFiles('bracket', async ({ live, kept }) => [...live, ...kept])).toEqual([])
+  })
+
+  it('lists the files torno drops in the folder of the notes: those of a note removed, the ink an edit replaced, the references it took away', async () => {
+    mkdirSync(join(dirs.bracket, '.torno', 'notes'), { recursive: true })
+    const listed = (): Promise<string[]> => droppedNames(dirs.bracket, ['notes'], isNoteFile).then((names) => names.sort())
+    await store.addNote('bracket', note({ picture: 'n-aaaaaaaaaaaa.png', ink: 'n-aaaaaaaaaaaa.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.jpg', comment: '' }, { file: 'r-bbbbbbbbbbbb.jpg', comment: '' }] }))
+    expect(await listed()).toEqual([])
+    // A new ink and one reference less: the old ink and that reference are dropped, the plain picture and the other reference are not.
+    await store.editNote('bracket', 'M1', { ink: 'n-cccccccccccc.ink.png', references: [{ file: 'r-aaaaaaaaaaaa.jpg', comment: '' }] })
+    expect(await listed()).toEqual(['n-aaaaaaaaaaaa.ink.png', 'r-bbbbbbbbbbbb.jpg'])
+    // A change that lets go of nothing lists nothing.
+    await store.editNote('bracket', 'M1', { note: 'thicker' })
+    expect(await listed()).toEqual(['n-aaaaaaaaaaaa.ink.png', 'r-bbbbbbbbbbbb.jpg'])
+    await store.remove('bracket', 'M1')
+    expect(await listed()).toEqual(['n-aaaaaaaaaaaa.ink.png', 'n-aaaaaaaaaaaa.png', 'n-cccccccccccc.ink.png', 'r-aaaaaaaaaaaa.jpg', 'r-bbbbbbbbbbbb.jpg'])
+    // Nothing but the list was written there: the pictures are not made by the store.
+    expect(readdirSync(join(dirs.bracket, '.torno', 'notes'))).toEqual(['dropped.json'])
+  })
+
+  it('says what was wrong with its marks file to the sweep, which then leaves the files alone', async () => {
+    mkdirSync(join(dirs.bracket, '.torno'))
+    writeFileSync(join(dirs.bracket, '.torno', 'marks.json'), 'not json')
+    expect(await store.withNoteFiles('bracket', async (_named, _dir, problem) => problem)).toMatch(/could not be read/)
+  })
+
+  it('waits its turn: no change lands while the sweep runs', async () => {
+    const order: string[] = []
+    const sweeping = store.withNoteFiles('bracket', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      order.push('swept')
+    })
+    const added = store.addNote('bracket', note()).then(() => order.push('added'))
+    await Promise.all([sweeping, added])
+    expect(order).toEqual(['swept', 'added'])
+  })
+
+  it('is added without an anchor when the ink lay over no face', async () => {
+    const { anchor: _anchor, ...bare } = note() as NewNote & { anchor?: Anchor }
+    expect(await store.addNote('bracket', bare as NewNote)).not.toHaveProperty('anchor')
+  })
+
+  it('takes nothing main alone says, and is the person’s whoever asks', async () => {
+    const added = await store.addNote('bracket', { ...note(), author: 'agent', sentBefore: true, reopened: true, checkedRevision: 9, resolvedBy: 'agent', acknowledged: true, status: 'resolved' } as never)
+    expect(added).toMatchObject({ author: 'user', status: 'draft' })
+    for (const key of ['sentBefore', 'reopened', 'checkedRevision', 'resolvedBy', 'acknowledged']) expect(added).not.toHaveProperty(key)
+  })
+
+  it('is refused for a file name that is not main’s, and takes no number', async () => {
+    await expect(store.addNote('bracket', note({ picture: '../../etc/passwd' }))).rejects.toThrow(/not a mark/)
+    expect(saves).not.toHaveBeenCalled()
+    expect((await store.addNote('bracket', note())).id).toBe('M1')
+  })
+
+  it('is edited: its comment, labels, strokes, what they lie over, references and its inked file', async () => {
+    await store.addNote('bracket', note())
+    const edited = await store.editNote('bracket', 'M1', {
+      note: 'thicker',
+      labels: [{ x: 5, y: 6, text: 'here' }],
+      strokes: [{ width: 2, points: [[1, 1], [2, 2]] }],
+      under: [under, under],
+      references: [{ file: 'r-0123456789ab.png', comment: 'like this' }],
+      ink: 'n-0123456789ab.ink.png'
+    })
+    expect(edited).toMatchObject({ note: 'thicker', labels: [{ text: 'here' }], strokes: [{ width: 2 }], references: [{ comment: 'like this' }] })
+    expect(onDisk('bracket').marks[0]).toEqual(edited)
+    // It does not change what main alone names, nor the pictures' plain file.
+    expect(edited.status).toBe('draft')
+  })
+
+  it('forgets what its ink lay over when its strokes or labels change and the edit does not say it anew', async () => {
+    await store.addNote('bracket', note())
+    const moved = await store.editNote('bracket', 'M1', { strokes: [{ width: 2, points: [[1, 1], [2, 2]] }], ink: 'n-0123456789ab.ink.png' })
+    expect(moved).toMatchObject({ under: [] })
+    await store.editNote('bracket', 'M1', { under: [under] })
+    expect(await store.editNote('bracket', 'M1', { labels: [{ x: 5, y: 6, text: 'here' }] })).toMatchObject({ under: [] })
+    // A comment alone leaves it, and an edit that says it anew keeps what it says.
+    await store.editNote('bracket', 'M1', { under: [under] })
+    expect(await store.editNote('bracket', 'M1', { note: 'thicker' })).toMatchObject({ under: [under] })
+    expect(await store.editNote('bracket', 'M1', { labels: [], under: [under, under] })).toMatchObject({ under: [under, under] })
+  })
+
+  it('refuses an edit to anything but a note, to a file that is not main’s, and to a note that is not there', async () => {
+    await store.add('bracket', pin('here'))
+    await store.addNote('bracket', note()) // M2
+    await expect(store.editNote('bracket', 'M1', { note: 'x' })).rejects.toThrow(/M1 is a pin, not a note/)
+    await expect(store.editNote('bracket', 'M2', { ink: 'x.png' })).rejects.toThrow(/not a valid change/)
+    await expect(store.editNote('bracket', 'M9', { note: 'x' })).rejects.toThrow(/no mark M9/)
+    expect(((await store.list('bracket'))[1] as NoteMark).ink).toBe('n-0123456789ab.ink.png')
+  })
+
+  it('is a draft again, and reopened, when a note the agent was sent is edited', async () => {
+    await store.addNote('bracket', note())
+    await store.markSent('bracket')
+    const edited = await store.editNote('bracket', 'M1', { note: 'thicker' })
+    expect(edited).toMatchObject({ status: 'draft', sentBefore: true, reopened: true })
+    expect(onDisk('bracket').marks[0]).toMatchObject({ status: 'draft', reopened: true })
+  })
+
+  it('is reopened when edited after the agent resolved it, and forgets who resolved it', async () => {
+    await store.addNote('bracket', note())
+    await store.markSent('bracket')
+    await store.update('bracket', 'M1', { status: 'resolved' }, 'agent')
+    const edited = await store.editNote('bracket', 'M1', { references: [{ file: 'r-0123456789ab.jpg', comment: '' }] })
+    expect(edited).toMatchObject({ status: 'draft', reopened: true })
+    expect(edited).not.toHaveProperty('resolvedBy')
+  })
+
+  it('stays as it is, and a draft stays a draft, when the edit changes nothing', async () => {
+    await store.addNote('bracket', note())
+    expect(await store.editNote('bracket', 'M1', { note: 'too thin here' })).not.toHaveProperty('reopened')
+    await store.markSent('bracket')
+    saves.mockClear()
+    expect(await store.editNote('bracket', 'M1', { note: 'too thin here' })).toMatchObject({ status: 'sent' })
+    expect(saves).not.toHaveBeenCalled()
+  })
+
+  it('is removed and put back whole', async () => {
+    const added = await store.addNote('bracket', note())
+    await store.addNote('bracket', note())
+    await store.remove('bracket', 'M1')
+    expect(ids(await store.list('bracket'))).toEqual(['M2'])
+    expect(await store.restore('bracket', 'M1')).toEqual(added)
+    expect(ids(await store.list('bracket'))).toEqual(['M1', 'M2'])
+    expect((await store.list('bracket'))[0]).toEqual(added)
+  })
+
+  it('is resolved by the agent as any mark is, and nothing else of it changes: not its text, its ink or its files', async () => {
+    const added = await store.addNote('bracket', note())
+    const resolved = await store.update('bracket', 'M1', { status: 'resolved', resolvedNote: 'thickened to 3 mm' }, 'agent')
+    expect(resolved).toEqual({ ...added, status: 'resolved', resolvedNote: 'thickened to 3 mm', resolvedBy: 'agent' })
+    // What the agent is not given a tool for is not taken from a patch either: a note's files and ink are the person's alone (`editNote`).
+    await expect(store.update('bracket', 'M1', { ink: 'n-ffffffffffff.ink.png', strokes: [] } as never, 'agent')).resolves.toMatchObject({ ink: (added as NoteMark).ink, strokes: (added as NoteMark).strokes })
+  })
+
+  it('has its anchor checked and its picture left alone by a check against a build', async () => {
+    await store.addNote('bracket', note())
+    const [mark] = await store.list('bracket')
+    await store.reanchor('bracket', [{ id: 'M1', judged: [ANCHOR], anchors: [{ ...ANCHOR, ref: 'base/F9' }], anchorState: 'drifted', checkedRevision: 2 }])
+    expect(await store.list('bracket')).toEqual([{ ...mark, anchor: { ...ANCHOR, ref: 'base/F9' }, anchorState: 'drifted', checkedRevision: 2 }])
   })
 })

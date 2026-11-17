@@ -45,6 +45,46 @@ describe('number', () => {
   })
 })
 
+describe('describeMark of a view note', () => {
+  const note = (over: object = {}): Mark =>
+    mark({
+      id: 'M4',
+      kind: 'note',
+      note: 'too thin  here',
+      revision: 12,
+      picture: 'n-0123456789ab.png',
+      ink: 'n-0123456789ab.ink.png',
+      size: { w: 800, h: 600 },
+      strokes: [],
+      inkColour: '#ff00ff',
+      labels: [{ x: 1, y: 1, text: 'a' }, { x: 2, y: 2, text: 'b' }, { x: 3, y: 3, text: 'c' }],
+      under: [],
+      references: [{ file: 'r-0123456789ab.png', comment: 'x' }, { file: 'r-0123456789ac.jpg', comment: '' }],
+      ...over
+    })
+
+  it('says what it holds and the build it was drawn on', () => {
+    expect(describeMark(note())).toBe('M4 · view note · draft: "too thin here" (3 labels, 2 references, drawn on build 12)')
+  })
+
+  it('says its status, the tag it was given and what the last build did to its anchor', () => {
+    expect(describeMark(note({ status: 'sent', anchorState: 'orphaned' }), { tag: 'changed' })).toBe('(changed) M4 · view note · sent: "too thin here" (3 labels, 2 references, drawn on build 12) [its part is gone]')
+  })
+
+  it('says only what it has', () => {
+    expect(describeMark(note({ labels: [{ x: 1, y: 1, text: 'a' }], references: [], note: '' }))).toBe('M4 · view note · draft (1 label, drawn on build 12)')
+    expect(describeMark(note({ labels: [], references: [], note: '' }))).toBe('M4 · view note · draft (drawn on build 12)')
+  })
+
+  it('says when nothing has checked it against the last build', () => {
+    expect(describeMark(note({ anchor: { point: [1, 2, 3], ref: 'base/F1' } }), { revision: 13 })).toContain('[not checked against r13]')
+  })
+
+  it('is data as it is held', () => {
+    expect(markData(note(), 12)).toMatchObject({ id: 'M4', kind: 'note', labels: expect.any(Array) })
+  })
+})
+
 describe('describeMark', () => {
   it('says what a pin is on, where, and its note', () => {
     const pin = mark({

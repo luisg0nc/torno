@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PICTURE_NAME } from '../../shared/board'
 import { utimesSync } from 'node:fs'
 import { namedAside, PictureSweep, readPicture, savePicture, sweepPictures } from './pictures'
+import { droppedNames } from '../dropped'
+import { dropPictures, isPictureName } from './dropped'
 import { BoardStore } from './store'
 
 /** A PNG header with this size: all the header check reads. */
@@ -90,18 +92,24 @@ describe('readPicture', () => {
   })
 })
 
+const none = { live: new Set<string>(), kept: new Set<string>() }
+
 describe('sweepPictures', () => {
-  it('removes the pictures no card names and nothing else', async () => {
+  it('removes the pictures torno dropped that no card holds, and nothing else', async () => {
     const keep = await savePicture(dir, png(30, 20))
     const lose = await savePicture(dir, png(31, 20))
+    const unlisted = await savePicture(dir, png(32, 20))
     writeFileSync(join(folder(), 'notes.txt'), 'the person’s')
-    await sweepPictures(dir, new Set([keep]))
-    expect(readdirSync(folder()).sort()).toEqual(['.gitignore', keep, 'notes.txt'].sort())
+    await dropPictures(dir, [keep, lose, 'notes.txt'])
+    await sweepPictures(dir, { live: new Set([keep]), kept: new Set() })
+    // The one a card holds stays and is off the list; a file torno never listed stays, whatever no card names.
+    expect(readdirSync(folder()).sort()).toEqual(['.gitignore', keep, unlisted, 'notes.txt'].sort())
     expect(existsSync(join(folder(), lose))).toBe(false)
+    expect(await droppedNames(dir, ['board', 'pictures'], isPictureName)).toEqual([])
   })
 
   it('does nothing for a project with no board folder', async () => {
-    await sweepPictures(dir, new Set())
+    await sweepPictures(dir, none)
     expect(existsSync(join(dir, '.torno'))).toBe(false)
   })
 })
@@ -112,9 +120,11 @@ describe('sweepPictures with a grace', () => {
     const old = await savePicture(dir, png(31, 20))
     const long = new Date(Date.now() - 3_600_000)
     utimesSync(join(folder(), old), long, long)
-    await sweepPictures(dir, new Set(), 60_000)
+    await dropPictures(dir, [fresh, old])
+    await sweepPictures(dir, none, 60_000)
     expect(existsSync(join(folder(), fresh))).toBe(true)
     expect(existsSync(join(folder(), old))).toBe(false)
+    expect(await droppedNames(dir, ['board', 'pictures'], isPictureName)).toEqual([fresh])
   })
 })
 
@@ -130,18 +140,23 @@ describe('PictureSweep', () => {
     longAgo(name)
     return name
   }
-  const card = (store: BoardStore, picture: string) => store.person('bracket', { op: 'add', card: { kind: 'picture', x: 0, y: 0, w: 10, h: 10, picture } })
+  const card = (store: BoardStore, picture: string, kind: 'picture' | 'sketch' = 'picture') => store.person('bracket', { op: 'add', card: { kind, x: 0, y: 0, w: 10, h: 10, picture } })
   const aside = (name: string, text: string): void => writeFileSync(join(dir, '.torno', 'board', name), text)
+  const listed = (): Promise<string[]> => droppedNames(dir, ['board', 'pictures'], isPictureName).then((n) => n.sort())
 
-  it('removes the pictures no card names, once for a project in a run, and again after forget', async () => {
+  it('removes the pictures torno dropped in an earlier run, once for a project in a run, and again after forget', async () => {
     const keep = await kept()
     const lose = await kept()
     const store = storeOf()
     await card(store, keep)
-    const sweep = new PictureSweep(store)
+    await card(store, lose)
+    await store.person('bracket', { op: 'remove', ids: ['C2'] })
+    // The next run: nothing remembers the removal but the list.
+    const sweep = new PictureSweep(storeOf())
     await sweep.once('bracket', dir)
     expect(readdirSync(folder()).sort()).toEqual(['.gitignore', keep].sort())
     const later = await kept()
+    await dropPictures(dir, [later])
     await sweep.once('bracket', dir)
     expect(existsSync(join(folder(), later))).toBe(true)
     sweep.forget()
@@ -150,8 +165,41 @@ describe('PictureSweep', () => {
     expect(existsSync(join(folder(), lose))).toBe(false)
   })
 
+  it('never removes a picture because no card names it: a branch switched to has other cards', async () => {
+    const mine = await kept()
+    const other = await kept()
+    const store = storeOf()
+    await card(store, mine)
+    await new PictureSweep(storeOf()).once('bracket', dir)
+    expect(readdirSync(folder()).sort()).toEqual(['.gitignore', mine, other].sort())
+    // The board of the other branch has neither: still no sweep of either.
+    writeFileSync(join(dir, '.torno', 'board', 'board.json'), JSON.stringify({ next: 1, cards: [], arrows: [] }))
+    await new PictureSweep(storeOf()).once('bracket', dir)
+    expect(readdirSync(folder()).sort()).toEqual(['.gitignore', mine, other].sort())
+  })
+
+  it('lists the picture of a card taken off, and the one a sketch had before it was drawn on again', async () => {
+    const a = await kept()
+    const b = await kept()
+    const c = await kept()
+    const store = storeOf()
+    await card(store, a)
+    await card(store, b, 'sketch')
+    expect(await listed()).toEqual([])
+    await store.person('bracket', { op: 'edit', id: 'C2', picture: c })
+    expect(await listed()).toEqual([b])
+    await store.person('bracket', { op: 'remove', ids: ['C1'] })
+    expect(await listed()).toEqual([a, b].sort())
+    // Brought back, the card holds its picture again: the next sweep takes it off the list, and not off the disk.
+    await store.person('bracket', { op: 'restore', ids: ['C1'] })
+    await new PictureSweep(storeOf()).once('bracket', dir)
+    expect(readdirSync(folder()).sort()).toEqual(['.gitignore', a, c].sort())
+    expect(await listed()).toEqual([])
+  })
+
   it('sweeps nothing of a board that could not be read whole, that run', async () => {
     const name = await kept()
+    await dropPictures(dir, [name])
     writeFileSync(join(dir, '.torno', 'board', 'board.json'), '<<<<<<< HEAD')
     await new PictureSweep(storeOf()).once('bracket', dir)
     expect(existsSync(join(folder(), name))).toBe(true)
@@ -160,6 +208,7 @@ describe('PictureSweep', () => {
   it('keeps, on the next launch, the pictures a file kept aside names: the new board is empty and reads cleanly', async () => {
     const mine = await kept()
     const other = await kept()
+    await dropPictures(dir, [mine, other])
     const board = JSON.stringify({ next: 3, cards: [{ id: 'C1', kind: 'picture', x: 0, y: 0, w: 10, h: 10, by: 'person', picture: mine }, { id: 'bad' }], arrows: [] })
     mkdirSync(join(dir, '.torno', 'board'), { recursive: true })
     writeFileSync(join(dir, '.torno', 'board', 'board.json'), `<<<<<<< HEAD\n${board}\n>>>>>>> other`)
@@ -176,9 +225,10 @@ describe('PictureSweep', () => {
     expect(existsSync(join(folder(), other))).toBe(false)
   })
 
-  it('keeps what a dropped- file names too, and still sweeps what no file names', async () => {
+  it('keeps what a dropped- file names too, and still sweeps what is listed and no file names', async () => {
     const left = await kept()
     const stray = await kept()
+    await dropPictures(dir, [left, stray])
     mkdirSync(join(dir, '.torno', 'board'), { recursive: true })
     aside('board.json.dropped-2026-11-16T10-00-00-000Z', JSON.stringify({ cards: [{ picture: left }] }))
     await new PictureSweep(storeOf()).once('bracket', dir)
@@ -188,6 +238,7 @@ describe('PictureSweep', () => {
 
   it('does not follow a link planted as a file kept aside', async () => {
     const name = await kept()
+    await dropPictures(dir, [name])
     mkdirSync(join(dir, '.torno', 'board'), { recursive: true })
     writeFileSync(join(dir, 'elsewhere.txt'), name)
     symlinkSync(join(dir, 'elsewhere.txt'), join(dir, '.torno', 'board', 'board.json.corrupt-link'))
@@ -204,7 +255,7 @@ describe('PictureSweep', () => {
     expect(await namedAside(dir)).toEqual(new Set([early]))
   })
 
-  it('counts a card taken off the board in this run as named: undo brings it back with its file', async () => {
+  it('counts a card taken off the board in this run as kept: undo brings it back with its file', async () => {
     const name = await kept()
     const store = storeOf()
     await card(store, name)

@@ -146,6 +146,7 @@ const marksInput = {
   ids: z.array(z.string()).optional().describe('Only these marks, by number: ["M4"]. Whatever their status; a stroke is then given with all its points.'),
   limit: z.number().int().optional().describe('The most marks to list. Default 50, at most 200.'),
   next: z.string().optional().describe('Where to go on after a list that left marks out: the number the answer gives under next (M51).'),
+  pictures: z.boolean().optional().describe("Also send the pictures of the view notes it lists: each note's picture with the person's ink on it, then its reference pictures, at most 6 in all, each at most 1280 px on its long edge; the rest are named. Default false: they are named in the answer."),
   layout: z.string().optional().describe(`${layoutText} A region of a scan is told where the scan stands in that layout; every other mark is in its own.`)
 }
 
@@ -368,6 +369,7 @@ export interface MarksArgs {
   ids?: string[]
   limit?: number
   next?: string
+  pictures?: boolean
   layout?: string
 }
 export interface DescribeArgs {
@@ -460,7 +462,7 @@ export const TOOLS = {
     annotations: READ_ONLY,
     meta: ALWAYS_LOADED,
     description:
-      "Returns JSON with the revision of the build it is of, a stale note when a newer build is running or failed, and the marks on this project, the user's and your own: each with its number (M3), kind, note, status, layout, the ref and descriptor of what it is on, its coordinates in mm in the frame of its layout, for a stroke a summary of its points (pointsSummary: count, first, last and box; all of them only when you name it in ids), and a line that says it in words; a region is a part of a scan the user painted and named with its note (\"wiring loom, can be pushed aside\"): it holds scan, triangles, area, its size along its own axes and whether it is flat, and, where its scan is aligned in the layout asked (toldIn), centroid, axes, the box it lies within (bbox) and plane in the frame of that layout, all approximate, with alignment saying in a word how that alignment stands (aligned, rough, in doubt, not checked), and its number is what scan_clash takes in ignore, scan_deviation in region and measure as an end; a dimension also holds value, how, points and verdict when they were measured on that revision (its measuredRevision), wasValue and wasRevision in their place when what it holds is of an older build, and resolvedValue, resolvedVerdict and resolvedOnRevision once it is resolved and no longer measured. Marks are how the user points at the part; new ones are told to you with the prompt, a line each, so call this for their data, or when you are told that more marks were left out; it lists the open ones, 50 at a time (omitted says how many were left out and next where to go on; status resolved or ids gives the others). An anchorState other than ok means the build moved the surface or dropped the part, and a checkedRevision that is absent or is not the revision means the mark has not been checked against that build: either way the ref may no longer name what the mark is on.",
+      "Returns JSON with the revision of the build it is of, a stale note when a newer build is running or failed, and the marks on this project, the user's and your own: each with its number (M3), kind, note, status, layout, the ref and descriptor of what it is on, its coordinates in mm in the frame of its layout, for a stroke a summary of its points (pointsSummary: count, first, last and box; all of them only when you name it in ids), and a line that says it in words; a region is a part of a scan the user painted and named with its note (\"wiring loom, can be pushed aside\"): it holds scan, triangles, area, its size along its own axes and whether it is flat, and, where its scan is aligned in the layout asked (toldIn), centroid, axes, the box it lies within (bbox) and plane in the frame of that layout, all approximate, with alignment saying in a word how that alignment stands (aligned, rough, in doubt, not checked), and its number is what scan_clash takes in ignore, scan_deviation in region and measure as an end; a view note is a picture of the view the user drew on, with labels, a comment and reference pictures: it holds a text that says all of it in words (the build it was drawn on, the camera to look from, what the ink lies over by ref, each label and what its arrow points at, the references), and pictures: true sends its inked picture and its references; a dimension also holds value, how, points and verdict when they were measured on that revision (its measuredRevision), wasValue and wasRevision in their place when what it holds is of an older build, and resolvedValue, resolvedVerdict and resolvedOnRevision once it is resolved and no longer measured. Marks are how the user points at the part; new ones are told to you with the prompt, a line each, so call this for their data, or when you are told that more marks were left out; it lists the open ones, 50 at a time (omitted says how many were left out and next where to go on; status resolved or ids gives the others). An anchorState other than ok means the build moved the surface or dropped the part, and a checkedRevision that is absent or is not the revision means the mark has not been checked against that build: either way the ref may no longer name what the mark is on.",
     inputSchema: marksInput
   },
   describe: {
@@ -503,7 +505,7 @@ export const TOOLS = {
     title: 'Add a mark',
     annotations: CHANGES_VIEW_OR_MARKS,
     description:
-      `Returns the number and a one-line description of a mark you placed on the project, which the user sees in the viewport and in their list of marks in your colour, and the revision of the build it was placed on. Use it to show where you made a change, or to point at the place a question is about, as {"kind": "pin", "ref": "lid/F12", "point": [10, 0, 22], "note": "thinned this wall to 2 mm"} does; refs come from marks, scene and describe. A dimension is measured at once, in mm or degrees, and again on every build, and one you give an expected value becomes a pinned check the user sees: it is told to you again with every prompt for as long as it fails.`,
+      `Returns the number and a one-line description of a mark you placed on the project, which the user sees in the viewport and in their list of marks in your colour, and the revision of the build it was placed on. Use it to show where you made a change, or to point at the place a question is about (a view note is the user's, never yours to make), as {"kind": "pin", "ref": "lid/F12", "point": [10, 0, 22], "note": "thinned this wall to 2 mm"} does; refs come from marks, scene and describe. A dimension is measured at once, in mm or degrees, and again on every build, and one you give an expected value becomes a pinned check the user sees: it is told to you again with every prompt for as long as it fails.`,
     inputSchema: addMarkInput
   },
   resolve_mark: {
@@ -625,7 +627,7 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 
 - scene: the build status and error, what the model printed, layouts, parts with size and volume, groups, params, saved views, the person's camera, section and explode. Start here.
 - look: a picture of the part as the person's viewport draws it, with the marks, from any view, camera, layout, section or explode, or framed close on one face, edge, mark or box.
-- marks: the person's marks (pins, picks, arrows, strokes, shapes, dimensions, regions of a scan) and yours, with notes, status and what each is on.
+- marks: the person's marks (pins, picks, arrows, strokes, shapes, dimensions, regions of a scan, view notes with their pictures on request) and yours, with notes, status and what each is on.
 - describe: the exact geometry of a part, a face, an edge, a group of parts or a mark: area, centre, normal, radius, volume, box; of a face or an edge also a build123d selector that picks it now.
 - measure: one exact number: distance or angle between two ends, radius, diameter, wall thickness, area, volume, mass, bounding box.
 - section: the outlines a plane cuts of the parts, with their areas, and a 2D drawing of the cut.
@@ -646,7 +648,7 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - show: change the person's camera, layout, visible parts, section, explode or scans, put a saved view on screen, or point their camera at a ref, mark or box.
 - save_view: propose a saved view to the person's strip, for them to keep or discard.
 - add_mark: leave a mark of yours (pin, pick, arrow, shape, or a dimension measured on every build).
-- resolve_mark: resolve a mark of the person's with a line on what was done, for them to confirm or reopen.`
+- resolve_mark: resolve a mark of the person's, a view note too, with a line on what was done, for them to confirm or reopen.`
 
 /** The keys each tool takes: those its schema names. */
 const KEYS = Object.fromEntries(Object.entries(TOOLS).map(([name, tool]) => [name, Object.keys('inputSchema' in tool ? tool.inputSchema : {})])) as Record<keyof typeof TOOLS, string[]>

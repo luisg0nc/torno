@@ -86,9 +86,21 @@ function markFace(card: Card, facts: Facts): Face {
     return { label: LABEL.mark, ...(card.source !== undefined ? { chip: card.source } : {}), lines: [{ text: stored }] }
   }
   const ref = markAnchors(mark)[0]?.ref
+  const note = oneLine(mark.note)
+  // A view note shows the picture with its ink (the card draws it from `facts.picture`) and its comment.
+  if (mark.kind === 'note') {
+    return {
+      label: LABEL.mark,
+      chip: mark.id,
+      chipAuthor: mark.author,
+      // Two lines, so that the picture keeps room on a card the size of a mark's: the comment (or what it is), and its status.
+      lines: [note ? { text: note } : { text: 'view note', mono: true as const }, { text: mark.status, ...(mark.status === 'resolved' ? { tone: 'ok' as const } : {}) }],
+      ...(facts.picture ? { picture: facts.picture } : {}),
+      ...(facts.picture === 'missing' ? { note: PICTURE_MISSING } : {})
+    }
+  }
   const fails = mark.kind === 'dimension' && mark.verdict === 'fail'
   const status = [mark.status, ...(fails ? ['fails'] : []), ...(mark.anchorState === 'orphaned' ? ['anchor lost'] : [])].join(', ')
-  const note = oneLine(mark.note)
   return {
     label: LABEL.mark,
     chip: mark.id,

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import type { DimensionMark, Mark, PickMark, PinMark, ShapeMark, Vec3 } from '../../../shared/marks'
+import type { DimensionMark, Mark, NoteMark, PickMark, PinMark, ShapeMark, Vec3 } from '../../../shared/marks'
 import { MarkLayer, markOffset } from './MarkLayer'
 
 const CAMERA = { position: [100, -100, 80] as Vec3, target: [0, 0, 10] as Vec3, up: [0, 0, 1] as Vec3, ortho: false, fov: 35, zoom: 1 }
@@ -245,5 +245,21 @@ describe('marks while the parts are drawn apart', () => {
     expect(looks(marks, 'M6')).toEqual({ dimmed: true, dashed: true })
     expect(looks(marks, 'M7')).toEqual({ dimmed: false, dashed: false })
     expect(marks.split('assembly')).toEqual(['M6'])
+  })
+})
+
+describe('a view note', () => {
+  const note: NoteMark = { ...BASE, id: 'M7', kind: 'note', picture: 'n-0123456789ab.png', ink: 'n-0123456789ab.ink.png', size: { w: 100, h: 80 }, strokes: [], inkColour: '#cf3f2c', labels: [], under: [], references: [] }
+
+  it('with no anchor has no chip, in the screen or in a picture; with one it has a chip at the anchor', () => {
+    const marks = new MarkLayer(COLOURS)
+    marks.setMarks([note, { ...note, id: 'M8', anchor: { point: [4, 0, 12], part: 'post', ref: 'post/F0' } }])
+    marks.show('assembly')
+    const camera = new THREE.PerspectiveCamera(35, 4 / 3, 1, 1000)
+    camera.position.set(100, -100, 80)
+    camera.lookAt(0, 0, 10)
+    camera.updateMatrixWorld()
+    const chip = (text: string) => ({ w: 8 * text.length, h: 16 })
+    expect(marks.labels('assembly', camera, { width: 800, height: 600 }, 1, chip).map((label) => label.id)).toEqual(['M8'])
   })
 })

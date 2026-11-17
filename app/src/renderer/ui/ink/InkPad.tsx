@@ -2,18 +2,19 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { hint, pressed } from '../../../shared/keys'
 import type { Stroke } from '../../state/onboard'
 import { Confirm } from '../Confirm'
+import { TYPING } from '../typing'
 import { ERASER_WIDTH, GRID_STEP, PEN_WIDTHS, addPoint, paintBackground, paintStroke, paintStrokes, straighten, type Backdrop, type InkLook } from './strokes'
 
-type Tool = 'thin' | 'thick' | 'eraser'
+type Tool = 'thin' | 'thick' | 'eraser' | 'label'
 
-const TOOLS: ReadonlyArray<{ id: Tool; label: string }> = [
+const TOOLS: ReadonlyArray<{ id: 'thin' | 'thick' | 'eraser'; label: string }> = [
   { id: 'thin', label: 'Thin pen' },
   { id: 'thick', label: 'Thick pen' },
   { id: 'eraser', label: 'Eraser' }
 ]
 
 /** What can take the focus in the board, in order. */
-const FOCUSABLE = 'button:not(:disabled), select:not(:disabled), [tabindex="0"]'
+const FOCUSABLE = 'button:not(:disabled), select:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
 
 export interface InkPadProps {
   /** The heading, the name a reader of the screen hears for the sheet, and the line beside the heading. */
@@ -30,6 +31,17 @@ export interface InkPadProps {
   grid?: boolean
   /** What else the row of tools holds, after the pens. */
   tools?: ReactNode
+  /**
+   * A layer of labels over the canvas (a view note's): given, the row has a label tool (`board.label`) and the layer is
+   * told whether it is in hand, and whether the board is busy keeping what it holds. The layer is the very size of the canvas.
+   */
+  labels?: (state: { labelling: boolean; busy: boolean }) => ReactNode
+  /** What the sheet holds under the canvas (a view note's comment and references). */
+  aside?: ReactNode
+  /** Whether "Done" may be pressed with no stroke drawn: what the sheet holds besides the ink is something to keep. */
+  ready?: boolean
+  /** Whether what the sheet holds besides the strokes was changed since it was opened: leaving then asks first. */
+  changed?: boolean
   /** The line beside Done. */
   foot?: string
   /** How the strokes are drawn on the board: asked whenever they are painted, so that an ink of the theme follows it. */
@@ -49,7 +61,7 @@ export interface InkPadProps {
  * back, clear all of them. The strokes are kept as vectors (`initial` is what it is opened with again), and "Done"
  * hands them over. A stroke is drawn as the pointer moves, in the canvas and never through React.
  */
-export function InkPad({ title, label, hint: words, size, ground, background, grid, tools, foot, look, initial, discard, onDone, onCancel }: InkPadProps) {
+export function InkPad({ title, label, hint: words, size, ground, background, grid, tools, labels, aside, ready, changed, foot, look, initial, discard, onDone, onCancel }: InkPadProps) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sheet = useRef<HTMLElement>(null)
   const strokes = useRef<Stroke[]>(initial.map((s) => ({ ...s, points: [...s.points] })))
@@ -66,6 +78,9 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
   const [asking, setAsking] = useState(false)
   const askingNow = useRef(false)
   askingNow.current = asking
+  const labelsOn = labels !== undefined
+  const changedNow = useRef(false)
+  changedNow.current = changed === true
   const lookNow = useRef(look)
   lookNow.current = look
   // The photo under the ink, drawn as the PNG will have it and shown as the canvas's background: the canvas itself holds ink alone.
@@ -134,11 +149,15 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
   /** Esc and Cancel: a board with something drawn on it that was not kept asks first. */
   const leave = (): void => {
     if (saved.current) return
-    if (dirty.current && strokes.current.length > 0) setAsking(true)
+    if ((dirty.current && strokes.current.length > 0) || changedNow.current) setAsking(true)
     else onCancel()
   }
-  const act = useRef({ undo, leave })
-  act.current = { undo, leave }
+  const choose = (t: Tool): void => {
+    tool.current = t
+    setChosen(t)
+  }
+  const act = useRef({ undo, leave, labelsOn, choose })
+  act.current = { undo, leave, labelsOn, choose }
   useEffect(() => {
     const before = document.activeElement
     sheet.current?.focus()
@@ -146,14 +165,26 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
     // asked in the board has its own keys.
     const onKey = (e: KeyboardEvent): void => {
       if (askingNow.current) return
-      if (pressed(e, 'sheet.close')) {
+      const field = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-board-field]') : null
+      if (field && pressed(e, 'sheet.close')) {
+        // Esc in a field of the sheet is the field's: the keys are the sheet's again; the next Esc leaves.
+        e.preventDefault()
+        e.stopPropagation()
+        field.blur()
+        sheet.current?.focus({ preventScroll: true })
+      } else if (pressed(e, 'sheet.close')) {
         e.preventDefault()
         e.stopPropagation()
         act.current.leave()
-      } else if (pressed(e, 'board.undo')) {
+      } else if (pressed(e, 'board.undo') && !(e.target instanceof Element && e.target.closest(TYPING))) {
         e.preventDefault()
         e.stopPropagation()
         act.current.undo()
+      } else if (act.current.labelsOn && pressed(e, 'board.label') && !(e.target instanceof Element && e.target.closest(TYPING))) {
+        // The label tool; typed into a field, T is a letter.
+        e.preventDefault()
+        e.stopPropagation()
+        act.current.choose('label')
       }
     }
     window.addEventListener('keydown', onKey, true)
@@ -167,12 +198,12 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
   /** Where the pointer is on the board, in board pixels. */
   const at = (e: { clientX: number; clientY: number }, box: DOMRect): [number, number] => [((e.clientX - box.left) * size.width) / box.width, ((e.clientY - box.top) * size.height) / box.height]
   const onDown = (e: ReactPointerEvent<HTMLCanvasElement>): void => {
-    if (e.button !== 0 || drawing.current || saving) return
+    if (e.button !== 0 || drawing.current || saving || tool.current === 'label') return
     e.currentTarget.setPointerCapture(e.pointerId)
     // The keys stay with the board.
     sheet.current?.focus({ preventScroll: true })
     const [x, y] = at(e, e.currentTarget.getBoundingClientRect())
-    const width = tool.current === 'eraser' ? ERASER_WIDTH : PEN_WIDTHS[tool.current]
+    const width = tool.current === 'eraser' ? ERASER_WIDTH : PEN_WIDTHS[tool.current as 'thin' | 'thick']
     const stroke: Stroke = { tool: tool.current === 'eraser' ? 'eraser' : 'pen', width, points: [[Math.round(x * 10) / 10, Math.round(y * 10) / 10]] }
     drawing.current = { stroke, pointer: e.pointerId, painted: 0 }
     const ctx = e.currentTarget.getContext('2d')!
@@ -209,6 +240,24 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
     setCount(strokes.current.length)
   }
 
+  const canvasEl = (
+    <canvas
+      ref={canvas}
+      className="board-canvas"
+      width={size.width}
+      height={size.height}
+      style={{ '--board-aspect': String(size.width / size.height), '--grid-x': String(size.width / GRID_STEP), '--grid-y': String(size.height / GRID_STEP), ...(under ? { backgroundImage: `url("${under}")` } : {}) } as CSSProperties}
+      data-ground={under ? '' : undefined}
+      data-grid={grid && !ground && !background ? '' : undefined}
+      aria-label="Drawing area"
+      data-strokes={count}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+    />
+  )
+
   return (
     <div className="board-layer">
       <section
@@ -243,14 +292,16 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
                 type="button"
                 className="button button-quiet"
                 aria-pressed={chosen === t.id}
-                onClick={() => {
-                  tool.current = t.id
-                  setChosen(t.id)
-                }}
+                onClick={() => choose(t.id)}
               >
                 {t.label}
               </button>
             ))}
+            {labelsOn && (
+              <button type="button" className="button button-quiet" aria-pressed={chosen === 'label'} title={`Place a label, and drag from it for an arrow (${hint('board.label')})`} onClick={() => choose('label')}>
+                Label
+              </button>
+            )}
           </span>
           {tools}
           <span className="spacer" />
@@ -262,22 +313,18 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
           </button>
         </div>
         <div className="board-stage">
-          <canvas
-            ref={canvas}
-            className="board-canvas"
-            width={size.width}
-            height={size.height}
-            style={{ '--board-aspect': String(size.width / size.height), '--grid-x': String(size.width / GRID_STEP), '--grid-y': String(size.height / GRID_STEP), ...(under ? { backgroundImage: `url("${under}")` } : {}) } as CSSProperties}
-            data-ground={under ? '' : undefined}
-            data-grid={grid && !ground && !background ? '' : undefined}
-            aria-label="Drawing area"
-            data-strokes={count}
-            onPointerDown={onDown}
-            onPointerMove={onMove}
-            onPointerUp={onUp}
-            onPointerCancel={onUp}
-          />
+          {labelsOn ? (
+            <div className="board-frame" style={{ '--board-aspect': String(size.width / size.height) } as CSSProperties}>
+              {canvasEl}
+              <div className="board-labels" data-labelling={chosen === 'label' ? '' : undefined}>
+                {labels({ labelling: chosen === 'label', busy: saving })}
+              </div>
+            </div>
+          ) : (
+            canvasEl
+          )}
         </div>
+        {aside}
         {asking && (
           <Confirm label={discard.label} accept="Discard" cancel="Keep drawing" onCancel={() => setAsking(false)} onAccept={onCancel}>
             {discard.text}
@@ -294,7 +341,7 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
           <button type="button" className="button" disabled={saving} title={`Put the board away without keeping this (${hint('sheet.close')})`} onClick={leave}>
             Cancel
           </button>
-          <button type="button" className="button button-primary" disabled={saving || count === 0} onClick={() => void done()}>
+          <button type="button" className="button button-primary" disabled={saving || (count === 0 && ready !== true)} onClick={() => void done()}>
             Done
           </button>
         </footer>

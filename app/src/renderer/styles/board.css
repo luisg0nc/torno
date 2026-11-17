@@ -207,6 +207,11 @@
   background: var(--surface);
 }
 
+/* The card of a view note keeps room for its picture beside the two lines under it. */
+.pboard-card[data-kind='mark'] .pboard-picture {
+  min-height: 40px;
+}
+
 .pboard-body {
   flex: 1;
   min-height: 0;

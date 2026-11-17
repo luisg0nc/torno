@@ -42,6 +42,23 @@ describe('what a card shows', () => {
     expect(faceOf(card({ kind: 'mark', source: 'M1' }), { mark: pin({ anchorState: 'orphaned' }) }).lines.at(-1)?.text).toBe('sent, anchor lost')
   })
 
+  it('shows a view note by its picture and its comment', () => {
+    const note = { ...pin({ note: 'this rib\nis too thin', status: 'draft' }), kind: 'note', id: 'M4', anchor: { point: [0, 0, 0], ref: 'lid/F2' }, labels: [], references: [], strokes: [], under: [] } as unknown as Mark
+    const c = card({ kind: 'mark', source: 'M4', by: 'torno' })
+    const here = faceOf(c, { mark: note, picture: 'here' })
+    expect(here).toMatchObject({ label: 'Mark', chip: 'M4', chipAuthor: 'user', picture: 'here' })
+    expect(here.note).toBeUndefined()
+    expect(here.lines.map((l) => l.text)).toEqual(['this rib is too thin', 'draft'])
+    // The picture is of this computer's files only: without it the card says so, and keeps its comment.
+    const gone = faceOf(c, { mark: note, picture: 'missing' })
+    expect(gone).toMatchObject({ picture: 'missing', note: PICTURE_MISSING })
+    expect(gone.lines.map((l) => l.text)).toContain('this rib is too thin')
+    // Without a comment it says what it is.
+    expect(faceOf(c, { mark: { ...note, note: '' } as Mark, picture: 'here' }).lines.map((l) => l.text)).toEqual(['view note', 'draft'])
+    // While the picture is read nothing is said of it.
+    expect(faceOf(c, { mark: note }).picture).toBeUndefined()
+  })
+
   it('shows its stored text, or only its id, for a mark that is not loaded', () => {
     expect(faceOf(card({ kind: 'mark', source: 'M7', text: 'stored words' }), {})).toMatchObject({ chip: 'M7', lines: [{ text: 'stored words' }] })
     expect(faceOf(card({ kind: 'mark', source: 'M7' }), {}).lines.map((l) => l.text)).toEqual(['not loaded yet'])

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { type Arrow, type BoardCounts, type BoardFile, type Card, type CardKind, MAX_BOARD_PICTURES, MAX_TEXT_CHARS, readingOrder } from '../../shared/board'
 import { type Mark, markAnchors } from '../../shared/marks'
+import { describeMark } from '../marks/describe'
 import { checkText, type ModelCheck } from '../../shared/modelChecks'
 import { parseSize, saySize } from '../../shared/size'
 import { said } from '../../shared/params'
@@ -90,6 +91,8 @@ function checksText(live: LiveFacts): string {
 function markText(card: Card, live: LiveFacts): string {
   const mark = card.source === undefined ? undefined : live.marks.get(card.source)
   if (!mark) return `${card.source ?? 'A mark'} (not among the marks of this project now)`
+  // A view note is said as everywhere else it is: by its line (what it holds, and the build its picture is of).
+  if (mark.kind === 'note') return describeMark(mark)
   const ref = markAnchors(mark)[0]?.ref
   const note = oneLine(mark.note)
   return `${mark.id} (${mark.kind}${ref ? `, on ${ref}` : ''}): ${note ? `${note}, ` : ''}${mark.status}`

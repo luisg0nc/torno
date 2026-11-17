@@ -121,14 +121,16 @@ export function project(marks: Mark[], camera: THREE.Camera, size: Size, unit = 
     const inside = Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1 && Math.abs(v.z) <= 1
     return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height, visible: inFront && inside }
   }
-  return marks.map((mark) => {
+  return marks.flatMap((mark): Label[] => {
+    // A note whose ink lay over no face hangs no label: it is a picture, in no place of the model.
+    if (mark.kind === 'note' && !mark.anchor) return []
     const anchor = labelAnchor(mark, regionAt)
     const point = new THREE.Vector3().fromArray(anchor.point)
     if (movedBy) point.add(new THREE.Vector3().fromArray(movedBy(mark)))
     const base: Pick<Label, 'id' | 'text' | 'author' | 'value'> = { id: mark.id, text: labelText(mark), author: mark.author }
     if (mark.kind === 'dimension') base.value = labelValue(mark, revision)
     const foot = toPx(point)
-    if (!anchor.leader) return { ...base, ...foot, lean: DEFAULT_LEAN, gap: GAP_PX * unit }
+    if (!anchor.leader) return [{ ...base, ...foot, lean: DEFAULT_LEAN, gap: GAP_PX * unit }]
 
     // A pin's label hangs at the end of its leader, and leans the way the leader runs on screen: so does that of whatever else has one.
     const reach = (anchor.reach ?? LEADER_PX) * unit * mmPerPx(camera, point, size.height)
@@ -136,7 +138,7 @@ export function project(marks: Mark[], camera: THREE.Camera, size: Size, unit = 
     const run = Math.hypot(end.x - foot.x, end.y - foot.y)
     // Seen end on, the leader is a point: the chip goes above the pin, clear of its dot.
     const lean: [number, number] = run > 2 * unit ? [(end.x - foot.x) / run, (end.y - foot.y) / run] : [0, -1]
-    return { ...base, x: end.x, y: end.y, visible: foot.visible, lean, gap: Math.max(2 * unit, CLEAR_PX * unit - run) }
+    return [{ ...base, x: end.x, y: end.y, visible: foot.visible, lean, gap: Math.max(2 * unit, CLEAR_PX * unit - run) }]
   })
 }
 

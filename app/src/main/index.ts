@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme } from 'electron'
 import { type Door, openDoor, projectFor } from './door'
 import type { Described } from '../shared/geometry'
-import type { Mark } from '../shared/marks'
+import type { Mark, NoteMark } from '../shared/marks'
 import type { SavedView } from '../shared/views'
 import { heldOverrides } from './paramsfile'
 import { writeFileAtomic } from './atomic'
@@ -31,6 +31,7 @@ import { attachBoard } from './board/attach'
 import { reconcileProject } from './board/follow'
 import { liveFacts } from './board/live'
 import { PictureSweep } from './board/pictures'
+import { NoteSweep } from './notes/sweep'
 import { BoardStore } from './board/store'
 import { boardLine } from './board/text'
 import type { BoardCounts } from '../shared/board'
@@ -469,6 +470,8 @@ const board = new BoardStore({
 })
 /** The pictures no card names go when a project is first opened in a run, once the window has nothing of it to undo. */
 const pictureSweep = new PictureSweep(board)
+/** And the pictures of the view notes no note names, in the same turn of the run (the marks' own). */
+const noteSweep = new NoteSweep(marks)
 /** The one line every prompt carries of the board of a project (`boardLine`), with what it will have told: undefined when there is no such project. */
 async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts } | undefined> {
   const dir = findObject(objectId)?.dir
@@ -560,6 +563,10 @@ void app.whenReady().then(async () => {
       if (dir === undefined) throw new Error('That project is not open')
       return attachBoard({ board: { read: (id) => board.read(id), live: async (id) => liveFacts({ dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides }) }, dirOf: (id) => findObject(id)?.dir, scale: scalePicture }, objectId, ids)
     },
+    // The view notes that are drafts, in the order of the marks: they go with the next chat prompt, pictures and all.
+    // Marks that cannot be read are no reason to send nothing.
+    draftNotes: async (id) => (await marks.list(id).catch((): Mark[] => [])).filter((m): m is NoteMark => m.kind === 'note' && m.status === 'draft'),
+    scalePicture,
     // The viewport as the person has it, for a prompt that attaches the view: of the object the session is of.
     picture: async (obj) => {
       const look = await requestLook(await theWindow(), { view: 'current', size: DEFAULT_SIZE })
@@ -665,7 +672,7 @@ void app.whenReady().then(async () => {
     onObjectOpened: (objectId) =>
       void followBoard(objectId).then(() => {
         const dir = findObject(objectId)?.dir
-        if (dir !== undefined) return pictureSweep.once(objectId, dir)
+        if (dir !== undefined) return Promise.all([pictureSweep.once(objectId, dir), noteSweep.once(objectId, dir)]).then(() => undefined)
       }),
     // What was waiting to be written was of objects of the workspace that is left.
     onWorkspaceClosed: () => {
@@ -675,6 +682,7 @@ void app.whenReady().then(async () => {
       verdicts.forget()
       board.forget()
       pictureSweep.forget()
+      noteSweep.forget()
       // An import still running there is ended, and its importer with it: its scan is not kept, and its id not given again.
       importer?.run.stop()
       importer = null

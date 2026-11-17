@@ -41,6 +41,7 @@ import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/meas
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, restoreMark, tendRegions } from './marks/regions'
 import type { MarkStore } from './marks/store'
 import { boardAttachOf, boardHandlers } from './board/ipc'
+import { noteHandlers } from './notes/ipc'
 import { pinBuild } from './board/pinbuild'
 import type { BoardStore } from './board/store'
 import { kernelDir, kernelRun } from './paths'
@@ -53,9 +54,8 @@ import { forgetSceneFiles, loadSceneFile, saveSceneFile, sceneFileNow } from './
 import { EFFORTS, isEffort, isMode, MODES, MODEL_ALIASES, MODEL_NAME, type ChatAnswer } from '../shared/chat'
 import type { BoardOpen, PersonChange, PinWhat } from '../shared/board'
 import type { SavedView } from '../shared/views'
-import type { AgentView, CreateRequest, OnboardDraft, PromptPreviewDraft } from '../shared/bridge'
+import type { AgentView, CreateRequest, NoteDraft, NoteEdit, OnboardDraft, PromptPreviewDraft } from '../shared/bridge'
 import { readChoice, writeChoice } from './sessions/choice'
-import { drawingOf } from './sessions/drawing'
 import type { Asks } from './asks'
 import type { Sessions } from './sessions/manager'
 import type { KnownModels } from './sessions/models'
@@ -93,7 +93,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:problem (also sent to the renderer),
-//           marks:dismissProblem, geometry:describe, geometry:measure,
+//           marks:dismissProblem, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
 //           objects:pickPhotos, objects:pickStep, objects:pickPdf, objects:readPhoto, objects:create, objects:onboard, objects:previewPrompt, objects:taken, show:cards, show:thumbnail, export:plan, export:save, export:savePicture, export:saveSection
@@ -927,18 +927,15 @@ export function registerIpc(
     await requireSessions().undoTurn(String(sessionId), turnId)
   })
 
-  handle('chat:send', async (_event, sessionId: string, prompt: { text?: unknown; attachView?: unknown; attachedView?: unknown; drawing?: unknown; board?: unknown }) => {
+  handle('chat:send', async (_event, sessionId: string, prompt: { text?: unknown; attachView?: unknown; attachedView?: unknown; board?: unknown }) => {
     if (!ofThisWorkspace(String(sessionId))) throw new Refusal('This session has ended')
     if (typeof prompt?.text !== 'string' || prompt.text.length > MAX_PROMPT_CHARS) throw new Refusal('Nothing to send')
-    // The window's drawing is taken only once it is what one is: main words what the agent reads of it.
-    const drawing = prompt.drawing === undefined ? undefined : drawingOf(prompt.drawing)
-    if (typeof drawing === 'string') throw new Refusal(drawing)
     // The picture the window showed for "Attach view": the sessions check it as any picture for the agent.
     if (prompt.attachedView !== undefined && !(prompt.attachedView instanceof Uint8Array)) throw new Refusal('The picture of the view is not one')
     // The part of the board to go with it: ids, or all. What each says is read when it is sent, not taken from the window.
     const board = prompt.board === undefined ? undefined : boardAttachOf(prompt.board)
     if (typeof board === 'string') throw new Refusal(board)
-    await requireSessions().send(String(sessionId), { text: prompt.text, attachView: prompt.attachView === true, ...(prompt.attachedView ? { attachedView: prompt.attachedView } : {}), ...(drawing ? { drawing } : {}), ...(board ? { board } : {}) })
+    await requireSessions().send(String(sessionId), { text: prompt.text, attachView: prompt.attachView === true, ...(prompt.attachedView ? { attachedView: prompt.attachedView } : {}), ...(board ? { board } : {}) })
   })
 
   // The questions the agent put to the person (`ask`): the list for a window that has just begun, and the answer.
@@ -1041,6 +1038,11 @@ export function registerIpc(
   handle('board:problem', (_event, objectId: string) => requireBoards().problem(objectId))
   handle('board:dismissProblem', (_event, objectId: string) => requireBoards().dismissProblem(objectId))
 
+  // A view note: main checks what the window sends, names and writes its pictures, and says the rest of the mark (its anchor placed, as a mark's).
+  const notes = () => noteHandlers({ marks: requireMarks(), object: findObject, placed: placedMark })
+  handle('notes:make', (_event, draft: NoteDraft) => notes().make(draft))
+  handle('notes:edit', (_event, objectId: string, id: string, patch: NoteEdit) => notes().edit(objectId, id, patch))
+  handle('notes:picture', (_event, objectId: string, id: string, which: 'ink' | 'plain' | number) => notes().picture(objectId, id, which))
   handle('marks:problem', (_event, objectId: string) => requireMarks().problem(String(objectId)))
   handle('marks:dismissProblem', (_event, objectId: string) => requireMarks().dismissProblem(String(objectId)))
 

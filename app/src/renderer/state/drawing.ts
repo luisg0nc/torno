@@ -1,13 +1,14 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
-import type { ViewDrawing } from '../../shared/drawing'
+import type { NoteMark } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import type { Under } from '../ui/drawing/under'
 import type { Stroke } from './onboard'
 
-// A drawing on the view (the chat's "Draw on view"): the board open over a picture of the view, and by session the
-// drawing that goes with its next prompt. Nothing of it is on disk; a closed workspace lets it go. What makes a
-// picture and a drawing is `ui/drawing/make.ts`.
+// A drawing on the view (the chat's "Draw on view"): the sheet of a view note, open over a picture of the view, or over
+// the plain picture of a note being edited. Done makes the note (`notes.make`, a draft that goes with the next prompt)
+// or changes it (`notes.edit`); nothing of the sheet is on disk, and a closed workspace lets it go. What makes a
+// picture and a note is `ui/drawing/make.ts`.
 
 /** What the viewport tells of itself for a drawing, while there is one (`ui/ViewportPane.tsx`). */
 export interface ViewHost {
@@ -54,6 +55,8 @@ export function viewHost(): ViewHost | null {
 export interface Pictured {
   /** The PNG, as an object URL for the board's ground, and decoded for the drawing's picture. */
   url: string
+  /** The PNG as it came: the plain picture of the note. */
+  plain: Uint8Array
   bitmap: ImageBitmap
   width: number
   height: number
@@ -69,38 +72,36 @@ export interface Pictured {
   shows: string | null
 }
 
-/** A drawing done, waiting for its prompt: the picture and the strokes (to open it again), what goes, and a thumbnail. */
-export interface Drawn { picture: Pictured; strokes: Stroke[]; drawing: ViewDrawing; thumb: string }
+/**
+ * The board open: for which session (empty when a note is opened with none), on which picture, with what drawn when it
+ * was opened. `note` is the note being edited, as it was when the sheet opened; null for a new one. A note whose plain
+ * picture is not on this computer has no `picture`: only its comment and its references can be changed.
+ */
+export interface Board {
+  sessionId: string
+  objectId: string
+  picture: Pictured | null
+  strokes: Stroke[]
+  note: NoteMark | null
+}
 
 interface DrawingState {
-  /** The board open: for which session, on which picture, with what drawn when it was opened. */
-  board: { sessionId: string; picture: Pictured; strokes: Stroke[] } | null
-  /** By session: the drawing that goes with its next prompt. */
-  drawn: Record<string, Drawn>
+  board: Board | null
   /** The session a picture is being made for. */
   opening: string | null
 }
 
-export const drawingStore = createStore<DrawingState>(() => ({ board: null, drawn: {}, opening: null }))
+export const drawingStore = createStore<DrawingState>(() => ({ board: null, opening: null }))
 
 export function useDrawing<T>(pick: (s: DrawingState) => T): T {
   return useZustand(drawingStore, pick)
 }
 
-/** Lets go of a picture that no board and no drawing holds. */
-function release(p: Pictured): void {
-  const s = drawingStore.getState()
-  if (s.board?.picture === p || Object.values(s.drawn).some((d) => d.picture === p)) return
+/** Lets go of a picture that no board holds. */
+function release(p: Pictured | null): void {
+  if (p === null || drawingStore.getState().board?.picture === p) return
   URL.revokeObjectURL(p.url)
   p.bitmap.close()
-}
-
-function without(sessionId: string): void {
-  drawingStore.setState((s) => {
-    const drawn = { ...s.drawn }
-    delete drawn[sessionId]
-    return { drawn }
-  })
 }
 
 export const drawingActions = {
@@ -110,60 +111,29 @@ export const drawingActions = {
   },
   /** The board, over this picture, for this session. */
   openOn(sessionId: string, picture: Pictured): void {
-    drawingStore.setState({ board: { sessionId, picture, strokes: [] } })
+    drawingStore.setState({ board: { sessionId, objectId: picture.objectId, picture, strokes: [], note: null } })
   },
-  /** The board again over the drawing that waits, with its strokes. */
-  edit(sessionId: string): void {
-    const s = drawingStore.getState()
-    const d = s.drawn[sessionId]
-    if (!d || s.board || s.opening) return
-    drawingStore.setState({ board: { sessionId, picture: d.picture, strokes: d.strokes } })
+  /**
+   * The sheet over a note to edit, on its plain picture (null when that is not on this computer). The ink it had is the
+   * sheet's own copy, so that putting the sheet away leaves the note as it was. Nothing is opened over a board that is
+   * open: the picture given is let go.
+   */
+  openNoteOn(sessionId: string, objectId: string, note: NoteMark, picture: Pictured | null): void {
+    if (drawingStore.getState().board) return release(picture)
+    const strokes: Stroke[] = note.strokes.map((s) => ({ tool: s.erase ? 'eraser' : 'pen', width: s.width, points: s.points.map(([x, y]) => [x, y] as [number, number]) }))
+    drawingStore.setState({ board: { sessionId, objectId, picture, strokes, note } })
   },
-  /** The board put away; what waited before it was opened still waits. */
+  /** The board put away, by Done or Cancel: the picture it was over is let go. */
   cancel(): void {
     const board = drawingStore.getState().board
     if (!board) return
     drawingStore.setState({ board: null })
     release(board.picture)
   },
-  /** The board put away, and this drawing waits for the session's next prompt, in place of any that did. */
-  keep(sessionId: string, d: Drawn): void {
-    const before = drawingStore.getState().drawn[sessionId]
-    drawingStore.setState((s) => ({ board: null, drawn: { ...s.drawn, [sessionId]: d } }))
-    if (before && before !== d) drawingActions.spent(before)
-  },
-  remove(sessionId: string): void {
-    const d = drawingStore.getState().drawn[sessionId]
-    if (!d) return
-    without(sessionId)
-    drawingActions.spent(d)
-  },
-  /** The drawing that goes with the prompt being sent: no longer waiting. */
-  taken(sessionId: string): Drawn | undefined {
-    const d = drawingStore.getState().drawn[sessionId]
-    if (d) without(sessionId)
-    return d
-  },
-  /** A prompt that was not sent: its drawing waits again, unless another was drawn meanwhile. */
-  giveBack(sessionId: string, d: Drawn): void {
-    if (drawingStore.getState().drawn[sessionId]) return drawingActions.spent(d)
-    drawingStore.setState((s) => ({ drawn: { ...s.drawn, [sessionId]: d } }))
-  },
-  /** Done with: what it holds of the window's memory is let go. */
-  spent(d: Drawn): void {
-    URL.revokeObjectURL(d.thumb)
-    release(d.picture)
-  },
-  /** The workspace is closed: every drawing, and the board, go. */
+  /** The workspace is closed: the board goes. */
   clear(): void {
-    const s = drawingStore.getState()
-    drawingStore.setState({ board: null, drawn: {}, opening: null })
-    for (const d of Object.values(s.drawn)) drawingActions.spent(d)
-    if (s.board) release(s.board.picture)
+    const board = drawingStore.getState().board
+    drawingStore.setState({ board: null, opening: null })
+    if (board) release(board.picture)
   }
-}
-
-/** Whether a drawing waits for this session's next prompt: closing the window would lose it. */
-export function drawingWaits(sessionId: string): boolean {
-  return drawingStore.getState().drawn[sessionId] !== undefined
 }

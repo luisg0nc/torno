@@ -1,4 +1,5 @@
 import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, MOST_STROKES_TOLD, type StrokeUnder } from '../../../shared/drawing'
+import type { NoteLabel, Vec3 } from '../../../shared/marks'
 import type { Stroke } from '../../state/onboard'
 
 // What the person's ink lies over in a drawing on the view: points along each pen stroke where ink is still left,
@@ -9,7 +10,8 @@ export const SAMPLE_STEP = 6
 export const MOST_SAMPLES = 48
 
 /** What is under a point of the view: a face of a part, the cut face of a part (a section's), a scan where no part is, or nothing. */
-export type Under = { ref: string } | { cut: string } | { scan: string } | null
+/** A face carries where it was hit (the object frame), for the anchor of a note: only the first is ever kept. */
+export type Under = { ref: string; point?: Vec3; normal?: Vec3 | null; part?: string } | { cut: string } | { scan: string } | null
 
 /** Points `step` apart along a stroke, its first and last among them; at most `most`, spread evenly. */
 export function samplesOf(points: ReadonlyArray<readonly [number, number]>, step = SAMPLE_STEP, most = MOST_SAMPLES): Array<[number, number]> {
@@ -63,25 +65,50 @@ export function strokeUnder(box: [number, number, number, number], found: readon
 /**
  * Stroke by stroke, what the ink lies over: pen strokes only, at their points where ink is still left (`inked`: what
  * the eraser took is not looked under); a stroke of which no ink is left is no stroke. At most `MOST_STROKES_TOLD`,
- * the rest counted. `look` is given points of the picture, in its pixels.
+ * the rest counted; `kept` is every pen stroke with ink left, told or not, with the eraser strokes among them, in the
+ * order drawn, so that the ink can be made again as it was (an eraser stroke lies over nothing, and none that comes
+ * before the first pen stroke kept is kept: it rubs out nothing). `look` is given points of the picture, in its pixels.
  */
 export function underInk(
   strokes: readonly Stroke[],
   size: { width: number; height: number },
   inked: (x: number, y: number) => boolean,
   look: (points: Array<[number, number]>) => Under[]
-): { under: StrokeUnder[]; more: number } {
+): { under: StrokeUnder[]; more: number; kept: Stroke[] } {
   const under: StrokeUnder[] = []
+  const kept: Stroke[] = []
   let more = 0
   for (const stroke of strokes) {
-    if (stroke.tool !== 'pen') continue
+    if (stroke.tool !== 'pen') {
+      if (kept.length > 0) kept.push(stroke)
+      continue
+    }
     const points = samplesOf(stroke.points).filter(([x, y]) => inked(x, y))
     if (points.length === 0) continue
+    kept.push(stroke)
     if (under.length >= MOST_STROKES_TOLD) {
       more += 1
       continue
     }
     under.push(strokeUnder(boxOf(stroke, size), look(points)))
   }
-  return { under, more }
+  return { under, more, kept }
+}
+
+/** How far round the head of an arrow its box reaches, in board pixels. */
+export const HEAD_REACH = 6
+
+/**
+ * What the head of each arrow of a note's labels points at, one line for each label that has an arrow, in the order of
+ * the labels (the order `under` of a note keeps them in, after its strokes): the point of the head is looked under,
+ * and its box is a small one round it within the picture.
+ */
+export function underHeads(labels: readonly NoteLabel[], size: { width: number; height: number }, look: (points: Array<[number, number]>) => Under[]): StrokeUnder[] {
+  const heads: StrokeUnder[] = []
+  for (const { to } of labels) {
+    if (!to) continue
+    const box: [number, number, number, number] = [Math.max(0, Math.floor(to.x - HEAD_REACH)), Math.max(0, Math.floor(to.y - HEAD_REACH)), Math.min(size.width, Math.ceil(to.x + HEAD_REACH)), Math.min(size.height, Math.ceil(to.y + HEAD_REACH))]
+    heads.push(strokeUnder(box, look([[to.x, to.y]])))
+  }
+  return heads
 }

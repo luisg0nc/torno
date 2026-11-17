@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 import { ensureIgnored } from '../ignored'
 import { Refusal } from '../refusal'
+import { dropPictures } from './dropped'
 import { diskText, loadBoardFile, nextAbove, saveBoardFile, textOf } from './file'
 import { MADE_SIZE, freeSpot, freeSpotBelow } from './place'
 import { type LiveFacts, boardLine } from './text'
@@ -56,6 +57,9 @@ function drop(board: BoardFile, id: string): void {
   board.arrows = board.arrows.filter((a) => a.from !== id && a.to !== id)
   for (const c of board.cards) if (c.frame === id) delete c.frame
 }
+
+/** The pictures a list of cards shows. */
+const picturesOf = (cards: readonly Card[]): Set<string> => new Set(cards.flatMap((c) => (c.picture === undefined ? [] : [c.picture])))
 
 /** What main took off a board in this run: the cards and arrows as they were, by id. */
 type Removed = Map<string, Card | Arrow>
@@ -390,13 +394,14 @@ export class BoardStore {
 
   /**
    * Runs `task` in the turn of the project's board, so that no change lands meanwhile, with the files the board names:
-   * those of its cards and of what was taken off it in this run (an undo brings those back), and what was wrong with the file.
+   * those of its cards (`live`) and of what was taken off it in this run (`kept`: an undo brings those back), and what
+   * was wrong with the file.
    */
-  withPictures<T>(objectId: string, task: (named: Set<string>, dir: string, problem: string | null) => Promise<T>): Promise<T> {
+  withPictures<T>(objectId: string, task: (held: { live: Set<string>; kept: Set<string> }, dir: string, problem: string | null) => Promise<T>): Promise<T> {
     return this.turn(objectId, (file, dir) => {
-      const named = new Set<string>()
-      for (const card of [...file.cards, ...[...(this.removed.get(dir)?.values() ?? [])].filter((t): t is Card => !isArrow(t))]) if (card.picture !== undefined) named.add(card.picture)
-      return task(named, dir, this.problems.get(dir) ?? null)
+      const live = picturesOf(file.cards)
+      const kept = picturesOf([...(this.removed.get(dir)?.values() ?? [])].filter((t): t is Card => !isArrow(t)))
+      return task({ live, kept }, dir, this.problems.get(dir) ?? null)
     })
   }
 
@@ -507,6 +512,9 @@ export class BoardStore {
       if (textOf(board) === before) return { board: structuredClone(file), result }
       // Written before it is kept or told: a write that fails leaves the board as it was.
       await saveBoardFile(dir, board)
+      // The pictures the change let go of (a card taken off, a sketch drawn on again) are what torno dropped: the sweep of a later run takes them.
+      const gone = [...picturesOf(file.cards)].filter((name) => !picturesOf(board.cards).has(name))
+      if (gone.length > 0) await dropPictures(dir, gone)
       if (epoch === this.epoch) {
         this.files.set(dir, board)
         this.disk.set(dir, textOf(board))

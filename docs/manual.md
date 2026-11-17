@@ -817,34 +817,56 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   tools it used.
 - **"Attach view"** adds a picture of the viewport as you see it to the next
   prompt only. Pressed, it shows a small picture of the view as it is now above
-  the box, with "Remove", beside the drawing's row when there is one; the
+  the box, with "Remove"; the
   picture that goes with the prompt is the one shown, whatever the view does
   meanwhile.
 - **"Draw on view"** opens a board over a picture of the view: the very picture
   the agent's `look` makes of it, with the axes, the scale bar and the marks
   numbered. Draw on it as on the doodle board (two pens, an eraser that takes
   away only your ink, "Undo" and `Ctrl+Z`, "Clear"); the ink is magenta, edged
-  with a thin line, which no mark is drawn in. "Done" puts the drawing above the
-  box, with "Edit" and "Remove", and the box has the keys again, for the prompt
-  it goes with; it goes with your next prompt only. The row says what the ink
-  lies over, before anything is sent: `Over tub/F3, tub/F1, the cut face of lid
-  · stroke 1 partly over no part · stroke 2 over no part`, the refs as chips that light their face in the view
-  when the pointer is on them. If the view moved while you drew, it says in
-  the warning colour that this was not worked out, with "Draw again"; if the model has been
-  built again since, it says the faces are of the build you drew on. The prompt,
-  once sent, shows the same line under its picture. Claude
-  Code gets the picture with your ink, and before it a caption torno writes: that
-  the strokes are your drawing, which build it was drawn on, the camera it was
-  seen from (so that it can `look` from there again), and stroke by stroke the
-  faces of the parts, the cut faces of a section ("the cut face of lid") and the
-  scans your ink lies over, by ref with the kernel's line for each face
-  (`lid/F12 (plane, normal +Z, z = 20, 1180 mm²)`). No
-  coordinate is taken from the drawing. If the view moved while you drew (the
-  agent's `show`, a build), the caption says what lies under the ink was not
-  worked out; if the model was built again before you sent it, it says the refs
-  are of the build you drew on. The terminal view has no "Draw on view". The
-  picture is never written to disk; the line of what it lies over, refs only, is
-  text in the chat's log like the rest of the prompt.
+  with a thin line, which no mark is drawn in. The "Label" tool (`T`) places a
+  label: click the picture and type a line of at most 200 characters (up to 20
+  labels), then drag from the label to point an arrow at something; "Remove arrow"
+  and "Remove label" are beside the label while you write in it. Under the picture
+  are a comment (one line, 2000 characters) and "Add a reference", which opens a
+  dialog for a photo or a picture (or drop one on the list), up to six, each
+  scaled to 1280 px and each with a line of its own (300 characters). "Done" keeps the drawing as a view
+  note, a draft among the marks, and the box has the keys again, for the prompt
+  it goes with. Each note that waits for it is a row above the box: its picture
+  with the ink, its comment, what the ink lies over (refs that light their face
+  in the view under the pointer), "Edit" and "Remove" ("Undo" brings a removed note back for ten
+  seconds); one whose pictures are not on this computer says so, and still goes
+  with the prompt in words. Several can wait, and "Draw on view" stays open while
+  they do. What the eraser took stays erased when a note is opened again. The sheet says before "Done" when the view moved under it, so what
+  the ink lies over could not be worked out; the head of each arrow is looked
+  under as the ink is. A note is opened again, from the row above the box or from its row in the
+  marks list ("Edit"), on its own plain picture to change
+  its ink, labels, comment or references; one whose picture is not on this
+  computer opens with its comment and references only. A note goes with your next prompt, whatever you write; once sent
+  it is a sent mark like any other. The prompt carries, after the picture "Attach
+  view" shows when there is one, each draft note in the order of the marks: its
+  words, the picture with your ink, then its reference pictures, up to six
+  pictures in all; one past that is named in the words and not attached. The
+  words say which build it was drawn on, the camera it was seen from (so that
+  Claude Code can `look` from there again), and stroke by stroke the faces of the
+  parts, the cut faces of a section ("the cut face of lid") and the scans your
+  ink lies over, by ref with the kernel's line for each face (`lid/F12 (plane,
+  normal +Z, z = 20, 1180 mm²)`). No coordinate is taken from the drawing. If the
+  view moved while you drew (the agent's `show`, a build), they say what lies
+  under the ink was not worked out; if the model was built again before you sent
+  it, that the refs are of the build you drew on. A note whose pictures are not on
+  this computer goes as words only. The prompt, once sent, shows under its
+  pictures what each note's ink lies over (`Over tub/F3, tub/F1, the cut face of
+  lid · stroke 1 partly over no part · stroke 2 over no part`), the refs as chips
+  that light their face in the view when the pointer is on them. The terminal view
+  has no "Draw on view". The pictures are kept in the project's `.torno/notes/`,
+  never in the chat's log; the line of what the ink lies over, refs only, is text
+  in the log like the rest of the prompt. A picture torno let go of (the ink an edit
+  replaced, a reference taken away, a removed note's) is listed in `dropped.json`
+  beside them and deleted when the project is first opened in a later run, unless a
+  note has it again or a file kept aside (`marks.json.corrupt-…`, `marks.json.dropped-…`) names it. A picture
+  that is not on that list is never deleted, whatever the notes name: switching
+  branch never takes one.
 - **What Claude Code says of itself.** torno reads the account the CLI gives at
   the start of a turn and says what a person would miss: a warning when torno's
   tools did not connect, with what the CLI said; a warning when torno's skills
@@ -1225,6 +1247,17 @@ view, and the reticle at the end of the row ("Go to its view") always goes
 there. The pointer on a row, or the keys' focus in it, rings the mark's chip in the view, more faintly than the
 active one's, and lights the face it is on, as a mention of it in the chat
 does.
+
+A **view note** (see "Draw on view" under [The agent](#the-agent)) has a row like
+any other mark's: its number, a small picture of the view with your ink, and
+its comment as the row's note. The pointer on it lights the faces under its ink
+and the heads of its arrows, those the model as it is built now still has: after a
+rebuild that took a face away, the others light and that one does not. A click
+on the row and the reticle go to the camera the note was made from (a click only
+when the note's number is out of view, as for any mark). A note whose picture is
+not on this computer (pictures are not in git) has an empty frame in the place of
+the picture and still goes with the prompt in words. The note is also a card on the
+board, with the picture and the comment (see [The board](#the-board)).
 
 The chips in the view answer the pointer too. On a chip the pointer is a hand,
 the mark's row lights, and its note is read out beside the pointer on one line
@@ -1687,7 +1720,7 @@ The card shows the value and unit large, in the face of numbers, then what it me
 |---|---|
 | Brief | opens `brief.md` in your editor |
 | Photo of `reference/` | opens it large (`Esc` puts it away); any other file is shown in its folder |
-| Mark | shows the model with the mark selected |
+| Mark | shows the model with the mark selected; the card of a view note opens its sheet over the note (to change it), and shows the model first |
 | Scan | shows the model with the scan on |
 | Build | shows the model and opens Compare with the live build (nothing for a build this computer does not have) |
 | View | shows the model with that view on |
@@ -1730,8 +1763,10 @@ make to the board: before writing it compares the file with what it last wrote, 
 on top of it, and shows you the result. A pull is therefore seen at the next change, not at once. A file torno cannot read, or
 with cards that are not whole, is kept beside it (`board.json.corrupt-…`, `board.json.dropped-…`) and the board says so, with
 "Dismiss". Undo (`Ctrl+Z`) goes back up to 50 changes made in this window, and brings back what torno took off in this run. The
-pictures no card names are removed when the project is first opened in a run, except those a file kept aside names
-(`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them.
+pictures torno let go of (a removed card's, a sketch drawn on again) are listed in `dropped.json` beside them and deleted when
+the project is first opened in a later run, unless a card has them again or a file kept aside names them
+(`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on
+that list is never deleted, whatever the board names: switching branch never takes one.
 
 ## The page of projects
 
@@ -1966,6 +2001,7 @@ until the camera is first moved; the window remembers that in its own storage, n
 | In a field, a menu or a sheet | `Esc` | Sheet or question: put it away |
 | In a field, a menu or a sheet | `Ctrl+Z` | Drawing board (a doodle, or a drawing on the view): undo the last stroke |
 | In a field, a menu or a sheet | `Shift` | Drawing board: hold Shift while drawing for a straight line from where the stroke began |
+| In a field, a menu or a sheet | `T` | Drawing on the view: the label tool, click to place a label and drag from it to point an arrow (not heard in a field) |
 | For working on torno | `F12` `Ctrl+Shift+I` | Developer tools |
 <!-- keys: end -->
 
@@ -2378,7 +2414,9 @@ On the screen:
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
 - **The Print profile.** Open the Params panel and find it under Checks: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its title says what is chosen (`Print profile Bambu X1C, PETG`).
 - **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
-- **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the row above the box names the faces the ink lies over before anything is sent (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
+- **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
+- **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
+- **The notes that wait, and the note rows and cards.** The row above the box for each draft note (its picture with the ink, its comment, what the ink lies over, "Edit" and "Remove" with its "Undo"); the row of a note in the Marks list (the small picture, its comment, the faces lit under the pointer, the empty frame of a note whose picture is not on this computer); and a note's card on the board (the picture in the card's size, the comment and status under it, the double click that opens the sheet): each legible in both themes, and the rows still one line at the panel's default width.
 - **Claude Code's own checkpoints for the asked undo (`Part of #131`).** When no copy of the build is kept, "Go back to before this prompt" asks the agent in words. Claude Code can also
   restore the files itself: with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` at start, `claude -p --resume <id>
   --rewind-files <uuid>`, where `<uuid>` is the id torno gives the prompt. This is not built: `--rewind-files` is absent

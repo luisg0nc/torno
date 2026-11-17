@@ -22,6 +22,8 @@ declare global {
       paused(): boolean
       look(req: LookRequest): Promise<LookResult>
       camera(): Camera
+      /** Opens the sheet of a view note over the note, as the list of marks will (`ui/drawing/make.ts` `openNote`); rejects with why not. */
+      openNote(objectId: string, id: string): Promise<void>
       /** What the pointer is on in the chat and the viewport lights for it (a ref chip's refs); none when it is on nothing. */
       peeked(): string[]
       /** What a point of the canvas is on; `fx` and `fy` are fractions of its width and height, from the top left. */
