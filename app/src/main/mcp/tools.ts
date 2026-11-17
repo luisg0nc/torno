@@ -27,6 +27,7 @@ import type { HistoryEntry } from '../../shared/history'
 import type { TrialResult } from '../kernel/client'
 import type { ObjectInfo } from '../../shared/workspace'
 import { describeMark, markData, sizes } from '../marks/describe'
+import { sketchData } from '../sketches/text'
 import { noteFilesExist } from '../notes/files'
 import { MOST_NOTE_PICTURES, notePictures } from '../notes/pictures'
 import { noteData } from '../notes/text'
@@ -298,7 +299,8 @@ export const noMark = (id: string, marks: Mark[]): ToolResult => failure(`no mar
  */
 const withLine = (mark: Mark, revision?: number, scans?: readonly ScanInfo[], layout?: string, scene?: Scene, dir?: string): object => ({
   // A note is told in words, without its strokes and the names of its files: where its files are on this computer is told with it.
-  ...(mark.kind === 'note' ? noteData(mark, revision, dir === undefined ? undefined : noteFilesExist(dir, mark)) : markData(mark, revision, scans, layout)),
+  // A sketch likewise: its strokes are in its `text`, in full, and its picture is a file of main's.
+  ...(mark.kind === 'note' ? noteData(mark, revision, dir === undefined ? undefined : noteFilesExist(dir, mark)) : mark.kind === 'sketch' ? sketchData(mark, revision) : markData(mark, revision, scans, layout)),
   line: describeMark(mark, { revision, ...(layout ? { layout } : {}), ...(scans ? { scans } : {}), ...(scene ? { scene } : {}) })
 })
 

@@ -54,6 +54,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   label arrow lie over, the comment, `reference <n>: <comment>`); `marks` with `pictures: true` attaches each listed note's inked picture,
   then its references (`notePictures`, `main/notes/pictures.ts`), at most 6 in all and 1280 px, naming the rest. `add_mark` refuses
   `kind: 'note'`; Claude's only act on a note is `resolve_mark`, and no tool edits or deletes one.
+  A sketch (`SketchMark`) is told by `marks` and `describe` the same way (`sketchData`, `main/sketches/text.ts`): the mark without its strokes and
+  its picture, with `strokeCount` and `text`, which has every stroke and point (`sketchText` with no cut).
   `look` and `show` take the name of a saved view as `view`, and `save_view`
   proposes one (Views). `show` changes
   the view for now and is never saved to `scene.json`; it is refused while a

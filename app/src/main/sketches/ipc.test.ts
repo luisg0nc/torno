@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { NewMark, SketchMark, Vec3 } from '../../shared/marks'
 import { SKETCH_PICTURE } from '../../shared/marks'
@@ -12,7 +13,7 @@ import { isNoteFile } from '../notes/files'
 import { png, jpeg } from '../notes/testing'
 import { NoteSweep } from '../notes/sweep'
 import { refusable } from '../refusal'
-import { forgetOpenSketches, forgetRemovedSketch, openSketch, sketchHandlers } from './ipc'
+import { forgetOpenSketches, forgetRemovedSketch, forgetSketchesWith, openSketch, sketchHandlers } from './ipc'
 import { fixture, VERTICES, world } from './testing'
 
 const CAMERA = { position: [100, -100, 80], target: [0, 0, 10], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
@@ -330,6 +331,28 @@ describe('marks:sketching', () => {
   it('is forgotten with the workspace', () => {
     handlers().sketching('bracket', 'M3')
     forgetOpenSketches()
+    expect(openSketch('bracket')).toBeNull()
+  })
+
+  it('is forgotten when the window loads again, its renderer goes, or its contents are destroyed, so that a crash holds nothing back', () => {
+    const contents = new EventEmitter()
+    forgetSketchesWith(contents)
+    const open = (): string | null => {
+      handlers().sketching('bracket', 'M3')
+      return openSketch('bracket')
+    }
+    expect(open()).toBe('M3')
+    // The page moving on within itself is no reload.
+    contents.emit('did-start-navigation', { isMainFrame: true, isSameDocument: true })
+    contents.emit('did-start-navigation', { isMainFrame: false, isSameDocument: false })
+    expect(openSketch('bracket')).toBe('M3')
+    contents.emit('did-start-navigation', { isMainFrame: true, isSameDocument: false })
+    expect(openSketch('bracket')).toBeNull()
+    expect(open()).toBe('M3')
+    contents.emit('render-process-gone', {}, { reason: 'crashed' })
+    expect(openSketch('bracket')).toBeNull()
+    expect(open()).toBe('M3')
+    contents.emit('destroyed')
     expect(openSketch('bracket')).toBeNull()
   })
 })

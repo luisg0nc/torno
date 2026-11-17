@@ -51,6 +51,19 @@ export function forgetOpenSketches(): void {
   open.clear()
 }
 
+/**
+ * The window's page is the only one that knows a sketch is open: when it loads again (a reload), its renderer process
+ * goes (a crash) or its contents are destroyed, no sketch is open any more, so that none is held back from prompts for good.
+ * `contents` is the window's `webContents`.
+ */
+export function forgetSketchesWith(contents: { on(event: string, listener: (...args: any[]) => void): unknown }): void {
+  contents.on('did-start-navigation', (details: { isMainFrame?: boolean; isSameDocument?: boolean } | undefined) => {
+    if (details?.isMainFrame !== false && details?.isSameDocument !== true) forgetOpenSketches()
+  })
+  contents.on('render-process-gone', () => forgetOpenSketches())
+  contents.on('destroyed', () => forgetOpenSketches())
+}
+
 export function sketchHandlers(deps: SketchIpcDeps) {
   const project = (objectId: unknown): ObjectInfo => {
     const obj = typeof objectId === 'string' ? deps.object(objectId) : undefined

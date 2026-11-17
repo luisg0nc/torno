@@ -20,6 +20,7 @@ import { buildContextFor, contextFor, tellsInstructions } from './context'
 import { takeGoBackNotice } from './goback'
 import { listReferences } from './sessions/reference'
 import { buildIdentity, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject } from './ipc'
+import { forgetSketchesWith, openSketch } from './sketches/ipc'
 import { cannotStart, environmentCommand } from './kernel/client'
 import { ReadyKeeper } from './readiness'
 import { NoAnswer, latestView, requestHighlight, requestLook, requestSaveView, requestSectionDrawing, requestShow } from './look'
@@ -254,6 +255,8 @@ function createWindow(): BrowserWindow {
   win.webContents.on('will-navigate', (event, url) => {
     if (url !== win.webContents.getURL()) event.preventDefault()
   })
+  // A sketch open for editing is held back from prompts; a page that loads again or is gone holds none back for good.
+  forgetSketchesWith(win.webContents)
 
   // electron-vite serves the renderer from its dev server under `pnpm dev`.
   // `?test=1` tells the renderer to expose its test hook (window.__tornoTest).
@@ -431,7 +434,7 @@ const toolDeps: ToolDeps = {
     return proposing(obj.dir, req.name, () => theWindow().then((win) => requestSaveView(win, req)), (e) => e instanceof NoAnswer)
   }
 }
-const promptDeps = { ...toolDeps, references: referencesOf }
+const promptDeps = { ...toolDeps, references: referencesOf, sketching: openSketch }
 
 /** The instruction files Claude Code reads for an object (the person's home, and the organisation's file, are the machine's): found for the session pane and for the first prompt of a session. */
 const instructionFiles = new InstructionList()

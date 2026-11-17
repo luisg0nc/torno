@@ -2609,6 +2609,29 @@ describe('view notes, as Claude reads them', () => {
     expect(JSON.stringify(note)).not.toMatch(/n-[0-9a-f]{12}|r-[0-9a-f]{12}/)
   })
 
+  it('lists a sketch in full as text, with its line and the number of its strokes, never the name of its picture', async () => {
+    const sketch = {
+      ...MARK_BASE,
+      id: 'M6',
+      kind: 'sketch',
+      name: 'Hose',
+      take: 'flow',
+      diameter: 19,
+      picture: 'k-0123456789ab.png',
+      planes: [{ id: 1, origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], label: 'XY at z = 0.0', from: { kind: 'main', axis: 'XY', offset: 0 } }],
+      strokes: Array.from({ length: 6 }, () => ({ pen: 'free', plane: 1, points2d: Array.from({ length: 400 }, (_, i) => [i, 0]), revision: 3, touches: [] }))
+    } as Mark
+    const [one] = jsonOf(await marksTool(rig([sketch]), 'bracket', {})).marks
+    expect(one).toMatchObject({ id: 'M6', kind: 'sketch', name: 'Hose', take: 'flow', strokeCount: 6 })
+    expect(one.line).toBe('M6 · sketch "Hose" · flow ⌀19 mm · 6 strokes on 1 plane · draft, drawn on build 3')
+    // All 2,400 points, not the 2,000 a prompt tells of.
+    expect(one.text).toContain('stroke 6: freehand on plane 1')
+    expect(one.text).not.toContain('more stroke')
+    expect(one.text).toContain('Take it as a route')
+    for (const key of ['strokes', 'picture']) expect(one).not.toHaveProperty(key)
+    expect(JSON.stringify(one)).not.toMatch(/k-[0-9a-f]{12}/)
+  })
+
   it('says a note was drawn on an older build than the last, and that its picture is not on this computer when it is not', async () => {
     const deps = rig([await noteMade(5, 1, { revision: 2 })])
     expect(jsonOf(await marksTool(deps, 'bracket', {})).marks[0].text).toContain('The model has been built again since: r3 is the latest')

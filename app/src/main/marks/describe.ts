@@ -1,6 +1,6 @@
 import { count as counted, number, numberWithin, scanNumber } from '../../shared/format'
 import { expectedText, lastValue, measuredValue, notMeasuredText, offBy, onBuild, standingOf, valueText } from '../../shared/dimension'
-import { type Anchor, type DimensionMark, type Mark, type NoteMark, type RegionMark, type ShapeMark, type StrokeMark, isUnchecked, markAnchors } from '../../shared/marks'
+import { type Anchor, type DimensionMark, type Mark, type NoteMark, type RegionMark, type ShapeMark, type SketchMark, type StrokeMark, isUnchecked, markAnchors } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { isFlat, regionInLayout } from '../../shared/regions'
 import { type ScanInfo, alignmentOf } from '../../shared/scans'
@@ -288,9 +288,19 @@ function what(mark: Mark, opts: { revision?: number; layout?: string; scans?: re
     case 'note':
       return 'view note'
     case 'sketch':
-      // What Claude is told of a sketch's strokes is `describe`'s next piece; this is its first line.
-      return `sketch "${mark.name}", ${mark.take}${mark.diameter === undefined ? '' : ` ⌀${number(mark.diameter)} mm`}, ${mark.strokes.length} ${mark.strokes.length === 1 ? 'stroke' : 'strokes'} on ${mark.planes.length} ${mark.planes.length === 1 ? 'plane' : 'planes'} and the surface`
+      return sketch(mark)
   }
+}
+
+/**
+ * `· sketch "Breather hose route" · flow ⌀19 mm · 3 strokes on 2 planes and the surface · draft, drawn on build 41`: what
+ * a sketch is and holds in one line, after its number; its strokes, planes and points are `sketchText`'s.
+ */
+function sketch(mark: SketchMark): string {
+  const plural = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : 's'}`
+  const on = [...(mark.planes.length > 0 ? [plural(mark.planes.length, 'plane')] : []), ...(mark.strokes.some((s) => s.plane === undefined) ? ['the surface'] : [])]
+  const take = `${mark.take}${mark.diameter === undefined ? '' : ` ⌀${number(mark.diameter)} mm`}`
+  return `· sketch "${mark.name}" · ${take} · ${plural(mark.strokes.length, 'stroke')}${on.length > 0 ? ` on ${on.join(' and ')}` : ''} · ${mark.status}, drawn on build ${mark.revision}`
 }
 
 /** `lid/F12 (plane, normal +Z, z = 20, 1180 mm²)`, or the ref alone when the kernel has said nothing of it. */
