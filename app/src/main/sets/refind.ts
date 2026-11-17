@@ -81,6 +81,8 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
 
   /** Each set's members as this build leaves them, to be refined by what the kernel answers. */
   const next: SetMember[][] = sets.map((set) => set.members.map((m) => judgedHere(set, m, scene, (refs[set.id] ?? -1) < revision)))
+  /** By set, the members the kernel gave an answer for in this run: only those have the refs of this build. */
+  const answeredOf: Array<Set<number>> = sets.map(() => new Set<number>())
   const askings = new Map<string, Asking[]>()
   sets.forEach((set, s) => {
     if (!scene.layouts.includes(set.layout)) return
@@ -109,7 +111,10 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
       const found = refound(old, entry, said[i])
       if (found === 'unchecked') unchecked += 1
       else if (typeof found === 'string') failures.push(`${sets[entry.set].id} ${refOf(old)}: ${found}`)
-      else next[entry.set][entry.member] = found
+      else {
+        next[entry.set][entry.member] = found
+        answeredOf[entry.set].add(entry.member)
+      }
     })
   }
   if (superseded()) return true
@@ -120,7 +125,7 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
   const written = await deps.sets.refound(objectId, revision, changes, whole)
   // A member found at another ref, or moved, is of another face: the form it had was made of the face it was. Its selector is asked for again.
   const wrote = new Set(written.map((s) => s.id))
-  const found = sets.flatMap((set, s) => (wrote.has(set.id) || isDeepStrictEqual(next[s], set.members) ? [{ set, was: set.members, now: next[s] }] : []))
+  const found = sets.flatMap((set, s) => (wrote.has(set.id) || isDeepStrictEqual(next[s], set.members) ? [{ set, was: set.members, now: next[s], answered: answeredOf[s] }] : []))
   try {
     await selectorsAgain(deps, objectId, revision, found, superseded)
   } catch (e) {
@@ -134,7 +139,7 @@ export async function refindAll(deps: RefindDeps, objectId: string): Promise<Che
 /**
  * The second change after a refind: for each set looked at that was not edited meanwhile, the members that are now at another ref
  * than they were (found `nearest`, or by a selector that gives another face), or that moved, or that the kernel was never asked
- * for (made on an earlier build, so that their refs were not asked about then) have the kernel's `selectors` asked of them, one
+ * for (made on an earlier build, so that their refs were not asked about then), and that the kernel answered for in this run, have the kernel's `selectors` asked of them, one
  * query for each layout and part, and the answers are written with `withSelectors`, as when a set is made: a member that is given
  * no form has none. The store drops an answer for a build that is no longer the last. Not asked for a member that was lost.
  */
@@ -142,7 +147,7 @@ async function selectorsAgain(
   deps: RefindDeps,
   objectId: string,
   revision: number,
-  found: ReadonlyArray<{ set: NamedSet; was: readonly SetMember[]; now: readonly SetMember[] }>,
+  found: ReadonlyArray<{ set: NamedSet; was: readonly SetMember[]; now: readonly SetMember[]; answered: ReadonlySet<number> }>,
   superseded: () => boolean
 ): Promise<void> {
   /** By layout and part, the refs to ask of. */
@@ -150,8 +155,10 @@ async function selectorsAgain(
   /** By set id, the refs of it that were asked. */
   const ofSet = new Map<string, Set<string>>()
   const near = (a: readonly number[], b: readonly number[]): boolean => a.every((c, i) => Math.abs(c - b[i]) <= SAME)
-  for (const { set, was, now } of found) {
+  for (const { set, was, now, answered } of found) {
     now.forEach((member, i) => {
+      // A member the kernel gave no answer for (the query failed, it ran out of time) has the refs of an earlier build: never asked about.
+      if (!answered.has(i)) return
       const old = was[i]
       if (!old || !('face' in member || 'edge' in member) || member.state !== 'ok') return
       const ref = refOf(member)

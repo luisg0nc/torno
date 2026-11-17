@@ -394,6 +394,25 @@ describe('the selectors of members that were found at another ref', () => {
     expect(formOf((await nowSets())[0].members[0])).toEqual(FORM)
   })
 
+  it('asks for no member the kernel gave no answer for: its ref is of an earlier build and names another face now', async () => {
+    const bare = face('block/F3', [3, 3, 3])
+    delete (bare as { type?: string }).type
+    sets(set('N1', 'deck', 'assembly', [bare]))
+    build = builtScene(6)
+    await store.refound('bracket', 6, [{ id: 'N1', was: [bare], members: [bare] }])
+    build = builtScene(7)
+    for (const said of [unchecked, null]) {
+      selectorsAsked = []
+      answer = () => {
+        if (said === null) throw new KernelError('internal', 'the kernel broke')
+        return [said]
+      }
+      expect(await refindAll(deps(), 'bracket')).toBe(false)
+      expect(selectorsAsked).toEqual([])
+      expect((await nowSets())[0].members[0]).toEqual(bare)
+    }
+  })
+
   it('asks nothing when no member moved to another ref', async () => {
     sets(set('N1', 'deck', 'assembly', [face('block/F1')]))
     answer = () => [selector('block/F1')]
