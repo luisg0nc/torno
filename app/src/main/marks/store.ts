@@ -368,6 +368,7 @@ export class MarkStore {
   async saveSketch(objectId: string, draft: SketchDraft, touches: ReadonlyArray<readonly string[] | undefined> = [], opts: { author?: 'user' | 'agent'; from?: SketchMark } = {}): Promise<Mark> {
     const author = opts.author ?? 'user'
     let was: Mark | undefined
+    let dropped: string | undefined
     const saved = await this.change(
       objectId,
       (file) => {
@@ -419,11 +420,19 @@ export class MarkStore {
           delete changed.resolvedBy
           delete changed.acknowledged
         }
+        // Its card's picture shows what it drew: with other planes or strokes it is stale, and drawn again (`MissingPictures`).
+        const before = given as SketchMark
+        if (before.picture !== undefined && !(isDeepStrictEqual(before.planes, (content as SketchMark).planes) && isDeepStrictEqual(before.strokes, (content as SketchMark).strokes))) {
+          dropped = before.picture
+          delete (changed as SketchMark).picture
+        }
         file.marks[at] = changed
         return changed
       },
       draft?.id === undefined ? [] : [String(draft.id)]
     )
+    const dir = this.deps.dirOf(objectId)
+    if (dropped !== undefined && dir !== undefined) await dropNoteFiles(dir, [dropped])
     return saved === UNCHANGED ? structuredClone(was as Mark) : saved
   }
 

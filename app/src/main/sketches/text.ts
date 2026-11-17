@@ -103,7 +103,7 @@ export function pointsTold(mark: SketchMark, opts: SketchTextOptions): number {
 export function sketchText(mark: SketchMark, opts: SketchTextOptions): string {
   const toolName = opts.toolName ?? ((tool: string): string => tool)
   const { told, left } = split(mark, opts.mostPoints ?? MOST_POINTS_TOLD)
-  const lines = [`Sketch ${mark.id} "${mark.name}": the person's 3D drawing in layout ${mark.layout}, in mm in its object frame. This is text only: no picture goes with it.`]
+  const lines = [`Sketch ${mark.id} "${mark.name}": ${mark.author === 'agent' ? 'your own' : "the person's"} 3D drawing in layout ${mark.layout}, in mm in its object frame. This is text only: no picture goes with it.`]
   if (opts.revision !== undefined && opts.revision > mark.revision) lines.push(`The model has been built again since: r${opts.revision} is the latest, and the refs and faces here are of the builds named, which may name other geometry now.`)
   lines.push(`${TAKE_SENTENCES[mark.take]}${mark.diameter === undefined ? '' : ` Its diameter is ⌀${number(mark.diameter)} mm.`}`)
   if (mark.planes.length > 0) lines.push(`Planes (a point on one is its origin + u·(its u) + v·(its v)):`, ...mark.planes.map(planeLine))

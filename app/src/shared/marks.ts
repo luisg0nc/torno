@@ -350,7 +350,7 @@ const SKETCH_STROKES_CHECKED = 8
 /**
  * Of a sketch: the same for each stroke on the surface, at most 8 strokes (evenly along them, the first and the last
  * kept). The sketch's anchor is the first point of its first stroke on a face, and is checked as the anchor: that point
- * is not among the samples. A stroke on a plane lies on nothing and is not judged.
+ * is not among the samples. A stroke on a plane lies on nothing and is not judged, nor is a point snapped to a hole's centre.
  */
 function sketchSamples(mark: SketchMark, most: number): Vec3[] {
   const surface = mark.strokes.filter((stroke) => stroke.plane === undefined && (stroke.points?.length ?? 0) > 0)
@@ -360,9 +360,12 @@ function sketchSamples(mark: SketchMark, most: number): Vec3[] {
       : Array.from({ length: SKETCH_STROKES_CHECKED }, (_, i) => surface[Math.round((i * (surface.length - 1)) / (SKETCH_STROKES_CHECKED - 1))])
   const anchor = mark.anchor?.point
   return chosen.flatMap((stroke, n) => {
-    const points = stroke.points ?? []
+    const all = stroke.points ?? []
+    // A point snapped to a circle's centre sits in the air, not on a face: it is never a sample.
+    const air = new Set((stroke.snaps ?? []).filter((snap) => 'centre' in snap).map((snap) => snap.i))
+    const points = all.filter((_, i) => !air.has(i))
     // Only the first stroke on the surface can hold the anchor, as its first point.
-    const first = n === 0 && anchor !== undefined && points[0].every((c, i) => c === anchor[i])
+    const first = n === 0 && anchor !== undefined && points.length > 0 && points[0].every((c, i) => c === anchor[i])
     return first ? evenly(points.slice(1), most) : evenly(points, most)
   })
 }

@@ -401,7 +401,11 @@ const toolDeps: ToolDeps = {
   // A mark made through the tools is the agent's, and it knows of it: there is nothing to send it.
   addMark: (objectId, mark) => marks.add(objectId, placedMark({ ...mark, author: 'agent' }, objectId), 'sent'),
   // A sketch of the agent's is checked by the tool (`add_sketch`), and kept as the agent's: sent, with no snaps.
-  saveSketch: (objectId, draft, touches) => marks.saveSketch(objectId, draft, touches, { author: 'agent' }),
+  // Its anchor says how far its part is spread on this build (`placedMark`), so that the sketch moves with it.
+  saveSketch: (objectId, draft, touches) => {
+    const anchor = draft.anchor ? (placedMark({ ...draft, kind: 'sketch', author: 'agent' } as never, objectId) as { anchor?: typeof draft.anchor }).anchor : undefined
+    return marks.saveSketch(objectId, anchor ? { ...draft, anchor } : draft, touches, { author: 'agent' })
+  },
   // A removal is the window's own: the last mark removed can be undone there.
   removeMark: (objectId, id) => marks.remove(objectId, id),
   // A dimension is measured as it is kept, as one the person makes is (`addDimension`).

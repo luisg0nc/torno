@@ -352,6 +352,14 @@ describe('reanchorAll', () => {
       expect(asked0.some((a) => a.part === 'p3')).toBe(false)
     })
 
+    it('is not judged by a point snapped to a hole centre, which sits in the air', async () => {
+      await sketch([{ pen: 'line', points: [[0, 0, 2.5], [5, 0, 2.5], [10, 0, 2.5]], snaps: [{ i: 2, centre: 'base/E14', radius: 2 }], revision: 1 }])
+      answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] === 10 ? 2 : 0)) })
+      await run()
+      expect(anchorsOf(asked[0].args).some((a) => a.point[0] === 10)).toBe(false)
+      expect((await byId()).M1.anchorState).toBe('ok')
+    })
+
     it('is never judged by a stroke on a plane', async () => {
       await sketch([{ plane: 1, pen: 'free', points2d: [[0, 0], [5, 5], [9, 0]], revision: 1 }])
       answer = (_name, args) => ({ anchors: anchorsOf(args).map(({ part, point }) => found(part, `${part}/F1`, point[0] === 0 ? 0 : 9)) })

@@ -57,6 +57,13 @@ describe('sketchText', () => {
     expect(text).toContain('p1 = (4.000, 5.000, 6.000) approximate: on edge block/E40 (not a straight or circular edge, so only the edge is known)')
   })
 
+  it("calls a sketch of the person's the person's drawing, and Claude's own your own", () => {
+    expect(text).toContain("the person's 3D drawing")
+    const own = sketchText(sketch({ author: 'agent' }), {})
+    expect(own).toContain('your own 3D drawing in layout assembly')
+    expect(own).not.toContain("the person's")
+  })
+
   it('says how to take it, and the camera with how to look from it', () => {
     expect(text).toContain('Take it as a route: follow its path loosely, and keep its diameter clear.')
     expect(text).toContain('⌀19 mm')

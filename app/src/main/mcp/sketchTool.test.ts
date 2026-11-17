@@ -93,12 +93,28 @@ describe('add_sketch makes a sketch of Claude\'s own', () => {
     expect(text(result)).toMatch(/takes no "touches"/)
     const ok = await addSketchTool(deps, 'bracket', { name: 'On the block', strokes: [{ points: [[80, 60, 10], [90, 70, 10]] }, { points: [[0, 0, 400]] }] })
     expect(ok.isError, text(ok)).toBeUndefined()
-    expect(asked).toHaveLength(1)
+    // The first asks what the strokes touch, the second where the first point is (its anchor).
+    expect(asked).toHaveLength(2)
     expect(asked[0].layout).toBe('assembly')
     expect(asked[0].anchors.every((a) => a.part === 'block')).toBe(true)
     const [made] = await sketches()
     expect(made.strokes.map((s) => s.touches)).toEqual([['block/F2'], []])
     expect(text(ok)).toContain('stroke 1: 2 points in space, touches block/F2')
+  })
+
+  it('is tied to the part under the first point of its first stroke in space, as the person\'s is, and to none when that point is on no part', async () => {
+    const ok = await addSketchTool(deps, 'bracket', { name: 'On the block', strokes: [{ plane: { main: 'XY', offset: 5 }, points2d: [[0, 0], [1, 1]] }, { points: [[80, 60, 10], [90, 70, 10]] }] })
+    expect(ok.isError, text(ok)).toBeUndefined()
+    expect((await sketches())[0].anchor).toMatchObject({ point: [80, 60, 10], part: 'block', ref: 'block/F2' })
+    // The first point is beyond the tolerance of every part: nothing is tied.
+    deps = { ...deps, nearest: async (_i: string, _l: string, anchors: Array<{ part: string; point: number[] }>) => anchors.map(({ part, point }) => ({ part, found: true, point, normal: null, ref: `${part}/F2`, distance: 500, descriptor: '' })) } as unknown as ToolDeps
+    const far = await addSketchTool(deps, 'bracket', { name: 'In the air', strokes: [{ points: [[0, 0, 400], [1, 0, 400]] }] })
+    expect(far.isError, text(far)).toBeUndefined()
+    expect((await sketches()).find((m) => m.name === 'In the air')).not.toHaveProperty('anchor')
+    // A replacement that has none loses the one it had.
+    const again = await addSketchTool(deps, 'bracket', { sketch: 'M1', name: 'On the block', strokes: [{ points: [[0, 0, 400]] }] })
+    expect(again.isError, text(again)).toBeUndefined()
+    expect((await sketches()).find((m) => m.id === 'M1')).not.toHaveProperty('anchor')
   })
 
   it('is kept with no touches when the kernel cannot say', async () => {

@@ -60,7 +60,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `plane` + `points2d`, at most 50 strokes and 2,000 points, every number finite and within 10 diagonals of the layout's parts. Main makes the planes' frames:
   a main plane's by `mainPlaneFrame` (`shared/planes.ts`, labelled as `viewPlane` does), a face plane's from the kernel's `describe` of that face (it must be
   planar; `axesOfNormal` gives the axes, +X projected, else +Y), a point plane's from its normal. The sketch is `author: 'agent'`, of the last build, with no snaps, and its
-  `touches` come from `strokeTouches` through `deps.nearest`. `sketch: 'M9'` replaces one of the agent's, `remove: true` deletes it through `MarkStore.remove` (undo as for any mark);
+  `touches` come from `strokeTouches` through `deps.nearest`. Its `anchor` is `anchorFor` of the first point of its first stroke in space (a kernel `nearest`, with the spread `placedMark` records in `index.ts`), absent when that point is beyond tolerance of every part or there is no such stroke. `sketch: 'M9'` replaces one of the agent's, `remove: true` deletes it through `MarkStore.remove` (undo as for any mark);
   a sketch of the person's is refused for either. `add_mark` refuses `kind: 'sketch'` and `'stroke'`.
   `look` and `show` take the name of a saved view as `view`, and `save_view`
   proposes one (Views). `show` changes

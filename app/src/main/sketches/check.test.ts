@@ -265,3 +265,22 @@ describe('what a sketch may be', () => {
     expect(Math.hypot(...set.x)).toBeCloseTo(1, 12)
   })
 })
+
+describe('the plane through a face', () => {
+  const faces = { ...build, scene: { ...build.scene, parts: build.scene.parts.map((p) => ({ ...p, faceCount: 12 })) } }
+  const stroke = [{ plane: 1, pen: 'free', points2d: [[0, 0]], revision: 7 }]
+  const through = (ref: string, revision = 7) => ({ id: 1, origin: [0, 0, 20], x: [1, 0, 0], y: [0, 1, 0], label: `plane through ${ref}`, from: { kind: 'face', ref, offset: 0, revision } })
+
+  it('is kept when the face is one of the build', () => {
+    expect(kept(raw({ planes: [through('block/F11')], strokes: [{ plane: 1, pen: 'free', points2d: [[0, 0]], revision: 7 }] }), undefined, faces).planes).toHaveLength(1)
+  })
+
+  it('is refused when the face is past the faces of the part, or the part is none of the layout', () => {
+    expect(refused(raw({ planes: [through('block/F12')], strokes: stroke }), undefined, faces)).toMatch(/block has 12 faces/)
+    expect(refused(raw({ planes: [through('lid/F1')], strokes: stroke }), undefined, faces)).toMatch(/no such part/)
+  })
+
+  it('is not judged against a build it is not of', () => {
+    expect(kept(raw({ planes: [through('block/F99', 5)], strokes: stroke }), undefined, faces).planes).toHaveLength(1)
+  })
+})

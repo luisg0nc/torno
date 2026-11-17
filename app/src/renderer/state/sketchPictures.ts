@@ -33,6 +33,8 @@ export class MissingPictures {
       this.tried.clear()
     }
     this.latest = objectId === null ? null : { objectId, marks }
+    // One that has its picture was drawn: if the picture is taken away (its strokes changed), it is drawn again.
+    if (objectId !== null) for (const m of marks) if (m.kind === 'sketch' && m.picture !== undefined) this.tried.delete(`${objectId}/${m.id}`)
     if (this.latest && !this.running && this.next() !== undefined) {
       this.running = true
       this.deps.later(() => void this.turn())

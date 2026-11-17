@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark, SketchMark } from '../../shared/marks'
+import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark, SketchMark, SketchStroke } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import * as file from './file'
 import { droppedNames } from '../dropped'
@@ -1298,6 +1298,17 @@ describe('a sketch', () => {
     expect(changed).toMatchObject({ id: 'M1', name: 'Hose, longer', take: 'exact', createdAt: made.createdAt, picture: 'k-0123456789ab.png', status: 'draft' })
     expect(changed).not.toHaveProperty('diameter')
     expect(await store.list('bracket')).toEqual([changed])
+  })
+
+  it('loses its picture, and lists it as dropped, when its planes or strokes change, so that it is drawn again', async () => {
+    mkdirSync(join(dirs.bracket, '.torno', 'notes'), { recursive: true })
+    const made = await store.saveSketch('bracket', draft(), [[], []])
+    await store.setSketchPicture('bracket', made.id, 'k-aaaaaaaaaaaa.png')
+    const more: SketchStroke = { pen: 'free', points: [[3, 2, 20], [4, 2, 20]], revision: 3 }
+    const changed = (await store.saveSketch('bracket', { ...draft({ strokes: [...draft().strokes, more] }), id: made.id }, [])) as SketchMark
+    expect(changed).not.toHaveProperty('picture')
+    expect(await droppedNames(dirs.bracket, ['notes'], isNoteFile)).toEqual(['k-aaaaaaaaaaaa.png'])
+    expect(await store.withNoteFiles('bracket', async ({ live }) => [...live])).toEqual([])
   })
 
   it('is a draft again when it was sent, and says it was sent before, and that is what it asks to be checked for', async () => {

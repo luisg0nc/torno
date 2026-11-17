@@ -83,6 +83,17 @@ describe('the pictures of sketches that have none', () => {
     expect(asked).toEqual(['M3', 'M4'])
   })
 
+  it('draws one again when its picture was taken away after it had one, which is what changed strokes do', async () => {
+    const { missing, drawn, settle } = queue()
+    missing.offer('bracket', [sketch(3)])
+    await settle()
+    missing.offer('bracket', [sketch(3, { picture: 'k-aaaaaaaaaaaa.png' })])
+    await settle()
+    missing.offer('bracket', [sketch(3)])
+    await settle()
+    expect(drawn).toEqual(['M3', 'M3'])
+  })
+
   it('does not draw while a sketch is being drawn, and goes on when it is done', async () => {
     let drawing = true
     const { missing, drawn, settle } = queue({ busy: () => drawing })

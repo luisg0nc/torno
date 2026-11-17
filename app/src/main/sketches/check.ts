@@ -97,6 +97,13 @@ export function checkSketch(raw: unknown, stored: SketchMark | undefined, build:
 
   for (const plane of body.planes) {
     if (plane.from.kind === 'face' && plane.from.revision > build.revision) return new Refusal(`Plane ${plane.id} was made on build ${plane.from.revision}, and the last build is ${build.revision}.`)
+    // A face of the last build is one it has: the index is within the part's faces. (Of an older build nothing is left to say.)
+    if (plane.from.kind === 'face' && plane.from.revision === build.revision) {
+      const [, name, index] = /^(.*)\/F(\d+)$/.exec(plane.from.ref) ?? []
+      const part = name === undefined ? undefined : build.scene.parts.find((p) => p.layout === raw.layout && p.name === name)
+      if (!part) return new Refusal(`Plane ${plane.id} is through ${plane.from.ref}, and build ${build.revision} has no such part in the layout ${raw.layout}.`)
+      if (Number(index) >= part.faceCount) return new Refusal(`Plane ${plane.id} is through ${plane.from.ref}, and ${part.name} has ${part.faceCount} faces in build ${build.revision}.`)
+    }
   }
 
   const unused = [...(stored?.strokes ?? [])]

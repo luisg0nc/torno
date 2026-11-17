@@ -1,5 +1,5 @@
 import type { SketchDraft } from '../../shared/bridge'
-import { type Mark, type SketchMark, type SketchPlane, type SketchStroke, type Vec3, MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_NOTE, MAX_STROKE_POINTS } from '../../shared/marks'
+import { type Anchor, type Mark, type SketchMark, type SketchPlane, type SketchStroke, type Vec3, MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, MAX_NOTE, MAX_STROKE_POINTS } from '../../shared/marks'
 import { type MainAxis, type PlaneFrame, axesOfNormal, directionText, faceLabel, mainPlaneFrame } from '../../shared/planes'
 import type { Scene } from '../../shared/scene'
 import { describeMark, vector } from '../marks/describe'
@@ -8,7 +8,7 @@ import { strokeTouches } from '../sketches/touches'
 import { unknownKeys } from './keys'
 import { type AddSketchArgs, MOST_AGENT_POINTS, MOST_AGENT_STROKES, NO_SKETCH_STROKE } from './schemas'
 import { type ToolDeps, type ToolResult, MARK_ID, behind, built, failure, layoutFor, marksOf, messageOf, noMark } from './tools'
-import { checkRef, markCamera } from './markTools'
+import { anchorFor, checkRef, markCamera } from './markTools'
 
 // `add_sketch`: Claude's own drawing in 3D, made, replaced or removed. Main makes the planes' frames (a main plane's axes as
 // `viewPlane` labels them, a face plane from the kernel's `describe` of that face), checks every number, the reach of the
@@ -248,9 +248,18 @@ export async function addSketchTool(deps: ToolDeps, objectId: string, args: AddS
     // None known.
   }
 
+  // Tied to the part under its first point in space, as the person's is, so that it moves with the part when the layout is
+  // spread otherwise. None when that point is on no part, or the kernel cannot say.
+  const first = body.strokes.find((stroke) => stroke.plane === undefined && (stroke.points?.length ?? 0) > 0)
+  let anchor: Anchor | undefined
+  if (first?.points) {
+    const tied = await anchorFor(deps, objectId, scene, layout, undefined, first.points[0], 'arrow')
+    if (!('content' in tied) && tied.anchor.part !== undefined) anchor = tied.anchor
+  }
+
   let saved: Mark
   try {
-    saved = await deps.saveSketch(objectId, draft, touches)
+    saved = await deps.saveSketch(objectId, anchor ? { ...draft, anchor } : draft, touches)
   } catch (e) {
     return failure(messageOf(e))
   }
