@@ -53,7 +53,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   and `text` (`noteText`, `main/notes/text.ts`: its line, the build, the ink, the camera and how to `look` from it, what the ink and each
   label arrow lie over, the comment, `reference <n>: <comment>`); `marks` with `pictures: true` attaches each listed note's inked picture,
   then its references (`notePictures`, `main/notes/pictures.ts`), at most 6 in all and 1280 px, naming the rest. `add_mark` refuses
-  `kind: 'note'`; Claude's only act on a note is `resolve_mark`, and no tool edits or deletes one.
+  `kind: 'note'`; Claude's only act on a note is `resolve_mark`, and no tool edits or deletes one. `resolve_mark` refuses a draft of a held round (`isHeld`, `ToolDeps.rounds`) with `wait until the review is sent`.
   `marks` with `review` (`R1` or `all`) answers with the rounds (`reviewData`, `main/reviews/text.ts`; `ToolDeps.rounds`, wired in `index.ts`) in place
   of the list: each round's build, line and layout, and its items with intent, status, `resolvedNote`, `judged` and a `said` sentence (a don't want item judged OK says
   `removed on purpose; keep it out`); an unknown round is refused, naming the rounds there are. Claude's marks are plain: `add_mark` refuses any intent that is not a

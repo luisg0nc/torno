@@ -114,6 +114,15 @@ describe('reconcile: the frame of a round', () => {
     expect(reconcile(board, found([mark(1, 'assembly', 'R1')], [r1(['M1'])]))).toBeNull()
   })
 
+  it('keeps the frame of a round that is still there when its items are all gone, and takes it away with the round', () => {
+    const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
+    // The only item was removed or carried on: the round is still in the rounds, so its frame stays.
+    const empty = reconcile(board, found([], [r1([])]))
+    expect(frameOf(empty ?? board, 'R1')).toBeDefined()
+    // Round gone: its frame goes.
+    expect(frameOf(done(reconcile(board, found([], []))), 'R1')).toBeUndefined()
+  })
+
   it('renames the frame when the counts change, and keeps its place and size', () => {
     const board = done(reconcile(emptyBoard(), found([mark(1, 'assembly', 'R1')], [r1(['M1'])])))
     const moved = structuredClone(board)
@@ -235,8 +244,6 @@ describe('reconcile: the frame of a round', () => {
     const hidden = structuredClone(board)
     frameOf(hidden, 'R1')!.hidden = true
     expect(frameOf(done(reconcile(hidden, found([mark(1, 'assembly')], []))), 'R1')).toBeUndefined()
-    // A round whose items are all gone has no frame either.
-    expect(frameOf(done(reconcile(board, found([], [r1([])]))), 'R1')).toBeUndefined()
   })
 
   it('puts a restored item back into the frame of its round (Review Focus 4)', () => {

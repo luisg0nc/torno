@@ -2723,6 +2723,23 @@ describe('view notes, as Claude reads them', () => {
     expect(textOf(result)).toBe('resolved: M5 · view note · resolved: "wall 5 is too thin" (1 label, 1 reference, drawn on build 3)\nnote: thickened to 3 mm')
   })
 
+  it('refuses a draft of a round that is not sent, saying to wait until the review is sent', async () => {
+    const round = { id: 'R1', build: 'h41', sources: 'abc', line: 'Review of h41 (R1)', layout: 'assembly', startedAt: '2026-11-17T10:00:00.000Z' }
+    const deps = fake({ rounds: async () => [round, { ...round, id: 'R2', sentAt: 'x' }, { ...round, id: 'R3', plain: 'x' }] })
+    deps.w.list = [
+      { ...deps.w.list[0], round: 'R1', status: 'draft' } as Mark,
+      { ...deps.w.list[1], round: 'R2', status: 'draft' } as Mark,
+      { ...deps.w.list[2], round: 'R3', status: 'draft' } as Mark
+    ]
+    const held = await resolveMarkTool(deps, 'bracket', { id: deps.w.list[0].id, note: 'done' })
+    expect(held.isError).toBe(true)
+    expect(textOf(held)).toBe(`${deps.w.list[0].id} is in review R1, which is not sent: wait until the review is sent, and it is told to you with the next prompt.`)
+    expect(deps.w.updates).toEqual([])
+    // A draft of a round that was sent, or let go as plain marks, is resolved as any other.
+    expect((await resolveMarkTool(deps, 'bracket', { id: deps.w.list[1].id })).isError).toBeUndefined()
+    expect((await resolveMarkTool(deps, 'bracket', { id: deps.w.list[2].id })).isError).toBeUndefined()
+  })
+
   it('has no tool that edits or deletes a note of the person: resolving is all it does to one', () => {
     expect(Object.keys(TOOLS).filter((name) => /update|delete|remove|edit|change|note/.test(name))).toEqual([])
     expect(Object.keys(TOOLS.resolve_mark.inputSchema)).toEqual(['id', 'note'])

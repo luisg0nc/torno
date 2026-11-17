@@ -1,4 +1,4 @@
-import { type Mark, type ReviewIntent, markIntent } from './marks'
+import { type Mark, type NoteMark, type ReviewIntent, markIntent } from './marks'
 
 /** What a chip, a row and the bar write before a mark's number to say what the person says of it: set in the monospace face. */
 export const INTENT_CHIP: Record<ReviewIntent, string> = { dont: '−', want: '+' }
@@ -76,6 +76,14 @@ export function isHeld(mark: Mark, view: RoundsView): boolean {
   if (mark.status !== 'draft' || mark.round === undefined) return false
   const round = view.rounds.find((one) => one.id === mark.round)
   return round !== undefined && round.sentAt === undefined && round.plain === undefined && view.sending !== round.id
+}
+
+/**
+ * The draft view notes that go with the next chat prompt: those of a round that is not sent are held back with its other marks.
+ * When the rounds are not known, every note that is in a round is held: a draft let out early cannot be taken back.
+ */
+export function unheldNotes(marks: readonly Mark[], view: RoundsView | undefined): NoteMark[] {
+  return marks.filter((m): m is NoteMark => m.kind === 'note' && m.status === 'draft' && (view === undefined ? m.round === undefined : !isHeld(m, view)))
 }
 
 /** What the window asks of main about the rounds (`marks:round`): exactly one of these, naming a round by its `R<n>`. */

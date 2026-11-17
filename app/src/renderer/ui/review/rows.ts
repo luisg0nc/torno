@@ -21,7 +21,8 @@ export interface RoundRow {
 export type RoundCompare = { from: string; to: string } | { off: string }
 
 /** The row of one item of a round. */
-function rowOf(mark: Mark): RoundRow {
+/** `sent`: its round was sent; before that main refuses a verdict, so none is offered. */
+function rowOf(mark: Mark, sent: boolean): RoundRow {
   const intent = markIntent(mark)
   const row = { id: mark.id, chip: intent ? `${INTENT_CHIP[intent]} ${mark.id}` : mark.id, note: mark.note, ...(mark.resolvedNote ? { resolved: mark.resolvedNote } : {}) }
   const judged = mark.judged
@@ -30,7 +31,7 @@ function rowOf(mark: Mark): RoundRow {
     if (mark.resolvedBy !== 'agent') return { ...row, can: 'none', said: '' }
     if (judged?.verdict === 'ok') return { ...row, can: 'none', said: `OK in ${judged.build}` }
     if (mark.acknowledged === true) return { ...row, can: 'none', said: 'OK (accepted)' }
-    return { ...row, can: 'judge', said: '' }
+    return { ...row, can: sent ? 'judge' : 'none', said: '' }
   }
   return { ...row, can: 'none', said: judged?.verdict === 'still-wrong' ? 'Still wrong' : 'Not answered yet' }
 }
@@ -42,7 +43,7 @@ function rowOf(mark: Mark): RoundRow {
  * was built since.
  */
 export function roundRows(round: Round, marks: readonly Mark[], history: readonly HistoryEntry[]): { rows: RoundRow[]; compare: RoundCompare } {
-  const rows = roundItems(marks, round.id).map(rowOf)
+  const rows = roundItems(marks, round.id).map((mark) => rowOf(mark, round.sentAt !== undefined))
   const kept = history.find((entry) => entry.id === round.build)
   if (!kept) return { rows, compare: { off: 'the build is no longer kept' } }
   if (kept.sources !== round.sources) return { rows, compare: { off: 'the reviewed build is not on this computer' } }

@@ -9,8 +9,8 @@ import { openPanel } from './helpers'
 import { openListed } from './objects'
 
 // A round of a review made in the hidden window, on the `gauge` fixture (a 40 × 30 × 6 plate with one Ø8 hole): "Review this
-// build" starts R1 on h1, a face is picked as what is not wanted (the `-` key), a sketch is drawn as what is wanted, and a prompt
-// sent meanwhile carries neither (they are held). Send review puts the round in the composer, the next prompt carries the review
+// build" starts R1 on h1, a face is picked as what is not wanted (the `-` key), a sketch is drawn as what is wanted, a view note is
+// drawn as a plain mark of the round, and a prompt sent meanwhile carries none of them (they are held). Send review puts the round in the composer, the next prompt carries the review
 // line and both items, and the stand-in agent resolves both. After the plate is built again (h2) the round's panel says OK to
 // one item and Still wrong to the other, and the board holds two frames of rounds, the Still wrong card in the second.
 // Everything is read from marks.json, board.json, the store, the DOM and what the stand-in is told: no screenshots.
@@ -52,6 +52,7 @@ const composer = () => dock().locator('[data-chat-composer]')
 const bar = () => page.getByRole('toolbar', { name: 'Review' })
 const sketchPanel = () => page.getByRole('complementary', { name: 'Sketch' })
 const roundPanel = () => page.locator('[data-part="round-panel"]')
+const drawingBoard = () => page.getByRole('dialog', { name: 'Drawing on the view' })
 
 const marksFile = (): MarksFile => JSON.parse(readFileSync(join(root, 'gauge', '.torno', 'marks.json'), 'utf8')) as MarksFile
 const marks = (): Mark[] => {
@@ -181,21 +182,50 @@ test('a sketch drawn while "want" is chosen is the round\'s second item', async 
   await expect(page.locator('.mark-row[data-mark="M2"]')).toContainText('+ M2')
 })
 
-test('a prompt sent now carries neither item: the round is held until Send review', async () => {
+test('a view note drawn in the round is its plain third item, and no prompt carries it', async () => {
   await dock().getByRole('button', { name: 'New session' }).click()
   await expect(chat()).toBeVisible()
   await expect(composer()).toBeEnabled()
+  await bar().getByRole('radio', { name: /Plain/ }).click()
+  // A point of the canvas over a part: the same fraction of the picture is over it too.
+  const spot = await page.evaluate(() => {
+    for (const fy of [0.5, 0.45, 0.55, 0.4, 0.6]) {
+      for (const fx of [0.5, 0.45, 0.55, 0.4, 0.6]) {
+        if (window.__tornoTest!.pickAt(fx, fy, { edges: false })) return { fx, fy }
+      }
+    }
+    return null
+  })
+  expect(spot).not.toBeNull()
+  await dock().getByRole('button', { name: 'Draw on view' }).click()
+  await expect(drawingBoard()).toBeVisible()
+  const box = (await drawingBoard().locator('canvas').boundingBox())!
+  await page.mouse.move(box.x + box.width * (spot!.fx - 0.01), box.y + box.height * spot!.fy)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * (spot!.fx + 0.01), box.y + box.height * spot!.fy, { steps: 10 })
+  await page.mouse.up()
+  await drawingBoard().getByRole('button', { name: 'Done' }).click()
+  await expect(drawingBoard()).toHaveCount(0)
+  await expect.poll(() => mark('M3')).toMatchObject({ kind: 'note', author: 'user', status: 'draft', round: 'R1' })
+  expect(mark('M3')?.intent).toBeUndefined()
+  // It is held with the round: it is no "goes with your next prompt" waiting above the box.
+  await expect(page.locator('.mark-row[data-mark="M3"]')).toContainText('in review, not sent')
+  await expect(dock().locator('.chat-note-wait')).toHaveCount(0)
+})
+
+test('a prompt sent now carries none of the items: the round is held until Send review', async () => {
   await send(['say received'])
   const text = await added(0)
-  expect(text).toContain('R1 is in review, not sent (2 marks).')
+  expect(text).toContain('R1 is in review, not sent (3 marks).')
   // The board's line names the round's frame, but no review line and no item is in it.
   expect(text).not.toContain('Review of h1 (R1)')
   expect(text).not.toContain("don't want")
   expect(text).not.toMatch(/\bM[12] ·/)
   expect(text).not.toContain('Sketch M2')
+  expect(text).not.toMatch(/\bM3 ·/)
   await expect(chat().locator('.chat-added').first().locator('[data-part="held"]')).toContainText('in review, not sent')
   // Neither was sent: both are drafts still, in their round.
-  expect([mark('M1')?.status, mark('M2')?.status]).toEqual(['draft', 'draft'])
+  expect([mark('M1')?.status, mark('M2')?.status, mark('M3')?.status]).toEqual(['draft', 'draft', 'draft'])
   await expect(chat().locator('.chat-user').first()).toContainText('say received')
 })
 
@@ -208,10 +238,11 @@ test('Send review puts the round in the composer; the next prompt carries its li
   // The stand-in's script: it says it, and resolves both items as the agent would.
   await send(['say answering the review', 'tool mcp__torno__resolve_mark {"id":"M1","note":"the clamp is gone"}', 'tool mcp__torno__resolve_mark {"id":"M2","note":"a handle along the top"}'])
   const text = await added(1)
-  expect(text).toContain('Review of h1 (R1): 1 don\'t want, 1 want. Answer each item by its id.')
+  expect(text).toContain('Review of h1 (R1): 1 don\'t want, 1 want, 1 plain. Answer each item by its id.')
   expect(text).toContain("don't want")
   expect(text).toMatch(/M1 · don't want/)
   expect(text).toMatch(/M2 · want/)
+  expect(text).toMatch(/\bM3 ·/)
   await expect(chat().locator('.chat-added').nth(1).locator('[data-part="review"]')).toContainText('R1')
   await expect(chip).toHaveCount(0)
   // Claude answered both, and the round is sent.

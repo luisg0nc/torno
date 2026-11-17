@@ -53,8 +53,8 @@ export const SCANS_LIMIT = 600
 export const TRIED_LIMIT = 500
 /** Said of a sketch the person has open for editing: it goes with the next prompt once they are done with it. */
 const BEING_SKETCHED = (mark: Mark): string => `${mark.id} is being sketched, not sent.`
-/** Said of a round that is held for Send review: its marks are in no prompt until the person sends it. */
-export const HELD_LINE = (round: string, n: number): string => `${round} is in review, not sent (${n} mark${n === 1 ? '' : 's'}).`
+/** Said of a round that is held for Send review: its marks are in no prompt until the person sends it, and `resolve_mark` refuses them until then. */
+export const HELD_LINE = (round: string, n: number): string => `${round} is in review, not sent (${n} mark${n === 1 ? '' : 's'}). Wait until the review is sent: do not resolve its marks.`
 /** Told before the marks of a round that is being sent: which build it reviews and what the person wants of each item. */
 export const REVIEW_LINE = (round: Pick<Round, 'id' | 'build'>, counts: { dont: number; want: number; plain: number }): string =>
   `Review of ${round.build} (${round.id}): ${[...(counts.dont > 0 ? [`${counts.dont} don't want`] : []), ...(counts.want > 0 ? [`${counts.want} want`] : []), ...(counts.plain > 0 ? [`${counts.plain} plain`] : [])].join(', ')}. Answer each item by its id.`
@@ -386,7 +386,8 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
     used += 1 + reviewLine.length
     reviewed = true
   }
-  const listedDrafts = list(MARKS_HEAD, drafts, news)
+  // Without its line the round is not told: its drafts would go as plain marks, and the round stays unsent until a prompt has room for both.
+  const listedDrafts = list(MARKS_HEAD, sending && !reviewed ? drafts.filter((m) => m.round !== sending.id) : drafts, news)
   if (reviewed && sending && drafts.some((m) => m.round === sending.id) && !listedDrafts.some((m) => m.round === sending.id)) {
     lines.splice(reviewAt, 1)
     used = reviewUsed

@@ -60,10 +60,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   newest kept, not failed history entry whose `sources` are the last successful build's) and stars it; it is refused while a build runs
   or failed. Start and Still wrong's next round use it; OK only names it.
   What the agent is told (`contextFor`, `opts.rounds`): the drafts of a held round (`isHeld`) are left out of the drafts and the open marks
-  as an open sketch is, never in `sentMarkIds`, and each held round says `R1 is in review, not sent (3 marks).` (`HELD_LINE`; `held`
+  as an open sketch is, never in `sentMarkIds`, and each held round says `R1 is in review, not sent (3 marks). Wait until the review is sent: do not resolve its marks.` (`HELD_LINE`; `held`
   is their numbers, comma-joined). While `sending` names a round, `REVIEW_LINE` (`Review of h41 (R1): 3 don't want, 2 want. Answer each
   item by its id.` and `Also in it: M4.` for items sent before) goes before the marks head, and `review` is that round; if none of its
-  drafts fit under the head the line is taken out again and the round stays unsent. `contextFor` writes nothing: the caller's `delivered`
+  drafts fit under the head the line is taken out again and the round stays unsent; if the line does not fit at all, the round's drafts are left out of the marks too. A draft view note of a held round goes with no prompt (`unheldNotes`, which `draftNotes` and `WaitingNotes` use; when the rounds cannot be read every note that has a round is held). `contextFor` writes nothing: the caller's `delivered`
   runs `roundSent`, which sets `sentAt`, once the answer has left. `describeMark` says the intent after the number (`M8 · don't want ·
   pick of lid/F12`; not of a shape, whose line says `intent add` already) and ` [in R1]` after the line of a round item.
 

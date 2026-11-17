@@ -22,7 +22,8 @@ function itemSaid(mark: Mark): string {
   }
   if (mark.status !== 'resolved') return 'not answered yet'
   if (mark.resolvedBy !== 'agent') return 'resolved by the person'
-  if (judged?.verdict === 'ok') return markIntent(mark) === 'dont' ? 'removed on purpose; keep it out' : 'done: the person accepted it'
+  // The person accepted Claude's answer without judging it (the Resolved row's OK): it stands like an OK.
+  if (judged?.verdict === 'ok' || mark.acknowledged === true) return markIntent(mark) === 'dont' ? 'removed on purpose; keep it out' : 'done: the person accepted it'
   return `answered, not judged yet${mark.resolvedNote ? `: ${mark.resolvedNote}` : ''}`
 }
 

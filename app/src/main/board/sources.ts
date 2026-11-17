@@ -89,15 +89,15 @@ function roomIn(board: BoardFile, frame: Card, size: { w: number; h: number }, s
  * source that has none (a hidden one counts: it stays hidden), and no card of main's own whose source is gone, nor
  * an arrow touching one. Pinned cards, made cards and the agent's are never touched. Null when nothing changed.
  *
- * A round with at least one item has a frame of main's own (`kind: 'frame'`, `source: 'R1'`), named for its counts, in a free
+ * A round has a frame, made when it gets its first item, of main's own (`kind: 'frame'`, `source: 'R1'`), named for its counts, in a free
  * spot. A mark card is put in its round's frame when it is placed for the first time, or when it is in the frame of the
  * round its item was carried from; a card the person put anywhere else stays where it is. A frame the person removed
- * stays hidden, and takes no new card. A frame goes when its round has no item.
+ * stays hidden, and takes no new card. A frame goes when its round is gone, not when it is left with no item.
  */
 export function reconcile(board: BoardFile, found: Found): BoardFile | null {
   const wants = wanted(found)
   const there = (kind: CardKind, source: string | undefined): boolean => wants.some((w) => w.kind === kind && w.source === source)
-  const rounds = found.rounds.filter((r) => r.items.length > 0)
+  const rounds = found.rounds
   const roundIds = new Set(rounds.map((r) => r.id))
   const gone = new Set(
     board.cards
@@ -120,7 +120,7 @@ export function reconcile(board: BoardFile, found: Found): BoardFile | null {
         frame.name = round.name
         changed = true
       }
-    } else if (next.cards.length - gone.size < MAX_CARDS) {
+    } else if (round.items.length > 0 && next.cards.length - gone.size < MAX_CARDS) {
       const size = roundFrameSize(round.items.length)
       const spot = freeSpot(next.cards, size) ?? { x: 0, y: 0 }
       next.cards.push({ id: `C${next.next++}`, kind: 'frame', ...spot, ...size, by: 'torno', source: round.id, name: round.name })

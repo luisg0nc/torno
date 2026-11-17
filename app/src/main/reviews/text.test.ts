@@ -47,6 +47,16 @@ describe('reviewData', () => {
     expect(told('R1').rounds[0].items[0].said).toBe('removed on purpose; keep it out')
   })
 
+  it('says an item the person accepted without a judgment (acknowledged) like OK', () => {
+    const accepted = [
+      pin('M1', { round: 'R1', intent: 'dont', status: 'resolved', resolvedBy: 'agent', acknowledged: true }),
+      pin('M2', { round: 'R1', intent: 'want', status: 'resolved', resolvedBy: 'agent', acknowledged: true }),
+      pin('M3', { round: 'R1', intent: 'want', status: 'resolved', resolvedBy: 'agent' })
+    ]
+    const items = told('R1', ROUNDS, accepted).rounds[0].items
+    expect(items.map((item) => item.said)).toEqual(['removed on purpose; keep it out', 'done: the person accepted it', 'answered, not judged yet'])
+  })
+
   it('says an item that is still wrong, with what the person said', () => {
     const items = told('all').rounds.flatMap((r) => r.items)
     expect(items.find((i) => i.id === 'M4')?.said).toBe('still wrong in h42: it is 2 mm, not 3')

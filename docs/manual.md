@@ -1060,7 +1060,7 @@ Open marks: M2 (moved), M6 (unchecked)
   what was measured and never that the part is verified; passes that were found by sampling or are approximate are counted.
 - A mark of yours that says what you want or do not want has it after its number (`M8 · don't want · pick on lid/F12 …`),
   and one in a round `[in R1]` at the end. A round that is not sent is left out of every prompt, and one line says so
-  (`R1 is in review, not sent (3 marks).`). The prompt that carries a sent round has, before its marks,
+  (`R1 is in review, not sent (3 marks). Wait until the review is sent: do not resolve its marks.`). `resolve_mark` refuses a draft of such a round until it is sent, and a view note of it does not go with a prompt either. The prompt that carries a sent round has, before its marks,
   `Review of h41 (R1): 3 don't want, 2 want. Answer each item by its id.`, with `Also in it: M4.` for items sent before.
   The system prompt says a review lists what you do not want and want on one build, to answer each item with `resolve_mark`,
   and not to bring back what an earlier review removed (read with `marks` and `review: "all"`).

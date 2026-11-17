@@ -7,6 +7,7 @@ import { type Anchor, type DimensionMark, type Mark, type NewMark, type Quat, is
 import type { Part, Scene } from '../../shared/scene'
 import type { Camera, HighlightResult } from '../../shared/view'
 import { describeMark, number, scanVector, vector } from '../marks/describe'
+import { isHeld } from '../../shared/reviews'
 import { MAX_NOTE } from '../marks/file'
 import type { Unmeasured } from '../marks/measure'
 import { spreadApart } from '../marks/spread'
@@ -625,6 +626,11 @@ export async function resolveMarkTool(deps: ToolDeps, objectId: string, args: Re
   const revision = deps.scene(objectId)?.revision
   if (before.kind === 'dimension' && before.author === 'user' && before.expected !== undefined && before.status !== 'resolved') {
     return failure(`${before.id} is the person's check of the part: it stays measured on every build and only they resolve it. ${standing(before, revision)}`)
+  }
+  // A draft of a round that is not sent is the person's, held for Send review: it is not the agent's to answer before it is told.
+  if (before.status === 'draft' && before.round !== undefined) {
+    const rounds = await deps.rounds?.(objectId).catch(() => undefined)
+    if (rounds && isHeld(before, { rounds, sending: null })) return failure(`${before.id} is in review ${before.round}, which is not sent: wait until the review is sent, and it is told to you with the next prompt.`)
   }
   const note = args.note?.trim().slice(0, MAX_NOTE)
   try {

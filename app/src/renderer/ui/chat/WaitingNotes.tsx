@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { type NoteMark, penStrokes } from '../../../shared/marks'
 import { noteDrawnOver } from '../../../shared/drawing'
+import { unheldNotes } from '../../../shared/reviews'
+import { roundsViewOf, useReview } from '../../state/review'
 import { useStore } from '../../state/store'
 import { openNote } from '../drawing/make'
 import { DrawnOverLine } from './DrawnOver'
@@ -51,6 +53,9 @@ export function WaitingNotes({ onProblem }: { onProblem: (message: string | null
   const objectId = useStore((s) => s.objectId)
   const marks = useStore((s) => s.marks)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
+  const reviewOf = useReview((s) => s.objectId)
+  const rounds = useReview((s) => s.rounds)
+  const sending = useReview((s) => s.sending)
   const [removed, setRemoved] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const offer = (id: string | null): void => {
@@ -61,7 +66,8 @@ export function WaitingNotes({ onProblem }: { onProblem: (message: string | null
   useEffect(() => () => clearTimeout(timer.current), [])
   useEffect(() => offer(null), [objectId])
   if (objectId === null) return null
-  const waiting = marks.filter((m): m is NoteMark => m.kind === 'note' && m.status === 'draft')
+  // A note of a round that is not sent is held with it: it goes with Send review, not with the next prompt.
+  const waiting = unheldNotes(marks, roundsViewOf({ objectId: reviewOf, rounds, sending }, objectId))
   if (waiting.length === 0 && removed === null) return null
   return (
     <div className="chat-with chat-notes">

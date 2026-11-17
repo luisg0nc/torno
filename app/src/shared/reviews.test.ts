@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mark } from './marks'
-import { type Round, type RoundsView, ROUND_ID, isHeld, openRound, reviewName, roundCounts, roundItems } from './reviews'
+import { type Round, type RoundsView, ROUND_ID, isHeld, openRound, unheldNotes, reviewName, roundCounts, roundItems } from './reviews'
 
 const CAMERA = { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 const pin = (id: string, over: object = {}): Mark =>
@@ -57,5 +57,26 @@ describe('what is held', () => {
     expect(isHeld(pin('M1', { round: 'R1', status: 'sent' }), view([round()]))).toBe(false)
     expect(isHeld(pin('M1'), view([round()]))).toBe(false)
     expect(isHeld(draft, view([]))).toBe(false)
+  })
+})
+
+describe('the view notes that go with a prompt', () => {
+  const view = (rounds: Round[], sending: string | null = null): RoundsView => ({ rounds, sending })
+  const note = (id: string, over: object = {}): Mark => pin(id, { kind: 'note', ...over })
+
+  it('are the draft notes, but not those of a round that is not sent', () => {
+    const all = [note('M1', { round: 'R1' }), note('M2'), note('M3', { round: 'R2' }), pin('M4'), note('M5', { status: 'sent' })]
+    const rounds = view([round(), round({ id: 'R2', sentAt: 'x' })])
+    expect(unheldNotes(all, rounds).map((m) => m.id)).toEqual(['M2', 'M3'])
+  })
+
+  it('are those of the round being sent, and of one let go as plain marks', () => {
+    const all = [note('M1', { round: 'R1' }), note('M2', { round: 'R2' })]
+    expect(unheldNotes(all, view([round(), round({ id: 'R2', plain: 'x' })], 'R1')).map((m) => m.id)).toEqual(['M1', 'M2'])
+  })
+
+  it('hold every note that is in a round when the rounds cannot be read', () => {
+    const all = [note('M1', { round: 'R1' }), note('M2')]
+    expect(unheldNotes(all, undefined).map((m) => m.id)).toEqual(['M2'])
   })
 })

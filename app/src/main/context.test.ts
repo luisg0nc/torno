@@ -561,7 +561,7 @@ describe('contextFor', () => {
         expect(said).toContain(line(2))
         expect(context.text).not.toContain('M1 ')
         expect(context.text).not.toContain('M3 ')
-        expect(said).toContain('R1 is in review, not sent (2 marks).')
+        expect(said).toContain('R1 is in review, not sent (2 marks). Wait until the review is sent: do not resolve its marks.')
         expect(context.sentMarkIds).toEqual(['M2'])
         expect(context.held).toBe('R1')
         expect(context).not.toHaveProperty('review')
@@ -570,7 +570,7 @@ describe('contextFor', () => {
 
       it('says one mark in the singular, and tells of the held round when nothing else goes', () => {
         const context = told([item(1)], view([round()]))
-        expect(context.text).toBe([STATUS, 'R1 is in review, not sent (1 mark).'].join('\n'))
+        expect(context.text).toBe([STATUS, 'R1 is in review, not sent (1 mark). Wait until the review is sent: do not resolve its marks.'].join('\n'))
         expect(context.sentMarkIds).toEqual([])
       })
 
@@ -644,6 +644,19 @@ describe('contextFor', () => {
         expect(context.review).toBe('R1')
         expect(context.sentMarkIds.length).toBeGreaterThan(0)
         expect(context.sentMarkIds.length).toBeLessThan(80)
+      })
+
+      it('sends no draft of the round that is being sent when its review line does not fit: they go with the line or not at all', () => {
+        // The items sent before are named in the line, and there are so many that it cannot fit.
+        const before = Array.from({ length: 1300 }, (_, n) => item(n + 10, { status: 'sent' }))
+        const marks = [item(1), item(2, { intent: 'want' }), pin(3), ...before]
+        const context = told(marks, view([round({ endedAt: '2026-11-17T10:05:00.000Z' })], 'R1'))
+        expect(context.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+        expect(context.text).not.toContain('Review of h41 (R1)')
+        expect(context).not.toHaveProperty('review')
+        // The round stays unsent: none of its drafts is told or said to have been, but the plain mark goes.
+        expect(context.sentMarkIds).toEqual(['M3'])
+        expect(context.text).not.toMatch(/\bM[12] ·/)
       })
 
       it('sets no sentAt: a context that is never delivered leaves the round unsent, and delivery is what sets it', async () => {

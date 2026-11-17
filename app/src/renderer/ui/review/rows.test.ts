@@ -41,6 +41,11 @@ describe('the rows of a round', () => {
     expect(rows[0]).toMatchObject({ said: '', can: 'judge' })
   })
 
+  it('offers no verdict on an item of a round that is not sent, for main refuses to judge it', () => {
+    const { rows } = roundRows(round({ sentAt: undefined }), [answered('M1')], [])
+    expect(rows[0]).toMatchObject({ said: '', can: 'none' })
+  })
+
   it('says nothing of an item the person resolved themselves, and offers no verdict on it', () => {
     const { rows } = roundRows(round(), [pick('M1', { status: 'resolved', resolvedBy: 'user' })], [])
     expect(rows[0]).toMatchObject({ said: '', can: 'none' })
