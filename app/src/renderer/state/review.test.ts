@@ -63,6 +63,16 @@ describe('what a mark is made with', () => {
     expect(withIntent(pick({ kind: 'shape', intent: 'reference' }), 'want')).toMatchObject({ intent: 'add' })
   })
 
+  it('leaves a measure and a "should be here" as they are: the bar does not apply to them', () => {
+    const span = pick({ kind: 'span', tracing: 'T1' })
+    const offset = pick({ kind: 'offset', tracing: 'T1' })
+    for (const intent of ['dont', 'want'] as const) {
+      expect(withIntent(span, intent)).toBe(span)
+      expect(withIntent(offset, intent)).toBe(offset)
+    }
+    expect(withIntent(span, 'dont')).not.toHaveProperty('intent')
+  })
+
   it('leaves a mark as it is for none, and the agent\'s alone', () => {
     const mark = pick()
     expect(withIntent(mark, undefined)).toBe(mark)

@@ -97,8 +97,8 @@ function checksText(live: LiveFacts): string {
 function markText(card: Card, live: LiveFacts): string {
   const mark = card.source === undefined ? undefined : live.marks.get(card.source)
   if (!mark) return `${card.source ?? 'A mark'} (not among the marks of this project now)`
-  // A view note and a sketch are said as everywhere else they are: by their line (what each holds, and the build it is of).
-  if (mark.kind === 'note' || mark.kind === 'sketch') return describeMark(mark)
+  // A view note and a sketch are said as everywhere else they are: by their line (what each holds, and the build it is of). So are a measure and a "should be here".
+  if (mark.kind === 'note' || mark.kind === 'sketch' || mark.kind === 'span' || mark.kind === 'offset') return describeMark(mark)
   const ref = markAnchors(mark)[0]?.ref
   const note = oneLine(mark.note)
   return `${mark.id} (${mark.kind}${ref ? `, on ${ref}` : ''}): ${note ? `${note}, ` : ''}${mark.status}`

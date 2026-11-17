@@ -21,7 +21,7 @@ import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
 import type { LineupPair } from './lineup'
-import type { LayerColour, LayerShape, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
+import type { LayerColour, LayerShape, PlaneSnap, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
 import type { MainAxis } from './planes'
 import type { Material, Printer, Profile, Profiles } from './profile'
 
@@ -83,6 +83,32 @@ export interface NoteDraft {
   anchor?: Anchor
   /** What the bar of an open review says of it: want or don't want, none for plain. Main checks it, and keeps it only for a note it makes. */
   intent?: ReviewIntent
+}
+
+/** An end of a measure as the window sends it: where it is in the tracing's `[u, v]`, whether it was put on the outline or on the photo, and the point of the outline it says it snapped to. Main checks the snap and works out the rest. */
+export interface SpanEndDraft {
+  uv: [number, number]
+  on: 'tracing' | 'photo'
+  snap?: PlaneSnap
+}
+
+/** A measure on a tracing as the window sends it to `marks:span`: the tracing, both ends and the view it was made from. Main works out the value, whether it is exact and how it was found. */
+export interface SpanDraft {
+  tracing: string
+  a: SpanEndDraft
+  b: SpanEndDraft
+  camera: Camera
+  note?: string
+}
+
+/** A shape of a layer dragged to where it should be, as the window sends it to `marks:offset`: the tracing, the layer's id, the shape's place in the layer and `[du, dv]` in mm along the tracing's axes. Main finds the rest. */
+export interface OffsetDraft {
+  tracing: string
+  layer: number
+  shape: number
+  by: [number, number]
+  camera: Camera
+  note?: string
 }
 
 /**
@@ -285,6 +311,17 @@ export interface TornoBridge {
      * point is the kernel's, what each stroke touches is main's). Rejects, keeping nothing, with why not.
      */
     sketch(draft: SketchDraft): Promise<Mark>
+    /**
+     * Keeps a measure on a tracing: main takes the points of a snapped end from the kernel's own (refusing one more than 0.01 mm
+     * off), works out the value, whether it is exact (both ends snapped on the outline) and how it was found, and answers the mark.
+     * It carries no review intent and is never measured again.
+     */
+    span(objectId: string, draft: SpanDraft): Promise<Mark>
+    /**
+     * Keeps "should be here": the shape of the layer dragged by `by`. Main finds the shape as it is (kept as `was`), the layer's
+     * revision and the reference point before and after. Dragging the same shape again changes the person's draft. No review intent.
+     */
+    offset(objectId: string, draft: OffsetDraft): Promise<Mark>
     /** The picture of a sketch's card, drawn by the window: a PNG, kept by main under a name of its own. */
     sketchPicture(objectId: string, id: string, png: Uint8Array): Promise<void>
     /** Which sketch of the object is open for editing now, or none: it is held back from prompts until it is closed. */

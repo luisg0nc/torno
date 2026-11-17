@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
-import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, markPoints, translated } from '../../shared/marks'
+import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type OffsetMark, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, markPoints, translated } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
 import { type RegionStats, maskStem } from '../../shared/regions'
@@ -277,7 +277,41 @@ export class MarkStore {
     if (kind(mark) === 'note') return Promise.reject(new Refusal('a view note is made with the Draw on view sheet, not added as a mark'))
     // A sketch is checked against the build it names (`marks:sketch`, `saveSketch`): it is not added as any other mark is.
     if (kind(mark) === 'sketch') return Promise.reject(new Refusal('a sketch is made with the sketch tool, not added as a mark'))
+    // A span's value and an offset's shape are main's own (`marks:span`, `marks:offset`): the window does not make them here.
+    if (kind(mark) === 'span') return Promise.reject(new Refusal('a measure on a tracing is made with the Measure tool, not added as a mark'))
+    if (kind(mark) === 'offset') return Promise.reject(new Refusal('a "should be here" is made with the Should be here tool, not added as a mark'))
     return this.keep(objectId, mark, status, measured, region)
+  }
+
+  /**
+   * Keeps a measure on a tracing, as main made it (`makeSpan`: its value, whether it is exact and how, and both ends checked): a draft,
+   * with no review intent and in no round. It is never measured again.
+   */
+  addSpan(objectId: string, span: NewMark): Promise<Mark> {
+    return this.keep(objectId, span, 'draft')
+  }
+
+  /**
+   * Keeps a "should be here" as main made it (`makeOffset`). The person's draft offset of the same shape of the same layer of the same
+   * tracing is changed to this one, keeping its number: dragging the shape again changes the draft's `by`. One the agent has been
+   * told of, or resolved, is not touched: this is a new mark. No review intent, in no round.
+   */
+  saveOffset(objectId: string, offset: NewMark): Promise<Mark> {
+    const made = offset as unknown as OffsetMark
+    return this.change(objectId, (file) => {
+      const at = file.marks.findIndex((m) => m.kind === 'offset' && m.author === 'user' && m.status === 'draft' && m.tracing === made.tracing && m.layer.id === made.layer?.id && m.shape.index === made.shape?.index)
+      const given = Object.fromEntries(Object.entries(Object(offset) as object).filter(([key]) => !(MAIN_ONLY_KEYS as readonly string[]).includes(key)))
+      const was = at < 0 ? undefined : file.marks[at]
+      const next = sanitiseMark({ ...given, id: was?.id ?? `M${file.next}`, status: 'draft', anchorState: 'ok', createdAt: was?.createdAt ?? this.now().toISOString(), ...(was?.sentBefore ? { sentBefore: true } : {}) })
+      if (!next) throw new Refusal('that is not an offset: a field is missing or not a finite number')
+      if (was) file.marks[at] = next
+      else {
+        file.next += 1
+        file.marks.push(next)
+        this.remember(objectId, next)
+      }
+      return next
+    })
   }
 
   private keep(objectId: string, mark: NewMark, status: 'draft' | 'sent', measured?: Measurement, region?: { stats: RegionSaid; before(id: string): Promise<void> }): Promise<Mark> {
@@ -756,6 +790,8 @@ export class MarkStore {
         const at = file.marks.findIndex((m) => m.id === id)
         if (at < 0) continue
         const mark = file.marks[at]
+        // A measure and a "should be here" lie in a tracing's plane and are about a number or a layer: no build judges them.
+        if (mark.kind === 'span' || mark.kind === 'offset') continue
         if (!isDeepStrictEqual(markAnchors(mark), judged)) continue
         // Whatever else the mark holds is moved from where it is now: a shape may have been dragged meanwhile.
         // A mark on a tracing lies in its plane, which a build moves (`followTracing`) and the spread of a layout does not: it is not moved by a
@@ -900,6 +936,7 @@ export class MarkStore {
       const mark = file.marks[at]
       was = mark
       if (mark.author !== 'user') throw new Refusal(`${id} is the agent's mark: only the person's marks say want or don't want`)
+      if (mark.kind === 'span' || mark.kind === 'offset') throw new Refusal(`${id} is ${mark.kind === 'span' ? 'a measure' : 'a "should be here"'}, and ${mark.kind === 'span' ? 'a measure' : 'a "should be here"'} says nothing of want or don't want`)
       if (intent !== null && intent !== 'want' && intent !== 'dont') throw new Refusal(`${String(intent)} is not an intent: want, dont, or null for none`)
       let changed: Mark | null
       if (mark.kind === 'shape') {
@@ -1201,7 +1238,8 @@ function roundOf(file: MarksFile, id: string): Round {
 /** A mark the person makes while the round of its layout is open is in that round. The agent's never is. */
 function inOpenRound(file: MarksFile, mark: Mark): void {
   const open = openRound(file.rounds ?? [])
-  if (open && mark.author === 'user' && open.layout === mark.layout) mark.round = open.id
+  // A measure and a "should be here" are not a review of the model: they never join a round.
+  if (open && mark.author === 'user' && open.layout === mark.layout && mark.kind !== 'span' && mark.kind !== 'offset') mark.round = open.id
 }
 
 /** What an edit returns when it changed nothing. */

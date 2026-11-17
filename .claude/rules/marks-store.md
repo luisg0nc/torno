@@ -21,7 +21,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## What crosses processes (root `CLAUDE.md`)
 
-- A mark is a pin, a pick, an arrow, a stroke, a shape, a dimension, a region
+- A mark is a pin, a pick, an arrow, a stroke, a shape, a dimension, a span or an offset (on a tracing), a region
   of a scan, a sketch or a view note (a picture of the view with ink, labels and references; its pictures are files in
   `.torno/notes/`, never in marks.json; its anchor is optional), with a note (`app/src/shared/marks.ts`). Ids are `M1`, `M2`, … per object, never reused,
   given by main only.
@@ -124,6 +124,17 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   unchecked; a mark the move would not leave in the new plane is not moved. A mark on a tracing is **not** moved by the spread of a layout
   (`MarkStore.reanchor` keeps its points where they are and refreshes only what the kernel says of its anchor) and is not put on a part (`replace` refuses it). A
   removed tracing's marks stay and say ` · on T1 (removed)` (`onTracingWords`, given `describeMark`'s `tracings`: the prompt, `state.md` and the `marks` tool).
+- A **span** (`kind: 'span'`, a measure on a tracing) and an **offset** (`kind: 'offset'`, "should be here") are marks of a tracing that main makes from its own numbers
+  (`main/tracings/measures.ts`: `marks:span`, `marks:offset`); `MarkStore.add` refuses both (`addSpan` and `saveOffset` keep them). They carry **no review intent**:
+  `markIntent` is null, `setIntent` refuses them, `withIntent` leaves them as they are, and they never join a round (`inOpenRound`). **No build judges them**: `markAnchors` is
+  empty, `isUnchecked` is false, `reanchorAll` leaves them out and `MarkStore.reanchor` passes them over, so `anchorState` stays `ok`. A span's `value`, `exact`, `how` and
+  `measuredOn` are main's (`spanValue`, never taken from the window): each snapped end is the kernel's point of the last outline's `planeSnaps` (refused when the window's is more than
+  0.01 mm from it, or is a vertex only projected on the plane), and it is exact only when both ends are snapped and on the outline (`exact on build N`); else `≈` with `on the photo, lined up with fit 0.4 mm`
+  or `freehand`. It is never measured again, has no expectation and no verdict, and says `measured on build N` once a later build lands (`describeMark`). An offset's `layer`
+  (id, name, revision), `shape`, `was` (a copy of the shape as it was dragged), `from` and `to` (the reference point: a circle's centre, a polyline's centroid of its points) are found by main from
+  the tracing's own layers; `saveOffset` changes the person's draft offset of the same shape of the same layer (keeping its number) and makes a new mark when that one was sent or resolved. It
+  says `layer changed since` (`describeMark`, given `layers`: `layerRevisions` of the tracings, by `T1/2`) when the layer's revision is newer, and keeps `was`. Both move with their tracing's plane
+  (`translated`), and both are checked in the plane as any mark on a tracing is (`checkOnTracing`).
 - "OK all" is `MarkStore.acknowledge(objectId, ids)`: every id checked as `update` checks one (resolved, by
   the agent), all of them acknowledged in one change (one atomic write, one `changed`), or none and a refusal
   that names the first that is not the agent's to acknowledge. Only the person asks it (`marks:acknowledge`);

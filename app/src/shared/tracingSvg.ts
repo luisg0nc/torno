@@ -1,7 +1,8 @@
 import type { Sectioned } from './geometry'
 import { expectedText, measuredValue, valueText } from './dimension'
 import type { DimensionMark, Mark } from './marks'
-import { LAYER_COLOURS, type Layer, type LayerColour } from './tracings'
+import { number } from './format'
+import { LAYER_COLOURS, type Layer, type LayerColour, type LayerShape, offsetWords, shapeMoved } from './tracings'
 
 // One drawing of a plane, at true scale, for the window's view of a tracing and for the file that is exported from it, so
 // that the two are one picture: the kernel's outlines laid flat in the plane's own axes (one unit is one millimetre, and so
@@ -196,7 +197,7 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
           const points = (stroke.points2d ?? []).filter((p) => finite(p[0], p[1]))
           return on && points.length > 0 ? [{ id: stroke.id, pen: stroke.pen, points }] : []
         })
-  const marks = (extras.marks ?? []).filter((mark) => mark.status !== 'resolved' && (mark.kind === 'pin' || mark.kind === 'pick' || mark.kind === 'arrow' || (mark.kind === 'sketch' && inkOf(mark).length > 0)))
+  const marks = (extras.marks ?? []).filter((mark) => mark.status !== 'resolved' && (mark.kind === 'pin' || mark.kind === 'pick' || mark.kind === 'arrow' || mark.kind === 'span' || mark.kind === 'offset' || (mark.kind === 'sketch' && inkOf(mark).length > 0)))
 
   // The dimensions that lie in the plane.
   const lines: Line[] = []
@@ -253,6 +254,12 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
     else if (mark.kind === 'pin' || mark.kind === 'pick') grow(inPlane(mark.anchor.point))
     else if (mark.kind === 'arrow') {
       grow(inPlane(mark.from.point))
+      grow(inPlane(mark.to))
+    } else if (mark.kind === 'span') {
+      grow(inPlane(mark.a.point))
+      grow(inPlane(mark.b.point))
+    } else if (mark.kind === 'offset') {
+      grow(inPlane(mark.from))
       grow(inPlane(mark.to))
     }
   }
@@ -413,6 +420,47 @@ export function tracingSvg(cut: Sectioned, info: TracingSheetInfo, extras: Traci
       const [ux, uy] = length > 0 ? [(x2 - x1) / length, (y2 - y1) / length] : [1, 0]
       const head = (s: number): string => `<line x1="${c(x2)}" y1="${c(y2)}" x2="${c(x2 - ux * 2.4 - s * uy * 1.2)}" y2="${c(y2 - uy * 2.4 + s * ux * 1.2)}"/>`
       body.push(`<g data-mark="${escape(mark.id)}"${look}>`, `<line x1="${c(x1)}" y1="${c(y1)}" x2="${c(x2)}" y2="${c(y2)}"/>`, head(1), head(-1), words(x2 + 2, y2 - 1.4), `</g>`)
+    } else if (mark.kind === 'span') {
+      // A line between its ends with a tick on each, and its value at the middle: ≈ unless it is exact.
+      const [x1, y1] = at(inPlane(mark.a.point))
+      const [x2, y2] = at(inPlane(mark.b.point))
+      body.push(
+        `<g data-mark="${escape(mark.id)}"${look}>`,
+        `<line x1="${c(x1)}" y1="${c(y1)}" x2="${c(x2)}" y2="${c(y2)}"/>`,
+        `<circle cx="${c(x1)}" cy="${c(y1)}" r="0.7"/>`,
+        `<circle cx="${c(x2)}" cy="${c(y2)}" r="0.7"/>`,
+        words((x1 + x2) / 2 + 1.4, (y1 + y2) / 2 - 1.4, `${mark.exact ? '' : '≈ '}${number(mark.value)} mm`),
+        `</g>`
+      )
+    } else if (mark.kind === 'offset') {
+      // The shape as it was, dashed; the copy where it should be; and an arrow between their reference points, with how far in words.
+      const ghost = paint(`stroke="${ink}" stroke-width="0.3" fill="none" stroke-dasharray="1 1"`, `tr-mark tr-mark-${mark.author} tr-mark-ghost`)
+      const outline = (shape: LayerShape, extra: string): string => {
+        if (shape.kind === 'circle') {
+          const [x, y] = at(shape.centre)
+          return `<circle cx="${c(x)}" cy="${c(y)}" r="${c(shape.radius)}"${extra}/>`
+        }
+        if (shape.kind === 'label') {
+          const [x, y] = at(shape.at)
+          return `<circle cx="${c(x)}" cy="${c(y)}" r="0.7"${extra}/>`
+        }
+        return `<path d="M${shape.points.map((p) => at(p).map(c).join(' ')).join(' L')}${shape.closed ? ' Z' : ''}"${extra}/>`
+      }
+      const [x1, y1] = at(inPlane(mark.from))
+      const [x2, y2] = at(inPlane(mark.to))
+      const length = Math.hypot(x2 - x1, y2 - y1)
+      const [ux, uy] = length > 0 ? [(x2 - x1) / length, (y2 - y1) / length] : [1, 0]
+      const head = (s: number): string => `<line x1="${c(x2)}" y1="${c(y2)}" x2="${c(x2 - ux * 1.8 - s * uy * 0.9)}" y2="${c(y2 - uy * 1.8 + s * ux * 0.9)}"/>`
+      body.push(
+        `<g data-mark="${escape(mark.id)}"${look}>`,
+        outline(mark.was, ghost),
+        outline(shapeMoved(mark.was, mark.by), ''),
+        `<line x1="${c(x1)}" y1="${c(y1)}" x2="${c(x2)}" y2="${c(y2)}"/>`,
+        head(1),
+        head(-1),
+        words(x2 + 2, y2 - 1.4, offsetWords(mark.by)),
+        `</g>`
+      )
     }
   }
 

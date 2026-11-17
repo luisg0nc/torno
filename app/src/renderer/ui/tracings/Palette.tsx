@@ -3,8 +3,9 @@ import { hint } from '../../../shared/keys'
 import { tracingActions, useTracings, type TracingTool } from '../../state/tracings'
 import { ICONS } from '../ToolPalette'
 
-// The tools of a tracing, at the left edge of its sheet, as the tools of the model are at the edge of the 3D view. Select, Trace, Pin and
-// Ink are live; the rest are shown and wait for their own tasks. Each live tool has a key of the `tracing` scope.
+// The tools of a tracing, at the left edge of its sheet, as the tools of the model are at the edge of the 3D view. Select, Trace, Pin, Ink,
+// Measure and Should be here are live; Show in 3D waits for its own task. Each live tool has a key of the `tracing` scope. Measure and
+// Should be here are no review of the model: the intent bar of an open review does not apply to them.
 
 type Tool = TracingTool
 
@@ -12,7 +13,7 @@ interface Entry {
   id: string
   label: string
   /** The row of the table of keys, for a tool that has one. */
-  row?: 'tracing.select' | 'tracing.trace' | 'tracing.pin' | 'tracing.ink'
+  row?: 'tracing.select' | 'tracing.trace' | 'tracing.pin' | 'tracing.ink' | 'tracing.measure' | 'tracing.offset'
   does: string
   icon: ReactNode
 }
@@ -41,8 +42,8 @@ const TOOLS: readonly Entry[] = [
   { id: 'trace', label: 'Trace', row: 'tracing.trace', does: 'Click points, a circle or a label into your layer, snapping to the corners and hole centres of the cut', icon: TRACE_ICON },
   { id: 'pin', label: 'Pin', row: 'tracing.pin', does: 'Leave a note on a point of the sheet', icon: ICONS.pin },
   { id: 'ink', label: 'Ink', row: 'tracing.ink', does: 'Draw in the plane, freehand, a line or point to point', icon: ICONS.draw },
-  { id: 'measure', label: 'Measure', does: 'Measure between two points of the sheet', icon: ICONS.measure },
-  { id: 'offset', label: 'Should be here', does: 'Drag a shape to where it should be', icon: ICONS.arrow }
+  { id: 'measure', label: 'Measure', row: 'tracing.measure', does: 'Click two points; on the cut\'s own points the number is exact, else it is ≈ and says how it was found', icon: ICONS.measure },
+  { id: 'offset', label: 'Should be here', row: 'tracing.offset', does: 'Drag a shape of a layer to where it should be; Shift keeps one axis, the arrow keys nudge 0.1 mm', icon: ICONS.arrow }
 ]
 
 /** The palette as it is drawn from the tool in hand: pure, so that it is drawn the same from any state. */

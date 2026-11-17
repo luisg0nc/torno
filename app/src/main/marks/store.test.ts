@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, PinMark, Replacement, ShapeMark, SketchMark, SketchStroke } from '../../shared/marks'
+import type { Anchor, DimensionMark, Mark, MarksFile, NewMark, NewNote, NoteMark, OffsetMark, PinMark, Replacement, ShapeMark, SketchMark, SketchStroke, SpanMark } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { isHeld, openRound, roundCounts, roundItems } from '../../shared/reviews'
 import * as file from './file'
@@ -90,6 +90,71 @@ describe('marks on a tracing', () => {
     store.on('unchecked', (m) => told.push(m.ids))
     await store.followTracing('bracket', 'T1', [0, 0, 0.5])
     expect(told).toEqual([['M1']])
+  })
+})
+
+describe('a span and an offset', () => {
+  const span = (over: Record<string, unknown> = {}): SpanMark =>
+    ({ ...BASE, kind: 'span', tracing: 'T1', uv: [[0, 0], [30, 40]], a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [30, 40], point: [30, 0, 40], on: 'tracing' }, value: 50, exact: false, how: 'freehand', measuredOn: 1, ...over }) as unknown as SpanMark
+  const offset = (by: [number, number] = [-1.8, 0.6], over: Record<string, unknown> = {}): OffsetMark =>
+    ({ ...BASE, kind: 'offset', tracing: 'T1', uv: [[10, 5], [10 + by[0], 5 + by[1]]], layer: { id: 2, name: 'head bolts', revision: 1 }, shape: { index: 2, name: 'head bolt 3' }, was: { kind: 'circle', centre: [10, 5], radius: 3 }, by, from: [10, 0, 5], to: [10 + by[0], 0, 5 + by[1]], ...over }) as unknown as OffsetMark
+  const ROUND = { build: 'h1', sources: 'abc', layout: 'assembly', line: 'a line' }
+
+  it('are not added as any other mark is: main makes them from its own numbers', async () => {
+    await expect(store.add('bracket', span() as unknown as NewMark)).rejects.toThrow('a measure on a tracing is made with the Measure tool')
+    await expect(store.add('bracket', offset() as unknown as NewMark)).rejects.toThrow('is made with the Should be here tool')
+  })
+
+  it('keeps a span as main made it, never takes what only main says from the window, and never joins a round', async () => {
+    await store.startRound('bracket', ROUND)
+    const made = await store.addSpan('bracket', { ...span(), intent: 'want', round: 'R1', judged: 'ok' } as never)
+    expect(made).toMatchObject({ id: 'M1', kind: 'span', value: 50, how: 'freehand', status: 'draft', anchorState: 'ok' })
+    expect(made).not.toHaveProperty('intent')
+    expect(made).not.toHaveProperty('round')
+    expect(onDisk('bracket').marks[0]).toEqual(made)
+  })
+
+  it('keeps an offset, and dragging the same shape again changes the draft\'s `by`, not its number', async () => {
+    const first = await store.saveOffset('bracket', offset([-1.8, 0.6]))
+    const again = await store.saveOffset('bracket', offset([-2, 0.5]))
+    expect(again.id).toBe(first.id)
+    expect(again).toMatchObject({ by: [-2, 0.5], to: [8, 0, 5.5], createdAt: first.createdAt })
+    expect(await store.list('bracket')).toHaveLength(1)
+    // Another shape of the layer, or another layer, is another mark.
+    await store.saveOffset('bracket', offset([1, 1], { shape: { index: 3, name: '' } }))
+    await store.saveOffset('bracket', offset([1, 1], { layer: { id: 3, name: 'other', revision: 1 } }))
+    expect(await store.list('bracket')).toHaveLength(3)
+  })
+
+  it('does not change an offset the agent has been told of: a sent one is a new mark', async () => {
+    const sent = await store.saveOffset('bracket', offset([-1.8, 0.6]))
+    await store.markSent('bracket', [sent.id])
+    const next = await store.saveOffset('bracket', offset([-2, 0.5]))
+    expect(next.id).not.toBe(sent.id)
+  })
+
+  it('never joins an open round, and has no intent to say', async () => {
+    await store.startRound('bracket', ROUND)
+    const made = await store.saveOffset('bracket', offset())
+    expect(made.round).toBeUndefined()
+    await expect(store.setIntent('bracket', made.id, 'want')).rejects.toThrow('a "should be here" says nothing of want or don\'t want')
+  })
+
+  it('stays ok through reanchor, and is not unchecked', async () => {
+    const made = await store.saveOffset('bracket', offset())
+    await store.reanchor('bracket', [{ id: made.id, judged: [], anchors: [], anchorState: 'drifted', checkedRevision: 3 }])
+    const [after] = await store.list('bracket')
+    expect(after.anchorState).toBe('ok')
+  })
+
+  it('move with their tracing\'s plane', async () => {
+    await store.addSpan('bracket', span())
+    await store.saveOffset('bracket', offset())
+    await store.followTracing('bracket', 'T1', [0, 2, 0])
+    const [one, two] = (await store.list('bracket')) as [SpanMark, OffsetMark]
+    expect(one.a.point).toEqual([0, 2, 0])
+    expect(one.value).toBe(50)
+    expect(two.from).toEqual([10, 2, 5])
   })
 })
 

@@ -1990,7 +1990,7 @@ first colour not yet used); the cross removes one of yours, and **Undo** puts it
 and remove only your own layers, and Claude only its own: Claude's you can hide but not change.
 
 The tools are at the left edge of the sheet: **Select** (`V`) moves around the sheet by dragging and selects, **Trace** (`T`) draws into your
-layer, **Pin** (`P`) leaves a note on a point and **Ink** (`I`) draws in the plane (both below). Measure and Should be here are shown and come later. With Trace in hand the panel says what it draws: a **Line**
+layer, **Pin** (`P`) leaves a note on a point and **Ink** (`I`) draws in the plane, **Measure** (`M`) measures between two points and **Should be here** (`O`) drags a shape to where it belongs (all below). With Trace in hand the panel says what it draws: a **Line**
 (click its points; `Enter` ends it, or a click on its first point closes it; `Backspace` takes the last point back), a **Circle**
 (click its centre, then a point on it) or a **Label** (click, then type it and press `Enter`). Each finished shape is kept at
 once, in the layer ringed in the panel (click the ring on another of your layers to draw into that one). The points snap, within
@@ -2014,6 +2014,21 @@ a shape, and it is ringed); `Delete` removes the mark if it is yours, and **Undo
 it resolves them. When a build moves the plane of a tracing on a face along its normal, every mark on it moves with it by the same distance, in one change of the marks, and
 stays in the plane; a pin or ink on a tracing is not put on another part by a click in the 3D view, and the layout's spread does not move it. A tracing that is removed
 leaves its marks where they are: they say `on T1 (removed)`, and join the tracing again if it is put back.
+
+**Measure and Should be here** are about a number or a layer, not about the model, so the review's want and don't want do not apply to them: neither carries an
+intent, neither joins a round, and neither is ever checked against a build (they are never *drifted*; they stay as you made them). Both go to Claude with your next
+prompt like any mark. **Measure** (`M`): click two points; the pointer's note reads the number as you move, and a click snaps as Trace does. When both ends are
+snapped to the kernel's points of the build on show (a corner of the cut, a hole centre, a vertex in the plane) the number is exact, is worked out by torno from those
+numbers and says `exact on build 41`. Any other measure is `≈`: it says how it was found, `on the photo, lined up with fit 0.4 mm` when an end is on the photo (a
+free click over the photo and off the outline) or `freehand`, and a snapped end that is not within a hundredth of a millimetre of the kernel's point is refused. A measure is made
+once and never measured again: after a later build it keeps its value and says `measured on build 41`. It has no expected value and no verdict. **Should be here**
+(`O`): press on a shape of a layer (yours or Claude's) and drag it to where it belongs. The shape stays ghosted where it was, the copy moves in your colour, and the note at
+the pointer reads `M15 head bolt 4 should be here · 1.8 mm left, 0.6 mm up` (left and up are along the sheet's `-u` and `+v`; the note says `M15` once the shape has a mark). `Shift` keeps the
+drag to the axis it has gone further along, and the arrow keys nudge it a tenth of a millimetre, while you drag and after you let go. Letting go makes the mark, one for each
+shape of a layer: dragging the same shape again changes your draft rather than adding another (one Claude has already been told of is left, and a new one is made). A shape's
+reference point is a circle's centre and the centroid of a polyline's points (the mean of them, not of its area). The mark keeps a copy of the shape as it was, so it still says
+what moved after Claude replaces the layer, and says `layer changed since` once the layer's revision is newer than the mark's. It is never exact: it is where you say a shape belongs,
+by eye. Claude is told it as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo)`, then the move in the model's frame, `(−1.8, 0, +0.6) mm in X, Y, Z`, and the layer.
 
 ### A photo under a tracing
 
@@ -2278,10 +2293,13 @@ until the camera is first moved; the window remembers that in its own storage, n
 | Tracing | `T` | Tracing, Trace: click the points of a line, the centre and edge of a circle, or the place of a label, into your layer |
 | Tracing | `P` | Tracing, Pin: click a point and type its note where it is; Enter keeps it |
 | Tracing | `I` | Tracing, Ink: draw in the plane, freehand, a line or point to point; again, the next pen |
+| Tracing | `M` | Tracing, Measure: click two points; snapped to the cut's points the number is exact, else it is ≈ and says how it was found |
+| Tracing | `O` | Tracing, Should be here: drag a shape of a layer to where it belongs; Shift keeps one axis |
+| Tracing | `Left` `Right` `Up` `Down` | Should be here: nudge the shape being dragged, or the one just placed, 0.1 mm |
 | Tracing | `Enter` | Trace, Ink: end the line (in Trace a click on its first point closes it) |
 | Tracing | `Backspace` | Trace, Ink: take the last point back |
 | Tracing | `Ctrl` | Trace, Ink: hold it while clicking or drawing to turn snapping off |
-| Tracing | `Esc` | Trace, Pin, Ink: give up what is under way, then put Select back |
+| Tracing | `Esc` | Trace, Pin, Ink, Measure, Should be here: give up what is under way, then put Select back |
 | Tracing | `Delete` | Select: remove the mark selected, if it is yours (Undo is offered for ten seconds) |
 | Tracing | `Ctrl+Z` | Ink: take the last stroke back |
 | Tracing | `S` | Line-up: straighten the photo (4 points or more), or only turn and scale it |

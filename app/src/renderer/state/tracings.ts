@@ -1,5 +1,6 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
+import type { SpanEndDraft } from '../../shared/bridge'
 import type { BoardFile, Card } from '../../shared/board'
 import type { HistoryList } from '../../shared/history'
 import { lineupSaid, type LineupPair, photoRect, transformKey } from '../../shared/lineup'
@@ -27,7 +28,7 @@ import { setTool } from './tools'
 // changes with a pan, a zoom or a pointer move: those are the sheet's, on its own elements (`ui/tracings/Sheet.ts`).
 
 /** What the pointer does on the sheet. */
-export type TracingTool = 'select' | 'trace' | 'pin' | 'ink'
+export type TracingTool = 'select' | 'trace' | 'pin' | 'ink' | 'measure' | 'offset'
 
 export interface TracingsState {
   /** The project the tracings are of; null while none is open. */
@@ -48,7 +49,7 @@ export interface TracingsState {
   removed: { id: string; name: string } | null
   /** What main found wrong with the tracings file (it was set aside, and where), until the person has read it. */
   problem: string | null
-  /** What the pointer does on the sheet: Select moves around it and selects a mark or a shape, Trace puts shapes into the person's layer, Pin leaves a note on a point and Ink draws in the plane. */
+  /** What the pointer does on the sheet: Select moves around it and selects a mark or a shape, Trace puts shapes into the person's layer, Pin leaves a note on a point, Ink draws in the plane, Measure measures between two points and Should be here drags a shape to where it belongs. */
   tool: TracingTool
   /** The mark or the shape of a layer that Select has selected. */
   selected: Hit | null
@@ -287,6 +288,26 @@ export function photoDrawn(t: Pick<Tracing, 'photo'>, photos: Readonly<Record<st
 /** The pictures of the project's `reference/` that a photo may be taken from: the cards of its references that name an image file. */
 export const referencePhotos = (cards: readonly Pick<Card, 'kind' | 'source'>[]): string[] => cards.filter((c) => c.kind === 'reference' && c.source !== undefined && /\.(?:png|jpe?g|webp)$/i.test(c.source)).map((c) => c.source as string)
 
+/** Keeps a measure or a "should be here" made through main, and selects the mark; `refused` says why when main would not (or there is no build on show: `nobuild`). */
+async function keepMeasure(what: string, nobuild: string, make: (objectId: string, t: Tracing, here: NonNullable<ReturnType<typeof sketchHere>>) => Promise<{ id: string }>): Promise<boolean> {
+  const objectId = state().objectId
+  const t = openTracing()
+  const here = sketchHere()
+  if (objectId === null || t === undefined) return false
+  if (here === null || here.objectId !== objectId) {
+    set({ refused: nobuild })
+    return false
+  }
+  try {
+    const made = await make(objectId, t, here)
+    if (state().objectId === objectId) set({ selected: { kind: 'mark', id: made.id }, refused: null })
+    return true
+  } catch (e) {
+    set({ refused: `${what} was not kept: ${said(e)}` })
+    return false
+  }
+}
+
 export const tracingActions = {
   /** The project the window shows: the tracings of another are no longer shown. */
   openProject(objectId: string | null): void {
@@ -462,6 +483,24 @@ export const tracingActions = {
       set({ refused: `The pin was not kept: ${said(e)}` })
       return false
     }
+  },
+
+  /**
+   * A measure of the person's between two ends of the tracing that is open: made through main (`marks:span`), which takes the point of a
+   * snapped end from the kernel's own, works out the value and says whether it is exact. It carries no word of a review: the bar of an open
+   * review does not apply to it. It is the mark selected after. True when main kept it; when it did not, `refused` says why.
+   */
+  async span(a: SpanEndDraft, b: SpanEndDraft): Promise<boolean> {
+    return keepMeasure('The measure', 'The project has no build to measure on yet', (objectId, t, here) => window.torno.marks.span(objectId, { tracing: t.id, a, b, camera: here.camera }))
+  },
+
+  /**
+   * "Should be here": a shape of a layer of the tracing that is open dragged by `by` (`[du, dv]` mm along the tracing's axes). Made through
+   * main (`marks:offset`), which finds the shape, the layer's revision and the points itself; dragging the same shape again changes the
+   * draft. No word of a review goes with it. It is the mark selected after. True when main kept it.
+   */
+  async offset(layer: number, shape: number, by: [number, number]): Promise<boolean> {
+    return keepMeasure('The "should be here"', 'The project has no build to leave a "should be here" on yet', (objectId, t, here) => window.torno.marks.offset(objectId, { tracing: t.id, layer, shape, by, camera: here.camera }))
   },
 
   /** Delete: the selected mark is removed when it is the person's, and put back by `undoMarkRemove` for a while. The agent's is left, and the sheet says so. */

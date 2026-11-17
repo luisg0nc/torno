@@ -4,6 +4,7 @@ import type { Sectioned } from './geometry'
 import type { Mark, Vec3 } from './marks'
 import { type MainAxis, mainPlaneFrame } from './planes'
 import type { Part } from './scene'
+import { number } from './format'
 import { type SnapData, vertexAt } from './snapdata'
 
 // Tracings: the model laid flat in one plane at true scale, with a photo under it and layers over it. The pure rules both
@@ -264,4 +265,46 @@ export interface TracingPictureResult {
   vUp: boolean
   /** Whether the photo is in the picture: asked for, and its copy was on this computer. */
   photo?: boolean
+}
+
+/** How far an arrow key nudges a shape being dragged with Should be here, mm. */
+export const OFFSET_STEP_MM = 0.1
+
+/**
+ * The point a shape is moved by (Should be here): a circle's centre, the centroid of a polyline's points (the mean of them: a closed
+ * polyline's points are its corners, with none repeated) and a label's place. In the tracing's `[u, v]`.
+ */
+export function referencePoint(shape: LayerShape): [number, number] {
+  if (shape.kind === 'circle') return [shape.centre[0], shape.centre[1]]
+  if (shape.kind === 'label') return [shape.at[0], shape.at[1]]
+  const n = shape.points.length
+  if (n === 0) return [0, 0]
+  return [shape.points.reduce((sum, p) => sum + p[0], 0) / n, shape.points.reduce((sum, p) => sum + p[1], 0) / n]
+}
+
+/** The shape with every point of it moved by `by` (`[du, dv]` mm); its name, radius, text and the rest are kept. */
+export function shapeMoved(shape: LayerShape, by: readonly [number, number]): LayerShape {
+  const at = (p: readonly [number, number]): [number, number] => [p[0] + by[0], p[1] + by[1]]
+  if (shape.kind === 'circle') return { ...shape, centre: at(shape.centre) }
+  if (shape.kind === 'label') return { ...shape, at: at(shape.at) }
+  return { ...shape, points: shape.points.map(at) }
+}
+
+/**
+ * A move along the tracing's axes in words, `1.8 mm left, 0.6 mm up`: left and up are along `-u` and `+v` as the tracing is shown. A
+ * move along one axis says that one, none says `0 mm`. The one rule for the drag's readout and for what Claude is told.
+ */
+export function offsetWords(by: readonly [number, number]): string {
+  const parts: string[] = []
+  const [du, dv] = [number(by[0]), number(by[1])]
+  if (du !== '0') parts.push(`${du.replace('-', '')} mm ${by[0] < 0 ? 'left' : 'right'}`)
+  if (dv !== '0') parts.push(`${dv.replace('-', '')} mm ${by[1] > 0 ? 'up' : 'down'}`)
+  return parts.length === 0 ? '0 mm' : parts.join(', ')
+}
+
+/** The revision of every layer of the tracings, by `T1/2` (the tracing's id, a slash, the layer's id): what an offset on a layer is compared with. */
+export function layerRevisions(tracings: ReadonlyArray<Pick<Tracing, 'id' | 'layers'>>): Record<string, number> {
+  const revisions: Record<string, number> = {}
+  for (const t of tracings) for (const layer of t.layers) revisions[`${t.id}/${layer.id}`] = layer.revision
+  return revisions
 }

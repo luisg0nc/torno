@@ -128,6 +128,15 @@ describe('the text of a board', () => {
     expect(text).toContain(`M7 · sketch "Hose route" · flow ⌀19 mm · 1 stroke on 1 plane · draft, drawn on build 3`)
     expect(text).not.toContain('(sketch,')
   })
+  it('says a measure and a "should be here" by their line, with what they are, not as a mark of some kind', () => {
+    const base = { author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 3, tracing: 'T1' }
+    const span = { ...base, id: 'M8', kind: 'span', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [3, 4], point: [3, 4, 0], on: 'tracing' }, value: 5, exact: false, how: 'freehand', measuredOn: 3 } as unknown as Mark
+    const offset = { ...base, id: 'M9', kind: 'offset', layer: { id: 1, name: 'bolts', revision: 1 }, shape: { index: 0, name: 'bolt 1' }, was: { kind: 'circle', centre: [1, 1], radius: 1 }, by: [-1, 0], from: [1, 1, 0], to: [0, 1, 0] } as unknown as Mark
+    const live: LiveFacts = { marks: new Map([['M8', span], ['M9', offset]]) }
+    const { text } = boardText(board([card({ kind: 'mark', by: 'torno', source: 'M8' }), card({ kind: 'mark', by: 'torno', source: 'M9' })]), live, OPTS)
+    expect(text).toContain('M8 · span on T1: ≈ 5 mm (freehand)')
+    expect(text).toContain('M9 · offset · bolt 1: 1 mm left on T1')
+  })
   it('calls the ink-pad card a doodle, in its head and in its picture line', () => {
     const d = card({ kind: 'sketch', picture: 'p-bbbbbbbbbbbb.png', caption: 'the latch shape' })
     const text = boardText(board([d]), LIVE, OPTS).text

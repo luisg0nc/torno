@@ -1,6 +1,7 @@
 import type { StrokeUnder } from './drawing'
 import type { Camera } from './view'
 import type { Round } from './reviews'
+import type { LayerShape, PlaneSnap } from './tracings'
 export type Vec3 = [number, number, number]
 export type Quat = [number, number, number, number]            // x y z w
 
@@ -314,7 +315,49 @@ export interface SketchMark extends MarkBase, Reviewable {
   anchor?: Anchor
   picture?: string
 }
-export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | DimensionMark | RegionMark | NoteMark | SketchMark
+/** One end of a span: where it is in the tracing's own `[u, v]` (mm) and in the object frame, whether it was put on the outline or on the photo, and the kernel's point it was snapped to when it was. */
+export interface SpanEnd {
+  uv: [number, number]
+  point: Vec3
+  on: 'tracing' | 'photo'
+  snap?: PlaneSnap
+}
+/**
+ * A measure on a tracing: the distance between two points in its plane. Exact only when both ends are snapped to the kernel's points of
+ * the build it was placed on (`measuredOn`) and on the outline; any other is `≈` and says how it was found (`how`: `on the photo, lined up
+ * with fit 0.4 mm`, `freehand`). Its value is main's (`spanValue`), and it is never measured again: it has no expectation and no verdict,
+ * and no review intent. It names its tracing.
+ */
+export interface SpanMark extends MarkBase {
+  kind: 'span'
+  tracing: string
+  a: SpanEnd
+  b: SpanEnd
+  /** mm, in full. */
+  value: number
+  exact: boolean
+  /** `exact on build 41`, `on the photo, lined up with fit 0.4 mm` or `freehand`. */
+  how: string
+  /** The build (this run's number) the value was taken on. */
+  measuredOn: number
+}
+/**
+ * "Should be here": a shape of a layer dragged to where the person says it belongs. `was` is a copy of the shape as it was dragged, so
+ * the mark still says what moved after Claude replaces the layer; `by` is `[du, dv]` in mm along the tracing's axes; `from` and `to` are
+ * the shape's reference point (a circle's centre, a polyline's centroid of its points) before and after, in the object frame. Never exact,
+ * never checked against a build, and no review intent.
+ */
+export interface OffsetMark extends MarkBase {
+  kind: 'offset'
+  tracing: string
+  layer: { id: number; name: string; revision: number }
+  shape: { index: number; name: string }
+  was: LayerShape
+  by: [number, number]
+  from: Vec3
+  to: Vec3
+}
+export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | DimensionMark | RegionMark | NoteMark | SketchMark | SpanMark | OffsetMark
 export type MarkKind = Mark['kind']
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 /** What main alone says of a mark: no caller supplies these. */
@@ -360,6 +403,8 @@ export const MAX_STROKE_POINTS = 400
  */
 export function markIntent(mark: Pick<Mark, 'author' | 'kind'> & { intent?: ShapeIntent | ReviewIntent }): ReviewIntent | null {
   if (mark.author !== 'user') return null
+  // A measure and a "should be here" are about a layer or a number, not about the model: no want, no don't want.
+  if (mark.kind === 'span' || mark.kind === 'offset') return null
   if (mark.kind === 'shape') return mark.intent === 'add' ? 'want' : mark.intent === 'remove' ? 'dont' : null
   return mark.intent === 'want' || mark.intent === 'dont' ? mark.intent : null
 }
@@ -381,6 +426,10 @@ export function markAnchors(mark: Mark): Anchor[] {
       return mark.b ? [mark.a, mark.b] : [mark.a]
     case 'region':
       // It is on a scan, not on a part: nothing of a build is under it.
+      return []
+    case 'span':
+    case 'offset':
+      // They lie in a tracing's plane and are about a number or a layer: no build judges them.
       return []
   }
 }
@@ -439,7 +488,7 @@ function sketchSamples(mark: SketchMark, most: number): Vec3[] {
  */
 export function isUnchecked(mark: Mark, revision: number | undefined): boolean {
   // A region is of a scan: no build has anything to say of it.
-  return mark.kind !== 'region' && mark.status !== 'resolved' && revision !== undefined && revision > 0 && mark.checkedRevision !== revision
+  return mark.kind !== 'region' && mark.kind !== 'span' && mark.kind !== 'offset' && mark.status !== 'resolved' && revision !== undefined && revision > 0 && mark.checkedRevision !== revision
 }
 
 /** A mark the agent resolved and the person has not yet said they have seen: it stays among the open ones in the panel. */
@@ -493,6 +542,11 @@ export function translated<M extends Mark>(mark: M, by: Vec3, byB: Vec3 = by): M
     case 'region':
       // What it holds is in its scan's frame, and a scan is never spread.
       return mark
+    case 'span':
+      // Its `uv` and its value stay: the plane moved along its normal, and the distance between its ends did not change.
+      return { ...m, a: { ...m.a, point: moved(m.a.point, by) }, b: { ...m.b, point: moved(m.b.point, by) } } as M
+    case 'offset':
+      return { ...m, from: moved(m.from, by), to: moved(m.to, by) } as M
   }
 }
 
@@ -550,6 +604,10 @@ export function markPoints(mark: Mark): Vec3[] {
     case 'region':
       // It is drawn on its scan, which is inside what the camera keeps in already.
       return []
+    case 'span':
+      return [mark.a.point, mark.b.point]
+    case 'offset':
+      return [mark.from, mark.to]
   }
 }
 

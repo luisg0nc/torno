@@ -18,6 +18,9 @@ import {
   type Tracing,
   type TracingPlane,
   inPlane,
+  offsetWords,
+  referencePoint,
+  shapeMoved,
   planeOfFrom,
   planeSnaps,
   pointCount,
@@ -196,5 +199,27 @@ describe('planeSnaps', () => {
 
   it('ignores a part with no snap data', () => {
     expect(planeSnaps(plane, [{ part: partAt('block') }], { ...box, parts: [] })).toEqual([])
+  })
+})
+
+describe('a shape moved by an offset', () => {
+  it('has a reference point: a circle\'s centre, a polyline\'s centroid of its points, a label\'s place', () => {
+    expect(referencePoint({ kind: 'circle', centre: [10, 5], radius: 3 })).toEqual([10, 5])
+    expect(referencePoint({ kind: 'polyline', points: [[0, 0], [4, 0], [4, 2], [0, 2]], closed: true })).toEqual([2, 1])
+    expect(referencePoint({ kind: 'label', at: [3, 4], text: 'x' })).toEqual([3, 4])
+  })
+
+  it('moves every point of the shape by the same amount and keeps what else it says', () => {
+    expect(shapeMoved({ name: 'bolt', kind: 'circle', centre: [10, 5], radius: 3 }, [-1.8, 0.6])).toEqual({ name: 'bolt', kind: 'circle', centre: [8.2, 5.6], radius: 3 })
+    expect(shapeMoved({ kind: 'polyline', points: [[0, 0], [4, 0]] }, [1, 2])).toEqual({ kind: 'polyline', points: [[1, 2], [5, 2]] })
+    expect(shapeMoved({ kind: 'label', at: [3, 4], text: 'x' }, [1, 1])).toEqual({ kind: 'label', at: [4, 5], text: 'x' })
+  })
+
+  it('says left, right, up and down along -u and +v, the same everywhere', () => {
+    expect(offsetWords([-1.8, 0.6])).toBe('1.8 mm left, 0.6 mm up')
+    expect(offsetWords([1.8, -0.6])).toBe('1.8 mm right, 0.6 mm down')
+    expect(offsetWords([-1.8, 0])).toBe('1.8 mm left')
+    expect(offsetWords([0, 0.6])).toBe('0.6 mm up')
+    expect(offsetWords([0, 0])).toBe('0 mm')
   })
 })

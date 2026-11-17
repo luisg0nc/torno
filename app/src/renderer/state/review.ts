@@ -49,6 +49,8 @@ export function roundsViewOf(s: Pick<ReviewState, 'objectId' | 'rounds' | 'sendi
  */
 export function withIntent(mark: NewMark, intent: ReviewIntent | undefined): NewMark {
   if (intent === undefined || mark.author !== 'user') return mark
+  // A measure and a "should be here" are not a review of the model: the bar does not apply to them.
+  if (mark.kind === 'span' || mark.kind === 'offset') return mark
   if (mark.kind === 'shape') return { ...mark, intent: intent === 'want' ? 'add' : 'remove' }
   return { ...mark, intent }
 }

@@ -331,6 +331,12 @@ export function labelAnchor(mark: Mark, regionAt?: (mark: RegionMark) => Vec3 | 
       return { point: mark.anchor?.point ?? sketchStrokePoints(mark, mark.strokes[0] ?? { pen: 'free', revision: 0 })[0] ?? [0, 0, 0] }
     case 'arrow':
       return { point: mark.from.point }
+    case 'span':
+      // At the middle of the line between its ends.
+      return { point: [(mark.a.point[0] + mark.b.point[0]) / 2, (mark.a.point[1] + mark.b.point[1]) / 2, (mark.a.point[2] + mark.b.point[2]) / 2] }
+    case 'offset':
+      // Where the shape should be: the head of its arrow.
+      return { point: mark.to }
     case 'stroke':
       return { point: strokePoints(mark)[0] ?? mark.anchor.point }
     case 'shape':

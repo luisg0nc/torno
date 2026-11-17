@@ -544,3 +544,56 @@ describe('describeMark of a mark of a review', () => {
     expect(markData(pin({ intent: 'dont', round: 'R1', judged: { verdict: 'ok', build: 'h42' } }), 1)).toMatchObject({ intent: 'dont', round: 'R1', judged: { verdict: 'ok', build: 'h42' } })
   })
 })
+
+describe('a span and an offset', () => {
+  const span = (over: object = {}): Mark =>
+    mark({ id: 'M13', kind: 'span', tracing: 'T1', a: { uv: [0, 0], point: [0, 0, 0], on: 'tracing' }, b: { uv: [30, 40], point: [30, 0, 40], on: 'tracing' }, value: 41.8, exact: true, how: 'exact on build 41', measuredOn: 41, ...over })
+  const offset = (over: object = {}): Mark =>
+    mark({
+      id: 'M12',
+      kind: 'offset',
+      tracing: 'T1',
+      layer: { id: 2, name: 'head bolts', revision: 3 },
+      shape: { index: 2, name: 'head bolt 3' },
+      was: { name: 'head bolt 3', kind: 'circle', centre: [10, 5], radius: 3 },
+      by: [-1.8, 0.6],
+      from: [10, 0, 5],
+      to: [8.2, 0, 5.6],
+      ...over
+    })
+
+  it('tells an exact span with the build it is exact on, and an approximate one as ≈ with how it was found', () => {
+    expect(describeMark(span(), { revision: 41 })).toBe('M13 · span on T1: 41.8 mm, exact on build 41')
+    expect(describeMark(span({ exact: false, how: 'on the photo, lined up with fit 0.4 mm', measuredOn: 1 }), { revision: 1 })).toBe('M13 · span on T1: ≈ 41.8 mm (on the photo, lined up with fit 0.4 mm)')
+    expect(describeMark(span({ exact: false, how: 'freehand', measuredOn: 1 }), { revision: 1 })).toBe('M13 · span on T1: ≈ 41.8 mm (freehand)')
+  })
+
+  it('keeps an approximate span\'s value after a rebuild and says which build it was measured on; it is never "not checked"', () => {
+    const line = describeMark(span({ exact: false, how: 'on the photo, lined up with fit 0.4 mm', measuredOn: 1 }), { revision: 2 })
+    expect(line).toBe('M13 · span on T1: ≈ 41.8 mm (on the photo, lined up with fit 0.4 mm), measured on build 1')
+    expect(line).not.toContain('not checked')
+    expect(describeMark(span(), { revision: 42 })).not.toContain('not checked')
+  })
+
+  it('says the note of a span, and that its tracing is removed', () => {
+    expect(describeMark(span({ note: 'bolt pitch' }), { tracings: ['T2'] })).toBe('M13 · span on T1 (removed): 41.8 mm, exact on build 41: "bolt pitch"')
+  })
+
+  it('tells an offset as the move in words, in the object frame, with its layer', () => {
+    expect(describeMark(offset(), { revision: 5 })).toBe('M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm up on T1 (≈, from the photo) · (−1.8, 0, +0.6) mm in X, Y, Z · layer 2 "head bolts" · was circle centre (10, 5) radius 3')
+    expect(describeMark(offset({ shape: { index: 3, name: '' }, was: { kind: 'label', at: [1, 2], text: 'M6' }, by: [1.8, -0.6], to: [11.8, 0, 4.4] }), { revision: 5 })).toContain('M12 · offset · shape 4 of head bolts: 1.8 mm right, 0.6 mm down on T1')
+  })
+
+  it('says "layer changed since" once its layer has been changed, and keeps what it was', () => {
+    expect(describeMark(offset(), { layers: { 'T1/2': 3 } })).not.toContain('changed since')
+    const changed = describeMark(offset(), { layers: { 'T1/2': 4 } })
+    expect(changed).toContain('layer changed since')
+    expect(changed).toContain('was circle centre (10, 5) radius 3')
+    expect(describeMark(offset(), { layers: {} })).toContain('layer removed since')
+  })
+
+  it('is never judged by a build: ok, never drifted', () => {
+    expect(describeMark(offset(), { revision: 9 })).not.toContain('moved since')
+    expect(markData(offset(), 9)).toMatchObject({ kind: 'offset', by: [-1.8, 0.6] })
+  })
+})

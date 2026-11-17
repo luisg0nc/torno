@@ -27,8 +27,8 @@ import { ICONS, SHAPE_ICONS } from './ToolPalette'
 /** The longest note a mark keeps (main cuts there); the field stops at it, so nothing is cut unseen. */
 export const MAX_NOTE = 2000
 
-const KIND_ICON: Record<MarkKind, ReactNode> = { pin: ICONS.pin, pick: ICONS.select, arrow: ICONS.arrow, stroke: ICONS.draw, shape: ICONS.shape, dimension: ICONS.measure, region: ICONS.region, note: ICONS.draw, sketch: ICONS.draw }
-const KIND_NAME: Record<MarkKind, string> = { pin: 'Pin', pick: 'Pick', arrow: 'Arrow', stroke: 'Stroke', shape: 'Shape', dimension: 'Dimension', region: 'Region', note: 'View note', sketch: 'Sketch' }
+const KIND_ICON: Record<MarkKind, ReactNode> = { pin: ICONS.pin, pick: ICONS.select, arrow: ICONS.arrow, stroke: ICONS.draw, shape: ICONS.shape, dimension: ICONS.measure, region: ICONS.region, note: ICONS.draw, sketch: ICONS.draw, span: ICONS.measure, offset: ICONS.arrow }
+const KIND_NAME: Record<MarkKind, string> = { pin: 'Pin', pick: 'Pick', arrow: 'Arrow', stroke: 'Stroke', shape: 'Shape', dimension: 'Dimension', region: 'Region', note: 'View note', sketch: 'Sketch', span: 'Measure', offset: 'Should be here' }
 /** What the row says of a dimension the agent has been given: it stays, with its value, until it is resolved. */
 export const PINNED = 'pinned'
 /** What the row of a check the agent has not been given says: it is under Checks, not under To send. */
@@ -424,7 +424,7 @@ export function MarkRow({
           <BinIcon />
         </button>
         {/* Last: the keys' way along a row, from its note to Delete, is as it was. */}
-        {mark.author === 'user' && !resolved && <IntentMenu mark={mark} />}
+        {mark.author === 'user' && !resolved && mark.kind !== 'span' && mark.kind !== 'offset' && <IntentMenu mark={mark} />}
       </span>
       {stopping && checks && (
         <div className="mark-stop" onClick={(e) => e.stopPropagation()}>

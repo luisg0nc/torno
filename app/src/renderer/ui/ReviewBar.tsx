@@ -49,7 +49,9 @@ export function useReviewKeys(): void {
  * make next are plain, what you don't want or what you want, how many of each the round has, End (the round stays,
  * unsent, with its marks held) and Send review (the round goes with your next prompt). Any mark tool works while it is
  * open; the mark gets the choice and joins the round. Marks keep their author's colour: the signs are set in the face of
- * numbers, and what is not wanted is hatched.
+ * numbers, and what is not wanted is hatched. The choice is not for a measure or a "should be here" (the Measure and Should be here
+ * tools of a tracing, whose sheet takes the place of this bar): they are about a number or a layer, not the model, so `withIntent`
+ * leaves them as they are and they never join a round.
  */
 export function ReviewBar() {
   useReviewKeys()

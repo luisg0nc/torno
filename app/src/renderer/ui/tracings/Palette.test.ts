@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { plainText } from '../../../test/plainText'
 import { PaletteView } from './Palette'
 
-const html = (tool: 'select' | 'trace' | 'pin' | 'ink' = 'select'): string => renderToStaticMarkup(createElement(PaletteView, { tool }))
+const html = (tool: 'select' | 'trace' | 'pin' | 'ink' | 'measure' | 'offset' = 'select'): string => renderToStaticMarkup(createElement(PaletteView, { tool }))
 /** The markup of one tool's button. */
 const button = (markup: string, tool: string): string => markup.split('<button ').find((b) => b.includes(`data-tool="${tool}"`)) ?? ''
 
@@ -28,14 +28,14 @@ describe('the palette of a tracing', () => {
     expect(button(html('pin'), 'pin')).toContain('aria-pressed="true"')
   })
 
-  it('shows the tools that come later, and cannot be chosen yet', () => {
-    const markup = html()
-    for (const tool of ['measure', 'offset']) {
-      expect(button(markup, tool)).toContain('disabled')
-      expect(button(markup, tool)).toContain('Not available yet')
-    }
+  it('has Measure and Should be here live, with their keys, and says which is in hand', () => {
+    const markup = html('offset')
+    for (const tool of ['measure', 'offset']) expect(button(markup, tool)).not.toContain('disabled')
+    expect(button(markup, 'measure')).toContain('aria-keyshortcuts="M"')
+    expect(button(markup, 'offset')).toContain('aria-keyshortcuts="O"')
+    expect(button(markup, 'offset')).toContain('aria-pressed="true"')
+    expect(button(html('measure'), 'measure')).toContain('aria-pressed="true"')
     expect(button(markup, 'select')).not.toContain('disabled')
-    expect(button(markup, 'trace')).not.toContain('disabled')
   })
 
   it('is a toolbar, in sentence case', () => {

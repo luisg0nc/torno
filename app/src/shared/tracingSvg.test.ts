@@ -177,6 +177,21 @@ describe('tracingSvg', () => {
       const pin = { ...base, id: 'M4', kind: 'pin', author: 'user', tracing: 'T1', note: 'too thin here', anchor: { point: [10, 5, 5] } } as unknown as PinMark
       expect(tracingSvg(square(), sheet, { marks: [pin] }).svg).toContain('M4 too thin here')
     })
+
+    it('draws a span as a line with its value, ≈ unless it is exact, and an offset as the shape where it was and where it should be', () => {
+      const end = (uv: [number, number]): object => ({ uv, point: [uv[0], uv[1], 5], on: 'tracing' })
+      const span = { ...base, id: 'M13', kind: 'span', author: 'user', tracing: 'T1', a: end([0, 0]), b: end([30, 0]), value: 30, exact: false, how: 'freehand', measuredOn: 3 } as unknown as Mark
+      const exact = { ...span, id: 'M14', exact: true, how: 'exact on build 3' } as unknown as Mark
+      const offset = { ...base, id: 'M12', kind: 'offset', author: 'user', tracing: 'T1', layer: { id: 1, name: 'head bolts', revision: 1 }, shape: { index: 0, name: '' }, was: { kind: 'circle', centre: [10, 10], radius: 2 }, by: [-1.8, 0.6], from: [10, 10, 5], to: [8.2, 10.6, 5], uv: [[10, 10], [8.2, 10.6]] } as unknown as Mark
+      const { svg } = tracingSvg(square(), sheet, { marks: [span, exact, offset], forScreen: true })
+      expect(svg).toContain('M13 ≈ 30 mm')
+      expect(svg).toContain('M14 30 mm')
+      expect(svg).toContain('data-mark="M12"')
+      expect(svg).toContain('M12 1.8 mm left, 0.6 mm up')
+      // The shape as it was is drawn, and the moved copy of it, 1.8 mm left and 0.6 up (the screen's y runs down).
+      expect(svg).toMatch(/<circle[^>]*cx="10" cy="-10" r="2"/)
+      expect(svg).toMatch(/<circle[^>]*cx="8.2" cy="-10.6" r="2"/)
+    })
   })
 
   describe('for the screen', () => {

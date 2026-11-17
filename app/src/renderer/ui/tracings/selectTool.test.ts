@@ -25,6 +25,13 @@ describe('what is under the pointer', () => {
     expect(hitTest(marks, [], tracing, [5, 5], K)).toEqual({ kind: 'mark', id: 'M3' })
   })
 
+  it('is a span along its line and an offset along its arrow', () => {
+    const span = { ...base, id: 'M5', kind: 'span', tracing: 'T1', a: { uv: [0, 0], point: [0, 0, 10], on: 'tracing' }, b: { uv: [20, 0], point: [20, 0, 10], on: 'tracing' }, value: 20, exact: false, how: 'freehand', measuredOn: 1 } as unknown as Mark
+    const offset = { ...base, id: 'M6', kind: 'offset', tracing: 'T1', from: [0, 30, 10], to: [10, 30, 10], uv: [[0, 30], [10, 30]] } as unknown as Mark
+    expect(hitTest([span, offset], [], tracing, [10, 0.2], K)).toEqual({ kind: 'mark', id: 'M5' })
+    expect(hitTest([span, offset], [], tracing, [5, 30.2], K)).toEqual({ kind: 'mark', id: 'M6' })
+  })
+
   it('is the stroke of ink under the pointer, along the segments of it', () => {
     const marks = [ink('M2', [[0, 0], [10, 0], [10, 10]])]
     expect(hitTest(marks, [], tracing, [5, 0.3], K)).toEqual({ kind: 'mark', id: 'M2' })

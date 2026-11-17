@@ -39,6 +39,10 @@ function linesOf(mark: Mark, tracing: Pick<Tracing, 'plane'>): Uv[][] {
       return [[uvOf(mark.anchor.point, 0)]]
     case 'arrow':
       return [[uvOf(mark.from.point, 0), uvOf(mark.to, 1)]]
+    case 'span':
+      return [[mark.a.uv, mark.b.uv]]
+    case 'offset':
+      return [[mark.uv?.[0] ?? toUv(tracing.plane, mark.from), mark.uv?.[1] ?? toUv(tracing.plane, mark.to)]]
     case 'sketch':
       return mark.strokes.flatMap((stroke) => (stroke.plane !== undefined && stroke.points2d ? [stroke.points2d as Uv[]] : []))
     default:

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { number } from '../../../shared/format'
-import { hint, pressed, viewKey } from '../../../shared/keys'
+import { hint, pressed, viewKey, which } from '../../../shared/keys'
 import { MAX_NOTE, type DimensionMark, type NewStroke } from '../../../shared/marks'
 import { colorsOfParts } from '../../../shared/palette'
 import { MAX_LABEL_TEXT } from '../../../shared/tracings'
@@ -19,6 +19,8 @@ import { LineUp } from './LineUp'
 import { Palette } from './Palette'
 import { axisOfDirection, PX_PER_MM, ratioText, Sheet, type View } from './Sheet'
 import { INK_PENS, InkTool } from './inkTool'
+import { MeasureTool, onOutline } from './measureTool'
+import { type Grabbed, OffsetTool } from './offsetTool'
 import { PinTool } from './pinTool'
 import { hitTest, selectedElements, selectedShapeElements } from './selectTool'
 import { snapAt, type Snapped } from './snap'
@@ -91,7 +93,7 @@ export function TracingView() {
   const bar = useRef<HTMLSpanElement>(null)
   const barLabel = useRef<HTMLSpanElement>(null)
   /** A press on the sheet: where it was last moved to, where it began, and whether it is a click that may become a drag. */
-  const press = useRef<{ x: number; y: number; from: { x: number; y: number }; click: boolean; moved: boolean; draw?: boolean } | null>(null)
+  const press = useRef<{ x: number; y: number; from: { x: number; y: number }; click: boolean; moved: boolean; draw?: boolean; drag?: boolean } | null>(null)
   /** Where the pointer is on the plane, and what it snapped to: for the draft, never state. */
   const hover = useRef<{ uv: [number, number]; snap?: Snapped } | null>(null)
   const down = useRef(false)
@@ -121,6 +123,31 @@ export function TracingView() {
       () => {
         paint.current()
         setPinAt(pin.current?.draft ?? null)
+      }
+    )
+  }
+
+  // The Measure tool: a first end waits for the second, which makes the span through main.
+  const measure = useRef<MeasureTool | null>(null)
+  if (measure.current === null) {
+    measure.current = new MeasureTool(
+      (a, b) => void tracingActions.span(a, b),
+      () => paint.current()
+    )
+  }
+
+  // The Should be here tool: a shape of a layer dragged to where it belongs; letting it go (and each nudge after) makes the mark through main.
+  const offset = useRef<OffsetTool | null>(null)
+  if (offset.current === null) {
+    offset.current = new OffsetTool(
+      (layer, index, by) => void tracingActions.offset(layer, index, by),
+      () => {
+        paint.current()
+        showOffset()
+      },
+      (layer, index) => {
+        const open_ = tracingsStore.getState().open
+        return store.getState().marks.find((m) => m.kind === 'offset' && m.author === 'user' && m.status === 'draft' && m.tracing === open_ && m.layer.id === layer && m.shape.index === index)?.id
       }
     )
   }
@@ -170,6 +197,8 @@ export function TracingView() {
     let out = on ? t.elements(hover.current?.uv ?? null, down.current, k) : ''
     if (now.tool === 'pin') out += pin.current?.elements(down.current, k) ?? ''
     if (now.tool === 'ink') out += ink.current?.elements(hover.current?.uv ?? null, down.current, k) ?? ''
+    if (now.tool === 'measure') out += measure.current?.elements(hover.current?.uv ?? null, down.current, k) ?? ''
+    if (now.tool === 'offset') out += offset.current?.elements(down.current, k) ?? ''
     // The mark Select selected, ringed or haloed whatever the tool in hand is.
     const picked = now.selected?.kind === 'mark' ? store.getState().marks.find((m) => m.id === (now.selected as { id: string }).id) : undefined
     const open_ = openTracing(now)
@@ -179,7 +208,7 @@ export function TracingView() {
       const shape = open_.layers.find((l) => l.id === chosen_.layer)?.shapes[chosen_.index]
       if (shape) out += selectedShapeElements(shape, down.current, k)
     }
-    const snap = now.tool === 'trace' || now.tool === 'pin' || now.tool === 'ink' ? hover.current?.snap : undefined
+    const snap = now.tool === 'trace' || now.tool === 'pin' || now.tool === 'ink' || now.tool === 'measure' ? hover.current?.snap : undefined
     if (snap) {
       const [x, y] = [snap.uv[0], down.current ? snap.uv[1] : -snap.uv[1]]
       out += `<circle class="tr-snap${snap.snap.kind === 'vertex' && snap.snap.projected ? ' tr-snap-projected' : ''}" cx="${Math.round(x * 1000) / 1000 + 0}" cy="${Math.round(y * 1000) / 1000 + 0}" r="${Math.round((6 / k) * 1000) / 1000}"/>`
@@ -194,6 +223,13 @@ export function TracingView() {
     if (!panel || !at) return undefined
     const p = panel.getBoundingClientRect()
     return { right: p.right - at.left, bottom: p.bottom - at.top }
+  }
+
+  // The readout of a shape being dragged, at the pointer: its mark's number, its name and how far it has moved.
+  function showOffset(): void {
+    const el = hintEl.current
+    if (!el || tracingsStore.getState().tool !== 'offset') return
+    el.textContent = offset.current?.readout() ?? ''
   }
 
   // Where the label's field stands: on its point of the plane, moved with the sheet.
@@ -272,6 +308,8 @@ export function TracingView() {
     t.setMode(traceMode)
     pin.current?.cancel()
     ink.current?.cancel()
+    measure.current?.cancel()
+    offset.current?.cancel()
     ink.current?.setPen(inkPen)
     hover.current = null
     if (hintEl.current) hintEl.current.textContent = ''
@@ -336,6 +374,8 @@ export function TracingView() {
       const tracing_ = inHand === 'trace'
       const inking = inHand === 'ink'
       const pinning = inHand === 'pin'
+      const measuring = inHand === 'measure'
+      const moving = inHand === 'offset'
       // The tool's keys are for the sheet: not for a button of the panel that has the focus.
       const onSheet = e.target === document.body || (e.target instanceof Node && stage.current?.contains(e.target) === true)
       if (pressed(e, 'tracing.fit')) {
@@ -358,6 +398,15 @@ export function TracingView() {
         // Taken again, it takes the next pen.
         if (inking) tracingActions.setInk(INK_PENS[(INK_PENS.findIndex((p) => p.pen === tracingsStore.getState().ink) + 1) % INK_PENS.length].pen)
         else tracingActions.setTool('ink')
+      } else if (!e.repeat && pressed(e, 'tracing.measure')) {
+        stop()
+        tracingActions.setTool('measure')
+      } else if (!e.repeat && pressed(e, 'tracing.offset')) {
+        stop()
+        tracingActions.setTool('offset')
+      } else if (moving && onSheet && pressed(e, 'tracing.nudge')) {
+        // The arrow keys nudge the shape in hand, a tenth of a millimetre each; with none in hand they are no key of the sheet's.
+        if (offset.current?.nudge(which(e, 'tracing.nudge') as 0 | 1 | 2 | 3) === true) stop()
       } else if (inHand === 'select' && onSheet && pressed(e, 'tracing.remove')) {
         stop()
         void tracingActions.removeSelected()
@@ -368,10 +417,10 @@ export function TracingView() {
         if ((tracing_ ? trace.current?.end() : ink.current?.end()) === true) stop()
       } else if ((tracing_ || inking) && onSheet && pressed(e, 'tracing.back')) {
         if ((tracing_ ? trace.current?.back() : ink.current?.back()) === true) stop()
-      } else if ((tracing_ || inking || pinning) && pressed(e, 'tracing.leave')) {
+      } else if ((tracing_ || inking || pinning || measuring || moving) && pressed(e, 'tracing.leave')) {
         stop()
         // What is under way first, then the tool.
-        const gaveUp = tracing_ ? trace.current?.cancel() : inking ? ink.current?.cancel() : pin.current?.cancel()
+        const gaveUp = tracing_ ? trace.current?.cancel() : inking ? ink.current?.cancel() : measuring ? measure.current?.cancel() : moving ? offset.current?.cancel() : pin.current?.cancel()
         if (!gaveUp) tracingActions.setTool('select')
       } else if (viewKey(e)) e.stopPropagation()
     }
@@ -401,7 +450,7 @@ export function TracingView() {
   function under(e: PointerEvent<HTMLElement>): { uv: [number, number]; snap?: Snapped } | null {
     if (!sheet) return null
     const raw = sheet.toUv(e.clientX, e.clientY)
-    const snap = tool === 'trace' || tool === 'pin' || tool === 'ink' ? snapAt(cut?.snaps ?? [], raw, sheet.view.k, e.ctrlKey) : null
+    const snap = tool === 'trace' || tool === 'pin' || tool === 'ink' || tool === 'measure' ? snapAt(cut?.snaps ?? [], raw, sheet.view.k, e.ctrlKey) : null
     return snap === null ? { uv: raw } : { uv: snap.uv, snap }
   }
 
@@ -409,11 +458,16 @@ export function TracingView() {
     const at = under(e)
     if (!at || !readout.current) return
     readout.current.textContent = `${number(at.uv[0])}, ${number(at.uv[1])}`
-    if (tool !== 'trace' && tool !== 'pin' && tool !== 'ink') return
+    if (tool !== 'trace' && tool !== 'pin' && tool !== 'ink' && tool !== 'measure' && tool !== 'offset') return
     hover.current = at
     const el = hintEl.current
     if (el) {
-      el.textContent = at.snap?.hint ?? ''
+      // Measure says the number it would have, with what the pointer snapped to; Should be here says how far the shape in hand has been moved.
+      if (tool === 'measure') {
+        const said = measure.current?.readout({ uv: at.uv, ...(at.snap ? { snap: at.snap.snap } : {}), ...(at.snap === undefined && photoAt(at.uv) ? { photo: true } : {}) }) ?? ''
+        el.textContent = [said, at.snap?.hint ?? ''].filter(Boolean).join(' · ')
+      } else if (tool === 'offset') el.textContent = offset.current?.readout() ?? ''
+      else el.textContent = at.snap?.hint ?? ''
       const r = stage.current?.getBoundingClientRect()
       el.style.transform = `translate(${Math.round(e.clientX - (r?.left ?? 0) + 14)}px, ${Math.round(e.clientY - (r?.top ?? 0) + 18)}px)`
     }
@@ -427,8 +481,11 @@ export function TracingView() {
     // With Trace in hand the left button places a point; a press that moves far is a drag, which moves the sheet as it always did.
     // With Ink in hand the left button draws; with Trace, Pin or Select it is a click, and a press that moves far is a drag, which moves the sheet as it always did.
     const draw = tool === 'ink' && e.button === 0
-    press.current = { x: e.clientX, y: e.clientY, from: { x: e.clientX, y: e.clientY }, click: (tool === 'trace' || tool === 'pin' || tool === 'select') && e.button === 0, moved: false, ...(draw ? { draw } : {}) }
+    // Should be here: a press on a shape of a layer takes it; one on nothing moves around the sheet, as Select does.
+    const grabbed = tool === 'offset' && e.button === 0 ? grab(e) : null
+    press.current = { x: e.clientX, y: e.clientY, from: { x: e.clientX, y: e.clientY }, click: (tool === 'trace' || tool === 'pin' || tool === 'select' || tool === 'measure') && e.button === 0, moved: false, ...(draw ? { draw } : {}), ...(grabbed ? { drag: true } : {}) }
     e.currentTarget.setPointerCapture(e.pointerId)
+    if (grabbed) offset.current?.press(grabbed.shape, grabbed.uv)
     if (draw) {
       const at = under(e)
       if (at) ink.current?.press({ uv: at.uv, ...(at.snap ? { snap: at.snap.snap } : {}) }, sheet.view.k)
@@ -436,9 +493,15 @@ export function TracingView() {
   }
 
   function onPointerMove(e: PointerEvent<HTMLDivElement>): void {
-    point(e)
     const was = press.current
+    // The shape in hand follows the pointer first, so that the readout says where it is now.
+    if (was?.drag && sheet) {
+      const at = under(e)
+      if (at) offset.current?.move(at.uv, e.shiftKey)
+    }
+    point(e)
     if (!was || !sheet) return
+    if (was.drag) return
     if (was.draw) {
       const at = under(e)
       if (at) ink.current?.move({ uv: at.uv }, sheet.view.k)
@@ -467,7 +530,34 @@ export function TracingView() {
       } else ink.current?.cancel()
       return
     }
+    if (was.drag && sheet) {
+      if (e.type === 'pointerup') {
+        const at = under(e)
+        offset.current?.release(at?.uv ?? hover.current?.uv ?? [0, 0], e.shiftKey)
+      } else offset.current?.cancel()
+      return
+    }
     if (e.type === 'pointerup' && was.click && !was.moved && sheet) placePoint(e)
+  }
+
+  /** The shape of a layer under the pointer, with the layer it is in: what Should be here takes hold of. Null for none. */
+  function grab(e: PointerEvent<HTMLElement>): { shape: Grabbed; uv: [number, number] } | null {
+    if (!sheet || tracing === undefined) return null
+    const raw = sheet.toUv(e.clientX, e.clientY)
+    const hit = hitTest([], tracing.layers, tracing, raw, sheet.view.k)
+    if (hit === null || hit.kind !== 'shape') return null
+    const layer = tracing.layers.find((l) => l.id === hit.layer)
+    const shape = layer?.shapes[hit.index]
+    return layer && shape ? { shape: { layer: layer.id, layerName: layer.name, index: hit.index, shape }, uv: raw } : null
+  }
+
+  /** Whether a free click at `uv` is on the photo: one is drawn there, and the point is not on the model's own outline. */
+  function photoAt(uv: readonly [number, number]): boolean {
+    const shown = tracing === undefined ? undefined : photoDrawn(tracing, photos)
+    if (!shown || cut === null) return false
+    const { min, max } = shown.photo.rect
+    if (uv[0] < min[0] || uv[0] > max[0] || uv[1] < min[1] || uv[1] > max[1]) return false
+    return !onOutline(cut.cut, uv, 3 / (sheet?.view.k ?? PX_PER_MM))
   }
 
   /** A click with Trace in hand: a point of the shape under way, or a refusal when there is no layer of the person's to put it in. */
@@ -480,6 +570,7 @@ export function TracingView() {
       return
     }
     if (tool === 'pin') return pin.current?.click({ uv: at.uv, snapped: at.snap !== undefined })
+    if (tool === 'measure') return measure.current?.click({ uv: at.uv, ...(at.snap ? { snap: at.snap.snap } : {}), ...(at.snap === undefined && photoAt(at.uv) ? { photo: true } : {}) })
     if (traceTarget(tracingsStore.getState()) === undefined) return tracingActions.say(NO_OWN_LAYER)
     trace.current?.click({ uv: at.uv, snapped: at.snap !== undefined }, sheet.view.k)
   }

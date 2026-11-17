@@ -37,7 +37,7 @@ export const STATE_DELAY_MS = 1000
  * since the successful build before and what the shape says.
  * The file itself begins with `writtenLine`, before this.
  */
-export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: { revision: number; scene: Scene } | undefined, marks: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], digest?: BuildDigest, profile?: Profile, named?: { sets: readonly NamedSet[]; refs: Readonly<Record<string, number>> | undefined }, tracings?: readonly string[]): string {
+export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: { revision: number; scene: Scene } | undefined, marks: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], digest?: BuildDigest, profile?: Profile, named?: { sets: readonly NamedSet[]; refs: Readonly<Record<string, number>> | undefined }, tracings?: readonly string[], layers?: Readonly<Record<string, number>>): string {
   const lines = [
     `# ${obj.name}`,
     '',
@@ -100,7 +100,7 @@ export function stateText(obj: ObjectInfo, build: BuildState | undefined, last: 
     )
     for (const layout of [...new Set(open.map((m) => m.layout))]) {
       lines.push('', `In layout ${layout}:`, '')
-      for (const mark of open) if (mark.layout === layout) lines.push(`- ${describeMark(mark, { revision: last?.revision, layout, ...(last ? { scene: last.scene } : {}), ...(scans ? { scans } : {}), ...(named ? { sets: named.sets.map((s) => s.slug) } : {}), ...(tracings ? { tracings } : {}) })}`)
+      for (const mark of open) if (mark.layout === layout) lines.push(`- ${describeMark(mark, { revision: last?.revision, layout, ...(last ? { scene: last.scene } : {}), ...(scans ? { scans } : {}), ...(named ? { sets: named.sets.map((s) => s.slug) } : {}), ...(tracings ? { tracings } : {}), ...(layers ? { layers } : {}) })}`)
     }
   }
   return `${lines.join('\n')}\n`
@@ -180,6 +180,8 @@ export interface StateFileDeps {
   setsRefs?(objectId: string): Readonly<Record<string, number>>
   /** The ids of the tracings of an object: a mark on one that is not there says it was removed. */
   tracings?(objectId: string): Promise<string[]>
+  /** The revision of each layer of the tracings of an object, by `T1/2`: an offset on a layer that has changed says so. */
+  layers?(objectId: string): Promise<Record<string, number>>
   delayMs?: number
   write?(path: string, text: string): Promise<void>
   log?(message: string): void
@@ -231,10 +233,11 @@ export class StateFiles {
     // Nor are sets.
     const sets = await this.deps.sets?.(objectId).catch(() => undefined)
     const tracings = await this.deps.tracings?.(objectId).catch(() => undefined)
+    const layers = await this.deps.layers?.(objectId).catch(() => undefined)
     // As things are once the marks are read: a build may have ended meanwhile.
     const build = this.deps.build(objectId)
     if (!build || this.deps.object(objectId)?.dir !== obj.dir) return
-    const text = stateText(obj, build, this.deps.scene(objectId), marks, scans, views, buildDigest({ build: this.deps.build, scenes: this.deps.scenes }, objectId), this.deps.profile?.(objectId), sets ? { sets, refs: this.deps.setsRefs?.(objectId) } : undefined, tracings)
+    const text = stateText(obj, build, this.deps.scene(objectId), marks, scans, views, buildDigest({ build: this.deps.build, scenes: this.deps.scenes }, objectId), this.deps.profile?.(objectId), sets ? { sets, refs: this.deps.setsRefs?.(objectId) } : undefined, tracings, layers)
     const path = join(obj.dir, FOLDER, NAME)
     if (this.written.get(path) === text) return
     await ownTorno(obj.dir)

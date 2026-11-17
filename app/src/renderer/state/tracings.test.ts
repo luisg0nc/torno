@@ -764,6 +764,56 @@ describe('a pin on the tracing', () => {
   })
 })
 
+describe('a measure and a "should be here" on the tracing', () => {
+  const here = { objectId: 'bracket', layout: 'assembly', revision: 3, camera: { position: [0, -100, 0], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 } }
+  const setup = (marks: Record<string, unknown>) => {
+    vi.stubGlobal('window', { torno: { tracings: fake(), marks } })
+    setSketchEnv({ here: () => ({ ...here, centre: [0, 0, 0] }) } as never)
+    tracingActions.told({ objectId: 'bracket', file: file(tracing('T1', { plane: plane('XY', 10) })) })
+    tracingActions.open('T1')
+  }
+  afterEach(() => {
+    setSketchEnv(null)
+    reviewStore.setState({ rounds: [], choice: 'plain' } as never)
+  })
+
+  it('has the two tools', () => {
+    tracingActions.setTool('measure')
+    expect(tracingsStore.getState().tool).toBe('measure')
+    tracingActions.setTool('offset')
+    expect(tracingsStore.getState().tool).toBe('offset')
+  })
+
+  it('makes a span through main with its ends and the camera, and no word of a review, even with the bar on don\'t want', async () => {
+    const span = vi.fn(async (_o: string, draft: object) => ({ id: 'M7', ...draft }))
+    setup({ span })
+    reviewStore.setState({ rounds: [{ id: 'R1', layout: 'assembly', build: 'h1', sources: 'x', line: 'l', startedAt: '2026-11-17T10:00:00.000Z' }], choice: 'dont' } as never)
+    expect(await tracingActions.span({ uv: [0, 0], on: 'tracing' }, { uv: [3, 4], on: 'photo' })).toBe(true)
+    expect(span).toHaveBeenCalledWith('bracket', { tracing: 'T1', a: { uv: [0, 0], on: 'tracing' }, b: { uv: [3, 4], on: 'photo' }, camera: here.camera })
+    expect(tracingsStore.getState().selected).toEqual({ kind: 'mark', id: 'M7' })
+  })
+
+  it('makes an offset through main, naming the layer by id and the shape by its place, with no word of a review', async () => {
+    const offset = vi.fn(async (_o: string, draft: object) => ({ id: 'M8', ...draft }))
+    setup({ offset })
+    reviewStore.setState({ rounds: [{ id: 'R1', layout: 'assembly', build: 'h1', sources: 'x', line: 'l', startedAt: '2026-11-17T10:00:00.000Z' }], choice: 'want' } as never)
+    expect(await tracingActions.offset(2, 3, [-1.8, 0.6])).toBe(true)
+    expect(offset).toHaveBeenCalledWith('bracket', { tracing: 'T1', layer: 2, shape: 3, by: [-1.8, 0.6], camera: here.camera })
+    expect(tracingsStore.getState().selected).toEqual({ kind: 'mark', id: 'M8' })
+  })
+
+  it('says why when main refuses, and when there is no build on show', async () => {
+    setup({ span: vi.fn(async () => { throw new Error('End B says it was snapped to a corner of the cut, and it is 0.02 mm from it') }), offset: vi.fn(async () => { throw new Error('no layer 9') }) })
+    expect(await tracingActions.span({ uv: [0, 0], on: 'tracing' }, { uv: [3, 4], on: 'tracing' })).toBe(false)
+    expect(tracingsStore.getState().refused).toBe('The measure was not kept: End B says it was snapped to a corner of the cut, and it is 0.02 mm from it')
+    expect(await tracingActions.offset(9, 0, [1, 1])).toBe(false)
+    expect(tracingsStore.getState().refused).toBe('The "should be here" was not kept: no layer 9')
+    setSketchEnv(null)
+    expect(await tracingActions.span({ uv: [0, 0], on: 'tracing' }, { uv: [3, 4], on: 'tracing' })).toBe(false)
+    expect(tracingsStore.getState().refused).toBe('The project has no build to measure on yet')
+  })
+})
+
 describe('selecting and removing a mark', () => {
   const mark = (id: string, author: 'user' | 'agent') => ({ id, author, kind: 'pin', tracing: 'T1', anchor: { point: [0, 0, 0] } }) as never
   const setup = (remove = vi.fn(async () => {}), restore = vi.fn(async (_o: string, id: string) => ({ id }))) => {

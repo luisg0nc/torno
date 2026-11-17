@@ -24,7 +24,9 @@
 /* With Trace, Pin or Ink in hand a click puts a point down, or a press draws. */
 .tr-stage[data-tool='trace'],
 .tr-stage[data-tool='pin'],
-.tr-stage[data-tool='ink'] {
+.tr-stage[data-tool='ink'],
+.tr-stage[data-tool='measure'],
+.tr-stage[data-tool='offset'] {
   cursor: crosshair;
 }
 
@@ -203,6 +205,34 @@
   stroke: none;
 }
 
+/* What Measure has under way: the line from its first end to the pointer, in the person's colour. */
+.tr-measure {
+  fill: none;
+  stroke: var(--user-mark);
+  stroke-width: 1.5px;
+}
+
+/* What Should be here shows while a shape is dragged: the shape where it was, ghosted; the copy where it would be, in the person's colour;
+   and an arrow between their reference points. */
+.tr-offset-ghost {
+  fill: none;
+  stroke: var(--user-mark);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 3;
+  stroke-opacity: 0.55;
+}
+
+.tr-offset-moved {
+  fill: none;
+  stroke: var(--user-mark);
+  stroke-width: 2px;
+}
+
+.tr-offset-arrow {
+  stroke: var(--user-mark);
+  stroke-width: 1.5px;
+}
+
 /* What Select selected: a ring round a point, a wide faint line along a stroke or a shape. Widths are pixels. */
 .tr-selected {
   fill: none;
@@ -301,6 +331,12 @@
 
 .tr-mark-agent {
   stroke: var(--agent-mark);
+}
+
+/* The shape an offset moved, as it was. */
+.tr-mark-ghost {
+  stroke-dasharray: 4 3;
+  stroke-opacity: 0.55;
 }
 
 .tr-mark-text {

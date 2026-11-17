@@ -38,6 +38,7 @@ import { KernelError, type KernelClient, type TrialResult, startKernel } from '.
 import { toArrayBuffer } from './kernel/frames'
 import { forgetViews, latestView, reportView, resolveRequest } from './look'
 import { placeOnTracing } from './tracings/marks'
+import { type MeasureDeps, makeOffset, makeSpan } from './tracings/measures'
 import { type AskedAnchor, type Retrying, asPlaced, asReplaced, checkMarks, followMarks, nearestReply, retrying } from './marks/reanchor'
 import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/measure'
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, restoreMark, tendRegions } from './marks/regions'
@@ -105,7 +106,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
-//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
+//           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:span, marks:offset, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
 //           marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
 //           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, tracings:photo, tracings:lineUp, tracings:look, tracings:straightened, tracings:photoBytes, tracings:removePhoto, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
@@ -1186,6 +1187,15 @@ export function registerIpc(
   const sketches = () =>
     sketchHandlers({ marks: requireMarks(), object: findObject, build: (id) => current?.builds.scene(id), query: queryObject, placed: placedMark, tracings: { list: (id) => requireTracings().list(id) } })
   handle('marks:sketch', (_event, draft: SketchDraft) => sketches().sketch(draft))
+  // A measure and a "should be here" on a tracing: the window says what the person did, and main finds the rest from its own numbers.
+  const measures = (): MeasureDeps => ({
+    tracings: { list: (id) => requireTracings().list(id) },
+    marks: requireMarks(),
+    outlines: { cut: async (id, tracing) => current?.outlines?.cut(id, tracing) ?? new Refusal('No workspace is open.') },
+    revision: (id) => lastScene(id)?.revision
+  })
+  handle('marks:span', (_event, objectId: string, draft: unknown) => makeSpan(measures(), String(objectId), draft))
+  handle('marks:offset', (_event, objectId: string, draft: unknown) => makeOffset(measures(), String(objectId), draft))
   handle('marks:sketchPicture', (_event, objectId: string, id: string, png: Uint8Array) => sketches().sketchPicture(objectId, id, png))
   ipcMain.on('marks:sketching', (_event, objectId: string, id: string | null) => sketches().sketching(objectId, id))
   // Rounds of a review: main finds the build on show in the history and stars it; the window names a project, `R<n>` and `M<n>` only.

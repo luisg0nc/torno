@@ -406,6 +406,9 @@ it('has the keys of a tracing in a scope of their own: fit, true size and the to
     ['tracing.trace', ['T'], 'Tracing'],
     ['tracing.pin', ['P'], 'Tracing'],
     ['tracing.ink', ['I'], 'Tracing'],
+    ['tracing.measure', ['M'], 'Tracing'],
+    ['tracing.offset', ['O'], 'Tracing'],
+    ['tracing.nudge', ['Left', 'Right', 'Up', 'Down'], 'Tracing'],
     ['tracing.end', ['Enter'], 'Tracing'],
     ['tracing.back', ['Backspace'], 'Tracing'],
     ['tracing.nosnap', ['Ctrl'], 'Tracing'],
@@ -422,6 +425,11 @@ it('has the keys of a tracing in a scope of their own: fit, true size and the to
   expect(pressed({ key: 't' }, 'tracing.trace')).toBe(true)
   expect(pressed({ key: 'p' }, 'tracing.pin')).toBe(true)
   expect(pressed({ key: 'i' }, 'tracing.ink')).toBe(true)
+  expect(pressed({ key: 'm' }, 'tracing.measure')).toBe(true)
+  expect(pressed({ key: 'o' }, 'tracing.offset')).toBe(true)
+  // Each arrow is its own place in the row, and Shift with one is that arrow still.
+  expect(which({ key: 'ArrowLeft' }, 'tracing.nudge')).toBe(0)
+  expect(which({ key: 'ArrowDown', shiftKey: true }, 'tracing.nudge')).toBe(3)
   expect(pressed({ key: 'Delete' }, 'tracing.remove')).toBe(true)
   expect(pressed({ key: 'z', ctrlKey: true, code: 'KeyZ' }, 'tracing.undoInk')).toBe(true)
   expect(pressed({ key: 't', ctrlKey: true, code: 'KeyT' }, 'tracing.trace')).toBe(false)

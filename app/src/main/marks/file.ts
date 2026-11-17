@@ -2,15 +2,16 @@ import { copyFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { verdictOf } from '../../shared/dimension'
 import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } from '../../shared/drawing'
-import type { Anchor, DimensionMark, Judged, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, Quat, RegionMark, ShapeKind, SketchMark, StrokeMark, Vec3 } from '../../shared/marks'
+import type { Anchor, DimensionMark, Judged, Mark, MarksFile, NoteLabel, NoteMark, NoteReference, OffsetMark, PinMark, Quat, RegionMark, ShapeKind, SketchMark, SpanEnd, SpanMark, StrokeMark, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
 import { MAX_LABEL, MAX_NOTE, MAX_REFERENCE_COMMENT, MAX_STROKE_POINTS, MIN_SHAPE_SIZE, MOST_LABELS, MOST_NOTE_ERASES, MOST_NOTE_REFERENCES, MOST_NOTE_STROKES, NOTE_INK, NOTE_PICTURE, NOTE_REFERENCE, SKETCH_PICTURE } from '../../shared/marks'
 import { ROUND_ID, type Round } from '../../shared/reviews'
 import { TAG_NAME } from '../../shared/tags'
-import { TRACING_ID } from '../../shared/tracings'
+import { MAX_LAYER_NAME, MAX_SHAPE_NAME, type PlaneSnap, TRACING_ID } from '../../shared/tracings'
 import { SET_REF } from '../../shared/sets'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 import { numberStrokes, readSketch } from '../sketches/read'
+import { readShape } from '../tracings/file'
 
 const NAME = 'marks.json'
 
@@ -264,6 +265,10 @@ export function sanitiseMark(value: unknown): Mark | null {
       return noteOf(base, anchor, value)
     case 'sketch':
       return sketchOf(base, anchor, value)
+    case 'span':
+      return spanOf(base, value)
+    case 'offset':
+      return offsetOf(base, value)
     default:
       return null
   }
@@ -481,6 +486,77 @@ export function cameraOf(value: unknown): Camera | null {
   const up = tuple<Vec3>(value.up, 3)
   if (!position || !target || !up || typeof value.ortho !== 'boolean' || !isNumber(value.fov) || !isNumber(value.zoom)) return null
   return { position, target, up, ortho: value.ortho, fov: value.fov, zoom: value.zoom }
+}
+
+/** A mark of a tracing that says nothing of a review: no intent, no round, no verdict (`markIntent` is null for it). */
+const withoutReview = <B extends { intent?: unknown; round?: unknown; judged?: unknown }>(base: B): Omit<B, 'intent' | 'round' | 'judged'> => {
+  const { intent: _intent, round: _round, judged: _judged, ...plain } = base
+  return plain
+}
+
+/** The point a span's end was snapped to, as the kernel's outline offers it; none when what is there is not one. */
+function planeSnapOf(value: unknown): PlaneSnap | undefined {
+  if (!isRecord(value)) return undefined
+  const uv = tuple<[number, number]>(value.uv, 2)
+  if (!uv || typeof value.part !== 'string' || value.part === '' || value.part.length > 200) return undefined
+  const part = value.part
+  if (value.kind === 'corner') return { kind: 'corner', uv, part }
+  if (value.kind === 'centre') {
+    if (!isNumber(value.radius) || value.radius <= 0) return undefined
+    return { kind: 'centre', uv, radius: value.radius, part, ...(typeof value.edge === 'string' && value.edge !== '' && value.edge.length <= 200 ? { edge: value.edge } : {}) }
+  }
+  if (value.kind === 'vertex') return typeof value.ref === 'string' && value.ref !== '' && value.ref.length <= 200 ? { kind: 'vertex', uv, part, ref: value.ref, ...(value.projected === true ? { projected: true as const } : {}) } : undefined
+  return undefined
+}
+
+function spanEndOf(value: unknown): SpanEnd | null {
+  if (!isRecord(value)) return null
+  const uv = tuple<[number, number]>(value.uv, 2)
+  const point = tuple<Vec3>(value.point, 3)
+  if (!uv || !point || !oneOf(value.on, ['tracing', 'photo'] as const)) return null
+  const snap = planeSnapOf(value.snap)
+  return { uv, point, on: value.on, ...(snap ? { snap } : {}) }
+}
+
+/**
+ * A measure on a tracing: the tracing it is on, both ends, the value in full, whether it is exact, how it was found and the build it was
+ * taken on. It keeps no expectation, no verdict and no review intent: it is not measured again.
+ */
+function spanOf(base: Omit<PinMark, 'kind' | 'anchor'>, value: Record<string, unknown>): SpanMark | null {
+  const a = spanEndOf(value.a)
+  const b = spanEndOf(value.b)
+  if (!a || !b || base.tracing === undefined) return null
+  if (!isNumber(value.value) || value.value < 0 || typeof value.exact !== 'boolean' || typeof value.how !== 'string' || !isNumber(value.measuredOn)) return null
+  return { ...withoutReview(base), tracing: base.tracing, kind: 'span', a, b, value: value.value, exact: value.exact, how: value.how.slice(0, MAX_HOW), measuredOn: value.measuredOn } as SpanMark
+}
+
+/**
+ * "Should be here": the tracing, the layer (its id, name and the revision it had) and the shape (its place in the layer and its name), a
+ * copy of the shape as it was, how far it was dragged along the tracing's axes and the reference point before and after, in the object
+ * frame. No review intent.
+ */
+function offsetOf(base: Omit<PinMark, 'kind' | 'anchor'>, value: Record<string, unknown>): OffsetMark | null {
+  const layer = isRecord(value.layer) ? value.layer : null
+  const shape = isRecord(value.shape) ? value.shape : null
+  const by = tuple<[number, number]>(value.by, 2)
+  const from = tuple<Vec3>(value.from, 3)
+  const to = tuple<Vec3>(value.to, 3)
+  if (!layer || !shape || !by || !from || !to || base.tracing === undefined) return null
+  if (!Number.isSafeInteger(layer.id) || (layer.id as number) < 1 || typeof layer.name !== 'string' || layer.name.length > MAX_LAYER_NAME || !isNumber(layer.revision)) return null
+  if (!Number.isSafeInteger(shape.index) || (shape.index as number) < 0 || typeof shape.name !== 'string' || shape.name.length > MAX_SHAPE_NAME) return null
+  const was = readShape(value.was)
+  if ('problem' in was) return null
+  return {
+    ...withoutReview(base),
+    tracing: base.tracing,
+    kind: 'offset',
+    layer: { id: layer.id as number, name: layer.name, revision: layer.revision },
+    shape: { index: shape.index as number, name: shape.name },
+    was: was.shape,
+    by,
+    from,
+    to
+  } as OffsetMark
 }
 
 /** A copy of `value` when it is exactly `length` finite numbers. */

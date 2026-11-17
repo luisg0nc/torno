@@ -207,7 +207,7 @@ test('a view note drawn in the round is its plain third item, and no prompt carr
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
   await expect(drawingBoard()).toHaveCount(0)
   await expect.poll(() => mark('M3')).toMatchObject({ kind: 'note', author: 'user', status: 'draft', round: 'R1' })
-  expect(mark('M3')?.intent).toBeUndefined()
+  expect((mark('M3') as { intent?: unknown } | undefined)?.intent).toBeUndefined()
   // It is held with the round: it is no "goes with your next prompt" waiting above the box.
   await expect(page.locator('.mark-row[data-mark="M3"]')).toContainText('in review, not sent')
   await expect(dock().locator('.chat-note-wait')).toHaveCount(0)
