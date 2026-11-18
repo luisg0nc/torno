@@ -41,7 +41,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`KEYS`: its keys, what it does, the group the sheet lists it in, and the
   scope it is listened to in). A handler asks `pressed(e, id)` or
   `which(e, id)` and never names a key; a button or a tooltip takes its key
-  from `hint(id)`; the palette's tools, the compass's views and the gizmo's
+  from `hint(id)`; the reed's tools, the compass's views and the gizmo's
   ways are `TOOL_KEYS`, `VIEW_KEYS` and `GIZMO_KEYS`; the sheet of keys (`?`,
   `ui/KeySheet.tsx`) is `cheatSheet()`. A tool's key is shown in its tooltip,
   in the name of the tool in hand (the reed's pill) and on the sheet of keys; on no button (`aria-keyshortcuts` holds it); nowhere else. The empty Marks section names no key: it
@@ -82,7 +82,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the keys (`TYPING`); what the pointer took up gives them back once done with: a choice made in a list
   (`pointerChoice`, `chosen`), the session pane's edge once dragged, as Enter and Escape do in a field
   (`giveKeysBack`). The exported page's own keys (`src/export/viewer`) are not in the
-  table: it is another program. The palette's tools are `TOOL_KEYS` in the order of their groups (`group`:
+  table: it is another program. The reed's tools are `TOOL_KEYS` in the order of their groups (`group`:
   `inspect` Select, Measure, Section; `mark` Pin, Arrow, Draw, Shape, Region; `scan` Align), drawn as one
   `role="group"` each (`TOOL_GROUPS` in `state/tools.ts`, its `aria-label` the group's name), each a pill of the reed; the sheet of keys and the manual's table follow that order. The Measure tool is
   `tools/measureTool.ts`; what its clicks measure is chosen in the pill of Measure (`pillOf` in `ui/view/reedPill.ts`, drawn by `ReedPillView` of

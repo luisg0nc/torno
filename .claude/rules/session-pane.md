@@ -41,7 +41,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   toggle's dot is of the open object's session and only while the dock is hidden. The rail's Projects icon
   carries the dot of any object of the list whose session works or waits (`switcherSign`: a waiting one first); its
   description says each (`session is working; bracket needs you`), "needs you" alone for the open object's; the rows of the
-  Projects panel have their own dots.
+  project menu have their own dots.
 - **The title bar** (`ui/TitleBar.tsx`, `styles/titlebar.css`) is the row above the columns, a drag region (`-webkit-app-region`;
   every crumb, pill and button in it is `no-drag`): the vise, the folder crumb (`Folder <name>`, `FolderMenu`), `/`, the
   project crumb (`Project <name>`; its menu, `role="menu"` named Projects, is All projects first, then each project; only on

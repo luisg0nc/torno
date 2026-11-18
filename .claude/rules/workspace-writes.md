@@ -44,7 +44,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   arrows of the board; its pictures stay on the computer). The tracings' photos (`tracings/photos/`, with a `.gitignore` of `*`) and `tracings/told.json` stay on the computer: a tracing opened on another one says `the photo is not on this computer` and still tells its line-up (`tracings.md`).
 - **`.torno` is named in one module, `src/main/own.ts`** (`FOLDER`), and every write under it goes through
   `ownTorno(dir)` first (`writeOwn` for a file written whole): a link or a file in its place is refused with a
-  plain reason, nothing is written, and the person is told once for each object, in the Marks panel
+  plain reason, nothing is written, and the person is told once for each object, in the Marks section of the route card
   (`onNotOwn`, wired in `index.ts`). (`.torno/views/`, `.torno/scans/`, `.torno/board/pictures/`, `.torno/notes/` and `.torno/tracings/photos/` each have a `.gitignore` of their own
   inside them, written by whoever makes the folder; `main/notes/files.ts` writes the pictures of the view notes, named
   `n-<12 hex>.png`, `n-<12 hex>.ink.png` and `r-<12 hex>.png|jpg`, by main alone, after `main/notes/check.ts` has checked what the window sent
@@ -61,4 +61,4 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     such a folder and before every delete in it (the pictures cleared away past the newest 20, a scan's
     folder, a mask, a sweep): a link or a file in its place is refused, nothing is written or deleted where it
     leads, and the window is told once for each such folder, by itself (`inside` of the listener: the rest of
-    the object is kept, and the Marks panel does not say that nothing is).
+    the object is kept, and the Marks section does not say that nothing is).

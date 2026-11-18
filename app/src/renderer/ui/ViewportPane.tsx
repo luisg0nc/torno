@@ -718,7 +718,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
 /**
  * Has a file dropped on the view imported as a scan into the open object: the
  * first of those dropped that torno reads. What comes to nothing is said in
- * the Scans panel, where it stays until it is put away. With no object open
+ * the Scans section, where it stays until it is put away. With no object open
  * a drop is not taken at all. Nothing of a drag goes through React.
  * Returns what undoes it.
  */

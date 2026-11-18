@@ -16,9 +16,6 @@ paths:
   - "app/src/shared/history.test.ts"
   - "app/src/shared/git.ts"
   - "app/src/shared/git.test.ts"
-  - "app/src/renderer/ui/HistorySheet.tsx"
-  - "app/src/renderer/ui/historyBits.ts"
-  - "app/src/renderer/ui/historyBits.test.ts"
   - "app/src/renderer/ui/useHistory.ts"
   - "app/src/renderer/ui/useGit.ts"
   - "app/src/renderer/ui/GitText.tsx"
@@ -43,7 +40,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the `common/` beside it (the paths of the work tree, found by `rev-parse --show-toplevel`), and drops what is under `.torno/`.
   It answers the commit, the branch and the files that differ (30 named at most, all counted), or null: no git, not a work tree,
   no answer in time. `git.test.ts` holds that the index's mtime, inode and size are as they were after a status on a stale entry.
-  No other git command is run, none that writes: **torno never commits**; the person asks the agent to (the Marks panel offers the
+  No other git command is run, none that writes: **torno never commits**; the person asks the agent to (the Marks section of the route card offers the
   request). It reaches the window as `git.status(objectId)` (`gitStateRecently`: an answer is kept for a second, so a page of
   cards and the status line cost one run) and as `ObjectCard.git`.
 - **A build has an identity** (`src/main/buildlog.ts`, #62). When a build lands, `BuildLog.record` finds `sourcesHash` (twelve hex of the

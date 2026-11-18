@@ -1703,7 +1703,7 @@ describe('scans in scene, look and show', () => {
     expect(textOf(await lookTool(drew('assembly', ['S1']), 'bracket', {}))).not.toContain('spread for display')
     // A scan whose mesh is gone is in no picture, and that is said.
     const gone = scanned({ scans: async () => [{ ...SCANS[0], meshState: 'missing' }, SCANS[1]] })
-    expect(textOf(await lookTool(gone, 'bracket', {}))).toContain(`${PICTURE.caption}\nS1 is not drawn: its mesh is gone from the disk (the user imports it again from the Scans panel).\nrevision r3`)
+    expect(textOf(await lookTool(gone, 'bracket', {}))).toContain(`${PICTURE.caption}\nS1 is not drawn: its mesh is gone from the disk (the user imports it again from the Scans section).\nrevision r3`)
     expect(textOf(await lookTool(gone, 'bracket', { scans: false }))).not.toContain('not drawn')
     expect(textOf(await lookTool(gone, 'bracket', { scans: ['S2'] }))).not.toContain('not drawn')
   })
@@ -1729,7 +1729,7 @@ describe('scans in scene, look and show', () => {
     expect(deps.looks.map((look) => look.req)).toEqual([{ view: 'current', size: 1280, scans: false, explode: 'current' }, { view: 'current', size: 1280, explode: 'current' }, { view: 'current', size: 1280, scans: ['S1'], explode: 'current' }])
     expect(await said(lookTool(deps, 'bracket', { scans: ['S9'] }))).toBe('no scan S9; scans: S1, S2')
     expect(await said(lookTool(deps, 'bracket', { scans: 'S1' as never }))).toBe('scans is true for the scans on the user\'s screen, false for none, or a list of their numbers: {"scans": ["S1"]}')
-    expect(await said(lookTool(fake(), 'bracket', { scans: ['S1'] }))).toBe('this project has no scans: the user imports one in the Scans panel of the torno window')
+    expect(await said(lookTool(fake(), 'bracket', { scans: ['S1'] }))).toBe('this project has no scans: the user imports one in the Scans section of the torno window')
     expect(deps.looks).toHaveLength(3)
   })
 

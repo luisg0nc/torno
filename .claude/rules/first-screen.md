@@ -103,7 +103,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `-webkit-app-region: drag` strip over both halves; the window controls (`BareControls`, `title-bare`) and every button are `no-drag`.
   The logo (`ui/Logo.tsx`) is the vise in `--ink` and the part in `--accent`; `scribed` is lines only, in `--on-dye`, for a dyed
   field; the same logo is in `--muted` over an empty view or page, and plain (one colour) where a picture is missing.
-- For as long as the example is the open folder, the note at the top of the Projects panel (`EXAMPLE_NOTE`) has a link-button,
+- For as long as the example is the open folder, the note at the top of the page of projects (`EXAMPLE_NOTE`) has a link-button,
   "Keep this as a folder…" (`KEEP` in `App.tsx`, through `leave`, so that it asks first as opening a folder does):
   main shows the save dialog and copies (`workspace.keepExample`); the folder it made is opened in place of the copy.
 - With a folder open, the folder crumb of the title bar (`ui/TitleBar.tsx`, `Folder parts`) is a menu
@@ -111,9 +111,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   example". A folder torno is started with (`TORNO_WORKSPACE`) is added to the
   recent ones; the workspace to open next stays the one chosen in the window. The open folder's row is marked
   with a check and the word "current" in the muted face. A folder that cannot be opened (one gone since the menu
-  was read, one main refuses) leaves the workspace as it is and is said at the top of the Projects panel, a `role="alert"`
+  was read, one main refuses) leaves the workspace as it is and is said at the top of the page of projects, a `role="alert"`
   line with `openProblem`'s text, until the next action (`goTo` in `App.tsx` returns the problem).
-- **The window's own questions are dialogs over the whole window, not strips of a panel.** Closing torno and
+- **The window's own questions are dialogs over the whole window, not strips of a section.** Closing torno and
   opening another folder while something would be cut short ask in `ui/WorkspaceQuestion.tsx`, a centred
   `alertdialog` (modal: nothing behind it takes a click or a key, Tab goes round within it, "Keep it open" /
   "Stay here" in focus, Escape presses it, even with the focus elsewhere). Its keys are heard before any other
@@ -121,9 +121,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   while it stands no key reaches anything behind it, wherever the focus is, and a press on its backdrop leaves the
   focus in it. It stands over the sheet of what torno needs, which shares its layer (`data-question`). It lists a line for each thing with the
   object it is of, as a link that goes to that object (or to the page of a new one) and puts the question away
-  (`closingWhy`, `leavingWhy` in `closing.ts` return those items). `ui/Confirm.tsx` is the question about one panel (a scan, a mark, the session, Align): a popover from the button that asked
+  (`closingWhy`, `leavingWhy` in `closing.ts` return those items). `ui/Confirm.tsx` is the question about one thing (a scan, a mark, the session, Align): a popover from the button that asked
   (`ui/Popover.tsx`: 290 px, `--raise`, radius 10, a stem to the anchor, `position: fixed` from the anchor's box by
-  `popoverPlace.ts` so no panel clips it, and it takes off what a transformed panel adds; Escape closes it and the focus goes back to the
+  `popoverPlace.ts` so nothing clips it, and it takes off what a transformed ancestor adds; Escape closes it and the focus goes back to the
   anchor). The anchor is the `anchor` given, or the element that had the focus as the question came (the button pressed).
   The safe button has the focus; the one that acts is outlined in `--fail`.
 - **The Board | Model | Tracing switch** is the main area's, not the first screen's: the first screen (no project open) has none, and a project opens on the model, or on the view it was left on

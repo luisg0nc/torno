@@ -257,7 +257,7 @@ describe('the MCP server', () => {
     expect(await said('scan_deviation', { part: 'base', faces: 'base/F5' })).toBe('faces is a list of refs of faces of the part: {"part": "tub", "faces": ["tub/F5"]}')
     expect(await said('measure', { kind: 'distance', a: { scan: 'S1' }, b: 'base/F5' })).toBe('a names nothing: a point of a scan is {"scan": "S1", "point": [x, y, z]}, in mm in the frame of the layout')
     // A point of a scan reaches the tool as one: it is not taken for a bare point of the layout, which would be measured as exact.
-    expect(await said('measure', { kind: 'distance', a: { scan: 'S1', point: [1, 2, 3] }, b: 'base/F5' })).toBe('this project has no scans: the user imports one in the Scans panel of the torno window')
+    expect(await said('measure', { kind: 'distance', a: { scan: 'S1', point: [1, 2, 3] }, b: 'base/F5' })).toBe('this project has no scans: the user imports one in the Scans section of the torno window')
     expect(await said('look', { scans: 'S1' })).toBe('scans is true for the scans on the user\'s screen, false for none, or a list of their numbers: {"scans": ["S1"]}')
     expect(await said('look', { scanColour: 'base' })).toMatch(/^scanColour is \{"part": "tub"\}/)
     expect(await said('show', { scans: 'S1' })).toBe('scans is a list of the numbers of the scans to leave switched on, [] to hide them all: {"scans": ["S1"]}')
@@ -292,7 +292,7 @@ describe('the MCP server', () => {
     expect(savedViews).toEqual([{ objectId: 'bracket', name: 'Wall at the latch', note: 'thin here', view: 'front', section: { origin: [0, 0, 2], normal: [0, 0, 1] } }])
     expect(await said('section', { plane: { axis: 'z', at: 2 }, scan: 1 })).toBe('scan is the number of a scan, as listed by scans: {"scan": "S1"}')
     // A well-formed call of an object with no scans is answered in words too.
-    expect(await said('scan_clash', { part: 'base' })).toBe('this project has no scans: the user imports one in the Scans panel of the torno window')
+    expect(await said('scan_clash', { part: 'base' })).toBe('this project has no scans: the user imports one in the Scans section of the torno window')
   })
 
   it('answers scene with JSON of the object named in the address', async () => {

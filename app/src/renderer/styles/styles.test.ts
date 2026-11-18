@@ -122,15 +122,19 @@ function words(value: string): string[] {
   return out
 }
 
-/** Hard radii that stay: the keyboard's key caps (Task 35), the tracing's title block, and the corners of the person's words in the chat (12 and a small 3 where it begins), the export dock's tiles (8) and the frame round the view it previews (12). Keyed by stylesheet. */
-const HARD_RADII: Record<string, string[]> = { 'keys.css': ['7px'], 'tracings.css': ['2px'], 'chat.css': ['12px', '3px'], 'sheets.css': ['8px', '12px', 'inherit'] }
+/**
+ * Hard radii that stay, because the spec states them as a number: the keyboard's key caps (7) and the corners of the person's
+ * words in the chat (12, and a small 3 where it begins). Keyed by stylesheet. Everything else is a token or round: an export
+ * tile, the frame round the view it previews and the title block of a tracing (drawn in SVG, not here) are not exceptions.
+ */
+const HARD_RADII: Record<string, string[]> = { 'keys.css': ['7px'], 'chat.css': ['12px', '3px'] }
 
-it('uses radii from the tokens: a radius is var(--radius-*), 0 or 50%, the keys and the title block aside', () => {
+it('uses radii from the tokens: a radius is var(--radius-*), 0, 50% or inherited, the key caps and the person\'s words in the chat aside', () => {
   const found: string[] = []
   for (const name of AREAS) {
     for (const { selector, value } of declared(readFileSync(SHEETS[name], 'utf8'), /border(?:-(?:top|bottom|start|end)-(?:left|right|start|end))?-radius/)) {
       for (const word of words(value)) {
-        if (/^var\(--radius-[a-z]+\)$/.test(word) || word === '0' || word === '50%' || HARD_RADII[name]?.includes(word)) continue
+        if (/^var\(--radius-[a-z]+\)$/.test(word) || word === '0' || word === '50%' || word === 'inherit' || HARD_RADII[name]?.includes(word)) continue
         found.push(`${name}: ${selector} { border-radius: ${value} }`)
       }
     }

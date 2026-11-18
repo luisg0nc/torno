@@ -145,7 +145,7 @@
   display: grid;
   min-width: 0;
   border: var(--divider);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--panel);
 }
 
@@ -601,7 +601,7 @@
   inset: 8px;
   z-index: 6;
   border: 2px solid var(--accent);
-  border-radius: 12px;
+  border-radius: var(--radius-float);
   pointer-events: none;
 }
 

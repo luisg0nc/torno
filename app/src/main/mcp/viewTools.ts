@@ -380,7 +380,7 @@ export function spreadBesideScans(scene: Scene, shown: { layout?: string; scans?
 async function undrawnScans(deps: ToolDeps, objectId: string, asked: string[] | undefined): Promise<string> {
   const scans = await deps.scans(objectId).catch(() => [] as ScanInfo[])
   const gone = scans.filter((scan) => scan.meshState !== 'ok' && (asked === undefined || asked.includes(scan.id))).map((scan) => scan.id)
-  return gone.length === 0 ? '' : `\n${gone.join(', ')} ${gone.length === 1 ? 'is' : 'are'} not drawn: ${gone.length === 1 ? 'its mesh is' : 'their meshes are'} gone from the disk (the user imports ${gone.length === 1 ? 'it' : 'them'} again from the Scans panel).`
+  return gone.length === 0 ? '' : `\n${gone.join(', ')} ${gone.length === 1 ? 'is' : 'are'} not drawn: ${gone.length === 1 ? 'its mesh is' : 'their meshes are'} gone from the disk (the user imports ${gone.length === 1 ? 'it' : 'them'} again from the Scans section).`
 }
 
 /** What to say after the revision of a picture whose parts are not the latest build's. '' when they are. */

@@ -13,9 +13,6 @@ paths:
   - "app/src/renderer/state/pointed.ts"
   - "app/src/renderer/ui/Rail.tsx"
   - "app/src/renderer/ui/railBadges.ts"
-  - "app/src/renderer/ui/sectionSaid.ts"
-  - "app/src/renderer/ui/sectionSaid.test.ts"
-  - "app/src/renderer/ui/ColumnSplit.tsx"
   - "app/src/renderer/ui/LeftEdge.tsx"
   - "app/src/renderer/state/column.ts"
   - "app/src/renderer/state/column.test.ts"
@@ -84,7 +81,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`actions.framePart`, `Viewport.framePart`: where it is drawn, the camera not turned), the target is "Show only"
   (`soloLayers(layout, [name])`) and the title says `N hidden · Show all` while a part of the layout is off. After the
   name, the count of the open marks on the part in the layout shown, in a 16 px pill (`ui/layerMarks.ts` `marksByPart`; `--fail` when
-  one is a check that fails on the build); a click lists only the marks on that part in the Marks panel
+  one is a check that fails on the build); a click lists only the marks on that part in the Marks section
   (`store.marksOnPart`, the window's alone and dropped with the object; a chip `Only marks on lid` with a cross
   above the list; `goToRow` clears it). It filters what the list shows and nothing else: the agent is told every mark.
 - **Rows lit from the view** (Parts, `ui/card/lit.ts`, `useLit.ts`, `state/pointed.ts`; leader rule 4: marks and checks have no leader).

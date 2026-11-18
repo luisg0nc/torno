@@ -323,7 +323,7 @@ describe('measure', () => {
     expect(deps.queries[0].args).toEqual({ kind: 'distance', a: { layout: 'assembly', point: [0, 0, 15.5] }, b: { ref: 'assembly:tub/F5' } })
     expect(data(result)).toMatchObject({ exact: false, scan: 'S1', alignment: { state: 'aligned', by: 'by hand (typed values)' }, approximate: 'a scan is a mesh measured by a phone or a scanner: nothing from it is exact', reading: 'S1 was placed by hand: no fit says how well. ≈ 12.5 mm point to plane, approximate (S1 is a scan), (0, 0, 15.5) given as a point of S1 to tub/F5. S1 is aligned by hand (typed values) (tied to no point of the model: not checked against builds).' })
     expect(text(await measureTool(deps, 'box', { kind: 'angle', a: { scan: 'S1', point: [0, 0, 1] }, b: 'tub/F5' }))).toBe('only a distance is measured to a point of a scan')
-    expect(text(await measureTool(fake(), 'box', { kind: 'distance', a: { scan: 'S1', point: [0, 0, 1] }, b: 'tub/F5' }))).toBe('this project has no scans: the user imports one in the Scans panel of the torno window')
+    expect(text(await measureTool(fake(), 'box', { kind: 'distance', a: { scan: 'S1', point: [0, 0, 1] }, b: 'tub/F5' }))).toBe('this project has no scans: the user imports one in the Scans section of the torno window')
     // A way that already says it is approximate is not followed by the word twice.
     const rough = fake(() => ({ kind: 'distance', value: 1, unit: 'mm', how: 'minimum, approximate', exact: false }), scanned(TWO_PAIRS, { checks: { assembly: { revision: 4, of: 2, off: 0, worst: 0, moved: [] } } }))
     expect(data(await measureTool(rough, 'box', { kind: 'distance', a: 'tub/F5', b: { scan: 'S1', point: [0, 0, 1] } })).reading).toBe(

@@ -86,13 +86,13 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
 - Tests: `__tornoMain.opened()` (the objects opened in this run: empty while only the page was looked at),
   `window.__tornoTest.timeThumbnail(count, given?)`. `TORNO_SHOTS=<dir>` has `e2e/show.spec.ts` write
   captures of the page, one launch each.
-- A spec opens a panel as a person does, through the rail: `openPanel(page, 'Layers')` of `e2e/helpers.ts` (Projects,
-  Layers, Params, Scans, Marks; one that is open stays as it is), `closePanel`, `railButton`. The marks are open at first (and
-  Projects where no project is open), so what a spec reads in another panel (a layer row, a scan row, Parameters,
-  Checks, the list of projects, the folder menu, "All projects") is read after opening it. A spec opens a project
-  through `openListed(page, name)` of `e2e/objects.ts`: the row in the Projects panel, which it opens and then puts the
-  panel that was open back; `newFromList` is "New project" alike; `switcher(page)` is the rail's Projects button, which
-  carries a session's sign. Never a row by its name alone outside the Projects panel.
+- A spec reaches a section of the route card as a person does, through the rail's index: `openSection(page, 'Parts')` of
+  `e2e/helpers.ts` (Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings, Print profile; it presses the icon and unfolds
+  the section), `foldSection`, `cardSection`, `railButton`; the page of projects through `showProjects`. What a spec reads in a
+  section (a layer row, a scan row, Parameters, Checks) is read after opening it. A spec opens a project through
+  `openListed(page, name)` of `e2e/objects.ts`: the menu of the title bar's project crumb while a project is open, else its card
+  on the page of projects; `newFromList` is "New project" alike; `switcher(page)` is the rail's Projects button, which carries a
+  session's sign. Never a card by its name alone outside the page of projects.
 
 ## Never run a real agent CLI from tests (root `CLAUDE.md`)
 
