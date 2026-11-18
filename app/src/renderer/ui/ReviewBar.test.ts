@@ -4,7 +4,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { Mark } from '../../shared/marks'
 import type { Round } from '../../shared/reviews'
 import { plainText } from '../../test/plainText'
+import { boardStore } from '../state/board'
 import { reviewStore } from '../state/review'
+import { sketchStore } from '../state/sketching'
+import { tracingsStore } from '../state/tracings'
 import { store } from '../state/store'
 import { ReviewBar } from './ReviewBar'
 
@@ -15,13 +18,12 @@ const items = [pick('M1', { intent: 'dont' }), pick('M2', { intent: 'dont' }), p
 
 /** The bar as the window draws it for the state the stores are in (server rendering reads the initial state). */
 function html(): string {
-  const review = vi.spyOn(reviewStore, 'getInitialState').mockReturnValue(reviewStore.getState())
-  const main = vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState())
+  const stores = [reviewStore, store, tracingsStore, boardStore, sketchStore] as const
+  const spies = stores.map((s) => vi.spyOn(s, 'getInitialState').mockReturnValue(s.getState() as never))
   try {
     return renderToStaticMarkup(createElement(ReviewBar))
   } finally {
-    review.mockRestore()
-    main.mockRestore()
+    for (const spy of spies) spy.mockRestore()
   }
 }
 
@@ -51,7 +53,8 @@ describe('the review bar', () => {
     store.setState({ marks: items, layout: 'default' })
     const markup = html()
     const text = plainText(markup).replaceAll('&#x27;', "'")
-    expect(text).toContain('Review of h41')
+    expect(text).toContain('Reviewing h41')
+    expect(markup).toContain('data-band="review"')
     expect(text).toContain('Plain')
     expect(text).toContain("− Don't want")
     expect(text).toContain('+ Want')
@@ -60,6 +63,24 @@ describe('the review bar', () => {
     expect(text).toContain('Send review')
     expect(markup).toContain('aria-keyshortcuts="-"')
     expect(markup).toContain('aria-keyshortcuts="="')
+  })
+
+  it('wears the band of a review only while nothing higher in its order is on', () => {
+    reviewStore.setState({ rounds: [round()] })
+    store.setState({ marks: items, layout: 'default' })
+    expect(html()).toContain('data-band="review"')
+    tracingsStore.setState({ facing: true })
+    expect(html()).toBe('')
+    tracingsStore.setState({ facing: false })
+  })
+
+  it('gives the pens a round sign each, and an accent band that tags stand clear of', () => {
+    reviewStore.setState({ rounds: [round()] })
+    store.setState({ marks: items, layout: 'default' })
+    const markup = html()
+    expect(markup).toContain('data-tone="accent"')
+    expect(markup).toContain('data-tag-avoid')
+    expect(markup.match(/class="sign-disc[^"]*"/g)).toHaveLength(2)
   })
 
   it('sets the build, the counts and the signs in the face of numbers, and the three ways as one choice', () => {

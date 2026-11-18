@@ -123,7 +123,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   has not gone, and offers "Take out of R1" (`marks:roundOut`).
 - **A round and its bar** (`state/review.ts`, `ui/ReviewBar.tsx`). `useReview` is what main last said of the rounds (`marks:changed`,
   `marks.rounds`) with the window's own choice (plain, don't want, want) and the panel that is open. While a round is open the bar
-  stands under the view bar (`Review of h41`, the three ways with their keys, `3 − · 2 +`, End, Send review); every place a mark is
+  is the review band at the top left of the view (`Reviewing h41`, the three ways as pens with their keys, `3 − · 2 +`, End, Send review); every place a mark is
   made asks `reviewActions.intentForNew(layout)` (`commitMark`, a new sketch's first send, a note's draft, a region kept) and says
   it in the draft, and main checks it and puts the mark in the round. The round is of one layout: elsewhere the bar says so and
   its choice is off. "Review this build" is in the Marks list (`ui/ReviewSummary.tsx`, which also lists the rounds), on the build

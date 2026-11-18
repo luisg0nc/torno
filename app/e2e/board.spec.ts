@@ -585,6 +585,10 @@ test('a double click on a build card opens Compare with the live build', async (
   await expect(page.locator('.pboard')).toHaveCount(0)
   const live = kept().filter((e) => !e.failed).at(-1)!
   await expect.poll(async () => (await state()).compare).toMatchObject({ from: build.source, to: live.id })
+  // The compare band holds the top left, so the switch is away until it is put away.
+  await expect(page.locator('.pboard-switch')).toHaveCount(0)
+  await page.locator('[data-band="compare"]').getByRole('button', { name: 'Back to live', exact: true }).click()
+  await expect(page.locator('.pboard-switch')).toBeVisible()
 })
 
 test('a double click on a picture opens it large, and Esc puts it away', async () => {

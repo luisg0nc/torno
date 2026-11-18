@@ -58,6 +58,9 @@ import { TYPING } from './typing'
 import { Logo } from './Logo'
 import { openNote } from './drawing/make'
 import { ViewBar } from './ViewBar'
+import { CompareBar } from './CompareBar'
+import { ReviewBar } from './ReviewBar'
+import { FailedBand, SketchBand } from './view/Band'
 
 const NO_SCENE: Scene = { model: '', layouts: [], parts: [], seconds: 0, output: '' }
 
@@ -809,6 +812,11 @@ export function ViewportPane() {
       {viewport && hasScene && (
         <>
           <ViewBar viewport={viewport} />
+          {/* The band at the top left for a mode of the whole view: one shows (`bandOf`). */}
+          <ReviewBar />
+          <CompareBar />
+          <SketchBand />
+          <FailedBand />
           <ToolPalette />
           <SectionBar viewport={viewport} />
           <AlignBar />
