@@ -723,8 +723,9 @@
 /* ---- The board: a sheet over the window, for a new object's doodle or a drawing on the view ---- */
 
 .board-layer {
-  position: absolute;
-  inset: 0;
+  /* The whole window under the title bar, as the export sheet is: the view is a cell of the shell's grid now, so `absolute` would fill that cell alone. */
+  position: fixed;
+  inset: var(--title-h) 0 0;
   z-index: 30;
   display: grid;
   place-items: start center;

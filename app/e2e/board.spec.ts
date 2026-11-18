@@ -381,7 +381,8 @@ test('M then a click makes a size card from a form; a double click edits it, Ctr
   const stage = await stageBox()
   await page.keyboard.press('m')
   await expect(page.locator('.pboard-tool[data-tool="size"]')).toHaveAttribute('aria-pressed', 'true')
-  await page.mouse.click(stage.x + stage.width * 0.75, stage.y + stage.height * 0.8)
+  // Halfway down: the minimap stands at the stage's foot, and the form opens at the click, so a click low on the stage opens it under the minimap.
+  await page.mouse.click(stage.x + stage.width * 0.75, stage.y + stage.height * 0.5)
   await expect(form).toBeVisible()
   await expect(form.getByLabel('What it measures')).toBeFocused()
 
