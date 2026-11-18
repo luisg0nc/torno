@@ -200,8 +200,9 @@ body, a lid and a clip. The lid rattles, which is what you will fix.
    front, right and top views. The window says how the pointer moves the view
    once, in a hint at the foot of the view that goes at your first move of the
    camera, and keeps it, with the keys,
-   in the sheet of keys (`?`), where the pointer is the first group. Point at a tool in the palette for what it
-   does; with a tool in hand a small dark caption by the pointer says what it waits for next.
+   in the sheet of keys (`?`), where the pointer is the first group. Point at a tool in the reed, the slim column of
+   round buttons at the left of the view, for what it does; the tool in hand is an accent circle and its name grows out
+   to the right with its key and its choices. With a tool in hand a small dark caption by the pointer says what it waits for next.
 
 3. Read what is there. The Marks list has three marks the example came with:
    `M1`, a pin on the lid for a label; `M2`, an arrow at the cable notch, which
@@ -1246,15 +1247,15 @@ them when you type `/`:
 
 ## Marks
 
-The tools, each with its key (all keys are under [Keys](#keys)):
+The tools, each with its key (all keys are under [Keys](#keys)). They are the **reed**, at the left of the view: round buttons in three pills (Select, Measure, Section; Pin, Arrow, Draw, Shape, Region of a scan; Align scan), with no letter on a button. The key is in the tip beside a button when you point at it, and in the name of the tool in hand: that tool is a filled accent circle and its **name grows out to the right**, with its key and its few choices (Measure: Distance or Angle, ⌀ or r, and `T` for the wall; Shape: box, cylinder, sphere, plane; Draw: the pens, while a sketch is open; Region: Brush or Box). Select is the tool at rest: pressed, with no name. Its scope grows out when you click it, or press `V` while it is in hand, and stays out while the scope is not Any:
 
 | Key | Tool | What it does |
 |---|---|---|
-| `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held at the head of the card, under "In hand": each ref with what the kernel says of it (the first four, then "and 2 more"), and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Name a set** (`Ctrl+G`) and **Clear**. With nothing selected the head says "Click a face, an edge or a part to hold it here." |
+| `V` | Select | Click selects a face or an edge, and a double click its part; the scope that grows out of its button (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held at the head of the card, under "In hand": each ref with what the kernel says of it (the first four, then "and 2 more"), and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Name a set** (`Ctrl+G`) and **Clear**. With nothing selected the head says "Click a face, an edge or a part to hold it here." |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
 | `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
-| `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. A shape to add reads as what you want (`+`) and one to remove as what you do not want (`−`); see [Reviews](#reviews). |
+| `S` | Shape | Click places a box, cylinder, sphere or plane (the choice is in its name; the one chosen last is the one its button shows), to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. A shape to add reads as what you want (`+`) and one to remove as what you do not want (`−`); see [Reviews](#reviews). |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
 | `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
 | `L`, `B` | Align scan, Region of a scan | See [Scans](#scans). |
@@ -1365,8 +1366,8 @@ the camera stays still).
 ### 3D sketches
 
 With Draw in hand a sketch is open: a drawing in space that tells Claude where something goes, how it runs or what is
-meant, in millimetres in the project's own frame. A panel floats at the left of the view and a small strip of pens at its
-foot; both are there while the sketch is open.
+meant, in millimetres in the project's own frame. The panel is the head of the card and the pens grow out of Draw's name in
+the reed; both are there while the sketch is open.
 
 - **The band.** While a sketch is open a quiet band at the top left of the view says `Sketching M7 on XZ, y = 40` (the sketch's own words are in the card's head).
 - **Planes.** A stroke lies on a **plane** or on the **surface** of the parts. A new sketch starts on the plane the view
@@ -1378,7 +1379,7 @@ foot; both are there while the sketch is open.
   plane of its own, so that they stay where they were drawn.
 - **Pens.** `B` is the freehand pen, `L` a straight line (press and drag, or click twice), `P` point to point (a click
   for each point, `Enter` ends it), `C` the eraser (a click takes the stroke under the pointer). The
-  strip at the foot of the view has a button for each, with its key; the two switches are in the sketch's panel. While a segment is drawn the
+  name of Draw in the reed has a button for each, with its key; the two switches are in the sketch's panel. While a segment is drawn the
   figures type its length and `Enter` fixes it; `Backspace` takes the last point or figure back.
 - **Snapping.** The pointer snaps to a vertex, to the centre of a hole or a circle, or to a point on an edge, within 10
   px, and a box beside it says to what. A point on a plane is the snap projected onto it. `Ctrl` held turns snapping off
@@ -1522,9 +1523,9 @@ The key is in [Keys](#keys), under "Viewport".
 Lengths are millimetres, angles degrees, areas mm², volumes mm³ and masses
 grams; Z is up.
 
-**The Measure tool** (`M`). A strip in the corner of the viewport chooses what
+**The Measure tool** (`M`). Its name in the reed chooses what
 two clicks measure (Distance or Angle) and what a double click on a hole, a
-cylinder or a circular edge measures (Diameter or Radius). `T` has no button:
+cylinder or a circular edge measures (⌀ for the diameter, r for the radius). `T` has no button:
 with the pointer on a face it measures the wall there, from that point along
 the inward normal to where the part ends. With Shift a click is a bare point,
 tied to no face. While the second click is pending the pointer reads out an
@@ -1545,14 +1546,14 @@ refuses (an angle to a sphere), its reason is read out at the
 pointer. `Esc` drops a first click; the tool stays in hand.
 
 **A measurement leaves nothing.** The kernel's value is read out at the pointer
-and stays in the strip as `Last: 6 mm between planes` (a distance adds
+and stays under Measure's name as `Last: 6 mm between planes` (a distance adds
 `Δx`, `Δy` and `Δz`, from the kernel's two points) and drawn in the view in ink,
 between those points, with its value at the middle, until the next
 measurement, `Esc` with nothing under way, another tool, a new build or another
 project. It is no mark, and the agent is not told of it: not with the next
 prompt, not in `state.md`, not in a picture. To keep it, press `Enter` or
-"Keep as a dimension" in the strip: it becomes a dimension, measured again by
-main as it is kept, and the strip says `Kept as M4`.
+"Keep as a dimension" there: it becomes a dimension, measured again by
+main as it is kept, and the reading says `Kept as M4`.
 
 **Dimensions.** What you keep of a measurement is a dimension: a mark (`M4`)
 with a value, drawn on the part and listed with the marks. Its row, once

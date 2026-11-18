@@ -6,6 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import { EXAMPLE_OBJECTS } from '../src/main/example'
 import { KEYS } from '../src/shared/keys'
 import { POINTER } from '../src/shared/pointer'
+import { railButton } from './helpers'
 import { openListed } from './objects'
 
 // The first screen, and the sheet of keys: what someone who has never seen torno meets, and where they look a key up.
@@ -270,8 +271,8 @@ test('? shows every key of the one table; what is typed searches it, and no tool
   await expect(sheet()).toBeVisible()
   await page.keyboard.press('?')
   await expect(sheet()).toBeHidden()
-  // The button at the foot of the tools, to which the focus comes back.
-  const button = page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Keys' })
+  // The button at the foot of the rail, to which the focus comes back.
+  const button = railButton(page, 'Keys')
   await expect(button).toHaveAttribute('aria-keyshortcuts', '?')
   await button.focus()
   await page.keyboard.press('Enter')

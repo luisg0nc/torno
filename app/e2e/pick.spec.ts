@@ -103,14 +103,14 @@ const model = () => join(root, 'bracket', 'bracket.py')
 test('the palette shows the tools, each with its key', async () => {
   await openFromAbove()
   const tools = page.getByRole('toolbar', { name: 'Tools' }).locator('button[data-tool]')
-  // One button for every tool there is, and at their foot the one for the sheet of keys.
+  // One button for every tool there is; the sheet of keys is at the foot of the rail.
   await expect(tools).toHaveCount(TOOLS.length)
-  await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button')).toHaveCount(TOOLS.length + 1)
-  // The key is on the button, in its own words for a reader of the screen, and in the tip beside it (e2e/tools.spec.ts).
+  await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button')).toHaveCount(TOOLS.length)
+  // The key is on no button: it is in its own words for a reader of the screen, in the tip beside it (e2e/tools.spec.ts) and in the name of the tool in hand.
   await expect(page.getByRole('button', { name: 'Section', exact: true })).toHaveAttribute('aria-keyshortcuts', 'X')
   await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveAttribute('aria-keyshortcuts', 'V')
-  await expect(page.getByRole('button', { name: 'Select', exact: true }).locator('.tool-key')).toHaveText('V')
+  await expect(page.getByRole('button', { name: 'Select', exact: true }).locator('.tool-key')).toHaveCount(0)
   for (const name of ['Pin', 'Arrow', 'Draw', 'Shape', 'Section']) await expect(page.getByRole('button', { name, exact: true })).toBeEnabled()
   await page.keyboard.press('s')
   await expect(page.getByRole('button', { name: 'Shape', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -252,7 +252,8 @@ test('Part takes the whole part, a double click in Any does too, and Note makes 
   await page.mouse.click(x, y)
   await expect.poll(async () => (await state()).selection).toEqual([post.part])
   await page.keyboard.press('Escape')
-  // The choice by the corner: Part.
+  // The choice grown out of Select, asked for with a click on it: Part.
+  await page.locator('.tool-button[data-tool="select"]').click()
   await page.getByRole('group', { name: 'What a click selects' }).getByRole('button', { name: 'Part' }).click()
   await clickOver(ON_BASE)
   await expect.poll(async () => (await state()).selection).toEqual([(await pickOver(ON_BASE))!.part])

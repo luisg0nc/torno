@@ -1,16 +1,4 @@
-/* ---- The sheet of keys (ui/KeySheet.tsx), and its button at the foot of the tools ---- */
-
-.toolbox-rule {
-  height: 1px;
-  margin: 2px 5px;
-  background: var(--hairline);
-}
-
-.tool-keys {
-  height: 26px;
-  color: var(--muted);
-  font-size: var(--text-size);
-}
+/* ---- The sheet of keys (ui/KeySheet.tsx), opened from the foot of the rail ---- */
 
 .keys-layer {
   /* Over the whole window: a press beside the sheet puts it away, and nothing behind takes it. */
