@@ -168,6 +168,11 @@ export function valueText(measure: MeasureKind, value: number): string {
   return `${measure === 'diameter' ? '⌀ ' : measure === 'radius' ? 'R ' : ''}${number(value)} mm`
 }
 
+/** A value as the parts of a large reading: its sign (`⌀ `, `R `), the number and the unit, which put together are `valueText`. */
+export function valueParts(measure: MeasureKind, value: number): { prefix: string; number: string; unit: '°' | 'mm' } {
+  return { prefix: measure === 'diameter' ? '⌀ ' : measure === 'radius' ? 'R ' : '', number: number(value), unit: unitOf(measure) }
+}
+
 /** What stands for the value of a dimension that has none. */
 export const NO_VALUE = '—'
 

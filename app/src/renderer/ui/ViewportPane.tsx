@@ -57,7 +57,8 @@ import { TYPING } from './typing'
 import { Logo } from './Logo'
 import { openNote } from './drawing/make'
 import { Compass } from './view/Compass'
-import { LegacyBars } from './view/LegacyBars'
+import { ExplodeTag } from './ExplodeControl'
+import { MeasureTag } from './view/MeasureTag'
 import { CompareBar } from './CompareBar'
 import { ReviewBar } from './ReviewBar'
 import { FailedBand, SketchBand } from './view/Band'
@@ -812,7 +813,6 @@ export function ViewportPane() {
       {viewport && hasScene && (
         <>
           <Compass viewport={viewport} />
-          <LegacyBars viewport={viewport} />
           {/* The band at the top left for a mode of the whole view: one shows (`bandOf`). */}
           <ReviewBar />
           <CompareBar />
@@ -820,6 +820,9 @@ export function ViewportPane() {
           <FailedBand />
           <ToolPalette />
           <SectionTag viewport={viewport} />
+          {/* The tags of Measure's last reading and of Explode, tied to the line and the track. */}
+          <MeasureTag />
+          <ExplodeTag viewport={viewport} />
           <AlignBar />
           <RegionBar />
           <QuestionCard where="view" />

@@ -73,8 +73,14 @@ const settled = async (apart: boolean): Promise<void> => {
 }
 const slider = () => page.getByRole('slider', { name: 'Explode' })
 const toggle = () => page.getByRole('toolbar', { name: 'View' }).getByRole('button', { name: /^Explode/ })
-const bar = () => page.locator('.explodebar')
-const barNote = () => page.locator('.explodebar-note')
+/** Explode's tag, inside the view, and its status line. */
+const bar = () => page.locator('.viewport-pane [data-tag="explode"]')
+const barNote = () => bar().locator('[role="status"]')
+/** Sets the amount on the track's slider, as its keys do: the parts move as it changes and the amount is kept when it is let go. */
+const setAmount = async (percent: number): Promise<void> => {
+  await expect(slider()).toBeAttached()
+  await slider().fill(String(percent))
+}
 const readout = () => page.locator('.pick-readout')
 const canvas = async () => (await page.locator('.viewport-canvas canvas').first().boundingBox())!
 const clickAt = async ([fx, fy]: [number, number]): Promise<void> => {
@@ -102,8 +108,11 @@ test('the parts are drawn apart, what is picked is where the part is, and nothin
   await expect(bar()).toHaveCount(0)
   await expect(toggle()).toHaveAttribute('aria-pressed', 'false')
   await toggle().click()
-  await expect(barNote()).toHaveText('For display only')
-  await slider().fill('100')
+  await expect(barNote()).toHaveText('E draws them apart')
+  // The tag holds its words, the track its handle (a slider by its keys).
+  await expect(bar()).toContainText('apart, for the view only')
+  expect(await bar().locator('.explode-amount').evaluate((el) => getComputedStyle(el).fontSize)).toBe('19px')
+  await setAmount(100)
   await expect.poll(amount).toBe(1)
   await expect(page.locator('.explode-amount')).toHaveText('100 %')
   await expect(slider()).toHaveAttribute('aria-valuetext', '100 %')
@@ -129,7 +138,7 @@ test('the parts are drawn apart, what is picked is where the part is, and nothin
   expect(Math.abs(hit!.point[2] - lidTop[2])).toBeLessThan(1e-3)
   // What the window tells main of the view says the parts are apart, and nothing in it is of a part drawn apart.
   expect((await state()).scene!.parts.find((p) => p.name === 'lid')!.bbox).toEqual(lid.bbox)
-  await expect(barNote()).toHaveText('For display only · E puts them together')
+  await expect(barNote()).toHaveText('E puts them together')
 
   // A pin is not placed: the pointer says why, and no mark is kept.
   await page.keyboard.press('p')
@@ -193,6 +202,34 @@ test('a mark is drawn with its part, and E goes back to how far apart the parts 
   expect((await page.evaluate(() => window.__tornoTest!.markScreen('M1')))!.y).toBeCloseTo(together.y, 3)
 })
 
+test('dragging the handle on the track moves the parts and keeps nothing until it is let go', async () => {
+  const edits = (await state()).edits
+  await toggle().click()
+  const handle = page.locator('.explode-handle')
+  await expect(handle).toBeVisible()
+  const grab = (await handle.boundingBox())!
+  const [x, y] = [grab.x + grab.width / 2, grab.y + grab.height / 2]
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  // Along the track, up from the foot: the parts follow the pointer, the number with it.
+  await page.mouse.move(x, y - 40, { steps: 4 })
+  const percent = Number((await page.locator('.explode-amount').innerText()).replace(/\D/g, ''))
+  expect(percent).toBeGreaterThan(0)
+  await expect(slider()).toHaveAttribute('aria-valuetext', `${percent} %`)
+  expect(await page.evaluate(() => window.__tornoTest!.exploded())).toBe(true)
+  // The parts are apart on the screen and the store does not know it yet.
+  expect([await amount(), (await state()).edits]).toEqual([0, edits])
+  await page.mouse.up()
+  await expect.poll(amount).toBeCloseTo(percent / 100, 2)
+  expect((await state()).edits).toBe(edits + 1)
+  await setAmount(0)
+  await expect.poll(amount).toBe(0)
+  // Slid back to nothing the tag stays under the hand; the button puts it away.
+  await expect(bar()).toBeVisible()
+  await toggle().click()
+  await expect(bar()).toHaveCount(0)
+})
+
 test('dragging the slider moves the parts and keeps nothing until it is let go', async () => {
   const edits = (await state()).edits
   await toggle().click()
@@ -221,7 +258,7 @@ test('dragging the slider moves the parts and keeps nothing until it is let go',
   await slider().evaluate((input: HTMLInputElement) => input.dispatchEvent(new Event('change', { bubbles: true })))
   await expect.poll(amount).toBe(0.4)
   expect((await state()).edits).toBe(edits + 1)
-  // Along what, and how far, in the bar.
+  // Along what, and how far, in the tag.
   await page.getByRole('group', { name: 'Direction' }).getByRole('button', { name: 'Z', exact: true }).click()
   await page.getByRole('group', { name: 'Distance' }).getByRole('button', { name: '×2' }).click()
   expect((await state()).explode.assembly).toEqual({ amount: 0.4, scale: 2, axis: 'z' })
@@ -247,6 +284,7 @@ test('a section puts the parts together, and they are not drawn apart while it i
   await page.keyboard.press('e')
   await expect(barNote()).toHaveText('Take the section away to draw the parts apart')
   await expect(slider()).toBeDisabled()
+  await expect(slider()).toHaveValue('0')
   await expect(slider()).toHaveAttribute('title', 'Take the section away to draw the parts apart')
   await expect(page.locator('.explode-amount')).toHaveText('0 %')
   expect(await amount()).toBe(0)
@@ -258,7 +296,7 @@ test('a section puts the parts together, and they are not drawn apart while it i
   await expect.poll(async () => (await state()).section).toBeNull()
   // Seen on a visible screen: the bar went on saying to take the section away after it was gone. It says at once
   // what explode is, with the pointer nowhere near the view.
-  await expect(barNote()).toHaveText(/^For display only/, { timeout: 1000 })
+  await expect(barNote()).toHaveText(/^E draws them apart/, { timeout: 1000 })
   // Only how far apart they were is forgotten.
   expect((await state()).explode.assembly).toEqual({ amount: 0, scale: 2, axis: 'z' })
   await expect(slider()).toBeEnabled()
@@ -411,10 +449,13 @@ test('the compass fits at 1280 × 800 for an object with two layouts, apart or t
   await expect(page.getByRole('button', { name: /^Saved views/ })).toBeVisible()
   await fits()
   const pane = (await page.locator('.viewport-pane').boundingBox())!
-  const explodebar = (await page.locator('.explodebar').boundingBox())!
-  // Within the view, and clear of the compass (the bar becomes a track and a tag, which keep clear of it too).
+  const explodebar = (await bar().boundingBox())!
+  // Within the view, and clear of the compass (the tag keeps clear of it).
   expect(explodebar.x).toBeGreaterThanOrEqual(pane.x)
-  expect(explodebar.x + explodebar.width).toBeLessThanOrEqual((await compass()).x)
+  expect(explodebar.y + explodebar.height).toBeLessThanOrEqual(pane.y + pane.height)
+  const compassBox = await compass()
+  const clear = explodebar.x + explodebar.width <= compassBox.x || compassBox.x + compassBox.width <= explodebar.x || explodebar.y + explodebar.height <= compassBox.y || compassBox.y + compassBox.height <= explodebar.y
+  expect(clear, 'the tag and the compass are apart').toBe(true)
   // E, and at once a stroke: the store says together, the parts are still on their way. Nothing is drawn of it (I1).
   await page.keyboard.press('f')
   await page.keyboard.press('d')
@@ -488,7 +529,6 @@ test('drawn apart by any way, every part stays in sight and clear of the bars; t
   /** Whether every corner of every part of the layout, where it is drawn, is on the canvas and below the bars over its top. */
   const inClearView = async (): Promise<string[]> => {
     const box = await canvas()
-    const bars = (await page.locator('.viewbars').boundingBox())!
     const s = await state()
     const out: string[] = []
     for (const part of s.scene!.parts.filter((p) => p.layout === s.layout)) {
@@ -496,7 +536,7 @@ test('drawn apart by any way, every part stays in sight and clear of the bars; t
         const corner = [0, 1, 2].map((i) => ((c >> i) & 1 ? part.bbox.max[i] : part.bbox.min[i])) as Vec3
         const [fx, fy] = await project(corner, part.name)
         const y = box.y + fy * box.height
-        if (fx < 0 || fx > 1 || y > box.y + box.height || y < bars.y + bars.height) out.push(`${part.name} ${corner.join(',')}`)
+        if (fx < 0 || fx > 1 || y > box.y + box.height || y < box.y) out.push(`${part.name} ${corner.join(',')}`)
       }
     }
     return out
@@ -525,21 +565,13 @@ test('drawn apart by any way, every part stays in sight and clear of the bars; t
 
   // The slider let go far apart: the same rule.
   await toggle().click()
-  await slider().evaluate((input: HTMLInputElement) => {
-    input.value = '100'
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-    input.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await setAmount(100)
   await expect.poll(amount).toBe(1)
   await settled(true)
   await rest()
   expect(await inClearView()).toEqual([])
   // Slid back to nothing: together, and back.
-  await slider().evaluate((input: HTMLInputElement) => {
-    input.value = '0'
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-    input.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await setAmount(0)
   await expect.poll(amount).toBe(0)
   await settled(false)
   sameAs(await rest(), home)

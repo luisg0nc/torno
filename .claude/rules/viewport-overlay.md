@@ -23,7 +23,7 @@ paths:
   - "app/src/renderer/ui/ToolPalette.tsx"
   - "app/src/renderer/ui/view/Compass.tsx"
   - "app/src/renderer/ui/view/ViewCube.tsx"
-  - "app/src/renderer/ui/view/LegacyBars.tsx"
+  - "app/src/renderer/ui/view/MeasureTag.tsx"
   - "app/src/renderer/styles/compass.css"
   - "app/src/renderer/ui/CompareBar.tsx"
   - "app/src/renderer/ui/ReviewBar.tsx"
@@ -53,7 +53,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   knowing now (`noteOf`: a scan's tool with no scan says `Import a scan first`, a painting that waits on a scan, the
   shape the Shape tool places). A scan's tool (`SCAN_TOOLS`: Region, Align) with no scan in the object, once main has
   said so (`scansKnown`), is drawn quieter (`data-quiet`, the icon in `--muted`) and stays enabled: its click and its tip
-  say why. No letter is drawn on a button: the key is the button's `aria-keyshortcuts`, in the tip and in the name of the tool in hand. **The tool in hand** is an accent circle and its name grows out to the right (`.reed-pill`, 0.22 s `reed-grow`, none under reduced motion): `pillOf(tool, { scope, scopeOpen, sketching })` in `ui/view/reedPill.ts` says what it holds (the name, the key cap, the choices: Measure's Distance, Angle, ⌀, r and `T` thickness, Shape's four, Draw's four pens while a sketch is open, Region's Brush and Box; Align a name only). Select is the tool at rest and has none until `scopeOpen` (a click on it, or its key while it is in hand; it goes when another tool is taken) or while the scope is not Any. A tool with its name grown out shows no tip. `ReedPillView` draws the pill for the model's reed and for a tracing's (`tracings/Palette.tsx`: Trace's Line, Circle, Label and Ink's pens, `tracingPillOf`); the choices keep the groups and labels the strips had (`What to measure`, `What a click selects`, `Shape to place`, `Pens of the sketch`, `How to paint`). Keys is the rail's. Measure's last reading and its Keep button (`MeasureLast`, `.measure-last`) stand under its pill until the tag on the measured line takes them.
+  say why. No letter is drawn on a button: the key is the button's `aria-keyshortcuts`, in the tip and in the name of the tool in hand. **The tool in hand** is an accent circle and its name grows out to the right (`.reed-pill`, 0.22 s `reed-grow`, none under reduced motion): `pillOf(tool, { scope, scopeOpen, sketching })` in `ui/view/reedPill.ts` says what it holds (the name, the key cap, the choices: Measure's Distance, Angle, ⌀, r and `T` thickness, Shape's four, Draw's four pens while a sketch is open, Region's Brush and Box; Align a name only). Select is the tool at rest and has none until `scopeOpen` (a click on it, or its key while it is in hand; it goes when another tool is taken) or while the scope is not Any. A tool with its name grown out shows no tip. `ReedPillView` draws the pill for the model's reed and for a tracing's (`tracings/Palette.tsx`: Trace's Line, Circle, Label and Ink's pens, `tracingPillOf`); the choices keep the groups and labels the strips had (`What to measure`, `What a click selects`, `Shape to place`, `Pens of the sketch`, `How to paint`). Keys is the rail's. Measure's last reading and its Keep button are the tag on the measured line (`ui/view/MeasureTag.tsx`, `data-tag="measure"`, placed at the middle of the line by `readingAt`; see `dimensions.md`).
   With a tool other than Select in hand a **caption** (`ToolHint`, an ink pill: `--ink` ground, `--surface` text, 12 px,
   `--radius-full`, a pill) stands by the pointer, 18 px below and to its right (`captionPlace` in `shared/captionPlace.ts`:
   to the other side at the edge of the pane, and beyond the readout `.pick-readout` when that is there). `CaptionAt`
@@ -118,13 +118,19 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## Explode (`app/src/renderer`)
 
 - The control is `ui/ExplodeControl.tsx`: `ExplodeToggle`, one button in the
-  compass (pressed while the parts are apart or its bar is open, with the
+  compass (pressed while the parts are apart or its tag is up, with the
   amount beside the word; pressed while apart it puts them together), and
-  `ExplodeBar` in the column `LegacyBars` keeps under the top of the view (`.viewbars`, clear of the compass; it becomes a track and a tag): the slider with
-  the amount beside it, `From centre X Y Z`, `×0.5 ×1 ×2 ×4`, and a line
-  with `role="status"` that says it is for display only, or why nothing is
-  drawn apart. The bar is the notice that the parts are not where they are
-  drawn. The compass fits at 1280 × 800 for an object with two
+  `ExplodeTag`: a **track** (`viewport/explodeTrack.ts`: `planTrack` stands it beside the parts' box along Z, or the
+  axis the view shows longest when Z is end on, keeping its corner while that is about as good; drawn on the overlay by
+  `drawExplodeTrack`, graduated every 10 % and numbered 0, 50, 100, with a 16 px handle; `Viewport.setExplodeTrack`) and
+  a `Tag` (`data-tag="explode"`) at its top with the amount (mono 19 px), "apart, for the view only", `From centre X Y Z`,
+  `×0.5 ×1 ×2 ×4`, and a last line with `role="status"` that says what `E` does, or why nothing is
+  drawn apart. The handle (`.explode-handle`, a pointer target placed every frame) is dragged along the track: the amount is
+  the foot of the pointer on it; the range input `.explode-slider` beside it is the track's for the keys and assistive technology. The tag is the
+  notice that the parts are not where they are drawn, and it folds the saved views. No bars cover the top of the view
+  any more: nothing calls `setCoveredTop`, and `keepApartInView` is asked by the tag when the parts are drawn apart.
+  The compass fits at 1280 × 800 for an object with two
+  layouts, apart or together, inside the view, clear of the reed and with the explode tag clear of it The compass fits at 1280 × 800 for an object with two
   layouts, apart or together, inside the view, clear of the reed and with the explode bar clear of it
   (`explode.spec.ts` holds it to that). **The compass** (`ui/view/Compass.tsx`, `data-tag-avoid`, `role="toolbar"`
   named View) stands at the top right, 14 px in, items right-aligned 7 px apart: the cube tile (118 × 112,

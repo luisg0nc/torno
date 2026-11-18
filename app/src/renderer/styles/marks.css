@@ -741,3 +741,8 @@ span.mark-thumb {
 .marks-fold[aria-expanded='true'] svg {
   transform: rotate(90deg);
 }
+
+/* A line a mark's row says of how the mark is drawn now, not of the mark. */
+.row-note {
+  color: var(--muted);
+}

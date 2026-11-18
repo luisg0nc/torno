@@ -112,9 +112,9 @@ test('E on an object of one part opens no bar: the button says why for a moment'
   await canvas().click({ position: { x: 5, y: 5 } })
   await page.keyboard.press('e')
   await expect(page.locator('.explode-said')).toHaveText('One part: nothing to draw apart')
-  await expect(page.locator('#explodebar')).toHaveCount(0)
+  await expect(page.locator('[data-tag="explode"]')).toHaveCount(0)
   await page.getByRole('button', { name: 'Explode' }).click()
-  await expect(page.locator('#explodebar')).toHaveCount(0)
+  await expect(page.locator('[data-tag="explode"]')).toHaveCount(0)
   await expect(page.locator('.explode-said')).toHaveText('One part: nothing to draw apart')
 })
 

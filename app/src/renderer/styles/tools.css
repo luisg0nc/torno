@@ -187,68 +187,6 @@
   font-size: 11px;
 }
 
-/* Measure's last reading, under its pill until the tag on the line takes it (a quiet card: `--raise`, a hairline). */
-.tool-tipped > .measure-last {
-  position: absolute;
-  top: calc(50% + 22px);
-  left: calc(100% + 6px);
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  width: max-content;
-  /* Narrow, so that it wraps and keeps off the part: the pointer goes through it, but the eye should not have to. */
-  max-width: 250px;
-  padding: 4px 4px 4px 10px;
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--raise);
-  box-shadow: var(--float-shadow);
-  color: var(--muted);
-  font-size: var(--text-row);
-  line-height: 24px;
-  /* A reading, not a control: the pointer goes through it to the view, and only its button takes it. */
-  pointer-events: none;
-}
-
-.tool-tipped > .measure-last button {
-  pointer-events: auto;
-}
-
-.measure-last-text {
-  color: var(--ink);
-}
-
-.measure-how,
-.measure-refused {
-  color: var(--muted);
-}
-
-.measure-refused {
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Primary: the accent ground, as a band's primary button is. */
-.measure-keep {
-  height: 24px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: var(--accent);
-  color: var(--on-accent);
-  font: inherit;
-  cursor: pointer;
-}
-
-.measure-keep:disabled {
-  background: var(--surface);
-  color: var(--muted);
-  cursor: default;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .reed-pill {
     animation: none;

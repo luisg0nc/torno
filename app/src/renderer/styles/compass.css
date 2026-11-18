@@ -590,3 +590,8 @@
   border-radius: var(--radius-control);
   background: var(--panel);
 }
+
+/* How far apart, beside the word, while the parts are. */
+.explode-toggle .num {
+  margin-left: 2px;
+}
