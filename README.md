@@ -86,7 +86,7 @@ what you mean rather than make geometry. The model is the Python file, and torno
 
 <table>
   <tr>
-    <td><img src="docs/images/marks.png" alt="A pin and dimensions on a speaker stand, with the Checks in the card at the left showing two dimensions passing and one failing"></td>
+    <td><img src="docs/images/marks.png" alt="A speaker stand with one pin and three dimensions drawn on it, one of them failing, and the card listing two checks that pass and one that fails"></td>
     <td><img src="docs/images/chat.png" alt="The conversation in the dock: a prompt with the marks torno added, the agent calling look and measure, its edit of the model and the build that followed"></td>
     <td><img src="docs/images/section.png" alt="A section through the airbox showing the filter pod inside the lid and the ribs of the tub"></td>
   </tr>
@@ -94,6 +94,16 @@ what you mean rather than make geometry. The model is the Python file, and torno
     <td align="center">Marks and dimensions</td>
     <td align="center">The agent's view</td>
     <td align="center">Section</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/sketch.png" alt="A 3D sketch open on the airbox: a hose route drawn on a plane in front of it, with the sketch's panel in the card and the Sketching band at the top of the view"></td>
+    <td><img src="docs/images/review.png" alt="A review round open on the airbox: one pin marked as not wanted and one as wanted, each with its sign and note, and the round's items listed in the card"></td>
+    <td><img src="docs/images/tracing.png" alt="The Tracing view: a flat cut across the airbox laid out on a millimetre grid, with the parts named, a scale bar and a title block"></td>
+  </tr>
+  <tr>
+    <td align="center">A 3D sketch</td>
+    <td align="center">Reviewing a build</td>
+    <td align="center">A tracing</td>
   </tr>
 </table>
 
