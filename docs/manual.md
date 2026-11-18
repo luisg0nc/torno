@@ -243,8 +243,9 @@ body, a lid and a clip. The lid rattles, which is what you will fix.
    says `Passes`. Then send `/mcp__torno__review`, which has the agent go
    through every open mark against the build.
 
-10. "Export…" at the bottom right (or `Ctrl+Shift+E`) writes one HTML file that
-    someone without torno can open: it needs nothing else.
+10. "Export…" at the bottom right (or `Ctrl+Shift+E`) opens the export in the
+    session dock; "Export page" writes one HTML file that someone without torno
+    can open: it needs nothing else.
 
 11. To keep what you made, press "Keep this as a folder…" on the
     page of projects and choose a name. Otherwise it is removed when torno
@@ -2197,8 +2198,47 @@ project (below), or, of the project on show, a **picture** of the view or a
 have been opened first. Nothing is uploaded: the file goes where the save
 dialog says, which opens in `.torno/exports/`.
 
-The sheet lists what would go, with counts and the size, and what is ticked is
-what is in the file:
+The export opens in the session dock, under the builds strip, in place of the
+conversation. The strip stays: the ringed node is the build that will be
+exported (the build on show; picking another node does not export it). The
+conversation folds to a 40 px band at the dock's foot ("Claude Code idle, 1 mark
+to review", and **Back to the chat**); an ask that arrives turns that band to
+the warning wash and says it needs you, with **Answer**, which puts the export
+away and shows the ask. The view is the preview: a 2 px accent frame goes round
+it, a band at its top left says what is being made ("Exporting a page of
+hollow r1"), marks shown or hidden follow their line, and a part that is
+switched off and stays out of the page has a dashed tag at its place ("lid is
+switched off: left out"). **Close** or `Esc` puts the export away.
+
+At the top are five tiles: **A page** (HTML), **CAD** (STEP), **Slicer** (3MF
+or STL: a segment inside the tile picks which), **Picture** (PNG) and
+**Tracing** (SVG or PDF). Picture and Tracing are of the project on show: when
+the export is not (from the page of projects), they are dimmed and say why in
+their title.
+
+Below them is one line for each thing that can go, with a switch, what it is and
+**what it weighs** at the right (`413 kB`, with a square of the colour of its
+share of the rule below); a line that is switched off has its weight struck
+through, and a scan the budget left out says "left out for size". Under the
+lines stands the total (`1.7 MB`), "of 12 MB", and a rule from 0 to 12 MB, ticked
+at 0, 6 and 12, filled with the lines that go in their order. Over 12 MB the
+rule runs to the budget and the overflow is drawn in the failure colour past
+its end, with the reason in words under it; above 64 MB the action is off and
+the refusal is said, and a refused plan shows no rule. A STEP, an STL, a 3MF, a
+picture or a tracing has no rule: it says how many parts, or the picture's size.
+The foot says "Nothing about this computer goes in the file." and has **Cancel**
+and the action (**Export page**, **Export STEP**, and so on). While the file is
+made it says so ("Making the file and reading it back…").
+
+When the file is written the export closes and the file lands in the status
+line where Export… was, as "✓ `intake.html` 1.7 MB **Show in folder**" on the
+accent wash. What was read back ("Checked: STEP read back, 9 parts by name …")
+is in a popover above it, which shows once as the file lands and on the pointer
+after that; **Open in browser** is in it for a page. The status line keeps the
+file until the next build or a minute, and its × lets it go sooner (Export…
+is there again).
+
+What is ticked is what is in the file:
 
 | In the file | |
 |---|---|
@@ -2218,7 +2258,7 @@ A part costs about 10 bytes a triangle on top of 0.7 MB for the page itself:
 a project of one part and 12,000 triangles in two layouts is 1 MB. Over 12 MB
 the largest scan is reduced further, then left out, and the sheet says so;
 above 64 MB nothing is written. The file is written whole or not at all, and a
-name without `.html` gets it. Once it is saved, the sheet offers **Show in folder**
+name without `.html` gets it. Once it is saved, the status line offers **Show in folder**
 and, for a page, **Open in browser**: they act on the file just written, which
 torno itself remembers. A project left out because it has no build of this run
 is a link in the sheet: it opens the project, and when its build lands the sheet
@@ -2226,7 +2266,7 @@ comes back with it ticked beside the others.
 
 ### STEP, STL and 3MF
 
-The sheet's format buttons write a file of the model instead, of one project:
+The tiles **CAD** and **Slicer** write a file of the model instead, of one project:
 
 | Format | What is in it | Layout unless you pick another |
 |---|---|---|
@@ -2257,17 +2297,16 @@ checks it:
   shells, facing out, its box the part's, and its volume within what the
   tolerance can cut off the model's.
 
-A file that fails is not saved, and the sheet says why. One that passes is
-named, and the sheet says what was checked: `Checked: 3MF, 2 objects, 184,220
+A file that fails is not saved, and the export says why. One that passes is
+named, and the status line says what was checked: `Checked: 3MF, 2 objects, 184,220
 triangles, closed, volume within 0.04 % of the model`. Checked, not printed. A
 3MF can be opened once saved in the program your system opens 3MF files with,
 your slicer, when "Open it once saved" is ticked.
 
 ### A picture of the view, and a tracing
 
-The sheet is grouped by who will open the file: **a page to look at** (the HTML page), **the CAD file** (STEP, STL,
-3MF), and, when the sheet is of the project on show, **a picture** (PNG) and **a tracing** (SVG, PDF),
-which are of the view as it is on screen. Nothing is uploaded, and no agent has a tool for any of them: the save
+The tiles are by who will open the file: **A page** (the HTML page), **CAD** (STEP), **Slicer** (3MF, STL), and, when the
+export is of the project on show, **Picture** (PNG) and **Tracing** (SVG, PDF), which are of the view as it is on screen. Nothing is uploaded, and no agent has a tool for any of them: the save
 dialog opens in `.torno/exports/` with a name offered, and the file is written whole or not at all (a name without
 the ending gets it).
 
@@ -2288,7 +2327,7 @@ the ending gets it).
 - **PDF** is that drawing printed on a page of its own size in millimetres (`<name>-section-r<revision>.pdf`), by a
   window torno never shows.
 - **A tracing of the project** is drawn the same way, from its own plane, instead of the section on screen: choose
-  it in the list "Drawing of" (the section on screen, or `T1`, `T2` and so on), and the file is
+  it in the list "Drawing of", the first row of the Tracing tile (the section on screen, or `T1`, `T2` and so on), and the file is
   `<name>-T1-r<revision>.svg` or `.pdf`. It is drawn from the last good build, and a build that lands while it is
   made is refused. Its title block adds the tracing's ref, name and plane, and each part is named on its outline
   with a thin tab in the part's colour. "Layers" (ticked) draws the layers that are shown, each in its colour, with a
@@ -2905,9 +2944,9 @@ On the screen:
   status line and in the sheet; after a Python error it is not.
 - **A scan file dropped on the view.** Drag a GLB or STL from the file manager onto the parts: it is imported as "Import scan…" would.
 - **The folder dialog.** "Open folder" on the first screen, and "Open folder…" in the menu of the folder button at the top left: the system's folder dialog opens, and the folder chosen is opened.
-- **The save dialog of an export.** "Export…", then "Export": the system's save dialog opens in `.torno/exports/` with a name offered, and the file is written where you say.
-- **The save dialog of a picture.** "Export…", PNG, 4000 px, "Export": the system's save dialog opens in `.torno/exports/` with `<name>-r<revision>.png` offered, and the PNG opens in an image viewer at 4000 px on its long edge, with the view as it was on screen.
-- **A section drawing in other programs.** "Export…", SVG with a section on screen: the SVG opens in a browser, Inkscape and a CAD program, its 40 mm edge measures 40 mm there, and printed at 100 % a ruler agrees with the scale bar.
+- **The save dialog of an export.** "Export…", then "Export page": the system's save dialog opens in `.torno/exports/` with a name offered, and the file is written where you say.
+- **The save dialog of a picture.** "Export…", the Picture tile, 4000 px, "Export picture": the system's save dialog opens in `.torno/exports/` with `<name>-r<revision>.png` offered, and the PNG opens in an image viewer at 4000 px on its long edge, with the view as it was on screen.
+- **A section drawing in other programs.** "Export…", the Tracing tile (SVG) with a section on screen: the SVG opens in a browser, Inkscape and a CAD program, its 40 mm edge measures 40 mm there, and printed at 100 % a ruler agrees with the scale bar.
 - **The replace question.** Save an export as `x` where `x.html` exists: torno asks before it replaces that file, and "Cancel" writes nothing.
 - **A 3MF opened in a slicer.** Export a 3MF of a plate of two parts or more and open it in PrusaSlicer, Bambu Studio, OrcaSlicer and Cura: each part is an object of its name, in millimetres, where torno set it; it slices with no repair asked for. "Open it once saved" opens it in the slicer the system gives `.3mf` files to. Tests read the file back with lib3mf only.
 - **An STL in a slicer, a STEP in a CAD program.** Open an STL of a round part in a slicer: no facets you can see on its holes at 0.01 mm. Open a STEP in FreeCAD and in Fusion or Onshape: the parts are named bodies in their colours, in millimetres, and a volume measured there is the one torno told; a part named with an accent (`tampa ção`) keeps it there, as torno writes names in UTF-8. Tests read it back with OCC only.
@@ -2927,7 +2966,7 @@ On the screen:
 - **STEP and PDF cards, and a link.** A PDF or a STEP file of `reference/` is a card with its name and kind; a double click shows it in your file manager, and a click on a web address in a text card opens it in your default browser (a test only has a stand-in for the system's opener).
 - **The prompt preview of a new project.** The preview of the first prompt reads clearly and matches what is sent.
 - **The scans walk-through.** Import, align and check a scan by the steps the panel offers: each step is where the eye goes next, in both themes.
-- **The export sheet by reader.** Each reader (a person, a printer, a drawing), and the picture, SVG and PDF formats: the sheet is one screen and legible in both themes.
+- **The export in the dock.** Each of the five tiles (a person's page, CAD, slicer, picture, tracing): the dock is legible in both themes, the rule fills in once and ends at the 12 MB tick, and the file lands in the status line with its read-back above it.
 - **The sources line of Parameters.** A field's source word is shown after its comment, in the monospace face, and "no source" is quiet.
 - **The rail and its badges.** Press each of the eight icons of the index: the card scrolls to its section and opens it, each icon's tip reads at once on hover and on keyboard focus, Projects pressed on the page of projects is a dyed tile, and the drawn icons are of one weight and distinct at their size, in both themes. The badges (the parts switched off, the checks that fail, the scans not aligned, the marks to review) and the dot of a session that waits read at a glance on the rail, and the rail stays in its place in a narrow window.
 - **Compare in all four modes.** Compare a turn, a row and an older build with **Before**, **Overlay**, **After** and **Side by side**: the grey translucent earlier build over the later one, each build alone in its part colours, one camera for both halves, the two boxes over the corners, the bar and the status line (`comparing prompt 14 · h40 → h41`) legible in both themes and clear of the view bar. Tests drove them in the hidden window and never looked. Compare a turn while newer builds land: the older build is drawn in the live one's place and the view says so; check it reads as the live build, not as a second model. An older build is built again from its copy (tested against the real kernel on small models in a temporary folder): on a real project, how long the wait is, and that `Building h40 to compare…` is shown while it runs.

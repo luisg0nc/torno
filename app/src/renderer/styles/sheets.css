@@ -83,29 +83,25 @@
   margin-left: auto;
 }
 
-.export-layer {
-  /* Over the whole window, so that nothing behind takes a click while it is up; the sheet stands over the view, clear of the title row, the left column, the dock and the status line. */
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: start center;
-  padding: calc(var(--title-h) + var(--space-3)) calc(var(--dock-space) + var(--space-4)) calc(var(--status-h) + var(--space-4)) calc(var(--left-w) + var(--space-4));
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-}
+/* ---- Export in the dock: under the builds strip, in place of the conversation (spec 2026-11-18, "Export, on the bench") ---- */
 
-.export-sheet {
+.export-dock {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  width: min(560px, 100%);
-  max-height: 100%;
-  border: var(--divider);
-  border-radius: var(--radius-float);
+  min-height: 0;
   background: var(--panel);
-  box-shadow: var(--float-shadow);
+  animation: export-in 0.28s var(--ease) both;
 }
 
-.export-sheet:focus {
+@keyframes export-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+.export-dock:focus {
   outline: none;
 }
 
@@ -115,41 +111,250 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-3) 0 var(--space-4);
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
 }
 
 .export-head h2 {
+  min-width: 0;
+  overflow: hidden;
   font-size: 15px;
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-close kbd {
+  margin-left: 4px;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* The five tiles: a line drawing, a name, its formats. The chosen one on the accent wash, ringed. */
+.export-tiles {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 var(--space-4) var(--space-3);
+  border-bottom: var(--divider);
+}
+
+.export-tile {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  border: var(--divider);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.export-tile > button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 2px 7px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--muted);
+  text-align: center;
+}
+
+.export-tile b {
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.export-tile .num {
+  font-size: 9px;
+}
+
+.export-tile[data-on] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.export-tile[data-on] > button,
+.export-tile[data-on] b {
+  color: var(--accent);
+}
+
+/* A picture and a tracing are of the project on show: dimmed (the drawing, not the words), still reached by the keys, with the reason in the title. */
+.export-tile > button[aria-disabled] svg {
+  opacity: 0.4;
+}
+
+.export-tile[data-dim] > button {
+  cursor: default;
+}
+
+/* The format inside a tile that writes two: a segment where the formats were. */
+.export-mini {
+  margin: 0 4px 5px;
+  padding: 1px;
+}
+
+.export-mini button {
+  height: 17px;
+  padding: 0;
+  font-size: 9px;
 }
 
 .export-body {
+  flex: 1;
   min-height: 0;
-  padding: var(--space-2) var(--space-4) var(--space-3);
+  padding: 0 var(--space-4) var(--space-3);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--scroll-thumb) transparent;
 }
 
 .export-body .section-title {
-  margin: var(--space-4) 0 var(--space-1);
+  margin: var(--space-3) 0 2px;
   padding: 0;
 }
 
-.export-lead {
-  max-width: 62ch;
+.export-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A line that can go: its switch (28 x 16), its name, and at the right what it weighs; what it says of itself under. */
+.export-line {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  align-items: center;
+  padding: 5px 0;
+}
+
+.export-line[data-fixed] > .export-name {
+  grid-column: 2;
+}
+
+.export-line input[type='checkbox'] {
+  appearance: none;
+  position: relative;
+  grid-row: 1;
+  width: 28px;
+  height: 16px;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--hairline);
+  cursor: pointer;
+}
+
+.export-line input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--raise);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  transition: left 0.2s var(--ease);
+}
+
+.export-line input[type='checkbox']:checked {
+  background: var(--accent);
+}
+
+.export-line input[type='checkbox']:checked::after {
+  left: 14px;
+}
+
+.export-line input[type='checkbox']:disabled {
+  cursor: default;
+}
+
+.export-line input[type='checkbox']:focus-visible,
+.export-line input[type='radio']:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.export-line input[type='radio'] {
+  grid-row: 1;
+  justify-self: center;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.export-name {
+  grid-column: 2;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-what {
+  grid-column: 2 / -1;
   color: var(--muted);
+  font-size: var(--text-small);
 }
 
-.export-formats,
-.export-layouts {
-  width: fit-content;
-  margin-bottom: var(--space-2);
+.export-weight {
+  grid-row: 1;
+  grid-column: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 10.5px;
 }
 
-.export-formats button,
-.export-layouts button {
-  padding: 0 var(--space-2);
+.export-weight i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.export-weight[data-off] {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.export-weight[data-left] {
+  color: var(--warn);
+}
+
+.export-cannot {
+  max-width: 62ch;
+  margin-top: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.export-cannot .link-button {
+  font-family: var(--font-mono);
+}
+
+.export-warning {
+  max-width: 62ch;
+  margin-bottom: var(--space-1);
+  color: var(--warn);
+  font-size: var(--text-small);
+}
+
+.export-then,
+.export-checked {
+  max-width: 62ch;
+}
+
+.export-then {
+  margin-top: var(--space-3);
 }
 
 /* The tolerance and the angle of a mesh, side by side. */
@@ -181,100 +386,169 @@
   border-color: var(--warn);
 }
 
+.export-layouts,
+.export-sizes {
+  width: fit-content;
+  margin-bottom: var(--space-2);
+}
+
+.export-layouts button,
+.export-sizes button {
+  padding: 0 var(--space-2);
+}
+
 .export-open {
   margin-top: var(--space-3);
 }
 
-.export-checked {
-  max-width: 62ch;
+/* What it weighs: the total in 30 px mono, "of 12 MB", and a rule from 0 to the budget filled with the lines that go. */
+.export-weigh {
+  flex: none;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-top: var(--divider);
 }
 
-.export-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.export-size {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.export-row {
-  display: grid;
-  grid-template-columns: 14px minmax(0, 1fr);
-  column-gap: var(--space-2);
-  align-items: center;
-  padding: 3px 0;
+.export-big {
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-.export-row input {
-  grid-row: 1;
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.export-cannot {
-  max-width: 62ch;
-  margin-top: var(--space-2);
+.export-of {
+  min-width: 0;
   color: var(--muted);
   font-size: var(--text-small);
 }
 
-.export-name {
+.export-rule {
+  margin-top: var(--space-3);
+  padding-right: calc(var(--over, 0) * 100%);
+}
+
+.export-track {
+  position: relative;
+  height: 26px;
+}
+
+.export-track::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.export-fill {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  display: flex;
+  width: 100%;
+  height: 5px;
   overflow: hidden;
-  font-weight: 500;
-  text-overflow: ellipsis;
+  border-radius: var(--radius-full);
+  /* Fills in once, when the rule first stands. */
+  animation: export-fill 0.7s var(--ease) both;
+}
+
+.export-fill i {
+  flex: none;
+  height: 100%;
+}
+
+@keyframes export-fill {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+.export-over {
+  position: absolute;
+  top: 6px;
+  left: 100%;
+  width: calc(var(--over, 0) / (1 - var(--over, 0)) * 100%);
+  height: 5px;
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  background: var(--fail);
+}
+
+/* Ticks at 0, half and the whole budget, the numbers under them. */
+.export-tick {
+  position: absolute;
+  top: 16px;
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 400;
+  transform: translateX(-50%);
   white-space: nowrap;
 }
 
-.export-what {
-  grid-column: 2;
-  color: var(--muted);
+.export-tick::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  width: 1px;
+  height: 9px;
+  background: var(--hairline);
+}
+
+.export-tick[data-at='0'] {
+  transform: none;
+}
+
+.export-tick[data-at='0']::before {
+  left: 0;
+}
+
+.export-tick[data-at='2'] {
+  transform: translateX(-100%);
+}
+
+.export-tick[data-at='2']::before {
+  left: 100%;
+}
+
+.export-refusal,
+.export-note {
+  margin: var(--space-1) 0 0;
   font-size: var(--text-small);
 }
 
-.export-warning,
-.export-never {
-  max-width: 62ch;
-  font-size: var(--text-small);
+.export-refusal[data-tone='fail'],
+.export-note[data-tone='fail'] {
+  color: var(--fail);
 }
 
-.export-warning {
-  margin-bottom: var(--space-1);
+.export-note[data-tone='warn'] {
   color: var(--warn);
-}
-
-.export-never {
-  margin-top: var(--space-4);
-  color: var(--muted);
 }
 
 .export-foot {
   display: flex;
   flex: none;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-top: var(--divider);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) var(--space-3);
 }
 
-.export-size {
+.export-never {
   min-width: 0;
+  margin: 0;
+  color: var(--muted);
   font-size: var(--text-small);
-}
-
-.export-size [data-tone='warn'] {
-  color: var(--warn);
-}
-
-.export-size [data-tone='fail'] {
-  color: var(--fail);
-}
-
-.export-path {
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
-  user-select: text;
-  cursor: text;
 }
 
 .export-actions {
@@ -282,6 +556,83 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* The conversation folded: 40 px at the dock's foot. An ask turns it to the warning wash. */
+.export-fold {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  border-top: var(--divider);
+  background: var(--surface);
+  font-size: var(--text-small);
+}
+
+.export-fold b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.export-fold .status-dot {
+  background: var(--ok);
+}
+
+.export-fold[data-asks] {
+  background: var(--warn-wash);
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.export-fold[data-asks] .status-dot {
+  background: var(--warn);
+}
+
+.export-fold [data-primary] {
+  color: var(--accent);
+}
+
+/* The view is the preview: a 2 px accent frame, inset 8, round it. */
+.viewport-pane[data-exporting]::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  z-index: 6;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* A part switched off stays out of the page: a dashed tag at its place. */
+.left-out {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px dashed var(--muted);
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.left-out-more {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 6;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .export-dock,
+  .export-fill {
+    animation: none;
+  }
+
+  .export-line input[type='checkbox']::after {
+    transition: none;
+  }
 }
 
 /* ---- The window's own questions: closing torno, leaving the folder (ui/WorkspaceQuestion.tsx) ---- */
@@ -343,37 +694,3 @@
   text-align: left;
 }
 
-/* The two quiet things to do with the file just saved, and the names left out of a file, which open themselves. */
-.export-after {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-left: var(--space-1);
-}
-
-.export-cannot .link-button {
-  font-family: var(--font-mono);
-}
-
-/* The formats, grouped by who will open the file: a small name above each group. */
-.export-readers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-2);
-}
-
-.export-reader {
-  display: grid;
-  gap: 2px;
-}
-
-.export-reader .export-formats,
-.export-sizes {
-  margin-bottom: 0;
-}
-
-.export-reader-name {
-  color: var(--muted);
-  font-size: var(--text-small);
-}

@@ -18,7 +18,6 @@ import { InHand } from './ui/card/InHand'
 import { RouteCard } from './ui/card/RouteCard'
 import { Rail } from './ui/Rail'
 import { SessionPane } from './ui/SessionPane'
-import { ExportSheet } from './ui/ExportSheet'
 import { ViewBoard } from './ui/drawing/ViewBoard'
 import { BareControls, TitleBar } from './ui/TitleBar'
 import { ShowPage, usePageKey } from './ui/ShowPage'
@@ -528,8 +527,6 @@ export function App() {
         <FacePickBar />
         {page === 'objects' && <ShowPage onOpen={(id) => void openObject(id)} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}
         {page === 'new' && <NewObject onOpen={openObject} />}
-        {/* Over either: what goes into an export, asked before anything is written. */}
-        <ExportSheet onOpen={openThenExport} />
         {/* Over the view: a drawing on it for the chat, while its board is open. */}
         <ViewBoard />
       </main>
@@ -549,7 +546,7 @@ export function App() {
           onPointerCancel={onEdgeUp}
           onKeyDown={onEdgeKey}
         />
-        <SessionPane onReveal={revealDock} />
+        <SessionPane onReveal={revealDock} onExport={openThenExport} />
       </aside>
 
       {/* Over everything but the keys: the window's own questions, closing torno and leaving the folder. */}

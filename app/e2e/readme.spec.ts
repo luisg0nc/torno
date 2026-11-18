@@ -266,8 +266,8 @@ test('README picture: export, the page in a browser', async () => {
     const sheet = page.getByRole('dialog', { name: 'Export' })
     await expect(sheet).toContainText('intake')
     await sheet.getByRole('checkbox', { name: /Include marks and their notes/ }).check()
-    await sheet.getByRole('button', { name: 'Export', exact: true }).click()
-    await expect(page.getByText(`Saved to ${file}`)).toBeVisible({ timeout: 240_000 })
+    await sheet.getByRole('button', { name: 'Export page', exact: true }).click()
+    await expect(page.locator('[data-part="saved-file"]')).toContainText('intake.html', { timeout: 240_000 })
   } finally {
     await app.close()
   }

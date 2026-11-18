@@ -4,6 +4,9 @@ paths:
   - "app/src/renderer/viewport/picture.test.ts"
   - "app/src/main/export/**"
   - "app/src/renderer/ui/ExportSheet.tsx"
+  - "app/src/renderer/ui/export/**"
+  - "app/src/renderer/ui/SavedFile.tsx"
+  - "app/src/renderer/state/exportSaved.ts"
   - "app/src/shared/exportdata.ts"
   - "app/src/shared/exportdata.test.ts"
   - "app/src/main/images.ts"
@@ -16,13 +19,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Global Constraints (root `CLAUDE.md`)
 
-- Images for the agent: long edge at most 2000 px, default 1280. A picture of the view the person saves for themselves (the "A picture" reader of the export sheet, `export:savePicture`) is not for the agent and is not held to that: its long edge is at most 4000 px (`MAX_PICTURE_EDGE`), asked only by the window itself (`ImageRequest.person`, never a field of an agent's `look`), and kept nowhere but at the path the person chose.
+- Images for the agent: long edge at most 2000 px, default 1280. A picture of the view the person saves for themselves (the "Picture" tile of the export dock, `export:savePicture`) is not for the agent and is not held to that: its long edge is at most 4000 px (`MAX_PICTURE_EDGE`), asked only by the window itself (`ImageRequest.person`, never a field of an agent's `look`), and kept nowhere but at the path the person chose.
 
 ## Export (`app/src/main`)
 
 - Main is not held while a file is made: deflating is zlib's own, on its threads (`squeeze`), and a scan is
   reduced in turns of the event loop (`clusterScanInTurns`). A reduced scan is kept by folder, scan,
-  `meshIdentity` and size until the sheet is put away (`export:done`, `forgetExportScans`); packed parts by
+  `meshIdentity` and size until the export is put away, or, once a file was written, until the status line lets go of that file (`export:done`, `forgetExportScans`); packed parts by
   their build's blob.
 - Saving (`export:save` in `ipc.ts`): the file is made first, then the save dialog is asked (under test
   `__tornoMain.pickSave`, with `savePicks` and `saveOffered`), opening in `<object>/.torno/exports/`
@@ -55,7 +58,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   file is gone. Under test they go through the `revealFile` and `openFile` hooks (`revealedFiles`,
   `openedFiles`) and nothing is shown or opened.
 
-- **A picture of the view** (`export:savePicture`; `FileFormat` `png` in `shared/exportdata.ts`; the export sheet's reader "A picture"): the window draws it
+- **A picture of the view** (`export:savePicture`; `FileFormat` `png` in `shared/exportdata.ts`; the export dock's tile "Picture"): the window draws it
   (`pictureForPerson`, the renderer of `look` with `ImageRequest.person`: up to 4000 px, `MAX_PICTURE_EDGE`, and
   without the axes and scale bar when asked) and sends the PNG's bytes and the object's id; main reads the header
   (`checkedPicture`: a PNG, at most 4000 px and 64 MB, else refused), asks where to save (`askWhere`, the same dialog and
@@ -90,24 +93,40 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## Export (`app/src/renderer`)
 
 - "Export…" is a button in the status line for the open object, in the head of the page of objects for every
-  object that can be exported, and on each card that has a build of this run, for that object. The sheet is
-  modal (`aria-modal`, Tab stays in it, nothing behind it takes a click). `Ctrl+Shift+E` (the row `export` of
-  `shared/keys.ts`, heard everywhere, the terminal included) brings it up: for the open object, or from the page
-  of objects for any. There is no agent tool for it.
-- Its format buttons (`HTML page`, `STEP`, `STL`, `3MF`) choose what is written; the HTML page is the default
-  and its sheet is as it was. A file of the model is of one object (the objects are then radio buttons), one
-  layout (`defaultLayout`: `assembly` for STEP, `print` for a mesh) and the parts ticked (one, by radio, for an
-  STL; a part with no solid cannot be ticked for a mesh), each from the plan's `layoutParts`; a mesh has a
-  tolerance and an angle typed in, and Export is off while either is out of its range. A 3MF has "Open it once
-  saved", off by default. The window sends names and numbers and never a path; once saved, the sheet says where,
-  of which build, and what the read-back checked (`ExportSaved.checked`), every number in the monospace face.
-- **The sheet is grouped by who will open the file** (`READERS` in `ui/ExportSheet.tsx`, inside the group "Format"): "A page to
-  look at" (HTML page), "The CAD file" (STEP, STL, 3MF), and, only where the sheet is of the open project's view
-  (`ofView`: an object on show, not the page of projects), "A picture" (PNG) and "A tracing" (SVG, PDF).
-  A picture or a drawing is of the open project as it is on screen: the sheet then shows no list of projects, `ViewChoices`
-  in its place (a picture's long edge, `PICTURE_SIZES` 1280 to 4000, "Marks", "Axes and scale bar"; a drawing needs a section on
-  screen and says so, with Export off, when there is none). The window draws the picture itself (`pictureForPerson` in
+  object that can be exported, and on each card that has a build of this run, for that object. The export is
+  **docked in the session dock, under the builds strip, in place of the conversation** (`ui/ExportSheet.tsx`,
+  rendered by `SessionPane` while `exportOf` is set; the conversation's body stays mounted, hidden, so a draft and a terminal
+  are as they were). It is no modal: the view is its preview (a 2 px accent frame, the export's `Band`, `useBand` reading
+  `exportOf`; `LeftOutTags` puts a dashed `Tag` at each switched-off part that stays out of a page, from `state/exportPreview.ts`).
+  The conversation folds to a 40 px band at the dock's foot (`ui/export/ExportFold.tsx`): "Claude Code idle, 1 mark to review" and
+  **Back to the chat**, `--warn-wash` with "needs you" and **Answer** when the session asks; both put the export away, and the dock
+  shows the ask. Picking another node of the strip exports no other build (ruling 7). `Esc` and Close put it away unless a file is
+  being made. `Ctrl+Shift+E` (the row `export` of `shared/keys.ts`, heard everywhere, the terminal included) brings it up: for the open
+  object, or from the page of objects for any. There is no agent tool for it.
+- Its five tiles (`tilesOf` in `ui/export/exportWords.ts`: **A page** HTML, **CAD** STEP, **Slicer** 3MF STL with a segment inside, **Picture** PNG,
+  **Tracing** SVG PDF) choose what is written; the page is the default. Picture and Tracing are of the open project's view
+  (`ofView`) and are dimmed, still focusable, with the reason in their title, when it is not. A file of the model is of one object (the
+  objects are then radio buttons), one layout (`defaultLayout`: `assembly` for STEP, `print` for a mesh) and the parts ticked (one, by radio, for
+  an STL; a part with no solid cannot be ticked for a mesh), each from the plan's `layoutParts`; a mesh has a tolerance and an angle typed
+  in, and the action is off while either is out of its range. A 3MF has "Open it once saved", off by default. The window sends names and
+  numbers and never a path.
+- **What each line weighs.** A page's lines (the page, each project, marks, resolved marks, switched-off parts, each scan) show their
+  weight from `ExportPlan.items` at the right, in mono, with a square in the colour of their share; a line that is off has its weight struck
+  through and muted, a scan on with 0 bytes says "left out for size". The total, "of 12 MB" and the rule come from `weighRule(items,
+  budget)` (`ui/export/weighRule.ts`, pure): the segments are the lines that are on and weigh something, in order, as shares of the
+  budget, never more than the budget together; what passes the budget is the overflow's own share (`over`, drawn in `--fail` past the last
+  tick), and the ticks are 0, half and the budget. Because the lines that are on add up to `ExportPlan.bytes` exactly, the rule never claims
+  more than the total. A refused plan (`refusal`: nothing chosen, or over `EXPORT_MOST`) shows its words and no rule, and the action is off.
+  A file of the model, a picture and a tracing have no rule.
+- **Saved.** A file that was written closes the export: `keepFile` (`state/exportSaved.ts`) holds it for the status line, where the chip
+  (`ui/SavedFile.tsx`) stands in the place of Export… as "✓ name size Show in folder" on the accent wash, with what the read-back
+  checked (`ExportSaved.checked`, `ui/export/Checked.tsx`) and, for a page, **Open in browser** in a popover above it: shown once as the file lands (7 s),
+  on the pointer or the focus after. It is let go (`letGo`, which sends `export:done`) by the next build, 60 s, a new export or its ×;
+  main keeps `savedHere` until then, so the export's own unmount sends `export:done` only when nothing was written.
+- **The picture and the tracing** are of the open project as it is on screen: the dock shows no list of projects, `ViewChoices`
+  in its place (a picture's long edge, `PICTURE_SIZES` 1280 to 4000, "Marks", "Axes and scale bar"; a tracing starts with its "Drawing of" list and needs
+  a section on screen or a tracing, and says so, with the action off, when there is none). The window draws the picture itself (`pictureForPerson` in
   `state/agent.ts`, the code of `look` with `ImageRequest.person`) and hands main its bytes with the object's id
   (`export.savePicture`); the drawing is made in main (`export.saveSection(id, 'svg' | 'pdf')`, no bytes from the window).
   Main asks where to save, so the window names no path. `person` is set only there: a request of the agent's, which comes
-  over `view:look`, is held to 2000 px (`connectLook`). Its saved line offers "Show in folder", never "Open in browser".
+  over `view:look`, is held to 2000 px (`connectLook`). Its chip offers "Show in folder", never "Open in browser".

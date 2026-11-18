@@ -5,6 +5,7 @@ import { activePlane, useSketching } from '../../state/sketching'
 import { isLive } from '../../state/compare'
 import { useStore } from '../../state/store'
 import { useTracings } from '../../state/tracings'
+import { usePreview } from '../../state/exportPreview'
 import { useHistory } from '../useHistory'
 import { BAND_TONE, bandOf, failedWords, sketchWords, type BandKind } from './bandKind'
 
@@ -30,7 +31,7 @@ export function BandButton({ primary = false, ...rest }: ComponentProps<'button'
 
 /**
  * Which band the view wears now, or none. The modes of the model's view count while the model is shown, the line-up while a
- * tracing is; the board and the pages over the view have none. Export is not in the dock yet: nothing opens it (the sheet is a sheet).
+ * tracing is; the board and the pages over the view have none. An export open in the dock puts its band over either view.
  */
 export function useBand(): BandKind | null {
   const shown = useBoard((s) => s.shown)
@@ -39,12 +40,13 @@ export function useBand(): BandKind | null {
   const failedOnShow = useStore((s) => s.build?.status === 'failed' && s.scene !== null)
   const roundOpen = useReview((s) => openRoundNow(s) !== undefined)
   const sketching = useSketching((s) => s.open !== null)
+  const exportOpen = useStore((s) => s.exportOf !== null)
   const facePick = useTracings((s) => s.facing)
   const lining = useTracings((s) => s.lining !== null)
   if (!onPage) return null
-  if (shown === 'tracing') return bandOf({ exportOpen: false, roundOpen: false, lineup: lining, facePick: false, comparing: false, sketching: false, failedOnShow: false })
+  if (shown === 'tracing') return bandOf({ exportOpen, roundOpen: false, lineup: lining, facePick: false, comparing: false, sketching: false, failedOnShow: false })
   if (shown !== 'model') return null
-  return bandOf({ exportOpen: false, roundOpen, lineup: false, facePick, comparing, sketching, failedOnShow })
+  return bandOf({ exportOpen, roundOpen, lineup: false, facePick, comparing, sketching, failedOnShow })
 }
 
 /** The id of the kept build that is on show (`h40`), or null when none of the kept ones is. */
@@ -84,6 +86,22 @@ export function SketchBand() {
     <Band kind="sketch" label="Sketch" part="sketch-band" controls={false}>
       <span>
         {words.lead} {words.ref !== null ? <span className="num">{words.ref}</span> : 'a new sketch'} on {plane === null ? words.on : <span className="num">{words.on}</span>}
+      </span>
+    </Band>
+  )
+}
+
+/** An export open in the dock: what it makes, of which project and build. The view is its preview, in an accent frame (`ViewportPane`). */
+export function ExportBand() {
+  const here = useBand() === 'export'
+  const what = usePreview((s) => s.preview?.what)
+  const name = useStore((s) => s.workspace?.objects.find((o) => o.id === s.objectId)?.name ?? s.objectId)
+  const revision = useStore((s) => s.revision)
+  if (!here || what === undefined) return null
+  return (
+    <Band kind="export" label="Export" part="export-band" controls={false}>
+      <span>
+        Exporting {what} of {name !== null && <span className="num">{name}</span>} {revision > 0 && <span className="num">r{revision}</span>}
       </span>
     </Band>
   )

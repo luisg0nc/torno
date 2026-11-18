@@ -22,6 +22,8 @@ import { useElapsed } from './useElapsed'
 import { ticksOf } from './strip/strip'
 import { useFailedAnchor } from './strip/failedAnchor'
 import { useStripNodes } from './strip/useStripNodes'
+import { SavedFile, letGoOnBuild } from './SavedFile'
+import { useKept } from '../state/exportSaved'
 
 /** `2 dimensions fail`, `1 dimension not measured`. */
 export function dimensionCount(count: number, what: 'fail' | 'not measured'): string {
@@ -122,6 +124,11 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
   // The error of the failed build stands from its node in the strip, or from this line when the strip is not drawn.
   const failedAfter = strip.nodes.findLast((n) => n.kind === 'failed')?.after
   const failedNode = useFailedAnchor()
+  // The file an export wrote stands where Export… is until the next build begins, or a minute (`state/exportSaved.ts`).
+  const kept = useKept((st) => st.file !== null)
+  useEffect(() => {
+    if (building) letGoOnBuild()
+  }, [building])
   const compare = useStore((st) => st.compare)
   // Why Ctrl+G did nothing, for a moment.
   const setSaid = useSets((s) => s.said)
@@ -253,10 +260,16 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
         )}
       </span>
       {/* The open object, as one HTML file or a file of the model. With the page of objects up, the page has the button for them all. */}
-      {objectId !== null && !paged && !creating && (
-        <button type="button" className="status-export" title="Export this project: one HTML file that opens by itself, or a STEP, STL or 3MF file" onClick={() => actions.exportSheet([objectId])}>
-          Export…
-        </button>
+      {kept ? (
+        <SavedFile />
+      ) : (
+        objectId !== null &&
+        !paged &&
+        !creating && (
+          <button type="button" className="status-export" title="Export this project: one HTML file that opens by itself, or a STEP, STL or 3MF file" onClick={() => actions.exportSheet([objectId])}>
+            Export…
+          </button>
+        )
       )}
       {build123d && <span className="num">build123d {build123d}</span>}
       {errorOpen && error && name !== null && (

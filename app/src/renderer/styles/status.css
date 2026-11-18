@@ -182,3 +182,74 @@
   color: var(--ink);
   font-weight: 500;
 }
+
+/* The file an export wrote, where Export… was: on the accent wash, with the read-back in a popover above it (ui/SavedFile.tsx). */
+.status-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 4px 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+.status-saved-tick {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.status-saved-size {
+  color: var(--muted);
+}
+
+.status-saved-away {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-inline);
+  background: transparent;
+  color: var(--muted);
+}
+
+.status-saved-away:hover {
+  color: var(--ink);
+}
+
+.saved-pop {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--text-small);
+  white-space: normal;
+}
+
+.saved-pop h4,
+.saved-pop p {
+  margin: 0;
+}
+
+.saved-pop h4 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.saved-pop-where {
+  color: var(--muted);
+}
+
+.saved-pop [data-tone='warn'] {
+  color: var(--warn);
+}
+
+.saved-pop [data-tone='fail'] {
+  color: var(--fail);
+}
+
+.saved-pop .button {
+  justify-self: start;
+}

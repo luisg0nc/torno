@@ -1198,3 +1198,30 @@ test('a request of the agent\'s takes the foot too: the transcript holds a line,
   await expect(chat().locator('.chat-transcript .chat-ask')).toHaveAttribute('data-state', 'allowed')
   await finished()
 })
+
+test('an ask that arrives while the export is open turns the dock\'s foot band to "needs you", and Answer brings the ask back', async () => {
+  await newSession()
+  // A tool that takes two seconds, then an ask: the export is brought up in between.
+  await composer().focus()
+  await page.keyboard.type('work 2')
+  await page.keyboard.press('Shift+Enter')
+  await page.keyboard.type('ask Bash {"command":"ls"}')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Control+Shift+E')
+  const exporting = dock().locator('.export-dock')
+  await expect(exporting).toBeVisible()
+  // The conversation is folded to a band at the foot, and the builds strip stays above the export.
+  const fold = dock().locator('.export-fold')
+  await expect(fold).toContainText('Claude Code')
+  await expect(fold).toContainText('working')
+  await expect(dock().locator('.strip')).toBeVisible()
+  await expect(fold).toContainText('needs you', { timeout: 30_000 })
+  await expect(fold).toHaveAttribute('data-asks', '')
+  // Answer puts the export away: the dock shows the ask.
+  await fold.getByRole('button', { name: 'Answer' }).click()
+  await expect(exporting).toHaveCount(0)
+  const foot = dock().locator('.ask-takeover.chat-ask')
+  await expect(foot).toHaveAttribute('data-state', 'open')
+  await foot.getByRole('button', { name: 'Allow', exact: true }).click()
+  await finished()
+})

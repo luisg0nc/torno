@@ -63,7 +63,8 @@ import { SketchPlaneTag } from './sketch/SketchPanel'
 import { RoundNotes } from './review/RoundNotes'
 import { CompareBar } from './CompareBar'
 import { ReviewBar } from './ReviewBar'
-import { FailedBand, SketchBand, useBand } from './view/Band'
+import { ExportBand, FailedBand, SketchBand, useBand } from './view/Band'
+import { LeftOutTags } from './view/LeftOut'
 import { outsideRound } from '../../shared/reviews'
 import { openRoundNow, useReview } from '../state/review'
 
@@ -769,7 +770,8 @@ export function ViewportPane() {
     if (viewport) viewport.paused = boardShown
   }, [viewport, boardShown])
   // While the review band is on, the marks that are not in its round are drawn dimmed: their chips mixed toward the ground.
-  const reviewing = useBand() === 'review'
+  const band = useBand()
+  const reviewing = band === 'review'
   const roundId = useReview((s) => openRoundNow(s)?.id ?? null)
   const allMarks = useStore((s) => s.marks)
   useEffect(() => {
@@ -815,7 +817,7 @@ export function ViewportPane() {
   const hasDetails = Boolean(error?.traceback?.trim() || error?.output?.trim())
 
   return (
-    <div className="viewport-pane" inert={covered || boardShown} hidden={boardShown}>
+    <div className="viewport-pane" inert={covered || boardShown} hidden={boardShown} data-exporting={band === 'export' ? '' : undefined}>
       {/* Always laid out, so the camera is fitted to its real shape; what is said below covers it. */}
       <div className="viewport-canvas" ref={host} />
       {viewport && hasScene && (
@@ -827,6 +829,8 @@ export function ViewportPane() {
           <RoundNotes />
           <SketchBand />
           <FailedBand />
+          <ExportBand />
+          <LeftOutTags />
           <ToolPalette />
           <SectionTag viewport={viewport} />
           <SketchPlaneTag viewport={viewport} />

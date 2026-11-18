@@ -23,6 +23,8 @@ import { SessionMore } from './SessionMore'
 import { clock } from './sessionClock'
 import { Confirm } from './Confirm'
 import { QuestionCard } from './QuestionCard'
+import { ExportSheet } from './ExportSheet'
+import { ExportFold } from './export/ExportFold'
 import { numbered } from './numbered'
 import { edgeGround } from './termGround'
 
@@ -251,7 +253,7 @@ function reason(e: unknown): string {
  * its status in the header. `onReveal` opens the dock when the keyboard asks
  * for the session while it is hidden.
  */
-export function SessionPane({ onReveal }: { onReveal: () => void }) {
+export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onExport: (id: string, ticked: string[]) => void }) {
   const root = useStore((s) => s.workspace?.root)
   const objectId = useStore((s) => s.objectId)
   const objectDir = useStore((s) => s.workspace?.objects.find((o) => o.id === s.objectId)?.dir)
@@ -259,6 +261,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   const session = useStore((s) => (s.objectId ? s.sessions[s.objectId] : undefined))
   /** The first prompt of a new object that was not sent, and why. */
   const held = useOnboard((s) => (objectId ? s.held[objectId] : undefined))
+  /** Export is open: it takes the dock under the builds strip, and the conversation folds to a band at the foot. */
+  const exporting = useStore((s) => s.exportOf !== null)
   const marks = useStore((s) => s.marks)
   const revision = useStore((s) => s.revision)
   const [resumable, setResumable] = useState(false)
@@ -818,16 +822,18 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       {!drafting && <BuildsStrip onPick={(node, anchor) => setPicked(node.kind === 'running' ? null : { node, anchor })} onCompared={() => setPicked(null)} />}
       {picked && !drafting && <NodePopover key={picked.node.id} node={picked.node} anchor={picked.anchor} onClose={() => setPicked(null)} />}
 
-      {next !== null && !drafting && (
+      {exporting && <ExportSheet onOpen={onExport} />}
+
+      {next !== null && !drafting && !exporting && (
         <p className="session-next" role="status">
           {numbered(next)}
         </p>
       )}
       {/* Where the chat's box is not (no session, a terminal) the note stands under the strip; with the chat it is the warn line above the box. */}
-      {!inChat && note}
+      {!inChat && !exporting && note}
 
       {/* The first prompt of a new object that was not sent: the reason, above the pane that holds it. */}
-      {held !== undefined && objectId && !creating && (
+      {held !== undefined && objectId && !creating && !exporting && (
         <div className="session-held" role="status">
           <p>
             {heldSaid(held)}
@@ -838,13 +844,13 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         </div>
       )}
 
-      {creating && live && (
+      {creating && live && !exporting && (
         <p className="session-aside" role="note">
           This is the session of {objectName}. It goes on; the new project gets its own when you create it.
         </p>
       )}
 
-      <div className="session-body">
+      <div className="session-body" hidden={exporting}>
         {asking && session && (
           <Confirm
             anchor={moreButton}
@@ -926,6 +932,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         {/* torno's own ask, where the chat is not in sight (a terminal, no session): over the foot of the dock. */}
         {!inChat && <QuestionCard where="dock" />}
       </div>
+      {exporting && <ExportFold />}
     </>
   )
 }

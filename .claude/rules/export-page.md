@@ -52,7 +52,8 @@ The page an export writes: its style (`page.css`) and its viewer (`viewer/`), wh
   project chosen its marks, resolved marks, switched-off parts and scans, each `on` or not (a line not ticked says what it
   would add). A line is measured as the page with it less the page without; the page takes the rest, so the `bytes` of the
   lines that are `on` add up to `ExportPlan.bytes` exactly. A plan refused above `EXPORT_MOST` still lists its lines
-  (the sheet shows no rule for it); a file of the model has none.
+  (the dock shows no rule for it, only the refusal); a file of the model has none. The dock draws the lines with their weights and
+  the rule from `weighRule` (`ui/export/weighRule.ts`): see the rule `export-saving`.
 - The budget (`EXPORT_BUDGET`, 12 MB): over it the largest scan goes to 30,000, then 15,000 triangles, then out
   (`SCAN_TRIANGLES`), the last of each scan said in `dropped`: in the sheet before saving, and in the page under
   "About this file". Parts are never reduced; with the parts alone over it the sheet says so and writes all the same; above

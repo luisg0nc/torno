@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir, userInfo } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { TornoExport } from '../src/export/viewer/main'
@@ -84,6 +84,26 @@ type MainHooks = { pickSave: string | null; savePicks: number; saveOffered: stri
 const setSave = (path: string | null, a: ElectronApplication = app): Promise<void> => a.evaluate((_e, to) => void ((globalThis as unknown as { __tornoMain: MainHooks }).__tornoMain.pickSave = to), path)
 const hooks = (a: ElectronApplication = app): Promise<MainHooks> => a.evaluate(() => ({ ...(globalThis as unknown as { __tornoMain: MainHooks }).__tornoMain }) as MainHooks).then(({ pickSave, savePicks, saveOffered, replace, replaceAsked }) => ({ pickSave, savePicks, saveOffered, replace, replaceAsked }))
 const sheet = (p: Page = page) => p.getByRole('dialog', { name: 'Export' })
+/** The action of the foot: `Export page`, `Export STEP`, `Export picture`, and so on. */
+const go = (p: Page = page) => sheet(p).getByRole('button', { name: /^Export (page|STEP|STL|3MF|picture|SVG|PDF)$/ })
+/** The file just written, in the status line where Export… was; its read-back stands in a popover over it. */
+const chip = (p: Page = page) => p.locator('[data-part="saved-file"]')
+/** A tile of the dock by its name: A page, CAD, Slicer, Picture, Tracing. */
+const tile = (name: string, p: Page = page) => sheet(p).getByRole('group', { name: 'Format' }).getByRole('button', { name, exact: true })
+
+/** Brings the export up: from the status line's Export…, which a file kept there stands in for until it is let go. */
+async function openSheet(p: Page = page): Promise<void> {
+  const away = chip(p).getByRole('button', { name: 'Dismiss' })
+  if ((await away.count()) > 0) await away.click()
+  await p.getByRole('button', { name: 'Export…' }).click()
+  await expect(sheet(p)).toBeVisible()
+}
+
+/** A file was written: the export is put away and the status line has it by its name. */
+async function expectSaved(path: string, opts?: { timeout?: number }, p: Page = page): Promise<void> {
+  await expect(chip(p)).toContainText(basename(path), opts)
+  await expect(sheet(p)).toHaveCount(0)
+}
 
 async function open(id: string, p: Page = page): Promise<void> {
   if ((await state(p)).page === 'objects') await p.locator(`.card[data-object="${id}"]`).click()
@@ -141,37 +161,49 @@ test('an object is exported to the path that was chosen, and the file opens by i
   await expect.poll(async () => ((await page.evaluate(() => window.torno.marks.list('hollow'))) as Mark[]).find((m) => m.id === 'M2')).toMatchObject({ value: 40, measuredRevision: 1, verdict: 'pass' })
   const out = join(outDir, 'hollow.html')
   await setSave(out)
-  await page.getByRole('button', { name: 'Export…' }).click()
-  await expect(sheet()).toContainText('about')
+  await openSheet()
+  // What it would weigh is said before anything is written, in bytes: the total, and each line's own.
+  await expect(sheet().locator('.export-size[data-bytes]')).toBeVisible()
   // What would go is said before anything is written: the object, its one view (the proposal is not the person's), and its marks, which are not ticked.
-  await expect(sheet()).toContainText('r1 · 2 parts · 1 saved view')
+  await expect(sheet()).toContainText('r1')
+  await expect(sheet()).toContainText('2 parts · 1 saved view')
   // Its marks, with how many are drafts; the resolved one is named apart, and cannot be ticked without the marks.
   await expect(sheet()).toContainText('2 marks and 1 dimension, 1 of them a draft the agent has not been sent')
   await expect(sheet()).toContainText('1 resolved mark, with its note: left out')
   await expect(sheet().getByRole('checkbox', { name: /Include resolved marks/ })).toBeDisabled()
-  // The sheet is the one thing to answer while it is up: Tab stays in it.
-  await expect(sheet()).toHaveAttribute('aria-modal', 'true')
-  for (let n = 0; n < 12; n++) {
-    await page.keyboard.press('Tab')
-    expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]')?.getAttribute('aria-label') ?? null)).toBe('Export')
-  }
+  // It stands in the dock under the builds strip, which stays, and the conversation is folded to a band at the foot: it is no modal, and the view is its preview.
+  await expect(sheet()).not.toHaveAttribute('aria-modal', 'true')
+  const strip = await page.locator('[data-region="session"] .strip').boundingBox()
+  const docked = await sheet().boundingBox()
+  expect(docked!.y).toBeGreaterThanOrEqual(strip!.y + strip!.height - 1)
+  await expect(page.locator('.export-fold')).toContainText('Claude Code')
+  await expect(page.locator('.export-fold').getByRole('button', { name: 'Back to the chat' })).toBeVisible()
+  await expect(page.locator('[data-band="export"]')).toContainText('Exporting a page of hollow r1')
+  await expect(page.locator('.viewport-pane[data-exporting]')).toHaveCount(1)
+  // The five tiles, in a row.
+  expect(await tile('A page').evaluate((el) => el.closest('.export-tiles')!.querySelectorAll(':scope > .export-tile').length)).toBe(5)
+  await expect(tile('A page')).toHaveAttribute('aria-pressed', 'true')
   await expect(sheet().getByRole('checkbox', { name: /^hollow/ })).toBeChecked()
   await expect(sheet().getByRole('checkbox', { name: /Include marks and their notes/ })).not.toBeChecked()
   // An object with no build of this run cannot be ticked: it is named, with what would make it exportable.
   await expect(sheet().getByRole('checkbox')).toHaveCount(3)
   await expect(sheet().locator('.export-cannot')).toContainText(/^Open it first: torno exports the last build of this run: bracket, .*plain/)
   expect((await hooks()).savePicks).toBe(0)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${out}`)).toBeVisible()
+  await go().click()
+  // It is written, the dock is back to the conversation, and the file stands in the status line where Export… was.
+  await expectSaved(out)
+  await expect(chip()).toContainText('✓')
+  await expect(page.getByRole('button', { name: 'Export…' })).toHaveCount(0)
   // Two quiet things to do with it, on the path main wrote: the window names none, and under test nothing is shown or opened.
   const calls = (): Promise<{ revealed: string[]; opened: string[] }> =>
     app.evaluate(() => {
       const m = (globalThis as unknown as { __tornoMain: { revealedFiles: string[]; openedFiles: string[] } }).__tornoMain
       return { revealed: [...m.revealedFiles], opened: [...m.openedFiles] }
     })
-  await sheet().getByRole('button', { name: 'Show in folder' }).click()
+  await chip().getByRole('button', { name: 'Show in folder' }).click()
   await expect.poll(async () => (await calls()).revealed).toEqual([out])
-  await sheet().getByRole('button', { name: 'Open in browser' }).click()
+  await chip().hover()
+  await chip().getByRole('button', { name: 'Open in browser' }).click()
   await expect.poll(async () => (await calls()).opened).toEqual([out])
   // The dialog would have opened in a folder of torno's own, which git passes over; the file went only where it was asked to.
   expect(await hooks()).toMatchObject({ savePicks: 1, saveOffered: join(root, 'hollow', '.torno', 'exports', 'hollow-r1.html') })
@@ -290,10 +322,11 @@ test('an object is exported to the path that was chosen, and the file opens by i
 test('marks are in the file only when ticked, as torno measured them, and a note is text whatever it holds', async () => {
   const out = join(outDir, 'with-marks')                     // the dialog answered without the ending
   await setSave(out)
+  await openSheet()
   await sheet().getByRole('checkbox', { name: /Include marks and their notes/ }).check()
-  await expect(sheet().getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${out}.html`)).toBeVisible()
+  await expect(go()).toBeEnabled()
+  await go().click()
+  await expectSaved(`${out}.html`)
   expect(readdirSync(outDir).sort()).toEqual(['hollow.html', 'with-marks.html'])
   const html = readFileSync(`${out}.html`, 'utf8')
   expectNothingOfHere(html)
@@ -348,23 +381,25 @@ test('marks are in the file only when ticked, as torno measured them, and a note
 })
 
 test('a cancelled dialog writes nothing, and a folder that is not there is said, not made', async () => {
+  await openSheet()
   await setSave(null)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
+  await go().click()
   await expect(sheet().getByText('Nothing was saved')).toBeVisible()
   // A name without its ending that would land on a file the dialog never asked about: torno asks, and a no keeps the file.
   const was = readFileSync(join(outDir, 'hollow.html'), 'utf8')
   await setSave(join(outDir, 'hollow'))
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
+  await go().click()
   await expect(sheet().getByText('Nothing was saved')).toBeVisible()
   expect((await hooks()).replaceAsked).toBe(1)
   expect(readFileSync(join(outDir, 'hollow.html'), 'utf8')).toBe(was)
   await app.evaluate(() => void ((globalThis as unknown as { __tornoMain: { replace: boolean } }).__tornoMain.replace = true))
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${join(outDir, 'hollow.html')}`)).toBeVisible()
+  await go().click()
+  await expectSaved(join(outDir, 'hollow.html'))
   expect((await hooks()).replaceAsked).toBe(2)
   expect(readFileSync(join(outDir, 'hollow.html'), 'utf8')).not.toBe(was)
+  await openSheet()
   await setSave(join(outDir, 'not', 'there', 'x.html'))
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
+  await go().click()
   await expect(sheet()).toContainText('ENOENT')
   expect(readdirSync(outDir).sort()).toEqual(['hollow.html', 'with-marks.html'])
   expect(readdirSync(join(root, 'hollow', '.torno', 'exports'))).toEqual([])
@@ -382,36 +417,39 @@ test("the sheet is grouped by who will open the file, and a picture of the view 
   }
   await open('hollow')
   const before = (await hooks()).savePicks
-  await page.getByRole('button', { name: 'Export…' }).click()
-  // One group for each reader: a page, the CAD file, a picture and a tracing (the last two are of the open project's view).
+  await openSheet()
+  // Five tiles, by what they make: a page, the CAD file, a slicer's file, a picture and a tracing (the last two are of the open project's view).
   const formats = sheet().getByRole('group', { name: 'Format' })
-  await expect(formats.getByRole('group', { name: 'A page to look at' }).getByRole('button')).toHaveText(['HTML page'])
-  await expect(formats.getByRole('group', { name: 'The CAD file' }).getByRole('button')).toHaveText(['STEP', 'STL', '3MF'])
-  await expect(formats.getByRole('group', { name: 'A picture' }).getByRole('button')).toHaveText(['PNG'])
-  await expect(formats.getByRole('group', { name: 'A tracing' }).getByRole('button')).toHaveText(['SVG', 'PDF'])
-  await formats.getByRole('button', { name: 'PNG' }).click()
-  await expect(sheet().getByRole('heading', { name: 'Save a picture of the view' })).toBeVisible()
+  expect(await formats.locator('.export-tile > button').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))).toEqual(['A page', 'CAD', 'Slicer', 'Picture', 'Tracing'])
+  expect(await formats.locator('.export-tile > button').evaluateAll((els) => els.map((el) => el.textContent))).toEqual(['A pageHTML', 'CADSTEP', 'Slicer3MF STL', 'PicturePNG', 'TracingSVG PDF'])
+  await tile('Picture').click()
+  await expect(tile('Picture')).toHaveAttribute('aria-pressed', 'true')
   await sheet().getByRole('group', { name: 'Long edge, in pixels' }).getByRole('button', { name: '4000' }).click()
   // Without the marks, the axes and the scale bar.
   await sheet().getByRole('checkbox', { name: /^Marks/ }).uncheck()
   await sheet().getByRole('checkbox', { name: /^Axes and scale bar/ }).uncheck()
   const out = join(outDir, 'view.png')
   await setSave(out)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(sheet().getByText(`Saved to ${out}`)).toBeVisible()
+  await go().click()
+  await expectSaved(out)
   expect((await hooks()).savePicks).toBe(before + 1)
   const { width, height } = pngSize(out)
   expect(Math.max(width, height)).toBe(4000)
   expect((await hooks()).saveOffered).toBe(join(root, 'hollow', '.torno', 'exports', 'hollow-r1.png'))
   // The folder of what was saved is shown, never a page "opened in a browser".
-  await expect(sheet().getByRole('button', { name: 'Open in browser' })).toHaveCount(0)
-  await expect(sheet().getByRole('button', { name: 'Show in folder' })).toBeVisible()
+  await chip().hover()
+  await expect(chip().getByRole('button', { name: 'Open in browser' })).toHaveCount(0)
+  await expect(chip().getByRole('button', { name: 'Show in folder' })).toBeVisible()
   // A name without its ending takes it; a cancelled dialog writes nothing; no file beside it is left.
   await setSave(join(outDir, 'second'))
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(sheet().getByText(`Saved to ${join(outDir, 'second.png')}`)).toBeVisible()
+  await openSheet()
+  await tile('Picture').click()
+  await go().click()
+  await expectSaved(join(outDir, 'second.png'))
   await setSave(null)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
+  await openSheet()
+  await tile('Picture').click()
+  await go().click()
   await expect(sheet().getByText('Nothing was saved')).toBeVisible()
   expect(readdirSync(outDir).filter((name) => name.endsWith('.png')).sort()).toEqual(['second.png', 'view.png'])
   expect(readdirSync(outDir).filter((name) => name.endsWith('.tmp'))).toEqual([])
@@ -428,10 +466,9 @@ test("the sheet is grouped by who will open the file, and a picture of the view 
 test('a drawing of the section on screen is saved as an SVG at true scale and as a PDF, with the dimension that lies in the plane', async () => {
   await open('hollow')
   // With nothing cut there is nothing to draw.
-  await page.getByRole('button', { name: 'Export…' }).click()
-  const formats = sheet().getByRole('group', { name: 'Format' })
-  await formats.getByRole('button', { name: 'SVG' }).click()
-  await expect(sheet().getByRole('button', { name: 'Export', exact: true })).toBeDisabled()
+  await openSheet()
+  await tile('Tracing').click()
+  await expect(go()).toBeDisabled()
   await expect(sheet().getByText(/There is no section on screen/).first()).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(sheet()).toHaveCount(0)
@@ -445,12 +482,12 @@ test('a drawing of the section on screen is saved as an SVG at true scale and as
   await expect.poll(async () => (await state()).section?.origin[2]).toBeCloseTo(10, 6)
   // The plane is told to main with the view before it is drawn from.
   await expect.poll(async () => app.evaluate(() => (globalThis as unknown as { __tornoMain: { latestView: (id: string) => { section?: { origin: number[] } } | undefined } }).__tornoMain.latestView('hollow')?.section?.origin[2])).toBeCloseTo(10, 6)
-  await page.getByRole('button', { name: 'Export…' }).click()
-  await formats.getByRole('button', { name: 'SVG' }).click()
+  await openSheet()
+  await tile('Tracing').click()
   const out = join(outDir, 'section.svg')
   await setSave(out)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(sheet().getByText(`Saved to ${out}`)).toBeVisible({ timeout: 30_000 })
+  await go().click()
+  await expectSaved(out, { timeout: 30_000 })
   const svg = readFileSync(out, 'utf8')
   expect(svg).toMatch(/^<\?xml/)
   // True scale: the sheet is named in millimetres and its units are millimetres.
@@ -470,11 +507,13 @@ test('a drawing of the section on screen is saved as an SVG at true scale and as
   expect(svg.replace('http://www.w3.org/2000/svg', '')).not.toMatch(/https?:\/\//)
   expect((await hooks()).saveOffered).toBe(join(root, 'hollow', '.torno', 'exports', 'hollow-section-r1.svg'))
   // The same drawing as a PDF, printed by a window nobody sees, on a page of its size.
-  await formats.getByRole('button', { name: 'PDF' }).click()
+  await openSheet()
+  await tile('Tracing').click()
+  await sheet().getByRole('group', { name: 'Tracing file' }).getByRole('button', { name: 'PDF', exact: true }).click()
   const pdf = join(outDir, 'section.pdf')
   await setSave(pdf)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(sheet().getByText(`Saved to ${pdf}`)).toBeVisible({ timeout: 30_000 })
+  await go().click()
+  await expectSaved(pdf, { timeout: 30_000 })
   const bytes = readFileSync(pdf)
   expect(bytes.subarray(0, 5).toString('latin1')).toBe('%PDF-')
   const box = /\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/.exec(bytes.toString('latin1'))
@@ -485,8 +524,6 @@ test('a drawing of the section on screen is saved as an SVG at true scale and as
   }
   expect((await hooks()).saveOffered).toBe(join(root, 'hollow', '.torno', 'exports', 'hollow-section-r1.pdf'))
   expect(readdirSync(outDir).filter((name) => name.endsWith('.tmp'))).toEqual([])
-  await sheet().getByRole('button', { name: 'Done' }).click()
-  await expect(sheet()).toHaveCount(0)
   // The section is taken away and the Select tool put back in hand, as the next test finds it.
   await bar.getByRole('button', { name: 'Off' }).click()
   await page.locator('.tool-button[data-tool="select"]').click()
@@ -498,16 +535,16 @@ test('several objects go into one file from the page of objects, each unpacked w
   await expect.poll(async () => (await state()).page).toBe('objects')
   const out = join(outDir, 'both.html')
   await setSave(out)
-  await page.getByRole('button', { name: 'Export…' }).click()
+  await openSheet()
   // Every object with a build of this run is ticked; the others say what would make them exportable.
   await expect(sheet().getByRole('checkbox', { name: /^bracket/ })).toBeChecked()
   await expect(sheet().getByRole('checkbox', { name: /^hollow/ })).toBeChecked()
   await expect(sheet().getByRole('checkbox')).toHaveCount(4)
   await expect(sheet().locator('.export-cannot')).toContainText('plain')
   await expect(sheet().locator('.export-cannot')).not.toContainText('hollow')
-  await expect(sheet()).toContainText('about')
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${out}`)).toBeVisible()
+  await expect(sheet().locator('.export-size[data-bytes]')).toBeVisible()
+  await go().click()
+  await expectSaved(out)
   // For several, the name the dialog would have offered is the workspace's.
   expect((await hooks()).saveOffered).toBe(join(root, 'bracket', '.torno', 'exports', `${root.split('/').pop()}.html`))
   const html = readFileSync(out, 'utf8')
@@ -546,25 +583,26 @@ test('a scan is in the file only when ticked, without where it came from, and th
   writeFileSync(source, stl(box([120, 120, 2], [0, 0, -3])))
   await page.evaluate((path) => window.torno.scans.import('hollow', path), source)
   await app.evaluate(() => (globalThis as unknown as { __tornoMain: { scans: { align(...args: unknown[]): Promise<unknown> } } }).__tornoMain.scans.align('hollow', 'S1', 'assembly', { transform: { t: [0, 0, 0], q: [0, 0, 0, 1], s: 1 }, steps: ['typed'], frame: { tub: [0, 0, 0], lid: [0, 0, 0] }, at: new Date().toISOString() }))
-  await page.getByRole('button', { name: 'Export…' }).click()
+  await openSheet()
   // It is offered, with what a scan may show, and is not ticked.
   await expect(sheet()).toContainText(SCAN_WARNING)
   const tick = sheet().getByRole('checkbox', { name: /S1 garage-scan\.stl/ })
   await expect(tick).not.toBeChecked()
   const without = join(outDir, 'no-scan.html')
   await setSave(without)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${without}`)).toBeVisible()
+  await go().click()
+  await expectSaved(without)
   const bare = readFileSync(without, 'utf8')
   for (const kept of ['garage-scan', 'reducedFrom']) expect(bare).not.toContain(kept)
   expect(dataOf(bare).objects[0].scans).toBeUndefined()
   // Ticked, it is in the file by its number and its name, and nothing says where it was read from.
+  await openSheet()
   await tick.check()
   const out = join(outDir, 'scan.html')
   await setSave(out)
-  await expect(sheet().getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${out}`)).toBeVisible()
+  await expect(go()).toBeEnabled()
+  await go().click()
+  await expectSaved(out)
   const html = readFileSync(out, 'utf8')
   expect(dataOf(html).objects[0].scans).toMatchObject([{ id: 'S1', name: 'garage-scan.stl', triangles: 12, reducedFrom: 12, colours: false, placed: { assembly: { t: [0, 0, 0], s: 1 } } }])
   expectNothingOfHere(html)
@@ -586,15 +624,14 @@ test('a scan is in the file only when ticked, without where it came from, and th
   } finally {
     await file.close()
   }
-  await page.keyboard.press('Escape')
 })
 
 test('a part switched off and a mark that is resolved stay here unless they are ticked', async () => {
   // The lid is switched off in torno.
   await openSection(page, 'Parts')
   await page.locator('[data-region="left"]').getByRole('button', { name: 'Show lid' }).click()
-  await page.getByRole('button', { name: 'Export…' }).click()
-  await expect(sheet()).toContainText('r1 · 1 part ·')
+  await openSheet()
+  await expect(sheet()).toContainText('1 part ·')
   await expect(sheet()).toContainText('1 part is switched off here: left out of the file, with the marks on it')
   // By its bytes: what is said of it is to a tenth of a megabyte, which a lid of twelve triangles does not move.
   const size = (): Promise<string | null> => sheet().locator('.export-size').getAttribute('data-bytes')
@@ -602,14 +639,15 @@ test('a part switched off and a mark that is resolved stay here unless they are 
   expect(Number(bare)).toBeGreaterThan(100_000)
   const out = join(outDir, 'tub-only.html')
   await setSave(out)
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${out}`)).toBeVisible()
+  await go().click()
+  await expectSaved(out)
   const only = dataOf(readFileSync(out, 'utf8')).objects[0]
   expect(only.parts.map((p) => p.name)).toEqual(['tub'])
   expect(Object.keys(only.meshes)).toHaveLength(1)
   // Ticked, it goes, switched off; and the resolved mark with the marks. What the sheet says follows each tick.
+  await openSheet()
   await sheet().getByRole('checkbox', { name: /Include parts that are switched off/ }).check()
-  await expect(sheet()).toContainText('r1 · 2 parts ·')
+  await expect(sheet()).toContainText('2 parts ·')
   await expect(sheet()).toContainText('in the file, switched off, for whoever opens it to switch on')
   await sheet().getByRole('checkbox', { name: /Include marks and their notes/ }).check()
   await sheet().getByRole('checkbox', { name: /Include resolved marks/ }).check()
@@ -618,9 +656,9 @@ test('a part switched off and a mark that is resolved stay here unless they are 
   await expect.poll(size).not.toBe(bare)
   const all = join(outDir, 'all.html')
   await setSave(all)
-  await expect(sheet().getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
-  await sheet().getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(page.getByText(`Saved to ${all}`)).toBeVisible()
+  await expect(go()).toBeEnabled()
+  await go().click()
+  await expectSaved(all)
   const whole = dataOf(readFileSync(all, 'utf8')).objects[0]
   expect(whole.parts.map((p) => [p.name, p.visible])).toEqual([['tub', true], ['lid', false]])
   expect(whole.marks!.map((m) => [m.id, m.status])).toEqual([['M1', 'sent'], ['M2', 'sent'], ['M3', 'resolved'], ['M4', 'draft']])
@@ -638,7 +676,6 @@ test('a part switched off and a mark that is resolved stay here unless they are 
   } finally {
     await file.close()
   }
-  await page.keyboard.press('Escape')
   await page.locator('[data-region="left"]').getByRole('button', { name: 'Show lid' }).click()
   await openSection(page, 'Marks')
 })
@@ -742,7 +779,7 @@ test('a browser that gives the page no WebGL is told so in words, and nothing br
 // that worker and checked, and only then given the name. Never a slicer opened: `openedFiles` stands in for it.
 test('a project left out for want of a build is a link: it is opened, built, and the sheet comes back with it ticked', async () => {
   await open('hollow')
-  await page.getByRole('button', { name: 'Export…' }).click()
+  await openSheet()
   await expect(sheet().locator('.export-cannot')).toContainText(/\d+ not built in this run\./)
   await expect(sheet().getByRole('checkbox', { name: /^plain/ })).toHaveCount(0)
   await sheet().locator('.export-cannot').getByRole('button', { name: 'plain', exact: true }).click()
@@ -756,15 +793,14 @@ test('a 3MF of the bed, a STEP of the whole and an STL of one part are each read
   test.setTimeout(180_000)
   await open('bracket')
   const opened = (): Promise<string[]> => app.evaluate(() => [...(globalThis as unknown as { __tornoMain: { openedFiles: string[] } }).__tornoMain.openedFiles])
-  const formats = sheet().getByRole('group', { name: 'Format' })
-  const exportButton = sheet().getByRole('button', { name: 'Export', exact: true })
+  const exportButton = go()
   const mine = (): string[] => readdirSync(outDir).filter((name) => name.startsWith('bracket')).sort()
 
   // A plate: the bed unless another layout is picked, every part of it, at the print tolerance.
   await setSave(join(outDir, 'bracket-plate'))
-  await page.getByRole('button', { name: 'Export…' }).click()
-  await formats.getByRole('button', { name: '3MF' }).click()
-  await expect(sheet().getByRole('heading', { name: 'Export a 3MF file' })).toBeVisible()
+  await openSheet()
+  await tile('Slicer').click()
+  await expect(sheet().getByRole('group', { name: 'Slicer file' }).getByRole('button', { name: '3MF', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(sheet().getByRole('radio', { name: /^bracket/ })).toBeChecked()
   await expect(sheet().getByRole('group', { name: 'Layout' }).getByRole('button', { name: 'print' })).toHaveAttribute('aria-pressed', 'true')
   await expect(sheet().getByRole('checkbox', { name: 'base', exact: true })).toBeChecked()
@@ -774,8 +810,8 @@ test('a 3MF of the bed, a STEP of the whole and an STL of one part are each read
   await sheet().getByRole('checkbox', { name: /Open it once saved/ }).check()
   await exportButton.click()
   const plate = join(outDir, 'bracket-plate.3mf')
-  await expect(sheet().getByText(`Saved to ${plate}`)).toBeVisible({ timeout: 60_000 })
-  await expect(sheet()).toContainText(/Checked: 3MF, 2 objects, [\d,]+ triangles, closed, volume within [\d.]+ % of the model\. Checked, not printed\./)
+  await expectSaved(plate, { timeout: 60_000 })
+  await expect(chip()).toContainText(/Checked: 3MF, 2 objects, [\d,]+ triangles, closed, volume within [\d.]+ % of the model\. Checked, not printed\./)
   expect(await hooks()).toMatchObject({ saveOffered: join(root, 'bracket', '.torno', 'exports', 'bracket-r1.3mf') })
   expect((await opened()).slice(-1)).toEqual([plate])
   // The file and nothing beside it: no .tmp, no folder.
@@ -784,13 +820,14 @@ test('a 3MF of the bed, a STEP of the whole and an STL of one part are each read
 
   // The whole, exact: the assembly unless another is picked, every part of it.
   await setSave(join(outDir, 'bracket.step'))
-  await formats.getByRole('button', { name: 'STEP' }).click()
+  await openSheet()
+  await tile('CAD').click()
   await expect(sheet().getByRole('group', { name: 'Layout' }).getByRole('button', { name: 'assembly' })).toHaveAttribute('aria-pressed', 'true')
   await expect(sheet().getByRole('textbox', { name: 'Tolerance' })).toHaveCount(0)
   await exportButton.click()
   const step = join(outDir, 'bracket.step')
-  await expect(sheet().getByText(`Saved to ${step}`)).toBeVisible({ timeout: 60_000 })
-  await expect(sheet()).toContainText("Checked: STEP read back, 2 parts by name, 2 solids, each volume and box as the model's.")
+  await expectSaved(step, { timeout: 60_000 })
+  await expect(chip()).toContainText("Checked: STEP read back, 2 parts by name, 2 solids, each volume and box as the model's.")
   const text = readFileSync(step, 'utf8')
   expect(text.startsWith('ISO-10303-21;')).toBe(true)
   for (const name of ["'base'", "'post'"]) expect(text).toContain(name)
@@ -800,7 +837,9 @@ test('a 3MF of the bed, a STEP of the whole and an STL of one part are each read
 
   // One part, for a slicer: picked by its own button, at a coarser tolerance; one out of range cannot be exported.
   await setSave(join(outDir, 'bracket-post'))
-  await formats.getByRole('button', { name: 'STL' }).click()
+  await openSheet()
+  await tile('Slicer').click()
+  await sheet().getByRole('group', { name: 'Slicer file' }).getByRole('button', { name: 'STL', exact: true }).click()
   await sheet().getByRole('radio', { name: 'post', exact: true }).check()
   await sheet().getByRole('textbox', { name: 'Tolerance' }).fill('5')
   await expect(exportButton).toBeDisabled()
@@ -808,8 +847,8 @@ test('a 3MF of the bed, a STEP of the whole and an STL of one part are each read
   await expect(exportButton).toBeEnabled()
   await exportButton.click()
   const stl = join(outDir, 'bracket-post.stl')
-  await expect(sheet().getByText(`Saved to ${stl}`)).toBeVisible({ timeout: 60_000 })
-  await expect(sheet()).toContainText(/Checked: STL, 1 part, [\d,]+ triangles, closed, volume within [\d.]+ % of the model/)
+  await expectSaved(stl, { timeout: 60_000 })
+  await expect(chip()).toContainText(/Checked: STL, 1 part, [\d,]+ triangles, closed, volume within [\d.]+ % of the model/)
   expect(await hooks()).toMatchObject({ saveOffered: join(root, 'bracket', '.torno', 'exports', 'bracket-post-r1.stl') })
   const bytes = readFileSync(stl)
   expect(bytes.length).toBe(84 + 50 * bytes.readUInt32LE(80))
@@ -817,8 +856,6 @@ test('a 3MF of the bed, a STEP of the whole and an STL of one part are each read
   // Only the 3MF that was asked to be opened was.
   expect((await opened()).slice(-1)).toEqual([plate])
   expect(readdirSync(join(root, 'bracket', '.torno', 'exports'))).toEqual([])
-  await page.keyboard.press('Escape')
-  await expect(sheet()).toHaveCount(0)
 })
 
 // Set TORNO_SHOTS=<dir> to write export-light.png, export-dark.png, export-narrow.png, export-cut.png and
@@ -847,18 +884,18 @@ for (const shot of ['light', 'dark', 'narrow', 'cut', 'sheet', 'sheet-3mf'] as c
       )
       const out = join(shotOut, 'hollow.html')
       await setSave(out, shotApp)
-      await shotPage.getByRole('button', { name: 'Export…' }).click()
+      await openSheet(shotPage)
       await shotPage.getByRole('dialog', { name: 'Export' }).getByRole('checkbox', { name: /Include marks and their notes/ }).check()
-      await expect(shotPage.getByRole('dialog', { name: 'Export' })).toContainText('about')
+      await expect(shotPage.getByRole('dialog', { name: 'Export' }).locator('.export-size[data-bytes]')).toBeVisible()
       if (shot === 'sheet' || shot === 'sheet-3mf') {
-        if (shot === 'sheet-3mf') await shotPage.getByRole('dialog', { name: 'Export' }).getByRole('group', { name: 'Format' }).getByRole('button', { name: '3MF' }).click()
+        if (shot === 'sheet-3mf') await tile('Slicer', shotPage).click()
         await shotPage.waitForTimeout(600)
         const png = await shotApp.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'))
         writeFileSync(join(dir!, `export-${shot}.png`), Buffer.from(png, 'base64'))
         return
       }
-      await shotPage.getByRole('dialog', { name: 'Export' }).getByRole('button', { name: 'Export', exact: true }).click()
-      await expect(shotPage.getByText(`Saved to ${out}`)).toBeVisible()
+      await go(shotPage).click()
+      await expectSaved(out, undefined, shotPage)
       expect(existsSync(out)).toBe(true)
       const file = await openExport(out, shotApp, shot === 'narrow' ? [420, 760] : [1280, 800])
       await file.ready()
