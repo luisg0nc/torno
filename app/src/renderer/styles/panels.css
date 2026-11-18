@@ -164,7 +164,7 @@
   flex: none;
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--radius-inline);
 }
 
 /* A field of the model's Params: its name and default on a line, its comment under, and that the default is worked out in the model. Text where no session can take it, a button where one can. */
@@ -432,7 +432,7 @@ button.param-button:focus-visible {
 
 .layer-opacity::-webkit-slider-runnable-track {
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-full);
   background: var(--hairline);
 }
 

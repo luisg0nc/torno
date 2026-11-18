@@ -27,10 +27,10 @@
   --text-leading: 1.42;
   --text-small: 12px;
   --radius-control: 6px;
-  --radius-palette: 10px;
+  --radius-float: 10px;
   --divider: 1px solid var(--hairline);
   --focus-ring: 2px solid var(--accent);
-  --palette-shadow: 0 6px 20px rgb(34 37 42 / 0.10);
+  --float-shadow: 0 1px 2px rgb(32 36 43 / .07), 0 8px 24px -6px rgb(32 36 43 / .16);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -56,7 +56,7 @@
     --axis-x: #D98AC8;
     --axis-y: #9CC56C;
     --axis-z: #82A6EA;
-    --palette-shadow: 0 6px 20px rgb(0 0 0 / 0.32);
+    --float-shadow: 0 1px 2px rgb(0 0 0 / .35), 0 10px 26px -6px rgb(0 0 0 / .5);
   }
 }
 
@@ -78,7 +78,7 @@
     --axis-x: #D98AC8;
     --axis-y: #9CC56C;
     --axis-z: #82A6EA;
-    --palette-shadow: 0 6px 20px rgb(0 0 0 / 0.32);
+    --float-shadow: 0 1px 2px rgb(0 0 0 / .35), 0 10px 26px -6px rgb(0 0 0 / .5);
 }
 
 :root[data-theme="light"] { color-scheme: light; }
@@ -194,9 +194,9 @@ noscript { grid-area: 1 / 1 / 2 / -1; place-self: center; }
 #foot details[open] {
   padding: var(--space-2) var(--space-3);
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   color: var(--ink);
 }
 #foot details[open] summary { margin-bottom: var(--space-1); color: var(--muted); }

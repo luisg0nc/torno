@@ -129,19 +129,25 @@
   --text-small: 12px;
 
   /* Shape */
+  /* The radius grows with how far a thing floats: a chip in a line, a control, what floats, a sheet, a pill. */
+  --radius-inline: 4px;
   --radius-control: 6px;
-  --radius-palette: 10px;
+  --radius-float: 10px;
+  --radius-sheet: 14px;
+  --radius-full: 999px;
   --divider: 1px solid var(--hairline);
   --field-border: 1px solid var(--field-edge);
   --focus-ring: 2px solid var(--accent);
-  /* The one shadow: what floats over the view or a pane. --palette-shadow is its older form, kept until the surfaces that name it
-     move to --float-shadow. */
+  /* The one shadow: what floats over the view or a pane. */
   --float-shadow: 0 1px 2px rgb(32 36 43 / .07), 0 8px 24px -6px rgb(32 36 43 / .16);
-  --palette-shadow: 0 6px 20px rgb(34 37 42 / 0.10);
   --scrim: color-mix(in srgb, var(--surface) 70%, transparent);   /* behind the keys */
   --ease: cubic-bezier(.2, .8, .2, 1);
 
   /* Layout */
+  /* The window's sizes (spec section 1). Task 5 (the grid) moves --rail-w to 52px, --dock-w to 420px and --panel-w to the alias of
+     --card-w, with `RAIL_W` and `LEFT_DEFAULT` in state/column.ts and `DOCK_DEFAULT` in App.tsx; until then the live widths stay. */
+  --title-h: 40px;
+  --card-w: 296px;         /* the route card's default */
   --rail-w: 56px;          /* the rail of icons at the left; `RAIL_W` in state/column.ts */
   --panel-w: 248px;        /* the panel docked beside it; the default, the shell overrides it while the edge is dragged or the person has widened it */
   --dock-w: 520px;         /* default; the shell overrides it while the dock is resized */
@@ -194,8 +200,7 @@
     --axis-y: #9CC56C;
     --axis-z: #82A6EA;
     --float-shadow: 0 1px 2px rgb(0 0 0 / .35), 0 10px 26px -6px rgb(0 0 0 / .5);
-    --palette-shadow: 0 6px 20px rgb(0 0 0 / 0.32);
-
+  
     --set-1: #CAB37D;
     --set-2: #C7CA7D;
     --set-3: #7DC2CA;

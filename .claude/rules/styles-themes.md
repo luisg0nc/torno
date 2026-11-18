@@ -41,8 +41,16 @@ the stylesheets by area in the order of the cascade; `styles.test.ts` holds it t
   what is drawn and said on it; `--dye` is `--accent` in light, a deep blue in dark), `--on-mark` (on both mark colours),
   `--warn-wash` and `--fail-wash` (the grounds of Needs you, an ask, a failed build or check), `--band` and `--band-edge` (a
   gauge), `--route` (the line down the card and its section dots), `--float-shadow` (the one shadow), `--scrim`, `--ease`,
-  `--space-5` and `--space-6`, `--text-row` (12.5px; `--text-size` is 13.5px, `--text-leading` 1.42). `--palette-shadow` is
-  the old shadow, kept until the surfaces that name it move to `--float-shadow`. The new text pairs are held in
+  `--space-5` and `--space-6`, `--text-row` (12.5px; `--text-size` is 13.5px, `--text-leading` 1.42). The radius grows with
+  how far a thing floats: `--radius-inline` 4px (chips and refs in a line, key caps), `--radius-control` 6px (buttons, fields,
+  rows, segments), `--radius-float` 10px (tags, popovers, cards in the dock, the composer), `--radius-sheet` 14px (the cube
+  tile, the empty folder's composer, the keyboard), `--radius-full` 999px (pills, bands, the caption); a `border-radius` in the
+  window's sheets is one of these, `0` or `50%` (keys.css may keep 7px for the keyboard's keys, tracings.css 2px for the title
+  block), and the one shadow is `--float-shadow`: no other `box-shadow` has a blur over 4px (insets and rings are free);
+  `styles.test.ts` holds both, and that `--palette-shadow` and `--radius-palette` are gone (also in `export/page.css`). The
+  window's sizes are tokens: `--title-h` 40px, `--card-w` 296px, `--status-h` 28px, and `--rail-w`, `--panel-w` and `--dock-w`,
+  which keep their old widths (56, 248, 520) until the grid of the redesign (Task 5) moves them to 52, `--card-w` and 420; `RAIL_W`
+  and `LEFT_DEFAULT` in `state/column.ts` are held to the tokens. The new text pairs are held in
   `contrast.test.ts` in both themes: `--ink` 7:1 and `--muted`, `--accent` and the verdicts 4.5:1 on `--raise`, `--warn-wash`
   and `--fail-wash`; `--on-accent` on `--accent`, `--on-dye` and `--on-dye-muted` on `--dye`, `--on-mark` on both marks 4.5:1;
   `--scribe` on `--dye` and `--field-edge` on `--raise` 3:1 (the dark `--field-edge` is `#747A82` for that); `--route` on

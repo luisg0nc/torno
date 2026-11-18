@@ -18,7 +18,7 @@
   align-items: center;
   height: 24px;
   border: var(--divider);
-  border-radius: 12px;
+  border-radius: var(--radius-full);
   background: var(--panel);
   pointer-events: auto;
 }
@@ -50,7 +50,7 @@
   height: 100%;
   padding: 0 4px 0 10px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-full);
   background: transparent;
 }
 
@@ -89,7 +89,7 @@
   height: 100%;
   padding: 0 7px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--muted);
 }
@@ -254,7 +254,7 @@
   align-items: center;
   min-width: 0;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
 }
 
 .view-row .view-name {

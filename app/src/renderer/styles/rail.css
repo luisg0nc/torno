@@ -21,7 +21,7 @@
   width: 48px;
   padding: 6px 0 5px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted);
   font-size: 11px;
@@ -54,7 +54,7 @@
   min-width: 15px;
   height: 15px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--panel);
   font-size: 10px;

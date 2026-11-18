@@ -93,7 +93,7 @@
   border: var(--divider);
   border-radius: var(--radius-control);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
 }
 
 .intent-menu-list button {
@@ -103,7 +103,7 @@
   height: 24px;
   padding: 0 8px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: transparent;
   color: var(--ink);
   text-align: left;
@@ -141,9 +141,9 @@
   padding: var(--space-3);
   overflow-y: auto;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   pointer-events: auto;
 }
 

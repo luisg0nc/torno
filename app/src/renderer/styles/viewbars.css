@@ -29,9 +29,9 @@
   gap: 2px;
   padding: 3px;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
   white-space: nowrap;
 }
@@ -52,7 +52,7 @@
   height: 26px;
   padding: 0 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: transparent;
 }
 
@@ -129,16 +129,16 @@
   min-width: 96px;
   padding: 3px;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
 }
 
 .menu-item {
   height: 26px;
   padding: 0 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: transparent;
   text-align: left;
 }
@@ -188,9 +188,9 @@
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
   line-height: 1.6;
   pointer-events: none;

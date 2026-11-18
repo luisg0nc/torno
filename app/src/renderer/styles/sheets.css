@@ -100,9 +100,9 @@
   width: min(560px, 100%);
   max-height: 100%;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
 }
 
 .export-sheet:focus {
@@ -310,9 +310,9 @@
   overflow-y: auto;
   padding: var(--space-4);
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
 }
 
 .workspace-question:focus {
