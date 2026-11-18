@@ -118,7 +118,7 @@ async function send(lines: string[]): Promise<void> {
 /** The text torno added to the n-th prompt of the chat, as the agent was given it (the stand-in's script never sees it). */
 async function added(n: number): Promise<string> {
   const item = chat().locator('.chat-added').nth(n)
-  await expect(item).toContainText('torno added', { timeout: 30_000 })
+  await expect(item.locator('.chat-added-label')).toHaveText('with', { timeout: 30_000 })
   await item.getByRole('button', { name: 'Show text' }).click()
   return (await item.locator('.chat-added-text').textContent()) ?? ''
 }

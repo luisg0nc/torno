@@ -137,7 +137,7 @@ async function prompt(page: Page, lines: string[]): Promise<void> {
 /** The one cosmetic edit: the person's prompt bubble shows the words a person typed, not the stand-in's script. */
 async function wording(page: Page, text: string): Promise<void> {
   await page.evaluate((text) => {
-    const bubble = document.querySelector('.chat-user-text')
+    const bubble = document.querySelector('.chat-you')
     if (bubble) bubble.textContent = text
   }, text)
 }

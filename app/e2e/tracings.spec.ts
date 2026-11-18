@@ -181,7 +181,7 @@ test('Should be here drags Claude\'s shape to where it belongs, and the next pro
 
   await say('say received')
   const added = chat().locator('.chat-added').last()
-  await expect(added).toContainText('torno added', { timeout: 30_000 })
+  await expect(added.locator('.chat-added-label')).toHaveText('with', { timeout: 30_000 })
   await added.getByRole('button', { name: 'Show text' }).click()
   const text = added.locator('.chat-added-text')
   await expect(text).toContainText('offset')

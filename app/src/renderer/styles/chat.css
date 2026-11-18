@@ -83,38 +83,68 @@
 }
 
 .chat-earlier-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0 0 var(--space-2);
   color: var(--muted);
-  font-size: var(--text-small);
+  font-size: 11.5px;
   font-weight: 500;
 }
 
-/* What the person said: a block on the wash, the text in ink. */
+/* A hairline to the right edge, as the head of a prompt has. */
+.chat-earlier-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* What the person said: a block of ink with the panel's own colour for its words, a small corner where it starts. */
 .chat-user {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  background: var(--accent-wash);
   color: var(--ink);
 }
 
-.chat-user-text {
+.chat-you {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 88%;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px 12px 12px 3px;
+  background: var(--ink);
+  color: var(--panel);
+  font-size: var(--text-size);
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
 
+/* A ref in it is a chip that holds its own on the ink: a ring of the ink around it, and the panel's colour where it names nothing now. */
+.chat-you .ref-chip {
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
+.chat-you .ref-chip:not([data-live]) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--panel);
+  font-weight: 400;
+  box-shadow: none;
+}
+
 .chat-user-state {
-  margin-top: var(--space-1);
+  margin: var(--space-1) 0 0;
   color: var(--muted);
   font-size: var(--text-small);
 }
 
-/* What torno added to it: a line under the prompt, ruled in the accent as torno's own tools are. */
+/* What went with it, under the person's words: "with M3 h40", muted and small. */
 .chat-added {
-  padding: 0 0 0 var(--space-3);
-  border-left: 2px solid var(--accent);
+  margin: 5px 0 0 2px;
   color: var(--muted);
-  font-size: var(--text-small);
+  font-size: 11.5px;
 }
 
 .chat-added-line {
@@ -125,8 +155,7 @@
 }
 
 .chat-added-label {
-  color: var(--ink);
-  font-weight: 500;
+  color: var(--muted);
 }
 
 .chat-added-build,
@@ -391,31 +420,40 @@ button.ref-chip {
   color: var(--muted);
 }
 
-/* A tool on one line; it opens to its input and result. One of torno's has a thin rule in the accent. */
+/* A tool as a chip: 24 px, round, on the surface; it opens to its input and result below. One of torno's is on the accent wash with its name in the accent; the one running has an accent ring. */
 .chat-tool {
-  font-size: var(--text-small);
+  font-size: 12px;
 }
 
-.chat-tool[data-torno] {
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--accent);
-}
-
-/* The row is the line; its toggle covers it, and what is live on it (a ref, "See in view") stands over the toggle. */
 .chat-tool-row {
   position: relative;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 2px var(--space-1);
-  margin-left: calc(-1 * var(--space-1));
-  border-radius: var(--radius-inline);
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 24px;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
   color: var(--muted);
 }
 
-.chat-tool[data-torno] .chat-tool-row {
+.chat-tool-row b {
+  font-weight: 500;
   color: var(--ink);
+}
+
+.chat-tool[data-torno] .chat-tool-row {
+  background: var(--accent-wash);
+}
+
+.chat-tool[data-torno] .chat-tool-row b {
+  color: var(--accent);
+}
+
+.chat-tool[data-state='running'] .chat-tool-row {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 
 .chat-tool-row:hover {
@@ -428,7 +466,7 @@ button.ref-chip {
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-inline);
+  border-radius: var(--radius-full);
   background: transparent;
 }
 
@@ -443,7 +481,7 @@ button.ref-chip {
 }
 
 .chat-tool-said {
-  margin: 0;
+  margin: var(--space-1) 0 0;
   padding: 0 var(--space-1);
   color: var(--muted);
 }
@@ -459,7 +497,6 @@ button.ref-chip {
 .chat-tool-steps {
   pointer-events: none;
   flex: none;
-  margin-left: auto;
   color: var(--muted);
 }
 
@@ -574,7 +611,7 @@ button.ref-chip {
   font-size: var(--text-small);
 }
 
-/* The end of a turn: quiet. */
+/* The end of a turn: "Done in 58 s" in ink and what it did, muted; the buttons of the turn at the right. */
 .chat-turn,
 .chat-note {
   color: var(--muted);
@@ -586,25 +623,50 @@ button.ref-chip {
   margin-top: var(--space-2);
 }
 
-.chat-turn:not([data-ok]) {
-  color: var(--ink);
+.chat-turn-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
 }
 
 .chat-turn-line {
+  flex: 1 1 12em;
+  min-width: 0;
   margin: 0;
+}
+
+.chat-turn-head {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .chat-turn-line + .chat-turn-line {
   margin-top: var(--space-1);
 }
 
-/* What the person may do with a turn: "See changes", and whatever else is offered for it, in a row. */
+/* What the person may do with a turn: See changes, Compare and the dots, quiet, at the right. */
 .chat-turn-actions {
   display: flex;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+/* With a sentence to say (Pin, or why Go back did nothing) the row is the turn's whole width and the sentence goes under the buttons. */
+.chat-turn-actions:has(.chat-turn-said, .chat-turn-problem) {
+  flex: 1 1 100%;
+}
+
+.chat-turn-actions:empty {
+  display: none;
+}
+
+.chat-turn-actions .button {
+  gap: 5px;
 }
 
 /* A turn's builds: the build it began from, its own, the last; what they did beside. */

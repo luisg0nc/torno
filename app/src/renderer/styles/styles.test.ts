@@ -122,8 +122,8 @@ function words(value: string): string[] {
   return out
 }
 
-/** Hard radii that stay: the keyboard's key caps (Task 35) and the tracing's title block. Keyed by stylesheet. */
-const HARD_RADII: Record<string, string[]> = { 'keys.css': ['7px'], 'tracings.css': ['2px'] }
+/** Hard radii that stay: the keyboard's key caps (Task 35), the tracing's title block, and the corners of the person's words in the chat (12 and a small 3 where it begins). Keyed by stylesheet. */
+const HARD_RADII: Record<string, string[]> = { 'keys.css': ['7px'], 'tracings.css': ['2px'], 'chat.css': ['12px', '3px'] }
 
 it('uses radii from the tokens: a radius is var(--radius-*), 0 or 50%, the keys and the title block aside', () => {
   const found: string[] = []

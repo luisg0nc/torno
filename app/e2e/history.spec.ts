@@ -142,7 +142,8 @@ test('a click on a row compares that prompt, with its number in the status line;
 test('Starred lists the prompts with a starred build, and the saves of the person are lines between the rows', async () => {
   // Star the last build of prompt 2 from its turn in the chat.
   await chat().getByRole('button', { name: 'Chat', exact: true }).click()
-  await turns().nth(1).getByRole('button', { name: 'Star', exact: true }).click()
+  await turns().nth(1).getByRole('button', { name: 'More for this turn', exact: true }).click()
+  await turns().nth(1).getByRole('menuitem', { name: 'Star', exact: true }).click()
   await expect.poll(() => kept().some((e) => e.starred)).toBe(true)
   await historyButton().click()
   await expect(rows().nth(1).locator('.prompt-star')).toBeVisible()

@@ -388,7 +388,7 @@ in a word (`passes`, `2 failed on the way`, `build failed`, `starred`, `gone bac
 prompts with a starred build, **Hide gone back** leaves out the ones you went back from. Click a row to compare it (below), double-click it, or **Open in chat**, to read it in the chat where it was said.
 The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
 is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
-The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are on the turns of the chat.
+The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are in the menu of the dots on the turns of the chat.
 What a kept build had then (checks that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands now.
 **Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
@@ -707,7 +707,7 @@ The chat is your own `claude`, under your own login, started in its headless
 mode (JSON on pipes instead of a screen). Torno draws what it says and does;
 nothing of Claude Code's settings is read or changed (torno lists the paths and sizes of the instruction files Claude Code reads, never their text). `Enter` sends, `Shift+Enter`
 is a new line, and a prompt sent while the agent is at work waits its turn
-("Queued"; "Stop" interrupts the turn, and what was queued still runs after it; `Ctrl+C` does the same in the box when nothing is selected there).
+("Prompt 15 queued", outlined; "Stop" interrupts the turn, and what was queued still runs after it; `Ctrl+C` does the same in the box when nothing is selected there).
 
 - **Suggestions.** While the box is empty, up to three quiet chips above it offer
   the next useful prompt, each only when it applies: "Fix the build" while the
@@ -718,7 +718,11 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   its words in the box and gives it the keys; nothing is sent until you press
   `Enter`. The prompts of torno are not offered when Claude Code says torno's
   tools are not connected.
-- **What torno added.** Under each prompt, a "torno added" line shows what went
+- **The prompts.** The conversation is cut into prompts. Each starts with a head: "Prompt 14", the builds it made
+  (`h40 → h41`, `h40 → failed`, or `h40 → …` while one runs; "no build" for a question) and a hairline. Then your words in a
+  block of ink, Claude's text, and the tools it used as small chips (the ones of torno's own on the blue wash, the one
+  running ringed); a run of finished tools is one chip, to open.
+- **What torno added.** Under each prompt, a "with" line shows what went
   with it: the marks sent, as chips in their colours, the build (`r12 ok`, or
   `build after r12 failed`), and the selection; "Show text" opens the exact text the agent was given. Above the
   box, "Goes with your next prompt" says what will go. A prompt that carried a review says `review R1 sent`, and one sent
@@ -786,10 +790,11 @@ is a new line, and a prompt sent while the agent is at work waits its turn
 - **The builds of a turn.** Under a turn's account, when the prompt made builds, a strip of small pictures: the build
   the prompt began from (dashed), the builds it made and the last one, each with its id (`h41`); a build that failed
   says so in place of its picture. Beside it, what they did, from what each build kept: the parts that changed, the
-  checks of the model that began or stopped to pass, the builds that failed on the way. The buttons of the turn:
-  **Compare** (draws the last build over the one the prompt began from, as "Compare" below does; it reads
-  "Comparing" while it is on and puts it away again), **See changes**, **Go back to before this prompt** and
-  **Star** (keeps the last build: a starred build is never let go).
+  checks of the model that began or stopped to pass, the builds that failed on the way. The turn ends with "Done in
+  58 s" and what it did, and at its right the buttons of the turn: **See changes**, **Compare** (draws the last build over the
+  one the prompt began from, as "Compare" below does; it reads "Comparing" while it is on and puts it away again), and the
+  dots, a menu with **Go back to before this prompt**, **Star** (keeps the last build: a starred build is never let go; **Unstar**
+  takes it away) and **Pin to board**.
 - **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
   `common/fillets.py` in your editor · `h39`" for a build your own save made, "You tried `wall` · `h40`" for the
   Params you tried. Several in a row, with no prompt between, are one line ("You saved 3 times in your editor ·
@@ -976,7 +981,7 @@ instruction files Claude Code reads on its own, it lists the paths and sizes
   `--setting-sources`, "Project instructions") are not followed. The first
   prompt of every session, and the first after `/clear` (when Claude Code loads
   the files again), says the same to the agent, with the paths and sizes (a
-  "torno added" line also says how many, without opening it),
+  "with" line also says how many, without opening it),
   and that what torno's tools say of the build is current: a `CLAUDE.md` that
   names another viewer, report or export step is about another way of working,
   so its advice on how to model stands and its way of seeing the build does not.
@@ -1099,7 +1104,7 @@ Open marks: M2 (moved), M6 (unchecked)
   `/clear`, ends with a line naming the instruction files Claude Code reads
   there by default (six at most, with their sizes;
   see "What Claude Code is given") and saying which wins for seeing the build:
-  torno's tools. It is under "Show text" in "torno added". Nothing is said when
+  torno's tools. It is under "Show text" in the "with" line. Nothing is said when
   there are none.
 
 When Claude Code has edited the model, the answer to that edit says how the
@@ -2901,7 +2906,7 @@ With a real agent:
 - **A failed or old Claude Code in the chat.** A `claude` that does not know one of the chat's flags, or is signed out: the pane says "Claude Code stopped (exit code 1)" with the last line it wrote, and "It did not start: is `claude` up to date and signed in?". Not yet seen with a real old CLI; the stand-in prints to stderr and exits 1.
 - **A chat that could not use the login, with the real CLI.** The stand-in plays it (`FAKE_AGENT_AUTH_ERROR`) in the shape of the Agent SDK's types (an assistant message with `error: "authentication_failed"`, then a `result` with `is_error: true`); no real CLI has been seen to print it. Start torno with `CLAUDE_CODE_SIMPLE=1` (what `--bare` sets) and no `ANTHROPIC_API_KEY`, send a prompt in a chat: the CLI's words, then the warning "Claude Code's chat could not use your login" with "Use the terminal", once. Note what the CLI prints then (`claude -p --bare --output-format stream-json --verbose hello` in a terminal, with no key: the assistant message's `error`, the `result`'s `subtype`, `is_error` and `api_error_status`) and whether a signed-out `claude` (`claude auth logout`) or a login that ran out answers the same way or exits (an exit leaves the chat ended, and its "Use the terminal" still starts the terminal). Then start torno without the variable: "Use the terminal" ends the chat and the same conversation goes on in the terminal.
 - **Subagents and thinking.** A turn with a subagent (`Task`; newer versions may call the tool `Agent`) and one with extended thinking: the card counts steps and lists the tools, "Thought for N s" shows after a thought. The number was worked out from a recording; nobody has looked at it with the real CLI.
-- **The chat with the real Claude Code.** In a session in chat: a prompt with a pin or two marked (the "torno added" line shows them and they turn to sent); a command that asks permission, answered "Allow", then another with "Allow for this session" (the next like it is not asked, and `~/.claude/settings.json` and the project's `.claude/` are as they were), then one "Deny"; a question (`AskUserQuestion`) answered with an option and with "Other"; a plan in plan mode approved; "Attach view" (the agent describes what you see); the model menu (the next answer is from that model, and `/model` in the terminal still shows your default); the effort menu (a level chosen is taken, `/effort` in the terminal still shows your default, and `~/.claude/settings.json` is as it was); a new project made with a model and an effort chosen beside "Create" (its first answer is from that model, at that effort); `/compact` (one note, the conversation goes on); "Terminal", then "Chat" again: the same conversation, its earlier part shown.
+- **The chat with the real Claude Code.** In a session in chat: a prompt with a pin or two marked (the "with" line shows them and they turn to sent); a command that asks permission, answered "Allow", then another with "Allow for this session" (the next like it is not asked, and `~/.claude/settings.json` and the project's `.claude/` are as they were), then one "Deny"; a question (`AskUserQuestion`) answered with an option and with "Other"; a plan in plan mode approved; "Attach view" (the agent describes what you see); the model menu (the next answer is from that model, and `/model` in the terminal still shows your default); the effort menu (a level chosen is taken, `/effort` in the terminal still shows your default, and `~/.claude/settings.json` is as it was); a new project made with a model and an effort chosen beside "Create" (its first answer is from that model, at that effort); `/compact` (one note, the conversation goes on); "Terminal", then "Chat" again: the same conversation, its earlier part shown.
 - **Making a new project with the real Claude Code.** "New project" with a name, a description, two photos from a phone (one large), a doodle, a scan and a reference to another project, each with a note, then "Create": the project is opened, its chat shows the one prompt with the pictures, Claude Code's reply speaks of them and of the notes, the scan is in the Scans list, `reference/` holds the original photos, and nothing else was written in the workspace. The stand-in agent has taken the prompt; the real CLI has not.
 - **The board of a new project, with the real Claude Code.** Make a project with sizes and a PDF, and start Claude: its first prompt names the sizes (and its board line says no card is new), it does not ask for a size you gave, it reads the PDF with its own tools, and a size it adds with `add_card` shows on the board as a card that says "from Claude".
 - **Asking for the missing sizes, with the real Claude Code.** Make a project whose description gives one size and leaves out the rest (a lid for a box of an unnamed size, screws not named): before the first write of the model, Claude Code asks once, in a card with at most four questions, each with a typical value among its options and "Other" taking "build with assumptions"; it asks nothing about a fillet radius; after the answers it builds, and a size you did not give is a field of `Params` commented "assumed" and listed in its reply. Then ask for a new feature with no key size (a hole for "a screw"): it asks once, not again. The stand-in agent only plays the card; the real model's choice to ask has not been seen, and the eval harness (#121) does not yet measure it.

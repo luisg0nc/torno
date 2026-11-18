@@ -75,9 +75,23 @@ function Changes({ hunks, input, where }: { hunks: Hunk[]; input: unknown; where
   )
 }
 
+/** A tool's line in three: what stands before the word that carries it, that word in bold, and what follows. `Read` carries its file; torno's tools carry their name; the others their own. */
+export function labelParts(name: string, label: string, torno: boolean): [string, string, string] {
+  if (torno) {
+    const at = label.indexOf(' (')
+    return at < 0 ? ['', label, ''] : ['', label.slice(0, at), label.slice(at)]
+  }
+  if (name === 'Read') {
+    const at = label.indexOf(' ')
+    return at < 0 ? ['', label, ''] : [label.slice(0, at + 1), label.slice(at + 1), '']
+  }
+  const word = /^[^\s:]+/.exec(label)?.[0] ?? label
+  return ['', word, label.slice(word.length)]
+}
+
 /**
- * A tool the agent used, on one line: what it did, and how it went. It opens to its input and its result. One of
- * torno's own has a thin rule in the accent colour, and its pictures under the line.
+ * A tool the agent used, as a chip: what it did, and how it went. It opens to its input and its result. One of
+ * torno's own is on the accent wash with its name in the accent, and has its pictures under the chip.
  */
 export const ToolCard = memo(function ToolCard({ item, beat }: { item: Tool; beat: boolean }) {
   const [open, setOpen] = useState(false)
@@ -87,6 +101,7 @@ export const ToolCard = memo(function ToolCard({ item, beat }: { item: Tool; bea
   const slugs = useSetSlugs()
   const label = useMemo(() => toolLabel(item.name, item.input, where), [item.name, item.input, where])
   const full = useMemo(() => toolLabel(item.name, item.input), [item.name, item.input])
+  const [lead, strong, tail] = useMemo(() => labelParts(item.name, label, item.torno), [item.name, label, item.torno])
   // Only an open card needs its input as text.
   const hunks = useMemo(() => (open ? editHunks(item.name, item.input) : undefined), [open, item.name, item.input])
   const input = useMemo(() => (open && !hunks ? inputText(item.input) : ''), [open, hunks, item.input])
@@ -101,11 +116,13 @@ export const ToolCard = memo(function ToolCard({ item, beat }: { item: Tool; bea
           ? { word: 'Point again', run: () => pointAgain(item.toolUseId, item.input) }
           : null
   return (
-    <div className="chat-item chat-tool" data-kind="tool" data-torno={item.torno ? '' : undefined} data-state={item.state}>
+    <div className="chat-item chat-tool" data-kind="tool" data-torno={item.torno ? '' : undefined} data-state={item.state} data-open={open ? '' : undefined}>
       <div className="chat-tool-row">
         <button type="button" className="chat-tool-line" title={full} aria-label={full} aria-expanded={open} onClick={() => setOpen(!open)} />
         <span className="chat-tool-label">
-          {item.torno ? refsIn(label, slugs).map((piece, n) => (piece.ref !== undefined ? <RefChip key={n} value={piece.ref} prose /> : <span key={n}>{numbered(piece.text)}</span>)) : numbered(label)}
+          {lead !== '' && numbered(lead)}
+          <b>{numbered(strong)}</b>
+          {item.torno ? refsIn(tail, slugs).map((piece, n) => (piece.ref !== undefined ? <RefChip key={n} value={piece.ref} prose /> : <span key={n}>{numbered(piece.text)}</span>)) : numbered(tail)}
         </span>
         {item.steps !== undefined && <span className="chat-tool-steps">{numbered(`${item.steps} ${item.steps === 1 ? 'step' : 'steps'}`)}</span>}
         <span className="chat-tool-state">
