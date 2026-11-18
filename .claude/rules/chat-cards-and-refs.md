@@ -38,8 +38,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `chat.newline` Shift+Enter, `chat.command` Up/Down and `chat.complete` Tab (while `/` commands are offered),
   `chat.close` Esc (a picture shown large; the focus returns to its thumbnail), `chat.stop` Ctrl+C (composer, only while the session
   works and nothing in the box is selected: with a selection it is a copy) and `chat.allow` Enter (scope `ask`: on the card itself
-  in focus, not its buttons or its field, where Enter refuses; not on a question) and `ask.option` 1 2 3 (scope `ask`: on torno's own
-  question at the foot, not in a field). While a permission or a plan is open
+  in focus, not its buttons or its field, where Enter refuses; not on a question) and `ask.option` 1 to 9 (scope `ask`, heard on the block at the foot, never in a field: torno's own question takes 1 to 3; on
+  a question of `AskUserQuestion` the key picks or toggles that option of the first question not yet answered, the last once all are, and the
+  option shows its key cap, `aria-keyshortcuts`). While a permission or a plan is open
   (`openAsk` in `Composer`) the box's placeholder is "Answer the card above, or say what to do instead", its primary button
   is "Deny and send" (`chat.answer` with `allow: false` and the text as the message; Enter in the box does the same) and "Queue"
   is the secondary; a question (`AskUserQuestion`) changes nothing in the box. The card is at the foot of the dock, over the box

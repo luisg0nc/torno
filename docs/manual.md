@@ -849,6 +849,7 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
 - **The foot.** Above the box, up to three suggestions (a fix for a failed build is in red). The box holds what goes with the next
   prompt (the marks, a drawing waiting, the view or part of the board, a review's chip, a tag asked for), then your words, then
   a bar with "Attach view", "Draw on view", the key (`Enter`, or `Ctrl C` while Claude works) and "Send", or "Stop" and "Queue".
+  On a question of Claude Code's own, the keys `1` to `9` pick or toggle the option of that number (on the first question not yet answered), unless you are typing in a field.
   With a review attached the box says "The review goes as its own prompt. Add words to it here."
 - **When it asks.** A permission is a card at the foot of the dock, over the box, with a warm edge on top; the conversation
   keeps a line where it was, and the card once it is answered: "Allow",
@@ -2428,7 +2429,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Session | `Tab` | Chat: complete the / command chosen |
 | Session | `Ctrl+C` | Chat: stop the turn while Claude Code works, with nothing selected in the box |
 | Session | `Enter` | Chat: allow what the card in focus asks (in its reason field, Enter denies) |
-| Session | `1` `2` `3` | Ask: answer with the first, second or third option of the question in focus |
+| Session | `1` `2` `3` `4` `5` `6` `7` `8` `9` | Ask: the option of that number: answers torno's question (the first three), picks or toggles it on the question Claude Code asks |
 | Session | `Esc` | Chat: put away a picture shown large |
 | Session | `Left` `Right` | On the edge of the session pane: wider or narrower |
 | Session | `Left` `Right` | On the edge of the panel beside the rail: narrower or wider |

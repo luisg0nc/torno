@@ -209,6 +209,29 @@ test('the questions of AskUserQuestion are one card: radio-like buttons, toggles
   await expect(submit).toBeDisabled()
   await expect(status()).toHaveText('Needs you')
 
+  // The keys 1 to 9 choose among the options of the question still unanswered, and toggle those of a multiple one; a letter in a field is typed.
+  await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-keyshortcuts', '1')
+  await expect(card.getByRole('button', { name: /^3 mm/ })).toHaveAttribute('aria-keyshortcuts', '2')
+  await expect(card.locator('.chat-ask-option .ask-key')).toHaveText(['1', '2'])
+  await card.focus()
+  await page.keyboard.press('1')
+  await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-pressed', 'true')
+  // The next presses are for the second question, the first unanswered and then the last: its options are toggled.
+  await expect(card.locator('.chat-ask-option .ask-key')).toHaveText(['1', '2', '3'])
+  await page.keyboard.press('1')
+  await page.keyboard.press('3')
+  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(card.getByRole('button', { name: /^Brushed/ })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('3')
+  await expect(card.getByRole('button', { name: /^Brushed/ })).toHaveAttribute('aria-pressed', 'false')
+  await page.keyboard.press('1')
+  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'false')
+  // In the box, a digit is a digit.
+  await composer().focus()
+  await page.keyboard.type('12')
+  await expect(composer()).toHaveValue('12')
+  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'false')
+  await composer().fill('')
   // One of a single choice: choosing another takes the first back.
   await card.getByRole('button', { name: /^2 mm/ }).click()
   await card.getByRole('button', { name: /^3 mm/ }).click()

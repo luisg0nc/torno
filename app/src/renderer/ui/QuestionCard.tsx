@@ -71,7 +71,7 @@ export function QuestionCard({ where }: { where: 'chat' | 'dock' }) {
         // The keys 1 to 3 answer with an option; in a field they are the field's.
         if (e.nativeEvent.isComposing || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return
         const n = which(e, 'ask.option')
-        if (n < 0 || n >= ask.options.length) return
+        if (n < 0 || n >= Math.min(ask.options.length, KEYED)) return
         e.preventDefault()
         // The press is this block's: the view's own keys for the same digits do not hear it.
         e.nativeEvent.stopPropagation()

@@ -227,7 +227,7 @@ const ROWS = [
   row('chat.complete', ['Tab'], 'Chat: complete the / command chosen', 'Session', 'composer'),
   row('chat.stop', ['Ctrl+C'], 'Chat: stop the turn while Claude Code works, with nothing selected in the box', 'Session', 'composer'),
   row('chat.allow', ['Enter'], 'Chat: allow what the card in focus asks (in its reason field, Enter denies)', 'Session', 'ask'),
-  row('ask.option', ['1', '2', '3'], 'Ask: answer with the first, second or third option of the question in focus', 'Session', 'ask'),
+  row('ask.option', ['1', '2', '3', '4', '5', '6', '7', '8', '9'], 'Ask: the option of that number: answers torno\'s question (the first three), picks or toggles it on the question Claude Code asks', 'Session', 'ask'),
   row('chat.close', ['Esc'], 'Chat: put away a picture shown large', 'Session', 'picture'),
   row('dock.resize', ['Left', 'Right'], 'On the edge of the session pane: wider or narrower', 'Session', 'separator'),
 
