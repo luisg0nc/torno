@@ -22,22 +22,13 @@
   box-shadow: 0 0 0 2px var(--ink);
 }
 
-/* The popover of Ctrl+G: over the selection bar, at the foot of the view. */
+/* The box that names a set: in the head of the route card, under the refs (card-hand.css). */
 .setmake {
-  position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-lift) + 44px);
-  left: 50%;
-  z-index: 2;
-  transform: translateX(-50%);
   display: grid;
   gap: var(--space-2);
-  width: 300px;
-  max-width: calc(100% - 2 * var(--stack-side));
-  padding: var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--divider);
   font-size: var(--text-small);
 }
 

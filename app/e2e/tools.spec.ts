@@ -598,7 +598,7 @@ test('Note on the selection leaves a pick on each ref, where it was clicked, and
   await clickOver(ON_BASE)
   await clickOver(edgeAt, { shift: true })
   await expect.poll(async () => (await state()).selection).toEqual([face.ref, edge.ref])
-  const note = page.getByRole('group', { name: 'Selection' }).getByRole('button', { name: 'Note', exact: true })
+  const note = page.getByRole('group', { name: 'Selection' }).getByRole('button', { name: 'Note each', exact: true })
   await expect(note).toBeEnabled()
   await note.click()
 

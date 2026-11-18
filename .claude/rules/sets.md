@@ -64,8 +64,9 @@ or Claude reads it is a *named set*; the model's `groups(p)` are groups and keep
 - The store follows main (`connectSets`, `sets:changed`); nothing keeps a copy of a set that main did not say. `setActions` ask main and say what it
   refused (`refused`, `said` in the status line, `removed` for Undo, 10 s, `problem` for what main found wrong with the file: `sets:problem` and `sets.problem`
   at open, shown in Layers with a Dismiss that calls `sets.dismissProblem`, as the marks' notice is). The selection may hold strokes while a sketch is open (`dropStrokes` when it
-  closes); `Selection.tsx` and the view never ask the kernel for a stroke.
-- Ctrl+G is `set.make` (`keys`); the popover is `MakeSetForm`, pure, with `makeError` and the same `setNameError` main uses. The select scope Set
+  closes); `ui/Selection.tsx` (`useSelection`) and the view never ask the kernel for a stroke.
+- Ctrl+G is `set.make` (`keys`), heard by `useSetKeys`, which `ui/card/InHand.tsx` calls (the card is there whenever a project is on show); so is the head's "Name a set"
+  (`startMake`). The box is `MakeSet`, drawn by the head (`HandView`, `naming`) under the refs when `headKind` says `makeSet`, never over the view. It is `MakeSetForm`, pure, with `makeError` and the same `setNameError` main uses. The select scope Set
   (`tools/selectTool.ts` `refInScope`) gives the first (oldest) set that holds the face; a face in no set is passed over.
 - A set is drawn in its token colour on the `set` layer of the viewport (one set at a time; a proposal hatched and dashed); Layers is `left-column`, the chat's
   chips are `chat-cards-and-refs`, the tokens `styles-themes`, a mark on a set `marks-store`.

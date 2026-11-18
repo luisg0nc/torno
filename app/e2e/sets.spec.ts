@@ -117,8 +117,10 @@ test('Ctrl+G names the two faces that are selected, and sets.json holds both wit
   await expect.poll(async () => (await state()).selection).toEqual([before.top, before.side])
 
   await page.keyboard.press('Control+g')
-  const form = page.getByRole('dialog', { name: 'Name a set' })
+  // The box opens in the head of the card, under the two refs held there.
+  const form = page.locator('.hand').getByRole('dialog', { name: 'Name a set' })
   await expect(form).toBeVisible()
+  await expect(page.locator('.hand .hand-ref')).toHaveCount(2)
   await form.getByLabel('Name').fill('deck')
   await page.keyboard.press('Enter')
   await expect(form).toHaveCount(0)

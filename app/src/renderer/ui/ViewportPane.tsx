@@ -47,10 +47,8 @@ import { goToRow } from './BuildStatus'
 import { hoverMark } from './markHover'
 import { RegionBar } from './RegionBar'
 import { NotePopover } from './NotePopover'
-import { MakeSet } from './sets/MakeSet'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
-import { Selection } from './Selection'
 import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
 import { SketchPanel } from './sketch/SketchPanel'
@@ -810,8 +808,6 @@ export function ViewportPane() {
         <>
           <ViewBar viewport={viewport} />
           <ToolPalette />
-          <Selection viewport={viewport} />
-          <MakeSet />
           <SectionBar viewport={viewport} />
           <AlignBar />
           <RegionBar />

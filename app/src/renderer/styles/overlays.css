@@ -1,4 +1,4 @@
-/* ---- Pointing: the readout at the pointer, and the selection ---- */
+/* ---- Pointing: the readout at the pointer (the selection is in the head of the route card, card-hand.css) ---- */
 
 .pick-readout {
   position: absolute;
@@ -54,65 +54,6 @@
 /* A sentence may be a long one (why the kernel would not measure something): it runs on, where a ref is cut. */
 .pick-readout[data-says='sentence'] {
   white-space: normal;
-}
-
-.selection {
-  position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-lift));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  max-width: calc(100% - 2 * var(--stack-side));
-  padding: 3px;
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  font-size: var(--text-small);
-  white-space: nowrap;
-}
-
-.selection-chips {
-  display: flex;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  list-style: none;
-}
-
-.selection-chip {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  height: 26px;
-  padding: 0 9px;
-  line-height: 26px;
-}
-
-.selection-chip + .selection-chip {
-  border-left: var(--divider);
-}
-
-.selection-ref {
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.selection-hint {
-  padding: 0 var(--space-2);
-  color: var(--muted);
-}
-
-.selection-descriptor {
-  color: var(--muted);
-}
-
-.selection-descriptor:empty {
-  display: none;
 }
 
 /* ---- Section: the plane the parts are cut by, at the bottom of the viewport like the selection ---- */

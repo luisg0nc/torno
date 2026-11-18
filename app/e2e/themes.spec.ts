@@ -352,7 +352,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(page.locator('.measure-choice')).toBeVisible()
           await expect(page.locator('.sectionbar')).toHaveAttribute('data-raised', '1')
           // The bars slide to their rows: the picture is of where they stop.
-          for (const bar of ['.sectionbar', '.selection', '.tool-hint']) await stableBox(page.locator(bar))
+          for (const bar of ['.sectionbar', '.tool-hint']) await stableBox(page.locator(bar))
         } else if (shot === 'measure') {
           // A measurement held in the view: two clicks with Measure in hand, the kernel's value drawn between its points as a draft.
           await page.keyboard.press('m')

@@ -254,7 +254,6 @@
 
 /* The bars at the foot of the view slide to their place when the line below them comes or goes, or the view's width changes
    (`--bar-lift`, `styles/layout.css`): one short transition, that ends, and none where motion is not wanted. */
-.selection,
 .sectionbar,
 .agent-line,
 .alignbar,
@@ -263,7 +262,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .selection,
   .sectionbar,
   .agent-line,
   .alignbar,
