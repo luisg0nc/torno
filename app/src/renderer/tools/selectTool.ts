@@ -1,6 +1,7 @@
 import type { NamedSet } from '../../shared/sets'
 import { refOfSet, selectableMembers, setActions, setsHolding, setsStore } from '../state/sets'
 import { actions, store } from '../state/store'
+import { pointPart } from '../state/pointed'
 import { toolStore } from '../state/tools'
 import type { ViewportPointer } from '../viewport/Viewport'
 import { REPEAT_MS, REPEAT_PX, type Tool, type ToolContext } from './Tool'
@@ -43,11 +44,13 @@ export function selectTool(): Tool {
     ctx.viewport.setHover(null)
     ctx.readout.hide()
     setActions.hover(null)
+    pointPart(null)
   }
   /** In the set scope the pointer on a face of a set lights the whole set in its colour, and the readout names it. */
   const lightSet = (e: ViewportPointer, ctx: ToolContext): void => {
     clearTimeout(rest)
     ctx.viewport.setHover(null)
+    pointPart(null)
     const here = e.hit ? setsHolding(setsStore.getState().sets, ctx.layout, e.hit.ref) : []
     if (here.length === 0) {
       setActions.hover(null)
@@ -99,6 +102,7 @@ export function selectTool(): Tool {
       const { objectId, revision } = ctx
       hovered = ref
       ctx.viewport.setHover({ ...hit, ref })
+      pointPart(hit.part)
       const known = ctx.descriptor(ref)
       ctx.readout.show(e.client, ref, known)
       clearTimeout(rest)

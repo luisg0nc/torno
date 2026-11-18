@@ -10,6 +10,7 @@ paths:
   - "app/src/renderer/ui/layerMarks.test.ts"
   - "app/src/renderer/ui/card/*.ts"
   - "app/src/renderer/ui/card/*.tsx"
+  - "app/src/renderer/state/pointed.ts"
   - "app/src/renderer/ui/Rail.tsx"
   - "app/src/renderer/ui/railBadges.ts"
   - "app/src/renderer/ui/sectionSaid.ts"
@@ -82,10 +83,18 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   button that selects the part as a ref (`setSelection([name])`) and, double clicked, brings it into view
   (`actions.framePart`, `Viewport.framePart`: where it is drawn, the camera not turned), the target is "Show only"
   (`soloLayers(layout, [name])`) and the title says `N hidden · Show all` while a part of the layout is off. After the
-  name, a muted count of the open marks on the part in the layout shown (`ui/layerMarks.ts` `marksByPart`; `--fail` when
+  name, the count of the open marks on the part in the layout shown, in a 16 px pill (`ui/layerMarks.ts` `marksByPart`; `--fail` when
   one is a check that fails on the build); a click lists only the marks on that part in the Marks panel
   (`store.marksOnPart`, the window's alone and dropped with the object; a chip `Only marks on lid` with a cross
   above the list; `goToRow` clears it). It filters what the list shows and nothing else: the agent is told every mark.
+- **Rows lit from the view** (Parts, `ui/card/lit.ts`, `useLit.ts`, `state/pointed.ts`; leader rule 4: marks and checks have no leader).
+  The part the pointer is on is `useLitPart()`: the part under the pointer in the view (the Select tool's `pointPart(hit.part)`, cleared
+  when it leaves, goes to a chip or a set, or finds no part) or, failing that, the first ref of `peek` that is a part of the layout, whole
+  or by a face (`litPart`; a mark, a set or a stroke is none). Its Parts row carries `data-lit` (the accent wash and a 2 px bar). `litRows(part,
+  marks, checks)` gives the ids of the marks on it (`markEndParts`: both parts of a dimension; none for a scan's region) and of the
+  checks whose `part` it is (`LitCheck`: `{ id, part? }`), and `useLitRows(checks)` reads it for Marks and Checks rows, which put
+  `data-lit` on a row whose id is in the set. A part switched off says `hidden` (`.layer-off`) and has its swatch at 40 %; the opacity
+  slider, "Show only" and the eye are in `.layer-controls`, over the row's right end, shown on hover and focus (`card-parts.css`).
 - A part whose build says its shape is broken (`partDefects` of `shared/sanity.ts`: not valid, inside out, not
   closed, mesh disagrees) has its first defect in a word after its name (`.layer-defect`, `--fail`, `+N` for the
   others) and every one in the row's title; the status line counts the layout's broken parts after its parts
@@ -93,8 +102,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   agent's digest (`main/sanity.ts`) to say.
 - **Named sets in Layers** (`ui/Layers.tsx`, `ui/sets/SetRows.tsx`, `rows.ts` `setRows`): a set whose members (lost ones too) are all of
   one part of the layout shown stands under that part's row, indented (`data-in-part`); any other, with members in several parts or with
-  strokes, is under a "Named sets" heading after the groups and parts (`.layer-sets`). A row is the swatch (`--set-1`…`--set-8`, dashed for
-  a proposal), the name as `#deck`, the count, "Show only" (the parts it has ok members in, `partsOfSet`) and a menu with Rename, Colour,
+  strokes, is under a "Named sets" subheading after the groups and parts (`.layer-sets`). A row is the 10 px dashed swatch (`--set-1`…`--set-8`, in
+  `--agent-mark` for a proposal), the name as `#deck`, the set's comment and what it holds in words (`membersSaid`: `4 faces, 1 stroke`), "Show only" (the parts it has ok members in, `partsOfSet`) and a menu with Rename, Colour,
   Add selection, Take away selection, Re-pick (only with lost members: two presses, "Select what takes the place of the lost ones",
   then "Re-pick with N selected"), Make it a tag and Delete; a proposal has Accept and Dismiss and "Proposed by Claude" in
   place of the menu. The pointer or the keys' focus on a row lights the set in the view (`setActions.hover`, `Viewport.setLitSet`), the name

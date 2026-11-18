@@ -136,7 +136,7 @@ test('Ctrl+G names the two faces that are selected, and sets.json holds both wit
   // Layers lists it, under the plate that holds both its faces.
   const row = page.locator('[data-set="N1"]')
   await expect(row.locator('.set-name')).toHaveText('#deck')
-  await expect(row.locator('.layer-count')).toHaveText('2')
+  await expect(row.locator('.layer-count')).toHaveText('2 faces')
   await expect(row.locator('[data-part="lost"]')).toHaveCount(0)
 })
 
@@ -159,7 +159,7 @@ test('rebuilt with the faces renumbered, the set names the faces now there, both
 
   const row = page.locator('[data-set="N1"]')
   await expect(row.locator('.set-name')).toHaveText('#deck')
-  await expect(row.locator('.layer-count')).toHaveText('2')
+  await expect(row.locator('.layer-count')).toHaveText('2 faces')
   await expect(row.locator('[data-part="lost"]')).toHaveCount(0)
   await expect(page.locator('.set-lost')).toHaveCount(0)
   // The same two are what a click on the name selects.
