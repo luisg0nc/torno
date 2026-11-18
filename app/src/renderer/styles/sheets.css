@@ -42,6 +42,7 @@
 /* A card and, over its corner, the way to export that one object: shown when the card is pointed at or has the focus. */
 .card-cell {
   display: grid;
+  flex: none;
   min-width: 0;
 }
 
@@ -80,7 +81,6 @@
 .show-export {
   flex: none;
   height: 30px;
-  margin-left: auto;
 }
 
 /* ---- Export in the dock: under the builds strip, in place of the conversation (spec 2026-11-18, "Export, on the bench") ---- */

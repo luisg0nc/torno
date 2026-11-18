@@ -16,6 +16,9 @@ export const switcher = (page: Page) => railButton(page, 'Projects')
 /** The card of a project on the page of projects. */
 export const projectCard = (page: Page, name: string): Locator => page.locator(`.show .card[data-object="${name}"]`)
 
+/** A shelf of the bench: `Needs you`, `Working` or `The rest`, with its heading, its projects and what they ask. */
+export const shelfOf = (page: Page, name: 'Needs you' | 'Working' | 'The rest'): Locator => page.locator('section.show').getByRole('region', { name, exact: true })
+
 /** The page of projects, as a person finds it: the section that holds the cards. */
 export const projectsPage = (page: Page): Locator => page.locator('section.show')
 

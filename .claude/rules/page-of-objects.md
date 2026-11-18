@@ -7,6 +7,8 @@ paths:
   - "app/src/renderer/ui/ShowPage.tsx"
   - "app/src/renderer/ui/cards.ts"
   - "app/src/renderer/ui/cards.test.ts"
+  - "app/src/renderer/ui/bench.ts"
+  - "app/src/renderer/ui/bench.test.ts"
   - "app/src/renderer/state/thumbs.ts"
   - "app/src/renderer/state/thumbs.test.ts"
   - "app/src/renderer/viewport/thumbnail.ts"
@@ -71,6 +73,21 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## The page of objects (`app/src/renderer`)
 
+- **The bench** (`ui/bench.ts`, pure; `ShowPage.tsx` draws it): `shelvesOf(cards, openId)` is Needs you (a card with `waiting`, or a
+  session that `needs_input`), Working (building in this run, or a session `working`) and the rest by `sourcesMtimeMs`, newest
+  first, equal ones in the list's order with the open one first. `lookOf` says how a project stands: `scale` only for a
+  picture with `thumb.bench` and a `box`, else `tile` (Grid's look: the picture fitted to a 160 × 120 box) for a picture
+  without them, and `ghost` (120 × 80, dashed) for none or a problem: nothing is ever drawn at a size the kernel did not give.
+  A picture at scale is the 480 × 360 PNG cropped to the box projected (`views.screenHalfExtent` over `BENCH_MM_PER_PX`, 2 px
+  margin, an even number of pixels so that it is centred) and drawn at the page's one scale (`pageScale`: the narrowest
+  `benchScale` of the three shelves, at most 1 and at least `MIN_SCALE` 0.25, below which `packRows` wraps a shelf into more
+  lines). Everything is laid out in the bench's own pixels: `useWidth` reads `offsetWidth` of `.bench`, which is not counted
+  in the 86 % `zoom` of a window 800 px tall or less. The shelf is a 2 px `--ink` line (`.shelf::after`) at the foot of the
+  pictures, 40 px between cells, 20 px at the ends, the bar of 50 mm at the right (`barWidth`: 100 px at scale 1). **True scale /
+  Grid** is kept per workspace in `torno.show.mode:<root>` (window storage). A label's cell is at least `CELL_MIN` wide.
+  Up and down go by `stepAcross` (the nearest card on the line above or below, by `data-line`), the rest by `stepCard` in
+  the page's order; the cards' DOM order is needs, working, rest. **Answer** on a card of Needs you opens the project, shows
+  the dock and `focusAsk`s, as the status line's button does. A card carries no history id, so the build line says `r<N>`.
 - `ui/ShowPage.tsx`, over the 3D view (`store.page`: `'object' | 'objects'`; the view stays mounted under it,
   `inert` and not painted, and the open object keeps its selection, camera and note). A workspace of several
   objects, or of none, starts on it; one object alone is shown itself. `W` outside a field or "All projects"
