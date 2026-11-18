@@ -166,12 +166,8 @@
 
 /* ---- First launch: no folder open ---- */
 
+/* The page is two columns to the window's edges (`welcome.css`): the plate and the side scroll for themselves. */
 .welcome {
   display: grid;
-  /* Centred while it fits; from the top, and scrolled, in a window too low for it. */
-  place-items: safe center;
-  padding: var(--space-4);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-thumb) transparent;
+  overflow: hidden;
 }

@@ -51,11 +51,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - **What torno needs** is one block, "Ready to work" (`ui/Readiness.tsx`; its words are `ui/readyLines.ts`, pure and held by
   `readyLines.test.ts`; its state is `store.ready`, asked of main once and told on each change, `useReadyFeed`). A line each
-  for Claude Code, uv (only when missing), a folder's own environment (only with a `pyproject.toml`) and the kernel; a dot
-  in `--ok`, `--warn` or `--fail` (a wait is `--muted`), the label in the muted face, versions, paths and commands in
-  the monospace face, and a note in the muted face under it. When every line is ready it folds to one quiet line ("Claude
-  Code and build123d 0.13.0 are ready") that a click opens; a kernel that is only starting, its environment there, does
-  not keep it open. Nothing is claimed until main has said. It is under the tagline of the first screen, in the empty
+  for Claude Code, uv (only when missing), a folder's own environment (only with a `pyproject.toml`) and the kernel; a glyph
+  (`glyphOf`: ✓ in `--ok`, ! in `--warn`, × in `--fail`, an ellipsis in `--muted` for a wait), the name in ink, what was found
+  in muted (versions, paths and commands in the monospace face), and a note in the muted face under it. When every line is
+  ready it folds to one quiet line, the tick in `--ok` ("Claude Code 2.1.4 and build123d 0.13.0 are ready", the version of Claude
+  Code only once `claude --version` has answered: `foldedLine`) that a click opens; a kernel that is only starting, its environment there, does
+  not keep it open. Nothing is claimed until main has said. It is under the buttons of the first screen's right half, in the empty
   workspace below "New project" and the example, on the page of a new object above Create in the `missing` form (only the lines that
   say something is amiss, none when none does, and for Claude Code a failure adds that the object will be made but the agent
   cannot start in it), and in the sheet of the folder menu ("Check what torno needs", a dialog over the window asked afresh,

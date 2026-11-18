@@ -1,130 +1,155 @@
-/* ---- The first screen (ui/Welcome.tsx): what torno is, and the ways in ---- */
+/* ---- The first screen (ui/Welcome.tsx): the dyed plate at the left and the ways in at the right ---- */
 
+/* The plate is 780 of 1440, the side the rest. The page is the whole window: no title row, no rail, no dock. */
 .welcome-page {
+  position: relative;
   display: grid;
-  /* One column as wide as the page and no wider: a long path is cut, it does not push the page off its centre. */
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: start;
-  gap: var(--space-4);
-  width: min(34rem, 100%);
+  grid-template-columns: minmax(0, 780fr) minmax(0, 660fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   text-align: left;
 }
 
-.welcome-head {
-  display: grid;
-  justify-items: start;
+/* The window has no frame here, and on Linux no title bar: the top 40 px of the plate and of the side moves it. The
+   window controls (`BareControls`) are over its right end, and every button and link is a place to click, not to drag. */
+.welcome-drag {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 40px;
+  -webkit-app-region: drag;
 }
 
-/* The logo as the icon has it: the vise in the ink. Its drawing leaves room under it already (the icon's tile). */
-.welcome-head .logo {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 0;
-  color: var(--ink);
+.welcome-page button,
+.welcome-page a {
+  -webkit-app-region: no-drag;
 }
 
-/* What torno is, in a line and a size up. */
-.welcome-tagline {
-  color: var(--ink);
-  font-size: 15px;
+.welcome-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: 88px 64px 32px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+  background: var(--surface);
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.welcome-lead {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
   text-wrap: pretty;
 }
 
-/* The folder of objects drawn: a row per level, indented by its depth, the name and what it is. */
-.welcome-tree {
-  display: grid;
-  gap: var(--space-1);
-  width: 100%;
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
-  background: var(--panel);
-}
-
-.tree-row {
-  display: grid;
-  grid-template-columns: 12ch 1fr;
-  gap: var(--space-3);
-  padding-left: calc(var(--depth) * 1.25rem);
-}
-
-.tree-label {
-  color: var(--muted);
-}
-
-/* The ways in: the one main button with its note under it, then the example and its note on one row. */
+/* The ways in: the one main button, 42 px with a radius of 10, and the example beside it. */
 .welcome-ways {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-2);
-}
-
-.welcome-example {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.welcome-ways .button {
+  height: 42px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-float);
+  font-size: 14px;
 }
 
 .welcome-problem {
+  margin: 0;
   color: var(--fail);
   text-wrap: balance;
 }
 
+/* Recent folders: a row of 68 px each, hairlines between. */
 .welcome-recent {
   width: 100%;
-  border-top: var(--divider);
   text-align: left;
 }
 
-.welcome-recent .section-title {
-  padding: var(--space-3) var(--space-2) var(--space-1);
+.welcome-recent .welcome-title {
+  margin-bottom: var(--space-4);
 }
 
 .welcome-recent ul {
   margin: 0;
   padding: 0;
   list-style: none;
+  border-bottom: var(--divider);
 }
 
 .welcome-recent li {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-4);
+  height: 68px;
+  border-top: var(--divider);
+}
+
+/* Where the drawing of one of the folder's projects goes; a folder that is gone has a dashed box. */
+.recent-thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  height: 40px;
+  color: var(--muted);
+}
+
+.recent-thumb .logo {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+}
+
+[data-missing] .recent-thumb {
+  border: 1px dashed var(--field-edge);
+  border-radius: var(--radius-control);
 }
 
 .recent-row {
-  display: flex;
+  display: grid;
   flex: 1;
-  align-items: center;
-  gap: var(--space-3);
+  align-content: center;
+  gap: 2px;
   min-width: 0;
-  height: 30px;
-  padding: 0 var(--space-2);
+  height: 100%;
+  padding: 0;
   border: 0;
-  border-radius: var(--radius-control);
   background: transparent;
   text-align: left;
 }
 
-.recent-row:hover:enabled {
-  background: var(--accent-wash);
+.recent-row:hover:enabled .recent-name {
   color: var(--accent);
 }
 
 .recent-name {
-  /* One width for all: the paths beside them begin on one edge. */
-  flex: 0 0 14ch;
   overflow: hidden;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 /* The path is long and its end says most: it is cut at its start. */
 .recent-path {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
@@ -133,10 +158,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: rtl;
-}
-
-.recent-row:hover:enabled .recent-path {
-  color: inherit;
 }
 
 /* A folder that is no longer there: struck, and said so in words beside it. */
@@ -149,15 +170,23 @@
   color: var(--muted);
 }
 
-.recent-gone {
+.recent-gone-side {
+  display: flex;
   flex: none;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.recent-gone {
   color: var(--muted);
   font-size: var(--text-small);
 }
 
 .welcome-foot {
   max-width: 44ch;
+  margin: auto 0 0;
+  padding-top: var(--space-4);
   color: var(--muted);
-  font-size: var(--text-small);
+  font-size: 12.5px;
   text-wrap: balance;
 }
