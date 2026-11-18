@@ -11,6 +11,11 @@
   white-space: nowrap;
 }
 
+/* A number in a chip sits in a pill with its own padding, and the pills have to fit two rows in the narrowest pane: it keeps the mono face and size, and no margin. */
+.viewstrip .num {
+  margin-inline: 0;
+}
+
 /* A chip and what can be done with it, as one thing. */
 .view-item {
   position: relative;
@@ -87,7 +92,7 @@
   display: inline-flex;
   align-items: center;
   height: 100%;
-  padding: 0 7px;
+  padding: 0 6px;
   border: 0;
   border-radius: var(--radius-full);
   background: transparent;

@@ -57,6 +57,11 @@ button {
   margin-inline: 0.12em;
 }
 
+/* A control is no run of sans with a number in it: it keeps the face and the size, and takes no margin, so that it is as wide as its box says. */
+:is(button, input, select, textarea).num {
+  margin-inline: 0;
+}
+
 .muted {
   color: var(--muted);
 }

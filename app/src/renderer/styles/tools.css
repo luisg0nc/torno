@@ -59,8 +59,12 @@
   bottom: calc(var(--triad-clear) + var(--space-1));
   left: var(--space-3);
   display: flex;
+  /* The last measurement is the long part (a value, how, three components, the key button) and the mono face is wide:
+     in a narrow view it goes on a row of its own, above the triad, rather than out under the dock. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
+  max-width: calc(100% - 2 * var(--space-3));
   padding: 3px;
   border: var(--divider);
   border-radius: var(--radius-float);
