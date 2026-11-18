@@ -1,12 +1,19 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { drawsControls, frameOptions, SURFACE } from './frame'
+import { CARD_NARROW, RAIL_W, VIEWPORT_MIN } from '../renderer/state/column'
+import { DOCK_NARROW } from '../renderer/state/dock'
+import { drawsControls, frameOptions, MIN_WINDOW, SURFACE } from './frame'
 
 // The window has no native frame (spec 2, "The title bar"): where the platform draws the three controls over the bar
 // it is given an overlay of the bar's height; where it does not (Linux), torno draws them itself.
 
 describe('the frame of the window', () => {
+  it('cannot be made so narrow that the rail, the card and the dock at their defaults leave the view under its minimum', () => {
+    expect(MIN_WINDOW).toEqual({ width: 1120, height: 700 })
+    expect(MIN_WINDOW.width - RAIL_W - CARD_NARROW - DOCK_NARROW).toBeGreaterThanOrEqual(VIEWPORT_MIN)
+  })
+
   it('is hidden, with an overlay of the bar height in the surface colour and --muted, where the platform draws the controls', () => {
     for (const platform of ['win32', 'darwin'] as const) {
       expect(frameOptions(platform, false)).toEqual({

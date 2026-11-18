@@ -63,7 +63,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Agents (`app/src/main`)
 
-- **The window has no native frame** (`createWindow` in `index.ts`, `frame.ts`): `titleBarStyle: 'hidden'`, at least 1100 × 700.
+- **The window has no native frame** (`createWindow` in `index.ts`, `frame.ts`): `titleBarStyle: 'hidden'`, at least 1120 × 700 (`MIN_WINDOW`: the rail, the card and the dock leave the view its 420 px).
   Where the platform draws its controls (`frameOptions`: Windows, macOS) it is given `titleBarOverlay` of the bar's
   height (40) in `--surface` and `--muted` symbols, and keeps them with the system theme (`setTitleBarOverlay`); on Linux there is
   no overlay, `bridge.window.drawsControls()` is true and the window draws the three buttons, asking main through
