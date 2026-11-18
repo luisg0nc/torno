@@ -136,7 +136,7 @@ test('the folders opened lately are listed from torno\'s own file: one that is g
     expect(await missing.locator('.recent-name').evaluate((el) => getComputedStyle(el).textDecorationLine)).toBe('line-through')
     await expect(missing.locator('.recent-row')).toBeDisabled()
     // The path is a path: in the monospace face.
-    expect(await list.locator('.recent-path').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
+    expect(await list.locator('.recent-path').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
     await missing.getByRole('button', { name: 'Remove gone from the list' }).click()
     await expect(list.locator('li')).toHaveCount(7)
     await expect.poll(() => (JSON.parse(readFileSync(config, 'utf8')) as { recent: string[] }).recent).toEqual([here, ...others.slice(0, 6)])
@@ -234,7 +234,7 @@ test('? shows every key of the one table; what is typed searches it, and no tool
   await expect(sheet().locator('li')).toHaveCount(POINTER.length + KEYS.filter((row) => !row.hidden).length)
   // The pointer first: gestures, not keys, so no cap of its own.
   await expect(sheet().locator('h3')).toHaveText(['Pointer', 'Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
-  expect(await sheet().locator('kbd').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
+  expect(await sheet().locator('kbd').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
   // The focus is in its field: a letter searches, and is no tool's key.
   await expect(sheet().getByRole('textbox', { name: 'Search the keys' })).toBeFocused()
   await page.keyboard.type('m')

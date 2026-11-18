@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Vec3 } from '../../shared/marks'
 import type { MainAxis } from '../../shared/planes'
 import { number } from '../../shared/format'
+import { MONO_STACK } from '../../shared/fonts'
 import type { Snap } from '../tools/sketch/snap'
 import { type CubeFace, cubeCentre, cubeFaces, drawViewCube, CUBE_HALF_PX } from './viewCube'
 
@@ -46,7 +47,7 @@ export function hintLines(hint: SketchHint): string[] {
   return lines
 }
 
-const MONO = "'IBM Plex Mono', ui-monospace, monospace"
+const MONO = MONO_STACK
 
 /** The colours it is drawn in: the accent, the ink, and the paper and hairline of the panels. */
 export interface SketchColours {

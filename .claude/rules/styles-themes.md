@@ -29,6 +29,13 @@ the stylesheets by area in the order of the cascade; `styles.test.ts` holds it t
   accent on its wash; the sixteen terminal colours on the panel, but the dark
   theme's black); what is only drawn is 3:1 (the two mark colours on the
   surface); a hairline is between 1.15 and 2; the edge of an input or a text area is `--field-edge`, 3:1 on both (WCAG 1.4.11). A token is changed there first.
+- **Faces** (spec 2026-11-18 §1): Instrument Sans (400, 500, 600) for the interface and Martian Mono (300, 400, 500) for every number, ref, file name,
+  key cap and code, from `@fontsource/instrument-sans` and `@fontsource/martian-mono` (pinned, latin subset, imported in `renderer/main.tsx`,
+  bundled; the CSP stays `font-src 'self' data:`). The names are written in four files only: `shared/fonts.ts` (`UI_FACE`, `MONO_FACE`, `canvasFont`,
+  for a canvas, a terminal and a file), `tokens.css` (`--font-ui`, `--font-mono`), `main/export/html.ts` (`FONTS`: the faces an exported page carries, Instrument
+  Sans 400 and 600, Martian Mono 400) and `export/page.css`; `shared/fonts.test.ts` holds it. Martian Mono has no 600: canvas text in it is 500.
+  Its latin subset lacks `≈ ⌀ →` (they fall back to `ui-monospace`); it has `× ± ° ² ³ − µ`. `.num` (in `layout.css`) is `0.86em`, `-0.02em`, tabular figures,
+  `0.12em` of margin each side; a column or table sets its own size and no margin. The IBM Plex packages stay until Task 42 of the redesign plan.
 - The redesign's tokens (spec 2026-11-18 §1), all in `tokens.css`, light and dark: `--raise` (what floats: tags, popovers, fields,
   the composer), `--on-accent` (on `--accent`), `--dye` with `--scribe`, `--on-dye` and `--on-dye-muted` (the dyed field and
   what is drawn and said on it; `--dye` is `--accent` in light, a deep blue in dark), `--on-mark` (on both mark colours),

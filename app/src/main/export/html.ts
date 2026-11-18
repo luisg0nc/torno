@@ -62,10 +62,10 @@ export function exportHtml(data: ExportData, assets: PageAssets): string {
   ].join('\n')
 }
 
-const FONTS = [
-  { family: 'IBM Plex Sans', weight: 400, file: '@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2' },
-  { family: 'IBM Plex Sans', weight: 600, file: '@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2' },
-  { family: 'IBM Plex Mono', weight: 400, file: '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2' }
+export const FONTS = [
+  { family: 'Instrument Sans', weight: 400, file: '@fontsource/instrument-sans/files/instrument-sans-latin-400-normal.woff2' },
+  { family: 'Instrument Sans', weight: 600, file: '@fontsource/instrument-sans/files/instrument-sans-latin-600-normal.woff2' },
+  { family: 'Martian Mono', weight: 400, file: '@fontsource/martian-mono/files/martian-mono-latin-400-normal.woff2' }
 ]
 
 let loaded: Promise<PageAssets> | null = null

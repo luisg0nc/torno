@@ -145,7 +145,7 @@ test('clicking an object builds it: status ok, revision 1, its parts as layers',
   await expect(status(page)).toContainText(/build123d \d+\.\d+/)
   // Every number and ref is in the monospace face.
   const face = await status(page).locator('[data-part="revision"] .num').evaluate((el) => getComputedStyle(el).fontFamily)
-  expect(face).toContain('IBM Plex Mono')
+  expect(face).toContain('Martian Mono')
   // The list in the Projects panel marks the object open.
   await openPanel(page, 'Projects')
   await expect(objectList(page).getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
@@ -332,7 +332,7 @@ test('a broken save fails the build and keeps the last good parts, dimmed; the e
   await expect(traceback).toContainText('bracket.py')
   await expect(traceback).toContainText('SyntaxError')
   const style = await traceback.evaluate((el) => ({ face: getComputedStyle(el).fontFamily, select: getComputedStyle(el).userSelect }))
-  expect(style.face).toContain('IBM Plex Mono')
+  expect(style.face).toContain('Martian Mono')
   expect(style.select).toBe('text')
   await expect(sheet.getByRole('button', { name: 'Copy' })).toBeVisible()
   // What happened, in words and not as the kernel's word; who is told; and the one thing to press after an error in the model.
@@ -364,7 +364,7 @@ test('a fillet that fails says why in the error sheet, under the message', async
   // Under the message, before the traceback; set as numbers are.
   const order = await sheet.locator('.sheet-message, [data-part="diagnosis"], [data-part="traceback"]').evaluateAll((els) => els.map((el) => el.getAttribute('data-part') ?? 'message'))
   expect(order).toEqual(['message', 'diagnosis', 'traceback'])
-  expect(await why.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
+  expect(await why.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
   await expect(sheet.getByRole('heading', { name: 'Why' })).toBeVisible()
 })
 

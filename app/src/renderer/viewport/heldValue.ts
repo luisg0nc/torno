@@ -1,7 +1,8 @@
 import * as THREE from 'three'
+import { MONO_STACK } from '../../shared/fonts'
 import type { Vec3 } from '../../shared/marks'
 
-const MONO = "'IBM Plex Mono', ui-monospace, monospace"
+const MONO = MONO_STACK
 const seen = new THREE.Vector3()
 
 /**

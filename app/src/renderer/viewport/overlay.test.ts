@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { MONO_FACE, UI_FACE } from '../../shared/fonts'
 import { DEVIATION_RAMP, BAR_SIDE, NARROW_BELOW, PERSPECTIVE_NOTE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR, chipSize, drawDeviationLegend, drawFrameCues, drawLabels, drawOverlay, type LabelStyle } from './overlay'
 
 /** A canvas context that keeps what was drawn on it: each text with how opaque it was, and each stroke with its colour and its moves. */
@@ -260,7 +261,7 @@ describe('the axes and the scale on the person’s screen', () => {
     const persp = frame()
     drawFrameCues(persp.ctx, looking([1, 0, 0], [0, 0, 1]), { unit: SCREEN_UNIT, gridStep: 5 })
     const step = persp.texts.find((t) => t.text === 'grid 5 mm')
-    expect(step?.font).toContain('Plex Mono')
+    expect(step?.font).toContain(MONO_FACE)
     expect(persp.texts.map((t) => t.text)).not.toContain(PERSPECTIVE_NOTE)
 
     const small = frame()
@@ -278,7 +279,7 @@ describe('the axes and the scale on the person’s screen', () => {
     const { ctx, texts } = frame()
     drawOverlay(ctx, looking([1, 0, 0], [0, 0, 1]))
     expect(texts.map((t) => t.text)).toContain(PERSPECTIVE_NOTE)
-    expect(texts.find((t) => t.text === PERSPECTIVE_NOTE)?.font).toContain('Plex Sans')
+    expect(texts.find((t) => t.text === PERSPECTIVE_NOTE)?.font).toContain(UI_FACE)
   })
 
   it('keeps the strip of the Measure tool and the bars at the bottom clear of the triad and the scale: the stylesheet’s sizes are these', () => {

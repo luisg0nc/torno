@@ -121,8 +121,8 @@
   --term-scroll-hover: #62666D;
 
   /* Type */
-  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-ui: 'Instrument Sans', system-ui, sans-serif;
+  --font-mono: 'Martian Mono', ui-monospace, monospace;
   --text-size: 13.5px;
   --text-leading: 1.42;
   --text-row: 12.5px;

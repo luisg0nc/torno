@@ -1,4 +1,5 @@
 import { hint, keyName, pressed } from '../../shared/keys'
+import { canvasFont } from '../../shared/fonts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -115,7 +116,7 @@ let monoLoaded: Promise<unknown> | null = null
 /** The terminal measures its cells when it opens, so its typeface must be there by then. */
 function monoFont(): Promise<unknown> {
   monoLoaded ??= Promise.all(
-    ['400', '500'].map((weight) => document.fonts.load(`${weight} ${FONT_SIZE}px "IBM Plex Mono"`))
+    ([400, 500] as const).map((weight) => document.fonts.load(canvasFont(FONT_SIZE, weight, true)))
   ).catch(() => {})
   return monoLoaded
 }

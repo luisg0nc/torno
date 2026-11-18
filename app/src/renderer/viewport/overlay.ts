@@ -1,4 +1,5 @@
 import { number } from '../../shared/format'
+import { MONO_STACK, UI_STACK, canvasFont } from '../../shared/fonts'
 import { scaleBarLength } from './views'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
@@ -22,8 +23,8 @@ export interface OverlayOptions {
 
 export const PERSPECTIVE_NOTE = 'perspective, no scale bar'
 
-const MONO = "'IBM Plex Mono', ui-monospace, monospace"
-const SANS = "'IBM Plex Sans', system-ui, sans-serif"
+const MONO = MONO_STACK
+const SANS = UI_STACK
 const AXES: { letter: string; axis: Vec3 }[] = [
   { letter: 'X', axis: [1, 0, 0] },
   { letter: 'Y', axis: [0, 1, 0] },
@@ -115,7 +116,7 @@ function drawTriad(ctx: Ctx, o: OverlayOptions, unit: number): void {
     depth: dot(a.axis, toViewer)
   })).sort((a, b) => a.depth - b.depth) // far ones first, so near ones are drawn over them
 
-  ctx.font = `600 ${Math.round(13 * unit)}px ${MONO}`
+  ctx.font = `500 ${Math.round(13 * unit)}px ${MONO}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   for (const arm of arms) {
@@ -316,7 +317,7 @@ export function chipSize(ctx: Ctx, unit: number): (text: string, value?: ChipVal
 }
 
 function chipFont(unit: number): string {
-  return `600 ${CHIP.font * unit}px ${MONO}`
+  return `500 ${CHIP.font * unit}px ${MONO}`
 }
 
 /** How faint the ring of the chip the pointer is on is, beside the active one's. */
@@ -482,7 +483,7 @@ let fontsLoaded: Promise<unknown> | undefined
 export function overlayFonts(): Promise<unknown> {
   if (typeof document === 'undefined' || !document.fonts) return Promise.resolve()
   fontsLoaded ??= Promise.all(
-    ['12px "IBM Plex Mono"', '600 12px "IBM Plex Mono"', '12px "IBM Plex Sans"'].map((font) => document.fonts.load(font))
+    [canvasFont(12, 400, true), canvasFont(12, 500, true), canvasFont(12)].map((font) => document.fonts.load(font))
   ).catch(() => {}) // a face that cannot be loaded leaves the fallback, as before
   return fontsLoaded
 }

@@ -137,7 +137,7 @@ test('the session pane says what goes with the next prompt, before a session and
   await page.getByRole('button', { name: 'New session' }).first().click()
   await expect(next).toHaveText('1 mark goes with your next prompt')
   // Its number is set in the face of numbers.
-  expect(await next.locator('.num').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
+  expect(await next.locator('.num').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
   // Sent with a prompt, there is nothing more to say.
   await expect.poll(() => page.evaluate(() => window.__tornoTerm!.text())).toContain('READY')
   await page.locator('.session-term textarea').focus()

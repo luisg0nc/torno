@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MONO_FACE, UI_FACE } from '../../shared/fonts'
 import type { SectionLoop, Sectioned, SectionedPart } from '../../shared/geometry'
 import { FILL_ALPHA, SHEET, drawSection, sectionSheet, toSheet } from './sectionDrawing'
 
@@ -211,8 +212,8 @@ describe('the drawing of a section', () => {
     const { ctx, texts } = recorder()
     drawSection(ctx, sectionSheet(PLATE, 'assembly')!, PLATE, colourOf)
     const said = (text: string) => texts.find((t) => t.text === text)
-    for (const figure of ['40 mm', '30 mm', '+Z', 'z', '=', '3', 'plate', '1100', 'mm²', '-20', '15', 'u (+X), mm', 'v (+Y), mm']) expect(said(figure)?.font, figure).toContain('IBM Plex Mono')
-    for (const word of ['plane normal ', ' at ', 'layout assembly']) expect(said(word)?.font, word).toContain('IBM Plex Sans')
+    for (const figure of ['40 mm', '30 mm', '+Z', 'z', '=', '3', 'plate', '1100', 'mm²', '-20', '15', 'u (+X), mm', 'v (+Y), mm']) expect(said(figure)?.font, figure).toContain(MONO_FACE)
+    for (const word of ['plane normal ', ' at ', 'layout assembly']) expect(said(word)?.font, word).toContain(UI_FACE)
   })
 
   describe('with a scan the plane cuts', () => {
@@ -227,7 +228,7 @@ describe('the drawing of a section', () => {
       expect(whole.legend[1]).toEqual({ part: null, scan: 'S1', text: ' (scan, ≈)' })
       const { ctx, texts } = recorder()
       drawSection(ctx, sheet, PLATE, colourOf, SCAN)
-      expect(texts.find((t) => t.text === 'S1')?.font).toContain('IBM Plex Mono')
+      expect(texts.find((t) => t.text === 'S1')?.font).toContain(MONO_FACE)
       expect(texts.map((t) => t.text).join('')).toContain('S1 (scan, ≈; it goes on beyond the plot)')
     })
 

@@ -796,7 +796,7 @@ test('a click on the base places a box there to add, sitting on the surface, wit
   await expect(numberField('Size along X')).toHaveValue('8')
   await expect(numberField('Position Z')).toHaveValue('6.5')
   await expect(numberField('Rotation about Z')).toHaveValue('0')
-  for (const input of await page.locator('.shape-fields input').all()) await expect(input).toHaveCSS('font-family', /IBM Plex Mono/)
+  for (const input of await page.locator('.shape-fields input').all()) await expect(input).toHaveCSS('font-family', /Martian Mono/)
 })
 
 test('the fields set what the shape is for and its size, in exact millimetres; a picture shows it', async () => {

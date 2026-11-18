@@ -1,5 +1,6 @@
 import { pictureCanvas, pngBytes } from './picture'
 import { number } from '../../shared/format'
+import { MONO_STACK, UI_STACK } from '../../shared/fonts'
 import type { Sectioned } from '../../shared/geometry'
 import { type ScanOutline, cutText, planeText } from '../../shared/view'
 import { overlayFonts } from './overlay'
@@ -16,8 +17,8 @@ import { gridStep } from './views'
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 type Vec3 = readonly [number, number, number]
 
-const MONO = "'IBM Plex Mono', ui-monospace, monospace"
-const SANS = "'IBM Plex Sans', system-ui, sans-serif"
+const MONO = MONO_STACK
+const SANS = UI_STACK
 
 /** --surface, --ink, --muted and --hairline of the light theme (styles/tokens.css). */
 export const SHEET = { paper: '#F1EFEA', ink: '#20242B', muted: '#62666D', hairline: '#DAD6CE' }

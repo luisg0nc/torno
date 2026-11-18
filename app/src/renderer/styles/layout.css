@@ -47,10 +47,14 @@ button {
   outline-offset: 1px;
 }
 
-/* Every number and ref is set in the monospace face. */
+/* Every number and ref is set in the monospace face. The monospace face is wide: inline in a line of sans it runs smaller, a little
+   tighter, with a margin each side so that the sans space beside it does not vanish. A column or a table sets its own size and margin. */
 .num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.86em;
+  letter-spacing: -0.02em;
+  margin-inline: 0.12em;
 }
 
 .muted {
