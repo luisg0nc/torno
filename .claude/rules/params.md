@@ -56,7 +56,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   monospace face (`shared/format.ts`, four digits at most, a list or a dict by its items, a bool as Python writes it;
   the whole value in the value's `title` where it differs, with the type as written in the row's), the comment (`doc`)
   as written, its numbers in the monospace face (`numbered`), cut to two lines (whole in the row's title), and, for a default that is not a literal, "worked out in the
-  model" (its value too when the kernel has one). No unit is taken from a comment.
+  model" (its value too when the kernel has one). No unit is taken from a comment. A number whose `metadata` has `min` and `max` also has a `Gauge`
+  (`ui/card/Gauge.tsx`, `aria-label` from `gaugeSaid`) at the right of its row: the value the build used against that range, in `.param-gauge`.
 - A click on a row puts `Params.<name>` at the cursor of the open object's session by `insertIntoSession`
   (`ui/insertIntoSession.ts`, also the selection's "Insert" and the build error sheet's ask: the box of the chat,
   `insertIntoComposer`, else a paste at the terminal's prompt, never sent; it says whether it went in), and shows the

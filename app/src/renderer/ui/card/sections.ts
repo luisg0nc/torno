@@ -3,6 +3,7 @@ import { checksOf } from '../../../shared/dimension'
 import { checksCount } from '../../../shared/modelChecks'
 import { sourceCount } from '../../../shared/params'
 import type { SectionId } from '../../state/column'
+import { profileSaid, useProfile } from '../../state/profile'
 import { layerOf, useStore } from '../../state/store'
 import { useTracings } from '../../state/tracings'
 import { type BadgeData, NO_BADGES } from '../railBadges'
@@ -37,6 +38,8 @@ export interface SectionFacts {
   needs: boolean
   /** Nothing in it: its head says "none" and it does not unfold. */
   empty: boolean
+  /** `said` is names and not a count: nothing in it is set in the face of numbers (`Bambu X1C, PETG`). */
+  plain?: boolean
 }
 
 const NONE: SectionFacts = { said: 'none', bad: null, needs: false, empty: true }
@@ -60,6 +63,7 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const scans = useStore((s) => s.scans)
   const tracings = useTracings((s) => s.file?.tracings)
+  const profile = useProfile(useStore((s) => s.objectId))
   return useMemo(() => {
     const parts = (scene?.parts ?? []).filter((p) => p.layout === layout)
     const hidden = parts.filter((p) => layerOf(layers, p.name)?.visible === false).length
@@ -91,11 +95,11 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
       // Import and the first tracing are made in the section's body: a scan or a tracing's section is never shut for being empty.
       scans: { said: scans.length === 0 ? 'none' : said(`${scans.length}`, unaligned > 0 && `${unaligned} unaligned`), bad: null, needs: false, empty: false },
       tracings: { said: (tracings?.length ?? 0) === 0 ? 'none' : `${tracings!.length}`, bad: null, needs: false, empty: (tracings?.length ?? 0) === 0 },
-      // Its words are the printer's and the material's, which the section reads itself.
-      profile: { said: '', bad: null, needs: false, empty: false }
+      // The printer and the material the project is made for; its choosers are in the body, so it is never shut for being empty.
+      profile: { said: profileSaid(profile), bad: null, needs: false, empty: false, plain: true }
     }
     return { sections, badges }
-  }, [scene, layout, layers, marks, revision, scans, tracings])
+  }, [scene, layout, layers, marks, revision, scans, tracings, profile])
 }
 
 /** Where the card's reading line stands, as a share of the scroll's height from its top: the section whose head has passed it is in sight. */

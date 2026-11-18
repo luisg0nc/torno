@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { LookRequest, ViewState } from '../src/shared/view'
 import { box, grid, stl } from '../src/test/scanFixtures'
 import type { ScanLayerState } from '../src/renderer/viewport/scans'
-import { openSection } from './helpers'
+import { cardSection, openSection } from './helpers'
 import { openListed } from './objects'
 
 // A scan on screen: imported from the panel with the real import process, drawn with the parts, switched and
@@ -97,6 +97,11 @@ test.beforeAll(async () => {
 
 test('a scan is imported from the panel, drawn, and said in millimetres', async () => {
   await expect(page.getByRole('region', { name: 'Scans' })).toContainText('Drop a scan on the view, or import one.')
+  // Import scan… is in the head's line, beside the head's button and not in it.
+  const sectionHead = cardSection(page, 'Scans').locator('.route-head')
+  await expect(sectionHead.getByRole('button', { name: 'Import scan…' })).toBeVisible()
+  await expect(sectionHead.locator('.route-head-button').getByRole('button')).toHaveCount(0)
+  await expect(sectionHead.locator('.route-said')).toHaveText('none')
   await pickFile(scanFile)
   await page.getByRole('button', { name: 'Import scan…' }).click()
   await expect(row('S1')).toContainText('plate under.stl')

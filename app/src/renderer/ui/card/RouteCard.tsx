@@ -8,7 +8,7 @@ import { MarksPanel } from '../MarksPanel'
 import { numbered } from '../numbered'
 import { ParamsPanel } from '../ParamsPanel'
 import { PrintProfile } from '../PrintProfile'
-import { ScansPanel } from '../ScansPanel'
+import { ImportScan, ScansPanel } from '../ScansPanel'
 import { TracingRows } from '../TracingRows'
 import { CardSection } from './CardSection'
 import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from './sections'
@@ -86,7 +86,7 @@ export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<
           const f = facts[id]
           const said = (
             <>
-              {numbered(f.said)}
+              {f.plain ? f.said : numbered(f.said)}
               {f.bad !== null && (
                 <>
                   {f.said !== '' && ', '}
@@ -96,7 +96,7 @@ export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<
             </>
           )
           return (
-            <CardSection key={id} id={id} title={title} said={said} needs={f.needs} empty={f.empty}>
+            <CardSection key={id} id={id} title={title} said={said} needs={f.needs} empty={f.empty} action={id === 'scans' ? <ImportScan /> : undefined}>
               <Body id={id} />
             </CardSection>
           )

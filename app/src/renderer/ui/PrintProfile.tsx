@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { loadProfile, setKnownProfile, useProfile } from '../state/profile'
 import { type Profile, type Profiles, FITS } from '../../shared/profile'
 import { number } from '../../shared/format'
 import { useStore } from '../state/store'
@@ -26,7 +27,8 @@ export function profileSummary(profile: Profile | null): string[] {
  */
 export function PrintProfile() {
   const objectId = useStore((s) => s.objectId)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  // What the head of the section says is read from the same: a choice made here is there at once.
+  const profile = useProfile(objectId)
   const [choices, setChoices] = useState<Profiles>({ printers: [], materials: [] })
   const [adding, setAdding] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -35,12 +37,11 @@ export function PrintProfile() {
     if (objectId === null) return
     let current = true
     setProblem(null)
-    void Promise.all([window.torno.profile.get(objectId), window.torno.profile.choices()])
-      .then(([kept, offered]) => {
-        if (!current) return
-        setProfile(kept)
-        setChoices(offered)
-      })
+    // Read anew when the section is opened: the agent may have named a printer since.
+    loadProfile(objectId, true)
+    void window.torno.profile
+      .choices()
+      .then((offered) => current && setChoices(offered))
       .catch(() => {})
     return () => {
       current = false
@@ -53,7 +54,7 @@ export function PrintProfile() {
       setProblem(null)
       window.torno.profile
         .set(objectId, next)
-        .then((kept) => setProfile(kept))
+        .then((kept) => setKnownProfile(objectId, kept))
         .catch((e: unknown) => setProblem(plain(e)))
     },
     [objectId]

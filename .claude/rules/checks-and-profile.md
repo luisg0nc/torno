@@ -68,8 +68,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Print profile (`app/src/renderer`)
 
-- `ui/PrintProfile.tsx`, under Checks in the Params panel: a section (its title says
-  `Bambu X1C, PETG` or `none`) with two lists, Printer and Material, and "Add a printer…" (name, bed X Y Z, nozzle),
+- `ui/PrintProfile.tsx`, the body of the Print profile section of the route card (its head says
+  `Bambu X1C, PETG`, the printer's and the material's names, or `none`: `profileSaid`, read through `state/profile.ts`,
+  which the body shares, so the head says it while the section is folded) with two lists, Printer and Material, and "Add a printer…" (name, bed X Y Z, nozzle),
   through `window.torno.profile` (`profile:*` channels). A choice is copied into the object's `.torno/profile.json` by
   main; the printers are the person's, in torno's settings. The numbers shown are the person's, set in the monospace
   face, with the line that they are not measured. Materials of the person's own are added in `profiles.json` (no form).

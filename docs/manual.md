@@ -1623,7 +1623,7 @@ they are of the `print` layout when the model has one and no other is named.
 
 **The print profile** is the printer (bed, nozzle, layer) and the material (density, shrink, the gap per side of a
 press, a sliding and a loose fit, least wall, overhang angle) a project is made for. Choose them under "Print profile" in the
-Params panel. The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
+route card (its head says what is chosen: `Bambu X1C, PETG`). The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
 makes one); PLA, PETG and ABS come with typical values, and a material of your own goes in that file (`materials`: `name`,
 `density`, and optionally `shrink`, `fits`, `minWall`, `overhang`). A choice is copied into `<project>/.torno/profile.json`,
 so the project travels with the numbers it was checked against. With a profile, `check` bed, thin and overhang and
@@ -1678,7 +1678,7 @@ parts, so that you and the agent can check the model against it. It is good to
 a few millimetres at best and shows only what the camera saw. **Nothing taken
 from a scan is exact**, and torno never says that it is.
 
-**Importing.** "Import scan…" in the Scans panel, or a file dropped on the
+**Importing.** "Import scan…", at the right of the head of the Scans section, or a file dropped on the
 view: GLB, glTF, OBJ, PLY or STL, with faces (a point cloud is refused). The
 file is only read. Torno keeps its path, size, date and hash, and makes one
 mesh of it in millimetres and Z up under `.torno/scans/`, baking a texture
@@ -2763,18 +2763,18 @@ On the screen:
   the rest back, and the count of marks on a part lists only its marks. The rows must not crowd: name, count, and on
   hover the opacity, the target and the eye, at the width of the panel.
 - **Parameters.** In a project whose model has a `Params` dataclass with comments and one default that is an
-  expression, open the Params panel: a row for each field in the model's order, the value in the
+  expression, open the Parameters section: a row for each field in the model's order, the value in the
   monospace face, the comment as written (cut to two lines, whole on hover), "worked out in the model" on the expression's.
   With a real session running, in the chat and then in the terminal view, a click on a row puts `Params.wall` at the
   cursor of the box (or the prompt) and sends nothing, with the dock hidden as well; with no session the rows are
   not clickable. Legible in light and dark. Try a value in a
-  number field and with a slider (the field with a `metadata` range), tick a flag and choose from a list: the build
+  number field and with a slider (the field with a `metadata` range, which also has a small gauge at the right of its row: the band from least to most, a tick where the value is), tick a flag and choose from a list: the build
   runs once the slider is let go, not while it moves; the row says it differs from the file and Reset brings it back.
 - **The clipboard in the terminal.** Select text in a session and press `Ctrl+Shift+C`, then `Ctrl+Shift+V`: it is copied and pasted. No test touches the clipboard. "Copy" on the build error sheet likewise.
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of projects and on the page of projects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
-- **The Print profile.** Open the Params panel and find it under Checks: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its title says what is chosen (`Print profile Bambu X1C, PETG`).
-- **The Scans panel.** Import a scan of your own: the sheet `How is S1 read?` is at the top of the Scans panel with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
+- **The Print profile.** Open the Print profile section of the route card: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its head says what is chosen (`Bambu X1C, PETG`), also while the section is folded.
+- **The Scans section.** Import a scan of your own, with "Import scan…" in the section's head, which stays there while the section is folded: the sheet `How is S1 read?` is at the top of the section with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
 - **The sketch panel, the sketches in 3D and their cards, by eye.** The panel at the left of the view (its rows, the segmented take, the diameter, the offset, the comment) beside the palette of tools and clear of the triad, in light and dark and in a narrow view; the lines of a sketch at 2.5 px in both mark colours, the dots of its snaps, the tube of a flow sketch at about a quarter of its colour, the dashes of an x-ray stroke behind a part, and the strokes lit by the pointer on a plane's row; a sketch's row at the panel's default width, still one line; and its card with the picture drawn from its camera, and the placeholder.
