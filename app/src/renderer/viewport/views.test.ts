@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Camera, ViewName } from '../../shared/view'
-import { fitBelow, fitCamera, focusCamera, gridStep, lockedViewOf, scaleBarLength, viewDirection, visibleHeight } from './views'
+import { fitCamera, focusCamera, gridStep, lockedViewOf, scaleBarLength, viewDirection, visibleHeight } from './views'
 
 const NAMES: ViewName[] = ['iso', 'front', 'back', 'left', 'right', 'top', 'bottom']
 const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
@@ -91,39 +91,6 @@ describe('fitCamera', () => {
     const cam = fitCamera({ min: [5, 5, 5], max: [5, 5, 5] }, dir, up, 1, 35, true)
     expect(cam.position.every(Number.isFinite)).toBe(true)
     expect(visibleHeight(cam)).toBeGreaterThan(0)
-  })
-})
-
-describe('fitBelow', () => {
-  it('is fitCamera when nothing covers the view', () => {
-    for (const ortho of [true, false]) expect(fitBelow(BOX, [0, 1, 0], [0, 0, 1], 800, 600, 0, 35, ortho)).toEqual(fitCamera(BOX, [0, 1, 0], [0, 0, 1], 800 / 600, 35, ortho))
-  })
-
-  it('frames the box in the part of the view the bars over its top leave, with its middle in the middle of that', () => {
-    const [W, H, top] = [800, 600, 120]
-    for (const ortho of [true, false]) {
-      const c = fitBelow(BOX, [0, 1, 0], [0, 0, 1], W, H, top, 35, ortho)
-      expect(c.fov).toBe(35)
-      expect(c.ortho).toBe(ortho)
-      // Seen from the front: up the screen is +Z, and the camera still looks along +Y.
-      expect(c.position[0]).toBeCloseTo(c.target[0], 9)
-      expect(c.position[2]).toBeCloseTo(c.target[2], 9)
-      const mm = visibleHeight(c) / H
-      const down = (z: number): number => H / 2 - (z - c.target[2]) / mm
-      expect(down(0)).toBeCloseTo(top + (H - top) / 2, 6)
-      expect(down(BOX.max[2])).toBeGreaterThan(top)
-      expect(down(BOX.min[2])).toBeLessThan(H)
-    }
-    // Orthographic, the width decides here, as it would with nothing over the view: 40 mm and the margin across.
-    const flat = fitBelow(BOX, [0, 1, 0], [0, 0, 1], W, H, top, 35, true)
-    expect((visibleHeight(flat) * W) / H).toBeCloseTo(44, 6)
-    // A tall box fills the height that is left, not the whole of it.
-    const tall = fitBelow({ min: [-1, -1, -50], max: [1, 1, 50] }, [0, 1, 0], [0, 0, 1], W, H, top, 35, true)
-    expect((visibleHeight(tall) * (H - top)) / H).toBeCloseTo(110, 6)
-  })
-
-  it('never takes more than half of the view for the bars', () => {
-    expect(fitBelow(BOX, [0, 1, 0], [0, 0, 1], 800, 600, 500, 35, true)).toEqual(fitBelow(BOX, [0, 1, 0], [0, 0, 1], 800, 600, 300, 35, true))
   })
 })
 

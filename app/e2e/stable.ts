@@ -1,8 +1,7 @@
 import { expect, type Locator } from '@playwright/test'
 
-// The bars at the foot of the view slide a row up or down (a finite transition of `bottom`, 120 ms) when the line
-// there comes or goes, or the view's width changes. A test that reads where one is waits for it to be still:
-// never a fixed sleep.
+// A tag moves to its place as the view or the camera changes (it is put per frame), and a procedure card is placed
+// where its own rule says. A test that reads where one is waits for it to be still: never a fixed sleep.
 
 /** The box of an element once it has stopped moving: the same on two reads a frame or so apart. */
 export async function stableBox(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {

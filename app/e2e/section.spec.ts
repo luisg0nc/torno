@@ -698,8 +698,8 @@ for (const shot of [
   })
 }
 
-test('the tag stands inside the view and clear of the reed, the compass and the band, at 1440 by 900 and 1280 by 800, with Section or Measure in hand', async () => {
-  test.setTimeout(180_000)
+test('nothing over the reed, the compass or the band: the tag stands inside the view and clear of them, at 1440 by 900 and 1280 by 800, with and without a selection, with Section or Measure in hand', async () => {
+  test.setTimeout(240_000)
   await open('bracket')
   if ((await section()) === null) {
     if ((await page.locator('.tool-button[data-tool="section"]').getAttribute('aria-pressed')) !== 'true') await page.keyboard.press('x')
@@ -708,29 +708,53 @@ test('the tag stands inside the view and clear of the reed, the compass and the 
   expect(await section()).not.toBeNull()
   await expect(bar()).toBeVisible()
   const was = await page.evaluate(() => [window.innerWidth, window.innerHeight])
+
+  /** Selects a face the pointer finds, with the select tool: the first on a grid over the view that is not the cut face. */
+  const select = async (): Promise<void> => {
+    await page.keyboard.press('v')
+    const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
+    const found = await page.evaluate(() => {
+      for (let fy = 0.2; fy <= 0.9; fy += 0.05) for (let fx = 0.3; fx <= 0.8; fx += 0.05) if (window.__tornoTest!.pickAt(fx, fy, { edges: false })) return [fx, fy]
+      return null
+    })
+    expect(found).not.toBeNull()
+    await page.mouse.click(canvas.x + found![0] * canvas.width, canvas.y + found![1] * canvas.height)
+    await expect.poll(async () => (await state()).selection.length).toBeGreaterThan(0)
+  }
+  const unselect = async (): Promise<void> => {
+    await page.keyboard.press('v')
+    await page.locator('.viewport-canvas').click({ position: { x: 5, y: 5 } })
+    await expect.poll(async () => (await state()).selection.length).toBe(0)
+  }
+
   try {
     for (const tool of ['section', 'measure']) {
-      const hand = page.locator(`.tool-button[data-tool="${tool}"]`)
-      if ((await hand.getAttribute('aria-pressed')) !== 'true') await hand.click()
-      await expect(hand).toHaveAttribute('aria-pressed', 'true')
       for (const [width, height] of [[1440, 900], [1280, 800]]) {
         await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [width, height])
         await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width)
-        const pane = (await page.locator('.viewport-pane').boundingBox())!
-        const box = await stableBox(bar())
-        // Inside the view, and meeting no box a tag keeps clear of (the reed and what grows from it, the compass, a band).
-        expect([width, height, tool, 'in the view', box.x >= pane.x && box.y >= pane.y && box.x + box.width <= pane.x + pane.width && box.y + box.height <= pane.y + pane.height]).toEqual([width, height, tool, 'in the view', true])
-        const avoided = await page.evaluate(() =>
-          [...document.querySelectorAll<HTMLElement>('[data-tag-avoid]')]
-            .map((el) => ({ what: el.className, r: el.getBoundingClientRect() }))
-            .filter((o) => o.r.width > 0 && o.r.height > 0)
-            .map((o) => ({ what: o.what, x: o.r.x, y: o.r.y, w: o.r.width, h: o.r.height }))
-        )
-        expect(avoided.some((a) => a.what.includes('compass'))).toBe(true)
-        expect(avoided.some((a) => a.what.includes('toolbox'))).toBe(true)
-        for (const a of avoided) {
-          const apart = box.x + box.width <= a.x || a.x + a.w <= box.x || box.y + box.height <= a.y || a.y + a.h <= box.y
-          expect([width, height, tool, a.what, apart]).toEqual([width, height, tool, a.what, true])
+        for (const selected of [false, true]) {
+          if (selected) await select()
+          const hand = page.locator(`.tool-button[data-tool="${tool}"]`)
+          if ((await hand.getAttribute('aria-pressed')) !== 'true') await hand.click()
+          await expect(hand).toHaveAttribute('aria-pressed', 'true')
+          const here = [width, height, tool, selected ? 'selected' : 'nothing selected']
+          const pane = (await page.locator('.viewport-pane').boundingBox())!
+          const box = await stableBox(bar())
+          // Inside the view, and meeting no box a tag keeps clear of (the reed and what grows from it, the compass, a band).
+          expect([...here, 'in the view', box.x >= pane.x && box.y >= pane.y && box.x + box.width <= pane.x + pane.width && box.y + box.height <= pane.y + pane.height]).toEqual([...here, 'in the view', true])
+          const avoided = await page.evaluate(() =>
+            [...document.querySelectorAll<HTMLElement>('[data-tag-avoid]')]
+              .map((el) => ({ what: el.className, r: el.getBoundingClientRect() }))
+              .filter((o) => o.r.width > 0 && o.r.height > 0)
+              .map((o) => ({ what: o.what, x: o.r.x, y: o.r.y, w: o.r.width, h: o.r.height }))
+          )
+          expect(avoided.some((a) => a.what.includes('compass'))).toBe(true)
+          expect(avoided.some((a) => a.what.includes('toolbox'))).toBe(true)
+          for (const a of avoided) {
+            const apart = box.x + box.width <= a.x || a.x + a.w <= box.x || box.y + box.height <= a.y || a.y + a.h <= box.y
+            expect([...here, a.what, apart]).toEqual([...here, a.what, true])
+          }
+          if (selected) await unselect()
         }
       }
     }

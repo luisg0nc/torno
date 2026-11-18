@@ -93,8 +93,8 @@ exported page carries no groups yet, so it draws apart part by part.
   `shared/explode.ts`; `Viewport.keepApartInView`, asked by `ExplodeTag` once its tag is laid out, and by
   `SavedViews` after a view's camera); together again, it goes back to where it was before that, if nobody
   moved it meanwhile (`cameraBack`; a view key, Fit, Ortho or Frame make the camera the person's). In the
-  window nothing covers the top of the view now (`Viewport.setCoveredTop` stays, at 0, for what may): a
-  view key, Fit, a scan's Frame and that rule frame the parts in the whole view (`fitBelow` in `viewport/views.ts`);
+  window nothing covers the top of the view now (`Viewport.setCoveredTop` and `fitBelow` are gone): a
+  view key, Fit, a scan's Frame and that rule frame the parts in the whole view (`fitCamera`);
   a picture for the agent has none. Fit, Ortho and Frame act on where the camera is going when it is on its
   way (`cameraGoal`): a view key and then `F` at once is that view, fitted. While the parts are apart no shape
   is in hand (`connectShapeEdit`).

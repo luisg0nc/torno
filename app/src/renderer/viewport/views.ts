@@ -133,24 +133,6 @@ export function focusCamera(focus: FocusBox, view: ViewName | Camera | 'current'
 }
 
 /**
- * `fitCamera` for a view of `width` × `height` pixels whose top `top` pixels are covered (the bars that float
- * over the viewport): the box is framed in what is left below them, with its middle in the middle of that. The
- * bars never take more than half of the view. With nothing over the view it is `fitCamera`.
- */
-export function fitBelow(bbox: { min: number[]; max: number[] }, dir: number[], up: number[], width: number, height: number, top: number, fovDeg: number, ortho: boolean): Camera {
-  const covered = Math.min(Math.max(top, 0), height / 2)
-  if (!(covered > 0)) return fitCamera(bbox, dir, up, width / height, fovDeg, ortho)
-  const clear = height - covered
-  // The part that is left, as a view of its own: as wide, as much less tall, centred on its own middle.
-  const fovClear = (2 * Math.atan(Math.tan(radians(fovDeg) / 2) * (clear / height)) * 180) / Math.PI
-  const fitted = { ...fitCamera(bbox, dir, up, width / clear, fovClear, ortho), fov: fovDeg }
-  // Its middle is half the covered height below the middle of the whole view: the camera goes up by as much.
-  const by = ((covered / 2) * visibleHeight(fitted)) / height
-  const raise = (p: Vec3): Vec3 => [p[0] + fitted.up[0] * by, p[1] + fitted.up[1] * by, p[2] + fitted.up[2] * by]
-  return { ...fitted, position: raise(fitted.position), target: raise(fitted.target) }
-}
-
-/**
  * Spacing of the ground grid for a scene `size` mm across: a power of ten or
  * five times one, giving between 6 and 30 cells across the scene.
  */

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MONO_FACE, UI_FACE } from '../../shared/fonts'
-import { DEVIATION_RAMP, BAR_SIDE, NARROW_BELOW, PERSPECTIVE_NOTE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR, chipSize, drawDeviationLegend, drawFrameCues, drawLabels, drawOverlay, bindPane, onPaneDrawn, paneRect, projectToPane, type LabelStyle } from './overlay'
+import { DEVIATION_RAMP, PERSPECTIVE_NOTE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR, chipSize, drawDeviationLegend, drawFrameCues, drawLabels, drawOverlay, bindPane, onPaneDrawn, paneRect, projectToPane, type LabelStyle } from './overlay'
 
 /** A canvas context that keeps what was drawn on it: each text with how opaque it was, and each stroke with its colour and its moves. */
 function recorder() {
@@ -324,28 +324,21 @@ describe('the axes and the scale on the person’s screen', () => {
     expect(texts.find((t) => t.text === PERSPECTIVE_NOTE)?.font).toContain(UI_FACE)
   })
 
-  it('keeps the strip of the Measure tool and the bars at the bottom clear of the triad and the scale: the stylesheet’s sizes are these', () => {
+  it('keeps the triad’s clearance where the hint stands: the stylesheet’s size is this one, and the lift system is gone', () => {
     const layout = readFileSync(resolve(__dirname, '../styles/layout.css'), 'utf8')
     expect(layout).toContain(`--triad-clear: ${TRIAD_CLEAR}px;`)
-    expect(layout).toContain(`--bar-side: ${BAR_SIDE}px;`)
     // The triad's corner, its arms, the letter beyond the tip of the longest and half the letter's height.
     expect(TRIAD_CLEAR).toBeGreaterThanOrEqual(Math.ceil((26 + 2 * 38 + 11 + 6) * SCREEN_UNIT))
-    // The bars stand in from the side by as much as the triad reaches across (its corner, its arm, its letter and half of it), and the scale bar.
-    expect(BAR_SIDE).toBeGreaterThanOrEqual(Math.ceil((26 + 2 * 38 + 11 + 6) * SCREEN_UNIT))
-    expect(BAR_SIDE).toBeGreaterThanOrEqual(Math.ceil(26 * SCREEN_UNIT + SCALE_BAR_MAX))
-    // Every bar at the bottom is held in from both sides, and lifted by the same amount where the view is narrow.
-    for (const sheet of ['overlays.css', 'align.css', 'regions.css']) {
-      const css = readFileSync(resolve(__dirname, '../styles', sheet), 'utf8')
-      expect(css, sheet).not.toMatch(/bottom: (var\(--space-3\)|calc\(var\(--space-3\) \+ \d+px\));/)
-      expect(css, sheet).not.toContain('2 * var(--space-3)')
+    // The foot of the view holds the hint, the triad and the grid step: no bar lifts over them, no view is "narrow".
+    const sheets = ['layout.css', 'caption.css', 'overlays.css', 'tools.css', 'align.css', 'regions.css', 'procedures.css', 'viewbars.css'].map((sheet) => [sheet, readFileSync(resolve(__dirname, '../styles', sheet), 'utf8')] as const)
+    for (const [sheet, css] of sheets) {
+      for (const gone of ['--bar-lift', '--hint-lift', '--bar-floor', '--bar-side', '--stack-side', '--strip-top', 'data-narrow', 'data-raised']) expect(css, `${sheet} ${gone}`).not.toContain(gone)
     }
-    expect(layout).toMatch(/\.viewport-pane\[data-narrow\] \{[^}]*--bar-floor: calc\(var\(--triad-clear\) \+ var\(--space-1\)\)/)
-    // The hint at the foot of the view stands on that floor and the bars stand above it, a row (40 px, as the bars stand over one another) up: the line never meets a bar.
-    expect(layout).toContain('--bar-lift: calc(var(--bar-floor) + var(--hint-lift));')
-    expect(layout).toMatch(/\.viewport-pane:has\(\.view-hint\) \{[^}]*--hint-lift: 40px/)
-    expect(readFileSync(resolve(__dirname, '../styles/caption.css'), 'utf8')).toMatch(/\.view-hints \{[^}]*bottom: calc\(var\(--space-3\) \+ var\(--bar-floor\)\)/)
-    // Where the view is as wide as the widest bar and both sides, the bars are not lifted.
-    expect(NARROW_BELOW).toBe(560 + 2 * BAR_SIDE)
+    const hints = readFileSync(resolve(__dirname, '../styles/caption.css'), 'utf8').match(/\.view-hints \{[^}]*\}/)![0]
+    expect(hints).toMatch(/bottom: var\(--space-3\)/)
+    expect(hints).toContain('calc(100% - 2 * var(--triad-clear))')
+    expect(readFileSync(resolve(__dirname, '../ui/ViewportPane.tsx'), 'utf8')).not.toContain('data-narrow')
+    expect(readFileSync(resolve(__dirname, './overlay.ts'), 'utf8')).not.toMatch(/BAR_SIDE|NARROW_BELOW/)
   })
 
   it('draws the scale bar no longer than the screen allows, and a picture’s a quarter of its width', () => {

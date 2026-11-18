@@ -75,18 +75,18 @@
   color: var(--on-accent);
 }
 
-/* The hint: at the foot of the view, in the middle. The pointer's way, once; the agent's line; a sketch's standing line.
-   The bars of the tools that stand at the foot stand above it while it is there (`--hint-lift`, layout.css). */
+/* The hint: at the foot of the view, in the middle, between the triad and the grid step. The pointer's way, once; the agent's line;
+   a sketch's standing line. */
 .view-hints {
   position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-floor));
+  bottom: var(--space-3);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  max-width: calc(100% - 2 * var(--stack-side));
+  max-width: calc(100% - 2 * var(--triad-clear));
   pointer-events: none;
 }
 

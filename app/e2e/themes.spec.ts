@@ -337,11 +337,9 @@ for (const theme of ['light', 'dark'] as const) {
           await page.getByRole('button', { name: 'Cut across Y' }).click()
           await expect.poll(async () => (await state(page)).section !== null).toBe(true)
         } else if (shot === 'measure-raised' || shot === 'measure-raised-narrow') {
-          // A face selected, the parts cut, and Measure in hand: the section's bar a row up, over the selection's, clear of the
-          // reed with Measure's name grown out; in a wide view (the dock hidden) and in a narrow one (beside it), clear of the palette too.
+          // A face selected, the parts cut, and Measure in hand: the section's tag beside its plane, clear of the reed with
+          // Measure's name grown out; in a wide view (the dock hidden) and in a narrow one (beside it).
           if (shot === 'measure-raised') await page.getByRole('button', { name: 'Hide session', exact: true }).click()
-          if (shot === 'measure-raised') await expect(page.locator('.viewport-pane')).not.toHaveAttribute('data-narrow')
-          else await expect(page.locator('.viewport-pane')).toHaveAttribute('data-narrow')
           await page.keyboard.press('v')
           await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 } })
           await expect.poll(async () => (await state(page)).selection.length).toBe(1)

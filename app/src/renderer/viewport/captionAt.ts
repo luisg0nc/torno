@@ -67,7 +67,12 @@ export class CaptionAt {
       if (!this.pointer) return
       const box = this.pane.getBoundingClientRect()
       const readout = this.pane.querySelector<HTMLElement>('.pick-readout:not([hidden])')
-      const [x, y] = captionPlace(this.pointer, { width: el.offsetWidth, height: el.offsetHeight }, box, readout?.offsetHeight ?? 0)
+      // The switch of Model and Board and a band stand at the top left of the view, over it: the caption keeps clear of them.
+      const avoid = [...document.querySelectorAll<HTMLElement>('.pboard-switch, .band')].map((e) => {
+        const r = e.getBoundingClientRect()
+        return { x: r.left - box.left, y: r.top - box.top, width: r.width, height: r.height }
+      })
+      const [x, y] = captionPlace(this.pointer, { width: el.offsetWidth, height: el.offsetHeight }, box, readout?.offsetHeight ?? 0, avoid)
       el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`
     })
   }

@@ -145,10 +145,11 @@
 
 .ask-question[data-where='view'] {
   position: absolute;
-  bottom: max(calc(var(--space-3) + 84px + var(--bar-lift)), var(--strip-top));
+  /* Above the hint (Stage 5 moves this card to the dock's foot). */
+  bottom: calc(var(--space-3) + 124px);
   left: 50%;
   transform: translateX(-50%);
-  width: min(460px, calc(100% - 2 * var(--stack-side)));
+  width: min(460px, calc(100% - 2 * var(--triad-clear)));
   box-shadow: var(--float-shadow);
 }
 

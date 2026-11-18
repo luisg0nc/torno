@@ -102,24 +102,11 @@ export function overlayUnit(width: number, height: number): number {
  */
 export const SCREEN_UNIT = 0.85
 
-/** How far above the bottom of the view the triad reaches on the person's screen, in px: what the strip of the Measure tool stands clear of (`styles/tools.css`). */
+/** How far above the bottom of the view, and in from the left, the triad reaches on the person's screen, in px: what the hint at the foot of the view keeps in from each side (`--triad-clear`, `styles/layout.css`). */
 export const TRIAD_CLEAR = Math.ceil((26 + 2 * 38 + 11 + 6) * SCREEN_UNIT)
 
-/** The longest the scale bar is on the person's screen, in px: it stands in the corner a bar of the view keeps clear of. */
+/** The longest the scale bar is on the person's screen, in px. */
 export const SCALE_BAR_MAX = 100
-
-/**
- * How far in from each side of the view the bars at its bottom (the section's, the selection's, the Align and Region
- * tools', the agent's line) keep, in px: past the triad on the left, and past the scale bar or the grid's step on
- * the right (`--bar-side`, `styles/layout.css`).
- */
-export const BAR_SIDE = 124
-
-/** The widest a bar at the bottom of the view is (the Align tool's, `styles/align.css`), in px. */
-const WIDEST_BAR = 560
-
-/** Under this width of the view the bars at its bottom stand above the triad and the scale, not between them (`data-narrow`, `--bar-lift`). */
-export const NARROW_BELOW = WIDEST_BAR + 2 * BAR_SIDE
 
 /**
  * Draws what a still picture needs to be read without the app around it: an

@@ -56,7 +56,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   say why. No letter is drawn on a button: the key is the button's `aria-keyshortcuts`, in the tip and in the name of the tool in hand. **The tool in hand** is an accent circle and its name grows out to the right (`.reed-pill`, 0.22 s `reed-grow`, none under reduced motion): `pillOf(tool, { scope, scopeOpen, sketching })` in `ui/view/reedPill.ts` says what it holds (the name, the key cap, the choices: Measure's Distance, Angle, ⌀, r and `T` thickness, Shape's four, Draw's four pens while a sketch is open, Region's Brush and Box; Align a name only). Select is the tool at rest and has none until `scopeOpen` (a click on it, or its key while it is in hand; it goes when another tool is taken) or while the scope is not Any. A tool with its name grown out shows no tip. `ReedPillView` draws the pill for the model's reed and for a tracing's (`tracings/Palette.tsx`: Trace's Line, Circle, Label and Ink's pens, `tracingPillOf`); the choices keep the groups and labels the strips had (`What to measure`, `What a click selects`, `Shape to place`, `Pens of the sketch`, `How to paint`). Keys is the rail's. Measure's last reading and its Keep button are the tag on the measured line (`ui/view/MeasureTag.tsx`, `data-tag="measure"`, placed at the middle of the line by `readingAt`; see `dimensions.md`).
   With a tool other than Select in hand a **caption** (`ToolHint`, an ink pill: `--ink` ground, `--surface` text, 12 px,
   `--radius-full`, a pill) stands by the pointer, 18 px below and to its right (`captionPlace` in `shared/captionPlace.ts`:
-  to the other side at the edge of the pane, and beyond the readout `.pick-readout` when that is there). `CaptionAt`
+  to the other side at the edge of the pane, beyond the readout `.pick-readout` when that is there, and below the switch of Model and Board or a band (`.pboard-switch`, `.band`, at the top left) when the pointer is by them: `captionAt` reads their boxes and passes them as `avoid`). `CaptionAt`
   (`viewport/captionAt.ts`) puts it, with a transform written on every pointer move over the pane, never through React; no animation but a
   90 ms fade, and it takes no pointer. It says what the tool waits for next: `next` of the tool's row in `TOOL_KEYS`, with
   Measure's `then` once the first end is clicked (`stepStore.stage`, set by `measureTool` through `setFirst`, once
@@ -72,9 +72,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (a drag or the wheel: `Viewport.onNavigated`, not a view key, Fit or a click that moves nothing), remembered in
   the window's `localStorage` under `torno.pointerHint` (`pointerHintDue`, `rememberPointerHint`: a storage that is
   not there or refuses shows it again; never in a workspace)), the agent's line (`AgentLine`, `.agent-line`) and, while a sketch is open, the
-  sketch's standing line (`sketchLine`: "Snapping on, hold `Ctrl` to drop it", X-ray and its key). It stands on `--bar-floor` and, while a
-  pill is there (`:has(.view-hint)`), lifts every bar at the foot of the view by a row (`--hint-lift`, 40 px) so that none meets it
-  (`styles/layout.css`, held by `viewport/overlay.test.ts`). The sketch's box by the pointer (`viewport/sketchHint.ts`, on the overlay canvas)
+  sketch's standing line (`sketchLine`: "Snapping on, hold `Ctrl` to drop it", X-ray and its key). It stands at the bottom middle, `--space-3` from the foot and `--triad-clear` in from each side, clear of the triad and of the
+  grid step; nothing lifts it, and no bar stands over it (`styles/caption.css`, held by `viewport/overlay.test.ts`). The sketch's box by the pointer (`viewport/sketchHint.ts`, on the overlay canvas)
   is the caption's look, an ink pill, and an accent one (`--on-accent` text) where the pointer would snap (`hintLook`). The caption's, the hint's and the readout's rules are in `styles/caption.css` (the readout's look in `overlays.css`). The sheet of keys starts with a group "Pointer"
   (`POINTER` in `shared/pointer.ts`: drag, right drag, scroll, double click with Measure; "In the view": with Arrow or
   Draw in hand a drag that starts on the part draws instead; the others' own press is in their step lines): gestures, no row of `KEYS`, searched with them and counted
@@ -128,7 +127,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   drawn apart. The handle (`.explode-handle`, a pointer target placed every frame) is dragged along the track: the amount is
   the foot of the pointer on it; the range input `.explode-slider` beside it is the track's for the keys and assistive technology. The tag is the
   notice that the parts are not where they are drawn, and it folds the saved views. No bars cover the top of the view
-  any more: nothing calls `setCoveredTop`, and `keepApartInView` is asked by the tag when the parts are drawn apart.
+  any more (`setCoveredTop` is gone), and `keepApartInView` is asked by the tag when the parts are drawn apart.
   The compass fits at 1280 × 800 for an object with two
   layouts, apart or together, inside the view, clear of the reed and with the explode tag clear of it The compass fits at 1280 × 800 for an object with two
   layouts, apart or together, inside the view, clear of the reed and with the explode bar clear of it
@@ -160,13 +159,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   scale holds, the grid's step as `grid 5 mm` (`groundOf`'s `step`; the grid lies on the ground in the object frame, so
   its step is a true length in any projection). It is of the camera and the object frame only, so it stays while the
   parts are apart. A picture for the agent has the same triad and bar, and in perspective its note `perspective, no
-  scale bar`, as before. The scale bar is 100 px at most on screen. The bars at the bottom of the view (the section's, the selection's, the Align and Region tools', the
-  agent's line) keep `BAR_SIDE` in from each side, clear of the triad and of the scale; where the view is narrower than
-  the widest of them needs (`NARROW_BELOW`, `data-narrow` on `.viewport-pane`, set by `ViewportPane` as the view is
-  resized) they stand above the triad (`--bar-lift`) instead,
-  the bars that stack there (the selection's, the section's, the agent's line, the step line, the Region tool's) 60 px in
-  from each side (`--stack-side` of `[data-narrow]`), clear of the palette of tools, which a short view's stacked bars
-  would reach; the Align tool's bar, which stands alone and whose rows need the width, keeps `--space-3`. A bar raised a row up (the
-  section's over the selection or the agent's line, the agent's line over the selection) stands above the one under it. `TRIAD_CLEAR`, `BAR_SIDE` and `NARROW_BELOW` are in
-  `viewport/overlay.ts`, and `--triad-clear`, `--bar-side` in `styles/layout.css` are held to them by `overlay.test.ts`;
-  `e2e/section.spec.ts` reads the bar's box against the corners and the palette, at seven sizes, with a selection and without.
+  scale bar`, as before. The scale bar is 100 px at most on screen. The foot of the view holds the hint (bottom middle), the triad and the grid step or scale bar, and nothing
+  else: no bar stands there, so there is no lift (`--bar-lift`, `--hint-lift`, `--stack-side`, `--strip-top`, `data-raised` and `data-narrow`
+  are gone). The tools' tags, the procedure cards and the bands keep to their own rules. `TRIAD_CLEAR` is in `viewport/overlay.ts`, and
+  `--triad-clear` in `styles/layout.css` is held to it by `overlay.test.ts`, which also holds the removed names out of the stylesheets;
+  `e2e/section.spec.ts` ("nothing over the reed, the compass or the band") reads the tag's box against the reed, the compass and the band at
+  1440 × 900 and 1280 × 800, with a selection and without.

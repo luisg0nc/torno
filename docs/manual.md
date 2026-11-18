@@ -2271,7 +2271,7 @@ the pointer, which has no keys:
 <!-- pointer: end -->
 
 Point at a tool of the palette and a panel beside it says, at once, what the tool does and its key. With a
-tool in hand (not Select) a small dark caption by the pointer, a little below and to its right, says what the tool waits for next, and
+tool in hand (not Select) a small dark caption by the pointer, a little below and to its right (and below the Model/Board switch or a band when the pointer is by them), says what the tool waits for next, and
 `Esc`: for Measure `click the first end`, then `click the second end`; for Arrow `press on the part and drag to where it should go`.
 For the first ten times you take a tool the caption shows as soon as the pointer is in the view; after that it shows where the pointer
 rests for half a second and goes when it moves again (a screen reader is told the words either way). Region of a scan and Align scan,

@@ -37,7 +37,7 @@ import { routePointer, staleMessage, type Tool, type ToolContext } from '../tool
 import { chipSays, markChips } from '../tools/markChips'
 import { Readout } from '../viewport/highlight'
 import { labelText } from '../viewport/marks/labels'
-import { NARROW_BELOW, bindPane } from '../viewport/overlay'
+import { bindPane } from '../viewport/overlay'
 import { meshOf } from '../viewport/scans'
 import { Viewport } from '../viewport/Viewport'
 import { QuestionCard } from './QuestionCard'
@@ -792,11 +792,7 @@ export function ViewportPane() {
     const readout = new Readout(host.current!)
     const disconnect = connect(made, readout)
     const pane = host.current!.parentElement!
-    // Where the view is narrower than the bars at its bottom need, they stand above the corners' triad and scale (styles/layout.css). Set on the element, not through React: it follows the size.
-    const sized = new ResizeObserver(() => {
-      made.resize()
-      pane.toggleAttribute('data-narrow', host.current!.clientWidth < NARROW_BELOW)
-    })
+    const sized = new ResizeObserver(() => made.resize())
     sized.observe(host.current!)
     const offDrop = acceptDrops(pane)
     // The first time the person moves the camera, the pointer hint at the foot of the view is done with.

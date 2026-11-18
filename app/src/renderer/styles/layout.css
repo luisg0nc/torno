@@ -114,40 +114,15 @@ button {
   grid-area: 1 / 1 / -1 / -1;
 }
 
-/* The part of the viewport no panel covers: the canvas, the view bar and
+/* The part of the viewport no panel covers: the canvas, the tags and bands over it and
    whatever is said when there is nothing to draw. */
 .viewport-pane {
   position: absolute;
   inset: 0;
-  /* What the corners of the view hold: the axis triad bottom left reaches this high (`TRIAD_CLEAR` in viewport/overlay.ts, which a test holds this to), and
-     the scale bar or the grid's step bottom right. The bars at the bottom keep BAR_SIDE in from each side, so as not to cover them, and where the view
-     is narrower than they need (`data-narrow`, set by ViewportPane) they stand above the triad instead. */
+  /* What the corner of the view holds at the left: the axis triad reaches this high and this far across (`TRIAD_CLEAR` in viewport/overlay.ts,
+     which a test holds this to). The hint at the foot of the view keeps this far in from each side, clear of the triad and of the scale bar or the
+     grid's step. Nothing else stands at the foot: the bars are tags, bands and procedure cards, each placed by its own rule. */
   --triad-clear: 102px;
-  --bar-side: 124px;
-  /* The sides of the bars that stack at the foot (the selection's, the section's, the agent's line, the step line, the
-     Region tool's): the same, but in a narrow view, where they also keep clear of the palette of tools. */
-  --stack-side: var(--bar-side);
-  /* Where the bottom of the bars stands without the line at the foot of the view: clear of the corners. */
-  --bar-floor: 0px;
-  --hint-lift: 0px;
-  /* The least a bar a row up stands at: clear of the strip of the Measure tool, when it is there. */
-  --strip-top: 0px;
-  /* Where the bars stand: on the floor, or above the line when it is there (`ui/view/Hint.tsx`, which stands on the floor itself). */
-  --bar-lift: calc(var(--bar-floor) + var(--hint-lift));
-}
-
-.viewport-pane[data-narrow] {
-  --bar-side: var(--space-3);
-  /* Clear of the palette of tools, which stands at the left edge halfway up and in a short view reaches the bars as they
-     stack: its 12px from the edge, 40px wide (a 34px button and its padding), and a gap. Not the Align tool's
-     bar, whose rows need the width and which stands alone. */
-  --stack-side: 60px;
-  --bar-floor: calc(var(--triad-clear) + var(--space-1));
-}
-
-/* The hint at the foot of the view takes the place of the bars' bottom row: they stand above it, a row (40px, as they stand over one another) up. */
-.viewport-pane:has(.view-hint) {
-  --hint-lift: 40px;
 }
 
 .viewport-canvas,

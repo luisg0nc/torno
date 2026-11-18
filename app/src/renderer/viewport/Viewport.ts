@@ -43,7 +43,7 @@ import { HANDLE_REACH_PX, SketchSheet } from './sketchPlane'
 import { type PlaneDraft } from '../tools/sketch/planes'
 import { SnapIndex, type SnapPart } from '../tools/sketch/snap'
 import { faceAt } from './viewCube'
-import { DEFAULT_FOV, fitBelow, fitCamera, lockedViewOf, viewDirection } from './views'
+import { DEFAULT_FOV, fitCamera, lockedViewOf, viewDirection } from './views'
 
 export interface LayerState {
   visible?: boolean
@@ -130,8 +130,6 @@ export class Viewport {
   private ruleBox: { min: ArrayLike<number>; max: ArrayLike<number> } = EMPTY_BOX
   private ruleShown = false
   private readonly sectionListeners = new Set<(plane: SectionPlane | null) => void>()
-  /** How many pixels at the top of the canvas the bars floating over it cover: what is framed on screen is framed below them. */
-  private coveredTop = 0
   /** The camera before the parts drawn apart were framed anew (`keepApartInView`), and the one they were framed by: gone back to when they come together, if the camera is still that one. */
   private framedApart: { before: Camera; after: Camera } | null = null
   private readonly move = new CameraMove()
@@ -827,8 +825,8 @@ export class Viewport {
   }
 
   /**
-   * Frames the parts again when one of them, drawn apart, would leave the view where it is going, or go under
-   * the bars over its top (`leavesView`, `setCoveredTop`); leaves the camera alone otherwise. Asked whenever the
+   * Frames the parts again when one of them, drawn apart, would leave the view where it is going
+   * (`leavesView`); leaves the camera alone otherwise. Asked whenever the
    * parts are drawn apart otherwise, by whatever path (the view bar, once it is laid out), and when a saved view is
    * applied: the camera is theirs, and is moved only so that no part goes out of sight. What it was before is
    * gone back to when the parts come together (`backFromApart`). True when it was moved.
@@ -836,14 +834,12 @@ export class Viewport {
   keepApartInView(): boolean {
     if (!this.apart.any) return false
     this.syncMatrices()
-    // Where the camera is going, when it is on its way; and the view is what the bars over its top leave of it.
+    // Where the camera is going, when it is on its way.
     const goal = this.move.goal
     const camera = goal ? this.cameraFor(goal, this.aspect, this.extent) : this.camera
-    const height = this.canvas.clientHeight
-    const clear = height > 0 ? Math.max(height - Math.min(this.coveredTop, height / 2), 1) / height : 1
     const seen = (point: Vec3): [number, number] => {
       const v = new THREE.Vector3().fromArray(point).project(camera)
-      return [v.x, (v.y + 1) / clear - 1]
+      return [v.x, v.y]
     }
     if (!leavesView(this.shownParts(), this.apart.target(), seen)) return false
     // Framed anew a second time, the camera goes back to where it was before the first.
@@ -851,14 +847,6 @@ export class Viewport {
     this.fitVisible()
     this.framedApart = { before, after: this.getCamera() }
     return true
-  }
-
-  /**
-   * How many pixels at the top of the canvas the bars floating over it cover. A view key, Fit, a scan's Frame
-   * and `keepApartInView` frame the parts in what the bars leave; a picture for the agent has no bars.
-   */
-  setCoveredTop(px: number): void {
-    this.coveredTop = Number.isFinite(px) ? Math.max(px, 0) : 0
   }
 
   /** The track Explode stands beside the parts (`ui/ExplodeControl.tsx`), drawn on the overlay: where it is and how far apart the parts are, 0 to 1; null takes it down. */
@@ -1614,11 +1602,11 @@ export class Viewport {
 
   // ---- camera ----
 
-  /** A camera on screen that looks along `dir` and frames `box` in what the bars over the canvas leave of it. */
+  /** A camera on screen that looks along `dir` and frames `box`. */
   private onScreen(box: { min: number[]; max: number[] }, { dir, up }: { dir: number[]; up: number[] }, ortho: boolean): Camera {
     const [width, height] = [this.canvas.clientWidth, this.canvas.clientHeight]
     if (width === 0 || height === 0) return fitCamera(box, dir, up, this.aspect, this.fov, ortho)
-    return fitBelow(box, dir, up, width, height, this.coveredTop, this.fov, ortho)
+    return fitCamera(box, dir, up, width / height, this.fov, ortho)
   }
 
   private namedCamera(name: ViewName, box: { min: number[]; max: number[] }, aspect: number, ortho: boolean): Camera {

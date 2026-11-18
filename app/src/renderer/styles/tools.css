@@ -242,17 +242,3 @@
 .tool-tip-note {
   color: var(--muted);
 }
-
-/* The bars at the foot of the view slide to their place when the line below them comes or goes, or the view's width changes
-   (`--bar-lift`, `styles/layout.css`): one short transition, that ends, and none where motion is not wanted. */
-.alignbar,
-.regionbar {
-  transition: bottom 120ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .alignbar,
-  .regionbar {
-    transition: none;
-  }
-}
