@@ -589,33 +589,29 @@ pickers of the page below). The foot of the box says where the project goes, "Go
 change, and **Start** makes the project and starts Claude Code with your words as its first prompt; nothing is written before. Under the box,
 "open the full new project page" opens the page below with what you typed on it, for sizes and rules, and, where torno runs from its repository,
 "open the example" looks around. The way for models you already have (a folder
-such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
-"What are we making?": "What is it?" (what it is for, what it must fit or hold, how it will be made) and the photos, each with a note for Claude. Under them is a
-tile for each other thing you have: "Doodle it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
-becomes its cards or rows once something is in it, and "Add another" (or "Add a size") adds more. Files can be dropped anywhere on the page: a picture becomes a
+such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is the brief on paper, with what Claude gets first on a dyed field beside it; the session dock is hidden while it is up, and comes back as it was when you leave. At the left, "New project. Nothing is written until you start." and **Discard**. Then the name, as `parts / cable-clip` at a large size (the folder in grey, the name in ink; "The folder's name: letters, digits, − and _."). Then "What are we making?" and its box ("What is it?": what it is for, what it must fit or hold, how it will be made). Under the box is a row of tiles for what you have given, the photos, doodles, bought parts, scans and projects, each with its name and a note for Claude, then two dashed tiles: **Sketch it** (or press `S`, a doodle) and **Drop anything** (photos, STEP, PDF, scans; the tile opens the photo picker). "Sizes I know" and "Rules" are two cards under them, and "Also: Bought part, Scan, Other project, Link or PDF" are links that add those. "Link or PDF" opens a third card, "Links and PDFs". Files can be dropped anywhere on the page: a picture becomes a
 photo, `.step` and `.stp` a bought part, `.pdf` a PDF, and a scan format a scan. An image pasted with `Ctrl+V` is taken as a dropped one is (only a file on the
-disk can be: a copied file is, a screenshot has none, and the page says so). `S` opens a doodle. At the right of the page,
-"What Claude gets first" shows the first prompt as it will be sent, and under it are "Claude Code on" (the model and effort), "Start: make the project and ask Claude" and "Or make it without starting Claude".
-Each slot is:
+disk can be: a copied file is, a screenshot has none, and the page says so). At the right, on the dye, "What Claude gets first" ("Written from this page as you add to it.") shows the first prompt as it will be sent (your own words brighter, references as outlined chips, the sizes in the face of numbers). At its foot it says what will be made ("Makes `parts/cable-clip/` with `cable_clip.py`, `brief.md` and `reference/`."), then come the model and effort, **Start: make the project and ask Claude** and "Or make it without starting Claude".
+Each kind of what you give is:
 
-- **Photos** ("Add photos…", or dropped on the page): PNG, JPEG or WebP, at most 12, 25 MB each and 50 megapixels
+- **Photos** ("Drop anything", or dropped on the page): PNG, JPEG or WebP, at most 12, 25 MB each and 50 megapixels
   (a larger picture is refused with a reason on the card, before it is decoded). HEIC, the iPhone's default, is
   not read: set the phone to Most compatible, or export as JPEG. Claude gets each one attached to its first prompt, after a line naming it ("Picture 1: reference/photo-1.jpg"),
   scaled to 1280 px on its long edge; the original is copied to `reference/photo-<n>.<ext>` in the project.
-- **Doodles** ("Doodle it", or `S`): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
+- **Doodles** ("Sketch it", or `S`): up to 6, drawn on a board (below). Claude gets each as a PNG with dark ink on white,
   over a light grid (1 square = 40 px of the board, no scale, and the prompt says so), whichever theme you drew it in, and `reference/` keeps it.
-- **Bought parts** ("Bought parts", or dropped): a vendor's STEP file (`.step` or `.stp`) of a screw, a bearing, a
+- **Bought parts** ("Bought part" under Also, or dropped): a vendor's STEP file (`.step` or `.stp`) of a screw, a bearing, a
   board, a motor; up to 4, 50 MB each (a larger file is refused, and is never read whole). The file is copied as it is into `reference/` under its own name
   (made safe for a file name; `608zz.step`, or `608zz-2.step` if two have the name), and the prompt names it and tells Claude to read it in the
   model with `import_step` and return it among `references(p)` (see "Bought parts" under the model), not as a part to print. torno reads
   nothing of it itself.
-- **Scans** ("Scans", or dropped): up to 4. They are imported into the project as "Import scan…" does, not
+- **Scans** ("Scan" under Also, or dropped): up to 4. They are imported into the project as "Import scan…" does, not
   copied and not aligned; Claude is told each scan's file name and id, and that it is not aligned (you align it in
   torno); `brief.md` keeps the path it came from, with `~` for your home folder.
-- **Sizes I know**: up to 40 rows, each with what it measures (200 characters at most), a value kept as you typed it (60 characters: one number, `a × b` or `a × b × c`, with `Ø` (or `⌀`) or `R` in front, and the unit may be typed after it (`62 mm`) and is said once; anything else is kept as text and Claude is told it is not read as numbers), a unit (`mm`, or `°`), where it came from (`measured`, `from a manual or datasheet` or `a guess`) and a note. A row you have typed nothing in is left out; one that is half done holds "Start" back until it is finished or removed. Claude is told each as given, and asks only for the sizes still missing.
-- **Links and PDFs**: up to 20 links (an `http` or `https` address of 2,000 characters at most, with a note of 300) and up to 6 PDFs of 25 MB each ("Add a PDF…", or dropped). torno opens no link and reads no PDF: Claude is told them, and reads them with its own tools if it helps. A PDF is copied into `reference/`.
+- **Sizes I know** (the card's "Add a size"): up to 40 rows, each with what it measures (200 characters at most), a value kept as you typed it (60 characters: one number, `a × b` or `a × b × c`, with `Ø` (or `⌀`) or `R` in front, and the unit may be typed after it (`62 mm`) and is said once; anything else is kept as text and Claude is told it is not read as numbers), a unit (`mm`, or `°`), where it came from (`measured`, `from a manual or datasheet` or `a guess`) and a note. A row you have typed nothing in is left out; one that is half done holds "Start" back until it is finished or removed. Claude is told each as given, and asks only for the sizes still missing.
+- **Links and PDFs** ("Link or PDF"): up to 20 links (an `http` or `https` address of 2,000 characters at most, with a note of 300) and up to 6 PDFs of 25 MB each ("Add a PDF…", or dropped). torno opens no link and reads no PDF: Claude is told them, and reads them with its own tools if it helps. A PDF is copied into `reference/`.
 - **Rules**: free text of up to 4,000 characters (the printer, the material, the least wall), given to Claude as written.
-- **Other projects** (a menu of the projects of the workspace): up to 8. Claude is told to look in `../<name>/` and
+- **Other projects** ("Other project" under Also, a menu of the projects of the workspace): up to 8. Claude is told to look in `../<name>/` and
   gets the project's summary (its parts and box, with whether the kernel says it is exact; "not built in this run"
   if it has not been built) and its thumbnail.
 

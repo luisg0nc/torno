@@ -53,7 +53,9 @@ test.describe('a new object', () => {
   const cards = (kind: string) => newPage().locator(`.ref-card[data-kind="${kind}"]`)
   const board = () => page.getByRole('dialog', { name: 'Doodle board' })
   const startButton = () => newPage().getByRole('button', { name: /^Start: make the project and ask Claude/ })
-  const doodleIt = () => newPage().getByRole('button', { name: /^Doodle it/ })
+  const doodleIt = () => newPage().getByRole('button', { name: /^Sketch it/ })
+  const dropAnything = () => newPage().getByRole('button', { name: /^Drop anything/ })
+  const also = (name: string) => newPage().getByRole('button', { name, exact: true })
   const slot = (id: string) => newPage().locator(`[data-slot="${id}"]`)
 
   /** Draws a stroke on the board between two fractions of the canvas, with real pointer events. */
@@ -109,7 +111,7 @@ test.describe('a new object', () => {
     await name.fill('.hidden')
     await expect(newPage()).toContainText('starts with a letter or a digit')
     await name.fill('cable-clip')
-    await expect(newPage().locator('#new-name-help')).toHaveText("The folder's name: letters, digits, - _ (no dots)")
+    await expect(newPage().locator('#new-name-help')).toHaveText("The folder's name: letters, digits, \u2212 and _.")
     // A name alone is not enough.
     await expect(create).toBeDisabled()
     await page.getByLabel('What is it?').fill('A clip that holds a 6 mm cable to the edge of a desk, printed in PETG.')
@@ -145,7 +147,7 @@ test.describe('a new object', () => {
 
   test('photos come through the dialog, scaled to 1280 px for the prompt (a WebP turned into a JPEG) and drawn small', async () => {
     await hook(app, { pickPhotos: [big(), webp()] })
-    await newPage().getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(cards('photos')).toHaveCount(2)
     await expect(cards('photos').nth(0)).toContainText('Photo')
     await expect(cards('photos').nth(0)).toContainText('desk-3000.png')
@@ -155,13 +157,13 @@ test.describe('a new object', () => {
     expect(widths).toEqual([1280, 800])
     await cards('photos').nth(0).getByLabel(/^Note for /).fill('the desk edge, 18 mm thick')
     // The same photo twice is one.
-    await newPage().getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(newPage()).toContainText('2 photos are there already')
     await expect(cards('photos')).toHaveCount(2)
     await cards('photos').nth(1).getByRole('button', { name: 'Remove photo 2' }).click()
     await expect(cards('photos')).toHaveCount(1)
     await hook(app, { pickPhotos: [big(), webp()] })
-    await newPage().getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(cards('photos')).toHaveCount(2)
   })
 
@@ -317,30 +319,30 @@ test.describe('a new object', () => {
 
   test('a vendor STEP file is given as a bought part, with a note, and the preview names it for import_step', async () => {
     await hook(app, { pickStep: bearing() })
-    await newPage().getByRole('button', { name: /^Bought parts/ }).click()
+    await also('Bought part').click()
     await expect(cards('steps')).toHaveCount(1)
     await expect(cards('steps').first()).toContainText('Bought part')
     await expect(cards('steps').first()).toContainText('608ZZ.STEP')
     await cards('steps').first().getByLabel(/^Note for /).fill('the bearing, 8 x 22 x 7')
     // The same file twice is one.
-    await newPage().getByRole('button', { name: /^Bought parts/ }).click()
+    await also('Bought part').click()
     await expect(newPage()).toContainText('608ZZ.STEP is there already')
     await expect(cards('steps')).toHaveCount(1)
   })
 
   test('a scan and another object of the workspace are given with their notes', async () => {
     await hook(app, { pickFile: plate() })
-    await newPage().getByRole('button', { name: /^Scans/ }).click()
+    await also('Scan').click()
     await expect(cards('scans')).toHaveCount(1)
     await expect(cards('scans').first()).toContainText('Scan')
     await expect(cards('scans').first()).toContainText('plate.stl')
     await cards('scans').first().getByLabel(/^Note for /).fill('the desk, scanned')
     // The same scan twice is one.
-    await newPage().getByRole('button', { name: /^Scans/ }).click()
+    await also('Scan').click()
     await expect(newPage()).toContainText('plate.stl is there already')
     await expect(cards('scans')).toHaveCount(1)
 
-    await newPage().getByRole('button', { name: /^Other projects/ }).click()
+    await also('Other project').click()
     const menu = page.getByRole('menu', { name: 'Projects of this workspace' })
     await expect(menu.getByRole('menuitem', { name: 'plain' })).toBeVisible()
     await menu.getByRole('menuitem', { name: 'plain' }).click()
@@ -348,7 +350,7 @@ test.describe('a new object', () => {
     await expect(cards('objects')).toHaveCount(1)
     await cards('objects').first().getByLabel(/^Note for /).fill('same style')
     // It is not offered twice.
-    await newPage().getByRole('button', { name: /^Other projects/ }).click()
+    await also('Other project').click()
     await expect(page.getByRole('menuitem', { name: 'plain' })).toHaveCount(0)
     await page.keyboard.press('Escape')
     await expect(menu).toHaveCount(0)
@@ -358,9 +360,9 @@ test.describe('a new object', () => {
   })
 
   test('sizes, rules, a link and a PDF are given in their slots, the preview says them, and S opens the doodle', async () => {
-    // A tile becomes its rows once opened, and the first field takes the focus.
-    await newPage().getByRole('button', { name: /^Sizes I know/ }).click()
+    // The card is there from the start; its button adds a row, and the first field takes the focus.
     await expect(slot('sizes')).toContainText('Sizes I know')
+    await slot('sizes').getByRole('button', { name: 'Add a size' }).click()
     await expect(newPage().getByLabel('What size 1 measures')).toBeFocused()
     // A row nothing is typed in holds nothing back; one half done does, and says so.
     await expect(startButton()).toBeEnabled()
@@ -385,11 +387,10 @@ test.describe('a new object', () => {
     await expect(board()).toHaveCount(0)
     await newPage().getByLabel('Note for size 1').fill('')
 
-    await newPage().getByRole('button', { name: /^Rules/ }).click()
-    await expect(slot('rules').locator('textarea')).toBeFocused()
+    await expect(slot('rules')).toContainText('Rules')
     await slot('rules').locator('textarea').fill('PETG, 0.4 nozzle, min wall 1.2 mm')
 
-    await newPage().getByRole('button', { name: /^Links and PDFs/ }).click()
+    await also('Link or PDF').click()
     await expect(newPage().getByLabel('Link address')).toBeFocused()
     await newPage().getByLabel('Link address').fill('ftp://example.com/x')
     await newPage().getByLabel('Link address').press('Enter')
@@ -653,6 +654,8 @@ test.describe('the window while a new object is made', () => {
   const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
   const dock = () => page.locator('[data-region="session"]')
   const newPage = () => page.getByRole('region', { name: 'New project' })
+  const dropAnything = () => newPage().getByRole('button', { name: /^Drop anything/ })
+  const also = (name: string) => newPage().getByRole('button', { name, exact: true })
   const marks = () => page.locator('[data-region="left"] .route-section[data-section="marks"]')
   const status = () => page.locator('[data-region="status"]')
 
@@ -675,22 +678,20 @@ test.describe('the window while a new object is made', () => {
     await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
     await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible({ timeout: 30_000 })
     await newFromList(page)
-    // The first prompt is on the page, beside the slots; the pane says so.
-    await expect(dock().locator('[data-draft-note]')).toBeVisible()
-    await expect(newPage()).toContainText('What Claude gets first')
-    await expect(newPage()).toContainText('Written from the board, updates as you add')
+    // The first prompt is on the page, on the dye at its right: the dock is hidden while the page is up.
+    await expect(dock()).toBeHidden()
+    await expect(newPage().locator('.draft-pane[data-plate]')).toContainText('What Claude gets first')
+    await expect(newPage()).toContainText('Written from this page as you add to it.')
     await expect(newPage().locator('.draft-pane-text')).toContainText('This is a new project')
-    await expect(dock().getByRole('button', { name: 'New session' })).toHaveCount(0)
-    await expect(dock().getByRole('button', { name: 'Resume' })).toHaveCount(0)
     await page.getByLabel('Name', { exact: true }).fill('cable-clip')
     await hook(app, { pickPhotos: [join(files, 'desk.png')] })
-    await page.getByRole('region', { name: 'New project' }).getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(newPage().locator('.draft-pane')).toContainText('cable-clip')
     await expect(newPage().locator('.draft-pane')).toContainText('reference/photo-1.png')
     await expect(newPage().locator('.draft-pane')).toContainText('attached: picture 1')
     // A bought part is named in the preview, with how the agent is to place it.
     await hook(app, { pickStep: join(files, '608ZZ.STEP') })
-    await page.getByRole('region', { name: 'New project' }).getByRole('button', { name: /^Bought parts/ }).click()
+    await also('Bought part').click()
     await expect(newPage().locator('.draft-pane-text')).toContainText('reference/608ZZ.step')
     await expect(newPage().locator('.draft-pane-text')).toContainText('import_step(')
     // The title bar's crumb reads "New project", and the rail has no index of sections: there is no project open to read.
@@ -719,17 +720,15 @@ test.describe('the window while a new object is made', () => {
     await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
   })
 
-  test('a running session of the object that was open stays in full, with a note of whose it is', async () => {
+  test('a running session of the object that was open goes on behind the page, and its dock is back when the page is left', async () => {
     await newSession(dock())
     await expect(dock().locator('.session-status')).toBeVisible({ timeout: 30_000 })
     await newFromList(page)
-    await expect(dock().locator('.session-status')).toBeVisible()
-    await expect(dock().locator('.session-status')).toBeVisible()
-    await expect(dock().locator('.session-aside')).toContainText('This is the session of bracket')
-    await expect(dock().locator('[data-draft-note]')).toHaveCount(0)
+    await expect(dock()).toBeHidden()
+    await expect(page.locator('.shell')).toHaveAttribute('data-dock', 'collapsed')
     await page.keyboard.press('Escape')
     await expect.poll(async () => (await state()).page).toBe('objects')
-    await expect(dock().locator('.session-aside')).toHaveCount(0)
+    await expect(page.locator('.shell')).toHaveAttribute('data-dock', 'open')
     await expect(dock().locator('.session-status')).toBeVisible()
   })
 })
@@ -746,14 +745,14 @@ test.describe('a new project made without starting Claude', () => {
       const here = page.getByRole('region', { name: 'New project' })
       await page.getByLabel('Name', { exact: true }).fill('latch')
       await page.getByLabel('What is it?').fill('A latch for a box lid.')
-      await here.getByRole('button', { name: /^Sizes I know/ }).click()
+      await here.locator('[data-slot="sizes"]').getByRole('button', { name: 'Add a size' }).click()
       await here.getByLabel('What size 1 measures').fill('lid thickness')
       await here.getByLabel('Value of size 1').fill('4')
       // A scan is imported into the project even though no prompt is sent (onboard, which imports it otherwise, is not called).
       const scanFiles = temp('files')
       writeFileSync(join(scanFiles, 'plate.stl'), stl(box([60, 50, 2], [0, 0, -10])))
       await hook(app, { pickFile: join(scanFiles, 'plate.stl') })
-      await here.getByRole('button', { name: /^Scans/ }).click()
+      await here.getByRole('button', { name: 'Scan', exact: true }).click()
       await expect(here.locator('.ref-card[data-kind="scans"]')).toHaveCount(1)
       await here.getByRole('button', { name: 'Or make it without starting Claude' }).click()
       await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).objectId, { timeout: 30_000 }).toBe('latch')

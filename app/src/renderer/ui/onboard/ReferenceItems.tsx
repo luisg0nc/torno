@@ -101,8 +101,8 @@ function ObjectCard({ id, itemKey, note }: { id: string; itemKey: string; note: 
 /** The kinds that are cards of files and projects, in the order they are listed in. */
 export type CardKind = 'photos' | 'doodles' | 'steps' | 'scans' | 'objects' | 'pdfs'
 
-/** What the person has given of the kinds named (all of them when none are), a card each, in the order of the kinds: photos, doodles, bought parts, scans, objects, PDFs. */
-export function ReferenceCards({ draft, kinds, label = 'What you have', onEditDoodle }: { draft: Draft; kinds?: readonly CardKind[]; label?: string; onEditDoodle: (key: string) => void }) {
+/** What the person has given of the kinds named (all of them when none are), a card each, in the order of the kinds: photos, doodles, bought parts, scans, objects, PDFs. `tail`: more items (`<li>`) after the cards. */
+export function ReferenceCards({ draft, kinds, label = 'What you have', onEditDoodle, tail }: { draft: Draft; kinds?: readonly CardKind[]; label?: string; onEditDoodle: (key: string) => void; tail?: ReactNode }) {
   const has = (kind: CardKind): boolean => kinds === undefined || kinds.includes(kind)
   return (
     <ul className="ref-list" aria-label={label}>
@@ -168,6 +168,7 @@ export function ReferenceCards({ draft, kinds, label = 'What you have', onEditDo
             }
           />
         ))}
+      {tail}
     </ul>
   )
 }

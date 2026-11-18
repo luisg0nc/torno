@@ -341,7 +341,8 @@ export function App() {
   // The width the person gave the dock, kept by the window; none until they do, and then the CSS default (`--dock-w`) stands.
   const [kept, setKept] = useState<number | null>(() => readDock(windowStorage()))
   const dockWidth = kept ?? dockDefault(window.innerWidth)
-  const dockOpen = useStore((s) => s.dockOpen)
+  // The page of a new project is the preview of the prompt itself: the dock is hidden while it is up, and comes back as it was.
+  const dockOpen = useStore((s) => s.dockOpen && s.page !== 'new')
   // The board takes the main area's place from the model, on the project's own page.
   const boardOf = useBoard((s) => (s.shown === 'board' ? s.objectId : null))
   // So does a tracing, on the same page.

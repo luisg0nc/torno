@@ -6,7 +6,7 @@ export function RulesSlot({ rules, disabled, onRefused }: { rules: string; disab
   return (
     <>
       <textarea
-        className="new-input new-what"
+        className="new-input rules-input"
         rows={3}
         data-first=""
         aria-label="Rules"

@@ -50,8 +50,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   as its description, a click opens it and, if it waits, shows the dock and `focusAsk`), the dock's toggle (same name, description and
   title as before, `.dock-toggle`), and `WindowControls` (46 x 40, `--muted` 10 px glyphs) only when `drawsControls()`. The first
   screen has no bar, only `BareControls`.
-- On the New object page the pane is of the object being made (`drafting` in `SessionPane`): no status, no End,
-  New session or Resume, no view switch, no held prompt, and `DraftPane` in the body; `.session-term` stays laid out.
+- On the New object page the dock is hidden (Task 39: `App.tsx`), and the preview is `DraftPane` on the page itself. The pane that stays mounted under `hidden` is still of the object being made (`drafting` in `SessionPane`; these branches only keep it quiet, and are the ones to remove when the pane is next reworked): no status, no End,
+  New session or Resume, no view switch, no held prompt, and a note in the body; `.session-term` stays laid out.
   A live session (any status but `exited`) of the object that was open stays as it is, with the note
   `.session-aside` above it ("This is the session of …"); an ended one counts as none.
 - **The pane with no session, in the chat view** (`ui/chat/StartChat.tsx`, in `SessionPane` when `choice.view` is `chat`)

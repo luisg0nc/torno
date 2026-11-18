@@ -55,30 +55,24 @@ export function SlotGlyph({ icon }: { icon: SlotIcon }) {
   )
 }
 
-/** What a tile says: its name, and under it a muted line of what it is for. */
-export function SlotWords({ icon, title, hint }: { icon: SlotIcon; title: string; hint: string }) {
+/** A dashed tile that adds one more to the row of what the person has: its name, and under it a muted line of what it takes. */
+export function PicTile({ title, hint, help, disabled, onClick }: { title: string; hint: ReactNode; help?: string; disabled: boolean; onClick: () => void }) {
   return (
-    <>
-      <SlotGlyph icon={icon} />
-      <span className="slot-words">
-        <span className="slot-title">{title}</span>
-        <span className="slot-hint">{hint}</span>
-      </span>
-    </>
+    <button type="button" className="pic-tile" disabled={disabled} title={help} onClick={onClick}>
+      <span className="pic-tile-title">{title}</span>
+      <span className="pic-tile-hint">{hint}</span>
+    </button>
   )
 }
 
 /**
- * A slot of the page of a new project. Empty it is a tile (`tile`: the button that adds the first, built by the caller
- * so that a menu may be one); with something in it, or opened, it is a section with its name and what is in it.
- * `add` is the quiet button that adds another, when there is one.
+ * A card of the page of a new project: Sizes I know, Rules, Links and PDFs. It has its name and what it is for, `add` for the
+ * quiet button that adds a row, and what is in it. `wide` takes the whole row, under the other cards.
  */
-export function Slot({ id, icon, title, hint, filled, tile, add, children }: { id: string; icon: SlotIcon; title: string; hint: string; filled: boolean; tile: ReactNode; add?: ReactNode; children?: ReactNode }) {
-  if (!filled) return <div className="slot" data-slot={id} data-empty="">{tile}</div>
+export function Slot({ id, title, hint, add, wide, children }: { id: string; title: string; hint: string; add?: ReactNode; wide?: boolean; children?: ReactNode }) {
   return (
-    <section className="slot" data-slot={id} aria-labelledby={`slot-${id}`}>
+    <section className="slot" data-slot={id} data-wide={wide ? '' : undefined} aria-labelledby={`slot-${id}`}>
       <div className="slot-head">
-        <SlotGlyph icon={icon} />
         <h3 className="slot-title" id={`slot-${id}`}>
           {title}
         </h3>

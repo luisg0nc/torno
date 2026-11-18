@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { PromptPreview } from '../../../shared/bridge'
 import { MOST_IMAGES } from '../../../shared/objectName'
 import { type Draft, useOnboard } from '../../state/onboard'
+import { numbered } from '../numbered'
 import { previewDraft } from './make'
 
 /** The text in pieces, those that are the person's own words (`mine`) and those torno wrote around them. */
@@ -26,6 +27,53 @@ export function promptPieces(text: string, words: string[]): Array<{ text: strin
   return pieces
 }
 
+/** One run of the prompt as it is drawn: the person's words, a reference (an outlined chip), or torno's own text. */
+export interface Run {
+  text: string
+  mine: boolean
+  chip?: boolean
+}
+
+/** A reference in torno's text: a file of `reference/`, another project's folder, and whether a picture is attached. */
+const REFERENCE = /\((attached: picture \d+|not attached: read [^)]+)\)|reference\/[A-Za-z0-9._-]*[A-Za-z0-9_-]|\.\.\/[^\s/()]+\//g
+
+/** The runs of one stretch of the prompt: the person's words apart, and in what is torno's the references as chips. */
+function runsOf(text: string, words: string[]): Run[] {
+  return promptPieces(text, words).flatMap((piece): Run[] => {
+    if (piece.mine) return [{ ...piece }]
+    const runs: Run[] = []
+    let from = 0
+    for (const m of piece.text.matchAll(REFERENCE)) {
+      if (m.index > from) runs.push({ text: piece.text.slice(from, m.index), mine: false })
+      runs.push({ text: m[1] ?? m[0], mine: false, chip: true })
+      from = m.index + m[0].length
+    }
+    if (from < piece.text.length) runs.push({ text: piece.text.slice(from), mine: false })
+    return runs
+  })
+}
+
+/** The prompt in stretches: the lines under "Sizes the person gave:" (`sizes`, drawn in the face of numbers) and the rest. */
+export function promptStretches(text: string, words: string[]): Array<{ sizes: boolean; runs: Run[] }> {
+  const stretches: Array<{ sizes: boolean; text: string }> = []
+  let under = false
+  for (const line of text.split(/(?<=\n)/)) {
+    const size = under && line.startsWith('- ')
+    if (!size) under = line.trimEnd() === 'Sizes the person gave:'
+    const last = stretches[stretches.length - 1]
+    if (last && last.sizes === size) last.text += line
+    else stretches.push({ sizes: size, text: line })
+  }
+  return stretches.map((s) => ({ sizes: s.sizes, runs: runsOf(s.text, words) }))
+}
+
+const draw = (runs: Run[]): ReactNode[] =>
+  runs.map((run, n) => (
+    <span key={n} className={run.chip ? 'draft-pane-chip' : run.mine ? 'draft-pane-mine' : undefined}>
+      {run.text}
+    </span>
+  ))
+
 /** What is said under a thumbnail: whether Claude Code gets the picture with the prompt. */
 export const pictureState = (attached: number | null, hasPicture: boolean): string =>
   attached !== null ? `attached: picture ${attached}` : hasPicture ? `named only: over ${MOST_IMAGES}` : 'named only'
@@ -37,21 +85,51 @@ export interface PaneThumb {
   hasPicture: boolean
 }
 
-/** The session pane while a new object is made: the first prompt Claude Code will get once it is created, read-only. */
-export function DraftPane({ preview, words, thumbs }: { preview: PromptPreview | null; words: string[]; thumbs: PaneThumb[] }) {
+/** What the page will make: the folder, the model's file, what is in `reference/` and how many scans are imported; or, when it cannot yet, what is missing. */
+export type Make = { folder: string; module: string; files: number; scans: number } | string
+
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
+
+function Will({ make }: { make: Make }) {
+  if (typeof make === 'string') return <p className="new-will">{make}</p>
   return (
-    <div className="draft-pane" role="note">
+    <p className="new-will">
+      Makes <span className="num">{make.folder}</span> with <span className="num">{make.module}.py</span> (a placeholder to be replaced), <span className="num">brief.md</span>
+      {make.files > 0 && (
+        <>
+          {' '}
+          and <span className="num">reference/</span> ({numbered(plural(make.files, 'file', 'files'))})
+        </>
+      )}
+      , and lays what you gave out on its board.
+      {make.scans > 0 && <> {make.scans === 1 ? 'The scan is' : 'The scans are'} imported into the project, not copied.</>}
+    </p>
+  )
+}
+
+/**
+ * The page of a new project's right side, on the dye: the first prompt Claude Code will get once the project is made, read-only,
+ * and at its foot what will be made and `children` (the choice of model and the buttons that make it). It is the plate of the
+ * page: layout blue, with `--on-dye` text.
+ */
+export function DraftPane({ preview, words, thumbs, make, children }: { preview: PromptPreview | null; words: string[]; thumbs: PaneThumb[]; make: Make; children?: ReactNode }) {
+  return (
+    <aside className="draft-pane" data-plate aria-label="The first prompt">
       <h3 className="draft-pane-lead">What Claude gets first</h3>
-      <p className="draft-pane-sub">Written from the board, updates as you add.</p>
+      <p className="draft-pane-sub">Written from this page as you add to it.</p>
       {preview === null ? (
         <p className="draft-pane-none">Reading the prompt…</p>
       ) : (
         <div className="draft-pane-text" tabIndex={0} aria-label="The first prompt">
-          {promptPieces(preview.text, words).map((piece, n) => (
-            <span key={n} className={piece.mine ? 'draft-pane-mine' : undefined}>
-              {piece.text}
-            </span>
-          ))}
+          {promptStretches(preview.text, words).map((stretch, n) =>
+            stretch.sizes ? (
+              <span key={n} className="draft-pane-size num">
+                {draw(stretch.runs)}
+              </span>
+            ) : (
+              <span key={n}>{draw(stretch.runs)}</span>
+            )
+          )}
         </div>
       )}
       {thumbs.length > 0 && (
@@ -65,7 +143,11 @@ export function DraftPane({ preview, words, thumbs }: { preview: PromptPreview |
           ))}
         </ul>
       )}
-    </div>
+      <div className="draft-pane-foot">
+        <Will make={make} />
+        {children}
+      </div>
+    </aside>
   )
 }
 
@@ -84,7 +166,7 @@ export const wordsOf = (d: Draft): string[] => [
 ]
 
 /** The same, of the draft being made: asked of main again 300 ms after each change. */
-export function DraftPaneLive() {
+export function DraftPaneLive({ make, children }: { make: Make; children?: ReactNode }) {
   const draft = useOnboard((s) => s.draft)
   const [preview, setPreview] = useState<PromptPreview | null>(null)
   const asked = useRef(0)
@@ -101,5 +183,9 @@ export function DraftPaneLive() {
   const files = previewDraft(draft).items
   const urls = [...draft.photos.map((p) => p.url), ...draft.doodles.map((d) => d.url)]
   const thumbs = files.map((f, i): PaneThumb => ({ file: f.file, url: urls[i], attached: preview?.attached[i] ?? null, hasPicture: f.picture }))
-  return <DraftPane preview={preview} words={wordsOf(draft)} thumbs={thumbs} />
+  return (
+    <DraftPane preview={preview} words={wordsOf(draft)} thumbs={thumbs} make={make}>
+      {children}
+    </DraftPane>
+  )
 }
