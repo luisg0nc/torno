@@ -87,8 +87,8 @@ async function clickModel(point: Vec3): Promise<void> {
  */
 async function frame(points: Vec3[], lowest = 0.92, wheel = 240): Promise<void> {
   const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
-  // The compass stands at the top right and the card at the bottom right (320 px): the points are kept to the left of both.
-  const right = Math.min(0.92, 1 - 330 / canvas.width)
+  // The compass stands at the top right and the card at the bottom right (320 px, 14 px in from the edge): the points are kept to the left of both, with a margin to aim in.
+  const right = Math.min(0.92, 1 - 360 / canvas.width)
   const middle = { x: (0.08 + right) / 2, y: (0.08 + lowest) / 2 }
   const at = (f: { x: number; y: number }) => ({ x: canvas.x + f.x * canvas.width, y: canvas.y + f.y * canvas.height })
   for (let tries = 0; tries < 30; tries++) {

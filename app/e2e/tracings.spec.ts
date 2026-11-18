@@ -169,7 +169,8 @@ test('Should be here drags Claude\'s shape to where it belongs, and the next pro
   await page.mouse.move(x, y)
   await page.mouse.down()
   await page.mouse.move(mx, my, { steps: 4 })
-  await expect(page.locator('.tr-pointer-hint')).toContainText('bolt 1 should be here')
+  // Its words are a tag tied to the shape's ghost (Task 24), no longer a line at the pointer.
+  await expect(page.locator('[data-tag="tracing-offset"]')).toContainText('bolt 1 should be here')
   await page.mouse.up()
   await expect.poll(async () => (await marks()).filter((m) => m.kind === 'offset').length).toBe(1)
   const offset = (await marks()).find((m) => m.kind === 'offset')!
