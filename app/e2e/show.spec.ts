@@ -129,6 +129,11 @@ test('a card says when its picture is older than the model, and a second object 
   appendFileSync(join(root, 'hollow', 'hollow.py'), '\n# touched\n')
   await expect.poll(() => statSync(thumb('hollow')).mtimeMs, { timeout: 20_000 }).toBeGreaterThan(before)
   expect((await state()).objectId).toBe('plain')
+  // The picture's facts keep the kernel's size of what it is of, and say it is at the bench's scale.
+  const kept = meta('hollow') as { box?: { x: number; y: number; z: number; exact: boolean }; bench?: boolean }
+  expect(kept.bench).toBe(true)
+  expect(kept.box).toEqual({ x: expect.any(Number), y: expect.any(Number), z: expect.any(Number), exact: expect.any(Boolean) })
+  expect(kept.box!.x).toBeGreaterThan(0)
   // A picture older than its model says so.
   await expect.poll(() => meta('hollow').sourcesMtimeMs).toBe(statSync(join(root, 'hollow', 'hollow.py')).mtimeMs)
   // Its facts say which picture they are of: its size and what its bytes hash to.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Camera, ViewName } from '../../shared/view'
-import { fitCamera, focusCamera, gridStep, lockedViewOf, scaleBarLength, viewDirection, visibleHeight } from './views'
+import { fitCamera, focusCamera, gridStep, lockedViewOf, benchFits, scaleBarLength, screenHalfExtent, viewDirection, visibleHeight } from './views'
 
 const NAMES: ViewName[] = ['iso', 'front', 'back', 'left', 'right', 'top', 'bottom']
 const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
@@ -203,5 +203,36 @@ describe('scaleBarLength', () => {
     expect(scaleBarLength(1, 160)).toBe(100)
     expect(scaleBarLength(0.004, 160)).toBe(0.5)
     expect(scaleBarLength(0.33, 160)).toBe(50)
+  })
+})
+
+describe('screenHalfExtent', () => {
+  const size = { x: 100, y: 50, z: 10 }
+  it('is half the width and half the height a box has on screen, looking along a standard view', () => {
+    const top = viewDirection('top')
+    expect(screenHalfExtent(size, top.dir, top.up)).toEqual({ across: 50, upward: 25 })
+    const front = viewDirection('front')
+    expect(screenHalfExtent(size, front.dir, front.up)).toEqual({ across: 50, upward: 5 })
+  })
+
+  it('is larger in iso than any one side alone, and the same for a box as for the same half extents', () => {
+    const iso = viewDirection('iso')
+    const seen = screenHalfExtent(size, iso.dir, iso.up)
+    expect(seen.across).toBeGreaterThan(50)
+    expect(seen.upward).toBeGreaterThan(5)
+    // A cube of 100 mm is, in iso, at most its diagonal across.
+    const cube = screenHalfExtent({ x: 100, y: 100, z: 100 }, iso.dir, iso.up)
+    expect(cube.across).toBeLessThanOrEqual(Math.hypot(100, 100, 100) / 2 + 1e-9)
+  })
+})
+
+describe('benchFits', () => {
+  it('is whether a box in iso stays within the 480 × 360 picture at 0.5 mm to the pixel, with a margin of two pixels', () => {
+    expect(benchFits({ x: 150, y: 80, z: 92 })).toBe(true)
+    expect(benchFits({ x: 1, y: 1, z: 1 })).toBe(true)
+    // A flat plate 400 mm along its long side is some 280 mm across in iso: past 240 mm.
+    expect(benchFits({ x: 400, y: 10, z: 10 })).toBe(false)
+    expect(benchFits({ x: 10, y: 10, z: 400 })).toBe(false)
+    expect(benchFits({ x: Number.NaN, y: 1, z: 1 })).toBe(false)
   })
 })

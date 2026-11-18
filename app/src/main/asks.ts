@@ -27,6 +27,11 @@ export class Asks {
     return this.open().some((ask) => ask.objectId === objectId)
   }
 
+  /** The question an object waits on, if it has one open. */
+  of(objectId: string): OpenAsk | undefined {
+    return this.open().find((ask) => ask.objectId === objectId)
+  }
+
   /** Puts a question and waits for what ends it. The caller checks that the object has none open. */
   ask(objectId: string, request: AskRequest, signal?: AbortSignal): Promise<AskAnswer | AskEnd> {
     return new Promise((resolve) => {

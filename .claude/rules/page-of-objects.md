@@ -29,7 +29,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `viewport/thumbnail.ts` `ThumbnailMaker`: a scene of its own, into a target of the viewport's renderer,
   which is left as it was found; 480 × 360, the standard iso view in perspective, brought near until the
   parts fill the picture. Parts and edges only: no mark, no scan (a scan may show the real world), no grid, no
-  gizmo. The ground is clear (alpha 0) and the part palette is the same in both themes, so one file serves
+  gizmo. **The bench's mode** (`thumbnailPlan(scene, view, { bench: true })`, `plan.bench`): a fixed iso camera,
+  orthographic, at `BENCH_MM_PER_PX` (0.5 mm to the pixel) centred on the box of the layout as built, on a clear
+  ground, so that a picture's size in pixels is the layout's box projected over the scale and every project's is
+  at one scale. `ThumbnailMaker` uses it when the layout fits the picture at that scale (`views.ts` `benchFits`:
+  2 px margin) and the parts are not drawn apart; else the picture is fitted as above and is not at scale
+  (`ThumbnailOf.bench` false). `views.ts` `screenHalfExtent` gives the projected half width and height of a box.
+  The ground is clear (alpha 0) and the part palette is the same in both themes, so one file serves
   both. Parts are built with `buildPart(part, blob, { tree: false })` and disposed of after the frame; the PNG
   is `pngOf` (`viewport/picture.ts`) with the alpha kept.
 
@@ -53,7 +59,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **Main alone keeps it** (`show/cards.ts` `keepThumbnail`, `saveThumbnail`, `thumbnailOnFile`; `ipc.ts` only
   joins them to the open workspace): `<object>/.torno/thumb.png` and `thumb.json` (`at`, `layout`, `parts`,
   `model`, `sourcesMtimeMs`, `bytes`, `hash`, and `cut`, `apart`, `hidden` when the picture is cut, drawn
-  apart or leaves parts out). Only for an object opened in this run whose last good revision is the one the
+  apart or leaves parts out; `box` and `bench: true`: see below). Only for an object opened in this run whose last good revision is the one the
   window names, and only bytes `thumbnailRefusal` passes: a PNG (signature and `IHDR`) of 480 × 360, at most
   `THUMB_MAX_BYTES` (512 KB). Anything else is dropped. Each file is written atomically and the saves of one
   folder go one after the other; the facts say how many bytes the picture has and their SHA-256, and **a
@@ -80,6 +86,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   there to be seen (not one of the view put away under the page) gets it first, as if pressed there; then the
   filter is emptied; then the page goes. A sheet opened over the page (the export's) needs one of those two
   roles and nothing more.
+- **The size of a card (`ObjectCard.box`) is the kernel's, worked out in main.** `keepThumbnail` takes the box of
+  the layout the picture is of from the last good build's own scene (`shared/thumbnail.ts` `layoutSize`: the union of
+  its parts' `bbox`, in mm), `exact` only when every part's `bboxExact` is true (any other box is widened to the
+  mesh: `exact: false`). The window says only whether the picture is at the bench's scale, and `bench: true` is kept
+  only beside a box. `thumb.json` keeps `box` with the picture, so a project built in an earlier run has it;
+  `cardsOf` reads it back (`boxOf`: three lengths and a flag, else none) and only for a picture that is on file.
+  A picture with no box (made before) or no `bench` stands in Grid's look.
+- **`ObjectCard.waiting`** is the question of the ask the object's session waits on (`Asks.of`), cut to
+  `MAX_WAITING` (140) characters, and its `since`; absent for none. A session's status changes with an ask, which
+  tells the window the cards changed.
 - **No build is ever started for a picture.** A thumbnail is made by the window when a build of an object
   opened in this run lands (`state/thumbs.ts` `connectThumbs`): one at a time, in an idle callback, the latest
   build of each object only, one sent again as it was passed over. It subscribes to nothing: the viewport's

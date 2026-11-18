@@ -3,14 +3,14 @@ import type { Vec3 } from '../../shared/marks'
 import { edgeTint } from '../../shared/palette'
 import type { Scene } from '../../shared/scene'
 import type { ThumbnailOf } from '../../shared/show'
-import { THUMB_HEIGHT, THUMB_WIDTH, type ThumbnailView, thumbnailPlan } from '../../shared/thumbnail'
+import { THUMB_HEIGHT, THUMB_WIDTH, type ThumbnailPlan, type ThumbnailView, thumbnailPlan } from '../../shared/thumbnail'
 import { drawnAt } from './explode'
 import { aimKeyLight, makeLights } from './lights'
 import { type BuiltPart, buildPart, disposePart } from './partMesh'
 import { Encoder, pngOf } from './picture'
 import { SectionCut } from './section'
 import { toHex } from './theme'
-import { DEFAULT_FOV, fitCamera, viewDirection } from './views'
+import { DEFAULT_FOV, benchFits, fitCamera, viewDirection } from './views'
 
 export { THUMB_HEIGHT, THUMB_WIDTH, thumbnailLayout, thumbnailPlan, type ThumbnailPlan, type ThumbnailView } from '../../shared/thumbnail'
 
@@ -19,6 +19,7 @@ export { THUMB_HEIGHT, THUMB_WIDTH, thumbnailLayout, thumbnailPlan, type Thumbna
 // Only parts are in it: no mark, no scan (a scan may show the real world), no grid, no gizmo, and a clear ground,
 // so that one picture sits on the card's own surface in either theme. The parts' colours are the same in both.
 // What it draws is `shared/thumbnail.ts` `thumbnailPlan`'s to say.
+// It draws at the bench's scale (orthographic, `BENCH_MM_PER_PX`) when the layout fits, else fitted to its parts in perspective.
 
 /** How much of the picture's half width or height the parts reach, from its middle. */
 const FILL = 0.86
@@ -41,8 +42,12 @@ export class ThumbnailMaker {
    * Everything up to the encoding of the PNG happens at once, and the renderer is left as it was found.
    */
   async render(scene: Scene, blob: ArrayBuffer, view?: ThumbnailView): Promise<({ png: Uint8Array } & ThumbnailOf) | null> {
-    const plan = thumbnailPlan(scene, view)
+    const plan = thumbnailPlan(scene, view, { bench: true })
     if (!plan) return null
+    // At the bench's scale when the layout, as built, is within the picture at it and the parts are where they are
+    // built (apart, the picture is larger than the size it is told with); else fitted to its parts, as before.
+    const [lo, hi] = [plan.layoutBox.min, plan.layoutBox.max]
+    const bench = plan.bench && plan.explode === null && benchFits({ x: hi[0] - lo[0], y: hi[1] - lo[1], z: hi[2] - lo[2] }) ? plan.bench : null
     const renderer = this.renderer
     const was = { target: renderer.getRenderTarget(), colour: renderer.getClearColor(new THREE.Color()), alpha: renderer.getClearAlpha(), planes: renderer.clippingPlanes }
     const built: BuiltPart[] = []
@@ -74,8 +79,8 @@ export class ThumbnailMaker {
         cut.set(plan.section, plan.layoutBox)
         cut.outline()
       }
-      const camera = cameraFor(plan.box)
-      aimKeyLight(this.lights.key, camera, new THREE.Vector3(...centreOf(plan.box)))
+      const camera = bench ? benchCameraFor(plan.layoutBox, bench) : cameraFor(plan.box)
+      aimKeyLight(this.lights.key, camera, new THREE.Vector3(...centreOf(bench ? plan.layoutBox : plan.box)))
       renderer.setRenderTarget(this.drawn)
       renderer.setClearColor(0x000000, 0)
       renderer.clippingPlanes = []
@@ -96,6 +101,7 @@ export class ThumbnailMaker {
     if (plan.section) of.cut = true
     if (plan.explode) of.apart = true
     if (plan.hidden > 0) of.hidden = plan.hidden
+    if (bench) of.bench = true
     return { png: await encoding, ...of }
   }
 
@@ -107,6 +113,27 @@ export class ThumbnailMaker {
 }
 
 const centreOf = (box: { min: number[]; max: number[] }): Vec3 => [(box.min[0] + box.max[0]) / 2, (box.min[1] + box.max[1]) / 2, (box.min[2] + box.max[2]) / 2]
+
+/**
+ * The bench's camera: orthographic, looking as the standard view does, at a fixed millimetres to the pixel and
+ * centred on the box of the layout as built, so that a picture's size in pixels is the box's, projected, over
+ * the scale. The same for every project: nothing is fitted.
+ */
+function benchCameraFor(box: { min: number[]; max: number[] }, bench: NonNullable<ThumbnailPlan['bench']>): THREE.OrthographicCamera {
+  const { dir, up } = viewDirection(bench.view)
+  const halfWidth = (THUMB_WIDTH / 2) * bench.mmPerPx
+  const halfHeight = (THUMB_HEIGHT / 2) * bench.mmPerPx
+  const target = new THREE.Vector3(...centreOf(box))
+  const radius = Math.max(Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]) / 2, 0.5)
+  const reach = radius * 2
+  const camera = new THREE.OrthographicCamera(-halfWidth, halfWidth, halfHeight, -halfHeight, reach - radius * 1.05, reach + radius * 1.05)
+  camera.up.fromArray(up)
+  camera.position.copy(target).addScaledVector(new THREE.Vector3(...dir), -reach)
+  camera.lookAt(target)
+  camera.updateProjectionMatrix()
+  camera.updateMatrixWorld()
+  return camera
+}
 
 /**
  * The standard iso view, in perspective, of what is in a box: fitted to the sphere round it (`fitCamera`), then
