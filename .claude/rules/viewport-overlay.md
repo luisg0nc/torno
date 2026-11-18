@@ -33,14 +33,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## Marks (`app/src/renderer`)
 
 - **Learning the tools and the pointer without the manual** (`ui/ToolPalette.tsx`, `ui/ToolHint.tsx`,
-  `state/step.ts`, `shared/pointer.ts`). The palette has no `title`: each button has torno's own tip beside it (`ToolTip`,
+  `state/step.ts`, `shared/pointer.ts`). The reed (`ToolPalette`: round buttons in three pills, `data-tag-avoid`) has no `title` on a tool: each button has torno's own tip beside it (`ToolTip`,
   at once on the pointer and on the keys' focus, `:focus-visible` only; any key puts it away; it takes no pointer
   and is `aria-hidden`, the button holding the same words as its `aria-description`): the name, the key cap from
   `hint`, what the tool does (`doesOf`, the `does` of `TOOL_KEYS` without its name) and, below, what else is worth
   knowing now (`noteOf`: a scan's tool with no scan says `Import a scan first`, a painting that waits on a scan, the
   shape the Shape tool places). A scan's tool (`SCAN_TOOLS`: Region, Align) with no scan in the object, once main has
   said so (`scansKnown`), is drawn quieter (`data-quiet`, the icon in `--muted`) and stays enabled: its click and its tip
-  say why. The key letters are 11 px. The Keys button has the same tip.
+  say why. No letter is drawn on a button: the key is the button's `aria-keyshortcuts`, in the tip and in the name of the tool in hand. **The tool in hand** is an accent circle and its name grows out to the right (`.reed-pill`, 0.22 s `reed-grow`, none under reduced motion): `pillOf(tool, { scope, scopeOpen, sketching })` in `ui/view/reedPill.ts` says what it holds (the name, the key cap, the choices: Measure's Distance, Angle, ⌀, r and `T` thickness, Shape's four, Draw's four pens while a sketch is open, Region's Brush and Box; Align a name only). Select is the tool at rest and has none until `scopeOpen` (a click on it, or its key while it is in hand; it goes when another tool is taken) or while the scope is not Any. A tool with its name grown out shows no tip. `ReedPillView` draws the pill for the model's reed and for a tracing's (`tracings/Palette.tsx`: Trace's Line, Circle, Label and Ink's pens, `tracingPillOf`); the choices keep the groups and labels the strips had (`What to measure`, `What a click selects`, `Shape to place`, `Pens of the sketch`, `How to paint`). Keys is the rail's. Measure's last reading and its Keep button (`MeasureLast`, `.measure-last`) stand under its pill until the tag on the measured line takes them.
   With a tool other than Select in hand one line at the foot of the view (`ToolHint`, `aria-live="polite"`, no
   animation, no pointer) says what the tool waits for next: `next` of the tool's row in `TOOL_KEYS`, with
   Measure's `then` once the first end is clicked (`stepStore.stage`, set by `measureTool` through `setFirst`, once
@@ -108,16 +108,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   scale holds, the grid's step as `grid 5 mm` (`groundOf`'s `step`; the grid lies on the ground in the object frame, so
   its step is a true length in any projection). It is of the camera and the object frame only, so it stays while the
   parts are apart. A picture for the agent has the same triad and bar, and in perspective its note `perspective, no
-  scale bar`, as before. The scale bar is 100 px at most on screen. The strip of the Measure tool stands above the
-  triad, and the bars at the bottom of the view (the section's, the selection's, the Align and Region tools', the
+  scale bar`, as before. The scale bar is 100 px at most on screen. The bars at the bottom of the view (the section's, the selection's, the Align and Region tools', the
   agent's line) keep `BAR_SIDE` in from each side, clear of the triad and of the scale; where the view is narrower than
   the widest of them needs (`NARROW_BELOW`, `data-narrow` on `.viewport-pane`, set by `ViewportPane` as the view is
-  resized) they stand above the triad (`--bar-lift`) instead, and above the strip of the Measure tool while it is in hand (the strip is also above the triad, at the left, and the two never meet),
+  resized) they stand above the triad (`--bar-lift`) instead,
   the bars that stack there (the selection's, the section's, the agent's line, the step line, the Region tool's) 60 px in
   from each side (`--stack-side` of `[data-narrow]`), clear of the palette of tools, which a short view's stacked bars
-  would reach; the Align tool's bar, which stands alone and whose rows need the width, keeps `--space-3`. In a wide view the bottom row stands below the strip, beside the triad, and a bar raised a row up (the
-  section's over the selection or the agent's line, the agent's line over the selection) stands at `--strip-top` at the
-  least while the strip is there, above it. `TRIAD_CLEAR`, `BAR_SIDE` and `NARROW_BELOW` are in
+  would reach; the Align tool's bar, which stands alone and whose rows need the width, keeps `--space-3`. A bar raised a row up (the
+  section's over the selection or the agent's line, the agent's line over the selection) stands above the one under it. `TRIAD_CLEAR`, `BAR_SIDE` and `NARROW_BELOW` are in
   `viewport/overlay.ts`, and `--triad-clear`, `--bar-side` in `styles/layout.css` are held to them by `overlay.test.ts`;
-  `e2e/section.spec.ts` reads the bar's box against the corners, the palette and the strip, and the strip's against the
-  selection's, at seven sizes, with a selection and without.
+  `e2e/section.spec.ts` reads the bar's box against the corners and the palette, at seven sizes, with a selection and without.

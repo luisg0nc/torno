@@ -294,15 +294,16 @@ const ON_BASE: Vec3 = [14, 9, 2.5] // on the top of the base, clear of the post
 const ON_POST: Vec3 = [0, 0, 22.5] // the middle of the top of the post
 const model = () => join(root, 'bracket', 'bracket.py')
 
-test('the palette is in three groups, split by a rule: the tools that inspect, those that mark, and the scan’s; the keys still take each tool', async () => {
+test('the reed is in three groups, each a pill: the tools that inspect, those that mark, and the scan’s; the keys still take each tool', async () => {
   await openFromAbove()
   const tools = page.getByRole('toolbar', { name: 'Tools' })
   const inGroup = (name: string) => tools.getByRole('group', { name, exact: true }).locator('[data-tool]').evaluateAll((buttons) => buttons.map((b) => b.getAttribute('data-tool')))
   await expect.poll(() => inGroup('Inspect')).toEqual(['select', 'measure', 'section'])
   await expect.poll(() => inGroup('Mark')).toEqual(['pin', 'arrow', 'draw', 'shape', 'region'])
   await expect.poll(() => inGroup('Scan')).toEqual(['align'])
-  // Two rules between the groups, and the one above the keys.
-  await expect(tools.locator('.toolbox-rule')).toHaveCount(3)
+  // Each group is a pill of its own.
+  await expect(tools.getByRole('group')).toHaveCount(3)
+  await expect(tools).toHaveAttribute('data-tag-avoid', '')
   for (const [key, name] of [['m', 'Measure'], ['p', 'Pin'], ['l', 'Align scan'], ['v', 'Select']] as const) {
     await page.keyboard.press(key)
     await expect(tool(name)).toHaveAttribute('aria-pressed', 'true')
@@ -727,37 +728,32 @@ test('D takes the draw tool and opens a sketch that writes nothing until its fir
 })
 
 const shapeButton = () => tool('Shape')
-const shapeChoice = () => page.getByRole('menu', { name: 'Shape to place' })
+const shapeChoice = () => page.getByRole('group', { name: 'Shape to place' })
 let box = '' // the id of the shape the next tests work on
 
-test('S takes the shape tool; its button offers box, cylinder, sphere and plane, and keeps the one chosen', async () => {
+test('S takes the shape tool; its name grows out with a box, a cylinder, a sphere and a plane, and keeps the one chosen', async () => {
   await expect(shapeButton()).toBeEnabled()
+  await expect(shapeChoice()).toHaveCount(0)
   await page.keyboard.press('s')
   await expect(shapeButton()).toHaveAttribute('aria-pressed', 'true')
   await expect(shapeButton()).toHaveAttribute('data-shape', 'box')
   await expect(canvas()).toHaveCSS('cursor', 'crosshair')
-  await expect(shapeChoice()).toHaveCount(0) // the key takes the tool; the button opens the choice
-
-  await shapeButton().click()
-  await expect(shapeChoice().getByRole('menuitemradio')).toHaveCount(4)
-  await expect(shapeChoice().getByRole('menuitemradio', { name: 'Box' })).toHaveAttribute('aria-checked', 'true')
-  await shapeChoice().getByRole('menuitemradio', { name: 'Cylinder' }).click()
-  await expect(shapeChoice()).toHaveCount(0)
+  // The key takes the tool and its name grows out with the four shapes, the box pressed: no button to press first.
+  await expect(shapeChoice().getByRole('button')).toHaveCount(4)
+  await expect(shapeChoice().getByRole('button', { name: 'Box' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.reed-pill[data-pill="shape"] .reed-key')).toHaveText('S')
+  await shapeChoice().getByRole('button', { name: 'Cylinder' }).click()
   await expect(shapeButton()).toHaveAttribute('data-shape', 'cylinder')
   await expect(shapeButton()).toHaveAttribute('aria-pressed', 'true')
+  await expect(shapeChoice().getByRole('button', { name: 'Cylinder' })).toHaveAttribute('aria-pressed', 'true')
 
-  // Remembered through another tool.
+  // Remembered through another tool, which has taken the name away.
   await page.keyboard.press('v')
+  await expect(shapeChoice()).toHaveCount(0)
   await page.keyboard.press('s')
   await expect(shapeButton()).toHaveAttribute('data-shape', 'cylinder')
-  await shapeButton().click()
-  await expect(shapeChoice().getByRole('menuitemradio', { name: 'Cylinder' })).toHaveAttribute('aria-checked', 'true')
-  // Escape closes the choice and leaves the tool in hand.
-  await page.keyboard.press('Escape')
-  await expect(shapeChoice()).toHaveCount(0)
-  await expect(shapeButton()).toHaveAttribute('aria-pressed', 'true')
-  await shapeButton().click()
-  await shapeChoice().getByRole('menuitemradio', { name: 'Box' }).click()
+  await expect(shapeChoice().getByRole('button', { name: 'Cylinder' })).toHaveAttribute('aria-pressed', 'true')
+  await shapeChoice().getByRole('button', { name: 'Box' }).click()
   await expect(shapeButton()).toHaveAttribute('data-shape', 'box')
 })
 

@@ -338,7 +338,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect.poll(async () => (await state(page)).section !== null).toBe(true)
         } else if (shot === 'measure-raised' || shot === 'measure-raised-narrow') {
           // A face selected, the parts cut, and Measure in hand: the section's bar a row up, over the selection's, clear of the
-          // Measure strip in the corner; in a wide view (the dock hidden) and in a narrow one (beside it), clear of the palette too.
+          // reed with Measure's name grown out; in a wide view (the dock hidden) and in a narrow one (beside it), clear of the palette too.
           if (shot === 'measure-raised') await page.getByRole('button', { name: 'Hide session', exact: true }).click()
           if (shot === 'measure-raised') await expect(page.locator('.viewport-pane')).not.toHaveAttribute('data-narrow')
           else await expect(page.locator('.viewport-pane')).toHaveAttribute('data-narrow')
@@ -349,14 +349,14 @@ for (const theme of ['light', 'dark'] as const) {
           await page.getByRole('button', { name: 'Cut across Y' }).click()
           await expect.poll(async () => (await state(page)).section !== null).toBe(true)
           await page.keyboard.press('m')
-          await expect(page.locator('.measure-choice')).toBeVisible()
+          await expect(page.locator('.reed-pill[data-pill="measure"]')).toBeVisible()
           await expect(page.locator('.sectionbar')).toHaveAttribute('data-raised', '1')
           // The bars slide to their rows: the picture is of where they stop.
           for (const bar of ['.sectionbar', '.tool-hint']) await stableBox(page.locator(bar))
         } else if (shot === 'measure') {
           // A measurement held in the view: two clicks with Measure in hand, the kernel's value drawn between its points as a draft.
           await page.keyboard.press('m')
-          await expect(page.locator('.measure-choice')).toBeVisible()
+          await expect(page.locator('.reed-pill[data-pill="measure"]')).toBeVisible()
           const box = (await canvas.boundingBox())!
           await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.5 } })
           await canvas.click({ position: { x: box.width * 0.4, y: box.height * 0.62 } })

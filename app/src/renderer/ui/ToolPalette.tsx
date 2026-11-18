@@ -1,56 +1,47 @@
 import { NO_SCAN_YET, doesOf, hint, pressed } from '../../shared/keys'
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { ShapeKind } from '../../shared/marks'
-import { BETWEEN, ROUND, SELECT_SCOPES, SHAPES, TOOLS, TOOL_GROUPS, setBetween, setRound, setSelectScope, setShape, setTool, useBetween, useRound, useSelectScope, useShape, useTool, type ToolName } from '../state/tools'
+import { BETWEEN, ROUND, SELECT_SCOPES, TOOLS, TOOL_GROUPS, setBetween, setRound, setSelectScope, setShape, setTool, toolStore, useBetween, useRound, useSelectScope, useShape, useTool, type BetweenMeasure, type RoundMeasure, type SelectScope, type ToolName } from '../state/tools'
 import { count } from '../../shared/format'
-import { useRegion } from '../state/region'
+import { regionStore, useRegion, type RegionMode } from '../state/region'
 import { componentsOf, keepHeld, useHeld } from '../state/measured'
 import { scanless } from '../state/step'
-import { sketchStore } from '../state/sketching'
+import { setPen, sketchStore, useSketching, type SketchPen } from '../state/sketching'
 import { useStore } from '../state/store'
 import { commitMark } from '../tools/pickMarks'
 import { valueText } from '../../shared/dimension'
-import { showKeys } from './KeySheet'
 import { numbered } from './numbered'
 import { TYPING } from './typing'
+import { WALL, pillOf, segmentsOf, type ReedChoice, type ReedPill, type TracingToolName } from './view/reedPill'
 
 /**
- * The tools, floating at the left edge of the viewport: what the pointer does
- * there. Each has a key, shown on its button, which works wherever the view
- * keys do. The Shape button also opens the choice of which shape to place;
- * the one chosen last is the one it shows, and the one its key takes.
+ * The tools, the reed at the left of the view: what the pointer does there. Round buttons in pills, no letter on them:
+ * the key is in the tip and in the name. The tool in hand is an accent circle and its name grows out to the right with
+ * its key and its few choices (`pillOf`); Select is the tool at rest and grows its scope only when asked for. Each key
+ * works wherever the view keys do. Measure's last reading and its Keep button stand under its pill until the tag of
+ * the line takes them.
  */
 export function ToolPalette() {
   const tool = useTool()
   const shape = useShape()
+  const scope = useSelectScope()
+  const between = useBetween()
+  const round = useRound()
+  const mode = useRegion((s) => s.mode)
+  const pen = useSketching((s) => s.pen)
+  const sketching = useSketching((s) => s.open !== null)
   // What is painted on a scan and not yet kept: it waits while another tool is in hand, and the Region tool's button says so.
   const waiting = useRegion((s) => s.count)
-  const [choosing, setChoosing] = useState(false)
-  const choice = useRef<HTMLDivElement>(null)
+  // Select's scope was asked for: by a click on Select, or its key while it is in hand. It stays out until another tool is taken up.
+  const [scopeOpen, setScopeOpen] = useState(false)
   // Which tip is up: the pointer on a button, or the keys' focus on one. Set on entering and leaving, never per move.
-  const [tip, setTip] = useState<TipOf | null>(null)
+  const [tip, setTip] = useState<ToolName | null>(null)
   // How many scans the object has, once main has said: the scan's tools are offered quieter with none.
   const scans = useStore((s) => (s.scansKnown ? s.scans.length : null))
 
-  // The choice is open only while the Shape tool is in hand, and closes on a press elsewhere or Escape.
   useEffect(() => {
-    if (tool !== 'shape') setChoosing(false)
+    if (tool !== 'select') setScopeOpen(false)
   }, [tool])
-  useEffect(() => {
-    if (!choosing) return
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? !pressed(e, 'menu.close') : choice.current?.contains(e.target as Node)) return
-      setChoosing(false)
-      // Escape closed the choice, and that is all it did: the tool stays in hand.
-      if (e instanceof KeyboardEvent) e.preventDefault()
-    }
-    window.addEventListener('pointerdown', close, true)
-    window.addEventListener('keydown', close, true)
-    return () => {
-      window.removeEventListener('pointerdown', close, true)
-      window.removeEventListener('keydown', close, true)
-    }
-  }, [choosing])
 
   // A tip is put away by a key, as a tooltip is: it comes back when the pointer enters again.
   useEffect(() => {
@@ -68,6 +59,8 @@ export function ToolPalette() {
       if (!wanted?.ready) return
       // While a sketch is open X shows or hides the cut the view has (`sketchTool`); picking Section ends the sketch.
       if (wanted.name === 'section' && sketchStore.getState().open) return
+      // The key of Select while it is in hand asks for its scope.
+      if (wanted.name === 'select' && toolStore.getState().tool === 'select') setScopeOpen(true)
       setTool(wanted.name)
       e.preventDefault()
     }
@@ -76,119 +69,188 @@ export function ToolPalette() {
   }, [])
 
   return (
-    <>
-    {tool === 'measure' && <MeasureChoice />}
-    {tool === 'select' && <SelectChoice />}
-    <div className="toolbox" role="toolbar" aria-label="Tools" aria-orientation="vertical">
-      {TOOL_GROUPS.map((g, i) => (
-        <Fragment key={g.group}>
-          {i > 0 && <span className="toolbox-rule" aria-hidden="true" />}
-          <div className="toolbox-group" role="group" aria-label={g.label}>
-      {TOOLS.filter((t) => t.group === g.group).map((t) => {
-        const quiet = scanless(t.name, scans)
-        const notes = noteOf(t.name, { quiet, waiting: t.name === 'region' && tool !== 'region' ? waiting : 0, shape, ready: t.ready })
-        const says = { name: t.name, label: t.label, cap: hint(`tool.${t.name}`), does: doesOf(t.name), notes }
-        const about = `${says.does}${notes.map((n) => `. ${n}`).join('')}`
-        const open = tip === t.name && !(t.name === 'shape' && choosing)
-        const tipped = {
-          onPointerEnter: () => setTip(t.name),
-          onPointerLeave: () => setTip((now) => (now === t.name ? null : now)),
-          onFocus: (e: React.FocusEvent) => {
-            if (e.target instanceof Element && e.target.matches(':focus-visible')) setTip(t.name)
-          },
-          onBlur: () => setTip((now) => (now === t.name ? null : now))
-        }
-        return t.name === 'shape' ? (
-          <div key={t.name} className="tool-with-choice tool-tipped" ref={choice} {...tipped}>
-            <button
-              type="button"
-              className="tool-button"
-              data-tool={t.name}
-              data-shape={shape}
-              aria-label={t.label}
-              aria-description={about}
-              aria-pressed={t.name === tool}
-              aria-keyshortcuts={t.key}
-              aria-haspopup="menu"
-              aria-expanded={choosing}
-              onClick={() => {
-                setTool(t.name)
-                setChoosing((open) => !open)
-              }}
-            >
-              {SHAPE_ICONS[shape]}
-              <span className="tool-key num" aria-hidden="true">
-                {t.key}
-              </span>
-            </button>
-            {open && <ToolTip {...says} />}
-            {choosing && (
-              <div className="tool-choice" role="menu" aria-label="Shape to place">
-                {SHAPES.map((s) => (
-                  <button
-                    key={s.kind}
-                    type="button"
-                    role="menuitemradio"
-                    className="tool-button"
-                    aria-checked={s.kind === shape}
-                    aria-label={s.label}
-                    title={s.label}
-                    onClick={() => {
-                      setShape(s.kind)
-                      setChoosing(false)
-                    }}
-                  >
-                    {SHAPE_ICONS[s.kind]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div key={t.name} className="tool-tipped" {...tipped}>
-            <button
-              type="button"
-              className="tool-button"
-              data-tool={t.name}
-              data-waiting={t.name === 'region' && waiting > 0 && tool !== 'region' ? '' : undefined}
-              data-quiet={quiet ? '' : undefined}
-              aria-label={t.name === 'region' && waiting > 0 && tool !== 'region' ? `${t.label}: a painting of ${count(waiting)} triangles is waiting` : t.label}
-              aria-description={about}
-              aria-pressed={t.name === tool}
-              aria-keyshortcuts={t.key}
-              disabled={!t.ready}
-              onClick={() => setTool(t.name)}
-            >
-              {ICONS[t.name]}
-              <span className="tool-key num" aria-hidden="true">
-                {t.key}
-              </span>
-            </button>
-            {open && <ToolTip {...says} />}
-          </div>
-        )
-      })}
-          </div>
-        </Fragment>
-      ))}
-      {/* At the foot, apart from the tools: every key there is, on one sheet. */}
-      <span className="toolbox-rule" aria-hidden="true" />
-      <div className="tool-tipped" onPointerEnter={() => setTip('keys')} onPointerLeave={() => setTip((now) => (now === 'keys' ? null : now))} onFocus={(e) => e.target instanceof Element && e.target.matches(':focus-visible') && setTip('keys')} onBlur={() => setTip((now) => (now === 'keys' ? null : now))}>
-        <button type="button" className="tool-button tool-keys num" aria-label="Keys" aria-description={KEYS_SAY} aria-keyshortcuts={hint('keys')} onClick={() => showKeys()}>
-          {hint('keys')}
-        </button>
-        {tip === 'keys' && <ToolTip name="keys" label="Keys" cap={hint('keys')} does={KEYS_SAY} notes={[]} />}
-      </div>
-    </div>
-    </>
+    <ReedView
+      state={{ tool, shape, scope, scopeOpen, sketching, pen, between, round, mode, scans, waiting, tip }}
+      last={<MeasureLast />}
+      on={{
+        tool: (name) => {
+          if (name === 'select') setScopeOpen((open) => (tool === 'select' ? !open : true))
+          setTool(name)
+        },
+        choose: (of, id) => {
+          if (of === 'select') setSelectScope(id as SelectScope)
+          else if (of === 'measure') (BETWEEN.some((b) => b.measure === id) ? setBetween(id as BetweenMeasure) : setRound(id as RoundMeasure))
+          else if (of === 'shape') setShape(id as ShapeKind)
+          else if (of === 'draw') setPen(id as SketchPen)
+          else if (of === 'region') regionStore.setState({ mode: id as RegionMode })
+        },
+        tip: (name, up) => setTip((now) => (up ? name : now === name ? null : now))
+      }}
+    />
   )
 }
 
-/** The button at the foot of the palette: the sheet it opens lists the pointer's gestures first. */
-const KEYS_SAY = 'Every key, and how the pointer turns, pans and zooms the view'
+/** What the reed is drawn from. */
+export interface ReedState {
+  tool: ToolName
+  shape: ShapeKind
+  scope: SelectScope
+  scopeOpen: boolean
+  sketching: boolean
+  pen: SketchPen
+  between: BetweenMeasure
+  round: RoundMeasure
+  mode: RegionMode
+  /** How many scans the object has; null until main has said. */
+  scans: number | null
+  /** The triangles painted on a scan and not kept. */
+  waiting: number
+  /** The tool whose tip is up. */
+  tip: ToolName | null
+}
 
-/** Which tip is up: a tool's, or the button for the sheet of keys. */
-type TipOf = ToolName | 'keys'
+/** What a press on the reed does. */
+export interface ReedOn {
+  tool: (name: ToolName) => void
+  choose: (tool: ToolName, id: string) => void
+  tip: (name: ToolName, up: boolean) => void
+}
+
+/** The reed as it is drawn from the state: pure, so that it is drawn the same from any. */
+export function ReedView({ state, on, last }: { state: ReedState; on: ReedOn; last?: ReactNode }) {
+  const { tool, shape, scans, waiting, tip } = state
+  return (
+    <div className="toolbox" role="toolbar" aria-label="Tools" aria-orientation="vertical" data-tag-avoid="">
+      {TOOL_GROUPS.map((g) => (
+        <div key={g.group} className="toolbox-group" role="group" aria-label={g.label}>
+          {TOOLS.filter((t) => t.group === g.group).map((t) => {
+            const quiet = scanless(t.name, scans)
+            const waits = t.name === 'region' && tool !== 'region' ? waiting : 0
+            const notes = noteOf(t.name, { quiet, waiting: waits, shape, ready: t.ready })
+            const says = { name: t.name, label: t.label, cap: hint(`tool.${t.name}`), does: doesOf(t.name), notes }
+            const about = `${says.does}${notes.map((n) => `. ${n}`).join('')}`
+            const inHand = t.name === tool
+            const pill = inHand ? pillOf(t.name, state) : null
+            return (
+              <div
+                key={t.name}
+                className="tool-tipped"
+                onPointerEnter={() => on.tip(t.name, true)}
+                onPointerLeave={() => on.tip(t.name, false)}
+                onFocus={(e) => {
+                  if (e.target instanceof Element && e.target.matches(':focus-visible')) on.tip(t.name, true)
+                }}
+                onBlur={() => on.tip(t.name, false)}
+              >
+                <button
+                  type="button"
+                  className="tool-button"
+                  data-tool={t.name}
+                  data-shape={t.name === 'shape' ? shape : undefined}
+                  data-waiting={waits > 0 ? '' : undefined}
+                  data-quiet={quiet ? '' : undefined}
+                  aria-label={waits > 0 ? `${t.label}: a painting of ${count(waits)} triangles is waiting` : t.label}
+                  aria-description={about}
+                  aria-pressed={inHand}
+                  aria-keyshortcuts={t.key}
+                  disabled={!t.ready}
+                  onClick={() => on.tool(t.name)}
+                >
+                  {t.name === 'shape' ? SHAPE_ICONS[shape] : ICONS[t.name]}
+                </button>
+                {tip === t.name && pill === null && <ToolTip {...says} />}
+                {pill !== null && <ReedPillView of={t.name} pill={pill} chosen={(id) => chosenOf(t.name, id, state)} onChoose={(id) => on.choose(t.name, id)} />}
+                {inHand && t.name === 'measure' && last}
+              </div>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Whether a choice of a tool's pill is the one in hand. */
+function chosenOf(tool: ToolName, id: string, s: ReedState): boolean {
+  switch (tool) {
+    case 'select':
+      return s.scope === id
+    case 'measure':
+      return s.between === id || s.round === id
+    case 'shape':
+      return s.shape === id
+    case 'draw':
+      return s.pen === id
+    case 'region':
+      return s.mode === id
+    default:
+      return false
+  }
+}
+
+/** The words of a choice, as its button holds them for a reader of the screen and the pointer. */
+export const CHOICE_WORDS: Record<string, { title: string; label?: string }> = {
+  ...Object.fromEntries(BETWEEN.map((b) => [b.measure, { title: b.title }])),
+  diameter: { title: ROUND[0].title, label: 'Diameter' },
+  radius: { title: ROUND[1].title, label: 'Radius' },
+  [WALL]: { title: `Press ${hint('measure.wall')} with the pointer on a face to measure the wall under it. Shift-click measures from a bare point` },
+  ...Object.fromEntries(SELECT_SCOPES.map((c) => [c.scope, { title: c.title }])),
+  free: { title: 'Freehand: press and drag' },
+  line: { title: 'Straight line: press and drag, or click twice' },
+  points: { title: 'Point to point: a click for each point, Enter ends it' },
+  erase: { title: 'Eraser: a click takes the stroke under the pointer' },
+  brush: { title: 'Drag over the scan to paint it where the pointer sees it. Ctrl-drag takes paint off' },
+  box: { title: 'Drag a box on the screen' }
+}
+
+/** What the pill of each tool is called for a reader of the screen: the group its choices are in. */
+const POPS_AS: Partial<Record<string, string>> = { select: 'What a click selects', measure: 'What to measure', shape: 'Shape to place', draw: 'Pens of the sketch', region: 'How to paint', trace: 'Trace draws', ink: 'Ink draws' }
+
+/**
+ * The name that grows out to the right of the tool in hand: its name, its key cap and its few choices as an inner
+ * segment. The pill is no control of its own: what it holds are the buttons of the choices, each its own, and the thickness
+ * of Measure, which is a key and no button.
+ */
+export function ReedPillView({ of, pill, chosen, onChoose, words = CHOICE_WORDS }: { of: ToolName | TracingToolName; pill: ReedPill; chosen: (id: string) => boolean; onChoose: (id: string) => void; words?: Record<string, { title: string; label?: string }> }) {
+  const segments = segmentsOf(of, pill.choices)
+  const many = segments.length > 1
+  return (
+    <div className="reed-pill" data-pill={of} data-tag-avoid="">
+      <span className="reed-name">{pill.name}</span>
+      <kbd className="reed-key num">{pill.key}</kbd>
+      {segments.length > 0 && (
+        <div className="reed-choices" role="group" aria-label={POPS_AS[of]}>
+          {segments.map((seg, i) => (
+            <span key={i} className="reed-seg" role={many && seg.label !== '' ? 'group' : undefined} aria-label={many && seg.label !== '' ? seg.label : undefined}>
+              {seg.choices.map((c) => (c.id === WALL ? <ThicknessKey key={c.id} choice={c} /> : <ChoiceButton key={c.id} of={of} choice={c} on={chosen(c.id)} onChoose={onChoose} words={words} />))}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Measure's thickness is a key held with the pointer on a face: said in the pill, as the strip said it. */
+function ThicknessKey({ choice }: { choice: ReedChoice }) {
+  return (
+    <span className="reed-note" title={CHOICE_WORDS[WALL].title}>
+      <kbd className="num">{choice.key}</kbd> {choice.label}
+    </span>
+  )
+}
+
+function ChoiceButton({ of, choice, on, onChoose, words: all }: { of: ToolName | TracingToolName; choice: ReedChoice; on: boolean; onChoose: (id: string) => void; words: Record<string, { title: string; label?: string }> }) {
+  const words = all[choice.id] ?? { title: choice.label }
+  const shape = of === 'shape' ? SHAPE_ICONS[choice.id as ShapeKind] : null
+  const title = choice.key !== undefined ? `${words.title} (${choice.key})` : words.title
+  return (
+    <button type="button" className="reed-choice" data-choice={choice.id} aria-pressed={on} aria-label={words.label ?? (shape ? choice.label : undefined)} aria-keyshortcuts={choice.key} title={title} onClick={() => onChoose(choice.id)}>
+      {shape ?? choice.label}
+      {shape === null && choice.key !== undefined && <kbd className="reed-choice-key num">{choice.key}</kbd>}
+    </button>
+  )
+}
 
 /**
  * What a tool's tip says besides what it does: why it is quieter (a scan's tool with no scan), a painting that waits
@@ -197,16 +259,16 @@ type TipOf = ToolName | 'keys'
 function noteOf(name: ToolName, of: { quiet: boolean; waiting: number; shape: ShapeKind; ready: boolean }): string[] {
   const notes: string[] = []
   if (of.quiet) notes.push(NO_SCAN_YET)
-  if (name === 'shape') notes.push(`Places a ${of.shape} now; click the button again to choose another`)
+  if (name === 'shape') notes.push(`Places a ${of.shape} now; its name grows out when it is in hand, with the other shapes`)
   if (of.waiting > 0) notes.push(`A painting of ${count(of.waiting)} triangles is waiting: keep it or clear it`)
   if (!of.ready) notes.push('Not available yet')
   return notes
 }
 
 /**
- * A small panel beside a button of the palette, at once: the name, the key cap and what the tool does, then what
+ * A small panel beside a button of the reed, at once: the name, the key cap and what the tool does, then what
  * else is worth knowing of it now. It takes no pointer and is not read out itself: the button holds the same words
- * as its description.
+ * as its description. A tool with its name grown out shows none.
  */
 function ToolTip({ name, label, cap, does, notes }: { name: string; label: string; cap: string; does: string; notes: string[] }) {
   return (
@@ -226,58 +288,9 @@ function ToolTip({ name, label, cap, does, notes }: { name: string; label: strin
 }
 
 /**
- * In the bottom corner of the viewport while the Measure tool is in hand,
- * clear of the part: what two clicks measure, what a double click on something round
- * measures, and the key that has no button. Each choice holds for the pair
- * of clicks under way, and from then on.
- */
-function MeasureChoice() {
-  const between = useBetween()
-  const round = useRound()
-  return (
-    <div className="measure-choice" role="group" aria-label="What to measure">
-      <div className="segmented" role="group" aria-label="Two clicks measure">
-        {BETWEEN.map((b) => (
-          <button key={b.measure} type="button" title={b.title} aria-pressed={b.measure === between} onClick={() => setBetween(b.measure)}>
-            {b.label}
-          </button>
-        ))}
-      </div>
-      <div className="segmented" role="group" aria-label="A double click on something round measures">
-        {ROUND.map((r) => (
-          <button key={r.measure} type="button" title={r.title} aria-pressed={r.measure === round} onClick={() => setRound(r.measure)}>
-            {r.label}
-          </button>
-        ))}
-      </div>
-      <span className="measure-key" title={`Press ${hint('measure.wall')} with the pointer on a face to measure the wall under it. Shift-click measures from a bare point`}>
-        <kbd className="num">{hint('measure.wall')}</kbd> thickness
-      </span>
-      <MeasureLast />
-    </div>
-  )
-}
-
-/** In the same corner while the Select tool is in hand: what a click takes. It holds from then on. */
-function SelectChoice() {
-  const scope = useSelectScope()
-  return (
-    <div className="measure-choice" role="group" aria-label="What a click selects">
-      <div className="segmented" role="group" aria-label="A click selects">
-        {SELECT_SCOPES.map((c) => (
-          <button key={c.scope} type="button" title={c.title} aria-pressed={c.scope === scope} onClick={() => setSelectScope(c.scope)}>
-            {c.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/**
- * The last measurement, after the choices: the kernel's value and how it was taken, and a button that keeps it as a
+ * The last measurement, under the pill of Measure: the kernel's value and how it was taken, and a button that keeps it as a
  * dimension (as `Enter` does). Only of the object and build on show: of any other it is not shown. It changes once
- * per measurement, never per pointer move.
+ * per measurement, never per pointer move. (Its tag, tied to the line, replaces it.)
  */
 function MeasureLast() {
   const held = useHeld((s) => s.held)
@@ -287,7 +300,7 @@ function MeasureLast() {
   const revision = useStore((s) => s.revision)
   if (!held || held.objectId !== objectId || held.revision !== revision) return null
   return (
-    <span className="measure-last" role="status">
+    <span className="measure-last" role="status" data-tag-avoid="">
       {held.kept !== undefined ? (
         <span className="measure-last-text">
           Kept as <span className="num">{held.kept}</span>

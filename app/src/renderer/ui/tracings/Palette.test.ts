@@ -15,7 +15,8 @@ describe('the palette of a tracing', () => {
     expect(button(markup, 'trace')).toContain('aria-pressed="true"')
     expect(button(markup, 'select')).toContain('aria-keyshortcuts="V"')
     expect(button(markup, 'trace')).toContain('aria-keyshortcuts="T"')
-    expect(plainText(button(markup, 'trace'))).toContain('T')
+    // The key is in the pill of the tool in hand, never on a button.
+    expect(markup).not.toContain('tool-key')
     expect(button(html('select'), 'select')).toContain('aria-pressed="true"')
   })
 
@@ -48,6 +49,19 @@ describe('the palette of a tracing', () => {
     // Pressing it takes no tool from the hand: Select is still the one pressed.
     expect(button(on, 'select')).toContain('aria-pressed="true"')
     expect(on).toContain('role="group" aria-label="View"')
+  })
+
+  it('grows the name of the tool in hand, with Trace holding Line, Circle and Label and Ink its pens; Select, at rest, has none', () => {
+    const choices = (markup: string) => [...markup.matchAll(/<button [^>]*class="reed-choice"[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)].map((m) => `${plainText(m[2])}${m[1] === 'true' ? '*' : ''}`)
+    expect(html('select')).not.toContain('reed-pill')
+    expect(choices(html('trace'))).toEqual(['Line*', 'Circle', 'Label'])
+    expect(plainText(html('trace').match(/<span class="reed-name">.*?<\/kbd>/)![0])).toBe('TraceT')
+    expect(choices(html('ink'))).toEqual(['Free*', 'Line', 'Points'])
+    expect(plainText(html('ink').match(/<span class="reed-name">.*?<\/kbd>/)![0])).toBe('InkI')
+    expect(html('pin')).toContain('data-pill="pin"')
+    expect(choices(html('pin'))).toEqual([])
+    expect(choices(renderToStaticMarkup(createElement(PaletteView, { tool: 'trace', traceMode: 'circle' })))).toEqual(['Line', 'Circle*', 'Label'])
+    expect(choices(renderToStaticMarkup(createElement(PaletteView, { tool: 'ink', inkPen: 'points' })))).toEqual(['Free', 'Line', 'Points*'])
   })
 
   it('is a toolbar, in sentence case', () => {
