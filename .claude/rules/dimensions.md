@@ -58,7 +58,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     on r11)`, with no verdict, and its line on the part is drawn dimmed
     (`staleValue`). Revisions are of this run, so on the first build of a
     run every dimension is measured; until then one read from its file is
-    `not measured yet`, and what it holds is told to no one.
+    `not measured yet`, and what it holds is told to no one. A dimension
+    with something expected is listed under Checks (`mergedChecks` in
+    `ui/card/checksOrder.ts`, with the model's own checks), its gauge the band
+    `expected ± tolerance` against `measuredValue`: a dimension with no value
+    of the build has none to draw, and says `not measured on rN` there.
   - A resolved dimension is no longer measured. Whatever shows it gives what
     it holds as `as measured on rN`, stale, with no verdict
     (`shownDimension`; `[as measured on rN]` and `resolvedValue` in main).

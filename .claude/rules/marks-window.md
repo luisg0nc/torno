@@ -8,8 +8,6 @@ paths:
   - "app/src/renderer/ui/markHover.ts"
   - "app/src/renderer/ui/markHover.test.ts"
   - "app/src/renderer/ui/ResolvedSummary.tsx"
-  - "app/src/renderer/ui/ChecksSummary.tsx"
-  - "app/src/renderer/ui/ChecksSummary.test.ts"
   - "app/src/renderer/ui/NotePopover.tsx"
   - "app/src/renderer/ui/NotePopover.test.ts"
   - "app/src/renderer/ui/notePlacement.ts"
@@ -82,15 +80,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   none for a note of another layout than the one shown). A click on the row and "Go to" go to the note's camera as any mark's do.
 - **A 3D sketch** (`kind: 'sketch'`): its row is `MarkRow`'s `SketchSummary` (name, take with the diameter of a flow, `countsText`; the words are `shared/sketchText.ts`, one wording for the row, the card, the note's subject and the chip) with an Edit button for the person's own (`editSketch`; Claude's is never edited). It is drawn by `markObjects` (`addSketch`): a `Parts.stroke` line each, 2.5 px, with the casing, its behind pass drawn dashed only when the stroke has `xray` and not drawn otherwise (`userData.hiddenBehind`, shown again by `setDimmed`), a `snap` dot at each snapped point, and for a flow with a diameter a `tube` (`TubeGeometry`, `TUBE_OPACITY` 0.25) along each stroke. The pointer on its row or chip lights its strokes (`setLit`: wider, as the active mark's are), and the row of a plane in the sketch panel lights only that plane's (`MarkLayer.setLitPlane`, `sketchStore.lit`); a picture for the agent lights nothing (`MarkLayer.setLights(false)` in `asPictured`).
   The missing pictures of its card are drawn by `state/sketchPictures.ts` (`MissingPictures`, wired in `ViewportPane`): when a project is shown, each sketch with strokes and no `picture` is drawn from its camera as `look` does, one at a time, each in a turn of its own (a 30 ms timer, never in a frame), not while a sketch is open, and once per run of the project for each sketch; main keeps it (`marks:sketchPicture`).
-- When the project has checks (`isCheck`: an open dimension with an expected value) a line heads the Marks, outside
-  the list's scroll (`ui/ChecksSummary.tsx`): `Checks on r12: 3 pass · 1 fails · 1 not measured`, each count a
-  button to the first such check (`goToRow`), in `--ok`, `--fail`, `--warn`, never a mark's colour. The not
-  measured count is said only when it lasts (`useLasting`, as the status line's does). The group "Checks"
-  (`groupMarks(marks, revision).checks`) holds those checks, drafts too (their row says `to send`), the failing first, then
-  those with no value of the build, then those that pass, ahead of the other groups; a dimension with nothing
-  expected stays in the group its status gives. An open check lists what it measured on the builds of this run
-  (`dimension-history`, `r9 38.6 ✗ · r10 40 ✓`, at most 8, all in its title) and, where worth saying, `fails since
-  r12; passed on r11` (`since`); both are main's `history`, never kept by the window.
+- A check (`isCheck`: an open dimension with an expected value) is listed under Checks (`ui/card/Checks.tsx`, `checks-and-profile`),
+  not under Marks: `groupMarks(marks, revision).checks` holds them, drafts too (their row says `to send`), the failing first, then
+  those with no value of the build, then those that pass; a dimension with nothing expected stays in the group its status gives.
+  An open check lists what it measured on the builds of this run (`dimension-history`, `r9 38.6 ✗ · r10 40 ✓`, at most 8, all in
+  its title) and, where worth saying, `fails since r12; passed on r11` (`since`); both are main's `history`, never kept by the
+  window. A `MarkRow` carries `data-lit` (the accent wash and a 2 px bar at its left, `card-marks.css`) while the pointer is on a
+  part the mark is on (`useLitRows`, given to the rows by `useMarkRows`).
 - **Who acts next** (`ui/markGroups.ts`): `groupMarks` is the rule (its `failing` is the checks that fail on the build on show), and
   `splitMarkGroups(groups)` says where each group goes: `needs` (`toReview`, `fromAgent`, `failingChecks`) to Needs you, `marks`
   (`toSend`, `withAgent`, `resolved`) to Marks. The other checks (`groups.checks`) are the Checks section's. A heading only for a

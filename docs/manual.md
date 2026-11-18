@@ -466,12 +466,17 @@ the model no longer offers is let go of the same way. The agent is told, with ev
 is made with. The model only sees a tried value where it is given `p`: a helper that makes `Params()` itself does not.
 With a session running, a click on a row puts `Params.wall` in its prompt at the
 cursor, never sent, so you can write "make Params.wall 2.4" around it; with no session the rows say
-to start one. Checks lists what the model declares in its `checks(p)` (see Projects and builds), under
-Parameters, with a title that says how many fail (`Checks 3 · 1 fails`; a model
-with none has no section): each check's own name, how it stands in a word (pass, fails, not
-measured, not run), what was measured and what was wanted, and, for a thin wall, that it
-was found by sampling. They are the model's, marked with the agent's colour; your dimensions
-are marks. A check the agent made easier to pass, or removed, since it was first declared is
+to start one. Checks lists, as one list, what the model declares in its `checks(p)` (see Projects and builds) and your own
+dimension checks (a dimension with an expected value), failing first, then those not run or not measured, then those that
+pass; a model with neither has no section, and the head says how many there are and how many fail (`3, 1 fails`). A row has
+two lines and a gauge: for a dimension its chip (`M3`) and for the model's check a bar in the agent's colour; the name and, at
+its right, a word for how it stands (passes, fails, not measured, not run); under it what was measured and what was wanted
+(`2.8 mm, wanted 3 ± 0.05`) and, for a thin wall, that it was found by sampling. The gauge, 64 px wide, draws the wanted band
+and the value as a tick, green inside the band and red outside it, with a dashed line from the tick to the near end of the
+band; its label says it in words (`2.8, outside 2.95 to 3.05`). A failing row has a red wash. After a build, a tick that moved
+slides from where it was, and its row lights once. A dimension's row goes to its mark, and opens out under the row where its
+fields are (what it should be, resolve, delete) while it is the active mark. A dimension and a model check on the same thing
+stay two rows. A check of a part lights when the pointer is on that part in the view. A check the agent made easier to pass, or removed, since it was first declared is
 said under the rows (`walls: min 1.2 → 0.6 mm (since r7)`). A model that says which of its parts belong together (an optional
 `groups(p)` beside `assembly`, group name to part names) has them listed under a
 header each, which folds the group, hides or shows all of it, or, on "Show only",
@@ -1313,12 +1318,9 @@ the camera stays still).
   resolved and you have not judged (each says "to review" at its right), the marks it left for you to read or answer
   (**from Claude**; **Answer in chat** puts the mark's id in the prompt, and **Resolve** says you have seen it), and the
   checks that fail, the model's and your dimensions both, each a line that goes to its row under Checks.
-- The Marks list is grouped by who acts next: **Checks** (every dimension that
-  has an expected value and is not resolved, sent or not: the failing first,
-  then those with no value of the build, then those that pass; a draft one says
-  `to send` in its row), **To send** (yours, "with your
-  next prompt"), **With the agent** (your sent marks), then
-  **Resolved**, folded. A row is two lines: the chip and the note, then the kind of mark and what is the matter with it in
+- Your dimension checks (every dimension that has an expected value and is not resolved, sent or not) are under **Checks**, in
+  one list with the model's own (see Parameters). The Marks list is grouped by who acts next: **To send** (yours, "with your
+  next prompt"), **With the agent** (your sent marks), then **Resolved**, folded. A row is two lines: the chip and the note, then the kind of mark and what is the matter with it in
   muted words (`moved: check it`, `its part is hidden`). The active row shows its note whole and what can be done with
   the mark as words under it (**Go to view**, **Re-place**, **Edit**, **Answer in chat**, **Resolve**, **Reopen**,
   **Delete**); the other rows show them as icons while the pointer is on them.
@@ -1562,10 +1564,9 @@ is ringed on the part and in the agent's pictures, its chip saying by how much
 it misses after the cross (`40 mm ✗ 2 under`), and the line at the bottom
 counts those that fail and those with no value.
 
-When the project has checks, a line heads the Marks list: `Checks on r12: 3 pass
-· 1 fails · 1 not measured`. Each count is a button that goes to the first such
-check. A dimension with no expected value is not counted: it was kept to be
-read, and stays in the group its status puts it in.
+When the project has checks, they are under Checks, with the model's own, in one list: failing first, then those not measured,
+then those that pass, and the head of the section counts them (`3, 1 fails`). A dimension with no expected value is not a
+check: it was kept to be read, and stays in the group its status puts it in under Marks.
 
 - Once sent, its row says **pinned**: it is one of the checks the agent is
   told about with every prompt until it passes. Changing what is expected or
@@ -2833,7 +2834,7 @@ On the screen:
 - **Build ghosts.** After an edit, the part as it was is drawn faint beside the new one: legible in light and dark, and gone when the next build lands.
 - **The section's hatch and plane label.** Cut a part: the cut face is hatched and the plane is named at its edge; both legible in light and dark, and the label clear of the bars.
 - **The Marks panel's resolve glyph, review walk and undo line.** The glyph on a row, "To review" stepped through one mark at a time, and the line that undoes a delete: each in its place, legible in both themes.
-- **The Checks group and its summary.** In the Marks panel the group of dimensions and its one-line count read at a glance; the model's Checks panel lists each check with its words.
+- **The Checks section and its gauges.** One list of the model's checks and your dimension checks: the rows (chip or bar, name, the word of how it stands, value and wanted) and the 64 px gauge read at a glance in both themes, the failing row's wash and a row lit from the view are told apart, and a tick that moved slides once.
 - **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the pane and are legible in both themes.
 - **The turn summary, its builds and its buttons.** After a turn, the summary line, the strip of pictures of its builds (the dashed start, a failed build, the pictures themselves, which a test never sees), the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.

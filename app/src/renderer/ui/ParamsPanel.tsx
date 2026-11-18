@@ -24,7 +24,7 @@ import { Gauge } from './card/Gauge'
  * with no fields, or a kernel that does not read them, has no section of Params, and the panel says so.
  *
  * This is the body of the Parameters section of the route card: its head says the count, and the model's checks
- * (`ChecksPanel`) and the print profile (`PrintProfile`) are sections of their own.
+ * (`ui/card/Checks.tsx`) and the print profile (`PrintProfile`) are sections of their own.
  */
 export function ParamsPanel() {
   const params = useStore((s) => s.scene?.params)

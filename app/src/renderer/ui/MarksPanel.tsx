@@ -12,7 +12,6 @@ import { ReviewSummary } from './ReviewSummary'
  * the agent, then, folded away, the resolved ones. What waits on the person (the marks the agent resolved or left for them, and
  * the checks that fail) is in Needs you. At its head, outside its scroll, are Review this build and a row for each round. Marks of
  * every layout are listed; one of a layout that is not shown says which, and going to it switches there.
- * The dimension checks are listed here until the Checks section takes them (`checks`).
  */
 export function MarksPanel() {
   const objectId = useStore((s) => s.objectId)
@@ -33,7 +32,6 @@ export function MarksPanel() {
   // Cut to one part by a click on its count in the layers: a view of the list only, the agent is told every mark.
   const listed = onPart === null ? marks : marks.filter((m) => m.kind !== 'region' && markEndParts(m).includes(onPart))
   const groups = groupMarks(listed, revision)
-  const { checks } = groups
   const { needs, marks: mine } = splitMarkGroups(groups)
   const { toSend, withAgent, resolved } = mine
   /** A group of the list under its heading, when it has marks. */
@@ -108,10 +106,9 @@ export function MarksPanel() {
             <p>A mark goes with your next prompt, and stays here until the agent resolves it.</p>
           </div>
         )}
-        {listed.length > 0 && checks.length + toSend.length + withAgent.length === 0 && (
+        {listed.length > 0 && groups.checks.length + toSend.length + withAgent.length === 0 && (
           <p className="section-note">{needs.toReview.length + needs.fromAgent.length > 0 ? 'What is left waits for you under Needs you.' : 'Every mark is resolved.'}</p>
         )}
-        {group('Checks', checks)}
         {group('To send', toSend, 'with your next prompt')}
         {group('With the agent', withAgent)}
         <AskToCommit />

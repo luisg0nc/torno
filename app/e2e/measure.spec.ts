@@ -298,8 +298,11 @@ test('with an expected value the hole fails: the row says so, and the chip in th
   expect(dimension(root, 'M2')).toMatchObject({ expected: 8.5, value: 8 })
   await expect(row('M2', page).locator('.mark-value')).toHaveAttribute('data-verdict', 'fail')
   await expect(fields.locator('.dimension-verdict')).toHaveText('Fails: 0.5 under')
-  // The summary heading the marks counts it, and its count goes to the check.
-  await expect(page.locator('.checks-summary')).toHaveText(/^Checks on r\d+: 1 fails$/)
+  // Under Checks its row says it fails, with its gauge, and it is the one row that does.
+  await expect(page.locator('.check-row[data-check-mark="M2"]')).toHaveAttribute('data-verdict', 'fails')
+  await expect(page.locator('.check-row[data-check-mark="M2"] .check-standing')).toHaveText('fails')
+  await expect(page.locator('.check-row[data-check-mark="M2"] .gauge')).toHaveAttribute('aria-label', /^8, outside 8\.45 to 8\.55$/)
+  await expect(page.locator('.check-row[data-verdict="fails"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'Checks' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
   // The row, open and with the pointer on it: its value, its verdict and the way to a note, none of them cut. Its words are under it.
   await row('M2', page).hover()
@@ -423,7 +426,7 @@ test('a dimension is given to the agent with the next prompt like any mark, and 
   await expect(page.getByRole('list', { name: 'Checks' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'To send' })).toHaveCount(0)
   await expect(row('M1', page).locator('.mark-status')).toHaveText('to send')
-  await expect(page.locator('.checks-summary')).toContainText('1 pass')
+  await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'passes')
   expect(dimension(root, 'M1')).toMatchObject({ status: 'draft', sentBefore: true, expected: 6, verdict: 'pass' })
 })
 
@@ -528,8 +531,11 @@ test('given to the agent they are pinned: the next prompt says only how many pas
   expect(first).not.toContain('Dimensions')
   // The measurement that was not kept is not in it.
   expect(first).not.toContain('M3')
-  await expect(row('M1', page).locator('.mark-status')).toHaveText('pinned')
+  // Their rows are under Checks, and each opens out under its own while it is the active mark.
+  await page.locator('.check-row[data-check-mark="M2"] .check-go').click()
   await expect(row('M2', page).locator('.mark-status')).toHaveText('pinned')
+  await page.locator('.check-row[data-check-mark="M1"] .check-go').click()
+  await expect(row('M1', page).locator('.mark-status')).toHaveText('pinned')
   // The word of a row is on its second line, where there is room for it: it is never cut and takes none of the note's.
   const word = row('M1', page).locator('.mark-status')
   await expect.poll(async () => (await word.boundingBox())!.width).toBeGreaterThan(20)
@@ -556,8 +562,9 @@ test('a build that makes the plate 5 mm thick fails them: the rows, the status l
   await expect(row('M1', page).locator('.mark-value')).toHaveText('5 mm')
   await expect(row('M1', page).locator('.mark-value')).toHaveAttribute('data-verdict', 'fail')
   await expect(row('M1', page).locator('.mark-anchor')).toHaveText('moved: check it')
+  await expect(page.locator('.check-row[data-check-mark="M2"] .check-detail')).toContainText('⌀ 10 mm')
+  await page.locator('.check-row[data-check-mark="M2"] .check-go').click()
   await expect(row('M2', page).locator('.mark-value')).toHaveText('⌀ 10 mm')
-  await row('M2', page).click()
   await expect(row('M2', page).locator('.dimension-verdict')).toHaveText('Fails: 2 over')
 
   // The status line counts them, in the colour of failure, and goes to the first.
@@ -578,10 +585,10 @@ test('a build that makes the plate 5 mm thick fails them: the rows, the status l
   await expect(row('M1', page)).toBeInViewport()
   await expect(row('M1', page).locator('.dimension-verdict')).toHaveText('Fails: 1 under')
   await expect(row('M1', page).locator('.dimension-how')).toHaveText('wall, along the normal, measured from what is under its ends now')
-  // The regression: it passed on r1 and fails since r2, with both values in the open row, and the summary counts both.
+  // The regression: it passed on r1 and fails since r2, with both values in the open row, and Checks lists both as failing.
   await expect(row('M1', page).locator('.dimension-since')).toHaveText('fails since r2; passed on r1')
   await expect(row('M1', page).locator('.dimension-history')).toHaveText('r1 6 · r2 5')
-  await expect(page.locator('.checks-summary')).toHaveText('Checks on r2: 2 fail')
+  await expect(page.locator('.check-row[data-verdict="fails"]')).toHaveCount(2)
   await page.evaluate(() => (document.activeElement as HTMLElement).blur())
 
   // The agent is told of both with the prompt, and with the one after: they are not news that is told once.
@@ -615,7 +622,7 @@ test('built as it should be again, they pass: the status line is clear, and the 
   await expect(row('M1', page).locator('.mark-value')).toHaveText('6 mm')
   await expect(row('M1', page).locator('.mark-value')).toHaveAttribute('data-verdict', 'pass')
   await expect(statusLine().locator('.status-dimensions')).toHaveCount(0)
-  await expect(page.locator('.checks-summary')).toHaveText('Checks on r3: 2 pass')
+  await expect(page.locator('.check-row[data-verdict="passes"]')).toHaveCount(2)
   await row('M1', page).click()
   await expect(row('M1', page).locator('.dimension-since')).toHaveText('passes since r3; failed on r2')
   await expect(row('M1', page).locator('.dimension-history')).toHaveText('r1 6 · r2 5 · r3 6')

@@ -9,3 +9,16 @@
 .marks .marks-group .num {
   margin-left: 2px;
 }
+
+/* A row lit from the view: the pointer is on a part the mark is on. The accent's wash and a 2 px bar at its left (leader rule 4). */
+.mark-row[data-lit] {
+  --row-bg: var(--accent-wash);
+}
+
+.mark-row[data-lit]::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--accent);
+}

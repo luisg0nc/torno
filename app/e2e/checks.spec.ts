@@ -99,8 +99,13 @@ test('it has a row for each check: how it stands in a word, what was measured an
   await expect(fits.locator('.check-standing')).toHaveText('fails')
   await expect(fits.locator('.check-detail')).toContainText('0.1 mm')
   await expect(fits.locator('.check-detail')).toContainText('wanted 0.15 to 0.25 mm')
+  // Its gauge says it in words, and a failing row has the failure's wash.
+  await expect(fits.locator('.gauge')).toHaveAttribute('aria-label', /outside 0\.15 to 0\.25$/)
+  await expect(fits).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  // Failing first.
+  await expect(section().locator('.check-row').first()).toHaveAttribute('data-check', 'lid fits the tub')
   const walls = section().locator('[data-check="walls"]')
-  await expect(walls).toHaveAttribute('data-standing', 'pass')
+  await expect(walls).toHaveAttribute('data-standing', 'passes')
   // A thin wall is found by sampling, and the row says so.
   await expect(walls.locator('.check-detail')).toContainText('found by sampling')
   await expect(section().locator('.check-notes')).toHaveCount(0)

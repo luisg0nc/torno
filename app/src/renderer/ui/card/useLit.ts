@@ -20,11 +20,13 @@ export function useLitPart(): string | null {
   }, [pointed, peeked, scene, layout])
 }
 
+const NO_CHECKS: readonly LitCheck[] = []
+
 /**
  * The rows of the card to light now: the marks on the part the pointer is on and its checks (`litRows`). A Marks row carries
  * `data-lit` when its id is in `marks`, a Checks row when its id is in `checks`. `checks` are the Checks section's rows, as `LitCheck`s.
  */
-export function useLitRows(checks: readonly LitCheck[] = []): LitRows {
+export function useLitRows(checks: readonly LitCheck[] = NO_CHECKS): LitRows {
   const part = useLitPart()
   const marks = useStore((s) => s.marks)
   const layout = useStore((s) => s.layout)
