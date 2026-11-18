@@ -4,9 +4,9 @@
        Every edge is on an even unit, so that it is drawn to the pixel at 32 px. torno-16.svg is the drawing for
        16 px, app/resources/icon.png the window's, made from this by `resvg -w 512 -h 512`; ui/Logo.tsx draws both. -->
   <rect width="64" height="64" rx="14" fill="#F1EFEA"/>
-  <path d="M8 42V17a3 3 0 0 1 3-3h11v20h14V14h7a3 3 0 0 1 3 3v25Z" fill="#22252A"/>
-  <rect x="46" y="26" width="6" height="4" fill="#22252A"/>
-  <rect x="52" y="14" width="4" height="28" rx="2" fill="#22252A"/>
-  <rect x="10" y="44" width="34" height="4" rx="2" fill="#22252A"/>
+  <path d="M8 42V17a3 3 0 0 1 3-3h11v20h14V14h7a3 3 0 0 1 3 3v25Z" fill="#20242B"/>
+  <rect x="46" y="26" width="6" height="4" fill="#20242B"/>
+  <rect x="52" y="14" width="4" height="28" rx="2" fill="#20242B"/>
+  <rect x="10" y="44" width="34" height="4" rx="2" fill="#20242B"/>
   <rect x="24" y="18" width="10" height="14" rx="1" fill="#1D46B8"/>
 </svg>

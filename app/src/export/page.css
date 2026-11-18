@@ -6,8 +6,8 @@
   color-scheme: light dark;
   --surface: #F1EFEA;
   --panel: #FAF9F6;
-  --ink: #22252A;
-  --muted: #646970;
+  --ink: #20242B;
+  --muted: #62666D;
   --hairline: #DAD6CE;
   --scroll-thumb: #84888E;
   --accent: #1D46B8;
@@ -23,8 +23,8 @@
   --axis-z: #2E5FA9;
   --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-  --text-size: 13px;
-  --text-leading: 1.4;
+  --text-size: 13.5px;
+  --text-leading: 1.42;
   --text-small: 12px;
   --radius-control: 6px;
   --radius-palette: 10px;
@@ -42,7 +42,7 @@
     --surface: #1A1C1F;
     --panel: #222529;
     --ink: #E9E7E2;
-    --muted: #9A9FA6;
+    --muted: #9EA3AA;
     --hairline: #33373C;
     --scroll-thumb: #72777E;
     --accent: #7C9BF7;
@@ -64,7 +64,7 @@
     --surface: #1A1C1F;
     --panel: #222529;
     --ink: #E9E7E2;
-    --muted: #9A9FA6;
+    --muted: #9EA3AA;
     --hairline: #33373C;
     --scroll-thumb: #72777E;
     --accent: #7C9BF7;

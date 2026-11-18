@@ -54,7 +54,7 @@ const SKETCH_SIZE = { w: 300, h: 200 }
 /** The size a new size card is made at: main's own (`MADE_SIZE.size`). */
 const SIZE_CARD = { w: 240, h: 120 }
 
-const inkNow = (): string => getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#22252A'
+const inkNow = (): string => getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#20242B'
 
 interface Item {
   id: string

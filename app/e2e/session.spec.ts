@@ -123,11 +123,11 @@ test('the agent was started at the size of the terminal, and is told when it cha
 
 test('the terminal is drawn in the colours of the tokens, in both schemes', async () => {
   const theme = () => page.evaluate(() => window.__tornoTerm!.theme())
-  expect(await theme()).toEqual({ background: '#FAF9F6', foreground: '#22252A' })
+  expect(await theme()).toEqual({ background: '#FAF9F6', foreground: '#20242B' })
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect.poll(theme).toEqual({ background: '#222529', foreground: '#E9E7E2' })
   await page.emulateMedia({ colorScheme: 'light' })
-  await expect.poll(theme).toEqual({ background: '#FAF9F6', foreground: '#22252A' })
+  await expect.poll(theme).toEqual({ background: '#FAF9F6', foreground: '#20242B' })
   expect(await page.evaluate(() => window.__tornoTerm!.renderer())).not.toBeNull()
 })
 
