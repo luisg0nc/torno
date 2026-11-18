@@ -131,7 +131,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **Compare: a kept build against the live one** (`state/compare.ts`, `ui/CompareBar.tsx`, `viewport/earlier.ts` `Earlier`, `Viewport.setEarlier`
   and `setCompareMode`). `store.compare` is `{ from, to, mode, prompt? }` (history ids, `from` the earlier; `building` and `refused` are said of
   `from`'s drawing), set by `actions.compare(from, to, prompt?)` (a row of Prompts only, a turn of the chat),
-  changed by `compareMode` (`before`, `overlay`, `after`, `side`) and ended by `endCompare` ("Back to the live build" in the bar, `Esc`: the row
+  changed by `compareMode` (`before`, `overlay`, `after`, `side`) and ended by `endCompare` ("Back to live" in the band, `Esc`: the row
   `compare.end`, scope `compare`, which `ViewportPane`'s key handler asks before the tool in hand and the viewport's `escape`). `ViewportPane`
   asks main for `from`'s scene and meshes (`history.ghost`: held in memory for a build of this run, else built again from its copy in a worker thrown
   away; a `refused` sentence, shown in the view, when it cannot be) and draws its parts of the layout shown (`EARLIER_SURFACE_OPACITY`, in `--muted`, with

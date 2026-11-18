@@ -432,6 +432,32 @@ test('the compass fits at 1280 × 800 for an object with two layouts, apart or t
   // Whenever the press came while they were still apart, it was handed to no tool.
   if (moving) expect((await state()).marks.filter((mark) => mark.kind === 'stroke')).toHaveLength(0)
   expect(moving).toBe(true)
+  // The compass and the band (a sketch is open under Draw) both stand clear of tags (`data-tag-avoid`), and not on one another, at 1280 × 800 and at 1440 × 900.
+  const avoided = async (): Promise<Array<{ what: string; x: number; y: number; w: number; h: number }>> =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-tag-avoid]')]
+        .map((el) => ({ what: el.className, r: el.getBoundingClientRect() }))
+        .filter((o) => o.r.width > 0 && o.r.height > 0)
+        .map((o) => ({ what: o.what, x: o.r.x, y: o.r.y, w: o.r.width, h: o.r.height }))
+    )
+  for (const [width, height] of [
+    [1280, 800],
+    [1440, 900]
+  ] as const) {
+    await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [width, height])
+    await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width)
+    await expect(page.locator('.compass')).toHaveAttribute('data-tag-avoid', '')
+    await expect(page.locator('.band')).toHaveAttribute('data-tag-avoid', '')
+    const boxes = await avoided()
+    expect(boxes.some((b) => b.what.includes('compass'))).toBe(true)
+    expect(boxes.some((b) => b.what.includes('band'))).toBe(true)
+    for (const [i, a] of boxes.entries()) {
+      for (const b of boxes.slice(i + 1)) {
+        const apart = a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y
+        expect(apart, `${a.what} and ${b.what} at ${width} × ${height}`).toBe(true)
+      }
+    }
+  }
   await page.keyboard.press('v')
   // The width the other tests were written for.
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1496, 900))

@@ -40,7 +40,6 @@ import { labelText } from '../viewport/marks/labels'
 import { NARROW_BELOW, bindPane } from '../viewport/overlay'
 import { meshOf } from '../viewport/scans'
 import { Viewport } from '../viewport/Viewport'
-import { AgentLine } from './AgentLine'
 import { QuestionCard } from './QuestionCard'
 import { AlignBar } from './AlignBar'
 import { goToRow } from './BuildStatus'
@@ -51,14 +50,17 @@ import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
-import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
+import { Hint } from './view/Hint'
 import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
 import { Logo } from './Logo'
 import { openNote } from './drawing/make'
 import { Compass } from './view/Compass'
 import { LegacyBars } from './view/LegacyBars'
+import { CompareBar } from './CompareBar'
+import { ReviewBar } from './ReviewBar'
+import { FailedBand, SketchBand } from './view/Band'
 
 const NO_SCENE: Scene = { model: '', layouts: [], parts: [], seconds: 0, output: '' }
 
@@ -811,13 +813,17 @@ export function ViewportPane() {
         <>
           <Compass viewport={viewport} />
           <LegacyBars viewport={viewport} />
+          {/* The band at the top left for a mode of the whole view: one shows (`bandOf`). */}
+          <ReviewBar />
+          <CompareBar />
+          <SketchBand />
+          <FailedBand />
           <ToolPalette />
           <SectionBar viewport={viewport} />
           <AlignBar />
           <RegionBar />
-          <SketchPens />
-          <AgentLine />
           <QuestionCard where="view" />
+          <Hint />
           <ToolHint />
           <NotePopover viewport={viewport} />
         </>

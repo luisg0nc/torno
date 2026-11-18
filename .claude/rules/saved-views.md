@@ -9,7 +9,7 @@ paths:
   - "app/src/main/mcp/views.ts"
   - "app/src/main/mcp/views.test.ts"
   - "app/src/renderer/ui/view/SavedViews.tsx"
-  - "app/src/renderer/ui/view/compass.ts"
+  - "app/src/renderer/ui/view/compassFold.ts"
   - "app/src/renderer/state/savedViews.ts"
   - "app/src/renderer/styles/compass.css"
   - "app/e2e/views.spec.ts"
@@ -131,7 +131,7 @@ agent is never told to remove a view.
 - **The compass's views** (`ui/view/SavedViews.tsx`, the foot of `ui/view/Compass.tsx`, `role="group"`): as pills, stacked:
   the one that is on (a ring in the accent; `activeView`, while the screen still shows what it holds, `viewMatches`, and
   until the camera rests somewhere else, `actions.cameraSettled`), then the first proposal of the agent's, then
-  "+ Save view" with `N more` in the same pill (`compassViews` in `ui/view/compass.ts`: the others, as saved, are behind
+  "+ Save view" with `N more` in the same pill (`compassViews` in `ui/view/compassFold.ts`: the others, as saved, are behind
   `N more`, which opens the list of all of them as a popover: a row each with what it holds, and its menu of actions).
   A pill is `button.view-chip[data-view]`, its name cut at 150 px and whole in the tooltip. Which way they stand is
   `foldSavedViews`: `none` while Align or Region is in hand, one pill "Saved views N" (the same list, which then ends

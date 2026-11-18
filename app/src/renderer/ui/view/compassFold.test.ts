@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { SavedView } from '../../../shared/views'
-import { compassViews, foldSavedViews, hasProcedure, hasTags, stackBottomOf } from './compass'
+import { compassViews, foldSavedViews, hasProcedure, hasTags, stackBottomOf } from './compassFold'
 import { ViewCube } from './ViewCube'
 
 const CAMERA: SavedView['camera'] = { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }

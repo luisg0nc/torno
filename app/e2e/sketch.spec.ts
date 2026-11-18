@@ -113,6 +113,8 @@ test('D opens a sketch: the panel is the head of the card, the pens are over the
   expect(heights.scroll).toBeGreaterThan(heights.card * 0.3)
   await expect(panel().getByRole('switch', { name: /^Snap/ })).toHaveAttribute('aria-checked', 'true')
   await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'false')
+  // The hint at the foot of the view holds the sketch's standing line: whether it snaps, and where x-ray is.
+  await expect(page.locator('.view-hint[data-kind="sketch"]')).toContainText('Snapping on, hold Ctrl to drop it.')
   await panel().getByRole('switch', { name: /^X-ray/ }).click()
   await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'true')
   await panel().getByRole('switch', { name: /^X-ray/ }).click()

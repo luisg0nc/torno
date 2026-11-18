@@ -38,8 +38,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `which(e, id)` and never names a key; a button or a tooltip takes its key
   from `hint(id)`; the palette's tools, the compass's views and the gizmo's
   ways are `TOOL_KEYS`, `VIEW_KEYS` and `GIZMO_KEYS`; the sheet of keys (`?`,
-  `ui/KeySheet.tsx`) is `cheatSheet()`. A tool's key is shown on its
-  palette button and in its tooltip, and on the sheet of keys; nowhere else. The empty Marks section names no key: it
+  `ui/KeySheet.tsx`) is `cheatSheet()`. A tool's key is shown in its tooltip,
+  in the name of the tool in hand (the reed's pill) and on the sheet of keys; on no button (`aria-keyshortcuts` holds it); nowhere else. The empty Marks section names no key: it
   says what a mark is and that it goes with the next prompt. A new key is added there first:
   `keys.test.ts` reads the sources of the window, the preload and
   `main/devkeys.ts` and fails for any read of `.key`, `.code`, `.keyCode` or
@@ -79,17 +79,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`giveKeysBack`). The exported page's own keys (`src/export/viewer`) are not in the
   table: it is another program. The palette's tools are `TOOL_KEYS` in the order of their groups (`group`:
   `inspect` Select, Measure, Section; `mark` Pin, Arrow, Draw, Shape, Region; `scan` Align), drawn as one
-  `role="group"` each (`TOOL_GROUPS` in `state/tools.ts`, its `aria-label` the group's name) with a
-  `toolbox-rule` between them; the sheet of keys and the manual's table follow that order. The Measure tool is
-  `tools/measureTool.ts`; what its clicks measure is chosen in the strip `MeasureChoice` of
-  `ui/ToolPalette.tsx`, and a dimension's expectation is typed in
+  `role="group"` each (`TOOL_GROUPS` in `state/tools.ts`, its `aria-label` the group's name), each a pill of the reed; the sheet of keys and the manual's table follow that order. The Measure tool is
+  `tools/measureTool.ts`; what its clicks measure is chosen in the pill of Measure (`pillOf` in `ui/view/reedPill.ts`, drawn by `ReedPillView` of
+  `ui/ToolPalette.tsx`), and a dimension's expectation is typed in
   `ui/DimensionFields.tsx`. **A measurement is no mark**: the tool asks main (`ctx.measure`, `geometry.measure`)
   and nothing is committed; the kernel's value replaces the `≈` estimate at the pointer, and the last
   measurement is held in `state/measured.ts` (`Held`: its ends, kind, layout, build, camera, value and `how`),
-  which changes once per measurement. The strip shows it (`Last: …`, only for the object and build on show)
+  which changes once per measurement. The card under the pill shows it (`Last: …`, only for the object and build on show)
   until the next first end, Escape with nothing under way or the tool put down. It is kept as a dimension only
-  by `measure.keep` (Enter) or the strip's "Keep as a dimension", both `keepHeld`, which commits the same
-  anchors through `commitMark` (main measures it again); the strip then says `Kept as M7`. The kernel's two points (`Held.points`) draw it in the view until then: a `held` draft (`Draft.held`, the value text) in `--ink`, not faint, with its value at the middle (`viewport/heldValue.ts`); a distance's strip adds `Δx Δy Δz` (`componentsOf`). A readout is not a
+  by `measure.keep` (Enter) or its "Keep as a dimension", both `keepHeld`, which commits the same
+  anchors through `commitMark` (main measures it again); the reading then says `Kept as M7`. The kernel's two points (`Held.points`) draw it in the view until then: a `held` draft (`Draft.held`, the value text) in `--ink`, not faint, with its value at the middle (`viewport/heldValue.ts`); a distance's reading adds `Δx Δy Δz` (`componentsOf`). A readout is not a
   mark and is never drawn in a mark's colour. In Angle, before the second click, an end the kernel takes by its axis, only if
   flat or straight, or never (`angleTaking`, by the descriptor's type, the kernel's rule) is said at the pointer
   in place of the `≈` estimate; it is a hint, never a gate: the click is sent whatever it says. A tool is a `Tool`
@@ -102,7 +101,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `Shift+3`. `Ctrl` held is read off the pointer event (`ViewportPointer.ctrl`), and `Ctrl+Z` has its own listener
   (`connectSketching`), the viewport pane handing no chord to a tool. What it lays over the view (the hint, the label of its
   plane, the view cube) is drawn by `OverlayPass`, and the sheet of the plane and its handle by `SketchSheet`, never through React.
-  The strip of pens (`ui/sketch/SketchPens.tsx`, `.sketchpens` in `styles/sketch.css`, at the foot of the view above the triad as the Measure strip is) is shown while Draw has a sketch open: Free, Line, Point to point and Erase (Snap and X-ray are switches, `role="switch"`, in the sketch panel in the card's head, `.sketchpanel-switch`); each pen is a real `<button>` with its key from `hint()` and calling the actions the keys call (`setPen`, `setSnapping`, `setXray`), so a key and a button never disagree. Snap has no key of its own: it shows `Ctrl`, which turns it off while held.
+  The pens grow out of Draw's name in the reed (`pillOf('draw', …)`, `.reed-pill` in `styles/tools.css`) while Draw has a sketch open: Free, Line, Point to point and Erase (Snap and X-ray are switches, `role="switch"`, in the sketch panel in the card's head, `.sketchpanel-switch`); each pen is a real `<button>` with its key from `hint()` and calling the actions the keys call (`setPen`, `setSnapping`, `setXray`), so a key and a button never disagree. Snap has no key of its own: it shows `Ctrl`, which turns it off while held.
 - **The keys of a review** are three rows of scope `window`, heard outside a field and the terminal with the model on show
   (`useReviewKeys`, `ui/ReviewBar.tsx`): `marks.review` (`H`) starts a round on the build on show, or finds the one that is open;
   `review.dont` (`-`) and `review.want` (`=`, `+`) choose what the marks made next are while a round is open on the layout shown, the

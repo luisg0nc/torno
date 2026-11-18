@@ -702,11 +702,11 @@ test('the bar stays clear of the triad bottom left and the scale bottom right, i
       }
       if (selected) await expect(bar()).toHaveAttribute('data-raised', '1')
       else await expect(bar()).not.toHaveAttribute('data-raised')
-      // The strip of the Measure tool is in the corner too: with it in hand the bar, which stays while a plane is cut, must clear it as well.
+      // Measure's name grows out of the reed (its strip in the corner is gone): it stands to the right of the reed, beside the tool in hand.
       const hand = page.locator(`.tool-button[data-tool="${tool}"]`)
       if ((await hand.getAttribute('aria-pressed')) !== 'true') await hand.click()
       await expect(hand).toHaveAttribute('aria-pressed', 'true')
-      await expect(page.locator('.measure-choice')).toHaveCount(tool === 'measure' ? 1 : 0)
+      await expect(page.locator('.reed-pill[data-pill="measure"]')).toHaveCount(tool === 'measure' ? 1 : 0)
       // The window narrows the view with it: the pane is the window less the left column and the dock.
       // 1280 by 800 is a short window with the dock open: the palette, centred on the left, reaches low.
       for (const [width, height] of [[1100, 900], [1280, 800], [1300, 900], [1440, 900], [1700, 900], [2000, 900], [2600, 900]]) {
@@ -739,15 +739,6 @@ test('the bar stays clear of the triad bottom left and the scale bottom right, i
         if (pane.width >= 490 + 2 * 60) {
           const fits = await bar().evaluate((el) => [...el.children].every((child) => child.getBoundingClientRect().right <= el.getBoundingClientRect().right + 0.5))
           expect([width, height, 'bar whole', fits]).toEqual([width, height, 'bar whole', true])
-        }
-        if (tool === 'measure') {
-          const strip = (await page.locator('.measure-choice').boundingBox())!
-          // Above the triad, and not under the bar: one of them is wholly above the other.
-          expect([width, 'strip over the triad', strip.y + strip.height <= triad.top]).toEqual([width, 'strip over the triad', true])
-          const apart = (other: { x: number; y: number; width: number; height: number }): boolean =>
-            strip.y + strip.height <= other.y || other.y + other.height <= strip.y || strip.x + strip.width <= other.x || other.x + other.width <= strip.x
-          expect([width, selected, 'strip clear of the bar', apart(box)]).toEqual([width, selected, 'strip clear of the bar', true])
-          if (selected) expect([width, 'strip clear of the selection', apart((await page.getByRole('group', { name: 'Selection' }).boundingBox())!)]).toEqual([width, 'strip clear of the selection', true])
         }
       }
     }

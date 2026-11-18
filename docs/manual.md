@@ -198,10 +198,11 @@ body, a lid and a clip. The lid rattles, which is what you will fix.
    the lid on it and the clip round the front. Drag to turn it, drag with the
    right button to pan, scroll to zoom, `F` to fit. `1` to `4` are the iso,
    front, right and top views. The window says how the pointer moves the view
-   once, in a line at the foot of the view that goes at your first move of the
+   once, in a hint at the foot of the view that goes at your first move of the
    camera, and keeps it, with the keys,
-   in the sheet of keys (`?`), where the pointer is the first group. Point at a tool in the palette for what it
-   does; with a tool in hand that same line says what it waits for next.
+   in the sheet of keys (`?`), where the pointer is the first group. Point at a tool in the reed, the slim column of
+   round buttons at the left of the view, for what it does; the tool in hand is an accent circle and its name grows out
+   to the right with its key and its choices. With a tool in hand a small dark caption by the pointer says what it waits for next.
 
 3. Read what is there. The Marks list has three marks the example came with:
    `M1`, a pin on the lid for a label; `M2`, an arrow at the cable notch, which
@@ -370,7 +371,7 @@ own doing, so the build is left to finish and one more follows it. A build
 that runs longer than 600 s is stopped; `TORNO_BUILD_TIMEOUT` sets another
 limit. The line at the bottom says building with the seconds elapsed, built
 with the time it took and the revision (`r3`), or failed. A failed build keeps
-the last good parts on screen, and its status opens the error with the
+the last good parts on screen, a quiet band at the top left of the view says `On show: h40. The build after it failed.`, and its status opens the error with the
 traceback.
 
 **History of builds.** Every build that worked is kept under `.torno/history/` (see Files torno writes): a copy of
@@ -389,10 +390,10 @@ The chat shows the conversation you are in; **Earlier conversations** above it r
 is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
 The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are on the turns of the chat.
 What a kept build had then (checks that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands now.
-**Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the earlier build alone), **Overlay**
+**Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
 the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
-have landed, that older build, which stands in for the live one until you go back, and **Back to the live build**, which `Esc` also does. Two boxes over the corners say what the later build changed
+have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Board and Model steps aside. Two boxes over the corners say what the later build changed
 (its line) and how the checks and your dimensions moved between the two builds. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
 It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
 show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from
@@ -1248,15 +1249,15 @@ them when you type `/`:
 
 ## Marks
 
-The tools, each with its key (all keys are under [Keys](#keys)):
+The tools, each with its key (all keys are under [Keys](#keys)). They are the **reed**, at the left of the view: round buttons in three pills (Select, Measure, Section; Pin, Arrow, Draw, Shape, Region of a scan; Align scan), with no letter on a button. The key is in the tip beside a button when you point at it, and in the name of the tool in hand: that tool is a filled accent circle and its **name grows out to the right**, with its key and its few choices (Measure: Distance or Angle, ⌀ or r, and `T` for the wall; Shape: box, cylinder, sphere, plane; Draw: the pens, while a sketch is open; Region: Brush or Box). Select is the tool at rest: pressed, with no name. Its scope grows out when you click it, or press `V` while it is in hand, and stays out while the scope is not Any:
 
 | Key | Tool | What it does |
 |---|---|---|
-| `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held at the head of the card, under "In hand": each ref with what the kernel says of it (the first four, then "and 2 more"), and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Name a set** (`Ctrl+G`) and **Clear**. With nothing selected the head says "Click a face, an edge or a part to hold it here." |
+| `V` | Select | Click selects a face or an edge, and a double click its part; the scope that grows out of its button (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held at the head of the card, under "In hand": each ref with what the kernel says of it (the first four, then "and 2 more"), and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Name a set** (`Ctrl+G`) and **Clear**. With nothing selected the head says "Click a face, an edge or a part to hold it here." |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
 | `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
-| `S` | Shape | Click places a box, cylinder, sphere or plane, to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. A shape to add reads as what you want (`+`) and one to remove as what you do not want (`−`); see [Reviews](#reviews). |
+| `S` | Shape | Click places a box, cylinder, sphere or plane (the choice is in its name; the one chosen last is the one its button shows), to add, remove, keep out or refer to. A gizmo moves it (`G`), turns it (`R`) or sizes it (`T`), and its row has the exact numbers. A shape to add reads as what you want (`+`) and one to remove as what you do not want (`−`); see [Reviews](#reviews). |
 | `X` | Section | Cuts the parts by a plane. See [Section](#section). |
 | `M` | Measure | Measures; `Enter` keeps a dimension. See [Measuring and dimensions](#measuring-and-dimensions). |
 | `L`, `B` | Align scan, Region of a scan | See [Scans](#scans). |
@@ -1367,9 +1368,10 @@ the camera stays still).
 ### 3D sketches
 
 With Draw in hand a sketch is open: a drawing in space that tells Claude where something goes, how it runs or what is
-meant, in millimetres in the project's own frame. A panel floats at the left of the view and a small strip of pens at its
-foot; both are there while the sketch is open.
+meant, in millimetres in the project's own frame. The panel is the head of the card and the pens grow out of Draw's name in
+the reed; both are there while the sketch is open.
 
+- **The band.** While a sketch is open a quiet band at the top left of the view says `Sketching M7 on XZ, y = 40` (the sketch's own words are in the card's head).
 - **Planes.** A stroke lies on a **plane** or on the **surface** of the parts. A new sketch starts on the plane the view
   faces (XY, XZ or YZ) through the middle of the parts. The plane is a sheet drawn over the parts, with a handle on its
   normal that moves it, and, in the compass at the top right of the view, a cube turned as the camera is (XY, XZ, YZ, with their keys, and "Planes" over it). `Shift+1`, `Shift+2` and `Shift+3`
@@ -1379,7 +1381,7 @@ foot; both are there while the sketch is open.
   plane of its own, so that they stay where they were drawn.
 - **Pens.** `B` is the freehand pen, `L` a straight line (press and drag, or click twice), `P` point to point (a click
   for each point, `Enter` ends it), `C` the eraser (a click takes the stroke under the pointer). The
-  strip at the foot of the view has a button for each, with its key; the two switches are in the sketch's panel. While a segment is drawn the
+  name of Draw in the reed has a button for each, with its key; the two switches are in the sketch's panel. While a segment is drawn the
   figures type its length and `Enter` fixes it; `Backspace` takes the last point or figure back.
 - **Snapping.** The pointer snaps to a vertex, to the centre of a hole or a circle, or to a point on an edge, within 10
   px, and a box beside it says to what. A point on a plane is the snap projected onto it. `Ctrl` held turns snapping off
@@ -1427,8 +1429,8 @@ and after the next build you say OK or Still wrong to each answer.
   neither `add_mark` nor `add_sketch` takes an intent.
 - **Making a round.** **Review this build** (at the head of the Marks list, on the line of the build that is on show in the chat, or the
   key `H`) starts round `R1` on the build you have on show, `h41`, and stars that build in the history so that it is never let
-  go while it is reviewed. A bar appears under the view's buttons: `Review of h41`, a choice **Plain**, **− Don't want**, **+ Want**
-  for the marks you make next, their count (`3 − · 2 +`, and plain ones when there are any), **Items**, **End** and **Send review**. Any tool
+  go while it is reviewed. A band appears at the top left of the view: `Reviewing h41`, a choice **Plain**, **− Don't want**, **+ Want**
+  (pens, each with a round sign) for the marks you make next, their count (`3 − · 2 +`, and plain ones when there are any), **Items**, **End** and **Send review**. Any tool
   works while it is open: a pin, an arrow, a pick, a shape, a 3D sketch, a view note, a region of a scan, a dimension; the
   mark gets the choice and joins the round. While a round is open, `-` chooses don't want and `=` (or `+`) want, and pressing the key of the one chosen
   goes back to plain; `H`, `-` and `=` are for the view and are not heard in a field or the terminal. Marks made in another layout than the round's do not join it, and the bar says so.
@@ -1436,7 +1438,7 @@ and after the next build you say OK or Still wrong to each answer.
   build** opens the one that is open). Setting want or don't want on a mark that already exists does not put it in a round.
 - **Held until you send.** The marks of a round that was not sent go to Claude with no prompt, as a sketch that is open does not:
   each says `in review, not sent` in its row and on the board, and the line under the next prompt says
-  `R1 is in review, not sent`. **End** closes the bar and keeps them held, and the round can be opened again from its panel
+  `R1 is in review, not sent`. **End** closes the band and keeps them held, and the round can be opened again from its panel
   while it is unsent. **Send as plain marks** (in the panel) lets them go as ordinary drafts, with their signs, and the round is never sent.
 - **Sending.** **Send review** puts a chip above the box of the chat, `Review of h41 · 3 − · 2 +`, with **Remove** (the same
   as Send as plain marks). It goes with the next prompt you type, whatever you write. The prompt carries one line before the
@@ -1523,9 +1525,9 @@ The key is in [Keys](#keys), under "Viewport".
 Lengths are millimetres, angles degrees, areas mm², volumes mm³ and masses
 grams; Z is up.
 
-**The Measure tool** (`M`). A strip in the corner of the viewport chooses what
+**The Measure tool** (`M`). Its name in the reed chooses what
 two clicks measure (Distance or Angle) and what a double click on a hole, a
-cylinder or a circular edge measures (Diameter or Radius). `T` has no button:
+cylinder or a circular edge measures (⌀ for the diameter, r for the radius). `T` has no button:
 with the pointer on a face it measures the wall there, from that point along
 the inward normal to where the part ends. With Shift a click is a bare point,
 tied to no face. While the second click is pending the pointer reads out an
@@ -1546,14 +1548,14 @@ refuses (an angle to a sphere), its reason is read out at the
 pointer. `Esc` drops a first click; the tool stays in hand.
 
 **A measurement leaves nothing.** The kernel's value is read out at the pointer
-and stays in the strip as `Last: 6 mm between planes` (a distance adds
+and stays under Measure's name as `Last: 6 mm between planes` (a distance adds
 `Δx`, `Δy` and `Δz`, from the kernel's two points) and drawn in the view in ink,
 between those points, with its value at the middle, until the next
 measurement, `Esc` with nothing under way, another tool, a new build or another
 project. It is no mark, and the agent is not told of it: not with the next
 prompt, not in `state.md`, not in a picture. To keep it, press `Enter` or
-"Keep as a dimension" in the strip: it becomes a dimension, measured again by
-main as it is kept, and the strip says `Kept as M4`.
+"Keep as a dimension" there: it becomes a dimension, measured again by
+main as it is kept, and the reading says `Kept as M4`.
 
 **Dimensions.** What you keep of a measurement is a dimension: a mark (`M4`)
 with a value, drawn on the part and listed with the marks. Its row, once
@@ -2067,7 +2069,7 @@ The bar shows what the clicks say as you make them, `scale 4.73 px/mm · angle 2
 the tracing as soon as the points are enough. Two points give a scale, a turn and a place; the fit is only told when a point is spare (`no spare point to
 check it` with exactly two). **Straighten (4 points)**, off until you ask (`S`), fits a perspective to four points or more, for a photo taken at an
 angle. **Done** (`Enter`) sends the clicks: torno fits them again itself and keeps the result; **Cancel** (`Esc`) leaves the line-up as it was.
-Under the bar it says what a line-up is worth: true only in the tracing's plane, since what stands nearer the camera looks bigger. The tracing is shown
+These buttons are in the band at the top left, `Lining up the photo of T1`. Under it the page says what a line-up is worth: true only in the tracing's plane, since what stands nearer the camera looks bigger. The tracing is shown
 here with `v` up whichever way its plane's axes point in the model, as a photo of the plane's front sees it.
 
 The photo's scale, turn and fit are never exact, and the panel says `not exact` beside them. The straightened copy of the photo (the photo warped
@@ -2248,11 +2250,14 @@ the pointer, which has no keys:
 <!-- pointer: end -->
 
 Point at a tool of the palette and a panel beside it says, at once, what the tool does and its key. With a
-tool in hand (not Select) a quiet line at the foot of the view says what the tool waits for next: for Measure
-`click the first end`, then `click the second end`; for Arrow `press on the part and drag to where it should go`.
-Region of a scan and Align scan, with no scan in the project, are drawn quieter and say `Import a scan first`.
-The line that tells how the pointer moves the view shows the first time a project is drawn in this install,
-until the camera is first moved; the window remembers that in its own storage, never in a workspace.
+tool in hand (not Select) a small dark caption by the pointer, a little below and to its right, says what the tool waits for next, and
+`Esc`: for Measure `click the first end`, then `click the second end`; for Arrow `press on the part and drag to where it should go`.
+For the first ten times you take a tool the caption shows as soon as the pointer is in the view; after that it shows where the pointer
+rests for half a second and goes when it moves again (a screen reader is told the words either way). Region of a scan and Align scan,
+with no scan in the project, are drawn quieter and say `Import a scan first`.
+The hint at the foot of the view, in the middle, tells how the pointer moves the view the first time a project is drawn in this install,
+until the camera is first moved; while a sketch is open it says whether snapping is on and that `Ctrl` drops it, and where x-ray is;
+and it holds the line of what the agent points at. The window remembers what it has shown in its own storage, never in a workspace.
 
 <!-- keys: generated from cheatSheet() in app/src/shared/keys.ts; `TORNO_README=write pnpm -C app exec vitest run src/readme.test.ts` writes it -->
 | Where | Keys | What it does |
@@ -2808,7 +2813,7 @@ On the screen:
   can use it and be exact; if not, the asked undo stays (torno's own restore, from the copies under `.torno/history/`, does not need it).
 - **Prompts only.** Send Claude Code a few prompts that edit the model, then open **History** in the status line: one row for each
   prompt, newest first, in the pane of the chat, each with a picture of the project as it was after it, legible in light and dark, its
-  number and `h40 → h41` in the face of numbers. A click compares the prompt (a bar with Before, Overlay, After and Side by side under the view bar, two boxes over the corners,
+  number and `h40 → h41` in the face of numbers. A click compares the prompt (a band with Before, Overlay, After and Side by side at the top left of the view, two boxes over the corners,
   `comparing prompt 14 · h40 → h41` in the status line; **Back to the live build** or `Esc` ends it), a double click opens it in the chat. Start a new session, send a prompt, and check
   that its number goes on from the last and that **Earlier conversations** reads the first. With the terminal as the view, the same list is a pane over it. Try it with a real Claude Code, the
   terminal too: after a prompt that edits the model, is its row there with the build it made?

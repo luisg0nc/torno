@@ -1,16 +1,13 @@
 import { useLayoutEffect, useRef } from 'react'
 import { explodeNow, useStore } from '../../state/store'
 import type { Viewport } from '../../viewport/Viewport'
-import { CompareBar } from '../CompareBar'
 import { ExplodeBar } from '../ExplodeControl'
-import { ReviewBar } from '../ReviewBar'
 
 /**
- * The bars that still stand in the middle of the top of the view, under the switch: Compare's and the review's (which go to
- * the band, spec 2026-11-18 section 2, "A band") and the explode bar (which becomes a track and a tag). The view bar that
- * held them is the compass now; this column is theirs until they have been moved, and it keeps what the view bar kept of
- * them: the view is what they leave of its top (`Viewport.setCoveredTop`), and parts drawn apart are kept in sight below
- * them (`keepApartInView`, the rule of `E`).
+ * The explode bar, in the middle of the top of the view under the switch, clear of the compass, until it becomes a track and
+ * a tag (spec 2026-11-18 section 2). Compare's and the review's bars are bands at the top left now. It keeps what the view bar
+ * kept: the view is what the bar leaves of its top (`Viewport.setCoveredTop`), and parts drawn apart are kept in sight below it
+ * (`keepApartInView`, the rule of `E`).
  */
 export function LegacyBars({ viewport }: { viewport: Viewport }) {
   const bars = useRef<HTMLDivElement>(null)
@@ -43,9 +40,6 @@ export function LegacyBars({ viewport }: { viewport: Viewport }) {
 
   return (
     <div className="viewbars" ref={bars}>
-      {/* Under the switch while two builds are compared, with the boxes of what changed. */}
-      <CompareBar />
-      <ReviewBar />
       {/* While the parts are apart or the button of Explode is pressed. */}
       <ExplodeBar viewport={viewport} />
     </div>

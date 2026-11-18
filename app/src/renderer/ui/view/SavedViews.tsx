@@ -7,7 +7,7 @@ import { actions, store, useStore } from '../../state/store'
 import type { Viewport } from '../../viewport/Viewport'
 import { numbered } from '../numbered'
 import { pinToBoard } from '../projectBoard/pin'
-import { type Fold, compassViews } from './compass'
+import { type Fold, compassViews } from './compassFold'
 import { PopMenu } from './PopMenu'
 
 /** The saved views of the project, and the one that is on: the one last put on screen or saved from it, while the screen still shows what it holds. */

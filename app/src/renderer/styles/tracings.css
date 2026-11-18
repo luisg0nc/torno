@@ -717,27 +717,6 @@
   background: transparent;
 }
 
-/* A tracing on a face: over the model, saying what to click. */
-.tr-facebar {
-  position: absolute;
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  left: var(--space-3);
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 3px 3px 3px var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  font-size: var(--text-small);
-}
-
-.tr-facebar .tr-refused {
-  margin: 0;
-}
-
 .tr-undo {
   margin: var(--space-2) 0 0;
   color: var(--muted);
@@ -950,49 +929,11 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: var(--space-3);
+  /* Under the band at the top left (34 px, 14 px in) with room. */
+  padding: 56px var(--space-3) var(--space-3);
   gap: var(--space-2);
   background: var(--surface);
   font-size: var(--text-small);
-}
-
-.lu-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 3px var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-}
-
-.lu-title {
-  margin: 0;
-  font-size: var(--text-size);
-  font-weight: 600;
-}
-
-.lu-spacer {
-  flex: 1;
-}
-
-.lu-check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--muted);
-}
-
-.lu-switch[aria-checked='true'] {
-  background: var(--accent-wash);
-  color: var(--accent);
-}
-
-.lu-done[data-primary]:not(:disabled) {
-  background: var(--accent-wash);
-  color: var(--accent);
 }
 
 .lu-readout {

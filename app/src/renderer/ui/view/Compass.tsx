@@ -8,7 +8,7 @@ import { useTool } from '../../state/tools'
 import type { Viewport } from '../../viewport/Viewport'
 import { ExplodeToggle, toggleExplode, useExplodeShown } from '../ExplodeControl'
 import { TYPING } from '../typing'
-import { compassViews, foldSavedViews, hasProcedure, hasTags, stackBottomOf } from './compass'
+import { compassViews, foldSavedViews, hasProcedure, hasTags, stackBottomOf } from './compassFold'
 import { PopMenu, useDismiss } from './PopMenu'
 import { SavedViews, useSavedViews } from './SavedViews'
 import { ViewCube } from './ViewCube'
@@ -68,7 +68,7 @@ export function Compass({ viewport }: { viewport: Viewport }) {
   const fold = foldSavedViews({ toolHasTags: hasTags(tool), explodeOpen, procedure: hasProcedure(tool), stackBottom: stackBottomOf(stacked), topTag })
 
   return (
-    <div className="compass" ref={root} role="toolbar" aria-label="View" data-tag-avoid>
+    <div className="compass" ref={root} role="toolbar" aria-label="View" data-tag-avoid="">
       <div className="cube" data-live={sketching ? '' : undefined}>
         {sketching ? <span className="cube-caption">Planes</span> : <ViewCube on={on} go={goTo} />}
       </div>

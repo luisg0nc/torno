@@ -132,32 +132,21 @@ button {
   --hint-lift: 0px;
   /* The least a bar a row up stands at: clear of the strip of the Measure tool, when it is there. */
   --strip-top: 0px;
-  /* Where the bars stand: on the floor, or above the line when it is there (`ToolHint`, which stands on the floor itself). */
+  /* Where the bars stand: on the floor, or above the line when it is there (`ui/view/Hint.tsx`, which stands on the floor itself). */
   --bar-lift: calc(var(--bar-floor) + var(--hint-lift));
 }
 
 .viewport-pane[data-narrow] {
   --bar-side: var(--space-3);
   /* Clear of the palette of tools, which stands at the left edge halfway up and in a short view reaches the bars as they
-     stack: its 12px from the edge, 42px wide (a 34px button, its padding and border), and a gap. Not the Align tool's
+     stack: its 12px from the edge, 40px wide (a 34px button and its padding), and a gap. Not the Align tool's
      bar, whose rows need the width and which stands alone. */
   --stack-side: 60px;
   --bar-floor: calc(var(--triad-clear) + var(--space-1));
 }
 
-/* The strip of the Measure tool stands above the triad too, at the left, and a bar is centred: with the tool in hand the bars stand above the strip (36px: its height and a gap), so the two never meet. */
-.viewport-pane[data-narrow]:has(.measure-choice) {
-  --bar-floor: calc(var(--triad-clear) + var(--space-1) + 36px);
-}
-
-/* In a wide view the bottom row stands below the strip, beside the triad; a bar raised a row up (over the selection, over what the agent points at)
-   would reach it, and stands above it instead. */
-.viewport-pane:has(.measure-choice) {
-  --strip-top: calc(var(--triad-clear) + var(--space-1) + 36px);
-}
-
-/* The line at the foot of the view takes the place of the bars' bottom row: they stand above it, a row (40px, as they stand over one another) up. */
-.viewport-pane:has(.tool-hint) {
+/* The hint at the foot of the view takes the place of the bars' bottom row: they stand above it, a row (40px, as they stand over one another) up. */
+.viewport-pane:has(.view-hint) {
   --hint-lift: 40px;
 }
 
