@@ -7,6 +7,10 @@ paths:
   - "app/src/renderer/ui/onboard/make.ts"
   - "app/src/renderer/ui/onboard/make.test.ts"
   - "app/e2e/objects-create.spec.ts"
+  - "app/src/renderer/ui/plate/folderFromWords.ts"
+  - "app/src/renderer/ui/plate/folderFromWords.test.ts"
+  - "app/src/renderer/ui/onboard/attach.ts"
+  - "app/src/renderer/ui/onboard/liveDeps.ts"
 ---
 
 # Making a new object: the folder, its name, its references
@@ -84,6 +88,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   after each create) as well as the objects. While `Creating…` shows, Escape, Cancel and the discard question do
   nothing. A note field is named by its card ("Note for photo desk.png"); numbers in the page's prose are set by
   `numbered`.
+- **The empty folder's composer** (`ui/EmptyWorkspace.tsx`, `ui/plate/folderFromWords.ts`, `ui/onboard/attach.ts`, `ui/onboard/liveDeps.ts`) is a short way to the same Create. The words are the draft's `description` and what the chips add (photo, doodle, bought part, scan, through the page's own pickers) is the draft's, so `openNewObject({ words, name })` (the link to the full page) puts the words and the folder name into the draft and the page has everything as it was. The folder is `folderFromWords(words, taken)`: the second noun and the first (`cable-clip`), the first alone, or `project` when the words give none, a name `objectNameProblem` accepts, numbered (`-2`, `-3`) against every entry of the workspace folder, and the person may type another (checked by the same rule, said under the box). **Start** is `makeObject(draft, liveMakeDeps(onOpen), choice, true)`: nothing is written before it, and an empty box or a name the rule refuses keeps it off. A pick that fails is said under the box; a refusal of `create` stays there with the draft.
 - **Create** is `ui/onboard/make.ts` (`makeObject`, tested with fakes, and guarded against a second call while one
   runs). The order is `objects.create`, the list is refreshed, the draft is spent, the object is opened as a click
   opens it, then `objects.onboard` once; the session main started is put into the store. Made without starting Claude (`start = false`), `onboard` is not called, so each scan of the draft is imported with `scans.import(objectId, path)`, in order, a failure not stopping the rest and said as the reason of an empty held entry marked `imports: true` (`<file> was not imported: <why>.`; the pane words it as an import failure, `heldSaid`, not as a prompt that was not sent). A failure of `create`

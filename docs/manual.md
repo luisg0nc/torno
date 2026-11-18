@@ -583,8 +583,12 @@ failed) nothing is picked, and the pointer says why.
 ### Making a new project
 
 "New project" starts one from what you have. It is in the header of the page
-of projects and in its empty state: a folder with no project in it leads with "Make your first project", "New project" and,
-where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
+of projects. A folder with no project in it has no page of projects: it shows a dyed plate, "Nothing in the vise yet", and
+beside it "What are we making?". Say what you want in the box, and add what you have with the chips **Photo**, **Doodle**, **Bought part** and **Scan** (the
+pickers of the page below). The foot of the box says where the project goes, "Goes in `parts/cable-clip`", a name torno offers from your words that you can
+change, and **Start** makes the project and starts Claude Code with your words as its first prompt; nothing is written before. Under the box,
+"open the full new project page" opens the page below with what you typed on it, for sizes and rules, and, where torno runs from its repository,
+"open the example" looks around. The way for models you already have (a folder
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
 "What are we making?": "What is it?" (what it is for, what it must fit or hold, how it will be made) and the photos, each with a note for Claude. Under them is a
 tile for each other thing you have: "Doodle it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile

@@ -20,10 +20,18 @@ import { SessionChoice } from './SessionChoice'
 import { Slot, SlotWords } from './Slot'
 import { SizesSlot } from './SizesSlot'
 
-/** Brings the page of a new object up over what is shown, and goes on with the draft there is. */
-export function openNewObject(): void {
+/**
+ * Brings the page of a new object up over what is shown, and goes on with the draft there is. The empty folder's composer
+ * hands it what was typed (`typed`: the words, and the folder name when the person chose one); they are put into the draft,
+ * and what was added there (photos, a doodle, parts, scans) is the draft's already.
+ */
+export function openNewObject(typed?: { words: string; name?: string }): void {
   const s = store.getState()
   if (!s.workspace || s.page === 'new') return
+  if (typed) {
+    onboarding.setDescription(typed.words)
+    if (typed.name !== undefined) onboarding.setName(typed.name)
+  }
   onboarding.begin(s.page === 'objects' ? 'objects' : 'object')
   actions.showPage('new')
 }

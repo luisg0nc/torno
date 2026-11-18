@@ -525,7 +525,7 @@ export function App() {
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
         {/* Over the model: a tracing on a face waits for the face. */}
         <FacePickBar />
-        {page === 'objects' && <ShowPage onOpen={(id) => void openObject(id)} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}
+        {page === 'objects' && <ShowPage onOpen={openObject} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}
         {page === 'new' && <NewObject onOpen={openObject} />}
         {/* Over the view: a drawing on it for the chat, while its board is open. */}
         <ViewBoard />
