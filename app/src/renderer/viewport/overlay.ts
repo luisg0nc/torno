@@ -331,7 +331,7 @@ const CHIP = { height: 17, pad: 5, radius: 4, font: 11.5, border: 1.5, leader: 1
 const VALUE = { gap: 3, pad: 5, border: 1, hairline: 0.45, failBorder: 2, check: 9, cross: 7, checkGap: 4, weight: 500, stale: 0.45 }
 
 /** The round sign beside a chip (`.sign-disc`, spec "Signs on marks"): an 18 px disc, the sign in the face of numbers, and the room between it and the chip. */
-const SIGN = { size: 18, gap: 3, font: 12, stripe: 2, period: 4, mix: 0.7 }
+const SIGN = { size: 18, gap: 3, font: 12, stripe: 2, period: 4, pale: 0.3, core: 6 }
 
 /** How far a chip of a mark with a sign is wider than without: its disc and the gap after it. */
 const signWidth = (sign: '-' | '+' | undefined, unit: number): number => (sign ? (SIGN.size + SIGN.gap) * unit : 0)
@@ -381,7 +381,8 @@ export function chipSize(ctx: Ctx, unit: number): (text: string, value?: ChipVal
 
 /**
  * The disc of a sign at `x` (its left) and `cy` (its middle): `+` solid in the agent's colour; `-` hatched in the person's, 2 px stripes
- * at 135 degrees with the colour mixed toward the paper between them. The sign is set on it in the colour of paper, as the chips' letters are.
+ * at 135 degrees with the colour mixed 70 % toward white between them, and a solid core of the colour that holds the sign in the colour of paper,
+ * as the chips' letters are (the pale stripes would not hold it).
  */
 function drawSign(ctx: Ctx, sign: '-' | '+', x: number, cy: number, unit: number, colours: Pick<LabelStyle, 'user' | 'agent' | 'paper'>): void {
   const r = (SIGN.size * unit) / 2
@@ -394,7 +395,7 @@ function drawSign(ctx: Ctx, sign: '-' | '+', x: number, cy: number, unit: number
   } else {
     ctx.save()
     ctx.clip()
-    ctx.fillStyle = mixed(colours.user, colours.paper, SIGN.mix)
+    ctx.fillStyle = mixed(colours.user, 'white', SIGN.pale)
     ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r)
     ctx.strokeStyle = colours.user
     ctx.lineWidth = SIGN.stripe * unit
@@ -406,6 +407,10 @@ function drawSign(ctx: Ctx, sign: '-' | '+', x: number, cy: number, unit: number
     }
     ctx.stroke()
     ctx.restore()
+    ctx.beginPath()
+    ctx.arc(cx, cy, SIGN.core * unit, 0, 2 * Math.PI)
+    ctx.fillStyle = colours.user
+    ctx.fill()
   }
   ctx.font = `600 ${SIGN.font * unit}px ${MONO}`
   ctx.fillStyle = colours.paper

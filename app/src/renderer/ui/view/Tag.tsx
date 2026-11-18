@@ -32,6 +32,8 @@ export interface TagProps {
   subjectAt?: () => Vec3 | null
   /** A subject on a flat sheet (a tracing's), in window pixels, asked after every `tagsMoved` in place of `subject`: the view's camera has no say where it is. */
   subjectClient?: () => { x: number; y: number } | null
+  /** A tag with no leader (a mark's note stands at its mark, which has none): it is placed beside its subject as any, and nothing is drawn to it. */
+  leaderless?: boolean
   /** The side it starts on, before it has one of its own. */
   prefer?: Exclude<Side, 'docked'>
   /** Whether it keeps the side it had while that still fits (the default), so that it does not hop as the camera moves; false asks for `prefer` first every frame. */
@@ -50,7 +52,7 @@ export interface TagProps {
  * its side while that still fits. With no subject, or a subject off the view or behind the camera, it docks above the hint
  * and has no leader. Its leader is set through `publishTag`.
  */
-export function Tag({ id, subject, subjectAt, subjectClient, prefer, sticky = true, problem, status, children }: TagProps) {
+export function Tag({ id, subject, subjectAt, subjectClient, leaderless, prefer, sticky = true, problem, status, children }: TagProps) {
   const element = useRef<HTMLDivElement>(null)
   const subjectRef = useRef(subject)
   subjectRef.current = subject
@@ -58,6 +60,8 @@ export function Tag({ id, subject, subjectAt, subjectClient, prefer, sticky = tr
   subjectAtRef.current = subjectAt
   const subjectClientRef = useRef(subjectClient)
   subjectClientRef.current = subjectClient
+  const leaderlessRef = useRef(leaderless)
+  leaderlessRef.current = leaderless
   const side = useRef<Exclude<Side, 'docked'> | undefined>(prefer)
   const place = useRef<() => void>(() => {})
 
@@ -92,7 +96,7 @@ export function Tag({ id, subject, subjectAt, subjectClient, prefer, sticky = tr
       self.style.transform = `translate(${Math.round(placed.box.x)}px, ${Math.round(placed.box.y)}px)`
       self.dataset.side = placed.side
       self.style.visibility = ''
-      publishTag(id, { box: placed.box, side: placed.side, subject: placed.side === 'docked' ? null : at }, { x: pane.left, y: pane.top })
+      publishTag(id, { box: placed.box, side: placed.side, subject: placed.side === 'docked' || leaderlessRef.current ? null : at }, { x: pane.left, y: pane.top })
     }
     place.current()
     const off = onPaneDrawn(() => place.current())

@@ -46,6 +46,15 @@ describe.each([['light', tokens(css.slice(0, dark))], ['dark', { ...tokens(css.s
     expect(contrast(t['--scribe'], t['--dye'])).toBeGreaterThanOrEqual(3)
     expect(contrast(t['--field-edge'], t['--raise'])).toBeGreaterThanOrEqual(3)
   })
+  it('holds the round sign on the solid core of its hatch, and the stripes of the hatch apart from what is between them', () => {
+    // `.sign-disc[data-sign="-"]`: 2 px stripes of --user-mark, between them it mixed 70 % toward white; the `−` sits on a core of --user-mark.
+    expect(contrast(t['--on-mark'], t['--user-mark'])).toBeGreaterThanOrEqual(4.5)
+    const channel = (hex: string, at: number): number => parseInt(hex.slice(at, at + 2), 16)
+    const pale = '#' + [1, 3, 5].map((at) => Math.round(0.3 * channel(t['--user-mark'], at) + 0.7 * 255).toString(16).padStart(2, '0')).join('')
+    expect(contrast(t['--user-mark'], pale)).toBeGreaterThanOrEqual(2)
+    // The plus is on solid --agent-mark.
+    expect(contrast(t['--on-mark'], t['--agent-mark'])).toBeGreaterThanOrEqual(4.5)
+  })
   it('draws the route and the band as hairlines', () => {
     const r = contrast(t['--route'], t['--panel'])
     expect(r).toBeGreaterThanOrEqual(1.15)

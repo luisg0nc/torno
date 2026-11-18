@@ -397,7 +397,7 @@ have landed, that older build, which stands in for the live one until you go bac
 tags tied to them by a leader (`tub volume 28400 → 26000 mm³`, `M3 now passes`, from the numbers of the builds of the turn; `≈` where a volume is not exact): four at most,
 a dimension that changed its verdict first, then the parts whose volume moved most. The rest are in the band's **and N more** (or **What changed**, when there is nothing
 left out), a list that also says what the later build changed (its line) and how the checks and your dimensions moved between the two builds. A tag stands only on
-what the build on show has, and side by side has none. A comparing that did not start from a turn of the chat (a row of the prompts, a build in the history) has no tags,
+what the build on show has, and side by side has none. The tags are only there when the comparing started from a turn of the chat (its **Compare** button), since the numbers are that turn's: a comparing that did not (a row of the prompts, a build in the history) has no tags,
 and only the list. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
 It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
 show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from
@@ -1425,9 +1425,9 @@ When a build is partly wrong, go over it once, marking what you do not want ("th
 and after the next build you say OK or Still wrong to each answer.
 
 - **Want and don't want.** Any mark of yours can say one of them, in a round or not: a round **sign** stands before the chip, in the row, in the view and where the
-  chat names the mark: an 18 px disc with `−` (don't want, hatched in your colour) or `+` (want, solid in Claude's green), then the number, `− M8`, in the face of
+  chat names the mark: an 18 px disc with `−` (don't want, hatched in your colour: stripes with the colour paled 70 % toward white between them, and a solid core that holds the sign) or `+` (want, solid in Claude's green), then the number, `− M8`, in the face of
   numbers (the chip stays square and numbered, so a sign is never taken for who made a mark); a mark that says neither is plain, as before. What you do
-  not want is drawn hatched in your colour and dashed where a mark is a line, what you want is drawn solid; while a round is open the chips of the marks that are not in it are drawn dimmed, mixed toward the ground; the colour is still
+  not want is drawn hatched in your colour and dashed where a mark is a line, what you want is drawn solid; while a round is open the chips of the marks that are not in it are drawn dimmed, mixed toward the ground, and each item of the round (up to six) has a small tag at its point in the view with its sign and its note, and no leader; the colour is still
   yours, so a mark of yours never looks like Claude's. A shape to add is a want and a shape to remove is a don't want, and they say
   so in their chips whether or not a round is open; keep-out and reference shapes say neither. The menu on a row of yours changes
   it at any time (a mark already sent becomes a draft again and is told `(changed)`). The agent's marks are always plain, and

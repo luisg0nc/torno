@@ -77,3 +77,32 @@ export function roundNumber(round: Round, rounds: readonly Round[]): number {
   }
   return count
 }
+
+/** The most notes of a round the view carries at once: more would hide the model. */
+const MOST_NOTES = 6
+/** How much of a note a tag in the view says. */
+const NOTE_CHARS = 60
+
+/** What a round item says in the view, on a tag with no leader: its sign (`intent`) and its note (its number when it has none). */
+export interface RoundNoteTag {
+  id: string
+  intent?: ReviewIntent
+  text: string
+}
+
+/**
+ * The tags of the items of round `roundId` that are in `layout`, in the order of the marks, at most `most`: an item says its sign and its note,
+ * and one with neither (a plain mark with no words) is left out. They stand at the item's point, with no leader (a mark has none).
+ */
+export function roundNoteTags(marks: readonly Mark[], roundId: string, layout: string, most = MOST_NOTES): RoundNoteTag[] {
+  const out: RoundNoteTag[] = []
+  for (const mark of marks) {
+    if (mark.round !== roundId || mark.layout !== layout) continue
+    const intent = markIntent(mark)
+    const note = mark.note.replace(/\s+/g, ' ').trim()
+    if (!intent && note === '') continue
+    out.push({ id: mark.id, ...(intent ? { intent } : {}), text: note === '' ? mark.id : note.length > NOTE_CHARS ? `${note.slice(0, NOTE_CHARS)}…` : note })
+    if (out.length === most) break
+  }
+  return out
+}

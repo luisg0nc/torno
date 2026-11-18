@@ -2,13 +2,30 @@ import { describe, expect, it } from 'vitest'
 import type { HistoryEntry } from '../../../shared/history'
 import type { Mark } from '../../../shared/marks'
 import type { Round } from '../../../shared/reviews'
-import { roundNumber, roundRows } from './rows'
+import { roundNoteTags, roundNumber, roundRows } from './rows'
 
 const CAMERA = { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 } as const
 const round = (over: Partial<Round> = {}): Round => ({ id: 'R1', build: 'h41', sources: 'abc', line: 'check it', layout: 'default', startedAt: '2026-11-17T10:00:00.000Z', endedAt: '2026-11-17T10:05:00.000Z', sentAt: '2026-11-17T10:06:00.000Z', ...over })
 const pick = (id: string, over: object = {}): Mark => ({ id, kind: 'pick', target: 'face', author: 'user', note: '', status: 'sent', anchorState: 'ok', layout: 'default', revision: 1, camera: CAMERA, createdAt: 't', anchor: { point: [0, 0, 0] }, round: 'R1', ...over }) as unknown as Mark
 const entry = (id: string, over: Partial<HistoryEntry> = {}): HistoryEntry => ({ id, at: 't', run: 'r', revision: 1, sources: id === 'h41' ? 'abc' : 'def', model: 'm.py', files: [], parts: 1, seconds: 1, line: '', ...over }) as unknown as HistoryEntry
 const answered = (id: string, over: object = {}): Mark => pick(id, { intent: 'dont', status: 'resolved', resolvedBy: 'agent', resolvedNote: 'removed the rib', ...over })
+
+describe('the notes of a round in the view', () => {
+  it('gives each item of the open round in the layout shown its sign and its note, up to a few, and leaves out one with neither', () => {
+    const items = [pick('M1', { intent: 'dont', note: 'the rib is too tall', status: 'draft' }), pick('M2', { intent: 'want', note: '', status: 'draft' }), pick('M3', { status: 'draft', note: '' }), pick('M4', { intent: 'dont', note: 'x', status: 'draft', layout: 'print' }), pick('M5', { intent: 'dont', note: 'x', status: 'draft', round: 'R2' })]
+    expect(roundNoteTags(items, 'R1', 'default')).toEqual([
+      { id: 'M1', intent: 'dont', text: 'the rib is too tall' },
+      { id: 'M2', intent: 'want', text: 'M2' }
+    ])
+    expect(roundNoteTags(items, 'R1', 'default', 1)).toHaveLength(1)
+  })
+
+  it('cuts a long note to a line', () => {
+    const [tag] = roundNoteTags([pick('M1', { intent: 'dont', note: 'a'.repeat(200) })], 'R1', 'default')
+    expect(tag.text.length).toBeLessThanOrEqual(61)
+    expect(tag.text.endsWith('…')).toBe(true)
+  })
+})
 
 describe('the rows of a round', () => {
   it('gives each item its chip with its sign, its note and what Claude said', () => {

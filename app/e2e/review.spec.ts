@@ -171,7 +171,13 @@ test('a face picked while "don\'t want" is chosen is a mark of the round, with i
   await expect(row.locator('.mark-line > .sign-disc[data-sign="-"]')).toHaveText('−')
   await expect(row.locator('.sign-disc + .mark-chip')).toHaveText('M1')
   await expect(row.locator('.mark-chip')).not.toContainText('−')
-  expect(await row.locator('.mark-line > .sign-disc').evaluate((el) => [getComputedStyle(el).borderRadius, getComputedStyle(el).width, getComputedStyle(el).backgroundImage.startsWith('repeating-linear-gradient')])).toEqual(['50%', '18px', true])
+  expect(await row.locator('.mark-line > .sign-disc').evaluate((el) => [getComputedStyle(el).borderRadius, getComputedStyle(el).width, getComputedStyle(el).backgroundImage.includes('repeating-linear-gradient')])).toEqual(['50%', '18px', true])
+  // While the round is open the item is told in the view too: a tag at its point with the disc and the note, and no leader (a mark has none).
+  const told = page.locator('.viewport-pane [data-tag="round-note-M1"]')
+  await expect(told).toBeVisible()
+  await expect(told).toContainText('nothing holds here')
+  await expect(told.locator('.sign-disc[data-sign="-"]')).toHaveText('−')
+  await expect(page.locator('svg.leader-layer [data-leader="round-note-M1"]')).toHaveCount(0)
   // The pens of the band carry the same discs.
   await expect(bar().locator('.sign-disc')).toHaveCount(2)
   await expect(row).toContainText('in review, not sent')

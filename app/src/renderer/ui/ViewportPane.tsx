@@ -61,6 +61,7 @@ import { Compass } from './view/Compass'
 import { ExplodeTag } from './ExplodeControl'
 import { MeasureTag } from './view/MeasureTag'
 import { SketchPlaneTag } from './sketch/SketchPanel'
+import { RoundNotes } from './review/RoundNotes'
 import { CompareBar } from './CompareBar'
 import { ReviewBar } from './ReviewBar'
 import { FailedBand, SketchBand, useBand } from './view/Band'
@@ -828,6 +829,7 @@ export function ViewportPane() {
           {/* The band at the top left for a mode of the whole view: one shows (`bandOf`). */}
           <ReviewBar />
           <CompareBar />
+          <RoundNotes />
           <SketchBand />
           <FailedBand />
           <ToolPalette />

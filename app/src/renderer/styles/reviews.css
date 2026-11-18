@@ -211,7 +211,8 @@
 
 /*
  * The round sign of what a person says of a mark (ui/SignDisc.tsx): an 18 px disc before the square chip, in the face of numbers.
- * `-` (don't want) is a hatch of the person's colour, 2 px stripes at 135 deg with the colour mixed toward white between them;
+ * `-` (don't want) is a hatch of the person's colour, 2 px stripes at 135 deg with the colour mixed 70 % toward white between them,
+ * and a solid core of the colour that holds the sign, so that `--on-mark` is on `--user-mark` (4.5:1 in both themes, `contrast.test.ts`) and not on the pale stripes;
  * `+` (want) is solid in the agent's. Round and signed against the chip's square and numbered, and the hatch, tell it from authorship.
  */
 .sign-disc {
@@ -226,7 +227,9 @@
 }
 
 .sign-disc[data-sign='-'] {
-  background: repeating-linear-gradient(135deg, var(--user-mark) 0 2px, color-mix(in srgb, var(--user-mark) 70%, var(--on-mark)) 2px 4px);
+  background:
+    radial-gradient(circle, var(--user-mark) 0 6px, transparent 6.5px),
+    repeating-linear-gradient(135deg, var(--user-mark) 0 2px, color-mix(in srgb, var(--user-mark), white 70%) 2px 4px);
 }
 
 .sign-disc[data-sign='+'] {
@@ -240,4 +243,24 @@
   margin-right: 3px;
   font-size: 11px;
   vertical-align: -3px;
+}
+
+/* A round's item told in the view (ui/review/RoundNotes.tsx): its sign and its note on a tag with no leader, at its point. It says, and takes no pointer. */
+.tag[data-tag^='round-note-'] {
+  max-width: 260px;
+  pointer-events: none;
+}
+
+.round-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2) 2px 3px;
+}
+
+.round-note-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
