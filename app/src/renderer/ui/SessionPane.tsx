@@ -19,6 +19,7 @@ import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
 import { clearDrafts, holdDraft } from './chat/Composer'
 import { ModelButton } from './chat/ModelMenu'
+import { modelShown } from './chat/modelWords'
 import { SessionMore } from './SessionMore'
 import { clock } from './sessionClock'
 import { Confirm } from './Confirm'
@@ -777,8 +778,8 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
               <ModelButton sessionId={session.sessionId} model={model} models={chatOf.models} mode={chatOf.meta.permissionMode} effort={chatOf.meta.effort} live={!ended} />
             ) : (
               model && (
-                <span className="session-model num" title="The model of this session">
-                  {model}
+                <span className="session-model num" title={`${model}: the model of this session`}>
+                  {modelShown(model)}
                 </span>
               )
             )}
