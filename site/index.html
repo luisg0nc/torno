@@ -79,7 +79,7 @@
     </svg>
     <ol class="steps">
       <li data-step="0"><h3>You point at the part</h3>
-        <p>Pin a face, measure an edge, draw on the view. Each mark has a ref like <span class="ref">lid/F12</span>
+        <p>Pin a face, measure an edge, sketch in 3D, or review a whole build. Each mark has a ref like <span class="ref">lid/F12</span>
           and a note.</p></li>
       <li data-step="1"><h3>Claude Code edits the model</h3>
         <p>torno sends your prompt with the marks as refs. The agent looks and measures through torno's MCP tools,
@@ -107,20 +107,32 @@
   <h2 id="win-title">The window</h2>
   <picture class="wide">
     <source media="(prefers-color-scheme: dark)" srcset="assets/img/hero-dark.png">
-    <img src="assets/img/hero.png" loading="lazy" width="1600" height="1000" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the projects on the left, the parts in 3D in the middle with a pin and dimensions on them, the chat with Claude Code on the right">
+    <img src="assets/img/hero.png" loading="lazy" width="1600" height="1000" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the parts, checks and marks of the project in a card on the left, the model in 3D in the middle with a pin and dimensions on it, the conversation with Claude Code on the right">
   </picture>
   <div class="shots">
     <figure>
-      <img src="assets/img/marks.png" loading="lazy" alt="A pin and dimensions on a speaker stand, with the Marks list showing two dimensions passing and one failing">
-      <figcaption>Marks. Pins, picks, arrows, strokes and dimensions, each with a note.</figcaption>
+      <div class="frame" style="--zoom:1.9;--x:-38%;--y:-18%"><img src="assets/img/marks.png" loading="lazy" alt="A speaker stand with one pin and three dimensions drawn on it, one of them failing, and the card listing two checks that pass and one that fails"></div>
+      <figcaption>Marks. Pins, picks, arrows, strokes and dimensions, each with a note. A dimension says passes or fails after every build.</figcaption>
     </figure>
     <figure>
-      <img src="assets/img/chat.png" loading="lazy" alt="The chat: a prompt with the marks torno added, the agent calling look and measure, its edit of the model and the build that followed">
-      <figcaption>The chat. Claude Code in its own headless mode, under your login.</figcaption>
+      <div class="frame"><img src="assets/img/chat.png" loading="lazy" alt="The conversation in the dock: the builds strip on top, a prompt with the marks torno added, the agent calling look and measure, its edit of the model"></div>
+      <figcaption>The session. Claude Code under your login, with every build kept in a strip you can compare, star or go back to.</figcaption>
     </figure>
     <figure>
-      <img src="assets/img/export.png" loading="lazy" alt="The export sheet: one HTML file, STEP, STL or 3MF, a picture of the view, or a section drawing">
+      <div class="frame" style="--zoom:1.25;--x:-2%;--y:-4%"><img src="assets/img/export.png" loading="lazy" alt="An exported page open in a browser: the airbox, its parts and its marks, with nothing installed"></div>
       <figcaption>Export. One HTML file anyone can open, or STEP, STL and 3MF.</figcaption>
+    </figure>
+    <figure>
+      <div class="frame" style="--zoom:1.7;--x:-30%;--y:-5%"><img src="assets/img/sketch.png" loading="lazy" alt="A 3D sketch open on the airbox: a hose route drawn on a plane in front of it, with the sketch's panel in the card and the Sketching band at the top of the view"></div>
+      <figcaption>Sketch in 3D. Strokes on a plane or on the parts, in millimetres, to show where something goes.</figcaption>
+    </figure>
+    <figure>
+      <div class="frame" style="--zoom:1.7;--x:-22%;--y:0%"><img src="assets/img/review.png" loading="lazy" alt="A review round open on the airbox: one pin marked as not wanted and one as wanted, each with its sign and note, and the round's items listed in the card"></div>
+      <figcaption>Review a build. Mark what you don't want and what you want, and send it as one round.</figcaption>
+    </figure>
+    <figure>
+      <div class="frame" style="--zoom:1.7;--x:-36%;--y:-10%"><img src="assets/img/tracing.png" loading="lazy" alt="The Tracing view: a flat cut across the airbox laid out on a millimetre grid, with the parts named, a scale bar and a title block"></div>
+      <figcaption>Tracings. A plane of the model at true size, over a photo of the real thing if you have one.</figcaption>
     </figure>
   </div>
 </section>

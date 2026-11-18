@@ -21,6 +21,9 @@ export const COPIED = {
   'assets/img/marks.png': 'docs/images/marks.png',
   'assets/img/chat.png': 'docs/images/chat.png',
   'assets/img/export.png': 'docs/images/export.png',
+  'assets/img/sketch.png': 'docs/images/sketch.png',
+  'assets/img/review.png': 'docs/images/review.png',
+  'assets/img/tracing.png': 'docs/images/tracing.png',
   'assets/img/social-preview.png': 'docs/images/social-preview.png',
   'assets/img/demo.mp4': 'docs/images/demo.mp4',
 }
