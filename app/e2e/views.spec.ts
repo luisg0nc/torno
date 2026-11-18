@@ -231,7 +231,8 @@ test('a pill is a button for the keyboard, and its actions rename it, update it 
 
   // The menu takes the focus, the arrows move in it, Escape gives the focus back and leaves the tool in hand (review M8).
   await page.keyboard.press('p')
-  expect(await tool()).toBe('pin')
+  // The palette shows the tool a frame after the key: read it until it does, not once.
+  await expect.poll(tool).toBe('pin')
   await page.getByRole('button', { name: 'Actions for Scratch' }).click()
   await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeFocused()
   await page.keyboard.press('ArrowDown')
@@ -242,7 +243,7 @@ test('a pill is a button for the keyboard, and its actions rename it, update it 
   await page.keyboard.press('Escape')
   await expect(page.getByRole('menu')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Actions for Scratch' })).toBeFocused()
-  expect(await tool()).toBe('pin')
+  await expect.poll(tool).toBe('pin')
   await page.keyboard.press('Enter')
   await page.keyboard.press('Enter')
   await expect(field()).toHaveValue('Scratch')

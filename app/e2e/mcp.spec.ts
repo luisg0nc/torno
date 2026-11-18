@@ -590,7 +590,9 @@ test('ask puts a card to the user, lights the refs under the pointer, and return
   const first = call(bracket, 'ask', { question: 'Which one do you mean?', options })
   await expect(card).toBeVisible()
   await expect(card.locator('.ask-text')).toHaveText('Which one do you mean?')
-  await expect(card.getByRole('button')).toHaveText(['The top of the base base/F5', 'The post post', 'None of these'])
+  // Each option is a card: its key (1 to 3), the words, the refs; then the way to say something else, and none.
+  await expect(card.getByRole('button')).toHaveText(['1The top of the basebase/F5', '2The postpost', 'Or say what to do instead', 'None of these'])
+  await expect(card.locator('.ask-option .ask-label')).toHaveText(['The top of the base', 'The post'])
   await card.getByRole('button', { name: /The post/ }).hover()
   await expect.poll(() => page.evaluate(() => window.__tornoTest!.peeked())).toEqual(['post'])
   await card.getByRole('button', { name: /The post/ }).click()
