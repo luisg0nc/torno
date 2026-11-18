@@ -140,7 +140,7 @@ test('clicking an object builds it: status ok, revision 1, its parts as layers',
   expect(await layerNames()).toEqual(['base', 'post'])
 
   await expect(status(page)).toContainText('bracket')
-  await expect(status(page)).toContainText('Built in')
+  await expect(status(page)).toContainText(/built in/i)
   await expect(status(page).locator('[data-part="revision"]')).toHaveText('r1')
   await expect(status(page).locator('[data-part="parts"]')).toHaveText('2 parts')
   await expect(status(page)).toContainText(/build123d \d+\.\d+/)

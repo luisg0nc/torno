@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChatItem, PromptRow } from '../../../shared/chat'
 import { chatActions, useChat } from '../../state/chat'
+import { setPromptsInSight } from '../../state/inSight'
+import { type PromptSpan, inSightOf } from '../strip/strip'
 import { actions, useStore } from '../../state/store'
 import { ChatItems } from './Items'
 import { QuestionCard } from '../QuestionCard'
@@ -132,6 +134,39 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
     return () => watching.disconnect()
   }, [])
 
+  // Which prompts show in the transcript, for the bracket of the builds strip: a prompt's stretch is its group and the groups after it up to the next prompt.
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let frame = 0
+    const measure = (): void => {
+      frame = 0
+      const view = el.getBoundingClientRect()
+      const spans: PromptSpan[] = []
+      for (const group of el.querySelectorAll<HTMLElement>('.chat-group[data-id]')) {
+        const at = group.getBoundingClientRect()
+        const number = group.querySelector('[data-kind="user"]') ? numbers.get(group.dataset.id ?? '') : undefined
+        if (number !== undefined) spans.push({ number, top: at.top, bottom: at.bottom })
+        else if (spans.length > 0) spans[spans.length - 1]!.bottom = at.bottom
+      }
+      setPromptsInSight(inSightOf(spans, view.top, view.bottom))
+    }
+    const soon = (): void => {
+      if (frame === 0) frame = requestAnimationFrame(measure)
+    }
+    soon()
+    el.addEventListener('scroll', soon, { passive: true })
+    const sized = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(soon)
+    sized?.observe(el)
+    if (content.current) sized?.observe(content.current)
+    return () => {
+      el.removeEventListener('scroll', soon)
+      sized?.disconnect()
+      if (frame !== 0) cancelAnimationFrame(frame)
+      setPromptsInSight([])
+    }
+  }, [numbers, items, earlier, earlierRead, promptsOpen])
+
   const toEnd = (): void => {
     atEnd.current = true
     setBehind(false)
@@ -143,19 +178,9 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
     <AskSession.Provider value={sessionId}>
     <ChatPlace.Provider value={place}>
     <div className="chat" data-session={sessionId}>
-      <div className="chat-head">
-        <span className="view-switch" role="group" aria-label="Show">
-          <button type="button" className="button button-quiet" aria-pressed={!promptsOpen} title="The conversation" onClick={() => actions.setPromptsOpen(false)}>
-            Chat
-          </button>
-          <button type="button" className="button button-quiet" aria-pressed={promptsOpen} title="One row for each prompt of this project, across its conversations" onClick={() => actions.setPromptsOpen(true)}>
-            Prompts only
-          </button>
-        </span>
-      </div>
       <div className="chat-scroll">
         {/* Over the transcript, which stays as it was scrolled to and is not reachable meanwhile. */}
-        {promptsOpen && <PromptsOnly rows={rows} current={current} onOpen={openInChat} />}
+        {promptsOpen && <PromptsOnly rows={rows} current={current} onOpen={openInChat} onClose={() => actions.setPromptsOpen(false)} />}
         <div
           className="chat-transcript"
           ref={box}

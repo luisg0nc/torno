@@ -136,8 +136,9 @@ function summary(rows: readonly PromptRow[], builds: number): ReactNode {
  * main) joined to its builds (`useHistory`) by what main labelled each build with. Filters: Starred, Hide gone back.
  * `current`: the conversation the chat shows. `onOpen`: where a row is opened in the chat (not in a terminal's pane).
  * `goBack`: each prompt that built something has "Go back to before this prompt" (a terminal's pane has no turn to put it on).
+ * `onClose`: over the chat, where the dock's More menu opened it, a "Close" in its head puts it away (the terminal's pane has its own).
  */
-export function PromptsOnly({ rows, current, onOpen, goBack }: { rows: PromptRow[] | undefined; current?: string; onOpen?: (row: PromptRow) => void; goBack?: boolean }) {
+export function PromptsOnly({ rows, current, onOpen, goBack, onClose }: { rows: PromptRow[] | undefined; current?: string; onOpen?: (row: PromptRow) => void; goBack?: boolean; onClose?: () => void }) {
   const objectId = useStore((s) => s.objectId)
   const history = useHistory(true)
   const blocked = useStore((s) => (s.section !== null ? 'Take the section away first: an earlier build is not drawn cut.' : explodeNow(s) !== null ? 'Put the parts together first: an earlier build is not drawn apart.' : null))
@@ -181,6 +182,11 @@ export function PromptsOnly({ rows, current, onOpen, goBack }: { rows: PromptRow
         <button type="button" className="button button-quiet" aria-pressed={hideGone} title="Leave out the prompts you went back from" onClick={() => setHideGone(!hideGone)}>
           Hide gone back
         </button>
+        {onClose && (
+          <button type="button" className="button button-quiet" onClick={onClose}>
+            Close
+          </button>
+        )}
       </div>
       <div className="prompts-scroll">
         {rows !== undefined && rows.length === 0 && <p className="chat-empty">No prompt has been sent in this project yet.</p>}

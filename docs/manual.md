@@ -378,8 +378,8 @@ traceback.
 the Python files it was made from, its parts' numbers, and a small picture. A kept build has an id of its own, `h41`,
 which goes on counting across runs of torno; the revision (`r3`) is of one run and is told beside it. The latest 100
 are kept, and every one you star. A build that fails the model's own checks is kept too, marked: it is often the one
-to compare against. A rebuild of sources the newest kept build was made from is not kept again. **History** in the status line opens
-**Prompts only** (in **More**), which is also the chat's own toggle (`Chat | Prompts only`): one row for each prompt of the project, newest first, across
+to compare against. A rebuild of sources the newest kept build was made from is not kept again. **Prompts only** (in the session's **More** menu) is
+the history as a list, put away again by its **Close**: one row for each prompt of the project, newest first, across
 every conversation of it as one thread, with a quiet line where a conversation began. A prompt has one number wherever it is shown (a turn
 of the chat, a row, `comparing prompt 14` in the status line), counted from 1 across the project by the time it was said. A row is the number, the
 picture of the prompt's last build, what you said cut to a line, and under it the builds it went through (`h40 → h41`), what they came to
@@ -388,6 +388,19 @@ in a word (`passes`, `2 failed on the way`, `build failed`, `starred`, `gone bac
 prompts with a starred build, **Hide gone back** leaves out the ones you went back from. Click a row to compare it (below), double-click it, or **Open in chat**, to read it in the chat where it was said.
 The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
 is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
+
+**The builds strip.** On top of the session pane, in the chat, in the terminal and with no session, a strip holds the builds the history keeps, oldest at
+the left and the newest at the right. Its head line says "Builds of *name*", how many are kept, and what a pick does now ("Pick one to compare, star or go
+back", "A build is running", "h40 is still on show", "Your review is of h41", "Exporting the build on show, h41"). A node is the picture kept with the build, its
+id, and a muted line: the prompt it was made for (`prompt 14`), `you saved` in your own colour for a save of yours in your editor, `on show` in the accent for the
+build the view draws, or `reviewing` for the build an open round is of; a starred build has a star at the corner of its picture. A build that failed is a hatched node
+that says `failed`, over "after h40"; the build that runs is an outlined node with its seconds, over "building". Under the nodes of the prompts you can see in the
+chat a bracket says which ones ("prompt 14, in sight below") and follows the chat as you scroll it. The strip scrolls sideways, with the wheel too, and keeps the
+build on show in sight; a build that lands slides in. When the session pane is under 640 px high the strip folds to its head line and a row of ticks. A build that
+runs while none has landed, a project with no build kept yet and a history of dozens are drawn the same way.
+
+In the status line the last eight builds are a row of ticks after the project's name: the build on show taller and in the accent, a failed one in red, your own saves
+in your colour, a running build outlined. The line says how the build on show went: "h41 built in 51 s".
 The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are in the menu of the dots on the turns of the chat.
 What a kept build had then (checks that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands now.
 **Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
@@ -728,18 +741,24 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   box, "Goes with your next prompt" says what will go. A prompt that carried a review says `review R1 sent`, and one sent
   while a round waits says `R1 is in review, not sent`; the marks of a round that was not sent are not among what goes (see [Reviews](#reviews)).
 - **The build an edit started.** When the agent edits the model, the build that
-  follows is a line of its own under the edit's card: `Built r2 · ok · 1.2 s`,
-  or `Build after r2 failed: NameError: name 'WAL' is not defined` in the fail
-  colour (the last line of the traceback), with "Show error" opening the sheet of that
-  failure while it is the latest build. Under it, the dimensions whose verdict
-  that build changed (`M3 now passes`, `M2 now fails`) and the parts it changed,
-  a line each as the kernel said them (`tub: volume 14710 → 20460 mm³ (+5752, +39
-  %)`, with `≈` where the number is not exact), four at most. "Show text" opens
-  the exact text the agent was given. A revision names a build that worked: a
-  failure has no number of its own, and is told as the build after the one still
-  on show (the first build, when none has worked), in the window and in what
-  the agent is told. Once a build has failed, the chip of the build still on
-  show opens the same sheet.
+  follows is a slip of its own under the edit's card, on the surface. Its head
+  says `Built h41 ok 51 s` (the build as the history names it, `r2` until it
+  has it), or `The build after h40 failed` in the fail colour, with the last
+  line of the traceback under it in the monospace face on the fail wash and
+  "Show error" opening the sheet of that failure while it is the latest build;
+  "Show text" is at the right of it. Under the head, each dimension whose
+  verdict that build changed has a row (`M3 tub wall 2.8 → 3 mm now passes`,
+  `M2 now fails`), and the parts it changed are a table: the part, its volume on
+  the build before, on this build, and the change (`+6.3 %`), the biggest
+  change first, with `≈` where a number is not exact. The new volumes count up
+  from the old ones once, in a moment, and show at once when your system asks
+  for less motion. Six parts at most; the rest are "3 more changed", a click
+  unfolds them, and "5 parts did not change" says how many stood. "Show text"
+  opens the exact text the agent was given. A revision names a build that
+  worked: a failure has no number of its own, and is told as the build after
+  the one still on show (the first build, when none has worked), in the window
+  and in what the agent is told. Once a build has failed, the chip of the build
+  still on show opens the same sheet.
 - **What the agent pulled from torno.** Every tool of torno's it calls is a card
   of its own, with its input, its result and its pictures as thumbnails that
   open large; the turn ends with a line such as "Pulled from torno: scene, 2
@@ -787,14 +806,11 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   without its text. The button is there when the agent's edit tools changed a
   `.py` file; the sheet then lists every file that differs, a change made by a
   command (`sed`, a script) too.
-- **The builds of a turn.** Under a turn's account, when the prompt made builds, a strip of small pictures: the build
-  the prompt began from (dashed), the builds it made and the last one, each with its id (`h41`); a build that failed
-  says so in place of its picture. Beside it, what they did, from what each build kept: the parts that changed, the
-  checks of the model that began or stopped to pass, the builds that failed on the way. The turn ends with "Done in
-  58 s" and what it did, and at its right the buttons of the turn: **See changes**, **Compare** (draws the last build over the
-  one the prompt began from, as "Compare" below does; it reads "Comparing" while it is on and puts it away again), and the
-  dots, a menu with **Go back to before this prompt**, **Star** (keeps the last build: a starred build is never let go; **Unstar**
-  takes it away) and **Pin to board**.
+- **The builds of a turn.** The builds a prompt made are on the builds strip on top of the session pane (see Projects and builds), no
+  longer under the turn's account. The turn ends with "Done in 58 s" and what it did, and at its right the buttons of the turn: **See changes**,
+  **Compare** (draws the last build over the one the prompt began from, as "Compare" below does; it reads "Comparing" while it is on and puts it
+  away again), and the dots, a menu with **Go back to before this prompt**, **Star** (keeps the last build: a starred build is never let go;
+  **Unstar** takes it away) and **Pin to board**.
 - **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
   `common/fillets.py` in your editor · `h39`" for a build your own save made, "You tried `wall` · `h40`" for the
   Params you tried. Several in a row, with no prompt between, are one line ("You saved 3 times in your editor ·
@@ -1143,8 +1159,8 @@ M4 thickness 2 mm wall, along the normal, tub/F2 at (30, 0, -10) (expected 3 ± 
   build (see below): it is asked
   to mend the model or to say why that is meant. A change of volume alone never
   does.
-- The chat shows it under the edit's card (the build line: the parts that
-  changed, the dimensions that changed verdict), the whole text behind "Show text",
+- The chat shows it under the edit's card (the build slip: the dimensions that
+  changed verdict, and the parts that changed as a table of volumes, from the digest's numbers), the whole text behind "Show text",
   and `state.md` carries it under the build. It is not told with a prompt.
 
 When Claude Code would stop, torno holds it back for what the turn itself did:
@@ -2841,7 +2857,7 @@ On the screen:
   the running process? What does it do to the conversation, and to a file changed by `Bash` or a subagent, which it
   does not track? Write the answers in issue #131: if the files and the conversation both come out right, the button
   can use it and be exact; if not, the asked undo stays (torno's own restore, from the copies under `.torno/history/`, does not need it).
-- **Prompts only.** Send Claude Code a few prompts that edit the model, then open **History** in the status line: one row for each
+- **Prompts only.** Send Claude Code a few prompts that edit the model, then open **Prompts only** from **More** in the session pane: one row for each
   prompt, newest first, in the pane of the chat, each with a picture of the project as it was after it, legible in light and dark, its
   number and `h40 → h41` in the face of numbers. A click compares the prompt (a band with Before, Overlay, After and Side by side at the top left of the view, two boxes over the corners,
   `comparing prompt 14 · h40 → h41` in the status line; **Back to the live build** or `Esc` ends it), a double click opens it in the chat. Start a new session, send a prompt, and check
@@ -2878,7 +2894,7 @@ On the screen:
 - **The Marks panel's resolve glyph, review walk and undo line.** The glyph on a row, "To review" stepped through one mark at a time, and the line that undoes a delete: each in its place, legible in both themes.
 - **The Checks section and its gauges.** One list of the model's checks and your dimension checks: the rows (chip or bar, name, the word of how it stands, value and wanted) and the 64 px gauge read at a glance in both themes, the failing row's wash and a row lit from the view are told apart, and a tick that moved slides once.
 - **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the pane and are legible in both themes.
-- **The turn summary, its builds and its buttons.** After a turn, the summary line, the strip of pictures of its builds (the dashed start, a failed build, the pictures themselves, which a test never sees), the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
+- **The turn summary and its buttons.** After a turn, the summary line, the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.
 - **The doodle board's grid.** The grid is faint on the board in light and dark, and is not in the PNG Claude gets.
 - **The board of a new project.** Make a project from a page with photos, a doodle, a few sizes, rules, a link and a PDF: it opens on its board, with a frame for each (Brief, Photos, Doodles, Sizes, Rules, Links, PDFs) laid left to right, nothing over anything else, legible in light and dark, and the cards of a frame sit inside it when the board is zoomed out to the whole.
@@ -2890,7 +2906,8 @@ On the screen:
 - **The sources line of Parameters.** A field's source word is shown after its comment, in the monospace face, and "no source" is quiet.
 - **The rail and its badges.** Press each of the eight icons of the index: the card scrolls to its section and opens it, each icon's tip reads at once on hover and on keyboard focus, Projects pressed on the page of projects is a dyed tile, and the drawn icons are of one weight and distinct at their size, in both themes. The badges (the parts switched off, the checks that fail, the scans not aligned, the marks to review) and the dot of a session that waits read at a glance on the rail, and the rail stays in its place in a narrow window.
 - **Compare in all four modes.** Compare a turn, a row and an older build with **Before**, **Overlay**, **After** and **Side by side**: the grey translucent earlier build over the later one, each build alone in its part colours, one camera for both halves, the two boxes over the corners, the bar and the status line (`comparing prompt 14 · h40 → h41`) legible in both themes and clear of the view bar. Tests drove them in the hidden window and never looked. Compare a turn while newer builds land: the older build is drawn in the live one's place and the view says so; check it reads as the live build, not as a second model. An older build is built again from its copy (tested against the real kernel on small models in a temporary folder): on a real project, how long the wait is, and that `Building h40 to compare…` is shown while it runs.
-- **Prompts only and Earlier conversations.** The toggle in the chat's head (`Chat | Prompts only`) and the History button: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.
+- **Prompts only and Earlier conversations.** **Prompts only** in More, and **Close** on the list: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.
+- **The builds strip, by eye.** On top of the session pane in the chat, the terminal and with no session: the pictures of the builds (which a test never sees), the 2 px ring on the one on show, the hatch of a failed build, the outline and seconds of the running one, the bracket under the prompts in sight as you scroll the chat, a build sliding in, the fold when the pane is short, and the ticks in the status line, in both themes and in a narrow dock. With forty builds the strip scrolls sideways and the build on show stays in sight.
 - **Go back's question.** On a turn after a prompt that edited the model: the list of files to write, to delete, to leave alone and changed since, the Params, and the prompts undone, in the monospace face for names and numbers; then "Go back" puts the files back in your own editor and folder (it was only tried on temporary folders), the note in the chat and the faded row appear, and the next prompt tells Claude. With no copy kept, the sentence about asking Claude instead.
 - **The edge of the card.** The line between the route card and the view drags without lag and keeps its place at start.
 - **A review, by eye.** Make a round with a pick and a shape you do not want and a 3D sketch you want, on a high-resolution screen and on an ordinary one, in both themes: the hatch of what you do not want reads as stripes in your colour and not as noise, the dashes of a stroke are clear, `−` and `+` are legible in the chips, the bar under the view's buttons and the round's panel in the card's head sit well with Compare drawn beside them, and the panel does not cover what it is about. The panel does not close with `Esc`. The real Claude Code is yet to be seen answering a review item by item.

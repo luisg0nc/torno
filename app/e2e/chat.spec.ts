@@ -368,14 +368,18 @@ test('the build an edit started is a build under the edit: that it worked and ho
   await expect(composer()).toBeEnabled()
   await say('edit hollow.py "wall: float = 2" "wall: float = 3"')
   const built = chat().locator('.chat-build').first()
-  await expect(built).toContainText('Built r2 · ok', { timeout: 30_000 })
+  // The build is named as the history names it (h41) once the history has it, as its revision (r2) until then.
+  await expect(built).toContainText(/Built (r2|h\d+) ok/, { timeout: 30_000 })
   await expect(built.locator('.chat-build-head')).toContainText(/\d s$/)
   // Not what torno adds to a prompt: a build, under the card of the edit.
   await expect(built.locator('.chat-added-label')).toHaveCount(0)
   await expect(chat().locator('.chat-group', { has: page.locator('.chat-tool') }).last().locator('.chat-build')).toHaveCount(1)
   // The dimension the edit mended, as a chip and a word; the part it changed, as the kernel said it.
   await expect(built.locator('.chat-build-dimensions li', { hasText: 'M4' })).toContainText('now passes', { timeout: 15_000 })
-  await expect(built.locator('.chat-build-parts li').first()).toContainText('tub: ')
+  // The part it changed is a row of the table, with its volume before and now, and the change.
+  await expect(built.locator('.chat-build-table thead')).toContainText('Volume, mm³')
+  await expect(built.locator('.chat-build-table tbody tr').first()).toContainText('tub')
+  await expect(built.locator('.chat-build-table tbody tr').first().locator('td.num')).toHaveCount(3)
   // Nothing of the text the agent got is drawn until it is asked for, and then it is whole.
   await expect(built.locator('.chat-added-text')).toHaveCount(0)
   await built.getByRole('button', { name: 'Show text' }).click()
@@ -385,7 +389,8 @@ test('the build an edit started is a build under the edit: that it worked and ho
 
   await say('edit hollow.py "return {" "return WAL, {"')
   const failed = chat().locator('.chat-build').last()
-  await expect(failed).toContainText("Build after r2 failed: NameError: name 'WAL' is not defined", { timeout: 30_000 })
+  await expect(failed).toContainText(/The build after (r2|h\d+) failed/, { timeout: 30_000 })
+  await expect(failed.locator('.chat-build-error')).toHaveText("NameError: name 'WAL' is not defined")
   await expect(failed.locator('.chat-build-head')).toHaveAttribute('data-verdict', 'failed')
   await failed.getByRole('button', { name: 'Show error' }).click()
   await expect(page.getByRole('dialog', { name: 'Build error' })).toContainText("name 'WAL' is not defined")
@@ -404,7 +409,7 @@ test('the build an edit started is a build under the edit: that it worked and ho
   await page.keyboard.press('Escape')
   // Mended: the failure's line has no sheet to open any more.
   await say('edit hollow.py "return WAL, {" "return {"')
-  await expect(chat().locator('.chat-build').last()).toContainText('Built r3 · ok', { timeout: 30_000 })
+  await expect(chat().locator('.chat-build').last()).toContainText(/Built (r3|h\d+) ok/, { timeout: 30_000 })
   await expect(failed.getByRole('button', { name: 'Show error' })).toHaveCount(0)
 })
 
@@ -451,17 +456,16 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   await say('edit hollow.py "wall: float = 4" "wall: float = 5"')
   await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
   const end = turns().last()
-  // The build the prompt began from and the one it made, a picture frame each, and the four buttons.
-  const strip = end.locator('.turn-builds')
-  await expect(strip.locator('.turn-thumb')).toHaveCount(2, { timeout: 15_000 })
-  await expect(strip.locator('.turn-thumb[data-start]')).toHaveCount(1)
+  // The buttons; the builds are the strip's, on top of the dock: the build the prompt began from and the one it made are its last two nodes.
   for (const name of ['Compare', 'See changes', 'More for this turn']) await expect(end.getByRole('button', { name, exact: true })).toBeVisible()
   // What the dots hold: Go back, Star and Pin.
   await moreItem(end, GO_BACK)
   for (const name of [GO_BACK, 'Star', 'Pin to board']) await expect(end.getByRole('menuitem', { name, exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(end.getByRole('menu')).toHaveCount(0)
-  const ids = await strip.locator('.turn-thumb').evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))
+  const nodes = dock().locator('.strip-node[data-kind="built"]')
+  await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
+  const ids = (await nodes.evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))).slice(-2)
 
   // Compare: the last build over the one the prompt began from, for this prompt's number; again puts it away.
   await end.getByRole('button', { name: 'Compare', exact: true }).click()

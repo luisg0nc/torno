@@ -128,18 +128,6 @@ export const saveWords = (run: SaveRun): string => saveParts(run).map((p) => p.t
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
 
-/** The builds of a turn in the strip: where it began and every build, or, past `MOST_THUMBS`, the first and the last of them with the count between. */
-export type StripItem = { kind: 'build'; entry: HistoryEntry; start?: true } | { kind: 'more'; count: number }
-
-/** The most pictures a strip holds. */
-export const MOST_THUMBS = 5
-
-export function stripOf(j: JoinedTurn): StripItem[] {
-  const all: StripItem[] = [...(j.from ? [{ kind: 'build' as const, entry: j.from, start: true as const }] : []), ...j.entries.map((entry) => ({ kind: 'build' as const, entry }))]
-  if (all.length <= MOST_THUMBS) return all
-  return [...all.slice(0, 2), { kind: 'more', count: all.length - 4 }, ...all.slice(-2)]
-}
-
 /**
  * What the builds of a turn did, in short phrases, from what each build kept (never worked out again): the parts they
  * changed, the checks of the model that began or stopped failing between where the turn began and where it ended, the

@@ -3,6 +3,8 @@ paths:
   - "app/src/renderer/ui/AskToCommit.tsx"
   - "app/src/renderer/ui/AskToCommit.test.ts"
   - "app/src/main/history.ts"
+  - "app/src/renderer/ui/strip/*.ts"
+  - "app/src/renderer/ui/strip/*.tsx"
   - "app/src/main/history.test.ts"
   - "app/src/main/buildlog.ts"
   - "app/src/main/buildlog.test.ts"
@@ -107,8 +109,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## History of builds (`app/src/renderer`)
 
-- **Prompts only** is the history of the project, in the session pane (`ui/chat/PromptsOnly.tsx`; the old `HistorySheet` is gone). **History**
-  in the status line (`BuildStatus`, `status-history`) and the chat head's `Chat | Prompts only` toggle (`ChatPane`, the group `Show`) are
+- **Prompts only** is the history of the project, in the session pane (`ui/chat/PromptsOnly.tsx`; the old `HistorySheet` is gone). **Prompts only** in the
+  session's More menu (`SessionMore`) and the "Close" in the head of the list over the chat (`PromptsOnly`'s `onClose`, which `ChatPane` gives) are
   the one flag `store.promptsOpen` (`actions.setPromptsOpen`, which also shows the dock; of the open object, so another one starts at the chat).
   In the chat it is drawn over the transcript (`.prompts`, absolute inside `.chat-scroll`), which keeps its scroll and is `inert` meanwhile; where
   the chat is not (a terminal session, or no session yet) `SessionPane` draws `PromptsPane` over the session area (`.session-prompts`, with Close).
@@ -150,3 +152,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   and `failing`). A comparing that did not start from a turn has no tags, only the list. Tags take no pointer. For display only: no bounds tree, a ray finds nothing, it is
   hidden for a picture (`hideGizmo`), and nothing is measured, marked or written from it. A live build landing does not end it; another object, another layout, a
   section or an explode does. It is not the ghosts of a build that landed (`ghosts.ts`, a moment, edges only). `__tornoTest.earlier()` and `compare()` are for tests.
+
+## The builds strip (`app/src/renderer/ui/strip`)
+
+- `BuildsStrip` is on top of the dock under the header, in every mode (`SessionPane`: chat, terminal, no session; not while a new project is drafted), over
+  `useStripNodes` (`useHistory`, `usePrompts` for the numbers of prompts, the build state, the open round of `state/review`). The rules are `strip.ts`, pure
+  and held by `strip.test.ts`: `stripNodes(history, live, numbering)` (oldest to newest: every kept build, a failed one `after` the build before it, a failure the history
+  has not kept yet as one more node, the build that runs last; `by` is `prompt 14`, `you saved`, `you tried`, `went back`, `earlier`), `bracketOf(nodes, promptsInSight)`,
+  `stripFolded` (`STRIP_FOLD_BELOW` 640 of dock height, measured by the strip on its `.dock`), `ticksOf` (the last eight, the build on show kept among them),
+  `stripSays` (the head line's right side) and `inSightOf`. A node is a button: its click goes to the `onPick(node, anchor)` the owner gave; the strip draws and decides nothing.
+- The build on show is the kept build of this run whose revision is the store's `build.revision` (`useStripNodes`). The prompt number of the running build is the last
+  prompt's, only while a session works. The bracket follows the chat: `ChatPane` measures each prompt's stretch of the transcript (`.chat-group[data-id]` with a `user`
+  item, then the groups up to the next prompt) on scroll and resize, and tells `state/inSight`. Nothing draws per frame in React: a rAF measures, the store takes a changed list only.
+- The status line's ticks (`BuildStatus`, `.status-ticks`) are `ticksOf` of the same nodes; they replace the History button, and "h41 built in 51 s" names the build on show.

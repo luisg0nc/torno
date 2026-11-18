@@ -10,7 +10,6 @@ import { Popover } from '../Popover'
 import { useMenu } from '../useMenu'
 import { pinToBoard } from '../projectBoard/pin'
 import type { JoinedTurn } from './historyJoin'
-import { TurnBuilds } from './TurnBuilds'
 import { UndoableTurn } from './turnContext'
 import { isEmpty, summaryParts, type TurnAccount, type TurnSummary } from './turnSummary'
 
@@ -196,7 +195,6 @@ export const TurnEnd = memo(function TurnEnd({ item, account, joined }: { item: 
         </TurnActions>
       </div>
       {pulled && <p className="chat-turn-line chat-turn-pulled">{numbered(pulled)}</p>}
-      {joined && <TurnBuilds joined={joined} />}
     </div>
   )
 })
