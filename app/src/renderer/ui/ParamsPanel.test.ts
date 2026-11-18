@@ -102,6 +102,19 @@ describe('the body of the Parameters section', () => {
     expect(name).toContain('<span class="param-value num">&quot;tray&quot;</span>')
   })
 
+  it('has a gauge at the right of a row whose field has a range in its metadata, and none on a row without one', () => {
+    store.setState({ scene: scene(OFFERED), column: COLUMN_DEFAULT })
+    const out = html()
+    // The value the build used, against the range the model gave: 2.4 of 1 to 5.
+    expect(out.match(/<svg class="gauge"/g)).toHaveLength(1)
+    const wall = out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="ribs"'))
+    expect(wall).toContain('<svg class="gauge"')
+    expect(wall).toContain('aria-label="2.4, inside 1 to 5"')
+    expect(out.slice(out.indexOf('data-param="ribs"'))).not.toContain('class="gauge"')
+    store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
+    expect(html()).not.toContain('class="gauge"')
+  })
+
   it('says a row is built with a value other than the file’s, with a Reset, and offers to bake it in', () => {
     store.setState({ scene: scene(OFFERED), column: COLUMN_DEFAULT, objectId: 'o', sessions: { o: { sessionId: 's', status: 'idle', view: 'chat' } } })
     const out = html()

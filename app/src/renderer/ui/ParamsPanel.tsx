@@ -8,6 +8,7 @@ import { numbered } from './numbered'
 import { sourceCount } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
 import { PinButton } from './projectBoard/PinButton'
+import { Gauge } from './card/Gauge'
 
 /**
  * The model's `Params`, as the kernel read them at the last build: a row for each field, in the model's order, with
@@ -149,6 +150,12 @@ function ParamItem({ row, canInsert, set, reset }: { row: ParamRow; canInsert: b
         <div className="param-button" aria-description={`${row.title}. Start a session to put ${row.text} in its prompt`} title={row.title}>
           {body}
         </div>
+      )}
+      {/* Inspector A's gauge, for a number whose model says its range: the value the build used, against least and most. */}
+      {typeof current === 'number' && row.range.min !== undefined && row.range.max !== undefined && row.range.min < row.range.max && (
+        <span className="param-gauge">
+          <Gauge value={current} lo={row.range.min} hi={row.range.max} />
+        </span>
       )}
       {current !== null && (
         <div className="param-edit">

@@ -68,6 +68,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the line "Not all in view" in its row's detail from `store.scansClipped`, which
   the viewport sets with every view it reports, and `reaches beyond the
   view: not all of it is drawn` in a picture's caption).
+- **Import scan…** is `ImportScan` (`ui/ScansPanel.tsx`), the `action` of the Scans section's `CardSection`: at the right of the head's line, beside the head's button and not in it (`.route-head-action`, `card-misc.css`), so it stays there while the section is folded, and is off while a scan is read.
 - A scan's row (`ScanRow` in `ui/ScansPanel.tsx`) is one line, as a layer's: id, name (`.row-name`, whole with
   its source in the `title`), a dot while how it was read is a guess, its state in one word, the opacity on
   hover, the eye, and the arrow that opens its detail beneath it (`.scan-detail`; one open at a time, the

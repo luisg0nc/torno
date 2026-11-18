@@ -31,9 +31,9 @@ test.beforeAll(async () => {
     '    # Room left round the post, 0.2 mm at least',
     '    gap: float = 0.123456',
     '    inner: float = 40 - 2 * 2  # Worked out from side and wall',
-    '    ribs: int = 4'
+    "    ribs: int = field(default=4, metadata={'min': 1, 'max': 8})"
   ].join('\n')
-  const written = source.replace(/    side: float = 40\n    wall: float = 2\n/, `${fields}\n`)
+  const written = source.replace(/    side: float = 40\n    wall: float = 2\n/, `${fields}\n`).replace('from dataclasses import dataclass', 'from dataclasses import dataclass, field')
   expect(written).not.toBe(source)
   writeFileSync(model, written)
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
@@ -101,6 +101,23 @@ test('a row has the name and the value in the monospace face, the comment as wri
   // The face of the numbers: the monospace one, a name of a field too.
   expect(await face('.left .param-name')).toBe(await face('.left .param-value'))
   expect(await face('.left .param-doc')).not.toBe(await face('.left .param-value'))
+})
+
+test('a field with a range in its metadata has a gauge at the right of its row, and a field without one has none', async () => {
+  const gauge = section().locator('[data-param="ribs"] svg.gauge')
+  await expect(gauge).toHaveCount(1)
+  await expect(gauge).toHaveAttribute('aria-label', '4, inside 1 to 8')
+  expect(await gauge.evaluate((el) => `${el.getBoundingClientRect().width} x ${el.getBoundingClientRect().height}`)).toBe('64 x 16')
+  // At the right of its row: its right edge is within the card's padding of the row's.
+  const edges = await section().locator('[data-param="ribs"]').evaluate((li) => ({ row: li.getBoundingClientRect().right, gauge: li.querySelector('svg.gauge')!.getBoundingClientRect().right }))
+  expect(edges.row - edges.gauge).toBeLessThan(16)
+  await expect(section().locator('[data-param="side"] svg.gauge')).toHaveCount(0)
+  await expect(section().locator('svg.gauge')).toHaveCount(1)
+})
+
+test('the head of the Print profile says what the project is made for, also while folded', async () => {
+  await foldSection(page, 'Print profile')
+  await expect(cardSection(page, 'Print profile').locator('.route-said')).toHaveText('none')
 })
 
 test('with no session running the rows are text, and say why', async () => {

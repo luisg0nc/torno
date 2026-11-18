@@ -31,6 +31,29 @@ function convertScan(objectId: string, id: string, as: { unit: ScanUnit; up: Sca
   return asked(objectId, window.torno.scans.convert(objectId, id, as))
 }
 
+/** **Import scan…**, in the head of the Scans section: it asks for the file, and is off while one is still being read. */
+export function ImportScan() {
+  const objectId = useStore((s) => s.objectId)
+  const importing = useStore((s) => s.importing)
+  if (!objectId) return null
+  return (
+    <button
+      type="button"
+      className="button button-quiet route-head-action"
+      title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'}
+      disabled={importing !== null}
+      onClick={() => {
+        void window.torno.scans.pick().then(
+          (path) => path !== null && importScan(objectId, path),
+          () => {}
+        )
+      }}
+    >
+      Import scan…
+    </button>
+  )
+}
+
 /**
  * The scans of the open object, below the layers: surroundings the parts are
  * looked at in. A row is one line, as a layer's: which scan, whether it is
@@ -53,18 +76,8 @@ export function ScansPanel() {
   if (!objectId) return null
   const askingOf = askingId === null ? undefined : scans.find((scan) => scan.id === askingId)
 
-  const pick = async (): Promise<void> => {
-    const path = await window.torno.scans.pick().catch(() => null)
-    if (path !== null) importScan(objectId, path)
-  }
-
   return (
     <div className="section scans">
-      <div className="route-tools">
-        <button type="button" className="button button-quiet" title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'} disabled={importing !== null} onClick={() => void pick()}>
-          Import scan…
-        </button>
-      </div>
       {/* What main found wrong with the scans file of this object. */}
       {problem !== null && (
         <p className="scans-line selectable" role="status" data-part="problem">

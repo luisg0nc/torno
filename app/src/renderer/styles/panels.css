@@ -88,7 +88,24 @@
 
 /* A field of the model's Params: its name and default on a line, its comment under, and that the default is worked out in the model. Text where no session can take it, a button where one can. */
 .param-row {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.param-row > * {
+  grid-column: 1 / -1;
+}
+
+/* The gauge of a field with a range stands at the right of the first lines of its row, 8 px in from the card's edge. */
+.param-row > .param-button {
+  grid-column: 1;
+}
+
+.param-row > .param-gauge {
+  grid-column: 2;
+  grid-row: 1;
+  padding-right: var(--space-2);
 }
 
 .param-button {
