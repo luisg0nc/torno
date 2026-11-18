@@ -37,7 +37,7 @@ import { routePointer, staleMessage, type Tool, type ToolContext } from '../tool
 import { chipSays, markChips } from '../tools/markChips'
 import { Readout } from '../viewport/highlight'
 import { labelText } from '../viewport/marks/labels'
-import { NARROW_BELOW } from '../viewport/overlay'
+import { NARROW_BELOW, bindPane } from '../viewport/overlay'
 import { meshOf } from '../viewport/scans'
 import { Viewport } from '../viewport/Viewport'
 import { AgentLine } from './AgentLine'
@@ -784,8 +784,11 @@ export function ViewportPane() {
     const offDrop = acceptDrops(pane)
     // The first time the person moves the camera, the pointer hint at the foot of the view is done with.
     made.onNavigated(pointerMoved)
+    // The tags of the tools stand in this view: where they put themselves follows its camera.
+    const unbindPane = bindPane(made.paneProjection())
     setViewport(made)
     return () => {
+      unbindPane()
       offDrop()
       sized.disconnect()
       disconnect()

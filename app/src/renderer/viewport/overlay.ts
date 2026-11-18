@@ -1,5 +1,6 @@
 import { number } from '../../shared/format'
 import { MONO_STACK, UI_STACK, canvasFont } from '../../shared/fonts'
+import type { Pt } from '../../shared/leader'
 import { scaleBarLength } from './views'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
@@ -19,6 +20,52 @@ export interface OverlayOptions {
   surface: string
   /** The colours of the X, Y and Z axes: the stylesheet's `--axis-x`, `--axis-y`, `--axis-z`. The light theme's where none is given. */
   axes?: readonly [string, string, string]
+}
+
+/** What the tags of the view need of the camera: where a point is drawn, where the view is, and a call after every frame. */
+export interface PaneProjection {
+  /** Pixels from the view's top left; null behind the camera. */
+  project(p: Vec3): Pt | null
+  /** The view, in client pixels. */
+  rect(): { left: number; top: number; width: number; height: number }
+  /** Calls back after every frame drawn; returns what stops it. */
+  onDrawn(cb: () => void): () => void
+}
+
+let pane: PaneProjection | null = null
+let offPane: (() => void) | null = null
+const paneListeners = new Set<() => void>()
+
+/** The view that tags stand in, bound while the 3D view is on screen; returns what unbinds it. */
+export function bindPane(view: PaneProjection): () => void {
+  offPane?.()
+  pane = view
+  const off = view.onDrawn(() => {
+    for (const cb of [...paneListeners]) cb()
+  })
+  offPane = off
+  return () => {
+    if (pane !== view) return
+    off()
+    pane = null
+    offPane = null
+  }
+}
+
+/** Where a point of the object frame is drawn, in pixels from the top left of the view; null behind the camera, or with no view. */
+export function projectToPane(p: Vec3): Pt | null {
+  return pane ? pane.project(p) : null
+}
+
+/** The view in client pixels, or null with none. */
+export function paneRect(): { left: number; top: number; width: number; height: number } | null {
+  return pane ? pane.rect() : null
+}
+
+/** Calls back after every frame the view draws (and from the first one after it is bound): a tag follows the camera with it. */
+export function onPaneDrawn(cb: () => void): () => void {
+  paneListeners.add(cb)
+  return () => paneListeners.delete(cb)
 }
 
 export const PERSPECTIVE_NOTE = 'perspective, no scale bar'

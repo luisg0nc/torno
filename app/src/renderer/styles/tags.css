@@ -1,0 +1,115 @@
+/* ---- Tags: a control or a reading beside what it is about (ui/view/Tag.tsx, .claude/rules/leaders.md) ---- */
+
+/* Placed from the top left of the view's pane by transform (`placeTag`), after every frame. Under the leaders (z 12). */
+.tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: min(360px, calc(100% - 72px));
+  padding: var(--space-1);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--raise);
+  box-shadow: var(--float-shadow);
+  color: var(--ink);
+  font-size: var(--text-row);
+  /* It is a card on the view: the pointer on it is not the view's. */
+  pointer-events: auto;
+  /* 0.2 s, then its leader draws out (`leaders.css`). */
+  animation: tag-pop 0.2s var(--ease) backwards;
+}
+
+/* A problem is a second tag below the first. */
+.tag[data-problem] {
+  border-color: transparent;
+  background: var(--fail-wash);
+  color: var(--fail);
+}
+
+/* A row of controls, and what sits in it. */
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.tag-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tag-control:hover {
+  background: var(--surface);
+}
+
+.tag-control[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* The primary one of a tag. */
+.tag-control[data-primary] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* A number in a well. */
+.tag-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* A hairline between groups. */
+.tag-sep {
+  align-self: stretch;
+  width: 1px;
+  margin: 3px var(--space-1);
+  background: var(--hairline);
+}
+
+/* A large reading, its unit quiet beside it. */
+.tag-reading {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.tag-unit {
+  margin-left: 3px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* `scale`, not `transform`: that is the tag's place. */
+@keyframes tag-pop {
+  from {
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag {
+    animation: none;
+  }
+}

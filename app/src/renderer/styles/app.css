@@ -1,4 +1,9 @@
 @import './layout.css';
+@import './tags.css';
+@import './compass.css';
+@import './bands.css';
+@import './caption.css';
+@import './procedures.css';
 @import './titlebar.css';
 @import './session.css';
 @import './chat.css';

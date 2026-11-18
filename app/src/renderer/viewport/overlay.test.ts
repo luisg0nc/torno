@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MONO_FACE, UI_FACE } from '../../shared/fonts'
-import { DEVIATION_RAMP, BAR_SIDE, NARROW_BELOW, PERSPECTIVE_NOTE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR, chipSize, drawDeviationLegend, drawFrameCues, drawLabels, drawOverlay, type LabelStyle } from './overlay'
+import { DEVIATION_RAMP, BAR_SIDE, NARROW_BELOW, PERSPECTIVE_NOTE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR, chipSize, drawDeviationLegend, drawFrameCues, drawLabels, drawOverlay, bindPane, onPaneDrawn, paneRect, projectToPane, type LabelStyle } from './overlay'
 
 /** A canvas context that keeps what was drawn on it: each text with how opaque it was, and each stroke with its colour and its moves. */
 function recorder() {
@@ -316,5 +316,42 @@ describe('the axes and the scale on the person’s screen', () => {
     const picture = frame()
     drawOverlay(picture.ctx, { ...looking([1, 0, 0], [0, 0, 1]), width: 2000, mmPerPx: 0.25 })
     expect(picture.texts.map((t) => t.text)).toContain('100 mm')
+  })
+})
+
+describe('the pane the tags stand in', () => {
+  const pane = (over: Partial<Parameters<typeof bindPane>[0] & object> = {}) => {
+    const drawn = new Set<() => void>()
+    return {
+      pane: { project: (p: readonly [number, number, number]) => (p[2] < 0 ? null : { x: p[0], y: p[1] }), rect: () => ({ left: 10, top: 20, width: 600, height: 400 }), onDrawn: (cb: () => void) => (drawn.add(cb), () => drawn.delete(cb)), ...over },
+      draw: () => drawn.forEach((cb) => cb())
+    }
+  }
+
+  it('projects nowhere with no view, and null behind the camera', () => {
+    expect(projectToPane([1, 2, 3])).toBeNull()
+    expect(paneRect()).toBeNull()
+    const { pane: view } = pane()
+    const off = bindPane(view)
+    expect(projectToPane([40, 50, 1])).toEqual({ x: 40, y: 50 })
+    expect(projectToPane([40, 50, -1])).toBeNull()
+    expect(paneRect()).toEqual({ left: 10, top: 20, width: 600, height: 400 })
+    off()
+    expect(projectToPane([40, 50, 1])).toBeNull()
+  })
+
+  it('tells those listening after each frame, whichever came first, and stops when asked', () => {
+    const calls: string[] = []
+    const stop = onPaneDrawn(() => calls.push('early'))
+    const { pane: view, draw } = pane()
+    const off = bindPane(view)
+    draw()
+    expect(calls).toEqual(['early'])
+    stop()
+    draw()
+    expect(calls).toEqual(['early'])
+    off()
+    draw()
+    expect(calls).toEqual(['early'])
   })
 })

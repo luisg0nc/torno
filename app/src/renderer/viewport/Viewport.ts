@@ -14,7 +14,7 @@ import { groundOf } from './ground'
 import { Highlights, MARK_LAYERS, type HighlightLayer } from './highlight'
 import { mmPerPx, needsCamera } from './marks/labels'
 import { MarkLayer, type Draft } from './marks/MarkLayer'
-import { overlayFonts, type LabelStyle } from './overlay'
+import { overlayFonts, type LabelStyle, type PaneProjection } from './overlay'
 import { OverlayPass } from './overlayPass'
 import { partChanged } from '../../shared/diff'
 import type { CompareMode } from '../state/compare'
@@ -1207,6 +1207,25 @@ export class Viewport {
     this.syncMatrices()
     const v = new THREE.Vector3().fromArray(part === undefined ? point : drawnAt({ name: part, loc: { t: point } }, this.apart.offsets())).project(this.camera)
     return [rect.left + ((v.x + 1) / 2) * rect.width, rect.top + ((1 - v.y) / 2) * rect.height]
+  }
+
+  /**
+   * What the tags of the view need of this camera (`bindPane`, `viewport/overlay.ts`): where a point of the object frame is
+   * drawn in pixels from the canvas's top left, null behind the camera or past its far plane, the canvas's box, and a call
+   * after each frame.
+   */
+  paneProjection(): PaneProjection {
+    return {
+      project: (point) => {
+        this.syncMatrices()
+        const v = new THREE.Vector3().fromArray(point).project(this.camera)
+        if (!(v.z >= -1 && v.z <= 1)) return null
+        const rect = this.canvas.getBoundingClientRect()
+        return { x: ((v.x + 1) / 2) * rect.width, y: ((1 - v.y) / 2) * rect.height }
+      },
+      rect: () => this.canvas.getBoundingClientRect(),
+      onDrawn: (cb) => this.onDrawn(cb)
+    }
   }
 
   /** Marks what the pointer is on; null for nothing. */
