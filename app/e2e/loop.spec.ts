@@ -115,7 +115,9 @@ const sceneFile = () => join(root, 'bracket', '.torno', 'scene.json')
 
 test('the page of projects shows the objects; one that cannot be built says why', async () => {
   const rows = page.locator('.show .card .card-name')
-  await expect(rows).toHaveText(['bracket', 'broken', 'chatty', 'crash', 'exits', 'gauge', 'grouped', 'hollow', 'housing608', 'makers', 'measures', 'morph', 'noscene', 'plain', 'slow', 'spread', 'two'])
+  // Every project is on the bench. The shelf is Recently changed by default, so its order follows the files' times: the set is held, not the order.
+  await expect(rows).toHaveCount(17)
+  expect((await rows.allTextContents()).sort()).toEqual(['bracket', 'broken', 'chatty', 'crash', 'exits', 'gauge', 'grouped', 'hollow', 'housing608', 'makers', 'measures', 'morph', 'noscene', 'plain', 'slow', 'spread', 'two'])
   const two = projectCard(page, 'two')
   await expect(two.locator('[data-part="build"]')).toHaveAttribute('title', /more than one model file in .*two: a\.py, b\.py/)
   await expect(two).toHaveAttribute('data-problem', '')

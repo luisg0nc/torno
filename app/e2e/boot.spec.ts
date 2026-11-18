@@ -115,7 +115,7 @@ test('the leader layer covers the window, takes no pointer, and is empty until a
 test('the four shell regions exist with their placeholders', async () => {
   await expect(page.locator('.title-row .workspace-name')).toHaveText(root.split('/').pop()!)
   // Said once, by the page of objects, which is where a workspace with none starts.
-  await expect(page.locator('main[data-region="viewport"]')).toContainText(`No projects in ${root.split('/').pop()!} yet`)
+  await expect(page.locator('main[data-region="viewport"]')).toContainText(`No projects in ${root.split('/').pop()!}. Say what you want made and Claude Code writes the model.`)
   await expect(page.locator('aside[data-region="left"]')).not.toContainText('No projects here yet')
   await expect(page.getByRole('button', { name: /^Folder / })).toBeVisible()
   await expect(page.locator('main[data-region="viewport"]')).toContainText('No project open')
