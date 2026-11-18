@@ -23,6 +23,7 @@ paths:
   - "app/src/renderer/state/measured.ts"
   - "app/src/renderer/state/measured.test.ts"
   - "app/src/renderer/viewport/heldValue.ts"
+  - "app/src/renderer/ui/view/MeasureTag.tsx"
   - "app/src/renderer/ui/ViewportPane.tsx"
 ---
 
@@ -85,10 +86,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `ui/DimensionFields.tsx`. **A measurement is no mark**: the tool asks main (`ctx.measure`, `geometry.measure`)
   and nothing is committed; the kernel's value replaces the `≈` estimate at the pointer, and the last
   measurement is held in `state/measured.ts` (`Held`: its ends, kind, layout, build, camera, value and `how`),
-  which changes once per measurement. The card under the pill shows it (`Last: …`, only for the object and build on show)
+  which changes once per measurement. Its tag on the measured line shows it (`ui/view/MeasureTag.tsx`, only for the object and build on show)
   until the next first end, Escape with nothing under way or the tool put down. It is kept as a dimension only
   by `measure.keep` (Enter) or its "Keep as a dimension", both `keepHeld`, which commits the same
-  anchors through `commitMark` (main measures it again); the reading then says `Kept as M7`. The kernel's two points (`Held.points`) draw it in the view until then: a `held` draft (`Draft.held`, the value text) in `--ink`, not faint, with its value at the middle (`viewport/heldValue.ts`); a distance's reading adds `Δx Δy Δz` (`componentsOf`). A readout is not a
+  anchors through `commitMark` (main measures it again); the tag then says `Kept as M7`, and a kept dimension main refuses is a second tag (`problem`). The kernel's two points (`Held.points`) draw it in the view until then: a `held` draft (`Draft.held`, the value text) in `--ink`, not faint; the tag's subject is the middle of that line (`readingAt` in `viewport/heldValue.ts`: nothing of the value is drawn on the canvas); the tag holds the value in mono 19 px with its unit at 11 px, `how, exact` and a distance's `Δx Δy Δz` (`componentsOf`), and the primary "Keep as a dimension". A readout is not a
   mark and is never drawn in a mark's colour. In Angle, before the second click, an end the kernel takes by its axis, only if
   flat or straight, or never (`angleTaking`, by the descriptor's type, the kernel's rule) is said at the pointer
   in place of the `≈` estimate; it is a hint, never a gate: the click is sent whatever it says. A tool is a `Tool`

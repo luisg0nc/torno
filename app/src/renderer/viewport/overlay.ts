@@ -534,3 +534,76 @@ export function overlayFonts(): Promise<unknown> {
   ).catch(() => {}) // a face that cannot be loaded leaves the fallback, as before
   return fontsLoaded
 }
+
+// ---- Explode's track (ui/ExplodeControl.tsx, viewport/explodeTrack.ts) ----
+
+/** The track of Explode as it is drawn: its ends in px of the view, how far apart the parts are (0 to 1), and whether it can be moved. */
+export interface ExplodeTrackDraw {
+  a: Pt
+  b: Pt
+  amount: number
+  disabled: boolean
+}
+
+/** Side of the handle, in px. */
+export const TRACK_HANDLE = 16
+
+/**
+ * Draws the track Explode stands beside the parts: a line from 0 % to 100 %, graduated every 10 % with the 50s longer and
+ * numbered 0, 50 and 100 in mono 9.5 px, filled in the accent up to the handle (a 16 px accent square, radius 4). On the
+ * overlay, in the frame of the object, so no part of the scene and in no picture for the agent. Its colours are the
+ * quiet text's when it cannot be moved.
+ */
+export function drawExplodeTrack(ctx: Ctx, track: ExplodeTrackDraw, colours: { accent: string; ink: string; muted: string; paper: string }): void {
+  const { a, b } = track
+  const length = Math.hypot(b.x - a.x, b.y - a.y)
+  if (!(length > 0)) return
+  const [dx, dy] = [(b.x - a.x) / length, (b.y - a.y) / length]
+  // The ticks lean to the right of the track (or below it, where it runs across).
+  let [nx, ny] = [-dy, dx]
+  if (nx < -1e-6 || (Math.abs(nx) <= 1e-6 && ny < 0)) [nx, ny] = [-nx, -ny]
+  const at = (t: number, off = 0): Pt => ({ x: a.x + dx * length * t + nx * off, y: a.y + dy * length * t + ny * off })
+  const amount = Math.min(1, Math.max(0, track.amount))
+  const live = track.disabled ? colours.muted : colours.accent
+  ctx.save()
+  ctx.lineCap = 'butt'
+  ctx.strokeStyle = colours.ink
+  ctx.lineWidth = 1.2
+  ctx.beginPath()
+  ctx.moveTo(a.x, a.y)
+  ctx.lineTo(b.x, b.y)
+  ctx.stroke()
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (let k = 0; k <= 100; k += 10) {
+    const [from, to] = [at(k / 100), at(k / 100, k % 50 === 0 ? 10 : 5)]
+    ctx.moveTo(from.x, from.y)
+    ctx.lineTo(to.x, to.y)
+  }
+  ctx.stroke()
+  ctx.font = `400 9.5px ${MONO}`
+  ctx.fillStyle = colours.muted
+  ctx.textBaseline = 'middle'
+  ctx.textAlign = nx > 0.5 ? 'left' : 'center'
+  for (const k of [0, 50, 100]) {
+    const p = at(k / 100, nx > 0.5 ? 14 : 18)
+    ctx.fillText(String(k), p.x, p.y)
+  }
+  // Filled from 0 to the handle.
+  const handle = at(amount)
+  ctx.strokeStyle = live
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(a.x, a.y)
+  ctx.lineTo(handle.x, handle.y)
+  ctx.stroke()
+  const half = TRACK_HANDLE / 2
+  ctx.fillStyle = live
+  ctx.strokeStyle = colours.paper
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.roundRect(handle.x - half, handle.y - half, TRACK_HANDLE, TRACK_HANDLE, 4)
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+}

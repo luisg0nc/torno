@@ -2,12 +2,12 @@ import * as THREE from 'three'
 import type { Vec3 } from '../../shared/marks'
 import { type AlignPoint, drawAlignPoints } from './alignPoints'
 import { type BrushRing, drawBrushRing } from './brushRing'
-import { drawHeldValue } from './heldValue'
 import type { MarkLayer } from './marks/MarkLayer'
 import type { Placed } from './marks/labels'
 import { markPoints } from './marks/markObjects'
 import { chipAt, mmPerPx } from './marks/labels'
-import { SCALE_BAR_MAX, SCREEN_UNIT, chipSize, drawFrameCues, drawLabels, type LabelStyle } from './overlay'
+import { SCALE_BAR_MAX, SCREEN_UNIT, chipSize, drawExplodeTrack, drawFrameCues, drawLabels, type LabelStyle } from './overlay'
+import type { TrackPlan } from './explodeTrack'
 import { type SketchOverlay, drawSketchOverlay } from './sketchHint'
 import type { CubeFace } from './viewCube'
 
@@ -40,8 +40,8 @@ export class OverlayPass {
   readonly canvas: HTMLCanvasElement | null
   alignPoints: AlignPoint[] = []
   brush: BrushRing | null = null
-  /** The value of the last measurement, at the middle of its line: a readout, in ink, in no picture. */
-  held: { at: Vec3; text: string } | null = null
+  /** The track Explode stands beside the parts, where it is and how far apart they are; null when none is up. Drawn whether the parts are apart or not. */
+  explodeTrack: { plan: TrackPlan; amount: number; disabled: boolean } | null = null
   /** What a sketch lays over the view: the hint beside the pointer, its plane's label, the view cube; null when none is being drawn. */
   sketch: SketchOverlay | null = null
   /** The faces of the view cube as the last frame drew them: what a click on it is told against. Empty when there is none. */
@@ -93,12 +93,27 @@ export class OverlayPass {
     this.chips = this.hideChips ? [] : host.marks.labels(host.layout(), host.camera(), size, 1, chipSize(ctx, 1))
     drawLabels(ctx, this.chips, style, 1, host.marks.activeId, host.marks.hoverId)
     this.drawFrame(ctx, size, style)
+    this.drawExplodeTrack(ctx, size, style)
     // Not while the parts are drawn apart: a point picked on the model would be drawn where its part is not.
     if (host.exploded?.()) return
     this.cube = this.sketch ? drawSketchOverlay(ctx, this.sketch, host.camera(), size, { accent: style.accent, onAccent: style.onAccent, ink: style.ink, surface: style.surface, paper: style.paper, hairline: host.frame().muted }) : []
     drawAlignPoints(ctx, this.alignPoints, host.camera(), size, { accent: style.accent, paper: style.paper })
-    drawHeldValue(ctx, this.held, host.camera(), size, { ink: style.ink, paper: style.paper })
     drawBrushRing(ctx, this.brush, host.camera(), size, { mark: style.user, paper: style.paper })
+  }
+
+  /** Explode's track, from where the camera sees its two ends: a gauge of the frame, so drawn whatever the parts are doing. */
+  private drawExplodeTrack(ctx: CanvasRenderingContext2D, size: { width: number; height: number }, style: LabelStyle): void {
+    const track = this.explodeTrack
+    if (!track) return
+    const { accent } = this.host.style()
+    const camera = this.host.camera()
+    const seen = new THREE.Vector3()
+    const px = (point: readonly [number, number, number]): { x: number; y: number } | null => {
+      seen.set(point[0], point[1], point[2]).project(camera)
+      return seen.z >= -1 && seen.z <= 1 ? { x: ((seen.x + 1) / 2) * size.width, y: ((1 - seen.y) / 2) * size.height } : null
+    }
+    const [a, b] = [px(track.plan.from), px(track.plan.to)]
+    if (a && b) drawExplodeTrack(ctx, { a, b, amount: track.amount, disabled: track.disabled }, { accent, ink: style.ink, muted: this.host.frame().muted, paper: style.paper })
   }
 
   /** The triad and the scale: of the camera and the object frame, so drawn whatever the parts are doing. */

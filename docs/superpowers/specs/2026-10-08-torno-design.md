@@ -250,7 +250,7 @@ Custom, on plain three.js with three-mesh-bvh. It is the centre of the product a
 - **Layers:** every part, reference and scan has visibility, colour and opacity. The model's groups of parts are headers that fold, hide or show their parts, or show only them; which are folded is kept in `scene.json`. Layout switch between assembly and print. Explode slider: per layout, for display only. Nothing is marked, measured or cut while the parts are drawn apart, and no position told to the agent is an exploded one. A section is never drawn exploded.
 - **Views:** standard views, perspective/orthographic toggle, named views saved per object.
 - **Section:** one plane, axis-aligned or taken from a picked face, dragged along its normal, with stencil caps coloured per part. Scans are clipped without caps.
-- **Measure:** point, edge and face snapping; live readout from the mesh while hovering (`≈`), then the kernel's value. A measurement leaves no mark and is told to no one; the last one stays in the tool's strip (`Last: 6 mm between planes`) and is kept as a dimension only by "Keep as a dimension" or `Enter`.
+- **Measure:** point, edge and face snapping; live readout from the mesh while hovering (`≈`), then the kernel's value. A measurement leaves no mark and is told to no one; the last one stays in the tool's tag, at the middle of the measured line (`6 mm`, `between planes, exact`) and is kept as a dimension only by "Keep as a dimension" or `Enter`.
 - **Scans:** a list of their own under the layers, a row of one line each; drawn with vertex colours baked from the texture, opacity slider, one mesh for drawing, picking and checking (reduced only above 2 M triangles).
 - **Render on demand**, not a continuous loop.
 

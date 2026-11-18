@@ -11,6 +11,7 @@ paths:
   - "app/src/main/context.test.ts"
   - "app/src/renderer/tools/measureTool.ts"
   - "app/src/renderer/ui/DimensionFields.tsx"
+  - "app/src/renderer/ui/view/MeasureTag.tsx"
   - "app/e2e/measure.spec.ts"
 ---
 
@@ -32,7 +33,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   with `addDimensionTold`: no build, another build, parts spread apart; and the
   kernel's reason), rejects plainly when the kernel cannot be asked, and
   writes nothing. A measurement not kept is told to no one: not in the
-  prompt, not in `state.md`, not in a tool's answer. Kept (the strip's button
+  prompt, not in `state.md`, not in a tool's answer. Kept (the tag's button
   or Enter) it comes through `marks:add` and is measured again there.
   `value`, `how`, `points`, `measuredRevision`, `refused` and `verdict`
   (`MEASURED_KEYS`) are main's alone, like `MAIN_ONLY_KEYS`. The verdict is
