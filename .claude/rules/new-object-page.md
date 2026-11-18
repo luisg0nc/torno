@@ -26,8 +26,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   change; the one `onboardPrompt` that `objects.onboard` sends), the person's own words in ink and torno's in the muted face,
   and a thumbnail of each photo and doodle with "attached" or "named only"; unless the open object's session is live, which stays whole (see Agents).
   All of it reads `store.page`, and nothing under the page changes, so leaving it brings everything back as it was.
-  The page is opened from "New project" at the foot of the list, in the head of the page of objects and in its empty
-  state (`openNewObject`). It takes the focus (the name field) when it comes and gives it back to where it was when it goes. Leaving the workspace
+  The page is opened from "New project" at the foot of the list, in the head of the page of objects and from the empty folder's
+  composer, which hands it the words and the folder name it offered (`openNewObject({ words, name })`). It takes the focus (the name field) when it comes and gives it back to where it was when it goes. Leaving the workspace
   (opening another folder) asks when the draft has something: "A new project is set up here and not made yet".
 - **The draft** (`state/onboard.ts`) also holds `sizes` (rows that may be unwhole: `sizeProblem`; Start and `makeObject` refuse one), `rules`, `links` and `pdfs`, with the caps of `shared/size.ts`, `shared/objectName.ts` (`MAX_LINKS`, `linkProblem`) and `MAX_TEXT_CHARS`; the `add*` and `setRules` return the reason they refused, or null.
 - **The draft** (`state/onboard.ts`) lives in the window, for the workspace it was begun in, until the object is made

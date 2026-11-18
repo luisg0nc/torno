@@ -93,7 +93,7 @@ function useOrder(root: string | undefined): [Order, (order: Order) => void] {
   ]
 }
 
-export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) => void; onExample: () => void; notes?: ReactNode }) {
+export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) => void | Promise<void>; onExample: () => void; notes?: ReactNode }) {
   const workspace = useStore((s) => s.workspace)
   const openId = useStore((s) => s.objectId)
   const [cards, setCards] = useState<ObjectCard[] | null>(null)
@@ -169,6 +169,8 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const target = e.target instanceof Element ? e.target : null
       const here = target !== null && page.current!.contains(target)
+      // The empty folder's composer has its own fields and keys.
+      if (target?.closest('.empty-folder')) return
       // Somewhere else to type: the session's terminal, a field of the left column. A slider or a tick box there
       // keeps its keys, and so does whatever asks a question of its own (the build's error, a confirm).
       if (!here && target?.closest(`${TYPING}, input, ${OVER}`)) return
@@ -226,6 +228,15 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
   const shown = cards ? ordered(matching(cards, typed), order) : []
   const name = root ? root.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || root : ''
 
+  // A folder with no project in it is the empty folder's screen, in place of the page: the dyed plate and the composer.
+  if (cards && cards.length === 0)
+    return (
+      <section ref={page} className="show show-bare" aria-label={`Projects of ${name}`}>
+        {notes}
+        <EmptyWorkspace name={name} hasProject={hasProject} hasExample={hasExample} onOpen={async (id) => void (await onOpen(id))} onExample={onExample} />
+      </section>
+    )
+
   return (
     <section ref={page} className="show" aria-label={`Projects of ${name}`}>
       <header className="show-head">
@@ -243,7 +254,7 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
           )}
         </div>
         {cards && cards.length > 0 && (
-          <button type="button" className="button show-new" title="Make a new project: say what it is and give what you have" onClick={openNewObject}>
+          <button type="button" className="button show-new" title="Make a new project: say what it is and give what you have" onClick={() => openNewObject()}>
             New project
           </button>
         )}
@@ -270,7 +281,6 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
       </header>
       {/* What is to be said of the folder: the example is a temporary copy; a folder that would not open. */}
       {notes}
-      {cards && cards.length === 0 && <EmptyWorkspace name={name} hasProject={hasProject} hasExample={hasExample} onNew={openNewObject} onExample={onExample} />}
       {cards && cards.length > 0 && shown.length === 0 && (
         <p className="show-none">
           No project is named like <span className="show-typed">{typed.trim()}</span>. Escape shows them all.

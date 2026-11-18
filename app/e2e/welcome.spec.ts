@@ -137,11 +137,18 @@ test('the first run shows the dyed plate with the vise scribed on it, what to op
     await first.getByRole('button', { name: 'Open folder' }).click()
     expect(await bare.evaluate(() => (globalThis as unknown as { __tornoMain: Main }).__tornoMain.picks)).toBe(1)
     const name = empty.split('/').pop()!
-    await expect(says).toContainText(`No projects in ${name} yet`)
-    await expect(says.getByRole('heading', { name: 'Make your first project' })).toBeVisible()
-    // New object leads and the example is offered beside it; the manual route and the pyproject note are in a closed fold.
-    await expect(says.getByRole('button').first()).toHaveText('New project')
-    await expect(says.getByRole('button', { name: 'open the example to look around' })).toBeVisible()
+    // The dyed plate with nothing in the vise, and the composer: the words, the chips, the folder offered, Start.
+    await expect(says.locator('[data-plate]')).toContainText(`No projects in ${name}`)
+    await expect(says.getByRole('heading', { name: 'Nothing in the vise yet' })).toBeVisible()
+    await expect(says.getByRole('heading', { name: 'What are we making?' })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'open the example' })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'open the full new project page' })).toBeVisible()
+    for (const chip of ['Photo', 'Doodle', 'Bought part', 'Scan']) await expect(says.getByRole('button', { name: chip, exact: true })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'Start', exact: true })).toBeDisabled()
+    await says.getByRole('textbox', { name: 'What are we making?' }).fill('A clip that holds a 6 mm cable to the edge of a desk')
+    await expect(says.getByRole('button', { name: `Goes in ${name}/cable-clip` })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'Start', exact: true })).toBeEnabled()
+    // The manual route and the pyproject note are in a closed fold.
     await expect(says.getByText('part/part.py')).toBeHidden()
     await says.getByText('Already have build123d models?').click()
     await expect(says).toContainText(`Make a folder with a Python model in it, for example part/part.py, and it appears here.`)
@@ -483,10 +490,10 @@ test('the empty workspace and the page of a new object say what is missing, and 
   try {
     const gone = await lost.firstWindow()
     await gone.waitForSelector('[data-region="left"]')
-    const block = gone.locator('.show-empty .ready')
+    const block = gone.locator('.empty-folder .ready')
     await expect(block.locator('.ready-line[data-line="claude"]')).toContainText('Not found on PATH')
     // The page of a new object has the line above Start, and says what that means for the object.
-    await gone.locator('.show-empty').getByRole('button', { name: 'New project' }).click()
+    await gone.locator('.empty-folder').getByRole('button', { name: 'open the full new project page' }).click()
     const foot = gone.locator('.new-foot .ready[data-variant="missing"]')
     await expect(foot.locator('.ready-line[data-line="claude"]')).toHaveAttribute('data-tone', 'fail')
     await expect(foot).toContainText('The project will be made, but Claude Code cannot start in it until this is put right.')
@@ -496,11 +503,11 @@ test('the empty workspace and the page of a new object say what is missing, and 
     // With Claude Code found the new object's page has no such block.
     const fine = await ok.firstWindow()
     await fine.waitForSelector('[data-region="left"]')
-    await fine.locator('.show-empty').getByRole('button', { name: 'New project' }).click()
+    await fine.locator('.empty-folder').getByRole('button', { name: 'open the full new project page' }).click()
     await expect(fine.locator('.new-foot')).toBeVisible()
     await expect(fine.locator('.new-foot .ready')).toHaveCount(0)
     await fine.keyboard.press('Escape')
-    await expect(fine.locator('.show-empty')).toBeVisible()
+    await expect(fine.locator('.empty-folder')).toBeVisible()
 
     // The folder menu has the check, as a dialog over the window.
     await fine.getByRole('button', { name: /^Folder / }).click()

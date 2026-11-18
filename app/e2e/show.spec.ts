@@ -570,7 +570,7 @@ for (const shot of ['light', 'dark', 'empty-light', 'empty-dark'] as const) {
         await shotPage.keyboard.press('ArrowRight')
         await shotPage.locator('.show').evaluate((el) => el.scrollTo(0, 0))
       } else {
-        await expect(shotPage.locator('.show-empty')).toBeVisible()
+        await expect(shotPage.locator('.empty-folder')).toBeVisible()
       }
       await shotPage.evaluate(async () => {
         await document.fonts.ready

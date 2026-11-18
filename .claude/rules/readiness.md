@@ -63,9 +63,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   with "Check again"). "Make it now" is on the kernel's line when torno's own environment is not made, no workspace's kernel is
   starting and uv is there, and "Try again" when it failed. The status line says "Making torno's Python environment, first
   time only" in place of `Building N s` while the kernel is starting over an environment that was not made.
-- A workspace with no object leads with making one (`ui/EmptyWorkspace.tsx`, in `ui/ShowPage.tsx`): "Make your first
-  project" and a line on what it takes, "New project" (primary), under it "or open the example to look around" (only
-  where `hasExample`), the readiness block, a line on scope (printed parts and small assemblies), and a fold,
-  "Already have build123d models?", closed, which holds the folder rule (`part/part.py`) and, for a folder without a
-  `pyproject.toml`, that its models are built with torno's own build123d. torno runs no `uv` command there: the note
+- A workspace with no object is the empty folder's screen (`ui/EmptyWorkspace.tsx`, in place of the page in `ui/ShowPage.tsx`,
+  `show-bare`): the dyed plate (`drawing="vise-unknown"`) with "Nothing in the vise yet" and "No projects in `<folder>`. Say what
+  you want made and Claude Code writes the model.", and at the right the composer (`new-object-create`): "What are we making?", the box,
+  the chips, "Goes in `<folder>/<name>`" and Start. Under the box are "open the full new project page" and "open the example" (only
+  where `hasExample`), the readiness block, a fold, "Already have build123d models?", closed, which holds the folder rule
+  (`part/part.py`) and, for a folder without a `pyproject.toml`, that its models are built with torno's own build123d, and a line on
+  scope (printed parts and small assemblies). torno runs no `uv` command there: the note
   names them for the person to run. The session pane in that state says that Claude Code works there, one session per object.

@@ -549,6 +549,63 @@ test.describe('a new object', () => {
   })
 })
 
+test.describe('the composer of an empty folder', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  test('Start makes the folder the words name and starts the session with the words as its first prompt', async () => {
+    test.setTimeout(90_000)
+    const root = temp('empty')
+    const { app, page } = await start(root, `node ${fakeAgent}`)
+    try {
+      const composer = page.locator('.empty-folder')
+      await expect(composer.getByRole('heading', { name: 'What are we making?' })).toBeVisible()
+      const words = composer.getByRole('textbox', { name: 'What are we making?' })
+      await words.fill('A clip that holds a 6 mm cable to the edge of a desk')
+      const where = composer.getByRole('button', { name: /^Goes in / })
+      await expect(where).toContainText(`${root.split('/').pop()}/cable-clip`)
+      // The folder offered can be changed, and a name the workspace refuses is said.
+      await where.click()
+      const name = composer.getByLabel('Goes in', { exact: true })
+      await name.fill('tools')
+      await expect(composer.getByRole('button', { name: 'Start', exact: true })).toBeDisabled()
+      await expect(composer.locator('.compose-help')).toContainText('keeps for itself')
+      await name.fill('desk-clip')
+      await name.press('Enter')
+      await expect(composer.getByRole('button', { name: /^Goes in / })).toContainText('/desk-clip')
+      // Nothing is written before Start.
+      expect(readdirSync(root)).toEqual([])
+      await composer.getByRole('button', { name: 'Start', exact: true }).click()
+      await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).objectId, { timeout: 30_000 }).toBe('desk-clip')
+      expect(existsSync(join(root, 'desk-clip', 'desk_clip.py'))).toBe(true)
+      expect(readFileSync(join(root, 'desk-clip', 'brief.md'), 'utf8')).toContain('A clip that holds a 6 mm cable to the edge of a desk')
+      const dock = page.locator('[data-region="session"]')
+      await expect(dock.locator('.chat-user').first()).toContainText('This is a new project, desk-clip', { timeout: 30_000 })
+      await expect(dock.locator('.chat-user').first()).toContainText('A clip that holds a 6 mm cable to the edge of a desk')
+      expect(readdirSync(root)).toEqual(['desk-clip'])
+    } finally {
+      await app.close()
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('the full page takes over what was typed and the folder offered', async () => {
+    const root = temp('empty-full')
+    const { app, page } = await start(root, `node ${fakeAgent}`)
+    try {
+      const composer = page.locator('.empty-folder')
+      await composer.getByRole('textbox', { name: 'What are we making?' }).fill('A hook for a mug')
+      await composer.getByRole('button', { name: 'open the full new project page' }).click()
+      const here = page.getByRole('region', { name: 'New project' })
+      await expect(here.getByLabel('What is it?')).toHaveValue('A hook for a mug')
+      await expect(page.getByLabel('Name', { exact: true })).toHaveValue('mug-hook')
+      expect(readdirSync(root)).toEqual([])
+    } finally {
+      await app.close()
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
 test.describe('a new object whose agent cannot be started', () => {
   test.describe.configure({ mode: 'serial' })
 
