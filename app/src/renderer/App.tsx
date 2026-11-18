@@ -14,6 +14,7 @@ import { unsentSessions } from './ui/chat/Composer'
 import { paintings } from './tools/regionPainting'
 import { WorkspaceQuestion } from './ui/WorkspaceQuestion'
 import { openProblem } from './ui/openFolder'
+import { InHand } from './ui/card/InHand'
 import { RouteCard } from './ui/card/RouteCard'
 import { Rail } from './ui/Rail'
 import { SessionPane } from './ui/SessionPane'
@@ -515,7 +516,7 @@ export function App() {
       <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
       <aside className="left" data-region="left" aria-label="Panels">
         <Rail />
-        {cardOpen && <RouteCard shell={shell} />}
+        {cardOpen && <RouteCard head={<InHand />} shell={shell} />}
       </aside>
 
       <main className="viewport" data-region="viewport">

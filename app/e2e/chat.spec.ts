@@ -209,7 +209,7 @@ test('Insert puts the refs of the selection in the box at the cursor and sends n
   const users = await chat().locator('.chat-user').count()
   await composer().focus()
   await page.keyboard.type('check')
-  await page.getByRole('button', { name: 'Insert', exact: true }).click()
+  await page.getByRole('button', { name: 'Insert in prompt', exact: true }).click()
   await expect(composer()).toHaveValue(`check ${ref} `)
   await expect(composer()).toBeFocused()
   await page.keyboard.type('is thin')
@@ -231,7 +231,7 @@ test('Insert puts the refs of the selection in the box at the cursor and sends n
   // With the dock hidden, Insert shows it and gives the box the keys: what is typed next is not the view's.
   await page.getByRole('button', { name: 'Hide session', exact: true }).click()
   await expect(composer()).toBeHidden()
-  await page.getByRole('button', { name: 'Insert', exact: true }).click()
+  await page.getByRole('button', { name: 'Insert in prompt', exact: true }).click()
   await expect(composer()).toBeVisible()
   await expect(composer()).toBeFocused()
   await page.keyboard.type('m')

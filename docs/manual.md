@@ -439,7 +439,7 @@ project is made and with no project open, the rail holds Projects and Keys alone
 The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
-a click with Select would, so "Insert" and "Note" work on it) and a double click brings it into view, the target on
+a click with Select would, so "Insert in prompt" and "Note" work on it) and a double click brings it into view, the target on
 the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. After the
 name, a muted number counts the open marks on the part (in the colour of a failing check when one of them is
 one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
@@ -1241,7 +1241,7 @@ The tools, each with its key (all keys are under [Keys](#keys)):
 
 | Key | Tool | What it does |
 |---|---|---|
-| `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. "Insert" puts the selected refs in the session's prompt without sending it; "Note" leaves a mark on each. |
+| `V` | Select | Click selects a face or an edge, and a double click its part; the choice in the corner (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held at the head of the card, under "In hand": each ref with what the kernel says of it (the first four, then "and 2 more"), and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Name a set** (`Ctrl+G`) and **Clear**. With nothing selected the head says "Click a face, an edge or a part to hold it here." |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
 | `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
@@ -1460,8 +1460,8 @@ the model. A **named set** is a name of yours for faces, edges, parts and sketch
 which you and Claude then point at by that name: `#deck`. torno keeps it in `.torno/sets.json` and finds its members again
 after every build. The model's own `groups(p)` (groups of parts in the code) are another thing and keep the word group.
 
-- **Making one.** Select faces, edges or parts (and strokes, from the sketch's list) and press `Ctrl+G`. A small box asks a
-  name, a comment and one of eight colours (the next one is chosen); `Enter` makes it. With nothing selected the status
+- **Making one.** Select faces, edges or parts (and strokes, from the sketch's list) and press `Ctrl+G`, or **Name a set** in the head of the card, where the selection is held. A small box
+  opens in the head, under the selection, and asks a name, a comment and one of eight colours (the next one is chosen); `Enter` makes it. With nothing selected the status
   line says what to select. A name is one line of 40 characters at most, starts with a letter and has no `/`, `#` or `@`; two
   names that make the same ref are one name (`Deck` and `deck`), and one in use is refused in the box. The set is written at once; torno
   asks the kernel what each face and edge is a moment later. If the kernel cannot say where a selected face or edge is, nothing is made

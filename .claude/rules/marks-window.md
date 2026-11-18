@@ -39,6 +39,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   nothing else in the UI uses those colours. A picture for the agent draws
   every mark alike: no active mark, no selection, no hover, no gizmo. A mark
   on a part that is not drawn is not drawn either, on screen or in a picture.
+- **What is selected is in the head of the route card** (`ui/card/InHand.tsx`, `ui/card/inHand.ts`, `styles/card-hand.css`; `ui/Selection.tsx` is its logic, `useSelection`, not a bar: nothing of the
+  selection floats over the view). `headKind({ refs, sketchOpen, roundOpen, makingSet })` says what the head holds, in the order sketch, review, makeSet, selection, empty; only
+  `empty`, `selection` and `makeSet` are drawn so far, the others keep their place (`data-kind`) for the sketch and the review round. The pure `HandView` draws "In hand", `2 picked, shift-click adds`, each ref
+  (mono 11.5 / 10.5, on `--accent-wash`; `SHOWN_REFS` = 4, then "and N more") and **Insert in prompt**, **Note each** (**Note** for one), **Name a set** and **Clear**. Insert is off without a session or on a stale build, Note on a stale build or
+  while the parts are apart or being made, each with its reason in its tip. The camera `note` needs is the view's (`viewHost().camera()`). The head is `role="group"` `aria-label="Selection"`.
 - A mark's row and its chip in the view point at each other. The pointer on a row or chip, or the keys' focus in a
   row (on one of its buttons, `:focus-visible` only: a click on a button focuses it too, and is the pointer's; a
   note being typed is not), is the store's

@@ -150,7 +150,7 @@ test('what is selected goes with the prompt, each ref with what the kernel says 
   await clickOver(ON_POST)
   const [ref] = (await state()).selection
   expect(ref).toMatch(/^post\/F\d+$/)
-  await expect(page.locator('.selection-descriptor')).toHaveText(/plane, normal \+Z/)
+  await expect(page.locator('.hand-ref-descriptor')).toHaveText(/plane, normal \+Z/)
   await prompt()
   await expect.poll(lastContext).toContain(squeezed(`Selected: ${ref} (plane, normal +Z, z = 22.5,`))
 
@@ -166,7 +166,7 @@ test('on a stale build the selection cannot be put in the prompt: its refs would
   await tool('Select').click()
   await clickOver(ON_POST)
   await expect.poll(async () => (await state()).selection.length).toBe(1)
-  const insert = page.getByRole('button', { name: 'Insert', exact: true })
+  const insert = page.getByRole('button', { name: 'Insert in prompt', exact: true })
   await expect(insert).toBeEnabled()
 
   const model = join(root, 'bracket', 'bracket.py')
