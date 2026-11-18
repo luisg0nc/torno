@@ -41,6 +41,13 @@ const bridge: TornoBridge = {
     onCloseAsked: (cb) => subscribe('window:closeAsked', cb),
     answerClose: (close) => ipcRenderer.send('window:closeAnswer', close)
   },
+  window: {
+    minimize: () => ipcRenderer.send('window:minimize'),
+    toggleMaximize: () => ipcRenderer.send('window:toggleMaximize'),
+    close: () => ipcRenderer.send('window:close'),
+    drawsControls: () => ipcRenderer.sendSync('window:drawsControls') === true,
+    onMaximized: (cb) => subscribe('window:maximized', cb)
+  },
   ready: {
     check: (fresh) => invoke('ready:check', fresh === true),
     make: () => invokePlain('ready:make'),

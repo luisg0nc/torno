@@ -240,6 +240,20 @@ export interface TornoBridge {
     /** The answer: `true` closes the window, and torno with it; `false` says the person is being asked, and it stays. */
     answerClose(close: boolean): void
   }
+  /**
+   * The window has no native frame. Where the platform draws no controls over the bar (Linux) the window draws the three
+   * itself (`drawsControls`) and asks main through these.
+   */
+  window: {
+    minimize(): void
+    toggleMaximize(): void
+    /** The window manager's close: it goes through the question `onCloseAsked` carries, as a click on the frame did. */
+    close(): void
+    /** True where the window has to draw the three buttons: where the platform gives none. */
+    drawsControls(): boolean
+    /** The window was maximised (true) or put back (false), also once when it has loaded; returns how to stop listening. */
+    onMaximized(fn: (max: boolean) => void): () => void
+  }
   /** What torno needs before anything runs (Claude Code, uv, the kernel's Python environment), found before it fails. */
   ready: {
     /** As it stands; `fresh` asks the CLI and looks on the PATH again (the CLI is otherwise asked once per run, and never under test). */
