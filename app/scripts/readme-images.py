@@ -59,7 +59,7 @@ draw = ImageDraw.Draw(social)
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    for name in (["IBMPlexSans-SemiBold.ttf", "DejaVuSans-Bold.ttf"] if bold else ["IBMPlexSans-Regular.ttf", "DejaVuSans.ttf"]):
+    for name in (["InstrumentSans-SemiBold.ttf", "DejaVuSans-Bold.ttf"] if bold else ["InstrumentSans-Regular.ttf", "DejaVuSans.ttf"]):
         for folder in ("/usr/share/fonts", str(Path.home() / ".local/share/fonts"), str(repo / "app/src/renderer/fonts")):
             found = list(Path(folder).rglob(name)) if Path(folder).exists() else []
             if found:

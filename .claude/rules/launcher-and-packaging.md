@@ -54,7 +54,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   notarized. `app/e2e/packaged.spec.ts` runs against it when `TORNO_PACKAGED` names the executable.
 - The site, torno.luisg.me (`.github/workflows/pages.yml` deploys `site/`): the landing page at `/`
   (`site/index.html`, `site/assets/`; its fonts and pictures copied in by `app/scripts/build-site.mjs`, never kept in
-  `site/`; nothing loaded from another host, `src/site.test.ts`) and the manual at
+  `site/`; Instrument Sans 400, 500, 600 and Martian Mono 400 as woff2 from the packages, `font-display: swap`, the body's face
+  preloaded; its tokens have the window's values; nothing loaded from another host, `src/site.test.ts`) and the manual at
   `/manual/` (`app/scripts/build-manual.mjs`).
 
 ## Tests (root `CLAUDE.md`)

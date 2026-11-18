@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { MONO_FACE, UI_FACE } from './shared/fonts'
 // @ts-expect-error: a plain .mjs script, without types
 import { COPIED } from '../scripts/build-site.mjs'
 
@@ -48,5 +49,35 @@ describe('site/index.html', () => {
 
   it('reduces motion when asked', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
+  })
+})
+
+// Its palette and faces are the window's (site.css says so): every token it names has the value of tokens.css, in light and in dark,
+// and the faces are the window's two, set `swap`, with the body's face preloaded.
+describe('site/assets/site.css', () => {
+  const tokens = (text: string): Record<string, string> => Object.fromEntries([...text.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]))
+  const halves = (text: string): [string, string] => {
+    const at = text.indexOf('@media (prefers-color-scheme: dark)')
+    return [text.slice(0, at), text.slice(at)]
+  }
+  const ownToTheSite = new Set(['--grid', '--measure'])
+
+  it('uses the tokens of the window, to the value, in light and in dark', () => {
+    const app = halves(readFileSync(join(root, 'app/src/renderer/styles/tokens.css'), 'utf8'))
+    const ours = halves(css)
+    for (const theme of [0, 1]) {
+      const [mine, theirs] = [tokens(ours[theme]), tokens(app[theme])]
+      expect(Object.keys(mine).length).toBeGreaterThan(8)
+      for (const [name, value] of Object.entries(mine)) if (!ownToTheSite.has(name)) expect([name, value]).toEqual([name, theirs[name]])
+    }
+  })
+
+  it('sets the window\'s two faces, swapped in, and preloads the body\'s', () => {
+    const faces = [...css.matchAll(/@font-face \{([^}]*)\}/g)].map((m) => m[1])
+    expect(faces.map((face) => /font-family: '([^']+)'; font-weight: (\d+)/.exec(face)!.slice(1).join(' '))).toEqual([`${UI_FACE} 400`, `${UI_FACE} 500`, `${UI_FACE} 600`, `${MONO_FACE} 400`])
+    for (const face of faces) expect(face).toContain('font-display: swap')
+    for (const [, file] of css.matchAll(/url\(([^)]+\.woff2)\)/g)) expect(`assets/${file}` in copied, file).toBe(true)
+    expect(Object.keys(copied).filter((path) => path.endsWith('.woff2'))).toHaveLength(4)
+    expect(attrs(/<link rel="preload" href="([^"]+)" as="font"/g)).toEqual(['assets/fonts/instrument-sans-400.woff2'])
   })
 })

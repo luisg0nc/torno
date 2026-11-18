@@ -35,7 +35,7 @@ the stylesheets by area in the order of the cascade; `styles.test.ts` holds it t
   for a canvas, a terminal and a file), `tokens.css` (`--font-ui`, `--font-mono`), `main/export/html.ts` (`FONTS`: the faces an exported page carries, Instrument
   Sans 400 and 600, Martian Mono 400) and `export/page.css`; `shared/fonts.test.ts` holds it. Martian Mono has no 600: canvas text in it is 500.
   Its latin subset lacks `≈ ⌀ →` (they fall back to `ui-monospace`); it has `× ± ° ² ³ − µ`. `.num` (in `layout.css`) is `0.86em`, `-0.02em`, tabular figures,
-  `0.12em` of margin each side; a column or table sets its own size and no margin. The IBM Plex packages stay until Task 42 of the redesign plan.
+  `0.12em` of margin each side; a column or table sets its own size and no margin.
 - The redesign's tokens (spec 2026-11-18 §1), all in `tokens.css`, light and dark: `--raise` (what floats: tags, popovers, fields,
   the composer), `--on-accent` (on `--accent`), `--dye` with `--scribe`, `--on-dye` and `--on-dye-muted` (the dyed field and
   what is drawn and said on it; `--dye` is `--accent` in light, a deep blue in dark), `--on-mark` (on both mark colours),
