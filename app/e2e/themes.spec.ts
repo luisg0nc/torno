@@ -350,9 +350,9 @@ for (const theme of ['light', 'dark'] as const) {
           await expect.poll(async () => (await state(page)).section !== null).toBe(true)
           await page.keyboard.press('m')
           await expect(page.locator('.reed-pill[data-pill="measure"]')).toBeVisible()
-          await expect(page.locator('.sectionbar')).toHaveAttribute('data-raised', '1')
-          // The bars slide to their rows: the picture is of where they stop.
-          for (const bar of ['.sectionbar', '.tool-hint']) await stableBox(page.locator(bar))
+          await expect(page.locator('[data-tag="section"]')).toBeVisible()
+          // The tag is put beside its plane: the picture is of where it stops.
+          for (const bar of ['[data-tag="section"]', '.tool-hint']) await stableBox(page.locator(bar))
         } else if (shot === 'measure') {
           // A measurement held in the view: two clicks with Measure in hand, the kernel's value drawn between its points as a draft.
           await page.keyboard.press('m')

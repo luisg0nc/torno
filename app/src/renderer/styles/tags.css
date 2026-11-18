@@ -232,3 +232,142 @@
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+
+/* ---- Section (ui/SectionTag.tsx, Task 22): a tag on the plane's top edge, and the handle of its rule ---- */
+
+/* Two rows, so that the tag is narrow enough to stand above a plane clear of the compass: the axes and the place, then the rest. */
+.tag-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* X Y Z in the axis colours, as on the triad: this letter is that direction. */
+.tag-axis {
+  width: 26px;
+  padding: 0;
+  font-weight: 500;
+}
+
+.tag-axis[data-axis='x'],
+.tag-axis-letter[data-axis='x'] {
+  color: var(--axis-x);
+}
+
+.tag-axis[data-axis='y'],
+.tag-axis-letter[data-axis='y'] {
+  color: var(--axis-y);
+}
+
+.tag-axis[data-axis='z'],
+.tag-axis-letter[data-axis='z'] {
+  color: var(--axis-z);
+}
+
+.tag-axis[aria-pressed='true'] {
+  background: var(--surface);
+}
+
+/* The plane's place: its axis letter, the number in a well, the unit quiet. */
+.tag-place {
+  gap: 5px;
+  cursor: text;
+}
+
+.tag-place[data-disabled] .tag-field,
+.tag-place[data-disabled] .tag-unit {
+  color: var(--muted);
+}
+
+.tag-place:focus-within {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.tag-field {
+  width: 7ch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+
+.tag-field:focus-visible {
+  outline: none;
+}
+
+.tag-place .tag-unit {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
+.tag-control:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.tag-control:disabled:hover {
+  background: transparent;
+}
+
+/* The menu hangs from its button, to the left of its right edge, under the tag or over it where the tag is low in the view. */
+.tag-menu-box {
+  position: relative;
+}
+
+.tag-more {
+  width: 26px;
+  padding: 0;
+}
+
+.menu.tag-menu {
+  top: calc(100% + 7px);
+  right: 0;
+  left: auto;
+  z-index: 5;
+  background: var(--raise);
+  white-space: nowrap;
+}
+
+.tag[data-side='below'] .menu.tag-menu,
+.tag[data-side='docked'] .menu.tag-menu {
+  top: auto;
+  bottom: calc(100% + 7px);
+}
+
+.tag-menu .menu-item[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.tag-menu .menu-item[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+/* A problem, the second tag below the first: `--fail` on `--fail-wash`. */
+.tag-problem {
+  margin: 0;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--fail-wash);
+  color: var(--fail);
+}
+
+/* The handle of the section's rule, for a keyboard and a screen reader: it stands over the square the overlay draws and takes no pointer. */
+.section-rule-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-inline);
+  pointer-events: none;
+}
+
+.section-rule-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}

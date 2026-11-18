@@ -47,7 +47,7 @@ import { hoverMark } from './markHover'
 import { RegionBar } from './RegionBar'
 import { NotePopover } from './NotePopover'
 import { importScan, scanDropped } from './scanDrop'
-import { SectionBar } from './SectionBar'
+import { SectionTag } from './SectionTag'
 import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
 import { ToolHint } from './ToolHint'
@@ -819,7 +819,7 @@ export function ViewportPane() {
           <SketchBand />
           <FailedBand />
           <ToolPalette />
-          <SectionBar viewport={viewport} />
+          <SectionTag viewport={viewport} />
           {/* The tags of Measure's last reading and of Explode, tied to the line and the track. */}
           <MeasureTag />
           <ExplodeTag viewport={viewport} />

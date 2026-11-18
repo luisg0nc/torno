@@ -6,7 +6,9 @@ import type { MarkLayer } from './marks/MarkLayer'
 import type { Placed } from './marks/labels'
 import { markPoints } from './marks/markObjects'
 import { chipAt, mmPerPx } from './marks/labels'
-import { SCALE_BAR_MAX, SCREEN_UNIT, chipSize, drawExplodeTrack, drawFrameCues, drawLabels, type LabelStyle } from './overlay'
+import { RULE_HANDLE, SCALE_BAR_MAX, SCREEN_UNIT, chipSize, drawExplodeTrack, drawFrameCues, drawLabels, drawSectionRule, type LabelStyle } from './overlay'
+import type { Box } from './section'
+import type { SectionPlane } from '../../shared/view'
 import type { TrackPlan } from './explodeTrack'
 import { type SketchOverlay, drawSketchOverlay } from './sketchHint'
 import type { CubeFace } from './viewCube'
@@ -27,6 +29,8 @@ export interface OverlayHost {
   syncMatrices(): void
   /** The parts are drawn apart: what a tool shows of itself is of the parts where they are, and is not drawn meanwhile. */
   exploded?(): boolean
+  /** The plane of the section on screen and the box it is laid across, for its rule on the ground; null with no section. */
+  section?(): { plane: SectionPlane; box: Box } | null
 }
 
 /**
@@ -46,6 +50,8 @@ export class OverlayPass {
   sketch: SketchOverlay | null = null
   /** The faces of the view cube as the last frame drew them: what a click on it is told against. Empty when there is none. */
   cube: CubeFace[] = []
+  /** Where the handle of the section's rule was drawn, in the canvas's pixels: what a pointer taking hold of it is told against. Null where there is none. */
+  ruleHandle: { x: number; y: number } | null = null
   /** The chips of the marks as the last frame placed and drew them: what the pointer is on is read from these, not worked out again. */
   private chips: Placed[] = []
   /** Draw no chips of marks (and find none under the pointer): what is on the canvas is not the build they were made on. */
@@ -95,10 +101,32 @@ export class OverlayPass {
     this.drawFrame(ctx, size, style)
     this.drawExplodeTrack(ctx, size, style)
     // Not while the parts are drawn apart: a point picked on the model would be drawn where its part is not.
+    this.ruleHandle = null
     if (host.exploded?.()) return
+    this.drawRule(ctx, size, style)
     this.cube = this.sketch ? drawSketchOverlay(ctx, this.sketch, host.camera(), size, { accent: style.accent, onAccent: style.onAccent, ink: style.ink, surface: style.surface, paper: style.paper, hairline: host.frame().muted }) : []
     drawAlignPoints(ctx, this.alignPoints, host.camera(), size, { accent: style.accent, paper: style.paper })
     drawBrushRing(ctx, this.brush, host.camera(), size, { mark: style.user, paper: style.paper })
+  }
+
+  /** The section's rule on the ground, with its handle (`drawSectionRule`). */
+  private drawRule(ctx: CanvasRenderingContext2D, size: { width: number; height: number }, style: LabelStyle & { accent: string }): void {
+    const rule = this.host.section?.()
+    if (!rule) return
+    const camera = this.host.camera()
+    const seen = new THREE.Vector3()
+    const project = (p: readonly [number, number, number]): { x: number; y: number } | null => {
+      seen.fromArray(p).project(camera)
+      return seen.z >= -1 && seen.z <= 1 ? { x: ((seen.x + 1) / 2) * size.width, y: ((1 - seen.y) / 2) * size.height } : null
+    }
+    this.ruleHandle = drawSectionRule(ctx, rule, project, { accent: style.accent, muted: this.host.frame().muted, surface: style.surface })
+  }
+
+  /** Whether a point of the window (client pixels) is on the handle of the section's rule, or within a few pixels of it. */
+  onRuleHandle(clientX: number, clientY: number): boolean {
+    if (!this.ruleHandle) return false
+    const rect = this.host.canvas.getBoundingClientRect()
+    return Math.hypot(clientX - rect.left - this.ruleHandle.x, clientY - rect.top - this.ruleHandle.y) <= RULE_HANDLE.size / 2 + 4
   }
 
   /** Explode's track, from where the camera sees its two ends: a gauge of the frame, so drawn whatever the parts are doing. */

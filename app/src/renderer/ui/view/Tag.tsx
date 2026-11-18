@@ -28,8 +28,12 @@ export interface TagProps {
   id: string
   /** What it is about, a point of the object frame; null where there is none, or it is seen edge on: the tag docks then. */
   subject: Vec3 | null
+  /** A subject that moves without a render (a plane being dragged): asked after every frame, in place of `subject`. */
+  subjectAt?: () => Vec3 | null
   /** The side it starts on, before it has one of its own. */
   prefer?: Exclude<Side, 'docked'>
+  /** Whether it keeps the side it had while that still fits (the default), so that it does not hop as the camera moves; false asks for `prefer` first every frame. */
+  sticky?: boolean
   /** A problem: the second tag below the first, in `--fail` on `--fail-wash`. */
   problem?: boolean
   /** Read out when it changes (`role="status"`), for a tag that says how a thing went. */
@@ -44,10 +48,12 @@ export interface TagProps {
  * its side while that still fits. With no subject, or a subject off the view or behind the camera, it docks above the hint
  * and has no leader. Its leader is set through `publishTag`.
  */
-export function Tag({ id, subject, prefer, problem, status, children }: TagProps) {
+export function Tag({ id, subject, subjectAt, prefer, sticky = true, problem, status, children }: TagProps) {
   const element = useRef<HTMLDivElement>(null)
   const subjectRef = useRef(subject)
   subjectRef.current = subject
+  const subjectAtRef = useRef(subjectAt)
+  subjectAtRef.current = subjectAt
   const side = useRef<Exclude<Side, 'docked'> | undefined>(prefer)
   const place = useRef<() => void>(() => {})
 
@@ -62,11 +68,12 @@ export function Tag({ id, subject, prefer, problem, status, children }: TagProps
       }
       const pane = within.getBoundingClientRect()
       const view: Box = { x: 0, y: 0, w: pane.width, h: pane.height }
-      const point = subjectRef.current ? projectToPane(subjectRef.current) : null
+      const now = subjectAtRef.current ? subjectAtRef.current() : subjectRef.current
+      const point = now ? projectToPane(now) : null
       const at = tagSubject(point && { x: point.x + canvas.left - pane.left, y: point.y + canvas.top - pane.top }, view)
       const size = { w: self.offsetWidth, h: self.offsetHeight }
       const avoid = avoidBoxes(self, within, pane)
-      const placed = placeTag(at, size, view, avoid, side.current)
+      const placed = placeTag(at, size, view, avoid, sticky ? side.current : prefer)
       if (placed.side !== 'docked') side.current = placed.side
       else {
         // Docked tags stack up from the hint: one meeting a tag before it stands above it.

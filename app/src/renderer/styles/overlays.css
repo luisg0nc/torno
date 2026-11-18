@@ -57,35 +57,7 @@
   white-space: normal;
 }
 
-/* ---- Section: the plane the parts are cut by, at the bottom of the viewport like the selection ---- */
-
-.sectionbar {
-  position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-lift));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  max-width: calc(100% - 2 * var(--stack-side));
-  padding: 3px;
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  font-size: var(--text-small);
-  white-space: nowrap;
-}
-
-/* Above the selection, and above what the agent points at: each has a row of its own. */
-/* Never under the strip of the Measure tool (`--strip-top`, styles/layout.css). */
-.sectionbar[data-raised='1'] {
-  bottom: max(calc(var(--space-3) + 40px + var(--bar-lift)), var(--strip-top));
-}
-
-.sectionbar[data-raised='2'] {
-  bottom: max(calc(var(--space-3) + 80px + var(--bar-lift)), calc(var(--strip-top) + 40px));
-}
+/* ---- Section's axis letters and rule as the Explode bar still wears them (its tag, Task 23, takes them); the Section tag is in tags.css ---- */
 
 /* The three axes in their own colours, as on the gizmo: this letter is that direction. */
 .section-axis {
@@ -150,78 +122,6 @@
 
 .section-slider:disabled::-webkit-slider-thumb {
   background: var(--muted);
-}
-
-.section-offset {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100px;
-  /* In a narrow view the slider gives way before the field does: the bar's other buttons ("Make a tracing") leave it little room. */
-  min-width: 80px;
-  height: 22px;
-  padding: 0 6px;
-  border: var(--divider);
-  border-radius: var(--radius-inline);
-  background: var(--panel);
-  cursor: text;
-}
-
-.section-offset:not([data-along]) {
-  width: 170px;
-}
-
-.section-axis-letter {
-  color: var(--ink);
-}
-
-.section-axis-letter[data-axis='x'] {
-  color: var(--axis-x);
-}
-
-.section-axis-letter[data-axis='y'] {
-  color: var(--axis-y);
-}
-
-.section-axis-letter[data-axis='z'] {
-  color: var(--axis-z);
-}
-
-.section-offset:focus-within {
-  border-color: var(--accent);
-}
-
-.section-offset[data-disabled] {
-  opacity: 0.45;
-}
-
-.section-offset input {
-  flex: 1;
-  min-width: 0;
-  width: 0;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: var(--text-small);
-  text-align: right;
-}
-
-.section-offset input:focus-visible {
-  outline: none;
-}
-
-/* Said in the bar when the plane leaves nothing to see. */
-.sectionbar-note {
-  padding: 0 var(--space-1) 0 var(--space-2);
-  color: var(--muted);
-}
-
-.section-offset span {
-  flex: none;
-  font-size: 10.5px;
-  color: var(--muted);
 }
 
 /* ---- What the agent asks the person to choose (`ask`): a card in the chat above the box, or over the foot of the view ---- */
