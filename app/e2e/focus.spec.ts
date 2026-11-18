@@ -4,8 +4,8 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { box, stl } from '../src/test/scanFixtures'
-import { openPanel, railButton } from './helpers'
-import { openListed } from './objects'
+import { openSection, railButton, showProjects } from './helpers'
+import { openListed, projectCard } from './objects'
 
 // The app is driven by single letters. After a click or an action, wherever it was, the next letter is the
 // view's: it takes a tool in hand, and is never typed into what was clicked, nor swallowed by it. One walk
@@ -91,7 +91,6 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await expect(page.locator('.view-chip[data-view="From the front"]')).toBeVisible()
   await pinIsInHand('a view saved')
   // The folder menu, from the folder crumb of the title bar, opened and closed.
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await expect(page.getByRole('menu', { name: 'Folders' })).toBeVisible()
   await page.keyboard.press('Escape')
@@ -112,7 +111,7 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.mouse.up()
   await pinIsInHand('the session pane resized')
   // Two scans: a unit chosen on a row, and in the align bar which scan to align.
-  await openPanel(page, 'Scans')
+  await openSection(page, 'Scans')
   for (const name of ['plate.stl', 'floor.stl']) {
     await pickFile(join(root, name))
     await page.getByRole('button', { name: 'Import scan…' }).click()
@@ -128,19 +127,19 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await choose(page.getByRole('combobox', { name: 'Scan to align' }), 'S2')
   await pinIsInHand('a scan chosen to align')
   // A part switched off and on in the layers.
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.getByRole('button', { name: 'Show post' }).click()
   await page.getByRole('button', { name: 'Show post' }).click()
   await pinIsInHand('a part switched off and on')
-  // Each panel of the rail opened and closed by its icon, with the pointer.
-  for (const name of ['Projects', 'Layers', 'Scans', 'Marks'] as const) {
+  // Each section of the card brought into sight by its icon in the rail, with the pointer.
+  for (const name of ['Parts', 'Scans', 'Marks'] as const) {
     await railButton(page, name).click()
-    await pinIsInHand(`${name} opened or closed`)
+    await pinIsInHand(`${name} brought into sight`)
     await railButton(page, name).click()
-    await pinIsInHand(`${name} as it was`)
+    await pinIsInHand(`${name} again`)
   }
   // The panel made wider by its edge, and the default put back with a double click.
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
   const line = page.getByRole('separator', { name: 'Resize panel' })
   const from = (await line.boundingBox())!
   await page.mouse.move(from.x + from.width / 2, from.y + 300)
@@ -168,15 +167,15 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.mouse.click(shown.x + chip!.x * shown.width, shown.y + chip!.y * shown.height)
   await expect.poll(async () => (await state()).activeMark).toBe('M2')
   await pinIsInHand('a mark\'s chip clicked in the view')
-  // Another project chosen in the Projects panel with the pointer, and back.
-  await openPanel(page, 'Projects')
+  // Another project chosen on the page of projects with the pointer, and back.
   for (const name of ['hollow', 'bracket']) {
-    await page.getByRole('navigation', { name: 'Projects' }).getByRole('button', { name, exact: true }).click()
+    await showProjects(page)
+    await projectCard(page, name).click()
     await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ objectId: name, status: 'ok' })
     await pinIsInHand(`${name} chosen in the list`)
   }
   // As it was for what follows: the detail of S1 open.
-  await openPanel(page, 'Scans')
+  await openSection(page, 'Scans')
   await page.getByRole('button', { name: 'Details of S1' }).click()
 })
 

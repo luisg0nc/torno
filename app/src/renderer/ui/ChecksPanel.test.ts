@@ -15,7 +15,7 @@ const gone: ModelCheck = { name: 'same part', kind: 'clearance', status: 'error'
 const words = (markup: string): string => plainText(markup)
 const scene = (checks: ModelCheck[] | undefined, more: Partial<Scene> = {}): Scene => ({ model: 'm.py', layouts: ['assembly'], parts: [], seconds: 0, output: '', checks, ...more }) as unknown as Scene
 
-describe('the Checks section of the Params panel', () => {
+describe('the model\'s checks in the Checks section', () => {
   afterEach(() => store.setState({ scene: null, objectId: null, column: COLUMN_DEFAULT }))
   const html = (): string => {
     const now = vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState())
@@ -33,12 +33,10 @@ describe('the Checks section of the Params panel', () => {
     expect(html()).toBe('')
   })
 
-  it('has a title that says how many fail, and its rows beneath', () => {
+  it('has its rows, and the words of the head of the section say how many fail', () => {
     store.setState({ scene: scene([fits, walls]), column: COLUMN_DEFAULT })
     const text = html()
-    expect(text).toContain('Checks')
-    expect(words(text)).toContain('2 · 1 fails')
-    expect(text).not.toContain('data-folded')
+    expect(checksSaid([fits, walls])).toBe('2 · 1 fails')
     expect(text).toContain('check-row')
   })
 

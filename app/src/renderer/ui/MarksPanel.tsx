@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { type Mark, type MarkPatch, markAnchors, markEndParts } from '../../shared/marks'
 import { actions, layerOf, useStore } from '../state/store'
 import { AskToCommit } from './AskToCommit'
-import { ChecksSummary } from './ChecksSummary'
 import { MarkRow } from './MarkRow'
 import { groupMarks } from './markGroups'
 import { type ReviewStep, ResolvedSummary } from './ResolvedSummary'
@@ -108,8 +107,7 @@ export function MarksPanel() {
     )
 
   return (
-    <section className="section marks" aria-label="Marks">
-      <h2 className="section-title">Marks</h2>
+    <div className="section marks">
       {problem !== null && (
         <p className="marks-problem selectable" role="status">
           {problem}{' '}
@@ -130,8 +128,6 @@ export function MarksPanel() {
           {refused}
         </p>
       )}
-      {/* Outside the scroll of the list: the counts stay in view, and each goes to its first check. */}
-      <ChecksSummary marks={marks} revision={revision} />
       {/* And the reviews: starting one, and a row for each round. */}
       <ReviewSummary />
       {onPart !== null && (
@@ -197,6 +193,6 @@ export function MarksPanel() {
           </>
         )}
       </div>
-    </section>
+    </div>
   )
 }

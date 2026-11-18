@@ -80,7 +80,7 @@ export async function carryOut(objectId: string, opens: Opens): Promise<string |
     }
     case 'params': {
       boardActions.show('model')
-      if (store.getState().column.open !== 'params') actions.openPanel('params')
+      actions.showSection('params')
       return null
     }
     default:

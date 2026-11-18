@@ -8,15 +8,19 @@ paths:
   - "app/src/renderer/ui/Layers.test.ts"
   - "app/src/renderer/ui/layerMarks.ts"
   - "app/src/renderer/ui/layerMarks.test.ts"
-  - "app/src/renderer/ui/SectionTitle.tsx"
+  - "app/src/renderer/ui/card/*.ts"
+  - "app/src/renderer/ui/card/*.tsx"
+  - "app/src/renderer/ui/Rail.tsx"
+  - "app/src/renderer/ui/railBadges.ts"
   - "app/src/renderer/ui/sectionSaid.ts"
   - "app/src/renderer/ui/sectionSaid.test.ts"
   - "app/src/renderer/ui/ColumnSplit.tsx"
   - "app/src/renderer/ui/LeftEdge.tsx"
-  - "app/src/renderer/ui/ObjectList.tsx"
   - "app/src/renderer/state/column.ts"
   - "app/src/renderer/state/column.test.ts"
   - "app/src/renderer/styles/panels.css"
+  - "app/src/renderer/styles/card*.css"
+  - "app/src/renderer/styles/rail.css"
   - "app/src/main/mcp/viewTools.ts"
   - "app/e2e/groups.spec.ts"
   - "app/e2e/references.spec.ts"
@@ -100,35 +104,36 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## The page of objects (`app/src/renderer`)
 
-- **The rail and its panel** (`ui/Rail.tsx`, `ui/PanelHost.tsx`, `styles/rail.css`, `styles/panels.css`, `state/column.ts`).
+- **The rail and the route card** (`ui/Rail.tsx`, `ui/card/RouteCard.tsx`, `ui/card/CardSection.tsx`, `ui/card/sections.ts`, `styles/rail.css`, `styles/card.css` and the `card-*.css` of each section, `state/column.ts`).
   The left of the window is `aside[data-region="left"]` (`aria-label="Panels"`), the F6 region `left`, holding the rail
-  (52 px, `--rail-w`, `RAIL_W`) and, beside it, the one panel that is open (`.panel-host`, `--card-w`, `--panel-w` is its old name): five icons with no
-  word under them, Projects, Layers, Params, Scans and Marks (`RailPanel`), buttons of 36 × 36 with `aria-pressed` and their name in `aria-label`, and Keys at the foot (`data-rail="keys"`, `showKeys`, no `aria-pressed`), on `--surface`. A hairline (`.rail-sep`) follows Projects when other panels are offered. The name shows in a tip (`ui/RailTip.tsx`: an ink pill, `aria-hidden`, fixed 6 px right of the button, on pointer hover and `:focus-visible`, no transition). The open panel is the accent wash; Projects pressed while the page of projects is up (`data-dyed`) is the dyed tile (`--dye` and `--on-accent`; the accent in the dark theme). The tile's radius is `--radius-float` (10 px; the spec's 9 px is no token). A press opens
-  that panel and pushes the view over (the shell is one grid, `grid-template-columns: var(--rail-w) var(--card-space) minmax(0, 1fr) var(--dock-space)`, rows `--title-h`, the rest, `--status-h`; `.left` spans the rail's column and the card's, and
-  `--card-space` is `--card-w`, or `0px` with none open: `data-panel` on the shell; `--left-w` is the two together, for the sheet that rises from the status line), a press on the open one closes it, another switches
-  (`actions.openPanel`; pressed with the pointer, the keys go back to the view). Tab and Ctrl+Tab are not bound: the
-  rail's buttons are in the page's own order. The rail offers what the page allows (`panelsFor`): all five for an open
-  project, Projects and Marks on the page of projects, Projects alone for a new project or with none open; a kept panel it
-  does not offer is not shown (`shownPanel`), except that where Projects is the only one it stands in, so that a
-  workspace with no project open shows its list. A badge on the icon is what the folded titles said: the parts switched
-  off (Layers), the model's checks that fail (Params), the scans not aligned (Scans), the marks to review (Marks)
-  (`ui/railBadges.ts`: the text, and the same in words as the button's `aria-description`; the number is in the
-  monospace face and the badge is `aria-hidden`). The Projects icon carries the dot of any project's session that works or waits
-  (`switcherSign`), its description naming which. Projects is the workspace's: the example's
-  note, a folder that would not open, then the list (the folder's name and menu are the title bar's); Params is Parameters, then Checks and Print profile; the sections
-  of a panel do not fold, and the panel scrolls as a whole except Marks, which keeps its title and line of checks in
-  place and scrolls its list. Which panel is open and the panel's width are the window's (`store.column`: `{ open, width }`,
-  in `localStorage` under `torno.column`, read and written in try/catch; a value of the old shape, folded sections and a
-  marks height, reads as Marks open at its width), never the workspace's. The panel's right edge (`ui/LeftEdge.tsx`,
-  `role="separator"`, `left.resize` Left/Right) makes it wider than its default, 296 px (`LEFT_DEFAULT`; 264, `leftDefault(window.innerWidth)`, in a window narrower
-  than 1360 px, `NARROW_WINDOW`), up to `PANEL_MAX` and what leaves the viewport `VIEWPORT_MIN` (420 px) beside the rail and the dock
-  (`clampLeft`); what is kept never goes below `LEFT_MIN` (264, which is also what `COLUMN_DEFAULT` and a double click keep): a wide window
-  shows the default for a kept width under it, so "the default" is the default of whichever window shows it. Its drag writes
+  (52 px, `--rail-w`, `RAIL_W`) and, beside it, the route card (`.card`, `--card-w`) while a project is open (`sectionsFor`: the card is away, and
+  `--card-space` is `0px`, on the page of projects, with a new project and with none open: `data-left="away"` on the shell, `open` otherwise). The rail is buttons of 36 × 36 with
+  their name in `aria-label`, on `--surface`: Projects at the top, a hairline (`.rail-sep`) when the index is offered, the eight icons of the index
+  (`SECTIONS` in `ui/card/sections.ts`: Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings, Print profile, `data-section`) and Keys at the foot (`data-rail="keys"`, `showKeys`).
+  The name shows in a tip (`ui/RailTip.tsx`: an ink pill, `aria-hidden`, fixed 6 px right of the button, on pointer hover and `:focus-visible`, no transition). Projects
+  is `aria-pressed` while the page of projects is up (`data-dyed`, the dyed tile: `--dye` and `--on-accent`, the accent in the dark theme; radius `--radius-float`) and
+  a press shows the page, or goes back to the open project (`actions.showPage`; with no project open there is no back). The index is a press
+  that brings the section into sight and unfolds it (`actions.showSection`: unfolds, then scrolls the card to `[data-section]` once drawn); the section in sight has the accent wash and
+  `aria-current="true"` (`store.sectionHere`, found by the card's `IntersectionObserver` on the heads, `inSight` and `READING_LINE`). Tab and Ctrl+Tab are not bound: the
+  rail's buttons are in the page's own order, the rail then the card. A badge on an icon (`ui/railBadges.ts`, `badgeText(section, data)` and `badgeSaid`, data from `useBadgeData`):
+  what waits for the person on Needs you (marks to review, marks the agent left, failing checks), the parts switched off on Parts, the model's checks that fail plus failing dimensions on Checks (on `--fail`),
+  the scans not aligned on Scans, the marks to review on Marks; the number is in the monospace face, the badge is `aria-hidden`, and the words are the button's `aria-description`. The Projects icon carries the dot of any project's session that works or waits
+  (`switcherSign`), its description naming which.
+  The card: `ui/card/RouteCard.tsx` is the head slot (`head`, pinned above the scroll, up to 60 % of the card; empty until In hand moves in) and `.route-scroll`, in it a `CardSection` for each of `SECTIONS`. A section
+  (`section.route-section`, `data-section`, `data-folded`, `data-here`, `data-needs`, `data-empty`, `aria-labelledby` its head) has a dot on the route (9 px, 1 px `--route` at 17.5 px) and a head that is a button (`.route-head-button`, `aria-expanded`):
+  the name at 16 px, 600, and `said`, one line in the monospace face at 10.5 px (`useSectionFacts`: the words and the failing part in `--fail`). A click on the head folds the section (a folded section draws no body); one with nothing in it
+  says "none" and does not unfold (`empty`; Marks and Scans are never empty, their body holds Review this build and Import scan…). The bodies are today's components: Parts is `Layers`, Parameters `ParamsPanel` (the Parameters alone), Checks `ChecksSummary` and `ChecksPanel`,
+  Marks `MarksPanel`, Scans `ScansPanel`, Tracings `TracingRows` (the tracings shown in 3D), Print profile `PrintProfile`, Needs you empty for now; what was a `SectionTitle`'s one thing to do is a `.route-tools` row at the top of the body.
+  The card scrolls as a whole. Which sections are folded and the card's width are the window's (`store.column`: `{ folded: SectionId[], width }`, in `localStorage` under `torno.column`, read with `readColumn(storedColumn(…))` and written in try/catch; an old value `{ open, width }`
+  reads as the default folding, `COLUMN_DEFAULT`, at its width), never the workspace's. The card's right edge (`ui/LeftEdge.tsx`,
+  `role="separator"`, `left.resize` Left/Right) makes it wider than its default, 296 px (`CARD_DEFAULT`; 264, `leftDefault(window.innerWidth)`, in a window narrower
+  than 1360 px, `NARROW_WINDOW`), up to `CARD_MAX` and what leaves the viewport `VIEWPORT_MIN` (420 px) beside the rail and the dock
+  (`clampLeft`); what is kept never goes below `CARD_NARROW` (264, which is also what a double click keeps): the width `CARD_DEFAULT` stands for the default of whichever window shows it (`clampLeft`). Its drag writes
   `--card-w` on the shell, and the dock's own limit reads the left's width now (`e2e/boot.spec.ts`).
   The dock's width is the window's too (`state/dock.ts`: `torno.dock` in `localStorage`, `readDock` and `writeDock` in try/catch,
   `clampDock(width, windowWidth, leftWidth)`, `dockDefault`: 420 px, 384 in a narrow window, never under `DOCK_MIN` 320): a drag of the dock's edge
   or an arrow key keeps it, and until then `--dock-w` stands at the CSS default (`tokens.css`, with the narrow defaults of the card and
-  the dock in a media query that a test holds to `LEFT_MIN` and `DOCK_NARROW`). A window made smaller than a kept width shows less, and keeps what was set. Opening a project from the list leaves the panel as it is.
-- **The list of projects** is whole, one row for each, in the Projects panel (a project that cannot be built is muted,
-  its reason the title; "All projects" is beside the title while a project is open and the first row otherwise). There
+  the dock in a media query that a test holds to `CARD_NARROW` and `DOCK_NARROW`). A window made smaller than a kept width shows less, and keeps what was set. Opening a project leaves the folding as it is.
+- **The projects of the folder** are the page of projects (`ShowPage`), and the project crumb's menu of the title bar (All projects at its head, a project that cannot be built muted, its reason the title). The example's note
+  ("A temporary copy…", with Keep this as a folder…) and a folder that would not open (`role="alert"`, which brings the page up to be read) are said at the top of the page of projects (`ShowPage`'s `notes`, the spec being silent on where). There
   is no switcher: the rail's Projects icon says that a session of another project waits.

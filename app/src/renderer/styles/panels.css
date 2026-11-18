@@ -1,32 +1,9 @@
-/* ---- The panel docked beside the rail: one of Projects, Layers, Params, Scans or Marks ---- */
+/* ---- The bodies of the route card's sections: today's lists, rows and forms, until each section is restyled in its own card-*.css ---- */
 
 /*
- * The panel is as tall as the window and scrolls as a whole (`.panel-body`), except the marks, which keep their title
- * and the line of checks in place and scroll their list (`.marks-body`). The panel pushes the view over (`--left-w`
- * on the shell is the rail and the panel's width); it never floats over it.
+ * The card is as tall as the window and scrolls as a whole (`.route-scroll`, `card.css`). A section's body is the component
+ * that was a panel's section: it brings the padding of a panel's edge, which `.route-body` takes back (`card.css`).
  */
-.panel-host {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  border-right: var(--divider);
-}
-
-.panel-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.panel-host[data-panel='marks'] .panel-body {
-  overflow-y: hidden;
-}
-
 .section {
   display: flex;
   flex: none;
@@ -35,23 +12,13 @@
   padding: var(--space-1) 0 var(--space-2);
 }
 
-/* The sections of one panel (Params holds the checks and the print profile): a hairline between. */
-.section + .section {
-  border-top: var(--divider);
-}
-
-/* The rows are the panel's to scroll, not a section's own. */
-.panel-body .rows {
+/* The rows are the card's to scroll, not a section's own. */
+.route-body .rows {
   flex: none;
   overflow: visible;
 }
 
-.objects {
-  padding-bottom: var(--space-2);
-}
-
 .marks {
-  flex: 1 1 0;
   padding-top: var(--space-1);
   padding-bottom: 0;
 }
@@ -79,30 +46,6 @@
   min-width: 0;
   padding-top: 2px;
   padding-bottom: 2px;
-}
-
-.section-said {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The count and what else is said, after the name, a step apart. */
-.section-said::before {
-  content: '';
-  padding-left: var(--space-1);
-}
-
-/* With a project open: the way to the page of projects beside the title, as the scans have their import. */
-.page-button {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-}
-
-.page-button svg {
-  width: 13px;
-  height: 13px;
 }
 
 .section-note {
@@ -134,30 +77,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.object-row {
-  border: 0;
-  background: transparent;
-  text-align: left;
-}
-
-.object-row:hover {
-  background: var(--accent-wash);
-}
-
-.object-row[aria-current] {
-  background: var(--accent-wash);
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.object-row[data-problem] {
-  color: var(--muted);
-}
-
-.object-row:focus-visible {
-  outline-offset: -2px;
 }
 
 .swatch {

@@ -1,8 +1,7 @@
 import { useStore } from '../state/store'
-import { checkRow, checksSaid, noteLines } from './checkRows'
+import { checkRow, noteLines } from './checkRows'
 import { numbered } from './numbered'
 import { PinButton } from './projectBoard/PinButton'
-import { SectionTitle } from './SectionTitle'
 
 /**
  * The checks the model declares in its `checks(p)`, as the kernel measured them at the last build: a row for each,
@@ -18,10 +17,10 @@ export function ChecksPanel() {
   if (!checks || checks.length === 0) return null
   const notes = noteLines(scene.checkNotes ?? [])
   return (
-    <section className="section checks" aria-label="Checks">
-      <SectionTitle title="Checks" said={checksSaid(checks)}>
+    <div className="section checks">
+      <div className="route-tools">
         <PinButton what={{ kind: 'checks' }} title="Put the checks on the board as a card that stays up to date" />
-      </SectionTitle>
+      </div>
       <ul className="rows">
         {checks.map((check) => {
           const row = checkRow(check)
@@ -50,6 +49,6 @@ export function ChecksPanel() {
           </ul>
         </div>
       )}
-    </section>
+    </div>
   )
 }

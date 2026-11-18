@@ -165,9 +165,9 @@ test('the example is a copy in a temporary folder: the repository\'s own is neit
     copy = (await first.evaluate(() => window.__tornoTest!.state())).workspace!.root
     expect(copy.startsWith(join(tmpdir(), 'torno-example-')) || copy.startsWith(join(realpathSync(tmpdir()), 'torno-example-'))).toBe(true)
     expect(copy.startsWith(exampleSource)).toBe(false)
-    await expect(first.locator('.object-row')).toHaveText([...EXAMPLE_OBJECTS].sort())
+    await expect(first.locator('.show .card .card-name')).toHaveText([...EXAMPLE_OBJECTS].sort())
     // It builds, in the copy, and its marks and views are there.
-    await first.locator('.object-row', { hasText: 'enclosure' }).click()
+    await first.locator('.show .card[data-object="enclosure"]').click()
     await expect.poll(async () => (await first.evaluate(() => window.__tornoTest!.state())).build?.status, { timeout: 60_000 }).toBe('ok')
     expect(existsSync(join(copy, 'enclosure', '.torno', 'marks.json'))).toBe(true)
     expect(existsSync(config)).toBe(false)
@@ -213,7 +213,7 @@ test('the example can be kept as a folder: a new one at the path chosen, never o
     expect(readdirSync(home).filter((name) => name.includes('torno-new'))).toEqual([])
     await expect.poll(() => (JSON.parse(readFileSync(config, 'utf8')) as { recent: string[] }).recent[0]).toBe(realpathSync(kept))
     // It is a folder of the person's own: it builds, and its marks came with it.
-    await first.locator('.object-row', { hasText: 'enclosure' }).click()
+    await first.locator('.show .card[data-object="enclosure"]').click()
     await expect.poll(async () => (await first.evaluate(() => window.__tornoTest!.state())).build?.status, { timeout: 60_000 }).toBe('ok')
   } finally {
     await bare.close()

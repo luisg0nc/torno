@@ -9,7 +9,6 @@ import { capital, numbered } from './numbered'
 import { ScanReadSheet } from './ScanReadSheet'
 import { alignScan, importScan, reimportScan } from './scanDrop'
 import { guessOf, scanState } from './scanState'
-import { SectionTitle } from './SectionTitle'
 import { chosen, pointerChoice } from './typing'
 
 /** What the import process says it is doing, in the panel's words; a stage with no entry is said as it is. */
@@ -60,12 +59,12 @@ export function ScansPanel() {
   }
 
   return (
-    <section className="section scans" aria-label="Scans">
-      <SectionTitle title="Scans" said={`${scans.length}`}>
+    <div className="section scans">
+      <div className="route-tools">
         <button type="button" className="button button-quiet" title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'} disabled={importing !== null} onClick={() => void pick()}>
           Import scan…
         </button>
-      </SectionTitle>
+      </div>
       {/* What main found wrong with the scans file of this object. */}
       {problem !== null && (
         <p className="scans-line selectable" role="status" data-part="problem">
@@ -106,7 +105,7 @@ export function ScansPanel() {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   )
 }
 

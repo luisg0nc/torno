@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { REFERENCE_COLOR } from '../src/shared/palette'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // A bought part the model puts among its references(p) (a bd_warehouse bearing): in the layers list with the tag
@@ -38,7 +38,7 @@ test('a reference is listed as bought, in a neutral tone, in the assembly and no
   const s = await state()
   expect(s.scene!.parts.filter((p) => p.role === 'reference').map((p) => `${p.layout}:${p.name}`)).toEqual(['assembly:608'])
   expect(s.scene!.parts.filter((p) => p.layout === 'print').map((p) => p.name)).toEqual(['housing', 'cap'])
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   const row = page.locator('[data-layer="608"]')
   await expect(row.locator('.layer-bought')).toHaveText('bought')
   await expect(row.locator('.swatch')).toHaveCSS('background-color', hex(REFERENCE_COLOR))

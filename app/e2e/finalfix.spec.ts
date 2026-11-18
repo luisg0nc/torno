@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
 import { EXAMPLE_NOTE } from '../src/shared/workspace'
-import { openPanel, railButton } from './helpers'
+import { openSection, railButton } from './helpers'
 import { openListed } from './objects'
 
 // The final fix wave of Milestone 5, through the hidden window: what was made easier to use (a real Rebuild,
@@ -150,7 +150,6 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   // The folder torno was started with is one opened lately.
   await expect.poll(() => { try { return JSON.parse(readFileSync(join(home, 'config.json'), 'utf8')).recent } catch { return null } }).toEqual([root])
   // The folder crumb is in the title bar.
-  await openPanel(page, 'Projects')
   const button = page.getByRole('button', { name: /^Folder / })
   await button.click()
   const menu = page.getByRole('menu', { name: 'Folders' })
@@ -166,19 +165,18 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   await expect(button).toBeFocused()
   await expect(page.locator('.workspace-example')).toHaveCount(0)
 
-  // While the page of objects is up the layers and the scans act on a view that is not there.
-  await openPanel(page, 'Layers')
-  await expect(page.getByRole('region', { name: 'Layers' })).toBeVisible()
+  // While the page of objects is up the sections of the card act on a view that is not there: the card is away.
+  await openSection(page, 'Parts')
+  await expect(page.getByRole('region', { name: 'Parts' })).toBeVisible()
   await canvas().click({ position: { x: 5, y: 5 } })
   await page.keyboard.press('w')
   await expect.poll(async () => (await state()).page).toBe('objects')
-  await expect(page.getByRole('region', { name: 'Layers' })).toHaveCount(0)
-  await expect(railButton(page, 'Layers')).toHaveCount(0)
-  await openPanel(page, 'Marks')
-  await expect(page.locator('[data-region="left"] .mark-row').first()).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Parts' })).toHaveCount(0)
+  await expect(railButton(page, 'Parts')).toHaveCount(0)
+  await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).page).toBe('object')
-  await expect(railButton(page, 'Layers')).toBeVisible()
+  await expect(railButton(page, 'Parts')).toBeVisible()
 })
 
 test('the sheet of keys is a dialog: a click inside it keeps the keys in it, and it is counted aloud, not read out', async () => {
@@ -272,7 +270,6 @@ test('a folder that went away after the menu was read is said not to open, under
   // A folder of the list that is there when the menu is read, and gone when it is chosen: an unmounted disk.
   const gone = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-finalfix-gone-'))
   writeFileSync(join(home, 'config.json'), JSON.stringify({ workspace: root, recent: [root, gone] }))
-  await openPanel(page, 'Projects')
   const folders = page.getByRole('button', { name: /^Folder / })
   await folders.click()
   const row = page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem', { name: new RegExp(basename(gone)) })
@@ -299,7 +296,6 @@ test('a folder that went away after the menu was read is said not to open, under
 })
 
 test('the example says for as long as it is open that it is a temporary copy', async () => {
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem', { name: 'Open the example' }).click()
   // A session runs here (the stand-in says nothing of being at work once it has answered): leaving may ask first.

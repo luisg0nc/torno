@@ -7,7 +7,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import { TOOLS } from '../src/renderer/state/tools'
 import type { Hit } from '../src/renderer/viewport/picking'
 import type { Camera } from '../src/shared/view'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // Pointing at the parts: what is under the pointer, selecting it, what the
@@ -160,7 +160,7 @@ test('an edge within reach wins over the face under it, unless only faces are as
 })
 
 test('a hidden part is never picked; a see-through one is picked like any other', async () => {
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.getByRole('button', { name: 'Show post' }).click()
   await expect.poll(async () => (await state()).layers.post?.visible).toBe(false)
   const through = (await pickOver(ON_POST))!
@@ -174,7 +174,7 @@ test('a hidden part is never picked; a see-through one is picked like any other'
   })
   expect(parts).toEqual(['base', 'nothing'])
 
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
 
   await page.getByRole('button', { name: 'Show post' }).click()
   await page.getByLabel('Opacity of post').fill('0.2')

@@ -7,7 +7,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { Camera } from '../src/shared/view'
 import { SESSION_HEADER } from '../src/main/http'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // Saved views, through the window and through the agent's tools: the view on screen is kept under a name in the
@@ -82,7 +82,7 @@ async function explodeTo(percent: number): Promise<void> {
 
 async function open(id: string): Promise<void> {
   await openListed(page, id)
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await expect.poll(async () => ((await state()).objectId === id ? (await state()).build?.status : null), { timeout: 30_000 }).toBe('ok')
   await expect.poll(async () => (await state()).scene !== null).toBe(true)
 }

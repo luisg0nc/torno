@@ -1,6 +1,6 @@
 import { useLayoutEffect, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { which } from '../../shared/keys'
-import { clampLeft, LEFT_MIN, leftDefault } from '../state/column'
+import { clampLeft, CARD_NARROW, leftDefault } from '../state/column'
 import { actions, useStore } from '../state/store'
 import { giveKeysBack } from './typing'
 
@@ -89,7 +89,7 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
       onPointerUp={onUp}
       onPointerCancel={onUp}
       onKeyDown={onKey}
-      onDoubleClick={() => actions.setPanelWidth(LEFT_MIN)}
+      onDoubleClick={() => actions.setPanelWidth(CARD_NARROW)}
     />
   )
 }

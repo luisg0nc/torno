@@ -5,8 +5,8 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { letGoText } from '../src/shared/build'
 import type { Camera, LookRequest, LookResult, ViewState } from '../src/shared/view'
-import { openPanel, railButton } from './helpers'
-import { objectList, openListed } from './objects'
+import { openSection, railButton } from './helpers'
+import { openListed, projectCard, projectCrumb } from './objects'
 
 // The whole loop through the window: choose an object, see its parts, change
 // layers and views, save the model and watch it rebuild, break it and mend it.
@@ -52,7 +52,8 @@ const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window._
 const camera = (): Promise<Camera> => page.evaluate(() => window.__tornoTest!.camera())
 /** The layers listed in the Layers panel, which is opened first where the rail offers it (a project is open). */
 async function layerNames(p: Page = page): Promise<(string | null)[]> {
-  if ((await railButton(p, 'Layers').count()) > 0) await openPanel(p, 'Layers')
+  // A project with no parts has the section's head say so and not open: nothing to list.
+  if ((await railButton(p, 'Parts').count()) > 0) await railButton(p, 'Parts').click()
   return p.locator('[data-layer]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer')))
 }
 const status = (p: Page) => p.locator('[data-region="status"]')
@@ -112,13 +113,13 @@ function mainView(objectId: string): Promise<ViewState | undefined> {
 const model = () => join(root, 'bracket', 'bracket.py')
 const sceneFile = () => join(root, 'bracket', '.torno', 'scene.json')
 
-test('the object list shows the objects; one that cannot be built is muted, with the reason', async () => {
-  const rows = page.locator('.object-row')
+test('the page of projects shows the objects; one that cannot be built says why', async () => {
+  const rows = page.locator('.show .card .card-name')
   await expect(rows).toHaveText(['bracket', 'broken', 'chatty', 'crash', 'exits', 'gauge', 'grouped', 'hollow', 'housing608', 'makers', 'measures', 'morph', 'noscene', 'plain', 'slow', 'spread', 'two'])
-  const two = page.getByRole('button', { name: 'two', exact: true })
-  await expect(two).toHaveAttribute('title', /more than one model file in .*two: a\.py, b\.py/)
+  const two = projectCard(page, 'two')
+  await expect(two.locator('[data-part="build"]')).toHaveAttribute('title', /more than one model file in .*two: a\.py, b\.py/)
   await expect(two).toHaveAttribute('data-problem', '')
-  await expect(page.getByRole('button', { name: 'bracket', exact: true })).not.toHaveAttribute('data-problem')
+  await expect(projectCard(page, 'bracket')).not.toHaveAttribute('data-problem')
   await expect(page.getByRole('button', { name: /^Folder / })).toHaveAttribute('title', root)
   await expect(page.locator('[data-region="viewport"]')).toContainText('No project open')
 })
@@ -146,9 +147,8 @@ test('clicking an object builds it: status ok, revision 1, its parts as layers',
   // Every number and ref is in the monospace face.
   const face = await status(page).locator('[data-part="revision"] .num').evaluate((el) => getComputedStyle(el).fontFamily)
   expect(face).toContain('Martian Mono')
-  // The list in the Projects panel marks the object open.
-  await openPanel(page, 'Projects')
-  await expect(objectList(page).getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
+  // The project crumb of the title bar names the object open.
+  await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project bracket')
 })
 
 test('a look draws the parts', async () => {
@@ -412,7 +412,7 @@ test('mending the model builds the next revision and clears the failure', async 
 
 test('hiding a layer changes the picture and is recorded in .torno/scene.json', async () => {
   const both = await look({ view: 'iso' })
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.locator('[data-layer="post"]').hover()
   const toggle = page.getByRole('button', { name: 'Show post' })
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
@@ -600,7 +600,7 @@ test.describe('the workspace is remembered', () => {
       const second = await launch({ TORNO_CONFIG: config })
       try {
         const secondPage = await second.firstWindow()
-        await expect(secondPage.locator('.object-row')).toHaveText(['thing'])
+        await expect(secondPage.locator('.show .card .card-name')).toHaveText(['thing'])
         await expect(secondPage.locator('.title-row .workspace-name')).toHaveText('objects')
       } finally {
         await second.close()

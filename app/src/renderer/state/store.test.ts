@@ -1373,11 +1373,11 @@ describe('the page of objects', () => {
   const object = (id: string) => ({ id, name: id, dir: `/ws/${id}`, model: `${id}.py` })
   const workspace = (...ids: string[]) => ({ root: '/ws', hasProject: true, objects: ids.map(object) })
 
-  it('is where a workspace of several objects starts, and of none; one object alone is shown itself', () => {
+  it('is where a workspace starts, whatever it holds: no project is open yet, and the rail\'s Projects is the way to the page', () => {
     actions.setWorkspace(workspace('bracket', 'gear'))
     expect(store.getState().page).toBe('objects')
     actions.setWorkspace(workspace('bracket'))
-    expect(store.getState().page).toBe('object')
+    expect(store.getState().page).toBe('objects')
     actions.setWorkspace(workspace())
     expect(store.getState().page).toBe('objects')
     actions.setWorkspace(null)
@@ -1439,7 +1439,7 @@ describe('the page of objects', () => {
   it('stays as it is when the list of objects is read again', () => {
     actions.setWorkspace(workspace('bracket'))
     actions.refreshWorkspace(workspace('bracket', 'gear'))
-    expect(store.getState().page).toBe('object')
+    expect(store.getState().page).toBe('objects')
   })
 })
 
@@ -1469,24 +1469,31 @@ describe('the session dock', () => {
   })
 })
 
-describe('the rail', () => {
-  it('opens a panel, and the same one again closes it; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ open: 'marks', width: 264 })
-    actions.openPanel('layers')
-    expect(store.getState().column.open).toBe('layers')
+describe('the route card', () => {
+  it('folds a section and unfolds it again; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
+    expect(store.getState().column).toEqual({ folded: ['params', 'scans', 'tracings', 'profile'], width: 296 })
+    actions.toggleSection('parts')
+    expect(store.getState().column.folded).toEqual(['parts', 'params', 'scans', 'tracings', 'profile'])
     actions.openObject('gear', { layers: {} })
     actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.open).toBe('layers')
-    actions.openPanel('layers')
-    expect(store.getState().column.open).toBeNull()
-    actions.openPanel('layers')
-    actions.openPanel('scans')
-    expect(store.getState().column.open).toBe('scans')
-    actions.openPanel(null)
-    expect(store.getState().column.open).toBeNull()
+    expect(store.getState().column.folded).toContain('parts')
+    actions.toggleSection('parts')
+    expect(store.getState().column.folded).toEqual(['params', 'scans', 'tracings', 'profile'])
+    actions.toggleSection('params')
+    expect(store.getState().column.folded).toEqual(['scans', 'tracings', 'profile'])
   })
 
-  it('keeps the width the person gave the panel', () => {
+  it('shows a section: unfolds it, and leaves an open one as it is', () => {
+    store.setState({ column: { folded: ['params', 'scans', 'tracings', 'profile'], width: 296 } })
+    actions.showSection('scans')
+    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+    actions.showSection('scans')
+    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+    actions.showSection('marks')
+    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+  })
+
+  it('keeps the width the person gave the card', () => {
     actions.setPanelWidth(320)
     expect(store.getState().column.width).toBe(320)
     actions.setPanelWidth(100)

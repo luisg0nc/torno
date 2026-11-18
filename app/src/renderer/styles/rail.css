@@ -1,4 +1,4 @@
-/* ---- The rail: 52 px of icons, no word under them (the names are tips), each opening one docked panel ---- */
+/* ---- The rail: 52 px of icons, no word under them (the names are tips): Projects, then the index of the route card ---- */
 
 .rail {
   display: flex;
@@ -44,8 +44,8 @@
   color: var(--ink);
 }
 
-/* The panel that is open: the accent's wash and the accent icon. */
-.rail-button[aria-pressed='true'] {
+/* The section of the card in sight: the accent's wash and the accent icon. */
+.rail-button[aria-current='true'] {
   background: var(--accent-wash);
   color: var(--accent);
 }
@@ -72,7 +72,7 @@
   height: 19px;
 }
 
-/* What the closed panel has for the person to look at, as its folded title said: a count over the icon's corner. It is
+/* What a section has for the person to look at, as its folded head said: a count over the icon's corner. It is
    16 px with a radius of 8, in the monospace face at 9 px; the checks that fail are on --fail. */
 .rail-badge {
   position: absolute;
@@ -90,7 +90,7 @@
   text-align: center;
 }
 
-.rail-badge[data-panel='params'] {
+.rail-badge[data-section='checks'] {
   background: var(--fail);
   color: var(--on-mark);
 }

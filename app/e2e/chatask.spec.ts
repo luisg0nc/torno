@@ -8,8 +8,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import type { TornoState } from '../src/renderer/state/store'
 import type { NoteMark } from '../src/shared/marks'
 import { SESSION_HEADER } from '../src/main/http'
-import { closePanel, openPanel } from './helpers'
-import { objectList, openListed, switcher } from './objects'
+import { openListed, projectCrumb, projectMenu, switcher } from './objects'
 
 // What the chat asks of the person and what it offers: a permission request, the questions of `AskUserQuestion`
 // and a plan, each a card that is answered; "Attach view" and "Draw on view"; the `/` commands the CLI named; the model of the session;
@@ -1006,7 +1005,7 @@ test('Stop with a request open: the card reads cancelled, has no buttons, and th
 
 test('a request that waits for the person shows on the dock\'s toggle when the dock is hidden, and on its row and in the status line when another object is open; the signs go when it is answered', async () => {
   const toggle = () => page.locator('.dock-toggle')
-  const item = (name: string) => objectList(page).getByRole('button', { name, exact: true })
+  const item = (name: string) => projectMenu(page).getByRole('menuitem', { name, exact: true })
   const needs = () => page.locator('.status-needs')
   await newSession()
   await say('ask Bash {"command":"ls"}')
@@ -1035,11 +1034,12 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
   await expect.poll(async () => (await state()).objectId).toBe('hollow')
   await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
   await expect(switcher(page)).toHaveAttribute('aria-description', 'bracket needs you')
-  await openPanel(page, 'Projects')
+  await projectCrumb(page).click()
   await expect(item('bracket')).toHaveAttribute('data-session', 'needs_input')
   await expect(item('bracket')).toHaveAttribute('aria-description', 'session needs you')
   await expect(item('hollow')).not.toHaveAttribute('data-session', /./)
-  await closePanel(page)
+  await page.keyboard.press('Escape')
+  await expect(projectMenu(page)).toHaveCount(0)
   await expect(toggle()).toHaveAttribute('aria-label', 'Show session')
   await expect(toggle().locator('.session-sign')).toHaveCount(0)
   await expect(needs()).toContainText('bracket needs you')

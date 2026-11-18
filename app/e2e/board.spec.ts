@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import type { BoardFile } from '../src/shared/board'
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
-import { openPanel, railButton } from './helpers'
+import { cardSection, foldSection, openSection } from './helpers'
 import { openListed } from './objects'
 
 // The board in the window: it swaps with the model on Ctrl+Tab, shows the project's marks and brief as cards, and its
@@ -526,7 +526,7 @@ test('a build pinned from the strip under a prompt is a card with its thumb, and
 })
 
 test('pinning the Params twice says they are on the board already, and the board has one card for them', async () => {
-  await openPanel(page, 'Params')
+  await openSection(page, 'Parameters')
   const pin = page.locator('[data-pin="params"]')
   await expect(pin).toBeVisible()
   await pin.click()
@@ -566,13 +566,12 @@ test('a double click on a view card shows the model with that view on', async ()
   await expect.poll(async () => (await state()).activeView).toBe('front-latch')
 })
 
-test('a double click on the Params card opens the Params panel, and on the brief card has the system open brief.md', async () => {
+test('a double click on the Params card shows the Parameters section, and on the brief card has the system open brief.md', async () => {
   await switchButton('Board').click()
-  await railButton(page, 'Params').click()
-  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'false')
+  await foldSection(page, 'Parameters')
   await cardOf('params').dblclick()
   await expect(page.locator('.pboard')).toHaveCount(0)
-  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'true')
+  await expect(cardSection(page, 'Parameters')).not.toHaveAttribute('data-folded', '')
   await switchButton('Board').click()
   await cardOf('brief').dblclick()
   await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __tornoMain: { openedFiles: string[] } }).__tornoMain.openedFiles)).toEqual([join(root, 'bracket', 'brief.md')])

@@ -830,7 +830,7 @@ export function ViewportPane() {
           ) : name === null ? (
             <>
               <h2>No project open</h2>
-              <p>Choose a project in the left column to see its parts here.</p>
+              <p>Press Projects at the top of the rail to choose one and see its parts here.</p>
             </>
           ) : error ? (
             <>

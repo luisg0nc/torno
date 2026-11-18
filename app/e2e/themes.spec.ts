@@ -9,8 +9,8 @@ import { contrast } from '../src/shared/contrast'
 import { png } from '../src/test/pngFixtures'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openPanel, railButton } from './helpers'
-import { newFromList, openListed, switcher } from './objects'
+import { openSection, railButton, showProjects } from './helpers'
+import { newFromList, openListed, projectCard, switcher } from './objects'
 import { stableBox } from './stable'
 
 // Light and dark. In each theme the window is held to the contrasts its tokens promise, as it computes them,
@@ -150,10 +150,10 @@ for (const theme of ['light', 'dark'] as const) {
       for (const name of ['--axis-x', '--axis-y', '--axis-z']) expect([name, (await cornerPixels(page, 'left', tokens[name])) > 2]).toEqual([name, true])
       expect(await cornerPixels(page, 'right', tokens['--muted'])).toBeGreaterThan(2)
       // What is drawn has them: muted text is the muted token, and the window's own ground is the surface.
-      const drawn = await page.evaluate(() => ({ muted: getComputedStyle(document.querySelector('.section-title')!).color, ground: getComputedStyle(document.body).backgroundColor }))
+      const drawn = await page.evaluate(() => ({ muted: getComputedStyle(document.querySelector('.route-said')!).color, ground: getComputedStyle(document.body).backgroundColor }))
       const rgb = (hex: string): string => `rgb(${[1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(', ')})`
       expect(drawn).toEqual({ muted: rgb(tokens['--muted']), ground: rgb(tokens['--surface']) })
-      await openPanel(page, 'Layers')
+      await openSection(page, 'Parts')
       // What the system draws follows the theme too: on a visible screen the list of objects scrolled with the light
       // native bar in the dark theme. One scheme, said outright, and every scroller the thin one in the theme's grey.
       const scrolling = await page.evaluate(() => {
@@ -281,7 +281,7 @@ for (const theme of ['light', 'dark'] as const) {
         const file = join(root, 'sheet.stl')
         writeFileSync(file, stl(grid(30, 1, (x, y) => 41 + 0.4 * Math.sin(x / 3) * Math.cos(y / 4))))
         await app.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: Main }).__tornoMain.pickFile = path), file)
-        await openPanel(page, 'Scans')
+        await openSection(page, 'Scans')
         await page.getByRole('button', { name: 'Import scan…' }).click()
         await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.scans()))[0]?.ready, { timeout: 60_000 }).toBe(true)
       }
@@ -364,7 +364,7 @@ for (const theme of ['light', 'dark'] as const) {
           await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.1)
         } else if (shot === 'panel-short') {
           // The Params panel open, then the window made shorter: the panel takes the room there is, above the status line.
-          await openPanel(page, 'Params')
+          await openSection(page, 'Parameters')
           await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 680))
           await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(680)
         } else if (shot === 'explode') {
@@ -421,25 +421,24 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.press('Control+Shift+E')
           await expect(page.getByRole('dialog', { name: 'Export' })).toContainText('hollow')
         } else if (shot === 'folders') {
-          await openPanel(page, 'Projects')
           await page.getByRole('button', { name: /^Folder / }).click()
           await expect(page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem').first()).toBeVisible()
         } else if (shot === 'projects') {
-          // The Projects panel: a row that cannot be built says why in its title.
-          await openPanel(page, 'Projects')
-          await expect(page.getByRole('navigation', { name: 'Projects' }).getByRole('button', { name: 'two', exact: true })).toHaveAttribute('title', /more than one model file/)
+          // The page of projects: a card that cannot be built says why in its title.
+          await showProjects(page)
+          await expect(projectCard(page, 'two').locator('[data-part="build"]')).toHaveAttribute('title', /more than one model file/)
         } else if (shot === 'badges') {
           // A scan in, and a part switched off, the panels shut: the rail's icons say what matters of what they hold.
           await scan()
           await page.getByRole('dialog', { name: 'How is S1 read?' }).getByRole('button', { name: 'Later' }).click()
-          await openPanel(page, 'Marks')
+          await openSection(page, 'Marks')
           await expect(railButton(page, 'Scans').locator('.rail-badge')).toHaveText('1')
           await expect(railButton(page, 'Scans')).toHaveAttribute('aria-description', '1 unaligned')
         } else if (shot === 'params') {
           // The Params panel, a session running so that the rows are buttons.
           await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
-          await openPanel(page, 'Params')
+          await openSection(page, 'Parameters')
           await expect(page.locator('.params [data-param]')).toHaveCount(5)
           await page.locator('.params [data-param="wall"] button').hover()
         } else if (shot === 'chat') {

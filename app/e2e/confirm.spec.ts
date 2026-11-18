@@ -4,7 +4,6 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { agentsIn, inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
-import { openPanel } from './helpers'
 import { openListed } from './objects'
 
 // What torno asks before it ends a session that is in the middle of something:
@@ -139,7 +138,6 @@ test('opening another folder while a session is working is asked about first; "S
   const before = await picks()
 
   // The folder crumb of the title bar is a menu: the dialog is one of its ways.
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   // A dialog over the whole window, not a strip of the left column: it names the object whose session is at work.
@@ -164,7 +162,6 @@ test('opening another folder while a session is working is asked about first; "S
   await expect(ask).toHaveCount(0)
   expect(await picks()).toBe(before)
   expect(await state()).toMatchObject({ page: 'object', objectId: 'bracket' })
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect(ask).toBeVisible()
@@ -186,7 +183,6 @@ test('opening another folder while a session is working is asked about first; "S
   // Enter went to the button in focus: the question stands until it is answered, and nothing else was asked for.
   await expect(ask).toHaveCount(0)
   expect(await picks()).toBe(before)
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect(ask).toBeVisible()
@@ -195,7 +191,6 @@ test('opening another folder while a session is working is asked about first; "S
   await expect(ask).toHaveCount(0)
   expect(await picks()).toBe(before)
   expect((await state()).workspace?.root).toBe(root)
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect(ask).toBeVisible()
@@ -211,7 +206,6 @@ test('opening another folder while a session is working is asked about first; "S
 
 test('"Open another folder" goes on to the folder, and the sessions end', async () => {
   // The folder crumb of the title bar is a menu: the dialog is one of its ways.
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Open another folder' }).click()
@@ -227,7 +221,6 @@ test('with no session in the middle of anything, another folder is opened withou
   await expect(sessionStatus()).toHaveText('Idle')
   await pick(root)
   // The folder crumb of the title bar is a menu: the dialog is one of its ways.
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect.poll(async () => (await state()).workspace?.root).toBe(root)

@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { inTerminal } from './terminal'
-import { closePanel, openPanel, railButton } from './helpers'
-import { objectList, openListed } from './objects'
+import { foldSection, openSection, railButton, showProjects } from './helpers'
+import { openListed, projectCard, projectCrumb, projectMenu } from './objects'
 import type { TornoState } from '../src/renderer/state/store'
 import type { ObjectCard } from '../src/shared/show'
 
@@ -82,13 +82,8 @@ test('the page of objects shows a card each, builds nothing, and opens one with 
   expect(lines[0]).toBeLessThanOrEqual(lines[1])
   // One that cannot be built says why, as the list does.
   await expect(card('two')).toContainText('more than one model file')
-  // With no object open the column holds the list alone, and the list takes the room there is: every object
-  // in sight, no scroller with empty room under it.
-  const list = page.locator('.objects .rows')
-  // A row each, under the row of the page itself.
-  await expect(list.locator('li')).toHaveCount((await state()).workspace!.objects.length + 1)
-  const [all, shown] = await list.evaluate((el) => [el.scrollHeight, el.clientHeight])
-  expect(all).toBeLessThanOrEqual(shown)
+  // With no object open the rail holds Projects and Keys alone, and there is no card.
+  await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   // Looking at the page built nothing, and wrote nothing.
   expect(await opened()).toEqual([])
   expect(existsSync(join(root, 'hollow', '.torno'))).toBe(false)
@@ -108,8 +103,7 @@ test('the page of objects shows a card each, builds nothing, and opens one with 
   await expect.poll(() => readFileSync(thumb('hollow', '.gitignore'), 'utf8').split('\n').filter(Boolean).sort()).toEqual(['builds.jsonl', 'history/', 'state.md', 'thumb.json', 'thumb.png'])
   // Nothing of it outside .torno.
   expect(readdirSync(join(root, 'hollow')).sort()).toEqual(['.torno', 'hollow.py'])
-  await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'All projects' }).click()
+  await showProjects(page)
   await expect(card('hollow')).toContainText('Built, r1')
   // A build of this run is said in ink behind the status line's dot; an object not opened here has neither.
   await expect(card('hollow').locator('[data-part="build"]')).toHaveAttribute('data-status', 'ok')
@@ -124,9 +118,6 @@ test('the page of objects shows a card each, builds nothing, and opens one with 
   // The 3D view is under the page as it was, and takes nothing meanwhile.
   await expect(page.locator('.viewport-pane')).toHaveAttribute('inert', '')
   expect((await state()).objectId).toBe('hollow')
-  // On the page the layers and the scans give way: the list has their room, beside the marks.
-  const [listed, height] = await list.evaluate((el) => [el.scrollHeight, el.clientHeight])
-  expect(listed).toBeLessThanOrEqual(height)
 })
 
 test('a card says when its picture is older than the model, and a second object gets its picture while the first is shown', async () => {
@@ -143,8 +134,7 @@ test('a card says when its picture is older than the model, and a second object 
   // Its facts say which picture they are of: its size and what its bytes hash to.
   expect(meta('hollow')).toMatchObject({ bytes: statSync(thumb('hollow')).size, hash: createHash('sha256').update(readFileSync(thumb('hollow'))).digest('hex') })
   writeFileSync(thumb('hollow', 'thumb.json'), JSON.stringify({ ...meta('hollow'), sourcesMtimeMs: 1 }))
-  await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'All projects' }).click()
+  await showProjects(page)
   await expect(card('hollow')).toContainText('A source has changed since')
   await expect(card('plain')).not.toContainText('A source has changed since')
 })
@@ -353,18 +343,17 @@ test('a build that fails wins over the picture, which stays and is dimmed', asyn
   await page.keyboard.press('Escape')
 })
 
-test('the rail keeps Projects and Marks while the page is up, and Escape closes what is on top first', async () => {
+test('the rail holds Projects and Keys alone while the page is up, and Escape closes what is on top first', async () => {
   // plain is open, and failed: the page comes up over it.
   await page.keyboard.press('w')
   expect((await state()).page).toBe('objects')
-  // The layers and the scans act on a view that is not on screen while the page is up: they have given way
-  // (final fix wave), and with them the one slider the left had there: the rail has no icon for them. The marks stay.
-  for (const name of ['Layers', 'Params', 'Scans'] as const) await expect(railButton(page, name)).toHaveCount(0)
-  for (const name of ['Projects', 'Marks'] as const) await expect(railButton(page, name)).toBeVisible()
-  await openPanel(page, 'Marks')
+  // The sections of the card act on a view that is not on screen while the page is up: the card is away and the rail
+  // has no icon for them (final fix wave). Projects, pressed, and Keys remain.
+  for (const name of ['Needs you', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile'] as const) await expect(railButton(page, name)).toHaveCount(0)
+  for (const name of ['Projects', 'Keys'] as const) await expect(railButton(page, name)).toBeVisible()
+  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   await expect(page.locator('[data-region="left"]').getByRole('slider')).toHaveCount(0)
-  await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Layers' })).toHaveCount(0)
-  await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Marks' })).toBeVisible()
   // The build's error, opened from the status line, is over the page: Escape closes it, and the page stays.
   await page.locator('.status-fail').click()
   const sheet = page.getByRole('dialog', { name: 'Build error' })
@@ -381,7 +370,6 @@ test('the rail keeps Projects and Marks while the page is up, and Escape closes 
   await expect(page.locator('[data-region="session"]').getByRole('status')).toHaveText('Working')
   expect((await state()).page).toBe('objects')
   // The folder crumb of the title bar is a menu: the dialog is one of its ways.
-  await openPanel(page, 'Projects')
   await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   const ask = page.getByRole('alertdialog', { name: 'End the sessions of this folder?' })
@@ -394,8 +382,7 @@ test('the rail keeps Projects and Marks while the page is up, and Escape closes 
   await page.keyboard.press('Escape')
   expect(await state()).toMatchObject({ page: 'object', objectId: 'plain' })
   // What had the focus when the page came up has it again when the page goes.
-  await openPanel(page, 'Projects')
-  const all = page.getByRole('button', { name: 'All projects' })
+  const all = railButton(page, 'Projects')
   await all.focus()
   await page.keyboard.press('Enter')
   expect((await state()).page).toBe('objects')
@@ -405,38 +392,40 @@ test('the rail keeps Projects and Marks while the page is up, and Escape closes 
   await expect(all).toBeFocused()
 })
 
-test('the Projects panel lists every project, opens another by the pointer, and the panel is the window\'s', async () => {
-  // hollow open, from the list with the pointer, and the panel lists every project of the workspace.
+test('the page of projects has a card for every project, the project menu opens another, and what is folded in the card is the window\'s', async () => {
+  // hollow open, from the project crumb, and the page has a card for every project of the workspace.
   expect((await state()).page).toBe('object')
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).build).toMatchObject({ objectId: 'hollow', status: 'ok' })
   const count = (await state()).workspace!.objects.length
   expect(count).toBeGreaterThanOrEqual(15)
-  const left = page.locator('[data-region="left"]')
-  const objects = objectList(page)
-  await openPanel(page, 'Projects')
+  await showProjects(page)
   await expect(page.locator('.title-row .workspace-name')).toBeVisible()
-  await expect(objects.locator('.object-row')).toHaveCount(count)
-  await expect(objects.getByRole('button', { name: 'hollow', exact: true })).toHaveAttribute('aria-current', 'true')
-  await expect(objects.getByRole('button', { name: 'All projects' })).toBeVisible()
-  // One that cannot be built is muted, with the reason as its title.
-  await expect(objects.getByRole('button', { name: 'two', exact: true })).toHaveAttribute('data-problem', '')
-  await expect(objects.getByRole('button', { name: 'two', exact: true })).toHaveAttribute('title', /more than one model file/)
-  // Another project, opened by its row, and the panel stays as it was.
-  await objects.getByRole('button', { name: 'bracket', exact: true }).click()
+  await expect(page.locator('.show .card')).toHaveCount(count)
+  await expect(projectCard(page, 'hollow')).toHaveAttribute('aria-current', 'true')
+  // One that cannot be built is marked.
+  await expect(projectCard(page, 'two')).toHaveAttribute('data-problem', '')
+  // Another project, opened by its card; the card is back beside the rail.
+  await projectCard(page, 'bracket').click()
   await expect.poll(async () => (await state()).objectId).toBe('bracket')
-  await expect(objects.getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
-  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'true')
-  // The window keeps which panel is open, in its own storage: nothing of it is in the workspace.
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!)).toMatchObject({ open: 'projects' })
+  await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(1)
+  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'false')
+  // The project crumb's menu has All projects at its head, then every project; the open one is current.
+  await projectCrumb(page).click()
+  const menu = projectMenu(page)
+  await expect(menu.getByRole('menuitem')).toHaveCount(count + 1)
+  await expect(menu.getByRole('menuitem').first()).toHaveText(/^All projects/)
+  await expect(menu.getByRole('menuitem', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
+  await page.keyboard.press('Escape')
+  // The window keeps which sections are folded, in its own storage: nothing of it is in the workspace.
   expect(readdirSync(join(root, 'hollow', '.torno'))).not.toContain('column.json')
-  // Pressed again, the panel goes; the next opens another.
-  await closePanel(page)
-  await expect(left.locator('.panel-host')).toHaveCount(0)
-  await openPanel(page, 'Layers')
-  await expect(left.getByRole('region', { name: 'Layers' })).toBeVisible()
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!)).toMatchObject({ open: 'layers' })
-  await openPanel(page, 'Marks')
+  await foldSection(page, 'Parts')
+  await expect(page.locator('[data-region="left"] .layers')).toHaveCount(0)
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!).folded).toContain('parts')
+  await openSection(page, 'Parts')
+  await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Parts' })).toBeVisible()
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!).folded).not.toContain('parts')
+  await openSection(page, 'Marks')
 })
 
 // Forty objects, none opened: what the page costs when it is the face of a full workspace. Thirty have a picture

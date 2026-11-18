@@ -86,7 +86,7 @@ button {
   --switch-h: 34px;
 }
 
-.shell[data-panel='closed'] {
+.shell[data-left='away'] {
   --card-space: 0px;
 }
 
@@ -240,7 +240,7 @@ button {
   background: var(--panel);
 }
 
-/* The rail, then the panel it opens, side by side: the whole is the region the focus goes round as "left". It spans the rail's column and the card's. */
+/* The rail, then the route card beside it: the whole is the region the focus goes round as "left". It spans the rail's column and the card's. */
 .left {
   grid-area: 2 / 1 / 3 / 3;
   flex-direction: row;
@@ -310,7 +310,7 @@ button {
   outline: none;
 }
 
-/* The right edge of the docked panel: a band of 9 px to take hold of, a hairline of the accent when it is hot. */
+/* The right edge of the card: a band of 9 px to take hold of, a hairline of the accent when it is hot. */
 .left-edge {
   position: absolute;
   top: 0;

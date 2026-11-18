@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { openListed } from './objects'
 
 const appDir = resolve(__dirname, '..')
 
@@ -24,9 +25,28 @@ test.beforeAll(async () => {
   await page.waitForSelector('[data-region="left"]')
 })
 
+// The route card stands beside the rail only while a project is open: a window of its own for the tests of the card's width.
+let cardApp: ElectronApplication | undefined
+let cardRoot: string | undefined
+async function cardWindow(): Promise<Page> {
+  if (!cardApp) {
+    cardRoot = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-boot-card-'))
+    mkdirSync(join(cardRoot, 'part'))
+    writeFileSync(join(cardRoot, 'part', 'part.py'), 'from build123d import Box\n\nplate = Box(20, 20, 2)\n')
+    cardApp = await launch(cardRoot)
+  }
+  const window = await cardApp.firstWindow()
+  await window.waitForSelector('[data-region="left"]')
+  await openListed(window, 'part')
+  await window.waitForSelector('[data-region="left"] .route-card')
+  return window
+}
+
 test.afterAll(async () => {
   await app?.close()
+  await cardApp?.close()
   rmSync(root, { recursive: true, force: true })
+  if (cardRoot) rmSync(cardRoot, { recursive: true, force: true })
 })
 
 test('with no folder open, the window is one prompt with its ways in', async () => {
@@ -103,6 +123,7 @@ test('the four shell regions exist with their placeholders', async () => {
 })
 
 test('the shell is one grid: a title row, the left column, the view, the dock and the status line', async () => {
+  const page = await cardWindow()
   const box = async (sel: string) => (await page.locator(sel).boundingBox())!
   const win = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
   // A title row of 40 across the window: the title bar.
@@ -185,6 +206,7 @@ test('WebGL2 runs on the GPU, not a software rasteriser', async () => {
 })
 
 test('the session dock is resized by dragging its edge, within limits', async () => {
+  const page = await cardWindow()
   const dock = page.locator('[data-region="session"]')
   const handle = page.getByRole('separator', { name: 'Resize session' })
   const width = async () => (await dock.boundingBox())!.width
@@ -224,7 +246,8 @@ test('the session dock is resized by dragging its edge, within limits', async ()
   expect(await page.evaluate(() => localStorage.getItem('torno.dock'))).toBe('420')
 })
 
-test('the panel is made wider by dragging its edge, within limits, and kept by the window', async () => {
+test('the card is made wider by dragging its edge, within limits, and kept by the window', async () => {
+  const page = await cardWindow()
   const left = page.locator('[data-region="left"]')
   const handle = page.getByRole('separator', { name: 'Resize panel' })
   const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}'))
@@ -243,8 +266,8 @@ test('the panel is made wider by dragging its edge, within limits, and kept by t
 
   await dragEdgeBy(100)
   expect(await width()).toBe(52 + 396)
-  // What is kept is which panel is open and how wide it is.
-  expect(await stored()).toEqual({ open: 'marks', width: 396 })
+  // What is kept is which sections are folded and how wide the card is.
+  expect(await stored()).toEqual({ folded: ['params', 'scans', 'tracings', 'profile'], width: 396 })
 
   // Never narrower than the default, and never wider than leaves 420 px of viewport beside the dock.
   await dragEdgeBy(-900)

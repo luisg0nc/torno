@@ -7,7 +7,7 @@ import type { TornoExport } from '../src/export/viewer/main'
 import { type ExportData, SCAN_WARNING } from '../src/shared/exportdata'
 import type { Mark } from '../src/shared/marks'
 import { box, stl } from '../src/test/scanFixtures'
-import { openPanel } from './helpers'
+import { openSection, showProjects } from './helpers'
 import { openListed } from './objects'
 
 // Export: one HTML file of an object, or of several, that opens by itself; or a STEP, STL or 3MF file of one. The file is written where the save
@@ -494,8 +494,7 @@ test('a drawing of the section on screen is saved as an SVG at true scale and as
 
 test('several objects go into one file from the page of objects, each unpacked when it is first shown', async () => {
   await open('bracket')
-  await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'All projects' }).click()
+  await showProjects(page)
   await expect.poll(async () => (await state()).page).toBe('objects')
   const out = join(outDir, 'both.html')
   await setSave(out)
@@ -592,7 +591,7 @@ test('a scan is in the file only when ticked, without where it came from, and th
 
 test('a part switched off and a mark that is resolved stay here unless they are ticked', async () => {
   // The lid is switched off in torno.
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.locator('[data-region="left"]').getByRole('button', { name: 'Show lid' }).click()
   await page.getByRole('button', { name: 'Export…' }).click()
   await expect(sheet()).toContainText('r1 · 1 part ·')
@@ -641,7 +640,7 @@ test('a part switched off and a mark that is resolved stay here unless they are 
   }
   await page.keyboard.press('Escape')
   await page.locator('[data-region="left"]').getByRole('button', { name: 'Show lid' }).click()
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
 })
 
 test('parts named like what every object has are parts like any other, and a file that cannot be unpacked says so', async () => {
@@ -692,8 +691,7 @@ test('parts named like what every object has are parts like any other, and a fil
 })
 
 test('one object is exported from its card on the page of objects', async () => {
-  await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'All projects' }).click()
+  await showProjects(page)
   await expect.poll(async () => (await state()).page).toBe('objects')
   // Only an object with a build of this run has the action; it is there for the keyboard as for the pointer.
   await expect(page.getByRole('button', { name: 'Export plain', exact: true })).toHaveCount(0)

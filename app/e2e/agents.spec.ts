@@ -3,8 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { closePanel, openPanel } from './helpers'
-import { objectList, openListed, switcher } from './objects'
+import { openListed, projectCrumb, projectMenu, switcher } from './objects'
 
 // The agent of an object: Claude Code, the one torno runs, and what is said of an `.torno/agent.json` that names
 // another (one an older torno ran, or one torno does not know). The agent is the stand-in (test/fake-agent.mjs,
@@ -115,14 +114,14 @@ test('a file that names an agent torno does not know is said, and choosing a vie
 })
 
 test('a session at work or waiting for the answer shows on the rail\'s Projects icon, on its object\'s row of the list and in the status line while another object is open, with the dock shown or hidden; ended, it shows nothing', async () => {
-  // The Projects panel has a row for each object.
-  const item = (name: string) => objectList(page).getByRole('button', { name, exact: true })
-  /** The Projects panel opened, what is said of an object's row looked at, and the panel put away. */
+  // The project crumb's menu has a row for each object.
+  const item = (name: string) => projectMenu(page).getByRole('menuitem', { name, exact: true })
+  /** The menu opened, what is said of an object's row looked at, and the menu put away. */
   const inMenu = async (look: () => Promise<void>): Promise<void> => {
-    await openPanel(page, 'Projects')
+    await projectCrumb(page).click()
     await look()
-    await closePanel(page)
-    await expect(page.locator('.panel-host')).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(projectMenu(page)).toHaveCount(0)
   }
   const needs = () => page.locator('.status-needs')
   const toggle = () => page.locator('.dock-toggle')
@@ -164,7 +163,7 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   await inMenu(async () => {
     await expect(item('measures')).toHaveAttribute('data-session', 'needs_input')
     // Still found by its name alone: the state is the row's description, not part of its name.
-    await expect(objectList(page).getByRole('button', { name: 'measures', exact: true, description: 'session needs you' })).toHaveCount(1)
+    await expect(projectMenu(page).getByRole('menuitem', { name: 'measures', exact: true, description: 'session needs you' })).toHaveCount(1)
     await expect(item('measures').locator('.session-sign-word')).toHaveText('needs you')
   })
   await expect(needs()).toContainText('measures needs you')

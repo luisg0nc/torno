@@ -1,5 +1,5 @@
 import { ARROWS_CAP, domKey, hint, keyName, pressed } from '../../shared/keys'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ObjectCard } from '../../shared/show'
 import { actions, store, useStore } from '../state/store'
 import { BEHIND, buildLine, cardChips, matching, ordered, pictureLine, stepCard, type Order } from './cards'
@@ -93,7 +93,7 @@ function useOrder(root: string | undefined): [Order, (order: Order) => void] {
   ]
 }
 
-export function ShowPage({ onOpen, onExample }: { onOpen: (id: string) => void; onExample: () => void }) {
+export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) => void; onExample: () => void; notes?: ReactNode }) {
   const workspace = useStore((s) => s.workspace)
   const openId = useStore((s) => s.objectId)
   const [cards, setCards] = useState<ObjectCard[] | null>(null)
@@ -268,6 +268,8 @@ export function ShowPage({ onOpen, onExample }: { onOpen: (id: string) => void; 
           </label>
         )}
       </header>
+      {/* What is to be said of the folder: the example is a temporary copy; a folder that would not open. */}
+      {notes}
       {cards && cards.length === 0 && <EmptyWorkspace name={name} hasProject={hasProject} hasExample={hasExample} onNew={openNewObject} onExample={onExample} />}
       {cards && cards.length > 0 && shown.length === 0 && (
         <p className="show-none">

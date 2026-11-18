@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark, MarksFile, NewMark } from '../src/shared/marks'
 import type { Camera, LookRequest } from '../src/shared/view'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 import { box, stl } from '../src/test/scanFixtures'
 
@@ -188,7 +188,7 @@ test('the pointer on a row rings its chip in the view and lights what it is on, 
   await expect.poll(hovered).toBe('M1')
   await expect(row('M2')).not.toHaveAttribute('data-hovered', '')
   // Off the rows, nothing is pointed at.
-  await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send' }).hover()
+  await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send', level: 3 }).hover()
   await expect.poll(hovered).toBeNull()
   expect(await peeked()).toEqual([])
   // The keys reach a mark by its row's buttons: with their focus in the row, its chip is pointed at too.
@@ -202,7 +202,7 @@ test('the pointer on a row rings its chip in the view and lights what it is on, 
   // The pointer on another row points there while it is on it, and leaving gives the light back to the keys' row.
   await row('M1').hover()
   await expect.poll(hovered).toBe('M1')
-  await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send' }).hover()
+  await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send', level: 3 }).hover()
   await expect.poll(hovered).toBe('M2')
   await page.getByRole('button', { name: 'Resolve M2', exact: true }).blur()
   await expect.poll(hovered).toBeNull()
@@ -210,7 +210,7 @@ test('the pointer on a row rings its chip in the view and lights what it is on, 
   await row('M1').hover()
   await page.getByRole('button', { name: 'Go to M1', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Go to M1', exact: true })).toBeFocused()
-  await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send' }).hover()
+  await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send', level: 3 }).hover()
   await expect.poll(hovered).toBeNull()
   expect(await peeked()).toEqual([])
 })
@@ -424,16 +424,16 @@ test('marks belong to a layout: another layout shows none of them, and going to 
 
 test("the count of open marks on a part in the layers lists only its marks, and the chip above the list brings them all back", async () => {
   // M6 is a pin of the print layout on the post; M1 and M2 are on the base, in the layout shown.
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
   await expect(row('M6')).toHaveCount(1)
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   const count = page.locator('[data-layer="base"] .layer-marks')
   await expect(count).toBeVisible()
   const open = Number(await count.textContent())
   expect(open).toBeGreaterThanOrEqual(2)
   await count.click()
   // The list is the Marks panel's: the count in the layers said which part it is cut to.
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
   await expect(page.locator('.marks-filter')).toHaveText(/Only marks on base/)
   await expect(row('M1')).toHaveCount(1)
   await expect(row('M2')).toHaveCount(1)
@@ -495,14 +495,14 @@ test('with a scan imported, five mark rows and more are in view in the Marks pan
     await expect.poll(async () => (await state(p)).build?.status, { timeout: 30_000 }).toBe('ok')
     await expect(rows(p)).toHaveCount(8)
     await ownApp.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: { pickFile: string | null } }).__tornoMain.pickFile = path), scan)
-    await openPanel(p, 'Scans')
+    await openSection(p, 'Scans')
     await p.getByRole('button', { name: 'Import scan…' }).click()
     await expect.poll(async () => (await state(p)).scans.length, { timeout: 60_000 }).toBe(1)
     const asked = p.getByRole('dialog', { name: 'How is S1 read?' })
     if (await asked.isVisible()) await asked.getByRole('button', { name: 'Later' }).click()
     await p.getByRole('button', { name: 'Details of S1' }).click()
     await expect(p.locator('.scan-detail')).toBeVisible()
-    await openPanel(p, 'Marks')
+    await openSection(p, 'Marks')
     // The rows wholly in sight in the marks' own scroller.
     const whole = await p.evaluate(() => {
       const body = document.querySelector('.marks-body')!.getBoundingClientRect()

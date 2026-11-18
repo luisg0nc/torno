@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { NamedSet, SetsFile } from '../src/shared/sets'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // Named sets (#171), made and found again in the hidden window, on the fixture `morph` of e2e/reanchor.spec.ts: `variant.txt`
@@ -108,7 +108,7 @@ let before: { top: string; side: string }
 test('Ctrl+G names the two faces that are selected, and sets.json holds both with their forms', async () => {
   await openListed(page, 'morph')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   before = { top: await faceOver(ON_TOP), side: await faceOver(ON_SIDE) }
   expect(before.top).not.toBe(before.side)
 

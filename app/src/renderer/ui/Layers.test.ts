@@ -8,6 +8,7 @@ import { actions, store } from '../state/store'
 import { tracingsStore } from '../state/tracings'
 import { planeOfFrom, type Tracing } from '../../shared/tracings'
 import { Layers } from './Layers'
+import { TracingRows } from './TracingRows'
 
 describe('a layer row of a part the build says is broken', () => {
   afterEach(() => store.setState({ scene: null, layout: 'assembly', layers: {}, marks: [] }))
@@ -145,7 +146,7 @@ describe('the named sets in Layers', () => {
   })
 })
 
-describe('the tracings in Layers', () => {
+describe('the tracings shown in 3D, in the Tracings section', () => {
   afterEach(() => {
     store.setState({ scene: null, layout: 'assembly', layers: {}, marks: [], tracingsShown: [] })
     tracingsStore.setState({ objectId: null, file: null, open: null }, false)
@@ -153,7 +154,7 @@ describe('the tracings in Layers', () => {
   const rows = (): string => {
     const spies = [vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState()), vi.spyOn(tracingsStore, 'getInitialState').mockReturnValue(tracingsStore.getState())]
     try {
-      return renderToStaticMarkup(createElement(Layers))
+      return renderToStaticMarkup(createElement(TracingRows, { layout: store.getState().layout }))
     } finally {
       for (const spy of spies) spy.mockRestore()
     }
@@ -169,14 +170,12 @@ describe('the tracings in Layers', () => {
 
   it('has no row when no tracing is shown in 3D', () => {
     const out = open([], tracing('T1'))
-    expect(out).not.toContain('layer-tracings')
-    expect(out).not.toContain('data-tracing=')
+    expect(out).toBe('')
   })
 
   it('has a row for each tracing shown, of the layout shown, with its name and plane, and a way to hide it', () => {
     const out = open(['T1', 'T2', 'T3'], tracing('T1', { name: 'Front of the block' }), tracing('T2', { layout: 'print' }), tracing('T3'))
     expect(out).toContain('data-part="tracings"')
-    expect(out).toContain('>Tracings</h3>')
     expect(out).toContain('data-tracing="T1"')
     expect(out).toContain('Front of the block')
     expect(out).toContain('XZ at y = 0')

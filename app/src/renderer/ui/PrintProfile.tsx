@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { type Profile, type Profiles, FITS, profileName } from '../../shared/profile'
+import { type Profile, type Profiles, FITS } from '../../shared/profile'
 import { number } from '../../shared/format'
 import { useStore } from '../state/store'
 import { numbered } from './numbered'
-import { SectionTitle } from './SectionTitle'
 import { chosen, pointerChoice } from './typing'
 
 const NONE = ''
@@ -23,7 +22,7 @@ export function profileSummary(profile: Profile | null): string[] {
  * The printer and the material the open project is made for. A choice is copied into `<project>/.torno/profile.json`
  * and sets the defaults of the agent's `check` and `measure mass`, and what it is told. The printers are the
  * person's, kept in torno's settings (not in the workspace): a new one is added here. The numbers are theirs, never
- * measured, and no verdict against them says the part prints. A section of the Params panel; its title says what is chosen.
+ * measured, and no verdict against them says the part prints. A section of the route card.
  */
 export function PrintProfile() {
   const objectId = useStore((s) => s.objectId)
@@ -61,10 +60,8 @@ export function PrintProfile() {
   )
 
   if (objectId === null) return null
-  const said = profile ? profileName(profile) : 'none'
   return (
-    <section className="section print" aria-label="Print profile">
-      <SectionTitle title="Print profile" said={said} />
+    <div className="section print">
       <div className="print-body">
         <label className="print-row">
           <span>Printer</span>
@@ -135,7 +132,7 @@ export function PrintProfile() {
           </p>
         )}
       </div>
-    </section>
+    </div>
   )
 }
 

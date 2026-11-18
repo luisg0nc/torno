@@ -1,14 +1,14 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, it } from 'vitest'
-import { LEFT_DEFAULT, LEFT_MIN, RAIL_W } from '../state/column'
+import { CARD_DEFAULT, CARD_NARROW, RAIL_W } from '../state/column'
 import { DOCK_DEFAULT, DOCK_NARROW, NARROW_WINDOW } from '../state/dock'
 
 // What the stylesheets are held to beyond their tokens' contrasts (`shared/contrast.test.ts`): nothing in the
 // window or in an exported page animates without end, and no text is made fainter than its colour by `opacity`.
 
 /** The stylesheets of the window by area, in the order `app.css` imports them: the order of the cascade. */
-const AREAS = [...readFileSync(resolve(__dirname, 'app.css'), 'utf8').matchAll(/^@import '\.\/([a-z]+\.css)';$/gm)].map((match) => match[1])
+const AREAS = [...readFileSync(resolve(__dirname, 'app.css'), 'utf8').matchAll(/^@import '\.\/([a-z-]+\.css)';$/gm)].map((match) => match[1])
 
 const SHEETS: Record<string, string> = { ...Object.fromEntries(AREAS.map((name) => [name, resolve(__dirname, name)])), 'tokens.css': resolve(__dirname, 'tokens.css'), 'page.css': resolve(__dirname, '../../export/page.css') }
 
@@ -175,11 +175,11 @@ it('has no --palette-shadow or --radius-palette left: they became --float-shadow
 it('keeps the sizes the code repeats in step with the tokens: the rail, the card, the dock, and their narrow defaults', () => {
   const tokens = readFileSync(SHEETS['tokens.css'], 'utf8')
   expect(tokens).toContain(`--rail-w: ${RAIL_W}px;`)
-  expect(tokens).toContain(`--card-w: ${LEFT_DEFAULT}px;`)
+  expect(tokens).toContain(`--card-w: ${CARD_DEFAULT}px;`)
   expect(tokens).toContain('--panel-w: var(--card-w);')
   expect(tokens).toContain(`--dock-w: ${DOCK_DEFAULT}px;`)
   const narrow = tokens.match(new RegExp(`@media \\(max-width: ${NARROW_WINDOW - 1}px\\) \\{([^}]*)\\}`))
   expect(narrow, 'a media query for a window narrower than 1360px').not.toBeNull()
-  expect(narrow![1]).toContain(`--card-w: ${LEFT_MIN}px;`)
+  expect(narrow![1]).toContain(`--card-w: ${CARD_NARROW}px;`)
   expect(narrow![1]).toContain(`--dock-w: ${DOCK_NARROW}px;`)
 })

@@ -14,9 +14,8 @@ import { unsentSessions } from './ui/chat/Composer'
 import { paintings } from './tools/regionPainting'
 import { WorkspaceQuestion } from './ui/WorkspaceQuestion'
 import { openProblem } from './ui/openFolder'
-import { ObjectList } from './ui/ObjectList'
-import { PanelHost } from './ui/PanelHost'
-import { Rail, useRail } from './ui/Rail'
+import { RouteCard } from './ui/card/RouteCard'
+import { Rail } from './ui/Rail'
 import { SessionPane } from './ui/SessionPane'
 import { ExportSheet } from './ui/ExportSheet'
 import { ViewBoard } from './ui/drawing/ViewBoard'
@@ -35,7 +34,7 @@ import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { RoundPanel } from './ui/review/RoundPanel'
 import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
-import { LEFT_DEFAULT, windowStorage } from './state/column'
+import { CARD_DEFAULT, sectionsFor, windowStorage } from './state/column'
 import { clampDock, DOCK_MIN, dockDefault, readDock, writeDock } from './state/dock'
 
 const KEY_STEP = 16
@@ -337,7 +336,9 @@ export function App() {
   const page = useStore((s) => s.page)
   const workspaceKnown = useStore((s) => s.workspaceKnown)
   const shell = useRef<HTMLDivElement>(null)
-  const rail = useRail()
+  // The route card stands beside the rail while a project is open, and is away on the pages (`sectionsFor`).
+  const objectId = useStore((s) => s.objectId)
+  const cardOpen = sectionsFor({ page, objectId }).length > 0
   // The width the person gave the dock, kept by the window; none until they do, and then the CSS default (`--dock-w`) stands.
   const [kept, setKept] = useState<number | null>(() => readDock(windowStorage()))
   const dockWidth = kept ?? dockDefault(window.innerWidth)
@@ -350,7 +351,7 @@ export function App() {
   // React renders once at the end rather than on every pointer move.
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null)
 
-  const leftNow = (): number => document.querySelector('.left')?.getBoundingClientRect().width ?? LEFT_DEFAULT
+  const leftNow = (): number => document.querySelector('.left')?.getBoundingClientRect().width ?? CARD_DEFAULT
 
   function onEdgeDown(e: PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return
@@ -407,13 +408,17 @@ export function App() {
   // Leaving a workspace ends its sessions. `leaving` is where to, while that is
   // being asked about: a folder, or 'pick' for the one still to be chosen.
   const [leaving, setLeaving] = useState<{ to: string; reasons: Reason[] } | null>(null)
-  // What went wrong with the last folder asked for, said under the folder button until the next action.
+  // What went wrong with the last folder asked for, said on the page of projects until the next action.
   const [openFailed, setOpenFailed] = useState<string | null>(null)
   // The sheet that says what torno needs, from the folder menu.
   const [checking, setChecking] = useState(false)
   const go = useCallback((to: string) => {
     setOpenFailed(null)
-    void goTo(to).then(setOpenFailed)
+    void goTo(to).then((problem) => {
+      setOpenFailed(problem)
+      // It is said on the page of projects: the person is taken there to read it.
+      if (problem !== null) actions.showPage('objects')
+    })
   }, [])
   const leave = useCallback(
     (to: string) => {
@@ -466,11 +471,11 @@ export function App() {
 
   const revealDock = useCallback(() => actions.setDockOpen(true), [])
 
-  // The Projects panel: what is to be said of the folder, then the list. The folder's name and menu are the title bar's.
-  const projectsPanel = workspace && (
+  // The page of projects says what is to be said of the folder: that the example is a temporary copy, and a folder that would not open.
+  const projectNotes = (
     <>
-      {/* For as long as the example is open: what is made here does not outlive torno, and it says so where the folder is named. */}
-      {workspace.example && (
+      {/* For as long as the example is open: what is made here does not outlive torno, and it says so where the projects are. */}
+      {workspace?.example && (
         <p className="workspace-example" role="note">
           {EXAMPLE_NOTE}{' '}
           <button type="button" className="link-button" disabled={leaving !== null} title="Copies this folder, with whatever was made in it, to a new folder you choose, and opens that one" onClick={() => leave(KEEP)}>
@@ -483,7 +488,6 @@ export function App() {
           {openFailed}
         </p>
       )}
-      <ObjectList onOpen={(id) => void openObject(id)} />
     </>
   )
 
@@ -505,13 +509,13 @@ export function App() {
       ref={shell}
       className="shell"
       data-dock={dockOpen ? 'open' : 'collapsed'}
-      data-panel={rail.shown ?? 'closed'}
+      data-left={cardOpen ? 'open' : 'away'}
       style={kept === null ? undefined : ({ '--dock-w': `${kept}px` } as CSSProperties)}
     >
       <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
       <aside className="left" data-region="left" aria-label="Panels">
-        <Rail offered={rail.offered} shown={rail.shown} />
-        <PanelHost shown={rail.shown} shell={shell} projects={projectsPanel} />
+        <Rail />
+        {cardOpen && <RouteCard shell={shell} />}
       </aside>
 
       <main className="viewport" data-region="viewport">
@@ -522,7 +526,7 @@ export function App() {
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
         {/* Over the model: a tracing on a face waits for the face. */}
         <FacePickBar />
-        {page === 'objects' && <ShowPage onOpen={(id) => void openObject(id)} onExample={() => leave(EXAMPLE)} />}
+        {page === 'objects' && <ShowPage onOpen={(id) => void openObject(id)} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}
         {page === 'new' && <NewObject onOpen={openObject} />}
         {/* Over either: what goes into an export, asked before anything is written. */}
         <ExportSheet onOpen={openThenExport} />

@@ -11,8 +11,8 @@ point at the parts to say what you mean, measure them, and hold them to
 numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
-The window has three parts. On the left, a thin rail of five icons (Projects,
-Layers, Params, Scans and Marks); each opens one panel beside it, which pushes
+The window has three parts. On the left, a thin rail of icons and, beside it, the
+route card: the project read from top to bottom, in sections you fold, which pushes
 the 3D view over. In the
 middle, the parts in 3D, with a bar of views above them and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
@@ -107,7 +107,7 @@ shown: a model with three parts (a body, a lid and a clip), a brief written as a
 person would, two marks, a dimension that fails and two saved views. It is
 copied to a temporary folder. That copy is
 removed when torno quits, with whatever was made in it, and the window says so
-at the top of the Projects panel for as long as it is open; one that a crash left is
+on the page of projects for as long as it is open; one that a crash left is
 removed at the next start. To keep what you made in it, press "Keep this as a
 folder…" there: choose a name in the dialog and torno copies
 the whole example, with the marks, the views and the chat, to a new folder of
@@ -245,8 +245,8 @@ body, a lid and a clip. The lid rattles, which is what you will fix.
 10. "Export…" at the bottom right (or `Ctrl+Shift+E`) writes one HTML file that
     someone without torno can open: it needs nothing else.
 
-11. To keep what you made, press "Keep this as a folder…" in the
-    Projects panel and choose a name. Otherwise it is removed when torno
+11. To keep what you made, press "Keep this as a folder…" on the
+    page of projects and choose a name. Otherwise it is removed when torno
     quits. Press `?` for every key, and `W` for the page of projects. Then open
     your own folder with the folder crumb in the title bar.
 
@@ -272,10 +272,9 @@ its question. The session pane's show and hide button is there too, before the w
 where the system gives none. On the page of projects only the folder shows, and on the page of a new project the second crumb reads
 "New project".
 
-The Projects panel lists the projects of the folder: a dot on a row for a session that works or waits,
-the reason under one that cannot be built, and "New project" at its foot. With a project open in a folder of
-several, "All projects `W`" is beside the title. When any project's session waits for you, the Projects
-icon on the rail has its dot and says so ("bracket needs you") while the panel is closed.
+The projects of the folder are on the page of projects (the Projects icon at the top of the rail, or "All projects `W`"
+in the project crumb's menu), and the crumb's menu lists them too, a dot on a row for a session that works or waits. When
+any project's session waits for you, the Projects icon on the rail has its dot and says so ("bracket needs you").
 
 The kernel imports the model file as a module (`if __name__ == "__main__"` does
 not run) and takes the first of:
@@ -430,17 +429,13 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left, a rail of five icons, no word under them (the name shows in a small tip beside the icon when the pointer is over it or the keyboard is on it): Projects, Layers, Params, Scans and
-Marks, and Keys at the foot, which opens the sheet of keys. Projects, pressed while the page of projects is up, is a dark blue tile. Press one and its panel opens beside the rail, pushing the view over; press the open one and it closes;
-press another and it switches. One panel is open at a time, and Marks is the one at first. The Params panel holds
-Parameters, then Checks and Print profile, which are about the same build. What a folded title used to say shows
-as a small badge on a closed panel's icon: the parts switched off on Layers, the model's checks that fail on
-Params, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the panel to make it
+**The window.** On the left, a rail of icons, no word under them (the name shows in a small tip beside the icon when the pointer is over it or the keyboard is on it): Projects at the top, which shows the page of projects (it is a dark blue tile while that page is up; press it again to go back), a hairline, and then, while a project is open, one icon for each section of the route card: Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings and Print profile. Keys is at the foot, and opens the sheet of keys.
+Beside the rail is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Needs you, Parts, Checks and Marks are open; Parameters, Scans, Tracings and Print profile are folded. A press on an icon of the rail brings its section into sight, and opens it if it was folded; the section in sight is the one the rail shows in the accent's wash. What a folded title used to say shows as a small badge on the icon: what waits for you on Needs you, the parts switched off on Parts, the model's checks that fail plus the dimensions that fail on Checks, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
-narrower than 1360 px); the panel is never narrower than that, and leaves the view at least 420 px beside the rail and
+narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside the rail and
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
-panel is open and how wide it is, and how wide the session pane is, are kept by the window, not in the folder. On the page of projects the rail offers Projects and Marks, and while a new
-project is made, Projects alone. The folder's name and its menu are in the title bar.
+sections are folded and how wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
+project is made and with no project open, the rail holds Projects and Keys alone. The folder's name and its menu are in the title bar.
 The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
@@ -487,7 +482,7 @@ opens a menu of the folders opened lately (the open one marked "current"),
 "Open folder…" and the example; opening another ends the sessions of this one,
 so torno asks first, in a dialog that names the projects, if one of them is
 working or waiting for an answer. A folder that cannot be opened is said at the top of
-the Projects panel, and the workspace stays as it was.
+the page of projects, which comes up for it, and the workspace stays as it was.
 
 "Rebuild", in the line at the bottom beside how the build stands, builds the
 open project again from its sources as they are (`Ctrl+Shift+B` from anywhere).
@@ -538,7 +533,7 @@ failed) nothing is picked, and the pointer says why.
 
 ### Making a new project
 
-"New project" starts one from what you have. It is at the foot of the list of projects, in the header of the page
+"New project" starts one from what you have. It is in the header of the page
 of projects and in its empty state: a folder with no project in it leads with "Make your first project", "New project" and,
 where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
@@ -603,8 +598,7 @@ pictures are not sent then: the text says each is "not attached" and names the f
 `.torno/thumb.png` of another project) for Claude to read. If the project was made but the workspace does not list it,
 the scans were not imported, and the page says so and where the folder is. While "Starting…" or "Making…" shows, `Esc` and Discard do nothing.
 
-While the page is up the window is about the project being made: no project of the list is selected (the "New project" button is pressed), the Marks
-panel gives way, and the status line says "New project" with the build123d version alone. The page shows
+While the page is up the window is about the project being made: the crumb of the title bar reads "New project", the route card gives way, and the status line says "New project" with the build123d version alone. The page shows
 the first prompt Claude Code will get, as it will be sent and read-only, filled in as you go:
 your own words in ink and what torno adds in grey, and under it a thumbnail of each photo and doodle, with "attached"
 or "named only" (only the first 6 pictures go with the prompt). The session pane points to it. A session of the project that was open that is
@@ -637,7 +631,7 @@ Each project has its own session: Claude Code running in the project's folder.
 It opens in a chat, a pane of torno's own, or in a terminal when you switch to
 it. It keeps running while another project is shown. A session that works or
 that waits for your answer (a permission, a question, a plan) says so wherever
-you are, not only in its own pane. In the list of projects its row has a dot
+you are, not only in its own pane. In the project crumb's menu its row has a dot
 after the name: a quiet one while it works, and, in the warning colour with the
 words "needs you", while it waits. On the rail, the Projects icon has the dot of any
 session of the folder that works or waits, and says which project's waits
@@ -2759,13 +2753,13 @@ On the screen:
 - **The window's own title bar and controls on Linux.** The window has no frame of the window manager's: at the top, a bar 40 px high in the ground's colour. Start torno on Hyprland and on another desktop (KDE, GNOME) and try once: the bar drags the window, and the three buttons at its right (minimise, maximise or restore, close) each do what they say, also after the window was tiled or maximised by a key; Close with a session working asks "Close torno?" as the window manager's close does; the window cannot be made smaller than 1100 × 700; the bar is legible in light and dark. On Windows and macOS the platform's own controls sit over the bar in the same colours: not tried.
 - **Closing.** With a session working, close the window through the window manager: torno asks "Close torno?", "Keep it open" keeps everything as it was, "Close torno" ends torno and the session. With nothing under way it closes at once.
 - **A session that needs you, away from its pane.** In two projects, ask Claude Code in one for something that needs a permission, then open the other (and again with the session pane hidden): the first one's row has a dot and "needs you" in the warning colour, the status line has the button "*name* needs you", which opens it and brings you to the card, and a working session's dot is a quiet grey. In a window that is not in front (another window on top, or a workspace switched away) the frame should flash on Linux, and the dock icon bounce once on a Mac: no test shows a window, so only the rule is tested.
-- **The rail and its panels.** The five icons have no word under them, and each name shows in a tip beside it on hover and on keyboard focus; Keys is at the foot; pressing one opens its panel beside the rail and
-  pushes the view over without covering it, pressing it again closes it, another switches. The badges (parts
+- **The rail and the route card.** The icons have no word under them, and each name shows in a tip beside it on hover and on keyboard focus; Keys is at the foot; pressing a section's icon scrolls the card to that section and opens it,
+  and the icon of the section in sight is in the accent's wash as you scroll. Click a head to fold and open its section. The badges (what waits for you, parts
   switched off, failing checks, unaligned scans, marks to review) are legible in light and dark and count what the
-  panel then shows. Drag the panel's edge wider and narrower: it moves without lag. Start torno again: the open
-  panel and its width are as you left them.
+  section then shows. Drag the card's edge wider and narrower: it moves without lag. Start torno again: the folded
+  sections and the card's width are as you left them.
 - **Layers of a model with many parts.** Open a project of ten parts or more: the pointer on a layer row lights that
-  part in the view in the accent (and nothing else changes), the target shows it alone, `Show all` in the title brings
+  part in the view in the accent (and nothing else changes), the target shows it alone, `Show all` at the top of the section brings
   the rest back, and the count of marks on a part lists only its marks. The rows must not crowd: name, count, and on
   hover the opacity, the target and the eye, at the width of the panel.
 - **Parameters.** In a project whose model has a `Params` dataclass with comments and one default that is an
@@ -2842,11 +2836,11 @@ On the screen:
 - **The scans walk-through.** Import, align and check a scan by the steps the panel offers: each step is where the eye goes next, in both themes.
 - **The export sheet by reader.** Each reader (a person, a printer, a drawing), and the picture, SVG and PDF formats: the sheet is one screen and legible in both themes.
 - **The sources line of Parameters.** A field's source word is shown after its comment, in the monospace face, and "no source" is quiet.
-- **The rail and its badges.** Press each of the five icons: its panel opens beside the rail and pushes the view over, the open icon closes it, each icon's tip reads at once on hover and on keyboard focus, Projects pressed on the page of projects is a dyed tile, and the drawn icons are of one weight and distinct at their size, in both themes. The badges (the parts switched off, the checks that fail, the scans not aligned, the marks to review) and the dot of a session that waits read at a glance on a closed panel, and the rail stays in its place in a narrow window.
+- **The rail and its badges.** Press each of the eight icons of the index: the card scrolls to its section and opens it, each icon's tip reads at once on hover and on keyboard focus, Projects pressed on the page of projects is a dyed tile, and the drawn icons are of one weight and distinct at their size, in both themes. The badges (the parts switched off, the checks that fail, the scans not aligned, the marks to review) and the dot of a session that waits read at a glance on the rail, and the rail stays in its place in a narrow window.
 - **Compare in all four modes.** Compare a turn, a row and an older build with **Before**, **Overlay**, **After** and **Side by side**: the grey translucent earlier build over the later one, each build alone in its part colours, one camera for both halves, the two boxes over the corners, the bar and the status line (`comparing prompt 14 · h40 → h41`) legible in both themes and clear of the view bar. Tests drove them in the hidden window and never looked. Compare a turn while newer builds land: the older build is drawn in the live one's place and the view says so; check it reads as the live build, not as a second model. An older build is built again from its copy (tested against the real kernel on small models in a temporary folder): on a real project, how long the wait is, and that `Building h40 to compare…` is shown while it runs.
 - **Prompts only and Earlier conversations.** The toggle in the chat's head (`Chat | Prompts only`) and the History button: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.
 - **Go back's question.** On a turn after a prompt that edited the model: the list of files to write, to delete, to leave alone and changed since, the Params, and the prompts undone, in the monospace face for names and numbers; then "Go back" puts the files back in your own editor and folder (it was only tried on temporary folders), the note in the chat and the faded row appear, and the next prompt tells Claude. With no copy kept, the sentence about asking Claude instead.
-- **The edge of the panel.** The line between the open panel and the view drags without lag and keeps its place at start.
+- **The edge of the card.** The line between the route card and the view drags without lag and keeps its place at start.
 - **A review, by eye.** Make a round with a pick and a shape you do not want and a 3D sketch you want, on a high-resolution screen and on an ordinary one, in both themes: the hatch of what you do not want reads as stripes in your colour and not as noise, the dashes of a stroke are clear, `−` and `+` are legible in the chips, the bar under the view's buttons and the round's panel at the top right sit well with Compare drawn beside them, and the panel does not cover what it is about. The panel does not close with `Esc`. The real Claude Code is yet to be seen answering a review item by item.
 - **The edges of a field and F6.** A focused field shows its edge in both themes, and F6 moves the focus between the regions in a sensible order.
 - **The ask card.** A question from the agent shows its options and the faces they light in the view; legible in both themes.

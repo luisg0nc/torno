@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { ScanLayerState } from '../src/renderer/viewport/scans'
 import { apply } from '../src/shared/align'
 import { box, grid, moved, stl } from '../src/test/scanFixtures'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // Aligning a scan: by pairs of points, by typed values, by its floor, and what a later build makes of it.
@@ -54,7 +54,7 @@ const pickFile = (path: string | null) => app.evaluate((_electron, path) => void
 
 async function open(name: string, p: Page = page): Promise<void> {
   await openListed(p, name)
-  await openPanel(p, 'Scans')
+  await openSection(p, 'Scans')
   await expect.poll(async () => ((await state(p)).objectId === name ? (await state(p)).build?.status : null), { timeout: 90_000 }).toBe('ok')
   await expect.poll(async () => (await state(p)).scene !== null).toBe(true)
 }

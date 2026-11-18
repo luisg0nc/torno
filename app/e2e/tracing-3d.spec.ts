@@ -2,7 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // A tracing in the 3D view: the switch in the panel puts it in the model view, `scene.json` keeps it as `tracingsShown`, the layers list has a row for it that
@@ -66,7 +66,7 @@ test('a picture for Claude draws the tracing shown and says so; it is back in th
 })
 
 test('the layers list has a row for it, and its eye puts the tracing away', async () => {
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Tracings')
   const row = page.locator('.layer-tracings [data-tracing="T1"]')
   await expect(row).toBeVisible()
   await expect(row).toContainText('Front')

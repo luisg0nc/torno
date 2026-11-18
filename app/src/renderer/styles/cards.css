@@ -1,33 +1,5 @@
 /* ---- The page of objects (ui/ShowPage.tsx): a card for each object of the workspace, over the 3D view ---- */
 
-/* The row that brings it up, first in the list of objects. */
-.page-row {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  text-align: left;
-}
-
-.page-row svg {
-  flex: none;
-  width: 14px;
-  height: 14px;
-}
-
-.page-row:hover {
-  background: var(--accent-wash);
-  color: var(--ink);
-}
-
-.page-row[aria-pressed='true'] {
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.page-row:focus-visible {
-  outline-offset: -2px;
-}
-
 /* Where the 3D view is, and over it: the view stays as it was underneath, and nothing of it is painted through
    (its bars and menus are stacked above their pane). */
 .viewport-pane[inert] {
@@ -153,7 +125,6 @@
 }
 
 /* A key, wherever the page names one: in its row of the list, in the filter, in the line of keys. */
-.page-row kbd,
 .project-item kbd,
 .show-filter kbd,
 .show-keys kbd,
@@ -169,10 +140,6 @@
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--muted);
-}
-
-.page-row[aria-pressed='true'] kbd {
-  color: inherit;
 }
 
 .show-filter:focus-within kbd {

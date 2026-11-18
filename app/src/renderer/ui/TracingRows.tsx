@@ -10,7 +10,7 @@ import { EyeIcon } from './Layers'
 const planeName = (t: Pick<Tracing, 'plane'>): string => t.plane.label.replace(/ \(.*$/, '')
 
 /**
- * The tracings shown in the model view, in the layers list: a row for each of the layout shown, with the eye that puts it away (it is then shown no
+ * The tracings shown in the model view, in the Tracings section of the card: a row for each of the layout shown, with the eye that puts it away (it is then shown no
  * more: the button of its panel shows it again). There is no row while none is shown. Marks on a tracing are drawn with the marks, whatever is
  * done here; this is the tracing itself, its photo and its layers.
  */
@@ -21,7 +21,6 @@ export function TracingRows({ layout }: { layout: string }) {
   if (rows.length === 0) return null
   return (
     <div className="layer-tracings" data-part="tracings">
-      <h3 className="layer-sets-head">Tracings</h3>
       <ul className="rows">
         {rows.map((t) => (
           <li key={t.id} className="row layer-row layer-tracing" data-tracing={t.id}>

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { openPanel, railButton } from './helpers'
+import { cardSection, openSection, railButton } from './helpers'
 import { openListed } from './objects'
 
 // The checks a model declares in its checks(p): measured by the kernel at every build, listed in the left column
@@ -55,40 +55,44 @@ test.afterAll(async () => {
 
 const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
 const section = () => page.locator('.left .checks')
-const title = () => section().locator('.section-title')
+const said = () => cardSection(page, 'Checks').locator('.route-said')
 
 async function open(name: string): Promise<void> {
   await openListed(page, name)
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
 }
 
-test('a model with no checks has no section', async () => {
+test('a model with no checks says so in the head of its section, which does not unfold', async () => {
   await open('plain')
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await expect(page.locator('.left .layers')).toBeVisible()
-  await openPanel(page, 'Params')
+  await openSection(page, 'Print profile')
   await expect(page.locator('.left .print')).toBeVisible()
+  await railButton(page, 'Checks').click()
+  await expect(cardSection(page, 'Checks')).toContainText('none')
+  await expect(cardSection(page, 'Checks')).toHaveAttribute('data-empty', '')
   await expect(section()).toHaveCount(0)
-  await expect(railButton(page, 'Params')).not.toHaveAttribute('aria-description', /./)
+  await expect(railButton(page, 'Checks')).not.toHaveAttribute('aria-description', /./)
 })
 
-test('a check that fails does not fail the build, and is told in the title and on the rail', async () => {
+test('a check that fails does not fail the build, and is told in the head and on the rail', async () => {
   await open('lidded')
-  await openPanel(page, 'Params')
+  await openSection(page, 'Checks')
   await expect(section()).toBeVisible()
-  // The checks and the print profile are sections of the Params panel, after the Params themselves.
-  const order = await page.locator('.left .panel-body > section').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
-  expect(order.indexOf('Checks')).toBe(order.indexOf('Parameters') + 1)
-  expect(order.indexOf('Print profile')).toBe(order.indexOf('Checks') + 1)
-  await expect(title().locator('.section-said')).toHaveText('2 · 1 fails')
-  // With the panel shut, the icon still says one check fails.
-  await openPanel(page, 'Marks')
-  await expect(railButton(page, 'Params')).toHaveAttribute('aria-description', '1 check fails')
-  await expect(railButton(page, 'Params').locator('.rail-badge')).toHaveText('1')
+  // The checks are a section of their own, after the Parameters and before the Marks.
+  const order = await page.locator('.left .route-section').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
+  expect(order.indexOf('checks')).toBe(order.indexOf('params') + 1)
+  expect(order.indexOf('marks')).toBe(order.indexOf('checks') + 1)
+  await expect(said()).toHaveText('2, 1 fails')
+  // The icon says one check fails, the head's ring says it waits, and what waits on the person is on Needs you's icon.
+  await expect(railButton(page, 'Checks')).toHaveAttribute('aria-description', '1 check fails')
+  await expect(railButton(page, 'Checks').locator('.rail-badge')).toHaveText('1')
+  await expect(cardSection(page, 'Checks')).toHaveAttribute('data-needs', '')
+  await expect(railButton(page, 'Needs you')).toHaveAttribute('aria-description', '1 waiting for you')
 })
 
 test('it has a row for each check: how it stands in a word, what was measured and what was wanted', async () => {
-  await openPanel(page, 'Params')
+  await openSection(page, 'Checks')
   await expect(section().locator('[data-check]')).toHaveCount(2)
   const fits = section().locator('[data-check="lid fits the tub"]')
   await expect(fits).toHaveAttribute('data-standing', 'fails')

@@ -123,6 +123,7 @@ function ProjectMenu({ name, openId, onOpen }: { name: string; openId: string; o
                 aria-current={o.id === openId ? 'true' : undefined}
                 aria-description={said}
                 data-problem={o.problem ? '' : undefined}
+                data-session={sign ?? undefined}
                 title={o.problem ?? (said && `${o.name}, ${said}`)}
                 onClick={() => {
                   setShown(false)

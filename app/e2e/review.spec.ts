@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { BoardFile } from '../src/shared/board'
 import type { Mark, MarksFile } from '../src/shared/marks'
 import type { TornoState } from '../src/renderer/state/store'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // A round of a review made in the hidden window, on the `gauge` fixture (a 40 × 30 × 6 plate with one Ø8 hole): "Review this
@@ -124,7 +124,7 @@ async function added(n: number): Promise<string> {
 
 test('Review this build starts R1 on the build on show, and the keys choose what the next marks are', async () => {
   await openListed(page, 'gauge')
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
   await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok' })
   await page.keyboard.press('1')
   await atRest()

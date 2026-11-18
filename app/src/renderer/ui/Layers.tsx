@@ -6,12 +6,10 @@ import { groupsIn, groupVisibility } from '../../shared/groups'
 import type { Part, PartGroup } from '../../shared/scene'
 import type { LayerSettings } from '../../shared/scenefile'
 import { DEFECT_MEANS, partDefects } from '../../shared/sanity'
-import { SectionTitle } from './SectionTitle'
 import { type PartMarks, marksByPart } from './layerMarks'
 import { giveKeysBack } from './typing'
 import { setsOfLayout, useSets } from '../state/sets'
 import { NamedSets, SetRowView } from './sets/SetRows'
-import { TracingRows } from './TracingRows'
 import { setRows } from './sets/rows'
 
 /**
@@ -53,9 +51,9 @@ export function Layers() {
   ]
 
   return (
-    <section className="section layers" aria-label="Layers">
-      <SectionTitle title="Layers" said={`${parts.length}`}>
-        {hidden.length > 0 && (
+    <div className="section layers">
+      {hidden.length > 0 && (
+        <div className="route-tools">
           <span className="layers-hidden">
             <span className="num">{hidden.length}</span> hidden ·{' '}
             <button
@@ -70,8 +68,8 @@ export function Layers() {
               Show all
             </button>
           </span>
-        )}
-      </SectionTitle>
+        </div>
+      )}
       {parts.length === 0 && <p className="section-note">This layout has no parts.</p>}
       <ul className="rows">
         {groups.map((group) => {
@@ -84,8 +82,7 @@ export function Layers() {
         {parts.filter((p) => !grouped.has(p.name)).map((part) => row(part))}
       </ul>
       <NamedSets rows={sets.across} layout={layout} />
-      <TracingRows layout={layout} />
-    </section>
+    </div>
   )
 }
 

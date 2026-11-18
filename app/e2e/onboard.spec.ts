@@ -5,8 +5,8 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { png } from '../src/test/pngFixtures'
 import { box, stl } from '../src/test/scanFixtures'
-import { openPanel } from './helpers'
-import { newFromList, openListed } from './objects'
+import { openSection, showProjects } from './helpers'
+import { newFromList, openListed, projectCrumb } from './objects'
 
 // Making a new object, from the window: the page, its draft, the doodle board, a photo of 3000 px arriving scaled
 // in the first prompt, the scan imported, and the object made on the disk. The agent is the stand-in. The window is
@@ -434,7 +434,7 @@ test.describe('a new object', () => {
     const now = await state()
     expect(now.page).toBe('object')
     expect(now.workspace?.objects.map((o) => o.id)).toContain('cable-clip')
-    await expect(page.getByRole('button', { name: 'cable-clip', exact: true })).toBeVisible()
+    await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project cable-clip')
     await expect(newPage()).toHaveCount(0)
 
     // The project opens on its board, with a frame for each kind of what was given.
@@ -477,9 +477,9 @@ test.describe('a new object', () => {
     // The choice is the person's, kept for the next object; the list is now the one the chat's CLI offered.
     await expect(newPage().getByRole('group', { name: 'Claude Code starts on' }).getByLabel('Model')).toHaveValue('haiku')
     await expect(newPage().getByRole('group', { name: 'Claude Code starts on' }).getByLabel('Effort')).toHaveValue('high')
-    // Empty, Escape leaves the page at once, for the object that was open.
+    // Empty, Escape leaves the page at once, for the page of projects it was reached from.
     await page.keyboard.press('Escape')
-    await expect.poll(async () => (await state()).page).toBe('object')
+    await expect.poll(async () => (await state()).page).toBe('objects')
   })
 
   test('a resumed chat shows the references from reference/ again, and says which one is no longer there', async () => {
@@ -529,16 +529,16 @@ test.describe('a new object', () => {
     await expect(newPage()).toBeVisible()
     await newPage().getByRole('button', { name: 'Discard', exact: true }).click()
     await ask.getByRole('button', { name: 'Discard' }).click()
-    await expect.poll(async () => (await state()).page).toBe('object')
+    // Back on the page of projects, which it was reached from.
+    await expect.poll(async () => (await state()).page).toBe('objects')
     await newFromList(page)
     await expect(page.getByLabel('Name', { exact: true })).toHaveValue('')
     await page.keyboard.press('Escape')
-    await expect.poll(async () => (await state()).page).toBe('object')
+    await expect.poll(async () => (await state()).page).toBe('objects')
   })
 
   test('the page of objects has the way in too, and Escape goes back to it', async () => {
-    await openPanel(page, 'Projects')
-    await page.getByRole('button', { name: 'All projects' }).click()
+    await showProjects(page)
     await expect.poll(async () => (await state()).page).toBe('objects')
     await page.locator('.show-new').click()
     await expect(newPage()).toBeVisible()
@@ -595,8 +595,7 @@ test.describe('the window while a new object is made', () => {
   const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
   const dock = () => page.locator('[data-region="session"]')
   const newPage = () => page.getByRole('region', { name: 'New project' })
-  const list = () => page.getByRole('navigation', { name: 'Projects' })
-  const marks = () => page.locator('section[aria-label="Marks"]')
+  const marks = () => page.locator('[data-region="left"] .route-section[data-section="marks"]')
   const status = () => page.locator('[data-region="status"]')
 
   test.beforeAll(async () => {
@@ -636,9 +635,9 @@ test.describe('the window while a new object is made', () => {
     await page.getByRole('region', { name: 'New project' }).getByRole('button', { name: /^Bought parts/ }).click()
     await expect(newPage().locator('.draft-pane-text')).toContainText('reference/608ZZ.step')
     await expect(newPage().locator('.draft-pane-text')).toContainText('import_step(')
-    // The list in the Projects panel: no object is current, and "New project" is pressed.
-    await expect(list().locator('[aria-current="true"]')).toHaveCount(0)
-    await expect(list().getByRole('button', { name: 'New project' })).toHaveAttribute('aria-pressed', 'true')
+    // The title bar's crumb reads "New project", and the rail has no index of sections: there is no project open to read.
+    await expect(page.locator('.title-row .crumb-project')).toHaveText('New project')
+    await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
     await expect(marks()).toHaveCount(0)
     await expect(status()).toContainText('New project')
     await expect(status().getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
@@ -650,10 +649,13 @@ test.describe('the window while a new object is made', () => {
     await page.keyboard.press('Escape')
     const ask = page.getByRole('alertdialog', { name: 'Discard this new project?' })
     await ask.getByRole('button', { name: 'Discard' }).click()
+    // The page was reached from the page of projects, and Discard goes back to it; bracket is still the one open under it.
+    await expect.poll(async () => (await state()).page).toBe('objects')
+    expect((await state()).objectId).toBe('bracket')
+    await openListed(page, 'bracket')
     await expect.poll(async () => (await state()).page).toBe('object')
-    await expect(list().getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
-    await expect(list().getByRole('button', { name: 'New project' })).toHaveAttribute('aria-pressed', 'false')
-    await openPanel(page, 'Marks')
+    await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project bracket')
+    await openSection(page, 'Marks')
     await expect(marks()).toHaveCount(1)
     await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible()
     await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
@@ -668,7 +670,7 @@ test.describe('the window while a new object is made', () => {
     await expect(dock().locator('.session-aside')).toContainText('This is the session of bracket')
     await expect(dock().locator('[data-draft-note]')).toHaveCount(0)
     await page.keyboard.press('Escape')
-    await expect.poll(async () => (await state()).page).toBe('object')
+    await expect.poll(async () => (await state()).page).toBe('objects')
     await expect(dock().locator('.session-aside')).toHaveCount(0)
     await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible()
   })
