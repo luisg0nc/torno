@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Vec3 } from '../../shared/marks'
 import { type AlignPoint, drawAlignPoints } from './alignPoints'
+import { type AskedBox, drawAskedBox } from './askedBox'
 import { type BrushRing, drawBrushRing } from './brushRing'
 import type { MarkLayer } from './marks/MarkLayer'
 import type { Placed } from './marks/labels'
@@ -46,6 +47,8 @@ export class OverlayPass {
   brush: BrushRing | null = null
   /** The track Explode stands beside the parts, where it is and how far apart they are; null when none is up. Drawn whether the parts are apart or not. */
   explodeTrack: { plan: TrackPlan; amount: number; disabled: boolean } | null = null
+  /** The box a scan would have in the unit pointed at, while its read question is asked: dashed, in no picture. */
+  asked: AskedBox | null = null
   /** What a sketch lays over the view: the hint beside the pointer, its plane's label, the view cube; null when none is being drawn. */
   sketch: SketchOverlay | null = null
   /** The faces of the view cube as the last frame drew them: what a click on it is told against. Empty when there is none. */
@@ -107,6 +110,7 @@ export class OverlayPass {
     this.cube = this.sketch ? drawSketchOverlay(ctx, this.sketch, host.camera(), size, { accent: style.accent, onAccent: style.onAccent, ink: style.ink, surface: style.surface, paper: style.paper, hairline: host.frame().muted }) : []
     drawAlignPoints(ctx, this.alignPoints, host.camera(), size, { accent: style.accent, paper: style.paper })
     drawBrushRing(ctx, this.brush, host.camera(), size, { mark: style.user, paper: style.paper })
+    drawAskedBox(ctx, this.asked, host.camera(), size, { accent: style.accent, paper: style.paper })
   }
 
   /** The section's rule on the ground, with its handle (`drawSectionRule`). */

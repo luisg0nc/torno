@@ -45,6 +45,7 @@ import { AlignBar } from './AlignBar'
 import { goToRow } from './BuildStatus'
 import { hoverMark } from './markHover'
 import { RegionBar } from './RegionBar'
+import { ScanReadSheet } from './ScanReadSheet'
 import { NotePopover } from './NotePopover'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionTag } from './SectionTag'
@@ -626,6 +627,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
         const box = canvasBox(viewport)
         return viewport.pickScan(box.left + fx * box.width, box.top + fy * box.height)
       },
+      askedBox: () => viewport.askedBoxShown(),
       projectScan: (id, local) => {
         const scan = viewport.scanState().find((s) => s.id === id)
         if (!scan) throw new Error(`no scan ${id}`)
@@ -825,6 +827,7 @@ export function ViewportPane() {
           <ExplodeTag viewport={viewport} />
           <AlignBar />
           <RegionBar />
+          <ScanReadSheet viewport={viewport} />
           <QuestionCard where="view" />
           <Hint />
           <ToolHint />

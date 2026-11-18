@@ -1713,20 +1713,23 @@ how many.
 **Units.** glTF is read as metres and Y up; the others as millimetres, or
 metres when the whole is under 20 units across, with Y up for OBJ and Z up
 otherwise. Right after an import in the window, when either was assumed, a
-short sheet at the top of the Scans panel asks once: `How is S1 read?`, with the
-unit and the up axis and the size the scan would have read so (`Its size would
-be 120 × 120 × 0 mm`) and, under it, the size of the parts of the layout shown
+card in the view asks once, under the switch at the top left and tied by a leader to the
+scan's corner: `How is S1 read?`. It says the guess, the size the scan would have read so
+(`Its size would be 120 × 120 × 0 mm`) and, under it, the size of the parts of the layout shown
 (`The parts of assembly: about 40 × 40 × 41 mm`); when the two diagonals are
 more than 100 times apart either way, a line in the warning colour says how many
 times and names the unit that would bring them near (`About 1,000 times the
-parts: is it in millimetres?`). The scan is brought into view with the parts once,
-right after the import and again after "Apply"; the views and `F` still frame
-the parts only. The scan is drawn in the view meanwhile. "Keep" says the
-guess is right, "Apply" reads it as chosen, "Later" puts the question away. Until
+parts: is it in millimetres?`). A dial of cells (mm, cm, m, in) holds the longest side of the scan
+as each unit would make it: the one it was read in is on the ground, the one chosen on the accent.
+Pointing at a unit draws the scan's box at that size, dashed, in the view, with its size. The up axis
+follows. The scan is brought into view with the parts once,
+right after the import and again after "Read it in metres" (worded for the unit chosen); the views and `F` still frame
+the parts only. The scan is drawn in the view meanwhile, as it was read. "Keep mm" says the
+guess is right, "Later" puts the question away. Until
 it is answered the row has a dot after the name, and its detail says the size and
 what was assumed (`120 × 120 × 0 mm, from m, Z up (assumed)`) and asks
 `Read as metres, Z up: right?` with "Yes" and the unit and axis under it (not
-while the sheet is up, which asks the same).
+while the card is up: the row then says "Asked in the view").
 Changing either drops the scan's alignments, which torno says before it does it.
 
 **The Scans panel.** Each scan (`S1`, `S2`, never reused) has a row of one
@@ -1748,15 +1751,15 @@ part behind it. The section cuts a scan open like the parts.
 where it is not, its row says `unaligned` (in the quiet colour until the scan
 has been aligned anywhere: it is only the next step) and nothing is checked
 against it. The detail of such a scan makes "Align" its main button, and the
-sheet that asks how a new scan is read offers `Next: align S1`, which takes up
-the tool on Floor. The bar at the bottom of the viewport has three steps,
-`1 Floor · 2 Pairs · 3 Nudge`, which can follow one another. A tick on a step
-says it has been done for the scan in this layout, and one line under them says
-what the step is for. The bar opens on the first step not done: Floor for a
+card that asks how a new scan is read offers `Next: align S1`, which takes up
+the tool on Floor. The Align scan card at the bottom right of the view has three steps, one under the other,
+`1 Floor · 2 Pairs · 3 Nudge`, which can follow one another: a number in a circle (done: ink, current:
+accent, to come: hairline), the step's name and a line of what it is for; the current one holds its body.
+A tick on a step says it has been done for the scan in this layout. The card opens on the first step not done: Floor for a
 scan with no alignment that is much larger than the parts (ten times their
 diagonal: a room, an engine bay), Pairs for one about their size, Pairs once a
 floor is down, Nudge once there are pairs. When a floor or pairs are kept, the
-bar goes on to the next. Any step can still be chosen, and the bar comes back
+card goes on to the next. Any step can still be chosen, and the card comes back
 to the one you chose last for that scan, in this window:
 
 - **Floor.** Click a flat patch of the scan (`[` and `]` change its size), or
@@ -1791,11 +1794,12 @@ parts again. It tells what it finds; it never moves a scan by itself. A scan
 aligned in another layout offers "Use this alignment in *layout*": it is put
 where it stands there, as a start, and kept as placed by hand.
 
-**Regions** (`B`). Drag over a scan to paint a part of it: a brush whose
-radius is in the bar (`[`, `]`), "Erase" (`E`, or Ctrl held), "Box"
-(Shift-drag), "Grow to flat", "Undo" (`Z`), "Clear". What is seen is what is
+**Regions** (`B`). Drag over a scan to paint a part of it. How it paints, Brush or Box (also Shift-drag),
+is in the name that grows out of the tool's button; the Region of a scan card at the bottom right of the view
+holds the brush's radius (`[`, `]`), "Erase" (`E`, or Ctrl held), "Grow to flat", "Undo" (`Z`), how many triangles
+are painted and "Clear". What is seen is what is
 painted: the brush takes nothing behind a part, nor of what a section has cut
-away. "Keep" (`Enter`) makes it a mark with a number and a note, such as
+away. "Keep as a mark" (`Enter`) makes it a mark with a number and a note, such as
 "wiring loom, can be pushed aside": it is how you tell the agent what a part of
 the scan is. A painting waits until you keep or clear it, whatever tool or
 project you go to meanwhile. "Edit" on a region's row takes it in hand again.
@@ -2808,7 +2812,7 @@ On the screen:
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of projects and on the page of projects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
 - **The Print profile.** Open the Print profile section of the route card: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its head says what is chosen (`Bambu X1C, PETG`), also while the section is folded.
-- **The Scans section.** Import a scan of your own, with "Import scan…" in the section's head, which stays there while the section is folded: the sheet `How is S1 read?` is at the top of the section with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
+- **The Scans section.** Import a scan of your own, with "Import scan…" in the section's head, which stays there while the section is folded: the card `How is S1 read?` is in the view under the switch with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
 - **The sketch panel, the sketches in 3D and their cards, by eye.** The panel in the head of the route card (its rows, the segmented take, the diameter, the offset, the switches, the comment), in light and dark and at the narrow card, with the sections still reachable under it at 1280 x 800; the lines of a sketch at 2.5 px in both mark colours, the dots of its snaps, the tube of a flow sketch at about a quarter of its colour, the dashes of an x-ray stroke behind a part, and the strokes lit by the pointer on a plane's row; a sketch's row at the panel's default width, still one line; and its card with the picture drawn from its camera, and the placeholder.

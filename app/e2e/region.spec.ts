@@ -111,7 +111,13 @@ function differing(one: LookRequest, other: LookRequest): Promise<number> {
   )
 }
 
-const bar = () => page.locator('.regionbar')
+/** How the scan was read is asked in the view now, over its top left: a person with no answer yet puts it away, to see the model. */
+async function later(): Promise<void> {
+  await page.getByRole('dialog', { name: /^How is S\d+ read\?$/ }).getByRole('button', { name: 'Later' }).click()
+}
+
+// The Region card is found by its title (Task 25: a procedure card at the bottom right of the view).
+const bar = () => page.getByRole('group', { name: 'Region of a scan' })
 const painted = async (): Promise<number> => Number((await bar().locator('.regionbar-count').innerText()).replace(/,/g, '').match(/(\d+) triangle/)?.[1] ?? Number.NaN)
 
 test('a part of a scan is painted, named, kept as a mark with its mask, told to the agent and left out of a clash', async () => {
@@ -122,6 +128,7 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await pickFile(file)
   await openSection(page, 'Scans')
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   // The view turns to it over a moment: what follows is aimed from above, and a press is answered from the camera as it then is.
@@ -141,7 +148,8 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await bar().getByRole('textbox', { name: 'Brush radius' }).fill('3')
   await bar().getByRole('textbox', { name: 'Brush radius' }).press('Enter')
   // Fix round 1 (I1): the lid is over the sheet, and what is not seen is not painted. A press on it takes nothing: it is the camera's, as beside the scan.
-  await page.mouse.move(...(await at([-10, -8, 39])))
+  // (The reed's pill, grown out of the Region button, stands over the view's left at -8: the points are taken from -4 on.)
+  await page.mouse.move(...(await at([-10, -4, 39])))
   await page.mouse.down()
   await page.mouse.up()
   await expect(bar()).toContainText('0 triangles')
@@ -151,9 +159,9 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await page.locator('.layer-row[data-layer="lid"]').getByRole('button', { name: 'Show lid' }).click()
   await openSection(page, 'Marks')
   // One stroke along the sheet's left side, from front to back.
-  await page.mouse.move(...(await at([-10, -8, 39])))
+  await page.mouse.move(...(await at([-10, -4, 39])))
   await page.mouse.down()
-  for (const y of [-4, 0, 4, 8]) await page.mouse.move(...(await at([-10, y, 39])), { steps: 4 })
+  for (const y of [0, 4, 8]) await page.mouse.move(...(await at([-10, y, 39])), { steps: 4 })
   await page.mouse.up()
   await expect(bar()).toContainText(/\d+ triangles/)
   const first = await painted()
@@ -351,6 +359,7 @@ test('a stamp beside a part takes nothing the part hides', async () => {
   await pickFile(file)
   await openSection(page, 'Scans')
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect.poll(async () => {

@@ -232,38 +232,43 @@
   overflow-wrap: anywhere;
 }
 
-/* ---- The note of a mark: a card beside it, over the viewport ---- */
+/* ---- The note of a mark: a card beside it, over the viewport, in the look of a tag and with no leader (a mark has none) ---- */
 
 .note-card {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 4;
   width: 288px;
-  padding: 6px 6px 7px 9px;
-  border: var(--field-border);
-  /* The pencil that made the mark, down the edge of its note. */
-  border-left: 2px solid var(--user-mark);
-  border-radius: var(--radius-inline) var(--radius-float) var(--radius-float) var(--radius-inline);
-  background: var(--panel);
+  padding: var(--space-1) var(--space-1) var(--space-2) var(--space-2);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--raise);
   box-shadow: var(--float-shadow);
+  color: var(--ink);
+  font-size: var(--text-row);
+  /* `scale`, not `transform`: that is the card's place. */
+  animation: tag-pop 0.2s var(--ease) backwards;
 }
 
-.note-card[data-author='agent'] {
-  border-left-color: var(--agent-mark);
+@media (prefers-reduced-motion: reduce) {
+  .note-card {
+    animation: none;
+  }
 }
 
 .note-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 24px;
+  height: 26px;
 }
 
 .note-ref {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--text-small);
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -289,14 +294,15 @@
 
 .note-field {
   display: block;
+  box-sizing: border-box;
   width: 100%;
   min-height: calc(1lh + 10px);
   max-height: calc(6lh + 10px);
   margin: 6px 0 0;
   padding: 4px 6px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-inline);
-  background: transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface);
   color: var(--ink);
   font: inherit;
   line-height: var(--text-leading);
@@ -326,11 +332,8 @@
   padding: 0 4px;
   border: var(--divider);
   border-radius: var(--radius-inline);
+  font-family: var(--font-mono);
   font-size: 10px;
   line-height: 15px;
   color: var(--ink);
-}
-
-.note-keys kbd:not(:first-child) {
-  margin-left: var(--space-2);
 }

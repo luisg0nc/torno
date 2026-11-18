@@ -76,6 +76,8 @@ declare global {
       underAt(fx: number, fy: number): import('./ui/drawing/under').Under
       /** What a point of the canvas is on of the scans drawn, as `pickAt` is of the parts. */
       pickScanAt(fx: number, fy: number): ScanHit | null
+      /** The dashed box the scan read question draws for the unit pointed at, with its size in words; null for none. */
+      askedBox(): { min: [number, number, number]; max: [number, number, number]; label: string } | null
       /** Where a point of a scan, in the scan's own frame, is drawn: fractions of the canvas, as `project`. */
       projectScan(id: string, local: [number, number, number]): [number, number]
       /** What `count` picks of the scans cost, at points spread over the canvas, and how each tree was made. */

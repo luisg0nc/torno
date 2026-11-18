@@ -1,7 +1,6 @@
 import { pressed } from '../../shared/keys'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { type ScanAlignment, alignmentOf, alignmentText, muchLarger, standingOf } from '../../shared/scans'
-import { useAgentHighlight } from '../state/agent'
 import { type AlignMode, advanceAlign, alignStore, beginAlign, chooseAlignMode, nextLine, proposed, scanInHand, setAlignScan, stepsDone, useAlign } from '../state/align'
 import { store, useStore } from '../state/store'
 import { useTool } from '../state/tools'
@@ -10,6 +9,7 @@ import { FloorBody } from './align/FloorBody'
 import { NudgeBody } from './align/NudgeBody'
 import { PairsBody } from './align/PairsBody'
 import { Confirm } from './Confirm'
+import { ProcedureCard } from './view/ProcedureCard'
 import { capital, numbered } from './numbered'
 import { chosen, pointerChoice } from './typing'
 
@@ -21,7 +21,7 @@ const MODES: { mode: AlignMode; label: string; title: string; purpose: string }[
 const STEP_WORD = { floor: 'floor', pairs: 'pairs', nudge: 'nudge', typed: 'typed values' } as const
 
 /**
- * The alignment of a scan, floating at the bottom of the viewport while the Align tool is in hand. One line
+ * The alignment of a scan, a card at the bottom right of the view while the Align tool is in hand. One line
  * always says what to click next. Nothing is kept by a click in the view: what is in hand is drawn as a
  * preview, and "Apply" has main keep it. An alignment that is only rough is asked about before it is kept;
  * the last one kept can be undone.
@@ -36,9 +36,6 @@ export function AlignBar() {
   const scene = useStore((s) => s.scene)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const views = useStore((s) => s.scanViews)
-  const section = useStore((s) => s.section !== null)
-  const selected = useStore((s) => s.selection.length > 0)
-  const pointedOut = useAgentHighlight() !== null
   const [clearing, setClearing] = useState(false)
   useEffect(() => setClearing(false), [layout, state.scan, inHand])
 
@@ -57,14 +54,12 @@ export function AlignBar() {
   const moved = parts.filter((part) => part.arranged !== undefined).map((part) => part.name)
   const still = parts.filter((part) => part.arranged === undefined).map((part) => part.name)
   const busy = state.sending !== null
-  // Above the section's bar, the selection and what the agent points at: each has a row of its own at the bottom edge.
-  const raised = (section ? 1 : 0) + (selected ? 1 : 0) + (pointedOut ? 1 : 0)
   const surroundings = scan ? muchLarger(scan.imported, parts.map((part) => part.bbox)) : false
   const done = stepsDone(current)
   const undo = current && current.before !== undefined ? STEP_WORD[current.steps[current.steps.length - 1]] : null
 
   return (
-    <div className="alignbar" role="toolbar" aria-label="Align" data-raised={raised || undefined}>
+    <ProcedureCard tool="align" title="Align scan" className="alignbar">
       <StepOn scan={scan?.id ?? null} alignment={current} surroundings={surroundings} />
       <div className="alignbar-head">
         {scans.length > 1 ? (
@@ -94,27 +89,7 @@ export function AlignBar() {
             </span>
           )
         )}
-        <div className="segmented" role="group" aria-label="How to align">
-          {MODES.map((m, n) => (
-            <button key={m.mode} type="button" className="align-step" title={m.title} aria-pressed={m.mode === state.mode} data-done={scan && done[m.mode] ? '' : undefined} disabled={!scan} onClick={() => chooseAlignMode(m.mode)}>
-              <span className="num" aria-hidden="true">
-                {n + 1}
-              </span>{' '}
-              {m.label}
-              {scan && done[m.mode] && (
-                <span className="align-step-tick" role="img" aria-label="done">
-                  ✓
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
       </div>
-      {scan && (
-        <p className="alignbar-purpose" data-part="purpose">
-          {MODES.find((m) => m.mode === state.mode)?.purpose}
-        </p>
-      )}
 
       <p className="alignbar-next" role="status">
         {nextLine(state, scan, scans.length, current, { visible: !hidden })}
@@ -126,9 +101,37 @@ export function AlignBar() {
         </p>
       )}
 
-      {scan && state.mode === 'floor' && <FloorBody state={state} />}
-      {scan && state.mode === 'pairs' && <PairsBody state={state} scan={scan} fit={proposal?.fit ?? null} need={proposal?.need ?? null} />}
-      {scan && state.mode === 'nudge' && <NudgeBody key={`${scan.id} ${layout}`} state={state} current={current} disabled={busy || state.asking !== null} />}
+      {/* The steps, one under the other: a number (done: ink, current: accent, to come: hairline), its name and a muted line; the current one holds its body. */}
+      <ol className="align-steps" role="group" aria-label="How to align">
+        {MODES.map((m, n) => {
+          const now = m.mode === state.mode
+          return (
+            <li key={m.mode} className="align-stage" data-state={now ? 'current' : scan && done[m.mode] ? 'done' : 'to-come'}>
+              <button type="button" className="align-step" title={m.title} aria-pressed={now} data-done={scan && done[m.mode] ? '' : undefined} disabled={!scan} onClick={() => chooseAlignMode(m.mode)}>
+                <span className="align-step-n num" aria-hidden="true">
+                  {n + 1}
+                </span>
+                <span className="align-step-name">{m.label}</span>
+                {scan && done[m.mode] && (
+                  <span className="align-step-tick" role="img" aria-label="done">
+                    ✓
+                  </span>
+                )}
+              </button>
+              <div className="align-stage-body">
+                {scan && (
+                  <p className="align-step-line" data-part={now ? 'purpose' : 'line'}>
+                    {m.purpose}
+                  </p>
+                )}
+                {scan && now && m.mode === 'floor' && <FloorBody state={state} />}
+                {scan && now && m.mode === 'pairs' && <PairsBody state={state} scan={scan} fit={proposal?.fit ?? null} need={proposal?.need ?? null} />}
+                {scan && now && m.mode === 'nudge' && <NudgeBody key={`${scan.id} ${layout}`} state={state} current={current} disabled={busy || state.asking !== null} />}
+              </div>
+            </li>
+          )
+        })}
+      </ol>
 
       {state.asking && <AskRough why={state.asking.why} busy={busy} onKeep={() => void keepAlignment(state.asking!.made, true)} />}
       {state.refused && (
@@ -138,28 +141,31 @@ export function AlignBar() {
       )}
 
       {scan && (
-        <div className="alignbar-foot">
+        <div className="procedure-foot">
           <p className="alignbar-state" data-aligned={current ? '' : undefined}>
             {current ? numbered(`Aligned ${alignmentText(current)}`) : 'Not aligned here'}
             {current?.rough && <span data-part="rough"> · rough: {numbered(current.rough)}</span>}
           </p>
-          <button type="button" className="bar-button" disabled={!undo || busy} title={undo ? `Undo the last step (${undo}): puts back the alignment before it` : 'Nothing to undo'} onClick={() => void undoAlignment()}>
-            Undo
-          </button>
-          <button type="button" className="bar-button" disabled={!current || busy} title="The scan is aligned to nothing in this layout any more" onClick={() => setClearing(true)}>
-            Clear
-          </button>
-          {state.mode !== 'nudge' && (
-            <button
-              type="button"
-              className="bar-button alignbar-apply"
-              disabled={!proposal || proposal.few === true || busy || state.asking !== null}
-              title={state.mode === 'floor' ? 'Lays the patch down' : 'Keeps the scan where the pairs fit it'}
-              onClick={() => proposal && void keepAlignment(proposal.made)}
-            >
-              Apply
+          <div className="procedure-actions">
+            <button type="button" className="procedure-button" disabled={!undo || busy} title={undo ? `Undo the last step (${undo}): puts back the alignment before it` : 'Nothing to undo'} onClick={() => void undoAlignment()}>
+              Undo
             </button>
-          )}
+            <button type="button" className="procedure-button" disabled={!current || busy} title="The scan is aligned to nothing in this layout any more" onClick={() => setClearing(true)}>
+              Clear
+            </button>
+            {state.mode !== 'nudge' && (
+              <button
+                type="button"
+                className="procedure-button alignbar-apply"
+                data-primary=""
+                disabled={!proposal || proposal.few === true || busy || state.asking !== null}
+                title={state.mode === 'floor' ? 'Lays the patch down' : 'Keeps the scan where the pairs fit it'}
+                onClick={() => proposal && void keepAlignment(proposal.made)}
+              >
+                Apply
+              </button>
+            )}
+          </div>
         </div>
       )}
       {doubt && scan && (
@@ -199,7 +205,7 @@ export function AlignBar() {
           <span className="num">{scan.id}</span> will be aligned to nothing in <span className="num">{layout}</span>: drawn where it was imported, and left out of every check.
         </Confirm>
       )}
-    </div>
+    </ProcedureCard>
   )
 }
 
@@ -228,10 +234,10 @@ function AskRough({ why, busy, onKeep }: { why: string; busy: boolean; onKeep: (
       }}
     >
       <p>{numbered(`${capital(why)}. Keep it as a rough alignment? It is said to be rough wherever the scan is reported.`)}</p>
-      <button type="button" className="button" ref={decline} onClick={declineRough}>
+      <button type="button" className="procedure-button" ref={decline} onClick={declineRough}>
         Not yet
       </button>
-      <button type="button" className="button" disabled={busy} onClick={onKeep}>
+      <button type="button" className="procedure-button" disabled={busy} onClick={onKeep}>
         Keep as rough
       </button>
     </div>

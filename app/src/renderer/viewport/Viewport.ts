@@ -7,6 +7,7 @@ import { STROKE_REF } from '../../shared/sets'
 import type { ScanInfo, ScanTransform, ScanView } from '../../shared/scans'
 import type { Camera, SectionPlane, ViewName } from '../../shared/view'
 import type { AlignPoint } from './alignPoints'
+import type { AskedBox } from './askedBox'
 import type { BrushRing } from './brushRing'
 import { CameraMove, pivotOn, standingAt } from './cameraMoves'
 import { PartsApart, asBuilt, drawnAt, drawnBox, reachingApart, leavesView } from './explode'
@@ -526,6 +527,23 @@ export class Viewport {
   showBrush(ring: BrushRing | null): void {
     this.overlay.brush = ring
     this.invalidate()
+  }
+
+  /** The box a scan would have if it were read in another unit (its read question is asked), dashed with its size: in `--accent`, in no picture. Null for none. */
+  showAskedBox(box: AskedBox | null): void {
+    this.overlay.asked = box
+    this.invalidate()
+  }
+
+  /** The box now drawn for the scan read question, with its words; null for none. Only for the tests. */
+  askedBoxShown(): AskedBox | null {
+    return this.overlay.asked
+  }
+
+  /** The box a scan is drawn in, in the object frame, in the layout shown; null while its mesh has not come or it is switched off. */
+  scanBox(id: string): { min: Vec3; max: Vec3 } | null {
+    const box = this.scans.state().find((scan) => scan.id === id)?.visible ? this.scans.boxIn([id], this.layout) : null
+    return box ? { min: box.min.toArray(), max: box.max.toArray() } : null
   }
 
   /** Numbered dots for the ends of the pairs being made and the points of a floor: in `--accent`, in no picture. */

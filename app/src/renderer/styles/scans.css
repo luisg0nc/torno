@@ -135,16 +135,25 @@ input.scan-name-field {
   font-size: var(--text-small);
 }
 
-/* Asked once, after an import: how the scan is read. In the panel, not over the view the scan is looked at in. */
+/* Asked once, after an import: how the scan is read. A card in the view under the switch at the top left, tied by a leader to the scan's corner (`ScanReadSheet`). 330 px, in the look of a tag. */
 .scan-sheet {
+  position: absolute;
+  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
+  /* Past the reed, which stands at the left edge down the middle: the card is taller than the room above it. */
+  left: 66px;
+  /* Over a procedure card (z 6): in a narrow view the two meet, and the question must stay answerable. */
+  z-index: 7;
   display: grid;
   gap: var(--space-2);
-  margin: 0 0 var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-top: var(--divider);
-  border-bottom: var(--divider);
-  background: var(--panel);
-  font-size: var(--text-small);
+  box-sizing: border-box;
+  width: 330px;
+  max-width: calc(100% - 66px - 150px);
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--raise);
+  box-shadow: var(--float-shadow);
+  font-size: var(--text-row);
 }
 
 .scan-sheet p {
@@ -152,23 +161,77 @@ input.scan-name-field {
   overflow-wrap: anywhere;
 }
 
+.scan-sheet-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
 .scan-sheet-size {
   color: var(--muted);
 }
 
+/* The dial: a cell for each unit, with the longest side of the scan in it. The one read is on the surface; the one pointed at is on the accent wash with an accent underline. */
+.scan-dial {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.scan-dial-cell {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 5px 2px 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+}
+
+.scan-dial-cell[data-read] {
+  background: var(--surface);
+}
+
+.scan-dial-cell[data-pointed] {
+  border-bottom-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.scan-dial-unit {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.scan-dial-cell[data-pointed] .scan-dial-unit {
+  color: var(--accent);
+}
+
+.scan-dial-size {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+
+.scan-sheet-up {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scan-sheet-up .segmented {
+  background: var(--surface);
+}
+
 .scan-sheet-actions {
   display: flex;
-  flex-wrap: nowrap;
-  gap: var(--space-1);
-}
-
-.scan-sheet .button {
-  height: 22px;
-  padding: 0 9px;
-}
-
-.scan-sheet > .confirm {
-  margin: 0 calc(-1 * var(--space-4));
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
 }
 
 .scan-row[data-hidden] .row-name {
@@ -336,11 +399,6 @@ input.scan-name-field {
 
 .scan-choice button:focus-visible {
   outline-offset: -2px;
-}
-
-.scan-row > .confirm {
-  margin-top: var(--space-1);
-  font-size: var(--text-small);
 }
 
 .scan-sheet-warn {

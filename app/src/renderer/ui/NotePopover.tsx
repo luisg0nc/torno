@@ -8,6 +8,7 @@ import type { AnchorState, Mark } from '../../shared/marks'
 import { actions, store, useStore } from '../state/store'
 import { labelText } from '../viewport/marks/labels'
 import type { Viewport } from '../viewport/Viewport'
+import { keyGlyph } from './keyGlyph'
 import { ANCHOR_BADGE, MAX_NOTE } from './MarkRow'
 import { placeBeside } from './notePlacement'
 
@@ -238,8 +239,7 @@ function NoteCard({ viewport, objectId, mark }: { viewport: Viewport; objectId: 
         }}
       />
       <p className="note-keys">
-        <kbd className="num">{hint('field.keep')}</kbd>save
-        <kbd className="num">{hint('field.leave')}</kbd>leave it for later
+        <kbd>{keyGlyph(hint('field.keep'))}</kbd> save <span aria-hidden="true">·</span> <kbd>{hint('field.leave')}</kbd> leave it for later
       </p>
     </div>
   )
