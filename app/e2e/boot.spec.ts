@@ -83,6 +83,14 @@ test('the window is hidden, 1440 × 900, and titled torno', async () => {
   expect(await page.title()).toBe('torno')
 })
 
+test('the leader layer covers the window, takes no pointer, and is empty until a tool gives it a leader', async () => {
+  const layer = page.locator('svg.leader-layer')
+  await expect(layer).toHaveCount(1)
+  await expect(layer).toHaveCSS('pointer-events', 'none')
+  await expect(layer).toHaveCSS('position', 'fixed')
+  expect(await layer.locator('.leader').count()).toBe(0)
+})
+
 test('the four shell regions exist with their placeholders', async () => {
   await expect(page.locator('aside[data-region="left"] .workspace-name')).toHaveText(root.split('/').pop()!)
   // Said once, by the page of objects, which is where a workspace with none starts.
