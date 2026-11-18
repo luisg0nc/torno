@@ -425,15 +425,40 @@ test('a turn ends with what it did to the project, and "See changes" shows the l
   await end.getByRole('button', { name: 'See changes' }).click()
   const sheet = page.getByRole('dialog', { name: 'Changes in this turn' })
   await expect(sheet).toBeVisible()
+  // It covers the view's area and nothing else: not the card, not the dock; and the turn it is about is lit while it is open.
+  const area = (await page.locator('[data-region="viewport"]').boundingBox())!
+  const box = (await sheet.boundingBox())!
+  expect(Math.abs(box.x - area.x)).toBeLessThan(2)
+  expect(Math.abs(box.x + box.width - (area.x + area.width))).toBeLessThan(2)
+  expect(Math.abs(box.y - area.y)).toBeLessThan(2)
+  expect(Math.abs(box.y + box.height - (area.y + area.height))).toBeLessThan(2)
+  const docked = (await dock().boundingBox())!
+  expect(box.x + box.width).toBeLessThanOrEqual(docked.x + 1)
+  await expect(end).toHaveAttribute('data-open', '')
+  // The code is below, with the file's tab (its name and how many lines went and came) and the parts' tags above it.
+  await expect(sheet.getByRole('button', { name: /^hollow\.py \+\d+ −\d+/ })).toBeVisible()
+  // The build before is one press away, through Compare; the build after puts it back. The parts the turn changed carry tags above.
+  const scrub = sheet.getByRole('group', { name: 'Build shown' })
+  await expect(scrub.getByRole('button')).toHaveCount(2)
+  await expect(sheet.locator('[data-tag]').first()).toBeAttached()
+  await scrub.getByRole('button').first().click()
+  await expect(page.locator('.band[data-band="compare"]')).toBeVisible()
+  await scrub.getByRole('button').last().click()
+  await expect(page.locator('.band[data-band="compare"]')).toHaveCount(0)
   // Main read the file when the prompt was sent and when the turn ended.
   await expect(sheet.locator('.diff-row[data-kind="removed"]')).toContainText('wall: float = 3', { timeout: 15_000 })
   await expect(sheet.locator('.diff-row[data-kind="added"]')).toContainText('wall: float = 4')
   await sheet.getByRole('button', { name: 'Whole file' }).click()
   await expect(sheet.locator('.changes-whole')).toContainText('wall: float = 4')
   await expect(sheet.locator('.changes-whole')).not.toContainText('wall: float = 3')
-  // Escape puts it away and the focus goes back to the button.
+  // Escape puts it away, and the build before it drew too, and the focus goes back to the button.
+  await scrub.getByRole('button').first().click()
+  await expect(page.locator('.band[data-band="compare"]')).toBeVisible()
+  await sheet.focus()
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
+  await expect(page.locator('.band[data-band="compare"]')).toHaveCount(0)
+  await expect(end).not.toHaveAttribute('data-open', '')
   await expect(end.getByRole('button', { name: 'See changes' })).toBeFocused()
   // A turn that edited nothing has no such button.
   await say('say nothing was changed')

@@ -5,6 +5,8 @@ export interface DiffRow {
   /** `same` is a line kept beside a change, `gap` the lines left out between. */
   kind: 'same' | 'removed' | 'added' | 'gap'
   text: string
+  /** The line's number in the file, when asked for: a removed line's in the old text, any other's in the new one. */
+  line?: number
 }
 
 export interface Hunk {
@@ -98,14 +100,32 @@ function trimmed(rows: DiffRow[]): DiffRow[] {
   return out
 }
 
-/** Two texts as the lines removed and added to make the first the second. */
-export function diffText(old: string, now: string): Omit<Hunk, 'title'> {
+/** The rows with the number of their line in the file: counted before the unchanged ones are folded into a gap. */
+function withLines(rows: DiffRow[]): DiffRow[] {
+  let old = 0
+  let now = 0
+  return rows.map((row) => {
+    if (row.kind === 'removed') return { ...row, line: (old += 1) }
+    if (row.kind === 'added') return { ...row, line: (now += 1) }
+    old += 1
+    return { ...row, line: (now += 1) }
+  })
+}
+
+/** Two texts as the lines removed and added to make the first the second; `numbered` gives each line its number in the file (the sheet of a turn's changes). */
+export function diffText(old: string, now: string, numbered = false): Omit<Hunk, 'title'> {
   const trim = old.endsWith('\n') && now.endsWith('\n')
   const a = linesOf(old, trim)
   const b = linesOf(now, trim)
   const { rows, tooLong } = compare(a, b)
   if (rows.every((r) => r.kind === 'same')) return { rows: [], same: true }
-  return tooLong ? { tooLong, rows: trimmed(rows) } : { rows: trimmed(rows) }
+  const shown = trimmed(numbered ? withLines(rows) : rows)
+  return tooLong ? { tooLong, rows: shown } : { rows: shown }
+}
+
+/** How many lines a diff adds and removes. */
+export function countLines(hunk: Pick<Hunk, 'rows'>): { added: number; removed: number } {
+  return { added: hunk.rows.filter((r) => r.kind === 'added').length, removed: hunk.rows.filter((r) => r.kind === 'removed').length }
 }
 
 const text = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined)

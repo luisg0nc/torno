@@ -1,10 +1,11 @@
-import { Children, memo, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Children, memo, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { type ChatItem, pulledFromTorno } from '../../../shared/chat'
 import { drawable } from '../../../shared/history'
-import { actions, explodeNow, useStore } from '../../state/store'
+import { actions, useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { AskSession } from './AskCard'
 import { ChangesSheet } from './ChangesSheet'
+import { compareBlocked } from './compareBlocked'
 import { useGoBack } from './GoBack'
 import { Popover } from '../Popover'
 import { useMenu } from '../useMenu'
@@ -28,13 +29,14 @@ function TurnActions({ children }: { children: ReactNode }) {
   return <div className="chat-turn-actions">{children}</div>
 }
 
-/** "See changes": opens the sheet of what the turn did to the model's file, over the transcript. */
-function SeeChanges({ item, account, row }: { item: TurnItem; account: TurnAccount; row: RefObject<HTMLDivElement | null> }) {
+/** The view's area: what "See changes" opens over, so that the card and the dock stay as they are. */
+const viewArea = (): Element | null => document.querySelector('[data-region="viewport"]')
+
+/** "See changes": opens the sheet of what the turn did to the model's file over the view's area, the parts above and the code below. */
+function SeeChanges({ item, account, joined, open, setOpen }: { item: TurnItem; account: TurnAccount; joined?: JoinedTurn; open: boolean; setOpen: (open: boolean) => void }) {
   const sessionId = useContext(AskSession)
-  const [open, setOpen] = useState(false)
   const button = useRef<HTMLButtonElement>(null)
-  // Over the transcript, not inside the group it is in: a group is contained (`content-visibility`), and would clip it.
-  const host = open ? row.current?.closest('.chat-scroll') : null
+  const host = open ? viewArea() : null
   const close = (): void => {
     setOpen(false)
     // The focus goes back to the button it was taken from.
@@ -42,11 +44,11 @@ function SeeChanges({ item, account, row }: { item: TurnItem; account: TurnAccou
   }
   return (
     <>
-      <button ref={button} type="button" className="button button-quiet" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      <button ref={button} type="button" className="button button-quiet" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
         <DiffIcon />
         See changes
       </button>
-      {open && host && <ChangesSheet sessionId={sessionId} turnId={item.id} net={account.net} host={host} onClose={close} />}
+      {open && host && <ChangesSheet sessionId={sessionId} turnId={item.id} net={account.net} summary={account.summary} joined={joined} host={host} onClose={close} />}
     </>
   )
 }
@@ -56,7 +58,7 @@ function Compare({ joined, summary }: { joined: JoinedTurn; summary?: TurnSummar
   const last = joined.entries.findLast(drawable)
   const from = joined.from
   const comparing = useStore((s) => s.compare !== null && s.compare.from === from?.id && s.compare.to === last?.id)
-  const blocked = useStore((s) => (s.section !== null ? 'Take the section away first: an earlier build is not drawn cut.' : explodeNow(s) !== null ? 'Put the parts together first: an earlier build is not drawn apart.' : null))
+  const blocked = useStore(compareBlocked)
   if (!from || !last || from.id === last.id) return null
   return (
     <button type="button" className={comparing ? 'button' : 'button button-quiet'} aria-pressed={comparing} disabled={!comparing && blocked !== null} title={comparing ? 'Back to the live build' : (blocked ?? `Draw ${last.id} over ${from.id} in the view`)} onClick={() => (comparing ? actions.endCompare() : actions.compare(from.id, last.id, joined.number > 0 ? joined.number : undefined, summary))}>
@@ -177,19 +179,20 @@ export function TurnMore({ item, joined, account, open = false }: { item: TurnIt
  * from torno on a quiet line of its own, and at the right the buttons for the turn: See changes, Compare and the More menu.
  */
 export const TurnEnd = memo(function TurnEnd({ item, account, joined }: { item: TurnItem; account?: TurnAccount; joined?: JoinedTurn }) {
-  const row = useRef<HTMLDivElement>(null)
+  // Whether the sheet of this turn's changes is open: the turn is lit in the conversation while it is.
+  const [changesOpen, setChangesOpen] = useState(false)
   const pulled = pulledFromTorno(item.pulled)
   const head = item.stopped ? 'Stopped' : item.ok ? `Done in ${item.seconds < 10 ? item.seconds.toFixed(1) : Math.round(item.seconds)} s` : `Failed${item.error ? `: ${item.error}` : ''}`
   const parts = account && !isEmpty(account.summary) ? summaryParts(account.summary) : []
   return (
-    <div ref={row} className="chat-item chat-turn" data-kind="turn" data-ok={item.ok && !item.stopped ? '' : undefined}>
+    <div className="chat-item chat-turn" data-kind="turn" data-ok={item.ok && !item.stopped ? '' : undefined} data-open={changesOpen ? '' : undefined}>
       <div className="chat-turn-main">
         <p className="chat-turn-line">
           <b className="chat-turn-head">{numbered(head)}</b>
           {parts.length > 0 && <span className="chat-turn-sum">{numbered(` · ${parts.join(' · ')}`)}</span>}
         </p>
         <TurnActions>
-          {account && editedModel(account) ? <SeeChanges item={item} account={account} row={row} /> : null}
+          {account && editedModel(account) ? <SeeChanges item={item} account={account} joined={joined} open={changesOpen} setOpen={setChangesOpen} /> : null}
           {joined && joined.entries.length > 0 ? <Compare joined={joined} summary={account?.summary} /> : null}
           <TurnMore item={item} joined={joined} account={account} />
         </TurnActions>

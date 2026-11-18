@@ -800,13 +800,22 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   is another than it was ("M3 now passes"). A turn that did none of these says
   only how long it took.
 - **See changes.** A turn that edited a `.py` file has "See changes" under its
-  account. It opens a sheet over the chat with, for each `.py` file directly
-  in the project's folder that the turn changed, the file at the start of the
-  turn against its end as lines removed and added, and the file as it is now
+  account. It opens a sheet over the view's area only (the card and the
+  session pane stay as they are), and the turn it is about is lit in the chat
+  with an accent bar while the sheet is open. The top half is the view itself,
+  with the parts the turn changed written on as tags ("airbox-tub volume ≈
+  1,200 → 1,300 mm³", "`M3` now passes", at most four, the rest in a line), and
+  at its head "Changes in this turn", "read only" and, when the history has the
+  build the prompt began from, the two builds as `h40` and `h41`: pressing the
+  first draws that build in the view through Compare, the second puts the live
+  build back (closing the sheet does too). The bottom half is the code: a tab for each `.py` file directly
+  in the project's folder that the turn changed ("airbox.py +3 −2"), and at the
+  right "Changes" or "Whole file": the file at the start of the turn against its
+  end as lines removed and added, with their line numbers, or the file as it is now
   (the sheet is read only and runs nothing). Under
   them, the builds of the turn taken together, from the kernel's numbers: a
   part's volume and face count before the turn's first build against its last
-  (`≈` where a number is not exact). torno reads the files when you send a
+  (`≈` where a number is not exact). Escape or Close puts the sheet away. torno reads the files when you send a
   prompt and when the turn ends, and keeps the two texts in memory for the
   last 20 turns of the session: nothing is written to disk, not under `.torno/`
   and not in the chat's log, so a turn of an earlier session, or one more than

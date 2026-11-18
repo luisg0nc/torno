@@ -74,8 +74,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   and added (`resolve_mark`'s `id`; `add_mark`'s from its answer), and the dimensions whose verdict at the end is another
   than at the start (the first `was` and the last `now` of the digests, `verdictChanges`' own). What it pulled from torno
   is a line of its own. At the right of the first line a row of buttons for the turn (`TurnActions`): "See changes" (only when an edit
-  changed a `.py`, a quiet button with its icon), which opens `ChangesSheet` over the transcript as a picture is shown large (a dialog in the host
-  `.chat-scroll`, `chat.close` puts it away, Tab goes round within it, the focus goes back to the button): per file main
+  changed a `.py`, a quiet button with its icon), which opens `ChangesSheet` over the view's area (`main.viewport`, `[data-region="viewport"]`: not the card, not the dock; a dialog, `chat.close`
+  puts it away, Tab goes round within it, the focus goes back to the button; `TurnEnd` holds whether it is open and lights its turn with
+  `data-open`, an accent bar and wash): the top half is the view (its canvas is drawn in that half only), with the parts' tags
+  (`changeTags` of the turn's summary, standing on the parts as `CompareBar`'s do, the ones with nothing to stand on in a line) and the scrubber
+  `h40` / `h41` (`Scrubber`: `actions.compare` with no summary, mode `before`, when `joined.from` is there; the sheet ends the compare it began
+  when it closes); the bottom half is the code, a tab for each file ("airbox.py +3 −2") with the diff numbered by line. Per file main
   kept (`chat.changes`, in memory, the last 20 turns; none is "No change ... is kept for this turn"), "Changes" (the
   file before against after, `Diff` with `ofEdit` false, so without the caption that is true only of an edit's lines)
   or "Whole file" (read only, the monospace face, no refs searched), and, below, the builds taken together

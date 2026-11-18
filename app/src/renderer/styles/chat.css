@@ -623,6 +623,13 @@ button.ref-chip {
   margin-top: var(--space-2);
 }
 
+/* The turn whose changes are open over the view: an accent bar and wash while they are. */
+.chat-turn[data-open] {
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .chat-turn-main {
   display: flex;
   flex-wrap: wrap;
@@ -731,79 +738,6 @@ button.ref-chip {
 
 .chat-turn-problem {
   color: var(--muted);
-}
-
-/* The sheet of what a turn changed in the model's file, over the transcript as a picture shown large is. */
-.changes-sheet {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  color: var(--ink);
-  font-size: var(--text-size);
-}
-
-.changes-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: var(--divider);
-}
-
-.changes-title {
-  margin: 0;
-  font-size: var(--text-size);
-  font-weight: 600;
-}
-
-.changes-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  padding: var(--space-3);
-  overflow: auto;
-}
-
-.changes-files,
-.changes-modes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.changes-name {
-  margin: 0;
-  font-family: var(--font-mono);
-}
-
-.changes-note {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.changes-file {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.changes-sheet .diff,
-.changes-whole {
-  max-height: none;
-}
-
-.changes-net ul {
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-4);
-  font-family: var(--font-mono);
-  font-size: var(--text-small);
 }
 
 .chat-note[data-tone='warn'] {
