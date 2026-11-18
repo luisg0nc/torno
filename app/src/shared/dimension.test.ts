@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HISTORY_LENGTH, samplesOf, since, sinceText, withSample, valueAgainstExpected, dimensionText, exactText, notMeasuredText, shownDimension, isOffEdge, isUnmeasured, offEdgeReason, lastValue, measuredValue, offBy, standingOf, unmeasuredText, unmetDimensions, checksOf, isCheck, verdictOf, verdictOn } from './dimension'
+import { HISTORY_LENGTH, samplesOf, since, sinceText, withSample, valueAgainstExpected, dimensionText, exactText, valueParts, valueText, notMeasuredText, shownDimension, isOffEdge, isUnmeasured, offEdgeReason, lastValue, measuredValue, offBy, standingOf, unmeasuredText, unmetDimensions, checksOf, isCheck, verdictOf, verdictOn } from './dimension'
 import type { DimensionMark, Mark } from './marks'
 
 const dim = (over: Partial<DimensionMark> = {}): DimensionMark =>
@@ -217,5 +217,18 @@ describe('the values of a dimension across builds', () => {
     expect(since(dim({ measure: 'distance', expected: 40, status: 'resolved', history: at([1, 40], [2, 41]) }), 2)).toBeUndefined()
     expect(since(dim({ measure: 'distance', history: at([1, 40], [2, 41]) }), 2)).toBeUndefined()
     expect(since(dim({ measure: 'distance', expected: 40, history: at([1, 40], [2, 41]) }), undefined)).toBeUndefined()
+  })
+})
+
+describe('a value in parts, for a large reading', () => {
+  it('splits the number from its unit and its sign, and says what valueText says', () => {
+    expect(valueParts('distance', 36)).toEqual({ prefix: '', number: '36', unit: 'mm' })
+    expect(valueParts('diameter', 8)).toEqual({ prefix: '⌀ ', number: '8', unit: 'mm' })
+    expect(valueParts('radius', 4.25)).toEqual({ prefix: 'R ', number: '4.25', unit: 'mm' })
+    expect(valueParts('angle', 45)).toEqual({ prefix: '', number: '45', unit: '°' })
+    for (const [measure, value] of [['distance', 6], ['diameter', 8], ['radius', 4], ['angle', 45], ['thickness', 2]] as const) {
+      const p = valueParts(measure, value)
+      expect(`${p.prefix}${p.number}${p.unit === '°' ? '' : ' '}${p.unit}`).toBe(valueText(measure, value))
+    }
   })
 })

@@ -113,3 +113,122 @@
     animation: none;
   }
 }
+
+/* ---- Measure's tag (ui/view/MeasureTag.tsx) ---- */
+
+.tag[data-tag='measure'] {
+  /* A reading and a line of words: no wider than that. */
+  max-width: 280px;
+}
+
+.measure-reading,
+.measure-words,
+.measure-kept {
+  padding: 2px var(--space-2) 0;
+}
+
+.measure-words {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.measure-delta .num,
+.measure-kept .num {
+  color: var(--ink);
+}
+
+.measure-kept {
+  padding-bottom: var(--space-1);
+  color: var(--ink);
+}
+
+.measure-keep kbd {
+  margin-left: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.measure-keep:disabled {
+  background: var(--surface);
+  color: var(--muted);
+  cursor: default;
+}
+
+/* ---- Explode's tag and its handle (ui/ExplodeControl.tsx, viewport/explodeTrack.ts) ---- */
+
+.tag[data-tag='explode'] {
+  max-width: 250px;
+}
+
+.explode-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 2px var(--space-2) 0;
+}
+
+.explode-amount[data-disabled] {
+  color: var(--muted);
+}
+
+.explode-words,
+.explode-note {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.explode-note {
+  padding: 0 var(--space-2) var(--space-1);
+  white-space: normal;
+}
+
+/* Why nothing is drawn apart, or what E could not do. */
+.explode-note[data-refused] {
+  color: var(--ink);
+}
+
+.tag-row .tag-control:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* The track's slider, for the keys and for assistive technology: out of sight, in the DOM. */
+.explode-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+/* The handle of the track: the overlay draws it, this is where the pointer finds it (placed by transform, every frame). */
+.explode-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  cursor: grab;
+  /* A drag of it is not a drag of the view. */
+  touch-action: none;
+}
+
+.explode-handle:active {
+  cursor: grabbing;
+}
+
+.explode-handle[data-disabled] {
+  cursor: default;
+}
+
+.explode-slider:focus-visible + .explode-handle {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

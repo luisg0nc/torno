@@ -4,12 +4,9 @@ import type { ShapeKind } from '../../shared/marks'
 import { BETWEEN, ROUND, SELECT_SCOPES, TOOLS, TOOL_GROUPS, setBetween, setRound, setSelectScope, setShape, setTool, toolStore, useBetween, useRound, useSelectScope, useShape, useTool, type BetweenMeasure, type RoundMeasure, type SelectScope, type ToolName } from '../state/tools'
 import { count } from '../../shared/format'
 import { regionStore, useRegion, type RegionMode } from '../state/region'
-import { componentsOf, keepHeld, useHeld } from '../state/measured'
 import { scanless } from '../state/step'
 import { setPen, sketchStore, useSketching, type SketchPen } from '../state/sketching'
 import { useStore } from '../state/store'
-import { commitMark } from '../tools/pickMarks'
-import { valueText } from '../../shared/dimension'
 import { numbered } from './numbered'
 import { TYPING } from './typing'
 import { WALL, pillOf, segmentsOf, type ReedChoice, type ReedPill, type TracingToolName } from './view/reedPill'
@@ -18,8 +15,7 @@ import { WALL, pillOf, segmentsOf, type ReedChoice, type ReedPill, type TracingT
  * The tools, the reed at the left of the view: what the pointer does there. Round buttons in pills, no letter on them:
  * the key is in the tip and in the name. The tool in hand is an accent circle and its name grows out to the right with
  * its key and its few choices (`pillOf`); Select is the tool at rest and grows its scope only when asked for. Each key
- * works wherever the view keys do. Measure's last reading and its Keep button stand under its pill until the tag of
- * the line takes them.
+ * works wherever the view keys do. Measure's last reading and its Keep button are the tag on the measured line (`MeasureTag`).
  */
 export function ToolPalette() {
   const tool = useTool()
@@ -71,7 +67,6 @@ export function ToolPalette() {
   return (
     <ReedView
       state={{ tool, shape, scope, scopeOpen, sketching, pen, between, round, mode, scans, waiting, tip }}
-      last={<MeasureLast />}
       on={{
         tool: (name) => {
           if (name === 'select') setScopeOpen((open) => (tool === 'select' ? !open : true))
@@ -117,7 +112,7 @@ export interface ReedOn {
 }
 
 /** The reed as it is drawn from the state: pure, so that it is drawn the same from any. */
-export function ReedView({ state, on, last }: { state: ReedState; on: ReedOn; last?: ReactNode }) {
+export function ReedView({ state, on }: { state: ReedState; on: ReedOn }) {
   const { tool, shape, scans, waiting, tip } = state
   return (
     <div className="toolbox" role="toolbar" aria-label="Tools" aria-orientation="vertical" data-tag-avoid="">
@@ -160,7 +155,6 @@ export function ReedView({ state, on, last }: { state: ReedState; on: ReedOn; la
                 </button>
                 {tip === t.name && pill === null && <ToolTip {...says} />}
                 {pill !== null && <ReedPillView of={t.name} pill={pill} chosen={(id) => chosenOf(t.name, id, state)} onChoose={(id) => on.choose(t.name, id)} />}
-                {inHand && t.name === 'measure' && last}
               </div>
             )
           })}
@@ -284,51 +278,6 @@ function ToolTip({ name, label, cap, does, notes }: { name: string; label: strin
         </div>
       ))}
     </div>
-  )
-}
-
-/**
- * The last measurement, under the pill of Measure: the kernel's value and how it was taken, and a button that keeps it as a
- * dimension (as `Enter` does). Only of the object and build on show: of any other it is not shown. It changes once
- * per measurement, never per pointer move. (Its tag, tied to the line, replaces it.)
- */
-function MeasureLast() {
-  const held = useHeld((s) => s.held)
-  const keeping = useHeld((s) => s.keeping)
-  const refused = useHeld((s) => s.refused)
-  const objectId = useStore((s) => s.objectId)
-  const revision = useStore((s) => s.revision)
-  if (!held || held.objectId !== objectId || held.revision !== revision) return null
-  return (
-    <span className="measure-last" role="status" data-tag-avoid="">
-      {held.kept !== undefined ? (
-        <span className="measure-last-text">
-          Kept as <span className="num">{held.kept}</span>
-        </span>
-      ) : (
-        <>
-          <span className="measure-last-text" title={`Measured on r${held.revision}, not kept: the agent is not told`}>
-            Last: <span className="num">{valueText(held.measure, held.value)}</span> <span className="measure-how">{held.how}</span>
-            {componentsOf(held)?.map(([axis, text]) => (
-              <span key={axis} className="measure-delta">
-                {' '}
-                Δ{axis} <span className="num">{text}</span>
-              </span>
-            ))}
-          </span>
-          <button
-            type="button"
-            className="measure-keep"
-            disabled={keeping}
-            title={`Keep it as a dimension (${hint('measure.keep')}): a mark, measured again on every build, sent with the next prompt`}
-            onClick={() => void keepHeld(commitMark).catch(() => {})}
-          >
-            Keep as a dimension
-          </button>
-          {refused !== null && <span className="measure-refused">{refused}</span>}
-        </>
-      )}
-    </span>
   )
 }
 

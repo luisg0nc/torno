@@ -10,6 +10,7 @@ import type { AlignPoint } from './alignPoints'
 import type { BrushRing } from './brushRing'
 import { CameraMove, pivotOn, standingAt } from './cameraMoves'
 import { PartsApart, asBuilt, drawnAt, drawnBox, reachingApart, leavesView } from './explode'
+import type { TrackPlan } from './explodeTrack'
 import { groundOf } from './ground'
 import { Highlights, MARK_LAYERS, type HighlightLayer } from './highlight'
 import { mmPerPx, needsCamera } from './marks/labels'
@@ -630,8 +631,6 @@ export class Viewport {
    */
   setDraft(draft: Draft | null): void {
     this.marks.setDraft(draft)
-    const held = draft?.kind === 'dimension' && draft.to && draft.held !== undefined ? draft : null
-    this.overlay.held = held && held.to ? { at: [(held.from[0] + held.to[0]) / 2, (held.from[1] + held.to[1]) / 2, (held.from[2] + held.to[2]) / 2], text: held.held! } : null
     this.extent = this.measured()
     this.invalidate()
   }
@@ -822,6 +821,12 @@ export class Viewport {
    */
   setCoveredTop(px: number): void {
     this.coveredTop = Number.isFinite(px) ? Math.max(px, 0) : 0
+  }
+
+  /** The track Explode stands beside the parts (`ui/ExplodeControl.tsx`), drawn on the overlay: where it is and how far apart the parts are, 0 to 1; null takes it down. */
+  setExplodeTrack(track: { plan: TrackPlan; amount: number; disabled: boolean } | null): void {
+    this.overlay.explodeTrack = track
+    this.invalidate()
   }
 
   /** Whether the parts are drawn apart, or are on their way there or back: what is on screen is then not where they are. */

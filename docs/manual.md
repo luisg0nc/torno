@@ -1548,14 +1548,16 @@ refuses (an angle to a sphere), its reason is read out at the
 pointer. `Esc` drops a first click; the tool stays in hand.
 
 **A measurement leaves nothing.** The kernel's value is read out at the pointer
-and stays under Measure's name as `Last: 6 mm between planes` (a distance adds
-`Δx`, `Δy` and `Δz`, from the kernel's two points) and drawn in the view in ink,
-between those points, with its value at the middle, until the next
+and stands in a tag at the middle of the measured line in the view: the value
+large (`6` with `mm` small), then how it was taken and that it is exact
+(`between planes, exact`; a distance adds `Δx`, `Δy` and `Δz`, from the kernel's
+two points). The line is drawn in ink between those points. The tag stays until the next
 measurement, `Esc` with nothing under way, another tool, a new build or another
 project. It is no mark, and the agent is not told of it: not with the next
 prompt, not in `state.md`, not in a picture. To keep it, press `Enter` or
-"Keep as a dimension" there: it becomes a dimension, measured again by
-main as it is kept, and the reading says `Kept as M4`.
+"Keep as a dimension" in the tag: it becomes a dimension, measured again by
+main as it is kept, and the tag says `Kept as M4`. If main refuses, the
+reason is a second tag below the first.
 
 **Dimensions.** What you keep of a measurement is a dimension: a mark (`M4`)
 with a value, drawn on the part and listed with the marks. Its row, once
@@ -1833,8 +1835,12 @@ fits its scan's mesh.
 ## Explode and saved views
 
 **Explode.** `E`, or "Explode" in the compass at the top right, draws the parts of the
-layout apart; a bar under the top of the view has the slider, the direction (from the
-centre, or along X, Y or Z) and the distance (×0.5 to ×4). It is for display
+layout apart. A track stands beside the parts, graduated from 0 to 100 % with a handle
+you drag along it (the slider of the track is also reached by the keys), and a tag at its
+top says how far apart they are, "apart, for the view only", where from (from the
+centre, or along X, Y or Z), the distance (×0.5 to ×4) and, last, what Explode is: for
+display only, or why nothing is drawn apart. The track runs up along Z, or along the
+longest side the view shows when Z is seen end on. It is for display
 only: the parts are where they were built, and every pick, ref and number is
 of the parts as assembled.
 
@@ -1847,13 +1853,13 @@ of the parts as assembled.
   dashed between them and keeps its value. Scans and the grid stay where they
   are.
 - A section is never drawn exploded. Making a cut puts the parts together;
-  while there is a section the slider says `Take the section away to draw the
+  while there is a section the tag says `Take the section away to draw the
   parts apart`.
 - The camera stays where it is, unless a part drawn apart would leave the
-  view or go under the bars at its top: then the parts are framed anew, and
+  view: then the parts are framed anew, and
   put together again they are seen from where they were before, if you have
   not moved the camera meanwhile.
-- A project of one part has nothing to draw apart, and the bar says so; parts
+- A project of one part has nothing to draw apart, and the button says so; parts
   that share a centre need an axis.
 - The agent's `look` and `show` take `explode`; a picture drawn apart says so
   in its caption. Every other tool answers of the parts as built.

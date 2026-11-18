@@ -1,19 +1,4 @@
-/* ---- The bars still at the top of the view: Compare's, the review's and the explode bar ---- */
-
-/* The bars at the top of the view, one under the other, in the middle, clear of the compass at the right (up to 270 px wide, with its row of layout, Fit and Explode 100 %). They go to the band and to tags (spec 2026-11-18, section 2); what the view bar was is the compass (`compass.css`). */
-.viewbars {
-  position: absolute;
-  /* Below the switch of Board and Model, which stands over the top left of this area (`--switch-h`): at the widths a view can have, bars that are centred reach under it. */
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  left: var(--space-3);
-  right: calc(var(--space-3) + 270px + var(--space-3));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  /* Only the bars take the pointer: between and beside them it is the view's. */
-  pointer-events: none;
-}
+/* ---- The bars still in the view: the pieces Section, Align, Region and the tracings keep (`.viewbar`, `.bar-button`, `.menu`) ---- */
 
 .viewbar {
   position: relative;

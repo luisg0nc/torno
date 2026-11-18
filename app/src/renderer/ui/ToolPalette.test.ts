@@ -11,7 +11,7 @@ const html = (state: Partial<ReedState> = {}): string => renderToStaticMarkup(cr
 /** The markup of one tool's button, up to its end. */
 const button = (markup: string, tool: ToolName): string => markup.split('<button ').find((b) => b.includes(`data-tool="${tool}"`))?.split('</button>')[0] ?? ''
 /** The pill that grew out, if there is one. */
-const pill = (markup: string): string => markup.match(/<div class="reed-pill".*?<\/div>(?=<\/div>|<span class="measure-last|$)/s)?.[0] ?? ''
+const pill = (markup: string): string => markup.match(/<div class="reed-pill".*?<\/div>(?=<\/div>|$)/s)?.[0] ?? ''
 /** The choices of the pill, as buttons: label, and whether it is on. */
 const choices = (markup: string) => [...markup.matchAll(/<button [^>]*class="reed-choice"[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)].map((m) => ({ on: m[1] === 'true', text: plainText(m[2]) }))
 
