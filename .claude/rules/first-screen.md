@@ -59,6 +59,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Agents (`app/src/main`)
 
+- **The window has no native frame** (`createWindow` in `index.ts`, `frame.ts`): `titleBarStyle: 'hidden'`, at least 1100 × 700.
+  Where the platform draws its controls (`frameOptions`: Windows, macOS) it is given `titleBarOverlay` of the bar's
+  height (40) in `--surface` and `--muted` symbols, and keeps them with the system theme (`setTitleBarOverlay`); on Linux there is
+  no overlay, `bridge.window.drawsControls()` is true and the window draws the three buttons, asking main through
+  `bridge.window.minimize`, `toggleMaximize` and `close` (channels `window:minimize`, `window:toggleMaximize`, `window:close`;
+  a sender other than the window is ignored). `close` is `win.close()`, so it meets the question below. `onMaximized`
+  tells the window (`window:maximized`) when it is maximised, and once on load.
 - **Closing the window ends torno and every session in it, so it is asked first.** Main holds the window's
   `close` (`createWindow` in `index.ts`) and sends `window:closeAsked`; the window answers `window:closeAnswer`
   at once (`App.tsx`, from `renderer/closing.ts` `closingWhy`): `true` when nothing would be cut short, and the
