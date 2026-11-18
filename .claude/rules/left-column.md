@@ -102,8 +102,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - **The rail and its panel** (`ui/Rail.tsx`, `ui/PanelHost.tsx`, `styles/rail.css`, `styles/panels.css`, `state/column.ts`).
   The left of the window is `aside[data-region="left"]` (`aria-label="Panels"`), the F6 region `left`, holding the rail
-  (52 px, `--rail-w`, `RAIL_W`) and, beside it, the one panel that is open (`.panel-host`, `--card-w`, `--panel-w` is its old name): five icons with a
-  word under each, Projects, Layers, Params, Scans and Marks (`RailPanel`), buttons with `aria-pressed`. A press opens
+  (52 px, `--rail-w`, `RAIL_W`) and, beside it, the one panel that is open (`.panel-host`, `--card-w`, `--panel-w` is its old name): five icons with no
+  word under them, Projects, Layers, Params, Scans and Marks (`RailPanel`), buttons of 36 × 36 with `aria-pressed` and their name in `aria-label`, and Keys at the foot (`data-rail="keys"`, `showKeys`, no `aria-pressed`), on `--surface`. A hairline (`.rail-sep`) follows Projects when other panels are offered. The name shows in a tip (`ui/RailTip.tsx`: an ink pill, `aria-hidden`, fixed 6 px right of the button, on pointer hover and `:focus-visible`, no transition). The open panel is the accent wash; Projects pressed while the page of projects is up (`data-dyed`) is the dyed tile (`--dye` and `--on-accent`; the accent in the dark theme). The tile's radius is `--radius-float` (10 px; the spec's 9 px is no token). A press opens
   that panel and pushes the view over (the shell is one grid, `grid-template-columns: var(--rail-w) var(--card-space) minmax(0, 1fr) var(--dock-space)`, rows `--title-h`, the rest, `--status-h`; `.left` spans the rail's column and the card's, and
   `--card-space` is `--card-w`, or `0px` with none open: `data-panel` on the shell; `--left-w` is the two together, for the sheet that rises from the status line), a press on the open one closes it, another switches
   (`actions.openPanel`; pressed with the pointer, the keys go back to the view). Tab and Ctrl+Tab are not bound: the

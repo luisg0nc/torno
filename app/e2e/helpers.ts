@@ -1,9 +1,9 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-/** The panels of the rail, by the word under their icons. */
+/** The panels of the rail, by the name of their buttons (a tip on hover, no word under the icon). */
 export type PanelName = 'Projects' | 'Layers' | 'Params' | 'Scans' | 'Marks'
 
-/** The rail's button for a panel, as a person finds it: by the word under its icon. */
+/** The rail's button for a panel, as a person finds it: by its name. */
 export const railButton = (page: Page, name: PanelName): Locator => page.locator('[data-region="left"]').getByRole('button', { name, exact: true })
 
 /** The name of the panel open beside the rail now, or null when none is. */
