@@ -70,6 +70,36 @@ const edits = async (): Promise<number> => (await state()).edits
 /** The tool in hand, as the palette shows it pressed. */
 const tool = (): Promise<string | null> => page.locator('.toolbox [aria-pressed="true"]').first().getAttribute('data-tool')
 const slider = () => page.getByRole('slider', { name: 'Explode' })
+const savedViews = () => page.getByRole('group', { name: 'Saved views' })
+/** The row of a view in the list of every saved view. */
+const row = (name: string) => page.locator(`[data-row="${name}"]`)
+/**
+ * The list of every saved view: behind "N more" while the views stand as a stack, behind the one pill "Saved views" while
+ * they are folded (explode open, or a tool with tags in hand).
+ */
+async function openList() {
+  const fold = savedViews().getByRole('button', { name: /^Saved views/ })
+  if (await fold.count()) await fold.click()
+  else await savedViews().getByRole('button', { name: /more$/ }).click()
+  const menu = page.getByRole('menu', { name: 'Every saved view' })
+  await expect(menu).toBeVisible()
+  return menu
+}
+/** The field for a name: from "+ Save view" in the stack, from the list while the views are folded. */
+async function openSave(): Promise<void> {
+  const add = savedViews().getByRole('button', { name: 'Save view' })
+  if (await add.count()) return add.click()
+  await openList()
+  await page.getByRole('menuitem', { name: 'Save view' }).click()
+}
+/** The explode bar put away with the parts together, so that the saved views stand as a stack again. */
+async function stacked(): Promise<void> {
+  if (await slider().isVisible()) {
+    if ((await state()).explode.assembly?.amount) await explodeTo(0)
+    await page.getByRole('toolbar', { name: 'View' }).getByRole('button', { name: /^Explode/ }).click()
+  }
+  await expect(slider()).toHaveCount(0)
+}
 /** The button that switches a part on and off: pressed while the part is shown. */
 const layerButton = (part: string) => page.locator(`.layer-row[data-layer="${part}"]`).getByRole('button', { name: `Show ${part}` })
 /** Draws the parts of the layout shown so far apart, in per cent, by the slider of the explode bar. */
@@ -120,47 +150,57 @@ async function rested(): Promise<Camera> {
 
 test('a view is saved under a name, survives a restart of the window\'s state, and is applied with a click', async () => {
   // With nothing saved the strip is the way to save one.
-  await expect(page.getByRole('toolbar', { name: 'Saved views' })).toBeVisible()
+  await expect(savedViews()).toBeVisible()
   await expect(page.locator('.view-chip[data-view]')).toHaveCount(0)
 
   await explodeTo(40)
   await page.keyboard.press('3')
   const saved = await rested()
-  await page.getByRole('button', { name: 'Save view' }).click()
+  // The parts are apart: the views are folded to one pill, and saving is in its list.
+  await openSave()
   await expect(field()).toBeFocused()
   await field().fill('Apart')
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible()
   await page.keyboard.press('Enter')
-  await expect(chip('Apart')).toBeVisible()
   await expect(field()).toHaveCount(0)
+  await expect(savedViews().getByRole('button', { name: 'Saved views 1' })).toBeVisible()
   // It is the one that is on.
-  await expect(chip('Apart')).toHaveAttribute('aria-pressed', 'true')
+  await openList()
+  await expect(row('Apart')).toHaveAttribute('aria-current', 'true')
+  await page.keyboard.press('Escape')
   await expect.poll(() => existsSync(join(root, 'hollow', '.torno', 'scene.json')) && sceneFile('hollow').views?.[0]?.name).toBe('Apart')
   expect(sceneFile('hollow').views![0]).toMatchObject({ name: 'Apart', author: 'user', layout: 'assembly', hidden: [], explode: { amount: 0.4, scale: 1, axis: 'centre' } })
   expect(sceneFile('hollow').views![0].proposed).toBeUndefined()
 
   // Looked at another way, it is no longer on.
   await explodeTo(0)
-  await expect(chip('Apart')).toHaveAttribute('aria-pressed', 'false')
+  await openList()
+  await expect(row('Apart')).not.toHaveAttribute('aria-current')
+  await page.keyboard.press('Escape')
   await page.keyboard.press('1')
   await rested()
   await open('plain')
   await expect(page.locator('.view-chip[data-view]')).toHaveCount(0)
   await open('hollow')
-  await expect(chip('Apart')).toHaveAttribute('aria-pressed', 'false')
-  await chip('Apart').click()
+  await openList()
+  await expect(row('Apart')).not.toHaveAttribute('aria-current')
+  await row('Apart').click()
   await expect.poll(async () => (await state()).explode.assembly?.amount).toBe(0.4)
   const back = await rested()
   for (let i = 0; i < 3; i++) expect(back.position[i]).toBeCloseTo(saved.position[i], 3)
   expect(back.ortho).toBe(saved.ortho)
-  await expect(chip('Apart')).toHaveAttribute('aria-pressed', 'true')
+  await openList()
+  await expect(row('Apart')).toHaveAttribute('aria-current', 'true')
+  await page.keyboard.press('Escape')
   // Turned by hand, the view is no longer the one that is on; nothing of it is lost.
   await page.keyboard.press('1')
   await rested()
-  await expect(chip('Apart')).toHaveAttribute('aria-pressed', 'false')
+  await openList()
+  await expect(row('Apart')).not.toHaveAttribute('aria-current')
+  await page.keyboard.press('Escape')
 
   // A standard view's name is refused where it is typed.
-  await page.getByRole('button', { name: 'Save view' }).click()
+  await openSave()
   await field().fill('top')
   await page.keyboard.press('Enter')
   await expect(page.getByText('"top" is a standard view: choose another name')).toBeVisible()
@@ -172,15 +212,27 @@ test('a view is saved under a name, survives a restart of the window\'s state, a
   expect((await state()).views.map((view) => view.name)).toEqual(['Apart'])
 })
 
-test('a chip is a button for the keyboard, and its actions rename it, update it and delete it only when asked twice', async () => {
-  await chip('Apart').focus()
+test('a pill is a button for the keyboard, and its actions rename it, update it and delete it only when asked twice', async () => {
+  // The parts together and the bar put away: the views stand as a stack. A view of the parts together is the one that is on.
+  await stacked()
+  await page.keyboard.press('1')
+  await rested()
+  await openSave()
+  await field().fill('Scratch')
   await page.keyboard.press('Enter')
-  await expect(chip('Apart')).toHaveAttribute('aria-pressed', 'true')
+  await expect(chip('Scratch')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.view-chip[data-view]')).toHaveCount(1)
+  // Apart is behind "1 more".
+  await expect(savedViews().getByRole('button', { name: '1 more' })).toBeVisible()
+  const onDisk = (name: string) => sceneFile('hollow').views?.find((view) => view.name === name)
+  await chip('Scratch').focus()
+  await page.keyboard.press('Enter')
+  await expect(chip('Scratch')).toHaveAttribute('aria-pressed', 'true')
 
   // The menu takes the focus, the arrows move in it, Escape gives the focus back and leaves the tool in hand (review M8).
   await page.keyboard.press('p')
   expect(await tool()).toBe('pin')
-  await page.getByRole('button', { name: 'Actions for Apart' }).click()
+  await page.getByRole('button', { name: 'Actions for Scratch' }).click()
   await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(page.getByRole('menuitem', { name: 'Update to what is on screen' })).toBeFocused()
@@ -189,37 +241,38 @@ test('a chip is a button for the keyboard, and its actions rename it, update it 
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('menu')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Actions for Apart' })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Actions for Scratch' })).toBeFocused()
   expect(await tool()).toBe('pin')
   await page.keyboard.press('Enter')
   await page.keyboard.press('Enter')
-  await expect(field()).toHaveValue('Apart')
+  await expect(field()).toHaveValue('Scratch')
   await field().fill('Lid off 40')
   await page.keyboard.press('Enter')
   await expect(chip('Lid off 40')).toBeVisible()
-  await expect(chip('Apart')).toHaveCount(0)
+  await expect(chip('Scratch')).toHaveCount(0)
   // The focus is with the view still, not with the tools.
   await expect(page.getByRole('button', { name: 'Actions for Lid off 40' })).toBeFocused()
   // As written, and its number in the face of numbers.
   await expect(chip('Lid off 40').locator('.view-name')).toHaveText('Lid off 40')
   await expect(chip('Lid off 40').locator('.num')).toHaveText('40')
-  await expect.poll(() => sceneFile('hollow').views?.[0]?.name).toBe('Lid off 40')
+  await expect.poll(() => onDisk('Lid off 40')?.name).toBe('Lid off 40')
 
-  // Updated to what is on screen: the lid switched off, the parts together.
-  await explodeTo(0)
+  // Updated to what is on screen: the lid switched off.
   await layerButton('lid').click()
   await expect.poll(async () => (await state()).layers.lid?.visible).toBe(false)
-  await page.getByRole('button', { name: 'Actions for Lid off 40' }).click()
+  // The screen no longer shows the view, so its pill is gone: its actions are in the list.
+  await openList()
+  await page.getByRole('menuitem', { name: 'Actions for Lid off 40' }).click()
   await page.getByRole('menuitem', { name: 'Update to what is on screen' }).click()
-  await expect.poll(() => sceneFile('hollow').views?.[0]?.hidden).toEqual(['lid'])
-  expect(sceneFile('hollow').views![0].explode).toBeUndefined()
+  await expect.poll(() => onDisk('Lid off 40')?.hidden).toEqual(['lid'])
+  expect(onDisk('Lid off 40')!.explode).toBeUndefined()
   await expect(chip('Lid off 40')).toHaveAttribute('title', 'Lid off 40 · layout assembly · 1 part hidden')
 
   // Deleting asks; Cancel leaves it.
   await page.getByRole('button', { name: 'Actions for Lid off 40' }).click()
   await page.getByRole('menuitem', { name: 'Delete' }).click()
   await expect(page.getByRole('alertdialog')).toContainText('Delete "Lid off 40"?')
-  expect((await state()).views).toHaveLength(1)
+  expect((await state()).views).toHaveLength(2)
   // Escape in the question leaves the view, and the tool in hand.
   await page.keyboard.press('Escape')
   await expect(page.getByRole('alertdialog')).toHaveCount(0)
@@ -234,19 +287,31 @@ test('a chip is a button for the keyboard, and its actions rename it, update it 
   await page.getByRole('menuitem', { name: 'Delete' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
   await expect(chip('Lid off 40')).toHaveCount(0)
-  await expect.poll(() => sceneFile('hollow').views).toBeUndefined()
+  await expect.poll(() => sceneFile('hollow').views?.map((view) => view.name)).toEqual(['Apart'])
   await expect(page.getByRole('button', { name: 'Save view' })).toBeFocused()
   await page.keyboard.press('v')
   expect(await tool()).toBe('select')
 
-  // Left for the tests that follow: the lid back on, the parts apart, and that kept as "Apart".
+  // A view that is not on has its actions in the list too: Apart is renamed there, and back.
+  await openList()
+  await page.getByRole('menuitem', { name: 'Actions for Apart' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeFocused()
+  await page.getByRole('menuitem', { name: 'Rename' }).click()
+  await expect(field()).toHaveValue('Apart')
+  await field().fill('Apart 2')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => onDisk('Apart 2')?.name).toBe('Apart 2')
+  await openList()
+  await page.getByRole('menuitem', { name: 'Actions for Apart 2' }).click()
+  await page.getByRole('menuitem', { name: 'Rename' }).click()
+  await field().fill('Apart')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => onDisk('Apart')?.name).toBe('Apart')
+
+  // Left for the tests that follow: the lid back on, and the parts apart.
   await layerButton('lid').click()
   await expect.poll(async () => (await state()).layers.lid?.visible).not.toBe(false)
   await explodeTo(40)
-  await page.getByRole('button', { name: 'Save view' }).click()
-  await field().fill('Apart')
-  await page.keyboard.press('Enter')
-  await expect(chip('Apart')).toBeVisible()
 })
 
 test('the agent lists the views, draws one by name, and proposes one the person keeps', async () => {
@@ -256,6 +321,7 @@ test('the agent lists the views, draws one by name, and proposes one the person 
 
   // The picture is of the view, whatever is on screen: the parts together there, and seen from elsewhere.
   await explodeTo(0)
+  await stacked()
   await page.keyboard.press('1')
   const before = await rested()
   const look = await call(hollow, 'look', { view: 'apart' })
@@ -293,8 +359,12 @@ test('the agent lists the views, draws one by name, and proposes one the person 
   expect((await state()).shownByAgent).toBeNull()
 
   await page.getByRole('button', { name: 'Keep tub alone' }).click()
-  await expect(chip('tub alone')).not.toContainText('proposed')
-  await expect(page.getByRole('button', { name: 'Actions for tub alone' })).toBeVisible()
+  // Kept, it is no longer a proposal, and with nothing on screen to match it it is behind "more" with the person's other view.
+  await expect(page.locator('.view-item[data-proposed]')).toHaveCount(0)
+  await openList()
+  await expect(row('tub alone')).not.toContainText('proposed')
+  await expect(page.getByRole('menuitem', { name: 'Actions for tub alone' })).toBeVisible()
+  await page.keyboard.press('Escape')
   await expect.poll(() => sceneFile('hollow').views?.[1]?.proposed).toBeUndefined()
   expect(sceneFile('hollow').views![1].author).toBe('agent')
   // Kept, it is the person's: the agent cannot take its place.
@@ -326,7 +396,8 @@ test('the agent lists the views, draws one by name, and proposes one the person 
   // Showing was no edit; what changed the views was: two proposals and their keeping, one more and its discarding.
   expect(await edits()).toBe(changes + 5)
   // The person clicks their own view: the screen is theirs again.
-  await chip('Apart').click()
+  await openList()
+  await row('Apart').click()
   await expect.poll(async () => (await state()).shownByAgent).toBeNull()
   expect((await state()).layers.lid?.visible).not.toBe(false)
   await expect.poll(async () => (await state()).explode.assembly?.amount).toBe(0.4)
@@ -335,18 +406,21 @@ test('the agent lists the views, draws one by name, and proposes one the person 
 test('a view that no longer fits the model stays, says so, and is applied without what is gone', async () => {
   await open('bracket')
   // The broken one is lost alone.
-  await expect(page.locator('.view-chip[data-view]')).toHaveCount(2)
-  await expect(chip('Old bed')).toHaveAttribute('aria-disabled', 'true')
-  await expect(chip('Old bed')).toHaveAttribute('title', 'Old bed · Layout bed is no longer in the model')
-  await expect(chip('Old bed')).toContainText('layout gone')
-  await expect(chip('No clip')).toContainText('1 part and 1 scan gone')
-  await expect(chip('No clip')).toHaveAttribute('title', 'No clip · layout assembly · 2 parts hidden · clip, S7 are no longer there: passed over')
+  // Neither is on: both are behind "2 more".
+  await expect(page.locator('.view-chip[data-view]')).toHaveCount(0)
+  const menu = await openList()
+  await expect(menu.locator('[data-row]')).toHaveCount(2)
+  await expect(row('Old bed')).toHaveAttribute('aria-disabled', 'true')
+  await expect(row('Old bed')).toHaveAttribute('title', 'Old bed · Layout bed is no longer in the model')
+  await expect(row('Old bed')).toContainText('layout gone')
+  await expect(row('No clip')).toContainText('1 part and 1 scan gone')
+  await expect(row('No clip')).toHaveAttribute('title', 'No clip · layout assembly · 2 parts hidden · clip, S7 are no longer there: passed over')
 
   const before = await state()
-  // Pressed all the same (Playwright waits for a button that is not disabled): nothing comes of it.
-  await chip('Old bed').click({ force: true })
+  // Pressed all the same: nothing comes of it.
+  await row('Old bed').click({ force: true })
   expect((await state()).edits).toBe(before.edits)
-  await chip('No clip').click()
+  await row('No clip').click()
   await expect.poll(async () => (await state()).layers.post?.visible).toBe(false)
   expect(Object.keys((await state()).layers)).toEqual(['post'])
   expect((await state()).scanViews).toEqual({})
@@ -370,7 +444,7 @@ test('a view that no longer fits the model stays, says so, and is applied withou
   await expect.poll(() => (existsSync(join(root, 'bracket', '.torno', 'state.md')) ? readFileSync(join(root, 'bracket', '.torno', 'state.md'), 'utf8') : ''), { timeout: 10_000 }).toContain('Saved views: "Old bed" (of layout bed, which the model no longer has), "No clip" (hides clip, which layout assembly no longer has).')
 })
 
-test('twenty-four views and the agent\'s proposals keep the strip to two rows, with the rest behind one chip (review I4, M3)', async () => {
+test('twenty-four views and the agent\'s proposals keep the stack to two pills, with the rest behind "N more" (review I4, M3)', async () => {
   // The layout of plain, then its scene file as a long use would leave it: read when the object is opened again.
   await open('plain')
   const layout = (await state()).layout
@@ -382,26 +456,29 @@ test('twenty-four views and the agent\'s proposals keep the strip to two rows, w
   await open('plain')
   expect((await state()).views).toHaveLength(26)
 
-  // Six chips: the proposals, then the first as they were saved; the others behind "20 more".
-  await expect(page.locator('.view-chip[data-view]')).toHaveCount(6)
-  expect(await page.locator('.view-chip[data-view]').evaluateAll((chips) => chips.map((c) => c.getAttribute('data-view')))).toEqual([...names.slice(0, 4), 'Idea 1', 'Idea 2'])
-  const list = page.getByRole('button', { name: '20 more' })
+  // Nothing is on: the first proposal is the one pill, and the others (25) are behind "25 more".
+  await expect(page.locator('.view-chip[data-view]')).toHaveCount(1)
+  await expect(chip('Idea 1')).toContainText('proposed')
+  const list = page.getByRole('button', { name: '25 more' })
   await expect(list).toBeVisible()
-  const strip = (await page.locator('.viewstrip').boundingBox())!
+  const compass = (await page.locator('.compass').boundingBox())!
   const pane = (await page.locator('.viewport-pane').boundingBox())!
-  // Two rows of chips at most, inside the pane.
-  expect(strip.height).toBeLessThanOrEqual(2 * 24 + 4 + 1)
-  expect(strip.x).toBeGreaterThanOrEqual(pane.x)
-  expect(strip.x + strip.width).toBeLessThanOrEqual(pane.x + pane.width)
-  // A long name is cut in the chip and whole in its tooltip.
-  expect((await chip(names[0]).boundingBox())!.width).toBeLessThanOrEqual(160.5)
-  await expect(chip(names[0])).toHaveAttribute('title', `${names[0]} · layout ${layout}`)
+  // The compass is inside the view, at its top right.
+  expect(compass.x).toBeGreaterThanOrEqual(pane.x)
+  expect(compass.x + compass.width).toBeLessThanOrEqual(pane.x + pane.width)
+  expect(compass.y + compass.height).toBeLessThanOrEqual(pane.y + pane.height)
+  expect(pane.x + pane.width - (compass.x + compass.width)).toBeLessThan(20)
 
   // The list has them all, takes the focus and the arrows, and Escape gives the focus back.
   await list.click()
   const menu = page.getByRole('menu', { name: 'Every saved view' })
   await expect(menu.locator('[data-row]')).toHaveCount(26)
+  // A long name is cut in its row, and whole in its tooltip.
+  await expect(row(names[0])).toHaveAttribute('title', `${names[0]} · layout ${layout}`)
   await expect(menu.locator(`[data-row="${names[0]}"]`)).toBeFocused()
+  // Each row is its view, then its actions.
+  await page.keyboard.press('ArrowDown')
+  await expect(menu.getByRole('menuitem', { name: `Actions for ${names[0]}` })).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(menu.locator('[data-row="View 02"]')).toBeFocused()
   await expect(menu.locator('[data-row="View 02"]')).toContainText(`layout ${layout}`)
@@ -417,14 +494,14 @@ test('twenty-four views and the agent\'s proposals keep the strip to two rows, w
   await page.keyboard.press('Escape')
   await expect(menu).toHaveCount(0)
   await expect(list).toBeFocused()
-  // A click on a row applies it and closes the list; the view that is on has a chip.
+  // A click on a row applies it and closes the list; the view that is on has a pill, with the proposal beside it.
   await list.click()
   await menu.locator('[data-row="View 20"]').click()
   await expect(menu).toHaveCount(0)
   await rested()
   await expect(chip('View 20')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.view-chip[data-view]')).toHaveCount(6)
-  expect((await page.locator('.viewstrip').boundingBox())!.height).toBeLessThanOrEqual(2 * 24 + 4 + 1)
+  await expect(page.locator('.view-chip[data-view]')).toHaveCount(2)
+  await expect(page.getByRole('button', { name: '24 more' })).toBeVisible()
 
   // The person has as many views as there may be: said where they ask for one more, and nothing is lost.
   await page.getByRole('button', { name: 'Save view' }).click()

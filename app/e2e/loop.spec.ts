@@ -166,15 +166,20 @@ test('a look draws the parts', async () => {
 })
 
 test('the layout switch shows the other layout; with one layout there is none', async () => {
+  // The layout pill of the compass shows the layout, and the menu behind it the others.
   const layoutSwitch = page.getByRole('group', { name: 'Layout' })
-  await expect(layoutSwitch.getByRole('button')).toHaveText(['assembly', 'print'])
-  await layoutSwitch.getByRole('button', { name: 'print' }).click()
+  await expect(layoutSwitch.getByRole('button')).toHaveText('assembly')
+  await layoutSwitch.getByRole('button').click()
+  await expect(page.getByRole('menu', { name: 'Layouts' }).getByRole('menuitem')).toHaveText(['assembly', 'print'])
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   expect((await state()).layout).toBe('print')
   expect((await look({ view: 'top' })).caption).toContain('layout print')
   await expect.poll(() => (existsSync(sceneFile()) ? JSON.parse(readFileSync(sceneFile(), 'utf8')).layout : null)).toBe('print')
-  await layoutSwitch.getByRole('button', { name: 'assembly' }).click()
+  await layoutSwitch.getByRole('button').click()
+  await expect(page.getByRole('menuitem', { name: 'print', exact: true })).toHaveAttribute('aria-current', 'true')
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   expect((await state()).layout).toBe('assembly')
-  await expect(layoutSwitch.getByRole('button', { name: 'assembly' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(layoutSwitch.getByRole('button')).toHaveText('assembly')
 })
 
 test('view buttons and keys move the camera; keys are left alone in the session dock', async () => {
@@ -192,7 +197,7 @@ test('view buttons and keys move the camera; keys are left alone in the session 
   await arrived([-1, 0, 0])
   await page.keyboard.press('4')
   await arrived([0, 0, -1])
-  await page.getByRole('button', { name: 'Front', exact: true }).click()
+  await page.getByRole('button', { name: 'Front view, 2', exact: true }).click()
   await arrived([0, 1, 0])
   await page.getByRole('button', { name: 'More views' }).click()
   await page.getByRole('menuitem', { name: 'Back' }).click()

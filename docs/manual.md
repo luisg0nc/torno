@@ -14,7 +14,7 @@ see.
 The window has three parts. On the left, a thin rail of icons and, beside it, the
 route card: the project read from top to bottom, in sections you fold, which pushes
 the 3D view over. In the
-middle, the parts in 3D, with a bar of views above them and the tools down the
+middle, the parts in 3D, with the compass at the top right and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
 says how the last build went.
 
@@ -215,7 +215,7 @@ body, a lid and a clip. The lid rattles, which is what you will fix.
 4. Press `E`. The parts are drawn apart, for looking only. Press `E` again to
    put them together.
 
-5. Under the bar of views, click "Lid fit". The camera moves to the lip, the clip
+5. In the compass at the top right, open "1 more" and click "Lid fit". The camera moves to the lip, the clip
    is hidden and a section is cut through the lid and the body, so that you see
    the gap. "Cable side" looks at the notch from behind. "+ Save view" keeps how
    you are looking under a name of your own.
@@ -486,8 +486,10 @@ shows that group alone in the layout; ask the agent to group parts and it edits
 middle button to pan, scroll to zoom, `F` to fit the selection (pressed again, all the parts); a triad in the bottom left corner shows which way X
 (red), Y (green) and Z (blue) run in the project's own frame, as the agent's pictures
 do, and in the bottom right corner are a scale bar (orthographic) or the step of the grid,
-`grid 5 mm` (perspective); the bar at the top switches layout
-(`assembly`, `print`), view and projection. The folder crumb in the title bar
+`grid 5 mm` (perspective); the compass at the top right switches view (a cube whose faces are
+Top `4`, Front `2` and Right `3`, its corner Iso `1`, and "···" for Back, Left and Bottom; the face of the
+view on screen has the accent wash and a padlock, since a drawing on it is a flat profile), projection (Perspective or
+Ortho, `O`), layout (`assembly`, `print`: the pill with the layout's name opens the others), Fit `F` and Explode `E`. The folder crumb in the title bar
 opens a menu of the folders opened lately (the open one marked "current"),
 "Open folder…" and the example; opening another ends the sessions of this one,
 so torno asks first, in a dialog that names the projects, if one of them is
@@ -1372,7 +1374,7 @@ the reed; both are there while the sketch is open.
 - **The band.** While a sketch is open a quiet band at the top left of the view says `Sketching M7 on XZ, y = 40` (the sketch's own words are in the card's head).
 - **Planes.** A stroke lies on a **plane** or on the **surface** of the parts. A new sketch starts on the plane the view
   faces (XY, XZ or YZ) through the middle of the parts. The plane is a sheet drawn over the parts, with a handle on its
-  normal that moves it, and a view cube at the top right of the view (XY, XZ, YZ). `Shift+1`, `Shift+2` and `Shift+3`
+  normal that moves it, and, in the compass at the top right of the view, a cube turned as the camera is (XY, XZ, YZ, with their keys, and "Planes" over it). `Shift+1`, `Shift+2` and `Shift+3`
   take the main planes; `N` takes the plane of the flat face under the pointer; "+ New plane" in the panel makes one from
   a face you click or from a point (across the face there, or along an axis); `U` goes back to the surface. The offset of
   the plane is typed in the panel (`Tab` takes you to its field). Where strokes already lie on a plane, moving it makes a
@@ -1830,8 +1832,8 @@ fits its scan's mesh.
 
 ## Explode and saved views
 
-**Explode.** `E`, or "Explode" in the bar of views, draws the parts of the
-layout apart; a bar under the views has the slider, the direction (from the
+**Explode.** `E`, or "Explode" in the compass at the top right, draws the parts of the
+layout apart; a bar under the top of the view has the slider, the direction (from the
 centre, or along X, Y or Z) and the distance (×0.5 to ×4). It is for display
 only: the parts are where they were built, and every pick, ref and number is
 of the parts as assembled.
@@ -1856,19 +1858,24 @@ of the parts as assembled.
 - The agent's `look` and `show` take `explode`; a picture drawn apart says so
   in its caption. Every other tool answers of the parts as built.
 
-**Saved views.** "+ Save view" in the strip under the bars keeps what is on
+**Saved views.** "+ Save view" at the foot of the compass keeps what is on
 screen under a name: the camera, the layout, which parts are switched off, the
-section or the explode (never both), and how each scan is shown. A click on a
-chip brings it back; the chip's menu renames it, updates it to what is on
-screen, or deletes it. A name is 1 to 40 characters and not that of a standard
-view. A project keeps 24 views; the strip shows six and the rest behind
-"*n* more". Applying a view changes no geometry and no mark and starts no
-build. What a view names that is gone (a part, a layout, a scan) is passed
-over and said on its chip.
+section or the explode (never both), and how each scan is shown. The compass
+stacks the view that is on, ringed, the agent's first proposal, and "+ Save
+view" with "*n* more"; "*n* more" opens the list of all of them, with each
+view's menu (rename, update to what is on screen, pin to the board, delete). A
+click on a pill or a row brings the view back. While a tool with tags is in hand
+(Section, Measure, Draw) or the parts are drawn apart, the stack folds to one
+pill, "Saved views *n*", which opens the same list and ends it with "+ Save
+view"; with Align or Region in hand the saved views are not there. A name is 1
+to 40 characters and not that of a standard view. A project keeps 24 views.
+Applying a view changes no geometry and no mark and starts no build. What a
+view names that is gone (a part, a layout, a scan) is passed over and said on
+its pill.
 
 The agent sees the views in `scene`, draws one with `look {"view": "Web
 cut"}` whatever is on your screen, puts one on screen with `show`, and
-proposes its own with `save_view`: a dashed chip that says "proposed", with
+proposes its own with `save_view`: a dashed pill that says "proposed", with
 "Keep" and "Discard". A proposal is the agent's until you keep it; it can
 replace its own proposals (12 at most) and never a view of yours.
 

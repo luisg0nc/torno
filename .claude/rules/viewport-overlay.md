@@ -21,7 +21,10 @@ paths:
   - "app/src/shared/captionPlace.ts"
   - "app/src/shared/captionPlace.test.ts"
   - "app/src/renderer/ui/ToolPalette.tsx"
-  - "app/src/renderer/ui/ViewBar.tsx"
+  - "app/src/renderer/ui/view/Compass.tsx"
+  - "app/src/renderer/ui/view/ViewCube.tsx"
+  - "app/src/renderer/ui/view/LegacyBars.tsx"
+  - "app/src/renderer/styles/compass.css"
   - "app/src/renderer/ui/CompareBar.tsx"
   - "app/src/renderer/ui/ReviewBar.tsx"
   - "app/src/renderer/ui/view/Band.tsx"
@@ -115,15 +118,25 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## Explode (`app/src/renderer`)
 
 - The control is `ui/ExplodeControl.tsx`: `ExplodeToggle`, one button in the
-  view bar (pressed while the parts are apart or its bar is open, with the
+  compass (pressed while the parts are apart or its bar is open, with the
   amount beside the word; pressed while apart it puts them together), and
-  `ExplodeBar` under the view bar (`.viewbars` stacks them): the slider with
+  `ExplodeBar` in the column `LegacyBars` keeps under the top of the view (`.viewbars`, clear of the compass; it becomes a track and a tag): the slider with
   the amount beside it, `From centre X Y Z`, `×0.5 ×1 ×2 ×4`, and a line
   with `role="status"` that says it is for display only, or why nothing is
   drawn apart. The bar is the notice that the parts are not where they are
-  drawn. The view bar is one row at 1440 × 900 for an object with two
-  layouts (`explode.spec.ts` holds it to that); in a narrower pane it wraps
-  rather than run under the panels. `window.__tornoTest.exploded()` says
+  drawn. The compass fits at 1280 × 800 for an object with two
+  layouts, apart or together, inside the view, clear of the reed and with the explode bar clear of it
+  (`explode.spec.ts` holds it to that). **The compass** (`ui/view/Compass.tsx`, `data-tag-avoid`, `role="toolbar"`
+  named View) stands at the top right, 14 px in, items right-aligned 7 px apart: the cube tile (118 × 112,
+  `--radius-sheet`), Perspective / Ortho (`O`), the row of the layout (a pill with its name and a menu of the others,
+  only with more than one), Fit (`F`) and Explode, and the saved views (`saved-views.md`). The standard views and `F`,
+  `O`, `E` are its keys (one listener, in `Compass`), after the tool in hand. The still cube
+  (`ui/view/ViewCube.tsx`) is an iso SVG with a real button over each face (Top `4`, Front `2`, Right `3`, the corner
+  Iso `1`, "···" for Back, Left and Bottom); the face of the view on screen (`lockedView`) has `data-on`, the accent wash
+  and the padlock (a drawing on it is a flat profile). While a sketch is open (the tool Draw with a sketch) the tile is
+  the canvas's: `viewport/viewCube.ts` draws the tile and the cube turned as the camera is, in the tile's box
+  (`cubeCentre`, `TILE`; `CUBE_HALF_PX` 26, which keeps an iso cube of 85 px inside the 112 px tile), with XY, XZ, YZ and
+  `⇧1` to `⇧3` on its faces, and the DOM tile is clear, with "Planes" in the accent at its corner. `window.__tornoTest.exploded()` says
   whether the viewport draws the parts apart, or is on its way there or back.
 
 ## Views (`app/src/renderer`)

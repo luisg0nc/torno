@@ -398,7 +398,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(page.getByRole('dialog', { name: 'How is S1 read?' })).toBeVisible()
         } else if (shot === 'region') {
           await scan()
-          await page.getByRole('button', { name: 'Top', exact: true }).click()
+          await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
           await page.waitForTimeout(600)
           await page.keyboard.press('b')
           await expect(page.locator('.regionbar')).toBeVisible()

@@ -98,7 +98,7 @@ test('the parts are drawn apart, what is picked is where the part is, and nothin
   const before = await project(lidTop)
   expect((await pickAt(before))?.point[2]).toBeCloseTo(lidTop[2], 3)
 
-  // One button in the view bar; its bar opens under it.
+  // One button in the compass; its bar opens under it.
   await expect(bar()).toHaveCount(0)
   await expect(toggle()).toHaveAttribute('aria-pressed', 'false')
   await toggle().click()
@@ -372,24 +372,49 @@ test('a dimension between two parts drawn apart is drawn dashed between them, sa
   await expect(row.locator('.row-note')).toHaveCount(0)
 })
 
-test('the view bar is one row for an object with two layouts, apart or together; and a stroke begun as the parts come together keeps nothing of where they were drawn', async () => {
+test('the compass fits at 1280 × 800 for an object with two layouts, apart or together; and a stroke begun as the parts come together keeps nothing of where they were drawn', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build?.status, { timeout: 30_000 }).toBe('ok')
-  expect(await page.evaluate(() => [innerWidth, innerHeight])).toEqual([1496, 900])
-  const height = async (): Promise<number> => (await page.locator('.viewbar').boundingBox())!.height
-  expect(await height()).toBeLessThan(40)
+  // The narrowest window the compass is held to: its view is 1280 - 52 - 264 - 384 wide below 1360.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 800))
+  await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([1280, 800])
+  const compass = async () => (await page.locator('.compass').boundingBox())!
+  const fits = async (): Promise<void> => {
+    const pane = (await page.locator('.viewport-pane').boundingBox())!
+    const box = await compass()
+    // Inside the view, at its top right, under nothing of the panels.
+    expect(box.x).toBeGreaterThanOrEqual(pane.x)
+    expect(box.x + box.width).toBeLessThanOrEqual(pane.x + pane.width)
+    expect(box.y).toBeGreaterThanOrEqual(pane.y)
+    expect(box.y + box.height).toBeLessThanOrEqual(pane.y + pane.height)
+    expect(pane.x + pane.width - (box.x + box.width)).toBeLessThan(20)
+    // Every button of it is whole, and none is under another.
+    const buttons = await page.locator('.compass button').all()
+    for (const button of buttons) {
+      const b = (await button.boundingBox())!
+      expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1)
+    }
+    // Clear of the reed at the left.
+    const reed = (await page.getByRole('toolbar', { name: 'Tools' }).boundingBox())!
+    expect(box.x).toBeGreaterThan(reed.x + reed.width)
+  }
+  await fits()
+  // The tile is 118 x 112, with the layout, Fit and Explode in a row of their own.
+  const tile = (await page.locator('.compass > .cube').boundingBox())!
+  expect([Math.round(tile.width), Math.round(tile.height)]).toEqual([118, 112])
+  await expect(page.getByRole('group', { name: 'Layout' })).toBeVisible()
   await page.keyboard.press('e')
   await expect.poll(amount).toBe(0.5)
   await settled(true)
   await expect(toggle()).toHaveText('Explode 50 %')
-  expect(await height()).toBeLessThan(40)
-  // Within the view: nothing of either bar is under a panel.
+  // Apart, the saved views are folded to one pill, and the explode bar stands within the view beside the compass.
+  await expect(page.getByRole('button', { name: /^Saved views/ })).toBeVisible()
+  await fits()
   const pane = (await page.locator('.viewport-pane').boundingBox())!
-  for (const one of ['.viewbar', '.explodebar']) {
-    const box = (await page.locator(one).boundingBox())!
-    expect(box.x).toBeGreaterThanOrEqual(pane.x)
-    expect(box.x + box.width).toBeLessThanOrEqual(pane.x + pane.width)
-  }
+  const explodebar = (await page.locator('.explodebar').boundingBox())!
+  // Within the view, and clear of the compass (the bar becomes a track and a tag, which keep clear of it too).
+  expect(explodebar.x).toBeGreaterThanOrEqual(pane.x)
+  expect(explodebar.x + explodebar.width).toBeLessThanOrEqual((await compass()).x)
   // E, and at once a stroke: the store says together, the parts are still on their way. Nothing is drawn of it (I1).
   await page.keyboard.press('f')
   await page.keyboard.press('d')
@@ -407,7 +432,36 @@ test('the view bar is one row for an object with two layouts, apart or together;
   // Whenever the press came while they were still apart, it was handed to no tool.
   if (moving) expect((await state()).marks.filter((mark) => mark.kind === 'stroke')).toHaveLength(0)
   expect(moving).toBe(true)
+  // The compass and the band (a sketch is open under Draw) both stand clear of tags (`data-tag-avoid`), and not on one another, at 1280 × 800 and at 1440 × 900.
+  const avoided = async (): Promise<Array<{ what: string; x: number; y: number; w: number; h: number }>> =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-tag-avoid]')]
+        .map((el) => ({ what: el.className, r: el.getBoundingClientRect() }))
+        .filter((o) => o.r.width > 0 && o.r.height > 0)
+        .map((o) => ({ what: o.what, x: o.r.x, y: o.r.y, w: o.r.width, h: o.r.height }))
+    )
+  for (const [width, height] of [
+    [1280, 800],
+    [1440, 900]
+  ] as const) {
+    await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [width, height])
+    await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width)
+    await expect(page.locator('.compass')).toHaveAttribute('data-tag-avoid', '')
+    await expect(page.locator('.band')).toHaveAttribute('data-tag-avoid', '')
+    const boxes = await avoided()
+    expect(boxes.some((b) => b.what.includes('compass'))).toBe(true)
+    expect(boxes.some((b) => b.what.includes('band'))).toBe(true)
+    for (const [i, a] of boxes.entries()) {
+      for (const b of boxes.slice(i + 1)) {
+        const apart = a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y
+        expect(apart, `${a.what} and ${b.what} at ${width} × ${height}`).toBe(true)
+      }
+    }
+  }
   await page.keyboard.press('v')
+  // The width the other tests were written for.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1496, 900))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1496)
 })
 
 test('drawn apart by any way, every part stays in sight and clear of the bars; together, the camera goes back to where it was', async () => {

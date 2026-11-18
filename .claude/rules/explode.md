@@ -89,10 +89,10 @@ exported page carries no groups yet, so it draws apart part by part.
   One rule for the camera when the parts are drawn apart, by whatever path (`E`, an axis or scale button, the
   slider let go, a layout, the agent's `show`, a saved view applied), in the window and in an exported page:
   the camera stays, and is framed anew only when a part would leave the view (`leavesView` in
-  `shared/explode.ts`; `Viewport.keepApartInView`, asked by `ViewBar` once the explode bar is laid out, and by
-  `ViewsStrip` after a view's camera); together again, it goes back to where it was before that, if nobody
+  `shared/explode.ts`; `Viewport.keepApartInView`, asked by `LegacyBars` once the explode bar is laid out, and by
+  `SavedViews` after a view's camera); together again, it goes back to where it was before that, if nobody
   moved it meanwhile (`cameraBack`; a view key, Fit, Ortho or Frame make the camera the person's). In the
-  window the view is what the bars over its top leave (`Viewport.setCoveredTop`, measured by `ViewBar`): a
+  window the view is what the bars over its top leave (`Viewport.setCoveredTop`, measured by `LegacyBars`): a
   view key, Fit, a scan's Frame and that rule frame the parts below them (`fitBelow` in `viewport/views.ts`);
   a picture for the agent has no bars. Fit, Ortho and Frame act on where the camera is going when it is on its
   way (`cameraGoal`): a view key and then `F` at once is that view, fitted. While the parts are apart no shape

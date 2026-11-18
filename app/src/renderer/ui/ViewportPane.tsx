@@ -56,7 +56,8 @@ import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
 import { Logo } from './Logo'
 import { openNote } from './drawing/make'
-import { ViewBar } from './ViewBar'
+import { Compass } from './view/Compass'
+import { LegacyBars } from './view/LegacyBars'
 import { CompareBar } from './CompareBar'
 import { ReviewBar } from './ReviewBar'
 import { FailedBand, SketchBand } from './view/Band'
@@ -810,7 +811,8 @@ export function ViewportPane() {
       <div className="viewport-canvas" ref={host} />
       {viewport && hasScene && (
         <>
-          <ViewBar viewport={viewport} />
+          <Compass viewport={viewport} />
+          <LegacyBars viewport={viewport} />
           {/* The band at the top left for a mode of the whole view: one shows (`bandOf`). */}
           <ReviewBar />
           <CompareBar />

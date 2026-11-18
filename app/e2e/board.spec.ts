@@ -67,12 +67,13 @@ test('a project opens on the model, with the switch at the top left and no board
   expect(await page.evaluate(() => document.querySelector('[data-region="viewport"] button')?.className)).toContain('pboard-switch-button')
 })
 
-test('the bars of the view stand below the switch, not under it: every button of the bar can be pressed', async () => {
+test('the compass stands clear of the switch: every button of it can be pressed', async () => {
   const at = async (selector: string) => (await page.locator(selector).first().boundingBox())!
   const switchBox = await at('.pboard-switch')
-  const bar = await at('.viewbar')
-  expect(bar.y).toBeGreaterThanOrEqual(switchBox.y + switchBox.height)
-  for (const button of await page.locator('.viewbar button').all()) {
+  const bar = await at('.compass')
+  // At the top right, beside the switch at the top left: they do not meet.
+  expect(bar.x).toBeGreaterThanOrEqual(switchBox.x + switchBox.width)
+  for (const button of await page.locator('.compass button').all()) {
     const b = (await button.boundingBox())!
     const over = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.pboard-switch') !== null, { x: b.x + b.width / 2, y: b.y + b.height / 2 })
     expect(over).toBe(false)
@@ -541,7 +542,9 @@ test('pinning the Params twice says they are on the board already, and the board
 test('a saved view is pinned from its menu in the strip, and a view that is not saved is refused by main', async () => {
   await switchButton('Model').click()
   await expect(page.locator('.pboard')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Actions for front-latch' }).click()
+  // The view is not the one on screen: its menu is in the list behind "1 more".
+  await page.getByRole('button', { name: /more$/ }).click()
+  await page.getByRole('menuitem', { name: 'Actions for front-latch' }).click()
   await page.getByRole('menuitem', { name: 'Pin to board' }).click()
   await expect(cardOf('view')).toHaveCount(0)
   await switchButton('Board').click()

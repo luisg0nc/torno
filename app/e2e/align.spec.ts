@@ -97,7 +97,7 @@ async function frame(points: Vec3[], lowest = 0.92): Promise<void> {
 }
 /** Goes to the top view and waits until the camera has stopped there: what is aimed at is where it is drawn. */
 async function fromAbove(): Promise<void> {
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   const at = async (): Promise<number[]> => (await page.evaluate(() => window.__tornoTest!.camera())).position.map((c) => Math.round(c * 100))
   let was = await at()
   await expect
@@ -160,13 +160,15 @@ test('three pairs and a fourth bring a displaced scan onto the model, and say ho
   }
   expect(JSON.parse(readFileSync(join(root, 'bracket', '.torno', 'scans.json'), 'utf8')).scans[0].alignments.assembly.steps).toEqual(['pairs'])
   // In the other layout it is not aligned.
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   expect((await scans())[0].aligned).toBe(false)
 })
 
 test('typed values move it, and clearing leaves it where it was imported', async () => {
-  await page.getByRole('button', { name: 'assembly', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   await bar().getByRole('button', { name: 'Nudge' }).click()
   const before = (await alignment('assembly')).transform.t
   await bar().getByRole('textbox', { name: 'Z', exact: true }).fill(String(before[2] + 4))
@@ -257,7 +259,8 @@ test('a fit that says the unit is wrong offers the change in one click, keeps no
   await page.evaluate(() => window.torno.scans.convert('bracket', 'S1', { unit: 'cm', up: 'z' }))
   await expect.poll(async () => (await state()).scans[0].imported.unit).toBe('cm')
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
-  await page.getByRole('button', { name: 'assembly', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   await fromAbove()
   const big = (p: Vec3): Vec3 => where(p).map((c) => 10 * c) as Vec3
   const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
@@ -592,7 +595,8 @@ test('"Use this alignment" in another layout keeps it there as placed by hand, w
   }, pairs)
   await expect.poll(async () => (await alignment('assembly'))?.pairs?.length).toBe(4)
   expect(await alignment('print')).toBeUndefined()
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   await expect((await detail('S1')).locator('.scan-said[data-part="start"]')).toContainText('Aligned in assembly.')
   await row('S1').getByRole('button', { name: 'Use the alignment of S1 in assembly here' }).click()
@@ -613,7 +617,8 @@ test('"Use this alignment" in another layout keeps it there as placed by hand, w
 
 // Issue #82.
 test('after an import the sheet leads on to the bar on its first step, and a floor kept ticks Floor and moves the bar to Pairs', async () => {
-  await page.getByRole('button', { name: 'assembly', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   const before = (await state()).scans.length
   const file = join(root, 'next.stl')
   writeFileSync(file, TWIN)

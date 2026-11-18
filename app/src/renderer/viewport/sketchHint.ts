@@ -5,7 +5,7 @@ import { number } from '../../shared/format'
 import { CAPTION_OFFSET } from '../../shared/captionPlace'
 import { MONO_STACK } from '../../shared/fonts'
 import type { Snap } from '../tools/sketch/snap'
-import { type CubeFace, cubeCentre, cubeFaces, drawViewCube, CUBE_HALF_PX } from './viewCube'
+import { type CubeFace, cubeCentre, cubeFaces, drawCubeTile, drawViewCube, CUBE_HALF_PX } from './viewCube'
 
 // What the sketch tool draws over the view, on the canvas of the overlay and never through React: a small box beside the
 // pointer with what it would snap to and the length and angle of a segment being drawn, a mark where it would snap, the
@@ -126,6 +126,7 @@ export function drawSketchOverlay(ctx: CanvasRenderingContext2D, over: SketchOve
   if (over.cube) {
     const m = camera.matrixWorld.elements
     faces = cubeFaces({ right: [m[0], m[1], m[2]], up: [m[4], m[5], m[6]], forward: [-m[8], -m[9], -m[10]] }, cubeCentre(size.width), CUBE_HALF_PX)
+    drawCubeTile(ctx, size.width, colours)
     drawViewCube(ctx, faces, over.cube.active, colours)
   }
   return faces
