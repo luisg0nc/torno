@@ -1182,15 +1182,15 @@ test('the pointer hint shows the first time an object is drawn, goes at the firs
     await expect(pointerHint(win)).toHaveCount(0)
     await win.keyboard.press('Escape')
     await expect(pointerHint(win)).toContainText(pointerLine())
-    // The bars at the foot stand above it, and it takes no pointer.
+    // The section's tag stands clear of it, and it takes no pointer.
     await win.keyboard.press('x')
     await win.keyboard.press('v')
-    await expect(win.locator('.sectionbar')).toBeVisible()
+    await expect(win.locator('[data-tag="section"]')).toBeVisible()
     const foot = await stableBox(pointerHint(win))
-    const bar = await stableBox(win.locator('.sectionbar'))
-    expect(bar.y + bar.height).toBeLessThanOrEqual(foot.y)
+    const bar = await stableBox(win.locator('[data-tag="section"]'))
+    expect(bar.y + bar.height <= foot.y || bar.y >= foot.y + foot.height || bar.x + bar.width <= foot.x || bar.x >= foot.x + foot.width).toBe(true)
     expect(await pointerHint(win).evaluate((el) => getComputedStyle(el.parentElement!).pointerEvents)).toBe('none')
-    await win.locator('.sectionbar button[title="Show the parts whole again"]').click()
+    await win.locator('[data-tag="section"] button[title="Show the parts whole again"]').click()
     await expect.poll(async () => (await state(win)).section).toBeNull()
     // The line does not take the pointer: a drag that starts under it turns the view.
     const view = (await canvas(win).boundingBox())!

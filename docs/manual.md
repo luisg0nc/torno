@@ -1653,20 +1653,26 @@ What is exact, what is approximate and what is refused is under
 
 `X` cuts at once when nothing is cut yet: a plane through the middle of the
 parts, across the axis you look most along, open towards you (the half taken
-away is the one on your side). A bar appears at the bottom of the viewport: X,
-Y and Z put the plane across that axis, again open towards you, "From face" puts it on the
-next flat face you click, the slider and the number beside it say where the
+away is the one on your side). A **tag** stands on the plane's top edge, tied to it by a
+leader: X, Y and Z put the plane across that axis, again open towards you, "From a face" puts it on the
+next flat face you click, and the number says where the
 plane is, as the agent is told: across an axis its place in the object frame
-(`y = 20`; type a number to move it), else how far along its normal it is from
-the middle of the parts (`12 mm along the normal`). The tick on the slider and
-"Middle" (there while the plane is elsewhere) are the middle of the parts. "Flip" takes away
-the other side and "Off" shows the parts whole again. What is on the side the
+(`y 44.0 mm`; type a number to move it), else how far along its normal it is from
+the middle of the parts (`12 mm along the normal`). "Flip" takes away
+the other side and "Off" shows the parts whole again. The `···` menu of the tag has "Middle"
+(the plane through the middle of the parts, there while the plane is elsewhere) and "Make a tracing". If the plane leaves
+nothing of the parts that are switched on, a second block under the tag says so, in red:
+"Everything is on the cut side". What is on the side the
 plane's arrow points to is not drawn. Each solid part is closed where it is cut, in its
 own colour a step darker, hatched with fine lines in its edge colour (in a picture for the agent too); a part that is not a closed solid (a scan, an open
-shell) is cut open. Drag the arrow on the plane to move it; a drag anywhere
-else turns the camera. The arrow keys move it by 1 mm, with Shift by 0.1 mm.
+shell) is cut open. On the ground beside the parts stands the plane's **rule**: a line along the plane's
+normal, ticked every 5 mm and labelled every 20 mm, with the plane's handle, a small accent square, on it. Drag the
+handle along the rule, or the arrow on the plane, to move it; a drag anywhere
+else turns the camera. The rule is drawn over the view, in the frame of the model: it is no part of it, and not in a
+picture for the agent. The handle is also a slider for the keyboard (named "Offset along the normal"): the arrow keys move
+the plane by 1 mm, with Shift by 0.1 mm, there or with the tool in hand.
 On a cut face there is nothing of the model to pick, and the pointer says so;
-a mark on what was cut away stays, drawn faint. The bar stays while there is a
+a mark on what was cut away stays, drawn faint. The tag and the rule stay while there is a
 section, whichever tool is in hand, and the section is kept with the project.
 The pictures the agent takes are cut the same way.
 
@@ -1997,8 +2003,8 @@ outline and what is drawn on it, not a photo that is much larger than they are, 
 
 The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
 tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
-(the Section bar has **Make a tracing** too, which lays the cut flat), or on a face: the view goes to the model, and the next flat face you
-select is the tracing's (a face that is not flat is refused, in words). **New tracing** is also in the head of the **Tracings** section of the route card, which opens the same choices (and the first tracing of a project is made there, or from the Section bar). Each tracing has a row in that section (`T1`, its name, and at the right its photo's file), and a click on it opens the tracing in this view; under the open or shown one the section says `Photo lined up by 4 points, 0.42 mm a pixel. Redrawn at each build.` The tracing's panel is in that section, under its row, while this view shows: the section opens and the card scrolls to it when you come to the view, and you may fold it after. The panel says its name (**Rename** and
+(the Section tag's `···` menu has **Make a tracing** too, which lays the cut flat), or on a face: the view goes to the model, and the next flat face you
+select is the tracing's (a face that is not flat is refused, in words). **New tracing** is also in the head of the **Tracings** section of the route card, which opens the same choices (and the first tracing of a project is made there, or from the Section tag). Each tracing has a row in that section (`T1`, its name, and at the right its photo's file), and a click on it opens the tracing in this view; under the open or shown one the section says `Photo lined up by 4 points, 0.42 mm a pixel. Redrawn at each build.` The tracing's panel is in that section, under its row, while this view shows: the section opens and the card scrolls to it when you come to the view, and you may fold it after. The panel says its name (**Rename** and
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the

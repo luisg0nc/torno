@@ -39,7 +39,7 @@ export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' 
 export const TOOL_KEYS = [
   { name: 'select', label: 'Select', key: 'V', group: 'inspect', does: 'Select: click a face or an edge, double-click for its part; Shift-click adds or takes out. The choice by the selection says what a click takes', next: null },
   { name: 'measure', label: 'Measure', key: 'M', group: 'inspect', does: 'Measure: two clicks, or a double click on a round thing; nothing is kept unless you keep it', next: 'Measure: click the first end, or double click something round', then: 'Measure: click the second end' },
-  { name: 'section', label: 'Section', key: 'X', group: 'inspect', does: 'Section: cut the parts by a plane', next: 'Section: drag the handle to move the plane' },
+  { name: 'section', label: 'Section', key: 'X', group: 'inspect', does: 'Section: cut the parts by a plane', next: 'Section: drag along the rule, or the plane' },
   { name: 'pin', label: 'Pin', key: 'P', group: 'mark', does: 'Pin: click a point and leave a note', next: 'Pin: click the part, then write a note' },
   { name: 'arrow', label: 'Arrow', key: 'A', group: 'mark', does: 'Arrow: drag from a point', next: 'Arrow: press on the part and drag to where it should go' },
   { name: 'draw', label: 'Draw', key: 'D', group: 'mark', does: 'Draw: a sketch in 3D, on planes or on the surface', next: 'Draw: press on the plane or the part and drag to leave a stroke' },

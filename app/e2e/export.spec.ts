@@ -437,7 +437,7 @@ test('a drawing of the section on screen is saved as an SVG at true scale and as
   await expect(sheet()).toHaveCount(0)
   // A plane across Z through the dimension M2 (z = 10).
   await page.keyboard.press('x')
-  const bar = page.locator('.sectionbar')
+  const bar = page.locator('[data-tag="section"]')
   await bar.getByRole('button', { name: 'Cut across Z' }).click()
   // Across an axis the field is the plane's coordinate on it.
   await bar.getByRole('textbox', { name: 'Plane position in millimetres' }).fill('10')

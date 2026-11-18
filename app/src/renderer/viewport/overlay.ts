@@ -1,6 +1,9 @@
 import { number } from '../../shared/format'
 import { MONO_STACK, UI_STACK, canvasFont } from '../../shared/fonts'
 import type { Pt } from '../../shared/leader'
+import type { SectionPlane } from '../../shared/view'
+import type { Box } from './section'
+import { handleAt, ruleAt, ruleOf, ruleTicks } from './sectionRule'
 import { scaleBarLength } from './views'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
@@ -533,4 +536,86 @@ export function overlayFonts(): Promise<unknown> {
     [canvasFont(12, 400, true), canvasFont(12, 500, true), canvasFont(12)].map((font) => document.fonts.load(font))
   ).catch(() => {}) // a face that cannot be loaded leaves the fallback, as before
   return fontsLoaded
+}
+
+// ---- The section's rule on the ground (Task 22; spec 2026-11-18 "Tags", Section) ----
+
+/** The handle of the section's rule, in px: a square with rounded corners, in the accent. */
+export const RULE_HANDLE = { size: 16, radius: 4 }
+/** Under this length on screen (px) a rule is seen end on: it has no line or ticks to draw, only its handle. */
+const RULE_MIN_PX = 24
+
+/** The colours of the rule: its handle, its line and labels, and what is behind them. */
+export interface RuleStyle {
+  accent: string
+  muted: string
+  surface: string
+}
+
+/**
+ * Draws the rule of the section on the overlay canvas, in the frame of the object (so it is no part of the scene and in no
+ * picture): a line along the plane's normal, ticked every 5 mm and labelled every 20 in the mono face, with the plane's handle
+ * on it. `project` says where a point of the object frame is drawn in the canvas's pixels (null behind the camera). Returns
+ * where the handle is, for what takes hold of it, or null where the rule is out of view.
+ */
+export function drawSectionRule(ctx: Ctx, rule: { plane: SectionPlane; box: Box }, project: (p: Vec3) => Pt | null, colours: RuleStyle): Pt | null {
+  const { min, max, offset } = ruleOf(rule.plane, rule.box)
+  const normal = rule.plane.normal
+  const at = (mm: number) => project(ruleAt(rule.box, normal, mm))
+  const [from, to] = [at(min), at(max)]
+  // Where it stands: the plane's own offset, kept on the rule.
+  const handle = at(min + handleAt(offset, min, max) * (max - min))
+  if (!handle) return null
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  const length = from && to ? Math.hypot(to.x - from.x, to.y - from.y) : 0
+  if (from && to && length >= RULE_MIN_PX) {
+    // Across the rule on screen, to the side that is up and to the left of it.
+    let across: Pt = { x: (to.y - from.y) / length, y: -(to.x - from.x) / length }
+    if (across.x + across.y > 0) across = { x: -across.x, y: -across.y }
+    const path = (): void => {
+      ctx.beginPath()
+      ctx.moveTo(from.x, from.y)
+      ctx.lineTo(to.x, to.y)
+    }
+    ctx.strokeStyle = colours.surface
+    ctx.lineWidth = 3.5
+    path()
+    ctx.stroke()
+    ctx.strokeStyle = colours.muted
+    ctx.lineWidth = 1
+    path()
+    ctx.stroke()
+    ctx.font = `10px ${MONO}`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    for (const tick of ruleTicks(min, max)) {
+      const p = at(tick.at)
+      if (!p) continue
+      const size = tick.label === undefined ? 3 : 6
+      const end = { x: p.x + across.x * size, y: p.y + across.y * size }
+      ctx.beginPath()
+      ctx.moveTo(p.x, p.y)
+      ctx.lineTo(end.x, end.y)
+      ctx.strokeStyle = colours.surface
+      ctx.lineWidth = 3.5
+      ctx.stroke()
+      ctx.strokeStyle = colours.muted
+      ctx.lineWidth = 1
+      ctx.stroke()
+      if (tick.label !== undefined) haloText(ctx, tick.label, end.x + across.x * 8, end.y + across.y * 8, colours.muted, colours.surface, 1)
+    }
+  }
+  const { size, radius } = RULE_HANDLE
+  ctx.beginPath()
+  ctx.roundRect(handle.x - size / 2 - 1.5, handle.y - size / 2 - 1.5, size + 3, size + 3, radius + 1.5)
+  ctx.fillStyle = colours.surface
+  ctx.fill()
+  ctx.beginPath()
+  ctx.roundRect(handle.x - size / 2, handle.y - size / 2, size, size, radius)
+  ctx.fillStyle = colours.accent
+  ctx.fill()
+  ctx.restore()
+  return handle
 }

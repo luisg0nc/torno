@@ -82,8 +82,8 @@ interface Drag {
 }
 
 /**
- * The section tool. The plane has a handle, an arrow at its middle: a drag
- * that starts on it moves the plane along its normal, and the cursor says
+ * The section tool. The plane has a handle, an arrow at its middle, and its rule on the ground has another, a square
+ * (`viewport/sectionRule.ts`): a drag that starts on either moves the plane along its normal, and the cursor says
  * where that is. A drag that starts anywhere else turns the camera as with
  * any tool: a cut is looked at from all sides. The arrow keys nudge the plane
  * by a millimetre, with Shift by a tenth. While a face is waited for
@@ -178,9 +178,12 @@ export function sectionTool(): Tool {
       }
 
       if (!drag) {
-        const onHandle = e.type !== 'cancel' && ctx.viewport.onSectionHandle?.(e.client[0], e.client[1]) === true
+        const onArrow = e.type !== 'cancel' && ctx.viewport.onSectionHandle?.(e.client[0], e.client[1]) === true
+        // The handle of the rule on the ground is the plane's too: it is taken along the rule, which has its own line.
+        const onRule = !onArrow && e.type !== 'cancel' && ctx.viewport.onSectionRuleHandle?.(e.client[0], e.client[1]) === true
+        const onHandle = onArrow || onRule
         const plane = ctx.viewport.getSection?.() ?? null
-        const at = plane ? planeRect(plane, boxOf(ctx)).centre : null
+        const at = plane ? ((onRule ? ctx.viewport.sectionRuleAt?.() : null) ?? planeRect(plane, boxOf(ctx)).centre) : null
         // The cursor says where the plane can be taken hold of, and which way the drag takes it: along the arrow as
         // it is drawn, or up and down where the view looks along it and the drag goes by the pointer's height.
         // While a button is held elsewhere, the camera is being turned.

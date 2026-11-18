@@ -30,7 +30,8 @@ import { ThumbnailMaker, type ThumbnailView } from './thumbnail'
 import { PointerRouter, type ViewportPointer } from './pointer'
 import { ScanEdit } from './scanEdit'
 import { ScanLayer, rayOf, reaching, type ScanHit, type ScanLayerState } from './scans'
-import { SectionCut, nearSegmentOnScreen, segmentOnScreen } from './section'
+import { SectionCut, nearSegmentOnScreen, sectionOffset, segmentOnScreen } from './section'
+import { ruleAt } from './sectionRule'
 import { TracingLayer, type ShownTracing, type TracingState } from './tracings'
 import { ShapeGizmo, type GizmoMode, type ShapeTransform } from './ShapeGizmo'
 import { type Theme, LIGHT_THEME, XRAY_OPACITY, markColours, themeOf, toHex } from './theme'
@@ -123,6 +124,9 @@ export class Viewport {
   private readonly navigatedListeners: (() => void)[] = []
   private navigating = false
   private readonly drawnListeners = new Set<() => void>()
+  /** The box the section is laid across and whether its rule is drawn (`cutBy`): on the screen's frames, not in a picture. */
+  private ruleBox: { min: ArrayLike<number>; max: ArrayLike<number> } = EMPTY_BOX
+  private ruleShown = false
   private readonly sectionListeners = new Set<(plane: SectionPlane | null) => void>()
   /** How many pixels at the top of the canvas the bars floating over it cover: what is framed on screen is framed below them. */
   private coveredTop = 0
@@ -195,7 +199,7 @@ export class Viewport {
     this.ground.frustumCulled = false
     this.scene.add(this.ground, this.scans.group, this.tracings.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group, this.later.group, this.sketchSheet.group)
 
-    this.overlay = new OverlayPass({ canvas, marks: this.marks, camera: () => this.camera, layout: () => this.layout, style: () => ({ ...this.labelStyle(), accent: this.theme.accent, onAccent: this.theme.onAccent }), frame: () => ({ muted: this.theme.muted, axes: [this.theme.axisX, this.theme.axisY, this.theme.axisZ] as const, gridStep: this.gridStepMm }), project: (p) => this.project(p), syncMatrices: () => this.syncMatrices(), exploded: () => this.apart.any })
+    this.overlay = new OverlayPass({ canvas, marks: this.marks, camera: () => this.camera, layout: () => this.layout, style: () => ({ ...this.labelStyle(), accent: this.theme.accent, onAccent: this.theme.onAccent }), frame: () => ({ muted: this.theme.muted, axes: [this.theme.axisX, this.theme.axisY, this.theme.axisZ] as const, gridStep: this.gridStepMm }), project: (p) => this.project(p), syncMatrices: () => this.syncMatrices(), exploded: () => this.apart.any, section: () => (this.ruleShown && this.section.get() ? { plane: this.section.get()!, box: this.ruleBox } : null) })
     // A label drawn before its face has loaded is in the fallback face: draw again once it is there.
     void overlayFonts().then(() => this.invalidate())
 
@@ -1151,6 +1155,17 @@ export class Viewport {
     return span !== null && nearSegmentOnScreen(this.camera, span[0], span[1], [clientX - rect.left, clientY - rect.top], rect, SECTION_HANDLE_REACH_PX)
   }
 
+  /** Whether a point of the window is on the handle of the section's rule on the ground. False while there is none drawn. */
+  onSectionRuleHandle(clientX: number, clientY: number): boolean {
+    return this.overlay.onRuleHandle(clientX, clientY)
+  }
+
+  /** Where the handle of the section's rule stands, in the object frame; null with no section. A drag of it follows the rule's line. */
+  sectionRuleAt(): Vec3 | null {
+    const plane = this.section.get()
+    return plane ? ruleAt(this.ruleBox, plane.normal, sectionOffset(plane, this.ruleBox)) : null
+  }
+
   /** Which way the handle's arrow points as it is drawn, from its foot to its tip in pixels, y down; null while there is no handle in view. */
   sectionHandleOnScreen(): [number, number] | null {
     const rect = this.canvas.getBoundingClientRect()
@@ -1184,7 +1199,9 @@ export class Viewport {
   /** Cuts by a plane laid across a layout's parts; `decor` says whether the plane itself is drawn. */
   private cutBy(plane: SectionPlane | null, layout: string, decor: boolean): void {
     this.section.showDecor(decor)
-    this.section.set(plane, this.boxOfLayout(layout))
+    this.ruleBox = this.boxOfLayout(layout)
+    this.ruleShown = decor
+    this.section.set(plane, this.ruleBox)
     this.marks.setSection(plane)
     // A picture is drawn at once, with the parts it shows already switched on; the screen's frame asks in `draw`.
     if (!decor) this.section.outline()
