@@ -49,37 +49,81 @@ async function open(id: string): Promise<void> {
   await expect.poll(async () => (await state()).scene !== null).toBe(true)
 }
 
-test('the first run shows what to open and how a folder of objects is laid out, and a folder with nothing in it says what to make', async () => {
+test('the first run shows the dyed plate with the vise scribed on it, what to open, and a folder with nothing in it says what to make', async () => {
   const bare = await launch()
   const empty = temp('empty')
   try {
     const first = await bare.firstWindow()
     expect(await bare.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(false)
     const says = first.locator('[data-region="viewport"]')
-    await expect(says).toContainText('Make CAD parts with an AI agent: it writes the model, you point at what to change.')
-    const tree = first.getByRole('figure', { name: 'How a folder of projects is laid out' })
-    await expect(tree.locator('.num')).toHaveText(['projects/', 'bracket/', 'bracket.py'])
-    await expect(tree).toContainText('the folder you open')
+    // The plate: the headline and the tagline in the words of the design, the plate 780 of 1440 of the window.
+    const plate = first.locator('[data-plate]')
+    await expect(plate).toBeVisible()
+    await expect(plate.getByRole('heading', { name: 'torno', level: 1 })).toBeVisible()
+    await expect(plate).toContainText('Make CAD parts with an AI agent. It writes the model in build123d; you point at what to change.')
+    const box = (await plate.boundingBox())!
+    const whole = (await first.locator('.welcome-page').boundingBox())!
+    expect(Math.abs(box.width / whole.width - 780 / 1440)).toBeLessThan(0.005)
+    expect(box.x).toBe(0)
+    // The folder idea in a sentence, in place of a list, and the ways in.
+    await expect(says.getByRole('heading', { name: 'Open a folder to work in' })).toBeVisible()
+    await expect(first.getByRole('figure')).toHaveCount(0)
     await expect(says).toContainText('An empty folder is fine: torno helps you make the first project.')
-    await expect(says).toContainText('A temporary copy, removed when torno quits.')
+    await expect(says).toContainText('The example is a temporary copy, removed when torno quits.')
     await expect(says).toContainText('torno writes only into a .torno folder inside each project, and the new folder when you make a project.')
     await expect(says).not.toContainText('for the keys')
-    // The main way in is the one primary button; the example is a quiet one.
+    // The main way in is the one primary button (42 px, radius 10); the example is the other.
     await expect(first.locator('.welcome-page .button-primary')).toHaveText(['Open folder'])
-    await expect(first.getByRole('button', { name: 'Open the example' })).toHaveClass(/button-quiet/)
-    // Over the name, the logo as the icon has it: the vise in the ink, the part it holds in the accent.
-    await expect(first.locator('.welcome-head').getByRole('heading', { name: 'torno', level: 1 })).toBeVisible()
-    const logo = await first.evaluate(() => {
+    expect(await first.locator('.welcome-page .button-primary').evaluate((el) => [el.getBoundingClientRect().height, getComputedStyle(el).borderTopLeftRadius])).toEqual([42, '10px'])
+    // The dye, the lines of the vise and the words, in the tokens of the theme.
+    const dye = await first.evaluate(() => {
       const probe = document.createElement('i')
       document.body.append(probe)
-      const token = (name: string): string => ((probe.style.color = `var(${name})`), getComputedStyle(probe).color)
-      const [accent, ink] = [token('--accent'), token('--ink')]
+      const colour = (name: string): string => ((probe.style.color = `var(${name})`), getComputedStyle(probe).color)
+      const tokens = { dye: colour('--dye'), onDye: colour('--on-dye'), scribe: colour('--scribe'), muted: colour('--on-dye-muted'), wash: colour('--accent-wash') }
       probe.remove()
-      const svg = document.querySelector('.welcome-head svg.logo')
-      const part = svg?.querySelectorAll('.logo-part')
-      return { parts: part?.length, part: part?.[0] && getComputedStyle(part[0]).fill, vise: svg && getComputedStyle(svg).color, accent, ink }
+      const style = (selector: string): CSSStyleDeclaration => getComputedStyle(document.querySelector(selector)!)
+      return {
+        tokens,
+        plate: style('[data-plate]').backgroundColor,
+        headline: style('.plate-headline').color,
+        lead: style('.plate-lead').color,
+        outline: style('.plate-vise .vise-o').stroke,
+        dimension: style('.plate-vise .vise-dim path').stroke,
+        number: [style('.plate-vise .vise-text text').fill, style('.plate-vise .vise-text text').fontFamily],
+        part: style('.plate-vise .vise-fill').fill,
+        wash: tokens.wash
+      }
     })
-    expect(logo).toEqual({ parts: 1, part: logo.accent, vise: logo.ink, accent: logo.accent, ink: logo.ink })
+    expect(dye.plate).toBe(dye.tokens.dye)
+    expect(dye.headline).toBe(dye.tokens.onDye)
+    expect(dye.lead).toBe(dye.tokens.muted)
+    expect(dye.outline).toBe(dye.tokens.onDye)
+    expect(dye.dimension).toBe(dye.tokens.scribe)
+    expect(dye.number[0]).toBe(dye.tokens.muted)
+    expect(dye.number[1]).toContain('Martian Mono')
+    expect(dye.part).toBe(dye.tokens.wash)
+    // It draws itself once: the outline in 1.6 s, the dimensions fading in at 1.1 s and the part at 1.4 s, none for ever.
+    const motion = await first.evaluate(() => {
+      const of = (selector: string): CSSStyleDeclaration => getComputedStyle(document.querySelector(selector)!)
+      return [of('.vise-o'), of('.vise-dim'), of('.vise-fill')].map((s) => [s.animationDuration, s.animationDelay, s.animationIterationCount])
+    })
+    expect(motion).toEqual([
+      ['1.6s', '0s', '1'],
+      ['0.6s', '1.1s', '1'],
+      ['0.5s', '1.4s', '1']
+    ])
+    // The window has no frame: the top of the screen moves it, and the controls and the buttons are for clicking.
+    const region = (selector: string): Promise<string> => first.locator(selector).first().evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region'))
+    expect(await region('.welcome-drag')).toBe('drag')
+    expect(await region('.title-bare')).toBe('no-drag')
+    expect(await region('.welcome-ways .button-primary')).toBe('no-drag')
+    expect(await first.locator('.welcome-drag').evaluate((el) => [el.getBoundingClientRect().top, el.getBoundingClientRect().height])).toEqual([0, 40])
+    // With reduced motion it is shown drawn, with nothing animated.
+    await first.emulateMedia({ reducedMotion: 'reduce' })
+    expect(await first.evaluate(() => [...document.querySelectorAll('.plate-vise *')].map((el) => getComputedStyle(el).animationName).filter((name) => name !== 'none'))).toEqual([])
+    expect(await first.evaluate(() => [getComputedStyle(document.querySelector('.vise-o')!).strokeDashoffset, getComputedStyle(document.querySelector('.vise-fill')!).opacity])).toEqual(['0px', '1'])
+    await first.emulateMedia({ reducedMotion: null })
     // Run from the repository it has its example beside it; with no folder ever opened there is no list.
     await expect(first.locator('.welcome-ways').getByRole('button')).toHaveText(['Open folder', 'Open the example'])
     await expect(first.getByRole('navigation', { name: 'Recent folders' })).toHaveCount(0)
@@ -126,9 +170,13 @@ test('the folders opened lately are listed from torno\'s own file: one that is g
     const list = first.getByRole('navigation', { name: 'Recent folders' })
     // Eight at most, whatever the file holds.
     await expect(list.locator('li')).toHaveCount(8)
-    // Coming back, the list is what is shown first, and the explanation is not.
-    await expect(first.getByRole('figure', { name: 'How a folder of projects is laid out' })).toHaveCount(0)
+    // Coming back, the list is what is shown first, beside the same plate, and the explanation is not.
+    await expect(first.locator('[data-plate]').getByRole('heading', { name: 'torno', level: 1 })).toBeVisible()
+    await expect(first.getByRole('heading', { name: 'Recent folders', level: 2 })).toBeVisible()
     await expect(first.locator('.welcome-page').getByText('An empty folder is fine', { exact: false })).toHaveCount(0)
+    // A row is 68 px high, and one that is gone has a dashed box where the drawing goes.
+    expect(await list.locator('li').first().evaluate((el) => el.getBoundingClientRect().height)).toBe(68)
+    expect(await list.locator('li[data-missing] .recent-thumb').evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('dashed')
     const missing = list.locator('li[data-missing]')
     await expect(missing).toHaveCount(1)
     await expect(missing).toContainText('gone')

@@ -58,11 +58,12 @@ test('with no folder open, the window is one prompt with its ways in', async () 
     // button above them, the fold of its lines: it is the first screen's, not a way in.)
     await expect(barePage.locator('.welcome-ways').getByRole('button')).toHaveText(['Open folder', 'Open the example'])
     await expect(barePage.locator('[data-region="left"], [data-region="session"], [data-region="status"]')).toHaveCount(0)
-    // Centred in the window: the page's column is, and what is in it starts at its left edge.
-    const column = (await barePage.locator('.welcome-page').boundingBox())!
-    expect(Math.abs(column.x + column.width / 2 - 720)).toBeLessThan(1)
+    // The plate at the left, the ways in at the right of it, and what is in the side starts 64 px from its edge.
+    const plate = (await barePage.locator('[data-plate]').boundingBox())!
+    const side = (await barePage.locator('.welcome-side').boundingBox())!
+    expect(Math.abs(side.x - (plate.x + plate.width))).toBeLessThan(1)
     const button = (await barePage.getByRole('button', { name: 'Open folder' }).boundingBox())!
-    expect(Math.abs(button.x - column.x)).toBeLessThan(1)
+    expect(Math.abs(button.x - (side.x + 64))).toBeLessThan(1)
   } finally {
     await bare.close()
   }

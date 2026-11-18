@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { pressed } from '../../shared/keys'
 import { actions, useStore } from '../state/store'
 import { numbered } from './numbered'
-import { allReady, foldedLine, lacking, readinessLines, type Line, type Piece } from './readyLines'
+import { allReady, foldedLine, glyphOf, lacking, readinessLines, type Line, type Piece, type Tone } from './readyLines'
 
 /** Pieces of a line: words with their numbers set in the face of numbers, and a path, a version or a command whole. */
 function Pieces({ of }: { of: Piece[] }) {
@@ -42,10 +42,19 @@ function checkAgain(): void {
   void window.torno.ready.check(true).then(actions.setReady, () => {})
 }
 
+/** ✓ in the ok colour, ! in the warn one, × in the fail one: the sign at the head of a line, and of the folded one. */
+function Glyph({ tone }: { tone: Tone }) {
+  return (
+    <span className="ready-glyph" data-tone={tone} aria-hidden="true">
+      {glyphOf(tone)}
+    </span>
+  )
+}
+
 function LineRow({ line, onMake, problem }: { line: Line; onMake: () => void; problem: string | null }) {
   return (
     <li className="ready-line" data-line={line.id} data-tone={line.tone}>
-      <span className="ready-dot" aria-hidden="true" />
+      <Glyph tone={line.tone} />
       <span className="ready-label">{line.label}</span>
       <span className="ready-text">
         <Pieces of={line.text} />
@@ -117,7 +126,7 @@ export function Readiness({ variant }: { variant: 'block' | 'missing' | 'sheet' 
     <section className="ready" data-variant={variant} data-folded={folds && !open ? '' : undefined} aria-label="What torno needs">
       {folds ? (
         <button type="button" className="ready-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
-          <span className="ready-dot" data-tone="ok" aria-hidden="true" />
+          <Glyph tone="ok" />
           {numbered(foldedLine(ready, lines))}
         </button>
       ) : (

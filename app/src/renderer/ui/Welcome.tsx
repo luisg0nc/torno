@@ -1,35 +1,18 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import type { RecentFolder, WorkspaceInfo } from '../../shared/workspace'
 import { Logo } from './Logo'
+import { Plate } from './plate/Plate'
 import { nameOf, openProblem } from './openFolder'
 import { Readiness } from './Readiness'
 
-/** The idea of a folder of objects, drawn: the folder opened, an object in it, and its model. */
-const TREE: readonly (readonly [name: string, label: string])[] = [
-  ['projects/', 'the folder you open'],
-  ['bracket/', 'a project'],
-  ['bracket.py', 'its model, in build123d'],
-]
-
-function Tree() {
-  return (
-    <figure className="welcome-tree" aria-label="How a folder of projects is laid out">
-      {TREE.map(([name, label], depth) => (
-        <div key={name} className="tree-row" style={{ '--depth': depth } as CSSProperties}>
-          <span className="num">{name}</span>
-          <span className="tree-label">{label}</span>
-        </div>
-      ))}
-    </figure>
-  )
-}
-
 /**
- * The first screen, while no folder is open, in two states. On a first run (no folder opened lately): what torno
- * is in a line, the folder of objects drawn as a tree, and the ways in: the folder dialog (an empty folder is
- * fine) and, where torno runs from its repository, a copy of its example. Coming back: the folders opened lately
- * first (one that is gone is struck, and can be taken off the list), then the ways in, and no tree. Until the
- * list has answered only the head is shown, so that the first run's words do not flash for someone coming back.
+ * The first screen, while no folder is open: the dyed plate at the left (780 of 1440), with the vise scribed on it, and at
+ * the right, on the surface, the ways in, in two states. On a first run (no folder opened lately): the folder idea in a
+ * sentence, then the folder dialog (an empty folder is fine) and, where torno runs from its repository, a copy of its
+ * example. Coming back: the folders opened lately first (one that is gone is struck, and can be taken off the list), then
+ * the same two ways. What torno needs is under them. Until the list has answered only the plate is shown, so that the
+ * first run's words do not flash for someone coming back. The window has no frame here either, so the top 40 px is its
+ * drag strip (`welcome-drag`), with the window controls (`BareControls`) over its right end.
  */
 export function Welcome({ onPick, onOpened }: { onPick: () => void; onOpened: (info: WorkspaceInfo) => void }) {
   const [recent, setRecent] = useState<RecentFolder[] | null>(null)
@@ -68,69 +51,86 @@ export function Welcome({ onPick, onOpened }: { onPick: () => void; onOpened: (i
     })
   }
 
-  const head = (
-    <header className="welcome-head">
-      <Logo />
-      <h1 className="wordmark">torno</h1>
-    </header>
+  const plate = (
+    <Plate
+      headline="torno"
+      lead={
+        <>
+          <strong>Make CAD parts with an AI agent.</strong> It writes the model in build123d; you point at what to change.
+        </>
+      }
+    />
   )
-  if (recent === null) return <div className="welcome-page">{head}</div>
+  const drag = <div className="welcome-drag" aria-hidden="true" />
+  if (recent === null)
+    return (
+      <div className="welcome-page">
+        {drag}
+        {plate}
+      </div>
+    )
   const returning = recent.length > 0
 
   return (
     <div className="welcome-page">
-      {head}
-      <p className="welcome-tagline">Make CAD parts with an AI agent: it writes the model, you point at what to change.</p>
-      {/* What is ready and what is missing, before anything fails: folded to a line when all is well. */}
-      <Readiness variant="block" />
-      {!returning && <Tree />}
-      {returning && (
-        <nav className="welcome-recent" aria-label="Recent folders">
-          <h2 className="section-title">Recent folders</h2>
-          <ul>
-            {recent.map((folder) => (
-              <li key={folder.root} data-missing={folder.missing ? '' : undefined}>
-                <button type="button" className="recent-row" disabled={busy || folder.missing} title={folder.missing ? `${folder.root} was not found` : folder.root} onClick={() => open(() => window.torno.workspace.open(folder.root), nameOf(folder.root))}>
-                  <span className="recent-name">{nameOf(folder.root)}</span>
-                  <span className="recent-path num">
-                    <bdi>{folder.root}</bdi>
+      {drag}
+      {plate}
+      <div className="welcome-side">
+        {returning ? (
+          <nav className="welcome-recent" aria-label="Recent folders">
+            <h2 className="welcome-title">Recent folders</h2>
+            <ul>
+              {recent.map((folder) => (
+                <li key={folder.root} data-missing={folder.missing ? '' : undefined}>
+                  <span className="recent-thumb" aria-hidden="true">
+                    {!folder.missing && <Logo small plain />}
                   </span>
-                </button>
-                {folder.missing && (
-                  <>
-                    <span className="recent-gone">Not found</span>
-                    <button type="button" className="button button-quiet" aria-label={`Remove ${nameOf(folder.root)} from the list`} onClick={() => void window.torno.workspace.forget(folder.root).then(setRecent, () => {})}>
-                      Remove
-                    </button>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-      <div className="welcome-ways">
-        <button type="button" className="button button-primary" disabled={busy} onClick={onPick}>
-          Open folder
-        </button>
-        {!returning && <p className="welcome-note">An empty folder is fine: torno helps you make the first project.</p>}
-        {example && (
-          <div className="welcome-example">
-            <button type="button" className="button button-quiet" disabled={busy} title="A small project of torno's own, copied to a temporary folder: nothing of the repository is opened or written" onClick={() => open(() => window.torno.workspace.openExample(), 'The example')}>
+                  <button type="button" className="recent-row" disabled={busy || folder.missing} title={folder.missing ? `${folder.root} was not found` : folder.root} onClick={() => open(() => window.torno.workspace.open(folder.root), nameOf(folder.root))}>
+                    <span className="recent-name">{nameOf(folder.root)}</span>
+                    <span className="recent-path num">
+                      <bdi>{folder.root}</bdi>
+                    </span>
+                  </button>
+                  {folder.missing && (
+                    <span className="recent-gone-side">
+                      <span className="recent-gone">Not found</span>
+                      <button type="button" className="button button-quiet" aria-label={`Remove ${nameOf(folder.root)} from the list`} onClick={() => void window.torno.workspace.forget(folder.root).then(setRecent, () => {})}>
+                        Remove
+                      </button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : (
+          <>
+            <h2 className="welcome-title">Open a folder to work in</h2>
+            <p className="welcome-lead">Each project is a folder inside it, with its model in build123d. An empty folder is fine: torno helps you make the first project.</p>
+          </>
+        )}
+        <div className="welcome-ways">
+          <button type="button" className="button button-primary" disabled={busy} onClick={onPick}>
+            Open folder
+          </button>
+          {example && (
+            <button type="button" className="button" disabled={busy} title="A small project of torno's own, copied to a temporary folder: nothing of the repository is opened or written" onClick={() => open(() => window.torno.workspace.openExample(), 'The example')}>
               Open the example
             </button>
-            <span className="welcome-note">A temporary copy, removed when torno quits.</span>
-          </div>
+          )}
+        </div>
+        {example && <p className="welcome-note">The example is a temporary copy, removed when torno quits.</p>}
+        {problem !== null && (
+          <p className="welcome-problem" role="alert">
+            {problem}
+          </p>
         )}
-      </div>
-      {problem !== null && (
-        <p className="welcome-problem" role="alert">
-          {problem}
+        {/* What is ready and what is missing, before anything fails: folded to a line when all is well. */}
+        <Readiness variant="block" />
+        <p className="welcome-foot">
+          torno writes only into a <span className="num">.torno</span> folder inside each project, and the new folder when you make a project.
         </p>
-      )}
-      <p className="welcome-foot">
-        torno writes only into a <span className="num">.torno</span> folder inside each project, and the new folder when you make a project.
-      </p>
+      </div>
     </div>
   )
 }

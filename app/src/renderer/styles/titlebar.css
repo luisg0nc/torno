@@ -306,4 +306,5 @@ button.crumb[aria-expanded='true'] {
   top: 0;
   right: 0;
   z-index: 5;
+  -webkit-app-region: no-drag;
 }

@@ -17,6 +17,10 @@ paths:
   - "app/src/renderer/closing.test.ts"
   - "app/src/renderer/App.tsx"
   - "app/src/renderer/ui/Logo.tsx"
+  - "app/src/renderer/ui/plate/Plate.tsx"
+  - "app/src/renderer/ui/plate/ScribedVise.tsx"
+  - "app/src/renderer/ui/plate/Plate.test.ts"
+  - "app/src/renderer/styles/plate.css"
   - "app/src/renderer/styles/welcome.css"
   - "app/e2e/welcome.spec.ts"
   - "app/e2e/quit.spec.ts"
@@ -80,11 +84,25 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## The first screen (`app/src/renderer`)
 
-- With no folder open the window is `ui/Welcome.tsx`. On a first run (no recent folder): a line of what torno is,
-  a three-row tree of the folder of objects, an object and its model, "Open folder" with a note that an empty
-  folder is fine, and, where torno runs from its repository, a quiet "Open the example". Coming back: the recent
-  folders first, no tree. One footer: torno writes only into `.torno`, and the new folder of a project you make. Its head is the logo (`ui/Logo.tsx`) over the name: the vise in `--ink`, the part in `--accent`. The
-  same logo is in `--muted` over an empty view or page, and plain (one colour) where a picture is missing.
+- With no folder open the window is `ui/Welcome.tsx`, two halves of one grid (780 : 660, `welcome.css`) to the window's edges. At
+  the left the dyed plate (`ui/plate/Plate.tsx`: `headline`, `lead`, `drawing` `'vise' | 'vise-unknown'`, `data-plate`, on `--dye`
+  with `--on-dye` and `--on-dye-muted` for its words; styles in `plate.css`): "torno" at 86 px and the tagline "Make CAD parts with an
+  AI agent." (`--on-dye`) "It writes the model in build123d; you point at what to change." (`--on-dye-muted`), and the vise scribed
+  (`ui/plate/ScribedVise.tsx`): the outline in `--on-dye` at 0.5, the dimensions in `--scribe`, their numbers in mono `--on-dye-muted`,
+  the part filled in `--accent-wash`. **It moves once**: the outline draws itself in 1.6 s (`stroke-dashoffset`, `pathLength` 1), the
+  dimensions fade in at 1.1 s and the part fills at 1.4 s; the animations are in `prefers-reduced-motion: no-preference` only, so the
+  vise otherwise stands drawn, and none is for ever (`styles.test.ts`). `vise-unknown` has a dashed part that never fills and `? mm`
+  (the empty folder's plate). The dye is for screens with no model and for nothing else. At the right, on `--surface`, padded 64:
+  on a first run the folder idea in a sentence ("An empty folder is fine: torno helps you make the first project."), after it "Open
+  folder" (the one primary button, 42 px, radius 10) and, where torno runs from its repository, a quiet "Open the example" with its
+  note (a temporary copy); coming back, "Recent folders" in place of the sentence, rows 68 px high, a mark (the small logo, until a
+  project's own drawing is given: the dashed box where the folder is gone), the name (600) and the path in mono, and a folder that is
+  gone struck, "Not found" and **Remove**; then the same two buttons. What torno needs follows (`Readiness`, one line when all is
+  well), then the one footer: torno writes only into `.torno`, and the new folder of a project you make. Until the list has answered
+  only the plate is shown. **The first screen has no title bar and the window no frame**, so the top 40 px (`welcome-drag`) is a
+  `-webkit-app-region: drag` strip over both halves; the window controls (`BareControls`, `title-bare`) and every button are `no-drag`.
+  The logo (`ui/Logo.tsx`) is the vise in `--ink` and the part in `--accent`; `scribed` is lines only, in `--on-dye`, for a dyed
+  field; the same logo is in `--muted` over an empty view or page, and plain (one colour) where a picture is missing.
 - For as long as the example is the open folder, the note at the top of the Projects panel (`EXAMPLE_NOTE`) has a link-button,
   "Keep this as a folder…" (`KEEP` in `App.tsx`, through `leave`, so that it asks first as opening a folder does):
   main shows the save dialog and copies (`workspace.keepExample`); the folder it made is opened in place of the copy.

@@ -50,8 +50,10 @@ Torno checks these when it starts, before anything fails, and says so in a block
 called "Ready to work" on the first screen, in a workspace with no project and on
 the page of a new project (below): a line for Claude Code, for `uv` when it is
 missing, and for the kernel's Python environment. When everything is there the
-block is one quiet line ("Claude Code and build123d 0.13.0 are ready"), and a
-click opens it. It looks for `claude` and `uv` on the `PATH` torno was started
+block is one quiet line with a tick ("Claude Code 2.1.4 and build123d 0.13.0 are
+ready", the version only once `claude --version` has answered), and a click opens
+it. Each line of the open block is a sign (✓ ready, ! to look at, × failed), the
+name, and what was found: a version, a path or a reason. It looks for `claude` and `uv` on the `PATH` torno was started
 with. It also runs `claude --version` and `claude auth status`, once at start and
 within 3 seconds each (nothing written, nothing of your Claude Code settings
 read), to say its version and whether you are signed in, and `uv --version`;
@@ -98,10 +100,17 @@ Only the launcher writes it: after a `pnpm build` or a test run of your own on
 changed sources, the first start from the launcher builds again (some ten
 seconds, written into `app/out`).
 
-With no folder to open, the first screen says what torno is, says what is ready
-and what is missing (see Requirements), draws how a folder
-of projects is laid out and offers "Open folder" (an empty one is fine) and
-"Open the example"; coming back, it lists the folders opened lately first. The
+With no folder to open, the first screen is two halves. On the left, a field of
+layout blue (the dye a machinist paints on steel before scribing) with a bench vise
+scribed on it, which draws itself once as the window opens, and "torno" and what it
+is under it: "Make CAD parts with an AI agent. It writes the model in build123d;
+you point at what to change." (With the system set to reduce motion the vise is
+simply there.) On the right: the first time, a sentence on what a folder is, and
+"Open folder" (an empty one is fine) and "Open the example"; coming back, "Recent
+folders" in place of the sentence, a row for each, with one that is gone struck
+through, "Not found" and "Remove". Under the buttons it says what is ready and what
+is missing (see Requirements). The top of the window there moves it, as the title
+bar does elsewhere, and the window's controls are at the top right. The
 example is one small project, an enclosure for a sensor board, made to be
 shown: a model with three parts (a body, a lid and a clip), a brief written as a
 person would, two marks, a dimension that fails and two saved views. It is
@@ -187,7 +196,8 @@ nothing of yours is touched. It needs nothing from the repository, so it works
 the same in a packaged app. The example is an enclosure for a sensor board: a
 body, a lid and a clip. The lid rattles, which is what you will fix.
 
-1. Start torno with no folder (`scripts/torno`, or open the app) and press
+1. Start torno with no folder (`scripts/torno`, or open the app): a blue plate
+   with a vise drawing itself on it, and at its right the ways in. Press
    "Open the example" on the first screen. The window opens on a page of
    cards with one project, `enclosure`. The copy is removed when torno quits,
    and the window says so under the workspace's name.
