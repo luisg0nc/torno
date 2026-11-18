@@ -228,6 +228,78 @@ describe('exportFile and exportPlan', () => {
   })
 })
 
+describe('what each line of a plan weighs', () => {
+  const on = (plan: Awaited<ReturnType<typeof exportPlan>>): number => plan.items.filter((item) => item.on).reduce((sum, item) => sum + item.bytes, 0)
+  const more = [...MARKS, { ...MARKS[0], id: 'M5', status: 'resolved', note: 'done long ago', anchor: { point: [0, 0, 0], part: 'tray' } }] as Mark[]
+
+  it('sums, over the lines that are on, to the weight of the file: a project, its marks and a scan', async () => {
+    const made = deps({ marks: async () => more })
+    const plan = await exportPlan(made, { objects: ['hollow'], marks: true, scans: ['hollow/S1'], hidden: true }, ASSETS)
+    expect(on(plan)).toBe(plan.bytes)
+    expect(plan.items.map((item) => [item.id, item.kind, item.object, item.on])).toEqual([
+      ['page', 'page', undefined, true],
+      ['hollow', 'object', 'hollow', true],
+      ['hollow:marks', 'marks', 'hollow', true],
+      ['hollow:resolved', 'resolved', 'hollow', false],
+      ['hollow:off', 'off', 'hollow', true],
+      ['hollow/S1', 'scan', 'hollow', true]
+    ])
+    // The scan is the weight of its reduced mesh.
+    for (const item of plan.items) expect(item.bytes).toBeGreaterThan(0)
+    expect(plan.items.find((item) => item.id === 'hollow/S1')!.bytes).toBeGreaterThan(300_000)
+  })
+
+  it('lists a line that is not ticked with what it would add, off, and the file does not count it', async () => {
+    const made = deps({ marks: async () => more })
+    const without = await exportPlan(made, { objects: ['hollow'], marks: false, scans: [] }, ASSETS)
+    expect(on(without)).toBe(without.bytes)
+    const scan = without.items.find((item) => item.id === 'hollow/S1')!
+    const marks = without.items.find((item) => item.id === 'hollow:marks')!
+    expect(scan).toMatchObject({ kind: 'scan', on: false })
+    expect(marks).toMatchObject({ kind: 'marks', on: false })
+    expect(scan.bytes).toBeGreaterThan(300_000)
+    expect(marks.bytes).toBeGreaterThan(0)
+    // Ticked, the file weighs what it did and what the line said, to the bytes the lines of the two plans can differ by.
+    const ticked = await exportPlan(made, { objects: ['hollow'], marks: false, scans: ['hollow/S1'] }, ASSETS)
+    expect(Math.abs(ticked.bytes - without.bytes - scan.bytes)).toBeLessThan(200)
+    expect(ticked.items.find((item) => item.id === 'hollow/S1')).toMatchObject({ on: true })
+  })
+
+  it('weighs several projects line by line, and the page takes what none of them owns', async () => {
+    const one = deps()
+    const made = deps({ object: (id) => (id === 'hollow2' ? { id, name: id, dir: `/ws/${id}`, model: `${id}.py` } : one.object(id)), last: (id) => one.last(id === 'hollow2' ? 'hollow' : id), scans: async () => [{ ...SCAN, id: 'S1' }] })
+    const plan = await exportPlan(made, { objects: ['hollow', 'hollow2'], marks: true, scans: ['hollow2/S1'] }, ASSETS, ['hollow', 'hollow2', 'never-built'])
+    expect(on(plan)).toBe(plan.bytes)
+    expect(plan.items.filter((item) => item.kind === 'object').map((item) => [item.id, item.on])).toEqual([['hollow', true], ['hollow2', true]])
+    expect(plan.items.find((item) => item.id === 'hollow2/S1')).toMatchObject({ on: true, object: 'hollow2' })
+    expect(plan.items.find((item) => item.id === 'hollow/S1')).toMatchObject({ on: false, object: 'hollow' })
+    // A project that is listed and not chosen is a line that is off, with what it would add; it has no lines of its own.
+    const some = await exportPlan(made, { objects: ['hollow'], marks: false, scans: [] }, ASSETS, ['hollow', 'hollow2', 'never-built'])
+    expect(on(some)).toBe(some.bytes)
+    expect(some.items.filter((item) => item.object === 'hollow2')).toEqual([{ id: 'hollow2', kind: 'object', object: 'hollow2', bytes: expect.any(Number), on: false }])
+    expect(some.items.find((item) => item.id === 'hollow2')!.bytes).toBeGreaterThan(0)
+  })
+
+  it('lists its lines for a plan that is refused, and for one cut to fit the budget', async () => {
+    const refused = await exportPlan(deps({ most: 1000 }), { objects: ['hollow'], marks: false, scans: ['hollow/S1'] }, ASSETS)
+    expect(refused.refusal).toBeDefined()
+    expect(refused.items.length).toBeGreaterThan(2)
+    expect(on(refused)).toBe(refused.bytes)
+    // A scan cut to 15,000 triangles weighs that, not 60,000.
+    const tight = await exportPlan(deps({ budget: 150_000 }), { objects: ['hollow'], marks: false, scans: ['hollow/S1'] }, ASSETS)
+    expect(on(tight)).toBe(tight.bytes)
+    expect(tight.items.find((item) => item.id === 'hollow/S1')!.bytes).toBeLessThan(150_000)
+  })
+
+  it('says nothing of weights where no page is weighed: nothing chosen, or a file of the model', async () => {
+    const none = await exportPlan(deps(), { objects: [], marks: false, scans: [] }, ASSETS, ['hollow'])
+    expect(none.items).toEqual([{ id: 'hollow', kind: 'object', object: 'hollow', bytes: expect.any(Number), on: false }])
+    expect(on(none)).toBe(none.bytes)
+    const step = await exportPlan(deps(), { objects: ['hollow'], marks: false, scans: [], format: 'step' }, ASSETS, ['hollow'])
+    expect(step.items).toEqual([])
+  })
+})
+
 describe('what the person switched off or settled stays here unless they say otherwise', () => {
   it('leaves out a part that is switched off, its mesh and the marks on it, unless parts switched off are ticked', async () => {
     const [object] = (await exportData(deps(), { objects: ['hollow'], marks: true, scans: [] })).objects
