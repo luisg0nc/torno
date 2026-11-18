@@ -32,6 +32,7 @@ import { BoardView } from './ui/projectBoard/BoardView'
 import { FacePickBar } from './ui/tracings/NewTracing'
 import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
+import { LeaderLayer } from './ui/LeaderLayer'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { RoundPanel } from './ui/review/RoundPanel'
 import { Welcome } from './ui/Welcome'
@@ -590,6 +591,8 @@ export function App() {
       )}
       <BuildStatus onOpen={(id) => void openObject(id)} />
       {checking && <ReadinessSheet onClose={() => setChecking(false)} />}
+      {/* The leaders of the view: over the panes, under the popovers. Empty until a tool or a pointer gives it one. */}
+      <LeaderLayer />
       {/* Over everything: the keys, asked for with ? or at the foot of the tools. */}
       <KeySheet />
     </div>

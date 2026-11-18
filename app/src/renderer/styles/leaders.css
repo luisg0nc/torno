@@ -1,0 +1,50 @@
+/* ---- Leaders: the one layer that draws them (ui/LeaderLayer.tsx, .claude/rules/leaders.md) ---- */
+
+/* The window's size, over the panes (the terminal's layers go up to 11) and under the popovers (20). */
+.leader-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 12;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.leader-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-linejoin: miter;
+  stroke-linecap: butt;
+}
+
+.leader-ring {
+  fill: var(--raise);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+/* Drawn out once from the subject, after its tag has popped in (0.2 s). A borrowed leader has no tag popping: no wait. */
+.leader-line {
+  stroke-dasharray: 1;
+  animation: leader-draw 0.24s var(--ease) 0.2s backwards;
+}
+.leader[data-kind='borrowed'] .leader-line {
+  animation-delay: 0s;
+}
+
+@keyframes leader-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leader-line {
+    animation: none;
+  }
+}
