@@ -72,7 +72,7 @@ Each part's `current.md` says what is weak today. The main faults:
 - The board's layout. The board takes the new tokens and type, and its tools move into the reed's look (below), but its
   canvas, cards and frames keep their layout.
 - The exported page's layout. It takes the new tokens and faces only. Sheets B's page without a side panel is left for
-  later (open question 6).
+  later (ruling 6).
 - Inspector D's part in focus. The card's head is built so that a focus state can take its place later.
 - New features. A borrowed idea that needs data torno does not have yet is listed with that data, or is left out.
 - Translations of the window. It stays in English, as today.
@@ -671,14 +671,15 @@ inspect (Select `V`, Measure `M`, Section `X`), mark (Pin `P`, Arrow `A`, Draw `
 
 **The compass** sits at the top right, 14 px in, items right-aligned, 7 px apart:
 
-1. **The cube**, on a tile of 118 × 112 px (radius 14, the panel at 94 %, `--float-shadow`). It is today's sketch cube
-   (`viewport/viewCube.ts`, drawn on the overlay canvas and turned as the camera is), made larger (`CUBE_HALF_PX` from 26
-   to about 34) and shown always. Each face is labelled with its view and its key (Top `4`, Front `2`, Right `3`; Back,
-   Left, Bottom when they face the camera), and the near corner is Iso (`1`) as an accent dot. A click on a face takes
-   that standard view (as the view bar's buttons do today). A click on the corner takes Iso. A face facing the camera has
-   the accent wash. While a sketch is open the faces read XY, XZ, YZ with `⇧1` to `⇧3` and a click makes that plane the
-   sketch's, as today, under a "Planes" caption in the accent. The cube's keys and its words are in its `aria-label` and a
-   hidden list of buttons, so that it is reached by keys.
+1. **The cube**, on a tile of 118 × 112 px (radius 14, the panel at 94 %, `--float-shadow`). Outside a sketch it is a
+   **still** iso picture of a cube (an SVG in the DOM, new `ui/ViewCube.tsx`; faces `--panel` with a `--field-edge` stroke,
+   labels 10 px sans with their key in mono 9 px muted): Top `4`, Front `2`, Right `3`, and the near corner Iso `1` as an
+   accent dot, with "···" for Back, Left and Bottom in a small menu. A click on a face takes that standard view (as the view
+   bar's buttons do today), and the face of the view on screen has the accent wash. Each face is a real button with its
+   view's name and key, so the cube is reached by keys. **While a sketch is open** the tile shows today's live sketch cube
+   instead (`viewport/viewCube.ts`, drawn on the overlay canvas and turned as the camera is, placed in the tile): its faces
+   read XY, XZ, YZ with `⇧1` to `⇧3`, a click makes that plane the sketch's as today, and a "Planes" caption in the accent
+   sits at the tile's top left (ruling 2).
 2. **Perspective / Ortho**, a segment in a pill, with the `O` cap.
 3. A row: the **layout** (`assembly ▾`, the layouts of today's view bar), **Fit** with its `F` cap, and **Explode**
    (pressed while apart, with the amount, `Explode 50 %`).
@@ -859,7 +860,7 @@ conversation, 2 days ago", Continue / New conversation by Send), in this look.
 
 Export docks in the dock **below the builds strip**, in place of the conversation, sliding in 24 px in 0.28 s. The strip
 stays: the ringed node is the build that will be exported (the build on show; picking another node does nothing new in
-this redesign, see open question 7). The conversation folds to a 40 px band at the dock's foot on `--surface`:
+this redesign, see ruling 7). The conversation folds to a 40 px band at the dock's foot on `--surface`:
 "● **Claude Code** idle, 1 mark to review" and **Back to the chat**. An ask that arrives while export is open turns that
 band `--warn-wash` and says "needs you", with **Answer**.
 
@@ -890,7 +891,7 @@ band `--warn-wash` and says "needs you", with **Answer**.
 - **The view is the preview.** A 2 px accent frame (inset 8, radius 12) goes round the view, and the export's band sits at
   its top left. What changes as lines are switched uses what the view can already do: marks shown or hidden, a switched-off
   part hidden, with a dashed tag at its place ("airbox-clip-3 is switched off: left out"). A scan switched on is shown. A
-  STEP's bodies are not labelled in the view in this redesign (open question 6).
+  STEP's bodies are not labelled in the view in this redesign (ruling 6).
 
 Per-line weights need main to return the plan's weight per item, not only the total (`export` plan). Main has them while
 it plans, and returns `items: { id, bytes }[]` beside `bytes`.
@@ -952,7 +953,7 @@ mono. Its rules (`BuildStatus`, the `role="status"`, the needs-you button and `f
 | Route card | new `RouteCard` and `CardSection`; `PanelHost` and `SectionTitle` go; `Selection` becomes the In hand head; `Layers`, `sets/SetRows`, `ParamsPanel`, `ChecksPanel` + `ChecksSummary` (merged), `MarksPanel`, `MarkRow`, `ResolvedSummary`, `ScansPanel`, `TracingRows`, `tracings/TracingPanel`, `PrintProfile`, `ObjectList` (to the title bar's project menu); new `Gauge`; `state/column.ts` | `panels.css` becomes the card's; `marks.css`, `scans.css`, `sets.css`, `tracings.css` (the panel's part) restyled; `overlays.css` loses the selection bar |
 | Reed | `ToolPalette` (the name pill, Select's scope, Measure's strip folded in), `tracings/Palette` in the same look, `projectBoard/Palette` takes the look | `tools.css`, `regions.css` (shape choice) |
 | Caption and hint | `ToolHint` (to the pointer), `AgentLine` (bottom middle), `viewport/highlight.ts`'s readout styled as the caption | `tools.css`, `overlays.css` |
-| Compass | new `Compass` from `ViewBar` and `ViewsStrip`; `viewport/viewCube.ts` and `overlay.ts` draw the cube always; `ExplodeToggle` | `viewbars.css` and `views.css` merge into `compass.css` |
+| Compass | new `Compass` from `ViewBar` and `ViewsStrip`; new `ViewCube` (the still cube); `viewport/viewCube.ts` draws the live one in the tile while sketching; `ExplodeToggle` | `viewbars.css` and `views.css` merge into `compass.css` |
 | Bands | new `Band`; `CompareBar`, `ReviewBar`, `FacePickBar`, the line-up's bar, the failed build's notice become bands | new `bands.css`; `viewbars.css` goes |
 | Tags and leaders | new `LeaderLayer`, `Tag`; `SectionBar`, `ExplodeBar`, Measure's strip, the sketch's offset, `tracings/offsetTool` become tags; the section rule and explode track drawn by `overlay.ts` | new `tags.css`; `explode.css` goes into it |
 | Procedure cards | `AlignBar` (+ `align/*`), `RegionBar` | `align.css`, `regions.css` |
@@ -982,7 +983,7 @@ Each feature keeps all its behaviour, keys and words. Only where things stand an
 | Snap and X-ray switches | `Ctrl` held, the **Snap** switch, `I` and the **X-ray** switch | two switches in the card's head under "Planes and strokes"; the hint at the bottom middle says "Snapping on, hold `Ctrl` to drop it. X-ray `I`" |
 | The sketch panel (`SketchPanel`) | the chip and draft/sent, name, how to take it (Exact / Rough / Flow, `K`), the diameter, planes and strokes with counts, "+ New plane: pick a face or a point", the strokes by id (`k1`), the offset (`Tab`), comment, Undo (`Ctrl+Z`), Done, `Esc` | **the head of the route card**: `M7` chip, "Sketch" (15 px, 600), "draft, goes with your next prompt" muted; Name field; "Take it" segment and the ⌀ field (mm); "Planes and strokes" rows (28 px, a small skewed plane glyph, the plane in mono, its count at the right; the active one on the wash with the accent bar); the strokes list folded under its plane; the two switches; Comment (a text area on `--raise`); Undo `Ctrl Z` and Done `Esc` (primary) |
 | The offset field | typed in the panel, `Tab` focuses it | the field stays in the head, and the plane's handle in the view gets a **tag** tied to it by a leader: "XZ plane `y 40.0 mm` `Tab`" (the value on the well, in the axis colour) |
-| The view cube | XY, XZ, YZ make the plane, `Shift+1` to `Shift+3` | the compass's cube, faces relabelled, "Planes" in accent on its tile |
+| The view cube | XY, XZ, YZ make the plane, `Shift+1` to `Shift+3` | the compass's tile shows the live sketch cube while sketching (ruling 2), "Planes" in accent on it |
 | The pointer hint (`sketchHint.ts`) | what a point snaps to, a segment's length and angle, typing a length, `Enter` | the caption at the pointer (ink): "Line `42.0 mm` at `−58°`, type a length `Enter`"; a snap in an **accent caption**: "Snapped: hole centre `airbox-snorkel/E14`, exact" |
 | A band | none today | the quiet band "Sketching `M7` on `XZ, y = 40`" |
 | The pens strip (`SketchPens`) | its buttons and keys | goes; its contents are in the name pill and the head |
@@ -1042,7 +1043,7 @@ The mockup is a picture, and in these places it is wrong about what torno does. 
 
 - **Draw**, not Sketch, is the tool (`D`). The sketch's pens are `B`, `L`, `P` and `C`, and x-ray is `I`, not `Shift+X` and
   `Shift+E`. The keys picture is generated from `KEYS`, so it cannot drift.
-- **Parameters** is the section's name in the card (open question 1 offers the mockup's "Sizes").
+- **Parameters** is the section's name in the card (ruling 1).
 - **Named sets**, not "Your groups". A set is lit in its own colour, not in a dashed accent outline.
 - **Tracing** is the switch's word. The mockup's tab "T1 front" becomes the picker.
 - **Should be here** makes a draft mark. There is no Tell Claude button.
@@ -1110,7 +1111,7 @@ The mockup is a picture, and in these places it is wrong about what torno does. 
   `--font-mono` become the new faces. The viewer's layout does not change.
 - **The site** (`site/assets/site.css`, `app/scripts/build-site.mjs`): its palette and faces are the window's, as its
   first line says. It takes the new faces (woff2 copied from the packages, `font-display: swap`, preloaded) and the token
-  values. Its layout does not change. Whether the site's hero takes the dyed field is open question 8.
+  values. Its layout does not change. Whether the site's hero takes the dyed field is ruling 8: a follow-up after the PR.
 - **Light values written out** where no stylesheet is read (`viewport/theme.ts` `LIGHT_THEME`, `sectionDrawing.ts`
   `SHEET`, `overlay.ts` `AXIS_COLOURS`, `SURFACE` in `main/index.ts`, `ui/drawing/make.ts`): `--ink` changes, and they follow
   it, held by the existing tests.
@@ -1137,8 +1138,8 @@ Each stage leaves the app working and the four suites green (`pnpm test`, `pnpm 
    Tracings (with `TracingRows` and, while the Tracing view shows, the tracing's panel), Print profile. `column.ts`'s new
    shape. The sketch panel and the round's panel move into the head. *Leaves:* the left column done. The view still has
    today's bars, less the selection's and the sketch panel.
-4. **The view's chrome.** The reed with names that grow, the tips, the caption at the pointer. The compass (the cube from
-   `viewCube.ts`, the projection, the layout, Fit, Explode, the saved views and their folding). The bands. Tags and
+4. **The view's chrome.** The reed with names that grow, the tips, the caption at the pointer. The compass (the still cube,
+   the live sketch cube in its tile while sketching, the projection, the layout, Fit, Explode, the saved views and their folding). The bands. Tags and
    leaders for Section (with the rule), Measure, Explode (with the track), Compare, the sketch plane and Should be here.
    The procedure cards. The note card's look. The bottom freed: the old lifts go, and `section.spec.ts`'s geometry is
    replaced. The scan read question in the view. Confirm as a popover. *Leaves:* the view done.
@@ -1185,7 +1186,7 @@ before: they share `layout.css`, `App.tsx` and the e2e specs.
   look, so the bench is mixed for a while after the update.
 - **Per-line weights** must add up to the total, or the rule lies. The test asserts the sum.
 - **Scope creep from the mockups.** Sheets B's exported page, labelled STEP bodies, a dashed part in the preview and a
-  true side-by-side of two builds' scenes are not built (Non-goals, open questions).
+  true side-by-side of two builds' scenes are not built (Non-goals, rulings 6 and 7).
 
 **Testing.**
 
@@ -1205,28 +1206,24 @@ agent (`e2e-stand-in-agent`).
 
 ---
 
-## 8. Open questions for Luis
+## 8. Rulings (Luis, 2026-11-18)
 
-1. **"Parameters" or "Sizes" for the card's section?** Inspector B calls it Sizes. The code and the manual say
-   Parameters, and "Sizes" is already the board's size cards and the new project's "Sizes I know". *Recommend:*
-   Parameters.
-2. **The compass's cube: the live cube of the sketch, or the still picture of the mockup?** The sketch already draws a
-   cube that turns with the camera, and making it the compass is cheap. The mockup draws a fixed iso cube. *Recommend:*
-   the live cube, with its faces labelled and keyed.
-3. **The rail's Tracings and Print profile.** The rail's index has eight icons. At 800 px tall, with Projects and Keys,
-   it fits (36 px each). With Inspector D later it may not. *Recommend:* keep all eight now.
-4. **Go back from a node** is new placement for a weighty action, beside Compare and Star in the node's menu. *Recommend:*
-   keep it there and at each turn's end, both behind the same confirm.
-5. **The caption at the pointer** replaces the step line at the foot. Tools C's own risk is that it annoys once learned.
-   *Recommend:* keep it, and after a tool has been used ten times in this install, show the caption only while the
-   pointer is still for half a second (the `aria-live` words are unchanged).
+Luis approved the spec on 2026-11-18 and took every recommendation of its open questions, as below. They are decided.
+
+1. **The card's section is "Parameters"**, not the mockup's "Sizes", which is the board's size cards and the new
+   project's "Sizes I know".
+2. **The compass's cube is the still iso picture of the mockup; while a sketch is open it is the live sketch cube**
+   (`viewCube.ts`), whose faces are the main planes.
+3. **The rail's index keeps all eight icons** (Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings, Print
+   profile).
+4. **Go back is offered from a node of the builds strip** and at each turn's end, both behind the same confirm.
+5. **The caption at the pointer** replaces the step line at the foot. After a tool has been used ten times in this
+   install, the caption shows only once the pointer has been still for half a second. The `aria-live` words are unchanged.
 6. **Sheets B's exported page without a side panel, STEP bodies labelled in the preview, and a switched-off part drawn
-   dashed.** The brief keeps the export page to the new tokens and type, and the 3D render is out of scope. *Recommend:*
-   a later issue for all three.
-7. **Exporting another build than the one on show** by picking its node, as the mockup suggests. The export is made from
-   the last build of this run today. *Recommend:* not in this redesign; the ring only says which build goes.
-8. **The site's hero on the dye.** The site takes the new faces and tokens. Should its first screen also take the dyed
-   field and the drawn vise, like the app's first screen? *Recommend:* yes, as a small follow-up after the PR, since it
-   is the public face and costs little.
-9. **The dock's builds strip folding under 640 px of height** (to the head line and ticks) is my rule, not the mockup's.
-   *Recommend:* take it.
+   dashed** are a later issue. The export page takes the new tokens and type only.
+7. **No export of another build by picking its node** in this redesign. The ring says which build goes.
+8. **The site's hero on the dye** is a small follow-up after the PR. The PR gives the site the new faces and tokens only.
+9. **The builds strip folds under 640 px of dock height** to its head line and a row of ticks.
+
+Also approved: the working dot stays still and no caret blinks (the rule of `styles.test.ts`), and the merged code's names
+are kept (Draw, its pens and keys, Named sets, Tracing, no Tell Claude button).
