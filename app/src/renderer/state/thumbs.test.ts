@@ -8,18 +8,18 @@ const scene = (model: string): Scene => ({ model, layouts: ['assembly'], parts: 
 function made(over: Partial<ThumbDeps> = {}) {
   const idle: Array<() => void> = []
   const drawn: string[] = []
-  const saved: Array<{ id: string; revision: number; layout: string }> = []
+  const saved: Array<{ id: string; revision: number; layout: string; bench?: boolean }> = []
   let root: string | undefined = '/ws'
   const thumbs = connectThumbs(
     {
       thumbnail: async (s, _blob, view) => {
         drawn.push(`${s.model}${view?.layout ? ` as ${view.layout}` : ''}`)
-        return s.model === 'nothing.py' ? null : { png: new Uint8Array([1]), layout: 'assembly', parts: 1 }
+        return s.model === 'nothing.py' ? null : { png: new Uint8Array([1]), layout: 'assembly', parts: 1, ...(s.model.startsWith('bench') ? { bench: true } : {}) }
       }
     },
     {
       loadSceneFile: async (id) => ({ layout: `${id}-layout`, layers: {} }),
-      save: (id, revision, _png, of) => saved.push({ id, revision, layout: of.layout }),
+      save: (id, revision, _png, of) => saved.push({ id, revision, layout: of.layout, ...(of.bench ? { bench: true } : {}) }),
       idle: (run) => void idle.push(run),
       root: () => root,
       ...over
@@ -47,6 +47,14 @@ describe('connectThumbs', () => {
     await t.rest()
     expect(t.drawn).toEqual(['a-r1.py as a-layout', 'b-r1.py as b-layout'])
     expect(t.saved).toEqual([{ id: 'a', revision: 1, layout: 'assembly' }, { id: 'b', revision: 1, layout: 'assembly' }])
+  })
+
+  it('hands main that a picture is at the bench scale as the window drew it, and no size: the size is main\'s', async () => {
+    const t = made()
+    t.thumbs.landed(landed('a', 1, 'bench-a.py'))
+    t.thumbs.landed(landed('b', 1))
+    await t.rest()
+    expect(t.saved).toEqual([{ id: 'a', revision: 1, layout: 'assembly', bench: true }, { id: 'b', revision: 1, layout: 'assembly' }])
   })
 
   it('draws only the latest build of an object when several land before it is idle', async () => {

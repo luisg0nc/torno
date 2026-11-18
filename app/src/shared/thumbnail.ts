@@ -12,6 +12,8 @@ import { type SectionPlane, sectionOf } from './view'
 
 export const THUMB_WIDTH = 480
 export const THUMB_HEIGHT = 360
+/** The scale of a picture made for the bench: every project's, so that a size on the page is a size. */
+export const BENCH_MM_PER_PX = 0.5
 
 /** How an object was last looked at, as far as a thumbnail follows it: what its scene file keeps of the layout, the parts, the section and the explode. */
 export type ThumbnailView = Pick<SceneFile, 'layout' | 'layers' | 'section' | 'explode'>
@@ -36,6 +38,17 @@ export interface ThumbnailPlan {
   /** Round the parts of the layout as built, and round the parts drawn where they are drawn. */
   layoutBox: { min: number[]; max: number[] }
   box: { min: number[]; max: number[] }
+  /**
+   * Set when the bench's mode was asked for: the picture is drawn from a fixed view, orthographic, at a fixed
+   * scale and not fitted to its parts, on a clear ground, and centred on `layoutBox`. Null otherwise.
+   */
+  bench: { mmPerPx: number; view: 'iso'; ground: 'clear' } | null
+}
+
+/** What a plan is asked for besides the object's view. */
+export interface ThumbnailOptions {
+  /** The bench's mode: a fixed iso camera at `BENCH_MM_PER_PX` (`ThumbnailPlan.bench`). */
+  bench?: boolean
 }
 
 /**
@@ -48,7 +61,7 @@ export interface ThumbnailPlan {
  * to nothing counts as switched off, with every part off all are drawn (whole), and a section that leaves nothing
  * of what is drawn is left out.
  */
-export function thumbnailPlan(scene: Scene, view?: ThumbnailView): ThumbnailPlan | null {
+export function thumbnailPlan(scene: Scene, view?: ThumbnailView, options: ThumbnailOptions = {}): ThumbnailPlan | null {
   const layout = view?.layout !== undefined && scene.layouts.includes(view.layout) ? view.layout : thumbnailLayout(scene.layouts)
   if (layout === null) return null
   const all = scene.parts.filter((part) => part.layout === layout)
@@ -68,7 +81,19 @@ export function thumbnailPlan(scene: Scene, view?: ThumbnailView): ThumbnailPlan
   // Of the layout's parts, drawn or not: a part is drawn apart from those it belongs with.
   const explode = explodeShown(view?.explode?.[layout], section, all)
   const offsets = explodeOffsets(all, explode)
-  return { layout, parts, hidden: all.length - parts.length, looks, section, explode, offsets, layoutBox: boxOf(all, {}), box: boxOf(parts, offsets) }
+  return { layout, parts, hidden: all.length - parts.length, looks, section, explode, offsets, layoutBox: boxOf(all, {}), box: boxOf(parts, offsets), bench: options.bench ? { mmPerPx: BENCH_MM_PER_PX, view: 'iso', ground: 'clear' } : null }
+}
+
+/**
+ * The size of a layout as built, in mm, from the kernel's box of each part (`Part.bbox`): `exact` only when the
+ * kernel says every one of those boxes is (`bboxExact`); a part of any other kind has a box widened to its mesh.
+ * Null for a layout with no part.
+ */
+export function layoutSize(scene: Scene, layout: string): { x: number; y: number; z: number; exact: boolean } | null {
+  const parts = scene.parts.filter((part) => part.layout === layout)
+  if (parts.length === 0) return null
+  const { min, max } = boxOf(parts, {})
+  return { x: max[0] - min[0], y: max[1] - min[1], z: max[2] - min[2], exact: parts.every((part) => part.bboxExact === true) }
 }
 
 /** The box round some parts where they are drawn: each part's box moved by how far the part is drawn off. */

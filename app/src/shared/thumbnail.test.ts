@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Part, Scene } from './scene'
-import { thumbnailLayout, thumbnailPlan } from './thumbnail'
+import { BENCH_MM_PER_PX, layoutSize, thumbnailLayout, thumbnailPlan } from './thumbnail'
 
 it('is of the assembly when there is one, else of the first layout, and of none when there is none', () => {
   expect(thumbnailLayout(['print', 'assembly'])).toBe('assembly')
@@ -73,5 +73,36 @@ describe('thumbnailPlan', () => {
     const beyond = { origin: [0, 0, -5] as [number, number, number], normal: [0, 0, 1] as [number, number, number] }
     expect(thumbnailPlan(HOLLOW, { layers: {}, section: beyond })!.section).toBeNull()
     expect(thumbnailPlan(HOLLOW, { layers: {}, section: { origin: [0, 0, 0], normal: [0, 0, 0] } })!.section).toBeNull()
+  })
+})
+
+describe('the bench mode', () => {
+  const scaled = (k: number): Scene => ({ ...HOLLOW, parts: HOLLOW.parts.map((p) => ({ ...p, bbox: { min: p.bbox.min.map((v) => v * k) as [number, number, number], max: p.bbox.max.map((v) => v * k) as [number, number, number] } })) })
+
+  it('is a fixed iso camera on a clear ground at 0.5 mm to the pixel, whatever the size of the parts', () => {
+    expect(BENCH_MM_PER_PX).toBe(0.5)
+    for (const scene of [HOLLOW, scaled(0.1), scaled(40)]) {
+      expect(thumbnailPlan(scene, undefined, { bench: true })!.bench).toEqual({ mmPerPx: BENCH_MM_PER_PX, view: 'iso', ground: 'clear' })
+    }
+  })
+
+  it('leaves the plan as it was when the mode is not asked for, and changes nothing else when it is', () => {
+    expect(thumbnailPlan(HOLLOW)!.bench).toBeNull()
+    const withBench = thumbnailPlan(HOLLOW, undefined, { bench: true })!
+    const { bench: _on, ...rest } = withBench
+    const { bench: _off, ...plain } = thumbnailPlan(HOLLOW)!
+    expect(rest).toEqual(plain)
+  })
+})
+
+describe('layoutSize', () => {
+  it('is the size of the layout as built, and exact only where the kernel says every part box is', () => {
+    expect(layoutSize(HOLLOW, 'assembly')).toEqual({ x: 40, y: 30, z: 24, exact: false })
+    const exact: Scene = { ...HOLLOW, parts: HOLLOW.parts.map((p) => ({ ...p, bboxExact: true })) }
+    expect(layoutSize(exact, 'assembly')).toEqual({ x: 40, y: 30, z: 24, exact: true })
+    // One part with an approximate box makes the whole approximate.
+    const one: Scene = { ...exact, parts: exact.parts.map((p) => (p.name === 'lid' ? { ...p, bboxExact: false } : p)) }
+    expect(layoutSize(one, 'assembly')).toMatchObject({ exact: false })
+    expect(layoutSize(exact, 'bed')).toBeNull()
   })
 })

@@ -277,7 +277,11 @@ function cards(): Promise<ObjectCard[]> {
     sourcesMtimeMs: newestPython,
     uses: (id) => ws.builds.scene(id)?.scene.uses ?? [],
     size: (path) => stat(path).then((s) => s.size, () => null),
-    git: (dir) => gitStateRecently(dir)
+    git: (dir) => gitStateRecently(dir),
+    waiting: (id) => {
+      const ask = asks?.of(id)
+      return ask ? { question: ask.question, since: ask.since } : null
+    }
   })
 }
 
@@ -289,8 +293,9 @@ const keeping: KeepDeps = {
     const revision = current?.builds.scene(id)?.revision
     if (revision === undefined) return undefined
     const built = current?.builtFrom.get(id)
-    const uses = current?.builds.scene(id)?.scene.uses
-    return { revision, ...(built?.revision === revision && built.startedMs !== undefined ? { startedMs: built.startedMs } : {}), ...(uses ? { uses } : {}) }
+    const scene = current?.builds.scene(id)?.scene
+    const uses = scene?.uses
+    return { revision, ...(built?.revision === revision && built.startedMs !== undefined ? { startedMs: built.startedMs } : {}), ...(uses ? { uses } : {}), ...(scene ? { scene } : {}) }
   }
 }
 

@@ -1,4 +1,5 @@
 import { type FocusBox, focusFrame } from '../../shared/focus'
+import { BENCH_MM_PER_PX, THUMB_HEIGHT, THUMB_WIDTH } from '../../shared/thumbnail'
 import type { Camera, ViewName } from '../../shared/view'
 
 type Vec3 = [number, number, number]
@@ -64,6 +65,31 @@ export function lockedViewOf(camera: Camera): ViewName | null {
 export function visibleHeight(camera: Camera): number {
   const d = distance(camera.position, camera.target)
   return (2 * d * Math.tan(radians(camera.fov) / 2)) / camera.zoom
+}
+
+/**
+ * Half the width (`across`) and half the height (`upward`) that a box of this size (mm) has on screen when it is
+ * seen along `dir` with `up` upward, orthographically: centred on the screen's middle, in mm.
+ */
+export function screenHalfExtent(size: { x: number; y: number; z: number }, dir: number[], up: number[]): { across: number; upward: number } {
+  const d = normalize(dir)
+  const u = perpendicularUp(d, up)
+  const r = cross(d, u)
+  const half = [size.x / 2, size.y / 2, size.z / 2]
+  return {
+    across: Math.abs(r[0]) * half[0] + Math.abs(r[1]) * half[1] + Math.abs(r[2]) * half[2],
+    upward: Math.abs(u[0]) * half[0] + Math.abs(u[1]) * half[1] + Math.abs(u[2]) * half[2]
+  }
+}
+
+/** The pixels left free on each side of a picture made for the bench, for the edge lines of what is at its limit. */
+const BENCH_MARGIN_PX = 2
+
+/** Whether a layout of this size (mm) stays within a picture made for the bench: iso, `BENCH_MM_PER_PX`, centred on it. */
+export function benchFits(size: { x: number; y: number; z: number }): boolean {
+  const { dir, up } = viewDirection('iso')
+  const { across, upward } = screenHalfExtent(size, dir, up)
+  return across <= (THUMB_WIDTH / 2 - BENCH_MARGIN_PX) * BENCH_MM_PER_PX && upward <= (THUMB_HEIGHT / 2 - BENCH_MARGIN_PX) * BENCH_MM_PER_PX
 }
 
 /**
