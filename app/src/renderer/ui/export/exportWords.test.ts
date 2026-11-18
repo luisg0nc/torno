@@ -34,7 +34,7 @@ describe('exportWords', () => {
 
   it('says what a line weighs in the unit that suits it', () => {
     expect(weightSaid(0)).toBe('0 B')
-    expect(weightSaid(413 * 1024)).toBe('413 kB')
+    expect(weightSaid(413 * 1024)).toBe('413 KB')
     expect(weightSaid(1.1 * 1024 * 1024)).toBe('1.1 MB')
   })
 

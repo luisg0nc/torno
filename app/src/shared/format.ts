@@ -89,3 +89,8 @@ export function bytes(n: number): string {
   const value = n / unit.size
   return `${number(value < 10 ? Math.round(value * 10) / 10 : Math.round(value))} ${unit.name}`
 }
+
+/** A plane's offset (and the readout that follows its handle): to a tenth of a millimetre with the tenth always written, `40.0`, as a plane's label is; never -0. */
+export function offsetNumber(mm: number): string {
+  return (Math.round(mm * 10) / 10 + 0).toFixed(1)
+}

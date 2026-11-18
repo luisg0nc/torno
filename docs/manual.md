@@ -2256,7 +2256,7 @@ the export is not (from the page of projects), they are dimmed and say why in
 their title.
 
 Below them is one line for each thing that can go, with a switch, what it is and
-**what it weighs** at the right (`413 kB`, with a square of the colour of its
+**what it weighs** at the right (`413 KB`, with a square of the colour of its
 share of the rule below); a line that is switched off has its weight struck
 through, and a scan the budget left out says "left out for size". Under the
 lines stands the total (`1.7 MB`), "of 12 MB", and a rule from 0 to 12 MB, ticked
