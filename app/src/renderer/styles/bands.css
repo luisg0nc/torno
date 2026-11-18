@@ -159,26 +159,6 @@
   cursor: default;
 }
 
-/* The round sign of a pen (provisional: Task 24 defines `.sign-disc` for the whole window and this rule goes). `−` is hatched in the person's colour, `+` solid in the agent's. */
-.sign-disc {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  color: var(--on-mark);
-  font: 600 12px/1 var(--font-mono);
-}
-
-.sign-disc[data-sign='dont'] {
-  background: repeating-linear-gradient(135deg, var(--user-mark) 0 2px, color-mix(in srgb, var(--user-mark) 70%, var(--on-mark)) 2px 4px);
-}
-
-.sign-disc[data-sign='want'] {
-  background: var(--agent-mark);
-}
-
 .reviewbar-where {
   color: inherit;
 }

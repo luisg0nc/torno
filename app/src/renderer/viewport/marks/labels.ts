@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { NO_VALUE, offBy, shownDimension } from '../../../shared/dimension'
 import { number } from '../../../shared/format'
 import { type DimensionMark, type Mark, type RegionMark, type ShapeIntent, type ReviewIntent, type SpanMark, type Vec3, markIntent } from '../../../shared/marks'
-import { INTENT_CHIP } from '../../../shared/reviews'
+import { INTENT_CHIP, INTENT_SIGN } from '../../../shared/reviews'
 import { LEADER_PX, labelAnchor } from './markObjects'
 
 export interface Size {
@@ -15,6 +15,8 @@ export interface Label {
   id: string
   /** `M3`, with `~` for an anchor that drifted and `?` for one that was lost. */
   text: string
+  /** What the person says of the mark, for the round disc beside the chip: `-` for what they do not want, `+` for what they want; none for any other mark. */
+  sign?: '-' | '+'
   author: Mark['author']
   x: number
   y: number
@@ -61,7 +63,7 @@ export function spanValue(mark: Pick<SpanMark, 'value' | 'exact'>): LabelValue {
 }
 
 /** How large the chip of a label is: of its text and, for a dimension, its value beside it. */
-export type Chip = (text: string, value?: LabelValue) => { w: number; h: number }
+export type Chip = (text: string, value?: LabelValue, sign?: Label['sign']) => { w: number; h: number }
 
 /** A label with the box of its chip, top left and size in pixels. */
 export interface Placed extends Label {
@@ -96,7 +98,18 @@ function said(mark: Said): string {
   return intent === null ? '' : `${INTENT_CHIP[intent]} `
 }
 
-/** What a mark is called on screen and in pictures. */
+/** The round sign of a mark the person says they do not want or want, as the disc beside its chip writes it; none for any other mark (the agent's never). */
+export function signOf(mark: Said): Label['sign'] | undefined {
+  const intent = mark.author === undefined || mark.kind === undefined ? null : markIntent({ author: mark.author, kind: mark.kind, intent: mark.intent })
+  return intent === null ? undefined : INTENT_SIGN[intent]
+}
+
+/** What a chip in the view carries: the number, with `~` for an anchor that drifted and `?` for one that was lost. Its sign is the disc's (`signOf`). */
+export function chipText(mark: Said): string {
+  return mark.id + (mark.anchorState === 'drifted' ? '~' : mark.anchorState === 'orphaned' ? '?' : '')
+}
+
+/** What a mark is called as a line of words: its sign, then the number (the chip of the view has the sign as a disc beside it, `chipText`). */
 export function labelText(mark: Said): string {
   return said(mark) + mark.id + (mark.anchorState === 'drifted' ? '~' : mark.anchorState === 'orphaned' ? '?' : '')
 }
@@ -143,7 +156,8 @@ export function project(marks: Mark[], camera: THREE.Camera, size: Size, unit = 
     const anchor = labelAnchor(mark, regionAt)
     const point = new THREE.Vector3().fromArray(anchor.point)
     if (movedBy) point.add(new THREE.Vector3().fromArray(movedBy(mark)))
-    const base: Pick<Label, 'id' | 'text' | 'author' | 'value'> = { id: mark.id, text: labelText(mark), author: mark.author }
+    const sign = signOf(mark)
+    const base: Pick<Label, 'id' | 'text' | 'author' | 'value' | 'sign'> = { id: mark.id, text: chipText(mark), author: mark.author, ...(sign ? { sign } : {}) }
     if (mark.kind === 'dimension') base.value = labelValue(mark, revision)
     else if (mark.kind === 'span') base.value = spanValue(mark)
     const foot = toPx(point)
@@ -170,7 +184,7 @@ export function place(labels: Label[], chip: Chip, size: Size, unit = 1): Placed
   const pad = SPACING_PX * unit
   const points = labels.filter((l) => l.visible)
   for (const label of labels) {
-    const { w, h } = chip(label.text, label.value)
+    const { w, h } = chip(label.text, label.value, label.sign)
     const boxAt = (turn: number, ring: number): Placed['box'] => {
       const dx = label.lean[0] * Math.cos(turn) - label.lean[1] * Math.sin(turn)
       const dy = label.lean[0] * Math.sin(turn) + label.lean[1] * Math.cos(turn)

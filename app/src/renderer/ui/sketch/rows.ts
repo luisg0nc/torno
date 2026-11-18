@@ -1,4 +1,4 @@
-import type { SketchStroke } from '../../../shared/marks'
+import type { SketchPlane, SketchStroke } from '../../../shared/marks'
 import type { SketchDraft } from '../../../shared/bridge'
 import { planeName } from '../../tools/planes'
 
@@ -43,4 +43,17 @@ export function strokeRows(draft: Pick<SketchDraft, 'planes' | 'strokes'>, sketc
     const plane = stroke.plane === undefined ? undefined : draft.planes.find((p) => p.id === stroke.plane)
     return [{ id: stroke.id, ref: `${sketch}/${stroke.id}`, where: plane ? planeName(plane.label) : 'On surfaces', plane: plane ? plane.id : 'surface' }]
   })
+}
+
+/** The axis a main plane is across, the one its offset is the coordinate on. */
+const ACROSS = { XY: 'z', XZ: 'y', YZ: 'x' } as const
+
+/**
+ * What the tag on the plane's handle says: the plane's name (a main plane by its axes, `XZ plane`; any other as the card has it), the axis its
+ * offset runs along where it is a main plane's (its letter is set in that axis's colour) and the offset to a tenth of a millimetre.
+ */
+export function planeTagWords(plane: Pick<SketchPlane, 'label' | 'from'>, offset: number): { name: string; axis?: 'x' | 'y' | 'z'; value: string } {
+  const value = (Math.round(offset * 10) / 10).toFixed(1)
+  if (plane.from.kind === 'main') return { name: `${planeName(plane.label).split(' ')[0]} plane`, axis: ACROSS[plane.from.axis], value }
+  return { name: planeName(plane.label), value }
 }

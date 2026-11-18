@@ -41,7 +41,7 @@ describe('the items of a round', () => {
     const first = out.match(/<li class="round-item" data-mark="M1"[^>]*>.*?<\/li>/)![0]
     expect(first.indexOf('round-item-sign')).toBeLessThan(first.indexOf('the rib'))
     expect(first.indexOf('the rib')).toBeLessThan(first.indexOf('round-item-where'))
-    expect(first).toMatch(/<span class="round-item-sign num"[^>]*>−<\/span>/)
+    expect(first).toMatch(/<span class="round-item-sign"><span class="sign-disc num" data-sign="-"[^>]*>−<\/span><\/span>/)
     expect(first).toMatch(/<span class="round-item-where num">plate\/F3<\/span>/)
     // An item on nothing a name can be given to has no such line.
     expect(out.match(/<li class="round-item" data-mark="M2"[^>]*>.*?<\/li>/)![0]).not.toContain('round-item-where')

@@ -143,7 +143,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (the live build itself when it is `to`), the two in the left and right halves, with the scissor test and one camera framed for half the width, a line down the middle
   (`OverlayPass.split`), no marks, chips or cues, and no pick (`Viewport.pick` is null whenever what is drawn is not the live build: a point of the canvas is on neither
   as the camera has it, nor a chip of a mark made on another build). The status line says `comparing prompt 14 · h40 → h41` (`compareStatus`), or
-  `Building h40 to compare…` once the wait passes 300 ms. The boxes over the view are the history entries' (`useHistory`): "What changed" is the later
-  build's `line`, "Checks and marks" is `checksMoved` of both entries' `dimensions` and `failing`. For display only: no bounds tree, a ray finds nothing, it is
+  `Building h40 to compare…` once the wait passes 300 ms. What the turn changed is written on the parts and marks as tags with leaders (`CompareBar`; `changeTags` of `ui/view/changeTags.ts`, from the `TurnSummary` the
+  turn's `Compare` button gave `actions.compare` as `CompareState.changes`: four at most, a flipped dimension first, then parts by how far their volume moved; one with no place in
+  the build on show, and all of them in a side by side, go to the list). The band's `and N more` (`What changed` when none is left out) opens a `Popover`
+  of the history entries' (`useHistory`): the rest of the tags, "What changed" (the later build's `line`) and "Checks and marks" (`checksMoved` of both entries' `dimensions`
+  and `failing`). A comparing that did not start from a turn has no tags, only the list. Tags take no pointer. For display only: no bounds tree, a ray finds nothing, it is
   hidden for a picture (`hideGizmo`), and nothing is measured, marked or written from it. A live build landing does not end it; another object, another layout, a
   section or an explode does. It is not the ghosts of a build that landed (`ghosts.ts`, a moment, edges only). `__tornoTest.earlier()` and `compare()` are for tests.

@@ -1492,6 +1492,16 @@ describe('comparing two kept builds', () => {
     expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay' })
   })
 
+  it('keeps what the turn changed, for the tags written on the parts, and none when it did not come from a turn', () => {
+    const changes = { files: [], added: [], sketched: [], resketched: [], resolved: [], dimensions: [{ id: 'M3', now: 'pass' as const }], parts: [] }
+    actions.compare('h40', 'h41', 14, changes)
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay', prompt: 14, changes })
+    actions.compareMode('after')
+    expect(store.getState().compare?.changes).toBe(changes)
+    actions.compare('h40', 'h41')
+    expect(store.getState().compare).not.toHaveProperty('changes')
+  })
+
   it('changes the way it is shown, and keeps the builds', () => {
     actions.compare('h40', 'h41', 14)
     for (const mode of ['before', 'after', 'side', 'overlay'] as const) {

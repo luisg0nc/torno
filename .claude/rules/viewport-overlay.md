@@ -113,7 +113,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`--raise`, ink, a hairline; failed, sketch, compare, facePick). The band carries `data-band`, `data-tone`, `data-part` and **`data-tag-avoid`**
   (tags stand clear of it). It is a toolbar when it holds buttons, else a status. `BoardSwitch` returns nothing while `useBand()` is not null.
 - The words are `bandKind.ts`'s (`sketchWords`, `failedWords`, `compareWords`, `planeSaid`); refs and numbers are in the face of numbers.
-  What a mode could not do is `.band-note` under the band (`--fail` on `--fail-wash`). `.sign-disc` in `bands.css` is provisional until Task 24.
+  What a mode could not do is `.band-note` under the band (`--fail` on `--fail-wash`). `.sign-disc` is `reviews.css`'s (`ui/SignDisc.tsx`).
 
 ## Explode (`app/src/renderer`)
 

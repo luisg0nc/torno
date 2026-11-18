@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import type { Box } from '../../../shared/leader'
 import { placeTag, tagSubject, type Side } from '../../../shared/tagPlace'
 import { onPaneDrawn, paneRect, projectToPane } from '../../viewport/overlay'
-import { publishTag, withdrawTag } from './useTagAt'
+import { onTagsMoved, publishTag, withdrawTag } from './useTagAt'
 
 type Vec3 = readonly [number, number, number]
 
@@ -30,6 +30,8 @@ export interface TagProps {
   subject: Vec3 | null
   /** A subject that moves without a render (a plane being dragged): asked after every frame, in place of `subject`. */
   subjectAt?: () => Vec3 | null
+  /** A subject on a flat sheet (a tracing's), in window pixels, asked after every `tagsMoved` in place of `subject`: the view's camera has no say where it is. */
+  subjectClient?: () => { x: number; y: number } | null
   /** The side it starts on, before it has one of its own. */
   prefer?: Exclude<Side, 'docked'>
   /** Whether it keeps the side it had while that still fits (the default), so that it does not hop as the camera moves; false asks for `prefer` first every frame. */
@@ -48,12 +50,14 @@ export interface TagProps {
  * its side while that still fits. With no subject, or a subject off the view or behind the camera, it docks above the hint
  * and has no leader. Its leader is set through `publishTag`.
  */
-export function Tag({ id, subject, subjectAt, prefer, sticky = true, problem, status, children }: TagProps) {
+export function Tag({ id, subject, subjectAt, subjectClient, prefer, sticky = true, problem, status, children }: TagProps) {
   const element = useRef<HTMLDivElement>(null)
   const subjectRef = useRef(subject)
   subjectRef.current = subject
   const subjectAtRef = useRef(subjectAt)
   subjectAtRef.current = subjectAt
+  const subjectClientRef = useRef(subjectClient)
+  subjectClientRef.current = subjectClient
   const side = useRef<Exclude<Side, 'docked'> | undefined>(prefer)
   const place = useRef<() => void>(() => {})
 
@@ -62,15 +66,21 @@ export function Tag({ id, subject, subjectAt, prefer, sticky = true, problem, st
     place.current = () => {
       const within = self.offsetParent instanceof HTMLElement ? self.offsetParent : null
       const canvas = paneRect()
-      if (!within || !canvas) {
+      if (!within || (!canvas && !subjectClientRef.current)) {
         self.style.visibility = 'hidden'
         return
       }
       const pane = within.getBoundingClientRect()
       const view: Box = { x: 0, y: 0, w: pane.width, h: pane.height }
-      const now = subjectAtRef.current ? subjectAtRef.current() : subjectRef.current
-      const point = now ? projectToPane(now) : null
-      const at = tagSubject(point && { x: point.x + canvas.left - pane.left, y: point.y + canvas.top - pane.top }, view)
+      let at
+      if (subjectClientRef.current) {
+        const client = subjectClientRef.current()
+        at = tagSubject(client && { x: client.x - pane.left, y: client.y - pane.top }, view)
+      } else {
+        const now = subjectAtRef.current ? subjectAtRef.current() : subjectRef.current
+        const point = now ? projectToPane(now) : null
+        at = tagSubject(point && { x: point.x + canvas!.left - pane.left, y: point.y + canvas!.top - pane.top }, view)
+      }
       const size = { w: self.offsetWidth, h: self.offsetHeight }
       const avoid = avoidBoxes(self, within, pane)
       const placed = placeTag(at, size, view, avoid, sticky ? side.current : prefer)
@@ -86,11 +96,13 @@ export function Tag({ id, subject, subjectAt, prefer, sticky = true, problem, st
     }
     place.current()
     const off = onPaneDrawn(() => place.current())
+    const offSheet = onTagsMoved(() => place.current())
     // The tag grows with what is in it.
     const sized = new ResizeObserver(() => place.current())
     sized.observe(self)
     return () => {
       off()
+      offSheet()
       sized.disconnect()
       withdrawTag(id)
     }

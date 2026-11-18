@@ -167,6 +167,13 @@ test('a face picked while "don\'t want" is chosen is a mark of the round, with i
   // Its row says what it is, and that it waits.
   const row = page.locator('.mark-row[data-mark="M1"]')
   await expect(row).toContainText('− M1')
+  // The sign is a round disc before the square chip: the minus hatched in the person's colour.
+  await expect(row.locator('.mark-line > .sign-disc[data-sign="-"]')).toHaveText('−')
+  await expect(row.locator('.sign-disc + .mark-chip')).toHaveText('M1')
+  await expect(row.locator('.mark-chip')).not.toContainText('−')
+  expect(await row.locator('.mark-line > .sign-disc').evaluate((el) => [getComputedStyle(el).borderRadius, getComputedStyle(el).width, getComputedStyle(el).backgroundImage.startsWith('repeating-linear-gradient')])).toEqual(['50%', '18px', true])
+  // The pens of the band carry the same discs.
+  await expect(bar().locator('.sign-disc')).toHaveCount(2)
   await expect(row).toContainText('in review, not sent')
 })
 
@@ -183,6 +190,7 @@ test('a sketch drawn while "want" is chosen is the round\'s second item', async 
   await expect(sketchPanel()).toHaveCount(0)
   await expect(bar()).toContainText('1 − · 1 +')
   await expect(page.locator('.mark-row[data-mark="M2"]')).toContainText('+ M2')
+  await expect(page.locator('.mark-row[data-mark="M2"] .mark-line > .sign-disc[data-sign="+"]')).toHaveText('+')
 })
 
 test('a view note drawn in the round is its plain third item, and no prompt carries it', async () => {

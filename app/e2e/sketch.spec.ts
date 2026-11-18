@@ -138,6 +138,13 @@ test('a line on XZ begins on the hole\'s centre: the point is snapped, and told 
   // The plane XZ through the middle of the parts (y = 0), where the hole's centre is (10, 0, 6).
   await page.keyboard.press('Shift+2')
   await expect(panel()).toContainText('XZ at y = 0.0')
+  // The plane's handle has a tag tied to it by a leader: its name, the place on the axis it is across, and the key that types it.
+  const planeTag = page.locator('.viewport-pane [data-tag="sketch-plane"]')
+  await expect(planeTag).toContainText('XZ plane')
+  await expect(planeTag).toContainText('y')
+  await expect(planeTag.locator('.sketch-plane-value')).toHaveText('0.0')
+  await expect(planeTag).toContainText('Tab')
+  await expect(page.locator('svg.leader-layer [data-leader="sketch-plane"]')).toHaveCount(1)
   const centre: Vec3 = [10, 0, 6]
   const hit = await page.evaluate((c) => {
     const [fx, fy] = window.__tornoTest!.project(c)

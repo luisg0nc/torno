@@ -185,6 +185,12 @@ export class SketchSheet {
     return this.group.visible ? this.handle : null
   }
 
+  /** How far the plane is from where it was made as it is laid now (a drag of its handle moves it before it is kept), or null for a plane that has none or no sheet. */
+  offsetNow(): number | null {
+    const from = this.group.visible ? this.frame?.from : undefined
+    return from && from.kind !== 'view' && from.kind !== 'tracing' ? from.offset : null
+  }
+
   /** The sheet's corner the label stands by, in the object frame: the upper left of it as the plane's own axes have it. */
   cornerPoint(): Vec3 | null {
     if (!this.frame || !this.current) return null

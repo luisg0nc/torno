@@ -1,5 +1,5 @@
 import type { HistoryEntry } from '../../../shared/history'
-import { type Mark, markIntent } from '../../../shared/marks'
+import { type Mark, type ReviewIntent, markIntent } from '../../../shared/marks'
 import { INTENT_CHIP, type Round, roundItems } from '../../../shared/reviews'
 import { countsText } from '../../../shared/sketchText'
 
@@ -12,6 +12,8 @@ export interface RoundRow {
   chip: string
   /** `−` for what is not wanted, `+` for what is, nothing for a plain item: the 22 px column before the words. */
   sign: string
+  /** The same as the disc's intent, for the round sign of the column; none for a plain item. */
+  intent?: ReviewIntent
   note: string
   /** What the item is on, in the face of refs (`plate/F3`, `part`, `3 strokes on 2 planes`); empty when it is on nothing a name can be given to. */
   where: string
@@ -36,7 +38,7 @@ export function whereText(mark: Mark): string {
 /** `sent`: its round was sent; before that main refuses a verdict, so none is offered. */
 function rowOf(mark: Mark, sent: boolean): RoundRow {
   const intent = markIntent(mark)
-  const row = { id: mark.id, chip: intent ? `${INTENT_CHIP[intent]} ${mark.id}` : mark.id, sign: intent ? INTENT_CHIP[intent] : '', note: mark.note, where: whereText(mark), ...(mark.resolvedNote ? { resolved: mark.resolvedNote } : {}) }
+  const row = { id: mark.id, chip: intent ? `${INTENT_CHIP[intent]} ${mark.id}` : mark.id, sign: intent ? INTENT_CHIP[intent] : '', ...(intent ? { intent } : {}), note: mark.note, where: whereText(mark), ...(mark.resolvedNote ? { resolved: mark.resolvedNote } : {}) }
   const judged = mark.judged
   if (mark.status === 'resolved') {
     // Only Claude's answer is the person's to judge. A judgment older than its answer (Still wrong, answered again) is no longer of it.

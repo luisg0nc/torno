@@ -57,6 +57,8 @@ export class OverlayPass {
   ruleHandle: { x: number; y: number } | null = null
   /** The chips of the marks as the last frame placed and drew them: what the pointer is on is read from these, not worked out again. */
   private chips: Placed[] = []
+  /** The marks drawn dimmed, their chips mixed toward the ground: those outside the review round while its band is on. Null for none. */
+  dimmed: ReadonlySet<string> | null = null
   /** Draw no chips of marks (and find none under the pointer): what is on the canvas is not the build they were made on. */
   hideChips = false
 
@@ -100,7 +102,7 @@ export class OverlayPass {
     ctx.setTransform(this.canvas.width / size.width, 0, 0, this.canvas.height / size.height, 0, 0)
     ctx.clearRect(0, 0, size.width, size.height)
     this.chips = this.hideChips ? [] : host.marks.labels(host.layout(), host.camera(), size, 1, chipSize(ctx, 1))
-    drawLabels(ctx, this.chips, style, 1, host.marks.activeId, host.marks.hoverId)
+    drawLabels(ctx, this.chips, style, 1, host.marks.activeId, host.marks.hoverId, this.dimmed)
     this.drawFrame(ctx, size, style)
     this.drawExplodeTrack(ctx, size, style)
     // Not while the parts are drawn apart: a point picked on the model would be drawn where its part is not.

@@ -5,14 +5,15 @@ import { INTENT_CHIP, roundCounts } from '../../shared/reviews'
 import { boardStore } from '../state/board'
 import { openRoundNow, reviewActions, useReview } from '../state/review'
 import { store, useStore } from '../state/store'
+import { SignDisc } from './SignDisc'
 import { TYPING } from './typing'
 import { Band, BandButton, useBand } from './view/Band'
 
 /** The three ways the next marks can be, in the order of the bar: the choice, what it says, and the key of each that has one. */
-const CHOICES: Array<{ choice: 'plain' | ReviewIntent; label: string; sign?: string; shortcut?: 'review.dont' | 'review.want'; title: string }> = [
+const CHOICES: Array<{ choice: 'plain' | ReviewIntent; label: string; sign?: ReviewIntent; shortcut?: 'review.dont' | 'review.want'; title: string }> = [
   { choice: 'plain', label: 'Plain', title: 'The marks you make go to Claude as marks, in the round, with no word on them' },
-  { choice: 'dont', label: "Don't want", sign: INTENT_CHIP.dont, shortcut: 'review.dont', title: "The marks you make are what you don't want: drawn hatched, in your colour" },
-  { choice: 'want', label: 'Want', sign: INTENT_CHIP.want, shortcut: 'review.want', title: 'The marks you make are what you want: drawn solid, in your colour' }
+  { choice: 'dont', label: "Don't want", sign: 'dont', shortcut: 'review.dont', title: "The marks you make are what you don't want: drawn hatched, in your colour" },
+  { choice: 'want', label: 'Want', sign: 'want', shortcut: 'review.want', title: 'The marks you make are what you want: drawn solid, in your colour' }
 ]
 
 /**
@@ -80,11 +81,7 @@ export function ReviewBar() {
         <div className="reviewbar-pens" role="radiogroup" aria-label="New marks are">
           {CHOICES.map((c) => (
             <button key={c.choice} type="button" className="band-pen" role="radio" aria-checked={here && choice === c.choice} aria-pressed={here && choice === c.choice} disabled={!here} aria-keyshortcuts={c.shortcut ? hint(c.shortcut) : undefined} title={`${c.title}${c.shortcut ? ` (${hint(c.shortcut)})` : ''}`} onClick={() => reviewActions.choose(c.choice)}>
-              {c.sign && (
-                <span className="sign-disc num" data-sign={c.choice}>
-                  {c.sign}
-                </span>
-              )}{' '}
+              {c.sign && <SignDisc intent={c.sign} />}{' '}
               {c.label}
             </button>
           ))}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mark } from './marks'
-import { type Round, type RoundsView, ROUND_ID, isHeld, openRound, unheldNotes, reviewName, roundCounts, roundItems } from './reviews'
+import { type Round, type RoundsView, ROUND_ID, isHeld, openRound, unheldNotes, reviewName, roundCounts, roundItems, outsideRound } from './reviews'
 
 const CAMERA = { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 const pin = (id: string, over: object = {}): Mark =>
@@ -28,6 +28,13 @@ describe('a round', () => {
     expect(roundItems(marks, 'R1').map((m) => m.id)).toEqual(['M1', 'M2', 'M3', 'M4', 'M5', 'M6'])
     expect(roundCounts(marks, 'R1')).toEqual({ dont: 3, want: 2, plain: 1 })
     expect(roundCounts(marks, 'R9')).toEqual({ dont: 0, want: 0, plain: 0 })
+  })
+
+  it('has the marks that are not its items to be drawn dimmed while it is on', () => {
+    const outside = outsideRound(marks, 'R1')
+    expect([...outside]).toEqual(marks.filter((m) => m.round !== 'R1').map((m) => m.id))
+    expect(outside.has('M1')).toBe(false)
+    expect(outsideRound(marks, 'R9').size).toBe(marks.length)
   })
 
   it('is named by its build and what it holds, a count of none left out', () => {

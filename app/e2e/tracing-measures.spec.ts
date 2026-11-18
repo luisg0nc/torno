@@ -62,7 +62,9 @@ test('Measure between two corners of the cut is exact, made by main from the ker
   const [bx, by] = await client(b.uv)
   await page.mouse.click(ax, ay)
   await page.mouse.move(bx, by)
-  await expect(page.locator('.tr-pointer-hint')).toContainText(/^\d/)
+  // The number the span would have is a tag tied to the middle of the line, with a leader.
+  await expect(page.locator('[data-tag="tracing-measure"]')).toContainText(/\d/)
+  await expect(page.locator('svg.leader-layer [data-leader="tracing-measure"]')).toHaveCount(1)
   await page.mouse.click(bx, by)
   await expect.poll(async () => (await marks()).filter((m) => m.kind === 'span').length).toBe(1)
   const span = (await marks()).find((m) => m.kind === 'span') as SpanMark
@@ -102,7 +104,10 @@ test('Should be here drags a shape, Shift keeps one axis, an arrow nudges a tent
   const [mx, my] = await client([4 + 3, 0.5])
   await page.keyboard.down('Shift')
   await page.mouse.move(mx, my, { steps: 4 })
-  await expect(page.locator('.tr-pointer-hint')).toContainText('bolt 1 should be here · 3 mm right')
+  await expect(page.locator('[data-tag="tracing-offset"]')).toContainText('bolt 1 should be here · 3 mm right')
+  await expect(page.locator('svg.leader-layer [data-leader="tracing-offset"]')).toHaveCount(1)
+  // The mark is a draft that goes with the next prompt: the tag has no button to tell Claude.
+  await expect(page.locator('[data-tag="tracing-offset"] button')).toHaveCount(0)
   await page.mouse.up()
   await page.keyboard.up('Shift')
   await expect.poll(async () => (await marks()).filter((m) => m.kind === 'offset').length).toBe(1)

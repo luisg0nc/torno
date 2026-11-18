@@ -60,9 +60,12 @@ import { openNote } from './drawing/make'
 import { Compass } from './view/Compass'
 import { ExplodeTag } from './ExplodeControl'
 import { MeasureTag } from './view/MeasureTag'
+import { SketchPlaneTag } from './sketch/SketchPanel'
 import { CompareBar } from './CompareBar'
 import { ReviewBar } from './ReviewBar'
-import { FailedBand, SketchBand } from './view/Band'
+import { FailedBand, SketchBand, useBand } from './view/Band'
+import { outsideRound } from '../../shared/reviews'
+import { openRoundNow, useReview } from '../state/review'
 
 const NO_SCENE: Scene = { model: '', layouts: [], parts: [], seconds: 0, output: '' }
 
@@ -617,7 +620,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       ghosts: () => viewport.ghostKeys(),
       earlier: () => viewport.earlierKeys(),
       later: () => viewport.laterKeys(),
-      compare: (from, to, prompt) => actions.compare(from, to, prompt),
+      compare: (from, to, prompt, changes) => actions.compare(from, to, prompt, changes),
       holdGhosts: (held) => viewport.holdGhosts(held),
       // What a pointer move costs: the same call, at points spread over the canvas in a grid.
       timePicks: (count = 200, opts) => timed(count, (x, y) => viewport.pick(x, y, opts) !== null),
@@ -765,6 +768,13 @@ export function ViewportPane() {
   useEffect(() => {
     if (viewport) viewport.paused = boardShown
   }, [viewport, boardShown])
+  // While the review band is on, the marks that are not in its round are drawn dimmed: their chips mixed toward the ground.
+  const reviewing = useBand() === 'review'
+  const roundId = useReview((s) => openRoundNow(s)?.id ?? null)
+  const allMarks = useStore((s) => s.marks)
+  useEffect(() => {
+    viewport?.setDimmedMarks(reviewing && roundId !== null ? outsideRound(allMarks, roundId) : null)
+  }, [viewport, reviewing, roundId, allMarks])
 
   useEffect(() => {
     // A canvas of its own for each viewport: a WebGL context is not handed on.
@@ -822,6 +832,7 @@ export function ViewportPane() {
           <FailedBand />
           <ToolPalette />
           <SectionTag viewport={viewport} />
+          <SketchPlaneTag viewport={viewport} />
           {/* The tags of Measure's last reading and of Explode, tied to the line and the track. */}
           <MeasureTag />
           <ExplodeTag viewport={viewport} />

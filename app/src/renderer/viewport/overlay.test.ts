@@ -27,6 +27,9 @@ function recorder() {
     moveTo: () => void (moves += 1),
     lineTo: () => void (lines += 1),
     roundRect: () => {},
+    arc: () => {},
+    clip: () => {},
+    fillRect: () => {},
     fill: () => void fills.push({ colour: ctx.fillStyle, alpha: ctx.globalAlpha }),
     stroke: () => void strokes.push({ colour: ctx.strokeStyle, moves, lines }),
     fillText: (text: string) => {
@@ -61,6 +64,45 @@ describe('the ring of a chip', () => {
     // The active one keeps its own ring while it is pointed at.
     expect(ringed('M1', 'M1')).toEqual([{ colour: STYLE.ink, alpha: 1 }])
     expect(ringed('M2', 'M3')).toEqual([])
+  })
+})
+
+describe('the round sign beside a chip', () => {
+  it('makes room for the disc, 18 px and its gap, for a mark with a sign and for none without one', () => {
+    const size = chipSize(recorder().ctx, 1)
+    expect(size('M1', undefined, '-').w).toBe(size('M1').w + 21)
+    expect(size('M1', { text: '40 mm' }, '+').w).toBe(size('M1', { text: '40 mm' }).w + 21)
+  })
+
+  it('draws a plus solid in the agent’s colour and a minus hatched in the person’s, each with its sign, beside the number', () => {
+    const want = recorder()
+    drawLabels(want.ctx, [{ ...label(undefined), sign: '+' as const, box: { x: 100, y: 90, w: 51, h: 17 } }], STYLE, 1)
+    expect(want.texts.map((t) => t.text)).toEqual(['M1', '+'])
+    expect(want.fills.some((f) => f.colour === STYLE.agent)).toBe(true)
+    const dont = recorder()
+    drawLabels(dont.ctx, [{ ...label(undefined), sign: '-' as const, box: { x: 100, y: 90, w: 51, h: 17 } }], STYLE, 1)
+    expect(dont.texts.map((t) => t.text)).toEqual(['M1', '−'])
+    expect(dont.fills.some((f) => f.colour === STYLE.user)).toBe(true)
+    // No sign, no disc: the number alone.
+    const plain = recorder()
+    drawLabels(plain.ctx, [label(undefined)], STYLE, 1)
+    expect(plain.texts.map((t) => t.text)).toEqual(['M1'])
+  })
+})
+
+describe('the chips of marks not in the review round', () => {
+  it('are mixed toward the ground, by colour and never by opacity', () => {
+    const { ctx, fills, strokes, texts } = recorder()
+    drawLabels(ctx, [label(undefined)], STYLE, 1, null, null, new Set(['M1']))
+    expect(fills.filter((f) => f.colour.startsWith('color-mix(')).length).toBeGreaterThan(0)
+    expect(strokes.every((s) => s.colour.startsWith('color-mix('))).toBe(true)
+    expect(texts.every((t) => t.alpha === 1)).toBe(true)
+    expect(fills.every((f) => f.alpha === 1)).toBe(true)
+    expect(fills.some((f) => f.colour.includes(STYLE.surface) && f.colour.includes('30%'))).toBe(true)
+    // A chip of the round is drawn as ever.
+    const round = recorder()
+    drawLabels(round.ctx, [label(undefined)], STYLE, 1, null, null, new Set(['M2']))
+    expect(round.fills.some((f) => f.colour.startsWith('color-mix('))).toBe(false)
   })
 })
 

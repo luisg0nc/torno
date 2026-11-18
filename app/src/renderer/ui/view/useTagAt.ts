@@ -43,6 +43,22 @@ export function publishTag(id: string, at: TagAt, origin: Pt): void {
   if (!sameAt(before, at)) tell(id, at)
 }
 
+// A flat sheet (a tracing) is no 3D view: the camera's frames do not tell its tags it has moved. Whatever moves the sheet or its subject says so here.
+const moved = new Set<() => void>()
+
+/** The sheet or a tag's subject on it has moved: the tags that stand by a point of a sheet (`Tag`'s `subjectClient`) are placed again. */
+export function tagsMoved(): void {
+  for (const fn of [...moved]) fn()
+}
+
+/** Calls back each time `tagsMoved` is said; returns what stops it. */
+export function onTagsMoved(fn: () => void): () => void {
+  moved.add(fn)
+  return () => {
+    moved.delete(fn)
+  }
+}
+
 /** A tag is gone (unmounted): its place and its leader with it. */
 export function withdrawTag(id: string): void {
   const was = placed.delete(id)

@@ -33,6 +33,10 @@
   padding-top: 4px;
 }
 
+.mark-line > .sign-disc {
+  margin-top: 1px;
+}
+
 .mark-line > .mark-chip,
 .mark-line > .mark-thumb,
 .mark-line > .mark-sketch {

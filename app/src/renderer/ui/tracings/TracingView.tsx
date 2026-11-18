@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { number } from '../../../shared/format'
 import { hint, pressed, viewKey, which } from '../../../shared/keys'
 import { MAX_NOTE, type DimensionMark, type NewStroke } from '../../../shared/marks'
@@ -16,6 +16,8 @@ import { NewTracing } from './NewTracing'
 import { paintGrid } from './gridPaint'
 import { Grid, SheetLayer } from './Grid'
 import { LineUp } from './LineUp'
+import { Tag } from '../view/Tag'
+import { tagsMoved } from '../view/useTagAt'
 import { Palette } from './Palette'
 import { axisOfDirection, PX_PER_MM, ratioText, Sheet, type View } from './Sheet'
 import { INK_PENS, InkTool } from './inkTool'
@@ -88,6 +90,13 @@ export function TracingView() {
   const labelEl = useRef<HTMLInputElement>(null)
   const pinEl = useRef<HTMLInputElement>(null)
   const hintEl = useRef<HTMLSpanElement>(null)
+  // The tags of Measure (its reading, while the second end is chosen) and of Should be here (the shape in hand): their words are set on the elements as the pointer moves.
+  const [measuring, setMeasuring] = useState(false)
+  const [moving, setMoving] = useState(false)
+  const measureNumber = useRef<HTMLSpanElement>(null)
+  const measureWords = useRef<HTMLSpanElement>(null)
+  const offsetWords = useRef<HTMLSpanElement>(null)
+  const showTags = useRef<() => void>(() => {})
   const readout = useRef<HTMLSpanElement>(null)
   const bar = useRef<HTMLSpanElement>(null)
   const barLabel = useRef<HTMLSpanElement>(null)
@@ -131,7 +140,10 @@ export function TracingView() {
   if (measure.current === null) {
     measure.current = new MeasureTool(
       (a, b) => void tracingActions.span(a, b),
-      () => paint.current()
+      () => {
+        paint.current()
+        showTags.current()
+      }
     )
   }
 
@@ -142,7 +154,7 @@ export function TracingView() {
       (layer, index, by) => void tracingActions.offset(layer, index, by),
       () => {
         paint.current()
-        showOffset()
+        showTags.current()
       },
       (layer, index) => {
         const open_ = tracingsStore.getState().open
@@ -215,11 +227,39 @@ export function TracingView() {
     el.innerHTML = out
   }
 
-  // The readout of a shape being dragged, at the pointer: its mark's number, its name and how far it has moved.
-  function showOffset(): void {
-    const el = hintEl.current
-    if (!el || tracingsStore.getState().tool !== 'offset') return
-    el.textContent = offset.current?.readout() ?? ''
+  // The tags of the tools in hand: Measure's reading while its second end is chosen, tied to the middle of the line so far, and Should be here's
+  // words (its mark, the shape, how far it was moved), tied to the shape's ghost. Their words are set on their elements, and not through React, as
+  // the pointer moves; React only says whether each is there.
+  showTags.current = () => {
+    const now = tracingsStore.getState().tool
+    const measuringNow = now === 'measure' && measure.current?.active === true
+    if (measuringNow !== measuring) setMeasuring(measuringNow)
+    const movingNow = now === 'offset' && offset.current?.active === true
+    if (movingNow !== moving) setMoving(movingNow)
+    const h = hover.current
+    const reading = measuringNow && h ? measure.current?.reading({ uv: h.uv, ...(h.snap ? { snap: h.snap.snap } : {}), ...(h.snap === undefined && photoAt(h.uv) ? { photo: true } : {}) }) : null
+    if (measureNumber.current) measureNumber.current.textContent = reading ? `${reading.approx ? '≈ ' : ''}${reading.value}` : ''
+    if (measureWords.current) measureWords.current.textContent = reading ? [reading.approx ? 'approximate' : built ? `exact on build ${built}` : 'exact', h?.snap?.hint ?? ''].filter(Boolean).join(' · ') : ''
+    if (offsetWords.current) offsetWords.current.textContent = movingNow ? (offset.current?.readout() ?? '') : ''
+    tagsMoved()
+  }
+  // A tag that has just come is given its words before it is first placed.
+  useLayoutEffect(() => showTags.current(), [measuring, moving])
+  /** Where the line so far is in the middle, in window pixels: what the reading's tag is tied to. */
+  const measureAt = (): { x: number; y: number } | null => {
+    const from = measure.current?.draft
+    const h = hover.current
+    if (!from || !h || !sheet) return null
+    const [x1, y1] = sheet.toScreen(from.uv)
+    const [x2, y2] = sheet.toScreen(h.uv)
+    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 }
+  }
+  /** Where the shape in hand was, in window pixels: what the Should be here tag is tied to. */
+  const ghostAt = (): { x: number; y: number } | null => {
+    const at = offset.current?.ghostAt()
+    if (!at || !sheet) return null
+    const [x, y] = sheet.toScreen(at)
+    return { x, y }
   }
 
   // Where the label's field stands: on its point of the plane, moved with the sheet.
@@ -245,6 +285,7 @@ export function TracingView() {
       if (bar.current) bar.current.style.width = `${length * made.view.k}px`
       if (barLabel.current) barLabel.current.textContent = `${number(length)} mm`
       if (tracingsStore.getState().tool !== 'select') paint.current()
+      tagsMoved()
       for (const [input, at] of [[labelEl.current, trace.current?.draft.label], [pinEl.current, pin.current?.draft]] as const) {
         if (input && at) {
           const [x, y] = made.toScreen(at)
@@ -452,16 +493,13 @@ export function TracingView() {
     hover.current = at
     const el = hintEl.current
     if (el) {
-      // Measure says the number it would have, with what the pointer snapped to; Should be here says how far the shape in hand has been moved.
-      if (tool === 'measure') {
-        const said = measure.current?.readout({ uv: at.uv, ...(at.snap ? { snap: at.snap.snap } : {}), ...(at.snap === undefined && photoAt(at.uv) ? { photo: true } : {}) }) ?? ''
-        el.textContent = [said, at.snap?.hint ?? ''].filter(Boolean).join(' · ')
-      } else if (tool === 'offset') el.textContent = offset.current?.readout() ?? ''
-      else el.textContent = at.snap?.hint ?? ''
+      // What the pointer snapped to; the number Measure would have, and how far Should be here has moved the shape in hand, are in their tags.
+      el.textContent = tool === 'offset' || tool === 'measure' ? '' : (at.snap?.hint ?? '')
       const r = stage.current?.getBoundingClientRect()
       el.style.transform = `translate(${Math.round(e.clientX - (r?.left ?? 0) + 14)}px, ${Math.round(e.clientY - (r?.top ?? 0) + 18)}px)`
     }
     paint.current()
+    showTags.current()
   }
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>): void {
@@ -592,6 +630,7 @@ export function TracingView() {
           hover.current = null
           if (hintEl.current) hintEl.current.textContent = ''
           paint.current()
+          showTags.current()
         }}
         onContextMenu={(e) => e.preventDefault()}
         onDragOver={(e) => {
@@ -660,6 +699,21 @@ export function TracingView() {
         )}
       </div>
 
+      {tool === 'measure' && measuring && (
+        <Tag id="tracing-measure" subject={null} subjectClient={measureAt} prefer="above">
+          <span className="tag-reading tr-tag-reading">
+            <span ref={measureNumber} className="measure-number" />
+            <span className="tag-unit">mm</span>
+          </span>
+          <span ref={measureWords} className="measure-words" />
+        </Tag>
+      )}
+      {tool === 'offset' && moving && (
+        <Tag id="tracing-offset" subject={null} subjectClient={ghostAt} prefer="above">
+          <span ref={offsetWords} className="tr-tag-words" />
+        </Tag>
+      )}
+
       {tracing !== undefined && drawing === null && (
         <p className="tr-empty" role="status">
           {building ? 'Building…' : 'Build to see the outline'}
@@ -668,7 +722,7 @@ export function TracingView() {
 
       {tracing !== undefined && <Palette />}
 
-      <div className="tr-head">
+      <div className="tr-head" data-tag-avoid="">
         {tracings !== undefined && tracings.length > 0 && (
           <select
             className="tr-picker"

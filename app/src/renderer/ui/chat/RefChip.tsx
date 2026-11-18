@@ -5,6 +5,7 @@ import { useSets } from '../../state/sets'
 import { tracingActions, useTracings } from '../../state/tracings'
 import { actions, useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
+import { SignDisc } from '../SignDisc'
 import { ChatEarlier } from './place'
 import { type RefInfo, refInfo } from './refs'
 
@@ -52,29 +53,41 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
   // A build is told with what it was made from (`of`), and in an earlier part of the conversation with how little its number says now.
   const title = info.kind !== 'build' ? info.title : [info.title, of ? `made from ${of}` : '', earlier ? 'Revisions count from 1 in every run: from an earlier part of this conversation, it may name another build now' : ''].filter(Boolean).join('. ')
   const props = { className: 'ref-chip num', 'data-ref': value, 'data-kind': info.kind, 'data-author': info.author, 'data-live': info.live ? '' : undefined, title }
-  if (!info.live || info.act === undefined) return <span {...props}>{value}</span>
+  // What the person says of their mark: its round sign stands before the chip.
+  const sign = info.intent === undefined ? null : <SignDisc intent={info.intent} />
+  if (!info.live || info.act === undefined) {
+    return (
+      <>
+        {sign}
+        <span {...props}>{value}</span>
+      </>
+    )
+  }
   return (
-    <button
-      type="button"
-      {...props}
-      onPointerEnter={() => light(true)}
-      onPointerLeave={() => light(false)}
-      onFocus={() => light(true)}
-      onBlur={() => light(false)}
-      onClick={(e) => {
-        if (info.act === 'focus') actions.focusMark(value)
-        else if (info.act === 'build') actions.setErrorOpen(true)
-        else if (info.act === 'card') boardActions.reveal(value)
-        else if (info.act === 'tracing') {
-          tracingActions.open(value)
-          boardActions.show('tracing')
-        }
-        else if (info.select === undefined || info.select.length > 0) actions.setSelection(info.select ?? (info.lights.length > 0 ? info.lights : [value]))
-        // Made with the pointer, the next letter is the view's: what the chip did, it did to the view. (Enter on it keeps the focus.)
-        if (e.detail > 0) giveKeysBack(e.currentTarget)
-      }}
-    >
-      {value}
-    </button>
+    <>
+      {sign}
+      <button
+        type="button"
+        {...props}
+        onPointerEnter={() => light(true)}
+        onPointerLeave={() => light(false)}
+        onFocus={() => light(true)}
+        onBlur={() => light(false)}
+        onClick={(e) => {
+          if (info.act === 'focus') actions.focusMark(value)
+          else if (info.act === 'build') actions.setErrorOpen(true)
+          else if (info.act === 'card') boardActions.reveal(value)
+          else if (info.act === 'tracing') {
+            tracingActions.open(value)
+            boardActions.show('tracing')
+          }
+          else if (info.select === undefined || info.select.length > 0) actions.setSelection(info.select ?? (info.lights.length > 0 ? info.lights : [value]))
+          // Made with the pointer, the next letter is the view's: what the chip did, it did to the view. (Enter on it keeps the focus.)
+          if (e.detail > 0) giveKeysBack(e.currentTarget)
+        }}
+      >
+        {value}
+      </button>
+    </>
   )
 }

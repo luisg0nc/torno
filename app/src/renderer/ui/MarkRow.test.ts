@@ -35,6 +35,14 @@ describe('a mark\'s row and what the person says of it', () => {
     expect(said(row(pick({ author: 'agent', intent: 'dont' })))).not.toContain('− M8')
   })
 
+  it('sets the sign as a round disc before the chip, the text of the sign kept before the number', () => {
+    const dont = row(pick({ intent: 'dont' }))
+    expect(dont).toMatch(/<span class="sign-disc[^"]*" data-sign="-">−<\/span> <span class="mark-chip[^"]*" data-author="user"[^>]*>M8<\/span>/)
+    expect(row(pick({ intent: 'want' }))).toMatch(/data-sign="\+">\+<\/span> <span class="mark-chip/)
+    expect(row(pick())).not.toContain('sign-disc')
+    expect(row(pick({ author: 'agent', intent: 'dont' }))).not.toContain('sign-disc')
+  })
+
   it('has a menu for the person\'s mark, and none for Claude\'s or for one that is resolved', () => {
     expect(row(pick())).toContain('aria-label="M8: plain. Change"')
     expect(row(pick({ author: 'agent', status: 'sent' }))).not.toContain('Change"')

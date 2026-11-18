@@ -61,9 +61,14 @@ test('comparing shows the bar and the line, survives a build landing, and Back t
   await expect(bar().getByRole('button', { name: 'Overlay', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.status-compare')).toHaveText(`comparing prompt 14 · ${from} → ${to}`)
   await expect.poll(earlier).toEqual(['assembly:tub', 'assembly:lid'])
-  // The boxes say what the later build changed, from its line.
+  // No corner boxes: what the later build changed is in the band's list, from its line, with how the checks and the dimensions moved.
+  await expect(page.locator('.compare-box')).toHaveCount(0)
+  const more = bar().getByRole('button', { name: 'What changed', exact: true })
+  await more.click()
   await expect(page.locator('[data-part="compare-changed"]')).toContainText('tub, lid changed')
   await expect(page.locator('[data-part="compare-moved"]')).toBeVisible()
+  await more.click()
+  await expect(page.locator('[data-part="compare-changed"]')).toHaveCount(0)
 
   await bar().getByRole('button', { name: 'Side by side', exact: true }).click()
   await expect(bar().getByRole('button', { name: 'Side by side', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -146,4 +151,34 @@ test('a later build that is not the live one stands in for it for the whole comp
   await expect.poll(earlier).toEqual(['assembly:tub', 'assembly:lid'])
   expect(await page.evaluate(() => window.__tornoTest!.later())).toEqual([])
   await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
+})
+
+test('what a turn changed is written on the parts as tags with leaders, four at most, and the rest are in the band\'s list', async () => {
+  const [from, to] = kept().map((e) => e.id)
+  const dim = { id: 'M3', now: 'pass' as const }
+  const part = (name: string, before: number, after: number) => ({ id: `assembly:${name}`, name, layout: 'assembly', volume: { before, after, exact: true }, faces: { before: 6, after: 6 } })
+  // The tub and the lid are in the build on show; the three after them are not (a part of an earlier build), so their tags are in the list.
+  const changes = { files: [], added: [], sketched: [], resketched: [], resolved: [], dimensions: [dim], parts: [part('tub', 28400, 26000), part('lid', 4000, 3000), part('ghost1', 100, 600), part('ghost2', 100, 500), part('ghost3', 100, 400)] }
+  await page.evaluate(([a, b, c]) => window.__tornoTest!.compare(a as string, b as string, 14, c as never), [from, to, changes] as const)
+  await expect(bar()).toBeVisible()
+  // The dimension M3 is no mark here, and ghost1 to ghost3 are no parts: only the tub and the lid stand on a part.
+  const tag = (subject: string) => page.locator(`.viewport-pane [data-tag="change-${subject}"]`)
+  await expect(tag('assembly:tub')).toContainText('tub volume 28400 → 26000 mm³')
+  await expect(tag('assembly:lid')).toContainText('lid volume 4000 → 3000 mm³')
+  await expect(page.locator('.viewport-pane [data-tag^="change-"]')).toHaveCount(2)
+  await expect(page.locator('svg.leader-layer [data-leader="change-assembly:tub"]')).toHaveCount(1)
+  await expect(page.locator('svg.leader-layer [data-leader="change-assembly:lid"]')).toHaveCount(1)
+  // The band says how many are not on a part: M3 and ghost1 had tags and no place to stand, ghost2 and ghost3 were cut after the four.
+  const more = bar().getByRole('button', { name: /^and \d+ more$/ })
+  await expect(more).toHaveText('and 4 more')
+  await more.click()
+  await expect(page.locator('[data-part="compare-rest"]')).toContainText('M3 now passes')
+  await expect(page.locator('[data-part="compare-rest"]')).toContainText('ghost3 volume 100 → 400 mm³')
+  await more.click()
+  // Side by side is no one's frame: no tags are written on it, and all are in the list.
+  await bar().getByRole('button', { name: 'Side by side', exact: true }).click()
+  await expect(page.locator('.viewport-pane [data-tag^="change-"]')).toHaveCount(0)
+  await expect(page.locator('svg.leader-layer [data-leader^="change-"]')).toHaveCount(0)
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
+  await expect(page.locator('.viewport-pane [data-tag^="change-"]')).toHaveCount(0)
 })

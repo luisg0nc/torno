@@ -1,3 +1,4 @@
+import type { TurnSummary } from '../ui/chat/turnSummary'
 import { own } from '../../shared/exportdata'
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
@@ -786,12 +787,12 @@ export const actions = {
   },
 
   /** The kept build `from` is compared with `to` (`ViewportPane` asks main for the meshes of `from`), as an overlay, for the turn `prompt` when it is one's. */
-  compare(from: string, to: string, prompt?: number): void {
+  compare(from: string, to: string, prompt?: number, changes?: TurnSummary): void {
     const { objectId, compare } = store.getState()
     if (objectId === null) return
     // The same earlier build asked for again is the one already drawn, or being made, or refused: what is said of it stays.
     const same = compare?.from === from ? { ...(compare.building === undefined ? {} : { building: compare.building }), ...(compare.refused === undefined ? {} : { refused: compare.refused }) } : {}
-    store.setState({ compare: { from, to, mode: 'overlay', ...(prompt === undefined ? {} : { prompt }), ...same } })
+    store.setState({ compare: { from, to, mode: 'overlay', ...(prompt === undefined ? {} : { prompt }), ...(changes === undefined ? {} : { changes }), ...same } })
   },
 
   /** How the comparing is shown. Nothing without one. */

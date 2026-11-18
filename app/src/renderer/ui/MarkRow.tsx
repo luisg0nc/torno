@@ -2,7 +2,7 @@ import { pressed } from '../../shared/keys'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { exactText, shownDimension } from '../../shared/dimension'
 import { EXPLODED_TOOLS } from '../../shared/explode'
-import { type Mark, type MarkKind, type MarkPatch, type NoteMark, type SketchMark, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
+import { type Mark, type MarkKind, type MarkPatch, type NoteMark, type SketchMark, awaitsAcknowledgement, isUnchecked, markIntent } from '../../shared/marks'
 import { isHeld } from '../../shared/reviews'
 import { count, number } from '../../shared/format'
 import { countsText, sketchName, takeText } from '../../shared/sketchText'
@@ -11,13 +11,13 @@ import { actions, explodeNow, partsInLayout, runningSession, store, useStore } f
 import { endReplace, startReplace, useReplacing } from '../state/tools'
 import { editSketch } from '../state/sketching'
 import { editRegion } from '../tools/regionPainting'
-import { rowLabel } from '../viewport/marks/labels'
 import { spanningMarks } from '../viewport/marks/apart'
 import type { ReviewStep } from './ResolvedSummary'
 import { DimensionFields, VerdictIcon, Words } from './DimensionFields'
 import { hoverMark, unhoverMark } from './markHover'
 import { Confirm } from './Confirm'
 import { IntentMenu } from './IntentMenu'
+import { SignDisc } from './SignDisc'
 import { ShapeFields } from './ShapeFields'
 import { useNotePicture } from './chat/useNotePicture'
 import { openNote } from './drawing/make'
@@ -124,7 +124,7 @@ export function MarkRow({
   // The note is being written as the reason for reopening a mark the agent resolved: it becomes a draft when the field is left.
   const [reopening, setReopening] = useState(false)
   const resolved = mark.status === 'resolved'
-  const label = rowLabel(mark)
+  const intent = markIntent(mark)
   const replacing = useReplacing() === mark.id
   // Offered where it can be done: a pin, a pick or an arrow of the person's that the last build left off its
   // surface or without its part, in the layout shown, where the next click on a part ties it again. Not on
@@ -231,8 +231,9 @@ export function MarkRow({
       onClick={() => actions.selectMark(mark.id)}
     >
       <div className="mark-line">
+        {intent !== null && <SignDisc intent={intent} />}{' '}
         <span className="mark-chip num" data-author={mark.author} title={[mark.author === 'user' ? 'Your mark' : "The agent's mark", resolved ? '' : anchorNote].filter(Boolean).join('. ')}>
-          {label}
+          {mark.id}
         </span>
         {mark.kind === 'note' && <NoteThumb note={mark} />}
         {mark.kind === 'sketch' && <SketchSummary mark={mark} />}

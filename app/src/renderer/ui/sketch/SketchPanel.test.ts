@@ -8,7 +8,7 @@ import { leaveSketch, setLit, setSnapping, setTake, setXray, sketchStore } from 
 import { store } from '../../state/store'
 import { setTool, toolStore } from '../../state/tools'
 import { selectStroke } from '../../state/sets'
-import { planeRows, strokeRows, surfaceStrokes } from './rows'
+import { planeRows, planeTagWords, strokeRows, surfaceStrokes } from './rows'
 import { SketchPanel } from './SketchPanel'
 
 const CAMERA = { position: [100, -100, 80] as Vec3, target: [0, 0, 10] as Vec3, up: [0, 0, 1] as Vec3, ortho: false, fov: 35, zoom: 1 }
@@ -26,6 +26,19 @@ function html(): string {
     for (const spy of spies) spy.mockRestore()
   }
 }
+
+describe('what the plane\'s tag says', () => {
+  it('names a main plane by its axes and says its place on the axis it is across, with that axis', () => {
+    expect(planeTagWords(XZ, 40)).toEqual({ name: 'XZ plane', axis: 'y', value: '40.0' })
+    expect(planeTagWords(XY, 12.04)).toEqual({ name: 'XY plane', axis: 'z', value: '12.0' })
+    expect(planeTagWords({ ...XZ, from: { kind: 'main', axis: 'YZ', offset: -3.26 } }, -3.26)).toEqual({ name: 'XZ plane', axis: 'x', value: '-3.3' })
+  })
+
+  it('names any other plane as the card does, and has no axis to colour its place', () => {
+    const face = { label: 'lid/F3 +2.0 (u = +X, v = +Y)', from: { kind: 'face' as const, ref: 'lid/F3', offset: 2, revision: 1 } }
+    expect(planeTagWords(face, 2)).toEqual({ name: 'lid/F3 +2.0', value: '2.0' })
+  })
+})
 
 describe('the rows of planes and strokes', () => {
   it('counts the strokes on each plane and on the surface', () => {

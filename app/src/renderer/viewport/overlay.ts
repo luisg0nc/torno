@@ -1,3 +1,4 @@
+import { INTENT_CHIP } from '../../shared/reviews'
 import { number } from '../../shared/format'
 import { MONO_STACK, UI_STACK, canvasFont } from '../../shared/fonts'
 import type { Pt } from '../../shared/leader'
@@ -329,6 +330,18 @@ const CHIP = { height: 17, pad: 5, radius: 4, font: 11.5, border: 1.5, leader: 1
  */
 const VALUE = { gap: 3, pad: 5, border: 1, hairline: 0.45, failBorder: 2, check: 9, cross: 7, checkGap: 4, weight: 500, stale: 0.45 }
 
+/** The round sign beside a chip (`.sign-disc`, spec "Signs on marks"): an 18 px disc, the sign in the face of numbers, and the room between it and the chip. */
+const SIGN = { size: 18, gap: 3, font: 12, stripe: 2, period: 4, mix: 0.7 }
+
+/** How far a chip of a mark with a sign is wider than without: its disc and the gap after it. */
+const signWidth = (sign: '-' | '+' | undefined, unit: number): number => (sign ? (SIGN.size + SIGN.gap) * unit : 0)
+
+/** A colour mixed toward the ground, by colour and never by opacity: `share` of the colour, the rest of the ground. The canvas reads a CSS colour as the page does. */
+const mixed = (colour: string, ground: string, share: number): string => `color-mix(in srgb, ${colour} ${Math.round(share * 100)}%, ${ground})`
+
+/** How much of a chip's colours a mark that is not in the review round keeps: the rest is the ground's (the spec's 70 % toward it). */
+const DIMMED_SHARE = 0.3
+
 /** A value as its chip is given it (`LabelValue`). */
 type ChipValue = { text: string; verdict?: 'pass' | 'fail'; stale?: true; off?: string }
 
@@ -361,9 +374,43 @@ function chipAdvance(ctx: Ctx, unit: number): number {
  * How large the chip of a label is, for `place`: of its number, and of a
  * dimension's value beside it. `unit` is the pixels of this canvas to a nominal one.
  */
-export function chipSize(ctx: Ctx, unit: number): (text: string, value?: ChipValue) => { w: number; h: number } {
+export function chipSize(ctx: Ctx, unit: number): (text: string, value?: ChipValue, sign?: '-' | '+') => { w: number; h: number } {
   const advance = chipAdvance(ctx, unit)
-  return (text, value) => ({ w: numberWidth(advance, text, unit) + (value ? VALUE.gap * unit + valueWidth(advance, value, unit) : 0), h: CHIP.height * unit })
+  return (text, value, sign) => ({ w: signWidth(sign, unit) + numberWidth(advance, text, unit) + (value ? VALUE.gap * unit + valueWidth(advance, value, unit) : 0), h: CHIP.height * unit })
+}
+
+/**
+ * The disc of a sign at `x` (its left) and `cy` (its middle): `+` solid in the agent's colour; `-` hatched in the person's, 2 px stripes
+ * at 135 degrees with the colour mixed toward the paper between them. The sign is set on it in the colour of paper, as the chips' letters are.
+ */
+function drawSign(ctx: Ctx, sign: '-' | '+', x: number, cy: number, unit: number, colours: Pick<LabelStyle, 'user' | 'agent' | 'paper'>): void {
+  const r = (SIGN.size * unit) / 2
+  const cx = x + r
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+  if (sign === '+') {
+    ctx.fillStyle = colours.agent
+    ctx.fill()
+  } else {
+    ctx.save()
+    ctx.clip()
+    ctx.fillStyle = mixed(colours.user, colours.paper, SIGN.mix)
+    ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r)
+    ctx.strokeStyle = colours.user
+    ctx.lineWidth = SIGN.stripe * unit
+    ctx.beginPath()
+    // Stripes along x + y = c, one in every `period` of the gradient's own axis.
+    for (let c = cx + cy - 2 * r; c <= cx + cy + 2 * r; c += SIGN.period * unit * Math.SQRT2) {
+      ctx.moveTo(c - (cy - r), cy - r)
+      ctx.lineTo(c - (cy + r), cy + r)
+    }
+    ctx.stroke()
+    ctx.restore()
+  }
+  ctx.font = `600 ${SIGN.font * unit}px ${MONO}`
+  ctx.fillStyle = colours.paper
+  ctx.fillText(sign === '-' ? INTENT_CHIP.dont : INTENT_CHIP.want, cx, cy + 0.5 * unit)
+  ctx.font = chipFont(unit)
 }
 
 function chipFont(unit: number): string {
@@ -383,11 +430,12 @@ const HOVER_RING = 0.4
  */
 export function drawLabels(
   ctx: Ctx,
-  labels: Array<{ id: string; text: string; author: 'user' | 'agent'; x: number; y: number; visible: boolean; box: { x: number; y: number; w: number; h: number }; value?: ChipValue }>,
+  labels: Array<{ id: string; text: string; sign?: '-' | '+'; author: 'user' | 'agent'; x: number; y: number; visible: boolean; box: { x: number; y: number; w: number; h: number }; value?: ChipValue }>,
   style: LabelStyle,
   unit: number,
   active: string | null = null,
-  hovered: string | null = null
+  hovered: string | null = null,
+  dimmed: ReadonlySet<string> | null = null
 ): void {
   ctx.save()
   ctx.lineCap = 'round'
@@ -398,14 +446,16 @@ export function drawLabels(
   const shown = labels.filter((l) => l.visible)
 
   // The ties first, so that no chip is crossed by another's.
-  for (const { x, y, box, author } of shown) {
+  // A chip of a mark not in the review round is mixed toward the ground: a colour, never an opacity, so that its letters keep their contrast with it.
+  const toneOf = (id: string) => (colour: string): string => (dimmed?.has(id) ? mixed(colour, style.surface, DIMMED_SHARE) : colour)
+  for (const { id, x, y, box, author } of shown) {
     const tx = Math.min(Math.max(x, box.x), box.x + box.w)
     const ty = Math.min(Math.max(y, box.y), box.y + box.h)
     if (Math.hypot(tx - x, ty - y) < 3 * unit) continue
     ctx.beginPath()
     ctx.moveTo(x, y)
     ctx.lineTo(tx, ty)
-    ctx.strokeStyle = style[author]
+    ctx.strokeStyle = toneOf(id)(style[author])
     ctx.lineWidth = CHIP.leader * unit
     ctx.stroke()
   }
@@ -413,9 +463,11 @@ export function drawLabels(
   const advance = shown.some((l) => l.value) ? chipAdvance(ctx, unit) : 0
   const verdicts = shown.some((l) => l.value?.verdict) ? verdictColours(style) : null
 
-  for (const { id, text, author, box: whole, value } of shown) {
-    // The number's own chip: all of the box, but for a dimension, whose value stands to its right.
-    const box = value ? { ...whole, w: numberWidth(advance, text, unit) } : whole
+  for (const { id, text, sign, author, box: whole, value } of shown) {
+    const tone = toneOf(id)
+    // The number's own chip: all of the box after its sign, but for a dimension, whose value stands to its right.
+    const lead = signWidth(sign, unit)
+    const box = value ? { ...whole, x: whole.x + lead, w: numberWidth(advance, text, unit) } : { ...whole, x: whole.x + lead, w: whole.w - lead }
     const path = (grow: number) => {
       ctx.beginPath()
       ctx.roundRect(whole.x - grow, whole.y - grow, whole.w + 2 * grow, whole.h + 2 * grow, CHIP.radius * unit + grow)
@@ -437,13 +489,14 @@ export function drawLabels(
     const inset = (CHIP.border * unit) / 2
     ctx.beginPath()
     ctx.roundRect(box.x + inset, box.y + inset, box.w - 2 * inset, box.h - 2 * inset, CHIP.radius * unit - inset)
-    ctx.fillStyle = author === 'user' ? style.user : style.paper
+    ctx.fillStyle = tone(author === 'user' ? style.user : style.paper)
     ctx.fill()
-    ctx.strokeStyle = style[author]
+    ctx.strokeStyle = tone(style[author])
     ctx.lineWidth = CHIP.border * unit
     ctx.stroke()
-    ctx.fillStyle = author === 'user' ? style.paper : style.agent
+    ctx.fillStyle = tone(author === 'user' ? style.paper : style.agent)
     ctx.fillText(text, box.x + box.w / 2, box.y + box.h / 2 + 0.5 * unit)
+    if (sign) drawSign(ctx, sign, whole.x, whole.y + whole.h / 2, unit, { user: tone(style.user), agent: tone(style.agent), paper: tone(style.paper) })
     if (!value) continue
 
     // The value, as on a drawing: ink on paper inside a hairline. One that is not what was expected is
@@ -456,17 +509,17 @@ export function drawLabels(
     const w = whole.x + whole.w - x
     ctx.beginPath()
     ctx.roundRect(x + border / 2, whole.y + border / 2, w - border, whole.h - border, CHIP.radius * unit - border / 2)
-    ctx.fillStyle = style.paper
+    ctx.fillStyle = tone(style.paper)
     ctx.fill()
     // A quiet hairline of ink, whoever made it: its number beside it says whose it is, and only failure is in colour.
-    ctx.strokeStyle = failed ? (verdicts?.fail ?? style.user) : style.ink
+    ctx.strokeStyle = tone(failed ? (verdicts?.fail ?? style.user) : style.ink)
     ctx.globalAlpha = failed ? 1 : VALUE.hairline
     ctx.lineWidth = border
     ctx.stroke()
     ctx.globalAlpha = 1
     ctx.font = `${VALUE.weight} ${CHIP.font * unit}px ${MONO}`
     ctx.textAlign = 'left'
-    ctx.fillStyle = style.ink
+    ctx.fillStyle = tone(style.ink)
     ctx.globalAlpha = value.stale ? VALUE.stale : 1
     ctx.fillText(value.text, x + VALUE.pad * unit, whole.y + whole.h / 2 + 0.5 * unit)
     ctx.globalAlpha = 1
@@ -479,12 +532,12 @@ export function drawLabels(
       ctx.lineTo(left + 2 * half, mid + half)
       ctx.moveTo(left + 2 * half, mid - half)
       ctx.lineTo(left, mid + half)
-      ctx.strokeStyle = verdicts?.fail ?? style.user
+      ctx.strokeStyle = tone(verdicts?.fail ?? style.user)
       ctx.lineWidth = 1.5 * unit
       ctx.stroke()
       // By how much it misses, after the cross and in its colour: what it should be is one look away, not one click.
       if (value.off) {
-        ctx.fillStyle = verdicts?.fail ?? style.user
+        ctx.fillStyle = tone(verdicts?.fail ?? style.user)
         ctx.fillText(value.off, left + (VALUE.cross + VALUE.checkGap) * unit, whole.y + whole.h / 2 + 0.5 * unit)
       }
     }
@@ -495,7 +548,7 @@ export function drawLabels(
       ctx.moveTo(left, mid + 0.5 * unit)
       ctx.lineTo(left + 3 * unit, mid + 3.5 * unit)
       ctx.lineTo(left + VALUE.check * unit, mid - 3.5 * unit)
-      ctx.strokeStyle = verdicts?.ok ?? style.agent
+      ctx.strokeStyle = tone(verdicts?.ok ?? style.agent)
       ctx.lineWidth = 1.5 * unit
       ctx.stroke()
     }

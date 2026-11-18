@@ -10,7 +10,10 @@ import { MAX_NOTE } from '../MarkRow'
 import { giveKeysBack } from '../typing'
 import { peek } from '../../state/agent'
 import { selectStroke } from '../../state/sets'
-import { planeRows, strokeRows, surfaceStrokes, type StrokeRow as StrokeRowOf } from './rows'
+import { planeRows, planeTagWords, strokeRows, surfaceStrokes, type StrokeRow as StrokeRowOf } from './rows'
+import type { Viewport } from '../../viewport/Viewport'
+import { onPaneDrawn } from '../../viewport/overlay'
+import { Tag } from '../view/Tag'
 
 const TAKES: { take: SketchTake; label: string; title: string }[] = [
   { take: 'exact', label: 'Exact', title: 'Follow these points to the millimetre' },
@@ -251,5 +254,50 @@ function StrokeButton({ ref_, id, where, on }: { ref_: string; id: string; where
     >
       {id}
     </button>
+  )
+}
+
+/**
+ * The tag on the handle of the sketch's plane (spec 2026-11-18, section 3): "XZ plane `y 40.0 mm` `Tab`", tied to the handle by a leader.
+ * The value is read where it is typed (the panel's field, in the card's head) and where the handle is dragged: the tag follows the handle
+ * and takes the value of the sheet as it is laid, every frame, straight on the elements and not through React.
+ */
+export function SketchPlaneTag({ viewport }: { viewport: Viewport }) {
+  const inHand = useTool() === 'draw'
+  const open = useSketching((s) => s.open)
+  const plane = useSketching((s) => s.plane)
+  const value = useRef<HTMLSpanElement>(null)
+  const active = inHand && open && plane !== 'surface' ? open.draft.planes.find((p) => p.id === plane) : undefined
+  const offset = active ? offsetOf(active) : null
+  const words = active && offset !== null ? planeTagWords(active, offset) : null
+  // A drag of the handle moves the sheet before the offset is kept: what is written follows the sheet.
+  useEffect(() => {
+    if (!words) return
+    return onPaneDrawn(() => {
+      const now = viewport.sketchOffset()
+      if (now === null || !value.current) return
+      const text = (Math.round(now * 10) / 10).toFixed(1)
+      if (value.current.textContent !== text) value.current.textContent = text
+    })
+  }, [viewport, words?.name])
+  if (!words || !active) return null
+  return (
+    <Tag id="sketch-plane" subject={null} subjectAt={() => viewport.sketchHandle()} prefer="right">
+      <span className="sketch-plane-tag" data-part="sketch-plane-tag">
+        <span className="sketch-plane-name">{words.name}</span>
+        <span className="tag-value">
+          {words.axis && (
+            <span className="tag-axis-letter" data-axis={words.axis}>
+              {words.axis}
+            </span>
+          )}
+          <span ref={value} className="sketch-plane-value" data-axis={words.axis}>
+            {words.value}
+          </span>
+          <span className="tag-unit">mm</span>
+        </span>
+        <kbd aria-hidden="true">{hint('sketch.offset')}</kbd>
+      </span>
+    </Tag>
   )
 }

@@ -9,7 +9,7 @@ import { GoBack } from './GoBack'
 import type { JoinedTurn } from './historyJoin'
 import { TurnBuilds } from './TurnBuilds'
 import { UndoableTurn } from './turnContext'
-import { isEmpty, summaryParts, type TurnAccount } from './turnSummary'
+import { isEmpty, summaryParts, type TurnAccount, type TurnSummary } from './turnSummary'
 
 
 type TurnItem = Extract<ChatItem, { kind: 'turn' }>
@@ -49,14 +49,14 @@ function SeeChanges({ item, account, row }: { item: TurnItem; account: TurnAccou
 }
 
 /** "Compare": the turn's last build over the one it began from, in the view; again, "Comparing", puts it away. Not where the view is cut or drawn apart (an earlier build is drawn uncut and together). */
-function Compare({ joined }: { joined: JoinedTurn }) {
+function Compare({ joined, summary }: { joined: JoinedTurn; summary?: TurnSummary }) {
   const last = joined.entries.findLast(drawable)
   const from = joined.from
   const comparing = useStore((s) => s.compare !== null && s.compare.from === from?.id && s.compare.to === last?.id)
   const blocked = useStore((s) => (s.section !== null ? 'Take the section away first: an earlier build is not drawn cut.' : explodeNow(s) !== null ? 'Put the parts together first: an earlier build is not drawn apart.' : null))
   if (!from || !last || from.id === last.id) return null
   return (
-    <button type="button" className={comparing ? 'button' : 'button button-quiet'} aria-pressed={comparing} disabled={!comparing && blocked !== null} title={comparing ? 'Back to the live build' : (blocked ?? `Draw ${last.id} over ${from.id} in the view`)} onClick={() => (comparing ? actions.endCompare() : actions.compare(from.id, last.id, joined.number > 0 ? joined.number : undefined))}>
+    <button type="button" className={comparing ? 'button' : 'button button-quiet'} aria-pressed={comparing} disabled={!comparing && blocked !== null} title={comparing ? 'Back to the live build' : (blocked ?? `Draw ${last.id} over ${from.id} in the view`)} onClick={() => (comparing ? actions.endCompare() : actions.compare(from.id, last.id, joined.number > 0 ? joined.number : undefined, summary))}>
       {comparing ? 'Comparing' : 'Compare'}
     </button>
   )
@@ -91,7 +91,7 @@ export const TurnEnd = memo(function TurnEnd({ item, account, joined }: { item: 
       {pulled && <p className="chat-turn-line chat-turn-pulled">{numbered(pulled)}</p>}
       {joined && <TurnBuilds joined={joined} />}
       <TurnActions>
-        {joined && joined.entries.length > 0 ? <Compare joined={joined} /> : null}
+        {joined && joined.entries.length > 0 ? <Compare joined={joined} summary={account?.summary} /> : null}
         {account && editedModel(account) ? <SeeChanges item={item} account={account} row={row} /> : null}
         {(joined && joined.entries.length > 0) || (account && editedModel(account) && undoable === item.id) ? <GoBack turnId={item.id} joined={joined} undoable={account !== undefined && editedModel(account) && undoable === item.id} /> : null}
         {joined && joined.entries.length > 0 ? <Star joined={joined} /> : null}

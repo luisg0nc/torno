@@ -19,6 +19,18 @@ export interface TurnSummary {
   resolved: string[]
   /** The dimensions whose verdict at the end of the turn is another than at its start, as far as the builds measured them. */
   dimensions: Array<{ id: string; now: Verdict }>
+  /** What the builds did to each part, taken together (`partChanges`): the numbers `netParts` says in words and the tags of Compare write on the parts. */
+  parts: PartChange[]
+}
+
+/** One part whose volume or face count the turn's builds left other than it began, from the kernel's numbers of the digests; `exact` is whether every volume it went through was. */
+export interface PartChange {
+  /** `layout:name`, a part's key in a scene. */
+  id: string
+  name: string
+  layout: string
+  volume: { before: number; after: number; exact: boolean }
+  faces: { before: number; after: number }
 }
 
 /** What a turn's end draws besides its own fields: what it did, and the builds' numbers taken together (`netParts`). */
@@ -108,7 +120,8 @@ export function turnSummary(items: readonly ChatItem[]): TurnSummary {
     sketched,
     resketched,
     resolved,
-    dimensions
+    dimensions,
+    parts: partChanges(items)
   }
 }
 
@@ -151,10 +164,10 @@ export function summaryParts(s: TurnSummary): string[] {
 /**
  * What the turn's builds did to each part, taken together: the volume and the face count the build the turn began with
  * had, against those of the last build that worked, from the kernel's numbers in the digests (`DigestPart`), never
- * worked out again here. A part is told only where one of the two is another; `≈` where the volume of any of its steps
- * is not exact. Empty when no build of the turn worked, or when the builds left every part as it was.
+ * worked out again here. A part is listed only where one of the two is another; its volume is not exact where the
+ * volume of any of its steps is not. Empty when no build of the turn worked, or when the builds left every part as it was.
  */
-export function netParts(items: readonly ChatItem[]): string[] {
+export function partChanges(items: readonly ChatItem[]): PartChange[] {
   const first = new Map<string, DigestPart>()
   const last = new Map<string, DigestPart>()
   const inexact = new Set<string>()
@@ -167,17 +180,28 @@ export function netParts(items: readonly ChatItem[]): string[] {
       last.set(key, part)
     }
   }
-  const lines: string[] = []
+  const out: PartChange[] = []
   for (const [key, was] of first) {
     const now = last.get(key)!
-    const said: string[] = []
     const [v0, v1] = [was.volume.before, now.volume.after]
+    if (v0 === v1 && was.faces.before === now.faces.after) continue
+    out.push({ id: `${now.layout}:${now.name}`, name: now.name, layout: now.layout, volume: { before: v0, after: v1, exact: !inexact.has(key) }, faces: { before: was.faces.before, after: now.faces.after } })
+  }
+  return out
+}
+
+/** `partChanges` in words, one line for each part: `tub: volume ≈ 28400 → 25560 mm³ (-10 %), faces 14 → 22`. */
+export function netParts(items: readonly ChatItem[]): string[] {
+  const lines: string[] = []
+  for (const part of partChanges(items)) {
+    const said: string[] = []
+    const { before: v0, after: v1 } = part.volume
     if (v0 !== v1) {
       const percent = v0 === 0 ? '' : ` (${v1 > v0 ? '+' : ''}${number(((v1 - v0) / v0) * 100)} %)`
-      said.push(`volume ${inexact.has(key) ? '≈ ' : ''}${number(v0)} → ${number(v1)} mm³${percent}`)
+      said.push(`volume ${part.volume.exact ? '' : '≈ '}${number(v0)} → ${number(v1)} mm³${percent}`)
     }
-    if (was.faces.before !== now.faces.after) said.push(`faces ${was.faces.before} → ${now.faces.after}`)
-    if (said.length > 0) lines.push(`${now.name}: ${said.join(', ')}`)
+    if (part.faces.before !== part.faces.after) said.push(`faces ${part.faces.before} → ${part.faces.after}`)
+    lines.push(`${part.name}: ${said.join(', ')}`)
   }
   return lines
 }

@@ -371,3 +371,115 @@
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+
+/* ---- Compare's tags and its list (ui/CompareBar.tsx, ui/view/changeTags.ts) ---- */
+
+/* What changed, written on the part or the mark that changed: a line of words, its numbers in the face of numbers. */
+.tag .change-tag {
+  padding: 2px var(--space-2);
+  white-space: nowrap;
+}
+
+/* The band's "and N more": what the tags left out, what the later build changed, and how the checks and the dimensions moved. */
+.popover.compare-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--text-small);
+  line-height: 1.6;
+}
+
+.compare-list h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.compare-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compare-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.compare-list p {
+  margin: 0;
+}
+
+.compare-moved [data-better='true'] {
+  color: var(--ok);
+}
+
+.compare-moved [data-better='false'] {
+  color: var(--fail);
+}
+
+/* ---- The sketch plane's tag (ui/sketch/SketchPanel.tsx): "XZ plane y 40.0 mm Tab", on the plane's handle ---- */
+
+.sketch-plane-tag {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  white-space: nowrap;
+}
+
+.sketch-plane-tag .tag-value {
+  gap: 4px;
+}
+
+/* A reading: the view under it is drawn on and picked through it. */
+.tag[data-tag='sketch-plane'],
+.tag[data-tag^='change-'] {
+  pointer-events: none;
+}
+
+/* The place in the colour of the axis it runs along, as the section's. */
+.sketch-plane-value[data-axis='x'] {
+  color: var(--axis-x);
+}
+
+.sketch-plane-value[data-axis='y'] {
+  color: var(--axis-y);
+}
+
+.sketch-plane-value[data-axis='z'] {
+  color: var(--axis-z);
+}
+
+.sketch-plane-tag .tag-unit {
+  margin-left: 0;
+}
+
+.sketch-plane-tag kbd {
+  padding: 0 5px;
+  border-radius: var(--radius-inline);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ---- The tags of the tracing's tools (ui/tracings/TracingView.tsx): Measure's reading and Should be here's words, tied to the sheet ---- */
+
+/* They say, and take no pointer: the sheet under them is drawn on. */
+.tracing .tag {
+  pointer-events: none;
+}
+
+.tr-tag-reading,
+.tr-tag-words {
+  padding: 2px var(--space-2);
+}
+
+.tr-tag-words {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}

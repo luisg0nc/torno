@@ -603,6 +603,12 @@ export class Viewport {
     this.invalidate()
   }
 
+  /** The marks whose chips are drawn dimmed, mixed toward the ground (the review band is on and they are not in its round); null for none. On screen only. */
+  setDimmedMarks(ids: ReadonlySet<string> | null): void {
+    this.overlay.dimmed = ids
+    this.invalidate()
+  }
+
   /** The mark the pointer is on, in its row or on its chip, or null: its chip is ringed, more faintly than the active one's. On screen only. */
   setHoverMark(id: string | null): void {
     if (id === this.marks.hoverId) return
@@ -745,6 +751,16 @@ export class Viewport {
     this.sketchSheet.setColour(toHex(this.theme.accent))
     this.sketchSheet.set(plane, plane ? this.bounds() : null)
     this.invalidate()
+  }
+
+  /** Where the handle of the sketch's sheet is as last sized, in the object frame, for the tag tied to it; null with no sheet. */
+  sketchHandle(): Vec3 | null {
+    return this.sketchSheet.handlePoint()
+  }
+
+  /** How far the sheet is laid from where its plane was made, as it is now, a drag of its handle included; null where it has none. */
+  sketchOffset(): number | null {
+    return this.sketchSheet.offsetNow()
   }
 
   /** Whether the pointer is on the handle of the sheet (client pixels). */

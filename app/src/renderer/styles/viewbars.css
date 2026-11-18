@@ -91,67 +91,6 @@
 
 /* ---- Compare: two kept builds in the view (ui/CompareBar.tsx) ---- */
 
-/* The boxes hang under the band and the bar at the corners of the view: they say, and take no pointer. */
-.compare-boxes {
-  position: absolute;
-  top: 98px;
-  left: 14px;
-  right: 14px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  pointer-events: none;
-}
-
-.compare-box {
-  max-width: 260px;
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  font-size: var(--text-small);
-  line-height: 1.6;
-  pointer-events: none;
-}
-
-.compare-box h3 {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-small);
-  font-weight: 600;
-}
-
-.compare-box ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.compare-box li {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.compare-box p {
-  margin: 0;
-}
-
-.compare-moved {
-  min-width: 200px;
-  margin-left: auto;
-}
-
-.compare-moved [data-better='true'] {
-  color: var(--ok);
-}
-
-.compare-moved [data-better='false'] {
-  color: var(--fail);
-}
-
 /* Side by side: which half is which, over its middle. */
 .compare-sides {
   position: absolute;

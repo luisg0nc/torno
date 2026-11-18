@@ -5,6 +5,7 @@ import { type Round, openRound, reviewName } from '../../../shared/reviews'
 import { reviewActions, useReview } from '../../state/review'
 import { actions, store, useStore } from '../../state/store'
 import { roundState } from '../ReviewSummary'
+import { SignDisc } from '../SignDisc'
 import { useHistory } from '../useHistory'
 import { roundNumber, roundRows } from './rows'
 
@@ -65,9 +66,7 @@ export function RoundPanelView({ round, rounds, marks, history, sending, refused
       <ul className="round-items" aria-label="Items of the review">
         {rows.map((row) => (
           <li key={row.id} className="round-item" data-mark={row.id} data-said={row.said || undefined}>
-            <span className="round-item-sign num" title={row.sign === '' ? undefined : row.sign === '−' ? "Don't want" : 'Want'}>
-              {row.sign}
-            </span>
+            <span className="round-item-sign">{row.intent !== undefined && <SignDisc intent={row.intent} title={row.intent === 'dont' ? "Don't want" : 'Want'} />}</span>
             <div className="round-item-body">
               <div className="round-item-main">
                 <span className="mark-chip num" data-author="user">

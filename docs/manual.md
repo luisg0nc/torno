@@ -393,8 +393,12 @@ What a kept build had then (checks that failed, parts with a defect, how your di
 **Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
 the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
-have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Board and Model steps aside. Two boxes over the corners say what the later build changed
-(its line) and how the checks and your dimensions moved between the two builds. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
+have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Board and Model steps aside. What the turn changed is written on the parts and the marks that changed, as
+tags tied to them by a leader (`tub volume 28400 → 26000 mm³`, `M3 now passes`, from the numbers of the builds of the turn; `≈` where a volume is not exact): four at most,
+a dimension that changed its verdict first, then the parts whose volume moved most. The rest are in the band's **and N more** (or **What changed**, when there is nothing
+left out), a list that also says what the later build changed (its line) and how the checks and your dimensions moved between the two builds. A tag stands only on
+what the build on show has, and side by side has none. A comparing that did not start from a turn of the chat (a row of the prompts, a build in the history) has no tags,
+and only the list. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
 It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
 show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from
 the meshes held in memory (never on disk, within a budget of 64 MB for the builds before the newest, the oldest let go first); an older one is built again from
@@ -1398,7 +1402,7 @@ the reed; both are there while the sketch is open.
   palette, which ends the sketch as Done.
 - **The panel.** It is the head of the route card, above its sections, for as long as the sketch is open; what is selected is not shown there meanwhile and comes back at **Done**. The head grows to fit, up to 60 % of the card, and scrolls inside itself beyond that, so the sections stay under it. It holds the sketch's number and "Sketch", with whether it is a draft (`draft, goes with your next prompt`) or sent, its name, how to take it, a row for each plane
   with a small plane glyph, the plane and how many strokes lie on it, and one for the surface (a click makes it the one strokes go on; the pointer on it
-  lights its strokes; the one strokes go on is on the accent wash with a bar), and under the plane that is drawn on, or that has one selected, its strokes by id (`k1`, `k2`: a click selects `M7/k2`, to put it in a [named set](#named-sets); `Ctrl+G` names it in the head, under the panel), the offset, the **Snap** and **X-ray** switches, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
+  lights its strokes; the one strokes go on is on the accent wash with a bar), and under the plane that is drawn on, or that has one selected, its strokes by id (`k1`, `k2`: a click selects `M7/k2`, to put it in a [named set](#named-sets); `Ctrl+G` names it in the head, under the panel), the offset (typed here, `Tab`, and also read on a tag tied by a leader to the plane's handle in the view: `XZ plane y 40.0 mm Tab`, which follows the handle as it is dragged), the **Snap** and **X-ray** switches, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
   gives up a stroke under way, then leaves the sketch; what was drawn is kept. A sketch holds 200 strokes, 400 points a
   stroke and 20,000 in all.
 - **What Claude gets.** A sketch is a draft until it goes with your next prompt, as words only, never a picture: its
@@ -1420,9 +1424,10 @@ When a build is partly wrong, go over it once, marking what you do not want ("th
 ("a handle along the top"), and send it all together. A **round** is one such pass over one build. Claude answers each item,
 and after the next build you say OK or Still wrong to each answer.
 
-- **Want and don't want.** Any mark of yours can say one of them, in a round or not: the chip and the row carry `+` (want) or `−`
-  (don't want) before the number, `− M8`, in the face of numbers; a mark that says neither is plain, as before. What you do
-  not want is drawn hatched in your colour and dashed where a mark is a line, what you want is drawn solid; the colour is still
+- **Want and don't want.** Any mark of yours can say one of them, in a round or not: a round **sign** stands before the chip, in the row, in the view and where the
+  chat names the mark: an 18 px disc with `−` (don't want, hatched in your colour) or `+` (want, solid in Claude's green), then the number, `− M8`, in the face of
+  numbers (the chip stays square and numbered, so a sign is never taken for who made a mark); a mark that says neither is plain, as before. What you do
+  not want is drawn hatched in your colour and dashed where a mark is a line, what you want is drawn solid; while a round is open the chips of the marks that are not in it are drawn dimmed, mixed toward the ground; the colour is still
   yours, so a mark of yours never looks like Claude's. A shape to add is a want and a shape to remove is a don't want, and they say
   so in their chips whether or not a round is open; keep-out and reference shapes say neither. The menu on a row of yours changes
   it at any time (a mark already sent becomes a draft again and is told `(changed)`). The agent's marks are always plain, and
@@ -2056,13 +2061,13 @@ leaves its marks where they are: they say `on T1 (removed)`, and join the tracin
 
 **Measure and Should be here** are about a number or a layer, not about the model, so the review's want and don't want do not apply to them: neither carries an
 intent, neither joins a round, and neither is ever checked against a build (they are never *drifted*; they stay as you made them). Both go to Claude with your next
-prompt like any mark. **Measure** (`M`): click two points; the pointer's note reads the number as you move, and a click snaps as Trace does. When both ends are
+prompt like any mark. **Measure** (`M`): click two points; a tag at the middle of the line so far reads the number as you move (large, with `≈` unless both ends are snapped, and how it was taken), and a click snaps as Trace does. When both ends are
 snapped to the kernel's points of the build on show (a corner of the cut, a hole centre, a vertex in the plane) the number is exact, is worked out by torno from those
 numbers and says `exact on build h41` (the build's id in the history, which is the same in every run of torno; a build the history does not keep is said so). Any other measure is `≈`: it says how it was found, `on the photo, lined up with fit 0.4 mm` when an end is on the photo (a
 free click over the photo and off the outline) or `freehand`, and a snapped end that is not within a hundredth of a millimetre of the kernel's point is refused. A measure is made
 once and never measured again: after a later build it keeps its value: an exact one still says `exact on build h41`, and an `≈` one says `measured on build h41`. It has no expected value and no verdict. **Should be here**
-(`O`): press on a shape of a layer (yours or Claude's) and drag it to where it belongs. The shape stays ghosted where it was, the copy moves in your colour, and the note at
-the pointer reads `M15 head bolt 4 should be here · 1.8 mm left, 0.6 mm up` (left and up are along the sheet's `-u` and `+v`; the note says `M15` once the shape has a mark). `Shift` keeps the
+(`O`): press on a shape of a layer (yours or Claude's) and drag it to where it belongs. The shape stays ghosted where it was, the copy moves in your colour, and a tag tied to the ghost reads
+`M15 head bolt 4 should be here · 1.8 mm left, 0.6 mm up` (left and up are along the sheet's `-u` and `+v`; the tag says `M15` once the shape has a mark). It has no button: the mark is a draft, and goes with your next prompt. `Shift` keeps the
 drag to the axis it has gone further along, and the arrow keys nudge it a tenth of a millimetre, while you drag and after you let go. Letting go makes the mark, one for each
 shape of a layer: dragging the same shape again changes your draft rather than adding another (one Claude has already been told of is left, and a new one is made). A shape's
 reference point is a circle's centre and the centroid of a polyline's points (the mean of them, not of its area). The mark keeps a copy of the shape as it was, so it still says
