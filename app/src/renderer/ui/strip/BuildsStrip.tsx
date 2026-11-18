@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { HistoryEntry } from '../../../shared/history'
 import { useThumb } from '../chat/useThumb'
+import { useStruckNodes } from '../../state/goBackAsk'
 import { usePromptsInSight } from '../../state/inSight'
-import { useStore } from '../../state/store'
+import { actions, explodeNow, store, useStore } from '../../state/store'
 import { useElapsed } from '../useElapsed'
 import { bracketOf, stripFolded, stripSays, ticksOf, type StripNode } from './strip'
+import { setFailedAnchor } from './failedAnchor'
 import { useStripNodes } from './useStripNodes'
 
 /** A node and its neighbour are this far apart, and the track starts this far in (`strip.css`). */
@@ -47,11 +49,29 @@ function Pic({ objectId, node, entry, seconds }: { objectId: string; node: Strip
   )
 }
 
-function Node({ objectId, node, entry, seconds, landing, onPick }: { objectId: string; node: StripNode; entry: HistoryEntry | undefined; seconds: number; landing: boolean; onPick: ((node: StripNode, anchor: HTMLElement) => void) | undefined }) {
+/** What a node and a tick of the strip are given to say what a press on them does. */
+interface Picks {
+  /** A click: the menu of a build, or the error of one that failed. */
+  pick: (node: StripNode, anchor: HTMLElement) => void
+  /** A double click: compares the build with the live one. */
+  compare: (node: StripNode) => void
+  /** The element of the build that failed now, which its error stands from. */
+  failed: (el: HTMLElement | null) => void
+  /** The id of that build's node. */
+  failedId: string | undefined
+}
+
+/** The ref of the element that stands for the failed build: put with it when it is drawn, taken away when it goes. */
+function failedRef(picks: Picks, node: StripNode): ((el: HTMLButtonElement | null) => void) | undefined {
+  return node.id === picks.failedId ? picks.failed : undefined
+}
+
+function Node({ objectId, node, entry, seconds, landing, struck, picks }: { objectId: string; node: StripNode; entry: HistoryEntry | undefined; seconds: number; landing: boolean; struck: boolean; picks: Picks }) {
   const id = node.kind === 'failed' ? (node.after ? `after ${node.after}` : 'failed') : node.id
   const by = node.reviewing ? 'reviewing' : node.onShow ? 'on show' : node.by
   return (
     <button
+      ref={failedRef(picks, node)}
       type="button"
       className="strip-node"
       data-build={node.id}
@@ -61,9 +81,11 @@ function Node({ objectId, node, entry, seconds, landing, onPick }: { objectId: s
       data-saved={node.saved ? '' : undefined}
       data-starred={node.starred ? '' : undefined}
       data-landing={landing ? '' : undefined}
+      data-struck={struck ? '' : undefined}
       aria-label={nodeTitle(node)}
       title={entry?.failed && entry.error ? `${nodeTitle(node)}: ${entry.error}` : nodeTitle(node)}
-      onClick={(e) => onPick?.(node, e.currentTarget)}
+      onClick={(e) => picks.pick(node, e.currentTarget)}
+      onDoubleClick={() => picks.compare(node)}
     >
       <Pic objectId={objectId} node={node} entry={entry} seconds={seconds} />
       <span className="strip-id num">{node.kind === 'running' ? 'building' : id}</span>
@@ -73,8 +95,8 @@ function Node({ objectId, node, entry, seconds, landing, onPick }: { objectId: s
 }
 
 /** A tick of the folded strip: the build as a small bar, the one on show taller and in the accent. */
-function Tick({ node, onPick }: { node: StripNode; onPick: ((node: StripNode, anchor: HTMLElement) => void) | undefined }) {
-  return <button type="button" className="strip-tick" data-kind={node.kind} data-on-show={node.onShow ? '' : undefined} data-saved={node.saved ? '' : undefined} aria-label={nodeTitle(node)} title={nodeTitle(node)} onClick={(e) => onPick?.(node, e.currentTarget)} />
+function Tick({ node, struck, picks }: { node: StripNode; struck: boolean; picks: Picks }) {
+  return <button ref={failedRef(picks, node)} type="button" className="strip-tick" data-kind={node.kind} data-on-show={node.onShow ? '' : undefined} data-saved={node.saved ? '' : undefined} data-struck={struck ? '' : undefined} aria-label={nodeTitle(node)} title={nodeTitle(node)} onClick={(e) => picks.pick(node, e.currentTarget)} onDoubleClick={() => picks.compare(node)} />
 }
 
 /**
@@ -82,17 +104,40 @@ function Tick({ node, onPick }: { node: StripNode; onPick: ((node: StripNode, an
  * The nodes are `stripNodes` over the history; the bracket under them is the prompts in sight in the conversation
  * (`state/inSight`, told by the chat as it scrolls); a build that lands slides in; the track scrolls sideways, by the wheel too,
  * and keeps the build on show in sight. Under `STRIP_FOLD_BELOW` of dock height it folds to its head line and a row of ticks.
- * A click on a node says which, and from what element, to `onPick`: the strip draws, whoever owns the node's menu answers.
+ * A click on a node says which, and from what element, to `onPick` (the owner draws its menu, `NodePopover`), and a double click
+ * which, compares it with the one on show (as "Compare with live" of its menu does; not where the view is cut or drawn apart). The build that failed now is the exception: its click opens or puts away its error, the one the status
+ * line's "Build failed" and the chat's "Show error" open too (`errorOpen`), which stands from this node (`failedAnchor`).
  */
-export function BuildsStrip({ onPick }: { onPick?: (node: StripNode, anchor: HTMLElement) => void }) {
+export function BuildsStrip({ onPick, onCompared }: { onPick?: (node: StripNode, anchor: HTMLElement) => void; onCompared?: () => void }) {
   const objectId = useStore((s) => s.objectId)
   const name = useStore((s) => s.workspace?.objects.find((o) => o.id === s.objectId)?.name ?? s.objectId)
   const build = useStore((s) => s.build)
   const exporting = useStore((s) => s.exportOf !== null)
+  const errorOpen = useStore((s) => s.errorOpen)
+  const struck = useStruckNodes()
   const { nodes, entries: byId, loaded } = useStripNodes()
   const inSight = usePromptsInSight()
   const elapsed = useElapsed(build?.status === 'building' ? build.startedAt : undefined)
   const bracket = useMemo(() => bracketOf(nodes, inSight), [nodes, inSight])
+
+  // The build that failed now: the last node, when it failed and the state of the build says so.
+  const failedId = build?.status === 'failed' ? nodes.findLast((n) => n.kind === 'failed')?.id : undefined
+  const picks: Picks = {
+    pick: (node, anchor) => {
+      if (node.id === failedId) actions.setErrorOpen(!errorOpen)
+      else onPick?.(node, anchor)
+    },
+    compare: (node) => {
+      const live = nodes.find((n) => n.onShow)
+      const now = store.getState()
+      if (node.kind !== 'built' || node.onShow || !live || now.section !== null || explodeNow(now) !== null) return
+      actions.compare(node.id, live.id)
+      // The click that began the double click opened its menu: the compare is the answer.
+      onCompared?.()
+    },
+    failed: setFailedAnchor,
+    failedId
+  }
 
   const root = useRef<HTMLElement>(null)
   const track = useRef<HTMLDivElement>(null)
@@ -160,7 +205,7 @@ export function BuildsStrip({ onPick }: { onPick?: (node: StripNode, anchor: HTM
       {folded ? (
         <div className="strip-ticks" role="group" aria-label="Builds, newest at the right">
           {ticksOf(nodes, FOLDED_TICKS).map((node) => (
-            <Tick key={node.id} node={node} onPick={onPick} />
+            <Tick key={node.id} node={node} struck={struck.has(node.id)} picks={picks} />
           ))}
         </div>
       ) : (
@@ -170,7 +215,7 @@ export function BuildsStrip({ onPick }: { onPick?: (node: StripNode, anchor: HTM
           ) : (
             <div className="strip-inner">
               {nodes.map((node) => (
-                <Node key={node.id} objectId={objectId} node={node} entry={byId.get(node.id)} seconds={elapsed} landing={landing.has(node.id)} onPick={onPick} />
+                <Node key={node.id} objectId={objectId} node={node} entry={byId.get(node.id)} seconds={elapsed} landing={landing.has(node.id)} struck={struck.has(node.id)} picks={picks} />
               ))}
               {bracket && (
                 <div className="strip-bracket" data-part="bracket" style={{ left: GUTTER + bracket.from * STEP, width: (bracket.to - bracket.from) * STEP + NODE_W }}>

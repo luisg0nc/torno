@@ -332,7 +332,10 @@ test('a broken save fails the build and keeps the last good parts, dimmed; the e
 
   await failed.click()
   const sheet = page.getByRole('dialog', { name: 'Build error' })
-  await expect(sheet).toContainText('bracket did not build')
+  // The error stands from the failed node of the builds strip: the tail first, the whole of it when asked.
+  await expect(sheet).toContainText('The build after h')
+  await expect(sheet.locator('[data-part="tail"]')).toContainText('SyntaxError')
+  await sheet.getByRole('button', { name: 'Whole error' }).click()
   const traceback = sheet.locator('[data-part="traceback"]')
   await expect(traceback).toContainText('bracket.py')
   await expect(traceback).toContainText('SyntaxError')
@@ -341,17 +344,25 @@ test('a broken save fails the build and keeps the last good parts, dimmed; the e
   expect(style.select).toBe('text')
   await expect(sheet.getByRole('button', { name: 'Copy' })).toBeVisible()
   // What happened, in words and not as the kernel's word; who is told; and the one thing to press after an error in the model.
-  await expect(sheet.locator('[data-part="kind"]')).toHaveText('Build after r2 failed · Python error in the model')
+  await expect(sheet.locator('[data-part="kind"]')).toHaveText('Python error in the model')
   await expect(sheet.locator('[data-part="told"]')).toHaveText('No session is running. Start one, and it is told with your first prompt.')
   await expect(sheet.getByRole('button', { name: 'Start a session to fix it' })).toHaveClass(/button-primary/)
   await expect(sheet.getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
   // The same sources would give the same error: the status line's Rebuild is quiet.
   await expect(status(page).locator('.status-rebuild')).not.toHaveAttribute('data-primary', '')
-  // The sheet lies over the viewport, between the rail and its panel and the session dock.
-  const box = (await sheet.boundingBox())!
-  const left = (await page.locator('[data-region="left"]').boundingBox())!
-  expect(box.x).toBe(left.x + left.width)
-  expect(box.x + box.width).toBe(1440 - 420)
+  // It stands from the failed node of the strip at the top of the dock, 300 px wide, with a stem to it.
+  const node = page.locator('[data-region="session"] .strip-node[data-kind="failed"]')
+  await expect(node).toHaveCount(1)
+  const [box, from] = [(await sheet.boundingBox())!, (await node.boundingBox())!]
+  expect(Math.round(box.width)).toBe(300)
+  expect(box.y).toBeGreaterThanOrEqual(from.y + from.height)
+  expect(box.x).toBeLessThanOrEqual(from.x + from.width)
+  expect(box.x + box.width).toBeGreaterThanOrEqual(from.x)
+  // A click on the node puts it away, and another brings it back.
+  await node.click()
+  await expect(sheet).toHaveCount(0)
+  await node.click()
+  await expect(sheet).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
   await failed.click()
@@ -363,11 +374,12 @@ test('a fillet that fails says why in the error sheet, under the message', async
   await expect.poll(async () => (await state()).build?.error?.diagnosis?.operation, { timeout: 30_000 }).toBe('fillet')
   const sheet = page.getByRole('dialog', { name: 'Build error' })
   if ((await sheet.count()) === 0) await page.getByRole('button', { name: 'Build failed' }).click()
+  await sheet.getByRole('button', { name: 'Whole error' }).click()
   const why = sheet.locator('[data-part="diagnosis"]')
   await expect(why).toContainText('fillet R6 of 8 edges: each works alone; 4 pairs of adjacent edges fail (edges 4-5, 4-6, 5-7, 6-7: 12 mm apart, two R6 need more); the 8 together work up to R5.999')
   await expect(why).toContainText('4: line, 5 mm, along Z, between 2 planes')
   // Under the message, before the traceback; set as numbers are.
-  const order = await sheet.locator('.sheet-message, [data-part="diagnosis"], [data-part="traceback"]').evaluateAll((els) => els.map((el) => el.getAttribute('data-part') ?? 'message'))
+  const order = await sheet.locator('[data-part="message"], [data-part="diagnosis"], [data-part="traceback"]').evaluateAll((els) => els.map((el) => el.getAttribute('data-part') ?? 'message'))
   expect(order).toEqual(['message', 'diagnosis', 'traceback'])
   expect(await why.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
   await expect(sheet.getByRole('heading', { name: 'Why' })).toBeVisible()

@@ -182,3 +182,34 @@ test('what a turn changed is written on the parts as tags with leaders, four at 
   await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
   await expect(page.locator('.viewport-pane [data-tag^="change-"]')).toHaveCount(0)
 })
+
+test('a node of the builds strip compares with the live build from its menu, "Stop comparing" ends it, and a double click compares too', async () => {
+  const strip = page.locator('[data-region="session"] .strip')
+  const nodes = strip.locator('.strip-node[data-kind="built"]')
+  await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(3)
+  const live = (await strip.locator('.strip-node[data-on-show]').getAttribute('data-build'))!
+  const from = (await nodes.first().getAttribute('data-build'))!
+
+  await nodes.first().click()
+  await page.getByRole('menuitem', { name: 'Compare with live' }).click()
+  await expect(page.getByRole('menu', { name: `Build ${from}` })).toHaveCount(0)
+  await expect.poll(async () => (await state()).compare).toMatchObject({ from, to: live, mode: 'overlay' })
+  await expect(bar()).toBeVisible()
+
+  // The same node says "Stop comparing"; the build on show has nothing to compare with.
+  await nodes.first().click()
+  await page.getByRole('menuitem', { name: 'Stop comparing' }).click()
+  await expect.poll(async () => (await state()).compare).toBeNull()
+  await strip.locator('.strip-node[data-on-show]').click()
+  await expect(page.getByRole('menuitem', { name: 'Star', exact: true })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Compare with live' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu')).toHaveCount(0)
+
+  // A double click compares, and leaves no menu open.
+  const second = (await nodes.nth(1).getAttribute('data-build'))!
+  await nodes.nth(1).dblclick()
+  await expect.poll(async () => (await state()).compare).toMatchObject({ from: second, to: live })
+  await expect(page.getByRole('menu')).toHaveCount(0)
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
+})

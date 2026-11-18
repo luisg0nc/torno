@@ -243,6 +243,57 @@ test('a new conversation goes on with the numbers, lists beside the earlier one,
   await expect(chat().locator(`.chat-group[data-id="${id}"]`)).toBeInViewport()
 })
 
+test('"Go back to here" on a node asks from that node, strikes what it would undo in the strip and the conversation, and puts the files back when confirmed', async () => {
+  // The last prompt of the open conversation, and the build before it: the node to go back to.
+  const all = kept()
+  const promptId = all.filter((e) => e.turn).at(-1)!.turn!.prompt
+  const first = all.findIndex((e) => e.turn?.prompt === promptId)
+  const before = all.slice(0, first).findLast((e) => !e.failed)!
+  const made = all.filter((e) => e.turn?.prompt === promptId && !e.failed)
+  expect(made.length).toBeGreaterThan(0)
+  const strip = dock().locator('.strip')
+  const node = (id: string) => strip.locator(`.strip-node[data-build="${id}"]`)
+  const group = chat().locator(`.chat-group[data-id="${promptId}"]`)
+  await expect(node(before.id)).toBeVisible()
+
+  await node(before.id).click()
+  const menu = page.getByRole('menu', { name: `Build ${before.id}` })
+  for (const name of ['Compare with live', 'Star', 'Pin to board', 'Go back to here']) await expect(menu.getByRole('menuitem', { name })).toBeVisible()
+  // The newest build has no prompt after it to go back from.
+  await page.keyboard.press('Escape')
+  await node(made.at(-1)!.id).click()
+  await expect(page.getByRole('menuitem', { name: 'Go back to here' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  await node(before.id).click()
+  await page.getByRole('menuitem', { name: 'Go back to here' }).click()
+  // The question stands from the node, lists the plan's lines, and the prompts and builds it would undo are struck.
+  const ask = page.getByRole('alertdialog', { name: 'Go back to before this prompt' })
+  await expect(ask).toBeVisible()
+  await expect(ask).toContainText(`as they were at ${before.id}, before prompt 4`)
+  await expect(ask).toContainText('Undoes prompt 4')
+  const [box, from] = [(await ask.boundingBox())!, (await node(before.id).boundingBox())!]
+  expect(box.y).toBeGreaterThanOrEqual(from.y + from.height)
+  await expect(group).toHaveAttribute('data-struck', '')
+  for (const e of made) await expect(node(e.id)).toHaveAttribute('data-struck', '')
+  await expect(node(before.id)).not.toHaveAttribute('data-struck', '')
+  // Keeping things as they are changes nothing, and takes the strikes away.
+  await ask.getByRole('button', { name: 'Cancel' }).click()
+  await expect(ask).toHaveCount(0)
+  await expect(group).not.toHaveAttribute('data-struck', '')
+  await expect(node(made[0].id)).not.toHaveAttribute('data-struck', '')
+  expect(readFileSync(model(), 'utf8')).toContain('wall: float = 5')
+
+  await node(before.id).click()
+  await page.getByRole('menuitem', { name: 'Go back to here' }).click()
+  await ask.getByRole('button', { name: 'Go back', exact: true }).click()
+  await expect.poll(() => readFileSync(model(), 'utf8'), { timeout: 30_000 }).toContain('wall: float = 4')
+  expect(readFileSync(model(), 'utf8')).not.toContain('wall: float = 5')
+  await expect.poll(() => kept().at(-1)).toMatchObject({ cause: 'goback', wentBackTo: before.id })
+  await expect(ask).toHaveCount(0)
+  await expect(node(made[0].id)).not.toHaveAttribute('data-struck', '')
+})
+
 test('where the agent is a terminal the same list is a pane over the session, from what the history knows of its prompts', async () => {
   await openListed(page, 'bracket')
   await builtRevision(1)

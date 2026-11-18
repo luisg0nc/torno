@@ -20,6 +20,7 @@ import { GitText } from './GitText'
 import { useGit } from './useGit'
 import { useElapsed } from './useElapsed'
 import { ticksOf } from './strip/strip'
+import { useFailedAnchor } from './strip/failedAnchor'
 import { useStripNodes } from './strip/useStripNodes'
 
 /** `2 dimensions fail`, `1 dimension not measured`. */
@@ -118,6 +119,9 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
   const strip = useStripNodes()
   const ticks = ticksOf(strip.nodes)
   const shownId = strip.nodes.find((n) => n.onShow)?.id
+  // The error of the failed build stands from its node in the strip, or from this line when the strip is not drawn.
+  const failedAfter = strip.nodes.findLast((n) => n.kind === 'failed')?.after
+  const failedNode = useFailedAnchor()
   const compare = useStore((st) => st.compare)
   // Why Ctrl+G did nothing, for a moment.
   const setSaid = useSets((s) => s.said)
@@ -256,7 +260,7 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
       )}
       {build123d && <span className="num">build123d {build123d}</span>}
       {errorOpen && error && name !== null && (
-        <BuildErrorSheet objectName={name} error={error} onClose={() => actions.setErrorOpen(false)} />
+        <BuildErrorSheet objectName={name} error={error} after={failedAfter} anchor={failedNode} onClose={() => actions.setErrorOpen(false)} />
       )}
     </footer>
   )

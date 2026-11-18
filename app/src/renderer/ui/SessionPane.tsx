@@ -13,6 +13,8 @@ import { heldSaid, onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
 import { BuildsStrip } from './strip/BuildsStrip'
+import { NodePopover } from './strip/NodePopover'
+import type { StripNode } from './strip/strip'
 import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
 import { clearDrafts, holdDraft } from './chat/Composer'
@@ -259,6 +261,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   const marks = useStore((s) => s.marks)
   const revision = useStore((s) => s.revision)
   const [resumable, setResumable] = useState(false)
+  // The node of the builds strip that was clicked, and its element: its menu (or its error) stands from it.
+  const [picked, setPicked] = useState<{ node: StripNode; anchor: HTMLElement } | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   /** Whether "New session" is waiting for a yes: the session it would end is in the middle of something. */
@@ -796,7 +800,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       </header>
 
       {/* The project's builds, on top of the dock in every mode: the chat, the terminal and no session. */}
-      {!drafting && <BuildsStrip />}
+      {!drafting && <BuildsStrip onPick={(node, anchor) => setPicked(node.kind === 'running' ? null : { node, anchor })} onCompared={() => setPicked(null)} />}
+      {picked && !drafting && <NodePopover key={picked.node.id} node={picked.node} anchor={picked.anchor} onClose={() => setPicked(null)} />}
 
       {next !== null && !drafting && (
         <p className="session-next" role="status">

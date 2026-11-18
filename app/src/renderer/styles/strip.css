@@ -277,3 +277,133 @@
     animation: none;
   }
 }
+
+/* A build a Go back that asks would undo: its words struck and muted, its picture drained; its prompt in the conversation too. */
+.strip-node[data-struck] .strip-id,
+.strip-node[data-struck] .strip-by {
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: line-through;
+}
+
+.strip-node[data-struck] .strip-pic {
+  filter: grayscale(1);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+
+.strip-tick[data-struck] {
+  background: var(--hairline);
+}
+
+.chat-group[data-struck] .chat-phead-n,
+.chat-group[data-struck] .chat-phead-to {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.chat-group[data-struck] .chat-user .chat-you {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  text-decoration: line-through;
+}
+
+.chat-group[data-struck] .chat-user .chat-you .ref-chip {
+  box-shadow: none;
+}
+
+/* The menu of a build, from its node. */
+.node-menu {
+  padding: var(--space-1);
+}
+
+.node-menu-list {
+  display: grid;
+}
+
+/* What a Pin, or a Go back that could not, says: a sentence and a way to put it away. */
+.node-said {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.node-said-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.node-said .button {
+  justify-self: start;
+}
+
+/* The error of a build that failed, from its node (BuildErrorSheet): the tail on the fail wash, then what to do with it. */
+.build-error {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.build-error > * {
+  margin: 0;
+}
+
+.build-error-title {
+  color: var(--fail);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.build-error-kind,
+.build-error-told {
+  font-size: var(--text-small);
+  text-wrap: pretty;
+}
+
+.build-error-tail {
+  max-height: 120px;
+  padding: var(--space-2);
+  overflow: auto;
+  border-radius: var(--radius-control);
+  background: var(--fail-wash);
+  font: 400 var(--text-small) / 1.5 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
+}
+
+.build-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The whole of it, in the card: it scrolls, and what is in it can be selected. */
+.build-error-body {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 260px;
+  overflow-y: auto;
+  user-select: text;
+  cursor: text;
+}
+
+.build-error-message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.build-error-section {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.build-error-pre {
+  margin: 0;
+  font: 400 var(--text-small) / 1.55 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

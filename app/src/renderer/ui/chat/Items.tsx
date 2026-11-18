@@ -3,6 +3,7 @@ import { type ChatItem, refsIn } from '../../../shared/chat'
 import type { HistoryList } from '../../../shared/history'
 import { identitySaid } from '../../../shared/git'
 import { drawn } from '../../state/chat'
+import { useStruckPrompts } from '../../state/goBackAsk'
 import { useSetSlugs } from '../../state/sets'
 import { useStore } from '../../state/store'
 import { numbered } from '../numbered'
@@ -413,6 +414,8 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
     }
     return out
   }, [order, history, numbering])
+  // The prompts a Go back that asks would undo (`useGoBack`): drawn struck, muted.
+  const struck = useStruckPrompts()
   const gone = useMemo(() => (history ? goneBack(history.entries) : new Set<string>()), [history])
   const rows = useMemo(() => rowsOf(entries, history, gone), [entries, history, gone])
 
@@ -434,7 +437,7 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
     const list = isTaskTool(item) && item.state === 'done' && last ? lists.get(item.id) : undefined
     const listed = list && list.length > 0 ? list : undefined
     return (
-      <div key={item.id} className="chat-group" data-id={item.id}>
+      <div key={item.id} className="chat-group" data-id={item.id} data-struck={item.kind === 'user' && struck.has(item.id) ? '' : undefined}>
         {item.kind === 'user' && <PromptHead id={item.id} number={numbering.get(item.id)} builds={history ? headBuilds(history.entries, item.id, ended.has(item.id), building && open === item.id) : undefined} queued={item.state === 'queued'} ended={ended.has(item.id)} />}
         {item.kind === 'tool' && item.name === 'TodoWrite' && listed ? <TasksCard list={listed} /> : <ItemView item={item} beat={underWay(item) ? beat : true} account={accounts.get(item.id)} joined={joins.get(item.id)} />}
         {under.get(item.id)?.map((context) => (context.forTool ? <BuildLine key={context.id} item={context} history={history} /> : <Added key={context.id} item={context} />))}

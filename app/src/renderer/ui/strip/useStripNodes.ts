@@ -7,8 +7,8 @@ import { usePrompts } from '../chat/usePrompts'
 import { useHistory } from '../useHistory'
 import { stripNodes, type StripLive, type StripNode } from './strip'
 
-/** The nodes of the open project's builds (`stripNodes`) as the window knows them, with the history entries they come from, by id. Empty until main has answered. */
-export function useStripNodes(): { nodes: StripNode[]; entries: ReadonlyMap<string, HistoryEntry>; loaded: boolean } {
+/** The nodes of the open project's builds (`stripNodes`) as the window knows them, with the history entries they come from, by id, and the numbers of the project's prompts, by id. Empty until main has answered. */
+export function useStripNodes(): { nodes: StripNode[]; entries: ReadonlyMap<string, HistoryEntry>; numbering: Map<string, number>; loaded: boolean } {
   const build = useStore((s) => s.build)
   const reviewing = useReview((s) => openRoundNow(s)?.build)
   const working = useStore((s) => {
@@ -28,5 +28,5 @@ export function useStripNodes(): { nodes: StripNode[]; entries: ReadonlyMap<stri
   const numbering = useMemo(() => numbersOf(rows ?? [], []), [rows])
   const nodes = useMemo(() => stripNodes(history?.entries ?? [], live, numbering), [history, live, numbering])
   const entries = useMemo(() => new Map((history?.entries ?? []).map((e) => [e.id, e])), [history])
-  return { nodes, entries, loaded: history !== undefined && history !== null }
+  return { nodes, entries, numbering, loaded: history !== undefined && history !== null }
 }

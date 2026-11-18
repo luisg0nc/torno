@@ -399,6 +399,13 @@ chat a bracket says which ones ("prompt 14, in sight below") and follows the cha
 build on show in sight; a build that lands slides in. When the session pane is under 640 px high the strip folds to its head line and a row of ticks. A build that
 runs while none has landed, a project with no build kept yet and a history of dozens are drawn the same way.
 
+A click on a node opens its menu, standing from the node: **Compare with live** (draws that build over the one on show, as **Compare** on a turn does; it reads
+**Stop comparing** while it is on, and the build on show has nothing to compare with), **Star** or **Unstar**, **Pin to board**, **Review this build** (on the build
+on show, while no round is open) and **Go back to here**. A double click on a node compares it. **Go back to here** is the same Go back as the one on a turn: it goes
+back to before the prompt that came after that build (so the newest build, and one that your own save follows, do not offer it), asks first with the files it
+would write and delete and the prompts it undoes, and while it asks the builds and the prompts it would undo are drawn struck through and muted, in the strip and in
+the conversation. A failed build's node opens its error instead: see "Build failed" below.
+
 In the status line the last eight builds are a row of ticks after the project's name: the build on show taller and in the accent, a failed one in red, your own saves
 in your colour, a running build outlined. The line says how the build on show went: "h41 built in 51 s".
 The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are in the menu of the dots on the turns of the chat.
@@ -533,10 +540,12 @@ as ghosts: their old edges in the muted colour, where they stood, and their new 
 themselves, fading once, or at once on any key or click. The parts that did not change are not touched. There is
 no ghost while a section is on or the parts are drawn apart, nor in a picture for Claude Code.
 
-"Build failed" opens the error: what happened in words ("Python error in the
+"Build failed" opens the error, as a card from the failed node of the builds strip
+(from the status line when the session pane is away), and so does a click on that
+node: "The build after h40 failed", what happened in words ("Python error in the
 model", "The build took too long (timeout)", "The build process stopped
-(crash)"), the message, why a fillet or a chamfer failed, the traceback and what
-the model printed. It says who is told: Claude Code is told this with your next
+(crash)"), and the end of the error. "Whole error" opens the message, why a fillet or a
+chamfer failed, the traceback and what the model printed in the card. It says who is told: Claude Code is told this with your next
 prompt, or was told after its own edit, so there is no need to paste it into the
 chat. "Ask Claude Code to fix it" puts a short request in the message box, opens
 the session pane if it was away, and never sends it: you read it and press Enter.
@@ -1941,7 +1950,7 @@ build with its layers; before a build of this run it says "build to see the outl
 at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed, a tracing removed) its card goes with it. Claude is told of a tracing's card as `C9 · tracing T1 "Front of the block": XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)`, and it is new to Claude when the name, plane, layers or line-up change. These
 you pin, with "Pin to board":
 
-- a **build**, from the strip of builds under a prompt in the chat (a small "Pin" on each picture). The card keeps the
+- a **build**, from its node in the builds strip (its menu, "Pin to board"). The card keeps the
   build's picture, id and line, and the build is starred in the history, so it is never pruned; taking the card away leaves
   the star. On another computer, or once the history has let it go, the card says "build not on this computer".
 - a **saved view**, from the menu of its chip in the strip of views;

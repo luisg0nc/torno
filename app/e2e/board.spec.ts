@@ -497,7 +497,7 @@ async function say(prompt: string): Promise<void> {
   await page.keyboard.press('Enter')
 }
 
-// "Pin to board" is in the menu of a node of the builds strip (Task 29); until then the pin is asked of main as the menu will, and the strip shows the star.
+// "Pin to board" is in the menu of a node of the builds strip: a click on the node, then the item; the strip shows the star.
 test('a build pinned from the strip is a card with its thumb, and its entry is starred', async () => {
   await expect(page.locator('.pboard')).toHaveCount(0)
   await newSession(dock())
@@ -510,7 +510,9 @@ test('a build pinned from the strip is a card with its thumb, and its entry is s
   await expect.poll(() => strip.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
   await expect(strip.first().locator('img')).toBeVisible({ timeout: 15_000 })
   const id = (await strip.first().getAttribute('data-build'))!
-  expect(await page.evaluate((build) => window.torno.board.pin('bracket', { kind: 'build', id: build }), id)).not.toHaveProperty('refused')
+  await strip.first().click()
+  await page.getByRole('menuitem', { name: 'Pin to board' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Pinned to the board' })).toBeVisible()
   const build = (await cardsOf('build'))[0]
   expect(build).toMatchObject({ by: 'person', source: id, copy: { id } })
   expect(build.picture).toMatch(/^p-[0-9a-f]{12}\.(png|jpg)$/)
