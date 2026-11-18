@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Part } from '../../../shared/scene'
-import { MOST_TAGGED, leftOutParts } from './leftOut'
+import { MOST_TAGGED, leftOutParts } from './leftOutParts'
 
 const part = (name: string, min: [number, number, number], max: [number, number, number]): Part => ({ name, bbox: { min, max } }) as Part
 

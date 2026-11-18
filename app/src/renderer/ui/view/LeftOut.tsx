@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useStore } from '../../state/store'
 import { usePreview } from '../../state/exportPreview'
 import { Tag } from './Tag'
-import { leftOutParts } from './leftOut'
+import { leftOutParts } from './leftOutParts'
 
 /**
  * A part that is switched off stays out of an exported page unless the person ticks it in: while the export is open, a dashed tag at
