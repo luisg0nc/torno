@@ -126,6 +126,40 @@ test('the shell is one grid: a title row, the left column, the view, the dock an
   expect(session.height).toBe(win.h - 40 - 28)
 })
 
+test('the rail is icons only: each name is a tip on hover and on keyboard focus, and Keys is at the foot', async () => {
+  const rail = page.locator('[data-region="left"] .rail')
+  await expect(rail.locator('.rail-label')).toHaveCount(0)
+  const buttons = rail.getByRole('button')
+  const projects = buttons.first()
+  const keys = buttons.last()
+  // An empty folder: Projects and Keys alone, the rail of no project.
+  await expect(buttons).toHaveCount(2)
+  await expect(keys).toHaveAccessibleName('Keys')
+  expect((await projects.boundingBox())!.width).toBe(36)
+  expect((await keys.boundingBox())!.y).toBeGreaterThan((await projects.boundingBox())!.y + 300)
+  // No tip until asked for; then an ink pill 6 px to the right of the button, aria-hidden, there at once.
+  await expect(page.locator('.rail-tip')).toHaveCount(0)
+  await projects.hover()
+  const tip = page.locator('.rail-tip')
+  await expect(tip).toHaveText('Projects')
+  await expect(tip).toHaveAttribute('aria-hidden', 'true')
+  const at = (await projects.boundingBox())!
+  const pill = (await tip.boundingBox())!
+  expect(pill.x).toBe(at.x + at.width + 6)
+  await page.mouse.move(700, 400)
+  await expect(tip).toHaveCount(0)
+  // The keyboard's focus shows it too, and leaving the button puts it away.
+  await projects.focus()
+  await page.keyboard.press('Tab')
+  await expect(keys).toBeFocused()
+  await expect(tip).toHaveText('Keys')
+  await expect(tip).toHaveCount(1)
+  await page.keyboard.press('Shift+Tab')
+  await expect(projects).toBeFocused()
+  await expect(tip).toHaveText('Projects')
+  await expect(tip).toHaveCount(1)
+})
+
 test('the renderer is isolated and the bridge is exposed', async () => {
   const probe = await page.evaluate(() => {
     const w = window as unknown as Record<string, unknown>

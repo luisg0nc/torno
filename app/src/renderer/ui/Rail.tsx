@@ -1,9 +1,12 @@
-import type { ReactNode } from 'react'
+import { Fragment, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { hint } from '../../shared/keys'
 import { checksCount } from '../../shared/modelChecks'
 import { type RailPanel, panelsFor, shownPanel } from '../state/column'
 import { actions, layerOf, useStore } from '../state/store'
+import { showKeys } from './KeySheet'
 import { groupMarks } from './markGroups'
 import { badgeSaid, badgeText } from './railBadges'
+import { RailTip } from './RailTip'
 import { scanState } from './scanState'
 import { SessionDot } from './SessionDot'
 import { switcherSign } from './sessionSign'
@@ -21,7 +24,7 @@ export function useRail(): { offered: readonly RailPanel[]; shown: RailPanel | n
 
 const LABEL: Record<RailPanel, string> = { projects: 'Projects', layers: 'Layers', params: 'Params', scans: 'Scans', marks: 'Marks' }
 
-/** One icon each, at 18 px, stroked as the rest of the window's: a line of 1.25 in the colour of the text. */
+/** One icon each, at 19 px, stroked 1.35 as the rest of the window's, in the colour of the quiet text. */
 const ICON: Record<RailPanel, ReactNode> = {
   projects: (
     <>
@@ -49,6 +52,34 @@ const ICON: Record<RailPanel, ReactNode> = {
   marks: <path d="M9 16.25s4.75-4.75 4.75-8.5a4.75 4.75 0 0 0-9.5 0c0 3.75 4.75 8.5 4.75 8.5Z" />
 }
 
+const KEYS_ICON = (
+  <>
+    <rect x="1.75" y="4.25" width="14.5" height="9.5" rx="2" />
+    <path d="M4.5 7.25h1M8.5 7.25h1M12.5 7.25h1M5.5 10.75h7" />
+  </>
+)
+
+function RailIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg className="rail-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
+
+/** A button of the rail with its tip: the tip is told which element it is for, once the button is in the page. */
+function RailButton({ label, children, ...props }: { label: string; children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement> & { [data: `data-${string}`]: string | undefined }) {
+  const [button, setButton] = useState<HTMLButtonElement | null>(null)
+  return (
+    <>
+      <button ref={setButton} type="button" className="rail-button" {...props} aria-label={label}>
+        {children}
+      </button>
+      <RailTip label={label} for={button} />
+    </>
+  )
+}
+
 /** The numbers the closed panels say on their icons: as the folded titles said them, now the rail's. */
 function useCounts(): Record<RailPanel, number> {
   const hidden = useStore((s) => (s.scene ? s.scene.parts.filter((p) => p.layout === s.layout && layerOf(s.layers, p.name)?.visible === false).length : 0))
@@ -62,11 +93,13 @@ function useCounts(): Record<RailPanel, number> {
 }
 
 /**
- * The rail: a thin column of icons with a word under each, one for each panel of the left (`RailPanel`). A press
- * opens that panel beside it, which pushes the view over; a press on the open one closes it; another switches. What
- * the folded titles said of a panel (parts switched off, checks that fail, scans not aligned, marks to review) is a
+ * The rail: a thin column of icons, one for each panel of the left (`RailPanel`), and Keys at the foot. No word is
+ * drawn under an icon: the name is the button's accessible name and, on hover and keyboard focus, a tip (`RailTip`).
+ * A press opens that panel beside it, which pushes the view over; a press on the open one closes it; another switches.
+ * What the folded titles said of a panel (parts switched off, checks that fail, scans not aligned, marks to review) is a
  * badge on its icon, in the monospace face and in words as the button's description. Projects has no count: it says
- * instead, as the folder's list did folded, that a session of any project works or waits for the person. Pressed
+ * instead, as the folder's list did folded, that a session of any project works or waits for the person. Projects
+ * pressed on the page of projects is the dyed tile (`data-dyed`); any other open panel has the accent's wash. Pressed
  * with the pointer, the next letter is the view's.
  */
 export function Rail({ offered, shown }: { offered: readonly RailPanel[]; shown: RailPanel | null }) {
@@ -74,46 +107,48 @@ export function Rail({ offered, shown }: { offered: readonly RailPanel[]; shown:
   const objects = useStore((s) => s.workspace?.objects)
   const openId = useStore((s) => s.objectId)
   const creating = useStore((s) => s.page === 'new')
+  const onPage = useStore((s) => s.page === 'objects')
   const sessions = useStore((s) => s.sessions)
   const { sign, said: sessionSaid } = switcherSign(creating ? null : openId, objects ?? [], sessions)
   return (
     <div className="rail">
-      {offered.map((panel) => {
+      {offered.map((panel, i) => {
         const count = counts[panel]
         const text = badgeText(count)
         const said = panel === 'projects' ? sessionSaid : badgeSaid(panel, count)
         return (
-          <button
-            key={panel}
-            type="button"
-            className="rail-button"
-            data-panel={panel}
-            data-session={panel === 'projects' ? (sign ?? undefined) : undefined}
-            aria-label={LABEL[panel]}
-            aria-description={said}
-            aria-pressed={shown === panel}
-            title={panel === 'projects' && sessionSaid ? `${LABEL[panel]}: ${sessionSaid}` : LABEL[panel]}
-            onClick={(e) => {
-              actions.openPanel(shown === panel ? null : panel)
-              // A press of the pointer (Enter or Space has no count): the next letter is the view's.
-              if (e.detail > 0) giveKeysBack(e.currentTarget)
-            }}
-          >
-            <svg className="rail-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {ICON[panel]}
-            </svg>
-            <span className="rail-label" aria-hidden="true">
-              {LABEL[panel]}
-            </span>
-            {text !== '' && (
-              <span className="rail-badge num" data-panel={panel} aria-hidden="true">
-                {text}
-              </span>
-            )}
-            {panel === 'projects' && sign !== null && <SessionDot sign={sign} />}
-          </button>
+          <Fragment key={panel}>
+            <RailButton
+              label={LABEL[panel]}
+              data-panel={panel}
+              data-dyed={panel === 'projects' && onPage && shown === 'projects' ? 'true' : undefined}
+              data-session={panel === 'projects' ? (sign ?? undefined) : undefined}
+              aria-description={said}
+              aria-pressed={shown === panel}
+              onClick={(e) => {
+                actions.openPanel(shown === panel ? null : panel)
+                // A press of the pointer (Enter or Space has no count): the next letter is the view's.
+                if (e.detail > 0) giveKeysBack(e.currentTarget)
+              }}
+            >
+              <RailIcon>{ICON[panel]}</RailIcon>
+              {text !== '' && (
+                <span className="rail-badge num" data-panel={panel} aria-hidden="true">
+                  {text}
+                </span>
+              )}
+              {panel === 'projects' && sign !== null && <SessionDot sign={sign} />}
+            </RailButton>
+            {i === 0 && offered.length > 1 && <span className="rail-sep" aria-hidden="true" />}
+          </Fragment>
         )
       })}
+      <span className="rail-grow" aria-hidden="true" />
+      <RailButton label="Keys" data-rail="keys" aria-keyshortcuts={hint('keys')} aria-description={KEYS_SAY} onClick={() => showKeys()}>
+        <RailIcon>{KEYS_ICON}</RailIcon>
+      </RailButton>
     </div>
   )
 }
+
+const KEYS_SAY = 'Every key, and how the pointer turns, pans and zooms the view'
