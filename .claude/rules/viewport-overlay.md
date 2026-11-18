@@ -47,7 +47,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   said so (`scansKnown`), is drawn quieter (`data-quiet`, the icon in `--muted`) and stays enabled: its click and its tip
   say why. The key letters are 11 px. The Keys button has the same tip.
   With a tool other than Select in hand a **caption** (`ToolHint`, an ink pill: `--ink` ground, `--surface` text, 12 px,
-  `--radius-caption` 9 px) stands by the pointer, 18 px below and to its right (`captionPlace` in `shared/captionPlace.ts`:
+  `--radius-full`, a pill) stands by the pointer, 18 px below and to its right (`captionPlace` in `shared/captionPlace.ts`:
   to the other side at the edge of the pane, and beyond the readout `.pick-readout` when that is there). `CaptionAt`
   (`viewport/captionAt.ts`) puts it, with a transform written on every pointer move over the pane, never through React; no animation but a
   90 ms fade, and it takes no pointer. It says what the tool waits for next: `next` of the tool's row in `TOOL_KEYS`, with
