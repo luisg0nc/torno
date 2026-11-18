@@ -401,7 +401,7 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
     return (
       <div key={item.id} className="chat-group" data-id={item.id}>
         {item.kind === 'tool' && item.name === 'TodoWrite' && listed ? <TasksCard list={listed} /> : <ItemView item={item} beat={underWay(item) ? beat : true} account={accounts.get(item.id)} joined={joins.get(item.id)} />}
-        {under.get(item.id)?.map((context) => (context.forTool ? <BuildLine key={context.id} item={context} /> : <Added key={context.id} item={context} />))}
+        {under.get(item.id)?.map((context) => (context.forTool ? <BuildLine key={context.id} item={context} history={history} /> : <Added key={context.id} item={context} />))}
         {listed && !(item.kind === 'tool' && item.name === 'TodoWrite') && <TasksCard list={listed} />}
       </div>
     )

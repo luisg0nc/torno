@@ -368,14 +368,18 @@ test('the build an edit started is a build under the edit: that it worked and ho
   await expect(composer()).toBeEnabled()
   await say('edit hollow.py "wall: float = 2" "wall: float = 3"')
   const built = chat().locator('.chat-build').first()
-  await expect(built).toContainText('Built r2 · ok', { timeout: 30_000 })
+  // The build is named as the history names it (h41) once the history has it, as its revision (r2) until then.
+  await expect(built).toContainText(/Built (r2|h\d+) ok/, { timeout: 30_000 })
   await expect(built.locator('.chat-build-head')).toContainText(/\d s$/)
   // Not what torno adds to a prompt: a build, under the card of the edit.
   await expect(built).not.toContainText('torno added')
   await expect(chat().locator('.chat-group', { has: page.locator('.chat-tool') }).last().locator('.chat-build')).toHaveCount(1)
   // The dimension the edit mended, as a chip and a word; the part it changed, as the kernel said it.
   await expect(built.locator('.chat-build-dimensions li', { hasText: 'M4' })).toContainText('now passes', { timeout: 15_000 })
-  await expect(built.locator('.chat-build-parts li').first()).toContainText('tub: ')
+  // The part it changed is a row of the table, with its volume before and now, and the change.
+  await expect(built.locator('.chat-build-table thead')).toContainText('Volume, mm³')
+  await expect(built.locator('.chat-build-table tbody tr').first()).toContainText('tub')
+  await expect(built.locator('.chat-build-table tbody tr').first().locator('td.num')).toHaveCount(3)
   // Nothing of the text the agent got is drawn until it is asked for, and then it is whole.
   await expect(built.locator('.chat-added-text')).toHaveCount(0)
   await built.getByRole('button', { name: 'Show text' }).click()
@@ -385,7 +389,8 @@ test('the build an edit started is a build under the edit: that it worked and ho
 
   await say('edit hollow.py "return {" "return WAL, {"')
   const failed = chat().locator('.chat-build').last()
-  await expect(failed).toContainText("Build after r2 failed: NameError: name 'WAL' is not defined", { timeout: 30_000 })
+  await expect(failed).toContainText(/The build after (r2|h\d+) failed/, { timeout: 30_000 })
+  await expect(failed.locator('.chat-build-error')).toHaveText("NameError: name 'WAL' is not defined")
   await expect(failed.locator('.chat-build-head')).toHaveAttribute('data-verdict', 'failed')
   await failed.getByRole('button', { name: 'Show error' }).click()
   await expect(page.getByRole('dialog', { name: 'Build error' })).toContainText("name 'WAL' is not defined")
@@ -404,7 +409,7 @@ test('the build an edit started is a build under the edit: that it worked and ho
   await page.keyboard.press('Escape')
   // Mended: the failure's line has no sheet to open any more.
   await say('edit hollow.py "return WAL, {" "return {"')
-  await expect(chat().locator('.chat-build').last()).toContainText('Built r3 · ok', { timeout: 30_000 })
+  await expect(chat().locator('.chat-build').last()).toContainText(/Built (r3|h\d+) ok/, { timeout: 30_000 })
   await expect(failed.getByRole('button', { name: 'Show error' })).toHaveCount(0)
 })
 

@@ -724,18 +724,24 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   box, "Goes with your next prompt" says what will go. A prompt that carried a review says `review R1 sent`, and one sent
   while a round waits says `R1 is in review, not sent`; the marks of a round that was not sent are not among what goes (see [Reviews](#reviews)).
 - **The build an edit started.** When the agent edits the model, the build that
-  follows is a line of its own under the edit's card: `Built r2 · ok · 1.2 s`,
-  or `Build after r2 failed: NameError: name 'WAL' is not defined` in the fail
-  colour (the last line of the traceback), with "Show error" opening the sheet of that
-  failure while it is the latest build. Under it, the dimensions whose verdict
-  that build changed (`M3 now passes`, `M2 now fails`) and the parts it changed,
-  a line each as the kernel said them (`tub: volume 14710 → 20460 mm³ (+5752, +39
-  %)`, with `≈` where the number is not exact), four at most. "Show text" opens
-  the exact text the agent was given. A revision names a build that worked: a
-  failure has no number of its own, and is told as the build after the one still
-  on show (the first build, when none has worked), in the window and in what
-  the agent is told. Once a build has failed, the chip of the build still on
-  show opens the same sheet.
+  follows is a slip of its own under the edit's card, on the surface. Its head
+  says `Built h41 ok 51 s` (the build as the history names it, `r2` until it
+  has it), or `The build after h40 failed` in the fail colour, with the last
+  line of the traceback under it in the monospace face on the fail wash and
+  "Show error" opening the sheet of that failure while it is the latest build;
+  "Show text" is at the right of it. Under the head, each dimension whose
+  verdict that build changed has a row (`M3 tub wall 2.8 → 3 mm now passes`,
+  `M2 now fails`), and the parts it changed are a table: the part, its volume on
+  the build before, on this build, and the change (`+6.3 %`), the biggest
+  change first, with `≈` where a number is not exact. The new volumes count up
+  from the old ones once, in a moment, and show at once when your system asks
+  for less motion. Six parts at most; the rest are "3 more changed", a click
+  unfolds them, and "5 parts did not change" says how many stood. "Show text"
+  opens the exact text the agent was given. A revision names a build that
+  worked: a failure has no number of its own, and is told as the build after
+  the one still on show (the first build, when none has worked), in the window
+  and in what the agent is told. Once a build has failed, the chip of the build
+  still on show opens the same sheet.
 - **What the agent pulled from torno.** Every tool of torno's it calls is a card
   of its own, with its input, its result and its pictures as thumbnails that
   open large; the turn ends with a line such as "Pulled from torno: scene, 2
@@ -1138,8 +1144,8 @@ M4 thickness 2 mm wall, along the normal, tub/F2 at (30, 0, -10) (expected 3 ± 
   build (see below): it is asked
   to mend the model or to say why that is meant. A change of volume alone never
   does.
-- The chat shows it under the edit's card (the build line: the parts that
-  changed, the dimensions that changed verdict), the whole text behind "Show text",
+- The chat shows it under the edit's card (the build slip: the dimensions that
+  changed verdict, and the parts that changed as a table of volumes, from the digest's numbers), the whole text behind "Show text",
   and `state.md` carries it under the build. It is not told with a prompt.
 
 When Claude Code would stop, torno holds it back for what the turn itself did:

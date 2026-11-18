@@ -1329,41 +1329,7 @@ button.ref-chip {
   font-size: 11.5px;
 }
 
-/* The build an edit started, under the card of the edit: ruled in the accent as what torno adds is, its words in the verdicts' colours. */
-.chat-build {
-  padding: 0 0 0 var(--space-3);
-  border-left: 2px solid var(--accent);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.chat-build-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-}
-
-.chat-build-head {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.chat-build-head[data-verdict='failed'],
-.chat-build-dimensions [data-verdict='failed'] {
-  color: var(--fail);
-}
-
-.chat-build-dimensions [data-verdict='ok'] {
-  color: var(--ok);
-}
-
-.chat-build-dimensions,
-.chat-build-parts {
-  margin: var(--space-1) 0 0;
-  padding: 0;
-  list-style: none;
-}
+/* The build slip (BuildLine) is in chat-slip.css. */
 
 /* A run of the agent's tools, once its turn is over, as one line. */
 .chat-fold-head .chat-tool-row {

@@ -14,9 +14,9 @@ import { type RefInfo, refInfo } from './refs'
  * the viewport, a click on a mark goes to it, a click on a face or an edge selects it, a click on a card of the board (`C7`) shows the board with it selected, a click on a tracing (`T1`) opens it in the Tracing view, and a click on the build on show opens the sheet of the build after it that failed. One that names nothing
  * in the window now (another layout, a part not drawn, a mark that is gone) says so in its tooltip and does
  * nothing else. `value` is the ref (`ref` is React's own word). `prose`: the ref was found in running text, where one
- * the object has no such thing as (`M3` the screw, a build not made yet) is only text.
+ * the object has no such thing as (`M3` the screw, a build not made yet) is only text. `label`: what the chip says in place of the ref (a build as the history names it, `h41`, for `r2`); the ref stays its `data-ref`.
  */
-export function RefChip({ value, prose = false, of }: { value: string; prose?: boolean; of?: string }) {
+export function RefChip({ value, prose = false, of, label }: { value: string; prose?: boolean; of?: string; label?: string }) {
   const earlier = useContext(ChatEarlier)
   // Only what a ref depends on is followed (not the selection or the camera), and what it says is worked out again
   // only when one of those changes.
@@ -59,7 +59,7 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
     return (
       <>
         {sign}
-        <span {...props}>{value}</span>
+        <span {...props}>{label ?? value}</span>
       </>
     )
   }
@@ -86,7 +86,7 @@ export function RefChip({ value, prose = false, of }: { value: string; prose?: b
           if (e.detail > 0) giveKeysBack(e.currentTarget)
         }}
       >
-        {value}
+        {label ?? value}
       </button>
     </>
   )
