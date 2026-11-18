@@ -132,7 +132,7 @@ button {
   --hint-lift: 0px;
   /* The least a bar a row up stands at: clear of the strip of the Measure tool, when it is there. */
   --strip-top: 0px;
-  /* Where the bars stand: on the floor, or above the line when it is there (`ToolHint`, which stands on the floor itself). */
+  /* Where the bars stand: on the floor, or above the line when it is there (`ui/view/Hint.tsx`, which stands on the floor itself). */
   --bar-lift: calc(var(--bar-floor) + var(--hint-lift));
 }
 
@@ -156,8 +156,8 @@ button {
   --strip-top: calc(var(--triad-clear) + var(--space-1) + 36px);
 }
 
-/* The line at the foot of the view takes the place of the bars' bottom row: they stand above it, a row (40px, as they stand over one another) up. */
-.viewport-pane:has(.tool-hint) {
+/* The hint at the foot of the view takes the place of the bars' bottom row: they stand above it, a row (40px, as they stand over one another) up. */
+.viewport-pane:has(.view-hint) {
   --hint-lift: 40px;
 }
 

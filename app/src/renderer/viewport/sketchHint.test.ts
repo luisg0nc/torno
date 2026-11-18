@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hintLines } from './sketchHint'
+import { hintLines, hintLook } from './sketchHint'
 
 describe('the hint at the pointer while sketching', () => {
   it('says what the pointer would snap to, by the ref the kernel numbers it by', () => {
@@ -27,5 +27,13 @@ describe('the hint at the pointer while sketching', () => {
 
   it('says nothing of nothing', () => {
     expect(hintLines({})).toEqual([])
+  })
+})
+
+describe('the look of the hint box', () => {
+  it('is the caption’s ink pill, and an accent one where the pointer would snap', () => {
+    expect(hintLook({ segment: { length: 12, angle: 3 } })).toBe('ink')
+    expect(hintLook({ typed: '12', segment: { length: 12 } })).toBe('ink')
+    expect(hintLook({ snap: { kind: 'vertex', ref: 'block/V88' }, segment: { length: 12 } })).toBe('accent')
   })
 })

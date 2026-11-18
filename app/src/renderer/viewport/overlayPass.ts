@@ -19,7 +19,7 @@ export interface OverlayHost {
   readonly marks: Pick<MarkLayer, 'labels' | 'markOf' | 'anchorOf' | 'offsetOf' | 'drawn' | 'activeId' | 'hoverId'>
   camera(): THREE.Camera
   layout(): string
-  style(): LabelStyle & { accent: string }
+  style(): LabelStyle & { accent: string; onAccent: string }
   /** What the axes and the scale are drawn in: the colours of the three axes and of the quiet text, and the step of the grid in mm. */
   frame(): { muted: string; axes: readonly [string, string, string]; gridStep: number }
   /** Where a point of the object frame falls in the window, in client pixels. */
@@ -95,7 +95,7 @@ export class OverlayPass {
     this.drawFrame(ctx, size, style)
     // Not while the parts are drawn apart: a point picked on the model would be drawn where its part is not.
     if (host.exploded?.()) return
-    this.cube = this.sketch ? drawSketchOverlay(ctx, this.sketch, host.camera(), size, { accent: style.accent, ink: style.ink, paper: style.paper, hairline: host.frame().muted }) : []
+    this.cube = this.sketch ? drawSketchOverlay(ctx, this.sketch, host.camera(), size, { accent: style.accent, onAccent: style.onAccent, ink: style.ink, surface: style.surface, paper: style.paper, hairline: host.frame().muted }) : []
     drawAlignPoints(ctx, this.alignPoints, host.camera(), size, { accent: style.accent, paper: style.paper })
     drawHeldValue(ctx, this.held, host.camera(), size, { ink: style.ink, paper: style.paper })
     drawBrushRing(ctx, this.brush, host.camera(), size, { mark: style.user, paper: style.paper })

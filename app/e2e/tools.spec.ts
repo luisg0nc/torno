@@ -310,7 +310,10 @@ test('the palette is in three groups, split by a rule: the tools that inspect, t
 })
 
 const tip = (name: string, p: Page = page) => p.locator(`.tool-tip[data-tip="${name}"]`)
+/** The caption by the pointer: what the tool in hand waits for. */
 const hintLine = (p: Page = page) => p.locator('.tool-hint')
+/** The hint at the foot of the view that says how the pointer moves the view, once. */
+const pointerHint = (p: Page = page) => p.locator('.view-hint[data-kind="pointer"]')
 
 test('pointing at a tool shows at once what it does and its key; a scan’s tool with no scan says to import one', async () => {
   await openFromAbove()
@@ -351,7 +354,7 @@ test('pointing at a tool shows at once what it does and its key; a scan’s tool
   await page.keyboard.press('Escape')
 })
 
-test('with a tool in hand a quiet line at the foot of the view says what it waits for, and Measure’s goes on after the first click', async () => {
+test('with a tool in hand the caption says what it waits for, and Measure’s goes on after the first click', async () => {
   await openFromAbove()
   await atRest()
   await page.keyboard.press('v')
@@ -384,20 +387,56 @@ test('with a tool in hand a quiet line at the foot of the view says what it wait
   await expect(page.locator('.tool-hint[data-kind="step"]')).toHaveCount(0)
 })
 
-test('the line stands clear of the bars at the foot of the view, which stand above it', async () => {
+test('the caption is an ink pill 18 px below and right of the pointer; its words are always there, and it is shown at once for a tool’s first uses, then where the pointer rests', async () => {
   await openFromAbove()
   await page.keyboard.press('v')
-  await page.keyboard.press('x')
-  await expect(page.locator('.sectionbar')).toBeVisible()
-  await expect(hintLine()).toContainText('Section: drag the handle')
-  const line = await stableBox(hintLine())
-  const bar = await stableBox(page.locator('.sectionbar'))
-  // The bar's bottom edge is above the line's top, and the line takes no pointer.
-  expect(bar.y + bar.height).toBeLessThanOrEqual(line.y)
+  await page.evaluate(() => localStorage.removeItem('torno.toolUses'))
+  const view = (await canvas().boundingBox())!
+  const at: [number, number] = [view.x + 150, view.y + 70]
+  await page.mouse.move(...at)
+  await expect(readout()).toBeHidden()
+  await page.keyboard.press('m')
+  await expect(hintLine()).toContainText('Measure: click the first end')
+  // The words are in a polite live region, and the caption takes no pointer.
+  await expect(page.locator('.tool-hint-live')).toHaveAttribute('aria-live', 'polite')
   expect(await hintLine().evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none')
-  // The cut the tool made on being taken is put away again, for the tests that follow.
-  await page.locator('.sectionbar button[title="Show the parts whole again"]').click()
-  await expect.poll(async () => (await state()).section).toBeNull()
+  // The first uses: shown at once, 18 px below and to the right.
+  await expect(hintLine()).toHaveAttribute('data-shown', '')
+  await page.mouse.move(at[0] + 3, at[1] + 2)
+  await expect(hintLine()).toHaveAttribute('data-shown', '')
+  await expect
+    .poll(async () => {
+      const box = (await hintLine().boundingBox())!
+      return [Math.round(box.x - (at[0] + 3)), Math.round(box.y - (at[1] + 2))]
+    })
+    .toEqual([18, 18])
+  // An ink pill: the ink ground, the surface's text.
+  const look = await hintLine().evaluate((el) => {
+    const css = getComputedStyle(document.documentElement)
+    const probe = document.createElement('i')
+    const colour = (name: string) => {
+      probe.style.color = css.getPropertyValue(name)
+      document.body.append(probe)
+      const c = getComputedStyle(probe).color
+      probe.remove()
+      return c
+    }
+    const own = getComputedStyle(el)
+    return { ground: own.backgroundColor, text: own.color, ink: colour('--ink'), surface: colour('--surface') }
+  })
+  expect(look.ground).toBe(look.ink)
+  expect(look.text).toBe(look.surface)
+  // After ten uses it shows only where the pointer rests: put away by a move, back after half a second.
+  await page.evaluate(() => localStorage.setItem('torno.toolUses', '40'))
+  await page.keyboard.press('a')
+  await page.keyboard.press('m')
+  await page.mouse.move(at[0], at[1] + 6)
+  await expect(hintLine()).not.toHaveAttribute('data-shown', /.*/)
+  await expect(hintLine()).toContainText('Measure: click the first end')
+  await expect(hintLine()).toHaveAttribute('data-shown', '')
+  await page.mouse.move(at[0], at[1] + 12)
+  await expect(hintLine()).not.toHaveAttribute('data-shown', /.*/)
+  await page.evaluate(() => localStorage.removeItem('torno.toolUses'))
   await page.keyboard.press('v')
 })
 
@@ -1132,18 +1171,29 @@ test('the pointer hint shows the first time an object is drawn, goes at the firs
     await openListed(win, 'bracket')
     await expect.poll(async () => (await state(win)).build?.status, { timeout: 30_000 }).toBe('ok')
     // On first open: how the pointer moves the view, and the key of the sheet of keys; no tool in hand.
-    await expect(hintLine(win)).toContainText(pointerLine())
-    await expect(hintLine(win).locator('kbd')).toHaveText(['?'])
-    await expect(hintLine(win)).toContainText('for every key')
+    await expect(pointerHint(win)).toContainText(pointerLine())
+    await expect(pointerHint(win).locator('kbd')).toHaveText(['?'])
+    await expect(pointerHint(win)).toContainText('for every key')
     // A key that moves the camera by itself is not the person turning it; neither is a click that moves nothing.
     await win.getByRole('button', { name: 'Top', exact: true }).click()
     await atRest(win)
-    await expect(hintLine(win)).toBeVisible()
-    // A tool's step takes its place while it is in hand, and the hint is back when it is put down.
+    await expect(pointerHint(win)).toBeVisible()
+    // A tool's step is the caption's: the hint at the foot goes while the tool is in hand, and is back when it is put down.
     await win.keyboard.press('p')
     await expect(hintLine(win)).toContainText('Pin: click the part')
+    await expect(pointerHint(win)).toHaveCount(0)
     await win.keyboard.press('Escape')
-    await expect(hintLine(win)).toContainText(pointerLine())
+    await expect(pointerHint(win)).toContainText(pointerLine())
+    // The bars at the foot stand above it, and it takes no pointer.
+    await win.keyboard.press('x')
+    await win.keyboard.press('v')
+    await expect(win.locator('.sectionbar')).toBeVisible()
+    const foot = await stableBox(pointerHint(win))
+    const bar = await stableBox(win.locator('.sectionbar'))
+    expect(bar.y + bar.height).toBeLessThanOrEqual(foot.y)
+    expect(await pointerHint(win).evaluate((el) => getComputedStyle(el.parentElement!).pointerEvents)).toBe('none')
+    await win.locator('.sectionbar button[title="Show the parts whole again"]').click()
+    await expect.poll(async () => (await state(win)).section).toBeNull()
     // The line does not take the pointer: a drag that starts under it turns the view.
     const view = (await canvas(win).boundingBox())!
     const before = await camera(win)
@@ -1151,7 +1201,7 @@ test('the pointer hint shows the first time an object is drawn, goes at the firs
     await win.mouse.down()
     await win.mouse.move(view.x + view.width / 2 + 40, view.y + view.height / 2 + 20, { steps: 4 })
     await win.mouse.up()
-    await expect(hintLine(win)).toBeHidden()
+    await expect(pointerHint(win)).toBeHidden()
     expect(await camera(win)).not.toEqual(before)
     expect(await win.evaluate(() => localStorage.getItem('torno.pointerHint'))).toBe('seen')
     // Nothing of it in the workspace.
@@ -1176,11 +1226,11 @@ test('the wheel is a move of the camera too, and a storage that refuses leaves t
     })
     await openListed(win, 'bracket')
     await expect.poll(async () => (await state(win)).build?.status, { timeout: 30_000 }).toBe('ok')
-    await expect(hintLine(win)).toContainText(pointerLine())
+    await expect(pointerHint(win)).toContainText(pointerLine())
     const view = (await canvas(win).boundingBox())!
     await win.mouse.move(view.x + view.width / 2, view.y + view.height / 2)
     await win.mouse.wheel(0, -200)
-    await expect(hintLine(win)).toBeHidden()
+    await expect(pointerHint(win)).toBeHidden()
     expect(await win.evaluate(() => localStorage.getItem('torno.pointerHint'))).toBeNull()
   } finally {
     await second.close()
