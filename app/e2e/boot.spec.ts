@@ -102,20 +102,28 @@ test('the four shell regions exist with their placeholders', async () => {
   await expect(page.locator('footer[data-region="status"]')).toBeVisible()
 })
 
-test('the viewport fills the window and the panels sit over it', async () => {
+test('the shell is one grid: a title row, the left column, the view, the dock and the status line', async () => {
   const box = async (sel: string) => (await page.locator(sel).boundingBox())!
   const win = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
-  expect(await box('[data-region="viewport"]')).toEqual({ x: 0, y: 0, width: win.w, height: win.h })
+  // A title row of 40 across the window, empty for now.
+  expect(await box('.title-row')).toEqual({ x: 0, y: 0, width: win.w, height: 40 })
   const left = await box('[data-region="left"]')
   expect(left.x).toBe(0)
-  // The rail (56) and the panel docked beside it (248).
-  expect(left.width).toBe(304)
+  expect(left.y).toBe(40)
+  // The rail (52) and the card docked beside it (296).
+  expect(left.width).toBe(348)
   const session = await box('[data-region="session"]')
-  expect(session.width).toBe(520)
+  expect(session.width).toBe(420)
   expect(session.x + session.width).toBe(win.w)
+  expect(session.y).toBe(40)
   const status = await box('[data-region="status"]')
   expect(status.height).toBe(28)
   expect(status.y + status.height).toBe(win.h)
+  expect(status.width).toBe(win.w)
+  // The view is what is left, between the rail and card, the dock, the title row and the status line.
+  expect(await box('[data-region="viewport"]')).toEqual({ x: 348, y: 40, width: win.w - 348 - 420, height: win.h - 40 - 28 })
+  expect(left.height).toBe(win.h - 40 - 28)
+  expect(session.height).toBe(win.h - 40 - 28)
 })
 
 test('the renderer is isolated and the bridge is exposed', async () => {
@@ -156,15 +164,18 @@ test('the session dock is resized by dragging its edge, within limits', async ()
     await page.mouse.up()
   }
 
+  expect(await width()).toBe(420)
   await dragEdgeBy(-100)
-  expect(await width()).toBe(620)
+  expect(await width()).toBe(520)
+  // What is dragged is kept by the window.
+  expect(await page.evaluate(() => localStorage.getItem('torno.dock'))).toBe('520')
 
   // It stops at a minimum width rather than vanishing...
   await dragEdgeBy(900)
   expect(await width()).toBe(320)
-  // ...and at a maximum that keeps 240 px of viewport free beside the rail and the panel.
+  // ...and at a maximum that keeps 420 px of viewport free beside the rail and the card.
   await dragEdgeBy(-1400)
-  expect((await dock.boundingBox())!.x).toBe(304 + 240)
+  expect((await dock.boundingBox())!.x).toBe(348 + 420)
 
   // The edge also answers to the arrow keys, 16 px a press.
   await handle.focus()
@@ -174,8 +185,9 @@ test('the session dock is resized by dragging its edge, within limits', async ()
   await page.keyboard.press('ArrowLeft')
   expect(await width()).toBe(widest)
 
-  await dragEdgeBy(widest - 520)
-  expect(await width()).toBe(520)
+  await dragEdgeBy(widest - 420)
+  expect(await width()).toBe(420)
+  expect(await page.evaluate(() => localStorage.getItem('torno.dock'))).toBe('420')
 })
 
 test('the panel is made wider by dragging its edge, within limits, and kept by the window', async () => {
@@ -192,32 +204,33 @@ test('the panel is made wider by dragging its edge, within limits, and kept by t
     await page.mouse.move(x + dx, y, { steps: 4 })
     await page.mouse.up()
   }
-  // The rail and the panel.
-  expect(await width()).toBe(56 + 248)
+  // The rail and the card.
+  expect(await width()).toBe(52 + 296)
 
   await dragEdgeBy(100)
-  expect(await width()).toBe(56 + 348)
+  expect(await width()).toBe(52 + 396)
   // What is kept is which panel is open and how wide it is.
-  expect(await stored()).toEqual({ open: 'marks', width: 348 })
+  expect(await stored()).toEqual({ open: 'marks', width: 396 })
 
-  // Never narrower than the default, and never wider than leaves 240 px of viewport beside the dock.
+  // Never narrower than the default, and never wider than leaves 420 px of viewport beside the dock.
   await dragEdgeBy(-900)
-  expect(await width()).toBe(56 + 248)
+  expect(await width()).toBe(52 + 296)
   await dragEdgeBy(3000)
   const dockWidth = (await page.locator('[data-region="session"]').boundingBox())!.width
-  expect(await width()).toBe((await page.evaluate(() => window.innerWidth)) - dockWidth - 240)
+  expect(await width()).toBe((await page.evaluate(() => window.innerWidth)) - dockWidth - 420)
 
   // Keys: 16 px a press; a double click puts the default back.
   await dragEdgeBy(-3000)
   await handle.focus()
   await page.keyboard.press('ArrowRight')
-  await expect.poll(width).toBe(56 + 264)
+  await expect.poll(width).toBe(52 + 312)
   await page.keyboard.press('ArrowLeft')
-  await expect.poll(width).toBe(56 + 248)
+  await expect.poll(width).toBe(52 + 296)
   await dragEdgeBy(60)
   await handle.dblclick()
-  await expect.poll(width).toBe(56 + 248)
-  expect((await stored()).width).toBe(248)
+  await expect.poll(width).toBe(52 + 296)
+  // The default is kept as the narrowest the window keeps (264): a window of 1440 shows 296.
+  expect((await stored()).width).toBe(264)
 })
 
 test('the session dock collapses and comes back at the same width', async () => {
@@ -229,6 +242,28 @@ test('the session dock collapses and comes back at the same width', async () => 
   await page.getByRole('button', { name: 'Show session' }).click()
   await expect(dock).toBeVisible()
   expect((await dock.boundingBox())!.width).toBe(before)
+})
+
+test("a dock width the person set is the window's: a reload leaves it", async () => {
+  const dock = page.locator('[data-region="session"]')
+  const handle = page.getByRole('separator', { name: 'Resize session' })
+  const edge = (await handle.boundingBox())!
+  const x = edge.x + edge.width / 2
+  const y = edge.y + edge.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x - 130, y, { steps: 4 })
+  await page.mouse.up()
+  expect((await dock.boundingBox())!.width).toBe(550)
+  await page.reload()
+  await page.waitForSelector('[data-region="session"]')
+  expect((await page.locator('[data-region="session"]').boundingBox())!.width).toBe(550)
+  expect(await page.evaluate(() => localStorage.getItem('torno.dock'))).toBe('550')
+  // Back to the default, which the next tests (and the pictures) expect.
+  await page.evaluate(() => localStorage.removeItem('torno.dock'))
+  await page.reload()
+  await page.waitForSelector('[data-region="session"]')
+  expect((await page.locator('[data-region="session"]').boundingBox())!.width).toBe(420)
 })
 
 // Set TORNO_SHOTS=<dir> to write shell-light.png and shell-dark.png there.

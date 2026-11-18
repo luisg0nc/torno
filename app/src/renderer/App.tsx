@@ -37,16 +37,10 @@ import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { RoundPanel } from './ui/review/RoundPanel'
 import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
-import { LEFT_DEFAULT, VIEWPORT_MIN } from './state/column'
+import { LEFT_DEFAULT, windowStorage } from './state/column'
+import { clampDock, DOCK_MIN, dockDefault, readDock, writeDock } from './state/dock'
 
-const DOCK_DEFAULT = 520
-const DOCK_MIN = 320
 const KEY_STEP = 16
-
-function clampDock(width: number, left: number = LEFT_DEFAULT): number {
-  const max = Math.max(DOCK_MIN, window.innerWidth - left - VIEWPORT_MIN)
-  return Math.round(Math.min(Math.max(width, DOCK_MIN), max))
-}
 
 const SAVE_DELAY_MS = 500
 
@@ -346,7 +340,9 @@ export function App() {
   const workspaceKnown = useStore((s) => s.workspaceKnown)
   const shell = useRef<HTMLDivElement>(null)
   const rail = useRail()
-  const [dockWidth, setDockWidth] = useState(DOCK_DEFAULT)
+  // The width the person gave the dock, kept by the window; none until they do, and then the CSS default (`--dock-w`) stands.
+  const [kept, setKept] = useState<number | null>(() => readDock(windowStorage()))
+  const dockWidth = kept ?? dockDefault(window.innerWidth)
   const dockOpen = useStore((s) => s.dockOpen)
   // The board takes the main area's place from the model, on the project's own page.
   const boardOf = useBoard((s) => (s.shown === 'board' ? s.objectId : null))
@@ -363,14 +359,15 @@ export function App() {
   function onEdgeDown(e: PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
-    drag.current = { startX: e.clientX, startWidth: dockWidth, width: dockWidth }
+    const startWidth = document.querySelector('.dock')?.getBoundingClientRect().width ?? dockWidth
+    drag.current = { startX: e.clientX, startWidth, width: startWidth }
     shell.current!.toggleAttribute('data-resizing', true)
   }
 
   function onEdgeMove(e: PointerEvent<HTMLDivElement>) {
     const d = drag.current
     if (!d) return
-    d.width = clampDock(d.startWidth + d.startX - e.clientX, leftNow())
+    d.width = clampDock(d.startWidth + d.startX - e.clientX, window.innerWidth, leftNow())
     shell.current!.style.setProperty('--dock-w', `${d.width}px`)
   }
 
@@ -379,7 +376,8 @@ export function App() {
     if (!d) return
     drag.current = null
     shell.current!.toggleAttribute('data-resizing', false)
-    setDockWidth(d.width)
+    // A press that moved nothing keeps what there was (the default stays the default of the window).
+    if (d.width !== d.startWidth) keepDock(d.width)
     // Dragged with the pointer, the edge is done with: the next letter is the view's, not the session pane's.
     giveKeysBack(e.currentTarget)
   }
@@ -388,8 +386,27 @@ export function App() {
     const way = which(e, 'dock.resize')
     if (way < 0) return
     e.preventDefault()
-    setDockWidth((w) => clampDock(w + (way === 0 ? KEY_STEP : -KEY_STEP), leftNow()))
+    const now = document.querySelector('.dock')?.getBoundingClientRect().width ?? dockWidth
+    keepDock(clampDock(now + (way === 0 ? KEY_STEP : -KEY_STEP), window.innerWidth, leftNow()))
   }
+
+  function keepDock(width: number): void {
+    setKept(width)
+    writeDock(windowStorage(), width)
+  }
+
+  // A window made smaller than the dock the person kept leaves the view its room: the width shown follows, what is kept does not.
+  useEffect(() => {
+    if (kept === null) return
+    const fit = (): void => {
+      const el = shell.current
+      if (!el || el.hasAttribute('data-resizing')) return
+      el.style.setProperty('--dock-w', `${clampDock(kept, window.innerWidth, leftNow())}px`)
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [kept])
 
   // Leaving a workspace ends its sessions. `leaving` is where to, while that is
   // being asked about: a folder, or 'pick' for the one still to be chosen.
@@ -499,8 +516,9 @@ export function App() {
       className="shell"
       data-dock={dockOpen ? 'open' : 'collapsed'}
       data-panel={rail.shown ?? 'closed'}
-      style={{ '--dock-w': `${dockWidth}px` } as CSSProperties}
+      style={kept === null ? undefined : ({ '--dock-w': `${kept}px` } as CSSProperties)}
     >
+      <div className="title-row" />
       <aside className="left" data-region="left" aria-label="Panels">
         <Rail offered={rail.offered} shown={rail.shown} />
         <PanelHost shown={rail.shown} shell={shell} projects={projectsPanel} />

@@ -144,13 +144,14 @@
   --ease: cubic-bezier(.2, .8, .2, 1);
 
   /* Layout */
-  /* The window's sizes (spec section 1). Task 5 (the grid) moves --rail-w to 52px, --dock-w to 420px and --panel-w to the alias of
-     --card-w, with `RAIL_W` and `LEFT_DEFAULT` in state/column.ts and `DOCK_DEFAULT` in App.tsx; until then the live widths stay. */
+  /* The window's sizes (spec section 1). The shell is one grid of them (`styles/layout.css`). `RAIL_W` and `LEFT_DEFAULT` in
+     state/column.ts and `DOCK_DEFAULT` in state/dock.ts say the same numbers, and a test holds them to these. A window narrower than 1360px
+     takes the narrow defaults at the end of this block. The shell overrides `--card-w` and `--dock-w` where the person has dragged. */
   --title-h: 40px;
   --card-w: 296px;         /* the route card's default */
-  --rail-w: 56px;          /* the rail of icons at the left; `RAIL_W` in state/column.ts */
-  --panel-w: 248px;        /* the panel docked beside it; the default, the shell overrides it while the edge is dragged or the person has widened it */
-  --dock-w: 520px;         /* default; the shell overrides it while the dock is resized */
+  --rail-w: 52px;          /* the rail of icons at the left; `RAIL_W` in state/column.ts */
+  --panel-w: var(--card-w); /* what the card was called: the panel docked beside the rail */
+  --dock-w: 420px;         /* the session dock's default */
   --status-h: 28px;
   --space-1: 4px;
   --space-2: 8px;
@@ -158,6 +159,14 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+}
+
+/* Narrow defaults of the card and the dock: a window under 1360px (`NARROW_WINDOW`, `LEFT_MIN`, `DOCK_NARROW`). */
+@media (max-width: 1359px) {
+  :root {
+    --card-w: 264px;
+    --dock-w: 384px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

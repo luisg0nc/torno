@@ -346,7 +346,7 @@ test('a broken save fails the build and keeps the last good parts, dimmed; the e
   const box = (await sheet.boundingBox())!
   const left = (await page.locator('[data-region="left"]').boundingBox())!
   expect(box.x).toBe(left.x + left.width)
-  expect(box.x + box.width).toBe(1440 - 520)
+  expect(box.x + box.width).toBe(1440 - 420)
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
   await failed.click()

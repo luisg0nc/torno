@@ -123,7 +123,7 @@
 
 .round-panel-layer {
   position: absolute;
-  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
+  inset: 0;
   /* Only the panel takes the pointer: beside it the view is the person's. */
   pointer-events: none;
   z-index: 5;

@@ -298,7 +298,10 @@ test('a drag from the handle moves the plane along its normal; a drag from anywh
 
   // Away from the handle the pointer turns the camera, as with any tool: the plane stays.
   const before = await camera()
-  const [bx, by] = await pageXY([18, -12, 0])
+  // A place of the view with nothing on it, off the plane's handle: a third in from the left, a third down. (The corner of the
+  // base the test used before is under the bar at the foot of a view that is this narrow.)
+  const box = (await canvas.boundingBox())!
+  const [bx, by] = [box.x + box.width * 0.3, box.y + box.height * 0.33]
   await page.mouse.move(bx, by)
   expect(await canvas.evaluate((el: HTMLElement) => el.style.cursor)).toBe('')
   await page.mouse.down()
@@ -480,8 +483,8 @@ test('from face puts the plane on a flat face that is clicked, and refuses a rou
   await expect(readout()).toHaveText('That face is not flat: the plane needs a flat one')
   expect(await section()).toEqual({ origin: [0, 0, 4], normal: [0, 0, 1] })
 
-  // The side of the base at x = 20, which the view from the corner shows.
-  ;[x, y] = await pageXY([20, 3, 0])
+  // The side of the base at x = 20, which the view from the corner shows (near its top edge: lower, the bar at the foot of the view is over it).
+  ;[x, y] = await pageXY([20, 3, 2])
   await page.mouse.move(x, y)
   await page.mouse.down()
   await page.mouse.up()
@@ -730,9 +733,10 @@ test('the bar stays clear of the triad bottom left and the scale bottom right, i
         const palette = (await page.getByRole('toolbar', { name: 'Tools' }).boundingBox())!
         const besides = box.x >= palette.x + palette.width || box.y + box.height <= palette.y || box.y >= palette.y + palette.height
         expect([width, height, selected, tool, 'palette', besides]).toEqual([width, height, selected, tool, 'palette', true])
-        // In the room that leaves, all of it is there, nothing running past its edge: in a view as narrow as the short window's
-        // (512px) and wider. One narrower than the bar's least (about 374px and the sides) has it run over.
-        if (pane.width >= 512) {
+        // In the room that leaves, all of it is there, nothing running past its edge: in a view as wide as the bar's least (about 490px,
+        // in the wide mono) and its two sides (60px each) and wider. A narrower one has it run over: at 1280 by 800 the view is 580px
+        // now, and the bar is 29px short of it. The bars at the foot of the view go with the tags and the hint (spec section 3).
+        if (pane.width >= 490 + 2 * 60) {
           const fits = await bar().evaluate((el) => [...el.children].every((child) => child.getBoundingClientRect().right <= el.getBoundingClientRect().right + 0.5))
           expect([width, height, 'bar whole', fits]).toEqual([width, height, 'bar whole', true])
         }

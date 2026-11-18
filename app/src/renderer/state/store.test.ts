@@ -1471,7 +1471,7 @@ describe('the session dock', () => {
 
 describe('the rail', () => {
   it('opens a panel, and the same one again closes it; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ open: 'marks', width: 248 })
+    expect(store.getState().column).toEqual({ open: 'marks', width: 264 })
     actions.openPanel('layers')
     expect(store.getState().column.open).toBe('layers')
     actions.openObject('gear', { layers: {} })
@@ -1490,7 +1490,7 @@ describe('the rail', () => {
     actions.setPanelWidth(320)
     expect(store.getState().column.width).toBe(320)
     actions.setPanelWidth(100)
-    expect(store.getState().column.width).toBe(248)
+    expect(store.getState().column.width).toBe(264)
   })
 })
 

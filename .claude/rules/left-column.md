@@ -102,10 +102,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - **The rail and its panel** (`ui/Rail.tsx`, `ui/PanelHost.tsx`, `styles/rail.css`, `styles/panels.css`, `state/column.ts`).
   The left of the window is `aside[data-region="left"]` (`aria-label="Panels"`), the F6 region `left`, holding the rail
-  (56 px, `--rail-w`, `RAIL_W`) and, beside it, the one panel that is open (`.panel-host`, `--panel-w`): five icons with a
+  (52 px, `--rail-w`, `RAIL_W`) and, beside it, the one panel that is open (`.panel-host`, `--card-w`, `--panel-w` is its old name): five icons with a
   word under each, Projects, Layers, Params, Scans and Marks (`RailPanel`), buttons with `aria-pressed`. A press opens
-  that panel and pushes the view over (`--left-w` on the shell is the rail and the panel together, or the rail alone
-  with none open: `data-panel` on the shell), a press on the open one closes it, another switches
+  that panel and pushes the view over (the shell is one grid, `grid-template-columns: var(--rail-w) var(--card-space) minmax(0, 1fr) var(--dock-space)`, rows `--title-h`, the rest, `--status-h`; `.left` spans the rail's column and the card's, and
+  `--card-space` is `--card-w`, or `0px` with none open: `data-panel` on the shell; `--left-w` is the two together, for the sheet that rises from the status line), a press on the open one closes it, another switches
   (`actions.openPanel`; pressed with the pointer, the keys go back to the view). Tab and Ctrl+Tab are not bound: the
   rail's buttons are in the page's own order. The rail offers what the page allows (`panelsFor`): all five for an open
   project, Projects and Marks on the page of projects, Projects alone for a new project or with none open; a kept panel it
@@ -120,10 +120,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   place and scrolls its list. Which panel is open and the panel's width are the window's (`store.column`: `{ open, width }`,
   in `localStorage` under `torno.column`, read and written in try/catch; a value of the old shape, folded sections and a
   marks height, reads as Marks open at its width), never the workspace's. The panel's right edge (`ui/LeftEdge.tsx`,
-  `role="separator"`, `left.resize` Left/Right) makes it wider than its default 248 px (`LEFT_DEFAULT`), up to
-  `PANEL_MAX` and what leaves the viewport `VIEWPORT_MIN` beside the rail and the dock (`clampLeft`); its drag writes
-  `--panel-w` on the shell, a double click puts the default back, and the dock's own limit reads the left's width
-  now (`e2e/boot.spec.ts`). Opening a project from the list leaves the panel as it is.
+  `role="separator"`, `left.resize` Left/Right) makes it wider than its default, 296 px (`LEFT_DEFAULT`; 264, `leftDefault(window.innerWidth)`, in a window narrower
+  than 1360 px, `NARROW_WINDOW`), up to `PANEL_MAX` and what leaves the viewport `VIEWPORT_MIN` (420 px) beside the rail and the dock
+  (`clampLeft`); what is kept never goes below `LEFT_MIN` (264, which is also what `COLUMN_DEFAULT` and a double click keep): a wide window
+  shows the default for a kept width under it, so "the default" is the default of whichever window shows it. Its drag writes
+  `--card-w` on the shell, and the dock's own limit reads the left's width now (`e2e/boot.spec.ts`).
+  The dock's width is the window's too (`state/dock.ts`: `torno.dock` in `localStorage`, `readDock` and `writeDock` in try/catch,
+  `clampDock(width, windowWidth, leftWidth)`, `dockDefault`: 420 px, 384 in a narrow window, never under `DOCK_MIN` 320): a drag of the dock's edge
+  or an arrow key keeps it, and until then `--dock-w` stands at the CSS default (`tokens.css`, with the narrow defaults of the card and
+  the dock in a media query that a test holds to `LEFT_MIN` and `DOCK_NARROW`). A window made smaller than a kept width shows less, and keeps what was set. Opening a project from the list leaves the panel as it is.
 - **The list of projects** is whole, one row for each, in the Projects panel (a project that cannot be built is muted,
   its reason the title; "All projects" is beside the title while a project is open and the first row otherwise). There
   is no switcher: the rail's Projects icon says that a session of another project waits.

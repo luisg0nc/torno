@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampLeft, COLUMN_DEFAULT, COLUMN_KEY, LEFT_DEFAULT, PANEL_MAX, RAIL_W, panelsFor, readColumn, shownPanel, writeColumn } from './column'
+import { clampLeft, COLUMN_DEFAULT, COLUMN_KEY, LEFT_DEFAULT, LEFT_MIN, leftDefault, PANEL_MAX, RAIL_W, VIEWPORT_MIN, panelsFor, readColumn, shownPanel, writeColumn } from './column'
 
 /** A storage of the window, as the tests need it: what was written, and one that refuses. */
 function memory(start: Record<string, string> = {}): Storage & { data: Record<string, string> } {
@@ -28,7 +28,7 @@ const refusing = {
 
 describe('the rail and its panel as the person keeps them', () => {
   it('starts with the marks open at the default width', () => {
-    expect(COLUMN_DEFAULT).toEqual({ open: 'marks', width: 248 })
+    expect(COLUMN_DEFAULT).toEqual({ open: 'marks', width: LEFT_MIN })
     expect(readColumn(memory())).toEqual(COLUMN_DEFAULT)
     expect(readColumn(null)).toEqual(COLUMN_DEFAULT)
   })
@@ -45,14 +45,14 @@ describe('the rail and its panel as the person keeps them', () => {
   it('reads a value of the old shape (folded sections, marks height, width) as the marks open at its width', () => {
     const old = { folded: { objects: true, layers: false, params: true, checks: true, print: true, scans: false }, marks: 320, width: 400 }
     expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify(old) }))).toEqual({ open: 'marks', width: 400 })
-    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ ...old, width: null }) }))).toEqual({ open: 'marks', width: LEFT_DEFAULT })
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ ...old, width: null }) }))).toEqual({ open: 'marks', width: LEFT_MIN })
   })
 
   it('takes what it can of a value that is not its own, and the default for the rest', () => {
     expect(readColumn(memory({ [COLUMN_KEY]: 'not json' }))).toEqual(COLUMN_DEFAULT)
     expect(readColumn(memory({ [COLUMN_KEY]: '[1, 2]' }))).toEqual(COLUMN_DEFAULT)
     expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'history', width: 'wide' }) }))).toEqual(COLUMN_DEFAULT)
-    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'scans' }) }))).toEqual({ open: 'scans', width: LEFT_DEFAULT })
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'scans' }) }))).toEqual({ open: 'scans', width: LEFT_MIN })
   })
 
   it('never throws for a storage that refuses: the window works without it', () => {
@@ -87,16 +87,27 @@ describe('which panels there are, and which is shown', () => {
 describe('the width of the panel', () => {
   it('is kept from the default up to the most, and the old null is the default', () => {
     expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width: 360.4 }) })).width).toBe(360)
-    for (const width of [LEFT_DEFAULT, 100, 'wide', null, -5]) expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width }) })).width).toBe(LEFT_DEFAULT)
+    for (const width of [LEFT_MIN, 100, 248, 'wide', null, -5]) expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width }) })).width).toBe(LEFT_MIN)
     expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width: 99999 }) })).width).toBe(PANEL_MAX)
-    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width: Number.POSITIVE_INFINITY }) })).width).toBe(LEFT_DEFAULT)
+    expect(readColumn(memory({ [COLUMN_KEY]: JSON.stringify({ open: 'marks', width: Number.POSITIVE_INFINITY }) })).width).toBe(LEFT_MIN)
   })
 
-  it('is bounded below by the default and above by the room the viewport keeps beside the rail and the dock', () => {
-    expect(clampLeft(100, 1600, 520)).toBe(LEFT_DEFAULT)
-    expect(clampLeft(400, 1600, 520)).toBe(400)
-    expect(clampLeft(5000, 1600, 520)).toBe(1600 - 520 - 240 - RAIL_W)
-    expect(clampLeft(5000, 1600, 0)).toBe(1600 - 240 - RAIL_W)
-    expect(clampLeft(5000, 600, 520)).toBe(LEFT_DEFAULT)
+  it('is 296, and 264 in a window narrower than 1360; what is kept never goes below the narrow one', () => {
+    expect([LEFT_DEFAULT, LEFT_MIN, RAIL_W, VIEWPORT_MIN]).toEqual([296, 264, 52, 420])
+    expect(leftDefault(1440)).toBe(296)
+    expect(leftDefault(1359)).toBe(264)
+    expect(leftDefault(1280)).toBe(264)
+  })
+
+  it('is bounded below by the default of the window and above by the room the viewport keeps beside the rail and the dock', () => {
+    expect(clampLeft(100, 1600, 420)).toBe(LEFT_DEFAULT)
+    expect(clampLeft(LEFT_MIN, 1600, 420)).toBe(LEFT_DEFAULT)
+    expect(clampLeft(100, 1280, 384)).toBe(264)
+    expect(clampLeft(280, 1280, 384)).toBe(280)
+    expect(clampLeft(400, 1600, 420)).toBe(400)
+    expect(clampLeft(5000, 1600, 420)).toBe(1600 - 420 - VIEWPORT_MIN - RAIL_W)
+    expect(clampLeft(5000, 1600, 0)).toBe(1600 - VIEWPORT_MIN - RAIL_W)
+    expect(clampLeft(5000, 600, 420)).toBe(264)
+    expect(clampLeft(5000, 1000, 420)).toBe(LEFT_MIN)
   })
 })

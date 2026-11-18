@@ -13,33 +13,49 @@ export const RAIL_PANELS: readonly RailPanel[] = ['projects', 'layers', 'params'
 export interface ColumnPrefs {
   /** The panel docked beside the rail, or null for none. */
   open: RailPanel | null
-  /** Pixels: the width of the panel, from `LEFT_DEFAULT` to `PANEL_MAX`. */
+  /** Pixels: the width of the panel, from `LEFT_MIN` to `PANEL_MAX`. The window gives it at least `leftDefault` of its own width. */
   width: number
 }
 
-export const COLUMN_DEFAULT: ColumnPrefs = { open: 'marks', width: 248 }
+/** The card's width unless the person gave it more. The same as `--card-w` in `styles/tokens.css`. */
+export const LEFT_DEFAULT = 296
 
-/** The panel's width unless the person gave it more. The same as `--panel-w` in `styles/tokens.css`. */
-export const LEFT_DEFAULT = 248
+/**
+ * Its width in a window narrower than 1360 px (`--card-w` there), and the least that is kept. What is kept is a wish
+ * for at least this: a window that is wide shows `LEFT_DEFAULT` for anything below it, so that a width asked for
+ * "the default" is the default of whichever window it is shown in.
+ */
+export const LEFT_MIN = 264
+
+/** The window width below which the narrow defaults of the card and the dock apply (`state/dock.ts` says the dock's). */
+export const NARROW_WINDOW = 1360
+
+export const COLUMN_DEFAULT: ColumnPrefs = { open: 'marks', width: LEFT_MIN }
+
+/** The card's default in a window of this width. */
+export function leftDefault(windowWidth: number): number {
+  return windowWidth < NARROW_WINDOW ? LEFT_MIN : LEFT_DEFAULT
+}
 
 /** The most a panel is kept at: what a window wider than any in use could still give. */
 export const PANEL_MAX = 800
 
 /** The width of the rail. The same as `--rail-w` in `styles/tokens.css`. */
-export const RAIL_W = 56
+export const RAIL_W = 52
 
 /** The free viewport width the rail, the panel and the dock always leave between them. */
-export const VIEWPORT_MIN = 240
+export const VIEWPORT_MIN = 420
 
-/** The width the panel may be given: from the default up to what leaves the viewport its room beside the rail and the dock. */
+/** The width the card may be given: from the default of this window up to what leaves the viewport its room beside the rail and the dock. */
 export function clampLeft(width: number, inner: number, dock: number): number {
-  const max = Math.max(LEFT_DEFAULT, inner - dock - RAIL_W - VIEWPORT_MIN)
-  return Math.round(Math.min(Math.max(width, LEFT_DEFAULT), max))
+  const floor = leftDefault(inner)
+  const max = Math.max(floor, inner - dock - RAIL_W - VIEWPORT_MIN)
+  return Math.round(Math.min(Math.max(width, floor), max))
 }
 
 /** A width as it is kept: a whole number of pixels from the default to the most; the default for anything else. */
 export function keptWidth(width: unknown): number {
-  return typeof width === 'number' && Number.isFinite(width) ? Math.round(Math.min(Math.max(width, LEFT_DEFAULT), PANEL_MAX)) : LEFT_DEFAULT
+  return typeof width === 'number' && Number.isFinite(width) ? Math.round(Math.min(Math.max(width, LEFT_MIN), PANEL_MAX)) : LEFT_MIN
 }
 
 export const COLUMN_KEY = 'torno.column'

@@ -1,11 +1,9 @@
 /* ---- Status line ---- */
 
 .status {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  grid-area: 3 / 1 / 4 / -1;
   display: flex;
   align-items: center;
   gap: var(--space-4);

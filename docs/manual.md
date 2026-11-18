@@ -429,9 +429,10 @@ press another and it switches. One panel is open at a time, and Marks is the one
 Parameters, then Checks and Print profile, which are about the same build. What a folded title used to say shows
 as a small badge on a closed panel's icon: the parts switched off on Layers, the model's checks that fail on
 Params, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the panel to make it
-wider (`Left` and `Right` with it in focus), double click it for the default width; the panel is never narrower than
-that, and leaves the view its room beside the rail and the session pane. Which panel is open and how wide it is are
-kept by the window, not in the folder. On the page of projects the rail offers Projects and Marks, and while a new
+wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
+narrower than 1360 px); the panel is never narrower than that, and leaves the view at least 420 px beside the rail and
+the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
+panel is open and how wide it is, and how wide the session pane is, are kept by the window, not in the folder. On the page of projects the rail offers Projects and Marks, and while a new
 project is made, Projects alone. The Projects panel starts with the folder's name and its menu.
 The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they

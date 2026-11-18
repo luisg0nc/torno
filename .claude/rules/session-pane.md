@@ -24,6 +24,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   bottom row decides (`ui/termGround.ts` `edgeGround`, after every write parsed); the terminal's own ground and
   the inset then take it, so that the agent's screen fills the pane (`window.__tornoTerm.ground()`; the
   stand-in's `ground r g b`).
+- The dock (`aside[data-region="session"]`) is the shell grid's last column, `--dock-w` wide (420 px, 384 in a window under 1360 px) and as tall as the
+  row between the title row and the status line; its left edge (`.dock-edge`) is dragged, or moved with Left and Right, down to 320 px and up to what leaves the
+  view 420 px beside the left column (`clampDock` in `state/dock.ts`). The width the person gave is the window's (`localStorage`, `torno.dock`, read and
+  written in try/catch) and outlasts a reload; until they give one the CSS default stands. See `left-column`.
 - A session away from its pane is told where the eye is (`ui/sessionSign.ts` the rule, `ui/SessionDot.tsx` the dot,
   still, 6 px, the status line's `.status-dot`). Only `working` and `needs_input` have a sign: `working` is a
   `--muted` dot with no words; `needs_input` is `--warn`, a larger dot on the dock's toggle and the words "needs you"

@@ -84,13 +84,13 @@
 }
 
 .export-layer {
-  /* Over the whole window, so that nothing behind takes a click while it is up; the sheet stands over the view. */
-  position: absolute;
+  /* Over the whole window, so that nothing behind takes a click while it is up; the sheet stands over the view, clear of the title row, the left column, the dock and the status line. */
+  position: fixed;
   inset: 0;
   z-index: 30;
   display: grid;
   place-items: start center;
-  padding: var(--space-3) calc(var(--dock-space) + var(--space-4)) calc(var(--status-h) + var(--space-4)) calc(var(--left-w) + var(--space-4));
+  padding: calc(var(--title-h) + var(--space-3)) calc(var(--dock-space) + var(--space-4)) calc(var(--status-h) + var(--space-4)) calc(var(--left-w) + var(--space-4));
   background: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 

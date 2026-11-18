@@ -36,7 +36,7 @@
 
 .show {
   position: absolute;
-  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
+  inset: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;

@@ -79,13 +79,17 @@ async function clickModel(point: Vec3): Promise<void> {
   const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.click(canvas.x + fx * canvas.width, canvas.y + fy * canvas.height)
 }
-/** Zooms out until every point given is well inside the canvas. */
-async function frame(points: Vec3[]): Promise<void> {
+/**
+ * Zooms out until every point given is well inside the canvas: by default from 8% to 92% of each side. `lowest` is how far down
+ * the view a point may be: the bar of the tool stands at the foot of a view that is narrow, taller with each pair, and a click
+ * under it is the bar's.
+ */
+async function frame(points: Vec3[], lowest = 0.92): Promise<void> {
   const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2)
   for (let tries = 0; tries < 12; tries++) {
     const drawn = await page.evaluate((points) => points.map((p) => window.__tornoTest!.project(p)), points)
-    if (drawn.every(([x, y]) => x > 0.08 && x < 0.92 && y > 0.08 && y < 0.92)) return
+    if (drawn.every(([x, y]) => x > 0.08 && x < 0.92 && y > 0.08 && y < lowest)) return
     await page.mouse.wheel(0, 240)
     await page.waitForTimeout(150)
   }
@@ -456,7 +460,7 @@ test('a build that takes the model from under a point raises a doubt; "Still rig
   const mid: Vec3 = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, max[2]]
   const onScan: Vec3[] = [[mid[0] + 6, mid[1] + 6, mid[2]], [mid[0] - 6, mid[1] + 6, mid[2]], [mid[0] - 6, mid[1] - 6, mid[2]]]
   const onTray: Vec3[] = [[18, 6, 4], [6, 6, 4], [6, -6, 4]]
-  await frame([...onTray, [-12, -12, 4]])
+  await frame([...onTray, [-12, -12, 4]], 0.6)
   await page.keyboard.press('l')
   await bar().getByRole('button', { name: 'Pairs' }).click()
   for (const [n, point] of onTray.entries()) {
