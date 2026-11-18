@@ -332,9 +332,10 @@ for (const theme of ['light', 'dark'] as const) {
           await page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Region of a scan', exact: true }).hover()
           await expect(page.locator('.tool-tip[data-tip="region"]')).toContainText('Import a scan first')
         } else if (shot === 'keys') {
-          // The sheet of keys, which starts with the pointer.
+          // The keyboard, risen from the foot, with the pointer's gestures under it in the view.
           await page.keyboard.press('?')
-          await expect(page.getByRole('dialog', { name: 'Keys' }).getByRole('heading', { name: 'Pointer' })).toBeVisible()
+          await expect(page.getByRole('dialog', { name: 'Keys' }).getByRole('group', { name: /^The keyboard/ })).toBeVisible()
+          await expect(page.getByRole('dialog', { name: 'Keys' }).locator('.keys-gesture').first()).toBeVisible()
         } else if (shot === 'section') {
           await page.keyboard.press('x')
           await page.getByRole('button', { name: 'Cut across Y' }).click()
