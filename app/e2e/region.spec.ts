@@ -40,8 +40,6 @@ test.beforeAll(async () => {
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
   await page.waitForSelector('[data-region="left"]')
-  // A procedure card is 300 px wide at the bottom right of the view: the view has room for the model beside it.
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1800, 1000))
 })
 
 test.afterAll(async () => {
@@ -150,7 +148,8 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await bar().getByRole('textbox', { name: 'Brush radius' }).fill('3')
   await bar().getByRole('textbox', { name: 'Brush radius' }).press('Enter')
   // Fix round 1 (I1): the lid is over the sheet, and what is not seen is not painted. A press on it takes nothing: it is the camera's, as beside the scan.
-  await page.mouse.move(...(await at([-10, -8, 39])))
+  // (The reed's pill, grown out of the Region button, stands over the view's left at -8: the points are taken from -4 on.)
+  await page.mouse.move(...(await at([-10, -4, 39])))
   await page.mouse.down()
   await page.mouse.up()
   await expect(bar()).toContainText('0 triangles')
@@ -160,9 +159,9 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await page.locator('.layer-row[data-layer="lid"]').getByRole('button', { name: 'Show lid' }).click()
   await openSection(page, 'Marks')
   // One stroke along the sheet's left side, from front to back.
-  await page.mouse.move(...(await at([-10, -8, 39])))
+  await page.mouse.move(...(await at([-10, -4, 39])))
   await page.mouse.down()
-  for (const y of [-4, 0, 4, 8]) await page.mouse.move(...(await at([-10, y, 39])), { steps: 4 })
+  for (const y of [0, 4, 8]) await page.mouse.move(...(await at([-10, y, 39])), { steps: 4 })
   await page.mouse.up()
   await expect(bar()).toContainText(/\d+ triangles/)
   const first = await painted()

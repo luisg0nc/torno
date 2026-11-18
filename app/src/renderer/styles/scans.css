@@ -141,7 +141,8 @@ input.scan-name-field {
   top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
   /* Past the reed, which stands at the left edge down the middle: the card is taller than the room above it. */
   left: 66px;
-  z-index: 5;
+  /* Over a procedure card (z 6): in a narrow view the two meet, and the question must stay answerable. */
+  z-index: 7;
   display: grid;
   gap: var(--space-2);
   box-sizing: border-box;
