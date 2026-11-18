@@ -2182,27 +2182,47 @@ your colour, its chip at the head.
 ## The page of projects
 
 `W`, or "All projects" at the top of the list (beside its title once a project is open), shows every project of the folder
-as a card; a workspace of several projects starts there. `/` or a letter
-filters by name, the arrows move, `Enter` opens, `Esc` goes back. The head (title, buttons,
-filter) stays at the top as the cards scroll. "By name" or "Recently changed" orders the cards; the choice is kept
-for the folder. A card has:
+on a bench; a workspace of several projects starts there. `/` or a letter
+filters by name, the arrows move (left and right along a shelf, up and down to the shelf above or below), `Enter` opens, `Esc` goes back. The head (the folder's name,
+how many projects and where, the filter, **True scale / Grid**, **By name / Recently changed**, **Export…** and **New project**) stays at the top as the shelves scroll.
+
+The projects stand on **shelves**, a 2 px line of ink, who needs you first:
+
+- **Needs you** is every project whose session waits on you. Under its shelf each says what it waits on: `Claude asks:` and
+  the question (its first 140 characters) in a warning card, **Answer**, which opens the project and brings the question up
+  where it is answered, and `waiting 4 min`.
+- **Working** stands beside it: a project that builds, or in which Claude Code works.
+- **The rest** is on one shelf, the project whose model was saved last first (**Recently changed**, the default) or by name (**By name**); the
+  choice is kept for the folder. Needs you and Working stand ahead of either.
+
+The pictures stand side by side, 40 px apart, **at one scale for the whole page** (**True scale**): a part twice as big is
+drawn twice as big, and the bar at the right end of each shelf is 50 mm. The scale is as large as the widest shelf allows, never
+larger than the picture's own pixels; a shelf that would need it smaller than a quarter goes on to a second line. **Grid**
+fits every picture to a box of the same size instead, for when the sizes differ too much to read; the choice is kept for the
+folder. In a window 800 px tall or less the bench is drawn at 86 %.
+
+A project is:
 
 - **A picture** of the project's last build as you last looked at it (its
-  layout, the parts switched on, its section or explode), 480 × 360, without
-  marks or scans. It is made when a build lands in torno and kept in
-  `.torno/thumb.png`. No build is ever started for a picture: a project that
-  was never built in torno says `No picture yet`. The card says when the
-  picture was made, what it leaves out (`cut by its section`), and `A source
+  layout, the parts switched on, its section or explode), without
+  marks or scans, made when a build lands in torno and kept in
+  `.torno/thumb.png`. No build is ever started for a picture. A picture is at true scale when its layout fits it (about
+  240 × 180 mm as the iso view draws it, not drawn apart) and the project has its size; any other is drawn in Grid's look on
+  the shelf (a framed box with the picture fitted in it), and a project that was never built in torno, or whose picture
+  is gone, is a dashed box that says `Size not known until it builds`. The page never claims a size the kernel did not give.
+  The card says when the picture was made, what it leaves out (`cut by its section`), and `A source
   has changed since` when a `.py` file of the object, of `common/` or one it imported from another
   project (`Uses box/box.py` on the card, for a project opened in this run) is newer.
-- **What git says**, in a work tree: `3 files changed since a1b2c3d` (the files in its tooltip) or `No changes since a1b2c3d`.
-- **How the build stands**, for a project opened in this run: `Built, r6`,
+- **Its name**, with `Open` in the accent and a bar of the accent under the picture on the project that is open.
+- **How the build stands**, for a project opened in this run: `Built, r6` (the build's number, as the status line says it),
   building, or failed, with the picture of the last build that worked dimmed.
   Otherwise `Model saved 3 h ago`, read from the date of its `.py` files
   (nothing is built for it; the tooltip says `Not opened in this run`).
-- **Marks and dimensions**: how many marks are open and how many are not sent
+- **Its size** in millimetres (`150 × 80 × 92 mm`, the kernel's box of the last build the picture is of; `≈` when it is the box of the
+  mesh and not of the B-rep), then what is open on it in the same small face: how many marks are open and how many are not sent
   yet; how many dimensions fail and pass. Of a project not opened in this run
   there is no verdict, only `1 dimension failed as of its last run`.
+- **What git says**, in a work tree: `3 files changed since a1b2c3d` (the files in its tooltip) or `No changes since a1b2c3d`.
 - **The session**, if one runs.
 
 Looking at the page builds nothing, opens nothing and writes nothing.

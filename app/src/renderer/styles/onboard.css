@@ -1,13 +1,11 @@
 /* ---- The page of a new object (ui/onboard/NewObject.tsx) and the board (ui/ink/InkPad.tsx): its doodle, a drawing on the view ---- */
 
 .show-new {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: var(--space-2);
   height: 30px;
-  margin-left: auto;
-}
-
-.show-new + .show-export {
-  margin-left: 0;
 }
 
 /* The page: the brief on paper at the left, and at the right the dyed plate of what Claude gets first. It fills the view, and each side keeps its own scroll. */

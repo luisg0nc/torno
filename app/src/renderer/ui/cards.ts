@@ -1,4 +1,5 @@
 import { type KeyPress, which } from '../../shared/keys'
+import { number } from '../../shared/format'
 import type { ObjectCard } from '../../shared/show'
 
 // What a card of the page of objects says, in words, and how the arrow keys go from card to card. A card says
@@ -40,11 +41,27 @@ export function ago(ms: number): string {
   return `${Math.floor(days / 365)} years ago`
 }
 
-/** `recent` puts the project whose model was saved last first; those with no saved model, and ties, keep the list's order. */
-export type Order = 'name' | 'recent'
-export function ordered(cards: ObjectCard[], order: Order): ObjectCard[] {
-  if (order === 'name') return cards
-  return cards.map((card, i) => ({ card, i })).sort((a, b) => (b.card.sourcesMtimeMs ?? -Infinity) - (a.card.sourcesMtimeMs ?? -Infinity) || a.i - b.i).map((x) => x.card)
+/** The size of the last build of the layout pictured, as the kernel gave it: `150 × 80 × 92 mm`, with `≈` when it is the mesh's box and not the B-rep's. None when the card has no size. */
+export function sizeLine(card: ObjectCard): string | null {
+  const box = card.box
+  if (!box || card.thumb === null) return null
+  return `${box.exact ? '' : '≈ '}${number(box.x)} × ${number(box.y)} × ${number(box.z)} mm`
+}
+
+/** How long a question has waited: `waiting under 1 min`, `waiting 4 min`, `waiting 2 h`, `waiting 3 days`. */
+export function waitedFor(ms: number): string {
+  const min = Math.floor(ms / 60_000)
+  if (min < 1) return 'waiting under 1 min'
+  if (min < 60) return `waiting ${min} min`
+  const hours = Math.floor(min / 60)
+  if (hours < 24) return `waiting ${hours} h`
+  const days = Math.floor(hours / 24)
+  return `waiting ${days} ${days === 1 ? 'day' : 'days'}`
+}
+
+/** What a project of the Working shelf is doing: the build that runs, or Claude Code at work in it. */
+export function workLine(card: ObjectCard): string {
+  return card.opened && card.build?.status === 'building' ? 'Building…' : 'Claude Code is working'
 }
 
 const DAY = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
