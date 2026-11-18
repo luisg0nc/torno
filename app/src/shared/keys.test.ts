@@ -190,7 +190,7 @@ const SHORT_NAMES: Record<string, string[]> = {
   'renderer/ui/MarksPanel.tsx': ['t'],
   'renderer/state/tools.ts': ['t'],
   'renderer/state/store.ts': ['p'],
-  'renderer/ui/ViewBar.tsx': ['v'],
+  'renderer/ui/view/ViewCube.tsx': ['v'],
   'renderer/tools/regionTints.ts': ['one'],
   'renderer/ui/ShapeFields.tsx': ['m'],
   'renderer/ui/ToolPalette.tsx': ['t']

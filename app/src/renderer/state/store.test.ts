@@ -4,8 +4,8 @@ import type { Mark } from '../../shared/marks'
 import type { Part, Scene } from '../../shared/scene'
 import type { ScanInfo } from '../../shared/scans'
 import type { Camera } from '../../shared/view'
-import { MAX_PROPOSALS, MAX_VIEWS, type SavedView } from '../../shared/views'
-import { stripChips, viewMatches } from './savedViews'
+import { MAX_PROPOSALS, MAX_VIEWS } from '../../shared/views'
+import { viewMatches } from './savedViews'
 import { actions, explodeNow, layerOf, partsInLayout, runningSession, sceneFileOf, store, visibleKeys } from './store'
 
 const BUF = { offset: 0, length: 0 }
@@ -1338,23 +1338,6 @@ describe('saved views', () => {
     actions.applyScene({ objectId: 'bracket', revision: 2, scene: scene({ assembly: ['base'] }) })
     actions.applyView('Apart')
     expect(on()).toBe('Apart')
-  })
-
-  it('shows six chips at most: the one that is on, then the proposals, then the others as they were saved (review I4)', () => {
-    const view = (name: string, proposed = false): SavedView => ({ name, author: proposed ? 'agent' : 'user', layout: 'assembly', camera: CAMERA, hidden: [], at: '', ...(proposed ? { proposed: true as const } : {}) })
-    const few = [view('a'), view('b'), view('p', true)]
-    expect(stripChips(few, null)).toEqual({ shown: few, more: 0 })
-    const many = [...Array.from({ length: 10 }, (_, n) => view(`v${n}`)), view('p0', true), view('p1', true)]
-    // Chosen in that order, and shown in the order they were saved: no chip changes place under the pointer that clicked it.
-    expect(stripChips(many, 'v7').shown.map((v) => v.name)).toEqual(['v0', 'v1', 'v2', 'v7', 'p0', 'p1'])
-    expect(stripChips(many, 'v7').more).toBe(6)
-    expect(stripChips(many, null).shown.map((v) => v.name)).toEqual(['v0', 'v1', 'v2', 'v3', 'p0', 'p1'])
-    // More proposals than chips: the first of them.
-    expect(stripChips([view('a'), ...Array.from({ length: 8 }, (_, n) => view(`p${n}`, true))], 'a').shown.map((v) => v.name)).toEqual(['a', 'p0', 'p1', 'p2', 'p3', 'p4'])
-    // Exactly as many as fit: none is put behind "more" to be the only one there.
-    expect(stripChips(many.slice(0, 6), null).more).toBe(0)
-    expect(stripChips(many.slice(0, 7), null)).toMatchObject({ more: 1 })
-    expect(stripChips(many.slice(0, 7), null).shown).toHaveLength(6)
   })
 
   it('are of their object: another object has its own, and a file\'s are read with it', () => {

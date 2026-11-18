@@ -87,7 +87,7 @@ async function clickOver(point: Vec3, opts: { shift?: boolean } = {}, p: Page = 
 async function openFromAbove(p: Page = page): Promise<void> {
   await openListed(p, 'bracket')
   await expect.poll(async () => (await state(p)).build?.status, { timeout: 20_000 }).toBe('ok')
-  await p.getByRole('button', { name: 'Top', exact: true }).click()
+  await p.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect
     .poll(async () => {
       const c = await camera(p)
@@ -278,7 +278,7 @@ test('a drag turns the camera and selects nothing', async () => {
   await page.mouse.up()
   await expect.poll(async () => (await camera()).position).not.toEqual(before.position)
   expect((await state()).selection).toEqual([])
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   // Straight down again (framed below the bars over the view, so not over the origin itself).
   await expect
     .poll(async () => {
@@ -289,7 +289,7 @@ test('a drag turns the camera and selects nothing', async () => {
 })
 
 test('a drag turns the view about the point of the part under the pointer', async () => {
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect.poll(async () => Math.abs((await camera()).zoom)).toBeGreaterThan(0)
   const [x, y] = await pageXY(ON_BASE)
   await page.mouse.move(x, y)
@@ -298,7 +298,7 @@ test('a drag turns the view about the point of the part under the pointer', asyn
   await page.mouse.up()
   // The target moved along the view onto the top of the base (z = 2.5), the camera was not moved by that.
   await expect.poll(async () => (await camera()).target[2]).toBeCloseTo(2.5, 1)
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
 })
 
 test('F frames the selection, and pressed again all the parts', async () => {
@@ -397,7 +397,8 @@ test('on a stale build nothing is picked, and the pointer is told why; a build t
 
 test('the selection is of the layout shown: another layout empties it', async () => {
   expect((await state()).selection).toHaveLength(1)
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect.poll(async () => (await state()).layout).toBe('print')
   expect((await state()).selection).toEqual([])
 })

@@ -36,7 +36,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`KEYS`: its keys, what it does, the group the sheet lists it in, and the
   scope it is listened to in). A handler asks `pressed(e, id)` or
   `which(e, id)` and never names a key; a button or a tooltip takes its key
-  from `hint(id)`; the palette's tools, the view bar's views and the gizmo's
+  from `hint(id)`; the palette's tools, the compass's views and the gizmo's
   ways are `TOOL_KEYS`, `VIEW_KEYS` and `GIZMO_KEYS`; the sheet of keys (`?`,
   `ui/KeySheet.tsx`) is `cheatSheet()`. A tool's key is shown on its
   palette button and in its tooltip, and on the sheet of keys; nowhere else. The empty Marks section names no key: it

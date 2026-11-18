@@ -1,15 +1,17 @@
 import type { Vec3 } from '../../shared/marks'
 import type { MainAxis } from '../../shared/planes'
 
-// The view cube of a sketch: a small cube in the top right of the view, turned as the camera is, whose faces are the three
-// main planes. A click on a face makes that plane the sketch's. Drawn on the canvas of the overlay, never through React;
+// The view cube of a sketch: a small cube in the tile of the compass at the top right of the view, turned as the camera is,
+// whose faces are the three main planes. A click on a face makes that plane the sketch's. Drawn on the canvas of the overlay,
+// never through React, and only while a sketch is open (the rest of the time the compass has its still cube, `ui/view/ViewCube`);
 // the faces as last drawn are what a click is told against (`faceAt`).
 
-/** Half the side of the cube on screen, in pixels. */
+/** Half the side of the cube on screen, in pixels. Seen from a corner a cube of this size is 85 px tall, so the tile (112) holds it with its caption; a half of 34 would be 111 px tall. */
 export const CUBE_HALF_PX = 26
-/** The space between the cube and the top and the right of the view, in pixels. */
-const FROM_RIGHT = 30
-const FROM_TOP = 84
+/** The tile of the compass the cube stands in (`styles/compass.css`): its size, and its distance from the top and the right of the view, in pixels. */
+export const TILE = { w: 118, h: 112, top: 14, right: 14 } as const
+/** How far down the tile the cube's middle is: below the caption "Planes". */
+const CUBE_DOWN = 62
 
 /** A camera as its axes in the object frame. */
 export interface CameraAxes {
@@ -29,10 +31,28 @@ export interface CubeFace {
   facing: boolean
 }
 
-/** Where the cube's middle is, for a view `width` pixels wide. */
+/** Where the cube's middle is, for a view `width` pixels wide: in the tile of the compass. */
 export function cubeCentre(width: number): [number, number] {
-  return [width - FROM_RIGHT - CUBE_HALF_PX, FROM_TOP + CUBE_HALF_PX]
+  return [width - TILE.right - TILE.w / 2, TILE.top + CUBE_DOWN]
 }
+
+/** The tile itself, drawn under the cube: the panel at 94 % with a hairline, as the compass's tile is when it is not live. */
+export function drawCubeTile(ctx: CanvasRenderingContext2D, width: number, colours: { paper: string; hairline: string }): void {
+  ctx.save()
+  ctx.beginPath()
+  ctx.roundRect(width - TILE.right - TILE.w, TILE.top, TILE.w, TILE.h, 14)
+  ctx.globalAlpha = 0.94
+  ctx.fillStyle = colours.paper
+  ctx.fill()
+  ctx.globalAlpha = 1
+  ctx.lineWidth = 1
+  ctx.strokeStyle = colours.hairline
+  ctx.stroke()
+  ctx.restore()
+}
+
+/** The keys of the planes of a sketch (`sketch.plane`): shown on the faces of the live cube. */
+const PLANE_KEYS: Record<MainAxis, string> = { XY: '⇧1', XZ: '⇧2', YZ: '⇧3' }
 
 const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
@@ -111,7 +131,11 @@ export function drawViewCube(ctx: CanvasRenderingContext2D, faces: readonly Cube
     const area = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
     if (area > 200) {
       ctx.fillStyle = face.name === active ? colours.paper : colours.ink
-      ctx.fillText(face.name, face.centre[0], face.centre[1])
+      ctx.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace'
+      ctx.fillText(face.name, face.centre[0], face.centre[1] - 5)
+      // The key of the plane, smaller, under its name.
+      ctx.font = '400 9px ui-monospace, SFMono-Regular, Menlo, monospace'
+      ctx.fillText(PLANE_KEYS[face.name], face.centre[0], face.centre[1] + 7)
     }
   }
   ctx.restore()

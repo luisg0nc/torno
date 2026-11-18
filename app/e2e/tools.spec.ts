@@ -141,7 +141,7 @@ async function atRest(p: Page = page): Promise<void> {
     .toBe(true)
 }
 
-const lockOf = (view: string, p: Page = page) => p.locator(`.viewbar [data-view="${view}"]`)
+const lockOf = (view: string, p: Page = page) => p.locator(`.compass [data-view="${view}"]`)
 const shapeOnDisk = (id: string): ShapeMark => marksOnDisk().marks.find((m) => m.id === id) as ShapeMark
 const numberField = (name: string, p: Page = page) => p.locator('.shape-fields').getByRole('textbox', { name, exact: true })
 const fieldsButton = (name: string, p: Page = page) => p.locator('.shape-fields').getByRole('button', { name, exact: true })
@@ -273,7 +273,7 @@ async function openFromAbove(p: Page = page): Promise<void> {
 }
 
 async function fromAbove(p: Page = page): Promise<void> {
-  await p.getByRole('button', { name: 'Top', exact: true }).click()
+  await p.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect
     .poll(async () => {
       const c = await camera(p)
@@ -625,10 +625,12 @@ test('the note closes when another layout is shown', async () => {
   await page.keyboard.press('Escape') // nothing is being typed: the tool is put down, the note stays
   await expect(tool('Select')).toHaveAttribute('aria-pressed', 'true')
   await expect(card()).toBeVisible()
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect.poll(async () => (await state()).layout).toBe('print')
   await expect(card()).toHaveCount(0)
-  await page.getByRole('button', { name: 'assembly', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   await expect.poll(async () => (await state()).layout).toBe('assembly')
   await expect(card()).toHaveCount(0)
 })
@@ -662,7 +664,7 @@ test('an orthographic standard view is locked, and says so on its button; turnin
   await page.getByRole('button', { name: 'Ortho', exact: true }).click()
   await expect.poll(async () => (await state()).lockedView).toBe('top')
   await expect(lockOf('top')).toHaveAttribute('data-locked', '')
-  await expect(lockOf('top').locator('svg')).toBeVisible()
+  await expect(lockOf('top').locator('svg.view-lock')).toBeVisible()
 
   await page.keyboard.press('2')
   await expect.poll(async () => (await state()).lockedView).toBe('front')
@@ -1136,7 +1138,7 @@ test('the pointer hint shows the first time an object is drawn, goes at the firs
     await expect(hintLine(win).locator('kbd')).toHaveText(['?'])
     await expect(hintLine(win)).toContainText('for every key')
     // A key that moves the camera by itself is not the person turning it; neither is a click that moves nothing.
-    await win.getByRole('button', { name: 'Top', exact: true }).click()
+    await win.getByRole('button', { name: 'Top view, 4', exact: true }).click()
     await atRest(win)
     await expect(hintLine(win)).toBeVisible()
     // A tool's step takes its place while it is in hand, and the hint is back when it is put down.

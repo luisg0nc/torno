@@ -123,7 +123,7 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await openSection(page, 'Scans')
   await page.getByRole('button', { name: 'Import scan…' }).click()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   // The view turns to it over a moment: what follows is aimed from above, and a press is answered from the camera as it then is.
   await expect.poll(async () => {
     const { position, target } = await page.evaluate(() => window.__tornoTest!.camera())
@@ -352,7 +352,7 @@ test('a stamp beside a part takes nothing the part hides', async () => {
   await openSection(page, 'Scans')
   await page.getByRole('button', { name: 'Import scan…' }).click()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect.poll(async () => {
     const { position, target } = await page.evaluate(() => window.__tornoTest!.camera())
     return Math.hypot(position[0] - target[0], position[1] - target[1])

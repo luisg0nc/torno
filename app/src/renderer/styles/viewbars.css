@@ -1,12 +1,12 @@
-/* ---- View bar: the one palette floating on the viewport ---- */
+/* ---- The bars still at the top of the view: Compare's, the review's and the explode bar ---- */
 
-/* The bars at the top of the view, one under the other, in the middle: the view bar, and under it what it opens. */
+/* The bars at the top of the view, one under the other, in the middle, clear of the compass at the right (up to 270 px wide, with its row of layout, Fit and Explode 100 %). They go to the band and to tags (spec 2026-11-18, section 2); what the view bar was is the compass (`compass.css`). */
 .viewbars {
   position: absolute;
   /* Below the switch of Board and Model, which stands over the top left of this area (`--switch-h`): at the widths a view can have, bars that are centred reach under it. */
   top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
   left: var(--space-3);
-  right: var(--space-3);
+  right: calc(var(--space-3) + 270px + var(--space-3));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -74,50 +74,6 @@
 .bar-button[aria-expanded='true'] {
   background: var(--accent-wash);
   color: var(--accent);
-}
-
-/* The view the camera is locked on: square to a principal plane, so what is
-   drawn there is a profile in millimetres. A small padlock before its name. */
-.bar-button[data-locked] {
-  color: var(--accent);
-}
-
-.bar-button[data-locked]:not(.bar-icon) {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.view-lock,
-.bar-icon .view-lock {
-  flex: none;
-  width: 9px;
-  height: 11px;
-}
-
-.menu-item[data-locked] {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  color: var(--accent);
-}
-
-.bar-icon {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  padding: 0;
-  color: var(--muted);
-}
-
-.bar-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-.viewbar-more {
-  position: relative;
 }
 
 .menu {

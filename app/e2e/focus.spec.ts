@@ -60,8 +60,8 @@ async function choose(list: Locator, value: string): Promise<void> {
 }
 
 test('after each step of a session of work, P takes the pin tool', async () => {
-  // The view bar's buttons, and Fit.
-  await page.getByRole('toolbar', { name: 'View' }).getByRole('button', { name: 'Front', exact: true }).click()
+  // The compass's cube, and Fit.
+  await page.getByRole('toolbar', { name: 'View' }).getByRole('button', { name: 'Front view, 2', exact: true }).click()
   await pinIsInHand('a standard view')
   await page.getByRole('button', { name: 'Fit', exact: true }).click()
   await pinIsInHand('Fit')

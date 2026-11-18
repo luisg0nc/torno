@@ -407,7 +407,7 @@ test('"Frame" on its row brings a scan that stands far off into view, and does n
   await place('S2', [400, 0, 35])
   await expect(row('S2').locator('.scan-said[data-part="clipped"]')).toHaveCount(0)
   await expect.poll(async () => (await scans())[0].transform.t).toEqual([400, 0, 35])
-  await page.getByRole('button', { name: 'Iso', exact: true }).click()
+  await page.getByRole('button', { name: 'Iso view, 1', exact: true }).click()
   const corners: Array<[number, number, number]> = [[-30, -25, -11], [30, 25, -9], [30, -25, -11], [-30, 25, -9]]
   const drawn = () => page.evaluate((corners) => corners.map((local) => window.__tornoTest!.projectScan('S2', local)), corners)
   const inView = (points: Array<[number, number]>): boolean => points.every(([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1)

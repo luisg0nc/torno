@@ -262,7 +262,7 @@ test('clicking a row makes its mark the active one; the camera moves only for a 
     const now = await camera()
     return Math.max(...now.position.map((v, i) => Math.abs(v - c.position[i])), ...now.target.map((v, i) => Math.abs(v - c.target[i])))
   }
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect.poll(async () => (await camera()).position[2]).toBeGreaterThan(placedFrom.position[2] + 1)
   const top = await resting()
   expect((await markScreen('M2'))?.visible).toBe(true)
@@ -278,7 +278,7 @@ test('clicking a row makes its mark the active one; the camera moves only for a 
   await expect.poll(() => from(placedFrom)).toBeLessThan(1e-6)
 
   // Close in on M1, far from M2: M2 is out of view, and a click on its row goes to where it was placed from.
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await resting()
   const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   const one = (await markScreen('M1'))!
@@ -396,7 +396,8 @@ test('deleting a mark takes it out of the file; its number is not given out agai
 })
 
 test('marks belong to a layout: another layout shows none of them, and going to one switches back', async () => {
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect.poll(async () => (await state()).layout).toBe('print')
   expect(await markScreen('M1')).toBeNull()
   expect(await markScreen('M2')).toBeNull()
@@ -671,7 +672,7 @@ test('a view note in the list has its picture and its comment; the pointer on it
       const c = await camera(p)
       return Math.max(...c.position.map((v, i) => Math.abs(v - seen.position[i])), ...c.target.map((v, i) => Math.abs(v - seen.target[i])))
     }
-    await p.getByRole('button', { name: 'Top', exact: true }).click()
+    await p.getByRole('button', { name: 'Top view, 4', exact: true }).click()
     await resting(p)
     expect(await apart()).toBeGreaterThan(1)
     // Close in on a corner of the view, far from where the note hangs its label: it is out of view, and a click goes to its camera.
@@ -683,7 +684,7 @@ test('a view note in the list has its picture and its comment; the pointer on it
     await mark.locator('.mark-chip').click()
     await expect(mark).toHaveAttribute('aria-current', 'true')
     await expect.poll(apart).toBeLessThan(1e-6)
-    await p.getByRole('button', { name: 'Top', exact: true }).click()
+    await p.getByRole('button', { name: 'Top view, 4', exact: true }).click()
     await resting(p)
     await mark.hover()
     await p.getByRole('button', { name: `Go to ${id}`, exact: true }).click()

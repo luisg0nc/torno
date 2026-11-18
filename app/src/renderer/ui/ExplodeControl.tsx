@@ -53,7 +53,7 @@ export function toggleExplode(): void {
   const s = store.getState()
   const apart = explodeNow(s)
   const refused = apart ? null : (whyNot(s) ?? actions.setExplode({ amount: lastAmounts.get(keyOf(s)) ?? FIRST_AMOUNT }))
-  // The camera stays as it is, unless a part would go out of sight: the view bar's rule, for every way of drawing them apart.
+  // The camera stays as it is, unless a part would go out of sight: the compass's rule (`keepApartInView`), for every way of drawing them apart.
   if (apart) actions.setExplode({ amount: 0 })
   say(refused)
 }
@@ -71,8 +71,16 @@ function say(refused: string | null): void {
   if (refused !== null) saidTimer = setTimeout(() => ui.setState({ said: null }), SAID_FOR_MS)
 }
 
+/** Whether the explode bar is up: the parts are drawn apart, or its button is pressed and there is something to draw apart. The compass folds its saved views for it. */
+export function useExplodeShown(): boolean {
+  const apart = useStore((s) => explodeNow(s) !== null)
+  const onePart = useStore((s) => s.scene !== null && partsInLayout(s).length < 2)
+  const { open } = useZustand(ui)
+  return (open && !onePart) || apart
+}
+
 /**
- * Explode, in the view bar: one button, pressed while the parts of the layout shown are drawn apart or its bar
+ * Explode, in the compass: one button, pressed while the parts of the layout shown are drawn apart or its bar
  * is open, with how far apart beside the word while they are. Pressed while they are apart it puts them together.
  */
 export function ExplodeToggle() {
@@ -98,7 +106,7 @@ export function ExplodeToggle() {
     <>
     <button
       type="button"
-      className="bar-button explode-toggle"
+      className="pill explode-toggle"
       aria-pressed={shown}
       aria-expanded={shown}
       aria-controls="explodebar"
@@ -123,7 +131,7 @@ export function ExplodeToggle() {
 }
 
 /**
- * The explode bar, under the view bar while the button is pressed or the parts are apart: the section bar's
+ * The explode bar, in the column under the top of the view while the button is pressed or the parts are apart: the section bar's
  * sibling. How far apart on a slider with the amount beside it, along what, how far that reaches, and a line
  * that says what explode is: for display only. It is the notice that the parts are not where they are drawn.
  *

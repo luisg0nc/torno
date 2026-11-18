@@ -57,7 +57,8 @@ import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
 import { Logo } from './Logo'
 import { openNote } from './drawing/make'
-import { ViewBar } from './ViewBar'
+import { Compass } from './view/Compass'
+import { LegacyBars } from './view/LegacyBars'
 
 const NO_SCENE: Scene = { model: '', layouts: [], parts: [], seconds: 0, output: '' }
 
@@ -808,7 +809,8 @@ export function ViewportPane() {
       <div className="viewport-canvas" ref={host} />
       {viewport && hasScene && (
         <>
-          <ViewBar viewport={viewport} />
+          <Compass viewport={viewport} />
+          <LegacyBars viewport={viewport} />
           <ToolPalette />
           <SectionBar viewport={viewport} />
           <AlignBar />

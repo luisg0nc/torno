@@ -84,19 +84,3 @@ function rightOf(camera: Camera): [number, number, number] {
   const length = Math.hypot(...r)
   return length > 0 ? [r[0] / length, r[1] / length, r[2] / length] : [0, 0, 0]
 }
-
-/** The most chips of saved views the strip shows: the others are behind "more". */
-export const MAX_CHIPS = 6
-
-/**
- * The views the strip shows as chips, and how many more there are: all of them while they are `MAX_CHIPS` or
- * fewer; of more, the one that is on, then the agent's proposals, then the others as they were saved, until
- * there are `MAX_CHIPS`. They are shown in the order they were saved, so that no chip changes place under the
- * pointer that clicked it. A count, not a measure: the strip stays two rows at most in the narrowest pane.
- */
-export function stripChips(views: readonly SavedView[], active: string | null): { shown: SavedView[]; more: number } {
-  if (views.length <= MAX_CHIPS) return { shown: [...views], more: 0 }
-  const first = [...views.filter((view) => view.name === active), ...views.filter((view) => view.proposed && view.name !== active), ...views.filter((view) => !view.proposed && view.name !== active)]
-  const chosen = new Set(first.slice(0, MAX_CHIPS))
-  return { shown: views.filter((view) => chosen.has(view)), more: views.length - chosen.size }
-}
