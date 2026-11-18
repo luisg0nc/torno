@@ -198,10 +198,10 @@ body, a lid and a clip. The lid rattles, which is what you will fix.
    the lid on it and the clip round the front. Drag to turn it, drag with the
    right button to pan, scroll to zoom, `F` to fit. `1` to `4` are the iso,
    front, right and top views. The window says how the pointer moves the view
-   once, in a line at the foot of the view that goes at your first move of the
+   once, in a hint at the foot of the view that goes at your first move of the
    camera, and keeps it, with the keys,
    in the sheet of keys (`?`), where the pointer is the first group. Point at a tool in the palette for what it
-   does; with a tool in hand that same line says what it waits for next.
+   does; with a tool in hand a small dark caption by the pointer says what it waits for next.
 
 3. Read what is there. The Marks list has three marks the example came with:
    `M1`, a pin on the lid for a label; `M2`, an arrow at the cable notch, which
@@ -2241,11 +2241,14 @@ the pointer, which has no keys:
 <!-- pointer: end -->
 
 Point at a tool of the palette and a panel beside it says, at once, what the tool does and its key. With a
-tool in hand (not Select) a quiet line at the foot of the view says what the tool waits for next: for Measure
-`click the first end`, then `click the second end`; for Arrow `press on the part and drag to where it should go`.
-Region of a scan and Align scan, with no scan in the project, are drawn quieter and say `Import a scan first`.
-The line that tells how the pointer moves the view shows the first time a project is drawn in this install,
-until the camera is first moved; the window remembers that in its own storage, never in a workspace.
+tool in hand (not Select) a small dark caption by the pointer, a little below and to its right, says what the tool waits for next, and
+`Esc`: for Measure `click the first end`, then `click the second end`; for Arrow `press on the part and drag to where it should go`.
+For the first ten times you take a tool the caption shows as soon as the pointer is in the view; after that it shows where the pointer
+rests for half a second and goes when it moves again (a screen reader is told the words either way). Region of a scan and Align scan,
+with no scan in the project, are drawn quieter and say `Import a scan first`.
+The hint at the foot of the view, in the middle, tells how the pointer moves the view the first time a project is drawn in this install,
+until the camera is first moved; while a sketch is open it says whether snapping is on and that `Ctrl` drops it, and where x-ray is;
+and it holds the line of what the agent points at. The window remembers what it has shown in its own storage, never in a workspace.
 
 <!-- keys: generated from cheatSheet() in app/src/shared/keys.ts; `TORNO_README=write pnpm -C app exec vitest run src/readme.test.ts` writes it -->
 | Where | Keys | What it does |

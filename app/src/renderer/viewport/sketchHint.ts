@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Vec3 } from '../../shared/marks'
 import type { MainAxis } from '../../shared/planes'
 import { number } from '../../shared/format'
+import { CAPTION_OFFSET } from '../../shared/captionPlace'
 import { MONO_STACK } from '../../shared/fonts'
 import type { Snap } from '../tools/sketch/snap'
 import { type CubeFace, cubeCentre, cubeFaces, drawViewCube, CUBE_HALF_PX } from './viewCube'
@@ -49,10 +50,17 @@ export function hintLines(hint: SketchHint): string[] {
 
 const MONO = MONO_STACK
 
-/** The colours it is drawn in: the accent, the ink, and the paper and hairline of the panels. */
+/** How the box by the pointer is drawn: as the caption is, an ink pill; and where the pointer would snap, an accent one. */
+export function hintLook(hint: SketchHint): 'ink' | 'accent' {
+  return hint.snap ? 'accent' : 'ink'
+}
+
+/** The colours it is drawn in: the accent and what is on it, the ink and the ground of the view that its pill is lettered in, and the paper and hairline of the panels. */
 export interface SketchColours {
   accent: string
+  onAccent: string
   ink: string
+  surface: string
   paper: string
   hairline: string
 }
@@ -96,24 +104,22 @@ export function drawSketchOverlay(ctx: CanvasRenderingContext2D, over: SketchOve
   }
   const lines = over.hint?.at ? hintLines(over.hint) : []
   if (over.hint?.at && lines.length > 0) {
-    ctx.font = `500 11px ${MONO}`
+    ctx.font = `500 12px ${MONO}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'left'
     const widest = Math.max(...lines.map((line) => ctx.measureText(line).width))
-    const w = widest + 12
-    const h = lines.length * 15 + 6
-    // Beside the pointer, down and to the right; to the other side at the edge of the view.
-    const x = over.hint.at[0] + 16 + w > size.width ? over.hint.at[0] - 16 - w : over.hint.at[0] + 16
-    const y = over.hint.at[1] + 14 + h > size.height ? over.hint.at[1] - 14 - h : over.hint.at[1] + 14
-    ctx.fillStyle = colours.paper
-    ctx.strokeStyle = colours.hairline
-    ctx.lineWidth = 1
+    const w = widest + 18
+    const h = lines.length * 16 + 6
+    // The caption's place: 18 px down and to the right of the pointer; to the other side at the edge of the view.
+    const x = over.hint.at[0] + CAPTION_OFFSET + w > size.width ? over.hint.at[0] - CAPTION_OFFSET - w : over.hint.at[0] + CAPTION_OFFSET
+    const y = over.hint.at[1] + CAPTION_OFFSET + h > size.height ? over.hint.at[1] - CAPTION_OFFSET - h : over.hint.at[1] + CAPTION_OFFSET
+    const accent = hintLook(over.hint) === 'accent'
+    ctx.fillStyle = accent ? colours.accent : colours.ink
     ctx.beginPath()
-    ctx.roundRect(x, y, w, h, 4)
+    ctx.roundRect(x, y, w, h, 9)
     ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = colours.ink
-    lines.forEach((line, i) => ctx.fillText(line, x + 6, y + 3 + 7.5 + i * 15))
+    ctx.fillStyle = accent ? colours.onAccent : colours.surface
+    lines.forEach((line, i) => ctx.fillText(line, x + 9, y + 3 + 8 + i * 16))
   }
   ctx.restore()
   let faces: CubeFace[] = []

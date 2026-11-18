@@ -15,6 +15,11 @@ paths:
   - "app/src/renderer/styles/layout.css"
   - "app/src/renderer/styles/viewbars.css"
   - "app/src/renderer/ui/ToolHint.tsx"
+  - "app/src/renderer/ui/view/Hint.tsx"
+  - "app/src/renderer/viewport/captionAt.ts"
+  - "app/src/renderer/styles/caption.css"
+  - "app/src/shared/captionPlace.ts"
+  - "app/src/shared/captionPlace.test.ts"
   - "app/src/renderer/ui/ToolPalette.tsx"
   - "app/src/renderer/ui/ViewBar.tsx"
   - "app/src/renderer/ui/ExplodeControl.tsx"
@@ -41,19 +46,28 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   shape the Shape tool places). A scan's tool (`SCAN_TOOLS`: Region, Align) with no scan in the object, once main has
   said so (`scansKnown`), is drawn quieter (`data-quiet`, the icon in `--muted`) and stays enabled: its click and its tip
   say why. The key letters are 11 px. The Keys button has the same tip.
-  With a tool other than Select in hand one line at the foot of the view (`ToolHint`, `aria-live="polite"`, no
-  animation, no pointer) says what the tool waits for next: `next` of the tool's row in `TOOL_KEYS`, with
+  With a tool other than Select in hand a **caption** (`ToolHint`, an ink pill: `--ink` ground, `--surface` text, 12 px,
+  `--radius-caption` 9 px) stands by the pointer, 18 px below and to its right (`captionPlace` in `shared/captionPlace.ts`:
+  to the other side at the edge of the pane, and beyond the readout `.pick-readout` when that is there). `CaptionAt`
+  (`viewport/captionAt.ts`) puts it, with a transform written on every pointer move over the pane, never through React; no animation but a
+  90 ms fade, and it takes no pointer. It says what the tool waits for next: `next` of the tool's row in `TOOL_KEYS`, with
   Measure's `then` once the first end is clicked (`stepStore.stage`, set by `measureTool` through `setFirst`, once
   per click, never per move), Pin's `click the part where M3 should be` while a mark is being put elsewhere, and
-  `import a scan first` for a scan's tool with no scan (`stepFor`, `hintLine`). The line names no key of a tool: only
-  `Esc` (`hint('escape')`), which steps back. The first time an object is drawn in this install the same line, with no
-  tool in hand, says how the pointer moves the view (`pointerLine()`, and `?` from `hint('keys')`); a tool's step takes
-  its place while it is in hand, and the hint goes at the first move of the camera the person makes with the pointer
+  `import a scan first` for a scan's tool with no scan (`stepFor`, `hintLine`). It names no key of a tool: only
+  `Esc` (`hint('escape')`), which steps back (the words "steps back" are for a screen reader). Its words are always in the
+  `aria-live="polite"` region (`.tool-hint-live`); only the look is the pause rule: `captionShows(uses, stillMs)` is true
+  for the first `CAPTION_USES` (10) takings of a tool with a step (`countToolUse`, `toolUses`, the window's `torno.toolUses`; a
+  storage that is not there or refuses counts none) and after that once the pointer was still `CAPTION_PAUSE_MS` (500); the element has
+  `data-shown` while it shows, and none while the pointer is out of the pane. The **hint** (`ui/view/Hint.tsx`, `.view-hints`, bottom
+  middle: a pill on the panel at 92 %, muted 12 px) holds the pointer's way (the first time an object is drawn in this install, with no
+  tool in hand: `pointerLine()`, and `?` from `hint('keys')`; it goes at the first move of the camera the person makes with the pointer
   (a drag or the wheel: `Viewport.onNavigated`, not a view key, Fit or a click that moves nothing), remembered in
   the window's `localStorage` under `torno.pointerHint` (`pointerHintDue`, `rememberPointerHint`: a storage that is
-  not there or refuses shows it again; never in a workspace). The line stands on `--bar-floor` and, while it is
-  there (`:has(.tool-hint)`), lifts every bar at the foot of the view by a row (`--hint-lift`, 40 px) so that none meets it
-  (`styles/layout.css`, held by `viewport/overlay.test.ts`). The sheet of keys starts with a group "Pointer"
+  not there or refuses shows it again; never in a workspace)), the agent's line (`AgentLine`, `.agent-line`) and, while a sketch is open, the
+  sketch's standing line (`sketchLine`: "Snapping on, hold `Ctrl` to drop it", X-ray and its key). It stands on `--bar-floor` and, while a
+  pill is there (`:has(.view-hint)`), lifts every bar at the foot of the view by a row (`--hint-lift`, 40 px) so that none meets it
+  (`styles/layout.css`, held by `viewport/overlay.test.ts`). The sketch's box by the pointer (`viewport/sketchHint.ts`, on the overlay canvas)
+  is the caption's look, an ink pill, and an accent one (`--on-accent` text) where the pointer would snap (`hintLook`). The caption's, the hint's and the readout's rules are in `styles/caption.css` (the readout's look in `overlays.css`). The sheet of keys starts with a group "Pointer"
   (`POINTER` in `shared/pointer.ts`: drag, right drag, scroll, double click with Measure; "In the view": with Arrow or
   Draw in hand a drag that starts on the part draws instead; the others' own press is in their step lines): gestures, no row of `KEYS`, searched with them and counted
   after them (the count line gives the keys, then `, N of the pointer`); the manual's table of them is held to it (`readme.test.ts`).

@@ -40,7 +40,6 @@ import { labelText } from '../viewport/marks/labels'
 import { NARROW_BELOW, bindPane } from '../viewport/overlay'
 import { meshOf } from '../viewport/scans'
 import { Viewport } from '../viewport/Viewport'
-import { AgentLine } from './AgentLine'
 import { QuestionCard } from './QuestionCard'
 import { AlignBar } from './AlignBar'
 import { goToRow } from './BuildStatus'
@@ -53,6 +52,7 @@ import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
 import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
+import { Hint } from './view/Hint'
 import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
 import { Logo } from './Logo'
@@ -814,8 +814,8 @@ export function ViewportPane() {
           <AlignBar />
           <RegionBar />
           <SketchPens />
-          <AgentLine />
           <QuestionCard where="view" />
+          <Hint />
           <ToolHint />
           <NotePopover viewport={viewport} />
         </>

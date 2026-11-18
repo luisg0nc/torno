@@ -1,4 +1,4 @@
-/* ---- Pointing: the readout at the pointer (the selection is in the head of the route card, card-hand.css) ---- */
+/* ---- Pointing: the readout at the pointer, in the caption's look (ink pill) (the selection is in the head of the route card, card-hand.css) ---- */
 
 .pick-readout {
   position: absolute;
@@ -8,10 +8,10 @@
   align-items: baseline;
   gap: var(--space-2);
   max-width: min(420px, calc(100% - 16px));
-  padding: 3px 7px;
-  border: var(--divider);
-  border-radius: var(--radius-control);
-  background: var(--panel);
+  padding: 3px 9px;
+  border-radius: var(--radius-caption);
+  background: var(--ink);
+  color: var(--surface);
   font-size: var(--text-small);
   white-space: nowrap;
   pointer-events: none;
@@ -23,19 +23,20 @@
 }
 
 .pick-readout-ref {
-  color: var(--accent);
+  color: inherit;
+  font-weight: 600;
 }
 
 .pick-readout-detail {
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--muted);
+  color: inherit;
 }
 
 /* A sentence rather than a ref and its numbers: in the face of the UI, but for the builds and refs it names. */
 .pick-readout[data-says='sentence'] .pick-readout-detail {
   font-family: var(--font-ui);
-  color: var(--ink);
+  color: inherit;
 }
 
 .pick-readout[data-says='sentence'] .pick-readout-detail .num,
@@ -48,7 +49,7 @@
 /* A mark's note, as its chip in the view says it: prose, on the one line, cut to the room there is. */
 .pick-readout[data-says='note'] .pick-readout-detail {
   font-family: var(--font-ui);
-  color: var(--ink);
+  color: inherit;
 }
 
 /* A sentence may be a long one (why the kernel would not measure something): it runs on, where a ref is cut. */
@@ -301,29 +302,7 @@
   margin-right: auto;
 }
 
-/* ---- What the agent points at: a line where the selection is shown, in the colour of its marks ---- */
-
-.agent-line {
-  position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-lift));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  max-width: calc(100% - 2 * var(--stack-side));
-  padding: 3px 3px 3px 9px;
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  font-size: var(--text-small);
-}
-
-/* Above the selection, when something is selected too; never under the strip of the Measure tool. */
-.agent-line[data-above] {
-  bottom: max(calc(var(--space-3) + 40px + var(--bar-lift)), var(--strip-top));
-}
+/* ---- What the agent points at: its pill is in the hint (caption.css); its refs, in the colour of its marks ---- */
 
 .agent-refs {
   display: flex;

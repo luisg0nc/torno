@@ -255,7 +255,6 @@
 /* The bars at the foot of the view slide to their place when the line below them comes or goes, or the view's width changes
    (`--bar-lift`, `styles/layout.css`): one short transition, that ends, and none where motion is not wanted. */
 .sectionbar,
-.agent-line,
 .alignbar,
 .regionbar {
   transition: bottom 120ms ease-out;
@@ -263,64 +262,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sectionbar,
-  .agent-line,
   .alignbar,
   .regionbar {
     transition: none;
   }
-}
-
-/* ---- The line at the foot of the view: what the tool in hand waits for, or, once, how the pointer moves the view ---- */
-
-/* Always there, empty, so that what comes into it is read out. It has no box of its own. */
-.tool-hint-live {
-  display: contents;
-}
-
-.tool-hint {
-  position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-floor));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  max-width: calc(100% - 2 * var(--stack-side));
-  margin: 0;
-  padding: 3px 11px;
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  font-size: var(--text-small);
-  line-height: 26px;
-  color: var(--muted);
-  white-space: nowrap;
-  /* Nothing to press: the pointer goes through it to the view, and to the chips of the marks. */
-  pointer-events: none;
-}
-
-/* The words give way to the room there is; the way back stays whole. */
-.tool-hint-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tool-hint-stop {
-  flex: none;
-}
-
-.tool-hint kbd {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border: var(--divider);
-  border-radius: var(--radius-inline);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1;
-  color: var(--ink);
 }

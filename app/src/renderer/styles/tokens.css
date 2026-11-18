@@ -132,6 +132,7 @@
   /* The radius grows with how far a thing floats: a chip in a line, a control, what floats, a sheet, a pill. */
   --radius-inline: 4px;
   --radius-control: 6px;
+  --radius-caption: 9px;  /* the caption at the pointer, and the readout in its look */
   --radius-float: 10px;
   --radius-sheet: 14px;
   --radius-full: 999px;

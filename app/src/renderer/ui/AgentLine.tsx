@@ -1,18 +1,15 @@
 import { dismissHighlight, useAgentHighlight } from '../state/agent'
-import { useStore } from '../state/store'
 
 /**
- * What the agent is pointing at, at the bottom of the viewport where the
- * selection is shown: its refs as chips in the colour of its marks, what it
+ * What the agent is pointing at, in the hint at the foot of the view (`ui/view/Hint.tsx`): its refs as chips in the colour of its marks, what it
  * says of them, and a way to put it away. The note is the agent's own text,
  * shown as text.
  */
 export function AgentLine() {
   const highlight = useAgentHighlight()
-  const selecting = useStore((s) => s.selection.length > 0)
   if (!highlight) return null
   return (
-    <div className="agent-line" role="status" aria-label="The agent points at" data-above={selecting ? '' : undefined}>
+    <div className="view-hint agent-line" role="status" aria-label="The agent points at">
       <ul className="agent-refs">
         {highlight.refs.map((ref) => (
           <li key={ref} className="mark-chip agent-ref num" data-author="agent" data-ref={ref}>
