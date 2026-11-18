@@ -8,10 +8,6 @@
   height: 30px;
 }
 
-.show-empty-new {
-  margin-top: var(--space-3);
-}
-
 /* The page: the page of objects' ground, with one calm column. */
 .new-object {
   scroll-padding-bottom: 96px;

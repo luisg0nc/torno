@@ -22,11 +22,15 @@ const needsYou = (card: ObjectCard): boolean => card.waiting !== undefined || ca
 /** It works when it builds, or Claude Code works in it. */
 const working = (card: ObjectCard): boolean => (card.opened && card.build?.status === 'building') || card.session === 'working'
 
+/** How the rest is ordered: the last save of the model first (the default), or by name, as the list has them. */
+export type Order = 'name' | 'recent'
+
 /**
- * Who needs you first, then who works, then the rest, which is ordered by the last save of the model, newest first
- * (a project with no saved model last). Equal saves keep the list's order, the open one (`openId`) before the rest of them.
+ * Who needs you first, then who works, then the rest, which `order` puts by the last save of the model, newest first
+ * (a project with no saved model last; equal saves keep the list's order, the open one (`openId`) before the rest of them),
+ * or by name, in the list's order. Needs you and Working stand ahead of either, in the list's order.
  */
-export function shelvesOf(cards: ObjectCard[], openId: string | null): Shelves {
+export function shelvesOf(cards: ObjectCard[], openId: string | null, order: Order = 'recent'): Shelves {
   const needs: ObjectCard[] = []
   const busy: ObjectCard[] = []
   const rest: { card: ObjectCard; i: number }[] = []
@@ -35,7 +39,7 @@ export function shelvesOf(cards: ObjectCard[], openId: string | null): Shelves {
     else if (working(card)) busy.push(card)
     else rest.push({ card, i })
   })
-  rest.sort((a, b) => (b.card.sourcesMtimeMs ?? -Infinity) - (a.card.sourcesMtimeMs ?? -Infinity) || Number(b.card.id === openId) - Number(a.card.id === openId) || a.i - b.i)
+  if (order === 'recent') rest.sort((a, b) => (b.card.sourcesMtimeMs ?? -Infinity) - (a.card.sourcesMtimeMs ?? -Infinity) || Number(b.card.id === openId) - Number(a.card.id === openId) || a.i - b.i)
   return { needs, working: busy, rest: rest.map((x) => x.card) }
 }
 

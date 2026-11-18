@@ -181,6 +181,18 @@ test('the page is a bench: pictures side by side at one scale on a shelf, a size
     return { show: [show.scrollWidth, show.clientWidth], bench: [bench.offsetWidth, bench.scrollWidth, getComputedStyle(bench).zoom], innerHeight: window.innerHeight, shelves: [...document.querySelectorAll<HTMLElement>('.shelf')].map((shelf) => [shelf.scrollWidth, shelf.clientWidth]) }
   })
   expect(fits.shelves.every(([scroll, client]) => scroll <= client + 1) && fits.show[0] <= fits.show[1]).toBe(true)
+  // The rest is by the last save of the model, newest first, unless By name is chosen (kept for the folder).
+  const restIds = (): Promise<string[]> => shelfOf(page, 'The rest').locator('.card').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.object!))
+  const orders = page.getByRole('group', { name: 'Order of the projects' })
+  await expect(orders.getByRole('button', { name: 'Recently changed' })).toHaveAttribute('aria-pressed', 'true')
+  const recent = await restIds()
+  expect(recent[0]).toBe('hollow')
+  await orders.getByRole('button', { name: 'By name' }).click()
+  await expect(shelfOf(page, 'The rest').getByRole('heading', { level: 3 })).toContainText('by name, all at the same scale')
+  expect(await restIds()).toEqual([...recent].sort((a, b) => (a < b ? -1 : 1)))
+  expect(await page.evaluate(() => localStorage.getItem(`torno.show.order:${window.__tornoTest!.state().workspace!.root}`))).toBe('name')
+  await orders.getByRole('button', { name: 'Recently changed' }).click()
+  expect(await restIds()).toEqual(recent)
   // Grid: the same projects, every picture in a box of one size.
   await page.getByRole('group', { name: 'How the projects are drawn' }).getByRole('button', { name: 'Grid' }).click()
   await expect(page.locator('.bench')).toHaveAttribute('data-mode', 'grid')
@@ -722,7 +734,7 @@ for (const shot of ['light', 'dark', 'empty-light', 'empty-dark'] as const) {
         await shotPage.keyboard.press('ArrowRight')
         await shotPage.locator('.show').evaluate((el) => el.scrollTo(0, 0))
       } else {
-        await expect(shotPage.locator('.show-empty')).toBeVisible()
+        await expect(shotPage.locator('.empty-folder')).toBeVisible()
       }
       await shotPage.evaluate(async () => {
         await document.fonts.ready

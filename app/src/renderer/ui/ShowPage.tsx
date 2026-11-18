@@ -2,7 +2,7 @@ import { ARROWS_CAP, domKey, hint, keyName, pressed, which } from '../../shared/
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { ObjectCard } from '../../shared/show'
 import { actions, store, useStore } from '../state/store'
-import { BAR_MM, SHELVES_GAP, barWidth, cellWidth, figureOf, packRows, pageScale, shelvesOf, stepAcross, type BenchMode, type Figure } from './bench'
+import { BAR_MM, SHELVES_GAP, barWidth, cellWidth, figureOf, packRows, pageScale, shelvesOf, stepAcross, type BenchMode, type Figure, type Order } from './bench'
 import { BEHIND, buildLine, cardChips, matching, pictureLine, sizeLine, stepCard, waitedFor, workLine } from './cards'
 import { focusAsk } from './sessionSign'
 import { EmptyWorkspace } from './EmptyWorkspace'
@@ -59,6 +59,33 @@ function topmostOver(page: HTMLElement): HTMLElement | null {
  * By the keys: the arrows go from card to card, Enter opens the one in focus, `/` or any letter filters by name,
  * Escape empties the filter and then goes back to the object that was open.
  */
+const ORDERS: [Order, string][] = [['name', 'By name'], ['recent', 'Recently changed']]
+
+/** The order of the rest, kept for each workspace in this window's storage (never in the workspace); a storage that is not there is no memory. The newest first unless a person chose by name. */
+function useOrder(root: string | undefined): [Order, (order: Order) => void] {
+  const key = `torno.show.order:${root ?? ''}`
+  const read = (): Order => {
+    try {
+      return globalThis.localStorage?.getItem(key) === 'name' ? 'name' : 'recent'
+    } catch {
+      return 'recent'
+    }
+  }
+  const [order, set] = useState<Order>(read)
+  useEffect(() => set(read()), [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  return [
+    order,
+    (next) => {
+      set(next)
+      try {
+        globalThis.localStorage?.setItem(key, next)
+      } catch {
+        // No storage: the choice lasts while the page does.
+      }
+    }
+  ]
+}
+
 const MODES: [BenchMode, string][] = [['scale', 'True scale'], ['grid', 'Grid']]
 
 /** How the pictures are drawn, kept for each workspace in this window's storage (never in the workspace); a storage that is not there is no memory. */
@@ -120,7 +147,7 @@ function useNow(on: boolean): number {
   return now
 }
 
-export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) => void; onExample: () => void; notes?: ReactNode }) {
+export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) => void | Promise<void>; onExample: () => void; notes?: ReactNode }) {
   const workspace = useStore((s) => s.workspace)
   const openId = useStore((s) => s.objectId)
   const [cards, setCards] = useState<ObjectCard[] | null>(null)
@@ -131,6 +158,7 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
   filter.current = typed
   const root = workspace?.root
   const [mode, chooseMode] = useMode(root)
+  const [order, chooseOrder] = useOrder(root)
   const [benchRef, width, measured] = useWidth()
   const hasProject = workspace?.hasProject ?? true
   const [hasExample, setHasExample] = useState(false)
@@ -218,6 +246,8 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const target = e.target instanceof Element ? e.target : null
       const here = target !== null && page.current!.contains(target)
+      // The empty folder's composer has its own fields and keys.
+      if (target?.closest('.empty-folder')) return
       // Somewhere else to type: the session's terminal, a field of the left column. A slider or a tick box there
       // keeps its keys, and so does whatever asks a question of its own (the build's error, a confirm).
       if (!here && target?.closest(`${TYPING}, input, ${OVER}`)) return
@@ -287,7 +317,7 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
 
   const shown = cards ? matching(cards, typed) : []
   const name = root ? root.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || root : ''
-  const shelves = shelvesOf(shown, openId)
+  const shelves = shelvesOf(shown, openId, order)
   const scale = pageScale(shelves, width, mode)
   const now = useNow(shelves.needs.some((one) => one.waiting !== undefined))
   // The shelves cut into rows that fit; the two on top stand side by side, each with its rows, and the rest under them.
@@ -298,6 +328,15 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
   const restRows = rowsOf(shelves.rest, width)
   const top = Math.max(needsRows.length, workingRows.length)
   const group = { mode, scale, openId, onOpen }
+
+  // A folder with no project in it is the empty folder's screen, in place of the page: the dyed plate and the composer.
+  if (cards && cards.length === 0)
+    return (
+      <section ref={page} className="show show-bare" aria-label={`Projects of ${name}`}>
+        {notes}
+        <EmptyWorkspace name={name} hasProject={hasProject} hasExample={hasExample} onOpen={async (id) => void (await onOpen(id))} onExample={onExample} />
+      </section>
+    )
 
   return (
     <section ref={page} className="show" aria-label={`Projects of ${name}`}>
@@ -330,13 +369,22 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
             ))}
           </div>
         )}
+        {cards && cards.length > 1 && (
+          <div className="show-mode show-order" role="group" aria-label="Order of the projects">
+            {ORDERS.map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={order === value} onClick={() => chooseOrder(value)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {cards && cards.length > 0 && (
           <button type="button" className="button show-export" title="Export projects to one HTML file that opens by itself, or one of them to a STEP, STL or 3MF file" onClick={() => actions.exportSheet('all')}>
             Export…
           </button>
         )}
         {cards && cards.length > 0 && (
-          <button type="button" className="button button-primary show-new" title="Make a new project: say what it is and give what you have" onClick={openNewObject}>
+          <button type="button" className="button button-primary show-new" title="Make a new project: say what it is and give what you have" onClick={() => openNewObject()}>
             <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
               <path d="M6 1.5v9M1.5 6h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" />
             </svg>
@@ -346,7 +394,6 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
       </header>
       {/* What is to be said of the folder: the example is a temporary copy; a folder that would not open. */}
       {notes}
-      {cards && cards.length === 0 && <EmptyWorkspace name={name} hasProject={hasProject} hasExample={hasExample} onNew={openNewObject} onExample={onExample} />}
       {cards && cards.length > 0 && shown.length === 0 && (
         <p className="show-none">
           No project is named like <span className="show-typed">{typed.trim()}</span>. Escape shows them all.
@@ -364,7 +411,7 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
             <Group
               tone="rest"
               title="The rest"
-              note={mode === 'scale' ? `most recently changed first, all at the same scale, the bar is ${BAR_MM} mm` : 'most recently changed first, each in a box of the same size'}
+              note={`${order === 'recent' ? 'most recently changed first' : 'by name'}, ${mode === 'scale' ? `all at the same scale, the bar is ${BAR_MM} mm` : 'each in a box of the same size'}`}
               count={shelves.rest.length}
               rows={restRows}
               first={top}

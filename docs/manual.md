@@ -583,8 +583,12 @@ failed) nothing is picked, and the pointer says why.
 ### Making a new project
 
 "New project" starts one from what you have. It is in the header of the page
-of projects and in its empty state: a folder with no project in it leads with "Make your first project", "New project" and,
-where torno runs from its repository, "open the example to look around". The way for models you already have (a folder
+of projects. A folder with no project in it has no page of projects: it shows a dyed plate, "Nothing in the vise yet", and
+beside it "What are we making?". Say what you want in the box, and add what you have with the chips **Photo**, **Doodle**, **Bought part** and **Scan** (the
+pickers of the page below). The foot of the box says where the project goes, "Goes in `parts/cable-clip`", a name torno offers from your words that you can
+change, and **Start** makes the project and starts Claude Code with your words as its first prompt; nothing is written before. Under the box,
+"open the full new project page" opens the page below with what you typed on it, for sizes and rules, and, where torno runs from its repository,
+"open the example" looks around. The way for models you already have (a folder
 such as `part/part.py`, and the note on `pyproject.toml` and `uv`) is in a fold, "Already have build123d models?". The page is a page of slots. At the top are the name and "Discard" ("Nothing is written until you start"). Then
 "What are we making?": "What is it?" (what it is for, what it must fit or hold, how it will be made) and the photos, each with a note for Claude. Under them is a
 tile for each other thing you have: "Doodle it", "Bought parts", "Scans", "Other projects", "Sizes I know", "Links and PDFs" and "Rules". A tile
@@ -2184,7 +2188,7 @@ your colour, its chip at the head.
 `W`, or "All projects" at the top of the list (beside its title once a project is open), shows every project of the folder
 on a bench; a workspace of several projects starts there. `/` or a letter
 filters by name, the arrows move (left and right along a shelf, up and down to the shelf above or below), `Enter` opens, `Esc` goes back. The head (the folder's name,
-how many projects and where, the filter, **True scale / Grid**, **Export…** and **New project**) stays at the top as the shelves scroll.
+how many projects and where, the filter, **True scale / Grid**, **By name / Recently changed**, **Export…** and **New project**) stays at the top as the shelves scroll.
 
 The projects stand on **shelves**, a 2 px line of ink, who needs you first:
 
@@ -2192,7 +2196,8 @@ The projects stand on **shelves**, a 2 px line of ink, who needs you first:
   the question (its first 140 characters) in a warning card, **Answer**, which opens the project and brings the question up
   where it is answered, and `waiting 4 min`.
 - **Working** stands beside it: a project that builds, or in which Claude Code works.
-- **The rest** is on one shelf, the project whose model was saved last first.
+- **The rest** is on one shelf, the project whose model was saved last first (**Recently changed**, the default) or by name (**By name**); the
+  choice is kept for the folder. Needs you and Working stand ahead of either.
 
 The pictures stand side by side, 40 px apart, **at one scale for the whole page** (**True scale**): a part twice as big is
 drawn twice as big, and the bar at the right end of each shelf is 50 mm. The scale is as large as the widest shelf allows, never
@@ -2213,7 +2218,7 @@ A project is:
   has changed since` when a `.py` file of the object, of `common/` or one it imported from another
   project (`Uses box/box.py` on the card, for a project opened in this run) is newer.
 - **Its name**, with `Open` in the accent and a bar of the accent under the picture on the project that is open.
-- **How the build stands**, for a project opened in this run: `Built, r6`,
+- **How the build stands**, for a project opened in this run: `Built, r6` (the build's number, as the status line says it),
   building, or failed, with the picture of the last build that worked dimmed.
   Otherwise `Model saved 3 h ago`, read from the date of its `.py` files
   (nothing is built for it; the tooltip says `Not opened in this run`).

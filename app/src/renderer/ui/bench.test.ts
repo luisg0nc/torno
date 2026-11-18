@@ -32,6 +32,15 @@ describe('who is on which shelf', () => {
     expect(s.rest.map((x) => x.id).sort()).toEqual(['gone', 'idle'])
   })
 
+  it('puts the rest by name, as the list has them, when asked, and keeps Needs you and Working ahead', () => {
+    const cards = [card('a', { sourcesMtimeMs: 10 }), card('b', { sourcesMtimeMs: 50 }), card('w', { session: 'working' }), card('n', { session: 'needs_input' }), card('c', { sourcesMtimeMs: 30 })]
+    const s = shelvesOf(cards, 'c', 'name')
+    expect(s.rest.map((x) => x.id)).toEqual(['a', 'b', 'c'])
+    expect([s.needs.map((x) => x.id), s.working.map((x) => x.id)]).toEqual([['n'], ['w']])
+    expect(shelvesOf(cards, null, 'recent').rest.map((x) => x.id)).toEqual(['b', 'c', 'a'])
+    expect(shelvesOf(cards, null).rest.map((x) => x.id)).toEqual(['b', 'c', 'a'])
+  })
+
   it('keeps the list order for equal saves, the open one first among them', () => {
     const s = shelvesOf([card('x'), card('y'), card('z')], 'z')
     expect(s.rest.map((c) => c.id)).toEqual(['z', 'x', 'y'])

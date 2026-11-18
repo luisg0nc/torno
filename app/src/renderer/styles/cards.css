@@ -506,30 +506,10 @@
   font-size: 12.5px;
 }
 
-.show-empty {
-  display: grid;
-  flex: 1;
-  place-content: center;
-  justify-items: center;
-  gap: var(--space-1);
-  padding: var(--space-4);
-  text-align: center;
-}
-
-.show-empty h3 {
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.show-empty p,
-.show-none {
-  max-width: 46ch;
-  color: var(--muted);
-  text-wrap: balance;
-}
-
 .show-none {
   max-width: none;
+  color: var(--muted);
+  text-wrap: balance;
 }
 
 .show-typed {
@@ -553,46 +533,4 @@
   background: var(--surface);
   color: var(--muted);
   font-size: var(--text-small);
-}
-
-.show-empty .show-empty-where {
-  font-size: 12px;
-}
-
-.show-empty .show-empty-example,
-.show-empty .show-empty-scope {
-  font-size: 13px;
-}
-
-.show-empty .show-empty-scope {
-  margin-top: var(--space-2);
-}
-
-.show-empty-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.show-empty-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.show-empty-fold {
-  max-width: 46ch;
-  margin-top: var(--space-3);
-  color: var(--muted);
-}
-
-.show-empty-fold summary {
-  cursor: pointer;
-}
-
-.show-empty-fold p {
-  margin-top: var(--space-1);
 }
