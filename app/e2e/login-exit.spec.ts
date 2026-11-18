@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // A CLI that gives up after a turn that could not authenticate (#117): the stand-in exits 1 after it
 // (FAKE_AGENT_AUTH_ERROR, FAKE_AGENT_AUTH_EXIT). The chat has ended, and its offer still brings up the terminal: the
@@ -40,7 +41,7 @@ const term = (): Promise<string> => page.evaluate(() => window.__tornoTerm!.text
 /** A chat in `object` whose first turn could not authenticate, after which the CLI left: the ended chat and its note. */
 async function failedChat(object: string) {
   await openListed(page, object)
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await composer().focus()
   await page.keyboard.type('say hello')

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
+import { fromMore, newSession } from './helpers'
 
 // Claude Code run headless does not ask whether to trust a folder that has settings of its own. torno asks before the
 // first chat in such a folder: "Start the chat" remembers the folder, "Use the terminal" starts Claude Code's own
@@ -48,7 +49,7 @@ const question = () => dock().getByRole('alertdialog', { name: 'Start the chat i
 test('a chat in a folder with settings of its own is asked about, and starts once the person says to', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok' })
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(question()).toBeVisible()
   await expect(question()).toContainText('This folder has Claude Code settings of its own (.mcp.json) that the chat would load without asking. Start the chat anyway?')
   // Nothing was started, and nothing was written in the folder for it.
@@ -64,9 +65,9 @@ test('a chat in a folder with settings of its own is asked about, and starts onc
   expect(existsSync(join(root, 'bracket', '.torno', 'trusted.json'))).toBe(false)
 
   // Not asked again for this folder.
-  await dock().getByRole('button', { name: 'End session' }).click()
+  await fromMore(dock(), 'End')
   await expect(dock().getByRole('status').first()).toHaveText('Ended')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(composer()).toBeEnabled()
   await expect(question()).toHaveCount(0)
 })
@@ -74,7 +75,7 @@ test('a chat in a folder with settings of its own is asked about, and starts onc
 test('"Use the terminal" starts Claude Code\'s own terminal in place of the chat', async () => {
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ objectId: 'hollow', status: 'ok' })
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(question()).toBeVisible()
   await question().getByRole('button', { name: 'Use the terminal' }).click()
   await expect(question()).toHaveCount(0)

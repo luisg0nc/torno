@@ -9,7 +9,7 @@ import { contrast } from '../src/shared/contrast'
 import { png } from '../src/test/pngFixtures'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openSection, railButton, showProjects } from './helpers'
+import { openSection, railButton, showProjects, newSession } from './helpers'
 import { newFromList, openListed, projectCard, switcher } from './objects'
 import { stableBox } from './stable'
 
@@ -294,7 +294,7 @@ for (const theme of ['light', 'dark'] as const) {
         if (shot === 'main') {
           // Another object whose session waits for an answer, while hollow is open: its row and the status line say so.
           await open(page, 'bracket')
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.keyboard.type('ask Bash {"command":"ls"}')
           await page.keyboard.press('Enter')
@@ -314,9 +314,12 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(page.locator('.pick-readout')).toContainText('2 under')
           await expect(page.locator('.mark-row[data-mark="M3"]')).toHaveAttribute('data-hovered', '')
         } else if (shot === 'instructions') {
-          // The quiet line in the session pane, with a chat running under it.
+          // The instruction files, unfolded in the header's More menu, with a chat running under it.
+          await page.locator('[data-region="session"]').getByRole('button', { name: 'More', exact: true }).click()
+          await page.getByRole('menuitem', { name: 'What Claude Code reads' }).click()
           await expect(page.locator('.session-reads')).toContainText('~/objects/CLAUDE.md')
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await page.keyboard.press('Escape')
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.keyboard.type('say hello there')
           await page.keyboard.press('Enter')
@@ -434,14 +437,14 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(railButton(page, 'Scans')).toHaveAttribute('aria-description', '1 unaligned')
         } else if (shot === 'params') {
           // The Params panel, a session running so that the rows are buttons.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await openSection(page, 'Parameters')
           await expect(page.locator('.params [data-param]')).toHaveCount(5)
           await page.locator('.params [data-param="wall"] button').hover()
         } else if (shot === 'chat') {
           // A conversation: a prompt with a mark, what torno added, a torno tool with its picture, another tool, and the reply.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           const box = page.locator('[data-chat-composer]')
           await expect(box).toBeFocused()
           const script = ['say The tub wall at **M1** is 2 mm, thinner than the 3 mm in `hollow.py`. Looking at tub/F3 and tub/E1:', 'tool mcp__torno__look {"view":"iso"}', 'tool Read {"file_path":"hollow.py"}', 'say I will `widen` the wall to 3 mm and rebuild: r2 should pass the check.', 'edit hollow.py "wall: float = 2" "wall: float = 3"', 'edit hollow.py "return {" "return WAL, {"']
@@ -465,7 +468,7 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.type('thicker than that, please')
         } else if (shot === 'confirm-close') {
           // The window closed while the agent waits for an answer and a prompt is written and not sent: the question names the object and each thing.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.keyboard.type('ask Write {"file_path":"hollow.py","content":"WALL = 3\\nLID = 2\\n"}')
           await page.keyboard.press('Enter')
@@ -480,7 +483,7 @@ for (const theme of ['light', 'dark'] as const) {
           // The board over the view, from the chat's "Draw on view": a ring round the middle and an arrow to it.
           // Then (`-chip`) the board put away with Done: the drawing is a draft view note among the marks, and the view is attached;
           // or (`-sent`) the prompt it went with, which shows what its ink lies over under its picture.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.locator('[data-region="session"]').getByRole('button', { name: 'Draw on view' }).click()
           const board = page.getByRole('dialog', { name: 'Drawing on the view' })

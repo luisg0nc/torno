@@ -64,9 +64,24 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   beside "Send". "New session" and "Resume" stay as plain buttons: they start with no prompt, and what was written
   waits unsent in the new chat's box (`holdDraft`). A terminal view keeps the old empty state. No "Attach view" or
   "Draw on view" here: a drawing is of a session.
-- The session header names Claude Code, the one agent there is; under it, "Chat · Terminal" chooses the view.
-  When `.torno/agent.json` could not be followed (`note` of `session:current`) the pane says why, with "Use
-  Claude Code", which writes the file anew and is disabled while a session runs.
+- **The header** (`SessionPane`, `styles/session.css`) is one row of 40 px (spec 2026-11-18, the session dock): "Claude Code"
+  (13.5 px, 600), the state as a dot and a word (`STATUS_WORD`: Starting, Idle, Working, **Needs you** in `--warn` 600, Ended;
+  ", retrying (attempt 3)" inside the `role="status"` `.session-status`, which stays the first status of the dock), beside it
+  `.session-elapsed` (`0:42`, `ui/sessionClock.ts`, counted by the second while the status is `working` from `workStart`, a
+  session's own; not part of the status's text), then at the right the model (`ModelButton` of `chat/ModelMenu.tsx`: one mono
+  button named by the model, a `Popover` with the model, edits and effort lists, which are the lists of today in rows
+  (`dock-menu-row`); a terminal's session has the model as a plain word), the segment **Chat / Terminal** (`role="group"` named
+  View, buttons with `aria-pressed`) and **More** (`ui/SessionMore.tsx`, `aria-label` "More", a `Popover` holding a
+  `role="menu"` named More, `useMenu`: arrows, Home, End, Escape and a press outside). Its items: End (a session that is not
+  ended), Resume (an ended one with a conversation on file), New session (any session), Prompts only (`setPromptsOpen`), What
+  Claude Code reads (unfolds `.session-reads` in the menu: the instruction files as paths and sizes, never read, and the note
+  of an `agent.json` that was not followed) and Hide session (`setDockOpen(false)`). Where there is no session, End, Resume and
+  New session are not in it: the empty pane has its own "New session". End on a busy session still asks (`Confirm`), as
+  New session does; both stand from the More button (`anchor`). What the next prompt carries stays a quiet line under
+  the header until the composer's box holds it (`.session-next`). When `.torno/agent.json` could not be followed (`note` of
+  `session:current`) the pane says why in one warn line (`.session-note`) with "Use Claude Code", which writes the file anew and
+  is disabled while a session runs; the same note is in What Claude Code reads. A first prompt not sent and the aside of a new
+  project stay as lines under the header.
 - **A build's chip says what it was made from** (#62). A context item carries `identity` (`BuildIdentity`, main's, from `builds.jsonl`'s
   record of this run); the `r12` chip's title gets `made from sources …, on a1b2c3d with changes` (`RefChip`'s `of`, `identitySaid`),
   and a build line's "Show text" has it in a line. Under "Earlier in this conversation" (`ChatEarlier`) the title says that a

@@ -379,7 +379,7 @@ the Python files it was made from, its parts' numbers, and a small picture. A ke
 which goes on counting across runs of torno; the revision (`r3`) is of one run and is told beside it. The latest 100
 are kept, and every one you star. A build that fails the model's own checks is kept too, marked: it is often the one
 to compare against. A rebuild of sources the newest kept build was made from is not kept again. **History** in the status line opens
-**Prompts only**, which is also the chat's own toggle (`Chat | Prompts only`): one row for each prompt of the project, newest first, across
+**Prompts only** (in **More**), which is also the chat's own toggle (`Chat | Prompts only`): one row for each prompt of the project, newest first, across
 every conversation of it as one thread, with a quiet line where a conversation began. A prompt has one number wherever it is shown (a turn
 of the chat, a row, `comparing prompt 14` in the status line), counted from 1 across the project by the time it was said. A row is the number, the
 picture of the prompt's last build, what you said cut to a line, and under it the builds it went through (`h40 → h41`), what they came to
@@ -658,9 +658,9 @@ status line has a button "*bracket* needs you" (with "and N more" if several do,
 the first in the list named): it opens that project, shows the pane and takes you
 to the card. If the window is not the one in use when a session starts to wait,
 its frame flashes (the dock icon bounces on a Mac), once for each question; torno
-posts no system notification. "New session"
+posts no system notification. "New session" (in the **More** menu of the header, or the button of the pane with no session)
 starts one, in place of the session running there, if any; torno asks first if
-that one is in the middle of its work. "End" ends the session and starts
+that one is in the middle of its work. "End" (in **More**) ends the session and starts
 none, asking first in the same way. "Resume" continues the last
 conversation Claude Code had there. In the chat view the empty pane has the box already: write, press
 `Enter`, and a session starts with your prompt. Where a conversation is on file its last turns are shown above the box,
@@ -829,7 +829,7 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   match says that. A text of more than 400 differing lines is not compared: all
   its old lines are shown removed and all the new ones added. A `Write` shows the first lines of what it will hold. A question of the agent's is a card with
   its options and an "Other" line; a plan is shown to be approved or kept
-  planning. The session reads "Needs input" while a card is open. "Stop" with a
+  planning. The session reads "Needs you" while a card is open. "Stop" with a
   card open ends the turn and the card reads "Cancelled: the turn was stopped";
   nothing is run.
 - **Subagents.** What a subagent (`Task`) says is not drawn as the agent's own
@@ -907,19 +907,23 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   note with the tokens before and after. What you type is sent to Claude Code as
   typed; `/model` is not one of the commands torno has checked in the chat, so
   use the model menu for the model of the session.
-- **The model** is chosen in the menu under the header. It changes the model of
+- **The model** is chosen in the menu of the model button in the header (`opus-5-5 ▾`),
+  which also holds the edits and effort menus. It changes the model of
   this session only; `/model` typed in a terminal session changes your default
-  (see below). **The effort** is the menu beside it: "Default effort" until you
+  (see below). **The effort** is the menu under it: "Default effort" until you
   choose one (or one was chosen when the project was made), then the level, from
   those the model takes. It too is for this session only, and a note in the chat
-  says each change. **The edits menu** beside them sets how Claude Code asks
+  says each change. **The edits menu** under them sets how Claude Code asks
   before it changes something: "Ask before edits", "Accept edits" (edits go
   through without a question; other asks still come to you) or "Plan only". It is
   for this session only too, and your settings are not written. A mode your own
   settings start the session in stands as it is until you choose one. A line under the box shows the rate limit once more than half of
   it is used.
 
-"Chat · Terminal" under the header switches the same conversation between the
+The header of the session pane is one row of 40 px: "Claude Code", the state (a dot and
+a word: Starting, Idle, Working with the time it has worked (`0:42`), "Needs you" in the warning colour, Ended),
+the model button, **Chat | Terminal**, and **More**. **More** holds End, Resume (once the session has ended), New session,
+Prompts only, What Claude Code reads and Hide session; what each does is told below. **Chat | Terminal** switches the same conversation between the
 two: the session is ended (torno asks first if it is busy) and started again,
 resuming it. With no session it sets what the next one will be; the choice is
 kept in `.torno/agent.json`. What the chat showed is kept as text in
@@ -952,7 +956,7 @@ instruction files Claude Code reads on its own, it lists the paths and sizes
   once the prompt's hook has been answered with it. The marks of a review round that you have not sent are the
   exception: they wait for **Send review** (see [Reviews](#reviews)).
 - The instruction files Claude Code reads for the project are listed in the
-  session pane, in a quiet line under the view's buttons ("Claude Code also
+  session pane, under **More**, **What Claude Code reads** ("Claude Code also
   reads, by default, `~/objects/CLAUDE.md` 7 KB"), for the chat and for the terminal. It is
   what Claude Code loads by default when it starts in the project's folder:
   `CLAUDE.md`, `.claude/CLAUDE.md` and `CLAUDE.local.md` in the folder and in
@@ -1211,7 +1215,7 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__marks` | Your marks and the agent's as data, each with a line of text. It lists the marks that are not resolved, 50 at a time; `status` (`resolved` too), `ids` (`["M4"]`, any status), `limit` (200 at most) and `next` say which. A stroke is given as a summary of its points (count, first, last, box) unless `ids` names it. What was left out is said (`omitted`, `next`). `review` (`R1`, or `all`) gives instead the rounds of your reviews, oldest first: the build each reviewed, its items with want or don't want, what the agent answered and what you judged; an item you did not want and accepted says `removed on purpose; keep it out`. |
 | `mcp__torno__describe` | The geometry of a part, a face or an edge (`lid`, `lid/F12`, `lid/E3`, or one the model names, `lid/@top`), of a named set of yours (`#deck`, or `lid/#deck` for the part's share of it: each member with what it is, and what is lost), or of a group of parts by its name: the box of its parts and their volume. Of a face or an edge it also gives a `selector`: a build123d expression on `part`, such as `part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]`, that the kernel evaluated on this build and that gave exactly that shape, as `robust` `by geometry` (a direction, an extreme, a radius, a place) or `by order` (an index into a sort, which the next edit may break), and `selectorFrame`, which says in whose frame it is. |
 | `mcp__torno__highlight` | Tints faces or edges in your viewport with a note, to ask "this one?", until you click or a minute passes. A group's name tints all of its parts. |
-| `mcp__torno__ask` | Asks you to choose and waits: a card above the box of the chat (under the view for a terminal session) with a button for each answer, and the refs of an answer light up in your view while the pointer is on its button. If it allows, you may answer with the one face or edge you select in the view instead, or with "None of these". The agent gets back what you chose, as refs. The session shows Needs input meanwhile; the question ends by itself after 10 minutes with "not answered", and when the turn ends. |
+| `mcp__torno__ask` | Asks you to choose and waits: a card above the box of the chat (under the view for a terminal session) with a button for each answer, and the refs of an answer light up in your view while the pointer is on its button. If it allows, you may answer with the one face or edge you select in the view instead, or with "None of these". The agent gets back what you chose, as refs. The session shows Needs you meanwhile; the question ends by itself after 10 minutes with "not answered", and when the turn ends. |
 | `mcp__torno__show` | Changes your camera, layout, visible parts (a group's name stands for its parts), section, explode and scans to show you something, or puts a saved view on screen by its name; with `focus` and `margin`, as `look` takes them, it puts your camera on a ref, a mark or a box. For now only: what `.torno/scene.json` keeps stays yours. Refused while you hold a button in the viewport. |
 | `mcp__torno__save_view` | Proposes a saved view: it appears in your strip marked "proposed" until you keep or discard it. Nothing on screen changes. |
 | `mcp__torno__add_mark` | Leaves a mark of the agent's, in green: a pin, a pick, an arrow, a shape, or with `kind: 'dimension'` a dimension, measured at once and on every build like yours. A point that is not on the part is refused, saying how far off it is. The agent's marks are plain: it sets no want or don't want and is refused an `intent` that is not a shape's own. |

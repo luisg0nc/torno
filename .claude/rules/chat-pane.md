@@ -44,7 +44,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   at most `MAX_ITEMS` (2,000) as main does, dropping the oldest, and says once, at the top, "Earlier items are not
   shown"; a session no pane shows takes in no picture data, also from a history that was on its way.
   The chat that ended before the window was loaded is shown from main's transcript (`session:current`'s `ended`).
-  Beside the model menu (`chat/ModelMenu.tsx`) the effort menu (`chat/EffortMenu.tsx`, `EFFORT_LABEL`): "Default
+  The model, edits and effort menus are in the popover of the header's model button (`ModelButton`, `session-pane`). Beside the model menu (`chat/ModelMenu.tsx`) the effort menu (`chat/EffortMenu.tsx`, `EFFORT_LABEL`): "Default
   effort" until one is set (`meta.effort`), then the levels the model takes (`effortsOf`; none for a model that takes
   none, and then no menu), `chat.setEffort` for the session only; a refusal takes the choice back and is said beside it.
   What the CLI says of itself comes as notes and as meta: the header's status word gains ", retrying (attempt 3)"

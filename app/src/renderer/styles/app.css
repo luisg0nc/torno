@@ -7,6 +7,10 @@
 @import './titlebar.css';
 @import './session.css';
 @import './chat.css';
+@import './strip.css';
+@import './chat-prompt.css';
+@import './chat-slip.css';
+@import './chat-foot.css';
 @import './controls.css';
 @import './rail.css';
 @import './panels.css';

@@ -6,6 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import type { Mark } from '../src/shared/marks'
 import { openListed } from './objects'
+import { closeModelMenu, fromMore, inModelMenu, newSession } from './helpers'
 
 // The chat pane of Claude Code, through the window: what is said and shown, what torno added to a prompt, every torno
 // tool the agent used (through the real MCP server), refs that point into the viewport, stopping, the switch to the
@@ -88,7 +89,7 @@ test('a new session is a chat, with no terminal; a prompt is answered, and what 
   await page.keyboard.press('Enter')
   await expect.poll(async () => (await state()).marks[0]?.status).toBe('draft')
 
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await expect(dock().locator('.xterm')).toHaveCount(0)
   await expect(dock().getByRole('status').first()).toHaveText('Idle')
@@ -117,7 +118,8 @@ test('a new session is a chat, with no terminal; a prompt is answered, and what 
   await expect(chat().locator('.chat-text').first()).toContainText('hello there')
   await expect(turns().first()).toContainText('Done in')
   // The model, once the agent has said it with its first answer.
-  await expect(dock().getByRole('combobox', { name: 'Model' })).toHaveValue('fake-model')
+  await expect(await inModelMenu(dock(), 'Model')).toHaveValue('fake-model')
+  await closeModelMenu(dock())
   // Enter sent it and the box is empty again.
   await expect(composer()).toHaveValue('')
 
@@ -312,7 +314,7 @@ test('the view is switched to the terminal, which resumes the same conversation,
 })
 
 test('an ended session can still be read, and nothing more can be written to it', async () => {
-  await dock().getByRole('button', { name: 'End session' }).click()
+  await fromMore(dock(), 'End')
   await expect(dock().getByRole('status').first()).toHaveText('Ended')
   // The conversation that ended can still be read, and nothing more can be written to it.
   await expect(composer()).toBeDisabled()
@@ -328,7 +330,7 @@ test('an ended session can still be read, and nothing more can be written to it'
 })
 
 test('the window reloaded in the middle of a stream shows every item once and goes on streaming', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(composer()).toBeEnabled()
   await say('say before')
   await expect(turns().first()).toContainText('Done in')
@@ -349,7 +351,7 @@ test('the window reloaded in the middle of a stream shows every item once and go
 test('what goes with the next prompt is chips of the marks themselves: the drafts, and the dimensions that fail', async () => {
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ objectId: 'hollow', status: 'ok' })
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   const next = chat().locator('.chat-next')
   await expect(next).toContainText('Goes with your next prompt:')
   await expect(next.locator('.ref-chip[data-ref="M1"]')).toBeVisible()

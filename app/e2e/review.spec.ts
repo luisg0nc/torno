@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { BoardFile } from '../src/shared/board'
 import type { Mark, MarksFile } from '../src/shared/marks'
 import type { TornoState } from '../src/renderer/state/store'
-import { openSection } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // A round of a review made in the hidden window, on the `gauge` fixture (a 40 × 30 × 6 plate with one Ø8 hole): "Review this
@@ -200,7 +200,7 @@ test('a sketch drawn while "want" is chosen is the round\'s second item', async 
 })
 
 test('a view note drawn in the round is its plain third item, and no prompt carries it', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await expect(composer()).toBeEnabled()
   await bar().getByRole('radio', { name: /Plain/ }).click()

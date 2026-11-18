@@ -13,7 +13,7 @@ import { usualRadius } from '../src/renderer/state/region'
 import type { LookRequest } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openSection } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // Regions: a part of a scan is painted with the brush, kept as a mark whose triangles are a file beside the
@@ -261,7 +261,7 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await expect.poll(() => page.evaluate(() => window.__tornoTest!.markScreen('M1'))).not.toBeNull()
 
   // Not aligned: the agent is told the region with no place, and a clash is refused.
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   await prompt()
   await expect.poll(said).toContain('M1regiononscanS1(notalignedinassembly,soithasnoplaceinthemodel’sframe)')

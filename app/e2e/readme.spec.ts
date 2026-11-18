@@ -4,6 +4,7 @@ import { _electron as electron, chromium, expect, test, type ElectronApplication
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace, showScans } from './readme-workspace'
+import { newSession } from './helpers'
 
 // The pictures of the README (docs/images/README.md): the window in the states it describes, one hidden launch
 // each, written to <TORNO_README_SHOTS>/<shot>.png with a <shot>.json beside it holding the boxes of the regions
@@ -175,7 +176,7 @@ for (const shot of SHOTS) {
       }
       if (shot === 'hero' || shot === 'hero-dark') {
         // A conversation about the marks: the pin goes with the prompt, the agent looks, measures on the B-rep and answers.
-        await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+        await newSession(page.locator('[data-region="session"]'))
         await prompt(page, [
           'say You marked three things. **M1** pins the front wall of the lid for a latch. **M2**, across the tray pocket, passes at 226 mm. **M3**, the tub wall, fails: 2.8 mm against the 3 mm you asked for. Let me look at the wall.',
           'tool mcp__torno__look {"view":"iso"}',
@@ -198,7 +199,7 @@ for (const shot of SHOTS) {
         await expect(page.locator('.pick-readout')).toContainText('under')
       } else if (shot === 'chat') {
         // The agent's turn: the prompt with the marks torno added opened to its text, look with its picture, an edit and its build.
-        await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+        await newSession(page.locator('[data-region="session"]'))
         await prompt(page, [
           'say The tub wall at **M3** is 2.8 mm against the 3 mm you asked for. Looking at it:',
           'tool mcp__torno__look {"view":"iso"}',

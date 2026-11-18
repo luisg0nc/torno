@@ -7,6 +7,7 @@ import type { OffsetMark } from '../src/shared/marks'
 import type { Tracing, TracingCut } from '../src/shared/tracings'
 import { png } from '../src/test/pngFixtures'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // A tracing from start to file, in the hidden window: made on a flat face of the `bracket` fixture, a photo of the part lined up under it by two
 // corners of its outline, a layer of Claude's (the stand-in plays `add_layer` through torno's own MCP server), a shape of it dragged to where it should be,
@@ -143,7 +144,7 @@ test('a photo is added through the dialog and lined up by two snapped corners; t
 })
 
 test('Claude adds a layer through the stand-in, and its row says by Claude', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   const cut = await outlineOf()
   const [u, v] = [(cut.cut.bounds!.min[0] + cut.cut.bounds!.max[0]) / 2, (cut.cut.bounds!.min[1] + cut.cut.bounds!.max[1]) / 2]

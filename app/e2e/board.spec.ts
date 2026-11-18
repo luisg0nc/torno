@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import type { BoardFile } from '../src/shared/board'
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
-import { cardSection, foldSection, openSection } from './helpers'
+import { cardSection, foldSection, openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // The board in the window: it swaps with the model on Ctrl+Tab, shows the project's marks and brief as cards, and its
@@ -499,7 +499,7 @@ async function say(prompt: string): Promise<void> {
 
 test('a build pinned from the strip under a prompt is a card with its thumb, and its entry is starred', async () => {
   await expect(page.locator('.pboard')).toHaveCount(0)
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(composer()).toBeEnabled()
   await say('edit bracket.py "width: float = 40" "width: float = 41"')
   await expect(turns()).toHaveCount(1, { timeout: 30_000 })

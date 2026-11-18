@@ -4,6 +4,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace } from './readme-workspace'
+import { newSession } from './helpers'
 
 // The frames of the README's recording of the loop (docs/images/demo.gif and demo.mp4): a person pins the tub wall
 // of an airbox that sits in a scan of the engine bay it is for, "too thin here", asks for 3 mm, the agent looks,
@@ -144,7 +145,7 @@ for (const [n, frame] of FRAMES.entries()) {
         await page.mouse.move(W / 2, H - 40)
       }
       if (past(frame, 'pinned')) {
-        await dock(page).getByRole('button', { name: 'New session' }).click()
+        await newSession(dock(page))
         await expect(page.locator('[data-chat-composer]')).toBeFocused()
       }
       if (frame === 'compose') await page.keyboard.type(PROMPT)

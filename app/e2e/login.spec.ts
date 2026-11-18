@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // A chat whose first turn could not authenticate (#117), as Claude Code's headless mode would under `--bare`: the
 // stand-in (FAKE_AGENT_AUTH_ERROR) answers its first prompt with the typed `authentication_failed`. The chat says it
@@ -37,7 +38,7 @@ const onDisk = (object: string): unknown => existsSync(join(root, object, '.torn
 
 test('a first turn that could not authenticate says the chat could not use the login, and the offer runs the object in the terminal', async () => {
   await openListed(page, 'bracket')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await composer().focus()
   await page.keyboard.type('say hello')

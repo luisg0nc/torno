@@ -7,7 +7,7 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { AGENT_LABEL, busyWith, isTrustQuestion, nextCarries, nextPromptLine } from '../../shared/agents'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
-import { type InstructionFile, READS_TITLE, named, weighed } from '../../shared/instructions'
+import type { InstructionFile } from '../../shared/instructions'
 import { chatActions, connectChat, useChat } from '../state/chat'
 import { heldSaid, onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
@@ -15,10 +15,9 @@ import { ChatPane } from './chat/ChatPane'
 import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
 import { clearDrafts, holdDraft } from './chat/Composer'
-import { effortsOf } from '../../shared/chat'
-import { EffortMenu } from './chat/EffortMenu'
-import { ModelMenu } from './chat/ModelMenu'
-import { ModeMenu } from './chat/ModeMenu'
+import { ModelButton } from './chat/ModelMenu'
+import { SessionMore } from './SessionMore'
+import { clock } from './sessionClock'
 import { Confirm } from './Confirm'
 import { numbered } from './numbered'
 import { edgeGround } from './termGround'
@@ -29,9 +28,12 @@ const STATUS_WORD: Record<SessionStatus, string> = {
   starting: 'Starting',
   idle: 'Idle',
   working: 'Working',
-  needs_input: 'Needs input',
+  needs_input: 'Needs you',
   exited: 'Ended'
 }
+
+/** When each session began to work, by session id: the header counts from it (`working 0:42`). */
+const workStart = new Map<string, number>()
 
 /** The views of a session, the one it starts in first. */
 const VIEWS: readonly AgentView[] = ['chat', 'terminal']
@@ -277,6 +279,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   /** What was written in the empty pane and waits for the session it starts (through the trust question too): sent to it, or left in its box. */
   const pending = useRef<{ text: string; send: boolean } | null>(null)
   const host = useRef<HTMLDivElement>(null)
+  /** The header's More button: the question that End or New session asks stands from it. */
+  const [moreButton, setMoreButton] = useState<HTMLButtonElement | null>(null)
   const reveal = useRef(onReveal)
   reveal.current = onReveal
 
@@ -579,6 +583,22 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
     }
   }
 
+  // How long Claude Code has worked on this turn, counted by the second while it does.
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (!sessionId) return
+    if (status !== 'working') {
+      workStart.delete(sessionId)
+      return
+    }
+    const began = workStart.get(sessionId) ?? Date.now()
+    workStart.set(sessionId, began)
+    const tick = (): void => setElapsed((Date.now() - began) / 1000)
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => clearInterval(timer)
+  }, [sessionId, status])
+
   const ended = status === 'exited'
   const busy = session ? busyWith(session.status) : undefined
   // What the next prompt carries, said in one quiet line: of the session there is, or of the one a new session would be.
@@ -721,85 +741,63 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       <header className="panel-head session-head">
         <h2 className="panel-title">{objectId || creating ? AGENT_LABEL : 'Session'}</h2>
         {session && !drafting && (
-          <span className="session-status" role="status" data-status={session.status}>
-            <span className="status-dot" />
-            {STATUS_WORD[session.status]}
-            {retrying !== null && session.status === 'working' && <span className="session-retry">, {numbered(retrying)}</span>}
+          <span className="session-state">
+            <span className="session-status" role="status" data-status={session.status}>
+              <span className="status-dot" />
+              {STATUS_WORD[session.status]}
+              {retrying !== null && session.status === 'working' && <span className="session-retry">, {numbered(retrying)}</span>}
+            </span>
+            {session.status === 'working' && <span className="session-elapsed num">{clock(elapsed)}</span>}
           </span>
         )}
         <span className="spacer" />
-        {session && !ended && (
-          <button type="button" className="button button-quiet" aria-label="End session" title="End this session. Its conversation can be resumed" disabled={starting || asking || ending} onClick={end}>
-            End
-          </button>
-        )}
-        {session && !drafting && (
+        {objectId && !drafting && (
           <>
-            {ended && resumable && (
-              <button type="button" className="button button-quiet" disabled={starting} onClick={() => void start(true)}>
-                Resume
-              </button>
+            {chatting && chatOf && chatOf.models.length > 0 ? (
+              <ModelButton sessionId={session.sessionId} model={model} models={chatOf.models} mode={chatOf.meta.permissionMode} effort={chatOf.meta.effort} live={!ended} />
+            ) : (
+              model && (
+                <span className="session-model num" title="The model of this session">
+                  {model}
+                </span>
+              )
             )}
-            <button type="button" className="button button-quiet" disabled={starting || asking || ending} onClick={startNew}>
-              New session
-            </button>
+            <span className="view-switch" role="group" aria-label="View">
+              {VIEWS.map((one) => (
+                <button
+                  key={one}
+                  type="button"
+                  className="button button-quiet"
+                  aria-pressed={view === one}
+                  disabled={starting || asking || ending || switching !== null}
+                  title={one === 'chat' ? 'Talk with Claude Code here' : "Claude Code's own terminal. The same conversation goes on"}
+                  onClick={() => chooseView(one)}
+                >
+                  {one === 'chat' ? 'Chat' : 'Terminal'}
+                </button>
+              ))}
+            </span>
+            <SessionMore
+              session={session !== undefined}
+              ended={ended}
+              resumable={resumable}
+              disabled={starting || asking || ending}
+              reads={reads.objectId === objectId ? reads.files : []}
+              note={choice.note}
+              onEnd={end}
+              onResume={() => void start(true)}
+              onNew={startNew}
+              onShowRead={(i) => void showRead(i)}
+              onButton={setMoreButton}
+            />
           </>
         )}
       </header>
-
-      {/* How Claude Code is shown, and the model of its session: a quiet row of its own under the header. */}
-      {objectId && !drafting && (
-        <div className="session-views">
-          <span className="view-switch" role="group" aria-label="View">
-            {VIEWS.map((one) => (
-              <button
-                key={one}
-                type="button"
-                className="button button-quiet"
-                aria-pressed={view === one}
-                disabled={starting || asking || ending || switching !== null}
-                title={one === 'chat' ? 'Talk with Claude Code here' : "Claude Code's own terminal. The same conversation goes on"}
-                onClick={() => chooseView(one)}
-              >
-                {one === 'chat' ? 'Chat' : 'Terminal'}
-              </button>
-            ))}
-          </span>
-          <span className="spacer" />
-          {chatting && chatOf && chatOf.models.length > 0 ? (
-            <>
-              <ModelMenu sessionId={session.sessionId} model={model} models={chatOf.models} live={!ended} />
-              <ModeMenu sessionId={session.sessionId} mode={chatOf.meta.permissionMode} live={!ended} />
-              <EffortMenu sessionId={session.sessionId} effort={chatOf.meta.effort} efforts={effortsOf(chatOf.models, model)} live={!ended} />
-            </>
-          ) : (
-            model && (
-              <span className="session-model num" title="The model of this session">
-                {model}
-              </span>
-            )
-          )}
-        </div>
-      )}
 
       {next !== null && !drafting && (
         <p className="session-next" role="status">
           {numbered(next)}
         </p>
-      )}
-      {/* What Claude Code reads of the folder by default, for both views: a quiet line, not a question. Paths and sizes; the text is never read. */}
-      {objectId && !drafting && reads.objectId === objectId && reads.files.length > 0 && (
-        <div className="session-reads" role="note" title={READS_TITLE}>
-          <span>Claude Code also reads, by default</span>
-          {reads.files.map((file, i) => (
-            <span key={file.path} className="session-read">
-              <button type="button" className="session-read-open" aria-description="Show in its folder" onClick={() => void showRead(i)}>
-                {named(file)}
-              </button>
-              <span className="session-read-size">{weighed(file)}</span>
-            </span>
-          ))}
-        </div>
       )}
       {choice.note && objectId && !drafting && (
         <div className="session-note">
@@ -832,6 +830,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
       <div className="session-body">
         {asking && session && (
           <Confirm
+            anchor={moreButton}
             label="End the running session?"
             accept="End it and start new"
             cancel="Keep it"
@@ -850,7 +849,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
           </Confirm>
         )}
         {ending && session && (
-          <Confirm label="End the running session?" accept="End it" cancel="Keep it" onCancel={keepSession} onAccept={() => void endSession()}>
+          <Confirm anchor={moreButton} label="End the running session?" accept="End it" cancel="Keep it" onCancel={keepSession} onAccept={() => void endSession()}>
             {AGENT_LABEL} {busy ?? 'is running'}. Ending the session stops it there.
           </Confirm>
         )}

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { inTerminal } from './terminal'
-import { foldSection, openSection, railButton, showProjects } from './helpers'
+import { foldSection, openSection, railButton, showProjects, newSession } from './helpers'
 import { openListed, projectCard, projectCrumb, projectMenu } from './objects'
 import type { TornoState } from '../src/renderer/state/store'
 import type { ObjectCard } from '../src/shared/show'
@@ -362,7 +362,7 @@ test('the rail holds Projects and Keys alone while the page is up, and Escape cl
   await expect(sheet).toHaveCount(0)
   expect((await state()).page).toBe('objects')
   // A question asked in the left column: Escape answers it with the answer that changes nothing, and the page stays.
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(() => page.evaluate(() => window.__tornoTerm!.text())).toContain('READY')
   await page.locator('.session-term textarea').focus()
   await page.keyboard.type('hook')

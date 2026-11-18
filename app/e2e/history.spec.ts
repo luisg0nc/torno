@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // The history of a project is Prompts only: one row for each prompt, across the project's conversations, opened by the
 // status line's History button or by the chat's own toggle. Clicking a row compares it, a double click opens it in the chat;
@@ -83,7 +84,7 @@ test.afterAll(async () => {
 test('History in the status line opens Prompts only: a row for each prompt, newest first, with the builds that came out of it', async () => {
   await openListed(page, 'hollow')
   await builtRevision(1)
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(composer()).toBeEnabled()
   await edit('2', '3', 1)
   await edit('3', '4', 2)
@@ -175,7 +176,7 @@ test('a double click on a row opens the chat at that prompt', async () => {
 })
 
 test('a new conversation goes on with the numbers, lists beside the earlier one, and the earlier can be read above it', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(composer()).toBeEnabled()
   await expect(turns()).toHaveCount(0)
   await edit('4', '5', 1)

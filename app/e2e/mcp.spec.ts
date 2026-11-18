@@ -11,7 +11,7 @@ import type { PinMark } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openSection } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is given, through the real path: the SDK's MCP client in this
@@ -277,7 +277,7 @@ test('the pictures saved did not start a build', async () => {
 })
 
 test('the agent is told of torno in its system prompt, and of the build with every prompt', async () => {
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   const argv: string[] = JSON.parse(/READY (\[.*\])/s.exec((await terminal()).replace(/\n/g, ''))![1])
   const prompt = argv[argv.indexOf('--append-system-prompt') + 1]
@@ -1210,7 +1210,7 @@ test("show switches the scans for now, not in the user's saved view, and the pro
   expect((await state()).shownByAgent?.scans).toEqual({ S1: undefined })
   expect(await call(hollow, 'show', { scanOpacity: 3 })).toMatchObject({ isError: true })
 
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   const argv: string[] = JSON.parse(/READY (\[.*\])/s.exec((await terminal()).replace(/\n/g, ''))![1])
   // Claude Code is told of the scans in one line that names the skill; the skill names the scan tools (#4).

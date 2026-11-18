@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { NamedSet, SetsFile } from '../src/shared/sets'
-import { openSection } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // Named sets (#171), made and found again in the hidden window, on the fixture `morph` of e2e/reanchor.spec.ts: `variant.txt`
@@ -171,7 +171,7 @@ test('rebuilt with the faces renumbered, the set names the faces now there, both
 })
 
 test('a proposal of Claude is marked until the person accepts it, and then it is theirs', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await expect(composer()).toBeEnabled()
   const other = await faceOver([-20, 0, 0])

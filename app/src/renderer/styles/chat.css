@@ -1081,15 +1081,7 @@ button.ref-chip {
   overflow-wrap: anywhere;
 }
 
-/* Under the header: the two views of Claude Code, a pair of quiet buttons with the one shown pressed, and the model. */
-.session-views {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4) var(--space-2);
-}
-
+/* In the dock's header: the two views of Claude Code, a pair of quiet buttons with the one shown pressed. */
 .view-switch {
   display: inline-flex;
   flex: none;
@@ -1099,33 +1091,6 @@ button.ref-chip {
 .view-switch .button-quiet[aria-pressed='true'] {
   background: var(--accent-wash);
   color: var(--ink);
-}
-
-.session-model {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: var(--text-small);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The model of the session: a quiet list in the row under the header. */
-select.session-model {
-  height: 24px;
-  padding: 0 2px 0 var(--space-1);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-}
-
-select.session-model:hover:not(:disabled) {
-  background: var(--accent-wash);
-}
-
-select.session-model:disabled {
-  opacity: 0.5;
 }
 
 /* What the agent asks the person: a calm card, ruled by a thin line, the request in plain words and its input in the monospace face. */

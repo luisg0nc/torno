@@ -18,9 +18,10 @@ export function ModeMenu({ sessionId, mode, live }: { sessionId: string; mode: s
   const shown = picked ?? mode
   if (shown === undefined) return null
   return (
-    <>
+    <div className="dock-menu-row">
+      <span className="dock-menu-name" aria-hidden="true">Edits</span>
       <select
-        className="session-model"
+        className="dock-menu-select"
         aria-label="Edits"
         title="How Claude asks before it changes something. A choice here does not change your settings"
         value={shown}
@@ -51,6 +52,6 @@ export function ModeMenu({ sessionId, mode, live }: { sessionId: string; mode: s
           {problem}
         </span>
       )}
-    </>
+    </div>
   )
 }

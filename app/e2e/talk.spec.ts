@@ -6,7 +6,7 @@ import { inTerminal } from './terminal'
 import type { MarkStore } from '../src/main/marks/store'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark } from '../src/shared/marks'
-import { openSection } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is told of the marks, and what the person is shown of what
@@ -96,7 +96,7 @@ function asAgent(objectId: string, id: string, patch: object): Promise<void> {
 test('a note that was typed and not ended goes with the prompt typed next: Ctrl+` leaves the card, and the note is kept', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
 
   await tool('Pin').click()
@@ -386,7 +386,7 @@ test('Review walks the marks the agent resolved: OK, Reopen with a reason, Skip;
 test('a session goes on being typed into when its object leaves the list: its last model file was deleted', async () => {
   await openListed(page, 'plain')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ objectId: 'plain', status: 'ok' })
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   await page.keyboard.type('before')
   await page.keyboard.press('Enter')

@@ -7,7 +7,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import { TOOLS } from '../src/renderer/state/tools'
 import type { Hit } from '../src/renderer/viewport/picking'
 import type { Camera } from '../src/shared/view'
-import { openSection } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // Pointing at the parts: what is under the pointer, selecting it, what the
@@ -333,7 +333,7 @@ test('Insert puts the selected refs in the prompt of the running session, and do
   await expect(insert).toBeDisabled()
   await expect(insert).toHaveAttribute('title', 'Start a session to put the selection in its prompt')
 
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(termText).toContain('READY')
   await expect(insert).toBeEnabled()
   await insert.click()
@@ -421,7 +421,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await shotPage.emulateMedia({ colorScheme: scheme })
       await openListed(shotPage, 'bracket')
       await expect.poll(async () => (await state(shotPage)).build?.status, { timeout: 90_000 }).toBe('ok')
-      await shotPage.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+      await newSession(shotPage.locator('[data-region="session"]'))
       await expect.poll(() => termText(shotPage)).toContain('READY')
       await clickOver(ON_BASE, {}, shotPage)
       await clickOver([20, 0, 2.5], { shift: true }, shotPage)

@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { agentsIn, inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // What torno asks before it ends a session that is in the middle of something:
 // a new session in its place, or another workspace. The agent is the stand-in
@@ -69,12 +70,12 @@ const picks = (): Promise<number> => app.evaluate(() => (globalThis as unknown a
 
 test('a new session takes the place of an idle one without asking', async () => {
   await openListed(page, 'bracket')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect.poll(text).toContain('READY')
   await expect(sessionStatus()).toHaveText('Idle')
   const first = await sessionId('bracket')
 
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect.poll(() => sessionId('bracket')).not.toBe(first)
   await expect(dock().getByRole('alertdialog')).toHaveCount(0)
   await expect(sessionStatus()).toHaveText('Idle')
@@ -86,16 +87,16 @@ test('a new session while the agent is working is asked about first; "Keep it" c
   const running = await sessionId('bracket')
   const [agent] = agentsIn(join(root, 'bracket'))
 
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   const ask = dock().getByRole('alertdialog', { name: 'End the running session?' })
   await expect(ask).toBeVisible()
   await expect(ask).toContainText('Claude Code is working. A new session ends this one.')
   await expect(ask.getByRole('button')).toHaveText(['Keep it', 'End it and start new'])
-  // A popover from the button that asked (Task 25): the safe button has the focus, the card stands against the button with its
+  // A popover from the button that asked (Task 25; with New session in the More menu, that is the More button): the safe button has the focus, the card stands against the button with its
   // stem to it, a card of 290 px with a title, and it is no strip of the dock.
   await expect(ask.getByRole('button', { name: 'Keep it' })).toBeFocused()
   await expect(ask.getByRole('heading', { name: 'End the running session?' })).toBeVisible()
-  const [card, from] = await Promise.all([ask.boundingBox(), dock().getByRole('button', { name: 'New session' }).boundingBox()])
+  const [card, from] = await Promise.all([ask.boundingBox(), dock().getByRole('button', { name: 'More', exact: true }).boundingBox()])
   expect(card!.width).toBe(290)
   expect(card!.y >= from!.y + from!.height - 1 || card!.y + card!.height <= from!.y + 1).toBe(true)
   const stem = ask.locator('.popover-stem')
@@ -117,7 +118,7 @@ test('a new session while the agent is working is asked about first; "Keep it" c
 
 test('Escape keeps the session too', async () => {
   const running = await sessionId('bracket')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(dock().getByRole('alertdialog')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(dock().getByRole('alertdialog')).toHaveCount(0)
@@ -128,11 +129,11 @@ test('Escape keeps the session too', async () => {
 
 test('"End it and start new" ends the session and starts another, also for one that waits for an answer', async () => {
   await typeLine('hook PermissionRequest')
-  await expect(sessionStatus()).toHaveText('Needs input')
+  await expect(sessionStatus()).toHaveText('Needs you')
   const running = await sessionId('bracket')
   const [agent] = agentsIn(join(root, 'bracket'))
 
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   const ask = dock().getByRole('alertdialog', { name: 'End the running session?' })
   await expect(ask).toContainText('Claude Code is waiting for your answer. A new session ends this one.')
   await ask.getByRole('button', { name: 'End it and start new' }).click()
@@ -230,7 +231,7 @@ test('"Open another folder" goes on to the folder, and the sessions end', async 
 
 test('with no session in the middle of anything, another folder is opened without asking', async () => {
   await openListed(page, 'plain')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(sessionStatus()).toHaveText('Idle')
   await pick(root)
   // The folder crumb of the title bar is a menu: the dialog is one of its ways.

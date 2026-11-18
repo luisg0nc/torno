@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { MarksFile, SketchMark } from '../src/shared/marks'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // A 3D sketch drawn in the hidden window, on the `gauge` fixture: a 40 × 30 × 6 plate with one Ø8 hole at (10, 0). A line on
 // the XZ plane begins on the hole's centre (snapped, so told as exact), a freehand stroke goes on the plane of the top face,
@@ -244,7 +245,7 @@ test('a click on the chip of a draft sketch opens it again for editing, not a no
 })
 
 test('the next prompt carries the sketch in words: what is exact, the diameter and how to take it', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await expect(composer()).toBeEnabled()
   await composer().focus()

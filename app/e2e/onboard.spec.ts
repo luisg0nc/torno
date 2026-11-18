@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { png } from '../src/test/pngFixtures'
 import { box, stl } from '../src/test/scanFixtures'
-import { openSection, showProjects } from './helpers'
+import { closeModelMenu, inModelMenu, openSection, showProjects, newSession } from './helpers'
 import { newFromList, openListed, projectCrumb } from './objects'
 
 // Making a new object, from the window: the page, its draft, the doodle board, a photo of 3000 px arriving scaled
@@ -465,8 +465,9 @@ test.describe('a new object', () => {
     await expect(dock.locator('.chat-user')).toHaveCount(1)
     await expect(dock.locator('.chat-turn')).toHaveCount(1, { timeout: 30_000 })
     // Started on them, for this session alone: the stand-in runs the model it was given (`--model=haiku`), and the pane says both.
-    await expect(dock.getByLabel('Model', { exact: true })).toHaveValue('haiku')
-    await expect(dock.getByLabel('Effort', { exact: true })).toHaveValue('high')
+    await expect(await inModelMenu(dock, 'Model')).toHaveValue('haiku')
+    await expect(await inModelMenu(dock, 'Effort')).toHaveValue('high')
+    await closeModelMenu(dock)
 
     // The scan was imported into the object.
     await expect.poll(() => (existsSync(join(dir, '.torno', 'scans.json')) ? readFileSync(join(dir, '.torno', 'scans.json'), 'utf8') : ''), { timeout: 60_000 }).toContain('plate.stl')
@@ -571,7 +572,7 @@ test.describe('a new object whose agent cannot be started', () => {
       // The agent is found now: a session started by hand has the prompt in its box, not sent.
       writeFileSync(command, `#!/bin/sh\nexec node ${fakeAgent} "$@"\n`)
       chmodSync(command, 0o755)
-      await dock.getByRole('button', { name: 'New session' }).click()
+      await newSession(dock)
       await expect(dock.locator('[data-chat-composer]')).toHaveValue(/This is a new project, latch/, { timeout: 30_000 })
       await expect(dock.locator('.session-held')).toContainText('It is in the box below')
       await expect(dock.locator('.chat-turn')).toHaveCount(0)
@@ -662,17 +663,17 @@ test.describe('the window while a new object is made', () => {
   })
 
   test('a running session of the object that was open stays in full, with a note of whose it is', async () => {
-    await dock().getByRole('button', { name: 'New session' }).click()
-    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible({ timeout: 30_000 })
+    await newSession(dock())
+    await expect(dock().locator('.session-status')).toBeVisible({ timeout: 30_000 })
     await newFromList(page)
     await expect(dock().locator('.session-status')).toBeVisible()
-    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible()
+    await expect(dock().locator('.session-status')).toBeVisible()
     await expect(dock().locator('.session-aside')).toContainText('This is the session of bracket')
     await expect(dock().locator('[data-draft-note]')).toHaveCount(0)
     await page.keyboard.press('Escape')
     await expect.poll(async () => (await state()).page).toBe('objects')
     await expect(dock().locator('.session-aside')).toHaveCount(0)
-    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible()
+    await expect(dock().locator('.session-status')).toBeVisible()
   })
 })
 

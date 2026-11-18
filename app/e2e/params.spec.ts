@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { cardSection, foldSection, openSection, railButton } from './helpers'
+import { cardSection, foldSection, openSection, railButton, newSession } from './helpers'
 import { openListed } from './objects'
 
 // The model's Params in the left column, read only: a row for each field with its default in the monospace face and
@@ -126,7 +126,7 @@ test('with no session running the rows are text, and say why', async () => {
 })
 
 test('with a session, a click puts Params.<name> at the cursor of the box and sends nothing', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(dock().locator('.chat')).toBeVisible()
   await expect(composer()).toBeFocused()
   await composer().fill('make')

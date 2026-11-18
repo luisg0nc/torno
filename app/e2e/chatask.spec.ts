@@ -9,6 +9,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { NoteMark } from '../src/shared/marks'
 import { SESSION_HEADER } from '../src/main/http'
 import { openListed, projectCrumb, projectMenu, switcher } from './objects'
+import { closeModelMenu, fromMore, inModelMenu, newSession as fromDock } from './helpers'
 
 // What the chat asks of the person and what it offers: a permission request, the questions of `AskUserQuestion`
 // and a plan, each a card that is answered; "Attach view" and "Draw on view"; the `/` commands the CLI named; the model of the session;
@@ -73,14 +74,14 @@ async function finished(): Promise<void> {
 
 async function newSession(): Promise<void> {
   ended = 0
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await fromDock(dock())
   await expect(composer()).toBeEnabled()
 }
 
 test('a request to use a tool is a card with the input, answered with Allow, Allow for this session or Deny and a reason', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await fromDock(dock())
   await expect(chat()).toBeVisible()
 
   await say('ask Bash {"command":"ls"}')
@@ -88,7 +89,7 @@ test('a request to use a tool is a card with the input, answered with Allow, All
   await expect(card).toContainText('Claude Code asks to use Bash')
   await expect(card.locator('.chat-ask-input')).toHaveText('ls')
   await expect(card).toHaveAttribute('data-state', 'open')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   await expect(card.getByRole('button', { name: 'Allow', exact: true })).toHaveClass(/button-primary/)
   await card.getByRole('button', { name: 'Allow', exact: true }).click()
   await expect(card).toHaveAttribute('data-state', 'allowed')
@@ -206,7 +207,7 @@ test('the questions of AskUserQuestion are one card: radio-like buttons, toggles
   await expect(card).toContainText('thick')
   const submit = card.getByRole('button', { name: 'Submit', exact: true })
   await expect(submit).toBeDisabled()
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
 
   // One of a single choice: choosing another takes the first back.
   await card.getByRole('button', { name: /^2 mm/ }).click()
@@ -329,7 +330,7 @@ test('a request still open when the session is ended is closed: ending interrupt
   await say('ask Bash {"command":"sleep 100"}')
   const card = asks().last()
   await expect(card).toHaveAttribute('data-state', 'open')
-  await dock().getByRole('button', { name: 'End session' }).click()
+  await fromMore(dock(), 'End')
   // Ending a session that waits for an answer asks first.
   await page.getByRole('button', { name: 'End it', exact: true }).click()
   await expect(status()).toHaveText('Ended')
@@ -922,7 +923,7 @@ test('typing a / command offers the commands the CLI named: arrows choose, Tab o
 })
 
 test('the model menu lists what the CLI offers, changes the model of the session only, and writes nothing under the home', async () => {
-  const menu = dock().getByRole('combobox', { name: 'Model' })
+  const menu = await inModelMenu(dock(), 'Model')
   await expect(menu.locator('option')).toHaveText(['fake-model', 'Default', 'Haiku'])
   await expect(menu).toHaveValue('fake-model')
   await menu.selectOption({ label: 'Haiku' })
@@ -940,10 +941,11 @@ test('the model menu lists what the CLI offers, changes the model of the session
   }
   walk(home, 0)
   expect(found).toEqual([])
+  await closeModelMenu(dock())
 })
 
 test('the effort menu offers what the model takes, and sets the effort of the session only', async () => {
-  const menu = dock().getByRole('combobox', { name: 'Effort' })
+  const menu = await inModelMenu(dock(), 'Effort')
   // The person's default until one is chosen; the model is Haiku now, which the CLI says takes three.
   await expect(menu).toHaveValue('')
   await expect(menu.locator('option')).toHaveText(['Default effort', 'Low', 'Medium', 'High'])
@@ -953,10 +955,11 @@ test('the effort menu offers what the model takes, and sets the effort of the se
   await say('say with the new effort')
   await expect(turns().last()).toContainText('Done in')
   await expect(menu).toHaveValue('medium')
+  await closeModelMenu(dock())
 })
 
 test('the edits menu sets how edits are asked for this session only, and the CLI reports it', async () => {
-  const menu = dock().getByRole('combobox', { name: 'Edits' })
+  const menu = await inModelMenu(dock(), 'Edits')
   await expect(menu.locator('option')).toHaveText(['Ask before edits', 'Accept edits', 'Plan only'])
   await menu.selectOption({ label: 'Accept edits' })
   await expect(menu).toHaveValue('acceptEdits')
@@ -964,6 +967,7 @@ test('the edits menu sets how edits are asked for this session only, and the CLI
   await say('say with the new mode')
   await expect(turns().last()).toContainText('Done in')
   await expect(menu).toHaveValue('acceptEdits')
+  await closeModelMenu(dock())
 })
 
 test('the foot says, quietly, when a window of the rate limit is half used or more', async () => {
@@ -983,7 +987,7 @@ test('Stop with a request open: the card reads cancelled, has no buttons, and th
   await say('ask Bash {"command":"ls"}')
   const card = asks().last()
   await expect(card).toHaveAttribute('data-state', 'open')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   await dock().getByRole('button', { name: 'Stop' }).click()
   // The CLI gives the request up (control_cancel_request) and ends the turn.
   await expect(card).toHaveAttribute('data-state', 'ended')
@@ -1011,7 +1015,7 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
   await say('ask Bash {"command":"ls"}')
   const card = asks().last()
   await expect(card).toHaveAttribute('data-state', 'open')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   // The dock shown: its pane says it, the toggle has no dot.
   await expect(toggle().locator('.session-sign')).toHaveCount(0)
 
@@ -1068,7 +1072,7 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
 // #132: the agent's own `ask` is a card of torno's in the chat, above the box, and the session needs input while it is open.
 test('ask is a card above the box of the chat, the session needs input meanwhile, and the option clicked is what the tool returns', async () => {
   await openListed(page, 'bracket')
-  if (await dock().getByRole('button', { name: 'New session' }).isVisible()) await newSession()
+  if (await dock().getByRole('button', { name: 'New session', exact: true }).isVisible()) await newSession()
   await expect(composer()).toBeEnabled()
   await expect(status()).toHaveText('Idle')
   const { url, token } = await app.evaluate((_electron, id) => (globalThis as unknown as { __tornoMain: { mcpFor(id: string): { url: string; token: string } } }).__tornoMain.mcpFor(id), 'bracket')
@@ -1079,7 +1083,7 @@ test('ask is a card above the box of the chat, the session needs input meanwhile
     const card = chat().locator('.ask-question')
     await expect(card).toBeVisible()
     await expect(card.locator('.ask-text')).toHaveText('Which wall do you mean?')
-    await expect(status()).toHaveText('Needs input')
+    await expect(status()).toHaveText('Needs you')
     // The viewport does not show it twice while the chat is in sight.
     await expect(page.locator('.ask-question[data-where="view"]')).toHaveCount(0)
     await card.getByRole('button', { name: /The right wall/ }).hover()

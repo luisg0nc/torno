@@ -8,6 +8,7 @@ import type { Hit } from '../src/renderer/viewport/picking'
 import type { DimensionMark, MarksFile } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // The Measure tool and the dimensions it leaves, on the `measures` fixture: a
 // plate 40 × 30 × 6 with two Ø8 holes 20 apart, a 45° chamfer and a pocket.
@@ -539,7 +540,7 @@ test('on the gauge, the thickness of the plate and the diameter of its hole are 
 })
 
 test('given to the agent they are pinned: the next prompt says only how many pass', async () => {
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   // New to the agent: told as marks, with their values and verdicts.
   const first = await prompted()

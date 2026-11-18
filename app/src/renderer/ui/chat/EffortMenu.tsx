@@ -20,9 +20,10 @@ export function EffortMenu({ sessionId, effort, efforts, live }: { sessionId: st
   const listed = shown === undefined || efforts.includes(shown)
   if (efforts.length === 0 && shown === undefined) return null
   return (
-    <>
+    <div className="dock-menu-row">
+      <span className="dock-menu-name" aria-hidden="true">Effort</span>
       <select
-        className="session-model"
+        className="dock-menu-select"
         aria-label="Effort"
         title="How hard Claude thinks in this session. A choice here does not change your settings"
         value={shown ?? ''}
@@ -57,6 +58,6 @@ export function EffortMenu({ sessionId, effort, efforts, live }: { sessionId: st
           {problem}
         </span>
       )}
-    </>
+    </div>
   )
 }
