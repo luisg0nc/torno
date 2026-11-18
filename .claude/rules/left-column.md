@@ -94,7 +94,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   marks, checks)` gives the ids of the marks on it (`markEndParts`: both parts of a dimension; none for a scan's region) and of the
   checks whose `part` it is (`LitCheck`: `{ id, part? }`), and `useLitRows(checks)` reads it for Marks and Checks rows, which put
   `data-lit` on a row whose id is in the set. A part switched off says `hidden` (`.layer-off`) and has its swatch at 40 %; the opacity
-  slider, "Show only" and the eye are in `.layer-controls`, over the row's right end, shown on hover and focus (`card-parts.css`).
+  slider, "Show only" and the eye are in `.layer-controls`, over the row's right end, shown on hover and focus (`card-parts.css`); the name does not grow (`max-width` leaves the strip's room), so the count follows it and is never under the strip.
 - A part whose build says its shape is broken (`partDefects` of `shared/sanity.ts`: not valid, inside out, not
   closed, mesh disagrees) has its first defect in a word after its name (`.layer-defect`, `--fail`, `+N` for the
   others) and every one in the row's title; the status line counts the layout's broken parts after its parts
