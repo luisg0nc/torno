@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChatItem, PromptRow } from '../../../shared/chat'
 import { chatActions, useChat } from '../../state/chat'
 import { setPromptsInSight } from '../../state/inSight'
@@ -6,9 +6,9 @@ import { type PromptSpan, inSightOf } from '../strip/strip'
 import { actions, useStore } from '../../state/store'
 import { ChatItems } from './Items'
 import { QuestionCard } from '../QuestionCard'
-import { AskSession } from './AskCard'
+import { AskCard, AskSession } from './AskCard'
+import { openRequest } from './ask'
 import { Composer } from './Composer'
-import { TasksBar } from './Tasks'
 import { ChatEarlier, ChatPlace } from './place'
 import { ChatOffer, type ChatOffers } from './offers'
 import { ChatIdle, UndoableTurn } from './turnContext'
@@ -37,13 +37,13 @@ function useBeat(active: boolean): boolean {
  * box a prompt is written in. It follows the end of the transcript while it is at its end; a person who has
  * scrolled up is left where they are, and a button brings them down.
  *
- * What the agent asks is a card in the transcript (`AskCard`, which answers to this session); "Attach view", the
+ * What the agent asks takes the foot (`AskCard` with `where` "foot", which answers to this session) and leaves a line in the transcript, where the card stays once answered; "Attach view", the
  * commands offered while a `/` is typed and the rate line are in the foot, with the box (`Composer`). When the CLI said
  * torno's skills did not load, a line above the box offers the session again on the whole prompt (`onWholePrompt`). A note
  * of this session's that the chat could not use the login has a button that runs the object's sessions in the terminal
- * (`onUseTerminal`; `terminalDisabled` while the pane asks or switches).
+ * (`onUseTerminal`; `terminalDisabled` while the pane asks or switches). `foot` is a line the dock puts above the box (the `agent.json` note).
  */
-export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTerminal, terminalDisabled }: { sessionId: string; live: boolean; working: boolean; dir?: string; onWholePrompt: () => void; onUseTerminal: () => void; terminalDisabled: boolean }) {
+export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTerminal, terminalDisabled, foot }: { sessionId: string; live: boolean; working: boolean; dir?: string; onWholePrompt: () => void; onUseTerminal: () => void; terminalDisabled: boolean; foot?: ReactNode }) {
   const chat = useChat(sessionId)
   const place = useMemo(() => ({ dir, home: window.torno.home || undefined }), [dir])
   // A new value only when the button is enabled or disabled, so that the notes are not drawn again for a new callback: it calls the latest.
@@ -60,6 +60,7 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
   const atEnd = useRef(true)
   const [behind, setBehind] = useState(false)
   const items = chat?.items
+  const asking = useMemo(() => (items ? openRequest(items) : undefined), [items])
   const earlier = chat?.earlier
   const underWay = (items ?? []).some((item) => (item.kind === 'text' || item.kind === 'thinking' ? item.streaming : item.kind === 'tool' && item.state === 'running'))
   const beat = useBeat(underWay)
@@ -244,7 +245,6 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
           </button>
         )}
       </div>
-      {items && <TasksBar items={items} working={working} />}
       {live && chat?.meta.pluginLoaded === false && (
         <p className="chat-note chat-restart">
           <span>torno&apos;s skills did not load.</span>
@@ -253,7 +253,10 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
           </button>
         </p>
       )}
+      {/* An ask takes the foot: the request of the agent's, or torno's own question, over the box. */}
+      {asking && <AskCard item={asking} where="foot" />}
       <QuestionCard where="chat" />
+      {foot}
       <Composer sessionId={sessionId} live={live} working={working} onSent={toEnd} />
     </div>
     </ChatPlace.Provider>

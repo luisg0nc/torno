@@ -789,8 +789,8 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   and nothing changes.
 - **The agent's task list.** What the agent plans with `TodoWrite`, or with the
   task tools (`TaskCreate`, `TaskUpdate`) Claude Code has behind
-  `CLAUDE_CODE_ENABLE_TODO_TOOLS`, is a checklist above the box while the turn
-  runs and has a task left (`Tasks 1 of 4 done`, what is being done in the words
+  `CLAUDE_CODE_ENABLE_TODO_TOOLS`, is one line above the box while the turn
+  runs and has a task left (`2 of 4`, a bar for each task, and what is being done in the words
   of "doing"), and a card in the transcript where the call was, as the list stood
   then. torno reads it from the cards and keeps nothing of it.
 - **What the turn did.** The last line of a turn says, from the turn's own
@@ -846,7 +846,12 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   now (a mark that is gone, a part not shown) says why and does nothing. What is
 no ref of this project is only text: an `M3` clearance hole when the project has
 no mark `M3`, a build `r9` that has not been made, a part the build does not have.
-- **When it asks.** A permission is a card in the conversation: "Allow",
+- **The foot.** Above the box, up to three suggestions (a fix for a failed build is in red). The box holds what goes with the next
+  prompt (the marks, a drawing waiting, the view or part of the board, a review's chip, a tag asked for), then your words, then
+  a bar with "Attach view", "Draw on view", the key (`Enter`, or `Ctrl C` while Claude works) and "Send", or "Stop" and "Queue".
+  With a review attached the box says "The review goes as its own prompt. Add words to it here."
+- **When it asks.** A permission is a card at the foot of the dock, over the box, with a warm edge on top; the conversation
+  keeps a line where it was, and the card once it is answered: "Allow",
   "Allow for this session" (offered when Claude Code suggests a rule; the rule
   holds for this session only and is never written to any settings file) and
   "Deny", with what to do instead if you give it. While a permission or a plan waits, what you
@@ -1245,7 +1250,7 @@ them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found b
 | `mcp__torno__marks` | Your marks and the agent's as data, each with a line of text. It lists the marks that are not resolved, 50 at a time; `status` (`resolved` too), `ids` (`["M4"]`, any status), `limit` (200 at most) and `next` say which. A stroke is given as a summary of its points (count, first, last, box) unless `ids` names it. What was left out is said (`omitted`, `next`). `review` (`R1`, or `all`) gives instead the rounds of your reviews, oldest first: the build each reviewed, its items with want or don't want, what the agent answered and what you judged; an item you did not want and accepted says `removed on purpose; keep it out`. |
 | `mcp__torno__describe` | The geometry of a part, a face or an edge (`lid`, `lid/F12`, `lid/E3`, or one the model names, `lid/@top`), of a named set of yours (`#deck`, or `lid/#deck` for the part's share of it: each member with what it is, and what is lost), or of a group of parts by its name: the box of its parts and their volume. Of a face or an edge it also gives a `selector`: a build123d expression on `part`, such as `part.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]`, that the kernel evaluated on this build and that gave exactly that shape, as `robust` `by geometry` (a direction, an extreme, a radius, a place) or `by order` (an index into a sort, which the next edit may break), and `selectorFrame`, which says in whose frame it is. |
 | `mcp__torno__highlight` | Tints faces or edges in your viewport with a note, to ask "this one?", until you click or a minute passes. A group's name tints all of its parts. |
-| `mcp__torno__ask` | Asks you to choose and waits: a card above the box of the chat (under the view for a terminal session) with a button for each answer, and the refs of an answer light up in your view while the pointer is on its button. If it allows, you may answer with the one face or edge you select in the view instead, or with "None of these". The agent gets back what you chose, as refs. The session shows Needs you meanwhile; the question ends by itself after 10 minutes with "not answered", and when the turn ends. |
+| `mcp__torno__ask` | Asks you to choose and waits: a block at the foot of the dock, over the box of the chat (over the terminal, for a terminal session), with a card for each answer (the keys `1` to `3` choose the first three), and the refs of an answer light up in your view while the pointer is on its card, with one line from the ref to where it is drawn when it is on screen. If it allows, you may answer with the one face or edge you select in the view instead, or with "None of these". The agent gets back what you chose, as refs. The session shows Needs you meanwhile; the question ends by itself after 10 minutes with "not answered", and when the turn ends. |
 | `mcp__torno__show` | Changes your camera, layout, visible parts (a group's name stands for its parts), section, explode and scans to show you something, or puts a saved view on screen by its name; with `focus` and `margin`, as `look` takes them, it puts your camera on a ref, a mark or a box. For now only: what `.torno/scene.json` keeps stays yours. Refused while you hold a button in the viewport. |
 | `mcp__torno__save_view` | Proposes a saved view: it appears in your strip marked "proposed" until you keep or discard it. Nothing on screen changes. |
 | `mcp__torno__add_mark` | Leaves a mark of the agent's, in green: a pin, a pick, an arrow, a shape, or with `kind: 'dimension'` a dimension, measured at once and on every build like yours. A point that is not on the part is refused, saying how far off it is. The agent's marks are plain: it sets no want or don't want and is refused an `intent` that is not a shape's own. |
@@ -2423,6 +2428,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Session | `Tab` | Chat: complete the / command chosen |
 | Session | `Ctrl+C` | Chat: stop the turn while Claude Code works, with nothing selected in the box |
 | Session | `Enter` | Chat: allow what the card in focus asks (in its reason field, Enter denies) |
+| Session | `1` `2` `3` | Ask: answer with the first, second or third option of the question in focus |
 | Session | `Esc` | Chat: put away a picture shown large |
 | Session | `Left` `Right` | On the edge of the session pane: wider or narrower |
 | Session | `Left` `Right` | On the edge of the panel beside the rail: narrower or wider |

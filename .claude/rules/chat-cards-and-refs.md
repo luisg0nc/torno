@@ -38,12 +38,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `chat.newline` Shift+Enter, `chat.command` Up/Down and `chat.complete` Tab (while `/` commands are offered),
   `chat.close` Esc (a picture shown large; the focus returns to its thumbnail), `chat.stop` Ctrl+C (composer, only while the session
   works and nothing in the box is selected: with a selection it is a copy) and `chat.allow` Enter (scope `ask`: on the card itself
-  in focus, not its buttons or its field, where Enter refuses; not on a question). While a permission or a plan is open
+  in focus, not its buttons or its field, where Enter refuses; not on a question) and `ask.option` 1 2 3 (scope `ask`: on torno's own
+  question at the foot, not in a field). While a permission or a plan is open
   (`openAsk` in `Composer`) the box's placeholder is "Answer the card above, or say what to do instead", its primary button
   is "Deny and send" (`chat.answer` with `allow: false` and the text as the message; Enter in the box does the same) and "Queue"
-  is the secondary; a question (`AskUserQuestion`) changes nothing in the box. Escape in the box gives the keys
-  back, except while the list of `/` commands is open: it closes the list. A card takes focus once per request, and
-  only when the composer is empty and not focused. An unsent prompt in a chat that is not over is among what closing
+  is the secondary; a question (`AskUserQuestion`) changes nothing in the box. The card is at the foot of the dock, over the box
+  (`AskCard` with `where="foot"`, inside `Takeover`; `openRequest` picks it; `ChatPane` draws it), and the transcript holds a line
+  ("Claude Code waits for your answer, below", `WaitsBelow`) in its place until it is answered or ended, when the transcript has the card. Escape in the box gives the keys
+  back, except while the list of `/` commands is open: it closes the list. The foot's block takes focus once per request, and
+  only when the composer is empty and not focused (`Takeover`). An unsent prompt in a chat that is not over is among what closing
   the window asks about (`closingWhy`'s `unsent`). "Attach view" is sent in order: main waits for the picture
   before taking the next prompt, so one sent meanwhile cannot overtake it.
 - **A tool is a chip** (`ui/chat/ToolCard.tsx`, `ToolFold`; spec "The conversation"): 24 px, round, on `--surface`, its line in 12 px
@@ -74,5 +77,5 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   turn still going on folds nothing. A card's `done` is not written (`data-state` has it); the other states keep their word.
   The agent's list is read from the cards (`tasksNow`, `listsAt`): `TodoWrite` is the list whole, `TaskCreate` adds one
   (numbered as its result says, else in order) and `TaskUpdate` changes or removes one; a call that did not end `done` writes
-  nothing. `TasksBar` is above the box while the session works and a task is left; `TasksCard` is the list as it stood at a
+  nothing. `TasksBar` is one line above the box (`taskLine`: `2 of 4`, a bar for each task, the one under way in the accent, and what is being done) while the session works and a task is left; `TasksCard` is the list as it stood at a
   `TodoWrite`, or under the last of a run of task tools. Which of the two the real CLI uses is for a hand check.

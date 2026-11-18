@@ -1084,10 +1084,15 @@ test('ask is a card above the box of the chat, the session needs input meanwhile
     await expect(card).toBeVisible()
     await expect(card.locator('.ask-text')).toHaveText('Which wall do you mean?')
     await expect(status()).toHaveText('Needs you')
-    // The viewport does not show it twice while the chat is in sight.
-    await expect(page.locator('.ask-question[data-where="view"]')).toHaveCount(0)
+    // It takes the foot of the dock: nowhere else shows it, not the view and not a second time in the dock.
+    await expect(page.locator('.ask-question')).toHaveCount(1)
+    await expect(card).toHaveAttribute('data-ask-takeover', 'question')
+    await expect(card).toHaveAttribute('data-where', 'chat')
     await card.getByRole('button', { name: /The right wall/ }).hover()
     expect(await peeked()).toEqual(['base/F2'])
+    // Pointing at an option rings its ref (`data-hot`), and lets go of it with the pointer.
+    await expect(card.getByRole('button', { name: /The right wall/ }).locator('.ask-ref[data-hot]')).toHaveCount(1)
+    await expect(card.getByRole('button', { name: /The left wall/ }).locator('.ask-ref[data-hot]')).toHaveCount(0)
     await card.getByRole('button', { name: /The right wall/ }).click()
     const result = await waiting
     expect(JSON.parse((result.content as Array<{ text: string }>)[0].text)).toMatchObject({ answered: true, kind: 'option', index: 1, label: 'The right wall', refs: ['base/F2'] })
@@ -1097,4 +1102,76 @@ test('ask is a card above the box of the chat, the session needs input meanwhile
   } finally {
     await client.close()
   }
+})
+
+// Task 32: an ask takes the foot of the dock (spec 2026-11-18, "An ask").
+test('torno\'s ask takes the foot: a warn top edge, options with the keys 1 to 3, the ref of the one pointed at ringed, None of these, and the dock shown from the status line', async () => {
+  await openListed(page, 'bracket')
+  if (await dock().getByRole('button', { name: 'New session', exact: true }).isVisible()) await newSession()
+  await expect(composer()).toBeEnabled()
+  const { url, token } = await app.evaluate((_electron, id) => (globalThis as unknown as { __tornoMain: { mcpFor(id: string): { url: string; token: string } } }).__tornoMain.mcpFor(id), 'bracket')
+  const client = new Client({ name: 'torno-e2e', version: '0' })
+  await client.connect(new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers: { [SESSION_HEADER]: token } } }))
+  try {
+    const options = [{ label: 'The left wall', refs: ['base/F1'] }, { label: 'The right wall', refs: ['base/F2'] }, { label: 'The floor', refs: ['base/F0'] }]
+    const take = (): Promise<unknown> => client.callTool({ name: 'ask', arguments: { question: 'Which part do you mean?', options } })
+    const card = dock().locator('.ask-question')
+
+    // None of these is today's decline; the block is the foot's: after the transcript, with the box under it, a warn edge on top.
+    let waiting = take()
+    await expect(card).toBeVisible()
+    await expect(card.locator('.ask-option')).toHaveCount(3)
+    await expect(card.locator('.ask-key')).toHaveText(['1', '2', '3'])
+    expect(await card.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('3px')
+    expect(await card.evaluate((el) => getComputedStyle(el).borderTopColor)).toBe(await page.evaluate(() => { const probe = document.createElement('i'); probe.style.color = 'var(--warn)'; document.body.append(probe); const c = getComputedStyle(probe).color; probe.remove(); return c }))
+    const order = await chat().evaluate((el) => [...el.children].map((c) => c.className.split(' ')[0]))
+    expect(order.indexOf('chat-scroll')).toBeLessThan(order.indexOf('ask-takeover'))
+    expect(order.indexOf('ask-takeover')).toBeLessThan(order.indexOf('chat-foot'))
+    await card.getByRole('button', { name: 'None of these' }).click()
+    expect(JSON.parse(((await waiting) as { content: Array<{ text: string }> }).content[0].text)).toMatchObject({ answered: false })
+    await expect(card).toHaveCount(0)
+    await page.mouse.move(0, 0)
+
+    // Pointing at an option lights its ref in the view and rings its chip; the key 3 answers with the third.
+    waiting = take()
+    await expect(card).toBeVisible()
+    const floor = card.getByRole('button', { name: /The floor/ })
+    await expect(floor).toBeEnabled()
+    await floor.hover()
+    await expect(floor.locator('.ask-ref[data-hot]')).toHaveText('base/F0')
+    expect(await peeked()).toEqual(['base/F0'])
+    await page.mouse.move(0, 0)
+    await expect(card.locator('[data-hot]')).toHaveCount(0)
+    await card.focus()
+    await page.keyboard.press('3')
+    expect(JSON.parse(((await waiting) as { content: Array<{ text: string }> }).content[0].text)).toMatchObject({ answered: true, kind: 'option', index: 2, label: 'The floor' })
+    await expect(card).toHaveCount(0)
+
+    // With the dock hidden the status line's button shows it and brings the person to the block.
+    waiting = take()
+    await expect(card).toBeVisible()
+    await page.locator('.dock-toggle').click()
+    await expect(dock()).toBeHidden()
+    await page.locator('.status-needs').click()
+    await expect(dock()).toBeVisible()
+    await expect(card).toBeFocused()
+    await card.getByRole('button', { name: 'None of these' }).click()
+    await waiting
+  } finally {
+    await client.close()
+  }
+})
+
+test('a request of the agent\'s takes the foot too: the transcript holds a line, and keeps the card once it is answered', async () => {
+  await newSession()
+  await say('ask Bash {"command":"ls"}')
+  const foot = dock().locator('.ask-takeover.chat-ask')
+  await expect(foot).toHaveAttribute('data-state', 'open')
+  await expect(foot).toHaveAttribute('data-ask-takeover', 'request')
+  await expect(chat().locator('.chat-transcript .chat-ask')).toHaveCount(0)
+  await expect(chat().locator('.chat-transcript .chat-ask-below')).toBeVisible()
+  await foot.getByRole('button', { name: 'Allow', exact: true }).click()
+  await expect(dock().locator('.ask-takeover')).toHaveCount(0)
+  await expect(chat().locator('.chat-transcript .chat-ask')).toHaveAttribute('data-state', 'allowed')
+  await finished()
 })

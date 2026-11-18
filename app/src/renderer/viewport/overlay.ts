@@ -34,6 +34,10 @@ export interface PaneProjection {
   rect(): { left: number; top: number; width: number; height: number }
   /** Calls back after every frame drawn; returns what stops it. */
   onDrawn(cb: () => void): () => void
+  /** A point on what a ref of the layout shown names, as it is drawn, in the same frame as `project`; null where nothing is drawn for it. */
+  refPoint?(ref: string): Vec3 | null
+  /** Whether a point can be seen from the camera: not behind a part, not on what a section cuts away. */
+  seen?(p: Vec3): boolean
 }
 
 let pane: PaneProjection | null = null
@@ -59,6 +63,16 @@ export function bindPane(view: PaneProjection): () => void {
 /** Where a point of the object frame is drawn, in pixels from the top left of the view; null behind the camera, or with no view. */
 export function projectToPane(p: Vec3): Pt | null {
   return pane ? pane.project(p) : null
+}
+
+/** Where what a ref names is drawn, in pixels from the top left of the view; null when it is not drawn, is behind a part or is off the view. */
+export function refInPane(ref: string): Pt | null {
+  if (!pane?.refPoint) return null
+  const at = pane.refPoint(ref)
+  if (!at || (pane.seen && !pane.seen(at))) return null
+  const p = pane.project(at)
+  const rect = pane.rect()
+  return p && p.x >= 0 && p.y >= 0 && p.x <= rect.width && p.y <= rect.height ? p : null
 }
 
 /** The view in client pixels, or null with none. */

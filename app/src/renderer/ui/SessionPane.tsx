@@ -22,6 +22,7 @@ import { ModelButton } from './chat/ModelMenu'
 import { SessionMore } from './SessionMore'
 import { clock } from './sessionClock'
 import { Confirm } from './Confirm'
+import { QuestionCard } from './QuestionCard'
 import { numbered } from './numbered'
 import { edgeGround } from './termGround'
 
@@ -741,6 +742,20 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
     else if (objectId) terminals.get(objectId)?.term.focus()
   }
 
+  /** Why the choice in agent.json was not followed, and the button that puts the file right. */
+  const note =
+    choice.note && objectId && !drafting ? (
+      <div className="session-note">
+        <p role="note">{choice.note}</p>
+        {/* The file is the person's until they say: it is written only by this, or by choosing a view. */}
+        <button type="button" className="button session-note-action" disabled={starting || live} title={live ? 'End the session first' : undefined} onClick={() => void keepChoice()}>
+          Use {AGENT_LABEL}
+        </button>
+      </div>
+    ) : null
+  /** Whether the dock shows the chat, whose box has the foot: the note and an ask of torno's stand there then. */
+  const inChat = session !== undefined && chatting && !drafting
+
   return (
     <>
       <header className="panel-head session-head">
@@ -808,15 +823,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
           {numbered(next)}
         </p>
       )}
-      {choice.note && objectId && !drafting && (
-        <div className="session-note">
-          <p role="note">{choice.note}</p>
-          {/* The file is the person's until they say: it is written only by this, or by choosing a view. */}
-          <button type="button" className="button session-note-action" disabled={starting || live} title={live ? 'End the session first' : undefined} onClick={() => void keepChoice()}>
-            Use {AGENT_LABEL}
-          </button>
-        </div>
-      )}
+      {/* Where the chat's box is not (no session, a terminal) the note stands under the strip; with the chat it is the warn line above the box. */}
+      {!inChat && note}
 
       {/* The first prompt of a new object that was not sent: the reason, above the pane that holds it. */}
       {held !== undefined && objectId && !creating && (
@@ -883,7 +891,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         <div className="session-term" ref={host} data-shown={session && !chatting && !drafting ? '' : undefined} />
         {/* Where the chat is not (a terminal, or no session yet) Prompts only is a pane of its own over the area; in the chat it is the chat's own toggle. */}
         {promptsOpen && objectId && !drafting && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
-        {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} />}
+        {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} foot={note} />}
         {drafting ? (
           <p className="panel-note" data-draft-note="">
             The first prompt is on the page of the new project, beside the slots.
@@ -915,6 +923,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
             {problem}
           </p>
         )}
+        {/* torno's own ask, where the chat is not in sight (a terminal, no session): over the foot of the dock. */}
+        {!inChat && <QuestionCard where="dock" />}
       </div>
     </>
   )

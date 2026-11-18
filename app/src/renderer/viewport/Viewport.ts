@@ -24,6 +24,7 @@ import { Earlier } from './earlier'
 import { Ghosts, type GhostItem } from './ghosts'
 import { STALE_FADE, colorFor, colorsOfParts, edgeTint, mix } from '../../shared/palette'
 import { aimKeyLight, makeLights } from './lights'
+import { refPoint } from './refPoint'
 import { selectionBox } from './selectionBox'
 import { buildPart, type BuiltPart, disposePart } from './partMesh'
 import { type Hit, pickUnder, pointerRay } from './picking'
@@ -1268,7 +1269,12 @@ export class Viewport {
         return { x: ((v.x + 1) / 2) * rect.width, y: ((1 - v.y) / 2) * rect.height }
       },
       rect: () => this.canvas.getBoundingClientRect(),
-      onDrawn: (cb) => this.onDrawn(cb)
+      onDrawn: (cb) => this.onDrawn(cb),
+      refPoint: (ref) => {
+        this.syncMatrices()
+        return refPoint(this.partNamed, ref)
+      },
+      seen: (point) => this.visibleAt([point[0], point[1], point[2]])
     }
   }
 

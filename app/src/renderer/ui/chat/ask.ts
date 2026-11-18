@@ -1,6 +1,6 @@
 // What a card that asks the person shows of a request, and how the questions of `AskUserQuestion` are answered.
 // The pure part of `AskCard.tsx`.
-import { type ChatWhere, shownPath } from '../../../shared/chat'
+import { type ChatItem, type ChatWhere, shownPath } from '../../../shared/chat'
 import { CHANGE_LINES, editHunks, type Hunk, limitHunks } from './lineDiff'
 
 /** How many lines of what a file will hold a card shows. */
@@ -81,4 +81,9 @@ export function answerFor(question: Question, picked: readonly string[], other: 
   if (written !== '') return written
   const chosen = question.options.map((o) => o.label).filter((label) => picked.includes(label))
   return chosen.length > 0 ? chosen.join(', ') : undefined
+}
+
+/** The request of the agent's, of any kind, that still waits for the person: it takes the foot of the chat, and the transcript keeps a line for it. */
+export function openRequest(items: readonly ChatItem[]): Extract<ChatItem, { kind: 'ask' }> | undefined {
+  return items.findLast((item): item is Extract<ChatItem, { kind: 'ask' }> => item.kind === 'ask' && item.state === 'open')
 }

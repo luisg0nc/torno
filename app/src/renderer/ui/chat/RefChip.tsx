@@ -5,6 +5,7 @@ import { useSets } from '../../state/sets'
 import { tracingActions, useTracings } from '../../state/tracings'
 import { actions, useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
+import { pointAt, pointAway } from './borrow'
 import { SignDisc } from '../SignDisc'
 import { ChatEarlier } from './place'
 import { type RefInfo, refInfo } from './refs'
@@ -37,10 +38,13 @@ export function RefChip({ value, prose = false, of, label }: { value: string; pr
   const tracings = useTracings((s) => (isTracing ? s.file?.tracings : undefined))
   const info: RefInfo = useMemo(() => refInfo({ marks, scene, layers, layout, revision, build, board, sets, tracings }, value), [marks, scene, layers, layout, revision, build, board, sets, tracings, value])
   const lit = useRef(false)
-  const light = (on: boolean): void => {
+  // A face or an edge pointed at borrows the one leader of the window to where the view draws it (`borrow.ts`).
+  const light = (on: boolean, chip?: HTMLElement): void => {
     if (on === lit.current) return
     lit.current = on
     peek(on ? info.lights : [])
+    if (on && chip && info.kind === 'geometry') pointAt(info.lights.slice(0, 3).map((ref) => ({ ref, chip })))
+    else if (!on && info.kind === 'geometry') pointAway()
   }
   // A chip that goes while the pointer is on it takes its light with it.
   useEffect(() => () => light(false), [])
@@ -69,9 +73,9 @@ export function RefChip({ value, prose = false, of, label }: { value: string; pr
       <button
         type="button"
         {...props}
-        onPointerEnter={() => light(true)}
+        onPointerEnter={(e) => light(true, e.currentTarget)}
         onPointerLeave={() => light(false)}
-        onFocus={() => light(true)}
+        onFocus={(e) => light(true, e.currentTarget)}
         onBlur={() => light(false)}
         onClick={(e) => {
           if (info.act === 'focus') actions.focusMark(value)

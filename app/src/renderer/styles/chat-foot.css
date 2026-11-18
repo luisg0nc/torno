@@ -1,1 +1,434 @@
-/* The foot: the task line, the suggestions, the box and the ask (Tasks 31 and 32). Empty until its task fills it. */
+/* ---- The foot of the dock: the task line, the suggestions, the box, and the ask that takes the foot (spec 2026-11-18, "The foot", "An ask") ---- */
+
+.chat-foot {
+  flex: none;
+  padding: 10px var(--space-3) var(--space-3);
+  border-top: var(--divider);
+  background: var(--panel);
+}
+
+/* While Claude works: how far its list is, a bar for each task (done in ink, the one under way in the accent, the rest on the hairline), and what it does now. */
+.chat-tasks-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chat-tasks-bar .chat-tasks-count {
+  flex: none;
+}
+
+.chat-tasks-meter {
+  display: flex;
+  flex: 1;
+  gap: 3px;
+  min-width: 24px;
+}
+
+.chat-tasks-meter i {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-inline);
+  background: var(--hairline);
+}
+
+.chat-tasks-meter i[data-bar='done'] {
+  background: var(--ink);
+}
+
+.chat-tasks-meter i[data-bar='now'] {
+  background: var(--accent);
+}
+
+.chat-tasks-now {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Up to three chips of the next useful prompts: they fill the box, they do not send. A fix is in the failure's colour. */
+.chat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) 6px;
+  margin-bottom: var(--space-2);
+}
+
+.chat-suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border: var(--divider);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.chat-suggest-chip[data-suggest='fix'] {
+  border-color: color-mix(in srgb, var(--fail) 45%, var(--hairline));
+  color: var(--fail);
+}
+
+.chat-suggest-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+/* The commands the CLI named, above the box, while a / word is typed. */
+.chat-commands {
+  max-height: 168px;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-1);
+  overflow-y: auto;
+  list-style: none;
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  box-shadow: var(--float-shadow);
+}
+
+.chat-commands li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-inline);
+  cursor: pointer;
+}
+
+.chat-commands li[aria-selected='true'],
+.chat-commands li:hover {
+  background: var(--accent-wash);
+}
+
+.chat-command-hint,
+.chat-command-desc {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.chat-command-desc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The box: what goes with the prompt inside it, then the words, then the bar. */
+.chat-box {
+  display: flex;
+  flex-direction: column;
+  border: var(--field-border);
+  border-radius: var(--radius-float);
+  background: var(--raise);
+}
+
+.chat-box:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+/* What goes with the prompt: rows of the box's own, each a chip's worth, set off from the words by a hairline. */
+.chat-box > .chat-next,
+.chat-box > .chat-with,
+.chat-box > .chat-notes {
+  margin: 0;
+  padding: 6px 12px;
+  border-bottom: var(--divider);
+}
+
+.chat-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.chat-next-one {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.chat-next-word {
+  color: var(--muted);
+}
+
+.chat-with {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.chat-with:empty {
+  display: none;
+}
+
+.chat-box .chat-board-attached .chat-with-what {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+
+.chat-input {
+  min-width: 0;
+  min-height: 2.6em;
+  max-height: 10em;
+  field-sizing: content;
+  resize: none;
+  padding: 10px 12px 6px;
+  border: 0;
+  border-radius: var(--radius-float) var(--radius-float) 0 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-size);
+  line-height: var(--text-leading);
+}
+
+.chat-input:focus-visible {
+  outline: none;
+}
+
+.chat-input:disabled {
+  background: var(--surface);
+}
+
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px 6px;
+}
+
+/* Attach view and Draw on view are quiet buttons. */
+.chat-actions .button:not(.button-primary) {
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.chat-actions .button:not(.button-primary):hover:not(:disabled) {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+.chat-actions .button[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+/* The key the bar's main button answers to. */
+.chat-hint {
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+/* A window of the rate limit that is half used: one quiet line under the box. */
+.chat-rate {
+  margin-top: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* The agent.json note, as the one warn line above the box. */
+.chat .session-note {
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+/* A ref pointed at from outside the view: a 2 px gap in the pane's ground, then a 1.5 px ring in the accent. */
+.ref-chip[data-hot] {
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--accent);
+}
+
+/* ---- An ask takes the foot: 3 px warn on top, on the panel, sliding up as it comes ---- */
+
+.chat-ask-below {
+  margin: var(--space-2) 0;
+  color: var(--warn);
+  font-size: var(--text-small);
+}
+
+.ask-takeover {
+  flex: none;
+  max-height: 60%;
+  padding: var(--space-3) 14px;
+  overflow-y: auto;
+  border: 0;
+  border-top: 3px solid var(--warn);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  animation: ask-up 0.4s var(--ease) both;
+}
+
+.ask-takeover:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Where there is no chat: over the foot of the dock, on the terminal. */
+.ask-takeover[data-where='dock'] {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 3;
+  box-shadow: var(--float-shadow);
+}
+
+@keyframes ask-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-takeover {
+    animation: none;
+  }
+}
+
+.ask-takeover .chat-ask-title,
+.ask-takeover .ask-text {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ask-why,
+.ask-aside {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.ask-takeover .chat-ask-why {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* The options as cards in a row: a number, its words, its ref; the one pointed at on the accent wash with an accent edge. */
+.ask-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 8px 9px;
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--raise);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.ask-option:hover:not(:disabled),
+.ask-option:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.ask-key {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.ask-label {
+  overflow-wrap: anywhere;
+}
+
+.ask-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  min-width: 0;
+}
+
+.ask-ref {
+  padding: 0;
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.ask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 10px;
+}
+
+.ask-pick {
+  margin: 0;
+}
+
+/* "Or say what to do instead": a field's worth of line that takes the person to the box. */
+.ask-instead {
+  flex: 1 1 12ch;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: var(--field-border);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: left;
+}
+
+.ask-takeover .chat-ask-actions {
+  margin-top: 10px;
+}
+
+.ask-takeover .chat-ask-reason,
+.ask-takeover .chat-ask-other {
+  border: var(--field-border);
+  background: var(--raise);
+}
+
+/* AskUserQuestion's options, in the same cards. */
+.ask-takeover .chat-ask-options {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ask-takeover .chat-ask-option {
+  flex: 1 1 30%;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 9px;
+  border-radius: var(--radius-float);
+  background: var(--raise);
+  font-size: 12px;
+}

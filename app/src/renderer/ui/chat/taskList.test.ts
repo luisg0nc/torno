@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatItem } from '../../../shared/chat'
-import { listsAt, progress, tasksNow } from './taskList'
+import { type Task, listsAt, progress, taskLine, tasksNow } from './taskList'
 
 type Tool = Extract<ChatItem, { kind: 'tool' }>
 let n = 0
@@ -43,5 +43,22 @@ describe('the list the agent keeps with the task tools', () => {
 
   it('numbers by order when the result does not say', () => {
     expect(tasksNow([tool('TaskCreate', { subject: 'A' }), tool('TaskCreate', { subject: 'B' }), tool('TaskUpdate', { taskId: 2, status: 'completed' })]).map((t) => [t.id, t.status])).toEqual([['1', 'pending'], ['2', 'completed']])
+  })
+})
+
+describe('the task line above the box', () => {
+  const list = (statuses: Array<'pending' | 'in_progress' | 'completed'>): Task[] => statuses.map((status, n) => ({ id: String(n + 1), text: `Task ${n + 1}`, active: `Doing ${n + 1}`, status }))
+
+  it('counts the done, bars one per task, and names the one under way in the words of doing', () => {
+    expect(taskLine(list(['completed', 'completed', 'in_progress', 'pending']))).toEqual({ done: 2, all: 4, bars: ['done', 'done', 'now', 'todo'], text: 'Doing 3' })
+  })
+
+  it('names the first still to do when none is under way, and the bar of the last done is not the current', () => {
+    expect(taskLine(list(['completed', 'pending', 'pending']))).toEqual({ done: 1, all: 3, bars: ['done', 'now', 'todo'], text: 'Task 2' })
+  })
+
+  it('has no line once every task is done, or with none', () => {
+    expect(taskLine(list(['completed', 'completed']))).toBeNull()
+    expect(taskLine([])).toBeNull()
   })
 })

@@ -5,6 +5,7 @@ paths:
   - "app/src/renderer/state/chat.test.ts"
   - "app/src/renderer/styles/chat.css"
   - "app/src/renderer/styles/chat-slip.css"
+  - "app/src/renderer/styles/chat-foot.css"
   - "app/e2e/chat*.spec.ts"
 ---
 
@@ -76,8 +77,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   while it comes; one main has no plain file for says `reference/doodle-1.png is no longer there`, the path in the
   monospace face. A tool's picture says "Picture of an earlier build, not kept"; any other "Picture not kept".
 - **A review in the chat** (`ui/chat/ReviewChip.tsx`, `ui/chat/Composer.tsx`, `ui/chat/Items.tsx`, `ui/chat/BuildLine.tsx`). While `sending` names a round
-  the composer draws, in the `chat-with` row, a chip `Review of h41 · 3 − · 2 +` in the face of numbers (`reviewName`) with "Remove"
-  (`marks:round` `{ plain }`); a refused ask leaves it. "Goes with your next prompt" lists the drafts that really go (`goingNext`: not those of a round
+  the composer draws, inside its box in the `chat-with` row, a chip `Review of h41 · 3 − · 2 +` in the face of numbers (`reviewName`) with "Remove"
+  (`marks:round` `{ plain }`), and the box's placeholder is "The review goes as its own prompt. Add words to it here."; a refused ask leaves it. "Goes with your next prompt" lists the drafts that really go (`goingNext`: not those of a round
   that is held, `isHeld`). The line under a prompt (`Items.tsx`, from `item.review` and `item.held` of the `context` item, never from its text) says
   `review R1 sent` for the round the prompt carried, and `R1 is in review, not sent` for each round that waits. The build line of the build still on show has
   "Review this build" (`reviewActions.start`). The terminal has no chip: its review line goes with the hook's context for the next prompt.
+
+- **The foot of the dock** (`ui/chat/Composer.tsx`, `Tasks.tsx`, `Suggestions.tsx`, `AskTakeover.tsx`, `styles/chat-foot.css`; the foot's rules are in that
+  one sheet). From the top: an ask, when one waits (`AskTakeover.tsx`, drawn by `ChatPane`; see `asks` and `chat-cards-and-refs`), the `agent.json` note as one
+  warn line (`.session-note`, passed to `ChatPane` as `foot` by `SessionPane`; with no chat it stays under the strip), then the foot proper: the task line, up to three
+  suggestions, and the box (`--raise`, 1 px `--field-edge`, `--radius-float`). Inside the box go what goes with the prompt (`chat-next`, the notes waiting, `chat-with`:
+  board, review, tag, the view attached), then the words, then the bar: Attach view, Draw on view, the key hint and Send, or Stop and Queue. Where the chat is not
+  live (no session, a terminal) `.session-next` still says what the next prompt carries, under the strip. A ref chip of a face or an edge pointed at borrows the
+  window's one leader (`ui/chat/borrow.ts`).

@@ -618,7 +618,8 @@ test('a turn\'s tools fold to one line once it has ended, and the agent\'s list 
   // While it works: the list is above the box, with what is being done.
   const bar = chat().locator('.chat-tasks-bar')
   await expect(bar).toContainText('Looking at the part', { timeout: 20_000 })
-  await expect(bar).toContainText('0 of 2 done')
+  await expect(bar).toContainText('0 of 2')
+  await expect(bar.locator('.chat-tasks-meter i')).toHaveCount(2)
   // Every line is there while the turn goes on.
   await expect(chat().locator('.chat-fold')).toHaveCount(0)
   // Over: the five lines are one, the list is a card in the transcript and no longer above the box.

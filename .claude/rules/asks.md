@@ -4,6 +4,9 @@ paths:
   - "app/src/main/asks.ts"
   - "app/src/shared/ask.ts"
   - "app/src/renderer/ui/QuestionCard.tsx"
+  - "app/src/renderer/ui/chat/AskTakeover.tsx"
+  - "app/src/renderer/ui/chat/borrow.ts"
+  - "app/src/renderer/viewport/refPoint.ts"
   - "app/src/renderer/state/asks.ts"
   - "app/src/main/sessions/permissions.ts"
   - "app/src/main/sessions/permissions.test.ts"
@@ -46,10 +49,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Agents (`app/src/renderer`)
 
-- **The agent's question** (`ask`; `state/asks.ts` follows main's list, `ui/QuestionCard.tsx` draws it): a card with
-  the question, a button for each answer (its label, its refs in the monospace face), and "None of these". The pointer
-  or the keys' focus on a button lights its refs by `peek`, as a ref chip does, and only when the layout shown is the
-  question's. With `pick` the card offers "Answer with `lid/F12`" while exactly one face or edge is selected in the
-  view (selecting is the Select tool's, unchanged), else says to select one. It stands above the box of the chat
-  (`where="chat"`) and, where the chat is not in sight (a terminal session, or the dock put away), over the foot of the
-  view (`where="view"`), never both. It answers once (the buttons go off) and goes when main takes the question down.
+- **The agent's question** (`ask`; `state/asks.ts` follows main's list, `ui/QuestionCard.tsx` draws it): the block an ask is at the
+  dock's foot (`chat/AskTakeover.tsx`, `Takeover`: a 3 px `--warn` top edge on the panel, sliding up 40 px in 0.4 s, `data-ask-takeover`,
+  focused once when it appears unless the person is writing). It holds the question (`.ask-text`), a muted line, a card for each answer (its
+  number for the first three, its label, its refs as chips) and "None of these". The keys `1` to `3` (`ask.option`, scope `ask`, heard on
+  the block, never in a field) answer with that option. The pointer or the keys' focus on a card lights its refs by `peek`, as a ref chip
+  does, and only when the layout shown is the question's; it also rings the chips (`data-hot`) and borrows the one leader of the window to
+  the first ref drawn in the view (`chat/borrow.ts`, `borrowedAt`: only when its subject is on screen and the leg crosses no tag or band;
+  `viewport/refPoint.ts` and `refInPane` say where a ref is drawn). With `pick` the block offers "Answer with `lid/F12`" while exactly one face
+  or edge is selected in the view, else says to select one; "Or say what to do instead" takes the person to the box. It stands over the
+  box of the chat (`where="chat"`, in `ChatPane`) and, where the chat is not in sight (a terminal session, no session), over the foot of the
+  dock (`where="dock"`, in `SessionPane`), never both and never over the view. The status line's "needs you" shows the dock and `focusAsk`
+  brings the person to the block. It answers once (the buttons go off) and goes when main takes the question down.

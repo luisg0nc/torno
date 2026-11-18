@@ -19,6 +19,7 @@ import { ReviewChip, goingNext } from './ReviewChip'
 import { type Suggestion, suggest } from './suggest'
 import { SetTagChip, useSetTagAttached } from './SetTagChip'
 import { Suggestions } from './Suggestions'
+import { TasksBar } from './Tasks'
 import { WaitingNotes } from './WaitingNotes'
 
 /** What an IPC call failed with, without Electron's wrapping. */
@@ -355,7 +356,8 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
 
   return (
     <div className="chat-foot">
-      <Next />
+      {/* Above the box, while Claude works: how far its list is, and what it does now. */}
+      <TasksBar items={chat?.items ?? []} working={working} />
       {live && text === '' && (
         <Suggestions
           chips={suggest({
@@ -370,26 +372,28 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         />
       )}
       {offered.length > 0 && <Commands offered={offered} at={at} onChoose={complete} />}
-      <WaitingNotes onProblem={setProblem} />
-      {(attach || boardAttached || reviewAttached || tagAttached) && (
-        <div className="chat-with">
-          <BoardChip />
-          <ReviewChip />
-          <SetTagChip />
-          {attach && (
-            <div className="chat-attached" role="group" aria-label="View attached">
-              {attached !== null ? <img src={attached} alt="The view as it is now" draggable={false} /> : <span className="chat-attached-wait" aria-hidden="true" />}
-              <span className="chat-with-what" title="This is the picture that goes with your prompt">
-                <span>The view goes with your next prompt</span>
-              </span>
-              <button type="button" className="button button-quiet" onClick={unattach}>
-                Remove
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      <div className="chat-composer">
+      {/* The box: what goes with the prompt is inside it, then the words, then the bar. */}
+      <div className="chat-composer chat-box">
+        <Next />
+        <WaitingNotes onProblem={setProblem} />
+        {(attach || boardAttached || reviewAttached || tagAttached) && (
+          <div className="chat-with">
+            <BoardChip />
+            <ReviewChip />
+            <SetTagChip />
+            {attach && (
+              <div className="chat-attached" role="group" aria-label="View attached">
+                {attached !== null ? <img src={attached} alt="The view as it is now" draggable={false} /> : <span className="chat-attached-wait" aria-hidden="true" />}
+                <span className="chat-with-what" title="This is the picture that goes with your prompt">
+                  <span>The view goes with your next prompt</span>
+                </span>
+                <button type="button" className="button button-quiet" onClick={unattach}>
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <textarea
           ref={field}
           className="chat-input"
@@ -398,7 +402,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
           value={text}
           disabled={!live}
           aria-label="Message to Claude Code"
-          placeholder={live ? (openAsk ? 'Answer the card above, or say what to do instead' : working ? 'Claude Code is working: this goes next' : 'Message Claude Code') : 'The session has ended'}
+          placeholder={live ? (openAsk ? 'Answer the card above, or say what to do instead' : reviewAttached ? 'The review goes as its own prompt. Add words to it here.' : working ? 'Claude Code is working: this goes next' : 'Message Claude Code') : 'The session has ended'}
           aria-controls={offered.length > 0 ? 'chat-commands' : undefined}
           aria-activedescendant={offered.length > 0 ? `chat-command-${offered[at].name}` : undefined}
           onFocus={(e) => {
@@ -465,6 +469,11 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
             Draw on view
           </button>
           <span className="spacer" />
+          {live && (
+            <kbd className="chat-hint num" aria-hidden="true">
+              {(working ? hint('chat.stop') : hint('chat.send')).replace('+', ' ')}
+            </kbd>
+          )}
           {working && live && (
             <button
               type="button"

@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, createContext, memo, useContext, useEffect, useState } from 'react'
 import { type ChatAnswer, type ChatItem, TORNO_TOOL_PREFIX } from '../../../shared/chat'
 import { pressed } from '../../../shared/keys'
 import { numbered } from '../numbered'
@@ -6,6 +6,7 @@ import { giveKeysBack } from '../typing'
 import { type Question, answerFor, describeInput, questionsOf } from './ask'
 import { Diff } from './Diff'
 import { Markdown } from './markdown'
+import { Takeover, WaitsBelow } from './AskTakeover'
 import { useChatPlace } from './place'
 
 type Ask = Extract<ChatItem, { kind: 'ask' }>
@@ -41,9 +42,6 @@ function useAnswer(item: Ask): Answering {
     }
   }
 }
-
-/** The requests that have had the focus once: a pane drawn again (another object shown and back) does not take it again. */
-const focused = new Set<string>()
 
 /** What to do instead, typed on the card as the reason for a refusal; Enter refuses with it, Escape gives the keys back. */
 function Reason({ value, onChange, onKeep }: { value: string; onChange: (v: string) => void; onKeep: () => void }) {
@@ -254,36 +252,37 @@ function Questions({ item, answering, answer }: { item: Ask } & Answering) {
 }
 
 /**
- * A request of the agent's to the person, a card in the transcript: to use a tool (Allow, Allow for this session when the CLI
- * suggested a rule, Deny with a reason), a plan to leave plan mode with, or the questions of `AskUserQuestion`.
- * Open, it takes the focus once, unless the person is writing or has their cursor in the box: it is not stolen from
- * typing. Its buttons are ordinary buttons.
+ * A request of the agent's to the person: to use a tool (Allow, Allow for this session when the CLI suggested a rule, Deny with a
+ * reason), a plan to leave plan mode with, or the questions of `AskUserQuestion`. While it is open it takes the foot of the chat
+ * (`where` "foot": `Takeover`, which has the focus once unless the person is writing) and the transcript holds a line for it; once
+ * answered or ended it is the card in the transcript that says how it was answered. Its buttons are ordinary buttons.
  */
-export const AskCard = memo(function AskCard({ item }: { item: Ask }) {
-  const card = useRef<HTMLElement>(null)
+export const AskCard = memo(function AskCard({ item, where = 'log' }: { item: Ask; where?: 'log' | 'foot' }) {
   const { answering, answer } = useAnswer(item)
-  useEffect(() => {
-    if (item.state !== 'open' || focused.has(item.requestId)) return
-    focused.add(item.requestId)
-    const box = document.querySelector<HTMLTextAreaElement>('[data-chat-composer]')
-    if (box && (box.value !== '' || document.activeElement === box)) return
-    card.current?.focus({ preventScroll: true })
-    card.current?.scrollIntoView({ block: 'nearest' })
-    // Once, when it appears.
-  }, [])
-  return (
-    <section ref={card} className="chat-item chat-ask" data-kind="ask" data-state={item.state} data-tool={item.toolName} tabIndex={-1}
-      aria-label="Request from Claude Code"
-      onKeyDown={(e) => {
-        // The card itself in focus, not a button or a field in it: those keep their own Enter. Questions are chosen, not allowed.
-        if (e.target !== e.currentTarget || e.nativeEvent.isComposing || item.state !== 'open' || item.toolName === 'AskUserQuestion' || answering) return
-        if (pressed(e, 'chat.allow')) {
-          e.preventDefault()
-          answer({ allow: true })
-        }
-      }}
-    >
-      {item.toolName === 'AskUserQuestion' ? <Questions item={item} answering={answering} answer={answer} /> : item.toolName === 'ExitPlanMode' ? <Plan item={item} answering={answering} answer={answer} /> : <Permission item={item} answering={answering} answer={answer} />}
+  // Open, the transcript holds only a line: the request is at the foot.
+  if (item.state === 'open' && where === 'log') return <WaitsBelow />
+  const body = item.toolName === 'AskUserQuestion' ? <Questions item={item} answering={answering} answer={answer} /> : item.toolName === 'ExitPlanMode' ? <Plan item={item} answering={answering} answer={answer} /> : <Permission item={item} answering={answering} answer={answer} />
+  const props = {
+    'aria-label': 'Request from Claude Code',
+    'data-kind': 'ask',
+    'data-state': item.state,
+    'data-tool': item.toolName,
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      // The card itself in focus, not a button or a field in it: those keep their own Enter. Questions are chosen, not allowed.
+      if (e.target !== e.currentTarget || e.nativeEvent.isComposing || item.state !== 'open' || item.toolName === 'AskUserQuestion' || answering) return
+      if (pressed(e, 'chat.allow')) {
+        e.preventDefault()
+        answer({ allow: true })
+      }
+    }
+  }
+  return where === 'foot' ? (
+    <Takeover ask="request" focusKey={item.requestId} className="chat-ask" {...props}>
+      {body}
+    </Takeover>
+  ) : (
+    <section className="chat-item chat-ask" tabIndex={-1} {...props}>
+      {body}
     </section>
   )
 })

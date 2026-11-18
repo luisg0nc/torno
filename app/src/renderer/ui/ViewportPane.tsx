@@ -40,7 +40,6 @@ import { labelText } from '../viewport/marks/labels'
 import { bindPane } from '../viewport/overlay'
 import { meshOf } from '../viewport/scans'
 import { Viewport } from '../viewport/Viewport'
-import { QuestionCard } from './QuestionCard'
 import { AlignBar } from './AlignBar'
 import { goToRow } from './BuildStatus'
 import { hoverMark } from './markHover'
@@ -837,7 +836,6 @@ export function ViewportPane() {
           <AlignBar />
           <RegionBar />
           <ScanReadSheet viewport={viewport} />
-          <QuestionCard where="view" />
           <Hint />
           <ToolHint />
           <NotePopover viewport={viewport} />

@@ -837,104 +837,6 @@ button.ref-chip {
   box-shadow: var(--float-shadow);
 }
 
-/* The foot: what goes with the next prompt, then the box. */
-.chat-foot {
-  flex: none;
-  padding: var(--space-2) var(--space-4) var(--space-3);
-  border-top: var(--divider);
-}
-
-.chat-next-one {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-}
-
-.chat-next-word {
-  color: var(--muted);
-}
-
-/* Quiet chips of the next useful prompts above the box: they fill it, they do not send. */
-.chat-suggest {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.chat-suggest-chip {
-  padding: 2px var(--space-2);
-  border: var(--divider);
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.chat-suggest-chip:hover {
-  border-color: var(--accent);
-  background: var(--accent-wash);
-  color: var(--ink);
-}
-
-.chat-next {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-  margin-bottom: var(--space-2);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-/* The box the width of the pane, and under it a row: what goes with the prompt (the view, a drawing on it) on the
-   left, Stop and Send on the right. */
-.chat-composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.chat-input {
-  min-width: 0;
-  min-height: 2.6em;
-  max-height: 10em;
-  field-sizing: content;
-  resize: none;
-  padding: 6px var(--space-2);
-  border: var(--field-border);
-  border-radius: var(--radius-control);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: var(--text-size);
-  line-height: var(--text-leading);
-}
-
-.chat-input:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-}
-
-.chat-input:disabled {
-  background: var(--surface);
-}
-
-.chat-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* What goes with the next prompt besides its words, a row each: a drawing on the view and what its ink lies over, the picture "Attach view" will add. */
-.chat-with {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
 .chat-note-wait,
 .chat-attached,
 .chat-board-attached {
@@ -1202,59 +1104,6 @@ button.ref-chip {
   box-sizing: border-box;
 }
 
-/* The commands the CLI named, above the box, while a / word is typed. */
-.chat-commands {
-  max-height: 168px;
-  margin: 0 0 var(--space-2);
-  padding: var(--space-1);
-  overflow-y: auto;
-  list-style: none;
-  border: var(--divider);
-  border-radius: var(--radius-control);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-}
-
-.chat-commands li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-inline);
-  cursor: pointer;
-}
-
-.chat-commands li[aria-selected='true'],
-.chat-commands li:hover {
-  background: var(--accent-wash);
-}
-
-.chat-command-hint,
-.chat-command-desc {
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.chat-command-desc {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-actions .button[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: var(--accent-wash);
-  color: var(--ink);
-}
-
-/* A window of the rate limit that is half used: one quiet line under the box. */
-.chat-rate {
-  margin-top: var(--space-2);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
 /* What the request says in words, and the path it is blocked on (the path in the monospace face). */
 .chat-ask-why {
   margin: 0 0 var(--space-2);
@@ -1286,15 +1135,6 @@ button.ref-chip {
 .chat-tasks {
   margin: var(--space-1) 0;
   font-size: var(--text-small);
-}
-
-.chat-tasks-bar {
-  flex: none;
-  max-height: 9rem;
-  margin: 0;
-  padding: var(--space-1) var(--space-3);
-  overflow: auto;
-  border-top: var(--divider);
 }
 
 .chat-tasks-head {

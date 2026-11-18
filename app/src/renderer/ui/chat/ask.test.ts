@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { answerFor, describeInput, questionsOf } from './ask'
+import { answerFor, describeInput, openRequest, questionsOf } from './ask'
 
 it('shows a command as the command, and a file as its path and a few lines of what goes in it', () => {
   expect(describeInput('Bash', { command: 'ls -la\ncat x' })).toEqual({ lead: undefined, body: 'ls -la\ncat x', more: 0 })
@@ -76,4 +76,11 @@ it('shows an Edit as the lines removed and added, a MultiEdit as one block for e
   // A Write has no old text to compare with: it stays the first lines of what it holds.
   expect(describeInput('Write', { file_path: 'm.py', content: 'WALL = 3' })).toEqual({ lead: 'm.py', body: 'WALL = 3', more: 0 })
   expect(describeInput('Write', { file_path: 'm.py', content: 'WALL = 3' }).hunks).toBeUndefined()
+})
+
+it('takes the last request still open for the foot, whatever it asks, and none once all are answered', () => {
+  const ask = (requestId: string, state: 'open' | 'allowed') => ({ kind: 'ask', id: `a${requestId}`, requestId, toolName: 'Bash', input: {}, state }) as never
+  expect(openRequest([ask('1', 'open'), ask('2', 'allowed'), ask('3', 'open')])).toMatchObject({ requestId: '3' })
+  expect(openRequest([ask('1', 'allowed')])).toBeUndefined()
+  expect(openRequest([])).toBeUndefined()
 })
