@@ -53,7 +53,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   to see the build", nothing when there are none; its room is kept before the marks are listed and, with the selection's
   and the scans', before the status is fitted, so the cut at `CONTEXT_LIMIT` never takes it. The same rule is one line
   in the `torno-model` skill (the system prompt has no room for it). The context item carries how many files it named
-  (`instructions`, `PromptContext`), which the chat draws as "N instruction files" in the "torno added" line. Nothing is written or remembered of it: there is no
+  (`instructions`, `PromptContext`), which the chat draws as "N instruction files" in the "with" line. Nothing is written or remembered of it: there is no
   "seen" state.
 - **Trust (`src/main/trust.ts`).** Headless (`-p`) Claude Code skips its workspace-trust question. Before a chat
   starts, `Trust.pending` looks for `.mcp.json`, `.claude/settings.json` and `.claude/settings.local.json` in the

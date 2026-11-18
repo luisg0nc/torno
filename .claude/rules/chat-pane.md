@@ -23,7 +23,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   its fields alone: `Built h41 ok 51 s` (the build as `buildName` has it from the history that `ChatItems` passes, `r2` until the history has it; the chip
   keeps `data-ref="r2"` and its live behaviour), or `The build after h40 failed` in `--fail` with the last line of the traceback under it in mono (a revision names a build that worked, as
   `main/builds.ts` counts them: a failure has no number of its own and is the build after the one on show, `failedAfter`
-  of `shared/build.ts`, which the Stop hook says too; the prompt's "torno added" line says it alike), or, of a build
+  of `shared/build.ts`, which the Stop hook says too; the prompt's "with" line says it alike), or, of a build
   still running when the edit's answer could wait no longer (main writes that line once and never again), "Still
   building when Claude Code was answered", in the past so that it stays true, "Show
   error" while that failure is still the latest build, a row for each dimension whose verdict it changed (`digest.dimensions`,

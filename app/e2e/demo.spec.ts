@@ -81,7 +81,7 @@ async function pointAt(page: Page, point: Vec3): Promise<[number, number]> {
 /** The one cosmetic edit: the person's prompt bubble says what a person would have typed, M2 as the chip torno drew for it. */
 async function naturalPrompt(page: Page): Promise<void> {
   await page.evaluate((text) => {
-    const bubble = document.querySelector('.chat-user .chat-user-text')!
+    const bubble = document.querySelector('.chat-user .chat-you')!
     const chip = document.querySelector('.chat-added .ref-chip[data-ref="M2"]')?.cloneNode(true)
     const [before, after] = text.split('M2')
     bubble.replaceChildren(document.createTextNode(before), ...(chip ? [chip] : [document.createTextNode('M2')]), document.createTextNode(after))

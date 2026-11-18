@@ -1,8 +1,10 @@
 import { memo, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ChatItem } from '../../../shared/chat'
+import { type ChatItem, refsIn } from '../../../shared/chat'
 import type { HistoryList } from '../../../shared/history'
 import { identitySaid } from '../../../shared/git'
 import { drawn } from '../../state/chat'
+import { useSetSlugs } from '../../state/sets'
+import { useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { AskCard } from './AskCard'
 import { BuildLine } from './BuildLine'
@@ -21,6 +23,8 @@ import { TurnEnd } from './TurnEnd'
 import { type JoinedTurn, type SaveRun, goneBack, joinTurns, savesBetween } from './historyJoin'
 import { SaveLine } from './SaveLine'
 import { PromptNumbers } from './turnContext'
+import { PromptHead } from './PromptHead'
+import { headBuilds } from './headKind'
 import { netParts, turnSummary, type TurnAccount } from './turnSummary'
 
 type Of<K extends ChatItem['kind']> = Extract<ChatItem, { kind: K }>
@@ -47,7 +51,7 @@ const Added = memo(function Added({ item }: { item: Of<'context'> }) {
   return (
     <div className="chat-item chat-added" data-kind="context">
       <div className="chat-added-line">
-        <span className="chat-added-label">torno added</span>
+        <span className="chat-added-label">with</span>
         {item.marks.map((id) => (
           <RefChip key={id} value={id} />
         ))}
@@ -112,10 +116,24 @@ const Added = memo(function Added({ item }: { item: Of<'context'> }) {
   )
 })
 
+/** The person's words, with the refs in them as chips (and a number or a ref that names nothing in the face of numbers). */
+function Said({ text }: { text: string }) {
+  const slugs = useSetSlugs()
+  return (
+    <>
+      {refsIn(text, slugs).map((piece, n) => (piece.ref !== undefined ? <RefChip key={n} value={piece.ref} prose /> : <span key={n}>{numbered(piece.text)}</span>))}
+    </>
+  )
+}
+
 const User = memo(function User({ item }: { item: Of<'user'> }) {
   return (
     <div className="chat-item chat-user" data-kind="user" data-state={item.state}>
-      {item.text !== '' && <p className="chat-user-text selectable">{numbered(item.text)}</p>}
+      {item.text !== '' && (
+        <p className="chat-you selectable">
+          <Said text={item.text} />
+        </p>
+      )}
       <Pictures images={item.images} what={YOUR_MESSAGE} />
       {item.drawing && (
         <p className="chat-user-drawing">
@@ -132,7 +150,6 @@ const User = memo(function User({ item }: { item: Of<'user'> }) {
           {numbered(boardSentSaid(item.board))}
         </p>
       )}
-      {item.state === 'queued' && <p className="chat-user-state">Queued</p>}
       {item.state === 'not-sent' && <p className="chat-user-state">Not sent</p>}
     </div>
   )
@@ -213,7 +230,7 @@ function ToolFold({ entry }: { entry: Extract<Entry, { kind: 'fold' }> }) {
   const [open, setOpen] = useState(false)
   const count = entry.items.filter((item) => item.kind === 'tool').length
   return (
-    <div className="chat-fold" data-fold={entry.id}>
+    <div className="chat-fold" data-fold={entry.id} data-open={open ? '' : undefined}>
       <div className="chat-item chat-tool chat-fold-head" data-kind="fold">
         <div className="chat-tool-row">
           <button type="button" className="chat-tool-line" aria-expanded={open} aria-label={`${entry.label}: ${count} tools`} title={entry.label} onClick={() => setOpen(!open)} />
@@ -332,6 +349,10 @@ function GoneRow({ range, children }: { range: [number, number]; children: React
 /** The items in the order they are drawn (`numbers`: the project's number of each prompt by its id, `numbersOf`), with each `context` under the prompt, or the tool card, it was made for: a prompt's as what torno added to it, a tool's as the build it started. A run of the agent's tools that is over is one line (`foldRuns`), and its task list is a card (`TasksCard`). With the project's `history`: each turn ends with its builds, what the person built between prompts is a line, and the prompts a Go back undid are one faded row. */
 const NO_NUMBERS = new Map<string, number>()
 
+/** Whether a row is a tool's chip (a fold of tools, or a tool that is not the list `TodoWrite` is): the tools that follow one another stand side by side, wrapping. */
+const isChip = (row: Row): boolean => row.kind === 'entry' && (row.entry.kind === 'fold' || (row.entry.item.kind === 'tool' && row.entry.item.name !== 'TodoWrite'))
+const chipsKey = (row: Row): string => (row.kind === 'entry' ? (row.entry.kind === 'fold' ? row.entry.id : row.entry.item.id) : '')
+
 export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { items: ChatItem[]; beat: boolean; history?: HistoryList; numbers?: Map<string, number> }) {
   const order = useMemo(() => drawn(items), [items])
   const under = useMemo(() => {
@@ -343,6 +364,20 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
   // What is drawn on its own: a context whose prompt or card is here is drawn under that one.
   const entries = useMemo(() => foldRuns(order.filter((item) => !(item.kind === 'context' && ids.has(item.forUser))), new Set(under.keys())), [order, ids, under])
   const lists = useMemo(() => listsAt(order), [order])
+  // The prompts whose turn is over, and the one still going (the last the person said, with no turn after it): which of them a build that runs now belongs to.
+  const { ended, open } = useMemo(() => {
+    const done = new Set<string>()
+    let prompt: string | undefined
+    for (const item of order) {
+      if (item.kind === 'user' && item.state !== 'queued') prompt = item.id
+      else if (item.kind === 'turn' && prompt !== undefined) {
+        done.add(prompt)
+        prompt = undefined
+      }
+    }
+    return { ended: done, open: prompt }
+  }, [order])
+  const building = useStore((s) => s.build?.status === 'building')
   // What each turn did, kept as the same object while it says the same, so that a turn already drawn is not drawn again.
   const kept = useRef(new Map<string, { said: string; account: TurnAccount }>())
   const accounts = useMemo(() => {
@@ -386,7 +421,7 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
     if (row.kind === 'gone') {
       return (
         <GoneRow key={row.id} range={promptRange(row.rows, numbering)}>
-          {row.rows.map(draw)}
+          {drawRuns(row.rows)}
         </GoneRow>
       )
     }
@@ -400,11 +435,30 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
     const listed = list && list.length > 0 ? list : undefined
     return (
       <div key={item.id} className="chat-group" data-id={item.id}>
+        {item.kind === 'user' && <PromptHead id={item.id} number={numbering.get(item.id)} builds={history ? headBuilds(history.entries, item.id, ended.has(item.id), building && open === item.id) : undefined} queued={item.state === 'queued'} ended={ended.has(item.id)} />}
         {item.kind === 'tool' && item.name === 'TodoWrite' && listed ? <TasksCard list={listed} /> : <ItemView item={item} beat={underWay(item) ? beat : true} account={accounts.get(item.id)} joined={joins.get(item.id)} />}
         {under.get(item.id)?.map((context) => (context.forTool ? <BuildLine key={context.id} item={context} history={history} /> : <Added key={context.id} item={context} />))}
         {listed && !(item.kind === 'tool' && item.name === 'TodoWrite') && <TasksCard list={listed} />}
       </div>
     )
   }
-  return <PromptNumbers.Provider value={numbering}>{rows.map(draw)}</PromptNumbers.Provider>
+  /** The rows in order, with the tools that follow one another (and the folds of them) in one wrapping row of chips. */
+  const drawRuns = (all: readonly Row[]): ReactNode[] => {
+    const out: ReactNode[] = []
+    let run: Row[] = []
+    const flush = (): void => {
+      if (run.length > 0) out.push(<div key={`tools-${chipsKey(run[0])}`} className="chat-tools">{run.map(draw)}</div>)
+      run = []
+    }
+    for (const row of all) {
+      if (isChip(row)) run.push(row)
+      else {
+        flush()
+        out.push(draw(row))
+      }
+    }
+    flush()
+    return out
+  }
+  return <PromptNumbers.Provider value={numbering}>{drawRuns(rows)}</PromptNumbers.Provider>
 }

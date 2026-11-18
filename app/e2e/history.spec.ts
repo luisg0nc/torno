@@ -97,7 +97,6 @@ test('More in the dock opens Prompts only: a row for each prompt, newest first, 
 
   await openPrompts()
   await expect(prompts()).toBeVisible()
-  await expect(chat().getByRole('button', { name: 'Prompts only' })).toHaveAttribute('aria-pressed', 'true')
   await expect(rows()).toHaveCount(3)
   // Numbered across the project, newest first.
   await expect(rows().locator('.prompt-number')).toHaveText(['3', '2', '1'])
@@ -115,12 +114,12 @@ test('More in the dock opens Prompts only: a row for each prompt, newest first, 
   // Where the conversation began.
   await expect(prompts().locator('.prompt-began')).toContainText('Conversation began')
 
-  // The chat's own toggle puts it away, and brings it back.
-  await chat().getByRole('button', { name: 'Chat', exact: true }).click()
+  // Its Close puts it away, and the dock's More brings it back.
+  await prompts().getByRole('button', { name: 'Close', exact: true }).click()
   await expect(prompts()).toHaveCount(0)
-  await chat().getByRole('button', { name: 'Prompts only' }).click()
+  await openPrompts()
   await expect(prompts()).toBeVisible()
-  await chat().getByRole('button', { name: 'Chat', exact: true }).click()
+  await prompts().getByRole('button', { name: 'Close', exact: true }).click()
   await expect(prompts()).toHaveCount(0)
 })
 
@@ -177,8 +176,9 @@ test('a click on a row compares that prompt, with its number in the status line;
 
 test('Starred lists the prompts with a starred build, and the saves of the person are lines between the rows', async () => {
   // Star the last build of prompt 2 from its turn in the chat.
-  await chat().getByRole('button', { name: 'Chat', exact: true }).click()
-  await turns().nth(1).getByRole('button', { name: 'Star', exact: true }).click()
+  await prompts().getByRole('button', { name: 'Close', exact: true }).click()
+  await turns().nth(1).getByRole('button', { name: 'More for this turn', exact: true }).click()
+  await turns().nth(1).getByRole('menuitem', { name: 'Star', exact: true }).click()
   await expect.poll(() => kept().some((e) => e.starred)).toBe(true)
   await openPrompts()
   await expect(rows().nth(1).locator('.prompt-star')).toBeVisible()
@@ -202,7 +202,6 @@ test('a double click on a row opens the chat at that prompt', async () => {
   const id = (await first.getAttribute('data-prompt'))!
   await first.locator('.prompt-row').dblclick()
   await expect(prompts()).toHaveCount(0)
-  await expect(chat().getByRole('button', { name: 'Chat', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(chat().locator(`.chat-group[data-id="${id}"]`)).toBeInViewport()
   await expect(chat().locator(`.chat-group[data-id="${id}"]`)).toContainText('wall: float = 3')
   // Another way in, by the keys: "Open in chat" on the row.
@@ -226,7 +225,7 @@ test('a new conversation goes on with the numbers, lists beside the earlier one,
   await expect(prompts().locator('.prompt-began')).toHaveCount(2)
   await expect(prompts().locator('.prompt-began', { hasText: 'the one in the chat' })).toHaveCount(1)
   await expect(prompts().locator('.prompts-summary')).toContainText('2 conversations')
-  await chat().getByRole('button', { name: 'Chat', exact: true }).click()
+  await prompts().getByRole('button', { name: 'Close', exact: true }).click()
 
   // The chat shows this conversation; the earlier is there on demand, and says what it said.
   await expect(chat().locator('.chat-user')).toHaveCount(1)

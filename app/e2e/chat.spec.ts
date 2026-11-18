@@ -1,7 +1,7 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import type { Mark } from '../src/shared/marks'
@@ -125,7 +125,7 @@ test('a new session is a chat, with no terminal; a prompt is answered, and what 
 
   // Under the prompt: what torno added, with the mark it sent and the build; the mark is sent now.
   const added = chat().locator('.chat-added').first()
-  await expect(added).toContainText('torno added')
+  await expect(added.locator('.chat-added-label')).toHaveText('with')
   await expect(added.locator('.ref-chip[data-ref="M1"]')).toBeVisible()
   await expect(added.locator('.ref-chip[data-ref="r1"]')).toBeVisible()
   await expect(added.locator('.chat-added-build')).toContainText('ok')
@@ -372,7 +372,7 @@ test('the build an edit started is a build under the edit: that it worked and ho
   await expect(built).toContainText(/Built (r2|h\d+) ok/, { timeout: 30_000 })
   await expect(built.locator('.chat-build-head')).toContainText(/\d s$/)
   // Not what torno adds to a prompt: a build, under the card of the edit.
-  await expect(built).not.toContainText('torno added')
+  await expect(built.locator('.chat-added-label')).toHaveCount(0)
   await expect(chat().locator('.chat-group', { has: page.locator('.chat-tool') }).last().locator('.chat-build')).toHaveCount(1)
   // The dimension the edit mended, as a chip and a word; the part it changed, as the kernel said it.
   await expect(built.locator('.chat-build-dimensions li', { hasText: 'M4' })).toContainText('now passes', { timeout: 15_000 })
@@ -444,6 +444,11 @@ test('a turn ends with what it did to the project, and "See changes" shows the l
 const hollowModel = (): string => join(root, 'hollow', 'hollow.py')
 const kept = (): HistoryEntry[] => JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'history', 'index.json'), 'utf8')).entries
 const GO_BACK = 'Go back to before this prompt'
+/** An item of the turn's More menu (Go back, Star, Pin to board): the menu is opened, and the item is there to press. */
+async function moreItem(turn: Locator, name: string): Promise<Locator> {
+  await turn.getByRole('button', { name: 'More for this turn', exact: true }).click()
+  return turn.getByRole('menuitem', { name, exact: true })
+}
 
 test('a turn ends with the builds of its prompt, Compare draws them, Star keeps the last, and a save of the person between turns is a line', async () => {
   await expect(composer()).toBeEnabled()
@@ -451,8 +456,13 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   await say('edit hollow.py "wall: float = 4" "wall: float = 5"')
   await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
   const end = turns().last()
-  // The four buttons; the builds are the strip's, on top of the dock: the build the prompt began from and the one it made are its last two nodes.
-  for (const name of ['Compare', 'See changes', GO_BACK, 'Star']) await expect(end.getByRole('button', { name, exact: true })).toBeVisible()
+  // The buttons; the builds are the strip's, on top of the dock: the build the prompt began from and the one it made are its last two nodes.
+  for (const name of ['Compare', 'See changes', 'More for this turn']) await expect(end.getByRole('button', { name, exact: true })).toBeVisible()
+  // What the dots hold: Go back, Star and Pin.
+  await moreItem(end, GO_BACK)
+  for (const name of [GO_BACK, 'Star', 'Pin to board']) await expect(end.getByRole('menuitem', { name, exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(end.getByRole('menu')).toHaveCount(0)
   const nodes = dock().locator('.strip-node[data-kind="built"]')
   await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
   const ids = (await nodes.evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))).slice(-2)
@@ -465,8 +475,9 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   await expect.poll(async () => (await state()).compare).toBeNull()
 
   // Star: the history's star, on the turn's last build.
-  await end.getByRole('button', { name: 'Star', exact: true }).click()
-  await expect(end.getByRole('button', { name: 'Starred' })).toHaveAttribute('aria-pressed', 'true')
+  await (await moreItem(end, 'Star')).click()
+  await expect(await moreItem(end, 'Unstar')).toBeVisible()
+  await page.keyboard.press('Escape')
   await expect.poll(() => kept().find((e) => e.id === ids[1])?.starred).toBe(true)
 
   // The person saves the model in their own editor: a line between this turn and the next prompt, from the history's cause.
@@ -491,8 +502,9 @@ test('"Go back to before this prompt" lists what it will do, puts the file back 
   await expect.poll(() => kept().slice(kind).some((e) => e.cause === 'agent' && !e.failed), { timeout: 30_000 }).toBe(true)
   expect(readFileSync(hollowModel(), 'utf8')).toContain('wall: float = 7')
   const end = turns().last()
-  await expect(end.getByRole('button', { name: GO_BACK })).toBeEnabled()
-  await end.getByRole('button', { name: GO_BACK }).click()
+  const goBack = await moreItem(end, GO_BACK)
+  await expect(goBack).toBeEnabled()
+  await goBack.click()
   const ask = end.getByRole('alertdialog', { name: GO_BACK })
   await expect(ask).toContainText('Writes: hollow/hollow.py')
   await expect(ask).toContainText('Undoes prompt')
@@ -500,7 +512,7 @@ test('"Go back to before this prompt" lists what it will do, puts the file back 
   await ask.getByRole('button', { name: 'Cancel' }).click()
   await expect(ask).toHaveCount(0)
   expect(readFileSync(hollowModel(), 'utf8')).toContain('wall: float = 7')
-  await end.getByRole('button', { name: GO_BACK }).click()
+  await (await moreItem(end, GO_BACK)).click()
   await ask.getByRole('button', { name: 'Go back', exact: true }).click()
   await expect.poll(() => readFileSync(hollowModel(), 'utf8'), { timeout: 30_000 }).toBe(was)
   // The prompt's builds are marked, and the build that followed says what it went back to.
@@ -521,7 +533,10 @@ test('with no copy of the build to put back, the same button asks Claude to undo
   // Not while the session works.
   const slow = await turns().count()
   await say('slow 2')
-  await expect(chat().getByRole('button', { name: GO_BACK }).last()).toBeDisabled()
+  // (The last turn that has the dots: this one has none yet.)
+  await chat().getByRole('button', { name: 'More for this turn', exact: true }).last().click()
+  await expect(chat().getByRole('menuitem', { name: GO_BACK, exact: true })).toBeDisabled()
+  await page.keyboard.press('Escape')
   await expect(turns()).toHaveCount(slow + 1, { timeout: 30_000 })
   const before = slow + 1
   const kind = kept().length
@@ -531,13 +546,13 @@ test('with no copy of the build to put back, the same button asks Claude to undo
   // The copies of the builds before this prompt are gone from the disk: no copy to restore.
   for (const e of kept().slice(0, kind)) rmSync(join(root, 'hollow', '.torno', 'history', e.id, 'source'), { recursive: true, force: true })
   const last = turns().last()
-  await last.getByRole('button', { name: GO_BACK }).click()
+  await (await moreItem(last, GO_BACK)).click()
   const ask = last.getByRole('alertdialog', { name: GO_BACK })
   await expect(ask).toContainText('Claude will be asked to put the files back instead.')
   await ask.getByRole('button', { name: 'Cancel' }).click()
   await expect(ask).toHaveCount(0)
   const users = await chat().locator('.chat-user').count()
-  await last.getByRole('button', { name: GO_BACK }).click()
+  await (await moreItem(last, GO_BACK)).click()
   await ask.getByRole('button', { name: 'Ask Claude' }).click()
   // A note says what was asked and that torno writes nothing; then the prompt, with the lines to reverse, as the person's.
   await expect(chat().locator('.chat-note', { hasText: 'Undo: Claude Code is asked to put hollow.py back' })).toContainText('torno writes nothing')

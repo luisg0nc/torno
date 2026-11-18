@@ -178,19 +178,9 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
     <AskSession.Provider value={sessionId}>
     <ChatPlace.Provider value={place}>
     <div className="chat" data-session={sessionId}>
-      <div className="chat-head">
-        <span className="view-switch" role="group" aria-label="Show">
-          <button type="button" className="button button-quiet" aria-pressed={!promptsOpen} title="The conversation" onClick={() => actions.setPromptsOpen(false)}>
-            Chat
-          </button>
-          <button type="button" className="button button-quiet" aria-pressed={promptsOpen} title="One row for each prompt of this project, across its conversations" onClick={() => actions.setPromptsOpen(true)}>
-            Prompts only
-          </button>
-        </span>
-      </div>
       <div className="chat-scroll">
         {/* Over the transcript, which stays as it was scrolled to and is not reachable meanwhile. */}
-        {promptsOpen && <PromptsOnly rows={rows} current={current} onOpen={openInChat} />}
+        {promptsOpen && <PromptsOnly rows={rows} current={current} onOpen={openInChat} onClose={() => actions.setPromptsOpen(false)} />}
         <div
           className="chat-transcript"
           ref={box}

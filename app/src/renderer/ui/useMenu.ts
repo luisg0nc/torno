@@ -6,7 +6,7 @@ import { pressed, which } from '../../shared/keys'
  * outside it, the focus into its first item when it comes up and back to the button when it goes by a key. Arrows, Home and
  * End move among the items (`role="menuitem"`, not disabled); Escape and Tab put it away.
  */
-export function useMenu(dep: unknown = 0): {
+export function useMenu(dep: unknown = 0, shownAtFirst = false): {
   shown: boolean
   setShown: (shown: boolean) => void
   button: RefObject<HTMLButtonElement | null>
@@ -14,7 +14,7 @@ export function useMenu(dep: unknown = 0): {
   close: () => void
   onKeyDown: (e: ReactKeyboardEvent) => void
 } {
-  const [shown, setShown] = useState(false)
+  const [shown, setShown] = useState(shownAtFirst)
   const button = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDivElement>(null)
   const items = (): HTMLElement[] => [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])]

@@ -46,7 +46,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   only when the composer is empty and not focused. An unsent prompt in a chat that is not over is among what closing
   the window asks about (`closingWhy`'s `unsent`). "Attach view" is sent in order: main waits for the picture
   before taking the next prompt, so one sent meanwhile cannot overtake it.
-- **A tool card goes to what it showed** (`ui/chat/ToolCard.tsx`). The line is a row (`.chat-tool-row`) whose toggle
+- **A tool is a chip** (`ui/chat/ToolCard.tsx`, `ToolFold`; spec "The conversation"): 24 px, round, on `--surface`, its line in 12 px
+  with the word that carries it in bold ink (`labelParts`: the file of a `Read`, the name of the others, `torno · look` for
+  torno's own); a tool of torno's is on `--accent-wash` with its name in `--accent` (`data-torno`), and the one running
+  has an accent ring (`data-state='running'`). `ChatItems` puts the tools that follow one another, and the folds of them,
+  in one wrapping row (`.chat-tools`, `drawRuns`); one that is open, or has a picture or a build under it, takes the row's
+  whole width. Each prompt starts with a head (`PromptHead`, `headKind.ts` `headBuilds`: "Prompt 14", `h40 → h41`, `h40 → failed`
+  in `--fail`, `h40 → …` while a build runs for the prompt still going, "no build" once a prompt's turn is over with none, or
+  "queued"), from the history's own labels; the person's words are `.chat-you` on `--ink` (a queued one is outlined), with
+  their refs as chips, and what went with the prompt is the muted line "with" under it (`Added`).
+- **A tool card goes to what it showed** (`ui/chat/ToolCard.tsx`). The chip is a row (`.chat-tool-row`) whose toggle
   (`.chat-tool-line`, `aria-expanded`) covers it, so that the refs of a torno card's label are live chips (a button inside
   a button is no HTML) and the action is a button beside the state. A finished `look`, `section` or `show` has "See in
   view" (`show`: "Show again"): `seeInView` in `state/agent.ts` reads the card's input once more against the window as it is

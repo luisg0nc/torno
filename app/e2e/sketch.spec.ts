@@ -253,7 +253,7 @@ test('the next prompt carries the sketch in words: what is exact, the diameter a
   await page.keyboard.press('Enter')
   // What torno added to the prompt, the exact text the agent was given: the sketch in words, and no picture of it.
   const added = chat().locator('.chat-added').first()
-  await expect(added).toContainText('torno added', { timeout: 30_000 })
+  await expect(added.locator('.chat-added-label')).toHaveText('with', { timeout: 30_000 })
   await expect(added.locator('.ref-chip[data-ref="M1"]')).toBeVisible()
   await added.getByRole('button', { name: 'Show text' }).click()
   const text = added.locator('.chat-added-text')

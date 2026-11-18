@@ -110,7 +110,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## History of builds (`app/src/renderer`)
 
 - **Prompts only** is the history of the project, in the session pane (`ui/chat/PromptsOnly.tsx`; the old `HistorySheet` is gone). **Prompts only** in the
-  session's More menu (`SessionMore`) and the chat head's `Chat | Prompts only` toggle (`ChatPane`, the group `Show`) are
+  session's More menu (`SessionMore`) and the "Close" in the head of the list over the chat (`PromptsOnly`'s `onClose`, which `ChatPane` gives) are
   the one flag `store.promptsOpen` (`actions.setPromptsOpen`, which also shows the dock; of the open object, so another one starts at the chat).
   In the chat it is drawn over the transcript (`.prompts`, absolute inside `.chat-scroll`), which keeps its scroll and is `inert` meanwhile; where
   the chat is not (a terminal session, or no session yet) `SessionPane` draws `PromptsPane` over the session area (`.session-prompts`, with Close).
