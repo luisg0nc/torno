@@ -1,6 +1,6 @@
 import { existsSync, realpathSync, rmSync } from 'node:fs'
 import { ablations, evalTuning } from './ablations'
-import { drawsControls, frameOptions, SURFACE } from './frame'
+import { drawsControls, frameOptions, MIN_WINDOW, SURFACE } from './frame'
 import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -205,8 +205,8 @@ function createWindow(): BrowserWindow {
     // The window's own background, painted before the renderer's first frame; no native frame (`frame.ts`).
     backgroundColor: nativeTheme.shouldUseDarkColors ? SURFACE.dark : SURFACE.light,
     ...frameOptions(process.platform, nativeTheme.shouldUseDarkColors),
-    minWidth: 1100,
-    minHeight: 700,
+    minWidth: MIN_WINDOW.width,
+    minHeight: MIN_WINDOW.height,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

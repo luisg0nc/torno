@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { modelShown } from './modelWords'
 import { type ChatModel, type Effort, effortsOf } from '../../../shared/chat'
 import { Chevron } from '../Chevron'
 import { Popover } from '../Popover'
@@ -81,8 +82,8 @@ export function ModelButton({ sessionId, model, models, mode, effort, live }: { 
   }, [shown])
   return (
     <>
-      <button ref={button} type="button" className="button button-quiet session-model num" aria-haspopup="dialog" aria-expanded={shown} title="The model of this session, how Claude asks before it edits, and how hard it thinks" onClick={() => setShown(!shown)}>
-        {model ?? 'Model'}
+      <button ref={button} type="button" className="button button-quiet session-model num" aria-haspopup="dialog" aria-expanded={shown} aria-label={model} title={`${model ? `${model}: the model of this session` : 'The model of this session'}, how Claude asks before it edits, and how hard it thinks`} onClick={() => setShown(!shown)}>
+        {model ? <span className="session-model-id">{modelShown(model)}</span> : 'Model'}
         <Chevron />
       </button>
       {shown && (

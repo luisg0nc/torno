@@ -1,5 +1,6 @@
 import type { SessionStatus } from '../../../shared/bridge'
-import { type ExportFormat, type ShareKind, megabytes } from '../../../shared/exportdata'
+import { type ExportFormat, type ShareKind } from '../../../shared/exportdata'
+import { bytes } from '../../../shared/format'
 import { type Mark, awaitsAcknowledgement } from '../../../shared/marks'
 
 // The words and the small rules of the export dock (spec 2026-11-18, "Export, on the bench"): pure, so that they are held by a test.
@@ -25,12 +26,8 @@ export function fileNameOf(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
 }
 
-/** What a line weighs, as the dock says it: bytes under a kilobyte, kilobytes under a megabyte, then megabytes as the sheet always has. */
-export function weightSaid(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`
-  return megabytes(bytes)
-}
+/** What a line weighs, as the dock says it (`bytes` of `shared/format.ts`): `812 B`, `413 KB`, `1.1 MB`. */
+export const weightSaid = bytes
 
 /** The marks the agent resolved that the person has not yet seen. */
 export function marksToReview(marks: readonly Mark[]): number {

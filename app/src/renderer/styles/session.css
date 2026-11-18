@@ -83,6 +83,13 @@ button.session-model[aria-expanded='true'] {
   background: var(--accent-wash);
 }
 
+/* The id inside the button: it gives way with an ellipsis before the button does anything else (the whole id is the button's name and title). */
+.session-model-id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 button.session-model .chevron {
   flex: none;
   width: 10px;

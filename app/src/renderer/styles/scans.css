@@ -108,6 +108,12 @@ input.scan-name-field {
   transform: rotate(90deg);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .scan-toggle svg {
+    transition: none;
+  }
+}
+
 /* The detail, under the name, set in by a hairline. */
 .scan-detail {
   display: grid;

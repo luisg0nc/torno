@@ -46,6 +46,7 @@ const bridge: TornoBridge = {
     toggleMaximize: () => ipcRenderer.send('window:toggleMaximize'),
     close: () => ipcRenderer.send('window:close'),
     drawsControls: () => ipcRenderer.sendSync('window:drawsControls') === true,
+    platform: process.platform,
     onMaximized: (cb) => subscribe('window:maximized', cb)
   },
   ready: {

@@ -24,7 +24,7 @@ const appDir = resolve(__dirname, '..')
 const fakeAgent = resolve(appDir, 'test/fake-agent.mjs')
 const out = process.env.TORNO_README_SHOTS ?? ''
 const SIZE: [number, number] = [1600, 1000]
-// The model the stand-in says it is: short, so that the dock's header shows all of it (a full id is cut there at this width).
+// The model the stand-in says it is: the header says it without its `claude-` (`modelShown`), so `claude-opus-5-5` would read the same.
 const MODEL = 'opus-5-5'
 
 type Theme = 'light' | 'dark'

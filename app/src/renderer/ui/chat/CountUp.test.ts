@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -38,5 +39,11 @@ describe('a number that counts up', () => {
   it('starts from the old number where motion is welcome', () => {
     windowOf(false)
     expect(renderToStaticMarkup(createElement(CountUp, { from: 28400, to: 30190, format: number }))).toContain('>28400<')
+  })
+
+  it('keeps no per-frame state in React: the frames write the text of the span', () => {
+    const source = readFileSync(`${__dirname}/CountUp.tsx`, 'utf8')
+    expect(source).toContain('textContent')
+    expect(source).not.toMatch(/\bset[A-Z]\w*\(/)
   })
 })

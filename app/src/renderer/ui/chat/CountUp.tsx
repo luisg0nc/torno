@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /** How long a number takes to get to its value (the spec's "Motion": the table's new numbers). */
 export const COUNT_MS = 700
@@ -25,25 +25,35 @@ export function counts(from: number, to: number, once?: string): boolean {
 /**
  * A number that counts from `from` to `to` once, in 0.7 s, written by `format` (the format of the app, `shared/format.ts`).
  * It shows `to` at once under reduced motion, and in a render that cannot move. `once`: a key the count is made
- * only once for in this window.
+ * only once for in this window. The frames write the text of the span itself: nothing of React's state changes per frame.
  */
 export function CountUp({ from, to, format, once }: { from: number; to: number; format: (n: number) => string; once?: string }) {
-  const [shown, setShown] = useState(() => (counts(from, to, once) ? from : to))
+  const span = useRef<HTMLSpanElement>(null)
+  // What the first render draws (and a render on the server): React never writes the span again, the effect does.
+  const [first] = useState(() => format(counts(from, to, once) ? from : to))
   useEffect(() => {
+    const write = (n: number): void => {
+      if (span.current) span.current.textContent = format(n)
+    }
     if (!counts(from, to, once)) {
-      setShown(to)
+      write(to)
       return
     }
     if (once !== undefined) counted.add(once)
     const began = performance.now()
     let frame = 0
     const step = (now: number): void => {
-      setShown(countAt(from, to, now - began))
+      write(countAt(from, to, now - began))
       if (now - began < COUNT_MS) frame = requestAnimationFrame(step)
     }
-    setShown(from)
+    write(from)
     frame = requestAnimationFrame(step)
     return () => cancelAnimationFrame(frame)
+    // `format` is a pure writer: a new one each render is no reason to count again.
   }, [from, to, once])
-  return <span className="num count-up">{format(shown)}</span>
+  return (
+    <span ref={span} className="num count-up">
+      {first}
+    </span>
+  )
 }

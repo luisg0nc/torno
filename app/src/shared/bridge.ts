@@ -251,6 +251,8 @@ export interface TornoBridge {
     close(): void
     /** True where the window has to draw the three buttons: where the platform gives none. */
     drawsControls(): boolean
+    /** The platform's name (`process.platform`): the window sets it on the root as `data-platform` for the title bar's padding. */
+    platform: string
     /** The window was maximised (true) or put back (false), also once when it has loaded; returns how to stop listening. */
     onMaximized(fn: (max: boolean) => void): () => void
   }

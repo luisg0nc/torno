@@ -1,5 +1,6 @@
 import type { SketchPlane, SketchStroke } from '../../../shared/marks'
 import type { SketchDraft } from '../../../shared/bridge'
+import { offsetNumber } from '../../../shared/format'
 import { planeName } from '../../tools/planes'
 
 /** One row of "Planes and strokes": a plane of the sketch, as the person is told it, and how many strokes are on it. */
@@ -53,7 +54,7 @@ const ACROSS = { XY: 'z', XZ: 'y', YZ: 'x' } as const
  * offset runs along where it is a main plane's (its letter is set in that axis's colour) and the offset to a tenth of a millimetre.
  */
 export function planeTagWords(plane: Pick<SketchPlane, 'label' | 'from'>, offset: number): { name: string; axis?: 'x' | 'y' | 'z'; value: string } {
-  const value = (Math.round(offset * 10) / 10).toFixed(1)
+  const value = offsetNumber(offset)
   if (plane.from.kind === 'main') return { name: `${planeName(plane.label).split(' ')[0]} plane`, axis: ACROSS[plane.from.axis], value }
   return { name: planeName(plane.label), value }
 }

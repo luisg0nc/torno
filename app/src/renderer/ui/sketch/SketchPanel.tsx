@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { hint, pressed } from '../../../shared/keys'
 import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, type SketchTake } from '../../../shared/marks'
-import { number } from '../../../shared/format'
+import { number, offsetNumber } from '../../../shared/format'
 import { finishSketch, offsetOf, pickPlane, setDiameter, setLit, setName, setNote, setOffset, setPlane, setSnapping, setTake, setXray, undoStroke, useSketching } from '../../state/sketching'
 import { useStore } from '../../state/store'
 import { useTool } from '../../state/tools'
@@ -276,7 +276,7 @@ export function SketchPlaneTag({ viewport }: { viewport: Viewport }) {
     return onPaneDrawn(() => {
       const now = viewport.sketchOffset()
       if (now === null || !value.current) return
-      const text = (Math.round(now * 10) / 10).toFixed(1)
+      const text = offsetNumber(now)
       if (value.current.textContent !== text) value.current.textContent = text
     })
   }, [viewport, words?.name])

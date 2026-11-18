@@ -1116,6 +1116,17 @@ The mockup is a picture, and in these places it is wrong about what torno does. 
   `SHEET`, `overlay.ts` `AXIS_COLOURS`, `SURFACE` in `main/index.ts`, `ui/drawing/make.ts`): `--ink` changes, and they follow
   it, held by the existing tests.
 
+### Changed in the build
+
+What the build did differently from the text above, on purpose:
+
+- The `ask.option` key row covers 1 to 9, not 1 to 3: the agent's own asks have options with keys too. torno's own
+  question still takes 1 to 3.
+- Section's `next` text and `left.resize`'s text are reworded, so that neither says "panel" or "bar".
+- The MCP tools' words "Scans panel" became "Scans section".
+- torno's own ask has "Or say what to do instead" as a button that focuses the box; torno's ask takes no text answer.
+- The export tile and the frame take `--radius-control` and `--radius-float`, as the radius invariant says.
+
 ---
 
 ## 6. Stages

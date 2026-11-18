@@ -68,7 +68,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   ", retrying (attempt 3)" inside the `role="status"` `.session-status`, which stays the first status of the dock), beside it
   `.session-elapsed` (`0:42`, `ui/sessionClock.ts`, counted by the second while the status is `working` from `workStart`, a
   session's own; not part of the status's text), then at the right the model (`ModelButton` of `chat/ModelMenu.tsx`: one mono
-  button named by the model, a `Popover` with the model, edits and effort lists, which are the lists of today in rows
+  button named by the whole id (`aria-label`, and its title) that says it without its `claude-`, `opus-5-5`, `modelShown` in `chat/modelWords.ts`, so that the id is not cut in the header's room, a `Popover` with the model, edits and effort lists, which are the lists of today in rows
   (`dock-menu-row`); a terminal's session has the model as a plain word), the segment **Chat / Terminal** (`role="group"` named
   View, buttons with `aria-pressed`) and **More** (`ui/SessionMore.tsx`, `aria-label` "More", a `Popover` holding a
   `role="menu"` named More, `useMenu`: arrows, Home, End, Escape and a press outside). Its items: End (a session that is not
