@@ -1,0 +1,309 @@
+/* The title bar (ui/TitleBar.tsx): the first row of the shell grid, 40 px, on the surface. It is the window's drag region;
+   every button, crumb and pill in it is no-drag. From the left the vise, the folder, the project; at the right the session
+   signs, the dock's toggle and the window controls (drawn only where the platform gives none). */
+
+.title-row {
+  grid-area: 1 / 1 / 2 / -1;
+  position: relative;
+  /* Above the panels and the view, so that the menus that hang from it are not under them; under the sheets. */
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-left: var(--space-3);
+  border-bottom: var(--divider);
+  background: var(--surface);
+  -webkit-app-region: drag;
+}
+
+.title-vise {
+  display: inline-flex;
+  flex: none;
+  margin-right: var(--space-2);
+}
+
+.title-vise .logo {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  color: var(--ink);
+}
+
+.title-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A crumb: the folder (600) or the project (500), with the chevron that says it opens a menu. */
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.crumb-project {
+  font-weight: 500;
+}
+
+button.crumb:hover:not(:disabled),
+button.crumb[aria-expanded='true'] {
+  background: var(--accent-wash);
+}
+
+.crumb:disabled {
+  color: var(--muted);
+}
+
+.workspace-name,
+.crumb-name {
+  min-width: 0;
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumb .chevron {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  color: var(--muted);
+}
+
+.crumb-slash {
+  flex: none;
+  color: var(--field-edge);
+}
+
+/* The menus that hang from the crumbs: the folder's and the project's. A popover, `--raise`. */
+.folder-menu-host {
+  position: relative;
+  flex: none;
+  min-width: 0;
+  -webkit-app-region: no-drag;
+}
+
+.folder-menu,
+.project-menu {
+  z-index: 20;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--raise);
+  -webkit-app-region: no-drag;
+}
+
+.folder-menu {
+  width: 232px;
+}
+
+.project-menu {
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.menu-title {
+  margin: 0;
+  padding: 4px 9px 2px;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.menu-rule {
+  width: 100%;
+  margin: 3px 0;
+  border: 0;
+  border-top: var(--divider);
+}
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.folder-item {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  padding: 4px 9px;
+}
+
+.folder-item:disabled {
+  color: var(--ink);
+}
+
+.folder-name,
+.folder-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-path {
+  color: var(--muted);
+  font-size: 11px;
+  direction: rtl;
+  text-align: left;
+}
+
+.folder-row[data-missing] .folder-name {
+  text-decoration: line-through;
+}
+
+.folder-row[data-missing] .folder-item {
+  color: var(--muted);
+}
+
+.folder-said {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* The open folder's mark: a check beside the word, in the muted face of the row's other words. */
+.folder-check {
+  width: 12px;
+  height: 12px;
+  margin-right: 3px;
+  vertical-align: -1px;
+}
+
+.folder-remove {
+  flex: none;
+  color: var(--accent);
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  white-space: nowrap;
+}
+
+.project-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-item[aria-current='true'] .project-name {
+  font-weight: 600;
+}
+
+.project-item[data-problem] .project-name {
+  color: var(--muted);
+}
+
+/* The session signs of the folder's other projects: a pill each, at most two, then +N. */
+.title-signs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
+}
+
+.title-sign {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-small);
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.title-sign:hover {
+  background: var(--accent-wash);
+}
+
+.title-sign[data-sign='needs_input'] {
+  background: var(--warn-wash);
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.title-more {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* Shows and hides the dock. It has its place in the title bar, so it does not move when the dock goes. */
+.dock-toggle {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--space-2);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  -webkit-app-region: no-drag;
+}
+
+.dock-toggle:hover {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.dock-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The window's own controls, 46 x 40 each, where the platform draws none. */
+.window-controls {
+  display: flex;
+  flex: none;
+}
+
+.window-control {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  -webkit-app-region: no-drag;
+}
+
+.window-control:hover {
+  background: var(--accent-wash);
+}
+
+.window-control svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Over the first screen, which has no title bar: the controls alone, at the top right. */
+.title-bare {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 5;
+}

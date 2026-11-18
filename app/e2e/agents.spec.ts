@@ -168,6 +168,8 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
     await expect(item('measures').locator('.session-sign-word')).toHaveText('needs you')
   })
   await expect(needs()).toContainText('measures needs you')
+  // The title bar says it too: a pill for the other project, named by it, with the session said as its description.
+  await expect(page.locator('.title-row').getByRole('button', { name: 'measures', exact: true, description: 'session needs you' })).toHaveAttribute('data-sign', 'needs_input')
   // The button opens it and shows the dock, hidden or not.
   for (const hidden of [false, true]) {
     await open('bracket')

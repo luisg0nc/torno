@@ -63,7 +63,7 @@
   background: var(--warn);
 }
 
-/* On the toggle: a dot over the icon's corner, ringed in the ground it lies on; the one that needs you is larger,
+/* On the toggle (in the title bar): a dot over the icon's corner, ringed in the ground it lies on; the one that needs you is larger,
    so that it is not told from the other by colour alone. */
 .dock-toggle .session-sign {
   position: absolute;
@@ -72,7 +72,7 @@
 }
 
 .dock-toggle .session-sign .status-dot {
-  box-shadow: 0 0 0 2px var(--panel);
+  box-shadow: 0 0 0 2px var(--surface);
 }
 
 .dock-toggle .session-sign[data-sign='needs_input'] .status-dot {

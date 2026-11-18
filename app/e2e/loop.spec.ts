@@ -119,7 +119,7 @@ test('the object list shows the objects; one that cannot be built is muted, with
   await expect(two).toHaveAttribute('title', /more than one model file in .*two: a\.py, b\.py/)
   await expect(two).toHaveAttribute('data-problem', '')
   await expect(page.getByRole('button', { name: 'bracket', exact: true })).not.toHaveAttribute('data-problem')
-  await expect(page.locator('[data-region="left"] .workspace-name')).toHaveAttribute('title', root)
+  await expect(page.getByRole('button', { name: /^Folder / })).toHaveAttribute('title', root)
   await expect(page.locator('[data-region="viewport"]')).toContainText('No project open')
 })
 
@@ -601,7 +601,7 @@ test.describe('the workspace is remembered', () => {
       try {
         const secondPage = await second.firstWindow()
         await expect(secondPage.locator('.object-row')).toHaveText(['thing'])
-        await expect(secondPage.locator('.workspace-name')).toHaveText('objects')
+        await expect(secondPage.locator('.title-row .workspace-name')).toHaveText('objects')
       } finally {
         await second.close()
       }

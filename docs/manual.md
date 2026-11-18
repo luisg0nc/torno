@@ -107,17 +107,17 @@ shown: a model with three parts (a body, a lid and a clip), a brief written as a
 person would, two marks, a dimension that fails and two saved views. It is
 copied to a temporary folder. That copy is
 removed when torno quits, with whatever was made in it, and the window says so
-under the workspace's name for as long as it is open; one that a crash left is
+at the top of the Projects panel for as long as it is open; one that a crash left is
 removed at the next start. To keep what you made in it, press "Keep this as a
-folder…" under the workspace's name: choose a name in the dialog and torno copies
+folder…" there: choose a name in the dialog and torno copies
 the whole example, with the marks, the views and the chat, to a new folder of
 that name, whole or not at all, and opens it in place of the copy. It never
 writes into a folder that exists, so a name that is taken is refused, and the
 new folder is added to the folders opened lately. A folder given to `scripts/torno` is added to the
 folders opened lately, as one opened from the window is.
 
-Once a folder is open, the folder button at the top left opens a menu with the
-same ways to another: the folders opened lately (one that is not found is
+Once a folder is open, the title bar across the top of the window names it, as the first crumb
+(`parts ▾`), and that crumb opens a menu with the same ways to another: the folders opened lately (one that is not found is
 struck and can be removed), "Open folder…" and "Open the example", and "Check what torno needs".
 
 Left alone, Electron chooses whether to draw on Wayland or X11. If the window
@@ -245,10 +245,10 @@ body, a lid and a clip. The lid rattles, which is what you will fix.
 10. "Export…" at the bottom right (or `Ctrl+Shift+E`) writes one HTML file that
     someone without torno can open: it needs nothing else.
 
-11. To keep what you made, press "Keep this as a folder…" under the
-    workspace's name and choose a name. Otherwise it is removed when torno
+11. To keep what you made, press "Keep this as a folder…" in the
+    Projects panel and choose a name. Otherwise it is removed when torno
     quits. Press `?` for every key, and `W` for the page of projects. Then open
-    your own folder with the folder button at the top left.
+    your own folder with the folder crumb in the title bar.
 
 Torno wrote only in the temporary copy, and in the one folder you chose if you
 kept it.
@@ -264,6 +264,13 @@ named after the folder, with `-` and `_` taken as the same:
 the model it chose for as long as that file exists. A folder where no model
 can be chosen, or a model with none of the forms below, is listed with the
 reason it cannot be built.
+
+The title bar names the folder and, with a project open, the project (`parts ▾ / intake ▾`): the project crumb opens a short
+menu with All projects at its head and then each project. At its right it shows the other projects whose session works
+(`guitar-wall-stand is working`) or waits (`intake needs you`), two at most and then `+N`; a click opens that project and
+its question. The session pane's show and hide button is there too, before the window controls, which torno draws itself
+where the system gives none. On the page of projects only the folder shows, and on the page of a new project the second crumb reads
+"New project".
 
 The Projects panel lists the projects of the folder: a dot on a row for a session that works or waits,
 the reason under one that cannot be built, and "New project" at its foot. With a project open in a folder of
@@ -433,7 +440,7 @@ wider (`Left` and `Right` with it in focus), double click it for the default wid
 narrower than 1360 px); the panel is never narrower than that, and leaves the view at least 420 px beside the rail and
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
 panel is open and how wide it is, and how wide the session pane is, are kept by the window, not in the folder. On the page of projects the rail offers Projects and Marks, and while a new
-project is made, Projects alone. The Projects panel starts with the folder's name and its menu.
+project is made, Projects alone. The folder's name and its menu are in the title bar.
 The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
@@ -475,12 +482,12 @@ middle button to pan, scroll to zoom, `F` to fit the selection (pressed again, a
 (red), Y (green) and Z (blue) run in the project's own frame, as the agent's pictures
 do, and in the bottom right corner are a scale bar (orthographic) or the step of the grid,
 `grid 5 mm` (perspective); the bar at the top switches layout
-(`assembly`, `print`), view and projection. The folder button (top left)
+(`assembly`, `print`), view and projection. The folder crumb in the title bar
 opens a menu of the folders opened lately (the open one marked "current"),
 "Open folder…" and the example; opening another ends the sessions of this one,
 so torno asks first, in a dialog that names the projects, if one of them is
-working or waiting for an answer. A folder that cannot be opened is said under
-the folder's name, and the workspace stays as it was.
+working or waiting for an answer. A folder that cannot be opened is said at the top of
+the Projects panel, and the workspace stays as it was.
 
 "Rebuild", in the line at the bottom beside how the build stands, builds the
 open project again from its sources as they are (`Ctrl+Shift+B` from anywhere).

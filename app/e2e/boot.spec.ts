@@ -92,11 +92,11 @@ test('the leader layer covers the window, takes no pointer, and is empty until a
 })
 
 test('the four shell regions exist with their placeholders', async () => {
-  await expect(page.locator('aside[data-region="left"] .workspace-name')).toHaveText(root.split('/').pop()!)
+  await expect(page.locator('.title-row .workspace-name')).toHaveText(root.split('/').pop()!)
   // Said once, by the page of objects, which is where a workspace with none starts.
   await expect(page.locator('main[data-region="viewport"]')).toContainText(`No projects in ${root.split('/').pop()!} yet`)
   await expect(page.locator('aside[data-region="left"]')).not.toContainText('No projects here yet')
-  await expect(page.getByRole('button', { name: 'Folders' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Folder / })).toBeVisible()
   await expect(page.locator('main[data-region="viewport"]')).toContainText('No project open')
   await expect(page.locator('aside[data-region="session"]')).toBeVisible()
   await expect(page.locator('footer[data-region="status"]')).toBeVisible()
@@ -105,7 +105,7 @@ test('the four shell regions exist with their placeholders', async () => {
 test('the shell is one grid: a title row, the left column, the view, the dock and the status line', async () => {
   const box = async (sel: string) => (await page.locator(sel).boundingBox())!
   const win = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
-  // A title row of 40 across the window, empty for now.
+  // A title row of 40 across the window: the title bar.
   expect(await box('.title-row')).toEqual({ x: 0, y: 0, width: win.w, height: 40 })
   const left = await box('[data-region="left"]')
   expect(left.x).toBe(0)

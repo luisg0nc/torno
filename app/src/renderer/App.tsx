@@ -18,11 +18,9 @@ import { ObjectList } from './ui/ObjectList'
 import { PanelHost } from './ui/PanelHost'
 import { Rail, useRail } from './ui/Rail'
 import { SessionPane } from './ui/SessionPane'
-import { SessionDot } from './ui/SessionDot'
-import { dockToggleName, dockToggleSaid, signOf } from './ui/sessionSign'
 import { ExportSheet } from './ui/ExportSheet'
 import { ViewBoard } from './ui/drawing/ViewBoard'
-import { FolderMenu } from './ui/FolderMenu'
+import { BareControls, TitleBar } from './ui/TitleBar'
 import { ShowPage, usePageKey } from './ui/ShowPage'
 import { NewObject, openNewObject } from './ui/onboard/NewObject'
 import { draftHas, onboard, onboarding } from './state/onboard'
@@ -348,8 +346,6 @@ export function App() {
   const boardOf = useBoard((s) => (s.shown === 'board' ? s.objectId : null))
   // So does a tracing, on the same page.
   const tracingOf = useBoard((s) => (s.shown === 'tracing' ? s.objectId : null))
-  // The sign of the open object's session, for the dock's toggle while the dock is away.
-  const dockSign = useStore((s) => signOf(s.objectId === null ? undefined : s.sessions[s.objectId]?.status))
   // While the edge is dragged the width goes straight to the CSS variable, so
   // React renders once at the end rather than on every pointer move.
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null)
@@ -470,16 +466,9 @@ export function App() {
 
   const revealDock = useCallback(() => actions.setDockOpen(true), [])
 
-  // The Projects panel: the folder's name and menu at its top, what is to be said of the folder, then the list.
+  // The Projects panel: what is to be said of the folder, then the list. The folder's name and menu are the title bar's.
   const projectsPanel = workspace && (
     <>
-      <header className="panel-head">
-        <h1 className="workspace-name" title={workspace.root}>
-          {basename(workspace.root)}
-        </h1>
-        {/* The way to another folder: those opened lately, the dialog, the example. */}
-        <FolderMenu open={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} />
-      </header>
       {/* For as long as the example is open: what is made here does not outlive torno, and it says so where the folder is named. */}
       {workspace.example && (
         <p className="workspace-example" role="note">
@@ -505,6 +494,7 @@ export function App() {
         <main className="viewport welcome" data-region="viewport">
           <Welcome onPick={() => void pickWorkspace()} onOpened={showWorkspace} />
         </main>
+        <BareControls />
         <KeySheet />
       </div>
     )
@@ -518,7 +508,7 @@ export function App() {
       data-panel={rail.shown ?? 'closed'}
       style={kept === null ? undefined : ({ '--dock-w': `${kept}px` } as CSSProperties)}
     >
-      <div className="title-row" />
+      <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
       <aside className="left" data-region="left" aria-label="Panels">
         <Rail offered={rail.offered} shown={rail.shown} />
         <PanelHost shown={rail.shown} shell={shell} projects={projectsPanel} />
@@ -559,21 +549,6 @@ export function App() {
         />
         <SessionPane onReveal={revealDock} />
       </aside>
-
-      <button
-        type="button"
-        className="dock-toggle"
-        aria-label={dockToggleName(dockOpen)}
-        aria-description={dockToggleSaid(dockOpen, dockSign)}
-        aria-expanded={dockOpen}
-        title={dockToggleSaid(dockOpen, dockSign) ? `${dockToggleName(dockOpen)}: ${dockToggleSaid(dockOpen, dockSign)}` : dockToggleName(dockOpen)}
-        data-session={!dockOpen && dockSign !== null ? dockSign : undefined}
-        onClick={() => actions.setDockOpen(!dockOpen)}
-      >
-        <DockIcon />
-        {/* Hidden, the session of the open object still shows that it works, or waits for the answer. */}
-        {!dockOpen && dockSign !== null && <SessionDot sign={dockSign} />}
-      </button>
 
       {/* Over everything but the keys: the window's own questions, closing torno and leaving the folder. */}
       {closing !== null && (
@@ -619,13 +594,4 @@ export function App() {
 
 function basename(path: string): string {
   return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
-}
-
-function DockIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden="true">
-      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.75" />
-      <path d="M10 2.75v10.5" />
-    </svg>
-  )
 }

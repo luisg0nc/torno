@@ -114,8 +114,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   off (Layers), the model's checks that fail (Params), the scans not aligned (Scans), the marks to review (Marks)
   (`ui/railBadges.ts`: the text, and the same in words as the button's `aria-description`; the number is in the
   monospace face and the badge is `aria-hidden`). The Projects icon carries the dot of any project's session that works or waits
-  (`switcherSign`), its description naming which. Projects is the workspace's: the folder's name and menu, the example's
-  note, a folder that would not open, then the list; Params is Parameters, then Checks and Print profile; the sections
+  (`switcherSign`), its description naming which. Projects is the workspace's: the example's
+  note, a folder that would not open, then the list (the folder's name and menu are the title bar's); Params is Parameters, then Checks and Print profile; the sections
   of a panel do not fold, and the panel scrolls as a whole except Marks, which keeps its title and line of checks in
   place and scrolls its list. Which panel is open and the panel's width are the window's (`store.column`: `{ open, width }`,
   in `localStorage` under `torno.column`, read and written in try/catch; a value of the old shape, folded sections and a

@@ -138,10 +138,10 @@ test('opening another folder while a session is working is asked about first; "S
   await pick(other)
   const before = await picks()
 
-  // The folder button is a menu now: the dialog is one of its ways.
+  // The folder crumb of the title bar is a menu: the dialog is one of its ways.
   await openPanel(page, 'Projects')
-  await left().getByRole('button', { name: 'Folders' }).click()
-  await left().getByRole('menuitem', { name: 'Open folder…' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   // A dialog over the whole window, not a strip of the left column: it names the object whose session is at work.
   const ask = page.getByRole('alertdialog', { name: 'End the sessions of this folder?' })
   await expect(ask).toBeVisible()
@@ -165,8 +165,8 @@ test('opening another folder while a session is working is asked about first; "S
   expect(await picks()).toBe(before)
   expect(await state()).toMatchObject({ page: 'object', objectId: 'bracket' })
   await openPanel(page, 'Projects')
-  await left().getByRole('button', { name: 'Folders' }).click()
-  await left().getByRole('menuitem', { name: 'Open folder…' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect(ask).toBeVisible()
 
   // Modal after a click on its backdrop too: the focus stays in it, no key reaches the view or the window behind
@@ -187,8 +187,8 @@ test('opening another folder while a session is working is asked about first; "S
   await expect(ask).toHaveCount(0)
   expect(await picks()).toBe(before)
   await openPanel(page, 'Projects')
-  await left().getByRole('button', { name: 'Folders' }).click()
-  await left().getByRole('menuitem', { name: 'Open folder…' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect(ask).toBeVisible()
   await page.mouse.click(4, 4)
   await page.keyboard.press('Escape')
@@ -196,8 +196,8 @@ test('opening another folder while a session is working is asked about first; "S
   expect(await picks()).toBe(before)
   expect((await state()).workspace?.root).toBe(root)
   await openPanel(page, 'Projects')
-  await left().getByRole('button', { name: 'Folders' }).click()
-  await left().getByRole('menuitem', { name: 'Open folder…' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect(ask).toBeVisible()
 
   await ask.getByRole('button', { name: 'Stay here' }).click()
@@ -210,10 +210,10 @@ test('opening another folder while a session is working is asked about first; "S
 })
 
 test('"Open another folder" goes on to the folder, and the sessions end', async () => {
-  // The folder button is a menu now: the dialog is one of its ways.
+  // The folder crumb of the title bar is a menu: the dialog is one of its ways.
   await openPanel(page, 'Projects')
-  await left().getByRole('button', { name: 'Folders' }).click()
-  await left().getByRole('menuitem', { name: 'Open folder…' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Open another folder' }).click()
   await expect.poll(async () => (await state()).workspace?.root).toBe(other)
   await expect(page.getByRole('alertdialog')).toHaveCount(0)
@@ -226,10 +226,10 @@ test('with no session in the middle of anything, another folder is opened withou
   await dock().getByRole('button', { name: 'New session' }).click()
   await expect(sessionStatus()).toHaveText('Idle')
   await pick(root)
-  // The folder button is a menu now: the dialog is one of its ways.
+  // The folder crumb of the title bar is a menu: the dialog is one of its ways.
   await openPanel(page, 'Projects')
-  await left().getByRole('button', { name: 'Folders' }).click()
-  await left().getByRole('menuitem', { name: 'Open folder…' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   await expect.poll(async () => (await state()).workspace?.root).toBe(root)
   await expect(left().getByRole('alertdialog')).toHaveCount(0)
 })

@@ -86,12 +86,6 @@ button {
   --switch-h: 34px;
 }
 
-/* The title row: empty for now (the window's title bar goes in it), on the surface, across the whole window. */
-.title-row {
-  grid-area: 1 / 1 / 2 / -1;
-  background: var(--surface);
-}
-
 .shell[data-panel='closed'] {
   --card-space: 0px;
 }
@@ -275,20 +269,6 @@ button {
   letter-spacing: -0.02em;
 }
 
-.workspace-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.left .panel-head {
-  gap: var(--space-2);
-  padding-right: var(--space-2);
-}
-
 .panel-title {
   font-weight: 500;
 }
@@ -328,45 +308,6 @@ button {
 
 .dock-edge:focus-visible {
   outline: none;
-}
-
-/* Shows and hides the dock. It stays in the window's top right corner either
-   way, so it does not move when the dock goes. Over the page of projects, whose head is sticky and
-   stacked above the viewport (z-index 2), or the button could not be pressed with the dock away. */
-.dock-toggle {
-  position: absolute;
-  z-index: 3;
-  top: 6px;
-  right: var(--space-2);
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-}
-
-.dock-toggle:hover {
-  background: var(--accent-wash);
-  color: var(--accent);
-}
-
-/* With the dock hidden the button floats on the viewport and needs its own ground. */
-.shell[data-dock='collapsed'] .dock-toggle {
-  border-color: var(--hairline);
-  background: var(--panel);
-}
-
-.shell[data-dock='collapsed'] .dock-toggle:hover {
-  background: var(--accent-wash);
-}
-
-.dock-toggle svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* The right edge of the docked panel: a band of 9 px to take hold of, a hairline of the accent when it is hot. */

@@ -85,15 +85,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   folder is fine, and, where torno runs from its repository, a quiet "Open the example". Coming back: the recent
   folders first, no tree. One footer: torno writes only into `.torno`, and the new folder of a project you make. Its head is the logo (`ui/Logo.tsx`) over the name: the vise in `--ink`, the part in `--accent`. The
   same logo is in `--muted` over an empty view or page, and plain (one colour) where a picture is missing.
-- For as long as the example is the open folder, the note under the folder's name (`EXAMPLE_NOTE`) has a link-button,
+- For as long as the example is the open folder, the note at the top of the Projects panel (`EXAMPLE_NOTE`) has a link-button,
   "Keep this as a folder…" (`KEEP` in `App.tsx`, through `leave`, so that it asks first as opening a folder does):
   main shows the save dialog and copies (`workspace.keepExample`); the folder it made is opened in place of the copy.
-- With a folder open, the folder button at the top of the Projects panel is a menu
-  (`ui/FolderMenu.tsx`): the recent folders, "Open folder…", "Open the
+- With a folder open, the folder crumb of the title bar (`ui/TitleBar.tsx`, `Folder parts`) is a menu
+  (`ui/FolderMenu.tsx`, hung from the crumb as a popover, `useMenu` for its keys): the recent folders, "Open folder…", "Open the
   example". A folder torno is started with (`TORNO_WORKSPACE`) is added to the
   recent ones; the workspace to open next stays the one chosen in the window. The open folder's row is marked
   with a check and the word "current" in the muted face. A folder that cannot be opened (one gone since the menu
-  was read, one main refuses) leaves the workspace as it is and is said under the folder's name, a `role="alert"`
+  was read, one main refuses) leaves the workspace as it is and is said at the top of the Projects panel, a `role="alert"`
   line with `openProblem`'s text, until the next action (`goTo` in `App.tsx` returns the problem).
 - **The window's own questions are dialogs over the whole window, not strips of a panel.** Closing torno and
   opening another folder while something would be cut short ask in `ui/WorkspaceQuestion.tsx`, a centred

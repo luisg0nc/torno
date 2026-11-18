@@ -90,9 +90,9 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.keyboard.press('Enter')
   await expect(page.locator('.view-chip[data-view="From the front"]')).toBeVisible()
   await pinIsInHand('a view saved')
-  // The folder menu, which is at the top of the Projects panel, opened and closed.
+  // The folder menu, from the folder crumb of the title bar, opened and closed.
   await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'Folders' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
   await expect(page.getByRole('menu', { name: 'Folders' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('menu', { name: 'Folders' })).toHaveCount(0)

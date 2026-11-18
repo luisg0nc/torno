@@ -380,10 +380,10 @@ test('the rail keeps Projects and Marks while the page is up, and Escape closes 
   await page.keyboard.press('Enter')
   await expect(page.locator('[data-region="session"]').getByRole('status')).toHaveText('Working')
   expect((await state()).page).toBe('objects')
-  // The folder button is at the top of the Projects panel, and a menu: the dialog is one of its ways.
+  // The folder crumb of the title bar is a menu: the dialog is one of its ways.
   await openPanel(page, 'Projects')
-  await page.locator('[data-region="left"]').getByRole('button', { name: 'Folders' }).click()
-  await page.locator('[data-region="left"]').getByRole('menuitem', { name: 'Open folder…' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   const ask = page.getByRole('alertdialog', { name: 'End the sessions of this folder?' })
   await expect(ask).toBeVisible()
   await page.keyboard.press('Escape')
@@ -415,7 +415,7 @@ test('the Projects panel lists every project, opens another by the pointer, and 
   const left = page.locator('[data-region="left"]')
   const objects = objectList(page)
   await openPanel(page, 'Projects')
-  await expect(left.locator('.workspace-name')).toBeVisible()
+  await expect(page.locator('.title-row .workspace-name')).toBeVisible()
   await expect(objects.locator('.object-row')).toHaveCount(count)
   await expect(objects.getByRole('button', { name: 'hollow', exact: true })).toHaveAttribute('aria-current', 'true')
   await expect(objects.getByRole('button', { name: 'All projects' })).toBeVisible()

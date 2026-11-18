@@ -121,6 +121,39 @@ test('the agent was started at the size of the terminal, and is told when it cha
   expect(await text()).toContain('> hi')
 })
 
+test('the title bar holds the folder, the project and its menu, the dock toggle and the window controls', async () => {
+  await openObject('bracket')
+  const bar = page.locator('.title-row')
+  await expect(bar.getByRole('button', { name: /^Folder / })).toBeVisible()
+  const project = bar.getByRole('button', { name: 'Project bracket' })
+  await expect(project).toBeVisible()
+  // The bar is the window's drag region, and its crumbs are not.
+  const region = (sel: string) => page.locator(sel).first().evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region'))
+  expect(await region('.title-row')).toBe('drag')
+  expect(await region('.crumb-folder')).toBe('no-drag')
+  // The project menu: All projects at its head, then the folder's projects; one chosen is the open project.
+  await project.click()
+  const menu = page.getByRole('menu', { name: 'Projects' })
+  await expect(menu.getByRole('menuitem').first()).toHaveText(/^All projects/)
+  await expect(menu.getByRole('menuitem', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
+  await menu.getByRole('menuitem', { name: 'hollow', exact: true }).click()
+  await expect(menu).toHaveCount(0)
+  await expect(bar.getByRole('button', { name: 'Project hollow' })).toBeVisible()
+  await expect.poll(async () => (await state()).objectId).toBe('hollow')
+  // On the page of projects only the folder shows.
+  await page.keyboard.press('Escape')
+  await bar.getByRole('button', { name: 'Project hollow' }).click()
+  await menu.getByRole('menuitem', { name: /^All projects/ }).click()
+  await expect(bar.getByRole('button', { name: /^Project / })).toHaveCount(0)
+  await expect(bar.getByRole('button', { name: /^Folder / })).toBeVisible()
+  // The dock's toggle is in the bar, and the window draws its controls here: 46 by 40 each.
+  await expect(bar.getByRole('button', { name: 'Hide session' })).toBeVisible()
+  const controls = bar.locator('.window-control')
+  await expect(controls).toHaveCount(3)
+  for (const control of await controls.all()) expect(await control.boundingBox()).toMatchObject({ width: 46, height: 40 })
+  await openObject('bracket')
+})
+
 test('the terminal is drawn in the colours of the tokens, in both schemes', async () => {
   const theme = () => page.evaluate(() => window.__tornoTerm!.theme())
   expect(await theme()).toEqual({ background: '#FAF9F6', foreground: '#20242B' })

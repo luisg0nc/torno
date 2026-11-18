@@ -42,6 +42,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   carries the dot of any object of the list whose session works or waits (`switcherSign`: a waiting one first); its
   description says each (`session is working; bracket needs you`), "needs you" alone for the open object's; the rows of the
   Projects panel have their own dots.
+- **The title bar** (`ui/TitleBar.tsx`, `styles/titlebar.css`) is the row above the columns, a drag region (`-webkit-app-region`;
+  every crumb, pill and button in it is `no-drag`): the vise, the folder crumb (`Folder <name>`, `FolderMenu`), `/`, the
+  project crumb (`Project <name>`; its menu, `role="menu"` named Projects, is All projects first, then each project; only on
+  the page of a project, and "New project" on the new page), then at the right the session signs of the *other* projects
+  (`ui/titleSigns.ts`: waiting first, at most two, `+N`; each a button named by the project with `session needs you` / `session is working`
+  as its description, a click opens it and, if it waits, shows the dock and `focusAsk`), the dock's toggle (same name, description and
+  title as before, `.dock-toggle`), and `WindowControls` (46 x 40, `--muted` 10 px glyphs) only when `drawsControls()`. The first
+  screen has no bar, only `BareControls`.
 - On the New object page the pane is of the object being made (`drafting` in `SessionPane`): no status, no End,
   New session or Resume, no view switch, no held prompt, and `DraftPane` in the body; `.session-term` stays laid out.
   A live session (any status but `exited`) of the object that was open stays as it is, with the note

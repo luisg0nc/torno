@@ -422,7 +422,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(page.getByRole('dialog', { name: 'Export' })).toContainText('hollow')
         } else if (shot === 'folders') {
           await openPanel(page, 'Projects')
-          await page.getByRole('button', { name: 'Folders' }).click()
+          await page.getByRole('button', { name: /^Folder / }).click()
           await expect(page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem').first()).toBeVisible()
         } else if (shot === 'projects') {
           // The Projects panel: a row that cannot be built says why in its title.
@@ -579,7 +579,7 @@ for (const theme of ['light', 'dark'] as const) {
           await page.locator('.ready-fold').click()
           await expect(page.locator('.ready-line[data-line="claude"]')).toBeVisible()
         } else if (shot === 'ready-sheet') {
-          await page.getByRole('button', { name: 'Folders' }).click()
+          await page.getByRole('button', { name: /^Folder / }).click()
           await page.getByRole('menuitem', { name: 'Check what torno needs' }).click()
           await expect(page.getByRole('dialog', { name: 'What torno needs' })).toBeVisible()
         } else if (shot === 'onboard-missing') {

@@ -149,9 +149,9 @@ test('the session pane says what goes with the next prompt, before a session and
 test('the folder button opens a menu: the folders opened lately, the dialog and the example; the page of objects keeps the marks and puts the layers away', async () => {
   // The folder torno was started with is one opened lately.
   await expect.poll(() => { try { return JSON.parse(readFileSync(join(home, 'config.json'), 'utf8')).recent } catch { return null } }).toEqual([root])
-  // The button is at the top of the Projects panel.
+  // The folder crumb is in the title bar.
   await openPanel(page, 'Projects')
-  const button = page.getByRole('button', { name: 'Folders' })
+  const button = page.getByRole('button', { name: /^Folder / })
   await button.click()
   const menu = page.getByRole('menu', { name: 'Folders' })
   await expect(menu).toBeVisible()
@@ -273,7 +273,7 @@ test('a folder that went away after the menu was read is said not to open, under
   const gone = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-finalfix-gone-'))
   writeFileSync(join(home, 'config.json'), JSON.stringify({ workspace: root, recent: [root, gone] }))
   await openPanel(page, 'Projects')
-  const folders = page.getByRole('button', { name: 'Folders' })
+  const folders = page.getByRole('button', { name: /^Folder / })
   await folders.click()
   const row = page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem', { name: new RegExp(basename(gone)) })
   await expect(row).toBeEnabled()
@@ -300,7 +300,7 @@ test('a folder that went away after the menu was read is said not to open, under
 
 test('the example says for as long as it is open that it is a temporary copy', async () => {
   await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'Folders' }).click()
+  await page.getByRole('button', { name: /^Folder / }).click()
   await page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem', { name: 'Open the example' }).click()
   // A session runs here (the stand-in says nothing of being at work once it has answered): leaving may ask first.
   const leave = page.getByRole('button', { name: 'Open another folder' })

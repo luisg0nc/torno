@@ -154,6 +154,7 @@
 
 /* A key, wherever the page names one: in its row of the list, in the filter, in the line of keys. */
 .page-row kbd,
+.project-item kbd,
 .show-filter kbd,
 .show-keys kbd,
 .welcome-foot kbd,

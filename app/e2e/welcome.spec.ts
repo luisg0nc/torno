@@ -142,7 +142,7 @@ test('the folders opened lately are listed from torno\'s own file: one that is g
     await expect.poll(() => (JSON.parse(readFileSync(config, 'utf8')) as { recent: string[] }).recent).toEqual([here, ...others.slice(0, 6)])
     // One that is there opens, and is then the newest.
     await list.getByRole('button', { name: /^parts/ }).click()
-    await expect(first.locator('aside[data-region="left"] .workspace-name')).toHaveText('parts')
+    await expect(first.locator('.title-row .workspace-name')).toHaveText('parts')
     await expect.poll(() => JSON.parse(readFileSync(config, 'utf8')) as unknown).toEqual({ workspace: here, recent: [here, ...others.slice(0, 6)] })
     // Nothing of the list is in the folder that was opened.
     expect(readdirSync(here)).toEqual(['plate'])
@@ -206,7 +206,7 @@ test('the example can be kept as a folder: a new one at the path chosen, never o
     const kept = join(home, 'my-enclosure')
     await choose(kept)
     await keep.click()
-    await expect(first.locator('.workspace-name')).toHaveText('my-enclosure')
+    await expect(first.locator('.title-row .workspace-name')).toHaveText('my-enclosure')
     await expect(first.locator('.workspace-example')).toHaveCount(0)
     expect((await first.evaluate(() => window.__tornoTest!.state())).workspace!.root).toBe(realpathSync(kept))
     expect(readdirSync(kept, { recursive: true }).map(String).sort()).toEqual(['enclosure', 'enclosure/.torno', 'enclosure/.torno/marks.json', 'enclosure/.torno/scene.json', 'enclosure/brief.md', 'enclosure/enclosure.py'])
@@ -430,7 +430,7 @@ test('the empty workspace and the page of a new object say what is missing, and 
     await expect(fine.locator('.show-empty')).toBeVisible()
 
     // The folder menu has the check, as a dialog over the window.
-    await fine.getByRole('button', { name: 'Folders' }).click()
+    await fine.getByRole('button', { name: /^Folder / }).click()
     await fine.getByRole('menuitem', { name: 'Check what torno needs' }).click()
     const sheet = fine.getByRole('dialog', { name: 'What torno needs' })
     await expect(sheet).toBeVisible()
