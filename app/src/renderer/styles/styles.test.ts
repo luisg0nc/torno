@@ -200,3 +200,14 @@ it('the title bar leaves room for the platform\'s own controls: the overlay area
   expect(mac?.body).toMatch(/padding-left:\s*max\(78px/)
   expect(rules(css).some((r) => /data-platform=['"]linux/.test(r.selector))).toBe(false)
 })
+
+it('every stylesheet that moves something also says what it does for a person who asked for less motion', () => {
+  // No global rule stands in for it: a `transition` or an `animation` is switched off (or never set) in the sheet that declares it.
+  const without: string[] = []
+  for (const [name, path] of Object.entries(SHEETS)) {
+    const css = readFileSync(path, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const moves = rules(css).some(({ selector, body }) => !selector.startsWith('@keyframes') && /(?:^|[;\s{])(?:transition|animation)(?:-[a-z-]+)?\s*:\s*(?!none\b)[^;]+/.test(body) && !/prefers-reduced-motion/.test(selector))
+    if (moves && !/@media\s*\(prefers-reduced-motion:\s*(?:reduce|no-preference)\)/.test(css)) without.push(name)
+  }
+  expect(without).toEqual([])
+})
