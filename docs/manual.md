@@ -1305,21 +1305,26 @@ the camera stays still).
 - At the head of the Marks list, outside its scroll, are **Review this build** and a row for each review round (see
   [Reviews](#reviews)). A draft of a round that has not gone says `in review, not sent`, and its row offers
   **Take out of R1**. Your own rows have a small menu (`±`, `−` or `+`) to say plain, do not want or want of that mark at any time.
+- What waits on you is in **Needs you**, at the top of the card, from three sources in this order: the marks the agent
+  resolved and you have not judged (each says "to review" at its right), the marks it left for you to read or answer
+  (**from Claude**; **Answer in chat** puts the mark's id in the prompt, and **Resolve** says you have seen it), and the
+  checks that fail, the model's and your dimensions both, each a line that goes to its row under Checks.
 - The Marks list is grouped by who acts next: **Checks** (every dimension that
   has an expected value and is not resolved, sent or not: the failing first,
   then those with no value of the build, then those that pass; a draft one says
   `to send` in its row), **To send** (yours, "with your
-  next prompt"), **From the agent** (marks it left for you to read or answer;
-  **Answer in chat** puts the mark's id in the prompt, and the tick says
-  you have seen it), **To review**, **With the agent** (your sent marks), then
-  **Resolved**, folded. The active row shows its note whole.
-- A mark the agent resolves does not vanish: "To review" says "The agent
-  resolved 2 marks." **Review** walks them one at a time: the mark becomes the
-  active one and the camera goes to its view, the line reads "Reviewing 1 of 2
-  · M5", and its row says "Resolved by the agent" with the agent's line. **OK**
-  moves it under "Resolved"; **Reopen…** opens its note with the cursor at the
+  next prompt"), **With the agent** (your sent marks), then
+  **Resolved**, folded. A row is two lines: the chip and the note, then the kind of mark and what is the matter with it in
+  muted words (`moved: check it`, `its part is hidden`). The active row shows its note whole and what can be done with
+  the mark as words under it (**Go to view**, **Re-place**, **Edit**, **Answer in chat**, **Resolve**, **Reopen**,
+  **Delete**); the other rows show them as icons while the pointer is on them.
+- A mark the agent resolves does not vanish: Needs you has a row for it, and over the rows says "The agent
+  resolved 2 marks." Each row says "Resolved by Claude" with the agent's line, and has **OK**, which
+  moves it under "Resolved" in Marks, and **Reopen…**, which opens its note with the cursor at the
   end, so that you can say why, and it is a draft again, with the note, when you
-  leave the field (Esc leaves it as it was); **Skip** leaves it to review. When
+  leave the field (Esc leaves it as it was). **Review** walks them one at a time: the mark becomes the
+  active one and the camera goes to its view, the line reads "Reviewing 1 of 2
+  · M5", and its row also has **Skip**, which leaves it to review. When
   the last is done the line says how it went ("Reviewed 5: 4 OK, 1 reopened").
   **OK all** says you have seen them all at once.
 - The tick on a row resolves the mark (**Resolve: done with it**); on a check

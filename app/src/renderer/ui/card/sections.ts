@@ -9,6 +9,7 @@ import { type BadgeData, NO_BADGES } from '../railBadges'
 import { groupMarks } from '../markGroups'
 import { tried } from '../paramRows'
 import { scanState } from '../scanState'
+import { useRowsSaid } from '../rowsSaid'
 
 export type { SectionId }
 
@@ -60,6 +61,8 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const scans = useStore((s) => s.scans)
   const tracings = useTracings((s) => s.file?.tracings)
+  // The line that says how a walk through the marks to review went keeps Needs you open for its ten seconds.
+  const reviewed = useRowsSaid((s) => s.reviewed !== null)
   return useMemo(() => {
     const parts = (scene?.parts ?? []).filter((p) => p.layout === layout)
     const hidden = parts.filter((p) => layerOf(layers, p.name)?.visible === false).length
@@ -72,6 +75,7 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
     const grouped = groupMarks(marks, revision)
     const unaligned = scans.filter((scan) => scanState(scan, layout, revision).word === 'unaligned').length
     const open = marks.filter((m) => m.status !== 'resolved').length
+    const sketches = marks.filter((m) => m.kind === 'sketch' && m.status !== 'resolved').length
     const failing = modelFailing + dimensionsFailing
     const waiting = grouped.toReview.length + grouped.fromAgent.length + failing
     const badges: BadgeData = { ...NO_BADGES, waiting, hidden, modelFailing, dimensionsFailing, unaligned, toReview: grouped.toReview.length }
@@ -82,12 +86,12 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
     const said = (...pieces: Array<string | false>): string => pieces.filter((p): p is string => p !== false).join(', ')
 
     const sections: Record<SectionId, SectionFacts> = {
-      needs: waiting === 0 ? NONE : { said: `${waiting} waiting`, bad: null, needs: true, empty: false },
+      needs: waiting > 0 ? { said: `${waiting} waiting`, bad: null, needs: true, empty: false } : reviewed ? { said: '0 waiting', bad: null, needs: false, empty: false } : NONE,
       parts: parts.length === 0 ? NONE : { said: said(`${parts.length}`, hidden > 0 && `${hidden} hidden`), bad: null, needs: false, empty: false },
       params: params.length === 0 ? NONE : { said: said(`${params.length}`, changed > 0 && `${changed} tried`, assumed > 0 && `${assumed} assumed`), bad: null, needs: false, empty: false },
       checks: checksTotal === 0 ? NONE : { said: `${checksTotal}`, bad: failing > 0 ? `${failing} fail${failing === 1 ? 's' : ''}` : null, needs: failing > 0, empty: false },
       // Review this build is in its body, so it is never shut for being empty.
-      marks: marks.length === 0 ? { ...NONE, empty: false } : { said: said(`${open} open`, grouped.toSend.length > 0 && `${grouped.toSend.length} to send`), bad: null, needs: false, empty: false },
+      marks: marks.length === 0 ? { ...NONE, empty: false } : { said: said(`${open} open`, sketches > 0 && `${sketches} sketch${sketches === 1 ? '' : 'es'}`, grouped.toSend.length > 0 && `${grouped.toSend.length} to send`), bad: null, needs: false, empty: false },
       // Import and the first tracing are made in the section's body: a scan or a tracing's section is never shut for being empty.
       scans: { said: scans.length === 0 ? 'none' : said(`${scans.length}`, unaligned > 0 && `${unaligned} unaligned`), bad: null, needs: false, empty: false },
       tracings: { said: (tracings?.length ?? 0) === 0 ? 'none' : `${tracings!.length}`, bad: null, needs: false, empty: (tracings?.length ?? 0) === 0 },
@@ -95,7 +99,7 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
       profile: { said: '', bad: null, needs: false, empty: false }
     }
     return { sections, badges }
-  }, [scene, layout, layers, marks, revision, scans, tracings])
+  }, [scene, layout, layers, marks, revision, scans, tracings, reviewed])
 }
 
 /** Where the card's reading line stands, as a share of the scroll's height from its top: the section whose head has passed it is in sight. */

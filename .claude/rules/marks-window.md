@@ -2,6 +2,8 @@
 paths:
   - "app/src/renderer/ui/Mark*.tsx"
   - "app/src/renderer/ui/markGroups.ts"
+  - "app/src/renderer/ui/markRows.tsx"
+  - "app/src/renderer/ui/card/NeedsYou.tsx"
   - "app/src/renderer/ui/markGroups.test.ts"
   - "app/src/renderer/ui/markHover.ts"
   - "app/src/renderer/ui/markHover.test.ts"
@@ -26,6 +28,8 @@ paths:
   - "app/src/renderer/tools/pickMarks.ts"
   - "app/src/renderer/viewport/marks/**"
   - "app/src/renderer/styles/marks.css"
+  - "app/src/renderer/styles/card-needs.css"
+  - "app/src/renderer/styles/card-marks.css"
   - "app/src/renderer/styles/late.css"
 ---
 
@@ -82,23 +86,31 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   expected stays in the group its status gives. An open check lists what it measured on the builds of this run
   (`dimension-history`, `r9 38.6 ✗ · r10 40 ✓`, at most 8, all in its title) and, where worth saying, `fails since
   r12; passed on r11` (`since`); both are main's `history`, never kept by the window.
-- The Marks list is grouped by what is to be done (`ui/markGroups.ts`): "To send" (drafts, headed `To send N · with your next prompt`),
-  "From the agent" (its own open marks, for the person to read or answer: "Answer in chat" puts the id in the
-  prompt), "To review", "With the agent" (the person's sent marks) and the fold "Resolved"; a heading only for a group that has marks, and the heading says
-  the status, so a row has no status word but a pinned dimension's `pinned`, which is never cut. "To review" is
-  one summary (`ui/ResolvedSummary.tsx`): "The agent resolved N marks.", "Review" walking them (an index held in the
-  component over the ids as they were: `Reviewing 1 of 5 · M5`, the mark active and `focusMark`ed, its row with OK,
-  `Reopen…` and Skip; Reopen opens the note at its end and writes note and `status: 'draft'` in one `update` when the
-  field is left; the end says `Reviewed 5: 4 OK, 1 reopened` for 10 s), and "OK all" (`marks.acknowledge`, no key).
+- **Who acts next** (`ui/markGroups.ts`): `groupMarks` is the rule (its `failing` is the checks that fail on the build on show), and
+  `splitMarkGroups(groups)` says where each group goes: `needs` (`toReview`, `fromAgent`, `failingChecks`) to Needs you, `marks`
+  (`toSend`, `withAgent`, `resolved`) to Marks. The other checks (`groups.checks`) are the Checks section's. A heading only for a
+  group that has marks, in Marks; a row has no status word but a pinned dimension's `pinned`, which is never cut.
+- **Needs you** (`ui/card/NeedsYou.tsx`, in the `needs` section): `ResolvedSummary` (the marks to review, a row each, `source`
+  `to review`; the line over them says `The agent resolved N marks.` with Review (the walk: an index held in the component over the
+  ids as they were, `Reviewing 1 of 5 · M5`, the mark active and `focusMark`ed, its row also with Skip) and OK all
+  (`marks.acknowledge`, no key); the end says `Reviewed 5: 4 OK, 1 reopened` for 10 s), then the marks from the agent (`source`
+  `from Claude`, the list is named `From the agent`), then one line for each check that fails (`CheckPointer`: a dimension's chip or
+  the model's bar in `--agent-mark`, the words, `fails`), which goes to its row (`goToRow`, or the model's row under Checks). A
+  row's resolution reads `Resolved by Claude` (in `--agent-mark`, 500) with the agent's line, then OK and `Reopen…`; Reopen opens the
+  note at its end and writes note and `status: 'draft'` in one `update` when the field is left. Both sections draw rows with
+  `useMarkRows(where)` (`ui/markRows.tsx`), which also holds what main refused and the undo line, said in the section the change was
+  made from.
 - A row's resolve is a tick in a box (`ResolveIcon`), never the bare tick of a passing check; on a dimension with an
   expected value it asks in the row first (`Confirm`). Delete is immediate and the panel offers `Deleted M3 · Undo` for
   10 s (`marks.restore`), no key.
-- A mark's row is one line, its note cut to the room there is, and the active row (`aria-current`) shows its
-  note whole, wrapped on a line of its own (`late.css`). Its chip is the id alone (`rowLabel`): `~` and `?` are
-  the view's chips' and the pictures' (`labelText`). What the last build did to its mark (`moved:
-  check it`, `its part is gone`) is a line of its own under the note (`.mark-anchor`, `late.css`). The Marks list never scrolls sideways (`e2e/reanchor.spec.ts`, with a note longer
-  than the column). A dimension opened out leaves its value and verdict to its fields under the first line, so
-  that `Add a note` is whole beside the buttons of the row (`marks.css`, `e2e/measure.spec.ts`).
+- A mark's row is two lines (`marks.css`): `.mark-line` (the chip, the note cut to the room there is, the dimension's value, the
+  source) and `.mark-meta` (the kind of mark, `.mark-kind`, with `aria-label`, and what the last build did to it: `moved: check it`,
+  `its part is gone`, `.mark-anchor`, and the other `.mark-layout` words, muted 11.5 px, wrapping). The active row (`aria-current`)
+  shows its note whole, wrapped, and its buttons as words (`.mark-act-word`) in a line of their own under the meta; on the other rows
+  the buttons are icons over the end of the first line while the row is pointed at or holds the focus. A mark the agent resolved keeps
+  the icons: its OK and `Reopen…` are in its resolution. Its chip is the id alone (`rowLabel`): `~` and `?` are the view's chips' and
+  the pictures' (`labelText`). The Marks list never scrolls sideways (`e2e/reanchor.spec.ts`, with a note longer than the column). A
+  dimension opened out leaves its value and verdict to its fields under the meta line (`marks.css`, `e2e/measure.spec.ts`).
 - **What the person says of a mark: want and don't want** (`markIntent`, `shared/marks.ts`; the person's marks only, Claude's
   is never one, a shape's `add` is want and `remove` don't want). A mark keeps its author's colour and no new colour is
   made: don't want is hatched, want is solid, and both say it in the chip, `− M8` / `+ M8` (`labelText`, `rowLabel`, the sign

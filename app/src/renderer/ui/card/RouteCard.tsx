@@ -11,6 +11,7 @@ import { PrintProfile } from '../PrintProfile'
 import { ScansPanel } from '../ScansPanel'
 import { TracingRows } from '../TracingRows'
 import { CardSection } from './CardSection'
+import { NeedsYou } from './NeedsYou'
 import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from './sections'
 
 /** The body of each section: today's component for it. The card is these in a column, and each section's task restyles its own. */
@@ -20,7 +21,7 @@ function Body({ id }: { id: SectionId }): ReactNode {
   const layout = useStore((s) => s.layout)
   switch (id) {
     case 'needs':
-      return null
+      return <NeedsYou />
     case 'parts':
       return <Layers />
     case 'params':

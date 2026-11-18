@@ -1,1 +1,11 @@
-/* ---- The card's Marks section ---- */
+/* ---- Marks (ui/MarksPanel.tsx): what is the person's to send, and what is with the agent ----
+   The rows are two lines (`marks.css`). Review this build and the rounds are at its head; the groups follow. */
+
+.marks .marks-group {
+  padding-top: 8px;
+}
+
+/* The groups are named in the sans, small and muted, and the count after the name is a number. */
+.marks .marks-group .num {
+  margin-left: 2px;
+}
