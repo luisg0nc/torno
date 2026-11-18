@@ -28,7 +28,7 @@ interface PanelProps {
 }
 
 /**
- * The follow-up of a round (Review-B), over the view: each item with its chip, its note and what Claude said of it, OK and
+ * The follow-up of a round (Review-B), the head of the route card (`card/InHand.tsx`): each item with its chip, its note and what Claude said of it, OK and
  * Still wrong for an item Claude resolved (Still wrong may carry a note, and sends the item into the next round), what the
  * person made of the answer for those already judged, where the reviewed build is shown against the live one, and what can be
  * done with the round: start the next, open it again, or let it go as plain marks.
@@ -39,7 +39,7 @@ export function RoundPanelView({ round, rounds, marks, history, sending, refused
   const open = openRound(rounds)
   const number = roundNumber(round, rounds)
   return (
-    <section className="round-panel" aria-label={`Review ${round.id}`} data-part="round-panel" data-round={round.id}>
+    <section className="round-panel" aria-label={`Review ${round.id}`} data-part="round-panel" data-head="review" data-round={round.id}>
       <header className="round-panel-head">
         <h2 className="round-panel-title num">{reviewName(round, marks)}</h2>
         <span className="round-state">{roundState(round, sending)}</span>
@@ -171,9 +171,5 @@ export function RoundPanel() {
   }, [from, to])
   useEffect(() => setWrong(null), [id])
   if (round === undefined) return null
-  return (
-    <div className="round-panel-layer">
-      <RoundPanelView round={round} rounds={rounds} marks={marks} history={entries} sending={sending} refused={refused} wrong={wrong} onWrong={setWrong} />
-    </div>
-  )
+  return <RoundPanelView round={round} rounds={rounds} marks={marks} history={entries} sending={sending} refused={refused} wrong={wrong} onWrong={setWrong} />
 }

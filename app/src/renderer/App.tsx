@@ -32,7 +32,6 @@ import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { LeaderLayer } from './ui/LeaderLayer'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
-import { RoundPanel } from './ui/review/RoundPanel'
 import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
 import { CARD_DEFAULT, sectionsFor, windowStorage } from './state/column'
@@ -533,8 +532,6 @@ export function App() {
         <ExportSheet onOpen={openThenExport} />
         {/* Over the view: a drawing on it for the chat, while its board is open. */}
         <ViewBoard />
-        {/* Over the model or the board: the follow-up of a review, with the reviewed build faint beside the live one. */}
-        {page === 'object' && <RoundPanel />}
       </main>
 
       <aside className="dock" data-region="session" aria-label="Session" hidden={!dockOpen}>

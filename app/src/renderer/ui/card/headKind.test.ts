@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { plainText } from '../../../test/plainText'
 import { HandView, type HandViewProps } from './InHand'
-import { HEAD_MAX_SHARE, headKind, moreRefs, pickedSaid, SHOWN_REFS } from './headKind'
+import { HEAD_MAX_SHARE, headKind, headMaxHeight, moreRefs, pickedSaid, SHOWN_REFS } from './headKind'
 
 const none = { refs: 0, sketchOpen: false, roundOpen: false, makingSet: false }
 
@@ -28,6 +28,14 @@ describe('what is in hand', () => {
     expect(HEAD_MAX_SHARE).toBe(0.6)
     const css = readFileSync(new URL('../../styles/card.css', import.meta.url), 'utf8')
     expect(css).toMatch(/\.route-hand\s*\{[^}]*max-height:\s*60%/)
+  })
+})
+
+describe('head caps at 60 % of the card', () => {
+  it('is 360 px of a card 600 px high, and scrolls inside itself beyond that', () => {
+    expect(headMaxHeight(600)).toBe(360)
+    expect(headMaxHeight(800)).toBe(480)
+    expect(headMaxHeight(0)).toBe(0)
   })
 })
 
@@ -108,8 +116,19 @@ describe('the head of the card', () => {
     expect(out.indexOf('hand-ref')).toBeLessThan(out.indexOf('the box'))
   })
 
-  it('keeps a place for a sketch and a review round, which are not drawn yet', () => {
-    expect(html({ kind: 'sketch' })).toContain('data-kind="sketch"')
-    expect(html({ kind: 'review' })).toContain('data-kind="review"')
+  it('holds the sketch or the round it is given in place of the selection, which is not shown while either is open', () => {
+    for (const kind of ['sketch', 'review'] as const) {
+      const out = html({ kind, children: createElement('div', { 'data-head': kind }, 'the panel'), naming: createElement('div', { className: 'setmake' }, 'the box') })
+      expect(out).toContain(`data-kind="${kind}"`)
+      expect(out).toContain(`data-head="${kind}"`)
+      // A set being named is still named under the panel (Ctrl+G on the strokes of a sketch).
+      expect(out.indexOf('the panel')).toBeLessThan(out.indexOf('the box'))
+      expect(out).not.toContain('hand-ref')
+      expect(out).not.toContain('In hand')
+      expect(out).not.toContain('Insert in prompt')
+      expect(out).not.toContain('aria-label="Selection"')
+    }
+    // The selection's own head is named as it was.
+    expect(html()).toContain('aria-label="Selection"')
   })
 })

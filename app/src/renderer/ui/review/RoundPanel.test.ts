@@ -86,6 +86,14 @@ describe('the items of a round', () => {
   })
 })
 
+describe('the round in the head of the card', () => {
+  it('is the head of the card: its container says so, and it keeps its words', () => {
+    const out = markup()
+    expect(out).toMatch(/^<section[^>]*data-head="review"/)
+    expect(plainText(out)).toContain('Review of h41')
+  })
+})
+
 describe('Compare in the panel', () => {
   it('says the reviewed build is shown beside the live one when the history keeps it', () => {
     expect(plainText(markup())).toContain('h41 is shown faint beside h42')

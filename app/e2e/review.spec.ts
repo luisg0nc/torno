@@ -51,7 +51,8 @@ const chat = () => dock().locator('.chat')
 const composer = () => dock().locator('[data-chat-composer]')
 const bar = () => page.getByRole('toolbar', { name: 'Review' })
 const sketchPanel = () => page.getByRole('complementary', { name: 'Sketch' })
-const roundPanel = () => page.locator('[data-part="round-panel"]')
+// The round's panel is the head of the route card.
+const roundPanel = () => page.locator('.route-hand [data-part="round-panel"]')
 const drawingBoard = () => page.getByRole('dialog', { name: 'Drawing on the view' })
 
 const marksFile = (): MarksFile => JSON.parse(readFileSync(join(root, 'gauge', '.torno', 'marks.json'), 'utf8')) as MarksFile
@@ -259,6 +260,7 @@ test('after a rebuild the panel of R1 says OK to one item and Still wrong to the
   await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok', revision: 2, stale: false })
   await page.getByRole('button', { name: 'Open the panel of R1' }).click()
   await expect(roundPanel()).toBeVisible()
+  await expect(page.locator('.route-hand .hand')).toHaveAttribute('data-kind', 'review')
   await expect(roundPanel()).toContainText('Review of h1 · 1 − · 1 +')
   await expect(roundPanel()).toContainText('h1 is shown faint beside h2', { timeout: 30_000 })
   const m1 = roundPanel().locator('[data-mark="M1"]')

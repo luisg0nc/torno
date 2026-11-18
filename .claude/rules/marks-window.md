@@ -44,8 +44,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   every mark alike: no active mark, no selection, no hover, no gizmo. A mark
   on a part that is not drawn is not drawn either, on screen or in a picture.
 - **What is selected is in the head of the route card** (`ui/card/InHand.tsx`, `ui/card/headKind.ts`, `styles/card-hand.css`; `ui/Selection.tsx` is its logic, `useSelection`, not a bar: nothing of the
-  selection floats over the view). `headKind({ refs, sketchOpen, roundOpen, makingSet })` says what the head holds, in the order sketch, review, makeSet, selection, empty; only
-  `empty`, `selection` and `makeSet` are drawn so far, the others keep their place (`data-kind`) for the sketch and the review round. The pure `HandView` draws "In hand", `2 picked, shift-click adds`, each ref
+  selection floats over the view). `headKind({ refs, sketchOpen, roundOpen, makingSet })` says what the head holds, in the order sketch, review, makeSet, selection, empty; the
+  sketch and the review round are the panels `HandView` is given as `children` (`SketchPanel`, `data-head="sketch"`; `RoundPanel`, `data-head="review"`), with no "In hand" and no refs beside them; a set being named still opens its box under the panel (Ctrl+G on a sketch's strokes). The sketch is in hand while the tool is Draw and a sketch is open (`useSketching.open`), the round while `useReview.panel` names one; neither floats over the view. `headMaxHeight(cardHeight)` is the 60 % cap (`.route-hand`). The pure `HandView` draws "In hand", `2 picked, shift-click adds`, each ref
   (mono 11.5 / 10.5, on `--accent-wash`; `SHOWN_REFS` = 4, then "and N more") and **Insert in prompt**, **Note each** (**Note** for one), **Name a set** and **Clear**. Insert is off without a session or on a stale build, Note on a stale build or
   while the parts are apart or being made, each with its reason in its tip. The camera `note` needs is the view's (`viewHost().camera()`). The head is `role="group"` `aria-label="Selection"`.
 - A mark's row and its chip in the view point at each other. The pointer on a row or chip, or the keys' focus in a
@@ -134,7 +134,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   row of the chat, and `marks.review`; the choice has `review.dont` and `review.want`, the key of the one chosen taking it back to
   plain. All three are scope `window`, and none is `[` or `]`.
 - **The follow-up of a round** (`ui/review/RoundPanel.tsx`, rows in `ui/review/rows.ts`). `reviewActions.openPanel(id)` (the "Open" of a round's row,
-  the bar's "Items", "Open" on the head of a round's board frame) shows the panel over the view: each item's chip, note and Claude's
+  the bar's "Items", "Open" on the head of a round's board frame) shows the panel in the head of the route card (`InHand`, `data-head="review"`): each item's chip, note and Claude's
   `resolvedNote`, and for one the agent resolved OK (`marks:judge` `ok`) and Still wrong (a field for a note, then "Send back":
   `still-wrong` with it, which moves the item into the next round). `acknowledged` without `judged` reads `OK (accepted)`; an item not
   resolved says `Not answered yet`. With the panel up, `actions.compare(round.build, newest)` shows the reviewed build faint beside the

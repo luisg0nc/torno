@@ -1,23 +1,10 @@
 /* ---- The panel of a sketch being drawn ---- */
 
-/* Floats at the left of the view, to the right of the palette of tools (a 34px button, its padding and border, and a gap), under
-   the switch of Board and Model. What does not fit the height is scrolled: the triad stands at the foot of the corner. */
+/* The head of the route card (`card-hand.css`, `.hand`) holds it: it is as wide as the card says and scrolls with the head, which
+   caps at 60 % of the card (`.route-hand`), so no height of its own is kept here. */
 .sketchpanel {
-  position: absolute;
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  left: calc(var(--space-3) + 42px + var(--space-3));
-  z-index: 1;
   display: grid;
   gap: var(--space-3);
-  width: 252px;
-  max-width: calc(100% - 66px - var(--space-3));
-  max-height: calc(100% - var(--space-3) - var(--switch-h) - var(--space-2) - var(--triad-clear) - var(--space-3));
-  overflow-y: auto;
-  padding: var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
 }
 
@@ -27,8 +14,54 @@
   gap: var(--space-2);
 }
 
+.sketchpanel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .sketchpanel-status {
+  min-width: 0;
   color: var(--muted);
+}
+
+/* Snap and X-ray: two switches, each a pill that is on in the accent and says its key in mono. */
+.sketchpanel-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sketchpanel-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sketchpanel-switch:hover {
+  border-color: var(--accent);
+}
+
+.sketchpanel-switch[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.sketchpanel-switch kbd {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
 }
 
 .sketchpanel-label {
@@ -190,8 +223,4 @@
   font-size: inherit;
 }
 
-.sketchpens-gap {
-  align-self: stretch;
-  margin: 2px 3px;
-  border-left: var(--divider);
-}
+

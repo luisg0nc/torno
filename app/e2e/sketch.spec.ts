@@ -91,7 +91,7 @@ async function atRest(): Promise<void> {
     .toBe(true)
 }
 
-test('D opens a sketch: the panel and the pens are over the view, and nothing is written yet', async () => {
+test('D opens a sketch: the panel is the head of the card, the pens are over the view, and nothing is written yet', async () => {
   await openListed(page, 'gauge')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok' })
   await page.keyboard.press('1')
@@ -101,10 +101,22 @@ test('D opens a sketch: the panel and the pens are over the view, and nothing is
   await expect(panel()).toBeVisible()
   await expect(pens()).toBeVisible()
   // The pens are real buttons with their keys; the freehand pen is in hand, snapping is on and the parts are solid.
-  await expect(pens().getByRole('button')).toHaveCount(6)
+  await expect(pens().getByRole('button')).toHaveCount(4)
   await expect(pens().getByRole('button', { name: /^Free/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(pens().getByRole('button', { name: /^Snap/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(pens().getByRole('button', { name: /^X-ray/ })).toHaveAttribute('aria-pressed', 'false')
+  // The sketch is the head of the route card, where the two switches are, and the selection is not shown beside it.
+  await expect(page.locator('.route-hand').getByRole('complementary', { name: 'Sketch' })).toBeVisible()
+  await expect(page.locator('.route-hand .hand')).toHaveAttribute('data-kind', 'sketch')
+  await expect(page.locator('[data-region="viewport"] .sketchpanel')).toHaveCount(0)
+  // The head caps at 60 % of the card and the sections stay reachable under it.
+  const heights = await page.locator('.route-hand').evaluate((el) => ({ head: el.getBoundingClientRect().height, card: el.parentElement!.getBoundingClientRect().height, scroll: el.nextElementSibling!.getBoundingClientRect().height }))
+  expect(heights.head).toBeLessThanOrEqual(heights.card * 0.6 + 1)
+  expect(heights.scroll).toBeGreaterThan(heights.card * 0.3)
+  await expect(panel().getByRole('switch', { name: /^Snap/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'false')
+  await panel().getByRole('switch', { name: /^X-ray/ }).click()
+  await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'true')
+  await panel().getByRole('switch', { name: /^X-ray/ }).click()
+  await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'false')
   // The key and the button are one: each says what the other did.
   await page.keyboard.press('l')
   await expect(pens().getByRole('button', { name: /^Line/ })).toHaveAttribute('aria-pressed', 'true')

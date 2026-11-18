@@ -119,32 +119,12 @@
   color: var(--accent);
 }
 
-/* ---- The follow-up of a round (ui/review/RoundPanel.tsx): over the part of the view no panel covers ---- */
-
-.round-panel-layer {
-  position: absolute;
-  inset: 0;
-  /* Only the panel takes the pointer: beside it the view is the person's. */
-  pointer-events: none;
-  z-index: 5;
-}
+/* ---- The follow-up of a round (ui/review/RoundPanel.tsx): the head of the route card, which scrolls it past 60 % of the card ---- */
 
 .round-panel {
-  position: absolute;
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  right: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: min(360px, calc(100% - 2 * var(--space-3)));
-  max-height: calc(100% - var(--switch-h) - 3 * var(--space-3));
-  padding: var(--space-3);
-  overflow-y: auto;
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  pointer-events: auto;
 }
 
 .round-panel-head {
@@ -156,7 +136,7 @@
 .round-panel-title {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: var(--text-size);
+  font-size: 15px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }

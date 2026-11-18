@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { hint, pressed } from '../../../shared/keys'
 import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, type SketchTake } from '../../../shared/marks'
 import { number } from '../../../shared/format'
-import { finishSketch, offsetOf, pickPlane, setDiameter, setLit, setName, setNote, setOffset, setPlane, setTake, undoStroke, useSketching } from '../../state/sketching'
+import { finishSketch, offsetOf, pickPlane, setDiameter, setLit, setName, setNote, setOffset, setPlane, setSnapping, setTake, setXray, undoStroke, useSketching } from '../../state/sketching'
 import { useStore } from '../../state/store'
 import { useTool } from '../../state/tools'
 import { Field } from '../Field'
@@ -19,9 +19,10 @@ const TAKES: { take: SketchTake; label: string; title: string }[] = [
 ]
 
 /**
- * The panel of a sketch being drawn, floating at the left of the view while Draw has one open: what it is (its number and
- * whether it is a draft or sent), its name, how literally it is to be taken (and, of a flow, the diameter to keep clear), the
- * planes strokes can go on with how many are on each, a way to make another plane, a comment, Undo and Done.
+ * The panel of a sketch being drawn, which is the head of the route card while Draw has one open (`card/InHand.tsx`): what it is
+ * (its number, "Sketch" and whether it is a draft or sent), its name, how literally it is to be taken (and, of a flow, the diameter
+ * to keep clear), the planes strokes can go on with how many are on each, a way to make another plane, the Snap and X-ray switches,
+ * a comment, Undo and Done.
  * Every change goes to the sketch's store, which sends it to main (`state/sketching.ts`); nothing here moves with the pointer
  * but the row it is on, which lights that plane's strokes in the view.
  */
@@ -31,6 +32,8 @@ export function SketchPanel() {
   const plane = useSketching((s) => s.plane)
   const picking = useSketching((s) => s.picking)
   const undoable = useSketching((s) => s.undoable)
+  const snapping = useSketching((s) => s.snapping)
+  const xray = useSketching((s) => s.xray)
   const problem = useSketching((s) => s.problem)
   const asked = useSketching((s) => s.offsetAsked)
   const selection = useStore((s) => s.selection)
@@ -46,14 +49,15 @@ export function SketchPanel() {
   const strokes = strokeRows(draft, open.id)
   const surface = surfaceStrokes(draft)
   const offset = offsetOf(plane === 'surface' ? null : (draft.planes.find((p) => p.id === plane) ?? null))
-  const word = status === null ? 'not kept yet' : status === 'sent' ? 'sent' : status === 'resolved' ? 'resolved' : 'draft'
+  const word = status === null ? 'not kept yet' : status === 'sent' ? 'sent' : status === 'resolved' ? 'resolved' : 'draft, goes with your next prompt'
 
   return (
-    <aside className="sketchpanel" aria-label="Sketch" data-sent={status === 'sent' ? '' : undefined}>
+    <aside className="sketchpanel" aria-label="Sketch" data-head="sketch" data-sent={status === 'sent' ? '' : undefined}>
       <header className="sketchpanel-head">
         <span className="mark-chip num" data-author="user">
           {open.id ?? 'new'}
         </span>
+        <h3 className="sketchpanel-title">Sketch</h3>
         <span className="sketchpanel-status" title={status === 'sent' ? 'Claude has it: changing it makes it a draft again, for your next prompt' : 'Not sent: it goes to Claude with your next prompt, once you press Done'}>
           {word}
         </span>
@@ -137,6 +141,16 @@ export function SketchPanel() {
             </ul>
           </>
         )}
+        <div className="sketchpanel-switches" role="group" aria-label="Drawing aids">
+          <button type="button" className="sketchpanel-switch" role="switch" aria-checked={snapping} aria-keyshortcuts={hint('sketch.snap')} title={`Snap to a vertex, a hole's centre or an edge. Hold ${hint('sketch.snap')} while drawing to turn it off for a moment`} onClick={() => setSnapping(!snapping)}>
+            <span>Snap</span>
+            <kbd>{hint('sketch.snap')}</kbd>
+          </button>
+          <button type="button" className="sketchpanel-switch" role="switch" aria-checked={xray} aria-keyshortcuts={hint('sketch.xray')} title={`Draw the parts see-through, to draw on what is hidden (${hint('sketch.xray')})`} onClick={() => setXray(!xray)}>
+            <span>X-ray</span>
+            <kbd>{hint('sketch.xray')}</kbd>
+          </button>
+        </div>
         <p className="sketchpanel-new">
           <span>+ New plane: pick</span>
           <button type="button" className="link-button" aria-pressed={picking === 'face'} title={`Click a flat face: strokes go on its plane (${hint('sketch.face')})`} onClick={() => pickPlane(picking === 'face' ? null : 'face')}>
