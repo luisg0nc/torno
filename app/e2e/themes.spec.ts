@@ -307,12 +307,12 @@ for (const theme of ['light', 'dark'] as const) {
           // A mark's row opened, as when it is being read.
           await page.locator('.mark-row').first().click()
         } else if (shot === 'mark-chip') {
-          // The pointer on a failing dimension's chip: the hand, its row lit, the chip ringed and its numbers at the pointer.
+          // The pointer on a failing dimension's chip: the hand, its check row lit, the chip ringed and its numbers at the pointer.
           const at = (await page.evaluate(() => window.__tornoTest!.markScreen('M3')))!
           const view = (await canvas.boundingBox())!
           await page.mouse.move(view.x + at.x * view.width, view.y + at.y * view.height)
           await expect(page.locator('.pick-readout')).toContainText('2 under')
-          await expect(page.locator('.mark-row[data-mark="M3"]')).toHaveAttribute('data-hovered', '')
+          await expect(page.locator('.check-row[data-check-mark="M3"]')).toHaveAttribute('data-lit', '')
         } else if (shot === 'instructions') {
           // The instruction files, unfolded in the header's More menu, with a chat running under it.
           await page.locator('[data-region="session"]').getByRole('button', { name: 'More', exact: true }).click()
@@ -365,10 +365,12 @@ for (const theme of ['light', 'dark'] as const) {
           await expect.poll(() => page.evaluate(() => window.__tornoTest!.draft()), { timeout: 30_000 }).toMatchObject({ kind: 'dimension', held: expect.any(String) })
           await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.1)
         } else if (shot === 'panel-short') {
-          // The Params panel open, then the window made shorter: the panel takes the room there is, above the status line.
+          // The Params panel open at the height of the shortest window the app allows (its minHeight, 700): the panel takes the room there is, above the status line.
+          // A hidden window cannot be captured after it is resized (the capture never returns), so the page is given that height by the device metrics instead.
           await openSection(page, 'Parameters')
-          await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 680))
-          await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(680)
+          const devtools = await page.context().newCDPSession(page)
+          await devtools.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 700, deviceScaleFactor: 1, mobile: false })
+          await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(700)
         } else if (shot === 'explode') {
           await canvas.click({ position: { x: 5, y: 5 } })
           await page.keyboard.press('e')

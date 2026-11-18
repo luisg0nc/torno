@@ -701,7 +701,7 @@ under "Last conversation, 2 days ago", with "Continue" (the default) and "New co
 buttons "New session" and "Resume" start one with no prompt and leave what you wrote in its box, unsent. If
 the folder has Claude Code settings of its own, the question is asked first and your prompt waits in the box. The empty
 pane has no "Attach view" or "Draw on view": those are of a session. ``Ctrl+` `` moves between the session and
-the viewport; `F6` and `Shift+F6` go round the parts of the window, and `Ctrl+Shift+D` shows or hides the session pane. In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
+the viewport; `F6` and `Shift+F6` go round the parts of the window, and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
 `Ctrl+Shift+V` copy and paste.
 
 ### What goes well, and what does not
