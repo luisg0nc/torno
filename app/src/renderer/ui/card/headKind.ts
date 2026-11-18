@@ -3,6 +3,11 @@ export type HeadKind = 'empty' | 'selection' | 'sketch' | 'review' | 'makeSet'
 /** The head grows to fit, up to this share of the card's height (`.route-hand` in card.css), and scrolls inside itself beyond it. */
 export const HEAD_MAX_SHARE = 0.6
 
+/** The most the head is high, of a card `cardHeight` px high: `.route-hand` says it as 60 % (card.css), and the head scrolls inside itself beyond it. */
+export function headMaxHeight(cardHeight: number): number {
+  return Math.round(cardHeight * HEAD_MAX_SHARE)
+}
+
 /** How many of the picked refs the head lists; the rest are counted. */
 export const SHOWN_REFS = 4
 

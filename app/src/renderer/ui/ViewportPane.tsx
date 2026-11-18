@@ -51,7 +51,6 @@ import { importScan, scanDropped } from './scanDrop'
 import { SectionBar } from './SectionBar'
 import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
-import { SketchPanel } from './sketch/SketchPanel'
 import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
 import { ToolPalette } from './ToolPalette'
@@ -811,7 +810,6 @@ export function ViewportPane() {
           <SectionBar viewport={viewport} />
           <AlignBar />
           <RegionBar />
-          <SketchPanel />
           <SketchPens />
           <AgentLine />
           <QuestionCard where="view" />

@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { SketchDraft } from '../../../shared/bridge'
 import type { Vec3 } from '../../../shared/marks'
 import { plainText } from '../../../test/plainText'
-import { leaveSketch, setPen, setSnapping, setXray, sketchStore } from '../../state/sketching'
+import { leaveSketch, setPen, sketchStore } from '../../state/sketching'
 import { setTool, toolStore } from '../../state/tools'
 import { SketchPens } from './SketchPens'
 
@@ -42,19 +42,17 @@ describe('the pens of a sketch', () => {
     expect(html()).toBe('')
   })
 
-  it('has the three pens and the eraser, then Snap and X-ray, each with its key and as a real button', () => {
+  it('has the three pens and the eraser, each with its key and as a real button, and not the switches, which are in the head', () => {
     const out = html()
-    expect(buttons(out).map((b) => b.text)).toEqual(['FreeB', 'LineL', 'Point to pointP', 'EraseC', 'SnapCtrl', 'X-rayI'])
-    expect(out.match(/<button /g)).toHaveLength(6)
+    expect(buttons(out).map((b) => b.text)).toEqual(['FreeB', 'LineL', 'Point to pointP', 'EraseC'])
+    expect(out.match(/<button /g)).toHaveLength(4)
   })
 
-  it('shows the pen in hand and the switches as pressed, and follows the actions the keys call', () => {
-    expect(buttons(html()).map((b) => b.on)).toEqual([true, false, false, false, true, false])
+  it('shows the pen in hand as pressed, and follows the actions the keys call', () => {
+    expect(buttons(html()).map((b) => b.on)).toEqual([true, false, false, false])
     setPen('line')
-    setXray(true)
-    setSnapping(false)
-    expect(buttons(html()).map((b) => b.on)).toEqual([false, true, false, false, false, true])
+    expect(buttons(html()).map((b) => b.on)).toEqual([false, true, false, false])
     setPen('erase')
-    expect(buttons(html()).map((b) => b.on)).toEqual([false, false, false, true, false, true])
+    expect(buttons(html()).map((b) => b.on)).toEqual([false, false, false, true])
   })
 })

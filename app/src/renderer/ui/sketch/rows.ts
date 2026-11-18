@@ -28,6 +28,8 @@ export interface StrokeRow {
   ref: string
   /** Which plane it is on, as the person is told it; `On surfaces` for one with none. */
   where: string
+  /** The plane's id, or `surface`: the row it is listed under. */
+  plane: number | 'surface'
 }
 
 /**
@@ -39,6 +41,6 @@ export function strokeRows(draft: Pick<SketchDraft, 'planes' | 'strokes'>, sketc
   return draft.strokes.flatMap((stroke) => {
     if (stroke.id === undefined) return []
     const plane = stroke.plane === undefined ? undefined : draft.planes.find((p) => p.id === stroke.plane)
-    return [{ id: stroke.id, ref: `${sketch}/${stroke.id}`, where: plane ? planeName(plane.label) : 'On surfaces' }]
+    return [{ id: stroke.id, ref: `${sketch}/${stroke.id}`, where: plane ? planeName(plane.label) : 'On surfaces', plane: plane ? plane.id : 'surface' }]
   })
 }

@@ -1,6 +1,7 @@
 import type { HistoryEntry } from '../../../shared/history'
 import { type Mark, markIntent } from '../../../shared/marks'
 import { INTENT_CHIP, type Round, roundItems } from '../../../shared/reviews'
+import { countsText } from '../../../shared/sketchText'
 
 /** What an item says of itself in the panel besides its note: what the person made of Claude's answer, or that there is none. */
 export type Said = `OK in ${string}` | 'OK (accepted)' | 'Still wrong' | 'Not answered yet' | ''
@@ -9,7 +10,11 @@ export interface RoundRow {
   id: string
   /** `− M8`, `+ M9` or `M10`: the sign is the person's want or don't want. */
   chip: string
+  /** `−` for what is not wanted, `+` for what is, nothing for a plain item: the 22 px column before the words. */
+  sign: string
   note: string
+  /** What the item is on, in the face of refs (`plate/F3`, `part`, `3 strokes on 2 planes`); empty when it is on nothing a name can be given to. */
+  where: string
   /** Claude's `resolvedNote`, when it resolved the item. */
   resolved?: string
   /** `judge`: Claude resolved it and the person has not said OK or Still wrong yet. */
@@ -20,11 +25,18 @@ export interface RoundRow {
 /** Where the reviewed build is shown against the live one, or why it is not. */
 export type RoundCompare = { from: string; to: string } | { off: string }
 
+/** What a mark is on, in a few words: a sketch says how many strokes on how many planes, any other the face, edge or part it is anchored to. */
+export function whereText(mark: Mark): string {
+  if (mark.kind === 'sketch') return countsText(mark)
+  const anchor = 'anchor' in mark ? mark.anchor : undefined
+  return anchor?.ref ?? anchor?.part ?? ''
+}
+
 /** The row of one item of a round. */
 /** `sent`: its round was sent; before that main refuses a verdict, so none is offered. */
 function rowOf(mark: Mark, sent: boolean): RoundRow {
   const intent = markIntent(mark)
-  const row = { id: mark.id, chip: intent ? `${INTENT_CHIP[intent]} ${mark.id}` : mark.id, note: mark.note, ...(mark.resolvedNote ? { resolved: mark.resolvedNote } : {}) }
+  const row = { id: mark.id, chip: intent ? `${INTENT_CHIP[intent]} ${mark.id}` : mark.id, sign: intent ? INTENT_CHIP[intent] : '', note: mark.note, where: whereText(mark), ...(mark.resolvedNote ? { resolved: mark.resolvedNote } : {}) }
   const judged = mark.judged
   if (mark.status === 'resolved') {
     // Only Claude's answer is the person's to judge. A judgment older than its answer (Still wrong, answered again) is no longer of it.

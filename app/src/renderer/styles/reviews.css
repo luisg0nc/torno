@@ -119,32 +119,12 @@
   color: var(--accent);
 }
 
-/* ---- The follow-up of a round (ui/review/RoundPanel.tsx): over the part of the view no panel covers ---- */
-
-.round-panel-layer {
-  position: absolute;
-  inset: 0;
-  /* Only the panel takes the pointer: beside it the view is the person's. */
-  pointer-events: none;
-  z-index: 5;
-}
+/* ---- The follow-up of a round (ui/review/RoundPanel.tsx): the head of the route card, which scrolls it past 60 % of the card ---- */
 
 .round-panel {
-  position: absolute;
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  right: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: min(360px, calc(100% - 2 * var(--space-3)));
-  max-height: calc(100% - var(--switch-h) - 3 * var(--space-3));
-  padding: var(--space-3);
-  overflow-y: auto;
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
-  pointer-events: auto;
 }
 
 .round-panel-head {
@@ -156,7 +136,7 @@
 .round-panel-title {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: var(--text-size);
+  font-size: 15px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -180,13 +160,37 @@
   list-style: none;
 }
 
+.round-panel-goes {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* An item: a 22 px column for its sign, then the words, a muted line of what it is on in mono, and what is done with it. */
 .round-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: var(--space-1);
   padding: var(--space-2);
   border: var(--divider);
   border-radius: var(--radius-control);
+}
+
+.round-item-sign {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+
+.round-item-body {
+  display: flex;
+  flex-direction: column;
+  grid-column: 2;
+  gap: 3px;
+  min-width: 0;
 }
 
 .round-item-main {
@@ -198,6 +202,14 @@
 .round-item-note {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.round-item-where {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* What Claude said it did: the agent's, said after its name in the muted face. */
@@ -218,6 +230,13 @@
 
 .round-item[data-said='Still wrong'] .round-item-said {
   color: var(--fail);
+}
+
+.round-panel-comment {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
 }
 
 .round-item-actions,

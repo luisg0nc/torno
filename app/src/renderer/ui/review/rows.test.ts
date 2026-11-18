@@ -18,6 +18,17 @@ describe('the rows of a round', () => {
     expect(rows[1].chip).toBe('+ M9')
   })
 
+  it('gives the sign for its own column, and what the item is on in a line of its own', () => {
+    const sketch = { id: 'M11', kind: 'sketch', author: 'user', note: 'hose', status: 'sent', intent: 'want', round: 'R1', planes: [{}, {}], strokes: [{}, {}, {}] } as unknown as Mark
+    const { rows } = roundRows(round(), [answered('M8', { anchor: { point: [0, 0, 0], part: 'plate', ref: 'plate/F3' } }), sketch, pick('M12', { anchor: { point: [0, 0, 0], part: 'plate' } }), pick('M13', { intent: undefined })], [])
+    expect(rows.map((r) => [r.id, r.sign, r.where])).toEqual([
+      ['M8', '−', 'plate/F3'],
+      ['M11', '+', '3 strokes on 2 planes'],
+      ['M12', '', 'plate'],
+      ['M13', '', '']
+    ])
+  })
+
   it('gives an item Claude resolved OK and Still wrong, and one it did not resolve "Not answered yet"', () => {
     const { rows } = roundRows(round(), [answered('M1'), pick('M2', { intent: 'dont' })], [])
     expect(rows[0]).toMatchObject({ can: 'judge', said: '' })
