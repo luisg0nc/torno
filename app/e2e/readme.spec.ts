@@ -212,7 +212,7 @@ for (const shot of SHOTS) {
         ])
         await expect.poll(async () => (await state(page)).build?.revision, { timeout: 240_000 }).toBe(2)
         await expect(page.locator('.chat-turn')).toContainText('Pulled from torno: look, 1 picture', { timeout: 240_000 })
-        await expect(page.locator('.mark-row[data-mark="M3"] .mark-value')).toHaveAttribute('data-verdict', 'pass', { timeout: 60_000 })
+        await expect(page.locator('.check-row[data-check-mark="M3"]')).toHaveAttribute('data-verdict', 'passes', { timeout: 60_000 })
         await expect.poll(async () => page.locator('.chat-text').count(), { timeout: 120_000 }).toBe(3)
         await expect(page.locator('.chat-item[data-kind="user"]').last()).toHaveAttribute('data-state', 'sent', { timeout: 60_000 })
         await wording(page, 'The tub wall at M3 is too thin. Make it 3 mm.')

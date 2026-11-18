@@ -54,6 +54,7 @@ function CheckRowView({ row, lit, active, from }: { row: CheckRow; lit: boolean;
       className="check-row"
       data-check={row.kind === 'model' ? row.id : undefined}
       data-check-mark={row.mark}
+      data-author={row.author}
       data-kind={row.kind}
       data-verdict={row.verdict}
       data-standing={row.verdict}
@@ -67,7 +68,7 @@ function CheckRowView({ row, lit, active, from }: { row: CheckRow; lit: boolean;
       {from !== undefined && <span key={row.value} className="check-flash" aria-hidden="true" />}
       <span className="check-lead">
         {person ? (
-          <span className="mark-chip num" data-author="user">
+          <span className="mark-chip num" data-author={row.author ?? 'user'}>
             {row.id}
           </span>
         ) : (

@@ -25,6 +25,11 @@ describe('the merged list of checks', () => {
     expect(rows.map((r) => [r.id, r.verdict])).toEqual([['same part', 'not measured'], ['M1', 'not measured']])
   })
 
+  it('says who set a dimension, the person or the agent', () => {
+    const rows = mergedChecks([], [dim('M1'), dim('M2', { author: 'agent' })], 12)
+    expect(rows.map((r) => [r.id, r.author])).toEqual([['M1', 'user'], ['M2', 'agent']])
+  })
+
   it('says a model check as the kernel measured it, with the gauge’s band and the parts it is of', () => {
     const [row] = mergedChecks([fits], [], 12)
     expect(row).toMatchObject({ kind: 'model', id: 'lid fits the tub', name: 'lid fits the tub', verdict: 'fails', value: 0.12, lo: 0.15, hi: 0.25, parts: ['lid', 'tub'] })

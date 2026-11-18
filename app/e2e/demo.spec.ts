@@ -118,7 +118,7 @@ for (const [n, frame] of FRAMES.entries()) {
       await openListed(page, 'intake')
       await expect.poll(async () => ((await state(page)).objectId === 'intake' ? (await state(page)).build?.status : null), { timeout: 240_000 }).toBe('ok')
       await expect.poll(async () => (await state(page)).scene !== null).toBe(true)
-      await expect(row('M1').locator('.mark-value')).toHaveAttribute('data-verdict', 'fail', { timeout: 60_000 })
+      await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'fails', { timeout: 60_000 })
       await page.waitForTimeout(800)
 
       if (past(frame, 'open')) {
@@ -157,7 +157,7 @@ for (const [n, frame] of FRAMES.entries()) {
       }
       if (past(frame, 'look')) {
         await expect.poll(async () => (await state(page)).scene !== null && (await state(page)).build?.revision === 2, { timeout: 240_000 }).toBe(true)
-        await expect(row('M1').locator('.mark-value')).toHaveAttribute('data-verdict', 'pass', { timeout: 60_000 })
+        await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'passes', { timeout: 60_000 })
         if (frame !== 'edit') await expect(page.locator('.chat-text').last()).toContainText('Done', { timeout: 120_000 })
         await page.waitForTimeout(800)
       }

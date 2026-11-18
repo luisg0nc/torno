@@ -23,6 +23,8 @@ export interface CheckRow {
   hi?: number | null
   line: string
   mark?: string
+  /** The dimension's: who set it, the person or the agent. */
+  author?: 'user' | 'agent'
   parts: string[]
   /** The model's: what the kernel says of how it was taken, for hover. */
   title?: string
@@ -64,6 +66,7 @@ function dimensionRow(m: DimensionMark, build: number): CheckRow {
     kind: 'dimension',
     id: m.id,
     mark: m.id,
+    author: m.author,
     name: m.note || m.measure,
     verdict,
     ...(value === undefined ? {} : { value }),
