@@ -47,7 +47,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`AskCard` with `where="foot"`, inside `Takeover`; `openRequest` picks it; `ChatPane` draws it), and the transcript holds a line
   ("Claude Code waits for your answer, below", `WaitsBelow`) in its place until it is answered or ended, when the transcript has the card. Escape in the box gives the keys
   back, except while the list of `/` commands is open: it closes the list. The foot's block takes focus once per request, and
-  only when the composer is empty and not focused (`Takeover`). An unsent prompt in a chat that is not over is among what closing
+  only when the composer is empty and not focused and the focus is in no other field (`Takeover`, `typing.ts`: a parameter, a slider, the terminal). An unsent prompt in a chat that is not over is among what closing
   the window asks about (`closingWhy`'s `unsent`). "Attach view" is sent in order: main waits for the picture
   before taking the next prompt, so one sent meanwhile cannot overtake it.
 - **A tool is a chip** (`ui/chat/ToolCard.tsx`, `ToolFold`; spec "The conversation"): 24 px, round, on `--surface`, its line in 12 px

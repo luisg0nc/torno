@@ -7,6 +7,7 @@ import { type Question, answerFor, describeInput, questionsOf } from './ask'
 import { Diff } from './Diff'
 import { Markdown } from './markdown'
 import { Takeover, WaitsBelow } from './AskTakeover'
+import { isEditable } from './typing'
 import { useChatPlace } from './place'
 
 type Ask = Extract<ChatItem, { kind: 'ask' }>
@@ -286,7 +287,7 @@ export const AskCard = memo(function AskCard({ item, where = 'log' }: { item: As
     'data-tool': item.toolName,
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
       // The keys 1 to 9 choose among the options of a question, anywhere but in a field.
-      if (where === 'foot' && item.state === 'open' && item.toolName === 'AskUserQuestion' && !e.nativeEvent.isComposing && !(e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) {
+      if (where === 'foot' && item.state === 'open' && item.toolName === 'AskUserQuestion' && !e.nativeEvent.isComposing && !isEditable(e.target as HTMLElement)) {
         const n = which(e, 'ask.option')
         if (n >= 0) {
           e.preventDefault()

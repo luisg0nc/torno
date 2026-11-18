@@ -191,6 +191,32 @@ test('a card takes the focus only when nothing is being written: not from a prom
   await expect(late).toHaveAttribute('data-state', 'allowed')
   await finished()
   await composer().fill('')
+
+  // Nor from another field: a number typed in a parameter keeps the focus, and its digits are not answers to the question.
+  const wall = { questions: [{ question: 'Which wall?', header: 'Wall', multiSelect: false, options: [{ label: '2 mm', description: 'thin' }, { label: '3 mm', description: 'thick' }] }] }
+  await composer().focus()
+  await page.keyboard.type('slow 1')
+  await page.keyboard.press('Shift+Enter')
+  await page.keyboard.type(`ask AskUserQuestion ${JSON.stringify(wall)}`)
+  await page.keyboard.press('Enter')
+  await page.evaluate(() => {
+    const field = document.createElement('input')
+    field.id = 'e2e-other-field'
+    document.body.append(field)
+    field.focus()
+  })
+  await page.keyboard.type('1')
+  const question = asks().last()
+  await expect(question).toHaveAttribute('data-state', 'open', { timeout: 10_000 })
+  await expect(page.locator('#e2e-other-field')).toBeFocused()
+  await page.keyboard.type('2.5')
+  await expect(page.locator('#e2e-other-field')).toHaveValue('12.5')
+  await expect(question.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-pressed', 'false')
+  await expect(question.getByRole('button', { name: /^3 mm/ })).toHaveAttribute('aria-pressed', 'false')
+  await page.evaluate(() => document.getElementById('e2e-other-field')?.remove())
+  await question.getByRole('button', { name: /^3 mm/ }).click()
+  await question.getByRole('button', { name: 'Submit', exact: true }).click()
+  await finished()
 })
 
 test('the questions of AskUserQuestion are one card: radio-like buttons, toggles joined by a comma, an Other line, and Submit once all are answered', async () => {
