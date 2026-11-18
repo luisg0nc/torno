@@ -4,6 +4,7 @@ paths:
   - "app/src/renderer/state/chat.ts"
   - "app/src/renderer/state/chat.test.ts"
   - "app/src/renderer/styles/chat.css"
+  - "app/src/renderer/styles/chat-slip.css"
   - "app/e2e/chat*.spec.ts"
 ---
 
@@ -18,15 +19,18 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (an item keeps its place; a queued prompt is drawn after all the others; sent, it goes to the end), and items
   and metas are merged by `seq` with the history, so none is drawn twice or lost. Each `context` item is drawn
   under its prompt, as chips from its fields (marks, build, selection, and how many instruction files it named), never from its text. One made for a tool's
-  card (`forTool`: the build an edit of the model started) is a build line under that card (`BuildLine`), drawn from
-  its fields alone: `Built r2 · ok · 1.2 s`, or `Build after r2 failed: <the last line of the traceback>` in `--fail` (a revision names a build that worked, as
+  card (`forTool`: the build an edit of the model started) is a build slip under that card (`BuildLine`, on `--surface`), drawn from
+  its fields alone: `Built h41 ok 51 s` (the build as `buildName` has it from the history that `ChatItems` passes, `r2` until the history has it; the chip
+  keeps `data-ref="r2"` and its live behaviour), or `The build after h40 failed` in `--fail` with the last line of the traceback under it in mono (a revision names a build that worked, as
   `main/builds.ts` counts them: a failure has no number of its own and is the build after the one on show, `failedAfter`
   of `shared/build.ts`, which the Stop hook says too; the prompt's "torno added" line says it alike), or, of a build
   still running when the edit's answer could wait no longer (main writes that line once and never again), "Still
   building when Claude Code was answered", in the past so that it stays true, "Show
-  error" while that failure is still the latest build, the dimensions whose verdict it changed (`digest.dimensions`,
-  from `verdictChanges`, never worked out again here) as chips with `now passes` / `now fails`, and the parts it
-  changed (`digest.parts[].text`, four at most, the rest counted), then "Show text". The sheet of a failed build is
+  error" while that failure is still the latest build, a row for each dimension whose verdict it changed (`digest.dimensions`,
+  from `verdictChanges`, never worked out again here; the mark's note and its sampled values of `since` and of the build, `DimensionMark.history`, when it has them) with `now passes` / `now fails`, and
+  the parts it changed as a table (`slipTable`, pure: the biggest change of volume first, six rows at most, `hidden` counted in a button that unfolds them,
+  `unchanged` counted under it; every number through `shared/format.ts`, a percent to the tenth, `≈` kept on a volume that is not exact). The new volume of a row is a
+  `CountUp`: once, 0.7 s, once for each row of an item in a window, `to` at once under reduced motion and in a render that cannot move. Then "Show text". The sheet of a failed build is
   `errorOpen` in the store (`actions.setErrorOpen`): the status line, the viewport's "Show error" and the chat open
   it. An `Edit` or a `MultiEdit` is drawn as a diff (`ui/chat/Diff.tsx`, from the tool's own input by `ui/chat/lineDiff.ts`, never
   from the person's files), in the permission card (six lines removed and added, then "Show all") and, in place of the JSON, in the
