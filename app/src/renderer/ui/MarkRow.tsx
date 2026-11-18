@@ -95,7 +95,8 @@ export function MarkRow({
   change,
   remove,
   review,
-  source
+  source,
+  lit = false
 }: {
   mark: Mark
   active: boolean
@@ -114,6 +115,8 @@ export function MarkRow({
   review?: ReviewStep
   /** The row is one of Needs you's: what it says at the right, muted ("to review", "from Claude"). */
   source?: string
+  /** The pointer is on a part the mark is on: the row is washed and barred in the accent (`data-lit`). */
+  lit?: boolean
 }) {
   // The note as it is being written; null while it is only shown.
   const [draft, setDraft] = useState<string | null>(null)
@@ -212,6 +215,7 @@ export function MarkRow({
       data-expanded={fields || expects || awaiting || (stopping && checks) ? '' : undefined}
       data-replacing={replacing ? '' : undefined}
       data-hovered={pointed ? '' : undefined}
+      data-lit={lit ? '' : undefined}
       aria-current={active ? 'true' : undefined}
       onPointerEnter={() => hoverMark(mark.id, 'pointer')}
       onPointerLeave={() => unhoverMark(mark.id, 'pointer')}

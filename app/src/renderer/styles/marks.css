@@ -383,34 +383,6 @@ span.mark-thumb {
   padding: 0 0 6px 33px;
 }
 
-/* The line that heads the marks when there are checks: how many pass, fail and are not measured, each a way to the first. */
-.checks-summary {
-  margin: var(--space-1) 0 0;
-  padding: 4px var(--space-4);
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.checks-count {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: inherit;
-  font-weight: 500;
-}
-
-.checks-count[data-state='pass'] {
-  color: var(--ok);
-}
-
-.checks-count[data-state='fail'] {
-  color: var(--fail);
-}
-
-.checks-count[data-state='unmeasured'] {
-  color: var(--warn);
-}
-
 /* The line that follows a delete: what was deleted, and the way back. */
 .marks-undo {
   margin: var(--space-1) 0 0;

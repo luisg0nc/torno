@@ -2,15 +2,14 @@ import { useEffect, useState } from 'react'
 import { letGoText, rebuildHelps } from '../../shared/build'
 import { landingText } from '../../shared/diff'
 import { hint } from '../../shared/keys'
-import { unmetDimensions } from '../../shared/dimension'
+import { isCheck, unmetDimensions } from '../../shared/dimension'
 import type { Part } from '../../shared/scene'
 import { partDefects } from '../../shared/sanity'
 import { makesEnvironment } from './readyLines'
-import type { SectionId } from '../state/column'
 import { landedOn } from '../state/landing'
 import { compareStatus } from '../state/compare'
 import { useSets } from '../state/sets'
-import { actions, partsInLayout, useStore } from '../state/store'
+import { actions, partsInLayout, store, useStore } from '../state/store'
 import { BuildErrorSheet } from './BuildErrorSheet'
 import { withRefs } from './CompareBar'
 import { UNCHECKED_AFTER_MS, useLasting } from './MarkRow'
@@ -45,18 +44,19 @@ export function goToRow(id: string): void {
   actions.listMarksOnPart(null)
   actions.selectMark(id)
   actions.setActiveMark(id)
-  const row = `.mark-row[data-mark="${id}"]`
+  // A dimension check's row is under Checks (the one that is a mark's own opens below it once it is the active mark), any other
+  // mark's under Marks.
+  const mark = store.getState().marks.find((m) => m.id === id)
+  const check = mark !== undefined && isCheck(mark)
+  const row = check ? `.check-row[data-check-mark="${id}"]` : `.mark-row[data-mark="${id}"]`
   // Its row is there already, whichever layout is shown: an open mark is never folded away. Unless its section of the card is folded:
   // then the section is unfolded and brought into sight first, and the row once it is drawn.
   if (document.querySelector(row) !== null) return document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
-  actions.showSection(MARK_ROWS_IN)
+  actions.showSection(check ? 'checks' : 'marks')
   const scroll = (): void => document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(scroll))
   else scroll()
 }
-
-/** The section of the card the rows of the marks, a dimension check's among them, are drawn in today (Checks takes the dimension checks' with its own task). */
-const MARK_ROWS_IN: SectionId = 'marks'
 
 /** Whole seconds since `startedAt`, counted once a second while a build runs. */
 function useElapsed(startedAt: number | undefined): number {

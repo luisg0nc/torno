@@ -5,7 +5,7 @@ import { createStore } from 'zustand/vanilla'
 const UNDO_MS = 10_000
 
 /** The part of the card a row is drawn in: what it says of a refusal or a delete is said there, not in both. */
-export type RowsWhere = 'needs' | 'marks'
+export type RowsWhere = 'needs' | 'marks' | 'checks'
 
 interface RowsSaid {
   /** What main said when it refused a change, until the next one goes through. */

@@ -36,11 +36,11 @@ describe('the click on the count of failing dimensions', () => {
     // Brought into view as on a click on the row: the camera moves only when it is not in view.
     expect(s.markReveal).toBe(1)
     expect(s.markFocus).toBe(0)
-    expect(scrolled).toEqual(['.mark-row[data-mark="M2"]'])
+    expect(scrolled).toEqual(['.check-row[data-check-mark="M2"]'])
   })
 
-  it('unfolds the Marks section when it is folded, and scrolls to the row once it is drawn', () => {
-    const row = '.mark-row[data-mark="M2"]'
+  it('unfolds the Checks section when it is folded, and scrolls to the row once it is drawn', () => {
+    const row = '.check-row[data-check-mark="M2"]'
     let drawn = false
     const asked: string[] = []
     vi.stubGlobal('document', {
@@ -50,13 +50,13 @@ describe('the click on the count of failing dimensions', () => {
       }
     })
     vi.stubGlobal('requestAnimationFrame', (cb: () => void) => cb())
-    store.setState({ column: { folded: ['marks', 'scans'], width: 296 } })
+    store.setState({ column: { folded: ['checks', 'scans'], width: 296 } })
     // The section is drawn once it is unfolded.
-    const off = store.subscribe((s) => void (drawn = !s.column.folded.includes('marks')))
+    const off = store.subscribe((s) => void (drawn = !s.column.folded.includes('checks')))
     goToRow('M2')
     off()
     expect(store.getState().column.folded).toEqual(['scans'])
-    expect(scrolled).toEqual(['[data-section="marks"]', row])
+    expect(scrolled).toEqual(['[data-section="checks"]', row])
     expect(store.getState().activeMark).toBe('M2')
   })
 
@@ -75,7 +75,16 @@ describe('the click on the count of failing dimensions', () => {
     store.setState({ marks: [dim('M2', { layout: 'gone' }), dim('M5')] as Mark[] })
     goToRow('M2')
     expect(store.getState()).toMatchObject({ layout: 'assembly', activeMark: 'M2', markFocus: 0, markReveal: 0 })
-    expect(scrolled).toEqual(['.mark-row[data-mark="M2"]'])
+    expect(scrolled).toEqual(['.check-row[data-check-mark="M2"]'])
+  })
+
+  it('goes to the row under Marks for a mark that is no check: a dimension with nothing expected of it', () => {
+    store.setState({ marks: [dim('M2', { expected: undefined, verdict: undefined })] as Mark[], column: { folded: ['marks'], width: 296 } })
+    vi.stubGlobal('document', { querySelector: (selector: string) => (selector.startsWith('[data-section') ? { scrollIntoView: () => void scrolled.push(selector) } : null) })
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => cb())
+    goToRow('M2')
+    expect(store.getState().column.folded).toEqual([])
+    expect(scrolled).toEqual(['[data-section="marks"]'])
   })
 })
 

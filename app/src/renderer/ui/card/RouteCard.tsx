@@ -1,7 +1,5 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
-import { actions, useStore } from '../../state/store'
-import { ChecksPanel } from '../ChecksPanel'
-import { ChecksSummary } from '../ChecksSummary'
+import { actions } from '../../state/store'
 import { Layers } from '../Layers'
 import { LeftEdge } from '../LeftEdge'
 import { MarksPanel } from '../MarksPanel'
@@ -10,14 +8,13 @@ import { ParamsPanel } from '../ParamsPanel'
 import { PrintProfile } from '../PrintProfile'
 import { ImportScan, ScansPanel } from '../ScansPanel'
 import { CardSection } from './CardSection'
+import { Checks } from './Checks'
 import { NeedsYou } from './NeedsYou'
 import { NewTracingAction, TracingsBody } from './Tracings'
 import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from './sections'
 
 /** The body of each section: today's component for it. The card is these in a column, and each section's task restyles its own. */
 function Body({ id }: { id: SectionId }): ReactNode {
-  const marks = useStore((s) => s.marks)
-  const revision = useStore((s) => (s.scene ? s.revision : 0))
   switch (id) {
     case 'needs':
       return <NeedsYou />
@@ -26,12 +23,7 @@ function Body({ id }: { id: SectionId }): ReactNode {
     case 'params':
       return <ParamsPanel />
     case 'checks':
-      return (
-        <>
-          <ChecksSummary marks={marks} revision={revision} />
-          <ChecksPanel />
-        </>
-      )
+      return <Checks />
     case 'marks':
       return <MarksPanel />
     case 'scans':

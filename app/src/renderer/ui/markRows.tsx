@@ -4,6 +4,7 @@ import { layerOf, useStore } from '../state/store'
 import { MarkRow } from './MarkRow'
 import { type RowsWhere, done, forgetRows, offerUndo } from './rowsSaid'
 import type { ReviewStep } from './ResolvedSummary'
+import { useLitRows } from './card/useLit'
 
 /** The project the rows last said something of. */
 let rowsOf: string | null = null
@@ -22,6 +23,7 @@ export function useMarkRows(where: RowsWhere): (mark: Mark, extra?: { review?: R
   const scanViews = useStore((s) => s.scanViews)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const active = useStore((s) => s.activeMark)
+  const lit = useLitRows()
   // What was said of the last project is forgotten when another is shown, not when a section of the card is drawn again.
   useEffect(() => {
     if (rowsOf === objectId) return
@@ -46,6 +48,7 @@ export function useMarkRows(where: RowsWhere): (mark: Mark, extra?: { review?: R
         review={extra?.review}
         source={extra?.source}
         mark={mark}
+        lit={lit.marks.has(mark.id)}
         active={mark.id === active}
         // A region is of its scan in every layout: it is never elsewhere, and its layout going takes nothing from it.
         elsewhere={mark.kind !== 'region' && mark.layout !== layout}
