@@ -103,6 +103,24 @@ export function HandView({ kind, refs, canInsert, stale, exploded, noting, namin
 }
 
 /**
+ * What fills the head while it holds the sketch or the round. A round that is up stays mounted, hidden, while a sketch holds the head
+ * (opened inside the review), so that its Compare and the note being written are not lost; it is shown again at Done. Each is in a slot of its own,
+ * so that one coming and going does not make the other start over.
+ */
+export function HeadPanels({ kind, roundOpen }: { kind: HeadKind; roundOpen: boolean }) {
+  return (
+    <>
+      {kind === 'sketch' && <SketchPanel />}
+      {roundOpen && (
+        <div className="hand-round" hidden={kind !== 'review'}>
+          <RoundPanel />
+        </div>
+      )}
+    </>
+  )
+}
+
+/**
  * The head of the route card, pinned above its scroll: what is in your hand. What it holds is `headKind`'s: the sketch being drawn,
  * the review round whose panel is up, the selection with a set being named under it, or nothing. The Ctrl+G key of a set is heard
  * here, as long as the card is.
@@ -119,7 +137,7 @@ export function InHand() {
   const kind = headKind({ refs: hand.refs.length, sketchOpen, roundOpen, makingSet: making })
   return (
     <HandView kind={kind} refs={hand.refs} canInsert={hand.canInsert} stale={hand.stale} exploded={hand.exploded} noting={hand.noting} naming={<MakeSet />} onInsert={hand.insert} onNote={hand.note} onName={() => setActions.startMake()} onClear={hand.clear}>
-      {kind === 'sketch' ? <SketchPanel /> : kind === 'review' ? <RoundPanel /> : null}
+      <HeadPanels kind={kind} roundOpen={roundOpen} />
     </HandView>
   )
 }

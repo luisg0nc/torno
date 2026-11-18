@@ -30,10 +30,21 @@ describe('the items of a round', () => {
   it('names the round and lists each item with its chip, its note and what Claude said', () => {
     const text = plainText(markup())
     expect(text).toContain('Review of h41 · 1 − · 1 +')
-    expect(text).toContain('− M1')
+    expect(text).toContain('−M1')
     expect(text).toContain('the rib')
     expect(text).toContain('took the rib out')
-    expect(text).toContain('+ M2')
+    expect(text).toContain('+M2')
+  })
+
+  it('has a 22 px column for the sign, then the words, then a muted line with what the item is on', () => {
+    const out = markup({ marks: [answered('M1', { note: 'the rib', anchor: { point: [0, 0, 0], ref: 'plate/F3' } }), pick('M2', { intent: 'want' })] })
+    const first = out.match(/<li class="round-item" data-mark="M1"[^>]*>.*?<\/li>/)![0]
+    expect(first.indexOf('round-item-sign')).toBeLessThan(first.indexOf('the rib'))
+    expect(first.indexOf('the rib')).toBeLessThan(first.indexOf('round-item-where'))
+    expect(first).toMatch(/<span class="round-item-sign num"[^>]*>−<\/span>/)
+    expect(first).toMatch(/<span class="round-item-where num">plate\/F3<\/span>/)
+    // An item on nothing a name can be given to has no such line.
+    expect(out.match(/<li class="round-item" data-mark="M2"[^>]*>.*?<\/li>/)![0]).not.toContain('round-item-where')
   })
 
   it('has OK and Still wrong for an item Claude resolved, and says Not answered yet of one it did not', () => {
@@ -91,6 +102,36 @@ describe('the round in the head of the card', () => {
     const out = markup()
     expect(out).toMatch(/^<section[^>]*data-head="review"/)
     expect(plainText(out)).toContain('Review of h41')
+  })
+})
+
+describe('the round that has not gone', () => {
+  const unsent = round({ sentAt: undefined, endedAt: undefined })
+  const open = (over: Partial<Parameters<typeof RoundPanelView>[0]> = {}) => view({ round: unsent, rounds: [unsent], ...over })
+
+  it('says it goes as one prompt, and tells how to comment a stroke, while it is open', () => {
+    const text = plainText(renderToStaticMarkup(open()))
+    expect(text).toContain('goes as one prompt')
+    expect(text).toContain('Comment a stroke by clicking it')
+  })
+
+  it('says neither once the round has gone', () => {
+    const text = plainText(markup())
+    expect(text).not.toContain('goes as one prompt')
+    expect(text).not.toContain('Comment a stroke by clicking it')
+    expect(buttonsLabelled(view(), 'Send review')).toHaveLength(0)
+  })
+
+  it('has Send review, which asks main to send the round as the bar does, and none with no items, being sent or let go as plain marks', async () => {
+    const asked: unknown[] = []
+    vi.stubGlobal('window', { torno: { marks: { round: vi.fn(async (_id: string, ask: unknown) => (asked.push(ask), { rounds: [unsent], sending: 'R1' })) } } })
+    reviewStore.setState({ objectId: 'bracket' })
+    await (buttonsLabelled(open(), 'Send review')[0].props.onClick as () => Promise<void>)()
+    expect(asked).toEqual([{ send: 'R1' }])
+    expect(buttonsLabelled(open({ marks: [] }), 'Send review')).toHaveLength(0)
+    expect(buttonsLabelled(open({ sending: 'R1' }), 'Send review')).toHaveLength(0)
+    const plain = round({ sentAt: undefined, plain: 't' } as Partial<Round>)
+    expect(buttonsLabelled(view({ round: plain, rounds: [plain] }), 'Send review')).toHaveLength(0)
   })
 })
 

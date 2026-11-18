@@ -10,7 +10,7 @@ import { MAX_NOTE } from '../MarkRow'
 import { giveKeysBack } from '../typing'
 import { peek } from '../../state/agent'
 import { selectStroke } from '../../state/sets'
-import { planeRows, strokeRows, surfaceStrokes } from './rows'
+import { planeRows, strokeRows, surfaceStrokes, type StrokeRow as StrokeRowOf } from './rows'
 
 const TAKES: { take: SketchTake; label: string; title: string }[] = [
   { take: 'exact', label: 'Exact', title: 'Follow these points to the millimetre' },
@@ -115,9 +115,9 @@ export function SketchPanel() {
         </span>
         <ul className="sketchpanel-planes" aria-labelledby="sketch-planes">
           {rows.map((row) => (
-            <PlaneRowView key={row.id} name={row.name} strokes={row.strokes} active={plane === row.id} on={row.id} />
+            <PlaneRowView key={row.id} name={row.name} strokes={row.strokes} active={plane === row.id} on={row.id} listed={strokes.filter((stroke) => stroke.plane === row.id)} selection={selection} />
           ))}
-          <PlaneRowView name="On surfaces" strokes={surface} active={plane === 'surface'} on="surface" />
+          <PlaneRowView name="On surfaces" strokes={surface} active={plane === 'surface'} on="surface" listed={strokes.filter((stroke) => stroke.plane === 'surface')} selection={selection} />
         </ul>
         {offset !== null && (
           <div className="sketchpanel-offset" ref={offsetBox} aria-keyshortcuts={hint('sketch.offset')}>
@@ -126,20 +126,6 @@ export function SketchPanel() {
             </span>
             <Field label="Plane offset" unit="mm" value={number(offset)} commit={(value) => setOffset(value, { typed: true })} />
           </div>
-        )}
-        {strokes.length > 0 && (
-          <>
-            <span className="sketchpanel-label-text" id="sketch-stroke-list" title={`Select a stroke to put it in a named set (${hint('set.make')}); Shift adds to the selection`}>
-              Strokes
-            </span>
-            <ul className="sketchpanel-strokes" aria-labelledby="sketch-stroke-list">
-              {strokes.map((stroke) => (
-                <li key={stroke.id}>
-                  <StrokeButton ref_={stroke.ref} id={stroke.id} where={stroke.where} on={selection.includes(stroke.ref)} />
-                </li>
-              ))}
-            </ul>
-          </>
         )}
         <div className="sketchpanel-switches" role="group" aria-label="Drawing aids">
           <button type="button" className="sketchpanel-switch" role="switch" aria-checked={snapping} aria-keyshortcuts={hint('sketch.snap')} title={`Snap to a vertex, a hole's centre or an edge. Hold ${hint('sketch.snap')} while drawing to turn it off for a moment`} onClick={() => setSnapping(!snapping)}>
@@ -203,9 +189,14 @@ function leaveField(e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElemen
   giveKeysBack(e.currentTarget)
 }
 
-function PlaneRowView({ name, strokes, active, on }: { name: string; strokes: number; active: boolean; on: number | 'surface' }) {
+/**
+ * One plane: a 28 px row with a small skewed plane glyph, the plane in mono and, at the right, how many strokes are on it. The
+ * strokes by id are folded under their plane: they are listed while it is the one drawn on, or while one of them is selected.
+ */
+function PlaneRowView({ name, strokes, active, on, listed, selection }: { name: string; strokes: number; active: boolean; on: number | 'surface'; listed: StrokeRowOf[]; selection: readonly string[] }) {
+  const open = listed.length > 0 && (active || listed.some((stroke) => selection.includes(stroke.ref)))
   return (
-    <li>
+    <li className="sketchpanel-plane-item">
       <button
         type="button"
         className="sketchpanel-plane"
@@ -220,11 +211,23 @@ function PlaneRowView({ name, strokes, active, on }: { name: string; strokes: nu
         }}
         onBlur={() => setLit(null)}
       >
-        <span className="sketchpanel-plane-name">{name}</span>
+        <svg className="sketchpanel-plane-glyph" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2.5 12 5 4.5h8.5L11 12Z" />
+        </svg>
+        <span className="sketchpanel-plane-name num">{name}</span>
         <span className="sketchpanel-plane-count num" title={`${strokes} ${strokes === 1 ? 'stroke' : 'strokes'}`}>
           {strokes}
         </span>
       </button>
+      {open && (
+        <ul className="sketchpanel-strokes" aria-label={`Strokes on ${name}`} title={`Select a stroke to put it in a named set (${hint('set.make')}); Shift adds to the selection`}>
+          {listed.map((stroke) => (
+            <li key={stroke.id}>
+              <StrokeButton ref_={stroke.ref} id={stroke.id} where={stroke.where} on={selection.includes(stroke.ref)} />
+            </li>
+          ))}
+        </ul>
+      )}
     </li>
   )
 }

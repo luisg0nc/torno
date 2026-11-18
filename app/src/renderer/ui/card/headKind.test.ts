@@ -1,9 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { plainText } from '../../../test/plainText'
-import { HandView, type HandViewProps } from './InHand'
+import type { Round } from '../../../shared/reviews'
+import { reviewStore } from '../../state/review'
+import { leaveSketch, sketchStore } from '../../state/sketching'
+import { store } from '../../state/store'
+import { setTool, toolStore } from '../../state/tools'
+import { HandView, HeadPanels, type HandViewProps } from './InHand'
 import { HEAD_MAX_SHARE, headKind, headMaxHeight, moreRefs, pickedSaid, SHOWN_REFS } from './headKind'
 
 const none = { refs: 0, sketchOpen: false, roundOpen: false, makingSet: false }
@@ -130,5 +135,48 @@ describe('the head of the card', () => {
     }
     // The selection's own head is named as it was.
     expect(html()).toContain('aria-label="Selection"')
+  })
+})
+
+describe('the round while a sketch holds the head', () => {
+  const round: Round = { id: 'R1', build: 'h41', sources: 'abc', line: '', layout: 'default', startedAt: 't' }
+  const camera = { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 } as never
+  const draft = { objectId: 'o', layout: 'assembly', revision: 1, camera, name: '', note: '', take: 'rough', planes: [], strokes: [] } as never
+
+  /** The panels as a window draws them now: a static render reads each store's first state, which is made the state there is. */
+  function panels(kind: 'sketch' | 'review', roundOpen: boolean): string {
+    const spies = [reviewStore, sketchStore, store, toolStore].map((one) => vi.spyOn(one as { getInitialState(): unknown }, 'getInitialState').mockReturnValue((one as { getState(): unknown }).getState()))
+    try {
+      return renderToStaticMarkup(createElement(HeadPanels, { kind, roundOpen }))
+    } finally {
+      for (const spy of spies) spy.mockRestore()
+    }
+  }
+
+  afterEach(() => {
+    leaveSketch()
+    setTool('select')
+    reviewStore.setState({ objectId: null, rounds: [], panel: null })
+    store.setState({ marks: [] })
+  })
+
+  it('keeps the round mounted but hidden under the sketch, so that Compare and what is being written are not lost, and shows it again at Done', () => {
+    reviewStore.setState({ objectId: 'o', rounds: [round], panel: 'R1' })
+    sketchStore.setState({ open: { draft }, plane: 'surface' })
+    setTool('draw')
+    const during = panels('sketch', true)
+    expect(during).toContain('data-head="sketch"')
+    expect(during).toMatch(/<div class="hand-round" hidden=""[^>]*>.*data-head="review"/)
+    // Done: the same slot, no longer hidden.
+    leaveSketch()
+    const after = panels('review', true)
+    expect(after).toMatch(/<div class="hand-round"><section[^>]*data-head="review"/)
+    expect(after).not.toContain('data-head="sketch"')
+  })
+
+  it('has no round slot when no round is up', () => {
+    sketchStore.setState({ open: { draft }, plane: 'surface' })
+    setTool('draw')
+    expect(panels('sketch', false)).not.toContain('hand-round')
   })
 })

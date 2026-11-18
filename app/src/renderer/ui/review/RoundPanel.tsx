@@ -49,6 +49,7 @@ export function RoundPanelView({ round, rounds, marks, history, sending, refused
           </svg>
         </button>
       </header>
+      {unsent && round.plain === undefined && <p className="round-panel-goes">goes as one prompt</p>}
       {round.line !== '' && <p className="round-panel-line">{round.line}</p>}
       {history !== undefined && (
         <p className="round-panel-compare" data-compare={'off' in compare ? 'off' : 'on'}>
@@ -64,61 +65,68 @@ export function RoundPanelView({ round, rounds, marks, history, sending, refused
       <ul className="round-items" aria-label="Items of the review">
         {rows.map((row) => (
           <li key={row.id} className="round-item" data-mark={row.id} data-said={row.said || undefined}>
-            <div className="round-item-main">
-              <span className="mark-chip num" data-author="user">
-                {row.chip}
-              </span>
-              {row.note !== '' && <span className="round-item-note selectable">{row.note}</span>}
-            </div>
-            {row.resolved !== undefined && (
-              <p className="round-item-answer selectable">
-                <span className="round-item-by">Claude</span> {row.resolved}
-              </p>
-            )}
-            {row.said !== '' && <p className="round-item-said">{row.said}</p>}
-            {row.can === 'judge' && wrong?.id !== row.id && (
-              <div className="round-item-actions">
-                <button type="button" className="button button-quiet" title="You accept what Claude did" onClick={() => reviewActions.judge(row.id, 'ok')}>
-                  OK
-                </button>
-                <button type="button" className="button button-quiet" title="It is not fixed: the item goes into the next round" onClick={() => onWrong({ id: row.id, note: '' })}>
-                  Still wrong
-                </button>
+            <span className="round-item-sign num" title={row.sign === '' ? undefined : row.sign === '−' ? "Don't want" : 'Want'}>
+              {row.sign}
+            </span>
+            <div className="round-item-body">
+              <div className="round-item-main">
+                <span className="mark-chip num" data-author="user">
+                  {row.id}
+                </span>
+                {row.note !== '' && <span className="round-item-note selectable">{row.note}</span>}
               </div>
-            )}
-            {row.can === 'judge' && wrong?.id === row.id && (
-              <div className="round-item-wrong">
-                <textarea
-                  className="round-item-field"
-                  rows={2}
-                  aria-label={`What is still wrong with ${row.id}, if you would say`}
-                  placeholder="What is still wrong (optional)"
-                  value={wrong.note}
-                  onChange={(e) => onWrong({ id: row.id, note: e.target.value })}
-                />
+              {row.where !== '' && <span className="round-item-where num">{row.where}</span>}
+              {row.resolved !== undefined && (
+                <p className="round-item-answer selectable">
+                  <span className="round-item-by">Claude</span> {row.resolved}
+                </p>
+              )}
+              {row.said !== '' && <p className="round-item-said">{row.said}</p>}
+              {row.can === 'judge' && wrong?.id !== row.id && (
                 <div className="round-item-actions">
-                  <button
-                    type="button"
-                    className="button"
-                    title="The item goes into the next round with your note"
-                    onClick={async () => {
-                      const note = wrong.note.trim()
-                      if (await reviewActions.judge(row.id, 'still-wrong', note === '' ? undefined : note)) onWrong(null)
-                    }}
-                  >
-                    Send back
+                  <button type="button" className="button button-quiet" title="You accept what Claude did" onClick={() => reviewActions.judge(row.id, 'ok')}>
+                    OK
                   </button>
-                  <button type="button" className="button button-quiet" onClick={() => onWrong(null)}>
-                    Cancel
+                  <button type="button" className="button button-quiet" title="It is not fixed: the item goes into the next round" onClick={() => onWrong({ id: row.id, note: '' })}>
+                    Still wrong
                   </button>
                 </div>
-              </div>
-            )}
+              )}
+              {row.can === 'judge' && wrong?.id === row.id && (
+                <div className="round-item-wrong">
+                  <textarea
+                    className="round-item-field"
+                    rows={2}
+                    aria-label={`What is still wrong with ${row.id}, if you would say`}
+                    placeholder="What is still wrong (optional)"
+                    value={wrong.note}
+                    onChange={(e) => onWrong({ id: row.id, note: e.target.value })}
+                  />
+                  <div className="round-item-actions">
+                    <button
+                      type="button"
+                      className="button"
+                      title="The item goes into the next round with your note"
+                      onClick={async () => {
+                        const note = wrong.note.trim()
+                        if (await reviewActions.judge(row.id, 'still-wrong', note === '' ? undefined : note)) onWrong(null)
+                      }}
+                    >
+                      Send back
+                    </button>
+                    <button type="button" className="button button-quiet" onClick={() => onWrong(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </li>
         ))}
       </ul>
       {rows.length === 0 && <p className="round-panel-line">Nothing is in this review.</p>}
       <div className="round-panel-foot">
+        {unsent && round.endedAt === undefined && round.plain === undefined && <p className="round-panel-comment">Comment a stroke by clicking it</p>}
         {!unsent && open === undefined && (
           <button type="button" className="button" title="Opens the next review on the build on show, with the items you said are still wrong" onClick={() => reviewActions.carry(round.id)}>
             {`Start round ${number + 1}`}
@@ -127,6 +135,11 @@ export function RoundPanelView({ round, rounds, marks, history, sending, refused
         {unsent && round.endedAt !== undefined && open === undefined && (
           <button type="button" className="button button-quiet" title="Opens the review again, to add marks to it or send it" onClick={() => reviewActions.reopen(round.id)}>
             Open again
+          </button>
+        )}
+        {unsent && round.plain === undefined && sending !== round.id && rows.length > 0 && (
+          <button type="button" className="button button-primary" title="Send the round: its marks go to Claude with your next prompt, with one line that says they are a review" onClick={() => void reviewActions.send(round.id)}>
+            Send review
           </button>
         )}
         {unsent && round.plain === undefined && sending !== round.id && (

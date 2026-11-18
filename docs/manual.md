@@ -1391,8 +1391,8 @@ foot; both are there while the sketch is open.
   view already has, and the sketch stays open; with no cut it does nothing. A new cut is made by picking Section in the
   palette, which ends the sketch as Done.
 - **The panel.** It is the head of the route card, above its sections, for as long as the sketch is open; what is selected is not shown there meanwhile and comes back at **Done**. The head grows to fit, up to 60 % of the card, and scrolls inside itself beyond that, so the sections stay under it. It holds the sketch's number and "Sketch", with whether it is a draft (`draft, goes with your next prompt`) or sent, its name, how to take it, a row for each plane
-  with how many strokes lie on it and one for the surface (a click makes it the one strokes go on; the pointer on it
-  lights its strokes), a list of the strokes by id (`k1`, `k2`: a click selects `M7/k2`, to put it in a [named set](#named-sets); `Ctrl+G` names it in the head, under the panel), the offset, the **Snap** and **X-ray** switches, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
+  with a small plane glyph, the plane and how many strokes lie on it, and one for the surface (a click makes it the one strokes go on; the pointer on it
+  lights its strokes; the one strokes go on is on the accent wash with a bar), and under the plane that is drawn on, or that has one selected, its strokes by id (`k1`, `k2`: a click selects `M7/k2`, to put it in a [named set](#named-sets); `Ctrl+G` names it in the head, under the panel), the offset, the **Snap** and **X-ray** switches, a comment, **Undo** (`Ctrl+Z`: the last stroke or the last erase) and **Done**. `Esc`
   gives up a stroke under way, then leaves the sketch; what was drawn is kept. A sketch holds 200 strokes, 400 points a
   stroke and 20,000 in all.
 - **What Claude gets.** A sketch is a draft until it goes with your next prompt, as words only, never a picture: its
@@ -1441,12 +1441,12 @@ and after the next build you say OK or Still wrong to each answer.
   in the same way, with the next prompt. Claude is asked to answer each item by its number with `resolve_mark`, and not
   to bring back what an earlier review took out.
 - **After the next build.** **Open** on a round's row (or on the head of its frame on the board, or **Items** in the bar) opens
-  the round's panel in the head of the route card (the selection is not shown there while it is up): each item with its chip, its note, what Claude said when it resolved it, and, for
+  the round's panel in the head of the route card (the selection is not shown there while it is up; a sketch you open meanwhile takes the head, and the panel is there again at **Done**): `Review of h41`, `goes as one prompt` while the round has not gone, then each item, with its sign (`−` or `+`, none for a plain one) in a column of its own, its chip, its note, what it is on (a face, a part, or the strokes of a sketch) in mono, what Claude said when it resolved it, and, for
   an item Claude resolved, **OK** (you accept it, and the row says `OK in h42`) and **Still wrong** (a field for an
   optional note, then **Send back**). An item Claude has not resolved says `Not answered yet`. One you accepted with "OK all" or in
   "To review" says `OK (accepted)`. While the panel is open the reviewed build is drawn faint beside the live one (Compare);
   when it cannot be, the panel says why (the build is no longer kept, it is not the build of this computer, or none has
-  been made since).
+  been made since). While the round has not gone, the panel's foot says `Comment a stroke by clicking it` and has **Send review**, the bar's.
 - **Still wrong** opens the item again, with your note added to its note as `Still wrong in h42: …`, and puts it in the
   next round, which torno makes on the build on show (`R2`, held, so that it goes with no prompt of its own). **Start round 2**
   in the panel of a sent round opens that round's bar. Items you said OK to stay in the round they were in.

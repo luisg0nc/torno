@@ -160,13 +160,37 @@
   list-style: none;
 }
 
+.round-panel-goes {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* An item: a 22 px column for its sign, then the words, a muted line of what it is on in mono, and what is done with it. */
 .round-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: var(--space-1);
   padding: var(--space-2);
   border: var(--divider);
   border-radius: var(--radius-control);
+}
+
+.round-item-sign {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+
+.round-item-body {
+  display: flex;
+  flex-direction: column;
+  grid-column: 2;
+  gap: 3px;
+  min-width: 0;
 }
 
 .round-item-main {
@@ -178,6 +202,14 @@
 .round-item-note {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.round-item-where {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* What Claude said it did: the agent's, said after its name in the muted face. */
@@ -198,6 +230,13 @@
 
 .round-item[data-said='Still wrong'] .round-item-said {
   color: var(--fail);
+}
+
+.round-panel-comment {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
 }
 
 .round-item-actions,
