@@ -749,7 +749,7 @@ export const actions = {
     if (column.folded.includes(id)) setColumn({ ...column, folded: column.folded.filter((one) => one !== id) })
     if (typeof document === 'undefined') return
     const scroll = (): void => {
-      const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const reduced = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
       document.querySelector(`[data-section="${id}"]`)?.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' })
     }
     // After the render that unfolds it: the section is as tall as it will be.

@@ -6,6 +6,7 @@ import { unmetDimensions } from '../../shared/dimension'
 import type { Part } from '../../shared/scene'
 import { partDefects } from '../../shared/sanity'
 import { makesEnvironment } from './readyLines'
+import type { SectionId } from '../state/column'
 import { landedOn } from '../state/landing'
 import { compareStatus } from '../state/compare'
 import { useSets } from '../state/sets'
@@ -44,9 +45,18 @@ export function goToRow(id: string): void {
   actions.listMarksOnPart(null)
   actions.selectMark(id)
   actions.setActiveMark(id)
-  // Its row is there already, whichever layout is shown: an open mark is never folded away.
-  document.querySelector(`.mark-row[data-mark="${id}"]`)?.scrollIntoView({ block: 'nearest' })
+  const row = `.mark-row[data-mark="${id}"]`
+  // Its row is there already, whichever layout is shown: an open mark is never folded away. Unless its section of the card is folded:
+  // then the section is unfolded and brought into sight first, and the row once it is drawn.
+  if (document.querySelector(row) !== null) return document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
+  actions.showSection(MARK_ROWS_IN)
+  const scroll = (): void => document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(scroll))
+  else scroll()
 }
+
+/** The section of the card the rows of the marks, a dimension check's among them, are drawn in today (Checks takes the dimension checks' with its own task). */
+const MARK_ROWS_IN: SectionId = 'marks'
 
 /** Whole seconds since `startedAt`, counted once a second while a build runs. */
 function useElapsed(startedAt: number | undefined): number {

@@ -39,6 +39,33 @@ describe('the click on the count of failing dimensions', () => {
     expect(scrolled).toEqual(['.mark-row[data-mark="M2"]'])
   })
 
+  it('unfolds the Marks section when it is folded, and scrolls to the row once it is drawn', () => {
+    const row = '.mark-row[data-mark="M2"]'
+    let drawn = false
+    const asked: string[] = []
+    vi.stubGlobal('document', {
+      querySelector: (selector: string) => {
+        asked.push(selector)
+        return selector === row && drawn ? { scrollIntoView: () => void scrolled.push(selector) } : selector.startsWith('[data-section') ? { scrollIntoView: () => void scrolled.push(selector) } : null
+      }
+    })
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => cb())
+    store.setState({ column: { folded: ['marks', 'scans'], width: 296 } })
+    // The section is drawn once it is unfolded.
+    const off = store.subscribe((s) => void (drawn = !s.column.folded.includes('marks')))
+    goToRow('M2')
+    off()
+    expect(store.getState().column.folded).toEqual(['scans'])
+    expect(scrolled).toEqual(['[data-section="marks"]', row])
+    expect(store.getState().activeMark).toBe('M2')
+  })
+
+  it('leaves the folding alone when the row is already drawn', () => {
+    store.setState({ column: { folded: ['scans'], width: 296 } })
+    goToRow('M5')
+    expect(store.getState().column.folded).toEqual(['scans'])
+  })
+
   it('stays in the layout shown for a mark of that one', () => {
     goToRow('M5')
     expect(store.getState()).toMatchObject({ layout: 'assembly', activeMark: 'M5' })
