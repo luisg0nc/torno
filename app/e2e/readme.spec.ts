@@ -4,7 +4,7 @@ import { _electron as electron, chromium, expect, test, type ElectronApplication
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace, showScans } from './readme-workspace'
-import { newSession } from './helpers'
+import { newSession, openSection } from './helpers'
 
 // The pictures of the README (docs/images/README.md): the window in the states it describes, one hidden launch
 // each, written to <TORNO_README_SHOTS>/<shot>.png with a <shot>.json beside it holding the boxes of the regions
@@ -24,6 +24,8 @@ const appDir = resolve(__dirname, '..')
 const fakeAgent = resolve(appDir, 'test/fake-agent.mjs')
 const out = process.env.TORNO_README_SHOTS ?? ''
 const SIZE: [number, number] = [1600, 1000]
+// The model the stand-in says it is: short, so that the dock's header shows all of it (a full id is cut there at this width).
+const MODEL = 'opus-5-5'
 
 type Theme = 'light' | 'dark'
 type Main = { pickSave: string | null }
@@ -68,7 +70,7 @@ function standMarks(root: string): void {
 
 /** Starts torno hidden, in a theme, at the README's size, in the workspace's own home so that nothing of the person's is listed. */
 async function start(theme: Theme, env: Record<string, string>, home: string): Promise<{ app: ElectronApplication; page: Page }> {
-  const app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, HOME: home, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, FAKE_AGENT_INIT: JSON.stringify({ model: 'claude-opus-5-5' }), ...env } })
+  const app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, HOME: home, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, FAKE_AGENT_INIT: JSON.stringify({ model: MODEL }), ...env } })
   await app.evaluate(({ nativeTheme }, theme) => void (nativeTheme.themeSource = theme), theme)
   const page = await app.firstWindow()
   await page.emulateMedia({ colorScheme: theme })
@@ -187,11 +189,16 @@ for (const shot of SHOTS) {
         await expect(page.locator('.chat-item[data-kind="user"]').last()).toHaveAttribute('data-state', 'sent', { timeout: 60_000 })
         await expect.poll(async () => page.locator('.chat-text').count(), { timeout: 60_000 }).toBeGreaterThan(1)
         await wording(page, 'Is the tub wall thick enough to print? And is there room for a latch at M1?')
-        await page.locator('.mark-row[data-mark="M3"]').click()
+        // The dimension's check row in the card, where its verdict is: a click on it shows the wall in the view.
+        await openSection(page, 'Marks')
+        await openSection(page, 'Checks')
+        await page.locator('[data-region="left"] .check-row[data-check-mark="M3"]').click()
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
       } else if (shot === 'marks') {
         // The stand and its Marks list, the session pane away: the pin with its note, dimensions that pass, one that fails.
         await page.getByRole('button', { name: 'Hide session', exact: true }).click()
+        await openSection(page, 'Checks')
+        await openSection(page, 'Marks')
         await page.waitForTimeout(400)
         const at = (await page.evaluate(() => window.__tornoTest!.markScreen('M4')))!
         const view = (await page.locator('[data-region="viewport"] canvas').first().boundingBox())!
@@ -213,7 +220,7 @@ for (const shot of SHOTS) {
         ])
         await expect.poll(async () => (await state(page)).build?.revision, { timeout: 240_000 }).toBe(2)
         await expect(page.locator('.chat-turn')).toContainText('Pulled from torno: look, 1 picture', { timeout: 240_000 })
-        await expect(page.locator('.check-row[data-check-mark="M3"]')).toHaveAttribute('data-verdict', 'passes', { timeout: 60_000 })
+        await expect(page.locator('.check-row[data-check-mark="M3"]').first()).toHaveAttribute('data-verdict', 'passes', { timeout: 60_000 })
         await expect.poll(async () => page.locator('.chat-text').count(), { timeout: 120_000 }).toBe(3)
         await expect(page.locator('.chat-item[data-kind="user"]').last()).toHaveAttribute('data-state', 'sent', { timeout: 60_000 })
         await wording(page, 'The tub wall at M3 is too thin. Make it 3 mm.')
@@ -226,12 +233,16 @@ for (const shot of SHOTS) {
         await page.keyboard.press('x')
         await page.getByRole('button', { name: 'Cut across Y' }).click()
         await expect.poll(async () => (await state(page)).section !== null).toBe(true)
+        // The pointer off the button, on empty ground, so that no hint of its own is drawn over the section's controls.
+        const ground = (await page.locator('[data-region="viewport"] canvas').first().boundingBox())!
+        await page.mouse.move(ground.x + 120, ground.y + ground.height - 60)
         await page.waitForTimeout(800)
       } else if (shot === 'objects') {
         // The page of projects, each built once so that its card has a picture.
         await page.waitForSelector('[data-region="left"]')
         const listed = (await state(page)).workspace!.objects.map((o) => o.id)
-        for (const id of listed) await open(page, id)
+        // The airbox last, so that the project the page says is open is the one of the other pictures.
+        for (const id of [...listed.filter((id) => id !== 'intake'), ...listed.filter((id) => id === 'intake')]) await open(page, id)
         await page.getByRole('button', { name: 'Hide session', exact: true }).click()
         await page.locator('[data-region="viewport"] canvas').first().click({ position: { x: 5, y: 5 } })
         await page.keyboard.press('w')

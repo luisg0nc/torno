@@ -24,7 +24,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
-    <img src="docs/images/hero.png" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the projects on the left, the parts in 3D in the middle with a pin and dimensions on them, the chat with Claude Code on the right" width="900">
+    <img src="docs/images/hero.png" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the parts, checks and marks of the project in a card on the left, the model in 3D in the middle with a pin and dimensions on it, the conversation with Claude Code on the right" width="900">
   </picture>
 </p>
 
@@ -73,8 +73,8 @@ the Python file, and torno shows it.
 
 <table>
   <tr>
-    <td><img src="docs/images/marks.png" alt="A pin and dimensions on a speaker stand, with the Marks list showing two dimensions passing and one failing"></td>
-    <td><img src="docs/images/chat.png" alt="The chat: a prompt with the marks torno added, the agent calling look and measure, its edit of the model and the build that followed"></td>
+    <td><img src="docs/images/marks.png" alt="A pin and dimensions on a speaker stand, with the Checks in the card at the left showing two dimensions passing and one failing"></td>
+    <td><img src="docs/images/chat.png" alt="The conversation in the dock: a prompt with the marks torno added, the agent calling look and measure, its edit of the model and the build that followed"></td>
     <td><img src="docs/images/section.png" alt="A section through the airbox showing the filter pod inside the lid and the ribs of the tub"></td>
   </tr>
   <tr>
