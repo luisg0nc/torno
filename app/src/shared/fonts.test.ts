@@ -22,11 +22,20 @@ function walk(dir: string): string[] {
 it('no family name is written outside shared/fonts.ts, tokens.css, main/export/html.ts and page.css', () => {
   const src = resolve(__dirname, '..')
   const allowed = new Set(['shared/fonts.ts', 'renderer/styles/tokens.css', 'main/export/html.ts', 'export/page.css'])
-  // The family names, not the packages' import paths (`@fontsource/ibm-plex-sans/...`), which stay until the Plex faces go.
-  const named = /IBM Plex (Sans|Mono)|Instrument Sans|Martian Mono/
+  const named = /Instrument Sans|Martian Mono/
   const outside = walk(src)
     .map((file) => relative(src, file))
     .filter((file) => !allowed.has(file) && file !== 'shared/fonts.test.ts')
     .filter((file) => named.test(readFileSync(join(src, file), 'utf8')))
   expect(outside).toEqual([])
+})
+
+it('names IBM Plex nowhere: not in app/src, app/scripts or site/, and the packages are gone', () => {
+  const app = resolve(__dirname, '../..')
+  const files = [...walk(resolve(app, 'src')), ...walk(resolve(app, 'scripts')), ...walk(resolve(app, '../site'))].filter((file) => file !== __filename && /\.(ts|tsx|css|mjs|js|html|py|json|svg)$/.test(file))
+  expect(files.length).toBeGreaterThan(100)
+  const plex = /IBM ?Plex|ibm-plex|plex-(sans|mono)/i
+  expect(files.filter((file) => plex.test(readFileSync(file, 'utf8'))).map((file) => relative(app, file))).toEqual([])
+  const pkg = JSON.parse(readFileSync(resolve(app, 'package.json'), 'utf8')) as { dependencies: Record<string, string> }
+  expect(Object.keys(pkg.dependencies).filter((name) => /plex/.test(name))).toEqual([])
 })

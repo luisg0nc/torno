@@ -69,12 +69,12 @@ export function renderManual(markdown) {
 }
 
 const STYLE = `
-:root { --bg: #FAF9F6; --panel: #F1EFE9; --ink: #22252A; --muted: #646970; --hairline: #DAD6CE; --accent: #1D46B8; }
-@media (prefers-color-scheme: dark) { :root { --bg: #1B1D20; --panel: #222529; --ink: #E9E7E2; --muted: #9A9FA6; --hairline: #3E434A; --accent: #7C9BF7; } }
+:root { --bg: #FAF9F6; --panel: #F1EFE9; --ink: #20242B; --muted: #62666D; --hairline: #DAD6CE; --accent: #1D46B8; }
+@media (prefers-color-scheme: dark) { :root { --bg: #1B1D20; --panel: #222529; --ink: #E9E7E2; --muted: #9EA3AA; --hairline: #3E434A; --accent: #7C9BF7; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
 a { color: var(--accent); }
-code, pre, kbd { font-family: ui-monospace, 'IBM Plex Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+code, pre, kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
 code { background: var(--panel); padding: 0.1em 0.3em; border-radius: 3px; }
 pre { background: var(--panel); border: 1px solid var(--hairline); padding: 0.8em 1em; overflow-x: auto; border-radius: 4px; }
 pre code { background: none; padding: 0; }

@@ -21,6 +21,20 @@ it('uses the tokens of the app, to the value, in light and in dark', () => {
   expect(readFileSync(resolve(__dirname, 'page.css'), 'utf8')).toContain(':root[data-theme="dark"]')
 })
 
+it('declares every token a rule reads, and carries --raise for what floats', () => {
+  const css = readFileSync(resolve(__dirname, 'page.css'), 'utf8')
+  const [light, dark] = halves(css)
+  const declared = new Set(Object.keys(tokens(light)))
+  const read = new Set([...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]))
+  expect([...read].filter((name) => !declared.has(name))).toEqual([])
+  // What the window draws on --raise (a tag, a popover, the selected segment) the page draws on it too.
+  expect(declared.has('--raise')).toBe(true)
+  expect(Object.keys(tokens(dark))).toContain('--raise')
+  expect(css).toMatch(/#said \{[^}]*background: var\(--raise\)/)
+  expect(css).toMatch(/#foot details\[open\] \{[^}]*background: var\(--raise\)/)
+  expect(css).toMatch(/\.themes button\[aria-pressed="true"\] \{[^}]*background: var\(--raise\)/)
+})
+
 it('holds the dark values twice to the letter: for a system that asks for dark, and for the switch', () => {
   const css = readFileSync(resolve(__dirname, 'page.css'), 'utf8')
   const system = /@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}/.exec(css)

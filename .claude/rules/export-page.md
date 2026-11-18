@@ -26,6 +26,9 @@ The page an export writes: its style (`page.css`) and its viewer (`viewer/`), wh
 `app/scripts/build-viewer.mjs` bundles into `out/viewer/viewer.js`. What makes the file is in
 `src/main/export` (see also the rule `export-saving`).
 
+`page.css` carries the window's tokens it reads, to the value (`--raise` included: the tag, the open details and the pressed theme
+button stand on it), and `page.test.ts` holds both that and that every token a rule reads is declared.
+
 ## Export (`app/src/export`)
 
 - One HTML file of an object, or of several, for someone who has no torno (`src/main/export`, `src/export`).
