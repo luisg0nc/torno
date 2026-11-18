@@ -1,16 +1,58 @@
-/* ---- A question asked in place (ui/Confirm.tsx) ---- */
+/* ---- A card that stands from a button, with a stem to it (ui/Popover.tsx), and the question asked in one (ui/Confirm.tsx) ---- */
+
+/* Fixed from the anchor's box (`placePopover`), whatever panel it is rendered in; above the leaders (z 12) and the terminal's layers (up to 11). */
+.popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  padding: var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--raise);
+  box-shadow: var(--float-shadow);
+  color: var(--ink);
+  font-size: var(--text-row);
+}
+
+/* The stem: a square turned on its corner, on the edge the card hangs from, as far along as the anchor is. */
+.popover-stem {
+  position: absolute;
+  left: var(--stem, 50%);
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  background: var(--raise);
+  transform: rotate(45deg);
+}
+
+.popover[data-side='below'] > .popover-stem {
+  top: -6px;
+  border-top: var(--divider);
+  border-left: var(--divider);
+}
+
+.popover[data-side='above'] > .popover-stem {
+  bottom: -6px;
+  border-right: var(--divider);
+  border-bottom: var(--divider);
+}
 
 .confirm {
-  flex: none;
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-top: var(--divider);
-  border-bottom: var(--divider);
-  background: var(--panel);
+}
+
+.confirm-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .confirm p {
+  margin: 0;
   text-wrap: pretty;
 }
 
@@ -20,7 +62,7 @@
   gap: var(--space-2);
 }
 
-/* The button that ends something: marked, but not the one a stray Enter presses. */
+/* The button that ends something: outlined in the failure colour, but not the one a stray Enter presses. */
 .confirm-accept {
   border-color: var(--fail);
   color: var(--fail);
@@ -29,18 +71,7 @@
 .confirm-accept:hover {
   border-color: var(--fail);
   background: var(--fail);
-  color: var(--panel);
-}
-
-/* Over the top of the terminal, which keeps its size. */
-.session-body > .confirm {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* Above the terminal's own layers, which are stacked up to 11. */
-  z-index: 20;
-  border-top: none;
+  color: var(--raise);
 }
 
 /* ---- Controls ---- */

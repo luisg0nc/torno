@@ -106,17 +106,31 @@ test('a scan is imported from the panel, drawn, and said in millimetres', async 
   await page.getByRole('button', { name: 'Import scan…' }).click()
   await expect(row('S1')).toContainText('plate under.stl')
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
-  // Issue #21: a guess is asked about once, at the top of the panel, with the size another reading would give.
+  // Issue #21: a guess is asked about once, in the view by the scan (Task 25), with the size another reading would give.
   const sheet = page.getByRole('dialog', { name: 'How is S1 read?' })
   await expect(sheet).toContainText('S1 was read as millimetres, Z up: torno guessed from the format and the size.')
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 60 × 50 × 2 mm')
-  await sheet.getByRole('combobox', { name: 'Unit of S1' }).selectOption('cm')
+  // The card is in the view, under the switch, and the dial has a cell for each unit with the longest side in it.
+  const view = (await page.locator('.viewport-canvas').boundingBox())!
+  const card = (await sheet.boundingBox())!
+  expect(card.width).toBe(330)
+  expect(card.x).toBeGreaterThanOrEqual(view.x)
+  expect(card.y).toBeGreaterThan(view.y + 40)
+  await expect(sheet.getByRole('radiogroup', { name: 'Unit of S1' }).getByRole('radio')).toHaveText(['mm60', 'cm600', 'm60000', 'in1524'])
+  await expect(sheet.getByRole('radio', { name: 'mm', exact: true })).toHaveAttribute('aria-checked', 'true')
+  // Pointing at a unit draws the scan's box at that size, dashed, on the overlay; the scan itself is not changed.
+  await sheet.getByRole('radio', { name: 'cm', exact: true }).hover()
+  await expect.poll(() => page.evaluate(() => window.__tornoTest!.askedBox())).toMatchObject({ label: '600 × 500 × 20 mm' })
+  await page.mouse.move(2, 2)
+  await expect.poll(() => page.evaluate(() => window.__tornoTest!.askedBox())).toBeNull()
+  await sheet.getByRole('radio', { name: 'cm', exact: true }).click()
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 600 × 500 × 20 mm')
-  await sheet.getByRole('combobox', { name: 'Up axis of S1' }).selectOption('y')
+  await expect(sheet.getByRole('button', { name: 'Read it in centimetres' })).toBeEnabled()
+  await sheet.getByRole('radio', { name: 'Y up' }).click()
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 600 × 20 × 500 mm')
-  await sheet.getByRole('combobox', { name: 'Unit of S1' }).selectOption('mm')
-  await sheet.getByRole('combobox', { name: 'Up axis of S1' }).selectOption('z')
-  await expect(sheet.getByRole('button', { name: 'Apply' })).toBeDisabled()
+  await sheet.getByRole('radio', { name: 'mm', exact: true }).click()
+  await sheet.getByRole('radio', { name: 'Z up' }).click()
+  await expect(sheet.getByRole('button', { name: 'Read it in millimetres' })).toBeDisabled()
   // Later: put away, and still to be answered, with a dot on the row and the question in its detail.
   await sheet.getByRole('button', { name: 'Later' }).click()
   await expect(sheet).toHaveCount(0)
@@ -292,7 +306,7 @@ test('a scan with colours of its own is drawn in them, or plain, as its row says
   expect((await state()).scans[0].imported.colours).toBe('vertex')
   // The guess was right: Keep says so, keeps the scan as it is, and no longer asks.
   const sheet = page.getByRole('dialog', { name: 'How is S2 read?' })
-  await sheet.getByRole('button', { name: 'Keep' }).click()
+  await sheet.getByRole('button', { name: 'Keep mm' }).click()
   await expect(sheet).toHaveCount(0)
   await expect.poll(async () => (await state()).scans[0].imported.assumed).toEqual({ unit: false, up: false })
   await expect(row('S2').getByRole('img', { name: 'Read as assumed' })).toHaveCount(0)
@@ -448,9 +462,9 @@ test('a scan read with a guess is asked about once after its import, and Apply r
   const sheet = page.getByRole('dialog', { name: 'How is S3 read?' })
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 60 × 50 × 2 mm')
   await expect(row('S3').getByRole('img', { name: 'Read as assumed' })).toBeVisible()
-  await sheet.getByRole('combobox', { name: 'Unit of S3' }).selectOption('cm')
+  await sheet.getByRole('radio', { name: 'cm', exact: true }).click()
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 600 × 500 × 20 mm')
-  await sheet.getByRole('button', { name: 'Apply' }).click()
+  await sheet.getByRole('button', { name: 'Read it in centimetres' }).click()
   await expect(sheet).toHaveCount(0)
   await expect.poll(async () => (await state()).scans.find((scan) => scan.id === 'S3')?.imported).toMatchObject({ unit: 'cm', assumed: { unit: false, up: false } })
   await expect(row('S3').getByRole('img', { name: 'Read as assumed' })).toHaveCount(0)
@@ -498,7 +512,7 @@ test('a scan read as metres that is far larger than the parts is compared with t
   // Brought into view with the parts, once, though nothing was framed by hand.
   await expect.poll(async () => (await scans()).find((scan) => scan.id === 'S4')?.clipped).toBe(false)
   expect(await page.evaluate(() => { const c = window.__tornoTest!.camera(); return Math.hypot(...c.position.map((p, i) => p - c.target[i])) })).toBeGreaterThan(5000)
-  await sheet.getByRole('combobox', { name: 'Unit of S4' }).selectOption('mm')
+  await sheet.getByRole('radio', { name: 'mm', exact: true }).click()
   await expect(sheet.locator('[data-part="doubt"]')).toHaveCount(0)
   await sheet.getByRole('button', { name: 'Later' }).click()
 })
@@ -512,7 +526,7 @@ test('a long scan name keeps ten characters on a hovered row, and the detail is 
   await page.getByRole('button', { name: 'Import scan…' }).click()
   await expect.poll(async () => (await state()).scans.length).toBe(count + 1)
   const last = (await state()).scans.at(-1)!.id
-  await page.getByRole('dialog', { name: `How is ${last} read?` }).getByRole('button', { name: 'Keep' }).click()
+  await page.getByRole('dialog', { name: `How is ${last} read?` }).getByRole('button', { name: 'Keep mm' }).click()
   await row(last).hover()
   const shown = await row(last).locator('.row-name').evaluate((el: HTMLElement) => {
     const probe = document.createElement('canvas').getContext('2d')!

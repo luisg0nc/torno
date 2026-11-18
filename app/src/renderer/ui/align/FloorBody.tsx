@@ -26,7 +26,7 @@ export function FloorBody({ state }: { state: AlignState }) {
         ) : (
           <Field label="Height in millimetres" sign="z" axis="z" unit="mm" value={shown(height)} disabled={choosingFace} commit={(value) => alignStore.setState({ height: value })} />
         )}
-        <button type="button" className="bar-button" aria-pressed={flip} disabled={!floor} title="Lay the scan the other way up" onClick={() => alignStore.setState({ flip: !flip })}>
+        <button type="button" className="procedure-button" aria-pressed={flip} disabled={!floor} title="Lay the scan the other way up" onClick={() => alignStore.setState({ flip: !flip })}>
           Flip
         </button>
       </div>

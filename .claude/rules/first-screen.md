@@ -103,7 +103,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   while it stands no key reaches anything behind it, wherever the focus is, and a press on its backdrop leaves the
   focus in it. It stands over the sheet of what torno needs, which shares its layer (`data-question`). It lists a line for each thing with the
   object it is of, as a link that goes to that object (or to the page of a new one) and puts the question away
-  (`closingWhy`, `leavingWhy` in `closing.ts` return those items). `ui/Confirm.tsx` stays the strip for a question
-  about one panel (a scan, a mark, the session).
+  (`closingWhy`, `leavingWhy` in `closing.ts` return those items). `ui/Confirm.tsx` is the question about one panel (a scan, a mark, the session, Align): a popover from the button that asked
+  (`ui/Popover.tsx`: 290 px, `--raise`, radius 10, a stem to the anchor, `position: fixed` from the anchor's box by
+  `popoverPlace.ts` so no panel clips it, and it takes off what a transformed panel adds; Escape closes it and the focus goes back to the
+  anchor). The anchor is the `anchor` given, or the element that had the focus as the question came (the button pressed).
+  The safe button has the focus; the one that acts is outlined in `--fail`.
 - **The Board | Model | Tracing switch** is the main area's, not the first screen's: the first screen (no project open) has none, and a project opens on the model, or on the view it was left on
   (`board.md`, `tracings.md`). A project left on a tracing that is gone opens on the model.

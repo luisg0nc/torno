@@ -34,6 +34,8 @@ test.beforeAll(async () => {
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
   await page.waitForSelector('[data-region="left"]')
+  // A procedure card is 300 px wide at the bottom right of the view: the view has room for the model beside it.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1800, 1000))
 })
 
 test.afterAll(async () => {
@@ -66,7 +68,8 @@ const where = (p: Vec3): Vec3 => [Math.cos(Math.PI / 6) * p[0] - Math.sin(Math.P
 // Four points of the base's top, and where each is on the twin. Seen from above the twin covers part of the
 // base: the first point, the one that is clicked on the base itself, is clear of it.
 const ON_TOP: Vec3[] = [[-15, -10, 2.5], [15, 10, 2.5], [-15, 10, 2.5], [12, -8, 2.5]]
-const bar = (p: Page = page) => p.locator('.alignbar')
+// The Align card is found by its title (Task 25: a procedure card at the bottom right of the view).
+const bar = (p: Page = page) => p.getByRole('group', { name: 'Align scan' })
 
 /** Clicks where a point of the scan's own frame is drawn. */
 async function clickScan(local: Vec3): Promise<void> {
@@ -80,7 +83,7 @@ async function clickModel(point: Vec3): Promise<void> {
   await page.mouse.click(canvas.x + fx * canvas.width, canvas.y + fy * canvas.height)
 }
 /**
- * Zooms out until every point given is well inside the canvas: by default from 8% to 92% of each side. `lowest` is how far down
+ * Zooms out until every point given is well inside the canvas: by default from 8% to 92% of each side, and left of the column at the right that the compass and the card take. `lowest` is how far down
  * the view a point may be: the bar of the tool stands at the foot of a view that is narrow, taller with each pair, and a click
  * under it is the bar's.
  */
@@ -89,7 +92,9 @@ async function frame(points: Vec3[], lowest = 0.92): Promise<void> {
   await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2)
   for (let tries = 0; tries < 12; tries++) {
     const drawn = await page.evaluate((points) => points.map((p) => window.__tornoTest!.project(p)), points)
-    if (drawn.every(([x, y]) => x > 0.08 && x < 0.92 && y > 0.08 && y < lowest)) return
+    // The compass stands at the top right and the card at the bottom right (320 px): the points are kept to the left of both.
+    const right = Math.min(0.92, 1 - 330 / canvas.width)
+    if (drawn.every(([x, y]) => x > 0.08 && x < right && y > 0.08 && y < lowest)) return
     await page.mouse.wheel(0, 240)
     await page.waitForTimeout(150)
   }
@@ -110,6 +115,10 @@ async function fromAbove(): Promise<void> {
     })
     .toBe(true)
 }
+/** How the scan was read is asked in the view now, over its top left: a person with no answer yet puts it away, to see the model. */
+async function later(): Promise<void> {
+  await page.getByRole('dialog', { name: /^How is S\d+ read\?$/ }).getByRole('button', { name: 'Later' }).click()
+}
 const alignment = async (layout: string) => (await state()).scans[0].alignments[layout]
 
 test('three pairs and a fourth bring a displaced scan onto the model, and say how well', async () => {
@@ -118,6 +127,7 @@ test('three pairs and a fourth bring a displaced scan onto the model, and say ho
   writeFileSync(file, TWIN)
   await pickFile(file)
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   // From above, so that the tops of both are what is clicked.
   await fromAbove()
@@ -190,6 +200,7 @@ test('a tilted floor is laid flat on the ground, and says that is all it is', as
   writeFileSync(file, stl(grid(30, 1, (x) => 60 + 0.1 * x)))
   await pickFile(file)
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await fromAbove()
   await frame([[0, 0, 60], [14, 14, 61.4], [-14, -14, 58.6]])
@@ -222,6 +233,7 @@ test('an alignment says so when a build moves the model from under it', async ()
   writeFileSync(file, stl(moved(box([20, 20, 2]), 0, [centre[0], 40, 1])))
   await pickFile(file)
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await fromAbove()
   const top: Vec3[] = [[6, 6, 2], [-6, 6, 2], [-6, -6, 2]]
@@ -552,10 +564,10 @@ test('a pair’s row shows a point of a scan the size of a room uncut in a view 
   expect(widths.cell[0]).toBeLessThanOrEqual(widths.cell[1])
   for (const [scroll, client] of widths.fields) expect(scroll).toBeLessThanOrEqual(client)
   expect(widths.row[0]).toBeLessThanOrEqual(widths.row[1])
-  expect(widths.row[2]).toBe(30)
-  // Within the view, and no more than a third of its height.
+  // A card of 320 px at the bottom right, within the view, and clear of the compass above it.
+  expect(widths.bar[0]).toBeLessThanOrEqual(321)
   expect(widths.bar[0]).toBeLessThanOrEqual(widths.bar[1] - 24)
-  expect(widths.bar[2]).toBeLessThanOrEqual(Math.max(widths.bar[3] / 3, 150) + 1)
+  expect(widths.bar[2]).toBeLessThanOrEqual(widths.bar[3] - 240 + 1)
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await expect(bar()).toHaveCount(0)

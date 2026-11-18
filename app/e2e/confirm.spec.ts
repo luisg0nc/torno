@@ -91,6 +91,17 @@ test('a new session while the agent is working is asked about first; "Keep it" c
   await expect(ask).toBeVisible()
   await expect(ask).toContainText('Claude Code is working. A new session ends this one.')
   await expect(ask.getByRole('button')).toHaveText(['Keep it', 'End it and start new'])
+  // A popover from the button that asked (Task 25): the safe button has the focus, the card stands against the button with its
+  // stem to it, a card of 290 px with a title, and it is no strip of the dock.
+  await expect(ask.getByRole('button', { name: 'Keep it' })).toBeFocused()
+  await expect(ask.getByRole('heading', { name: 'End the running session?' })).toBeVisible()
+  const [card, from] = await Promise.all([ask.boundingBox(), dock().getByRole('button', { name: 'New session' }).boundingBox()])
+  expect(card!.width).toBe(290)
+  expect(card!.y >= from!.y + from!.height - 1 || card!.y + card!.height <= from!.y + 1).toBe(true)
+  const stem = ask.locator('.popover-stem')
+  const [tip] = await stem.evaluate((el) => [el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2])
+  expect(tip).toBeGreaterThanOrEqual(from!.x - 2)
+  expect(tip).toBeLessThanOrEqual(from!.x + from!.width + 2)
   // Nothing has been ended by asking.
   expect(await sessionId('bracket')).toBe(running)
   expect(agentsIn(join(root, 'bracket'))).toEqual([agent])
@@ -111,6 +122,8 @@ test('Escape keeps the session too', async () => {
   await page.keyboard.press('Escape')
   await expect(dock().getByRole('alertdialog')).toHaveCount(0)
   expect(await sessionId('bracket')).toBe(running)
+  // The focus is not lost: it stays in the dock ("Keep it" goes on with the terminal).
+  expect(await page.evaluate(() => document.activeElement?.closest('[data-region="session"]') !== null)).toBe(true)
 })
 
 test('"End it and start new" ends the session and starts another, also for one that waits for an answer', async () => {

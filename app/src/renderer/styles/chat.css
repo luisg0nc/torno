@@ -51,6 +51,11 @@
   contain-intrinsic-size: auto 48px;
 }
 
+/* Not while a question stands from a button of it (`Popover`): containment would clip it to the turn, and a card fixed to the window needs none. It is in view. */
+.chat-group:has(.popover) {
+  content-visibility: visible;
+}
+
 .chat-group + .chat-group {
   margin-top: var(--space-3);
 }
@@ -709,10 +714,6 @@ button.ref-chip {
 .turn-more {
   flex: none;
   color: var(--muted);
-}
-
-.chat-turn-actions > .confirm {
-  flex: 1 1 100%;
 }
 
 .turn-facts {
@@ -1649,7 +1650,7 @@ select.session-model:disabled {
   gap: var(--space-2);
 }
 
-.prompt-goback:has(.confirm, .chat-turn-problem) {
+.prompt-goback:has(.chat-turn-problem) {
   flex: 1 0 100%;
   padding-bottom: var(--space-2);
 }

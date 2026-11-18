@@ -40,6 +40,8 @@ test.beforeAll(async () => {
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
   await page.waitForSelector('[data-region="left"]')
+  // A procedure card is 300 px wide at the bottom right of the view: the view has room for the model beside it.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1800, 1000))
 })
 
 test.afterAll(async () => {
@@ -111,7 +113,13 @@ function differing(one: LookRequest, other: LookRequest): Promise<number> {
   )
 }
 
-const bar = () => page.locator('.regionbar')
+/** How the scan was read is asked in the view now, over its top left: a person with no answer yet puts it away, to see the model. */
+async function later(): Promise<void> {
+  await page.getByRole('dialog', { name: /^How is S\d+ read\?$/ }).getByRole('button', { name: 'Later' }).click()
+}
+
+// The Region card is found by its title (Task 25: a procedure card at the bottom right of the view).
+const bar = () => page.getByRole('group', { name: 'Region of a scan' })
 const painted = async (): Promise<number> => Number((await bar().locator('.regionbar-count').innerText()).replace(/,/g, '').match(/(\d+) triangle/)?.[1] ?? Number.NaN)
 
 test('a part of a scan is painted, named, kept as a mark with its mask, told to the agent and left out of a clash', async () => {
@@ -122,6 +130,7 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await pickFile(file)
   await openSection(page, 'Scans')
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   // The view turns to it over a moment: what follows is aimed from above, and a press is answered from the camera as it then is.
@@ -351,6 +360,7 @@ test('a stamp beside a part takes nothing the part hides', async () => {
   await pickFile(file)
   await openSection(page, 'Scans')
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect.poll(async () => {

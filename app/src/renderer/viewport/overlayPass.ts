@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Vec3 } from '../../shared/marks'
 import { type AlignPoint, drawAlignPoints } from './alignPoints'
+import { type AskedBox, drawAskedBox } from './askedBox'
 import { type BrushRing, drawBrushRing } from './brushRing'
 import { drawHeldValue } from './heldValue'
 import type { MarkLayer } from './marks/MarkLayer'
@@ -40,6 +41,8 @@ export class OverlayPass {
   readonly canvas: HTMLCanvasElement | null
   alignPoints: AlignPoint[] = []
   brush: BrushRing | null = null
+  /** The box a scan would have in the unit pointed at, while its read question is asked: dashed, in no picture. */
+  asked: AskedBox | null = null
   /** The value of the last measurement, at the middle of its line: a readout, in ink, in no picture. */
   held: { at: Vec3; text: string } | null = null
   /** What a sketch lays over the view: the hint beside the pointer, its plane's label, the view cube; null when none is being drawn. */
@@ -99,6 +102,7 @@ export class OverlayPass {
     drawAlignPoints(ctx, this.alignPoints, host.camera(), size, { accent: style.accent, paper: style.paper })
     drawHeldValue(ctx, this.held, host.camera(), size, { ink: style.ink, paper: style.paper })
     drawBrushRing(ctx, this.brush, host.camera(), size, { mark: style.user, paper: style.paper })
+    drawAskedBox(ctx, this.asked, host.camera(), size, { accent: style.accent, paper: style.paper })
   }
 
   /** The triad and the scale: of the camera and the object frame, so drawn whatever the parts are doing. */
