@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mark } from '../../shared/marks'
-import { groupMarks } from './markGroups'
+import { groupMarks, splitMarkGroups } from './markGroups'
 
 const mark = (id: string, status: Mark['status'], extra: Partial<Mark> = {}): Mark =>
   ({ id, kind: 'pin', author: 'user', status, note: '', layout: 'default', anchorState: 'ok', ...extra }) as Mark
@@ -55,5 +55,43 @@ describe('groupMarks', () => {
     expect(ids(g.withAgent)).toEqual(['M7'])
     expect(ids(g.toSend)).toEqual(['M8'])
     expect(ids(g.resolved)).toEqual(['M6'])
+  })
+})
+
+describe('splitMarkGroups', () => {
+  const dimension = (id: string, extra: Partial<Mark> = {}): Mark =>
+    mark(id, 'sent', { kind: 'dimension', measure: 'distance', value: 40, expected: 40, verdict: 'pass', measuredRevision: 5, ...extra } as Partial<Mark>)
+
+  const fixture = (): Mark[] => [
+    mark('M1', 'draft'),
+    mark('M2', 'sent'),
+    mark('M3', 'sent', { author: 'agent' }),
+    mark('M4', 'resolved', { resolvedBy: 'agent' }),
+    mark('M5', 'resolved', { resolvedBy: 'user' }),
+    dimension('M6', { verdict: 'fail', value: 38 } as Partial<Mark>),
+    dimension('M7'),
+    dimension('M8', { measuredRevision: 4 } as Partial<Mark>)
+  ]
+
+  it('puts what waits on the person in Needs you and what is theirs to send or the agent\'s to do in Marks', () => {
+    const split = splitMarkGroups(groupMarks(fixture(), 5))
+    expect(ids(split.needs.toReview)).toEqual(['M4'])
+    expect(ids(split.needs.fromAgent)).toEqual(['M3'])
+    expect(ids(split.marks.toSend)).toEqual(['M1'])
+    expect(ids(split.marks.withAgent)).toEqual(['M2'])
+    expect(ids(split.marks.resolved)).toEqual(['M5'])
+  })
+
+  it('holds only the dimensions that fail in Needs you: the rest of the checks are Checks\'', () => {
+    const split = splitMarkGroups(groupMarks(fixture(), 5))
+    expect(ids(split.needs.failingChecks)).toEqual(['M6'])
+    // Each mark is in one place only: no check is among the marks of Marks.
+    const all = [...split.needs.toReview, ...split.needs.fromAgent, ...split.needs.failingChecks, ...split.marks.toSend, ...split.marks.withAgent, ...split.marks.resolved]
+    expect(new Set(ids(all)).size).toBe(all.length)
+  })
+
+  it('does not count a check that fails on an older build', () => {
+    const split = splitMarkGroups(groupMarks([dimension('M1', { verdict: 'fail', value: 38, measuredRevision: 4 } as Partial<Mark>)], 5))
+    expect(split.needs.failingChecks).toEqual([])
   })
 })

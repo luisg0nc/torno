@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { number } from '../../../shared/format'
-import { gaugeInside, gaugeSaid, gaugeWindow } from './gauge'
+import { gaugeInside, gaugeSaid, gaugeWindow } from './gaugeWindow'
 
 const W = 64
 const H = 16

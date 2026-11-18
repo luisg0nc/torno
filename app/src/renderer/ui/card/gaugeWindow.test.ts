@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gauge } from './Gauge'
-import { gaugeSaid, gaugeWindow } from './gauge'
+import { gaugeSaid, gaugeWindow } from './gaugeWindow'
 
 describe('the gauge window', () => {
   it('is the band widened by twice its width each side, or out to the value when that is further', () => {

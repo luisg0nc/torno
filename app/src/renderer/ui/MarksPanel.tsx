@@ -1,97 +1,41 @@
-import { useEffect, useRef, useState } from 'react'
-import { type Mark, type MarkPatch, markAnchors, markEndParts } from '../../shared/marks'
-import { actions, layerOf, useStore } from '../state/store'
+import { useEffect, useState } from 'react'
+import { type Mark, markEndParts } from '../../shared/marks'
+import { actions, useStore } from '../state/store'
 import { AskToCommit } from './AskToCommit'
-import { MarkRow } from './MarkRow'
-import { groupMarks } from './markGroups'
-import { type ReviewStep, ResolvedSummary } from './ResolvedSummary'
+import { groupMarks, splitMarkGroups } from './markGroups'
+import { useMarkRows } from './markRows'
+import { done, offerUndo, useRowsSaid } from './rowsSaid'
 import { ReviewSummary } from './ReviewSummary'
 
-/** How long "Undo" is offered after a delete. */
-const UNDO_MS = 10_000
-
 /**
- * The marks of the open object, below the layers, grouped by what is to be
- * done with them (`groupMarks`): checks (dimensions with something expected of them), to send, from the agent, to review, with the agent, then,
- * folded away, the resolved ones. A mark the agent resolved is to review
- * until the person has said they have seen it, or reopened it. Marks of every layout are listed; one of a layout that is not shown
- * says which, and going to it switches there.
+ * The marks of the open object, grouped by who acts next (`splitMarkGroups`): to send (the person's, with their next prompt), with
+ * the agent, then, folded away, the resolved ones. What waits on the person (the marks the agent resolved or left for them, and
+ * the checks that fail) is in Needs you. At its head, outside its scroll, are Review this build and a row for each round. Marks of
+ * every layout are listed; one of a layout that is not shown says which, and going to it switches there.
+ * The dimension checks are listed here until the Checks section takes them (`checks`).
  */
 export function MarksPanel() {
   const objectId = useStore((s) => s.objectId)
   const marks = useStore((s) => s.marks)
-  const layout = useStore((s) => s.layout)
-  const layouts = useStore((s) => s.scene?.layouts)
-  const parts = useStore((s) => s.scene?.parts)
-  const layers = useStore((s) => s.layers)
-  const scanViews = useStore((s) => s.scanViews)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
-  const active = useStore((s) => s.activeMark)
   const problem = useStore((s) => s.marksProblem)
   const onPart = useStore((s) => s.marksOnPart)
   const [showResolved, setShowResolved] = useState(false)
-  // What main said when it refused a change, until the next one goes through.
-  const [refused, setRefused] = useState<string | null>(null)
+  const row = useMarkRows('marks')
+  // What main said when it refused a change, until the next one goes through, and the mark just deleted, which can be put back.
+  const refused = useRowsSaid((s) => (s.refused?.where === 'marks' ? s.refused.message : null))
+  const undo = useRowsSaid((s) => (s.undo?.where === 'marks' ? s.undo.id : null))
 
-  // The mark just deleted, which can be put back for ten seconds, or until the next delete.
-  const [undo, setUndo] = useState<string | null>(null)
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const offerUndo = (id: string | null): void => {
-    clearTimeout(undoTimer.current)
-    setUndo(id)
-    if (id !== null) undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS)
-  }
-  useEffect(() => () => clearTimeout(undoTimer.current), [])
-
-  useEffect(() => {
-    setRefused(null)
-    setShowResolved(false)
-    offerUndo(null)
-  }, [objectId])
+  useEffect(() => setShowResolved(false), [objectId])
 
   if (!objectId) return null
 
-  const done = (call: Promise<unknown>): void => {
-    call.then(
-      () => setRefused(null),
-      (e: unknown) => setRefused(e instanceof Error ? e.message : String(e))
-    )
-  }
-  /** Whether a mark is on a part that is there and switched off: it is not drawn, like its part. A dimension, when that is so of both its ends. */
-  const hidden = (mark: (typeof marks)[number]): boolean => {
-    if (mark.status === 'resolved') return false
-    // A region is drawn on its scan, and not while that is switched off.
-    if (mark.kind === 'region') return mark.anchorState !== 'orphaned' && scanViews[mark.scan]?.visible === false
-    const off = (part: string | undefined): boolean => part !== undefined && layerOf(layers, part)?.visible === false && (parts?.some((p) => p.layout === mark.layout && p.name === part) ?? false)
-    const ends = mark.kind === 'dimension' ? markAnchors(mark) : markAnchors(mark).slice(0, 1)
-    return ends.length > 0 && ends.every((anchor) => off(anchor.part))
-  }
-  const row = (mark: (typeof marks)[number], review?: ReviewStep) => (
-    <MarkRow
-      key={mark.id}
-      review={review}
-      mark={mark}
-      active={mark.id === active}
-      // A region is of its scan in every layout: it is never elsewhere, and its layout going takes nothing from it.
-      elsewhere={mark.kind !== 'region' && mark.layout !== layout}
-      gone={mark.kind !== 'region' && layouts !== undefined && !layouts.includes(mark.layout)}
-      partHidden={hidden(mark)}
-      revision={revision}
-      change={(patch: MarkPatch) => {
-        const call = window.torno.marks.update(objectId, mark.id, patch)
-        done(call)
-        return call
-      }}
-      remove={() => {
-        const call = window.torno.marks.remove(objectId, mark.id)
-        done(call)
-        void call.then(() => offerUndo(mark.id), () => {})
-      }}
-    />
-  )
   // Cut to one part by a click on its count in the layers: a view of the list only, the agent is told every mark.
   const listed = onPart === null ? marks : marks.filter((m) => m.kind !== 'region' && markEndParts(m).includes(onPart))
-  const { checks, toSend, fromAgent, withAgent, toReview, resolved } = groupMarks(listed, revision)
+  const groups = groupMarks(listed, revision)
+  const { checks } = groups
+  const { needs, marks: mine } = splitMarkGroups(groups)
+  const { toSend, withAgent, resolved } = mine
   /** A group of the list under its heading, when it has marks. */
   const group = (name: string, of: Mark[], hint?: string) =>
     of.length > 0 && (
@@ -149,8 +93,8 @@ export function MarksPanel() {
               className="link-button"
               onClick={() => {
                 const id = undo
-                offerUndo(null)
-                done(window.torno.marks.restore(objectId, id))
+                offerUndo('marks', null)
+                done('marks', window.torno.marks.restore(objectId, id))
               }}
             >
               Undo
@@ -164,16 +108,11 @@ export function MarksPanel() {
             <p>A mark goes with your next prompt, and stays here until the agent resolves it.</p>
           </div>
         )}
-        {listed.length > 0 && checks.length + toSend.length + fromAgent.length + withAgent.length + toReview.length === 0 && <p className="section-note">Every mark is resolved.</p>}
+        {listed.length > 0 && checks.length + toSend.length + withAgent.length === 0 && (
+          <p className="section-note">{needs.toReview.length + needs.fromAgent.length > 0 ? 'What is left waits for you under Needs you.' : 'Every mark is resolved.'}</p>
+        )}
         {group('Checks', checks)}
         {group('To send', toSend, 'with your next prompt')}
-        {group('From the agent', fromAgent)}
-        {toReview.length > 0 && (
-          <h3 className="marks-group">
-            To review <span className="num">{toReview.length}</span>
-          </h3>
-        )}
-        <ResolvedSummary key={objectId} marks={toReview} row={row} acknowledgeAll={() => done(window.torno.marks.acknowledge(objectId, toReview.map((m) => m.id)))} />
         {group('With the agent', withAgent)}
         <AskToCommit />
         {resolved.length > 0 && (

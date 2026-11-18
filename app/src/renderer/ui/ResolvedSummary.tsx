@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Mark } from '../../shared/marks'
 import { actions } from '../state/store'
+import { sayReviewed, useRowsSaid } from './rowsSaid'
 
 /** How a mark of the walk was left. */
 export type ReviewOutcome = 'ok' | 'reopened' | 'skipped'
@@ -8,9 +9,6 @@ export type ReviewOutcome = 'ok' | 'reopened' | 'skipped'
 export interface ReviewStep {
   step(outcome: ReviewOutcome): void
 }
-
-/** How long the line that closes a walk stays. */
-const SUMMARY_MS = 10_000
 
 interface Walk {
   /** The marks to review, as they were when "Review" was pressed. */
@@ -25,15 +23,16 @@ const said = ({ order, ok, reopened, skipped }: Walk): string =>
   `Reviewed ${order.length}: ${ok} OK${reopened > 0 ? `, ${reopened} reopened` : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}`
 
 /**
- * The marks the agent resolved and the person has not yet said they have seen, as one line: how many, "Review"
- * to walk them one at a time (the mark is made the active one and the camera goes to its view, its row says what
- * the agent did, and OK, Reopen… and Skip are on it), and "OK all" to acknowledge them all at once. When the
+ * The marks the agent resolved and the person has not yet said they have seen, in Needs you: a row for each (what the agent
+ * did, and OK and Reopen… on it), and over them one line: how many, "Review" to walk them one at a time (the mark is made the
+ * active one and the camera goes to its view, its row has Skip too), and "OK all" to acknowledge them all at once. When the
  * walk is done the line says how it went, for a few seconds. It has no key: a key that acknowledged many marks
  * unseen would be too easy to press.
  */
-export function ResolvedSummary({ marks, row, acknowledgeAll }: { marks: Mark[]; row: (mark: Mark, review?: ReviewStep) => ReactNode; acknowledgeAll: () => void }) {
+export function ResolvedSummary({ marks, row, acknowledgeAll }: { marks: Mark[]; row: (mark: Mark, extra?: { review?: ReviewStep; source?: string }) => ReactNode; acknowledgeAll: () => void }) {
   const [walk, setWalk] = useState<Walk | null>(null)
-  const [closing, setClosing] = useState<string | null>(null)
+  // How the last walk went: held outside, so that it stays up when the last mark is judged and Needs you has nothing else to say.
+  const closing = useRowsSaid((s) => s.reviewed)
   // The walk as the handlers of a row last saw it: they may run after a render the state has not reached.
   const current = useRef<Walk | null>(null)
   const go = (next: Walk | null): void => {
@@ -42,16 +41,11 @@ export function ResolvedSummary({ marks, row, acknowledgeAll }: { marks: Mark[];
   }
   const finish = (done: Walk): void => {
     go(null)
-    setClosing(said(done))
+    sayReviewed(said(done))
   }
-  useEffect(() => {
-    if (closing === null) return
-    const timer = setTimeout(() => setClosing(null), SUMMARY_MS)
-    return () => clearTimeout(timer)
-  }, [closing])
 
   const start = (): void => {
-    setClosing(null)
+    sayReviewed(null)
     go({ order: marks.map((m) => m.id), at: 0, ok: 0, reopened: 0, skipped: 0 })
     actions.focusMark(marks[0].id)
   }
@@ -84,7 +78,7 @@ export function ResolvedSummary({ marks, row, acknowledgeAll }: { marks: Mark[];
   const n = marks.length
   if (n === 0 && !walk && closing === null) return null
   return (
-    <div className="marks-review">
+    <div className="needs-review">
       {walk ? (
         <p>
           Reviewing <span className="num">{walk.at + 1}</span> of <span className="num">{walk.order.length}</span> · <span className="num">{walk.order[walk.at]}</span>{' '}
@@ -105,10 +99,10 @@ export function ResolvedSummary({ marks, row, acknowledgeAll }: { marks: Mark[];
           </p>
         )
       )}
-      {!walk && closing !== null && <p className="marks-review-done">{closing}</p>}
-      {walk && mark && (
+      {!walk && closing !== null && <p className="needs-review-done">{closing}</p>}
+      {n > 0 && (
         <ul className="mark-rows" aria-label="To review">
-          {row(mark, { step })}
+          {marks.map((m) => row(m, { review: walk && m.id === mark?.id ? { step } : undefined, source: 'to review' }))}
         </ul>
       )}
     </div>

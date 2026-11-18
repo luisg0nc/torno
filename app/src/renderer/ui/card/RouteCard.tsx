@@ -10,6 +10,7 @@ import { ParamsPanel } from '../ParamsPanel'
 import { PrintProfile } from '../PrintProfile'
 import { ImportScan, ScansPanel } from '../ScansPanel'
 import { CardSection } from './CardSection'
+import { NeedsYou } from './NeedsYou'
 import { NewTracingAction, TracingsBody } from './Tracings'
 import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from './sections'
 
@@ -19,7 +20,7 @@ function Body({ id }: { id: SectionId }): ReactNode {
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   switch (id) {
     case 'needs':
-      return null
+      return <NeedsYou />
     case 'parts':
       return <Layers />
     case 'params':

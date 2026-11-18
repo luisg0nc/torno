@@ -301,7 +301,7 @@ test('with an expected value the hole fails: the row says so, and the chip in th
   // The summary heading the marks counts it, and its count goes to the check.
   await expect(page.locator('.checks-summary')).toHaveText(/^Checks on r\d+: 1 fails$/)
   await expect(page.getByRole('list', { name: 'Checks' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
-  // The row, open and with the pointer on it: its value, its verdict and the way to a note, none of them cut.
+  // The row, open and with the pointer on it: its value, its verdict and the way to a note, none of them cut. Its words are under it.
   await row('M2', page).hover()
   const note = row('M2', page).locator('.mark-note')
   await expect(note).toHaveAttribute('data-empty', '')
@@ -312,7 +312,9 @@ test('with an expected value the hole fails: the row says so, and the chip in th
     const actions = li.querySelector('.mark-actions')!.getBoundingClientRect()
     const ink = document.createRange()
     ink.selectNodeContents(li.querySelector('.mark-note')!)
-    return ink.getBoundingClientRect().right > actions.left && text.top < actions.bottom && getComputedStyle(li.querySelector('.mark-actions')!).opacity !== '0'
+    const ink_ = ink.getBoundingClientRect()
+    // The two overlap when they share a stretch of the row's width and of its height.
+    return ink_.right > actions.left && ink_.left < actions.right && text.top < actions.bottom && text.bottom > actions.top && getComputedStyle(li.querySelector('.mark-actions')!).opacity !== '0'
   })
   expect(covered).toBe(false)
 
@@ -528,13 +530,8 @@ test('given to the agent they are pinned: the next prompt says only how many pas
   expect(first).not.toContain('M3')
   await expect(row('M1', page).locator('.mark-status')).toHaveText('pinned')
   await expect(row('M2', page).locator('.mark-status')).toHaveText('pinned')
-  // The word of a row that is no draft takes no room until the row is pointed at: the width is the note's.
-  const quiet = (await page.evaluate(() => window.__tornoTest!.state().activeMark)) === 'M1' ? 'M2' : 'M1'
-  const word = row(quiet, page).locator('.mark-status')
-  await page.mouse.move(700, 400)
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-  await expect.poll(async () => (await word.boundingBox())!.width).toBeLessThanOrEqual(1)
-  await row(quiet, page).hover()
+  // The word of a row is on its second line, where there is room for it: it is never cut and takes none of the note's.
+  const word = row('M1', page).locator('.mark-status')
   await expect.poll(async () => (await word.boundingBox())!.width).toBeGreaterThan(20)
   await page.mouse.move(700, 400)
   // From then on: nothing of them but the count, while they pass.
