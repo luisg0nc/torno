@@ -370,7 +370,7 @@ own doing, so the build is left to finish and one more follows it. A build
 that runs longer than 600 s is stopped; `TORNO_BUILD_TIMEOUT` sets another
 limit. The line at the bottom says building with the seconds elapsed, built
 with the time it took and the revision (`r3`), or failed. A failed build keeps
-the last good parts on screen, and its status opens the error with the
+the last good parts on screen, a quiet band at the top left of the view says `On show: h40. The build after it failed.`, and its status opens the error with the
 traceback.
 
 **History of builds.** Every build that worked is kept under `.torno/history/` (see Files torno writes): a copy of
@@ -389,10 +389,10 @@ The chat shows the conversation you are in; **Earlier conversations** above it r
 is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
 The source a kept build was made from is still under `.torno/history/`, which the agent reads (`history`), and **Go back to before this prompt** and **Star** are on the turns of the chat.
 What a kept build had then (checks that failed, parts with a defect, how your dimensions stood when it was checked) is as of then, never how the project stands now.
-**Compare.** A kept build is drawn against the one on show, with a bar under the view bar: **Before** (the earlier build alone), **Overlay**
+**Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
 the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
-have landed, that older build, which stands in for the live one until you go back, and **Back to the live build**, which `Esc` also does. Two boxes over the corners say what the later build changed
+have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Board and Model steps aside. Two boxes over the corners say what the later build changed
 (its line) and how the checks and your dimensions moved between the two builds. The status line says `comparing h40 → h41` (`comparing prompt 14 · h40 → h41` from a turn of the chat).
 It is for looking only: nothing is measured, marked or picked from the kept build (side by side, nothing in the view is), a picture for the agent does not
 show it, and a section, parts drawn apart or another layout put it away. A live build that lands meanwhile does not end it. A build of this run is drawn from
@@ -1368,6 +1368,7 @@ With Draw in hand a sketch is open: a drawing in space that tells Claude where s
 meant, in millimetres in the project's own frame. A panel floats at the left of the view and a small strip of pens at its
 foot; both are there while the sketch is open.
 
+- **The band.** While a sketch is open a quiet band at the top left of the view says `Sketching M7 on XZ, y = 40` (the sketch's own words are in the card's head).
 - **Planes.** A stroke lies on a **plane** or on the **surface** of the parts. A new sketch starts on the plane the view
   faces (XY, XZ or YZ) through the middle of the parts. The plane is a sheet drawn over the parts, with a handle on its
   normal that moves it, and a view cube at the top right of the view (XY, XZ, YZ). `Shift+1`, `Shift+2` and `Shift+3`
@@ -1425,8 +1426,8 @@ and after the next build you say OK or Still wrong to each answer.
   neither `add_mark` nor `add_sketch` takes an intent.
 - **Making a round.** **Review this build** (at the head of the Marks list, on the line of the build that is on show in the chat, or the
   key `H`) starts round `R1` on the build you have on show, `h41`, and stars that build in the history so that it is never let
-  go while it is reviewed. A bar appears under the view's buttons: `Review of h41`, a choice **Plain**, **− Don't want**, **+ Want**
-  for the marks you make next, their count (`3 − · 2 +`, and plain ones when there are any), **Items**, **End** and **Send review**. Any tool
+  go while it is reviewed. A band appears at the top left of the view: `Reviewing h41`, a choice **Plain**, **− Don't want**, **+ Want**
+  (pens, each with a round sign) for the marks you make next, their count (`3 − · 2 +`, and plain ones when there are any), **Items**, **End** and **Send review**. Any tool
   works while it is open: a pin, an arrow, a pick, a shape, a 3D sketch, a view note, a region of a scan, a dimension; the
   mark gets the choice and joins the round. While a round is open, `-` chooses don't want and `=` (or `+`) want, and pressing the key of the one chosen
   goes back to plain; `H`, `-` and `=` are for the view and are not heard in a field or the terminal. Marks made in another layout than the round's do not join it, and the bar says so.
@@ -1434,7 +1435,7 @@ and after the next build you say OK or Still wrong to each answer.
   build** opens the one that is open). Setting want or don't want on a mark that already exists does not put it in a round.
 - **Held until you send.** The marks of a round that was not sent go to Claude with no prompt, as a sketch that is open does not:
   each says `in review, not sent` in its row and on the board, and the line under the next prompt says
-  `R1 is in review, not sent`. **End** closes the bar and keeps them held, and the round can be opened again from its panel
+  `R1 is in review, not sent`. **End** closes the band and keeps them held, and the round can be opened again from its panel
   while it is unsent. **Send as plain marks** (in the panel) lets them go as ordinary drafts, with their signs, and the round is never sent.
 - **Sending.** **Send review** puts a chip above the box of the chat, `Review of h41 · 3 − · 2 +`, with **Remove** (the same
   as Send as plain marks). It goes with the next prompt you type, whatever you write. The prompt carries one line before the
@@ -2060,7 +2061,7 @@ The bar shows what the clicks say as you make them, `scale 4.73 px/mm · angle 2
 the tracing as soon as the points are enough. Two points give a scale, a turn and a place; the fit is only told when a point is spare (`no spare point to
 check it` with exactly two). **Straighten (4 points)**, off until you ask (`S`), fits a perspective to four points or more, for a photo taken at an
 angle. **Done** (`Enter`) sends the clicks: torno fits them again itself and keeps the result; **Cancel** (`Esc`) leaves the line-up as it was.
-Under the bar it says what a line-up is worth: true only in the tracing's plane, since what stands nearer the camera looks bigger. The tracing is shown
+These buttons are in the band at the top left, `Lining up the photo of T1`. Under it the page says what a line-up is worth: true only in the tracing's plane, since what stands nearer the camera looks bigger. The tracing is shown
 here with `v` up whichever way its plane's axes point in the model, as a photo of the plane's front sees it.
 
 The photo's scale, turn and fit are never exact, and the panel says `not exact` beside them. The straightened copy of the photo (the photo warped
@@ -2801,7 +2802,7 @@ On the screen:
   can use it and be exact; if not, the asked undo stays (torno's own restore, from the copies under `.torno/history/`, does not need it).
 - **Prompts only.** Send Claude Code a few prompts that edit the model, then open **History** in the status line: one row for each
   prompt, newest first, in the pane of the chat, each with a picture of the project as it was after it, legible in light and dark, its
-  number and `h40 → h41` in the face of numbers. A click compares the prompt (a bar with Before, Overlay, After and Side by side under the view bar, two boxes over the corners,
+  number and `h40 → h41` in the face of numbers. A click compares the prompt (a band with Before, Overlay, After and Side by side at the top left of the view, two boxes over the corners,
   `comparing prompt 14 · h40 → h41` in the status line; **Back to the live build** or `Esc` ends it), a double click opens it in the chat. Start a new session, send a prompt, and check
   that its number goes on from the last and that **Earlier conversations** reads the first. With the terminal as the view, the same list is a pane over it. Try it with a real Claude Code, the
   terminal too: after a prompt that edits the model, is its row there with the build it made?

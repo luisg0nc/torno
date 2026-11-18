@@ -22,7 +22,7 @@ const model = () => join(root, 'hollow', 'hollow.py')
 const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
 const kept = (): HistoryEntry[] => JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'history', 'index.json'), 'utf8')).entries
 const earlier = () => page.evaluate(() => window.__tornoTest!.earlier())
-const bar = () => page.locator('[data-part="compare"].comparebar')
+const bar = () => page.locator('[data-band="compare"]')
 
 async function builtRevision(revision: number): Promise<void> {
   await expect.poll(async () => { const s = await state(); return s.build?.status === 'ok' && s.build.revision }, { timeout: 30_000 }).toBe(revision)
@@ -41,7 +41,7 @@ test.afterAll(async () => {
   rmSync(root, { recursive: true, force: true })
 })
 
-test('comparing shows the bar and the line, survives a build landing, and Back to the live build ends it', async () => {
+test('comparing shows the bar and the line, survives a build landing, and Back to live ends it', async () => {
   await openListed(page, 'hollow')
   await builtRevision(1)
   const source = readFileSync(model(), 'utf8')
@@ -54,7 +54,10 @@ test('comparing shows the bar and the line, survives a build landing, and Back t
   await expect(bar()).toHaveCount(0)
   await page.evaluate(([a, b]) => window.__tornoTest!.compare(a, b, 14), [from, to])
   await expect(bar()).toBeVisible()
-  for (const name of ['Before', 'Overlay', 'After', 'Side by side', 'Back to the live build']) await expect(bar().getByRole('button', { name, exact: true })).toBeVisible()
+  await expect(bar()).toContainText(`Comparing ${from} with live ${to}`)
+  // The switch of Board and Model steps aside for the band.
+  await expect(page.locator('.pboard-switch')).toHaveCount(0)
+  for (const name of ['Before', 'Overlay', 'After', 'Side by side', 'Back to live']) await expect(bar().getByRole('button', { name, exact: true })).toBeVisible()
   await expect(bar().getByRole('button', { name: 'Overlay', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.status-compare')).toHaveText(`comparing prompt 14 · ${from} → ${to}`)
   await expect.poll(earlier).toEqual(['assembly:tub', 'assembly:lid'])
@@ -76,8 +79,9 @@ test('comparing shows the bar and the line, survives a build landing, and Back t
   await expect(page.locator('.status-compare')).toContainText(`${from} → ${to}`)
   expect(await earlier()).toEqual(['assembly:tub', 'assembly:lid'])
 
-  await bar().getByRole('button', { name: 'Back to the live build', exact: true }).click()
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
   await expect(bar()).toHaveCount(0)
+  await expect(page.locator('.pboard-switch')).toBeVisible()
   await expect(page.locator('.status-compare')).toHaveCount(0)
   expect(await earlier()).toEqual([])
   expect((await state()).compare).toBeNull()
@@ -98,7 +102,7 @@ test('Esc ends it, and a build that is not kept says why in the view instead of 
   await expect(page.locator('[data-part="compare-refused"]')).toContainText('h9999 is not in the history')
   await expect(bar()).toBeVisible()
   expect(await earlier()).toEqual([])
-  await bar().getByRole('button', { name: 'Back to the live build', exact: true }).click()
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
   await expect(page.locator('[data-part="compare-refused"]')).toHaveCount(0)
 })
 
@@ -130,7 +134,7 @@ test('a later build that is not the live one stands in for it for the whole comp
   expect((await state()).compare).toMatchObject({ from, to: pinned, mode: 'after' })
   expect(await parts()).toEqual(['assembly:tub', 'assembly:lid'])
 
-  await bar().getByRole('button', { name: 'Back to the live build', exact: true }).click()
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
   await expect.poll(() => page.evaluate(() => window.__tornoTest!.later())).toEqual([])
   expect(await earlier()).toEqual([])
   expect((await state()).build?.revision).toBe(revision + 3)
@@ -141,5 +145,5 @@ test('a later build that is not the live one stands in for it for the whole comp
   await page.evaluate(([a, b]) => window.__tornoTest!.compare(a, b), [from, newest])
   await expect.poll(earlier).toEqual(['assembly:tub', 'assembly:lid'])
   expect(await page.evaluate(() => window.__tornoTest!.later())).toEqual([])
-  await bar().getByRole('button', { name: 'Back to the live build', exact: true }).click()
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
 })

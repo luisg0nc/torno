@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
-import { COMPARE_MODES, compareBoxes, compareStatus } from '../state/compare'
+import { COMPARE_MODES, compareBoxes, isLive } from '../state/compare'
 import { actions, useStore } from '../state/store'
 import { useHistory } from './useHistory'
+import { compareWords } from './view/bandKind'
+import { Band, BandButton, useBand } from './view/Band'
 
 /** What is a ref or a number of a sentence about builds is set in the face of numbers: `prompt 14`, `h41`, `3`. */
 const SET = /(prompt \d+|\bh[1-9]\d*\b|-?\d[\d.,]*\d|-?\d)/
@@ -20,37 +22,41 @@ export function withRefs(text: string): ReactNode[] {
 }
 
 /**
- * Two kept builds compared in the view (`state/compare.ts`): under the view bar, the way they are shown (Before, Overlay,
- * After, Side by side) and the way back to the live build; over the corners of the view, two boxes: what the later build
- * changed, and how the checks and the dimensions moved between them (the history's entries). While an old build is made
- * again from its copy the line says so; when it cannot be drawn the view says why. The drawing is the viewport's
+ * Two kept builds compared in the view (`state/compare.ts`): the quiet band at the top left holds the words ("Comparing `h40` with
+ * live `h41`"), the way they are shown (Before, Overlay, After, Side by side) and the way back to the live build; under it, two boxes:
+ * what the later build changed, and how the checks and the dimensions moved between them (the history's entries). While an old build
+ * is made again from its copy the band says so; when it cannot be drawn the view says why. The drawing is the viewport's
  * (`ViewportPane`); nothing here writes anything.
  */
 export function CompareBar() {
   const compare = useStore((s) => s.compare)
+  const revision = useStore((s) => s.revision)
+  const band = useBand()
   const list = useHistory(compare !== null)
-  if (compare === null) return null
+  if (compare === null || band !== 'compare') return null
   const entry = (id: string) => list?.entries.find((e) => e.id === id)
   const boxes = compareBoxes(entry(compare.from), entry(compare.to))
+  const words = compareWords(compare, list ? isLive(entry(compare.to), list.run, revision) : false)
   return (
     <>
-      <div className="viewbar comparebar" role="toolbar" aria-label="Compare" data-part="compare">
+      <Band kind="compare" label="Compare" part="compare">
         <span className="comparebar-label" data-part="compare-label">
-          {withRefs(compareStatus(compare))}
+          {words.lead}
+          <span className="num">{words.from}</span>
+          {words.mid}
+          <span className="num">{words.to}</span>
         </span>
-        <div className="segmented" role="group" aria-label="How the builds are shown">
+        <div className="band-segment" role="group" aria-label="How the builds are shown">
           {COMPARE_MODES.map(({ mode, label }) => (
             <button key={mode} type="button" aria-pressed={compare.mode === mode} onClick={() => actions.compareMode(mode)}>
               {label}
             </button>
           ))}
         </div>
-        <button type="button" className="bar-button" onClick={() => actions.endCompare()}>
-          Back to the live build
-        </button>
-      </div>
+        <BandButton onClick={() => actions.endCompare()}>Back to live</BandButton>
+      </Band>
       {compare.refused !== undefined && (
-        <p className="compare-box compare-refused" role="status" data-part="compare-refused">
+        <p className="band-note compare-refused" role="status" data-part="compare-refused">
           {withRefs(compare.refused)}
         </p>
       )}

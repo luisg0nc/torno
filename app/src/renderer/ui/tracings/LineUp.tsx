@@ -11,6 +11,7 @@ import { paintGrid } from './gridPaint'
 import { LineupPane, type Marker } from './lineupPane'
 import { barText, LineupTool, lineupSnapOf, offeredSnaps } from './lineupTool'
 import { snapAt, type Snapped } from './snap'
+import { Band, BandButton } from '../view/Band'
 
 // Lining a photo up with a tracing (the mockup Drawing-B): the view splits, the photo on the left and the tracing on the right, each with its own
 // pan and zoom. The person clicks the same spots in order, photo then tracing, numbered `1`, `2`, … in one colour on both sides; a click can be
@@ -272,13 +273,12 @@ function LineUpBody({ tracing }: { tracing: Tracing }) {
 
   return (
     <div ref={root} className="lineup" role="group" aria-label={`Line up the photo of ${tracing.id}`} data-lineup="">
-      <header className="lu-bar">
-        <h2 className="lu-title">
-          Line up the photo of <span className="num">{tracing.id}</span> {tracing.name === '' ? '' : tracingName(tracing)}
-        </h2>
-        <button
-          type="button"
-          className="bar-button lu-switch"
+      <Band kind="lineup" label={`Line up the photo of ${tracing.id}`} part="lineup-band">
+        <span className="lu-title">
+          Lining up the photo of <span className="num">{tracing.id}</span> {tracing.name === '' ? '' : tracingName(tracing)}
+        </span>
+        <BandButton
+          className="lu-switch"
           role="switch"
           aria-checked={straight}
           aria-keyshortcuts={hint('tracing.straighten')}
@@ -286,8 +286,8 @@ function LineUpBody({ tracing }: { tracing: Tracing }) {
           onClick={flip}
         >
           Straighten (4 points)
-        </button>
-        <label className="lu-check" title="Lay the photo faded over the tracing as soon as the points are enough">
+        </BandButton>
+        <label className="band-check" title="Lay the photo faded over the tracing as soon as the points are enough">
           <input
             type="checkbox"
             defaultChecked
@@ -298,14 +298,13 @@ function LineUpBody({ tracing }: { tracing: Tracing }) {
           />
           Preview
         </label>
-        <span className="lu-spacer" />
-        <button type="button" className="bar-button" aria-keyshortcuts={hint('tracing.lineupLeave')} title={`Leave the line-up as it was (${hint('tracing.lineupLeave')})`} onClick={tracingActions.cancelLineUp}>
+        <BandButton aria-keyshortcuts={hint('tracing.lineupLeave')} title={`Leave the line-up as it was (${hint('tracing.lineupLeave')})`} onClick={tracingActions.cancelLineUp}>
           Cancel
-        </button>
-        <button ref={doneEl} type="button" className="bar-button lu-done" data-primary="" data-action="done" aria-keyshortcuts={hint('tracing.lineupDone')} title={`Keep this line-up (${hint('tracing.lineupDone')})`} onClick={() => void done()}>
+        </BandButton>
+        <BandButton ref={doneEl} primary data-action="done" aria-keyshortcuts={hint('tracing.lineupDone')} title={`Keep this line-up (${hint('tracing.lineupDone')})`} onClick={() => void done()}>
           Done
-        </button>
-      </header>
+        </BandButton>
+      </Band>
       <div className="lu-readout">
         <p ref={barEl} className="lu-fit num" role="status" aria-live="polite" data-state="waiting" />
         <span ref={sayEl} className="lu-say" />

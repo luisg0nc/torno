@@ -132,7 +132,9 @@ test('Review this build starts R1 on the build on show, and the keys choose what
   await expect(bar()).toHaveCount(0)
   await page.getByRole('button', { name: 'Review this build' }).click()
   await expect(bar()).toBeVisible()
-  await expect(bar()).toContainText('Review of h1')
+  await expect(bar()).toContainText('Reviewing h1')
+  await expect(page.locator('[data-band="review"]')).toHaveCount(1)
+  await expect(page.locator('.pboard-switch')).toHaveCount(0)
   await expect(bar()).toContainText('0 − · 0 +')
   await expect.poll(() => marksFile().rounds?.map((r) => [r.id, r.build])).toEqual([['R1', 'h1']])
   // The key of the choice takes it, and the same key again goes back to plain.

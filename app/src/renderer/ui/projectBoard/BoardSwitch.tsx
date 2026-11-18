@@ -4,6 +4,7 @@ import { boardActions, useBoard } from '../../state/board'
 import { store, useStore } from '../../state/store'
 import { hasTracing } from '../../state/tracings'
 import { TYPING } from '../typing'
+import { useBand } from '../view/Band'
 
 /**
  * The key that goes round the board, the model and a tracing. Heard anywhere outside a field and the terminal, with a project open on
@@ -25,11 +26,12 @@ export function useBoardSwapKey(): void {
   }, [])
 }
 
-/** The switch at the top left of the main area: Board, Model or Tracing, with the key that goes round them. */
+/** The switch at the top left of the main area: Board, Model or Tracing, with the key that goes round them. It steps aside while a band holds its place (`ui/view/Band.tsx`). */
 export function BoardSwitch() {
   const shown = useBoard((s) => s.shown)
   const open = useStore((s) => s.page === 'object' && s.objectId !== null)
-  if (!open) return null
+  const band = useBand()
+  if (!open || band !== null) return null
   return (
     <div className="pboard-switch" role="group" aria-label="Show">
       {(['board', 'model', 'tracing'] as const).map((which) => (

@@ -17,6 +17,11 @@ paths:
   - "app/src/renderer/ui/ToolHint.tsx"
   - "app/src/renderer/ui/ToolPalette.tsx"
   - "app/src/renderer/ui/ViewBar.tsx"
+  - "app/src/renderer/ui/CompareBar.tsx"
+  - "app/src/renderer/ui/ReviewBar.tsx"
+  - "app/src/renderer/ui/view/Band.tsx"
+  - "app/src/renderer/ui/view/bandKind.ts"
+  - "app/src/renderer/styles/bands.css"
   - "app/src/renderer/ui/ExplodeControl.tsx"
   - "app/src/renderer/state/step.ts"
   - "app/src/renderer/state/step.test.ts"
@@ -78,6 +83,20 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   whose eye puts it in or takes it out of `tracingsShown`. There is no "Marks hidden" switch in the window, so the marks of a tracing are never hidden with it.
 - A **span** is drawn as a dimension line (`line` and a `tick` at each end) with its value in its chip (`spanValue`: `≈ 41.8 mm`), an **offset** as an
   arrow from `from` to `to` in its author's colour with its chip at `to` (`build` in `viewport/marks/markObjects.ts`), whether the tracing is shown or not.
+
+## Bands (`app/src/renderer/ui/view/Band.tsx`, `bandKind.ts`, `styles/bands.css`)
+
+- A **band** is the one sentence at the top left of the view (14 px in, a pill 34 px high, radius full, dropping 8 px in 0.3 s; none
+  under reduced motion) for a mode of the whole view. `bandOf` (`bandKind.ts`, pure) picks one: export, lineup, facePick, review,
+  compare, sketch, failed. A review that is open keeps its band while a sketch opens inside it. `useBand()` is that rule over the stores
+  (the model's modes count while the model is shown, the line-up while a tracing is, none on the board or over a page); each mode's component
+  (`ReviewBar`, `CompareBar`, `SketchBand`, `FailedBand` in `ViewportPane`, `FacePickBar` in `App`, `LineUp`'s own) draws only while `useBand()` is its kind.
+  `exportOpen` is always false until the dock holds export (Task 34).
+- The tone is `BAND_TONE`: `accent` (review, lineup, export; buttons are `--on-accent` grounds with accent text when `primary`) or `quiet`
+  (`--raise`, ink, a hairline; failed, sketch, compare, facePick). The band carries `data-band`, `data-tone`, `data-part` and **`data-tag-avoid`**
+  (tags stand clear of it). It is a toolbar when it holds buttons, else a status. `BoardSwitch` returns nothing while `useBand()` is not null.
+- The words are `bandKind.ts`'s (`sketchWords`, `failedWords`, `compareWords`, `planeSaid`); refs and numbers are in the face of numbers.
+  What a mode could not do is `.band-note` under the band (`--fail` on `--fail-wash`). `.sign-disc` in `bands.css` is provisional until Task 24.
 
 ## Explode (`app/src/renderer`)
 
