@@ -43,6 +43,9 @@ save(Image.open(raw / "marks.png"), "marks.png")
 # The chat is the dock alone, the section the view alone (its tag, its rule and the plane are drawn over the part).
 save(Image.open(raw / "chat.png").crop(box_of("chat", "session")), "chat.png")
 save(Image.open(raw / "section.png").crop(box_of("section", "viewport")), "section.png")
+# A sketch, a review and a tracing show the card's head (the sketch's panel, the round's) beside the view, with the dock hidden: the card and the view.
+for shot in ("sketch", "review", "tracing"):
+    save(Image.open(raw / f"{shot}.png").crop(box_of(shot, "left", "viewport")), f"{shot}.png")
 save(Image.open(raw / "objects.png"), "objects.png")
 save(Image.open(raw / "export.png"), "export.png")
 # The first screen fills the window: the whole of it.

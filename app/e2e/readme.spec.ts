@@ -33,8 +33,14 @@ type Main = { pickSave: string | null }
 const INTAKE_CAMERA = { position: [620, -420, 380], target: [0, 40, 90], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 const STAND_CAMERA = { position: [-300, -330, 260], target: [0, 100, 20], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 }
 
-/** The marks of the walk-through on the airbox: a pin on the lid for a latch, the width of the tray pocket (passes) and the tub wall (fails: 2.8 against 3). */
-function intakeMarks(root: string): void {
+/** The marks of the walk-through on the airbox: a pin on the lid for a latch, the width of the tray pocket (passes) and the tub wall (fails: 2.8 against 3). The shots of a sketch, a review and a tracing start with none. */
+function intakeMarks(root: string, none = false): void {
+  if (none) {
+    // The author's own marks come with the copy: they are cleared, and the numbers start again at M1.
+    mkdirSync(join(root, 'intake', '.torno'), { recursive: true })
+    writeFileSync(join(root, 'intake', '.torno', 'marks.json'), JSON.stringify({ next: 1, marks: [] }))
+    return
+  }
   const base = { author: 'user', status: 'sent', anchorState: 'ok', layout: 'assembly', revision: 1, camera: INTAKE_CAMERA, createdAt: '2026-10-16T16:00:00.000Z' }
   mkdirSync(join(root, 'intake', '.torno'), { recursive: true })
   writeFileSync(
@@ -150,7 +156,122 @@ async function wallFace(page: Page): Promise<string> {
   return mark.a.ref
 }
 
-const SHOTS = ['hero', 'hero-dark', 'marks', 'chat', 'section', 'objects', 'first-screen'] as const
+/** The shots that open the airbox bare: no marks beforehand, the scan hidden, the dock away, and what they show made in the spec. */
+const BARE = ['sketch', 'review', 'tracing'] as const
+const isBare = (shot: string): boolean => (BARE as readonly string[]).includes(shot)
+
+/** Where a point of the object frame is drawn, in the page's pixels. */
+async function pageXY(page: Page, point: readonly [number, number, number]): Promise<[number, number]> {
+  const [fx, fy] = await page.evaluate((at) => window.__tornoTest!.project([...at]), point)
+  const box = (await page.locator('[data-region="viewport"] canvas').first().boundingBox())!
+  return [box.x + fx * box.width, box.y + fy * box.height]
+}
+
+/** The pointer put on empty ground of the view, so that no hint of its own is drawn over anything. */
+async function pointerAway(page: Page): Promise<void> {
+  const ground = (await page.locator('[data-region="viewport"] canvas').first().boundingBox())!
+  await page.mouse.move(ground.x + ground.width - 80, ground.y + ground.height - 60)
+}
+
+/** A pin at a point of the airbox with its note, as a person makes it: the pin tool, a click, the words, Enter. */
+async function pinAt(page: Page, point: readonly [number, number, number], note: string): Promise<void> {
+  await page.keyboard.press('p')
+  const [x, y] = await pageXY(page, point)
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.up()
+  await expect(page.locator('.note-card textarea')).toBeFocused()
+  await page.keyboard.type(note)
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Escape')
+}
+
+/**
+ * A 3D sketch open on the airbox: a hose route in front of it, drawn with the three pens, kept as a flow. The plane is the
+ * XZ plane 100 mm in front of the origin, clear of the part so that every stroke shows.
+ */
+async function sketching(page: Page): Promise<void> {
+  await page.keyboard.press('d')
+  const panel = page.getByRole('complementary', { name: 'Sketch' })
+  await expect(panel).toBeVisible()
+  await page.keyboard.press('Shift+2')
+  const offset = panel.locator('.sketchpanel-offset input')
+  await offset.fill('-110')
+  await offset.press('Enter')
+  await expect(panel).toContainText('XZ at y = -110')
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  const drag = async (points: [number, number, number][]): Promise<void> => {
+    const at: [number, number][] = []
+    for (const point of points) at.push(await pageXY(page, point))
+    await page.mouse.move(...at[0])
+    await page.mouse.down()
+    for (const [x, y] of at.slice(1)) await page.mouse.move(x, y, { steps: 6 })
+    await page.mouse.up()
+  }
+  // The route: point to point up the corner of the tub and along the top, a freehand bend carrying on from its end, a straight run along the foot.
+  await page.keyboard.press('p')
+  for (const point of [[-120, -110, 30], [-120, -110, 120], [-40, -110, 170], [60, -110, 170]] as [number, number, number][]) {
+    const [x, y] = await pageXY(page, point)
+    await page.mouse.click(x, y)
+  }
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('b')
+  await drag([[60, -110, 170], [85, -110, 168], [102, -110, 150], [108, -110, 120], [104, -110, 95]])
+  await page.keyboard.press('l')
+  await drag([[-120, -110, 30], [110, -110, 30]])
+  await panel.getByRole('radio', { name: 'Flow' }).click()
+  await panel.getByLabel('Diameter').fill('24')
+  await panel.getByLabel('Diameter').press('Enter')
+  await panel.getByLabel('Name').fill('Hose route')
+  await panel.getByLabel('Name').press('Enter')
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await pointerAway(page)
+  await page.waitForTimeout(600)
+}
+
+/** A review round open on the airbox: one thing the person does not want and one they want, each pinned and worded, the round's panel in the head of the card. */
+async function reviewing(page: Page): Promise<void> {
+  await openSection(page, 'Marks')
+  await page.getByRole('button', { name: 'Review this build' }).click()
+  const band = page.getByRole('toolbar', { name: 'Review' })
+  await expect(band).toBeVisible()
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await page.keyboard.press('-')
+  await expect(band.getByRole('radio', { name: /Don't want/ })).toHaveAttribute('aria-checked', 'true')
+  await pinAt(page, [-45, -83.1, 118], 'these clips hold nothing')
+  await page.keyboard.press('=')
+  await expect(band.getByRole('radio', { name: /Want/ })).toHaveAttribute('aria-checked', 'true')
+  await pinAt(page, [20, -60, 118], 'a latch goes here')
+  await expect(band).toContainText('1 − · 1 +')
+  await band.getByRole('button', { name: /^Open the panel of R/ }).click()
+  await expect(page.locator('.route-hand [data-part="round-panel"]')).toBeVisible()
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await pointerAway(page)
+  await page.waitForTimeout(600)
+}
+
+/** The Tracing view of the XZ plane through the airbox: its cut as the kernel drew it, the grid, the scale bar. */
+async function tracing(page: Page): Promise<void> {
+  await page.evaluate(() => window.torno.tracings.make('intake', { on: { main: 'XZ', offset: 20 }, layout: 'assembly', name: 'Across the airbox' }))
+  await page.locator('.pboard-switch').getByRole('button', { name: 'Tracing', exact: true }).click()
+  await expect(page.locator('.tr-panel')).toHaveAttribute('data-tracing', 'T1')
+  await expect(page.locator('.tr-drawing path[data-part]').first()).toBeVisible({ timeout: 60_000 })
+  await expect.poll(() => page.evaluate(() => window.__tornoTracingSheet?.().k ?? 0)).toBeGreaterThan(0)
+  await page.keyboard.press('Shift+1')
+  await page.waitForTimeout(800)
+  // Two small notches out, so that the whole of the cut and its scale bar are clear of the title block.
+  const stage = (await page.locator('.tr-stage').boundingBox())!
+  await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2)
+  await page.keyboard.down('Control')
+  for (let notch = 0; notch < 2; notch++) {
+    await page.mouse.wheel(0, 90)
+    await page.waitForTimeout(150)
+  }
+  await page.keyboard.up('Control')
+  await page.waitForTimeout(1200)
+}
+
+const SHOTS = ['hero', 'hero-dark', 'marks', 'chat', 'section', 'sketch', 'review', 'tracing', 'objects', 'first-screen'] as const
 
 for (const shot of SHOTS) {
   test(`README picture: ${shot}`, async () => {
@@ -158,9 +279,9 @@ for (const shot of SHOTS) {
     test.setTimeout(600_000)
     const theme: Theme = shot === 'hero-dark' ? 'dark' : 'light'
     const { root, home } = readmeWorkspace()
-    intakeMarks(root)
+    intakeMarks(root, isBare(shot))
     standMarks(root)
-    if (shot === 'section') showScans(root, 'intake', { S3: { visible: false } })
+    if (shot === 'section' || isBare(shot)) showScans(root, 'intake', { S3: { visible: false } })
     const env: Record<string, string> = shot === 'first-screen' ? {} : { TORNO_WORKSPACE: root }
     const { app, page } = await start(theme, env, home)
     try {
@@ -174,7 +295,7 @@ for (const shot of SHOTS) {
       } else if (shot !== 'objects') {
         await page.waitForSelector('[data-region="left"]')
         await open(page, 'intake')
-        await marksSettled(page)
+        if (!isBare(shot)) await marksSettled(page)
       }
       if (shot === 'hero' || shot === 'hero-dark') {
         // A conversation about the marks: the pin goes with the prompt, the agent looks, measures on the B-rep and answers.
@@ -237,6 +358,12 @@ for (const shot of SHOTS) {
         const ground = (await page.locator('[data-region="viewport"] canvas').first().boundingBox())!
         await page.mouse.move(ground.x + 120, ground.y + ground.height - 60)
         await page.waitForTimeout(800)
+      } else if (isBare(shot)) {
+        await page.getByRole('button', { name: 'Hide session', exact: true }).click()
+        await page.waitForTimeout(400)
+        if (shot === 'sketch') await sketching(page)
+        else if (shot === 'review') await reviewing(page)
+        else await tracing(page)
       } else if (shot === 'objects') {
         // The page of projects, each built once so that its card has a picture.
         await page.waitForSelector('[data-region="left"]')

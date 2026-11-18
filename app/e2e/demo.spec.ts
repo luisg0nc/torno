@@ -113,7 +113,9 @@ for (const [n, frame] of FRAMES.entries()) {
     test.setTimeout(600_000)
     const { root, home } = workspace()
     const { app, page } = await start(root, home)
-    const row = (id: string) => page.locator(`.mark-row[data-mark="${id}"]`)
+    // The dimension's row in the card's Checks (the section is open while there is a check to read), where a click opens what it says.
+    const check = (id: string) => page.locator(`[data-region="left"] .check-row[data-check-mark="${id}"]`)
+    const verdict = page.locator('[data-region="left"] .dimension-verdict').first()
     try {
       await page.waitForSelector('[data-region="left"]')
       await openListed(page, 'intake')
@@ -139,8 +141,8 @@ for (const [n, frame] of FRAMES.entries()) {
       }
       if (frame === 'pinned') {
         // The dimension's row opened: what it says of the wall.
-        await row('M1').click()
-        await expect(row('M1').locator('.dimension-verdict')).toHaveText('Fails: 0.2 under')
+        await check('M1').click()
+        await expect(verdict).toHaveText('Fails: 0.2 under')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
         await page.mouse.move(W / 2, H - 40)
       }
@@ -168,11 +170,11 @@ for (const [n, frame] of FRAMES.entries()) {
         await expect(page.locator('.chat-tool .diff')).toBeVisible()
       }
       if (frame === 'passes') {
-        await row('M1').click()
-        await expect(row('M1').locator('.dimension-verdict')).toHaveText('Passes')
+        await check('M1').click()
+        await expect(verdict).toHaveText('Passes')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-        // What the agent resolved, opened: M2 with its line.
-        await page.getByRole('button', { name: 'Review' }).click()
+        // What the agent resolved, opened: M2 with its line, from Needs you.
+        await page.locator('[data-region="left"] .needs-review').getByRole('button', { name: 'Review' }).click()
         await page.mouse.move(W / 2, H - 40)
       }
       if (past(frame, 'compose')) await naturalPrompt(page)

@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -11,6 +11,9 @@ import { join, resolve } from 'node:path'
 //                          the source is copied beside the project, under `scans/<file name>`, and the scan renamed
 //                          to it; `<name>:<id>=` drops the scan. A scan not named keeps its source where it is.
 //
+// The workspace is made as `<tmp>/workshop/parts`, a plain name, because the page of projects prints its path; a `sign` parameter of a
+// copied project (the name a part is engraved with) is emptied in the copy.
+//
 // The copy takes each project's files but its `out/`, caches and what torno keeps of a session (`.torno/chat`,
 // `.torno/agent`, `session.json`, `prompt.md`, `state.md`), so that nothing of the person's conversations is in it.
 // The workspace's `pyproject.toml`, `uv.lock` and `common/` come with it and its `.venv` is linked, so that the
@@ -20,7 +23,31 @@ const SKIPPED = /__pycache__|\/out(\/|$)|\/cache(\/|$)|\/\.torno\/(chat|agent|se
 
 export type ReadmeWorkspace = { root: string; home: string }
 
-const temp = (name: string): string => mkdtempSync(join(realpathSync(tmpdir()), `torno-readme-${name}-`))
+/**
+ * The folder the workspace is made in, under the system's temporary folder. Its name is plain on purpose: the page of projects
+ * prints the workspace's path, and a random `torno-readme-ws-XXXX` there reads as a test. A folder of this name that this code did
+ * not make is never touched: the run stops instead.
+ */
+function top(): string {
+  const dir = join(realpathSync(tmpdir()), 'workshop')
+  if (existsSync(dir)) {
+    if (!existsSync(join(dir, '.torno-readme'))) throw new Error(`${dir} exists and is not the README's workspace: move it away`)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  mkdirSync(dir)
+  writeFileSync(join(dir, '.torno-readme'), '')
+  return dir
+}
+
+/** What a project of the author's engraves on itself (a `sign: str = "..."` parameter) is left out of the copy: no name of a person is on a part in a picture. */
+function unsigned(folder: string): void {
+  for (const file of readdirSync(folder).filter((f) => f.endsWith('.py'))) {
+    const path = join(folder, file)
+    const source = readFileSync(path, 'utf8')
+    const bare = source.replace(/^(\s*sign: str = )"[^"\n]*"/m, '$1""')
+    if (bare !== source) writeFileSync(path, bare)
+  }
+}
 
 /** The pairs of a `a=b,c` setting: `[a, b]`, `[c, c]`. */
 function pairs(setting: string | undefined): [string, string][] {
@@ -40,15 +67,18 @@ export const configured = (): boolean => Boolean(process.env.TORNO_README_OBJECT
  */
 export function readmeWorkspace(): ReadmeWorkspace {
   const objects = resolve(process.env.TORNO_README_OBJECTS!)
-  const top = temp('ws')
-  const root = join(top, 'parts')
-  const home = join(top, 'home')
+  const base = top()
+  const root = join(base, 'parts')
+  const home = join(base, 'home')
   mkdirSync(root)
   mkdirSync(home)
   for (const file of ['pyproject.toml', 'uv.lock']) if (existsSync(join(objects, file))) cpSync(join(objects, file), join(root, file))
   if (existsSync(join(objects, 'common'))) cpSync(join(objects, 'common'), join(root, 'common'), { recursive: true, filter: (s) => !SKIPPED.test(s) })
   if (existsSync(join(objects, '.venv'))) symlinkSync(join(objects, '.venv'), join(root, '.venv'))
-  for (const [from, to] of pairs(process.env.TORNO_README_PROJECTS)) cpSync(join(objects, from), join(root, to), { recursive: true, filter: (s) => !SKIPPED.test(s) })
+  for (const [from, to] of pairs(process.env.TORNO_README_PROJECTS)) {
+    cpSync(join(objects, from), join(root, to), { recursive: true, filter: (s) => !SKIPPED.test(s) })
+    unsigned(join(root, to))
+  }
   const scans = new Map<string, [string, string][]>()
   for (const [key, file] of pairs(process.env.TORNO_README_SCANS)) {
     const [project, id] = key.split(':')

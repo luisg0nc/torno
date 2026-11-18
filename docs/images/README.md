@@ -22,7 +22,10 @@ python3 app/scripts/readme-images.py docs/images/raw docs/images
 ```
 
 `TORNO_README_SCANS` copies a scan's source beside its project under a plain name, or drops it (`=` with
-nothing after), so that no path of the author's machine is on screen. `docs/images/raw/` (the whole-window
+nothing after), so that no path of the author's machine is on screen. The workspace is made as `/tmp/workshop/parts`
+(the page of projects prints its path, so the name is plain on purpose), and a `sign: str = "..."` parameter of a copied
+project, the name a part is engraved with, is emptied in the copy, so that no name is on a part in any picture. The
+marks of a copied project are cleared for the shots of a sketch, a review and a tracing, which make their own. `docs/images/raw/` (the whole-window
 captures) is not committed. The shots below that are not in the README (`objects.png`, `export.png`,
 `first-screen.png`, `social-preview.png`) are made all the same, for the manual, for issues, and for the
 repository's social preview.
@@ -44,7 +47,7 @@ repository's social preview.
 | # | File | What it shows | How to set it up |
 |---|---|---|---|
 | 1 | `hero.png` | **The whole window, mid-conversation.** The route card at the left (the part in hand, what needs you, the parts, the checks, the marks), the airbox in the middle sitting in the scan of the engine bay, with a pin on the lid, a dimension that passes and one that fails, the dock on the right with the builds and the conversation: a prompt, the "with" line under it and the agent's answer using `look` and `measure`. The status line at the bottom says built. | Open the airbox with its scan shown, leave a pin and two dimensions, start a session and ask about the wall. Wait for the answer, then take the shot. This one matters most: it's the first thing people see. |
-| 2 | `marks.png` | **Marks and dimensions.** The speaker stand with a pin and three dimensions, the pointer on the one that fails; the card's Checks with "passes" twice and "fails" once, and its Marks. | Steps 4 and 5 of the walk-through in `docs/manual.md`, with a dimension set to fail. The whole window with the dock hidden. |
+| 2 | `marks.png` | **Marks and dimensions.** The speaker stand, with no engraving on it, with a pin and three dimensions, the pointer on the one that fails; the card's Checks with "passes" twice and "fails" once, and its Marks. | Steps 4 and 5 of the walk-through in `docs/manual.md`, with a dimension set to fail. The whole window with the dock hidden. |
 | 3 | `chat.png` | **The agent's view.** The dock only: the builds strip, a prompt, the "with" line opened to show the marks as text, the agent's tool calls (`look`, `measure`) with the picture `look` gave, its edit of `airbox.py` and the build that followed. | After shot 1, open "Show text" on the "with" line. Crop to the dock. |
 | 4 | `section.png` | **Section.** The airbox cut across Y with the scan hidden: the filter's pod inside the lid, the tub's ribs and floor, the section's tag and rule drawn over the view. | Open the airbox, hide the scan, press `X`, "Cut across Y". Crop to the view (the dock hidden). |
 | 5 | `scan.png` | **A scan.** A part shown in a real scan of where it goes, the scan partly see-through. | Shot 1 is this already: the airbox in its engine bay. A separate shot is not made. |
@@ -52,6 +55,9 @@ repository's social preview.
 | 7 | `export.png` | **An exported page** open in a browser: the airbox, its scan, the marks, nothing else installed. | "Export…", HTML, marks included, then open the file in a browser. Crop to the browser's page, not its toolbar. |
 | 8 | `first-screen.png` | **The first screen**, with "Ready to work" all ready and "Open the example". The whole window. | Start with no workspace remembered: `TORNO_CONFIG=/tmp/torno-fresh.json scripts/torno`, a config file that does not exist yet. |
 | 9 | `hero-dark.png` | **Shot 1 in the dark theme.** Optional. With it, the README can show the dark one to readers whose GitHub is dark (`<picture>` with `prefers-color-scheme`). | The same setup as shot 1, the system in dark mode. |
+| 12 | `sketch.png` | **A 3D sketch open.** The airbox with a plane 110 mm in front of it and three strokes on the plane (a point to point route, a freehand bend, a straight run), kept as a flow 24 mm across. The sketch's head is in the card (name, how to take it, the plane and its strokes, the offset, Snap and X-ray, Done), the band at the top left says `Sketching M1 on XZ, y = -110.0` and the pens are over the view. The card and the view, the dock hidden. | Open the airbox with its scan hidden and no marks, press `D`, `Shift+2`, type the offset, draw with `P`, `B` and `L`, choose Flow and its diameter, name it. Leave it open. |
+| 13 | `review.png` | **A review round open.** The airbox with two marks in a round, a pin you do not want (`−`, hatched, "these clips hold nothing") and a pin you want (`+`, green, "a latch goes here"), each with its sign and its note in the view; the band `Reviewing h2` with Plain, Don't want and Want and the count `1 − · 1 +`; the round's panel as the head of the card with both items. The card and the view, the dock hidden. | Open the airbox with its scan hidden and no marks, open the Marks section, "Review this build", press `-`, pin the clips, press `=`, pin the lid, then Items in the band. |
+| 14 | `tracing.png` | **The Tracing view.** The XZ plane across the airbox, laid flat: the outline the kernel cut (the tub and the lid, with the walls drawn at true thickness), each part named, the millimetre grid, the `u = 0` axis, the scale bar and the title block; the Tracings section in the card. The card and the view, the dock hidden. | Open the airbox with its scan hidden, make a tracing on XZ (the Tracings section's New tracing), switch the view to Tracing, Fit, and zoom out a little. |
 
 ## A short recording
 
