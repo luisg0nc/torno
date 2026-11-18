@@ -1,33 +1,52 @@
-import { expect, type Page } from '@playwright/test'
-import { openPanel, openPanelName, railButton } from './helpers'
+import { expect, type Locator, type Page } from '@playwright/test'
+import { railButton, showProjects } from './helpers'
 
-// The list of projects as a person uses it: the Projects panel, opened through the rail, with a row for each
-// project. It is the panel's, so a spec that opens one panel to look at another goes back to it.
+// The projects of the folder as a person uses them: the page of projects (its cards, its New project), and, while one is open, the
+// project crumb of the title bar with the menu of the folder's projects.
 
-/** The navigation of the projects in the Projects panel. */
-export const objectList = (page: Page) => page.getByRole('navigation', { name: 'Projects' })
+/** The menu of the folder's projects, hung from the project crumb of the title bar (All projects at its head). */
+export const projectMenu = (page: Page): Locator => page.getByRole('menu', { name: 'Projects' })
+
+/** The project crumb of the title bar: the open project, and the menu of the others. */
+export const projectCrumb = (page: Page): Locator => page.locator('.title-row').getByRole('button', { name: /^Project / })
 
 /** The rail's Projects button: it says (`data-session`, its description) that a session of any project works or waits. */
 export const switcher = (page: Page) => railButton(page, 'Projects')
 
+/** The card of a project on the page of projects. */
+export const projectCard = (page: Page, name: string): Locator => page.locator(`.show .card[data-object="${name}"]`)
+
+/** A shelf of the bench: `Needs you`, `Working` or `The rest`, with its heading, its projects and what they ask. */
+export const shelfOf = (page: Page, name: 'Needs you' | 'Working' | 'The rest'): Locator => page.locator('section.show').getByRole('region', { name, exact: true })
+
+/** The page of projects, as a person finds it: the section that holds the cards. */
+export const projectsPage = (page: Page): Locator => page.locator('section.show')
+
 /**
- * Opens a project by its name, as a person does: its row in the Projects panel. The one open already stays as it is.
- * The panel that was open goes back to being open afterwards, so what a spec reads next is where it was.
+ * Opens a project by its name, as a person does: from the menu of the project crumb while one is open, else from its card on the
+ * page of projects (reached through the rail's Projects). The one open already stays as it is.
  */
 export async function openListed(page: Page, name: string): Promise<void> {
-  const was = await openPanelName(page)
-  await openPanel(page, 'Projects')
-  const row = objectList(page).getByRole('button', { name, exact: true })
-  await expect(row).toBeVisible()
-  if ((await row.getAttribute('aria-current')) !== 'true') await row.click()
-  if (was !== null && was !== 'Projects') await openPanel(page, was)
+  const crumb = projectCrumb(page)
+  if ((await crumb.count()) > 0) {
+    if (((await crumb.getAttribute('aria-label')) ?? '') === `Project ${name}`) return
+    await crumb.click()
+    const item = projectMenu(page).getByRole('menuitem', { name, exact: true })
+    await expect(item).toBeVisible()
+    await item.click()
+    return
+  }
+  await showProjects(page)
+  const card = projectCard(page, name)
+  await expect(card).toBeVisible()
+  await card.click()
 }
 
-/** "New project", from the foot of the Projects panel. */
+/** "New project", from the page of projects. */
 export async function newFromList(page: Page): Promise<void> {
-  await openPanel(page, 'Projects')
-  const button = objectList(page).getByRole('button', { name: 'New project' })
+  if ((await page.locator('.new-layout').count()) > 0) return
+  await showProjects(page)
+  const button = projectsPage(page).getByRole('button', { name: 'New project', exact: true }).first()
   await expect(button).toBeVisible()
-  // The page of the new project is up already: the button says so, pressed.
-  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click()
+  await button.click()
 }

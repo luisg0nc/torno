@@ -24,7 +24,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
-    <img src="docs/images/hero.png" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the projects on the left, the parts in 3D in the middle with a pin and dimensions on them, the chat with Claude Code on the right" width="900">
+    <img src="docs/images/hero.png" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the parts, checks and marks of the project in a card on the left, the model in 3D in the middle with a pin and dimensions on it, the conversation with Claude Code on the right" width="900">
   </picture>
 </p>
 
@@ -43,8 +43,8 @@ of the model. You pin a note to a face, measure a wall or draw on the view, and 
 pointed at: the face's ref, the exact measured value, your note. The agent also gets tools to look at the model,
 measure it and cut sections through it, so it can check its own work before it hands it back.
 
-torno is not a modeller. It has no sketcher, no feature tree and no way to edit a solid by hand. The model is
-the Python file, and torno shows it.
+torno is not a modeller. It has no feature tree and no way to edit a solid by hand, and its sketches tell Claude
+what you mean rather than make geometry. The model is the Python file, and torno shows it.
 
 <p align="center">
   <img src="docs/images/loop.svg" alt="The loop: you mark the part, torno tells Claude Code, Claude Code edits the model, the kernel rebuilds it, the view updates, and you look and mark again" width="900">
@@ -56,6 +56,14 @@ the Python file, and torno shows it.
   screen and the traceback is one click away. A failed fillet tells you which edges and what radius would work.
 - **Point, don't describe.** Pins, arrows, strokes, shapes and picks on faces and edges, each with a note. The
   agent gets them with your next prompt as refs like `lid/F12`, never as vague words.
+- **Sketch in 3D.** Draw strokes in space, on a plane or on the surface of the parts, in millimetres, to show
+  where something goes or how it runs. [More](docs/manual.md#3d-sketches)
+- **Review a build.** Go over a build once, marking what you don't want and what you want, and send it as one
+  round. Claude answers each item, and after the next build you say OK or Still wrong. [More](docs/manual.md#reviews)
+- **Name what you mean.** Give a few faces, edges, parts or strokes a name like `#deck` that you and Claude both
+  use. torno finds them again after every build. [More](docs/manual.md#named-sets)
+- **Every build kept.** The builds strip at the top of the session lets you compare two builds, star one, review
+  one, or go back to before a prompt.
 - **Exact numbers.** Distances, angles, radii and wall thickness are measured on the B-rep, not on the mesh.
   Give a dimension the value it should be and it says *passes* or *fails* after every build.
 - **The agent sees what you see.** The agent gets MCP tools of its own: `look` (a picture of your view, marks
@@ -65,22 +73,37 @@ the Python file, and torno shows it.
   name.
 - **Scans.** Import a phone or scanner mesh of the place the part has to fit, align it, and check clashes and
   deviation against it. torno always marks scan numbers as approximate.
+- **Tracings.** Lay one plane of the model flat at true size on a millimetre grid, over a photo of the real thing
+  if you have one. The outline is redrawn after every build. [More](docs/manual.md#the-tracing-view)
+- **A board for each project.** What the project knows (the brief, photos, marks, scans, tracings) laid out in
+  frames, so you can point Claude at a frame instead of explaining it again. [More](docs/manual.md#the-board)
 - **Start from what you have.** A new project can start from a description, photos, doodles, scans and other
-  projects in the workspace. Claude gets all of it with its first prompt.
+  projects in the workspace. Claude gets all of it with its first prompt. All your projects stand on one bench at
+  true scale, the ones waiting on you first.
 - **Export.** A single HTML file anyone can open in a browser without installing anything, or STEP, STL and 3MF, a PNG of the view, and an SVG or PDF drawing of a section or a tracing at true scale.
 - **Local.** torno itself uploads nothing. The agent is your own `claude`, under your own login, and torno
   leaves its settings alone. In your folders, torno writes only under `<project>/.torno/`.
 
 <table>
   <tr>
-    <td><img src="docs/images/marks.png" alt="A pin and dimensions on a speaker stand, with the Marks list showing two dimensions passing and one failing"></td>
-    <td><img src="docs/images/chat.png" alt="The chat: a prompt with the marks torno added, the agent calling look and measure, its edit of the model and the build that followed"></td>
+    <td><img src="docs/images/marks.png" alt="A speaker stand with one pin and three dimensions drawn on it, one of them failing, and the card listing two checks that pass and one that fails"></td>
+    <td><img src="docs/images/chat.png" alt="The conversation in the dock: a prompt with the marks torno added, the agent calling look and measure, its edit of the model and the build that followed"></td>
     <td><img src="docs/images/section.png" alt="A section through the airbox showing the filter pod inside the lid and the ribs of the tub"></td>
   </tr>
   <tr>
     <td align="center">Marks and dimensions</td>
     <td align="center">The agent's view</td>
     <td align="center">Section</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/sketch.png" alt="A 3D sketch open on the airbox: a hose route drawn on a plane in front of it, with the sketch's panel in the card and the Sketching band at the top of the view"></td>
+    <td><img src="docs/images/review.png" alt="A review round open on the airbox: one pin marked as not wanted and one as wanted, each with its sign and note, and the round's items listed in the card"></td>
+    <td><img src="docs/images/tracing.png" alt="The Tracing view: a flat cut across the airbox laid out on a millimetre grid, with the parts named, a scale bar and a title block"></td>
+  </tr>
+  <tr>
+    <td align="center">A 3D sketch</td>
+    <td align="center">Reviewing a build</td>
+    <td align="center">A tracing</td>
   </tr>
 </table>
 

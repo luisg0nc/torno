@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { type Profile, type Profiles, FITS, profileName } from '../../shared/profile'
+import { loadProfile, setKnownProfile, useProfile } from '../state/profile'
+import { type Profile, type Profiles, FITS } from '../../shared/profile'
 import { number } from '../../shared/format'
 import { useStore } from '../state/store'
 import { numbered } from './numbered'
-import { SectionTitle } from './SectionTitle'
 import { chosen, pointerChoice } from './typing'
 
 const NONE = ''
@@ -23,11 +23,12 @@ export function profileSummary(profile: Profile | null): string[] {
  * The printer and the material the open project is made for. A choice is copied into `<project>/.torno/profile.json`
  * and sets the defaults of the agent's `check` and `measure mass`, and what it is told. The printers are the
  * person's, kept in torno's settings (not in the workspace): a new one is added here. The numbers are theirs, never
- * measured, and no verdict against them says the part prints. A section of the Params panel; its title says what is chosen.
+ * measured, and no verdict against them says the part prints. A section of the route card.
  */
 export function PrintProfile() {
   const objectId = useStore((s) => s.objectId)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  // What the head of the section says is read from the same: a choice made here is there at once.
+  const profile = useProfile(objectId)
   const [choices, setChoices] = useState<Profiles>({ printers: [], materials: [] })
   const [adding, setAdding] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -36,12 +37,11 @@ export function PrintProfile() {
     if (objectId === null) return
     let current = true
     setProblem(null)
-    void Promise.all([window.torno.profile.get(objectId), window.torno.profile.choices()])
-      .then(([kept, offered]) => {
-        if (!current) return
-        setProfile(kept)
-        setChoices(offered)
-      })
+    // Read anew when the section is opened: the agent may have named a printer since.
+    loadProfile(objectId, true)
+    void window.torno.profile
+      .choices()
+      .then((offered) => current && setChoices(offered))
       .catch(() => {})
     return () => {
       current = false
@@ -54,17 +54,15 @@ export function PrintProfile() {
       setProblem(null)
       window.torno.profile
         .set(objectId, next)
-        .then((kept) => setProfile(kept))
+        .then((kept) => setKnownProfile(objectId, kept))
         .catch((e: unknown) => setProblem(plain(e)))
     },
     [objectId]
   )
 
   if (objectId === null) return null
-  const said = profile ? profileName(profile) : 'none'
   return (
-    <section className="section print" aria-label="Print profile">
-      <SectionTitle title="Print profile" said={said} />
+    <div className="section print">
       <div className="print-body">
         <label className="print-row">
           <span>Printer</span>
@@ -135,7 +133,7 @@ export function PrintProfile() {
           </p>
         )}
       </div>
-    </section>
+    </div>
   )
 }
 

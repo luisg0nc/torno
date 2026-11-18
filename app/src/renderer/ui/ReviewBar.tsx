@@ -5,13 +5,15 @@ import { INTENT_CHIP, roundCounts } from '../../shared/reviews'
 import { boardStore } from '../state/board'
 import { openRoundNow, reviewActions, useReview } from '../state/review'
 import { store, useStore } from '../state/store'
+import { SignDisc } from './SignDisc'
 import { TYPING } from './typing'
+import { Band, BandButton, useBand } from './view/Band'
 
 /** The three ways the next marks can be, in the order of the bar: the choice, what it says, and the key of each that has one. */
-const CHOICES: Array<{ choice: 'plain' | ReviewIntent; label: string; sign?: string; shortcut?: 'review.dont' | 'review.want'; title: string }> = [
+const CHOICES: Array<{ choice: 'plain' | ReviewIntent; label: string; sign?: ReviewIntent; shortcut?: 'review.dont' | 'review.want'; title: string }> = [
   { choice: 'plain', label: 'Plain', title: 'The marks you make go to Claude as marks, in the round, with no word on them' },
-  { choice: 'dont', label: "Don't want", sign: INTENT_CHIP.dont, shortcut: 'review.dont', title: "The marks you make are what you don't want: drawn hatched, in your colour" },
-  { choice: 'want', label: 'Want', sign: INTENT_CHIP.want, shortcut: 'review.want', title: 'The marks you make are what you want: drawn solid, in your colour' }
+  { choice: 'dont', label: "Don't want", sign: 'dont', shortcut: 'review.dont', title: "The marks you make are what you don't want: drawn hatched, in your colour" },
+  { choice: 'want', label: 'Want', sign: 'want', shortcut: 'review.want', title: 'The marks you make are what you want: drawn solid, in your colour' }
 ]
 
 /**
@@ -45,57 +47,60 @@ export function useReviewKeys(): void {
 }
 
 /**
- * The bar of a review, under the view bar while a round is open (Review-A): which build is reviewed, whether the marks you
- * make next are plain, what you don't want or what you want, how many of each the round has, End (the round stays,
- * unsent, with its marks held) and Send review (the round goes with your next prompt). Any mark tool works while it is
- * open; the mark gets the choice and joins the round. Marks keep their author's colour: the signs are set in the face of
- * numbers, and what is not wanted is hatched. The choice is not for a measure or a "should be here" (the Measure and Should be here
- * tools of a tracing, whose sheet takes the place of this bar): they are about a number or a layer, not the model, so `withIntent`
- * leaves them as they are and they never join a round.
+ * The band of a review, at the top left of the view while a round is open (Review-A): which build is reviewed, whether the marks
+ * you make next are plain, what you don't want or what you want (the pens, each a pill with a round sign), how many of each the
+ * round has, Items, End (the round stays, unsent, with its marks held) and Send review (the round goes with your next prompt).
+ * Any mark tool works while it is open; the mark gets the choice and joins the round. Marks keep their author's colour: the
+ * signs are set in the face of numbers, and what is not wanted is hatched. The choice is not for a measure or a "should be here"
+ * (the Measure and Should be here tools of a tracing, whose sheet takes the place of this band): they are about a number or a
+ * layer, not the model, so `withIntent` leaves them as they are and they never join a round. A mode above it in the order of
+ * `bandOf` (a line-up, a face to pick) takes the place; a sketch opened inside it does not.
  */
 export function ReviewBar() {
   useReviewKeys()
+  const band = useBand()
   const round = useReview((s) => openRoundNow(s))
   const choice = useReview((s) => s.choice)
   const refused = useReview((s) => s.refused)
   const marks = useStore((s) => s.marks)
   const layout = useStore((s) => s.layout)
-  if (!round) return null
+  if (!round || band !== 'review') return null
   const { dont, want, plain } = roundCounts(marks, round.id)
   const here = round.layout === layout
   return (
     <>
-      <div className="viewbar reviewbar" role="toolbar" aria-label="Review" data-part="review">
+      <Band kind="review" label="Review" part="review">
         <span className="reviewbar-label">
-          Review of <span className="num">{round.build}</span>
+          Reviewing <span className="num">{round.build}</span>
         </span>
         {!here && (
           <span className="reviewbar-where" title="A mark made in another layout does not join the round">
             of the layout <span className="num">{round.layout}</span>
           </span>
         )}
-        <div className="segmented" role="radiogroup" aria-label="New marks are">
+        <div className="reviewbar-pens" role="radiogroup" aria-label="New marks are">
           {CHOICES.map((c) => (
-            <button key={c.choice} type="button" role="radio" aria-checked={here && choice === c.choice} aria-pressed={here && choice === c.choice} disabled={!here} aria-keyshortcuts={c.shortcut ? hint(c.shortcut) : undefined} title={`${c.title}${c.shortcut ? ` (${hint(c.shortcut)})` : ''}`} onClick={() => reviewActions.choose(c.choice)}>
-              {c.sign && <span className="num reviewbar-sign">{c.sign}</span>} {c.label}
+            <button key={c.choice} type="button" className="band-pen" role="radio" aria-checked={here && choice === c.choice} aria-pressed={here && choice === c.choice} disabled={!here} aria-keyshortcuts={c.shortcut ? hint(c.shortcut) : undefined} title={`${c.title}${c.shortcut ? ` (${hint(c.shortcut)})` : ''}`} onClick={() => reviewActions.choose(c.choice)}>
+              {c.sign && <SignDisc intent={c.sign} />}{' '}
+              {c.label}
             </button>
           ))}
         </div>
         <span className="reviewbar-counts num" title="What the round has: marks you don't want, marks you want, and plain ones">
           {`${dont} ${INTENT_CHIP.dont} · ${want} ${INTENT_CHIP.want}${plain > 0 ? ` · ${plain} plain` : ''}`}
         </span>
-        <button type="button" className="bar-button" aria-label={`Open the panel of ${round.id}`} title="The items of the round, one by one" onClick={() => reviewActions.openPanel(round.id)}>
+        <BandButton aria-label={`Open the panel of ${round.id}`} title="The items of the round, one by one" onClick={() => reviewActions.openPanel(round.id)}>
           Items
-        </button>
-        <button type="button" className="bar-button" title="End the round without sending it: its marks stay drafts, held, and it can be opened again from its panel" onClick={() => void reviewActions.end(round.id)}>
+        </BandButton>
+        <BandButton title="End the round without sending it: its marks stay drafts, held, and it can be opened again from its panel" onClick={() => void reviewActions.end(round.id)}>
           End
-        </button>
-        <button type="button" className="bar-button reviewbar-send" disabled={dont + want + plain === 0} title="Send the round: its marks go to Claude with your next prompt, with one line that says they are a review" onClick={() => void reviewActions.send(round.id)}>
+        </BandButton>
+        <BandButton primary className="reviewbar-send" disabled={dont + want + plain === 0} title="Send the round: its marks go to Claude with your next prompt, with one line that says they are a review" onClick={() => void reviewActions.send(round.id)}>
           Send review
-        </button>
-      </div>
+        </BandButton>
+      </Band>
       {refused !== null && (
-        <p className="compare-box reviewbar-note selectable" role="alert">
+        <p className="band-note selectable" role="alert">
           {refused}
         </p>
       )}

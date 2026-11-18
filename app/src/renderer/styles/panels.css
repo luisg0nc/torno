@@ -1,32 +1,9 @@
-/* ---- The panel docked beside the rail: one of Projects, Layers, Params, Scans or Marks ---- */
+/* ---- The bodies of the route card's sections: today's lists, rows and forms, until each section is restyled in its own card-*.css ---- */
 
 /*
- * The panel is as tall as the window and scrolls as a whole (`.panel-body`), except the marks, which keep their title
- * and the line of checks in place and scroll their list (`.marks-body`). The panel pushes the view over (`--left-w`
- * on the shell is the rail and the panel's width); it never floats over it.
+ * The card is as tall as the window and scrolls as a whole (`.route-scroll`, `card.css`). A section's body is the component
+ * that was a panel's section: it brings the padding of a panel's edge, which `.route-body` takes back (`card.css`).
  */
-.panel-host {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  border-right: var(--divider);
-}
-
-.panel-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.panel-host[data-panel='marks'] .panel-body {
-  overflow-y: hidden;
-}
-
 .section {
   display: flex;
   flex: none;
@@ -35,23 +12,13 @@
   padding: var(--space-1) 0 var(--space-2);
 }
 
-/* The sections of one panel (Params holds the checks and the print profile): a hairline between. */
-.section + .section {
-  border-top: var(--divider);
-}
-
-/* The rows are the panel's to scroll, not a section's own. */
-.panel-body .rows {
+/* The rows are the card's to scroll, not a section's own. */
+.route-body .rows {
   flex: none;
   overflow: visible;
 }
 
-.objects {
-  padding-bottom: var(--space-2);
-}
-
 .marks {
-  flex: 1 1 0;
   padding-top: var(--space-1);
   padding-bottom: 0;
 }
@@ -79,30 +46,6 @@
   min-width: 0;
   padding-top: 2px;
   padding-bottom: 2px;
-}
-
-.section-said {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The count and what else is said, after the name, a step apart. */
-.section-said::before {
-  content: '';
-  padding-left: var(--space-1);
-}
-
-/* With a project open: the way to the page of projects beside the title, as the scans have their import. */
-.page-button {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-}
-
-.page-button svg {
-  width: 13px;
-  height: 13px;
 }
 
 .section-note {
@@ -136,40 +79,33 @@
   white-space: nowrap;
 }
 
-.object-row {
-  border: 0;
-  background: transparent;
-  text-align: left;
-}
-
-.object-row:hover {
-  background: var(--accent-wash);
-}
-
-.object-row[aria-current] {
-  background: var(--accent-wash);
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.object-row[data-problem] {
-  color: var(--muted);
-}
-
-.object-row:focus-visible {
-  outline-offset: -2px;
-}
-
 .swatch {
   flex: none;
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--radius-inline);
 }
 
 /* A field of the model's Params: its name and default on a line, its comment under, and that the default is worked out in the model. Text where no session can take it, a button where one can. */
 .param-row {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.param-row > * {
+  grid-column: 1 / -1;
+}
+
+/* The gauge of a field with a range stands at the right of the first lines of its row, 8 px in from the card's edge. */
+.param-row > .param-button {
+  grid-column: 1;
+}
+
+.param-row > .param-gauge {
+  grid-column: 2;
+  grid-row: 1;
+  padding-right: var(--space-2);
 }
 
 .param-button {
@@ -236,115 +172,8 @@ button.param-button:focus-visible {
   overflow-wrap: anywhere;
 }
 
-/* A check of the model: its name and how it stands on a line, what was measured and wanted under. The model's own, so the agent's colour marks it; the word says how it stands. */
-.check-row {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 3px var(--space-2) 3px calc(var(--space-4) - 3px);
-  border-left: 3px solid var(--agent-mark);
-  font-size: var(--text-small);
-}
-
-.check-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.check-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.check-standing {
-  flex: none;
-  color: var(--ok);
-}
-
-.check-row[data-standing='fails'] .check-standing {
-  color: var(--fail);
-}
-
-.check-row[data-standing='not measured'] .check-standing,
-.check-row[data-standing='not run'] .check-standing {
-  color: var(--warn);
-}
-
-.check-detail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--space-2);
-  color: var(--muted);
-}
-
-.check-notes {
-  padding: var(--space-1) var(--space-2) 0 var(--space-4);
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.check-notes-head {
-  margin: 0;
-  color: var(--warn);
-}
-
-.check-notes ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .layer-row .row-name {
   font-size: var(--text-small);
-}
-
-.layer-defect {
-  flex: none;
-  font-size: var(--text-small);
-  color: var(--fail);
-}
-
-.layer-bought {
-  flex: none;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.layer-row[data-hidden] .row-name {
-  color: var(--muted);
-}
-
-.layer-row[data-hidden] .swatch {
-  opacity: 0.35;
-}
-
-/* A group of parts (the model's groups(p)): a header, its parts indented under it. */
-.layer-group {
-  padding-left: var(--space-2);
-}
-
-.layer-group .row-name {
-  font-size: var(--text-small);
-  font-weight: 500;
-}
-
-.layer-count {
-  flex: none;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.layer-row[data-in-group] {
-  padding-left: calc(var(--space-4) + var(--space-3));
-}
-
-.layer-group[data-seen='none'] .row-name,
-.layer-group[data-seen='some'] .layer-group-eye {
-  color: var(--muted);
 }
 
 /* "Show only": out of the way until the header is pointed at, as the opacity of a part is. */
@@ -368,38 +197,6 @@ button.param-button:focus-visible {
   font-family: var(--font-mono); /* a part's name is a ref: the .num face, which "font: inherit" would take back */
   font-size: var(--text-small);
   text-align: left;
-}
-
-.layer-row[data-selected] .layer-name {
-  color: var(--accent);
-}
-
-/* How many marks are open on the part: quiet, and in the colour of a verdict that fails when one of them is a check that does. */
-.layer-marks {
-  flex: none;
-  min-width: 18px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.layer-marks[data-failing] {
-  color: var(--fail);
-}
-
-.layer-marks[aria-pressed='true'] {
-  background: var(--accent-wash);
-}
-
-/* "3 hidden · Show all", after the title of the layers. */
-.layers-hidden {
-  flex: none;
-  padding-right: var(--space-4);
-  color: var(--muted);
-  font-size: var(--text-small);
 }
 
 /* A chip above the marks while they are cut to one part. */
@@ -432,7 +229,7 @@ button.param-button:focus-visible {
 
 .layer-opacity::-webkit-slider-runnable-track {
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-full);
   background: var(--hairline);
 }
 

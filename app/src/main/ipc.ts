@@ -116,8 +116,8 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           view:drawSectionReply, view:tracingPictureReply, view:saveViewReply, session:write, session:resize, session:insert,
 //           chat:answer, asks:answer
 //   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:tracingPicture, view:saveView (sent by src/main/look.ts),
-//           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested and window:closeAsked (sent by src/main/index.ts,
-//           which hears the answer, window:closeAnswer),
+//           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested, window:closeAsked and window:maximized (sent by src/main/index.ts,
+//           which hears the answer, window:closeAnswer, and the window's own controls: window:minimize, window:toggleMaximize, window:close and window:drawsControls, a sendSync),
 //           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, tracings:changed, tracings:outline, tracings:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
 
 /** The longest prompt the window may send. */
@@ -277,7 +277,11 @@ function cards(): Promise<ObjectCard[]> {
     sourcesMtimeMs: newestPython,
     uses: (id) => ws.builds.scene(id)?.scene.uses ?? [],
     size: (path) => stat(path).then((s) => s.size, () => null),
-    git: (dir) => gitStateRecently(dir)
+    git: (dir) => gitStateRecently(dir),
+    waiting: (id) => {
+      const ask = asks?.of(id)
+      return ask ? { question: ask.question, since: ask.since } : null
+    }
   })
 }
 
@@ -289,8 +293,9 @@ const keeping: KeepDeps = {
     const revision = current?.builds.scene(id)?.revision
     if (revision === undefined) return undefined
     const built = current?.builtFrom.get(id)
-    const uses = current?.builds.scene(id)?.scene.uses
-    return { revision, ...(built?.revision === revision && built.startedMs !== undefined ? { startedMs: built.startedMs } : {}), ...(uses ? { uses } : {}) }
+    const scene = current?.builds.scene(id)?.scene
+    const uses = scene?.uses
+    return { revision, ...(built?.revision === revision && built.startedMs !== undefined ? { startedMs: built.startedMs } : {}), ...(uses ? { uses } : {}), ...(scene ? { scene } : {}) }
   }
 }
 

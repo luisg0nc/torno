@@ -1,5 +1,6 @@
 import { existsSync, realpathSync, rmSync } from 'node:fs'
 import { ablations, evalTuning } from './ablations'
+import { drawsControls, frameOptions, MIN_WINDOW, SURFACE } from './frame'
 import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -189,10 +190,6 @@ async function exampleFolder(): Promise<string | null> {
   return exampleCopy
 }
 
-// The window's own background, painted before the renderer's first frame.
-// Keep equal to --surface in src/renderer/styles/tokens.css.
-const SURFACE = { light: '#F1EFEA', dark: '#1A1C1F' }
-
 /** How long a window asked whether it may close has to answer, before it is closed without one. */
 const CLOSE_ANSWER_MS = 1500
 
@@ -205,7 +202,11 @@ function createWindow(): BrowserWindow {
     ...(isTest ? { enableLargerThanScreen: true } : {}),
     title: 'torno',
     icon: windowIcon(),
+    // The window's own background, painted before the renderer's first frame; no native frame (`frame.ts`).
     backgroundColor: nativeTheme.shouldUseDarkColors ? SURFACE.dark : SURFACE.light,
+    ...frameOptions(process.platform, nativeTheme.shouldUseDarkColors),
+    minWidth: MIN_WINDOW.width,
+    minHeight: MIN_WINDOW.height,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -246,11 +247,43 @@ function createWindow(): BrowserWindow {
     unanswered = setTimeout(closeNow, CLOSE_ANSWER_MS)
     win.webContents.send('window:closeAsked')
   })
+  // The controls the window draws itself (Linux, `drawsControls`) ask main through these. `close` is the window
+  // manager's close: it goes through the question above. The window is told when it is maximised, to draw the glyph.
+  const mine = (event: Electron.IpcMainEvent): boolean => !win.isDestroyed() && event.sender === win.webContents
+  const onMinimize = (event: Electron.IpcMainEvent): void => void (mine(event) && win.minimize())
+  const onToggleMaximize = (event: Electron.IpcMainEvent): void => {
+    if (mine(event)) win.isMaximized() ? win.unmaximize() : win.maximize()
+  }
+  const onClose = (event: Electron.IpcMainEvent): void => void (mine(event) && win.close())
+  const onDraws = (event: Electron.IpcMainEvent): void => {
+    event.returnValue = drawsControls(process.platform)
+  }
+  const told = (): void => {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('window:maximized', win.isMaximized())
+  }
+  ipcMain.on('window:minimize', onMinimize)
+  ipcMain.on('window:toggleMaximize', onToggleMaximize)
+  ipcMain.on('window:close', onClose)
+  ipcMain.on('window:drawsControls', onDraws)
+  win.on('maximize', told)
+  win.on('unmaximize', told)
+  win.webContents.on('did-finish-load', told)
+  // The platform's controls keep the bar's colours when the system theme turns.
+  const onTheme = (): void => {
+    const overlay = frameOptions(process.platform, nativeTheme.shouldUseDarkColors).titleBarOverlay
+    if (overlay && typeof overlay === 'object' && !win.isDestroyed()) win.setTitleBarOverlay(overlay)
+  }
+  nativeTheme.on('updated', onTheme)
   // The frame was flashed for a session that asked: the person is here now.
   win.on('focus', () => win.flashFrame(false))
   win.on('closed', () => {
     if (unanswered) clearTimeout(unanswered)
     ipcMain.off('window:closeAnswer', onAnswer)
+    ipcMain.off('window:minimize', onMinimize)
+    ipcMain.off('window:toggleMaximize', onToggleMaximize)
+    ipcMain.off('window:close', onClose)
+    ipcMain.off('window:drawsControls', onDraws)
+    nativeTheme.off('updated', onTheme)
     // Nobody is left to answer what is open.
     asks.end()
     app.off('before-quit', onQuit)

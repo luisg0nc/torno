@@ -1,14 +1,14 @@
 /* The landing page. The palette and faces are the window's (app/src/renderer/styles/tokens.css). */
-@font-face { font-family: 'IBM Plex Sans'; font-weight: 400; font-display: swap; src: url(fonts/plex-sans-400.woff2) format('woff2'); }
-@font-face { font-family: 'IBM Plex Sans'; font-weight: 500; font-display: swap; src: url(fonts/plex-sans-500.woff2) format('woff2'); }
-@font-face { font-family: 'IBM Plex Sans'; font-weight: 600; font-display: swap; src: url(fonts/plex-sans-600.woff2) format('woff2'); }
-@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-display: swap; src: url(fonts/plex-mono-400.woff2) format('woff2'); }
+@font-face { font-family: 'Instrument Sans'; font-weight: 400; font-display: swap; src: url(fonts/instrument-sans-400.woff2) format('woff2'); }
+@font-face { font-family: 'Instrument Sans'; font-weight: 500; font-display: swap; src: url(fonts/instrument-sans-500.woff2) format('woff2'); }
+@font-face { font-family: 'Instrument Sans'; font-weight: 600; font-display: swap; src: url(fonts/instrument-sans-600.woff2) format('woff2'); }
+@font-face { font-family: 'Martian Mono'; font-weight: 400; font-display: swap; src: url(fonts/martian-mono-400.woff2) format('woff2'); }
 
 :root {
   --surface: #F1EFEA;
   --panel: #FAF9F6;
-  --ink: #22252A;
-  --muted: #646970;
+  --ink: #20242B;
+  --muted: #62666D;
   --hairline: #DAD6CE;
   --grid: #E4E1DA;
   --accent: #1D46B8;
@@ -17,21 +17,21 @@
   --agent-mark: #288156;
   --ok: #1B5B3C;
   --fail: #9B2B1D;
-  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-ui: 'Instrument Sans', system-ui, sans-serif;
+  --font-mono: 'Martian Mono', ui-monospace, monospace;
   --measure: 66ch;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --surface: #1A1C1F; --panel: #222529; --ink: #E9E7E2; --muted: #9A9FA6; --hairline: #33373C; --grid: #26292D;
-    --accent: #7C9BF7; --accent-wash: #252F4A; --user-mark: #E8674F; --agent-mark: #4FB384; --ok: #6CC79A; --fail: #F08A78;
+    --surface: #1A1C1F; --panel: #222529; --ink: #E9E7E2; --muted: #9EA3AA; --hairline: #33373C; --grid: #26292D;
+    --accent: #7C9BF7; --accent-wash: #252F4A; --user-mark: #F0705E; --agent-mark: #5CC492; --ok: #A9E6C8; --fail: #F9B2A7;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --surface: #1A1C1F; --panel: #222529; --ink: #E9E7E2; --muted: #9A9FA6; --hairline: #33373C; --grid: #26292D;
-  --accent: #7C9BF7; --accent-wash: #252F4A; --user-mark: #E8674F; --agent-mark: #4FB384; --ok: #6CC79A; --fail: #F08A78;
+  --surface: #1A1C1F; --panel: #222529; --ink: #E9E7E2; --muted: #9EA3AA; --hairline: #33373C; --grid: #26292D;
+  --accent: #7C9BF7; --accent-wash: #252F4A; --user-mark: #F0705E; --agent-mark: #5CC492; --ok: #A9E6C8; --fail: #F9B2A7;
   color-scheme: dark;
 }
 

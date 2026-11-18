@@ -7,10 +7,8 @@ import { giveKeysBack } from './typing'
 import { numbered } from './numbered'
 import { sourceCount } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
-import { ChecksPanel } from './ChecksPanel'
-import { PrintProfile } from './PrintProfile'
 import { PinButton } from './projectBoard/PinButton'
-import { SectionTitle } from './SectionTitle'
+import { Gauge } from './card/Gauge'
 
 /**
  * The model's `Params`, as the kernel read them at the last build: a row for each field, in the model's order, with
@@ -25,20 +23,10 @@ import { SectionTitle } from './SectionTitle'
  * `Params.<name>`; what it holds (type, value whole, comment) and what a click does are its description. A model
  * with no fields, or a kernel that does not read them, has no section of Params, and the panel says so.
  *
- * The Params panel of the rail holds three sections about the same build: the Params, then the model's checks
- * (`ChecksPanel`) and the print profile (`PrintProfile`), each of which is absent where it has nothing to say.
+ * This is the body of the Parameters section of the route card: its head says the count, and the model's checks
+ * (`ui/card/Checks.tsx`) and the print profile (`PrintProfile`) are sections of their own.
  */
 export function ParamsPanel() {
-  return (
-    <>
-      <ParamsSection />
-      <ChecksPanel />
-      <PrintProfile />
-    </>
-  )
-}
-
-function ParamsSection() {
   const params = useStore((s) => s.scene?.params)
   const dropped = useStore((s) => s.scene?.overrides?.dropped)
   const objectId = useStore((s) => s.objectId)
@@ -46,10 +34,9 @@ function ParamsSection() {
   const [problem, setProblem] = useState<string | null>(null)
   if (!params || params.length === 0) {
     return (
-      <section className="section params" aria-label="Parameters">
-        <SectionTitle title="Parameters" />
+      <div className="section params">
         <p className="section-note">This model has no Params.</p>
-      </section>
+      </div>
     )
   }
   const changed = params.filter(tried)
@@ -59,10 +46,10 @@ function ParamsSection() {
   }
   const these = changed.length === 1 ? 'it' : 'them'
   return (
-    <section className="section params" aria-label="Parameters">
-      <SectionTitle title="Parameters" said={`${params.length}${changed.length > 0 ? ` · ${changed.length} tried` : ''}`}>
+    <div className="section params">
+      <div className="route-tools">
         <PinButton what={{ kind: 'params' }} title="Put the Params, with the values you are trying, on the board as a card that stays up to date" />
-      </SectionTitle>
+      </div>
       <SourceCount params={params} />
       {changed.length > 0 && (
         <div className="params-tried" role="group" aria-label="Values you are trying">
@@ -102,7 +89,7 @@ function ParamsSection() {
           />
         ))}
       </ul>
-    </section>
+    </div>
   )
 }
 
@@ -163,6 +150,12 @@ function ParamItem({ row, canInsert, set, reset }: { row: ParamRow; canInsert: b
         <div className="param-button" aria-description={`${row.title}. Start a session to put ${row.text} in its prompt`} title={row.title}>
           {body}
         </div>
+      )}
+      {/* Inspector A's gauge, for a number whose model says its range: the value the build used, against least and most. */}
+      {typeof current === 'number' && row.range.min !== undefined && row.range.max !== undefined && row.range.min < row.range.max && (
+        <span className="param-gauge">
+          <Gauge value={current} lo={row.range.min} hi={row.range.max} />
+        </span>
       )}
       {current !== null && (
         <div className="param-edit">

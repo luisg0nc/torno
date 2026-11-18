@@ -1,11 +1,13 @@
-import { createContext, memo, useContext, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type MutableRefObject, createContext, memo, useContext, useEffect, useRef, useState } from 'react'
 import { type ChatAnswer, type ChatItem, TORNO_TOOL_PREFIX } from '../../../shared/chat'
-import { pressed } from '../../../shared/keys'
+import { pressed, which } from '../../../shared/keys'
 import { numbered } from '../numbered'
 import { giveKeysBack } from '../typing'
 import { type Question, answerFor, describeInput, questionsOf } from './ask'
 import { Diff } from './Diff'
 import { Markdown } from './markdown'
+import { Takeover, WaitsBelow } from './AskTakeover'
+import { isEditable } from './typing'
 import { useChatPlace } from './place'
 
 type Ask = Extract<ChatItem, { kind: 'ask' }>
@@ -41,9 +43,6 @@ function useAnswer(item: Ask): Answering {
     }
   }
 }
-
-/** The requests that have had the focus once: a pane drawn again (another object shown and back) does not take it again. */
-const focused = new Set<string>()
 
 /** What to do instead, typed on the card as the reason for a refusal; Enter refuses with it, Escape gives the keys back. */
 function Reason({ value, onChange, onKeep }: { value: string; onChange: (v: string) => void; onKeep: () => void }) {
@@ -166,7 +165,7 @@ function Plan({ item, answering, answer }: { item: Ask } & Answering) {
 }
 
 /** One question: its options as buttons that are pressed or not, and a line of its own for anything else. */
-function QuestionView({ question, picked, other, onPick, onOther, disabled }: { question: Question; picked: string[]; other: string; onPick: (label: string) => void; onOther: (text: string) => void; disabled: boolean }) {
+function QuestionView({ question, picked, other, onPick, onOther, disabled, keyed }: { question: Question; picked: string[]; other: string; onPick: (label: string) => void; onOther: (text: string) => void; disabled: boolean; keyed: boolean }) {
   return (
     <fieldset className="chat-ask-question" disabled={disabled}>
       <legend>
@@ -174,8 +173,13 @@ function QuestionView({ question, picked, other, onPick, onOther, disabled }: { 
         <span className="chat-ask-text">{numbered(question.question)}</span>
       </legend>
       <div className="chat-ask-options" role="group" aria-label={question.question}>
-        {question.options.map((option) => (
-          <button key={option.label} type="button" className="chat-ask-option" aria-pressed={picked.includes(option.label)} onClick={() => onPick(option.label)}>
+        {question.options.map((option, n) => (
+          <button key={option.label} type="button" className="chat-ask-option" aria-pressed={picked.includes(option.label)} aria-keyshortcuts={keyed && n < KEYED ? String(n + 1) : undefined} onClick={() => onPick(option.label)}>
+            {keyed && n < KEYED && (
+              <span className="ask-key num" aria-hidden="true">
+                {n + 1}
+              </span>
+            )}
             <span className="chat-ask-label">{numbered(option.label)}</span>
             {option.description !== '' && <span className="chat-ask-desc">{numbered(option.description)}</span>}
           </button>
@@ -186,7 +190,10 @@ function QuestionView({ question, picked, other, onPick, onOther, disabled }: { 
   )
 }
 
-function Questions({ item, answering, answer }: { item: Ask } & Answering) {
+/** The most options of a question that have a key (`ask.option`). */
+const KEYED = 9
+
+function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & Answering & { keyed: MutableRefObject<((n: number) => void) | null> }) {
   const questions = questionsOf(item.input)
   const [picks, setPicks] = useState<string[][]>(() => questions.map(() => []))
   const [others, setOthers] = useState<string[]>(() => questions.map(() => ''))
@@ -207,6 +214,13 @@ function Questions({ item, answering, answer }: { item: Ask } & Answering) {
   function submit(): void {
     if (!complete) return
     answer({ allow: true, updatedInput: { answers: Object.fromEntries(questions.map((q, n) => [q.question, answers[n] as string])) } })
+  }
+  // The keys 1 to 9 act on the first question still unanswered (the last, once all are): a choice is picked, a multiple one toggled.
+  const unanswered = answers.findIndex((a) => a === undefined)
+  const keyedAt = unanswered >= 0 ? unanswered : questions.length - 1
+  onKey.current = (n) => {
+    const label = questions[keyedAt]?.options[n]?.label
+    if (open && !answering && label !== undefined) pick(keyedAt, label)
   }
   const [reason, setReason] = useState('')
   if (questions.length === 0) {
@@ -235,7 +249,7 @@ function Questions({ item, answering, answer }: { item: Ask } & Answering) {
       {open ? (
         <>
           {questions.map((q, n) => (
-            <QuestionView key={n} question={q} picked={picks[n] ?? []} other={others[n] ?? ''} onPick={(label) => pick(n, label)} onOther={(t) => write(n, t)} disabled={answering} />
+            <QuestionView key={n} question={q} picked={picks[n] ?? []} other={others[n] ?? ''} onPick={(label) => pick(n, label)} onOther={(t) => write(n, t)} disabled={answering} keyed={n === keyedAt} />
           ))}
           <div className="chat-ask-actions">
             <button type="button" className="button button-primary" disabled={!complete || answering} onClick={submit}>
@@ -254,36 +268,50 @@ function Questions({ item, answering, answer }: { item: Ask } & Answering) {
 }
 
 /**
- * A request of the agent's to the person, a card in the transcript: to use a tool (Allow, Allow for this session when the CLI
- * suggested a rule, Deny with a reason), a plan to leave plan mode with, or the questions of `AskUserQuestion`.
- * Open, it takes the focus once, unless the person is writing or has their cursor in the box: it is not stolen from
- * typing. Its buttons are ordinary buttons.
+ * A request of the agent's to the person: to use a tool (Allow, Allow for this session when the CLI suggested a rule, Deny with a
+ * reason), a plan to leave plan mode with, or the questions of `AskUserQuestion`. While it is open it takes the foot of the chat
+ * (`where` "foot": `Takeover`, which has the focus once unless the person is writing) and the transcript holds a line for it; once
+ * answered or ended it is the card in the transcript that says how it was answered. Its buttons are ordinary buttons.
  */
-export const AskCard = memo(function AskCard({ item }: { item: Ask }) {
-  const card = useRef<HTMLElement>(null)
+export const AskCard = memo(function AskCard({ item, where = 'log' }: { item: Ask; where?: 'log' | 'foot' }) {
   const { answering, answer } = useAnswer(item)
-  useEffect(() => {
-    if (item.state !== 'open' || focused.has(item.requestId)) return
-    focused.add(item.requestId)
-    const box = document.querySelector<HTMLTextAreaElement>('[data-chat-composer]')
-    if (box && (box.value !== '' || document.activeElement === box)) return
-    card.current?.focus({ preventScroll: true })
-    card.current?.scrollIntoView({ block: 'nearest' })
-    // Once, when it appears.
-  }, [])
-  return (
-    <section ref={card} className="chat-item chat-ask" data-kind="ask" data-state={item.state} data-tool={item.toolName} tabIndex={-1}
-      aria-label="Request from Claude Code"
-      onKeyDown={(e) => {
-        // The card itself in focus, not a button or a field in it: those keep their own Enter. Questions are chosen, not allowed.
-        if (e.target !== e.currentTarget || e.nativeEvent.isComposing || item.state !== 'open' || item.toolName === 'AskUserQuestion' || answering) return
-        if (pressed(e, 'chat.allow')) {
+  /** What the keys 1 to 9 do, set by the question being drawn. */
+  const keyed = useRef<((n: number) => void) | null>(null)
+  // Open, the transcript holds only a line: the request is at the foot.
+  if (item.state === 'open' && where === 'log') return <WaitsBelow />
+  const body = item.toolName === 'AskUserQuestion' ? <Questions item={item} answering={answering} answer={answer} keyed={keyed} /> : item.toolName === 'ExitPlanMode' ? <Plan item={item} answering={answering} answer={answer} /> : <Permission item={item} answering={answering} answer={answer} />
+  const props = {
+    'aria-label': 'Request from Claude Code',
+    'data-kind': 'ask',
+    'data-state': item.state,
+    'data-tool': item.toolName,
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      // The keys 1 to 9 choose among the options of a question, anywhere but in a field.
+      if (where === 'foot' && item.state === 'open' && item.toolName === 'AskUserQuestion' && !e.nativeEvent.isComposing && !isEditable(e.target as HTMLElement)) {
+        const n = which(e, 'ask.option')
+        if (n >= 0) {
           e.preventDefault()
-          answer({ allow: true })
+          // The press is this block's: the view's own keys for the same digits do not hear it.
+          e.nativeEvent.stopPropagation()
+          keyed.current?.(n)
+          return
         }
-      }}
-    >
-      {item.toolName === 'AskUserQuestion' ? <Questions item={item} answering={answering} answer={answer} /> : item.toolName === 'ExitPlanMode' ? <Plan item={item} answering={answering} answer={answer} /> : <Permission item={item} answering={answering} answer={answer} />}
+      }
+      // The card itself in focus, not a button or a field in it: those keep their own Enter. Questions are chosen, not allowed.
+      if (e.target !== e.currentTarget || e.nativeEvent.isComposing || item.state !== 'open' || item.toolName === 'AskUserQuestion' || answering) return
+      if (pressed(e, 'chat.allow')) {
+        e.preventDefault()
+        answer({ allow: true })
+      }
+    }
+  }
+  return where === 'foot' ? (
+    <Takeover ask="request" focusKey={item.requestId} className="chat-ask" {...props}>
+      {body}
+    </Takeover>
+  ) : (
+    <section className="chat-item chat-ask" tabIndex={-1} {...props}>
+      {body}
     </section>
   )
 })

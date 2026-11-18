@@ -27,7 +27,7 @@ export function selectionSaid(refs: readonly string[]): string {
 
 /**
  * The keys of a set, heard outside a field and the terminal with a project on show: Ctrl+G with something selected opens the
- * popover that names it, and with nothing selected the status line says what to select.
+ * box that names it, in the head of the card (`InHand` hears it), and with nothing selected the status line says what to select.
  */
 export function useSetKeys(): void {
   useEffect(() => {
@@ -45,7 +45,7 @@ export function useSetKeys(): void {
   }, [])
 }
 
-/** What the popover shows and does: its fields, and the way out. Pure, so that it is drawn the same from any state. */
+/** What the box shows and does: its fields, and the way out. Pure, so that it is drawn the same from any state. */
 export interface MakeSetFormProps {
   name: string
   comment: string
@@ -121,9 +121,8 @@ export function MakeSetForm({ name, comment, colour, taken, what, refused = null
   )
 }
 
-/** The popover Ctrl+G opens. It is mounted always, for the key; it draws only while a set is being named. */
+/** The box Ctrl+G or "Name a set" opens, in the head of the card under the refs: it draws only while a set is being named. */
 export function MakeSet() {
-  useSetKeys()
   const making = useSets((s) => s.making)
   return making ? <NameSet /> : null
 }
@@ -163,7 +162,7 @@ function NameSet() {
     setError(null)
     void setActions.asks().then(
       (members) => {
-        // The kernel could not say where a face is: the status line and the popover say so, and it stays open as it was.
+        // The kernel could not say where a face is: the status line and the box say so, and it stays open as it was.
         if (members === null) return setBusy(false)
         return setActions.make({ name: name.trim(), comment: comment.trim(), colour, layout, members }).then(
           () => {

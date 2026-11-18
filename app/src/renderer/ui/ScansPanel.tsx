@@ -6,10 +6,8 @@ import { actions, store, useStore } from '../state/store'
 import { Confirm } from './Confirm'
 import { EyeIcon } from './Layers'
 import { capital, numbered } from './numbered'
-import { ScanReadSheet } from './ScanReadSheet'
 import { alignScan, importScan, reimportScan } from './scanDrop'
 import { guessOf, scanState } from './scanState'
-import { SectionTitle } from './SectionTitle'
 import { chosen, pointerChoice } from './typing'
 
 /** What the import process says it is doing, in the panel's words; a stage with no entry is said as it is. */
@@ -28,8 +26,31 @@ function asked(objectId: string, call: Promise<unknown>): Promise<void> {
 }
 
 /** Has main read a scan with another unit or up axis; with the same, a guess is said to be right and is no longer asked about. */
-function convertScan(objectId: string, id: string, as: { unit: ScanUnit; up: ScanUp }): Promise<void> {
+export function convertScan(objectId: string, id: string, as: { unit: ScanUnit; up: ScanUp }): Promise<void> {
   return asked(objectId, window.torno.scans.convert(objectId, id, as))
+}
+
+/** **Import scan…**, in the head of the Scans section: it asks for the file, and is off while one is still being read. */
+export function ImportScan() {
+  const objectId = useStore((s) => s.objectId)
+  const importing = useStore((s) => s.importing)
+  if (!objectId) return null
+  return (
+    <button
+      type="button"
+      className="button button-quiet route-head-action"
+      title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'}
+      disabled={importing !== null}
+      onClick={() => {
+        void window.torno.scans.pick().then(
+          (path) => path !== null && importScan(objectId, path),
+          () => {}
+        )
+      }}
+    >
+      Import scan…
+    </button>
+  )
 }
 
 /**
@@ -37,7 +58,7 @@ function convertScan(objectId: string, id: string, as: { unit: ScanUnit; up: Sca
  * looked at in. A row is one line, as a layer's: which scan, whether it is
  * shown, and how far where it stands can be trusted, in a word; the rest opens
  * beneath it, one scan at a time. How a scan just imported is read, when that
- * was a guess, is asked once at the top. How a scan is looked at is the
+ * was a guess, is asked once in the view (`ScanReadSheet`). How a scan is looked at is the
  * person's, kept with the view; what a scan is, is main's.
  */
 export function ScansPanel() {
@@ -46,26 +67,14 @@ export function ScansPanel() {
   const importing = useStore((s) => s.importing)
   const refused = useStore((s) => s.scansRefused)
   const problem = useStore((s) => s.scansProblem)
-  const askingId = useStore((s) => s.scanAsking)
   // The one scan whose detail is open under its row; none for another object.
   const [open, setOpen] = useState<string | null>(null)
   useEffect(() => setOpen(null), [objectId])
 
   if (!objectId) return null
-  const askingOf = askingId === null ? undefined : scans.find((scan) => scan.id === askingId)
-
-  const pick = async (): Promise<void> => {
-    const path = await window.torno.scans.pick().catch(() => null)
-    if (path !== null) importScan(objectId, path)
-  }
 
   return (
-    <section className="section scans" aria-label="Scans">
-      <SectionTitle title="Scans" said={`${scans.length}`}>
-        <button type="button" className="button button-quiet" title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'} disabled={importing !== null} onClick={() => void pick()}>
-          Import scan…
-        </button>
-      </SectionTitle>
+    <div className="section scans">
       {/* What main found wrong with the scans file of this object. */}
       {problem !== null && (
         <p className="scans-line selectable" role="status" data-part="problem">
@@ -97,7 +106,6 @@ export function ScansPanel() {
           </button>
         </p>
       )}
-      {askingOf && <ScanReadSheet key={askingOf.id} scan={askingOf} convert={(as) => convertScan(objectId, askingOf.id, as)} layoutsOf={numberedList} />}
       {scans.length === 0 && importing === null && <p className="section-note">Drop a scan on the view, or import one.</p>}
       {scans.length > 0 && (
         <ul className="rows">
@@ -106,7 +114,7 @@ export function ScansPanel() {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -236,7 +244,11 @@ function ScanRow({ objectId, scan, open, onToggle }: { objectId: string; scan: S
       )}
     </>
   )
-  const readingSection = sheetUp ? null : guess ? (
+  const readingSection = sheetUp ? (
+    <p className="scan-said" data-part="asked">
+      Asked in the view
+    </p>
+  ) : guess ? (
     <div className="scan-reading" data-part="reading">
       {readingBody}
     </div>
@@ -462,7 +474,7 @@ function sentenceOf(tip: string, basis: string | null): ReactNode {
 }
 
 /** Layout names as a sentence has them, each in the monospace face: `print and assembly`. */
-function numberedList(names: string[]): ReactNode[] {
+export function numberedList(names: string[]): ReactNode[] {
   return names.flatMap((name, n) => [
     n === 0 ? '' : n === names.length - 1 ? ' and ' : ', ',
     <span key={name} className="num">

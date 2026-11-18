@@ -38,15 +38,28 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `chat.newline` Shift+Enter, `chat.command` Up/Down and `chat.complete` Tab (while `/` commands are offered),
   `chat.close` Esc (a picture shown large; the focus returns to its thumbnail), `chat.stop` Ctrl+C (composer, only while the session
   works and nothing in the box is selected: with a selection it is a copy) and `chat.allow` Enter (scope `ask`: on the card itself
-  in focus, not its buttons or its field, where Enter refuses; not on a question). While a permission or a plan is open
+  in focus, not its buttons or its field, where Enter refuses; not on a question) and `ask.option` 1 to 9 (scope `ask`, heard on the block at the foot, never in a field: torno's own question takes 1 to 3; on
+  a question of `AskUserQuestion` the key picks or toggles that option of the first question not yet answered, the last once all are, and the
+  option shows its key cap, `aria-keyshortcuts`). While a permission or a plan is open
   (`openAsk` in `Composer`) the box's placeholder is "Answer the card above, or say what to do instead", its primary button
   is "Deny and send" (`chat.answer` with `allow: false` and the text as the message; Enter in the box does the same) and "Queue"
-  is the secondary; a question (`AskUserQuestion`) changes nothing in the box. Escape in the box gives the keys
-  back, except while the list of `/` commands is open: it closes the list. A card takes focus once per request, and
-  only when the composer is empty and not focused. An unsent prompt in a chat that is not over is among what closing
+  is the secondary; a question (`AskUserQuestion`) changes nothing in the box. The card is at the foot of the dock, over the box
+  (`AskCard` with `where="foot"`, inside `Takeover`; `openRequest` picks it; `ChatPane` draws it), and the transcript holds a line
+  ("Claude Code waits for your answer, below", `WaitsBelow`) in its place until it is answered or ended, when the transcript has the card. Escape in the box gives the keys
+  back, except while the list of `/` commands is open: it closes the list. The foot's block takes focus once per request, and
+  only when the composer is empty and not focused and the focus is in no other field (`Takeover`, `typing.ts`: a parameter, a slider, the terminal). An unsent prompt in a chat that is not over is among what closing
   the window asks about (`closingWhy`'s `unsent`). "Attach view" is sent in order: main waits for the picture
   before taking the next prompt, so one sent meanwhile cannot overtake it.
-- **A tool card goes to what it showed** (`ui/chat/ToolCard.tsx`). The line is a row (`.chat-tool-row`) whose toggle
+- **A tool is a chip** (`ui/chat/ToolCard.tsx`, `ToolFold`; spec "The conversation"): 24 px, round, on `--surface`, its line in 12 px
+  with the word that carries it in bold ink (`labelParts`: the file of a `Read`, the name of the others, `torno · look` for
+  torno's own); a tool of torno's is on `--accent-wash` with its name in `--accent` (`data-torno`), and the one running
+  has an accent ring (`data-state='running'`). `ChatItems` puts the tools that follow one another, and the folds of them,
+  in one wrapping row (`.chat-tools`, `drawRuns`); one that is open, or has a picture or a build under it, takes the row's
+  whole width. Each prompt starts with a head (`PromptHead`, `headKind.ts` `headBuilds`: "Prompt 14", `h40 → h41`, `h40 → failed`
+  in `--fail`, `h40 → …` while a build runs for the prompt still going, "no build" once a prompt's turn is over with none, or
+  "queued"), from the history's own labels; the person's words are `.chat-you` on `--ink` (a queued one is outlined), with
+  their refs as chips, and what went with the prompt is the muted line "with" under it (`Added`).
+- **A tool card goes to what it showed** (`ui/chat/ToolCard.tsx`). The chip is a row (`.chat-tool-row`) whose toggle
   (`.chat-tool-line`, `aria-expanded`) covers it, so that the refs of a torno card's label are live chips (a button inside
   a button is no HTML) and the action is a button beside the state. A finished `look`, `section` or `show` has "See in
   view" (`show`: "Show again"): `seeInView` in `state/agent.ts` reads the card's input once more against the window as it is
@@ -65,5 +78,5 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   turn still going on folds nothing. A card's `done` is not written (`data-state` has it); the other states keep their word.
   The agent's list is read from the cards (`tasksNow`, `listsAt`): `TodoWrite` is the list whole, `TaskCreate` adds one
   (numbered as its result says, else in order) and `TaskUpdate` changes or removes one; a call that did not end `done` writes
-  nothing. `TasksBar` is above the box while the session works and a task is left; `TasksCard` is the list as it stood at a
+  nothing. `TasksBar` is one line above the box (`taskLine`: `2 of 4`, a bar for each task, the one under way in the accent, and what is being done) while the session works and a task is left; `TasksCard` is the list as it stood at a
   `TodoWrite`, or under the last of a run of task tools. Which of the two the real CLI uses is for a hand check.

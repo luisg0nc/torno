@@ -51,7 +51,7 @@ declare global {
       /** The keys of the parts of the build that stands in for the live one while a compare's later build is not the live build; empty when the live build is drawn. */
       later(): string[]
       /** Starts comparing the kept build `from` with `to` as the chat's turns do (`actions.compare`), for a test that has no turn to press. */
-      compare(from: string, to: string, prompt?: number): void
+      compare(from: string, to: string, prompt?: number, changes?: import('./ui/chat/turnSummary').TurnSummary): void
       /** Keeps the ghosts of the builds that land after this until a key or a click (for a capture of the window). */
       holdGhosts(held: boolean): void
       /** The tracings the model view draws, each with whether it has its outline and its photo, and how many layers: what a hidden window cannot be read for. */
@@ -76,6 +76,8 @@ declare global {
       underAt(fx: number, fy: number): import('./ui/drawing/under').Under
       /** What a point of the canvas is on of the scans drawn, as `pickAt` is of the parts. */
       pickScanAt(fx: number, fy: number): ScanHit | null
+      /** The dashed box the scan read question draws for the unit pointed at, with its size in words; null for none. */
+      askedBox(): { min: [number, number, number]; max: [number, number, number]; label: string } | null
       /** Where a point of a scan, in the scan's own frame, is drawn: fractions of the canvas, as `project`. */
       projectScan(id: string, local: [number, number, number]): [number, number]
       /** What `count` picks of the scans cost, at points spread over the canvas, and how each tree was made. */

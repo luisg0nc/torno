@@ -8,8 +8,8 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import type { TornoState } from '../src/renderer/state/store'
 import type { NoteMark } from '../src/shared/marks'
 import { SESSION_HEADER } from '../src/main/http'
-import { closePanel, openPanel } from './helpers'
-import { objectList, openListed, switcher } from './objects'
+import { openListed, projectCrumb, projectMenu, switcher } from './objects'
+import { closeModelMenu, fromMore, inModelMenu, newSession as fromDock } from './helpers'
 
 // What the chat asks of the person and what it offers: a permission request, the questions of `AskUserQuestion`
 // and a plan, each a card that is answered; "Attach view" and "Draw on view"; the `/` commands the CLI named; the model of the session;
@@ -74,14 +74,14 @@ async function finished(): Promise<void> {
 
 async function newSession(): Promise<void> {
   ended = 0
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await fromDock(dock())
   await expect(composer()).toBeEnabled()
 }
 
 test('a request to use a tool is a card with the input, answered with Allow, Allow for this session or Deny and a reason', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await fromDock(dock())
   await expect(chat()).toBeVisible()
 
   await say('ask Bash {"command":"ls"}')
@@ -89,7 +89,7 @@ test('a request to use a tool is a card with the input, answered with Allow, All
   await expect(card).toContainText('Claude Code asks to use Bash')
   await expect(card.locator('.chat-ask-input')).toHaveText('ls')
   await expect(card).toHaveAttribute('data-state', 'open')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   await expect(card.getByRole('button', { name: 'Allow', exact: true })).toHaveClass(/button-primary/)
   await card.getByRole('button', { name: 'Allow', exact: true }).click()
   await expect(card).toHaveAttribute('data-state', 'allowed')
@@ -191,6 +191,32 @@ test('a card takes the focus only when nothing is being written: not from a prom
   await expect(late).toHaveAttribute('data-state', 'allowed')
   await finished()
   await composer().fill('')
+
+  // Nor from another field: a number typed in a parameter keeps the focus, and its digits are not answers to the question.
+  const wall = { questions: [{ question: 'Which wall?', header: 'Wall', multiSelect: false, options: [{ label: '2 mm', description: 'thin' }, { label: '3 mm', description: 'thick' }] }] }
+  await composer().focus()
+  await page.keyboard.type('slow 1')
+  await page.keyboard.press('Shift+Enter')
+  await page.keyboard.type(`ask AskUserQuestion ${JSON.stringify(wall)}`)
+  await page.keyboard.press('Enter')
+  await page.evaluate(() => {
+    const field = document.createElement('input')
+    field.id = 'e2e-other-field'
+    document.body.append(field)
+    field.focus()
+  })
+  await page.keyboard.type('1')
+  const question = asks().last()
+  await expect(question).toHaveAttribute('data-state', 'open', { timeout: 10_000 })
+  await expect(page.locator('#e2e-other-field')).toBeFocused()
+  await page.keyboard.type('2.5')
+  await expect(page.locator('#e2e-other-field')).toHaveValue('12.5')
+  await expect(question.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-pressed', 'false')
+  await expect(question.getByRole('button', { name: /^3 mm/ })).toHaveAttribute('aria-pressed', 'false')
+  await page.evaluate(() => document.getElementById('e2e-other-field')?.remove())
+  await question.getByRole('button', { name: /^3 mm/ }).click()
+  await question.getByRole('button', { name: 'Submit', exact: true }).click()
+  await finished()
 })
 
 test('the questions of AskUserQuestion are one card: radio-like buttons, toggles joined by a comma, an Other line, and Submit once all are answered', async () => {
@@ -207,8 +233,31 @@ test('the questions of AskUserQuestion are one card: radio-like buttons, toggles
   await expect(card).toContainText('thick')
   const submit = card.getByRole('button', { name: 'Submit', exact: true })
   await expect(submit).toBeDisabled()
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
 
+  // The keys 1 to 9 choose among the options of the question still unanswered, and toggle those of a multiple one; a letter in a field is typed.
+  await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-keyshortcuts', '1')
+  await expect(card.getByRole('button', { name: /^3 mm/ })).toHaveAttribute('aria-keyshortcuts', '2')
+  await expect(card.locator('.chat-ask-option .ask-key')).toHaveText(['1', '2'])
+  await card.focus()
+  await page.keyboard.press('1')
+  await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-pressed', 'true')
+  // The next presses are for the second question, the first unanswered and then the last: its options are toggled.
+  await expect(card.locator('.chat-ask-option .ask-key')).toHaveText(['1', '2', '3'])
+  await page.keyboard.press('1')
+  await page.keyboard.press('3')
+  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(card.getByRole('button', { name: /^Brushed/ })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('3')
+  await expect(card.getByRole('button', { name: /^Brushed/ })).toHaveAttribute('aria-pressed', 'false')
+  await page.keyboard.press('1')
+  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'false')
+  // In the box, a digit is a digit.
+  await composer().focus()
+  await page.keyboard.type('12')
+  await expect(composer()).toHaveValue('12')
+  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'false')
+  await composer().fill('')
   // One of a single choice: choosing another takes the first back.
   await card.getByRole('button', { name: /^2 mm/ }).click()
   await card.getByRole('button', { name: /^3 mm/ }).click()
@@ -330,7 +379,7 @@ test('a request still open when the session is ended is closed: ending interrupt
   await say('ask Bash {"command":"sleep 100"}')
   const card = asks().last()
   await expect(card).toHaveAttribute('data-state', 'open')
-  await dock().getByRole('button', { name: 'End session' }).click()
+  await fromMore(dock(), 'End')
   // Ending a session that waits for an answer asks first.
   await page.getByRole('button', { name: 'End it', exact: true }).click()
   await expect(status()).toHaveText('Ended')
@@ -923,7 +972,7 @@ test('typing a / command offers the commands the CLI named: arrows choose, Tab o
 })
 
 test('the model menu lists what the CLI offers, changes the model of the session only, and writes nothing under the home', async () => {
-  const menu = dock().getByRole('combobox', { name: 'Model' })
+  const menu = await inModelMenu(dock(), 'Model')
   await expect(menu.locator('option')).toHaveText(['fake-model', 'Default', 'Haiku'])
   await expect(menu).toHaveValue('fake-model')
   await menu.selectOption({ label: 'Haiku' })
@@ -941,10 +990,11 @@ test('the model menu lists what the CLI offers, changes the model of the session
   }
   walk(home, 0)
   expect(found).toEqual([])
+  await closeModelMenu(dock())
 })
 
 test('the effort menu offers what the model takes, and sets the effort of the session only', async () => {
-  const menu = dock().getByRole('combobox', { name: 'Effort' })
+  const menu = await inModelMenu(dock(), 'Effort')
   // The person's default until one is chosen; the model is Haiku now, which the CLI says takes three.
   await expect(menu).toHaveValue('')
   await expect(menu.locator('option')).toHaveText(['Default effort', 'Low', 'Medium', 'High'])
@@ -954,10 +1004,11 @@ test('the effort menu offers what the model takes, and sets the effort of the se
   await say('say with the new effort')
   await expect(turns().last()).toContainText('Done in')
   await expect(menu).toHaveValue('medium')
+  await closeModelMenu(dock())
 })
 
 test('the edits menu sets how edits are asked for this session only, and the CLI reports it', async () => {
-  const menu = dock().getByRole('combobox', { name: 'Edits' })
+  const menu = await inModelMenu(dock(), 'Edits')
   await expect(menu.locator('option')).toHaveText(['Ask before edits', 'Accept edits', 'Plan only'])
   await menu.selectOption({ label: 'Accept edits' })
   await expect(menu).toHaveValue('acceptEdits')
@@ -965,6 +1016,7 @@ test('the edits menu sets how edits are asked for this session only, and the CLI
   await say('say with the new mode')
   await expect(turns().last()).toContainText('Done in')
   await expect(menu).toHaveValue('acceptEdits')
+  await closeModelMenu(dock())
 })
 
 test('the foot says, quietly, when a window of the rate limit is half used or more', async () => {
@@ -984,7 +1036,7 @@ test('Stop with a request open: the card reads cancelled, has no buttons, and th
   await say('ask Bash {"command":"ls"}')
   const card = asks().last()
   await expect(card).toHaveAttribute('data-state', 'open')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   await dock().getByRole('button', { name: 'Stop' }).click()
   // The CLI gives the request up (control_cancel_request) and ends the turn.
   await expect(card).toHaveAttribute('data-state', 'ended')
@@ -1006,13 +1058,13 @@ test('Stop with a request open: the card reads cancelled, has no buttons, and th
 
 test('a request that waits for the person shows on the dock\'s toggle when the dock is hidden, and on its row and in the status line when another object is open; the signs go when it is answered', async () => {
   const toggle = () => page.locator('.dock-toggle')
-  const item = (name: string) => objectList(page).getByRole('button', { name, exact: true })
+  const item = (name: string) => projectMenu(page).getByRole('menuitem', { name, exact: true })
   const needs = () => page.locator('.status-needs')
   await newSession()
   await say('ask Bash {"command":"ls"}')
   const card = asks().last()
   await expect(card).toHaveAttribute('data-state', 'open')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   // The dock shown: its pane says it, the toggle has no dot.
   await expect(toggle().locator('.session-sign')).toHaveCount(0)
 
@@ -1035,11 +1087,12 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
   await expect.poll(async () => (await state()).objectId).toBe('hollow')
   await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
   await expect(switcher(page)).toHaveAttribute('aria-description', 'bracket needs you')
-  await openPanel(page, 'Projects')
+  await projectCrumb(page).click()
   await expect(item('bracket')).toHaveAttribute('data-session', 'needs_input')
   await expect(item('bracket')).toHaveAttribute('aria-description', 'session needs you')
   await expect(item('hollow')).not.toHaveAttribute('data-session', /./)
-  await closePanel(page)
+  await page.keyboard.press('Escape')
+  await expect(projectMenu(page)).toHaveCount(0)
   await expect(toggle()).toHaveAttribute('aria-label', 'Show session')
   await expect(toggle().locator('.session-sign')).toHaveCount(0)
   await expect(needs()).toContainText('bracket needs you')
@@ -1068,7 +1121,7 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
 // #132: the agent's own `ask` is a card of torno's in the chat, above the box, and the session needs input while it is open.
 test('ask is a card above the box of the chat, the session needs input meanwhile, and the option clicked is what the tool returns', async () => {
   await openListed(page, 'bracket')
-  if (await dock().getByRole('button', { name: 'New session' }).isVisible()) await newSession()
+  if (await dock().getByRole('button', { name: 'New session', exact: true }).isVisible()) await newSession()
   await expect(composer()).toBeEnabled()
   await expect(status()).toHaveText('Idle')
   const { url, token } = await app.evaluate((_electron, id) => (globalThis as unknown as { __tornoMain: { mcpFor(id: string): { url: string; token: string } } }).__tornoMain.mcpFor(id), 'bracket')
@@ -1079,11 +1132,16 @@ test('ask is a card above the box of the chat, the session needs input meanwhile
     const card = chat().locator('.ask-question')
     await expect(card).toBeVisible()
     await expect(card.locator('.ask-text')).toHaveText('Which wall do you mean?')
-    await expect(status()).toHaveText('Needs input')
-    // The viewport does not show it twice while the chat is in sight.
-    await expect(page.locator('.ask-question[data-where="view"]')).toHaveCount(0)
+    await expect(status()).toHaveText('Needs you')
+    // It takes the foot of the dock: nowhere else shows it, not the view and not a second time in the dock.
+    await expect(page.locator('.ask-question')).toHaveCount(1)
+    await expect(card).toHaveAttribute('data-ask-takeover', 'question')
+    await expect(card).toHaveAttribute('data-where', 'chat')
     await card.getByRole('button', { name: /The right wall/ }).hover()
     expect(await peeked()).toEqual(['base/F2'])
+    // Pointing at an option rings its ref (`data-hot`), and lets go of it with the pointer.
+    await expect(card.getByRole('button', { name: /The right wall/ }).locator('.ask-ref[data-hot]')).toHaveCount(1)
+    await expect(card.getByRole('button', { name: /The left wall/ }).locator('.ask-ref[data-hot]')).toHaveCount(0)
     await card.getByRole('button', { name: /The right wall/ }).click()
     const result = await waiting
     expect(JSON.parse((result.content as Array<{ text: string }>)[0].text)).toMatchObject({ answered: true, kind: 'option', index: 1, label: 'The right wall', refs: ['base/F2'] })
@@ -1093,4 +1151,103 @@ test('ask is a card above the box of the chat, the session needs input meanwhile
   } finally {
     await client.close()
   }
+})
+
+// Task 32: an ask takes the foot of the dock (spec 2026-11-18, "An ask").
+test('torno\'s ask takes the foot: a warn top edge, options with the keys 1 to 3, the ref of the one pointed at ringed, None of these, and the dock shown from the status line', async () => {
+  await openListed(page, 'bracket')
+  if (await dock().getByRole('button', { name: 'New session', exact: true }).isVisible()) await newSession()
+  await expect(composer()).toBeEnabled()
+  const { url, token } = await app.evaluate((_electron, id) => (globalThis as unknown as { __tornoMain: { mcpFor(id: string): { url: string; token: string } } }).__tornoMain.mcpFor(id), 'bracket')
+  const client = new Client({ name: 'torno-e2e', version: '0' })
+  await client.connect(new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers: { [SESSION_HEADER]: token } } }))
+  try {
+    const options = [{ label: 'The left wall', refs: ['base/F1'] }, { label: 'The right wall', refs: ['base/F2'] }, { label: 'The floor', refs: ['base/F0'] }]
+    const take = (): Promise<unknown> => client.callTool({ name: 'ask', arguments: { question: 'Which part do you mean?', options } })
+    const card = dock().locator('.ask-question')
+
+    // None of these is today's decline; the block is the foot's: after the transcript, with the box under it, a warn edge on top.
+    let waiting = take()
+    await expect(card).toBeVisible()
+    await expect(card.locator('.ask-option')).toHaveCount(3)
+    await expect(card.locator('.ask-key')).toHaveText(['1', '2', '3'])
+    expect(await card.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('3px')
+    expect(await card.evaluate((el) => getComputedStyle(el).borderTopColor)).toBe(await page.evaluate(() => { const probe = document.createElement('i'); probe.style.color = 'var(--warn)'; document.body.append(probe); const c = getComputedStyle(probe).color; probe.remove(); return c }))
+    const order = await chat().evaluate((el) => [...el.children].map((c) => c.className.split(' ')[0]))
+    expect(order.indexOf('chat-scroll')).toBeLessThan(order.indexOf('ask-takeover'))
+    expect(order.indexOf('ask-takeover')).toBeLessThan(order.indexOf('chat-foot'))
+    await card.getByRole('button', { name: 'None of these' }).click()
+    expect(JSON.parse(((await waiting) as { content: Array<{ text: string }> }).content[0].text)).toMatchObject({ answered: false })
+    await expect(card).toHaveCount(0)
+    await page.mouse.move(0, 0)
+
+    // Pointing at an option lights its ref in the view and rings its chip; the key 3 answers with the third.
+    waiting = take()
+    await expect(card).toBeVisible()
+    const floor = card.getByRole('button', { name: /The floor/ })
+    await expect(floor).toBeEnabled()
+    await floor.hover()
+    await expect(floor.locator('.ask-ref[data-hot]')).toHaveText('base/F0')
+    expect(await peeked()).toEqual(['base/F0'])
+    await page.mouse.move(0, 0)
+    await expect(card.locator('[data-hot]')).toHaveCount(0)
+    await card.focus()
+    await page.keyboard.press('3')
+    expect(JSON.parse(((await waiting) as { content: Array<{ text: string }> }).content[0].text)).toMatchObject({ answered: true, kind: 'option', index: 2, label: 'The floor' })
+    await expect(card).toHaveCount(0)
+
+    // With the dock hidden the status line's button shows it and brings the person to the block.
+    waiting = take()
+    await expect(card).toBeVisible()
+    await page.locator('.dock-toggle').click()
+    await expect(dock()).toBeHidden()
+    await page.locator('.status-needs').click()
+    await expect(dock()).toBeVisible()
+    await expect(card).toBeFocused()
+    await card.getByRole('button', { name: 'None of these' }).click()
+    await waiting
+  } finally {
+    await client.close()
+  }
+})
+
+test('a request of the agent\'s takes the foot too: the transcript holds a line, and keeps the card once it is answered', async () => {
+  await newSession()
+  await say('ask Bash {"command":"ls"}')
+  const foot = dock().locator('.ask-takeover.chat-ask')
+  await expect(foot).toHaveAttribute('data-state', 'open')
+  await expect(foot).toHaveAttribute('data-ask-takeover', 'request')
+  await expect(chat().locator('.chat-transcript .chat-ask')).toHaveCount(0)
+  await expect(chat().locator('.chat-transcript .chat-ask-below')).toBeVisible()
+  await foot.getByRole('button', { name: 'Allow', exact: true }).click()
+  await expect(dock().locator('.ask-takeover')).toHaveCount(0)
+  await expect(chat().locator('.chat-transcript .chat-ask')).toHaveAttribute('data-state', 'allowed')
+  await finished()
+})
+
+test('an ask that arrives while the export is open turns the dock\'s foot band to "needs you", and Answer brings the ask back', async () => {
+  await newSession()
+  // A tool that takes two seconds, then an ask: the export is brought up in between.
+  await composer().focus()
+  await page.keyboard.type('work 2')
+  await page.keyboard.press('Shift+Enter')
+  await page.keyboard.type('ask Bash {"command":"ls"}')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Control+Shift+E')
+  const exporting = dock().locator('.export-dock')
+  await expect(exporting).toBeVisible()
+  // The conversation is folded to a band at the foot, and the builds strip stays above the export.
+  const fold = dock().locator('.export-fold')
+  await expect(fold).toContainText('Claude Code')
+  await expect(fold).toContainText('working')
+  await expect(dock().locator('.strip')).toBeVisible()
+  await expect(fold).toContainText('needs you', { timeout: 30_000 })
+  await expect(fold).toHaveAttribute('data-asks', '')
+  // Answer puts the export away: the dock shows the ask.
+  await fold.getByRole('button', { name: 'Answer' }).click()
+  await expect(exporting).toHaveCount(0)
+  const foot = dock().locator('.ask-takeover.chat-ask')
+  await expect(foot).toHaveAttribute('data-state', 'open')
+  await foot.getByRole('button', { name: 'Allow', exact: true }).click()
+  await finished()
 })

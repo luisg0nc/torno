@@ -2,9 +2,13 @@ import type { ReactNode } from 'react'
 import { hint } from '../../../shared/keys'
 import { actions, useStore } from '../../state/store'
 import { tracingActions, useTracings, type TracingTool } from '../../state/tracings'
-import { ICONS } from '../ToolPalette'
+import { ICONS, ReedPillView } from '../ToolPalette'
+import { tracingPillOf } from '../view/reedPill'
+import { INK_PENS, type InkPen } from './inkTool'
+import { TRACE_MODES, type TraceMode } from './traceTool'
 
-// The tools of a tracing, at the left edge of its sheet, as the tools of the model are at the edge of the 3D view. Select, Trace, Pin, Ink,
+// The tools of a tracing, at the left edge of its sheet, as the reed of the model is at the edge of the 3D view: round buttons in pills, the tool in hand
+// an accent circle that grows its name, its key and its choices (Trace: Line, Circle, Label; Ink: its pens). Select is the tool at rest. Select, Trace, Pin, Ink,
 // Measure and Should be here are tools, each with a key of the `tracing` scope. Measure and Should be here are no review of the model: the
 // intent bar of an open review does not apply to them. Show in 3D below them is no tool: a switch that puts the tracing in the model view
 // (or takes it out), and that takes nothing from the hand. It has no key (a builder's call: it is pressed rarely, and a letter is dear).
@@ -56,34 +60,64 @@ const CUBE_ICON = (
   </Icon>
 )
 
+/** The words of the choices of Trace and Ink, for the pointer. */
+const WORDS: Record<string, { title: string }> = {
+  ...Object.fromEntries(TRACE_MODES.map((m) => [m.mode, { title: m.title }])),
+  ...Object.fromEntries(INK_PENS.map((p) => [p.pen, { title: p.title }]))
+}
+
 /** The palette as it is drawn from the tool in hand: pure, so that it is drawn the same from any state. */
-export function PaletteView({ tool, onTool, shownIn3D, onShowIn3D }: { tool: Tool; onTool?: (tool: Tool) => void; shownIn3D?: boolean; onShowIn3D?: (on: boolean) => void }) {
+export function PaletteView({
+  tool,
+  onTool,
+  shownIn3D,
+  onShowIn3D,
+  traceMode,
+  onTraceMode,
+  inkPen,
+  onInkPen
+}: {
+  tool: Tool
+  onTool?: (tool: Tool) => void
+  shownIn3D?: boolean
+  onShowIn3D?: (on: boolean) => void
+  traceMode?: TraceMode
+  onTraceMode?: (mode: TraceMode) => void
+  inkPen?: InkPen
+  onInkPen?: (pen: InkPen) => void
+}) {
   return (
-    <div className="toolbox tr-palette" role="toolbar" aria-label="Tracing tools" aria-orientation="vertical">
+    <div className="toolbox tr-palette" role="toolbar" aria-label="Tracing tools" aria-orientation="vertical" data-tag-avoid="">
       <div className="toolbox-group" role="group" aria-label="Tools">
         {TOOLS.map((t) => {
           const live = t.row !== undefined
           const cap = t.row === undefined ? undefined : hint(t.row)
+          const pill = live && t.id === tool && cap !== undefined ? tracingPillOf(t.id as Tool, t.label, cap) : null
           return (
-            <button
-              key={t.id}
-              type="button"
-              className="tool-button"
-              data-tool={t.id}
-              aria-label={t.label}
-              aria-pressed={live ? t.id === tool : undefined}
-              aria-keyshortcuts={cap}
-              disabled={!live}
-              title={live ? `${t.label} (${cap}): ${t.does}` : `${t.label}: ${t.does}. Not available yet`}
-              onClick={() => live && onTool?.(t.id as Tool)}
-            >
-              {t.icon}
-              {cap !== undefined && (
-                <span className="tool-key num" aria-hidden="true">
-                  {cap}
-                </span>
+            <div key={t.id} className="tool-tipped">
+              <button
+                type="button"
+                className="tool-button"
+                data-tool={t.id}
+                aria-label={t.label}
+                aria-pressed={live ? t.id === tool : undefined}
+                aria-keyshortcuts={cap}
+                disabled={!live}
+                title={live ? `${t.label} (${cap}): ${t.does}` : `${t.label}: ${t.does}. Not available yet`}
+                onClick={() => live && onTool?.(t.id as Tool)}
+              >
+                {t.icon}
+              </button>
+              {pill !== null && (
+                <ReedPillView
+                  of={t.id as Tool}
+                  pill={pill}
+                  words={WORDS}
+                  chosen={(id) => (t.id === 'trace' ? id === (traceMode ?? 'line') : id === (inkPen ?? 'free'))}
+                  onChoose={(id) => (t.id === 'trace' ? onTraceMode?.(id as TraceMode) : onInkPen?.(id as InkPen))}
+                />
               )}
-            </button>
+            </div>
           )
         })}
       </div>
@@ -106,7 +140,9 @@ export function PaletteView({ tool, onTool, shownIn3D, onShowIn3D }: { tool: Too
 
 export function Palette() {
   const tool = useTracings((s) => s.tool)
+  const trace = useTracings((s) => s.trace)
+  const ink = useTracings((s) => s.ink)
   const id = useTracings((s) => s.open)
   const shown = useStore((s) => id !== null && s.tracingsShown.includes(id))
-  return <PaletteView tool={tool} onTool={tracingActions.setTool} shownIn3D={shown} onShowIn3D={(on) => id !== null && actions.setTracingShown(id, on)} />
+  return <PaletteView tool={tool} onTool={tracingActions.setTool} shownIn3D={shown} onShowIn3D={(on) => id !== null && actions.setTracingShown(id, on)} traceMode={trace} onTraceMode={tracingActions.setTrace} inkPen={ink} onInkPen={tracingActions.setInk} />
 }

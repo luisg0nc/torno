@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { MarksFile, SketchMark } from '../src/shared/marks'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // A 3D sketch drawn in the hidden window, on the `gauge` fixture: a 40 × 30 × 6 plate with one Ø8 hole at (10, 0). A line on
 // the XZ plane begins on the hole's centre (snapped, so told as exact), a freehand stroke goes on the plane of the top face,
@@ -91,7 +92,7 @@ async function atRest(): Promise<void> {
     .toBe(true)
 }
 
-test('D opens a sketch: the panel and the pens are over the view, and nothing is written yet', async () => {
+test('D opens a sketch: the panel is the head of the card, the pens are over the view, and nothing is written yet', async () => {
   await openListed(page, 'gauge')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok' })
   await page.keyboard.press('1')
@@ -101,10 +102,24 @@ test('D opens a sketch: the panel and the pens are over the view, and nothing is
   await expect(panel()).toBeVisible()
   await expect(pens()).toBeVisible()
   // The pens are real buttons with their keys; the freehand pen is in hand, snapping is on and the parts are solid.
-  await expect(pens().getByRole('button')).toHaveCount(6)
+  await expect(pens().getByRole('button')).toHaveCount(4)
   await expect(pens().getByRole('button', { name: /^Free/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(pens().getByRole('button', { name: /^Snap/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(pens().getByRole('button', { name: /^X-ray/ })).toHaveAttribute('aria-pressed', 'false')
+  // The sketch is the head of the route card, where the two switches are, and the selection is not shown beside it.
+  await expect(page.locator('.route-hand').getByRole('complementary', { name: 'Sketch' })).toBeVisible()
+  await expect(page.locator('.route-hand .hand')).toHaveAttribute('data-kind', 'sketch')
+  await expect(page.locator('[data-region="viewport"] .sketchpanel')).toHaveCount(0)
+  // The head caps at 60 % of the card and the sections stay reachable under it.
+  const heights = await page.locator('.route-hand').evaluate((el) => ({ head: el.getBoundingClientRect().height, card: el.parentElement!.getBoundingClientRect().height, scroll: el.nextElementSibling!.getBoundingClientRect().height }))
+  expect(heights.head).toBeLessThanOrEqual(heights.card * 0.6 + 1)
+  expect(heights.scroll).toBeGreaterThan(heights.card * 0.3)
+  await expect(panel().getByRole('switch', { name: /^Snap/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'false')
+  // The hint at the foot of the view holds the sketch's standing line: whether it snaps, and where x-ray is.
+  await expect(page.locator('.view-hint[data-kind="sketch"]')).toContainText('Snapping on, hold Ctrl to drop it.')
+  await panel().getByRole('switch', { name: /^X-ray/ }).click()
+  await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'true')
+  await panel().getByRole('switch', { name: /^X-ray/ }).click()
+  await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'false')
   // The key and the button are one: each says what the other did.
   await page.keyboard.press('l')
   await expect(pens().getByRole('button', { name: /^Line/ })).toHaveAttribute('aria-pressed', 'true')
@@ -124,6 +139,13 @@ test('a line on XZ begins on the hole\'s centre: the point is snapped, and told 
   // The plane XZ through the middle of the parts (y = 0), where the hole's centre is (10, 0, 6).
   await page.keyboard.press('Shift+2')
   await expect(panel()).toContainText('XZ at y = 0.0')
+  // The plane's handle has a tag tied to it by a leader: its name, the place on the axis it is across, and the key that types it.
+  const planeTag = page.locator('.viewport-pane [data-tag="sketch-plane"]')
+  await expect(planeTag).toContainText('XZ plane')
+  await expect(planeTag).toContainText('y')
+  await expect(planeTag.locator('.sketch-plane-value')).toHaveText('0.0')
+  await expect(planeTag).toContainText('Tab')
+  await expect(page.locator('svg.leader-layer [data-leader="sketch-plane"]')).toHaveCount(1)
   const centre: Vec3 = [10, 0, 6]
   const hit = await page.evaluate((c) => {
     const [fx, fy] = window.__tornoTest!.project(c)
@@ -223,7 +245,7 @@ test('a click on the chip of a draft sketch opens it again for editing, not a no
 })
 
 test('the next prompt carries the sketch in words: what is exact, the diameter and how to take it', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await expect(composer()).toBeEnabled()
   await composer().focus()
@@ -231,7 +253,7 @@ test('the next prompt carries the sketch in words: what is exact, the diameter a
   await page.keyboard.press('Enter')
   // What torno added to the prompt, the exact text the agent was given: the sketch in words, and no picture of it.
   const added = chat().locator('.chat-added').first()
-  await expect(added).toContainText('torno added', { timeout: 30_000 })
+  await expect(added.locator('.chat-added-label')).toHaveText('with', { timeout: 30_000 })
   await expect(added.locator('.ref-chip[data-ref="M1"]')).toBeVisible()
   await added.getByRole('button', { name: 'Show text' }).click()
   const text = added.locator('.chat-added-text')

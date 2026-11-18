@@ -82,3 +82,21 @@ export function tasksNow(items: readonly ChatItem[]): readonly Task[] {
 
 /** How many are done, of how many. */
 export const progress = (list: readonly Task[]): { done: number; all: number } => ({ done: list.filter((one) => one.status === 'completed').length, all: list.length })
+
+/**
+ * The task line of the foot: how many are done of how many, a bar for each task (the one under way marked, or the first still to
+ * do when none is), and what is being done now. Null with no list, or when every task is done.
+ */
+export function taskLine(list: readonly Task[]): { done: number; all: number; bars: Array<'done' | 'now' | 'todo'>; text: string } | null {
+  const { done, all } = progress(list)
+  if (all === 0 || done === all) return null
+  const under = list.findIndex((one) => one.status === 'in_progress')
+  const now = under >= 0 ? under : list.findIndex((one) => one.status === 'pending')
+  const current = list[now]
+  return {
+    done,
+    all,
+    bars: list.map((one, n): 'done' | 'now' | 'todo' => (n === now ? 'now' : one.status === 'completed' ? 'done' : 'todo')),
+    text: current.status === 'in_progress' && current.active ? current.active : current.text
+  }
+}

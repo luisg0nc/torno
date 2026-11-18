@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Camera, ViewName } from '../../shared/view'
-import { fitBelow, fitCamera, focusCamera, gridStep, lockedViewOf, scaleBarLength, viewDirection, visibleHeight } from './views'
+import { fitCamera, focusCamera, gridStep, lockedViewOf, benchFits, scaleBarLength, screenHalfExtent, viewDirection, visibleHeight } from './views'
 
 const NAMES: ViewName[] = ['iso', 'front', 'back', 'left', 'right', 'top', 'bottom']
 const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
@@ -91,39 +91,6 @@ describe('fitCamera', () => {
     const cam = fitCamera({ min: [5, 5, 5], max: [5, 5, 5] }, dir, up, 1, 35, true)
     expect(cam.position.every(Number.isFinite)).toBe(true)
     expect(visibleHeight(cam)).toBeGreaterThan(0)
-  })
-})
-
-describe('fitBelow', () => {
-  it('is fitCamera when nothing covers the view', () => {
-    for (const ortho of [true, false]) expect(fitBelow(BOX, [0, 1, 0], [0, 0, 1], 800, 600, 0, 35, ortho)).toEqual(fitCamera(BOX, [0, 1, 0], [0, 0, 1], 800 / 600, 35, ortho))
-  })
-
-  it('frames the box in the part of the view the bars over its top leave, with its middle in the middle of that', () => {
-    const [W, H, top] = [800, 600, 120]
-    for (const ortho of [true, false]) {
-      const c = fitBelow(BOX, [0, 1, 0], [0, 0, 1], W, H, top, 35, ortho)
-      expect(c.fov).toBe(35)
-      expect(c.ortho).toBe(ortho)
-      // Seen from the front: up the screen is +Z, and the camera still looks along +Y.
-      expect(c.position[0]).toBeCloseTo(c.target[0], 9)
-      expect(c.position[2]).toBeCloseTo(c.target[2], 9)
-      const mm = visibleHeight(c) / H
-      const down = (z: number): number => H / 2 - (z - c.target[2]) / mm
-      expect(down(0)).toBeCloseTo(top + (H - top) / 2, 6)
-      expect(down(BOX.max[2])).toBeGreaterThan(top)
-      expect(down(BOX.min[2])).toBeLessThan(H)
-    }
-    // Orthographic, the width decides here, as it would with nothing over the view: 40 mm and the margin across.
-    const flat = fitBelow(BOX, [0, 1, 0], [0, 0, 1], W, H, top, 35, true)
-    expect((visibleHeight(flat) * W) / H).toBeCloseTo(44, 6)
-    // A tall box fills the height that is left, not the whole of it.
-    const tall = fitBelow({ min: [-1, -1, -50], max: [1, 1, 50] }, [0, 1, 0], [0, 0, 1], W, H, top, 35, true)
-    expect((visibleHeight(tall) * (H - top)) / H).toBeCloseTo(110, 6)
-  })
-
-  it('never takes more than half of the view for the bars', () => {
-    expect(fitBelow(BOX, [0, 1, 0], [0, 0, 1], 800, 600, 500, 35, true)).toEqual(fitBelow(BOX, [0, 1, 0], [0, 0, 1], 800, 600, 300, 35, true))
   })
 })
 
@@ -236,5 +203,36 @@ describe('scaleBarLength', () => {
     expect(scaleBarLength(1, 160)).toBe(100)
     expect(scaleBarLength(0.004, 160)).toBe(0.5)
     expect(scaleBarLength(0.33, 160)).toBe(50)
+  })
+})
+
+describe('screenHalfExtent', () => {
+  const size = { x: 100, y: 50, z: 10 }
+  it('is half the width and half the height a box has on screen, looking along a standard view', () => {
+    const top = viewDirection('top')
+    expect(screenHalfExtent(size, top.dir, top.up)).toEqual({ across: 50, upward: 25 })
+    const front = viewDirection('front')
+    expect(screenHalfExtent(size, front.dir, front.up)).toEqual({ across: 50, upward: 5 })
+  })
+
+  it('is larger in iso than any one side alone, and the same for a box as for the same half extents', () => {
+    const iso = viewDirection('iso')
+    const seen = screenHalfExtent(size, iso.dir, iso.up)
+    expect(seen.across).toBeGreaterThan(50)
+    expect(seen.upward).toBeGreaterThan(5)
+    // A cube of 100 mm is, in iso, at most its diagonal across.
+    const cube = screenHalfExtent({ x: 100, y: 100, z: 100 }, iso.dir, iso.up)
+    expect(cube.across).toBeLessThanOrEqual(Math.hypot(100, 100, 100) / 2 + 1e-9)
+  })
+})
+
+describe('benchFits', () => {
+  it('is whether a box in iso stays within the 480 × 360 picture at 0.5 mm to the pixel, with a margin of two pixels', () => {
+    expect(benchFits({ x: 150, y: 80, z: 92 })).toBe(true)
+    expect(benchFits({ x: 1, y: 1, z: 1 })).toBe(true)
+    // A flat plate 400 mm along its long side is some 280 mm across in iso: past 240 mm.
+    expect(benchFits({ x: 400, y: 10, z: 10 })).toBe(false)
+    expect(benchFits({ x: 10, y: 10, z: 400 })).toBe(false)
+    expect(benchFits({ x: Number.NaN, y: 1, z: 1 })).toBe(false)
   })
 })

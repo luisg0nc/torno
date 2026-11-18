@@ -66,27 +66,34 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Agents (`app/src/renderer`)
 
-- **The end of a turn** (`ui/chat/TurnEnd.tsx`; the rule is `ui/chat/turnSummary.ts`, pure). Its first quiet line is
-  "Done in 42 s" and then what the turn did, said from the turn's own items and nothing else (`turnSummary` over
+- **The end of a turn** (`ui/chat/TurnEnd.tsx`; the rule is `ui/chat/turnSummary.ts`, pure). Its first line is
+  "Done in 42 s" (bold, in ink, the seconds in the face of numbers) and then, muted, what the turn did, said from the turn's own items and nothing else (`turnSummary` over
   `itemsOfTurn`, the items after the turn before it): the files the agent's `Edit`, `Write` and `MultiEdit` changed (only
   those that finished: a denied one is not counted), the builds their edits started (`r1 → r3 ok`, `build failed`,
   `r3 ok after 1 failed build`: the first revision is the build on show when the prompt was sent), the marks it resolved
   and added (`resolve_mark`'s `id`; `add_mark`'s from its answer), and the dimensions whose verdict at the end is another
   than at the start (the first `was` and the last `now` of the digests, `verdictChanges`' own). What it pulled from torno
-  is a line of its own. Under them a row of buttons for the turn (`TurnActions`): "See changes" (only when an edit
-  changed a `.py`), which opens `ChangesSheet` over the transcript as a picture is shown large (a dialog in the host
-  `.chat-scroll`, `chat.close` puts it away, Tab goes round within it, the focus goes back to the button): per file main
+  is a line of its own. At the right of the first line a row of buttons for the turn (`TurnActions`): "See changes" (only when an edit
+  changed a `.py`, a quiet button with its icon), which opens `ChangesSheet` over the view's area (`main.viewport`, `[data-region="viewport"]`: not the card, not the dock; a dialog, `chat.close`
+  puts it away, Tab goes round within it, the focus goes back to the button; `TurnEnd` holds whether it is open and lights its turn with
+  `data-open`, an accent bar and wash): the top half is the view (its canvas is drawn in that half only), with the parts' tags
+  (`changeTags` of the turn's summary, standing on the parts as `CompareBar`'s do, the ones with nothing to stand on in a line) and the scrubber
+  `h40` / `h41` (`Scrubber`: `actions.compare` with no summary, mode `before`, when `joined.from` is there; the sheet ends the compare it began
+  when it closes); the bottom half is the code, a tab for each file ("airbox.py +3 −2") with the diff numbered by line. Per file main
   kept (`chat.changes`, in memory, the last 20 turns; none is "No change ... is kept for this turn"), "Changes" (the
   file before against after, `Diff` with `ofEdit` false, so without the caption that is true only of an edit's lines)
   or "Whole file" (read only, the monospace face, no refs searched), and, below, the builds taken together
   (`netParts`: a part's volume and faces from the first digest's `before` to the last's `after`, `≈` unless exact). The builds of the turn's prompt are
   joined to it (`ui/chat/historyJoin.ts` `joinTurns`: the turn answers the `user` item before it, and the history's
   entries whose `turn.prompt` is that item's id are its; `ChatPane` reads them with `useHistory`, `ChatItems` joins) and
-  drawn as a strip under the account (`TurnBuilds.tsx`: the build the prompt began from, dashed, its builds, a failed
-  one marked `failed`, at most five pictures and `+n`; `turnFacts`: the parts changed, the checks that flipped, the
-  builds that failed on the way). The buttons: "Compare" (`actions.compare(from, to, prompt number)`, "Comparing" while
-  it is on, off while a section or an explode is), "See changes", "Go back to before this prompt" (`GoBack.tsx`) and
-  "Star" (`history.star` on the last build). Go back reads `history.goBackPlan` and asks once with `Confirm`, listing
+  drawn on the builds strip of the dock, not under the account (`ui/strip/`, builds-history; `turnFacts`: the parts changed, the checks that flipped, the
+  builds that failed on the way). The buttons: "See changes", "Compare" (`actions.compare(from, to, prompt number)`,
+  "Comparing" while it is on, off while a section or an explode is) and the dots, `TurnMore`, a menu from the button (a
+  `Popover`, `useMenu`: arrows, Escape) that holds "Go back to before this prompt" (`useGoBack` in `GoBack.tsx`; `GoBack`
+  is the same offer as a button of its own, which Prompts only uses), "Star" or "Unstar" (`history.star` on the last
+  build) and "Pin to board" (`pinToBoard`, its sentence under the turn for a few seconds); with none of them there are no
+  dots. Go back's question and its sentences are drawn beside the dots, not inside the menu (the menu is gone by then):
+  `Confirm` stands from the dots button (`anchor`). Go back reads `history.goBackPlan` and asks once with `Confirm`, listing
   what is written, deleted, left alone, changed since (a save of the person's among the builds it undoes counts), the Params, the prompts undone and
   "your saves h42" (`planLines`), then calls
   `history.goBack` with what it was shown; it is off while the session works (`ChatIdle`). A plan with `fallback: 'undo'`

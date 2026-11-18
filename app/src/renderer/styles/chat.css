@@ -51,6 +51,11 @@
   contain-intrinsic-size: auto 48px;
 }
 
+/* Not while a question stands from a button of it (`Popover`): containment would clip it to the turn, and a card fixed to the window needs none. It is in view. */
+.chat-group:has(.popover) {
+  content-visibility: visible;
+}
+
 .chat-group + .chat-group {
   margin-top: var(--space-3);
 }
@@ -78,38 +83,68 @@
 }
 
 .chat-earlier-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0 0 var(--space-2);
   color: var(--muted);
-  font-size: var(--text-small);
+  font-size: 11.5px;
   font-weight: 500;
 }
 
-/* What the person said: a block on the wash, the text in ink. */
+/* A hairline to the right edge, as the head of a prompt has. */
+.chat-earlier-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* What the person said: a block of ink with the panel's own colour for its words, a small corner where it starts. */
 .chat-user {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  background: var(--accent-wash);
   color: var(--ink);
 }
 
-.chat-user-text {
+.chat-you {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 88%;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px 12px 12px 3px;
+  background: var(--ink);
+  color: var(--panel);
+  font-size: var(--text-size);
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
 
+/* A ref in it is a chip that holds its own on the ink: a ring of the ink around it, and the panel's colour where it names nothing now. */
+.chat-you .ref-chip {
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
+.chat-you .ref-chip:not([data-live]) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--panel);
+  font-weight: 400;
+  box-shadow: none;
+}
+
 .chat-user-state {
-  margin-top: var(--space-1);
+  margin: var(--space-1) 0 0;
   color: var(--muted);
   font-size: var(--text-small);
 }
 
-/* What torno added to it: a line under the prompt, ruled in the accent as torno's own tools are. */
+/* What went with it, under the person's words: "with M3 h40", muted and small. */
 .chat-added {
-  padding: 0 0 0 var(--space-3);
-  border-left: 2px solid var(--accent);
+  margin: 5px 0 0 2px;
   color: var(--muted);
-  font-size: var(--text-small);
+  font-size: 11.5px;
 }
 
 .chat-added-line {
@@ -120,8 +155,7 @@
 }
 
 .chat-added-label {
-  color: var(--ink);
-  font-weight: 500;
+  color: var(--muted);
 }
 
 .chat-added-build,
@@ -279,7 +313,7 @@
 
 .md-inline {
   padding: 0 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-inline);
   background: var(--surface);
 }
 
@@ -338,7 +372,7 @@
   max-width: 100%;
   padding: 0 4px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: transparent;
   color: var(--ink);
   font-size: 11.5px;
@@ -386,31 +420,40 @@ button.ref-chip {
   color: var(--muted);
 }
 
-/* A tool on one line; it opens to its input and result. One of torno's has a thin rule in the accent. */
+/* A tool as a chip: 24 px, round, on the surface; it opens to its input and result below. One of torno's is on the accent wash with its name in the accent; the one running has an accent ring. */
 .chat-tool {
-  font-size: var(--text-small);
+  font-size: 12px;
 }
 
-.chat-tool[data-torno] {
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--accent);
-}
-
-/* The row is the line; its toggle covers it, and what is live on it (a ref, "See in view") stands over the toggle. */
 .chat-tool-row {
   position: relative;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 2px var(--space-1);
-  margin-left: calc(-1 * var(--space-1));
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 24px;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
   color: var(--muted);
 }
 
-.chat-tool[data-torno] .chat-tool-row {
+.chat-tool-row b {
+  font-weight: 500;
   color: var(--ink);
+}
+
+.chat-tool[data-torno] .chat-tool-row {
+  background: var(--accent-wash);
+}
+
+.chat-tool[data-torno] .chat-tool-row b {
+  color: var(--accent);
+}
+
+.chat-tool[data-state='running'] .chat-tool-row {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 
 .chat-tool-row:hover {
@@ -423,7 +466,7 @@ button.ref-chip {
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-full);
   background: transparent;
 }
 
@@ -438,7 +481,7 @@ button.ref-chip {
 }
 
 .chat-tool-said {
-  margin: 0;
+  margin: var(--space-1) 0 0;
   padding: 0 var(--space-1);
   color: var(--muted);
 }
@@ -454,7 +497,6 @@ button.ref-chip {
 .chat-tool-steps {
   pointer-events: none;
   flex: none;
-  margin-left: auto;
   color: var(--muted);
 }
 
@@ -569,7 +611,7 @@ button.ref-chip {
   font-size: var(--text-small);
 }
 
-/* The end of a turn: quiet. */
+/* The end of a turn: "Done in 58 s" in ink and what it did, muted; the buttons of the turn at the right. */
 .chat-turn,
 .chat-note {
   color: var(--muted);
@@ -581,145 +623,57 @@ button.ref-chip {
   margin-top: var(--space-2);
 }
 
-.chat-turn:not([data-ok]) {
-  color: var(--ink);
+/* The turn whose changes are open over the view: an accent bar and wash while they are. */
+.chat-turn[data-open] {
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.chat-turn-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
 }
 
 .chat-turn-line {
+  flex: 1 1 12em;
+  min-width: 0;
   margin: 0;
+}
+
+.chat-turn-head {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .chat-turn-line + .chat-turn-line {
   margin-top: var(--space-1);
 }
 
-/* What the person may do with a turn: "See changes", and whatever else is offered for it, in a row. */
+/* What the person may do with a turn: See changes, Compare and the dots, quiet, at the right. */
 .chat-turn-actions {
   display: flex;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-}
-
-/* A turn's builds: the build it began from, its own, the last; what they did beside. */
-.turn-builds {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  margin-top: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  color: var(--ink);
-}
-
-.turn-strip {
-  display: flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: var(--space-1);
+  margin-left: auto;
 }
 
-.turn-thumb {
-  position: relative;
-  display: block;
-  flex: none;
-  width: 64px;
-  height: 48px;
-  overflow: hidden;
-  border: var(--divider);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-}
-
-.turn-thumb img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.turn-thumb[data-start] {
-  border-style: dashed;
-}
-
-.turn-thumb[data-failed] {
-  border-color: var(--fail);
-}
-
-.turn-thumb-failed {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--fail);
-  font-size: var(--text-small);
-}
-
-.turn-thumb-id {
-  position: absolute;
-  left: 3px;
-  bottom: 1px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.turn-thumb-star {
-  position: absolute;
-  top: 1px;
-  left: 3px;
-  color: var(--warn);
-  font-size: 11px;
-  line-height: 1;
-}
-
-/* Pin to board: seen when the pointer or the keys are on the build. */
-.turn-thumb-pin {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  padding: 0 4px;
-  border: var(--divider);
-  border-radius: 4px;
-  background: var(--panel);
-  color: var(--ink);
-  font-size: 10px;
-  line-height: 14px;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.turn-thumb:hover .turn-thumb-pin,
-.turn-thumb:focus-within .turn-thumb-pin,
-.turn-thumb-pin:focus-visible {
-  opacity: 1;
-}
-
-.turn-pinned {
-  flex: 1 1 100%;
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.turn-arrow,
-.turn-more {
-  flex: none;
-  color: var(--muted);
-}
-
-.chat-turn-actions > .confirm {
+/* With a sentence to say (Pin, or why Go back did nothing) the row is the turn's whole width and the sentence goes under the buttons. */
+.chat-turn-actions:has(.chat-turn-said, .chat-turn-problem) {
   flex: 1 1 100%;
 }
 
-.turn-facts {
-  flex: 1 1 8em;
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-small);
+.chat-turn-actions:empty {
+  display: none;
+}
+
+.chat-turn-actions .button {
+  gap: 5px;
 }
 
 /* What the person built between two prompts: one quiet line, with a ring in front of it. */
@@ -756,7 +710,7 @@ button.ref-chip {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border: 1px dashed var(--field-edge);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   color: var(--muted);
 }
 
@@ -784,79 +738,6 @@ button.ref-chip {
 
 .chat-turn-problem {
   color: var(--muted);
-}
-
-/* The sheet of what a turn changed in the model's file, over the transcript as a picture shown large is. */
-.changes-sheet {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  color: var(--ink);
-  font-size: var(--text-size);
-}
-
-.changes-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: var(--divider);
-}
-
-.changes-title {
-  margin: 0;
-  font-size: var(--text-size);
-  font-weight: 600;
-}
-
-.changes-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  padding: var(--space-3);
-  overflow: auto;
-}
-
-.changes-files,
-.changes-modes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.changes-name {
-  margin: 0;
-  font-family: var(--font-mono);
-}
-
-.changes-note {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.changes-file {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.changes-sheet .diff,
-.changes-whole {
-  max-height: none;
-}
-
-.changes-net ul {
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-4);
-  font-family: var(--font-mono);
-  font-size: var(--text-small);
 }
 
 .chat-note[data-tone='warn'] {
@@ -887,105 +768,7 @@ button.ref-chip {
   bottom: var(--space-3);
   z-index: 2;
   transform: translateX(-50%);
-  box-shadow: var(--palette-shadow);
-}
-
-/* The foot: what goes with the next prompt, then the box. */
-.chat-foot {
-  flex: none;
-  padding: var(--space-2) var(--space-4) var(--space-3);
-  border-top: var(--divider);
-}
-
-.chat-next-one {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-}
-
-.chat-next-word {
-  color: var(--muted);
-}
-
-/* Quiet chips of the next useful prompts above the box: they fill it, they do not send. */
-.chat-suggest {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.chat-suggest-chip {
-  padding: 2px var(--space-2);
-  border: var(--divider);
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.chat-suggest-chip:hover {
-  border-color: var(--accent);
-  background: var(--accent-wash);
-  color: var(--ink);
-}
-
-.chat-next {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-  margin-bottom: var(--space-2);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-/* The box the width of the pane, and under it a row: what goes with the prompt (the view, a drawing on it) on the
-   left, Stop and Send on the right. */
-.chat-composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.chat-input {
-  min-width: 0;
-  min-height: 2.6em;
-  max-height: 10em;
-  field-sizing: content;
-  resize: none;
-  padding: 6px var(--space-2);
-  border: var(--field-border);
-  border-radius: var(--radius-control);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: var(--text-size);
-  line-height: var(--text-leading);
-}
-
-.chat-input:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-}
-
-.chat-input:disabled {
-  background: var(--surface);
-}
-
-.chat-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* What goes with the next prompt besides its words, a row each: a drawing on the view and what its ink lies over, the picture "Attach view" will add. */
-.chat-with {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  box-shadow: var(--float-shadow);
 }
 
 .chat-note-wait,
@@ -1002,7 +785,7 @@ button.ref-chip {
   flex: none;
   height: 40px;
   border: var(--divider);
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
 }
 
 .chat-attached-wait {
@@ -1080,15 +863,7 @@ button.ref-chip {
   overflow-wrap: anywhere;
 }
 
-/* Under the header: the two views of Claude Code, a pair of quiet buttons with the one shown pressed, and the model. */
-.session-views {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4) var(--space-2);
-}
-
+/* In the dock's header: the two views of Claude Code, a pair of quiet buttons with the one shown pressed. */
 .view-switch {
   display: inline-flex;
   flex: none;
@@ -1098,33 +873,6 @@ button.ref-chip {
 .view-switch .button-quiet[aria-pressed='true'] {
   background: var(--accent-wash);
   color: var(--ink);
-}
-
-.session-model {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: var(--text-small);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The model of the session: a quiet list in the row under the header. */
-select.session-model {
-  height: 24px;
-  padding: 0 2px 0 var(--space-1);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-}
-
-select.session-model:hover:not(:disabled) {
-  background: var(--accent-wash);
-}
-
-select.session-model:disabled {
-  opacity: 0.5;
 }
 
 /* What the agent asks the person: a calm card, ruled by a thin line, the request in plain words and its input in the monospace face. */
@@ -1290,59 +1038,6 @@ select.session-model:disabled {
   box-sizing: border-box;
 }
 
-/* The commands the CLI named, above the box, while a / word is typed. */
-.chat-commands {
-  max-height: 168px;
-  margin: 0 0 var(--space-2);
-  padding: var(--space-1);
-  overflow-y: auto;
-  list-style: none;
-  border: var(--divider);
-  border-radius: var(--radius-control);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-}
-
-.chat-commands li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: 2px var(--space-2);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.chat-commands li[aria-selected='true'],
-.chat-commands li:hover {
-  background: var(--accent-wash);
-}
-
-.chat-command-hint,
-.chat-command-desc {
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.chat-command-desc {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-actions .button[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: var(--accent-wash);
-  color: var(--ink);
-}
-
-/* A window of the rate limit that is half used: one quiet line under the box. */
-.chat-rate {
-  margin-top: var(--space-2);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
 /* What the request says in words, and the path it is blocked on (the path in the monospace face). */
 .chat-ask-why {
   margin: 0 0 var(--space-2);
@@ -1363,41 +1058,7 @@ select.session-model:disabled {
   font-size: 11.5px;
 }
 
-/* The build an edit started, under the card of the edit: ruled in the accent as what torno adds is, its words in the verdicts' colours. */
-.chat-build {
-  padding: 0 0 0 var(--space-3);
-  border-left: 2px solid var(--accent);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.chat-build-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-}
-
-.chat-build-head {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.chat-build-head[data-verdict='failed'],
-.chat-build-dimensions [data-verdict='failed'] {
-  color: var(--fail);
-}
-
-.chat-build-dimensions [data-verdict='ok'] {
-  color: var(--ok);
-}
-
-.chat-build-dimensions,
-.chat-build-parts {
-  margin: var(--space-1) 0 0;
-  padding: 0;
-  list-style: none;
-}
+/* The build slip (BuildLine) is in chat-slip.css. */
 
 /* A run of the agent's tools, once its turn is over, as one line. */
 .chat-fold-head .chat-tool-row {
@@ -1408,15 +1069,6 @@ select.session-model:disabled {
 .chat-tasks {
   margin: var(--space-1) 0;
   font-size: var(--text-small);
-}
-
-.chat-tasks-bar {
-  flex: none;
-  max-height: 9rem;
-  margin: 0;
-  padding: var(--space-1) var(--space-3);
-  overflow: auto;
-  border-top: var(--divider);
 }
 
 .chat-tasks-head {
@@ -1484,15 +1136,6 @@ select.session-model:disabled {
 }
 
 /* ---- Prompts only: the project's history as one row per prompt ---- */
-
-/* The head of the chat holds the toggle between the conversation and the list of prompts. */
-.chat-head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  padding: var(--space-1) var(--space-4);
-  border-bottom: var(--divider);
-}
 
 /* Over the transcript, which keeps its place beneath. */
 .prompts {
@@ -1586,7 +1229,7 @@ select.session-model:disabled {
   height: 38px;
   overflow: hidden;
   border: var(--divider);
-  border-radius: 5px;
+  border-radius: var(--radius-inline);
   background: var(--surface);
 }
 
@@ -1649,7 +1292,7 @@ select.session-model:disabled {
   gap: var(--space-2);
 }
 
-.prompt-goback:has(.confirm, .chat-turn-problem) {
+.prompt-goback:has(.chat-turn-problem) {
   flex: 1 0 100%;
   padding-bottom: var(--space-2);
 }
@@ -1676,7 +1319,7 @@ select.session-model:disabled {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border: 1px dashed var(--field-edge);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   color: var(--muted);
 }
 

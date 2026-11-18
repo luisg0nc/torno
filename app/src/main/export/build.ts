@@ -2,7 +2,7 @@ import { promisify } from 'node:util'
 import { deflate } from 'node:zlib'
 import { dimensionText, expectedText, notMeasuredText, shownDimension, unitOf } from '../../shared/dimension'
 import { type ExplodeState, explodeOf } from '../../shared/explode'
-import { type ExportData, type ExportMark, type ExportObject, type ExportPart, type ExportPlan, type ExportRequest, type ExportScan, type PackedMesh, NOT_BUILT, megabytes, own, packMesh, packScan, record } from '../../shared/exportdata'
+import { type ExportData, type ExportItem, type ExportMark, type ExportObject, type ExportPart, type ExportPlan, type ExportRequest, type ExportScan, type PackedMesh, NOT_BUILT, megabytes, own, packMesh, packScan, record } from '../../shared/exportdata'
 import { isFaceted } from '../../shared/faceted'
 import { count, number } from '../../shared/format'
 import { type Mark, type Vec3, isUnchecked, markAnchors, markEndParts, shapeOutline, strokePoints } from '../../shared/marks'
@@ -325,7 +325,7 @@ export function exportData(deps: ExportDeps, req: ExportRequest, scanTriangles: 
   return assemble(deps, req, scanTriangles)
 }
 
-interface Produced { html: string; bytes: number; dropped: string[]; over: boolean; refusal?: string }
+interface Produced { html: string; bytes: number; dropped: string[]; over: boolean; refusal?: string; levels: ScanLevels }
 
 async function produce(deps: ExportDeps, req: ExportRequest, assets: PageAssets): Promise<Produced> {
   const budget = deps.budget ?? EXPORT_BUDGET
@@ -343,7 +343,7 @@ async function produce(deps: ExportDeps, req: ExportRequest, assets: PageAssets)
     const largest = scans.sort((a, b) => b.scan.data.length - a.scan.data.length)[0]
     if (bytes <= budget || !largest) {
       const refusal = bytes > most ? `The export would be ${megabytes(bytes)}: more than the ${megabytes(most)} torno writes in one file. Export fewer projects.` : undefined
-      return { html, bytes, dropped: data.dropped, over: bytes > budget, ...(refusal ? { refusal } : {}) }
+      return { html, bytes, dropped: data.dropped, over: bytes > budget, levels, ...(refusal ? { refusal } : {}) }
     }
     const next = SCAN_TRIANGLES.find((level) => level < largest.scan.triangles && level < (levels[largest.key] ?? SCAN_TRIANGLES[0])) ?? null
     levels[largest.key] = next
@@ -354,7 +354,7 @@ async function produce(deps: ExportDeps, req: ExportRequest, assets: PageAssets)
 /** The data and the page for a request, with scans cut until the file is under the budget (D7). Rejects above `EXPORT_MOST`, and when no object named can be exported. */
 export async function exportFile(deps: ExportDeps, req: ExportRequest, assets: PageAssets): Promise<{ html: string; bytes: number; dropped: string[]; over: boolean }> {
   if (req.objects.length === 0) throw new Error(NOTHING_CHOSEN)
-  const { refusal, ...made } = await produce(deps, req, assets)
+  const { refusal, levels: _levels, ...made } = await produce(deps, req, assets)
   if (refusal) throw new Error(refusal)
   return made
 }
@@ -366,6 +366,7 @@ export async function exportFile(deps: ExportDeps, req: ExportRequest, assets: P
  */
 export async function exportPlan(deps: ExportDeps, req: ExportRequest, assets: PageAssets, listed: readonly string[] = req.objects): Promise<ExportPlan> {
   const objects: ExportPlan['objects'] = []
+  const lines = new Map<string, Lines>()
   for (const id of [...new Set(listed)]) {
     const obj = deps.object(id)
     const last = obj && deps.last(id)
@@ -378,6 +379,8 @@ export async function exportPlan(deps: ExportDeps, req: ExportRequest, assets: P
     const off = switchedOff(scene, file)
     const left = req.hidden === true ? new Set<string>() : off
     const sent = marksGoing(marks, req, left)
+    const everything = marksGoing(marks, { ...req, resolved: true }, new Set())
+    lines.set(id, { marks: everything.some((mark) => mark.status !== 'resolved'), resolved: everything.some((mark) => mark.status === 'resolved'), off: off.size > 0, scans: placedScans(scans, scene.layouts).map(({ scan }) => scan.id) })
     const shapes = new Map(scene.parts.filter((part) => !left.has(part.name)).map((part) => [part.hash, part.triangleCount]))
     objects.push({
       id,
@@ -404,9 +407,46 @@ export async function exportPlan(deps: ExportDeps, req: ExportRequest, assets: P
   const can = new Set(objects.filter((object) => object.exportable).map((object) => object.id))
   const chosen = [...new Set(req.objects)].filter((id) => can.has(id))
   const budget = deps.budget ?? EXPORT_BUDGET
-  if (chosen.length === 0) return { objects, bytes: 0, dropped: [], over: false, budget, refusal: NOTHING_CHOSEN }
+  if (chosen.length === 0) return { objects, items: format(req) === 'html' ? await weighLines(deps, req, assets, chosen, lines, {}, 0) : [], bytes: 0, dropped: [], over: false, budget, refusal: NOTHING_CHOSEN }
   // A file of the model is made by the kernel when it is saved: there is no page to weigh.
-  if (req.format !== undefined && req.format !== 'html') return { objects, bytes: 0, dropped: [], over: false, budget, ...(chosen.length > 1 ? { refusal: ONE_OBJECT } : {}) }
-  const { html: _html, ...made } = await produce(deps, { ...req, objects: chosen }, assets)
-  return { objects, ...made, budget }
+  if (format(req) !== 'html') return { objects, items: [], bytes: 0, dropped: [], over: false, budget, ...(chosen.length > 1 ? { refusal: ONE_OBJECT } : {}) }
+  const { html: _html, levels, ...made } = await produce(deps, { ...req, objects: chosen }, assets)
+  return { objects, items: await weighLines(deps, req, assets, chosen, lines, levels, made.bytes), ...made, budget }
+}
+
+const format = (req: ExportRequest): string => req.format ?? 'html'
+
+/** Which lines a project that can be exported has besides itself. */
+interface Lines { marks: boolean; resolved: boolean; off: boolean; scans: string[] }
+
+/**
+ * What each line of the sheet weighs (`ExportPlan.items`): a line is measured as the page with it less the page without,
+ * the project alone. The interplay of lines (a mark on a part that is switched off) and what a file has once whatever
+ * the number of projects goes to the page, which is the file less the lines that are on: so the lines add up.
+ */
+async function weighLines(deps: ExportDeps, req: ExportRequest, assets: PageAssets, chosen: readonly string[], lines: ReadonlyMap<string, Lines>, levels: ScanLevels, bytes: number): Promise<ExportItem[]> {
+  const size = async (of: ExportRequest): Promise<number> => Buffer.byteLength(exportHtml(await assemble(deps, of, levels), assets))
+  const empty = await size({ objects: [], marks: false, scans: [] })
+  const items: ExportItem[] = []
+  const add = (id: string, kind: ExportItem['kind'], object: string, weight: number, on: boolean): void => {
+    items.push({ id, kind, object, bytes: Math.max(0, weight), on })
+  }
+  for (const [id, has] of lines) {
+    const bare: ExportRequest = { objects: [id], marks: false, scans: [] }
+    const alone = await size(bare)
+    const ticked = chosen.includes(id)
+    add(id, 'object', id, alone - empty, ticked)
+    if (!ticked) continue
+    let marked = alone
+    if (has.marks || has.resolved) {
+      marked = await size({ ...bare, marks: true })
+      if (has.marks) add(`${id}:marks`, 'marks', id, marked - alone, req.marks)
+      if (has.resolved) add(`${id}:resolved`, 'resolved', id, (await size({ ...bare, marks: true, resolved: true })) - marked, req.marks && req.resolved === true)
+    }
+    if (has.off) add(`${id}:off`, 'off', id, (await size({ ...bare, hidden: true })) - alone, req.hidden === true)
+    for (const scan of has.scans) add(`${id}/${scan}`, 'scan', id, (await size({ ...bare, scans: [`${id}/${scan}`] })) - alone, req.scans.includes(`${id}/${scan}`))
+  }
+  if (chosen.length === 0) return items
+  const owned = items.reduce((sum, item) => sum + (item.on ? item.bytes : 0), 0)
+  return [{ id: 'page', kind: 'page', bytes: bytes - owned, on: true }, ...items]
 }

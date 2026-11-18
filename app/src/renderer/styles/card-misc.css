@@ -1,0 +1,167 @@
+/* ---- The card's Scans, Tracings and Print profile sections ---- */
+
+/* What a section has to do from its head (Import scan…): at the right of the head's line, beside the head's button and not in it. */
+.route-head:has(.route-head-action) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.route-head:has(.route-head-action) .route-head-button {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.route-head-action {
+  flex: none;
+  height: 24px;
+  margin-top: 4px;
+  padding: 0 var(--space-2);
+  font-size: 12px;
+}
+
+/* The gauge: the band that was wanted as a 6 px rect with a cap at each closed end, the value as a 2 px tick in the colour of where it stands. Used by a parameter with a range, and by a check's row. */
+.gauge {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.gauge-axis {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+
+.gauge-band {
+  fill: var(--band);
+}
+
+.gauge-cap {
+  fill: var(--band-edge);
+}
+
+.gauge-gap {
+  stroke: var(--fail);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 1.5;
+}
+
+.gauge-tick[data-state='inside'] {
+  fill: var(--ok);
+}
+
+.gauge-tick[data-state='outside'] {
+  fill: var(--fail);
+}
+
+/* A tick that moved since the build before slides from where it was, once. */
+.gauge-tick[style] {
+  animation: gauge-slide 0.7s var(--ease);
+}
+
+@keyframes gauge-slide {
+  from {
+    transform: translateX(var(--slide));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gauge-tick[style] {
+    animation: none;
+  }
+}
+
+/* ---- The Tracings section: a row for each tracing, the line of its line-up, and the open tracing's panel under it ---- */
+
+/* The body brings the padding of a panel's edge (16 px at the left, 8 at the right), as the route's other bodies do. */
+.route-tracings {
+  padding: 0 var(--space-2) 0 var(--space-4);
+}
+
+.route-tracings-none,
+.tracing-line {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.route-tracings-new {
+  margin-bottom: var(--space-2);
+}
+
+.tracing-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tracing-row {
+  padding-bottom: var(--space-1);
+}
+
+.tracing-row-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 28px;
+}
+
+/* The row is one button that opens the tracing: its number in the face of numbers at 500, its name, and at the right its photo's file. */
+.tracing-row-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 28px;
+  padding: 2px 6px;
+  margin: 0 0 0 -6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tracing-row-open:hover {
+  background: var(--accent-wash);
+}
+
+.tracing-row[data-open] .tracing-row-open {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.tracing-id {
+  flex: none;
+  font-weight: 500;
+}
+
+.tracing-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font: 400 11.5px var(--font-mono);
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tracing-photo {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The eye of a tracing shown in 3D: in the accent while it is shown. */
+.tracing-row .icon-button[aria-pressed='true'] {
+  color: var(--accent);
+}

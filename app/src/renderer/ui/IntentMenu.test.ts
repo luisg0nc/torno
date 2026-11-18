@@ -39,10 +39,14 @@ describe('the intent menu of a row', () => {
     expect(markup).toContain('aria-expanded="false"')
     expect(markup).not.toContain('role="menu"')
     expect(plainText(markup)).toBe('−')
+    expect(markup).toMatch(/<span class="sign-disc[^"]*" data-sign="-">−<\/span>/)
   })
 
   it('shows a plus for want, and a sign for none that is no want', () => {
-    expect(plainText(renderToStaticMarkup(createElement(IntentMenu, { mark: mark({ intent: 'want' }) })))).toBe('+')
+    const want = renderToStaticMarkup(createElement(IntentMenu, { mark: mark({ intent: 'want' }) }))
+    expect(plainText(want)).toBe('+')
+    expect(want).toContain('data-sign="+"')
+    expect(renderToStaticMarkup(createElement(IntentMenu, { mark: mark() }))).not.toContain('sign-disc')
     expect(plainText(renderToStaticMarkup(createElement(IntentMenu, { mark: mark() })))).toBe('±')
   })
 })

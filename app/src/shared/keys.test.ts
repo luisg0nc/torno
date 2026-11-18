@@ -190,10 +190,11 @@ const SHORT_NAMES: Record<string, string[]> = {
   'renderer/ui/MarksPanel.tsx': ['t'],
   'renderer/state/tools.ts': ['t'],
   'renderer/state/store.ts': ['p'],
-  'renderer/ui/ViewBar.tsx': ['v'],
+  'renderer/ui/view/ViewCube.tsx': ['v'],
   'renderer/tools/regionTints.ts': ['one'],
   'renderer/ui/ShapeFields.tsx': ['m'],
-  'renderer/ui/ToolPalette.tsx': ['t']
+  'renderer/ui/ToolPalette.tsx': ['t', 'pill', 'choice'],
+  'renderer/ui/view/reedPill.ts': ['t']
 }
 const KEY_NAMES = '(?:key|code|keyCode|which|charCode)'
 function keyReads(text: string, also: readonly string[] = []): string[] {

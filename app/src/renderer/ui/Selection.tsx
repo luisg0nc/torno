@@ -3,20 +3,27 @@ import { tagLabel } from '../../shared/tags'
 import { useEffect, useState } from 'react'
 import { EXPLODED_TOOLS } from '../../shared/explode'
 import { describe, descriptorOf } from '../state/descriptors'
+import { viewHost } from '../state/drawing'
 import { isStrokeRef } from '../state/sets'
 import { actions, explodeNow, runningSession, store, useStore } from '../state/store'
 import { useTool } from '../state/tools'
 import { noteSelection } from '../tools/pickMarks'
 import { staleMessage } from '../tools/Tool'
-import type { Viewport } from '../viewport/Viewport'
 import { insertIntoSession } from './insertIntoSession'
 import { TYPING } from './typing'
 
+/** One ref in hand: the ref (and the name the model gives it), and what the kernel says of it once it has. */
+export interface HandRef {
+  ref: string
+  label: string
+  descriptor: string
+}
+
 /**
- * What is selected, floating at the bottom of the viewport: each ref with what
- * the kernel says of it, and what can be done with them.
+ * What is selected, for the head of the route card (`card/InHand.tsx`): each ref with what the kernel says of it, why a note or an
+ * insert cannot be made now, and what can be done with them. The Escape that clears it while Select is the tool is heard here.
  */
-export function Selection({ viewport }: { viewport: Viewport }) {
+export function useSelection() {
   const selection = useStore((s) => s.selection)
   const objectId = useStore((s) => s.objectId)
   const revision = useStore((s) => s.revision)
@@ -60,48 +67,31 @@ export function Selection({ viewport }: { viewport: Viewport }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [selecting, selection.length])
 
-  if (!objectId || selection.length === 0) return null
   const inLayout = parts?.filter((p) => p.layout === layout) ?? []
+  const refs: HandRef[] = objectId ? selection.map((ref) => ({ ref, label: tagLabel(inLayout, ref) ?? '', descriptor: descriptorOf(objectId, revision, layout, ref) ?? '' })) : []
 
-  return (
-    <div className="selection" role="group" aria-label="Selection">
-      <ul className="selection-chips">
-        {selection.map((ref) => (
-          <li key={ref} className="selection-chip" data-ref={ref}>
-            <span className="selection-ref num">{[ref, tagLabel(inLayout, ref)].filter(Boolean).join(' · ')}</span>
-            <span className="selection-descriptor num">{descriptorOf(objectId, revision, layout, ref) ?? ''}</span>
-          </li>
-        ))}
-      </ul>
-      {selection.length === 1 && <span className="selection-hint">Shift-click to add</span>}
-      <span className="viewbar-rule" aria-hidden="true" />
-      <button
-        type="button"
-        className="bar-button"
-        // Not on a stale build either: the refs would name other geometry in the build the agent then asks about.
-        disabled={!canInsert || stale !== null}
-        title={stale ?? (canInsert ? "Put the selection in the session's prompt" : 'Start a session to put the selection in its prompt')}
-        onClick={() => {
-          // The dock may be away: the box takes no focus in a hidden one, so it is given the keys a frame after it is shown.
-          const hidden = !store.getState().dockOpen
-          actions.setDockOpen(true)
-          insertIntoSession(selection.join(' '), { later: hidden })
-        }}
-      >
-        Insert
-      </button>
-      <button
-        type="button"
-        className="bar-button"
-        disabled={noting || stale !== null || exploded !== null}
-        title={stale ?? exploded ?? (selection.length === 1 ? 'Leave a note on it for the agent' : 'Leave a note on each for the agent')}
-        onClick={() => {
-          setNoting(true)
-          void noteSelection(viewport.getCamera()).finally(() => setNoting(false))
-        }}
-      >
-        Note
-      </button>
-    </div>
-  )
+  return {
+    refs,
+    canInsert,
+    stale,
+    exploded,
+    noting,
+    /** Put the refs in the session's prompt, without sending them. */
+    insert(): void {
+      // The dock may be away: the box takes no focus in a hidden one, so it is given the keys a frame after it is shown.
+      const hidden = !store.getState().dockOpen
+      actions.setDockOpen(true)
+      insertIntoSession(selection.join(' '), { later: hidden })
+    },
+    /** Leave a mark on each ref. Needs the view's camera: without the view there is nothing to say. */
+    note(): void {
+      const camera = viewHost()?.camera()
+      if (!camera) return
+      setNoting(true)
+      void noteSelection(camera).finally(() => setNoting(false))
+    },
+    clear(): void {
+      actions.setSelection([])
+    }
+  }
 }

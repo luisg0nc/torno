@@ -2,9 +2,11 @@ import { deflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { type ExportData, type ExportObject, packMesh } from '../../shared/exportdata'
 import { createHash } from 'node:crypto'
-import { type PageAssets, exportHtml, policyOf } from './html'
+import { createRequire } from 'node:module'
+import { MONO_FACE, UI_FACE } from '../../shared/fonts'
+import { FONTS, type PageAssets, exportHtml, policyOf } from './html'
 
-const ASSETS: PageAssets = { viewer: 'window.__ran = "</script><b>"', css: 'body{margin:0}', fonts: [{ family: 'IBM Plex Sans', weight: 400, woff2: new Uint8Array([1, 2, 3]) }] }
+const ASSETS: PageAssets = { viewer: 'window.__ran = "</script><b>"', css: 'body{margin:0}', fonts: [{ family: UI_FACE, weight: 400, woff2: new Uint8Array([1, 2, 3]) }] }
 
 const mesh = (() => {
   const { header, bytes } = packMesh({ positions: new Float32Array([0, 0, 0, 10, 0, 0, 0, 10, 0]), normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), triangles: new Uint32Array([0, 1, 2]), edges: new Float32Array([0, 0, 0, 10, 0, 0]) })
@@ -75,5 +77,13 @@ describe('exportHtml', () => {
     expect(html.match(/<\/style/gi)).toHaveLength(1)
     expect(html.match(/<script/gi)).toHaveLength(2)
     expect(html).not.toContain('<!--')
+  })
+})
+
+describe('the faces of the page', () => {
+  it('are the interface face at 400 and 600 and the mono face at 400, each a file of its package', () => {
+    expect(FONTS.map(({ family, weight }) => `${family} ${weight}`)).toEqual([`${UI_FACE} 400`, `${UI_FACE} 600`, `${MONO_FACE} 400`])
+    const require = createRequire(__filename)
+    for (const { file } of FONTS) expect(() => require.resolve(file), file).not.toThrow()
   })
 })

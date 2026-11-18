@@ -3,7 +3,7 @@
 /* The tracing takes the place of the view, as the board does: the part of the viewport no panel covers. */
 .tracing {
   position: absolute;
-  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
+  inset: 0;
   overflow: hidden;
   background: var(--surface);
 }
@@ -362,7 +362,7 @@
   pointer-events: none;
 }
 
-/* ---- Over the sheet: the head at the top right, the panel at the top left, the scale bar and readout at the bottom left, the title block at the bottom right ---- */
+/* ---- Over the sheet: the head at the top right, the scale bar and readout at the bottom left, the title block at the bottom right ---- */
 
 .tr-head {
   position: absolute;
@@ -376,9 +376,9 @@
   gap: 2px;
   padding: 3px;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
 }
 
@@ -387,7 +387,7 @@
   height: 26px;
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--ink);
   font: inherit;
@@ -414,27 +414,18 @@
   box-sizing: border-box;
   padding: var(--space-3);
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
 }
 
 .tr-panel {
-  position: absolute;
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  /* Beside the palette at the left edge, not under it. */
-  left: calc(var(--space-3) + 42px + var(--space-2));
-  z-index: 3;
-  width: 284px;
-  max-height: calc(100% - var(--switch-h) - 130px);
+  /* In the Tracings section of the card, under the tracing's row: as wide as the card leaves it, and as long as its groups are. */
   box-sizing: border-box;
-  overflow-y: auto;
-  padding: var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) 0 0;
+  border-top: var(--divider);
   font-size: var(--text-small);
 }
 
@@ -551,7 +542,7 @@
   flex: none;
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--radius-inline);
   background: currentColor;
 }
 
@@ -672,9 +663,9 @@
   box-sizing: border-box;
   padding: var(--space-4);
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
   transform: translate(-50%, -50%);
 }
@@ -726,27 +717,6 @@
   background: transparent;
 }
 
-/* A tracing on a face: over the model, saying what to click. */
-.tr-facebar {
-  position: absolute;
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  left: calc(var(--left-w) + var(--space-3));
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 3px 3px 3px var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-  font-size: var(--text-small);
-}
-
-.tr-facebar .tr-refused {
-  margin: 0;
-}
-
 .tr-undo {
   margin: var(--space-2) 0 0;
   color: var(--muted);
@@ -762,7 +732,7 @@
   border: var(--divider);
   border-radius: var(--radius-control);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
 }
 
@@ -778,7 +748,7 @@
   border-left: 3px solid var(--fail);
   border-radius: var(--radius-control);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
 }
 
@@ -959,49 +929,11 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: var(--space-3);
+  /* Under the band at the top left (34 px, 14 px in) with room. */
+  padding: 56px var(--space-3) var(--space-3);
   gap: var(--space-2);
   background: var(--surface);
   font-size: var(--text-small);
-}
-
-.lu-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 3px var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-}
-
-.lu-title {
-  margin: 0;
-  font-size: var(--text-size);
-  font-weight: 600;
-}
-
-.lu-spacer {
-  flex: 1;
-}
-
-.lu-check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--muted);
-}
-
-.lu-switch[aria-checked='true'] {
-  background: var(--accent-wash);
-  color: var(--accent);
-}
-
-.lu-done[data-primary]:not(:disabled) {
-  background: var(--accent-wash);
-  color: var(--accent);
 }
 
 .lu-readout {
@@ -1055,7 +987,7 @@
   display: flex;
   flex-direction: column;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   overflow: hidden;
 }
 
@@ -1151,17 +1083,6 @@
   paint-order: stroke;
   stroke: var(--surface);
   stroke-width: 3px;
-}
-
-/* The tracings shown in the model view, in the layers list: an outlined square for each, a sheet seen edge on, in ink. */
-.layer-tracings {
-  margin-top: var(--space-2);
-}
-
-.tracing-swatch {
-  box-sizing: border-box;
-  border: 1.25px solid var(--ink);
-  background: transparent;
 }
 
 /* Show in 3D, while it is on: the button of the panel is pressed in the accent. */

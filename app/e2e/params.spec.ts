@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { openPanel, railButton } from './helpers'
+import { cardSection, foldSection, openSection, railButton, newSession } from './helpers'
 import { openListed } from './objects'
 
 // The model's Params in the left column, read only: a row for each field with its default in the monospace face and
@@ -31,9 +31,9 @@ test.beforeAll(async () => {
     '    # Room left round the post, 0.2 mm at least',
     '    gap: float = 0.123456',
     '    inner: float = 40 - 2 * 2  # Worked out from side and wall',
-    '    ribs: int = 4'
+    "    ribs: int = field(default=4, metadata={'min': 1, 'max': 8})"
   ].join('\n')
-  const written = source.replace(/    side: float = 40\n    wall: float = 2\n/, `${fields}\n`)
+  const written = source.replace(/    side: float = 40\n    wall: float = 2\n/, `${fields}\n`).replace('from dataclasses import dataclass', 'from dataclasses import dataclass, field')
   expect(written).not.toBe(source)
   writeFileSync(model, written)
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
@@ -58,22 +58,24 @@ async function open(name: string): Promise<void> {
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
 }
 
-test('a model with no Params says so in the panel, and has no rows', async () => {
+test('a model with no Params says so in the head of its section, which does not unfold, and has no rows', async () => {
   await open('plain')
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await expect(page.locator('.left .layers')).toBeVisible()
-  await openPanel(page, 'Params')
-  await expect(section()).toContainText('This model has no Params.')
+  await railButton(page, 'Parameters').click()
+  await expect(cardSection(page, 'Parameters')).toContainText('none')
+  await expect(cardSection(page, 'Parameters')).toHaveAttribute('data-empty', '')
+  await expect(section()).toHaveCount(0)
   await expect(section().locator('[data-param]')).toHaveCount(0)
 })
 
-test('the Params panel starts with the section, with the count, and has a row for each field', async () => {
+test('the Parameters section says its count in its head, and has a row for each field', async () => {
   await open('hollow')
-  await openPanel(page, 'Params')
+  await openSection(page, 'Parameters')
   await expect(section()).toBeVisible()
-  const order = await page.locator('.left .panel-body > section').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
-  expect(order[0]).toBe('Parameters')
-  await expect(section().locator('.section-title .section-said')).toHaveText('5')
+  const order = await page.locator('.left .route-section').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
+  expect(order).toEqual(['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile'])
+  await expect(cardSection(page, 'Parameters').locator('.route-said')).toHaveText(/^5\b/)
   await expect.poll(() => section().locator('[data-param]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-param')))).toEqual(['side', 'wall', 'gap', 'inner', 'ribs'])
 })
 
@@ -101,13 +103,30 @@ test('a row has the name and the value in the monospace face, the comment as wri
   expect(await face('.left .param-doc')).not.toBe(await face('.left .param-value'))
 })
 
+test('a field with a range in its metadata has a gauge at the right of its row, and a field without one has none', async () => {
+  const gauge = section().locator('[data-param="ribs"] svg.gauge')
+  await expect(gauge).toHaveCount(1)
+  await expect(gauge).toHaveAttribute('aria-label', '4, inside 1 to 8')
+  expect(await gauge.evaluate((el) => `${el.getBoundingClientRect().width} x ${el.getBoundingClientRect().height}`)).toBe('64 x 16')
+  // At the right of its row: its right edge is within the card's padding of the row's.
+  const edges = await section().locator('[data-param="ribs"]').evaluate((li) => ({ row: li.getBoundingClientRect().right, gauge: li.querySelector('svg.gauge')!.getBoundingClientRect().right }))
+  expect(edges.row - edges.gauge).toBeLessThan(16)
+  await expect(section().locator('[data-param="side"] svg.gauge')).toHaveCount(0)
+  await expect(section().locator('svg.gauge')).toHaveCount(1)
+})
+
+test('the head of the Print profile says what the project is made for, also while folded', async () => {
+  await foldSection(page, 'Print profile')
+  await expect(cardSection(page, 'Print profile').locator('.route-said')).toHaveText('none')
+})
+
 test('with no session running the rows are text, and say why', async () => {
   await expect(section().locator('button.param-button')).toHaveCount(0)
   await expect(section().locator('[data-param="wall"] .param-button')).toHaveAttribute('aria-description', 'Params.wall: float = 2. Start a session to put Params.wall in its prompt')
 })
 
 test('with a session, a click puts Params.<name> at the cursor of the box and sends nothing', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(dock().locator('.chat')).toBeVisible()
   await expect(composer()).toBeFocused()
   await composer().fill('make')
@@ -150,16 +169,16 @@ test('trying a value builds the model with it, says it differs from the file, an
   expect(JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'params.json'), 'utf8'))).toEqual({ overrides: {} })
 })
 
-test('the open panel is the window\'s: it is kept when another project is opened', async () => {
-  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'true')
+test('the folding is the window\'s: it is kept when another project is opened', async () => {
+  await expect(cardSection(page, 'Parameters')).not.toHaveAttribute('data-folded', '')
   await open('plain')
-  await expect(section()).toContainText('This model has no Params.')
+  await expect(cardSection(page, 'Parameters')).toContainText('none')
   await open('hollow')
-  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'true')
+  await expect(cardSection(page, 'Parameters')).not.toHaveAttribute('data-folded', '')
   await expect(section().locator('[data-param="wall"]')).toBeVisible()
-  // Pressed again, the panel goes and the view has its room; the choice is kept by the window, not the folder.
-  await railButton(page, 'Params').click()
+  // A click on the head folds it to the head; the choice is kept by the window, not the folder.
+  await foldSection(page, 'Parameters')
   await expect(section()).toHaveCount(0)
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}').open)).toBeNull()
-  await openPanel(page, 'Params')
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}').folded)).toContain('params')
+  await openSection(page, 'Parameters')
 })

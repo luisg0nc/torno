@@ -4,6 +4,8 @@ paths:
   - "app/src/renderer/state/chat.ts"
   - "app/src/renderer/state/chat.test.ts"
   - "app/src/renderer/styles/chat.css"
+  - "app/src/renderer/styles/chat-slip.css"
+  - "app/src/renderer/styles/chat-foot.css"
   - "app/e2e/chat*.spec.ts"
 ---
 
@@ -18,15 +20,18 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (an item keeps its place; a queued prompt is drawn after all the others; sent, it goes to the end), and items
   and metas are merged by `seq` with the history, so none is drawn twice or lost. Each `context` item is drawn
   under its prompt, as chips from its fields (marks, build, selection, and how many instruction files it named), never from its text. One made for a tool's
-  card (`forTool`: the build an edit of the model started) is a build line under that card (`BuildLine`), drawn from
-  its fields alone: `Built r2 · ok · 1.2 s`, or `Build after r2 failed: <the last line of the traceback>` in `--fail` (a revision names a build that worked, as
+  card (`forTool`: the build an edit of the model started) is a build slip under that card (`BuildLine`, on `--surface`), drawn from
+  its fields alone: `Built h41 ok 51 s` (the build as `buildName` has it from the history that `ChatItems` passes, `r2` until the history has it; the chip
+  keeps `data-ref="r2"` and its live behaviour), or `The build after h40 failed` in `--fail` with the last line of the traceback under it in mono (a revision names a build that worked, as
   `main/builds.ts` counts them: a failure has no number of its own and is the build after the one on show, `failedAfter`
-  of `shared/build.ts`, which the Stop hook says too; the prompt's "torno added" line says it alike), or, of a build
+  of `shared/build.ts`, which the Stop hook says too; the prompt's "with" line says it alike), or, of a build
   still running when the edit's answer could wait no longer (main writes that line once and never again), "Still
   building when Claude Code was answered", in the past so that it stays true, "Show
-  error" while that failure is still the latest build, the dimensions whose verdict it changed (`digest.dimensions`,
-  from `verdictChanges`, never worked out again here) as chips with `now passes` / `now fails`, and the parts it
-  changed (`digest.parts[].text`, four at most, the rest counted), then "Show text". The sheet of a failed build is
+  error" while that failure is still the latest build, a row for each dimension whose verdict it changed (`digest.dimensions`,
+  from `verdictChanges`, never worked out again here; the mark's note and its sampled values of `since` and of the build, `DimensionMark.history`, when it has them) with `now passes` / `now fails`, and
+  the parts it changed as a table (`slipTable`, pure: the biggest change of volume first, six rows at most, `hidden` counted in a button that unfolds them,
+  `unchanged` counted under it; every number through `shared/format.ts`, a percent to the tenth, `≈` kept on a volume that is not exact). The new volume of a row is a
+  `CountUp`: once, 0.7 s, once for each row of an item in a window, `to` at once under reduced motion and in a render that cannot move. Then "Show text". The sheet of a failed build is
   `errorOpen` in the store (`actions.setErrorOpen`): the status line, the viewport's "Show error" and the chat open
   it. An `Edit` or a `MultiEdit` is drawn as a diff (`ui/chat/Diff.tsx`, from the tool's own input by `ui/chat/lineDiff.ts`, never
   from the person's files), in the permission card (six lines removed and added, then "Show all") and, in place of the JSON, in the
@@ -44,7 +49,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   at most `MAX_ITEMS` (2,000) as main does, dropping the oldest, and says once, at the top, "Earlier items are not
   shown"; a session no pane shows takes in no picture data, also from a history that was on its way.
   The chat that ended before the window was loaded is shown from main's transcript (`session:current`'s `ended`).
-  Beside the model menu (`chat/ModelMenu.tsx`) the effort menu (`chat/EffortMenu.tsx`, `EFFORT_LABEL`): "Default
+  The model, edits and effort menus are in the popover of the header's model button (`ModelButton`, `session-pane`). Beside the model menu (`chat/ModelMenu.tsx`) the effort menu (`chat/EffortMenu.tsx`, `EFFORT_LABEL`): "Default
   effort" until one is set (`meta.effort`), then the levels the model takes (`effortsOf`; none for a model that takes
   none, and then no menu), `chat.setEffort` for the session only; a refusal takes the choice back and is said beside it.
   What the CLI says of itself comes as notes and as meta: the header's status word gains ", retrying (attempt 3)"
@@ -72,8 +77,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   while it comes; one main has no plain file for says `reference/doodle-1.png is no longer there`, the path in the
   monospace face. A tool's picture says "Picture of an earlier build, not kept"; any other "Picture not kept".
 - **A review in the chat** (`ui/chat/ReviewChip.tsx`, `ui/chat/Composer.tsx`, `ui/chat/Items.tsx`, `ui/chat/BuildLine.tsx`). While `sending` names a round
-  the composer draws, in the `chat-with` row, a chip `Review of h41 · 3 − · 2 +` in the face of numbers (`reviewName`) with "Remove"
-  (`marks:round` `{ plain }`); a refused ask leaves it. "Goes with your next prompt" lists the drafts that really go (`goingNext`: not those of a round
+  the composer draws, inside its box in the `chat-with` row, a chip `Review of h41 · 3 − · 2 +` in the face of numbers (`reviewName`) with "Remove"
+  (`marks:round` `{ plain }`), and the box's placeholder is "The review goes as its own prompt. Add words to it here."; a refused ask leaves it. "Goes with your next prompt" lists the drafts that really go (`goingNext`: not those of a round
   that is held, `isHeld`). The line under a prompt (`Items.tsx`, from `item.review` and `item.held` of the `context` item, never from its text) says
   `review R1 sent` for the round the prompt carried, and `R1 is in review, not sent` for each round that waits. The build line of the build still on show has
   "Review this build" (`reviewActions.start`). The terminal has no chip: its review line goes with the hook's context for the next prompt.
+
+- **The foot of the dock** (`ui/chat/Composer.tsx`, `Tasks.tsx`, `Suggestions.tsx`, `AskTakeover.tsx`, `styles/chat-foot.css`; the foot's rules are in that
+  one sheet). From the top: an ask, when one waits (`AskTakeover.tsx`, drawn by `ChatPane`; see `asks` and `chat-cards-and-refs`), the `agent.json` note as one
+  warn line (`.session-note`, passed to `ChatPane` as `foot` by `SessionPane`; with no chat it stays under the strip), then the foot proper: the task line, up to three
+  suggestions, and the box (`--raise`, 1 px `--field-edge`, `--radius-float`). Inside the box go what goes with the prompt (`chat-next`, the notes waiting, `chat-with`:
+  board, review, tag, the view attached), then the words, then the bar: Attach view, Draw on view, the key hint and Send, or Stop and Queue. Where the chat is not
+  live (no session, a terminal) `.session-next` still says what the next prompt carries, under the strip. A ref chip of a face or an edge pointed at borrows the
+  window's one leader (`ui/chat/borrow.ts`).

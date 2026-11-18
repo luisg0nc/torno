@@ -1,0 +1,485 @@
+/* ---- Tags: a control or a reading beside what it is about (ui/view/Tag.tsx, .claude/rules/leaders.md) ---- */
+
+/* Placed from the top left of the view's pane by transform (`placeTag`), after every frame. Under the leaders (z 12). */
+.tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: min(360px, calc(100% - 72px));
+  padding: var(--space-1);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--raise);
+  box-shadow: var(--float-shadow);
+  color: var(--ink);
+  font-size: var(--text-row);
+  /* It is a card on the view: the pointer on it is not the view's. */
+  pointer-events: auto;
+  /* 0.2 s, then its leader draws out (`leaders.css`). */
+  animation: tag-pop 0.2s var(--ease) backwards;
+}
+
+/* A problem is a second tag below the first. */
+.tag[data-problem] {
+  border-color: transparent;
+  background: var(--fail-wash);
+  color: var(--fail);
+}
+
+/* A row of controls, and what sits in it. */
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.tag-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tag-control:hover {
+  background: var(--surface);
+}
+
+.tag-control[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* The primary one of a tag. */
+.tag-control[data-primary] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* A number in a well. */
+.tag-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* A hairline between groups. */
+.tag-sep {
+  align-self: stretch;
+  width: 1px;
+  margin: 3px var(--space-1);
+  background: var(--hairline);
+}
+
+/* A large reading, its unit quiet beside it. */
+.tag-reading {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.tag-unit {
+  margin-left: 3px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* `scale`, not `transform`: that is the tag's place. */
+@keyframes tag-pop {
+  from {
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag {
+    animation: none;
+  }
+}
+
+/* ---- Measure's tag (ui/view/MeasureTag.tsx) ---- */
+
+.tag[data-tag='measure'] {
+  /* A reading and a line of words: no wider than that. */
+  max-width: 280px;
+}
+
+.measure-reading,
+.measure-words,
+.measure-kept {
+  padding: 2px var(--space-2) 0;
+}
+
+.measure-words {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.measure-delta .num,
+.measure-kept .num {
+  color: var(--ink);
+}
+
+.measure-kept {
+  padding-bottom: var(--space-1);
+  color: var(--ink);
+}
+
+.measure-keep kbd {
+  margin-left: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.measure-keep:disabled {
+  background: var(--surface);
+  color: var(--muted);
+  cursor: default;
+}
+
+/* ---- Explode's tag and its handle (ui/ExplodeControl.tsx, viewport/explodeTrack.ts) ---- */
+
+.tag[data-tag='explode'] {
+  max-width: 250px;
+}
+
+.explode-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 2px var(--space-2) 0;
+}
+
+.explode-amount[data-disabled] {
+  color: var(--muted);
+}
+
+.explode-words,
+.explode-note {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.explode-note {
+  padding: 0 var(--space-2) var(--space-1);
+  white-space: normal;
+}
+
+/* Why nothing is drawn apart, or what E could not do. */
+.explode-note[data-refused] {
+  color: var(--ink);
+}
+
+.tag-row .tag-control:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* The track's slider, for the keys and for assistive technology: out of sight, in the DOM. */
+.explode-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+/* The handle of the track: the overlay draws it, this is where the pointer finds it (placed by transform, every frame). */
+.explode-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  cursor: grab;
+  /* A drag of it is not a drag of the view. */
+  touch-action: none;
+}
+
+.explode-handle:active {
+  cursor: grabbing;
+}
+
+.explode-handle[data-disabled] {
+  cursor: default;
+}
+
+.explode-slider:focus-visible + .explode-handle {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---- Section (ui/SectionTag.tsx, Task 22): a tag on the plane's top edge, and the handle of its rule ---- */
+
+/* Two rows, so that the tag is narrow enough to stand above a plane clear of the compass: the axes and the place, then the rest. */
+.tag-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* X Y Z in the axis colours, as on the triad: this letter is that direction. */
+.tag-axis {
+  width: 26px;
+  padding: 0;
+  font-weight: 500;
+}
+
+.tag-axis[data-axis='x'],
+.tag-axis-letter[data-axis='x'] {
+  color: var(--axis-x);
+}
+
+.tag-axis[data-axis='y'],
+.tag-axis-letter[data-axis='y'] {
+  color: var(--axis-y);
+}
+
+.tag-axis[data-axis='z'],
+.tag-axis-letter[data-axis='z'] {
+  color: var(--axis-z);
+}
+
+.tag-axis[aria-pressed='true'] {
+  background: var(--surface);
+}
+
+/* The plane's place: its axis letter, the number in a well, the unit quiet. */
+.tag-place {
+  gap: 5px;
+  cursor: text;
+}
+
+.tag-place[data-disabled] .tag-field,
+.tag-place[data-disabled] .tag-unit {
+  color: var(--muted);
+}
+
+.tag-place:focus-within {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.tag-field {
+  width: 7ch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+
+.tag-field:focus-visible {
+  outline: none;
+}
+
+.tag-place .tag-unit {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
+.tag-control:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.tag-control:disabled:hover {
+  background: transparent;
+}
+
+/* The menu hangs from its button, to the left of its right edge, under the tag or over it where the tag is low in the view. */
+.tag-menu-box {
+  position: relative;
+}
+
+.tag-more {
+  width: 26px;
+  padding: 0;
+}
+
+.menu.tag-menu {
+  top: calc(100% + 7px);
+  right: 0;
+  left: auto;
+  z-index: 5;
+  background: var(--raise);
+  white-space: nowrap;
+}
+
+.tag[data-side='below'] .menu.tag-menu,
+.tag[data-side='docked'] .menu.tag-menu {
+  top: auto;
+  bottom: calc(100% + 7px);
+}
+
+.tag-menu .menu-item[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.tag-menu .menu-item[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+/* A problem, the second tag below the first: `--fail` on `--fail-wash`. */
+.tag-problem {
+  margin: 0;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--fail-wash);
+  color: var(--fail);
+}
+
+/* The handle of the section's rule, for a keyboard and a screen reader: it stands over the square the overlay draws and takes no pointer. */
+.section-rule-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-inline);
+  pointer-events: none;
+}
+
+.section-rule-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---- Compare's tags and its list (ui/CompareBar.tsx, ui/view/changeTags.ts) ---- */
+
+/* What changed, written on the part or the mark that changed: a line of words, its numbers in the face of numbers. */
+.tag .change-tag {
+  padding: 2px var(--space-2);
+  white-space: nowrap;
+}
+
+/* The band's "and N more": what the tags left out, what the later build changed, and how the checks and the dimensions moved. */
+.popover.compare-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--text-small);
+  line-height: 1.6;
+}
+
+.compare-list h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.compare-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compare-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.compare-list p {
+  margin: 0;
+}
+
+.compare-moved [data-better='true'] {
+  color: var(--ok);
+}
+
+.compare-moved [data-better='false'] {
+  color: var(--fail);
+}
+
+/* ---- The sketch plane's tag (ui/sketch/SketchPanel.tsx): "XZ plane y 40.0 mm Tab", on the plane's handle ---- */
+
+.sketch-plane-tag {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  white-space: nowrap;
+}
+
+.sketch-plane-tag .tag-value {
+  gap: 4px;
+}
+
+/* A reading: the view under it is drawn on and picked through it. */
+.tag[data-tag='sketch-plane'],
+.tag[data-tag^='change-'] {
+  pointer-events: none;
+}
+
+/* The place in the colour of the axis it runs along, as the section's. */
+.sketch-plane-value[data-axis='x'] {
+  color: var(--axis-x);
+}
+
+.sketch-plane-value[data-axis='y'] {
+  color: var(--axis-y);
+}
+
+.sketch-plane-value[data-axis='z'] {
+  color: var(--axis-z);
+}
+
+.sketch-plane-tag .tag-unit {
+  margin-left: 0;
+}
+
+.sketch-plane-tag kbd {
+  padding: 0 5px;
+  border-radius: var(--radius-inline);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ---- The tags of the tracing's tools (ui/tracings/TracingView.tsx): Measure's reading and Should be here's words, tied to the sheet ---- */
+
+/* They say, and take no pointer: the sheet under them is drawn on. */
+.tracing .tag {
+  pointer-events: none;
+}
+
+.tr-tag-reading,
+.tr-tag-words {
+  padding: 2px var(--space-2);
+}
+
+.tr-tag-words {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}

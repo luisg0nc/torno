@@ -2,7 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // A tracing in the 3D view: the switch in the panel puts it in the model view, `scene.json` keeps it as `tracingsShown`, the layers list has a row for it that
@@ -65,15 +65,18 @@ test('a picture for Claude draws the tracing shown and says so; it is back in th
   expect(caption).toContain(' · tracing T1 shown in its plane')
 })
 
-test('the layers list has a row for it, and its eye puts the tracing away', async () => {
-  await openPanel(page, 'Layers')
-  const row = page.locator('.layer-tracings [data-tracing="T1"]')
+test('the Tracings section has a row for it, and its eye puts the tracing away and shows it again', async () => {
+  await openSection(page, 'Tracings')
+  const row = page.locator('[data-section="tracings"] .tracing-rows [data-tracing="T1"]')
   await expect(row).toBeVisible()
   await expect(row).toContainText('Front')
   await row.getByRole('button', { name: 'Hide T1 in 3D' }).click()
-  await expect(row).toHaveCount(0)
+  // The row stays: the eye is how it is shown again.
+  await expect(row.getByRole('button', { name: 'Show T1 in 3D' })).toHaveAttribute('aria-pressed', 'false')
   await expect.poll(drawn).toEqual([])
   await expect.poll(() => sceneFile().tracingsShown).toBeUndefined()
   const caption = await page.evaluate(async () => (await window.__tornoTest!.look({ view: 'front', size: 128 })).caption)
   expect(caption).not.toContain('tracing T1')
+  await row.getByRole('button', { name: 'Show T1 in 3D' }).click()
+  await expect.poll(() => sceneFile().tracingsShown).toEqual(['T1'])
 })

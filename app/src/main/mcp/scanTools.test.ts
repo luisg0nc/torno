@@ -85,7 +85,7 @@ describe('scans', () => {
   })
 
   it('says when there are none, when the model has moved under one, when one is only rough, and what is wrong with its files', async () => {
-    expect(data(await scansTool(fake([]), 'box', {}))).toMatchObject({ scans: [], reading: 'no scans: the user imports one in the Scans panel of the torno window' })
+    expect(data(await scansTool(fake([]), 'box', {}))).toMatchObject({ scans: [], reading: 'no scans: the user imports one in the Scans section of the torno window' })
     const stale = scan('S1', { assembly: BY_PAIRS }, { checks: { assembly: { revision: 12, of: 4, off: 2, worst: 6.2, moved: [] } } })
     expect(data(await scansTool(fake([stale]), 'box', {})).scans[0].alignment.stale).toBe('the model is no longer under 2 of its 4 points (worst 6.2 mm off) on r12: check the alignment')
     const rough = data(await scansTool(fake([scan('S1', { assembly: ROUGH }, { meshState: 'missing', sourceState: 'missing' })], undefined, { busy: ['S1'] }), 'box', {}))
@@ -258,9 +258,9 @@ describe('scan_clash', () => {
     expect(await scanClashTool(two, 'box', { part: 'tub' })).toEqual(refused('name the scan: S1 (S1.glb), S2 (S2.glb)'))
     expect(await scanClashTool(two, 'box', { part: 'tub', scan: 'S9' })).toEqual(refused('no scan S9; scans: S1, S2'))
     expect((await scanClashTool(two, 'box', { part: 'tub', scan: 'S2' })).isError).toBeUndefined()
-    expect(await scanClashTool(fake([]), 'box', { part: 'tub' })).toEqual(refused('this project has no scans: the user imports one in the Scans panel of the torno window'))
+    expect(await scanClashTool(fake([]), 'box', { part: 'tub' })).toEqual(refused('this project has no scans: the user imports one in the Scans section of the torno window'))
     expect(await scanClashTool(fake([scan('S1', { assembly: BY_PAIRS }, { meshState: 'missing' })]), 'box', { part: 'tub' })).toEqual(
-      refused("S1's mesh is gone from /ws/box/.torno/scans/S1/mesh.bin: the user imports it again from its row in the Scans panel")
+      refused("S1's mesh is gone from /ws/box/.torno/scans/S1/mesh.bin: the user imports it again from its row in the Scans section")
     )
     expect(text(await scanClashTool(fake([scan('S1', { assembly: BY_PAIRS })]), 'box', { part: 'cap' }))).toBe("no part 'cap' in layout assembly (parts: tub, lid)")
     expect(text(await scanClashTool(fake([scan('S1', { assembly: BY_PAIRS })]), 'box', { part: 'tub/F5' }))).toBe('scan_clash is of a whole part, and tub/F5 is a face: give tub')

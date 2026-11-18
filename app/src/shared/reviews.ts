@@ -3,6 +3,9 @@ import { type Mark, type NoteMark, type ReviewIntent, markIntent } from './marks
 /** What a chip, a row and the bar write before a mark's number to say what the person says of it: set in the monospace face. */
 export const INTENT_CHIP: Record<ReviewIntent, string> = { dont: '−', want: '+' }
 
+/** What the round sign (`.sign-disc`) says in `data-sign`: the plain hyphen and plus, where `INTENT_CHIP` has the typeset minus a person reads. */
+export const INTENT_SIGN: Record<ReviewIntent, '-' | '+'> = { dont: '-', want: '+' }
+
 /** A round's id: `R1`, `R2`, … per project, given by main from `nextRound` and never given again. */
 export const ROUND_ID = /^R[1-9]\d{0,14}$/
 
@@ -45,6 +48,11 @@ export function openRound(rounds: readonly Round[]): Round | undefined {
 /** The marks that are in a round. */
 export function roundItems(marks: readonly Mark[], id: string): Mark[] {
   return marks.filter((mark) => mark.round === id)
+}
+
+/** The marks not in a round, by id: what the view draws dimmed while the round's band is on, so that its items stand out. */
+export function outsideRound(marks: readonly Mark[], id: string): Set<string> {
+  return new Set(marks.filter((mark) => mark.round !== id).map((mark) => mark.id))
 }
 
 /** How many items of a round the person does not want, wants and says nothing of. */

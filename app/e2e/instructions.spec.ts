@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { openListed } from './objects'
 import { inTerminal } from './terminal'
+import { newSession } from './helpers'
 
 // The instruction files Claude Code reads for an object (a CLAUDE.md above it, the person's own), listed in the session
 // pane by path and size (never their text), shown in their folder on a click, and told to the agent with the first
@@ -53,6 +54,19 @@ function strayClaudeFile(dir: string): string | null {
 
 const dock = () => page.locator('[data-region="session"]')
 const reads = () => dock().locator('.session-reads')
+const more = () => dock().getByRole('button', { name: 'More', exact: true })
+/** The instruction files are under "What Claude Code reads" of the header's More menu: opened as a person does, if they are not in sight. */
+async function showReads(): Promise<void> {
+  if (!(await reads().isVisible())) {
+    await more().click()
+    await page.getByRole('menu', { name: 'More' }).getByRole('menuitem', { name: 'What Claude Code reads' }).click()
+  }
+  await expect(reads()).toBeVisible()
+}
+async function hideReads(): Promise<void> {
+  if (await reads().isVisible()) await page.keyboard.press('Escape')
+  await expect(reads()).toHaveCount(0)
+}
 const revealed = (): Promise<string[]> => app!.evaluate(() => [...(globalThis as unknown as { __tornoMain: Main }).__tornoMain.revealedFiles])
 
 test('a CLAUDE.md above the object and the person\'s own are listed with their sizes, a click shows one in its folder, and the first prompt tells the agent', async () => {
@@ -67,8 +81,9 @@ test('a CLAUDE.md above the object and the person\'s own are listed with their s
   await launch()
   await openListed(page, 'bracket')
 
-  // One quiet line in the pane, before any session: not a question, not a dialog.
-  await expect(reads()).toBeVisible()
+  // Under More, before any session: not a question, not a dialog, and no line under the header.
+  await expect(reads()).toHaveCount(0)
+  await showReads()
   await expect(reads()).toContainText('Claude Code also reads, by default')
   const row = (path: string) => reads().locator('.session-read', { hasText: path })
   await expect(row('~/objects/CLAUDE.md')).toContainText('2.9 KB')
@@ -81,13 +96,15 @@ test('a CLAUDE.md above the object and the person\'s own are listed with their s
 
   // A click shows the file in its folder: main is given the row's place and finds the path itself.
   expect(await revealed()).toEqual([])
-  await row('~/objects/CLAUDE.md').getByRole('button').click()
+  await row('~/objects/CLAUDE.md').getByRole('menuitem').click()
   await expect.poll(revealed).toEqual([above])
+  await hideReads()
 
   // The first prompt of the session carries the sentence, and the person sees it under "torno added".
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(dock().locator('.chat')).toBeVisible()
-  await expect(reads()).toBeVisible()
+  await showReads()
+  await hideReads()
   const say = async (prompt: string): Promise<void> => {
     await dock().locator('[data-chat-composer]').focus()
     await page.keyboard.type(prompt)
@@ -129,6 +146,7 @@ test('with Claude Code\'s terminal the pane says it too, and an AGENTS.md is rea
   await launch()
   await openListed(page, 'bracket')
   // A rules folder is one entry: the folder, its files (at most that many load) and their size.
+  await showReads()
   await expect(reads().locator('.session-read', { hasText: 'bracket/.claude/rules/' })).toContainText('up to 1 file, 2 KB')
   // Claude Code reads an AGENTS.md only where no CLAUDE file is in the folder or above it. The app looks up to `/` as Claude Code does, so
   // a machine whose temporary folder lies under a folder with one cannot show it: that assertion is then skipped, and says why.
@@ -136,8 +154,10 @@ test('with Claude Code\'s terminal the pane says it too, and an AGENTS.md is rea
   test.skip(stray !== null, `${stray} is above the temporary folder, so Claude Code would not read an AGENTS.md here`)
   await expect(reads()).toContainText('~/objects/AGENTS.md')
   await expect(reads()).toContainText('10 B')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await hideReads()
+  await newSession(dock())
   await expect.poll(() => page.evaluate(() => window.__tornoTerm!.text())).toContain('READY')
+  await showReads()
   await expect(reads()).toContainText('~/objects/AGENTS.md')
   await expect(dock().locator('.chat')).toHaveCount(0)
 })

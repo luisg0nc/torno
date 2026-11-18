@@ -39,7 +39,7 @@ export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' 
 export const TOOL_KEYS = [
   { name: 'select', label: 'Select', key: 'V', group: 'inspect', does: 'Select: click a face or an edge, double-click for its part; Shift-click adds or takes out. The choice by the selection says what a click takes', next: null },
   { name: 'measure', label: 'Measure', key: 'M', group: 'inspect', does: 'Measure: two clicks, or a double click on a round thing; nothing is kept unless you keep it', next: 'Measure: click the first end, or double click something round', then: 'Measure: click the second end' },
-  { name: 'section', label: 'Section', key: 'X', group: 'inspect', does: 'Section: cut the parts by a plane', next: 'Section: drag the handle to move the plane' },
+  { name: 'section', label: 'Section', key: 'X', group: 'inspect', does: 'Section: cut the parts by a plane', next: 'Section: drag along the rule, or the plane' },
   { name: 'pin', label: 'Pin', key: 'P', group: 'mark', does: 'Pin: click a point and leave a note', next: 'Pin: click the part, then write a note' },
   { name: 'arrow', label: 'Arrow', key: 'A', group: 'mark', does: 'Arrow: drag from a point', next: 'Arrow: press on the part and drag to where it should go' },
   { name: 'draw', label: 'Draw', key: 'D', group: 'mark', does: 'Draw: a sketch in 3D, on planes or on the surface', next: 'Draw: press on the plane or the part and drag to leave a stroke' },
@@ -227,10 +227,11 @@ const ROWS = [
   row('chat.complete', ['Tab'], 'Chat: complete the / command chosen', 'Session', 'composer'),
   row('chat.stop', ['Ctrl+C'], 'Chat: stop the turn while Claude Code works, with nothing selected in the box', 'Session', 'composer'),
   row('chat.allow', ['Enter'], 'Chat: allow what the card in focus asks (in its reason field, Enter denies)', 'Session', 'ask'),
+  row('ask.option', ['1', '2', '3', '4', '5', '6', '7', '8', '9'], 'Ask: the option of that number: answers torno\'s question (the first three), picks or toggles it on the question Claude Code asks', 'Session', 'ask'),
   row('chat.close', ['Esc'], 'Chat: put away a picture shown large', 'Session', 'picture'),
   row('dock.resize', ['Left', 'Right'], 'On the edge of the session pane: wider or narrower', 'Session', 'separator'),
 
-  row('left.resize', ['Left', 'Right'], 'On the edge of the panel beside the rail: narrower or wider', 'Session', 'leftedge'),
+  row('left.resize', ['Left', 'Right'], 'On the edge of the card by the rail: narrower or wider', 'Session', 'leftedge'),
 
   row('field.keep', ['Enter'], 'Field: keep what was typed', 'In a field, a menu or a sheet', 'field'),
   row('field.leave', ['Esc'], 'Field: leave it as it was', 'In a field, a menu or a sheet', 'field'),

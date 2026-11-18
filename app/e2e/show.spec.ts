@@ -2,10 +2,13 @@ import { createHash } from 'node:crypto'
 import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { SESSION_HEADER } from '../src/main/http'
 import { inTerminal } from './terminal'
-import { closePanel, openPanel, railButton } from './helpers'
-import { objectList, openListed } from './objects'
+import { foldSection, openSection, railButton, showProjects, newSession } from './helpers'
+import { openListed, projectCard, projectCrumb, projectMenu, shelfOf } from './objects'
 import type { TornoState } from '../src/renderer/state/store'
 import type { ObjectCard } from '../src/shared/show'
 
@@ -73,22 +76,17 @@ test('the page of objects shows a card each, builds nothing, and opens one with 
   // Not built in this run: it says when its model was saved, read from the files; the plain fact is the tooltip.
   await expect(card('hollow')).toContainText(/Model saved .* ago|just now|Not opened in this run/)
   await expect(page.locator('.show-head')).toBeVisible()
-  await expect(card('hollow')).toContainText('No picture yet')
-  // With no picture to show, the picture's room is a third as tall as it is wide, and its three lines fit in it.
-  const room = (await card('hollow').locator('.card-picture').boundingBox())!
-  expect(room.width / room.height).toBeGreaterThan(2.9)
+  // A project with no picture has no size to draw: a dashed box says so, and no size is claimed.
+  await expect(card('hollow')).toContainText('Size not known until it builds')
+  await expect(card('hollow')).not.toContainText(' mm')
+  const room = (await card('hollow').locator('.bench-ghost').boundingBox())!
+  expect([Math.round(room.width), Math.round(room.height)]).toEqual([120, 80])
+  await expect(card('hollow').locator('.bench-ghost')).toHaveCSS('border-top-style', 'dashed')
   await card('hollow').hover()
-  const lines = (await card('hollow').locator('.card-nopicture').evaluate((el) => [el.scrollHeight, el.clientHeight]))
-  expect(lines[0]).toBeLessThanOrEqual(lines[1])
   // One that cannot be built says why, as the list does.
   await expect(card('two')).toContainText('more than one model file')
-  // With no object open the column holds the list alone, and the list takes the room there is: every object
-  // in sight, no scroller with empty room under it.
-  const list = page.locator('.objects .rows')
-  // A row each, under the row of the page itself.
-  await expect(list.locator('li')).toHaveCount((await state()).workspace!.objects.length + 1)
-  const [all, shown] = await list.evaluate((el) => [el.scrollHeight, el.clientHeight])
-  expect(all).toBeLessThanOrEqual(shown)
+  // With no object open the rail holds Projects and Keys alone, and there is no card.
+  await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   // Looking at the page built nothing, and wrote nothing.
   expect(await opened()).toEqual([])
   expect(existsSync(join(root, 'hollow', '.torno'))).toBe(false)
@@ -108,8 +106,7 @@ test('the page of objects shows a card each, builds nothing, and opens one with 
   await expect.poll(() => readFileSync(thumb('hollow', '.gitignore'), 'utf8').split('\n').filter(Boolean).sort()).toEqual(['builds.jsonl', 'history/', 'state.md', 'thumb.json', 'thumb.png'])
   // Nothing of it outside .torno.
   expect(readdirSync(join(root, 'hollow')).sort()).toEqual(['.torno', 'hollow.py'])
-  await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'All projects' }).click()
+  await showProjects(page)
   await expect(card('hollow')).toContainText('Built, r1')
   // A build of this run is said in ink behind the status line's dot; an object not opened here has neither.
   await expect(card('hollow').locator('[data-part="build"]')).toHaveAttribute('data-status', 'ok')
@@ -124,9 +121,6 @@ test('the page of objects shows a card each, builds nothing, and opens one with 
   // The 3D view is under the page as it was, and takes nothing meanwhile.
   await expect(page.locator('.viewport-pane')).toHaveAttribute('inert', '')
   expect((await state()).objectId).toBe('hollow')
-  // On the page the layers and the scans give way: the list has their room, beside the marks.
-  const [listed, height] = await list.evaluate((el) => [el.scrollHeight, el.clientHeight])
-  expect(listed).toBeLessThanOrEqual(height)
 })
 
 test('a card says when its picture is older than the model, and a second object gets its picture while the first is shown', async () => {
@@ -138,15 +132,94 @@ test('a card says when its picture is older than the model, and a second object 
   appendFileSync(join(root, 'hollow', 'hollow.py'), '\n# touched\n')
   await expect.poll(() => statSync(thumb('hollow')).mtimeMs, { timeout: 20_000 }).toBeGreaterThan(before)
   expect((await state()).objectId).toBe('plain')
+  // The picture's facts keep the kernel's size of what it is of, and say it is at the bench's scale.
+  const kept = meta('hollow') as { box?: { x: number; y: number; z: number; exact: boolean }; bench?: boolean }
+  expect(kept.bench).toBe(true)
+  expect(kept.box).toEqual({ x: expect.any(Number), y: expect.any(Number), z: expect.any(Number), exact: expect.any(Boolean) })
+  expect(kept.box!.x).toBeGreaterThan(0)
   // A picture older than its model says so.
   await expect.poll(() => meta('hollow').sourcesMtimeMs).toBe(statSync(join(root, 'hollow', 'hollow.py')).mtimeMs)
   // Its facts say which picture they are of: its size and what its bytes hash to.
   expect(meta('hollow')).toMatchObject({ bytes: statSync(thumb('hollow')).size, hash: createHash('sha256').update(readFileSync(thumb('hollow'))).digest('hex') })
   writeFileSync(thumb('hollow', 'thumb.json'), JSON.stringify({ ...meta('hollow'), sourcesMtimeMs: 1 }))
-  await openPanel(page, 'Projects')
-  await page.getByRole('button', { name: 'All projects' }).click()
+  await showProjects(page)
   await expect(card('hollow')).toContainText('A source has changed since')
   await expect(card('plain')).not.toContainText('A source has changed since')
+})
+
+test('the page is a bench: pictures side by side at one scale on a shelf, a size only where the kernel gave one, and True scale or Grid', async () => {
+  expect((await state()).page).toBe('objects')
+  // Nobody needs you and nothing works: the rest alone, on one shelf, with its bar.
+  await expect(shelfOf(page, 'The rest').getByRole('heading', { level: 3 })).toContainText('most recently changed first, all at the same scale, the bar is 50 mm')
+  await expect(shelfOf(page, 'Needs you')).toHaveCount(0)
+  await expect(shelfOf(page, 'Working')).toHaveCount(0)
+  await expect(page.locator('.shelf').first()).toHaveCSS('padding-left', '20px')
+  await expect(page.locator('.shelf .sbar').first()).toContainText('50 mm')
+  await expect(page.locator('.show-head h2')).toHaveText(root.split('/').pop()!)
+  // Their sizes are the kernel's, in the monospace face, and said only for a project with a picture at scale.
+  const kept = (id: string) => meta(id) as { box: { x: number; y: number; z: number; exact: boolean } }
+  for (const id of ['hollow', 'plain']) {
+    await expect(card(id).locator('.card-size')).toHaveText(new RegExp(`^${kept(id).box.exact ? '' : '≈ '}[\\d.]+ × [\\d.]+ × [\\d.]+ mm$`))
+    await expect(card(id).locator('.card-size')).toHaveCSS('font-family', /Martian Mono/)
+  }
+  await expect(card('gauge')).toContainText('Size not known until it builds')
+  await expect(card('gauge').locator('.card-size')).toHaveCount(0)
+  // One scale for the page: the width a picture takes is its box projected, over one factor, whichever project it is.
+  const figure = async (id: string): Promise<{ w: number; h: number }> => {
+    const box = (await card(id).locator('.bench-fig').boundingBox())!
+    return { w: box.width, h: box.height }
+  }
+  const projected = (id: string): number => (kept(id).box.x + kept(id).box.y) * Math.SQRT1_2
+  const [hollow, plain] = [await figure('hollow'), await figure('plain')]
+  const perMm = (hollow.w - 4) / projected('hollow')
+  expect((plain.w - 4) / projected('plain')).toBeGreaterThan(perMm * 0.85)
+  expect((plain.w - 4) / projected('plain')).toBeLessThan(perMm * 1.15)
+  // Nothing runs out of the page, and the pictures shown are the parts, not the picture's whole clear ground.
+  const fits = await page.evaluate(() => {
+    const show = document.querySelector<HTMLElement>('.show')!
+    const bench = document.querySelector<HTMLElement>('.bench')!
+    return { show: [show.scrollWidth, show.clientWidth], bench: [bench.offsetWidth, bench.scrollWidth, getComputedStyle(bench).zoom], innerHeight: window.innerHeight, shelves: [...document.querySelectorAll<HTMLElement>('.shelf')].map((shelf) => [shelf.scrollWidth, shelf.clientWidth]) }
+  })
+  expect(fits.shelves.every(([scroll, client]) => scroll <= client + 1) && fits.show[0] <= fits.show[1]).toBe(true)
+  // The rest is by the last save of the model, newest first, unless By name is chosen (kept for the folder).
+  const restIds = (): Promise<string[]> => shelfOf(page, 'The rest').locator('.card').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.object!))
+  const orders = page.getByRole('group', { name: 'Order of the projects' })
+  await expect(orders.getByRole('button', { name: 'Recently changed' })).toHaveAttribute('aria-pressed', 'true')
+  const recent = await restIds()
+  expect(recent[0]).toBe('hollow')
+  await orders.getByRole('button', { name: 'By name' }).click()
+  await expect(shelfOf(page, 'The rest').getByRole('heading', { level: 3 })).toContainText('by name, all at the same scale')
+  expect(await restIds()).toEqual([...recent].sort((a, b) => (a < b ? -1 : 1)))
+  expect(await page.evaluate(() => localStorage.getItem(`torno.show.order:${window.__tornoTest!.state().workspace!.root}`))).toBe('name')
+  await orders.getByRole('button', { name: 'Recently changed' }).click()
+  expect(await restIds()).toEqual(recent)
+  // Grid: the same projects, every picture in a box of one size.
+  await page.getByRole('group', { name: 'How the projects are drawn' }).getByRole('button', { name: 'Grid' }).click()
+  await expect(page.locator('.bench')).toHaveAttribute('data-mode', 'grid')
+  await expect(page.locator('.shelf .sbar')).toHaveCount(0)
+  for (const id of ['hollow', 'plain']) {
+    const box = (await card(id).locator('.bench-fig').boundingBox())!
+    expect(box.width).toBeLessThanOrEqual(160.5)
+    expect(box.height).toBeLessThanOrEqual(120.5)
+  }
+  expect(await page.evaluate(() => localStorage.getItem(`torno.show.mode:${window.__tornoTest!.state().workspace!.root}`))).toBe('grid')
+  await page.getByRole('group', { name: 'How the projects are drawn' }).getByRole('button', { name: 'True scale' }).click()
+  await expect(page.locator('.bench')).toHaveAttribute('data-mode', 'scale')
+  await expect(page.locator('.shelf .sbar').first()).toBeVisible()
+  // The one that is open stands with Open and a bar of the accent under its picture.
+  await expect(card('plain')).toHaveAttribute('aria-current', 'true')
+  await expect(card('plain').locator('.card-open')).toHaveText('Open')
+  // At 1280 × 800 the page is drawn at 86 % rather than wrap the shelves, and nothing runs out of it.
+  const was = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 800))
+  await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(800)
+  await expect(page.locator('.bench')).toHaveCSS('zoom', '0.86')
+  const small = await page.evaluate(() => ({ show: [document.querySelector<HTMLElement>('.show')!.scrollWidth, document.querySelector<HTMLElement>('.show')!.clientWidth], shelves: [...document.querySelectorAll<HTMLElement>('.shelf')].map((shelf) => [shelf.scrollWidth, shelf.clientWidth]) }))
+  expect(small.show[0]).toBeLessThanOrEqual(small.show[1])
+  for (const [scroll, client] of small.shelves) expect(scroll).toBeLessThanOrEqual(client + 1)
+  await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), was)
+  await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(was[1])
+  await expect(page.locator('.bench')).toHaveCSS('zoom', '1')
 })
 
 test('a picture is of the object as it was last looked at, and says what it leaves out', async () => {
@@ -239,26 +312,35 @@ test('the keys go from card to card, filter by name, open, and go back; none of 
   expect((await state()).page).toBe('objects')
   await expect.poll(() => focusedCard()).toBe('bracket')
   const ids = (await state()).workspace!.objects.map((o) => o.id)
+  // The cards are in the order the shelves show them, which is what the arrows follow.
+  const order = (): Promise<string[]> => page.locator('.card').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.object!))
+  const shown = await order()
+  expect([...shown].sort()).toEqual([...ids].sort())
+  const at = shown.indexOf('bracket')
   await page.keyboard.press('ArrowRight')
-  expect(await focusedCard()).toBe(ids[1])
+  expect(await focusedCard()).toBe(shown[at + 1])
   await page.keyboard.press('ArrowLeft')
   expect(await focusedCard()).toBe('bracket')
-  const columns = await page.evaluate(() => {
-    const cards = [...document.querySelectorAll<HTMLElement>('.card')]
-    return cards.filter((one) => one.offsetTop === cards[0].offsetTop).length
-  })
-  await page.keyboard.press('ArrowDown')
-  expect(await focusedCard()).toBe(ids[columns])
-  await page.keyboard.press('End')
-  expect(await focusedCard()).toBe(ids[ids.length - 1])
+  // Up and down go by the shelves: to the line below, and back to the one above.
+  const line = (id: string): Promise<number> => card(id).evaluate((el) => Number((el as HTMLElement).dataset.line))
+  const lines = await page.locator('.card').evaluateAll((els) => new Set(els.map((el) => (el as HTMLElement).dataset.line)).size)
+  expect(lines).toBeGreaterThan(1)
   await page.keyboard.press('Home')
+  expect(await focusedCard()).toBe(shown[0])
+  await page.keyboard.press('ArrowDown')
+  const below = (await focusedCard())!
+  expect(await line(below)).toBe((await line(shown[0])) + 1)
+  await page.keyboard.press('ArrowUp')
+  expect(await line((await focusedCard())!)).toBe(await line(shown[0]))
+  await page.keyboard.press('End')
+  expect(await focusedCard()).toBe(shown[shown.length - 1])
   // A letter goes into the filter: P is the Pin tool's key in the view, and is no tool's here.
   await page.keyboard.type('pl')
   const field = page.getByRole('textbox', { name: 'Filter the projects by name' })
   await expect(field).toBeFocused()
   await expect(field).toHaveValue('pl')
   await expect(page.locator('.card')).toHaveCount(1)
-  await expect(page.locator('.show-count')).toHaveText(`1 of ${ids.length} in ${root.split('/').pop()}`)
+  await expect(page.locator('.show-count')).toHaveText(`1 of ${ids.length} projects in ${root}`)
   // Enter opens the first that is left.
   await page.keyboard.press('Enter')
   await expect.poll(async () => (await state()).objectId).toBe('plain')
@@ -353,18 +435,17 @@ test('a build that fails wins over the picture, which stays and is dimmed', asyn
   await page.keyboard.press('Escape')
 })
 
-test('the rail keeps Projects and Marks while the page is up, and Escape closes what is on top first', async () => {
+test('the rail holds Projects and Keys alone while the page is up, and Escape closes what is on top first', async () => {
   // plain is open, and failed: the page comes up over it.
   await page.keyboard.press('w')
   expect((await state()).page).toBe('objects')
-  // The layers and the scans act on a view that is not on screen while the page is up: they have given way
-  // (final fix wave), and with them the one slider the left had there: the rail has no icon for them. The marks stay.
-  for (const name of ['Layers', 'Params', 'Scans'] as const) await expect(railButton(page, name)).toHaveCount(0)
-  for (const name of ['Projects', 'Marks'] as const) await expect(railButton(page, name)).toBeVisible()
-  await openPanel(page, 'Marks')
+  // The sections of the card act on a view that is not on screen while the page is up: the card is away and the rail
+  // has no icon for them (final fix wave). Projects, pressed, and Keys remain.
+  for (const name of ['Needs you', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile'] as const) await expect(railButton(page, name)).toHaveCount(0)
+  for (const name of ['Projects', 'Keys'] as const) await expect(railButton(page, name)).toBeVisible()
+  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   await expect(page.locator('[data-region="left"]').getByRole('slider')).toHaveCount(0)
-  await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Layers' })).toHaveCount(0)
-  await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Marks' })).toBeVisible()
   // The build's error, opened from the status line, is over the page: Escape closes it, and the page stays.
   await page.locator('.status-fail').click()
   const sheet = page.getByRole('dialog', { name: 'Build error' })
@@ -373,17 +454,16 @@ test('the rail keeps Projects and Marks while the page is up, and Escape closes 
   await expect(sheet).toHaveCount(0)
   expect((await state()).page).toBe('objects')
   // A question asked in the left column: Escape answers it with the answer that changes nothing, and the page stays.
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(() => page.evaluate(() => window.__tornoTerm!.text())).toContain('READY')
   await page.locator('.session-term textarea').focus()
   await page.keyboard.type('hook')
   await page.keyboard.press('Enter')
   await expect(page.locator('[data-region="session"]').getByRole('status')).toHaveText('Working')
   expect((await state()).page).toBe('objects')
-  // The folder button is at the top of the Projects panel, and a menu: the dialog is one of its ways.
-  await openPanel(page, 'Projects')
-  await page.locator('[data-region="left"]').getByRole('button', { name: 'Folders' }).click()
-  await page.locator('[data-region="left"]').getByRole('menuitem', { name: 'Open folder…' }).click()
+  // The folder crumb of the title bar is a menu: the dialog is one of its ways.
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menuitem', { name: 'Open folder…' }).click()
   const ask = page.getByRole('alertdialog', { name: 'End the sessions of this folder?' })
   await expect(ask).toBeVisible()
   await page.keyboard.press('Escape')
@@ -394,8 +474,7 @@ test('the rail keeps Projects and Marks while the page is up, and Escape closes 
   await page.keyboard.press('Escape')
   expect(await state()).toMatchObject({ page: 'object', objectId: 'plain' })
   // What had the focus when the page came up has it again when the page goes.
-  await openPanel(page, 'Projects')
-  const all = page.getByRole('button', { name: 'All projects' })
+  const all = railButton(page, 'Projects')
   await all.focus()
   await page.keyboard.press('Enter')
   expect((await state()).page).toBe('objects')
@@ -405,38 +484,115 @@ test('the rail keeps Projects and Marks while the page is up, and Escape closes 
   await expect(all).toBeFocused()
 })
 
-test('the Projects panel lists every project, opens another by the pointer, and the panel is the window\'s', async () => {
-  // hollow open, from the list with the pointer, and the panel lists every project of the workspace.
+test('the page of projects has a card for every project, the project menu opens another, and what is folded in the card is the window\'s', async () => {
+  // hollow open, from the project crumb, and the page has a card for every project of the workspace.
   expect((await state()).page).toBe('object')
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).build).toMatchObject({ objectId: 'hollow', status: 'ok' })
   const count = (await state()).workspace!.objects.length
   expect(count).toBeGreaterThanOrEqual(15)
-  const left = page.locator('[data-region="left"]')
-  const objects = objectList(page)
-  await openPanel(page, 'Projects')
-  await expect(left.locator('.workspace-name')).toBeVisible()
-  await expect(objects.locator('.object-row')).toHaveCount(count)
-  await expect(objects.getByRole('button', { name: 'hollow', exact: true })).toHaveAttribute('aria-current', 'true')
-  await expect(objects.getByRole('button', { name: 'All projects' })).toBeVisible()
-  // One that cannot be built is muted, with the reason as its title.
-  await expect(objects.getByRole('button', { name: 'two', exact: true })).toHaveAttribute('data-problem', '')
-  await expect(objects.getByRole('button', { name: 'two', exact: true })).toHaveAttribute('title', /more than one model file/)
-  // Another project, opened by its row, and the panel stays as it was.
-  await objects.getByRole('button', { name: 'bracket', exact: true }).click()
+  await showProjects(page)
+  await expect(page.locator('.title-row .workspace-name')).toBeVisible()
+  await expect(page.locator('.show .card')).toHaveCount(count)
+  await expect(projectCard(page, 'hollow')).toHaveAttribute('aria-current', 'true')
+  // One that cannot be built is marked.
+  await expect(projectCard(page, 'two')).toHaveAttribute('data-problem', '')
+  // Another project, opened by its card; the card is back beside the rail.
+  await projectCard(page, 'bracket').click()
   await expect.poll(async () => (await state()).objectId).toBe('bracket')
-  await expect(objects.getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
-  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'true')
-  // The window keeps which panel is open, in its own storage: nothing of it is in the workspace.
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!)).toMatchObject({ open: 'projects' })
+  await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(1)
+  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'false')
+  // The project crumb's menu has All projects at its head, then every project; the open one is current.
+  await projectCrumb(page).click()
+  const menu = projectMenu(page)
+  await expect(menu.getByRole('menuitem')).toHaveCount(count + 1)
+  await expect(menu.getByRole('menuitem').first()).toHaveText(/^All projects/)
+  await expect(menu.getByRole('menuitem', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
+  await page.keyboard.press('Escape')
+  // The window keeps which sections are folded, in its own storage: nothing of it is in the workspace.
   expect(readdirSync(join(root, 'hollow', '.torno'))).not.toContain('column.json')
-  // Pressed again, the panel goes; the next opens another.
-  await closePanel(page)
-  await expect(left.locator('.panel-host')).toHaveCount(0)
-  await openPanel(page, 'Layers')
-  await expect(left.getByRole('region', { name: 'Layers' })).toBeVisible()
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!)).toMatchObject({ open: 'layers' })
-  await openPanel(page, 'Marks')
+  await foldSection(page, 'Parts')
+  await expect(page.locator('[data-region="left"] .layers')).toHaveCount(0)
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!).folded).toContain('parts')
+  await openSection(page, 'Parts')
+  await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Parts' })).toBeVisible()
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!).folded).not.toContain('parts')
+  await openSection(page, 'Marks')
+})
+
+// Who needs you stands first. Its own window: the sessions here are the stand-in's, and a chat of its own needs a home that is not the person's.
+test('who needs you stands first: Claude\'s question with Answer, who works beside it, and the rest under them', async () => {
+  test.setTimeout(120_000)
+  const own = copyFixtures('torno-e2e-show-needs-')
+  const home = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-show-home-'))
+  inTerminal(own, ['measures'])
+  const ownApp = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, HOME: home, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: own } })
+  try {
+    const p = await ownApp.firstWindow()
+    await p.waitForSelector('[data-region="left"]')
+    await p.emulateMedia({ colorScheme: 'light' })
+    const dock = p.locator('[data-region="session"]')
+    // measures: a session at work in its terminal, the stand-in posting the hooks the CLI would.
+    await openListed(p, 'measures')
+    await newSession(dock)
+    await p.locator('.session-term textarea').focus()
+    await p.keyboard.type('hook')
+    await p.keyboard.press('Enter')
+    await expect(dock.getByRole('status').first()).toHaveText('Working')
+    // bracket: Claude asks, through torno's own ask.
+    await openListed(p, 'bracket')
+    await expect.poll(async () => (await state(p)).build, { timeout: 30_000 }).toMatchObject({ objectId: 'bracket', status: 'ok' })
+    await newSession(dock)
+    await expect(dock.locator('[data-chat-composer]')).toBeEnabled()
+    const { url, token } = await ownApp.evaluate((_electron, id) => (globalThis as unknown as { __tornoMain: { mcpFor(id: string): { url: string; token: string } } }).__tornoMain.mcpFor(id), 'bracket')
+    const client = new Client({ name: 'torno-e2e', version: '0' })
+    await client.connect(new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers: { [SESSION_HEADER]: token } } }))
+    try {
+      const waiting = client.callTool({ name: 'ask', arguments: { question: 'Which wall do you mean?', options: [{ label: 'The left wall', refs: [] }, { label: 'The right wall', refs: [] }] } })
+      await expect(p.locator('.ask-question')).toBeVisible()
+      await showProjects(p)
+      const needs = shelfOf(p, 'Needs you')
+      const working = shelfOf(p, 'Working')
+      const rest = shelfOf(p, 'The rest')
+      await expect(needs.getByRole('heading', { level: 3 })).toContainText('Needs you')
+      await expect(needs.locator('.grp-n')).toHaveText('1')
+      await expect(needs.locator('.card')).toHaveCount(1)
+      await expect(needs.locator('.card')).toHaveAttribute('data-object', 'bracket')
+      // What it waits on: Claude's question in a warning wash, how long, and the way to answer it.
+      const ask = needs.locator('.askcard')
+      await expect(ask).toContainText('Claude asks: Which wall do you mean?')
+      await expect(ask).toContainText(/waiting (under 1 min|\d+ min)/)
+      await expect(ask).toHaveCSS('max-width', '300px')
+      await expect(needs.getByRole('heading', { level: 3 })).toHaveCSS('color', 'rgb(140, 92, 22)')
+      // Working stands beside it, on a shelf of its own.
+      await expect(working.locator('.card')).toHaveAttribute('data-object', 'measures')
+      await expect(working.locator('.workcard')).toContainText('Claude Code is working')
+      const [a, b] = [(await needs.boundingBox())!, (await working.boundingBox())!]
+      expect(Math.abs(a.y - b.y)).toBeLessThan(2)
+      expect(b.x).toBeGreaterThan(a.x + a.width - 1)
+      // The rest are under them, and none of those two is among them.
+      expect((await rest.boundingBox())!.y).toBeGreaterThan(a.y + a.height - 1)
+      await expect(rest.locator('.card[data-object="bracket"], .card[data-object="measures"]')).toHaveCount(0)
+      await expect(rest.locator('.card')).toHaveCount((await state(p)).workspace!.objects.length - 2)
+      // The keys go through the shelves in the order of the page: who needs you first.
+      expect(await p.locator('.card').first().getAttribute('data-object')).toBe('bracket')
+      // Answer opens the project and brings the question up, where it is answered.
+      await ask.getByRole('button', { name: 'Answer' }).click()
+      await expect.poll(async () => (await state(p)).objectId).toBe('bracket')
+      expect((await state(p)).page).toBe('object')
+      await expect(p.locator('.ask-question')).toBeVisible()
+      await p.locator('.ask-question').getByRole('button', { name: /The right wall/ }).click()
+      await waiting
+      await showProjects(p)
+      await expect(needs).toHaveCount(0)
+    } finally {
+      await client.close()
+    }
+  } finally {
+    await ownApp.close()
+    rmSync(own, { recursive: true, force: true })
+    rmSync(home, { recursive: true, force: true })
+  }
 })
 
 // Forty objects, none opened: what the page costs when it is the face of a full workspace. Thirty have a picture
@@ -451,6 +607,8 @@ test('with forty objects the page is there at once, builds nothing, and asks for
   for (const [i, name] of names.entries()) {
     mkdirSync(join(many, name, '.torno'), { recursive: true })
     writeFileSync(join(many, name, `${name.replace('-', '_')}.py`), readFileSync(join(fixtures, 'plain', 'plain.py')))
+    // Saved a second apart, part-01 last: the shelf is in that order, newest first, and so the first rows are the first parts.
+    utimesSync(join(many, name, `${name.replace('-', '_')}.py`), (later - 60_000 - i * 1000) / 1000, (later - 60_000 - i * 1000) / 1000)
     if (i % 4 !== 3) {
       writeFileSync(join(many, name, '.torno', 'thumb.png'), picture)
       writeFileSync(join(many, name, '.torno', 'thumb.json'), JSON.stringify({ ...facts, model: `${name.replace('-', '_')}.py`, sourcesMtimeMs: i % 8 === 0 ? 1 : later }))
@@ -487,13 +645,13 @@ test('with forty objects the page is there at once, builds nothing, and asks for
     expect(first).toBeLessThan(20)
     await expect(manyPage.locator('.card[data-object="part-38"] img')).toHaveCount(0)
     await expect(manyPage.locator('.card[data-object="part-01"]')).toContainText('A source has changed since')
-    await expect(manyPage.locator('.card[data-object="part-04"]')).toContainText('No picture yet')
+    await expect(manyPage.locator('.card[data-object="part-04"]')).toContainText('Size not known until it builds')
     // A source that is not the model file: the helper beside it.
     await expect(manyPage.locator('.card[data-object="part-05"]')).toContainText('A source has changed since')
     await expect(manyPage.locator('.card[data-object="part-06"]')).not.toContainText('A source has changed since')
     // Facts without their picture, and a picture that is not the one its facts are of, are no picture: nothing is said of one.
     for (const id of ['part-02', 'part-03']) {
-      await expect(manyPage.locator(`.card[data-object="${id}"]`)).toContainText('No picture yet')
+      await expect(manyPage.locator(`.card[data-object="${id}"]`)).toContainText('Size not known until it builds')
       await expect(manyPage.locator(`.card[data-object="${id}"]`)).not.toContainText('Picture of')
       await expect(manyPage.locator(`.card[data-object="${id}"] img`)).toHaveCount(0)
     }
@@ -576,7 +734,7 @@ for (const shot of ['light', 'dark', 'empty-light', 'empty-dark'] as const) {
         await shotPage.keyboard.press('ArrowRight')
         await shotPage.locator('.show').evaluate((el) => el.scrollTo(0, 0))
       } else {
-        await expect(shotPage.locator('.show-empty')).toBeVisible()
+        await expect(shotPage.locator('.empty-folder')).toBeVisible()
       }
       await shotPage.evaluate(async () => {
         await document.fonts.ready

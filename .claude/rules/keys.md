@@ -8,6 +8,10 @@ paths:
   - "app/src/renderer/state/tools.ts"
   - "app/src/shared/keys.ts"
   - "app/src/shared/keys.test.ts"
+  - "app/src/shared/keyboard.ts"
+  - "app/src/shared/keyboard.test.ts"
+  - "app/src/shared/keySentences.ts"
+  - "app/src/shared/keySentences.test.ts"
   - "app/src/renderer/ui/KeySheet.tsx"
   - "app/src/renderer/ui/typing.ts"
   - "app/src/main/devkeys.ts"
@@ -23,6 +27,7 @@ paths:
   - "app/src/renderer/state/measured.ts"
   - "app/src/renderer/state/measured.test.ts"
   - "app/src/renderer/viewport/heldValue.ts"
+  - "app/src/renderer/ui/view/MeasureTag.tsx"
   - "app/src/renderer/ui/ViewportPane.tsx"
 ---
 
@@ -36,10 +41,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`KEYS`: its keys, what it does, the group the sheet lists it in, and the
   scope it is listened to in). A handler asks `pressed(e, id)` or
   `which(e, id)` and never names a key; a button or a tooltip takes its key
-  from `hint(id)`; the palette's tools, the view bar's views and the gizmo's
+  from `hint(id)`; the reed's tools, the compass's views and the gizmo's
   ways are `TOOL_KEYS`, `VIEW_KEYS` and `GIZMO_KEYS`; the sheet of keys (`?`,
-  `ui/KeySheet.tsx`) is `cheatSheet()`. A tool's key is shown on its
-  palette button and in its tooltip, and on the sheet of keys; nowhere else. The empty Marks section names no key: it
+  `ui/KeySheet.tsx`) is `cheatSheet()`. A tool's key is shown in its tooltip,
+  in the name of the tool in hand (the reed's pill) and on the sheet of keys; on no button (`aria-keyshortcuts` holds it); nowhere else. The empty Marks section names no key: it
   says what a mark is and that it goes with the next prompt. A new key is added there first:
   `keys.test.ts` reads the sources of the window, the preload and
   `main/devkeys.ts` and fails for any read of `.key`, `.code`, `.keyCode` or
@@ -77,19 +82,18 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the keys (`TYPING`); what the pointer took up gives them back once done with: a choice made in a list
   (`pointerChoice`, `chosen`), the session pane's edge once dragged, as Enter and Escape do in a field
   (`giveKeysBack`). The exported page's own keys (`src/export/viewer`) are not in the
-  table: it is another program. The palette's tools are `TOOL_KEYS` in the order of their groups (`group`:
+  table: it is another program. The reed's tools are `TOOL_KEYS` in the order of their groups (`group`:
   `inspect` Select, Measure, Section; `mark` Pin, Arrow, Draw, Shape, Region; `scan` Align), drawn as one
-  `role="group"` each (`TOOL_GROUPS` in `state/tools.ts`, its `aria-label` the group's name) with a
-  `toolbox-rule` between them; the sheet of keys and the manual's table follow that order. The Measure tool is
-  `tools/measureTool.ts`; what its clicks measure is chosen in the strip `MeasureChoice` of
-  `ui/ToolPalette.tsx`, and a dimension's expectation is typed in
+  `role="group"` each (`TOOL_GROUPS` in `state/tools.ts`, its `aria-label` the group's name), each a pill of the reed; the sheet of keys and the manual's table follow that order. The Measure tool is
+  `tools/measureTool.ts`; what its clicks measure is chosen in the pill of Measure (`pillOf` in `ui/view/reedPill.ts`, drawn by `ReedPillView` of
+  `ui/ToolPalette.tsx`), and a dimension's expectation is typed in
   `ui/DimensionFields.tsx`. **A measurement is no mark**: the tool asks main (`ctx.measure`, `geometry.measure`)
   and nothing is committed; the kernel's value replaces the `≈` estimate at the pointer, and the last
   measurement is held in `state/measured.ts` (`Held`: its ends, kind, layout, build, camera, value and `how`),
-  which changes once per measurement. The strip shows it (`Last: …`, only for the object and build on show)
+  which changes once per measurement. Its tag on the measured line shows it (`ui/view/MeasureTag.tsx`, only for the object and build on show)
   until the next first end, Escape with nothing under way or the tool put down. It is kept as a dimension only
-  by `measure.keep` (Enter) or the strip's "Keep as a dimension", both `keepHeld`, which commits the same
-  anchors through `commitMark` (main measures it again); the strip then says `Kept as M7`. The kernel's two points (`Held.points`) draw it in the view until then: a `held` draft (`Draft.held`, the value text) in `--ink`, not faint, with its value at the middle (`viewport/heldValue.ts`); a distance's strip adds `Δx Δy Δz` (`componentsOf`). A readout is not a
+  by `measure.keep` (Enter) or its "Keep as a dimension", both `keepHeld`, which commits the same
+  anchors through `commitMark` (main measures it again); the tag then says `Kept as M7`, and a kept dimension main refuses is a second tag (`problem`). The kernel's two points (`Held.points`) draw it in the view until then: a `held` draft (`Draft.held`, the value text) in `--ink`, not faint; the tag's subject is the middle of that line (`readingAt` in `viewport/heldValue.ts`: nothing of the value is drawn on the canvas); the tag holds the value in mono 19 px with its unit at 11 px, `how, exact` and a distance's `Δx Δy Δz` (`componentsOf`), and the primary "Keep as a dimension". A readout is not a
   mark and is never drawn in a mark's colour. In Angle, before the second click, an end the kernel takes by its axis, only if
   flat or straight, or never (`angleTaking`, by the descriptor's type, the kernel's rule) is said at the pointer
   in place of the `≈` estimate; it is a hint, never a gate: the click is sent whatever it says. A tool is a `Tool`
@@ -102,7 +106,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `Shift+3`. `Ctrl` held is read off the pointer event (`ViewportPointer.ctrl`), and `Ctrl+Z` has its own listener
   (`connectSketching`), the viewport pane handing no chord to a tool. What it lays over the view (the hint, the label of its
   plane, the view cube) is drawn by `OverlayPass`, and the sheet of the plane and its handle by `SketchSheet`, never through React.
-  The strip of pens (`ui/sketch/SketchPens.tsx`, `.sketchpens` in `styles/sketch.css`, at the foot of the view above the triad as the Measure strip is) is shown while Draw has a sketch open: Free, Line, Point to point and Erase, then Snap and X-ray as switches, each a real `<button>` with its key from `hint()` and calling the actions the keys call (`setPen`, `setSnapping`, `setXray`), so a key and a button never disagree. Snap has no key of its own: it shows `Ctrl`, which turns it off while held.
+  The pens grow out of Draw's name in the reed (`pillOf('draw', …)`, `.reed-pill` in `styles/tools.css`) while Draw has a sketch open: Free, Line, Point to point and Erase (Snap and X-ray are switches, `role="switch"`, in the sketch panel in the card's head, `.sketchpanel-switch`); each pen is a real `<button>` with its key from `hint()` and calling the actions the keys call (`setPen`, `setSnapping`, `setXray`), so a key and a button never disagree. Snap has no key of its own: it shows `Ctrl`, which turns it off while held.
 - **The keys of a review** are three rows of scope `window`, heard outside a field and the terminal with the model on show
   (`useReviewKeys`, `ui/ReviewBar.tsx`): `marks.review` (`H`) starts a round on the build on show, or finds the one that is open;
   `review.dont` (`-`) and `review.want` (`=`, `+`) choose what the marks made next are while a round is open on the layout shown, the
@@ -119,3 +123,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `Esc`): its rows are `tracing.*` ids in the scope `lineup`, so a key the tracing scope has too (`Backspace`, `Enter`, `Esc`) is not heard twice. Neither scope takes a key of another scope
   with the same chord (`keyClashes`), and the buttons and hints take their keys from `hint()`, never written out. The tests of `tools/*.test.ts` and `keys.test.ts` hold the table, and the
   manual's key table is generated from it (`readme.test.ts`).
+- **The keyboard** (`?`, or Keys on the rail; `ui/KeySheet.tsx`, `styles/keys.css`) rises from the foot of the window, 400 px high over the view and the card (the rail and
+  the status line stay), with `--scrim` fading in from a fifth of the height above it (0.32 s, none under reduced motion). The places are chips (`PLACES` in `shared/keyboard.ts`, each
+  holding finer `Context`s, from `contextOf(row)`: scope and group of the row); a field, a menu and the keys for working on torno are searched, not browsed. The keyboard is `KEYBOARD` (US
+  QWERTY, `Esc` and `F6` among its caps), 56 by 48 keys with a 7 px radius (the one hard radius `styles.test.ts` allows in `keys.css`); `capOf(code, context)` says what a cap does there (a word from
+  the row's id, the whole text for its tip), whether it is a tool's key (accent wash) and whether it is heard in the view (outline); what is heard everywhere shows in every place. The sheet draws
+  `drawnKeyboard(...)` and never reads a key press: a cap's `code` is read only in `shared/` (`keys.test.ts` scans the window's sources). Keys with a modifier are listed under the keyboard, by place.
+  **Search answers in sentences** (`shared/keySentences.ts`): `sentencesFor(query)` is one sentence for each place a key or words are heard, from the rows' `does` turned from the imperative
+  ("Draw the parts apart") to what the key does ("E draws the parts apart"); several keys take the verb as it is, a row's `Label:` is the sentence's "for Label" (or, for a tool's key, "V picks Select: ...";
+  for a label that is a verb, "Esc steps back: ..."), and `notHeard` says where a key is not heard, from its scope. No sentence is written by hand for a key: the grammar knows the verbs (`VERBS`, `NOUNS`)
+  and `keySentences.test.ts` fails for a row that begins with a word it does not know, so a new row either reads as a sentence or its first word is added there. A single key's name searches by key
+  (`E`); anything else is all the words, in what a row does, its keys, its place and its id (`explode`). The count line is said once (`aria-live`); the pointer's rows are searched as before (`matchingPointer`).

@@ -1,4 +1,4 @@
-// Copies into site/ what the landing page (site/index.html) uses and git does not keep there: the IBM Plex faces
+// Copies into site/ what the landing page (site/index.html) uses and git does not keep there: the Instrument Sans and Martian Mono faces
 // from app/node_modules and the pictures and the recording from docs/images. Run by .github/workflows/pages.yml
 // after `pnpm install`, and by hand to look at the page locally:
 //   node app/scripts/build-site.mjs && python3 -m http.server -d site 8765
@@ -12,10 +12,10 @@ const fonts = 'app/node_modules/@fontsource'
 
 /** Published path under site/ → source path in the repository. */
 export const COPIED = {
-  'assets/fonts/plex-sans-400.woff2': `${fonts}/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2`,
-  'assets/fonts/plex-sans-500.woff2': `${fonts}/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2`,
-  'assets/fonts/plex-sans-600.woff2': `${fonts}/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2`,
-  'assets/fonts/plex-mono-400.woff2': `${fonts}/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2`,
+  'assets/fonts/instrument-sans-400.woff2': `${fonts}/instrument-sans/files/instrument-sans-latin-400-normal.woff2`,
+  'assets/fonts/instrument-sans-500.woff2': `${fonts}/instrument-sans/files/instrument-sans-latin-500-normal.woff2`,
+  'assets/fonts/instrument-sans-600.woff2': `${fonts}/instrument-sans/files/instrument-sans-latin-600-normal.woff2`,
+  'assets/fonts/martian-mono-400.woff2': `${fonts}/martian-mono/files/martian-mono-latin-400-normal.woff2`,
   'assets/img/hero.png': 'docs/images/hero.png',
   'assets/img/hero-dark.png': 'docs/images/hero-dark.png',
   'assets/img/marks.png': 'docs/images/marks.png',

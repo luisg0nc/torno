@@ -8,8 +8,10 @@ paths:
   - "app/src/main/profile.test.ts"
   - "app/src/main/builds.ts"
   - "app/src/main/builds.test.ts"
-  - "app/src/renderer/ui/ChecksPanel.tsx"
-  - "app/src/renderer/ui/ChecksPanel.test.ts"
+  - "app/src/renderer/ui/card/Checks.tsx"
+  - "app/src/renderer/ui/card/Checks.test.ts"
+  - "app/src/renderer/ui/card/checksOrder.ts"
+  - "app/src/renderer/ui/card/checksOrder.test.ts"
   - "app/src/renderer/ui/checkRows.ts"
   - "app/src/renderer/ui/PrintProfile.tsx"
   - "app/e2e/checks.spec.ts"
@@ -55,21 +57,30 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Checks (`app/src/renderer`)
 
-- `ui/ChecksPanel.tsx` (its own component, beside the marks, not in them): the checks the model declares in its
-  `checks(p)` as the kernel measured them at the last build (`Scene.checks`, `Scene.checkNotes`), read only, under
-  Parameters, in the Params panel (a section of it, never folded), with a title that says how many fail (`2 · 1 fails`, `checksSaid`). A row
-  (`checkRow` in `ui/checkRows.ts`, pure, words from `shared/modelChecks.ts`) is the model's own name, how it stands
-  in a word (`pass`, `fails`, `not measured`, `not run`: never colour alone), what was measured and what was wanted in
-  the monospace face, and, for a thin wall or an approximate value, that it was found by sampling; its title is the
-  kernel's `how`. A bar in `--agent-mark` marks them as the model's own. They are not marks: no check resolves,
-  replaces or silences a person's dimension. Under the rows, what the agent made easier to pass or removed since it was
-  first declared (`checkNotes`, `since r7`). A model with no checks, or a kernel that does not read them, has no section
-  (`e2e/checks.spec.ts`).
+- `ui/card/Checks.tsx`, the body of the Checks section of the route card: the checks the model declares in its `checks(p)` as the
+  kernel measured them at the last build (`Scene.checks`, `Scene.checkNotes`) and the person's dimension checks (`isCheck`) as
+  one list. `ui/card/checksOrder.ts` (pure) is the rule: `mergedChecks(model, dimensions, build)` gives `CheckRow`s, failing
+  first, then not run or not measured, then passing, stable within each, the model's before the person's; `litChecks` gives
+  each row's parts to `litRows`. A row is a grid of 28 px, 1fr and 64 px: the dimension's mark chip or a 3 × 28 bar in
+  `--agent-mark`; the name and the verdict word (`passes`, `fails`, `not measured`, `not run`: never colour alone); the value and
+  what was wanted in mono (`checkRow` in `ui/checkRows.ts` and `shared/modelChecks.ts` for the model's words, `shownDimension`'s
+  rules and `expectedText` for a dimension's: `2.8 mm, wanted 3 ± 0.05`), and for a thin wall or an approximate value that it was
+  found by sampling; and `Gauge` (`ui/card/Gauge.tsx`, rules in `gaugeWindow.ts`) with the band wanted (a dimension's is its
+  expectation ± its tolerance). A failing row has `--fail-wash`; a row of a part the pointer is on has `data-lit`
+  (`useLitRows`). The model's rows are read only and are not marks: no check resolves, replaces or silences a person's
+  dimension, and a dimension and a model check on the same thing stay two rows. A dimension's name is the button that goes to
+  its mark (`.check-row[data-check-mark]`, which `goToRow` scrolls to) and the one that is the active mark has its own `MarkRow`
+  below it, with its fields. After a build the tick of a row whose value moved slides from the value the build before had (the
+  model's from `before.checks`, a dimension's from its `history`), and its row lights once (`.check-flash`); a dimension is read
+  as of the build it was last measured on until it has been unmeasured for `UNCHECKED_AFTER_MS`, so that no row flickers.
+  Under the rows, what the agent made easier to pass or removed since it was first declared (`checkNotes`, `since r7`). Pin to
+  board is above the list. No checks and no dimension checks: no body (`e2e/checks.spec.ts`).
 
 ## Print profile (`app/src/renderer`)
 
-- `ui/PrintProfile.tsx`, under Checks in the Params panel: a section (its title says
-  `Bambu X1C, PETG` or `none`) with two lists, Printer and Material, and "Add a printer…" (name, bed X Y Z, nozzle),
+- `ui/PrintProfile.tsx`, the body of the Print profile section of the route card (its head says
+  `Bambu X1C, PETG`, the printer's and the material's names, or `none`: `profileSaid`, read through `state/profile.ts`,
+  which the body shares, so the head says it while the section is folded) with two lists, Printer and Material, and "Add a printer…" (name, bed X Y Z, nozzle),
   through `window.torno.profile` (`profile:*` channels). A choice is copied into the object's `.torno/profile.json` by
   main; the printers are the person's, in torno's settings. The numbers shown are the person's, set in the monospace
   face, with the line that they are not measured. Materials of the person's own are added in `profiles.json` (no form).

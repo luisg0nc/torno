@@ -1,0 +1,206 @@
+/* ---- bands: one sentence at the top left of the view for a mode of the whole view (ui/view/Band.tsx; spec 2026-11-18, section 2) ---- */
+
+/* A pill 34 px high, 14 px in: the accent's while the mode asks something of the person, quiet while it only informs. */
+.band {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  height: 34px;
+  max-width: calc(100% - 28px);
+  padding: 0 5px 0 13px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--float-shadow);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  animation: band-drop 0.3s var(--ease);
+}
+
+/* A mode that only informs: the raised ground, ink, and a hairline. */
+.band[data-tone='quiet'] {
+  background: var(--raise);
+  color: var(--ink);
+  box-shadow: var(--float-shadow), inset 0 0 0 1px var(--hairline);
+}
+
+/* The buttons inside are 26 px pills: on the accent band, `--on-accent` grounds with accent text; on a quiet one, transparent. */
+.band-button {
+  height: 26px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+
+.band-button:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.band-button[data-primary] {
+  background: var(--on-accent);
+  color: var(--accent);
+}
+
+.band-button[data-primary]:hover:not(:disabled) {
+  background: var(--on-accent);
+}
+
+/* What cannot be pressed yet keeps its words whole: only its ground gives way. */
+.band-button:disabled {
+  cursor: default;
+}
+
+.band-button[data-primary]:disabled {
+  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
+  color: var(--on-accent);
+}
+
+.band-button:focus-visible,
+.band-pen:focus-visible,
+.band-segment button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.band .num {
+  font-weight: 500;
+}
+
+/* The dot of a build that failed. */
+.band-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fail);
+}
+
+/* A choice of one among a few, inside a quiet band: the pressed one is the accent's. */
+.band-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  box-sizing: border-box;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+}
+
+.band-segment button {
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ink);
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.band-segment button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* A tick box in a band (the line-up's Preview). */
+.band-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  accent-color: var(--on-accent);
+}
+
+/* The pens of a review: each a pill with its round sign, the one in use on `--on-accent` with ink text. */
+.reviewbar-pens {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.band-pen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 4px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--on-accent) 16%, transparent);
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+
+.band-pen:not(:has(.sign-disc)) {
+  padding-left: 10px;
+}
+
+.band-pen[aria-pressed='true'] {
+  background: var(--on-accent);
+  color: var(--ink);
+}
+
+.band-pen:disabled {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-accent) 45%, transparent);
+  cursor: default;
+}
+
+.reviewbar-where {
+  color: inherit;
+}
+
+.reviewbar-counts {
+  color: inherit;
+}
+
+/* What a mode says it could not do, under its band, where the person is looking. */
+.band-note {
+  position: absolute;
+  top: 56px;
+  left: 14px;
+  z-index: 7;
+  max-width: min(420px, calc(100% - 28px));
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--fail-wash);
+  color: var(--fail);
+  box-shadow: var(--float-shadow);
+  font-size: 12.5px;
+  line-height: 1.5;
+  pointer-events: auto;
+}
+
+@keyframes band-drop {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .band {
+    animation: none;
+  }
+}
+
+/* Why a tracing on a face was refused, in the quiet band that waits for the face. */
+.band .tr-refused {
+  margin: 0;
+  color: var(--fail);
+}

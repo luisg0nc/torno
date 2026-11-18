@@ -3,6 +3,8 @@ paths:
   - "app/src/renderer/ui/AskToCommit.tsx"
   - "app/src/renderer/ui/AskToCommit.test.ts"
   - "app/src/main/history.ts"
+  - "app/src/renderer/ui/strip/*.ts"
+  - "app/src/renderer/ui/strip/*.tsx"
   - "app/src/main/history.test.ts"
   - "app/src/main/buildlog.ts"
   - "app/src/main/buildlog.test.ts"
@@ -14,9 +16,6 @@ paths:
   - "app/src/shared/history.test.ts"
   - "app/src/shared/git.ts"
   - "app/src/shared/git.test.ts"
-  - "app/src/renderer/ui/HistorySheet.tsx"
-  - "app/src/renderer/ui/historyBits.ts"
-  - "app/src/renderer/ui/historyBits.test.ts"
   - "app/src/renderer/ui/useHistory.ts"
   - "app/src/renderer/ui/useGit.ts"
   - "app/src/renderer/ui/GitText.tsx"
@@ -41,7 +40,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the `common/` beside it (the paths of the work tree, found by `rev-parse --show-toplevel`), and drops what is under `.torno/`.
   It answers the commit, the branch and the files that differ (30 named at most, all counted), or null: no git, not a work tree,
   no answer in time. `git.test.ts` holds that the index's mtime, inode and size are as they were after a status on a stale entry.
-  No other git command is run, none that writes: **torno never commits**; the person asks the agent to (the Marks panel offers the
+  No other git command is run, none that writes: **torno never commits**; the person asks the agent to (the Marks section of the route card offers the
   request). It reaches the window as `git.status(objectId)` (`gitStateRecently`: an answer is kept for a second, so a page of
   cards and the status line cost one run) and as `ObjectCard.git`.
 - **A build has an identity** (`src/main/buildlog.ts`, #62). When a build lands, `BuildLog.record` finds `sourcesHash` (twelve hex of the
@@ -107,8 +106,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## History of builds (`app/src/renderer`)
 
-- **Prompts only** is the history of the project, in the session pane (`ui/chat/PromptsOnly.tsx`; the old `HistorySheet` is gone). **History**
-  in the status line (`BuildStatus`, `status-history`) and the chat head's `Chat | Prompts only` toggle (`ChatPane`, the group `Show`) are
+- **Prompts only** is the history of the project, in the session pane (`ui/chat/PromptsOnly.tsx`; the old `HistorySheet` is gone). **Prompts only** in the
+  session's More menu (`SessionMore`) and the "Close" in the head of the list over the chat (`PromptsOnly`'s `onClose`, which `ChatPane` gives) are
   the one flag `store.promptsOpen` (`actions.setPromptsOpen`, which also shows the dock; of the open object, so another one starts at the chat).
   In the chat it is drawn over the transcript (`.prompts`, absolute inside `.chat-scroll`), which keeps its scroll and is `inert` meanwhile; where
   the chat is not (a terminal session, or no session yet) `SessionPane` draws `PromptsPane` over the session area (`.session-prompts`, with Close).
@@ -131,7 +130,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **Compare: a kept build against the live one** (`state/compare.ts`, `ui/CompareBar.tsx`, `viewport/earlier.ts` `Earlier`, `Viewport.setEarlier`
   and `setCompareMode`). `store.compare` is `{ from, to, mode, prompt? }` (history ids, `from` the earlier; `building` and `refused` are said of
   `from`'s drawing), set by `actions.compare(from, to, prompt?)` (a row of Prompts only, a turn of the chat),
-  changed by `compareMode` (`before`, `overlay`, `after`, `side`) and ended by `endCompare` ("Back to the live build" in the bar, `Esc`: the row
+  changed by `compareMode` (`before`, `overlay`, `after`, `side`) and ended by `endCompare` ("Back to live" in the band, `Esc`: the row
   `compare.end`, scope `compare`, which `ViewportPane`'s key handler asks before the tool in hand and the viewport's `escape`). `ViewportPane`
   asks main for `from`'s scene and meshes (`history.ghost`: held in memory for a build of this run, else built again from its copy in a worker thrown
   away; a `refused` sentence, shown in the view, when it cannot be) and draws its parts of the layout shown (`EARLIER_SURFACE_OPACITY`, in `--muted`, with
@@ -143,7 +142,25 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (the live build itself when it is `to`), the two in the left and right halves, with the scissor test and one camera framed for half the width, a line down the middle
   (`OverlayPass.split`), no marks, chips or cues, and no pick (`Viewport.pick` is null whenever what is drawn is not the live build: a point of the canvas is on neither
   as the camera has it, nor a chip of a mark made on another build). The status line says `comparing prompt 14 · h40 → h41` (`compareStatus`), or
-  `Building h40 to compare…` once the wait passes 300 ms. The boxes over the view are the history entries' (`useHistory`): "What changed" is the later
-  build's `line`, "Checks and marks" is `checksMoved` of both entries' `dimensions` and `failing`. For display only: no bounds tree, a ray finds nothing, it is
+  `Building h40 to compare…` once the wait passes 300 ms. What the turn changed is written on the parts and marks as tags with leaders (`CompareBar`; `changeTags` of `ui/view/changeTags.ts`, from the `TurnSummary` the
+  turn's `Compare` button gave `actions.compare` as `CompareState.changes`: four at most, a flipped dimension first, then parts by how far their volume moved; one with no place in
+  the build on show, and all of them in a side by side, go to the list). The band's `and N more` (`What changed` when none is left out) opens a `Popover`
+  of the history entries' (`useHistory`): the rest of the tags, "What changed" (the later build's `line`) and "Checks and marks" (`checksMoved` of both entries' `dimensions`
+  and `failing`). A comparing that did not start from a turn has no tags, only the list. Tags take no pointer. For display only: no bounds tree, a ray finds nothing, it is
   hidden for a picture (`hideGizmo`), and nothing is measured, marked or written from it. A live build landing does not end it; another object, another layout, a
   section or an explode does. It is not the ghosts of a build that landed (`ghosts.ts`, a moment, edges only). `__tornoTest.earlier()` and `compare()` are for tests.
+
+## The builds strip (`app/src/renderer/ui/strip`)
+
+- `BuildsStrip` is on top of the dock under the header, in every mode (`SessionPane`: chat, terminal, no session; not while a new project is drafted), over
+  `useStripNodes` (`useHistory`, `usePrompts` for the numbers of prompts, the build state, the open round of `state/review`). The rules are `strip.ts`, pure
+  and held by `strip.test.ts`: `stripNodes(history, live, numbering)` (oldest to newest: every kept build, a failed one `after` the build before it, a failure the history
+  has not kept yet as one more node, the build that runs last; `by` is `prompt 14`, `you saved`, `you tried`, `went back`, `earlier`), `bracketOf(nodes, promptsInSight)`,
+  `stripFolded` (`STRIP_FOLD_BELOW` 640 of dock height, measured by the strip on its `.dock`), `ticksOf` (the last eight, the build on show kept among them),
+  `stripSays` (the head line's right side) and `inSightOf`. A node is a button: its click goes to the `onPick(node, anchor)` `SessionPane` gives, which opens `NodePopover` (`strip/NodePopover.tsx`) from the node; a double click compares it with the build on show (not with a section or an explode on).
+  The menu is `nodeMenu(node, { canReview, goBackTo })` (`strip/nodeMenu.ts`, pure and held by its test; the order is Compare with live, Star or Unstar, Pin to board, Review this build, Go back to here; none for a failed or a running node): Compare is `actions.compare(node, the build on show)` (it reads Stop comparing while it is on; none for the build on show), Star is `history.star`, Pin is `pinToBoard` (which stars; its sentence stands from the node for 4 s), Review is `reviewActions.start` and is offered only on the build on show with no round open, and Go back is `goBackTarget(entries, id)`: the prompt of the first build kept after the node, past builds that failed, and none when a save of the person's, or nothing, follows it or all its builds are undone. Nothing here picks a build to export (ruling 7).
+  The build that failed now is not given to `onPick`: its click toggles `errorOpen`, and its element (`strip/failedAnchor.ts`) is what `BuildErrorSheet` stands from, wherever it is opened (`BuildStatus` draws it, from the node, or from the status line when the dock is put away). A failed build that is not the latest opens `BuildErrorSheet` with `old` from `NodePopover`: its line (`entry.error`) and Copy, nobody told.
+- The build on show is the kept build of this run whose revision is the store's `build.revision` (`useStripNodes`). The prompt number of the running build is the last
+  prompt's, only while a session works. The bracket follows the chat: `ChatPane` measures each prompt's stretch of the transcript (`.chat-group[data-id]` with a `user`
+  item, then the groups up to the next prompt) on scroll and resize, and tells `state/inSight`. Nothing draws per frame in React: a rAF measures, the store takes a changed list only.
+- The status line's ticks (`BuildStatus`, `.status-ticks`) are `ticksOf` of the same nodes; they replace the History button, and "h41 built in 51 s" names the build on show.

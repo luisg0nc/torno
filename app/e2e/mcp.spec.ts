@@ -11,7 +11,7 @@ import type { PinMark } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openPanel } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is given, through the real path: the SDK's MCP client in this
@@ -243,10 +243,10 @@ test('look returns the picture the window draws, and keeps a copy under .torno/v
 })
 
 test('a layer the person hides is gone from the next look, and scene says it is hidden', async () => {
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.locator('[data-layer="post"]').hover()
   await page.getByRole('button', { name: 'Show post' }).click()
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
   await expect.poll(async () => JSON.parse((await call(bracket, 'scene')).text).parts[1].visible).toBe(false)
 
   const result = await call(bracket, 'look', { view: 'iso' })
@@ -277,7 +277,7 @@ test('the pictures saved did not start a build', async () => {
 })
 
 test('the agent is told of torno in its system prompt, and of the build with every prompt', async () => {
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   const argv: string[] = JSON.parse(/READY (\[.*\])/s.exec((await terminal()).replace(/\n/g, ''))![1])
   const prompt = argv[argv.indexOf('--append-system-prompt') + 1]
@@ -380,12 +380,12 @@ test("show changes what the user sees for now, not the layers they saved, and wa
   await page.waitForTimeout(900)
   expect(readFileSync(sceneFile, 'utf8')).toBe(saved)
   // A change the person then makes by hand is saved, without what the agent had shown.
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.locator('[data-layer="base"]').getByRole('button', { name: 'Show base' }).click()
   await expect.poll(() => JSON.parse(readFileSync(sceneFile, 'utf8'))).toEqual({ layout: 'assembly', layers: { base: { visible: false }, post: { visible: false } } })
   await page.locator('[data-layer="base"]').getByRole('button', { name: 'Show base' }).click()
   await expect.poll(() => JSON.parse(readFileSync(sceneFile, 'utf8')).layers.base.visible).toBe(true)
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
   // Back as the tests that follow expect it: assembly, the post hidden by the person.
   expect((await call(bracket, 'show', { layout: 'assembly', parts: ['base'] })).isError).toBe(false)
   expect(await state()).toMatchObject({ layout: 'assembly', layers: { post: { visible: false } } })
@@ -396,9 +396,9 @@ test("show changes the user's layers and camera, and says what they see then", a
   const parts = await call(bracket, 'show', { parts: ['base', 'post'] })
   expect(parts).toMatchObject({ isError: false, text: "view current · layout assembly · parts base, post · perspective\nrevision r1\nThe user's viewport now shows this." })
   expect((await state()).layers.post.visible).toBe(true)
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await expect(page.locator('[data-layer="post"]').getByRole('button', { name: 'Show post' })).toHaveAttribute('aria-pressed', 'true')
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
 
   const before = await camera()
   const top = await call(bracket, 'show', { view: 'top' })
@@ -481,7 +481,7 @@ test("add_mark places the agent's own marks, by ref and by point, which the user
 
   const row = page.locator('.mark-row[data-mark="M2"]')
   await expect(row).toHaveAttribute('data-author', 'agent')
-  // Its own group, for the person to read or answer; the person's sent M1 stays with the agent.
+  // In Needs you, for the person to read or answer; the person's sent M1 stays with the agent, in Marks.
   await expect(page.getByRole('list', { name: 'From the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(0)
@@ -590,7 +590,9 @@ test('ask puts a card to the user, lights the refs under the pointer, and return
   const first = call(bracket, 'ask', { question: 'Which one do you mean?', options })
   await expect(card).toBeVisible()
   await expect(card.locator('.ask-text')).toHaveText('Which one do you mean?')
-  await expect(card.getByRole('button')).toHaveText(['The top of the base base/F5', 'The post post', 'None of these'])
+  // Each option is a card: its key (1 to 3), the words, the refs; then the way to say something else, and none.
+  await expect(card.getByRole('button')).toHaveText(['1The top of the basebase/F5', '2The postpost', 'Or say what to do instead', 'None of these'])
+  await expect(card.locator('.ask-option .ask-label')).toHaveText(['The top of the base', 'The post'])
   await card.getByRole('button', { name: /The post/ }).hover()
   await expect.poll(() => page.evaluate(() => window.__tornoTest!.peeked())).toEqual(['post'])
   await card.getByRole('button', { name: /The post/ }).click()
@@ -636,16 +638,17 @@ test('resolve_mark resolves a mark, which the user sees as resolved by the agent
   const result = await call(bracket, 'resolve_mark', { id: 'M1', note: 'made the corner 2 mm thicker' })
   expect(result).toMatchObject({ isError: false, text: `resolved: ${describeMark(pin)}\nnote: made the corner 2 mm thicker` })
   const marks = page.getByRole('region', { name: 'Marks' })
-  // Still in the list, saying who resolved it and what was done, in words on the row.
-  await expect(marks.locator('.marks-review')).toContainText('The agent resolved 1 mark.')
-  await marks.locator('.marks-review').getByRole('button', { name: 'Review' }).click()
-  const awaiting = marks.getByRole('list', { name: 'To review' }).locator('[data-mark="M1"]')
-  await expect(marks.locator('.mark-row[data-mark]')).toHaveCount(4)
+  const needs = page.getByRole('region', { name: 'Needs you' })
+  // In Needs you, saying who resolved it and what was done, in words on the row.
+  await expect(needs.locator('.needs-review')).toContainText('The agent resolved 1 mark.')
+  await needs.locator('.needs-review').getByRole('button', { name: 'Review' }).click()
+  const awaiting = needs.getByRole('list', { name: 'To review' }).locator('[data-mark="M1"]')
+  await expect(page.locator('.mark-row[data-mark]')).toHaveCount(4)
   await expect(awaiting).toHaveAttribute('data-awaiting', '')
-  await expect(awaiting.locator('.mark-resolution-note')).toHaveText('Resolved by the agent: made the corner 2 mm thicker')
+  await expect(awaiting.locator('.mark-resolution-note')).toHaveText('Resolved by Claude: made the corner 2 mm thicker')
   await awaiting.getByRole('button', { name: 'OK', exact: true }).click()
-  await expect(marks.locator('.marks-review')).toContainText('Reviewed 1: 1 OK')
-  await expect(marks.locator('.mark-row[data-mark]')).toHaveCount(3)
+  await expect(needs.locator('.needs-review')).toContainText('Reviewed 1: 1 OK')
+  await expect(page.locator('.mark-row[data-mark]')).toHaveCount(3)
   await marks.getByRole('button', { name: /Resolved/ }).click()
   const resolved = marks.getByRole('list', { name: 'Resolved marks' }).locator('[data-mark="M1"]')
   await expect(resolved).toHaveAttribute('data-status', 'resolved')
@@ -1001,10 +1004,12 @@ test("add_mark with a dimension leaves a check of the agent's that the user sees
   const marks = (await state()).marks
   expect(marks[0]).toMatchObject({ id: 'M1', kind: 'dimension', author: 'agent', status: 'sent', anchorState: 'ok', measure: 'diameter', value: 8, expected: 8.4, tolerance: 0.1, verdict: 'fail', measuredRevision: 1, a: { ref: hole.ref } })
   expect(marks[1]).toMatchObject({ id: 'M2', author: 'agent', status: 'sent', anchorState: 'ok', value: 6, verdict: 'pass', a: { ref: top.ref }, b: { ref: bottom.ref } })
-  const row = page.locator('.mark-row[data-mark="M1"]')
+  // Under Checks: M1 shows as the agent's (its row and its chip say so) and fails; M2 passes.
+  const row = page.locator('.check-row[data-check-mark="M1"]')
   await expect(row).toHaveAttribute('data-author', 'agent')
-  await expect(row.locator('.mark-value')).toHaveAttribute('data-verdict', 'fail')
-  await expect(page.locator('.mark-row[data-mark="M2"] .mark-value')).toHaveAttribute('data-verdict', 'pass')
+  await expect(row.locator('.mark-chip')).toHaveAttribute('data-author', 'agent')
+  await expect(row).toHaveAttribute('data-verdict', 'fails')
+  await expect(page.locator('.check-row[data-check-mark="M2"]')).toHaveAttribute('data-verdict', 'passes')
 
   // A dimension has two ends, or is of one thing at a point: its number stands for neither in measure.
   expect(await call(measures, 'measure', { kind: 'radius', a: 'M1' })).toMatchObject({ isError: true, text: 'M1 is a dimension: name the ref or point of the end you mean' })
@@ -1207,7 +1212,7 @@ test("show switches the scans for now, not in the user's saved view, and the pro
   expect((await state()).shownByAgent?.scans).toEqual({ S1: undefined })
   expect(await call(hollow, 'show', { scanOpacity: 3 })).toMatchObject({ isError: true })
 
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   const argv: string[] = JSON.parse(/READY (\[.*\])/s.exec((await terminal()).replace(/\n/g, ''))![1])
   // Claude Code is told of the scans in one line that names the skill; the skill names the scan tools (#4).

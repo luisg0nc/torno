@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Mark } from '../../shared/marks'
+import type { Part, Scene } from '../../shared/scene'
 import { type CardDeps, type KeepDeps, THUMB_MAX_BYTES, cardsOf, keepThumbnail, newestPython, peekMarks, saveThumbnail, thumbOf, thumbnailOnFile, thumbnailRefusal } from './cards'
 
 const pin = (id: string, status: Mark['status']): Mark => ({ id, kind: 'pin', author: 'user', note: '', status, anchorState: 'ok', layout: 'assembly', revision: 1, camera: { position: [0, 0, 1], target: [0, 0, 0], up: [0, 1, 0], ortho: true, fov: 35, zoom: 1 }, createdAt: '', anchor: { point: [0, 0, 0] } })
@@ -60,6 +61,39 @@ describe('cardsOf', () => {
     expect(b).toEqual({ id: 'b', name: 'b', opened: false, thumb: { at: '2026-10-08T21:14:03.000Z', layout: 'assembly', behind: true }, marks: { open: 2, drafts: 1 }, dimensions: null, lastRun: { dimensions: 1, failed: 1 }, session: null, sourcesMtimeMs: 2000 })
   })
 
+  it('reads the size on file into box, and gives none for a picture with none', async () => {
+    const meta = { at: '2026-10-08T21:14:03.000Z', layout: 'assembly', parts: 2, model: 'b.py', sourcesMtimeMs: 1000, bytes: 200, hash: 'x' }
+    const withBox = { ...meta, box: { x: 150, y: 80, z: 92, exact: true }, bench: true }
+    const read = (text: string) => (path: string) => (path === '/ws/b/.torno/thumb.json' ? Promise.resolve(text) : missing())
+    const [, b] = await cardsOf(deps({ readFile: read(JSON.stringify(withBox)) }))
+    expect(b.box).toEqual({ x: 150, y: 80, z: 92, exact: true })
+    expect(b.thumb).toMatchObject({ bench: true })
+    const [, plain] = await cardsOf(deps({ readFile: read(JSON.stringify(meta)) }))
+    expect(plain.box).toBeUndefined()
+    expect(plain.thumb).not.toHaveProperty('bench')
+    // A box that is not three lengths and a flag is no box: nothing is claimed of the size.
+    for (const bad of [{ x: 1, y: 2, z: -3, exact: true }, { x: 1, y: 2, exact: true }, { x: 1, y: 2, z: 3 }, { x: 'a', y: 2, z: 3, exact: false }, { x: 1, y: 2, z: Infinity, exact: true }, 'big', null]) {
+      const [, none] = await cardsOf(deps({ readFile: read(JSON.stringify({ ...meta, box: bad })) }))
+      expect(none.box).toBeUndefined()
+    }
+    // The size of no picture is told of none: a picture that is not the one its facts are of takes it along.
+    const [, dropped] = await cardsOf(deps({ readFile: read(JSON.stringify(withBox)), size: async () => 7 }))
+    expect(dropped).toMatchObject({ thumb: null })
+    expect(dropped.box).toBeUndefined()
+  })
+
+  it('says what a session waits on: the question, cut to 140 characters, and since when', async () => {
+    const long = `${'Which radius should the fillet have? '.repeat(8)}`
+    const waiting = (id: string) => (id === 'a' ? { question: long, since: 1234 } : id === 'b' ? { question: 'Short?', since: 99 } : null)
+    const [a, b, c] = await cardsOf(deps({ waiting }))
+    expect(a.waiting).toEqual({ question: long.slice(0, 140), since: 1234 })
+    expect(a.waiting!.question).toHaveLength(140)
+    expect(b.waiting).toEqual({ question: 'Short?', since: 99 })
+    expect('waiting' in c).toBe(false)
+    const [none] = await cardsOf(deps())
+    expect('waiting' in none).toBe(false)
+  })
+
   it('carries what git says of an object that has a model, and nothing where it says nothing', async () => {
     const state = { head: 'a1b2c3d', branch: 'main', files: ['a/a.py'], changed: 1 }
     const asked: string[] = []
@@ -105,6 +139,12 @@ it('reads marks without keeping anything of a file that is not one', () => {
   expect(peekMarks('{ not json')).toBeNull()
   expect(peekMarks(JSON.stringify({ marks: 'none' }))).toBeNull()
   expect(peekMarks(JSON.stringify({ next: 2, marks: [pin('M1', 'draft')] }))).toHaveLength(1)
+})
+
+it('says a picture is at the bench scale only when its facts say so', () => {
+  const meta = { at: '2026-10-08T21:14:03.000Z', layout: 'assembly' }
+  expect(thumbOf({ ...meta, bench: true }, 1000)).toMatchObject({ bench: true })
+  expect(thumbOf({ ...meta, bench: 'yes' }, 1000)).not.toHaveProperty('bench')
 })
 
 it('takes a picture as behind when a source is newer than it, or nothing says how new they were', () => {
@@ -289,6 +329,31 @@ describe('keeping a picture the window drew', () => {
       expect(await keepThumbnail(keeping(dir), 'a', 3, png(480, 360), { ...of, hidden: 1, cut: true, apart: 'yes' as never })).toBe(true)
       expect(facts(dir)).toMatchObject({ layout: 'assembly', parts: 2, model: 'a.py', sourcesMtimeMs: 1_000_000, hidden: 1, cut: true })
       expect(facts(dir)).not.toHaveProperty('apart')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps the size main works out of the build, and the bench scale only with a size', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'torno-keep-'))
+    try {
+      writeFileSync(join(dir, 'a.py'), '')
+      const part = (name: string, min: number[], max: number[], exact?: boolean): Part => ({ key: `assembly:${name}`, name, layout: 'assembly', loc: { t: [0, 0, 0], q: [0, 0, 0, 1] }, bbox: { min, max } as Part['bbox'], ...(exact === undefined ? {} : { bboxExact: exact }), volume: 1, faceCount: 1, edgeCount: 1, triangleCount: 1, valid: true, hash: name, mesh: {} as Part['mesh'] })
+      const scene: Scene = { model: 'a.py', layouts: ['assembly'], parts: [part('tub', [0, 0, 0], [150, 80, 60], true), part('lid', [0, 0, 60], [150, 80, 92], true)], seconds: 0, output: '' }
+      const build = { revision: 3, startedMs: 5_000_000, scene }
+      expect(await keepThumbnail(keeping(dir, { lastBuild: () => build }), 'a', 3, png(480, 360), { layout: 'assembly', parts: 2, bench: true })).toBe(true)
+      expect(facts(dir)).toMatchObject({ box: { x: 150, y: 80, z: 92, exact: true }, bench: true })
+      // The window cannot say a size: only the build's own scene does. And with no build to measure there is no bench claim.
+      expect(await keepThumbnail(keeping(dir, { lastBuild: () => ({ revision: 3 }) }), 'a', 3, png(480, 360), { layout: 'assembly', parts: 2, bench: true, box: { x: 1, y: 1, z: 1, exact: true } } as never)).toBe(true)
+      expect(facts(dir)).not.toHaveProperty('box')
+      expect(facts(dir)).not.toHaveProperty('bench')
+      // A layout the scene does not have has no size either.
+      await keepThumbnail(keeping(dir, { lastBuild: () => build }), 'a', 3, png(480, 360), { layout: 'bed', parts: 1, bench: true })
+      expect(facts(dir)).not.toHaveProperty('box')
+      // A picture not in the bench's mode keeps the size and no claim of scale.
+      await keepThumbnail(keeping(dir, { lastBuild: () => build }), 'a', 3, png(480, 360), { layout: 'assembly', parts: 2 })
+      expect(facts(dir)).toMatchObject({ box: { x: 150, y: 80, z: 92, exact: true } })
+      expect(facts(dir)).not.toHaveProperty('bench')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

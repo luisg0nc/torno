@@ -171,6 +171,30 @@ describe('dragging the plane by its handle', () => {
     expect(cursors).toEqual(['ns-resize'])
   })
 
+  it('moves the plane by a drag that starts on the handle of the rule on the ground, along the rule', () => {
+    const tool = sectionTool()
+    const { ctx, shown, navigation } = fake()
+    // The rule stands at x = -30, away from the plane's own arrow; its handle is where the plane is on it.
+    ctx.viewport.onSectionRuleHandle = (x, y) => Math.abs(x + 30) <= 10 && Math.abs(-y - (plane() ?? 10)) <= 10
+    ctx.viewport.sectionRuleAt = () => [-30, 0, 10]
+    const plane = (): number | null => store.getState().section?.origin[2] ?? null
+    tool.onPointer(pointer('down', -30, 10), ctx)
+    expect(navigation).toEqual([false])
+    tool.onPointer(pointer('move', -30, 14), ctx)
+    tool.onPointer(pointer('move', -30, 18), ctx)
+    expect(shown.at(-1)).toEqual({ origin: [0, 0, 18], normal: [0, 0, 1] })
+    tool.onPointer(pointer('up', -30, 18), ctx)
+    expect(store.getState().section).toEqual({ origin: [0, 0, 18], normal: [0, 0, 1] })
+  })
+
+  it('leaves a press away from the arrow and the rule to the camera', () => {
+    const tool = sectionTool()
+    const { ctx, navigation } = fake()
+    ctx.viewport.onSectionRuleHandle = () => false
+    tool.onPointer(pointer('down', -30, 10), ctx)
+    expect(navigation).toEqual([])
+  })
+
   it('stops at the ends of the parts', () => {
     const tool = sectionTool()
     const { ctx, shown } = fake()

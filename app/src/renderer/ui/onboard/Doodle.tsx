@@ -4,7 +4,7 @@ import { InkPad } from '../ink/InkPad'
 import { BOARD, PNG_INK, doodlePng } from '../ink/strokes'
 
 /** The ink as the theme has it now: the board's strokes are drawn in it; the PNG is made in its own. */
-const inkNow = (): string => getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#22252A'
+const inkNow = (): string => getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#20242B'
 
 /**
  * The doodle board of a new object: 1200 x 800 board pixels on the panel's ground with a light grid, in the theme's ink, or

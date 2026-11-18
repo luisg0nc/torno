@@ -1,33 +1,5 @@
 /* ---- The page of objects (ui/ShowPage.tsx): a card for each object of the workspace, over the 3D view ---- */
 
-/* The row that brings it up, first in the list of objects. */
-.page-row {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  text-align: left;
-}
-
-.page-row svg {
-  flex: none;
-  width: 14px;
-  height: 14px;
-}
-
-.page-row:hover {
-  background: var(--accent-wash);
-  color: var(--ink);
-}
-
-.page-row[aria-pressed='true'] {
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.page-row:focus-visible {
-  outline-offset: -2px;
-}
-
 /* Where the 3D view is, and over it: the view stays as it was underneath, and nothing of it is painted through
    (its bars and menus are stacked above their pane). */
 .viewport-pane[inert] {
@@ -36,11 +8,11 @@
 
 .show {
   position: absolute;
-  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
+  inset: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 28px 36px 20px;
+  padding: 26px 40px 20px;
   background: var(--surface);
   scrollbar-gutter: stable;
   scrollbar-width: thin;
@@ -52,19 +24,19 @@
   flex: none;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
   /* Clear of the button that shows and hides the session, in the window's corner when the dock is away. */
   min-height: 34px;
   /* Stays at the top while the cards scroll under it: out to the page's edges, on the page's ground. */
   position: sticky;
-  top: -28px;
+  top: -26px;
   z-index: 2;
-  margin: -28px -36px 22px;
-  padding: 28px 36px 10px;
+  margin: -26px -40px 12px;
+  padding: 26px 40px 10px;
   background: var(--surface);
 }
 
-.show-order {
+.show-mode {
   display: flex;
   flex: none;
   border: var(--divider);
@@ -73,7 +45,7 @@
   overflow: hidden;
 }
 
-.show-order button {
+.show-mode button {
   height: 28px;
   padding: 0 var(--space-3);
   border: 0;
@@ -83,7 +55,7 @@
   font-size: var(--text-small);
 }
 
-.show-order button[aria-pressed='true'] {
+.show-mode button[aria-pressed='true'] {
   background: var(--accent-wash);
   color: var(--accent);
 }
@@ -94,19 +66,28 @@
 
 .show-title {
   display: flex;
+  flex: 1 1 auto;
   align-items: baseline;
   gap: var(--space-3);
   min-width: 0;
 }
 
 .show-title h2 {
-  font-size: 20px;
+  font-size: 40px;
   font-weight: 600;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  /* A long folder name gives way before the buttons do. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .show-count {
+  /* It gives way before the name does. */
+  flex: 0 10 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--muted);
   text-overflow: ellipsis;
@@ -118,8 +99,10 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  width: 220px;
+  /* The title takes the room; the filter and what follows stand at the right. */
+  width: 200px;
   height: 30px;
+  margin-left: auto;
   padding: 0 var(--space-2) 0 var(--space-3);
   border: var(--field-border);
   border-radius: var(--radius-control);
@@ -153,7 +136,7 @@
 }
 
 /* A key, wherever the page names one: in its row of the list, in the filter, in the line of keys. */
-.page-row kbd,
+.project-item kbd,
 .show-filter kbd,
 .show-keys kbd,
 .welcome-foot kbd,
@@ -164,79 +147,185 @@
   height: 17px;
   padding: 0 4px;
   border: var(--divider);
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--muted);
-}
-
-.page-row[aria-pressed='true'] kbd {
-  color: inherit;
 }
 
 .show-filter:focus-within kbd {
   visibility: hidden;
 }
 
-.cards {
-  display: grid;
+/* ---- The bench: shelves at one scale, who needs you first ---- */
+
+/* At 1280 × 800 the page is drawn at 86 % rather than wrap the shelves (spec 2026-11-18, "The page of projects"). */
+.bench {
   flex: none;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 20px;
   /* Clear of the line of keys at the foot. */
   margin-bottom: 28px;
 }
 
-/* One object: its picture on the ground of the view, and under it what can be said of it. The whole of it opens the object. */
+@media (max-height: 800px) {
+  .bench {
+    zoom: 0.86;
+  }
+}
+
+.bench-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 36px;
+}
+
+.bench-top[data-both] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bench-group {
+  min-width: 0;
+}
+
+.bench > .bench-group {
+  margin-top: 22px;
+}
+
+/* A shelf's heading: its name, how many stand on it, and a quiet word of how they are laid out. */
+.grp-h {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 16px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.bench-group[data-tone='needs'] .grp-h {
+  color: var(--warn);
+}
+
+.grp-n,
+.grp-note {
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 400;
+}
+
+.grp-dot {
+  flex: none;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+.bench-group[data-tone='needs'] .grp-dot {
+  background: var(--warn);
+}
+
+/* A shelf is a 2 px line of ink. What stands on it stands on its line, 40 px apart; its labels hang under it. */
+.shelf {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 40px;
+  margin-top: 8px;
+  padding: 0 20px;
+}
+
+.shelf::after {
+  content: '';
+  position: absolute;
+  top: var(--shelf-h);
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--ink);
+  pointer-events: none;
+}
+
+/* A project and, over its corner, the way to export that one: shown when the card is pointed at or has the focus. */
 .card {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-width: 0;
   padding: 0;
-  overflow: hidden;
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
   text-align: left;
   cursor: pointer;
-  transition: border-color 120ms, box-shadow 120ms;
-}
-
-.card:hover {
-  border-color: var(--muted);
 }
 
 .card:focus-visible {
-  border-color: var(--accent);
   outline: var(--focus-ring);
-  outline-offset: 2px;
-  box-shadow: var(--palette-shadow);
+  outline-offset: 4px;
 }
 
-/* The object that is open under the page. */
-.card[aria-current] {
-  border-color: var(--accent);
-}
-
+/* What stands on the shelf, bottom to the line, in a box as high as the shelf. */
 .card-picture {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: center;
+  height: var(--shelf-h);
+}
+
+/* The object that is open under the page: a 4 px bar of the accent under its picture, over the shelf's line. */
+.card-open-bar {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  height: 4px;
+  border-radius: var(--radius-inline);
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+.bench-fig {
   position: relative;
   display: block;
   flex: none;
-  aspect-ratio: 4 / 3;
-  border-bottom: var(--divider);
-  background: var(--surface);
+  overflow: hidden;
 }
 
-/* A card with no picture is as tall as its three lines need: the picture's room is for a picture. */
-.card-picture[data-empty] {
-  aspect-ratio: 3 / 1;
+/* The picture whole, laid so that only the part of it that is the project shows: it was made at one scale, centred. */
+.bench-fig img {
+  position: absolute;
+  max-width: none;
+  user-select: none;
 }
 
-.card-picture img {
-  display: block;
+/* Grid's look, for what has a picture that is not at scale: the picture fitted to its box. */
+.card-picture[data-look='tile'] .bench-fig {
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.bench-fig .bench-tile-img {
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* A project whose size is not known: a dashed box, and it says so. */
+.bench-ghost {
+  display: grid;
+  flex: none;
+  place-items: center;
+  padding: var(--space-2);
+  border: 1.5px dashed var(--field-edge);
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: center;
+  text-wrap: balance;
 }
 
 /* Of a build that failed since: the picture is of what the model made before, and is not what the card stands on. */
@@ -252,42 +341,36 @@
   }
 }
 
-.card-nopicture {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, max-content);
-  place-content: center;
-  justify-items: start;
-  text-align: center;
-  gap: 2px var(--space-3);
-  padding: var(--space-2) var(--space-4);
+/* The bar at the right end of a shelf: 50 mm of the pictures' own scale. */
+.sbar {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: var(--shelf-h);
+  margin-left: auto;
+  padding-bottom: 10px;
   color: var(--muted);
-  text-align: left;
+  font: 300 10px var(--font-mono);
 }
 
-/* The logo stands beside the lines, not over them: the room is low. */
-.card-nopicture .logo {
-  grid-row: 1 / span 2;
-  align-self: center;
-  width: 32px;
-  height: 32px;
-  color: var(--hairline);
-}
-
-/* What makes a picture, said of the card that is pointed at or in focus: not on every card of a new workspace. */
-.card-nopicture-how {
-  font-size: var(--text-small);
-  text-wrap: balance;
+.sbar i {
+  display: block;
+  height: 6px;
+  border: 1px solid var(--muted);
+  border-top: 0;
 }
 
 .card-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
   min-width: 0;
-  padding: 12px 14px 14px;
+  padding: 12px 0 0;
 }
 
 .card-head {
@@ -295,13 +378,12 @@
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-  margin-bottom: 1px;
 }
 
 .card-name {
   min-width: 0;
   overflow: hidden;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -313,13 +395,9 @@
 
 .card-open {
   flex: none;
-  padding: 0 6px;
-  border-radius: 9px;
-  background: var(--accent-wash);
   color: var(--accent);
-  font-size: var(--text-small);
+  font-size: 11.5px;
   font-weight: 500;
-  line-height: 18px;
 }
 
 .card-line {
@@ -367,52 +445,71 @@
   color: var(--ok);
 }
 
-.card-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 7px;
+/* Its size, and what is open on it: in the monospace face, light and small, as one line that wraps. */
+.card-detail {
+  color: var(--muted);
+  font: 300 10px/1.5 var(--font-mono);
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
-/* A count, said quietly: an outline and no ground of its own. */
-/* A long one goes onto a second line within its outline, not out of the card. */
-.card-chip {
-  padding: 0 7px;
-  border: var(--divider);
-  border-radius: 9px;
+.card-detail .num {
+  font-weight: inherit;
+}
+
+/* What the page asks on behalf of a project that waits: Claude's question, and the way to answer it. */
+.askcard {
+  display: grid;
+  gap: var(--space-1);
+  max-width: 300px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-float);
+  background: var(--warn-wash);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.askcard p {
+  margin: 0;
+}
+
+.askcard-for,
+.workcard-for {
+  font-weight: 600;
+}
+
+.askcard .acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.askcard .acts .button {
+  height: 26px;
+  padding: 0 var(--space-3);
+}
+
+.askcard .muted {
   color: var(--muted);
   font-size: var(--text-small);
-  line-height: 18px;
 }
 
-.card-chip[data-tone] {
-  border-color: color-mix(in srgb, currentColor 35%, transparent);
-}
-
-.show-empty {
-  display: grid;
-  flex: 1;
-  place-content: center;
-  justify-items: center;
-  gap: var(--space-1);
-  padding: var(--space-4);
-  text-align: center;
-}
-
-.show-empty h3 {
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.show-empty p,
-.show-none {
-  max-width: 46ch;
+.workcard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 300px;
+  margin: 10px 0 0;
   color: var(--muted);
-  text-wrap: balance;
+  font-size: 12.5px;
 }
 
 .show-none {
   max-width: none;
+  color: var(--muted);
+  text-wrap: balance;
 }
 
 .show-typed {
@@ -430,58 +527,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin: auto -36px -20px;
-  padding: 8px 36px;
+  margin: auto -40px -20px;
+  padding: 8px 40px;
   border-top: var(--divider);
   background: var(--surface);
   color: var(--muted);
   font-size: var(--text-small);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    transition: none;
-  }
-}
-
-.show-empty .show-empty-where {
-  font-size: 12px;
-}
-
-.show-empty .show-empty-example,
-.show-empty .show-empty-scope {
-  font-size: 13px;
-}
-
-.show-empty .show-empty-scope {
-  margin-top: var(--space-2);
-}
-
-.show-empty-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.show-empty-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.show-empty-fold {
-  max-width: 46ch;
-  margin-top: var(--space-3);
-  color: var(--muted);
-}
-
-.show-empty-fold summary {
-  cursor: pointer;
-}
-
-.show-empty-fold p {
-  margin-top: var(--space-1);
 }

@@ -5,8 +5,8 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { letGoText } from '../src/shared/build'
 import type { Camera, LookRequest, LookResult, ViewState } from '../src/shared/view'
-import { openPanel, railButton } from './helpers'
-import { objectList, openListed } from './objects'
+import { openSection, railButton } from './helpers'
+import { openListed, projectCard, projectCrumb } from './objects'
 
 // The whole loop through the window: choose an object, see its parts, change
 // layers and views, save the model and watch it rebuild, break it and mend it.
@@ -52,7 +52,8 @@ const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window._
 const camera = (): Promise<Camera> => page.evaluate(() => window.__tornoTest!.camera())
 /** The layers listed in the Layers panel, which is opened first where the rail offers it (a project is open). */
 async function layerNames(p: Page = page): Promise<(string | null)[]> {
-  if ((await railButton(p, 'Layers').count()) > 0) await openPanel(p, 'Layers')
+  // A project with no parts has the section's head say so and not open: nothing to list.
+  if ((await railButton(p, 'Parts').count()) > 0) await railButton(p, 'Parts').click()
   return p.locator('[data-layer]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer')))
 }
 const status = (p: Page) => p.locator('[data-region="status"]')
@@ -112,14 +113,16 @@ function mainView(objectId: string): Promise<ViewState | undefined> {
 const model = () => join(root, 'bracket', 'bracket.py')
 const sceneFile = () => join(root, 'bracket', '.torno', 'scene.json')
 
-test('the object list shows the objects; one that cannot be built is muted, with the reason', async () => {
-  const rows = page.locator('.object-row')
-  await expect(rows).toHaveText(['bracket', 'broken', 'chatty', 'crash', 'exits', 'gauge', 'grouped', 'hollow', 'housing608', 'makers', 'measures', 'morph', 'noscene', 'plain', 'slow', 'spread', 'two'])
-  const two = page.getByRole('button', { name: 'two', exact: true })
-  await expect(two).toHaveAttribute('title', /more than one model file in .*two: a\.py, b\.py/)
+test('the page of projects shows the objects; one that cannot be built says why', async () => {
+  const rows = page.locator('.show .card .card-name')
+  // Every project is on the bench. The shelf is Recently changed by default, so its order follows the files' times: the set is held, not the order.
+  await expect(rows).toHaveCount(17)
+  expect((await rows.allTextContents()).sort()).toEqual(['bracket', 'broken', 'chatty', 'crash', 'exits', 'gauge', 'grouped', 'hollow', 'housing608', 'makers', 'measures', 'morph', 'noscene', 'plain', 'slow', 'spread', 'two'])
+  const two = projectCard(page, 'two')
+  await expect(two.locator('[data-part="build"]')).toHaveAttribute('title', /more than one model file in .*two: a\.py, b\.py/)
   await expect(two).toHaveAttribute('data-problem', '')
-  await expect(page.getByRole('button', { name: 'bracket', exact: true })).not.toHaveAttribute('data-problem')
-  await expect(page.locator('[data-region="left"] .workspace-name')).toHaveAttribute('title', root)
+  await expect(projectCard(page, 'bracket')).not.toHaveAttribute('data-problem')
+  await expect(page.getByRole('button', { name: /^Folder / })).toHaveAttribute('title', root)
   await expect(page.locator('[data-region="viewport"]')).toContainText('No project open')
 })
 
@@ -139,16 +142,15 @@ test('clicking an object builds it: status ok, revision 1, its parts as layers',
   expect(await layerNames()).toEqual(['base', 'post'])
 
   await expect(status(page)).toContainText('bracket')
-  await expect(status(page)).toContainText('Built in')
+  await expect(status(page)).toContainText(/built in/i)
   await expect(status(page).locator('[data-part="revision"]')).toHaveText('r1')
   await expect(status(page).locator('[data-part="parts"]')).toHaveText('2 parts')
   await expect(status(page)).toContainText(/build123d \d+\.\d+/)
   // Every number and ref is in the monospace face.
   const face = await status(page).locator('[data-part="revision"] .num').evaluate((el) => getComputedStyle(el).fontFamily)
-  expect(face).toContain('IBM Plex Mono')
-  // The list in the Projects panel marks the object open.
-  await openPanel(page, 'Projects')
-  await expect(objectList(page).getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
+  expect(face).toContain('Martian Mono')
+  // The project crumb of the title bar names the object open.
+  await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project bracket')
 })
 
 test('a look draws the parts', async () => {
@@ -166,15 +168,20 @@ test('a look draws the parts', async () => {
 })
 
 test('the layout switch shows the other layout; with one layout there is none', async () => {
+  // The layout pill of the compass shows the layout, and the menu behind it the others.
   const layoutSwitch = page.getByRole('group', { name: 'Layout' })
-  await expect(layoutSwitch.getByRole('button')).toHaveText(['assembly', 'print'])
-  await layoutSwitch.getByRole('button', { name: 'print' }).click()
+  await expect(layoutSwitch.getByRole('button')).toHaveText('assembly')
+  await layoutSwitch.getByRole('button').click()
+  await expect(page.getByRole('menu', { name: 'Layouts' }).getByRole('menuitem')).toHaveText(['assembly', 'print'])
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   expect((await state()).layout).toBe('print')
   expect((await look({ view: 'top' })).caption).toContain('layout print')
   await expect.poll(() => (existsSync(sceneFile()) ? JSON.parse(readFileSync(sceneFile(), 'utf8')).layout : null)).toBe('print')
-  await layoutSwitch.getByRole('button', { name: 'assembly' }).click()
+  await layoutSwitch.getByRole('button').click()
+  await expect(page.getByRole('menuitem', { name: 'print', exact: true })).toHaveAttribute('aria-current', 'true')
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   expect((await state()).layout).toBe('assembly')
-  await expect(layoutSwitch.getByRole('button', { name: 'assembly' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(layoutSwitch.getByRole('button')).toHaveText('assembly')
 })
 
 test('view buttons and keys move the camera; keys are left alone in the session dock', async () => {
@@ -192,7 +199,7 @@ test('view buttons and keys move the camera; keys are left alone in the session 
   await arrived([-1, 0, 0])
   await page.keyboard.press('4')
   await arrived([0, 0, -1])
-  await page.getByRole('button', { name: 'Front', exact: true }).click()
+  await page.getByRole('button', { name: 'Front view, 2', exact: true }).click()
   await arrived([0, 1, 0])
   await page.getByRole('button', { name: 'More views' }).click()
   await page.getByRole('menuitem', { name: 'Back' }).click()
@@ -327,26 +334,37 @@ test('a broken save fails the build and keeps the last good parts, dimmed; the e
 
   await failed.click()
   const sheet = page.getByRole('dialog', { name: 'Build error' })
-  await expect(sheet).toContainText('bracket did not build')
+  // The error stands from the failed node of the builds strip: the tail first, the whole of it when asked.
+  await expect(sheet).toContainText('The build after h')
+  await expect(sheet.locator('[data-part="tail"]')).toContainText('SyntaxError')
+  await sheet.getByRole('button', { name: 'Whole error' }).click()
   const traceback = sheet.locator('[data-part="traceback"]')
   await expect(traceback).toContainText('bracket.py')
   await expect(traceback).toContainText('SyntaxError')
   const style = await traceback.evaluate((el) => ({ face: getComputedStyle(el).fontFamily, select: getComputedStyle(el).userSelect }))
-  expect(style.face).toContain('IBM Plex Mono')
+  expect(style.face).toContain('Martian Mono')
   expect(style.select).toBe('text')
   await expect(sheet.getByRole('button', { name: 'Copy' })).toBeVisible()
   // What happened, in words and not as the kernel's word; who is told; and the one thing to press after an error in the model.
-  await expect(sheet.locator('[data-part="kind"]')).toHaveText('Build after r2 failed · Python error in the model')
+  await expect(sheet.locator('[data-part="kind"]')).toHaveText('Python error in the model')
   await expect(sheet.locator('[data-part="told"]')).toHaveText('No session is running. Start one, and it is told with your first prompt.')
   await expect(sheet.getByRole('button', { name: 'Start a session to fix it' })).toHaveClass(/button-primary/)
   await expect(sheet.getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
   // The same sources would give the same error: the status line's Rebuild is quiet.
   await expect(status(page).locator('.status-rebuild')).not.toHaveAttribute('data-primary', '')
-  // The sheet lies over the viewport, between the rail and its panel and the session dock.
-  const box = (await sheet.boundingBox())!
-  const left = (await page.locator('[data-region="left"]').boundingBox())!
-  expect(box.x).toBe(left.x + left.width)
-  expect(box.x + box.width).toBe(1440 - 520)
+  // It stands from the failed node of the strip at the top of the dock, 300 px wide, with a stem to it.
+  const node = page.locator('[data-region="session"] .strip-node[data-kind="failed"]')
+  await expect(node).toHaveCount(1)
+  const [box, from] = [(await sheet.boundingBox())!, (await node.boundingBox())!]
+  expect(Math.round(box.width)).toBe(300)
+  expect(box.y).toBeGreaterThanOrEqual(from.y + from.height)
+  expect(box.x).toBeLessThanOrEqual(from.x + from.width)
+  expect(box.x + box.width).toBeGreaterThanOrEqual(from.x)
+  // A click on the node puts it away, and another brings it back.
+  await node.click()
+  await expect(sheet).toHaveCount(0)
+  await node.click()
+  await expect(sheet).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
   await failed.click()
@@ -358,13 +376,14 @@ test('a fillet that fails says why in the error sheet, under the message', async
   await expect.poll(async () => (await state()).build?.error?.diagnosis?.operation, { timeout: 30_000 }).toBe('fillet')
   const sheet = page.getByRole('dialog', { name: 'Build error' })
   if ((await sheet.count()) === 0) await page.getByRole('button', { name: 'Build failed' }).click()
+  await sheet.getByRole('button', { name: 'Whole error' }).click()
   const why = sheet.locator('[data-part="diagnosis"]')
   await expect(why).toContainText('fillet R6 of 8 edges: each works alone; 4 pairs of adjacent edges fail (edges 4-5, 4-6, 5-7, 6-7: 12 mm apart, two R6 need more); the 8 together work up to R5.999')
   await expect(why).toContainText('4: line, 5 mm, along Z, between 2 planes')
   // Under the message, before the traceback; set as numbers are.
-  const order = await sheet.locator('.sheet-message, [data-part="diagnosis"], [data-part="traceback"]').evaluateAll((els) => els.map((el) => el.getAttribute('data-part') ?? 'message'))
+  const order = await sheet.locator('[data-part="message"], [data-part="diagnosis"], [data-part="traceback"]').evaluateAll((els) => els.map((el) => el.getAttribute('data-part') ?? 'message'))
   expect(order).toEqual(['message', 'diagnosis', 'traceback'])
-  expect(await why.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
+  expect(await why.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
   await expect(sheet.getByRole('heading', { name: 'Why' })).toBeVisible()
 })
 
@@ -412,7 +431,7 @@ test('mending the model builds the next revision and clears the failure', async 
 
 test('hiding a layer changes the picture and is recorded in .torno/scene.json', async () => {
   const both = await look({ view: 'iso' })
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.locator('[data-layer="post"]').hover()
   const toggle = page.getByRole('button', { name: 'Show post' })
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
@@ -600,8 +619,8 @@ test.describe('the workspace is remembered', () => {
       const second = await launch({ TORNO_CONFIG: config })
       try {
         const secondPage = await second.firstWindow()
-        await expect(secondPage.locator('.object-row')).toHaveText(['thing'])
-        await expect(secondPage.locator('.workspace-name')).toHaveText('objects')
+        await expect(secondPage.locator('.show .card .card-name')).toHaveText(['thing'])
+        await expect(secondPage.locator('.title-row .workspace-name')).toHaveText('objects')
       } finally {
         await second.close()
       }

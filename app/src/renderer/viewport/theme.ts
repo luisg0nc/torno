@@ -9,6 +9,8 @@ export interface Theme {
   ink: string
   muted: string
   accent: string
+  /** Text and icons on the accent. */
+  onAccent: string
   agent: string
   user: string
   panel: string
@@ -25,7 +27,7 @@ export interface Theme {
 }
 
 /** The light values of styles/tokens.css, used where no stylesheet is loaded. */
-export const LIGHT_THEME: Theme = { surface: '#F1EFEA', hairline: '#DAD6CE', ink: '#22252A', muted: '#646970', accent: '#1D46B8', agent: '#288156', user: '#CF3F2C', panel: '#FAF9F6', scan: '#B4AFA5', axisX: '#9A3350', axisY: '#457528', axisZ: '#2E5FA9', sets: ['#987D3E', '#838637', '#3D8C94', '#4889B1', '#7F6EC4', '#9F6BC2', '#BC5CBC', '#BF6391'], layers: { blue: '#3A63D0', teal: '#1A8794', violet: '#7A4FC9', ochre: '#A87410', plum: '#9B3E7C', slate: '#5A6878', sky: '#2785BD', olive: '#6B7A22' } }
+export const LIGHT_THEME: Theme = { surface: '#F1EFEA', hairline: '#DAD6CE', ink: '#20242B', muted: '#62666D', accent: '#1D46B8', onAccent: '#FFFFFF', agent: '#288156', user: '#CF3F2C', panel: '#FAF9F6', scan: '#B4AFA5', axisX: '#9A3350', axisY: '#457528', axisZ: '#2E5FA9', sets: ['#987D3E', '#838637', '#3D8C94', '#4889B1', '#7F6EC4', '#9F6BC2', '#BC5CBC', '#BF6391'], layers: { blue: '#3A63D0', teal: '#1A8794', violet: '#7A4FC9', ochre: '#A87410', plum: '#9B3E7C', slate: '#5A6878', sky: '#2785BD', olive: '#6B7A22' } }
 
 /** The theme as the stylesheet says it now; the light one where there is no stylesheet. */
 export function themeOf(): Theme {
@@ -37,6 +39,7 @@ export function themeOf(): Theme {
     ink: read('--ink', LIGHT_THEME.ink),
     muted: read('--muted', LIGHT_THEME.muted),
     accent: read('--accent', LIGHT_THEME.accent),
+    onAccent: read('--on-accent', LIGHT_THEME.onAccent),
     agent: read('--agent-mark', LIGHT_THEME.agent),
     user: read('--user-mark', LIGHT_THEME.user),
     panel: read('--panel', LIGHT_THEME.panel),

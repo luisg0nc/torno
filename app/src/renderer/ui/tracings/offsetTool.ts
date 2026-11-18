@@ -133,6 +133,11 @@ export class OffsetTool {
     return true
   }
 
+  /** Where the shape in hand was before it was moved, the point of the plane (its reference point) that its tag is tied to; null with no shape in hand. */
+  ghostAt(): [number, number] | null {
+    return this.hand === null ? null : referencePoint(this.hand.shape)
+  }
+
   /** The readout at the pointer, `M15 head bolt 4 should be here · 1.8 mm left, 0.6 mm up`; the mark's number once the shape has one. Nothing with no shape in hand. */
   readout(): string {
     const hand = this.hand

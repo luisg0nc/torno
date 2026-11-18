@@ -1,7 +1,10 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { plainText } from '../../../test/plainText'
+import { actions, store } from '../../state/store'
+import { CardSection } from '../card/CardSection'
+import { TracingRowsView } from '../TracingRows'
 import { planeOfFrom, type Layer, type Tracing, type TracingCut } from '../../../shared/tracings'
 import { offeredParts, TracingPanelView, type TracingPanelProps } from './TracingPanel'
 
@@ -170,5 +173,53 @@ describe('the panel of a tracing', () => {
     const text = plainText(html({ tracing: tracing({ layers: [layer()] }) }))
     for (const label of ['Model outline', 'Layers', 'Photo', 'Add photo', 'Show in 3D', 'Export']) expect(text).toContain(label)
     expect(text).not.toMatch(/Model Outline|Show In 3D|Line Up/)
+  })
+})
+
+describe('the panel in the Tracings section of the card', () => {
+  const photo = { file: 'p-0123456789ab.jpg', sha256: 'a'.repeat(64), width: 400, height: 300, pairs: [{ photo: [1, 1] as [number, number], uv: [0, 0] as [number, number] }, { photo: [9, 9] as [number, number], uv: [4, 4] as [number, number] }], method: 'similar' as const, transform: [1, 0, 0, 0, 1, 0, 0, 0, 1] as never, scale: 4.7312, angle: 2.1, fade: 0.5 }
+  const lined = tracing({ photo })
+  // Rendered on the server, a store reads its initial state: it is made to read what it holds now.
+  const section = (panel: Partial<TracingPanelProps> = {}, rows: Partial<Parameters<typeof TracingRowsView>[0]> = {}): string => {
+    const spy = vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState())
+    try {
+      return renderToStaticMarkup(
+        createElement(
+          CardSection,
+          { id: 'tracings', title: 'Tracings', said: '1' },
+          createElement(TracingRowsView, { tracings: [lined, tracing({ id: 'T2', name: '', plane: lined.plane })], open: 'T1', shown: ['T1'], panel: createElement(TracingPanelView, props({ tracing: lined, photoThumb: 'blob:x', photoHere: true, ...panel })), ...rows })
+        )
+      )
+    } finally {
+      spy.mockRestore()
+    }
+  }
+
+  it('has data-section="tracings" as its container, with the open tracing\'s panel unfolded in it, keeping every word of the panel', () => {
+    actions.showSection('tracings')
+    const markup = section()
+    expect(markup).toMatch(/<section[^>]*data-section="tracings"[^>]*>.*<section class="tr-panel"/s)
+    const text = plainText(markup)
+    for (const word of ['4.731 px/mm', '2.1°', 'not exact', 'Fade', 'Line up again', 'Swap photo', 'Remove photo', 'Hide']) expect(text).toContain(word)
+    expect(markup.indexOf('tr-panel')).toBeGreaterThan(markup.indexOf('data-tracing="T1"'))
+  })
+
+  it('has one row for each tracing: its number, its name and its photo file, and the eye of Show in 3D', () => {
+    const markup = section()
+    expect(markup.match(/<li class="tracing-row"/g)).toHaveLength(2)
+    const text = plainText(markup)
+    expect(text).toContain('T1')
+    expect(text).toContain('Front of the block')
+    expect(text).toContain('p-0123456789ab.jpg')
+    expect(markup).toContain('aria-label="Hide T1 in 3D"')
+    expect(markup).toContain('aria-label="Show T2 in 3D"')
+  })
+
+  it('says under the open one how the photo is lined up, and that it is redrawn at each build', () => {
+    expect(plainText(section())).toContain('Photo lined up by 2 points, 0.2114 mm a pixel. Redrawn at each build.')
+  })
+
+  it('has no panel under a row while the Tracing view is not showing', () => {
+    expect(section({}, { panel: null })).not.toContain('tr-panel')
   })
 })

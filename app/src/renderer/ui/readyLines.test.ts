@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Ready } from '../../shared/ready'
-import { allReady, flat, foldedLine, lacking, makesEnvironment, readinessLines, text, type Line } from './readyLines'
+import { allReady, flat, foldedLine, glyphOf, lacking, makesEnvironment, readinessLines, text, type Line } from './readyLines'
 
 const found: Ready = {
   searched: '/usr/local/bin:/usr/bin',
@@ -158,12 +158,17 @@ describe('the summary', () => {
   it('folds to one line when everything is ready', () => {
     const lines = readinessLines(found)
     expect(allReady(lines)).toBe(true)
-    expect(foldedLine(found, lines)).toBe('Claude Code and build123d 0.13.0 are ready')
+    expect(foldedLine(found, lines)).toBe('Claude Code 2.1.307 and build123d 0.13.0 are ready')
+  })
+
+  it('says Claude Code alone while its version is not asked for (under test), and names no version it does not have', () => {
+    const ready = with_({ claude: { command: 'claude', path: '/usr/local/bin/claude' } })
+    expect(foldedLine(ready, readinessLines(ready))).toBe('Claude Code and build123d 0.13.0 are ready')
   })
 
   it("names torno's environment while no kernel has spoken", () => {
     const ready = with_({ kernel: { state: 'none' } })
-    expect(foldedLine(ready, readinessLines(ready))).toBe("Claude Code and torno's Python environment are ready")
+    expect(foldedLine(ready, readinessLines(ready))).toBe("Claude Code 2.1.307 and torno's Python environment are ready")
   })
 
   it('does not fold while anything is waiting, warned of or failed', () => {
@@ -175,7 +180,7 @@ describe('the summary', () => {
   it('folds over a kernel that is only starting, its environment there: seconds, not a reason to keep the block open', () => {
     const ready = with_({ kernel: { state: 'starting' } })
     expect(allReady(readinessLines(ready))).toBe(true)
-    expect(foldedLine(ready, readinessLines(ready))).toBe("Claude Code and torno's Python environment are ready")
+    expect(foldedLine(ready, readinessLines(ready))).toBe("Claude Code 2.1.307 and torno's Python environment are ready")
   })
 
   it('lacking is what is warned of or failed', () => {
@@ -192,5 +197,11 @@ describe('the build that makes the environment', () => {
     expect(makesEnvironment(with_({ kernel: { state: 'ready', versions: {} }, environment: unmade }))).toBe(false)
     expect(makesEnvironment(with_({ kernel: { state: 'starting' }, environment: { kind: 'workspace', dir: '/w/.venv', made: false } }))).toBe(false)
     expect(makesEnvironment(null)).toBe(false)
+  })
+})
+
+describe('the glyphs', () => {
+  it('a tick for ready, ! for a warning, × for a failure, and an ellipsis while it waits', () => {
+    expect(['ok', 'warn', 'fail', 'wait'].map((tone) => glyphOf(tone as Line['tone']))).toEqual(['✓', '!', '×', '…'])
   })
 })

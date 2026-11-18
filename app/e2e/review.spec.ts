@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { BoardFile } from '../src/shared/board'
 import type { Mark, MarksFile } from '../src/shared/marks'
 import type { TornoState } from '../src/renderer/state/store'
-import { openPanel } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // A round of a review made in the hidden window, on the `gauge` fixture (a 40 × 30 × 6 plate with one Ø8 hole): "Review this
@@ -51,7 +51,8 @@ const chat = () => dock().locator('.chat')
 const composer = () => dock().locator('[data-chat-composer]')
 const bar = () => page.getByRole('toolbar', { name: 'Review' })
 const sketchPanel = () => page.getByRole('complementary', { name: 'Sketch' })
-const roundPanel = () => page.locator('[data-part="round-panel"]')
+// The round's panel is the head of the route card.
+const roundPanel = () => page.locator('.route-hand [data-part="round-panel"]')
 const drawingBoard = () => page.getByRole('dialog', { name: 'Drawing on the view' })
 
 const marksFile = (): MarksFile => JSON.parse(readFileSync(join(root, 'gauge', '.torno', 'marks.json'), 'utf8')) as MarksFile
@@ -117,21 +118,23 @@ async function send(lines: string[]): Promise<void> {
 /** The text torno added to the n-th prompt of the chat, as the agent was given it (the stand-in's script never sees it). */
 async function added(n: number): Promise<string> {
   const item = chat().locator('.chat-added').nth(n)
-  await expect(item).toContainText('torno added', { timeout: 30_000 })
+  await expect(item.locator('.chat-added-label')).toHaveText('with', { timeout: 30_000 })
   await item.getByRole('button', { name: 'Show text' }).click()
   return (await item.locator('.chat-added-text').textContent()) ?? ''
 }
 
 test('Review this build starts R1 on the build on show, and the keys choose what the next marks are', async () => {
   await openListed(page, 'gauge')
-  await openPanel(page, 'Marks')
+  await openSection(page, 'Marks')
   await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok' })
   await page.keyboard.press('1')
   await atRest()
   await expect(bar()).toHaveCount(0)
   await page.getByRole('button', { name: 'Review this build' }).click()
   await expect(bar()).toBeVisible()
-  await expect(bar()).toContainText('Review of h1')
+  await expect(bar()).toContainText('Reviewing h1')
+  await expect(page.locator('[data-band="review"]')).toHaveCount(1)
+  await expect(page.locator('.pboard-switch')).toHaveCount(0)
   await expect(bar()).toContainText('0 − · 0 +')
   await expect.poll(() => marksFile().rounds?.map((r) => [r.id, r.build])).toEqual([['R1', 'h1']])
   // The key of the choice takes it, and the same key again goes back to plain.
@@ -164,6 +167,19 @@ test('a face picked while "don\'t want" is chosen is a mark of the round, with i
   // Its row says what it is, and that it waits.
   const row = page.locator('.mark-row[data-mark="M1"]')
   await expect(row).toContainText('− M1')
+  // The sign is a round disc before the square chip: the minus hatched in the person's colour.
+  await expect(row.locator('.mark-line > .sign-disc[data-sign="-"]')).toHaveText('−')
+  await expect(row.locator('.sign-disc + .mark-chip')).toHaveText('M1')
+  await expect(row.locator('.mark-chip')).not.toContainText('−')
+  expect(await row.locator('.mark-line > .sign-disc').evaluate((el) => [getComputedStyle(el).borderRadius, getComputedStyle(el).width, getComputedStyle(el).backgroundImage.includes('repeating-linear-gradient')])).toEqual(['50%', '18px', true])
+  // While the round is open the item is told in the view too: a tag at its point with the disc and the note, and no leader (a mark has none).
+  const told = page.locator('.viewport-pane [data-tag="round-note-M1"]')
+  await expect(told).toBeVisible()
+  await expect(told).toContainText('nothing holds here')
+  await expect(told.locator('.sign-disc[data-sign="-"]')).toHaveText('−')
+  await expect(page.locator('svg.leader-layer [data-leader="round-note-M1"]')).toHaveCount(0)
+  // The pens of the band carry the same discs.
+  await expect(bar().locator('.sign-disc')).toHaveCount(2)
   await expect(row).toContainText('in review, not sent')
 })
 
@@ -180,10 +196,11 @@ test('a sketch drawn while "want" is chosen is the round\'s second item', async 
   await expect(sketchPanel()).toHaveCount(0)
   await expect(bar()).toContainText('1 − · 1 +')
   await expect(page.locator('.mark-row[data-mark="M2"]')).toContainText('+ M2')
+  await expect(page.locator('.mark-row[data-mark="M2"] .mark-line > .sign-disc[data-sign="+"]')).toHaveText('+')
 })
 
 test('a view note drawn in the round is its plain third item, and no prompt carries it', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await expect(composer()).toBeEnabled()
   await bar().getByRole('radio', { name: /Plain/ }).click()
@@ -259,6 +276,7 @@ test('after a rebuild the panel of R1 says OK to one item and Still wrong to the
   await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok', revision: 2, stale: false })
   await page.getByRole('button', { name: 'Open the panel of R1' }).click()
   await expect(roundPanel()).toBeVisible()
+  await expect(page.locator('.route-hand .hand')).toHaveAttribute('data-kind', 'review')
   await expect(roundPanel()).toContainText('Review of h1 · 1 − · 1 +')
   await expect(roundPanel()).toContainText('h1 is shown faint beside h2', { timeout: 30_000 })
   const m1 = roundPanel().locator('[data-mark="M1"]')

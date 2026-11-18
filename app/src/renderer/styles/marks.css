@@ -16,15 +16,50 @@
   list-style: none;
 }
 
+/* A row is two lines: the chip and the note (`.mark-line`), then what kind of mark it is and what is the matter with it, in
+   muted words (`.mark-meta`). On the active row the note is whole and what can be done with the mark is in words under it. */
 .mark-row {
   --row-bg: var(--panel);
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
   padding: 0 var(--space-2) 0 var(--space-4);
   background: var(--row-bg);
+}
+
+.mark-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-height: 30px;
+  padding-top: 4px;
+}
+
+.mark-line > .sign-disc {
+  margin-top: 1px;
+}
+
+.mark-line > .mark-chip,
+.mark-line > .mark-thumb,
+.mark-line > .mark-sketch {
+  margin-top: 2px;
+}
+
+/* The second line, under the note: the kind of mark, and what the last build did to it. */
+.mark-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 1px 8px;
+  min-width: 0;
+  padding: 0 0 7px 33px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.mark-meta > * {
+  min-width: 0;
+  font-size: inherit;
+  overflow-wrap: anywhere;
 }
 
 .mark-row:hover,
@@ -50,7 +85,7 @@
   height: 17px;
   padding: 0 4px;
   border: 1.5px solid var(--user-mark);
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: var(--user-mark);
   color: var(--panel);
   font-size: 11.5px;
@@ -66,14 +101,33 @@
 }
 
 .mark-kind {
-  display: grid;
-  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
   color: var(--muted);
 }
 
 .mark-kind svg {
-  width: 14px;
-  height: 14px;
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.mark-kind > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What a row of Needs you says at its right: where it comes from. */
+.mark-source {
+  flex: none;
+  align-self: center;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
 }
 
 /* A view note's picture, in the row: as tall as the row has room for, as wide as its picture is. */
@@ -84,7 +138,7 @@
   max-width: 40px;
   height: 22px;
   border: var(--divider);
-  border-radius: 3px;
+  border-radius: var(--radius-inline);
   object-fit: cover;
   background: var(--surface);
 }
@@ -130,10 +184,23 @@ span.mark-thumb {
   border: 0;
   background: transparent;
   color: var(--ink);
+  line-height: 22px;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: text;
+}
+
+/* The active row shows its note whole, wrapped, not cut. */
+.mark-row[data-active] .mark-note {
+  height: auto;
+  min-height: 22px;
+  overflow: visible;
+  line-height: 1.4;
+  padding: 2px 0;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .mark-note[data-empty] {
@@ -147,7 +214,7 @@ span.mark-thumb {
   margin: 0 -5px;
   padding: 0 4px;
   border: 1px solid var(--accent);
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: var(--panel);
   color: var(--ink);
   font: inherit;
@@ -166,17 +233,6 @@ span.mark-thumb {
 
 .mark-status[data-status='draft'] {
   color: var(--accent);
-}
-
-/* A mark that is no draft says its status once its row is pointed at, in focus or the active one: until then
-   the width is its note's. The word stays in the row for whoever has it read out. */
-.mark-row:not(:hover, :focus-within, [data-active]) .mark-status:not([data-status='draft']) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 /* What the last build did to the surface a mark is on. */
@@ -232,13 +288,11 @@ span.mark-thumb {
 
 /* What the agent did about it, in words, and the two things to do about that. */
 .mark-resolution {
-  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  width: 100%;
-  padding: 2px 0 9px;
+  padding: 0 0 9px 33px;
   font-size: var(--text-small);
 }
 
@@ -250,7 +304,8 @@ span.mark-thumb {
 }
 
 .mark-resolution-by {
-  font-weight: 600;
+  color: var(--agent-mark);
+  font-weight: 500;
 }
 
 .mark-resolution .button {
@@ -258,16 +313,55 @@ span.mark-thumb {
   padding: 0 9px;
 }
 
-/* What can be done with a mark: over the end of the row while it is pointed at or holds the focus. */
+/* What can be done with a mark: as icons over the end of the row's first line while it is pointed at or holds the focus. */
 .mark-actions {
   position: absolute;
-  inset: 0 var(--space-2) 0 auto;
+  inset: 0 var(--space-2) auto auto;
   display: flex;
   align-items: center;
+  height: 30px;
   padding-left: 18px;
   background: linear-gradient(to right, transparent, var(--row-bg) 14px);
   opacity: 0;
   pointer-events: none;
+}
+
+.mark-act-word {
+  display: none;
+}
+
+/* On the active row they are words, under the row's two lines: Go to view, Re-place, Edit, Answer in chat, Resolve, Reopen, Delete.
+   (A mark the agent resolved has OK and Reopen… of its own, and keeps the icons.) */
+.mark-row[data-active]:not([data-awaiting]) .mark-actions {
+  position: static;
+  flex-wrap: wrap;
+  gap: 2px 2px;
+  height: auto;
+  padding: 0 0 8px 26px;
+  background: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mark-row[data-active]:not([data-awaiting]) .mark-actions .icon-button {
+  width: auto;
+  height: 22px;
+  padding: 0 7px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mark-row[data-active]:not([data-awaiting]) .mark-actions .icon-button svg {
+  display: none;
+}
+
+.mark-row[data-active]:not([data-awaiting]) .mark-actions .mark-act-word {
+  display: inline;
+}
+
+.mark-row[data-active]:not([data-awaiting]) .mark-actions .icon-button:disabled {
+  color: var(--muted);
 }
 
 .mark-row:hover .mark-actions,
@@ -290,37 +384,7 @@ span.mark-thumb {
 /* ---- A shape's numbers: its row, opened out while it is the active mark ---- */
 
 .mark-stop {
-  flex: none;
-  width: 100%;
-  padding-bottom: 6px;
-}
-
-/* The line that heads the marks when there are checks: how many pass, fail and are not measured, each a way to the first. */
-.checks-summary {
-  margin: var(--space-1) 0 0;
-  padding: 4px var(--space-4);
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.checks-count {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: inherit;
-  font-weight: 500;
-}
-
-.checks-count[data-state='pass'] {
-  color: var(--ok);
-}
-
-.checks-count[data-state='fail'] {
-  color: var(--fail);
-}
-
-.checks-count[data-state='unmeasured'] {
-  color: var(--warn);
+  padding: 0 0 6px 33px;
 }
 
 /* The line that follows a delete: what was deleted, and the way back. */
@@ -331,22 +395,9 @@ span.mark-thumb {
   color: var(--muted);
 }
 
-.mark-row[data-expanded] {
-  flex-wrap: wrap;
-  align-content: flex-start;
-  height: auto;
-  padding-top: 4px;
-}
-
-/* What can be done with the mark stays on its first line. */
-.mark-row[data-expanded] .mark-actions {
-  bottom: auto;
-  height: 30px;
-}
-
 /* A dimension opened out says its value and its verdict in its fields, right under the first line: there the
    first line leaves the value to them, and has the room for the way to a note beside what can be done. */
-.mark-row:has(> .dimension-fields) > .mark-value {
+.mark-row:has(> .dimension-fields) .mark-value {
   display: none;
 }
 
@@ -378,7 +429,7 @@ span.mark-thumb {
   height: 21px;
   padding: 0 5px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: transparent;
   color: var(--muted);
   white-space: nowrap;
@@ -428,7 +479,7 @@ span.mark-thumb {
   height: 24px;
   padding: 0 6px;
   border: var(--field-border);
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: var(--panel);
   cursor: text;
 }
@@ -486,6 +537,7 @@ span.mark-thumb {
 /* The value beside the number, as it is written on the part. */
 .mark-value {
   flex: none;
+  align-self: center;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -646,34 +698,6 @@ span.mark-thumb {
   text-wrap: balance;
 }
 
-/* What the agent resolved, told as one line until it is reviewed: a surface like a resolution's, in no mark colour. */
-.marks-review {
-  margin: 0 var(--space-2);
-  padding: 6px var(--space-2);
-  border-radius: var(--radius-control);
-  background: var(--accent-wash);
-  font-size: var(--text-small);
-}
-
-.marks-review > p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.marks-review .button {
-  height: 22px;
-  padding: 0 9px;
-}
-
-.marks-review-done {
-  margin: 0;
-  color: var(--muted);
-}
-
-.marks-review > .mark-rows {
-  margin: 6px calc(-1 * var(--space-2)) 0;
-}
-
 /* "Ask Claude Code to commit", under the marks once files differ from the last commit. */
 .marks-commit {
   margin: var(--space-1) var(--space-4) 0;
@@ -720,4 +744,9 @@ span.mark-thumb {
 
 .marks-fold[aria-expanded='true'] svg {
   transform: rotate(90deg);
+}
+
+/* A line a mark's row says of how the mark is drawn now, not of the mark. */
+.row-note {
+  color: var(--muted);
 }

@@ -1,0 +1,148 @@
+/* The build slip (ui/chat/BuildLine.tsx): a block on the surface with the build's head line, the dimensions it flipped, and the table of the parts it changed. The turn's end is Task 30's. */
+.chat-build {
+  padding: 10px 12px;
+  border-radius: var(--radius-float);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* A build that failed: on the failure's wash, the last line of its error under the head, the rest in the strip's node. */
+.chat-build[data-build='failed'] {
+  background: var(--fail-wash);
+}
+
+.chat-build-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.chat-build-head {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.chat-build-head b {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.chat-build-head[data-verdict='failed'] {
+  color: var(--fail);
+}
+
+/* "Show text" and the rest of the head's buttons stand at the right. */
+.chat-build-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-left: auto;
+}
+
+.chat-build-error {
+  margin: var(--space-1) 0 0;
+  color: var(--fail);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+/* The dimensions that flipped: a row each, on the panel. */
+.chat-build-dimensions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-build-flip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  padding: 5px 8px;
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.chat-build-flip-word {
+  font-weight: 600;
+}
+
+.chat-build-flip-word[data-verdict='ok'] {
+  color: var(--ok);
+}
+
+.chat-build-flip-word[data-verdict='failed'] {
+  color: var(--fail);
+}
+
+.chat-build-flip-values {
+  font-size: 10.5px;
+}
+
+/* The table: the part, the build before, this build, the change. */
+.chat-build-table {
+  width: 100%;
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+}
+
+.chat-build-table th,
+.chat-build-table td {
+  padding: 3px 0 3px var(--space-2);
+  border-bottom: var(--divider);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.chat-build-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.chat-build-table th:first-child {
+  max-width: 0;
+  width: 40%;
+  padding-left: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+}
+
+.chat-build-table thead th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.chat-build-table tbody th {
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+.chat-build-table td {
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+.chat-build-table .chat-build-was {
+  color: var(--muted);
+}
+
+.chat-build-table .chat-build-change {
+  color: var(--accent);
+}
+
+/* "3 more changed" and "5 parts did not change". */
+.chat-build-rest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+}

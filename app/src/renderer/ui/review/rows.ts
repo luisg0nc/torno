@@ -1,6 +1,7 @@
 import type { HistoryEntry } from '../../../shared/history'
-import { type Mark, markIntent } from '../../../shared/marks'
+import { type Mark, type ReviewIntent, markIntent } from '../../../shared/marks'
 import { INTENT_CHIP, type Round, roundItems } from '../../../shared/reviews'
+import { countsText } from '../../../shared/sketchText'
 
 /** What an item says of itself in the panel besides its note: what the person made of Claude's answer, or that there is none. */
 export type Said = `OK in ${string}` | 'OK (accepted)' | 'Still wrong' | 'Not answered yet' | ''
@@ -9,7 +10,13 @@ export interface RoundRow {
   id: string
   /** `− M8`, `+ M9` or `M10`: the sign is the person's want or don't want. */
   chip: string
+  /** `−` for what is not wanted, `+` for what is, nothing for a plain item: the 22 px column before the words. */
+  sign: string
+  /** The same as the disc's intent, for the round sign of the column; none for a plain item. */
+  intent?: ReviewIntent
   note: string
+  /** What the item is on, in the face of refs (`plate/F3`, `part`, `3 strokes on 2 planes`); empty when it is on nothing a name can be given to. */
+  where: string
   /** Claude's `resolvedNote`, when it resolved the item. */
   resolved?: string
   /** `judge`: Claude resolved it and the person has not said OK or Still wrong yet. */
@@ -20,11 +27,18 @@ export interface RoundRow {
 /** Where the reviewed build is shown against the live one, or why it is not. */
 export type RoundCompare = { from: string; to: string } | { off: string }
 
+/** What a mark is on, in a few words: a sketch says how many strokes on how many planes, any other the face, edge or part it is anchored to. */
+export function whereText(mark: Mark): string {
+  if (mark.kind === 'sketch') return countsText(mark)
+  const anchor = 'anchor' in mark ? mark.anchor : undefined
+  return anchor?.ref ?? anchor?.part ?? ''
+}
+
 /** The row of one item of a round. */
 /** `sent`: its round was sent; before that main refuses a verdict, so none is offered. */
 function rowOf(mark: Mark, sent: boolean): RoundRow {
   const intent = markIntent(mark)
-  const row = { id: mark.id, chip: intent ? `${INTENT_CHIP[intent]} ${mark.id}` : mark.id, note: mark.note, ...(mark.resolvedNote ? { resolved: mark.resolvedNote } : {}) }
+  const row = { id: mark.id, chip: intent ? `${INTENT_CHIP[intent]} ${mark.id}` : mark.id, sign: intent ? INTENT_CHIP[intent] : '', ...(intent ? { intent } : {}), note: mark.note, where: whereText(mark), ...(mark.resolvedNote ? { resolved: mark.resolvedNote } : {}) }
   const judged = mark.judged
   if (mark.status === 'resolved') {
     // Only Claude's answer is the person's to judge. A judgment older than its answer (Still wrong, answered again) is no longer of it.
@@ -62,4 +76,33 @@ export function roundNumber(round: Round, rounds: readonly Round[]): number {
     if (at) count += 1
   }
   return count
+}
+
+/** The most notes of a round the view carries at once: more would hide the model. */
+const MOST_NOTES = 6
+/** How much of a note a tag in the view says. */
+const NOTE_CHARS = 60
+
+/** What a round item says in the view, on a tag with no leader: its sign (`intent`) and its note (its number when it has none). */
+export interface RoundNoteTag {
+  id: string
+  intent?: ReviewIntent
+  text: string
+}
+
+/**
+ * The tags of the items of round `roundId` that are in `layout`, in the order of the marks, at most `most`: an item says its sign and its note,
+ * and one with neither (a plain mark with no words) is left out. They stand at the item's point, with no leader (a mark has none).
+ */
+export function roundNoteTags(marks: readonly Mark[], roundId: string, layout: string, most = MOST_NOTES): RoundNoteTag[] {
+  const out: RoundNoteTag[] = []
+  for (const mark of marks) {
+    if (mark.round !== roundId || mark.layout !== layout) continue
+    const intent = markIntent(mark)
+    const note = mark.note.replace(/\s+/g, ' ').trim()
+    if (!intent && note === '') continue
+    out.push({ id: mark.id, ...(intent ? { intent } : {}), text: note === '' ? mark.id : note.length > NOTE_CHARS ? `${note.slice(0, NOTE_CHARS)}…` : note })
+    if (out.length === most) break
+  }
+  return out
 }

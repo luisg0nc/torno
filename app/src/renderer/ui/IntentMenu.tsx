@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { pressed } from '../../shared/keys'
 import { type Mark, type ReviewIntent, markIntent } from '../../shared/marks'
-import { INTENT_CHIP } from '../../shared/reviews'
 import { reviewActions } from '../state/review'
+import { SignDisc } from './SignDisc'
 
 /** What a row offers to say of a mark, in order, with the one it says marked. A shape has no plain: its other intents are set in its fields. */
 export function intentChoices(mark: Mark): Array<{ intent: ReviewIntent | null; label: string; checked: boolean }> {
@@ -48,7 +48,7 @@ export function IntentMenu({ mark }: { mark: Mark }) {
   return (
     <span className="intent-menu" ref={host}>
       <button type="button" className="icon-button num" aria-label={`${mark.id}: ${intentSaid(mark)}. Change`} aria-haspopup="menu" aria-expanded={open} title="What you say of it: plain, what you don't want, or what you want" onClick={() => setOpen(!open)}>
-        {now === null ? '±' : INTENT_CHIP[now]}
+        {now === null ? '±' : <SignDisc intent={now} />}
       </button>
       {open && (
         <div
@@ -76,7 +76,7 @@ export function IntentMenu({ mark }: { mark: Mark }) {
                 if (!c.checked) void reviewActions.setIntent(mark.id, c.intent)
               }}
             >
-              <span className="num" aria-hidden="true">{c.intent === null ? '±' : INTENT_CHIP[c.intent]}</span> {c.label}
+              {c.intent === null ? <span className="num" aria-hidden="true">±</span> : <SignDisc intent={c.intent} />} {c.label}
             </button>
           ))}
         </div>

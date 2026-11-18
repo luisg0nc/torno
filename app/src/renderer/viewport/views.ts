@@ -1,4 +1,5 @@
 import { type FocusBox, focusFrame } from '../../shared/focus'
+import { BENCH_MM_PER_PX, THUMB_HEIGHT, THUMB_WIDTH } from '../../shared/thumbnail'
 import type { Camera, ViewName } from '../../shared/view'
 
 type Vec3 = [number, number, number]
@@ -67,6 +68,31 @@ export function visibleHeight(camera: Camera): number {
 }
 
 /**
+ * Half the width (`across`) and half the height (`upward`) that a box of this size (mm) has on screen when it is
+ * seen along `dir` with `up` upward, orthographically: centred on the screen's middle, in mm.
+ */
+export function screenHalfExtent(size: { x: number; y: number; z: number }, dir: number[], up: number[]): { across: number; upward: number } {
+  const d = normalize(dir)
+  const u = perpendicularUp(d, up)
+  const r = cross(d, u)
+  const half = [size.x / 2, size.y / 2, size.z / 2]
+  return {
+    across: Math.abs(r[0]) * half[0] + Math.abs(r[1]) * half[1] + Math.abs(r[2]) * half[2],
+    upward: Math.abs(u[0]) * half[0] + Math.abs(u[1]) * half[1] + Math.abs(u[2]) * half[2]
+  }
+}
+
+/** The pixels left free on each side of a picture made for the bench, for the edge lines of what is at its limit. */
+const BENCH_MARGIN_PX = 2
+
+/** Whether a layout of this size (mm) stays within a picture made for the bench: iso, `BENCH_MM_PER_PX`, centred on it. */
+export function benchFits(size: { x: number; y: number; z: number }): boolean {
+  const { dir, up } = viewDirection('iso')
+  const { across, upward } = screenHalfExtent(size, dir, up)
+  return across <= (THUMB_WIDTH / 2 - BENCH_MARGIN_PX) * BENCH_MM_PER_PX && upward <= (THUMB_HEIGHT / 2 - BENCH_MARGIN_PX) * BENCH_MM_PER_PX
+}
+
+/**
  * A camera that looks along `dir` and frames `bbox` with a small margin.
  * `aspect` is width over height; `fovDeg` is the vertical field of view.
  */
@@ -130,24 +156,6 @@ export function focusCamera(focus: FocusBox, view: ViewName | Camera | 'current'
   const from = view === 'current' ? current : view
   const dir = [from.target[0] - from.position[0], from.target[1] - from.position[1], from.target[2] - from.position[2]]
   return fitCamera(frame, dir, from.up, aspect, from.fov, from.ortho)
-}
-
-/**
- * `fitCamera` for a view of `width` × `height` pixels whose top `top` pixels are covered (the bars that float
- * over the viewport): the box is framed in what is left below them, with its middle in the middle of that. The
- * bars never take more than half of the view. With nothing over the view it is `fitCamera`.
- */
-export function fitBelow(bbox: { min: number[]; max: number[] }, dir: number[], up: number[], width: number, height: number, top: number, fovDeg: number, ortho: boolean): Camera {
-  const covered = Math.min(Math.max(top, 0), height / 2)
-  if (!(covered > 0)) return fitCamera(bbox, dir, up, width / height, fovDeg, ortho)
-  const clear = height - covered
-  // The part that is left, as a view of its own: as wide, as much less tall, centred on its own middle.
-  const fovClear = (2 * Math.atan(Math.tan(radians(fovDeg) / 2) * (clear / height)) * 180) / Math.PI
-  const fitted = { ...fitCamera(bbox, dir, up, width / clear, fovClear, ortho), fov: fovDeg }
-  // Its middle is half the covered height below the middle of the whole view: the camera goes up by as much.
-  const by = ((covered / 2) * visibleHeight(fitted)) / height
-  const raise = (p: Vec3): Vec3 => [p[0] + fitted.up[0] * by, p[1] + fitted.up[1] * by, p[2] + fitted.up[2] * by]
-  return { ...fitted, position: raise(fitted.position), target: raise(fitted.target) }
 }
 
 /**

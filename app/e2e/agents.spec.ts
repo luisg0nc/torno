@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { closePanel, openPanel } from './helpers'
-import { objectList, openListed, switcher } from './objects'
+import { openListed, projectCrumb, projectMenu, switcher } from './objects'
+import { fromMore, newSession } from './helpers'
 
 // The agent of an object: Claude Code, the one torno runs, and what is said of an `.torno/agent.json` that names
 // another (one an older torno ran, or one torno does not know). The agent is the stand-in (test/fake-agent.mjs,
@@ -88,7 +88,7 @@ test('a file that names Copilot CLI is said, is the person\'s until they choose,
   await expect(note().locator('p')).toHaveText('agent.json names Copilot CLI, which torno no longer supports: Claude Code is used.')
   // Claude Code in its chat: the view in the file was that agent's.
   await expect(dock().getByRole('group', { name: 'View' }).getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(status()).not.toHaveText('Starting')
   expect((await state()).sessions.hollow.view).toBe('chat')
   // While it runs the file is not written: the button waits, and says why.
@@ -97,7 +97,12 @@ test('a file that names Copilot CLI is said, is the person\'s until they choose,
   await expect(use).toHaveAttribute('title', 'End the session first')
   expect(await fits('.session-head')).toBe(true)
   expect(await fits('.session-note')).toBe(true)
-  await dock().getByRole('button', { name: 'End session' }).click()
+  // The note is under "What Claude Code reads" too.
+  await dock().getByRole('button', { name: 'More', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'What Claude Code reads' }).click()
+  await expect(page.locator('.session-reads-note')).toHaveText('agent.json names Copilot CLI, which torno no longer supports: Claude Code is used.')
+  await page.keyboard.press('Escape')
+  await fromMore(dock(), 'End')
   await expect(status()).toHaveText('Ended')
   expect(onDisk('hollow')).toEqual({ agent: 'copilot', view: 'terminal' })
   await use.click()
@@ -115,14 +120,14 @@ test('a file that names an agent torno does not know is said, and choosing a vie
 })
 
 test('a session at work or waiting for the answer shows on the rail\'s Projects icon, on its object\'s row of the list and in the status line while another object is open, with the dock shown or hidden; ended, it shows nothing', async () => {
-  // The Projects panel has a row for each object.
-  const item = (name: string) => objectList(page).getByRole('button', { name, exact: true })
-  /** The Projects panel opened, what is said of an object's row looked at, and the panel put away. */
+  // The project crumb's menu has a row for each object.
+  const item = (name: string) => projectMenu(page).getByRole('menuitem', { name, exact: true })
+  /** The menu opened, what is said of an object's row looked at, and the menu put away. */
   const inMenu = async (look: () => Promise<void>): Promise<void> => {
-    await openPanel(page, 'Projects')
+    await projectCrumb(page).click()
     await look()
-    await closePanel(page)
-    await expect(page.locator('.panel-host')).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(projectMenu(page)).toHaveCount(0)
   }
   const needs = () => page.locator('.status-needs')
   const toggle = () => page.locator('.dock-toggle')
@@ -130,7 +135,7 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   mkdirSync(join(root, 'measures', '.torno'), { recursive: true })
   writeFileSync(join(root, 'measures', '.torno', 'agent.json'), '{"agent":"claude","view":"terminal"}')
   await open('measures')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(status()).toHaveText('Idle')
   const typeLine = async (line: string): Promise<void> => {
     await page.locator('.session-term textarea').focus()
@@ -155,7 +160,7 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   // Waiting: the Notification of the CLI posted for measures, bracket open.
   await open('measures')
   await typeLine('hook Notification')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   await open('bracket')
   await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
   await expect(switcher(page)).toHaveAttribute('aria-description', 'measures needs you')
@@ -164,10 +169,12 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   await inMenu(async () => {
     await expect(item('measures')).toHaveAttribute('data-session', 'needs_input')
     // Still found by its name alone: the state is the row's description, not part of its name.
-    await expect(objectList(page).getByRole('button', { name: 'measures', exact: true, description: 'session needs you' })).toHaveCount(1)
+    await expect(projectMenu(page).getByRole('menuitem', { name: 'measures', exact: true, description: 'session needs you' })).toHaveCount(1)
     await expect(item('measures').locator('.session-sign-word')).toHaveText('needs you')
   })
   await expect(needs()).toContainText('measures needs you')
+  // The title bar says it too: a pill for the other project, named by it, with the session said as its description.
+  await expect(page.locator('.title-row').getByRole('button', { name: 'measures', exact: true, description: 'session needs you' })).toHaveAttribute('data-sign', 'needs_input')
   // The button opens it and shows the dock, hidden or not.
   for (const hidden of [false, true]) {
     await open('bracket')
@@ -188,7 +195,7 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   await expect(switcher(page)).not.toHaveAttribute('data-session', /./)
   // An ended session shows nothing either.
   await typeLine('hook Notification')
-  await expect(status()).toHaveText('Needs input')
+  await expect(status()).toHaveText('Needs you')
   await page.evaluate(() => window.torno.session.stop(window.__tornoTest!.state().sessions.measures.sessionId))
   await expect(status()).toHaveText('Ended')
   await expect(needs()).toHaveCount(0)

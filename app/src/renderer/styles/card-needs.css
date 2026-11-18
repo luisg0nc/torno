@@ -1,0 +1,85 @@
+/* ---- Needs you (ui/card/NeedsYou.tsx): what waits on the person ----
+   Its ground is the panel. Each row is two lines (the chip and the words, at the right where it comes from; then what the
+   agent did, and OK and Reopen…), and a failing check is one line that points at its row under Checks. */
+
+.needs .mark-row {
+  border-bottom: var(--divider);
+}
+
+.needs .mark-row:last-child {
+  border-bottom: 0;
+}
+
+/* The line over the marks the agent resolved: how many, and the two ways through them. */
+.needs-review > p {
+  margin: 0;
+  padding: 2px var(--space-2) 6px var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.needs-review .button {
+  height: 22px;
+  padding: 0 9px;
+}
+
+.needs-review-done {
+  color: var(--muted);
+}
+
+.needs-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One check that fails: the chip (the model's has a bar in the agent's colour), the words, and what it does. */
+.needs-check-go {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: baseline;
+  width: 100%;
+  padding: 7px var(--space-2) 7px var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-row);
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.needs-check-go:hover,
+.needs-check-go:focus-visible {
+  background: var(--accent-wash);
+}
+
+.needs-check-go:focus-visible {
+  outline-offset: -2px;
+}
+
+.needs-check-go .mark-chip {
+  align-self: start;
+}
+
+.needs-check-bar {
+  align-self: start;
+  justify-self: center;
+  width: 3px;
+  height: 17px;
+  border-radius: var(--radius-inline);
+  background: var(--agent-mark);
+}
+
+.needs-check-words {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.needs-check-verdict {
+  color: var(--fail);
+  font-size: 11.5px;
+  white-space: nowrap;
+}

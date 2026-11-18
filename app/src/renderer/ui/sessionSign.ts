@@ -60,8 +60,8 @@ export function waitingObjects<T extends { id: string }>(objects: readonly T[], 
 }
 
 /**
- * Brings the person to the card that waits for them in the session pane of this object: the open request of the
- * chat, or the terminal of a session shown there. The object may be on its way in, and its pane with it, so this
+ * Brings the person to the ask that waits for them at the foot of the session pane of this object: the open request of the
+ * chat or torno's own question (`data-ask-takeover`), or the terminal of a session shown there. The object may be on its way in, and its pane with it, so this
  * looks for a second and gives up quietly.
  */
 export function focusAsk(objectId: string): void {
@@ -70,11 +70,13 @@ export function focusAsk(objectId: string): void {
     // The pane is of the open object: until it is that one, what is in it is another's.
     const here = store.getState().objectId === objectId
     const dock = document.querySelector('[data-region="session"]')
-    const target = !here ? null : dock?.querySelector<HTMLElement>('.chat-ask[data-state="open"]') ?? dock?.querySelector<HTMLElement>('.xterm-helper-textarea')
+    const target = !here ? null : dock?.querySelector<HTMLElement>('[data-ask-takeover]') ?? dock?.querySelector<HTMLElement>('.xterm-helper-textarea')
     if (target) {
       target.focus({ preventScroll: true })
       target.scrollIntoView({ block: 'nearest' })
-    } else if (++frames < 60) requestAnimationFrame(look)
+    }
+    // A dock that was hidden takes no focus until it is drawn: it is tried again until the ask has it.
+    if ((!target || document.activeElement !== target) && ++frames < 60) requestAnimationFrame(look)
   }
   look()
 }

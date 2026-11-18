@@ -1,5 +1,6 @@
-import { useContext, useState } from 'react'
+import { useContext, useEffect, useId, useState, type ReactNode } from 'react'
 import type { BuildTurn, GoBackPlan, GoBackResult } from '../../../shared/history'
+import { strike, unstrike } from '../../state/goBackAsk'
 import { useStore } from '../../state/store'
 import { Confirm } from '../Confirm'
 import { numbered } from '../numbered'
@@ -59,26 +60,54 @@ export const resultSaid = (r: GoBackResult): string | null => (r.refused ? r.ref
 /** What there is to confirm when only Claude can be asked to undo. */
 const NO_COPY: GoBackPlan = { to: '', write: [], remove: [], leftAlone: [], changedSince: [], params: false, undone: [], undoneSaves: [], prompts: [], fallback: 'undo' }
 
-type State = { at: 'idle' } | { at: 'unavailable' } | { at: 'asking' } | { at: 'confirm'; plan: GoBackPlan } | { at: 'going'; plan: GoBackPlan } | { at: 'said'; text: string }
+export type State = { at: 'idle' } | { at: 'unavailable' } | { at: 'asking' } | { at: 'confirm'; plan: GoBackPlan } | { at: 'going'; plan: GoBackPlan } | { at: 'said'; text: string }
+
+/** What `useGoBack` gives the place that offers Go back: whether to offer it, what the offer is, and the question and the words that follow it. */
+export interface GoBackOffer {
+  /** Whether there is anything to offer: a build of the prompt, or the last turn of a live chat to ask Claude to undo. */
+  offered: boolean
+  /** The label of the offer, which says it is working while it works. */
+  label: string
+  disabled: boolean
+  title: string | undefined
+  ask: () => void
+  /** Where the offer is: `idle` before it is asked and once it is done; `said` and `unavailable` leave words standing until `dismiss`. */
+  step: State['at']
+  /** Takes the words that stand (what came of it) away. */
+  dismiss: () => void
+  /** What stands from the offer: the question with the plan, or what came of it. Drawn once, wherever the offer is. */
+  panel: ReactNode
+}
 
 /**
  * "Go back to before this prompt": reads what it would do (`history.goBackPlan`), asks once with all of it listed (the files it
  * writes and deletes, those it leaves, those the person changed since, the Params, the prompts undone), then puts the files back
- * (`history.goBack`). With no copy to restore the plan says so and the same button asks Claude to undo instead (`chat.undo`).
- * Not while Claude works. What is written is main's to work out: the window only sends back what it was shown.
+ * (`history.goBack`). With no copy to restore the plan says so and the same offer asks Claude to undo instead (`chat.undo`).
+ * Not while Claude works. What is written is main's to work out: the window only sends back what it was shown. The question
+ * stands from `anchor` (the button that opened the menu the offer is in, which is gone by then), or from the element that asked.
  */
-export function GoBack({ turnId, joined, undoable }: { turnId: string; joined: JoinedTurn | undefined; undoable: boolean }) {
+export function useGoBack({ turnId, joined, undoable, anchor }: { turnId: string; joined: JoinedTurn | undefined; undoable: boolean; anchor?: HTMLElement | null }): GoBackOffer {
   const objectId = useStore((s) => s.objectId)
   const sessionId = useContext(AskSession)
   const idle = useContext(ChatIdle)
   const numbers = useContext(PromptNumbers)
   const [state, setState] = useState<State>({ at: 'idle' })
   const number = joined?.number ?? 0
-  if (objectId === null) return null
   const built = (joined?.entries.length ?? 0) > 0
+  const gone = built && joined!.entries.every((e) => e.undone)
+  // While it asks, the builds and prompts it would undo are drawn struck, in the strip and in the conversation.
+  const owner = useId()
+  const asking = state.at === 'confirm' || state.at === 'going' ? state.plan : undefined
+  useEffect(() => {
+    if (!asking) return
+    strike(owner, asking.undone, asking.prompts.map((p) => p.prompt))
+    return () => unstrike(owner)
+  }, [owner, asking])
+  const dismiss = (): void => setState({ at: 'idle' })
+  const none = { offered: false, label: '', disabled: true, title: undefined, ask: () => undefined, step: state.at, dismiss, panel: null }
   // A build that was not kept leaves only the undo of the last turn.
-  if (!built && !undoable) return null
-  if (built && joined!.entries.every((e) => e.undone)) return <span className="chat-turn-problem">You went back from this prompt</span>
+  if (objectId === null || (!built && !undoable)) return none
+  if (gone) return { ...none, panel: <span className="chat-turn-problem">You went back from this prompt</span> }
 
   const say = (text: string): void => setState({ at: 'said', text })
   const ask = async (): Promise<void> => {
@@ -107,10 +136,11 @@ export function GoBack({ turnId, joined, undoable }: { turnId: string; joined: J
     }
   }
 
+  let panel: ReactNode = null
   if (state.at === 'confirm') {
     const { plan } = state
-    return (
-      <Confirm label="Go back to before this prompt" accept={plan.fallback ? 'Ask Claude' : 'Go back'} cancel="Cancel" onAccept={() => void accept(plan)} onCancel={() => setState({ at: 'idle' })}>
+    panel = (
+      <Confirm label="Go back to before this prompt" accept={plan.fallback ? 'Ask Claude' : 'Go back'} cancel="Cancel" anchor={anchor} onAccept={() => void accept(plan)} onCancel={() => setState({ at: 'idle' })}>
         {planLines(plan, numbers, number).map((line) => (
           <span key={line} className="goback-line">
             {numbered(line)}
@@ -118,20 +148,31 @@ export function GoBack({ turnId, joined, undoable }: { turnId: string; joined: J
         ))}
       </Confirm>
     )
+  } else if (state.at === 'unavailable') {
+    // No copy and no undo: nothing to offer but the sentence (the spec's "neither available").
+    panel = <span className="chat-turn-problem">{UNAVAILABLE_SAID}</span>
+  } else if (state.at === 'said') {
+    panel = (
+      <span className="chat-turn-problem" role="alert">
+        {numbered(state.text)}
+      </span>
+    )
   }
-  // No copy and no undo: nothing to offer, so the button is not there (the spec's "neither available").
-  if (state.at === 'unavailable') return <span className="chat-turn-problem">{UNAVAILABLE_SAID}</span>
   const busy = state.at === 'asking' || state.at === 'going'
+  return { offered: state.at !== 'unavailable', label: state.at === 'going' ? 'Going back…' : 'Go back to before this prompt', disabled: !idle || busy, title: idle ? undefined : 'Wait for Claude to finish', ask: () => void ask(), step: state.at, dismiss, panel }
+}
+
+/** "Go back to before this prompt" as a button of its own, with its question. */
+export function GoBack(props: { turnId: string; joined: JoinedTurn | undefined; undoable: boolean }) {
+  const offer = useGoBack(props)
   return (
     <>
-      <button type="button" className="button button-quiet" disabled={!idle || busy} title={idle ? undefined : 'Wait for Claude to finish'} onClick={() => void ask()}>
-        {state.at === 'going' ? 'Going back…' : 'Go back to before this prompt'}
-      </button>
-      {state.at === 'said' && (
-        <span className="chat-turn-problem" role="alert">
-          {numbered(state.text)}
-        </span>
+      {offer.offered && (
+        <button type="button" className="button button-quiet" disabled={offer.disabled} title={offer.title} onClick={offer.ask}>
+          {offer.label}
+        </button>
       )}
+      {offer.panel}
     </>
   )
 }

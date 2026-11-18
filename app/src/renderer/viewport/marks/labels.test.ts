@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import type { DimensionMark, SpanMark } from '../../../shared/marks'
+import type { DimensionMark, Mark, SpanMark } from '../../../shared/marks'
 import { chipAt, labelValue, needsCamera, project, type Placed } from './labels'
 
 describe('bringing a selected mark into view', () => {
@@ -45,6 +45,27 @@ describe('the value on a failing dimension\'s chip', () => {
   it('says nothing more of one that passes, or of a value of another build', () => {
     expect(labelValue({ ...height, value: 42, verdict: 'pass' }, 2)).toEqual({ text: '42 mm', verdict: 'pass' })
     expect(labelValue(height, 3)).toEqual({ text: '40 mm (r2)', stale: true })
+  })
+})
+
+describe('the chip of a mark the person says they want or do not want', () => {
+  const camera = { position: [100, -100, 80] as [number, number, number], target: [0, 0, 0] as [number, number, number], up: [0, 0, 1] as [number, number, number], ortho: false, fov: 35, zoom: 1 }
+  const view = (): THREE.PerspectiveCamera => {
+    const c = new THREE.PerspectiveCamera(35, 1, 1, 1000)
+    c.position.set(100, -100, 80)
+    c.up.set(0, 0, 1)
+    c.lookAt(0, 0, 0)
+    c.updateMatrixWorld()
+    return c
+  }
+  const pick = (over: object = {}): Mark => ({ id: 'M8', kind: 'pick', target: 'face', author: 'user', note: '', status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1, camera, createdAt: 't', anchor: { point: [0, 0, 0] }, ...over }) as unknown as Mark
+
+  it('has its number for the text and its sign for the disc, which draws it beside the chip', () => {
+    const [dont] = project([pick({ intent: 'dont' })], view(), { width: 400, height: 400 })
+    expect([dont.text, dont.sign]).toEqual(['M8', '-'])
+    expect(project([pick({ intent: 'want', anchorState: 'drifted' })], view(), { width: 400, height: 400 })[0]).toMatchObject({ text: 'M8~', sign: '+' })
+    expect(project([pick()], view(), { width: 400, height: 400 })[0]).not.toHaveProperty('sign')
+    expect(project([pick({ author: 'agent', intent: 'dont' })], view(), { width: 400, height: 400 })[0]).not.toHaveProperty('sign')
   })
 })
 

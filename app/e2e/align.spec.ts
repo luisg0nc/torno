@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { ScanLayerState } from '../src/renderer/viewport/scans'
 import { apply } from '../src/shared/align'
 import { box, grid, moved, stl } from '../src/test/scanFixtures'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // Aligning a scan: by pairs of points, by typed values, by its floor, and what a later build makes of it.
@@ -54,7 +54,7 @@ const pickFile = (path: string | null) => app.evaluate((_electron, path) => void
 
 async function open(name: string, p: Page = page): Promise<void> {
   await openListed(p, name)
-  await openPanel(p, 'Scans')
+  await openSection(p, 'Scans')
   await expect.poll(async () => ((await state(p)).objectId === name ? (await state(p)).build?.status : null), { timeout: 90_000 }).toBe('ok')
   await expect.poll(async () => (await state(p)).scene !== null).toBe(true)
 }
@@ -66,7 +66,8 @@ const where = (p: Vec3): Vec3 => [Math.cos(Math.PI / 6) * p[0] - Math.sin(Math.P
 // Four points of the base's top, and where each is on the twin. Seen from above the twin covers part of the
 // base: the first point, the one that is clicked on the base itself, is clear of it.
 const ON_TOP: Vec3[] = [[-15, -10, 2.5], [15, 10, 2.5], [-15, 10, 2.5], [12, -8, 2.5]]
-const bar = (p: Page = page) => p.locator('.alignbar')
+// The Align card is found by its title (Task 25: a procedure card at the bottom right of the view).
+const bar = (p: Page = page) => p.getByRole('group', { name: 'Align scan' })
 
 /** Clicks where a point of the scan's own frame is drawn. */
 async function clickScan(local: Vec3): Promise<void> {
@@ -79,21 +80,44 @@ async function clickModel(point: Vec3): Promise<void> {
   const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.click(canvas.x + fx * canvas.width, canvas.y + fy * canvas.height)
 }
-/** Zooms out until every point given is well inside the canvas. */
-async function frame(points: Vec3[]): Promise<void> {
+/**
+ * Zooms out until every point given is well inside the canvas: by default from 8% to 92% of each side, and left of the column at the right that the compass and the card take. `lowest` is how far down
+ * the view a point may be: the bar of the tool stands at the foot of a view that is narrow, taller with each pair, and a click
+ * under it is the bar's.
+ */
+async function frame(points: Vec3[], lowest = 0.92, wheel = 240): Promise<void> {
   const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
-  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2)
-  for (let tries = 0; tries < 12; tries++) {
+  // The compass stands at the top right and the card at the bottom right (320 px, 14 px in from the edge): the points are kept to the left of both, with a margin to aim in.
+  const right = Math.min(0.92, 1 - 360 / canvas.width)
+  const middle = { x: (0.08 + right) / 2, y: (0.08 + lowest) / 2 }
+  const at = (f: { x: number; y: number }) => ({ x: canvas.x + f.x * canvas.width, y: canvas.y + f.y * canvas.height })
+  for (let tries = 0; tries < 30; tries++) {
     const drawn = await page.evaluate((points) => points.map((p) => window.__tornoTest!.project(p)), points)
-    if (drawn.every(([x, y]) => x > 0.08 && x < 0.92 && y > 0.08 && y < 0.92)) return
-    await page.mouse.wheel(0, 240)
+    if (drawn.every(([x, y]) => x > 0.08 && x < right && y > 0.08 && y < lowest)) return
+    // Drawn across the view's middle, the points would be under the card: the view is panned (the right button) until their middle is in the free part, and then stepped back about it.
+    const centre = { x: drawn.reduce((sum, d) => sum + d[0], 0) / drawn.length, y: drawn.reduce((sum, d) => sum + d[1], 0) / drawn.length }
+    const [xs, ys] = [drawn.map((d) => d[0]), drawn.map((d) => d[1])]
+    const small = Math.max(...xs) - Math.min(...xs) < right - 0.16 && Math.max(...ys) - Math.min(...ys) < lowest - 0.16
+    // Stepped back until they are smaller than the free part, then panned into it.
+    if (small && Math.hypot(centre.x - middle.x, centre.y - middle.y) > 0.03) {
+      // The drag starts in the free part (the middle of the points may be under the card) and goes as far as they are from where they should be.
+      const from = at({ x: 0.15, y: 0.5 })
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down({ button: 'right' })
+      await page.mouse.move(from.x + (middle.x - centre.x) * canvas.width, from.y + (middle.y - centre.y) * canvas.height, { steps: 6 })
+      await page.mouse.up({ button: 'right' })
+      await page.waitForTimeout(150)
+      continue
+    }
+    await page.mouse.move(at(middle).x, at(middle).y)
+    await page.mouse.wheel(0, wheel)
     await page.waitForTimeout(150)
   }
   throw new Error('the points never came into view')
 }
 /** Goes to the top view and waits until the camera has stopped there: what is aimed at is where it is drawn. */
 async function fromAbove(): Promise<void> {
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   const at = async (): Promise<number[]> => (await page.evaluate(() => window.__tornoTest!.camera())).position.map((c) => Math.round(c * 100))
   let was = await at()
   await expect
@@ -106,6 +130,10 @@ async function fromAbove(): Promise<void> {
     })
     .toBe(true)
 }
+/** How the scan was read is asked in the view now, over its top left: a person with no answer yet puts it away, to see the model. */
+async function later(): Promise<void> {
+  await page.getByRole('dialog', { name: /^How is S\d+ read\?$/ }).getByRole('button', { name: 'Later' }).click()
+}
 const alignment = async (layout: string) => (await state()).scans[0].alignments[layout]
 
 test('three pairs and a fourth bring a displaced scan onto the model, and say how well', async () => {
@@ -114,6 +142,7 @@ test('three pairs and a fourth bring a displaced scan onto the model, and say ho
   writeFileSync(file, TWIN)
   await pickFile(file)
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   // From above, so that the tops of both are what is clicked.
   await fromAbove()
@@ -156,13 +185,15 @@ test('three pairs and a fourth bring a displaced scan onto the model, and say ho
   }
   expect(JSON.parse(readFileSync(join(root, 'bracket', '.torno', 'scans.json'), 'utf8')).scans[0].alignments.assembly.steps).toEqual(['pairs'])
   // In the other layout it is not aligned.
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   expect((await scans())[0].aligned).toBe(false)
 })
 
 test('typed values move it, and clearing leaves it where it was imported', async () => {
-  await page.getByRole('button', { name: 'assembly', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   await bar().getByRole('button', { name: 'Nudge' }).click()
   const before = (await alignment('assembly')).transform.t
   await bar().getByRole('textbox', { name: 'Z', exact: true }).fill(String(before[2] + 4))
@@ -184,6 +215,7 @@ test('a tilted floor is laid flat on the ground, and says that is all it is', as
   writeFileSync(file, stl(grid(30, 1, (x) => 60 + 0.1 * x)))
   await pickFile(file)
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await fromAbove()
   await frame([[0, 0, 60], [14, 14, 61.4], [-14, -14, 58.6]])
@@ -216,6 +248,7 @@ test('an alignment says so when a build moves the model from under it', async ()
   writeFileSync(file, stl(moved(box([20, 20, 2]), 0, [centre[0], 40, 1])))
   await pickFile(file)
   await page.getByRole('button', { name: 'Import scan…' }).click()
+  await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await fromAbove()
   const top: Vec3[] = [[6, 6, 2], [-6, 6, 2], [-6, -6, 2]]
@@ -253,18 +286,11 @@ test('a fit that says the unit is wrong offers the change in one click, keeps no
   await page.evaluate(() => window.torno.scans.convert('bracket', 'S1', { unit: 'cm', up: 'z' }))
   await expect.poll(async () => (await state()).scans[0].imported.unit).toBe('cm')
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
-  await page.getByRole('button', { name: 'assembly', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   await fromAbove()
   const big = (p: Vec3): Vec3 => where(p).map((c) => 10 * c) as Vec3
-  const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
-  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2)
-  for (let tries = 0; ; tries++) {
-    const drawn = await page.evaluate((points) => points.map((p) => window.__tornoTest!.project(p)), ON_TOP.map(big))
-    if (drawn.every(([x, y]) => x > 0.08 && x < 0.92 && y > 0.08 && y < 0.92)) break
-    if (tries === 30) throw new Error('the points never came into view')
-    await page.mouse.wheel(0, 600)
-    await page.waitForTimeout(150)
-  }
+  await frame(ON_TOP.map(big), 0.92, 600)
   await page.keyboard.press('l')
   await bar().getByRole('button', { name: 'Pairs' }).click()
   for (const [n, point] of ON_TOP.slice(0, 3).entries()) {
@@ -318,6 +344,8 @@ test('a fit that says the unit is wrong offers the change in one click, keeps no
 })
 
 test('Escape steps back one pick, and only then puts the tool down; two pairs are kept only as a rough alignment, on a yes', async () => {
+  // The camera is as the test before left it, for a scan ten times larger: the points are brought into the part of the view the card leaves free.
+  await frame(ON_TOP.map(where))
   await bar().getByRole('button', { name: 'Pairs' }).click()
   await expect(bar().locator('.alignbar-next')).toHaveText('Pair 1: click its point on the scan')
   // Where the scan is drawn now: on the base.
@@ -418,6 +446,7 @@ test('a floor is laid on a face of the model at the point that was clicked, eith
   await fromAbove()
   const lid = (await state()).scene!.parts.find((p) => p.name === 'lid')!
   const top: Vec3 = [(lid.bbox.min[0] + lid.bbox.max[0]) / 2 + 3, (lid.bbox.min[1] + lid.bbox.max[1]) / 2 + 2, lid.bbox.max[2]]
+  await frame([[0.5, 0.5, 60.05], top])
   await page.keyboard.press('l')
   await bar().getByRole('button', { name: 'Floor' }).click()
   // The sheet lies under the parts by now: a click takes the scan whatever is in front of it.
@@ -456,7 +485,7 @@ test('a build that takes the model from under a point raises a doubt; "Still rig
   const mid: Vec3 = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, max[2]]
   const onScan: Vec3[] = [[mid[0] + 6, mid[1] + 6, mid[2]], [mid[0] - 6, mid[1] + 6, mid[2]], [mid[0] - 6, mid[1] - 6, mid[2]]]
   const onTray: Vec3[] = [[18, 6, 4], [6, 6, 4], [6, -6, 4]]
-  await frame([...onTray, [-12, -12, 4]])
+  await frame([...onTray, [-12, -12, 4]], 0.6)
   await page.keyboard.press('l')
   await bar().getByRole('button', { name: 'Pairs' }).click()
   for (const [n, point] of onTray.entries()) {
@@ -545,10 +574,10 @@ test('a pair’s row shows a point of a scan the size of a room uncut in a view 
   expect(widths.cell[0]).toBeLessThanOrEqual(widths.cell[1])
   for (const [scroll, client] of widths.fields) expect(scroll).toBeLessThanOrEqual(client)
   expect(widths.row[0]).toBeLessThanOrEqual(widths.row[1])
-  expect(widths.row[2]).toBe(30)
-  // Within the view, and no more than a third of its height.
+  // A card of 320 px at the bottom right, within the view, and clear of the compass above it.
+  expect(widths.bar[0]).toBeLessThanOrEqual(321)
   expect(widths.bar[0]).toBeLessThanOrEqual(widths.bar[1] - 24)
-  expect(widths.bar[2]).toBeLessThanOrEqual(Math.max(widths.bar[3] / 3, 150) + 1)
+  expect(widths.bar[2]).toBeLessThanOrEqual(widths.bar[3] - 240 + 1)
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await expect(bar()).toHaveCount(0)
@@ -588,7 +617,8 @@ test('"Use this alignment" in another layout keeps it there as placed by hand, w
   }, pairs)
   await expect.poll(async () => (await alignment('assembly'))?.pairs?.length).toBe(4)
   expect(await alignment('print')).toBeUndefined()
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   await expect((await detail('S1')).locator('.scan-said[data-part="start"]')).toContainText('Aligned in assembly.')
   await row('S1').getByRole('button', { name: 'Use the alignment of S1 in assembly here' }).click()
@@ -609,7 +639,8 @@ test('"Use this alignment" in another layout keeps it there as placed by hand, w
 
 // Issue #82.
 test('after an import the sheet leads on to the bar on its first step, and a floor kept ticks Floor and moves the bar to Pairs', async () => {
-  await page.getByRole('button', { name: 'assembly', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'assembly', exact: true }).click()
   const before = (await state()).scans.length
   const file = join(root, 'next.stl')
   writeFileSync(file, TWIN)
@@ -631,4 +662,29 @@ test('after an import the sheet leads on to the bar on its first step, and a flo
   await expect(bar().getByRole('button', { name: 'Floor' }).locator('.align-step-tick')).toBeVisible()
   await expect(bar().getByRole('button', { name: 'Pairs' })).toHaveAttribute('aria-pressed', 'true')
   await expect(bar().locator('[data-part="purpose"]')).toContainText('three points on the scan')
+})
+
+// Task 25, fix round 1: at the smallest window the app is held to, the card is in the view and covers no compass or band.
+test('at 1280 x 800 the Align card lies inside the view and meets no other box a tag keeps clear of', async () => {
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 800))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1280)
+  await open('bracket')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('l')
+  await expect(bar()).toBeVisible()
+  const found = await page.evaluate(() => {
+    const pane = document.querySelector('.viewport-pane')!.getBoundingClientRect()
+    const card = document.querySelector<HTMLElement>('.procedure.alignbar')!
+    const box = card.getBoundingClientRect()
+    const others = [...document.querySelectorAll<HTMLElement>('.viewport-pane [data-tag-avoid]')].filter((el) => el !== card && el.getBoundingClientRect().width > 0).map((el) => ({ name: el.className || el.tagName, r: el.getBoundingClientRect() }))
+    return {
+      inside: box.left >= pane.left && box.right <= pane.right && box.top >= pane.top && box.bottom <= pane.bottom,
+      meets: others.filter(({ r }) => box.left < r.right && r.left < box.right && box.top < r.bottom && r.top < box.bottom).map((o) => o.name),
+      count: others.length
+    }
+  })
+  expect(found.inside).toBe(true)
+  expect(found.meets).toEqual([])
+  // The compass is one of them: the check is of something.
+  expect(found.count).toBeGreaterThan(0)
 })

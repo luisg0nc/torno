@@ -1,6 +1,6 @@
 import { useLayoutEffect, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { which } from '../../shared/keys'
-import { clampLeft, LEFT_DEFAULT } from '../state/column'
+import { clampLeft, CARD_NARROW, leftDefault } from '../state/column'
 import { actions, useStore } from '../state/store'
 import { giveKeysBack } from './typing'
 
@@ -16,8 +16,8 @@ function dockSpace(shell: HTMLElement): number {
 /**
  * The right edge of the docked panel (`role="separator"`): dragged, or moved with Left and Right, the panel is
  * wider, up to what leaves the viewport its room beside the rail and the session dock, and never narrower than its
- * default. A double click puts the default back. While it is dragged the width goes straight to `--panel-w` on the
- * shell (the view's offset, `--left-w`, is the rail and the panel together); the store, and the window's storage
+ * default (296 px, 264 in a window narrower than 1360 px). A double click puts the default back. While it is dragged the width goes straight to `--card-w` on the
+ * shell (the grid's second column, and the view's offset from the left, `--left-w`, with the rail); the store, and the window's storage
  * with it, has it once the edge is let go. The shell has what is kept as far as the window has room for it now, and
  * what is kept is not touched.
  */
@@ -30,13 +30,13 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
     if (!el) return
     const fit = (): void => {
       if (drag.current) return
-      el.style.setProperty('--panel-w', `${clampLeft(width, window.innerWidth, dockSpace(el))}px`)
+      el.style.setProperty('--card-w', `${clampLeft(width, window.innerWidth, dockSpace(el))}px`)
     }
     fit()
     window.addEventListener('resize', fit)
     return () => {
       window.removeEventListener('resize', fit)
-      el.style.removeProperty('--panel-w')
+      el.style.removeProperty('--card-w')
     }
   }, [shell, width, dockOpen])
 
@@ -52,7 +52,7 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
     const d = drag.current
     if (!d || !shell.current) return
     d.width = clampLeft(d.startWidth + e.clientX - d.startX, window.innerWidth, dockSpace(shell.current))
-    shell.current.style.setProperty('--panel-w', `${d.width}px`)
+    shell.current.style.setProperty('--card-w', `${d.width}px`)
   }
 
   function onUp(e: PointerEvent<HTMLDivElement>) {
@@ -80,8 +80,8 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
       role="separator"
       aria-label="Resize panel"
       aria-orientation="vertical"
-      aria-valuenow={width}
-      aria-valuemin={LEFT_DEFAULT}
+      aria-valuenow={Math.max(width, leftDefault(window.innerWidth))}
+      aria-valuemin={leftDefault(window.innerWidth)}
       tabIndex={0}
       title="Drag to make the panel wider; a double click puts the default back"
       onPointerDown={onDown}
@@ -89,7 +89,7 @@ export function LeftEdge({ shell }: { shell: RefObject<HTMLDivElement | null> })
       onPointerUp={onUp}
       onPointerCancel={onUp}
       onKeyDown={onKey}
-      onDoubleClick={() => actions.setPanelWidth(LEFT_DEFAULT)}
+      onDoubleClick={() => actions.setPanelWidth(CARD_NARROW)}
     />
   )
 }

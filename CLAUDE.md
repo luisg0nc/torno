@@ -65,12 +65,15 @@ While iterating run the focused test; run all four suites before a commit. `app/
 - Claude Code is the one agent torno runs; hooks are the one source of status (`sessions`). torno reads none of
   Claude Code's settings and changes nothing of its configuration; the instruction files are listed, never read
   (`instruction-files`).
-- No control-room look: no black/red/amber, no condensed uppercase labels, no corner-tick frames. Follow spec section 10 and the tokens in Task 4.
-- UI text is sentence case. Every number and ref is set in the monospace face.
+- No control-room look: no black/red/amber, no condensed uppercase labels, no corner-tick frames. Follow spec section 10
+  and `app/src/renderer/styles/tokens.css`. The dyed blue field (`--dye`) is only for screens with no model on them.
+- UI text is sentence case, in Instrument Sans. Every number, ref, file name and key is in Martian Mono (`num`: 0.86 em
+  with 0.12 em of margin in a line of text). Both faces are bundled; nothing is fetched.
+- Radii come from the four tokens (`--radius-inline`, `-control`, `-float`, `-sheet`) or are round. The one shadow is
+  `--float-shadow`. One accent; a leader is always the accent, and only the tool in hand and one pointed-at ref draw
+  leaders.
 - Tests must not open a visible window: `show: false` when `TORNO_TEST=1`. Every launch of Electron sets
   `TORNO_TEST=1`, never `--ozone-platform=headless`, never `page.screenshot()`, never the clipboard (`e2e-hidden-window`).
-
-("The tokens in Task 4" are `app/src/renderer/styles/tokens.css`.)
 
 ## Never run a real agent CLI from tests
 
@@ -99,7 +102,7 @@ heading names the folder its text came from. Paths are as written there: from `a
 - Tests: `e2e-hidden-window` (every Electron launch), `e2e-stand-in-agent` (the stand-in, the specs, the evals).
 - Marks and the model: `marks-store`, `dimensions`, `marks-window`, `keys`, `params`, `checks-and-profile`,
   `left-column` (layers, groups, references), `sets` (named sets), `tracings` (the store, the photo and its line-up, the outline, the view), `builds-history`, `board`, `goback`, `exactness-app`.
-- The view: `section`, `explode`, `saved-views`, `viewport-overlay`, `styles-themes`.
+- The view: `section`, `explode`, `saved-views`, `viewport-overlay`, `leaders`, `styles-themes`.
 - The agent: `mcp-tools`, `mcp-read-tools`, `build-digest`, `stop-hook`, `agent-prompt`, `instruction-files`, `asks`,
   `agent-launch-and-tokens`, `sessions`, `chat-transcript`, `chat-log-and-undo`, `session-pane`, `chat-pane`,
   `chat-cards-and-refs`, `drawing-on-view`.

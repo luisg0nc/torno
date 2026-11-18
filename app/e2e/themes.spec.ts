@@ -9,8 +9,8 @@ import { contrast } from '../src/shared/contrast'
 import { png } from '../src/test/pngFixtures'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openPanel, railButton } from './helpers'
-import { newFromList, openListed, switcher } from './objects'
+import { openSection, railButton, showProjects, newSession } from './helpers'
+import { newFromList, openListed, projectCard, switcher } from './objects'
 import { stableBox } from './stable'
 
 // Light and dark. In each theme the window is held to the contrasts its tokens promise, as it computes them,
@@ -150,10 +150,10 @@ for (const theme of ['light', 'dark'] as const) {
       for (const name of ['--axis-x', '--axis-y', '--axis-z']) expect([name, (await cornerPixels(page, 'left', tokens[name])) > 2]).toEqual([name, true])
       expect(await cornerPixels(page, 'right', tokens['--muted'])).toBeGreaterThan(2)
       // What is drawn has them: muted text is the muted token, and the window's own ground is the surface.
-      const drawn = await page.evaluate(() => ({ muted: getComputedStyle(document.querySelector('.section-title')!).color, ground: getComputedStyle(document.body).backgroundColor }))
+      const drawn = await page.evaluate(() => ({ muted: getComputedStyle(document.querySelector('.route-said')!).color, ground: getComputedStyle(document.body).backgroundColor }))
       const rgb = (hex: string): string => `rgb(${[1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(', ')})`
       expect(drawn).toEqual({ muted: rgb(tokens['--muted']), ground: rgb(tokens['--surface']) })
-      await openPanel(page, 'Layers')
+      await openSection(page, 'Parts')
       // What the system draws follows the theme too: on a visible screen the list of objects scrolled with the light
       // native bar in the dark theme. One scheme, said outright, and every scroller the thin one in the theme's grey.
       const scrolling = await page.evaluate(() => {
@@ -281,7 +281,7 @@ for (const theme of ['light', 'dark'] as const) {
         const file = join(root, 'sheet.stl')
         writeFileSync(file, stl(grid(30, 1, (x, y) => 41 + 0.4 * Math.sin(x / 3) * Math.cos(y / 4))))
         await app.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: Main }).__tornoMain.pickFile = path), file)
-        await openPanel(page, 'Scans')
+        await openSection(page, 'Scans')
         await page.getByRole('button', { name: 'Import scan…' }).click()
         await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.scans()))[0]?.ready, { timeout: 60_000 }).toBe(true)
       }
@@ -289,12 +289,12 @@ for (const theme of ['light', 'dark'] as const) {
         if (shot === 'welcome') await expect(page.getByRole('navigation', { name: 'Recent folders' }).locator('li')).toHaveCount(3)
         else if ((FIRST_SCREEN as readonly string[]).includes(shot)) await expect(page.locator('.ready')).toBeVisible()
         else await page.waitForSelector('[data-region="left"]')
-        if (shot === 'empty' || shot === 'ready-sheet' || shot === 'onboard-missing') await expect(page.locator('.show-empty')).toBeVisible()
+        if (shot === 'empty' || shot === 'ready-sheet' || shot === 'onboard-missing') await expect(page.locator('.empty-folder')).toBeVisible()
         if (!NOTHING_OPENED.includes(shot)) await open(page, 'hollow')
         if (shot === 'main') {
           // Another object whose session waits for an answer, while hollow is open: its row and the status line say so.
           await open(page, 'bracket')
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.keyboard.type('ask Bash {"command":"ls"}')
           await page.keyboard.press('Enter')
@@ -307,16 +307,19 @@ for (const theme of ['light', 'dark'] as const) {
           // A mark's row opened, as when it is being read.
           await page.locator('.mark-row').first().click()
         } else if (shot === 'mark-chip') {
-          // The pointer on a failing dimension's chip: the hand, its row lit, the chip ringed and its numbers at the pointer.
+          // The pointer on a failing dimension's chip: the hand, its check row lit, the chip ringed and its numbers at the pointer.
           const at = (await page.evaluate(() => window.__tornoTest!.markScreen('M3')))!
           const view = (await canvas.boundingBox())!
           await page.mouse.move(view.x + at.x * view.width, view.y + at.y * view.height)
           await expect(page.locator('.pick-readout')).toContainText('2 under')
-          await expect(page.locator('.mark-row[data-mark="M3"]')).toHaveAttribute('data-hovered', '')
+          await expect(page.locator('.check-row[data-check-mark="M3"]')).toHaveAttribute('data-lit', '')
         } else if (shot === 'instructions') {
-          // The quiet line in the session pane, with a chat running under it.
+          // The instruction files, unfolded in the header's More menu, with a chat running under it.
+          await page.locator('[data-region="session"]').getByRole('button', { name: 'More', exact: true }).click()
+          await page.getByRole('menuitem', { name: 'What Claude Code reads' }).click()
           await expect(page.locator('.session-reads')).toContainText('~/objects/CLAUDE.md')
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await page.keyboard.press('Escape')
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.keyboard.type('say hello there')
           await page.keyboard.press('Enter')
@@ -329,19 +332,18 @@ for (const theme of ['light', 'dark'] as const) {
           await page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Region of a scan', exact: true }).hover()
           await expect(page.locator('.tool-tip[data-tip="region"]')).toContainText('Import a scan first')
         } else if (shot === 'keys') {
-          // The sheet of keys, which starts with the pointer.
+          // The keyboard, risen from the foot, with the pointer's gestures under it in the view.
           await page.keyboard.press('?')
-          await expect(page.getByRole('dialog', { name: 'Keys' }).getByRole('heading', { name: 'Pointer' })).toBeVisible()
+          await expect(page.getByRole('dialog', { name: 'Keys' }).getByRole('group', { name: /^The keyboard/ })).toBeVisible()
+          await expect(page.getByRole('dialog', { name: 'Keys' }).locator('.keys-gesture').first()).toBeVisible()
         } else if (shot === 'section') {
           await page.keyboard.press('x')
           await page.getByRole('button', { name: 'Cut across Y' }).click()
           await expect.poll(async () => (await state(page)).section !== null).toBe(true)
         } else if (shot === 'measure-raised' || shot === 'measure-raised-narrow') {
-          // A face selected, the parts cut, and Measure in hand: the section's bar a row up, over the selection's, clear of the
-          // Measure strip in the corner; in a wide view (the dock hidden) and in a narrow one (beside it), clear of the palette too.
+          // A face selected, the parts cut, and Measure in hand: the section's tag beside its plane, clear of the reed with
+          // Measure's name grown out; in a wide view (the dock hidden) and in a narrow one (beside it).
           if (shot === 'measure-raised') await page.getByRole('button', { name: 'Hide session', exact: true }).click()
-          if (shot === 'measure-raised') await expect(page.locator('.viewport-pane')).not.toHaveAttribute('data-narrow')
-          else await expect(page.locator('.viewport-pane')).toHaveAttribute('data-narrow')
           await page.keyboard.press('v')
           await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 } })
           await expect.poll(async () => (await state(page)).selection.length).toBe(1)
@@ -349,24 +351,26 @@ for (const theme of ['light', 'dark'] as const) {
           await page.getByRole('button', { name: 'Cut across Y' }).click()
           await expect.poll(async () => (await state(page)).section !== null).toBe(true)
           await page.keyboard.press('m')
-          await expect(page.locator('.measure-choice')).toBeVisible()
-          await expect(page.locator('.sectionbar')).toHaveAttribute('data-raised', '1')
-          // The bars slide to their rows: the picture is of where they stop.
-          for (const bar of ['.sectionbar', '.selection', '.tool-hint']) await stableBox(page.locator(bar))
+          await expect(page.locator('.reed-pill[data-pill="measure"]')).toBeVisible()
+          await expect(page.locator('[data-tag="section"]')).toBeVisible()
+          // The tag is put beside its plane: the picture is of where it stops.
+          for (const bar of ['[data-tag="section"]', '.tool-hint']) await stableBox(page.locator(bar))
         } else if (shot === 'measure') {
           // A measurement held in the view: two clicks with Measure in hand, the kernel's value drawn between its points as a draft.
           await page.keyboard.press('m')
-          await expect(page.locator('.measure-choice')).toBeVisible()
+          await expect(page.locator('.reed-pill[data-pill="measure"]')).toBeVisible()
           const box = (await canvas.boundingBox())!
           await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.5 } })
           await canvas.click({ position: { x: box.width * 0.4, y: box.height * 0.62 } })
           await expect.poll(() => page.evaluate(() => window.__tornoTest!.draft()), { timeout: 30_000 }).toMatchObject({ kind: 'dimension', held: expect.any(String) })
           await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.1)
         } else if (shot === 'panel-short') {
-          // The Params panel open, then the window made shorter: the panel takes the room there is, above the status line.
-          await openPanel(page, 'Params')
-          await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 680))
-          await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(680)
+          // The Params panel open at the height of the shortest window the app allows (its minHeight, 700): the panel takes the room there is, above the status line.
+          // A hidden window cannot be captured after it is resized (the capture never returns), so the page is given that height by the device metrics instead.
+          await openSection(page, 'Parameters')
+          const devtools = await page.context().newCDPSession(page)
+          await devtools.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 700, deviceScaleFactor: 1, mobile: false })
+          await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(700)
         } else if (shot === 'explode') {
           await canvas.click({ position: { x: 5, y: 5 } })
           await page.keyboard.press('e')
@@ -398,7 +402,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(page.getByRole('dialog', { name: 'How is S1 read?' })).toBeVisible()
         } else if (shot === 'region') {
           await scan()
-          await page.getByRole('button', { name: 'Top', exact: true }).click()
+          await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
           await page.waitForTimeout(600)
           await page.keyboard.press('b')
           await expect(page.locator('.regionbar')).toBeVisible()
@@ -421,30 +425,29 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.press('Control+Shift+E')
           await expect(page.getByRole('dialog', { name: 'Export' })).toContainText('hollow')
         } else if (shot === 'folders') {
-          await openPanel(page, 'Projects')
-          await page.getByRole('button', { name: 'Folders' }).click()
+          await page.getByRole('button', { name: /^Folder / }).click()
           await expect(page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem').first()).toBeVisible()
         } else if (shot === 'projects') {
-          // The Projects panel: a row that cannot be built says why in its title.
-          await openPanel(page, 'Projects')
-          await expect(page.getByRole('navigation', { name: 'Projects' }).getByRole('button', { name: 'two', exact: true })).toHaveAttribute('title', /more than one model file/)
+          // The page of projects: a card that cannot be built says why in its title.
+          await showProjects(page)
+          await expect(projectCard(page, 'two').locator('[data-part="build"]')).toHaveAttribute('title', /more than one model file/)
         } else if (shot === 'badges') {
           // A scan in, and a part switched off, the panels shut: the rail's icons say what matters of what they hold.
           await scan()
           await page.getByRole('dialog', { name: 'How is S1 read?' }).getByRole('button', { name: 'Later' }).click()
-          await openPanel(page, 'Marks')
+          await openSection(page, 'Marks')
           await expect(railButton(page, 'Scans').locator('.rail-badge')).toHaveText('1')
           await expect(railButton(page, 'Scans')).toHaveAttribute('aria-description', '1 unaligned')
         } else if (shot === 'params') {
           // The Params panel, a session running so that the rows are buttons.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
-          await openPanel(page, 'Params')
+          await openSection(page, 'Parameters')
           await expect(page.locator('.params [data-param]')).toHaveCount(5)
           await page.locator('.params [data-param="wall"] button').hover()
         } else if (shot === 'chat') {
           // A conversation: a prompt with a mark, what torno added, a torno tool with its picture, another tool, and the reply.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           const box = page.locator('[data-chat-composer]')
           await expect(box).toBeFocused()
           const script = ['say The tub wall at **M1** is 2 mm, thinner than the 3 mm in `hollow.py`. Looking at tub/F3 and tub/E1:', 'tool mcp__torno__look {"view":"iso"}', 'tool Read {"file_path":"hollow.py"}', 'say I will `widen` the wall to 3 mm and rebuild: r2 should pass the check.', 'edit hollow.py "wall: float = 2" "wall: float = 3"', 'edit hollow.py "return {" "return WAL, {"']
@@ -455,8 +458,8 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.press('Enter')
           await expect(page.locator('.chat-turn')).toContainText('Pulled from torno: look, 1 picture', { timeout: 30_000 })
           // The two edits each started a build, under the edit: one that worked and mended a dimension, one that failed.
-          await expect(page.locator('.chat-build').first()).toContainText('Built r2 · ok')
-          await expect(page.locator('.chat-build').last()).toContainText('Build after r2 failed: NameError')
+          await expect(page.locator('.chat-build').first()).toContainText(/Built (r2|h\d+) ok/)
+          await expect(page.locator('.chat-build').last()).toContainText(/The build after (r2|h\d+) failed/)
           // Then a request to use a tool, waiting for the person, and a window of the rate limit half used.
           await page.keyboard.type('rate 72')
           await page.keyboard.press('Shift+Enter')
@@ -468,7 +471,7 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.type('thicker than that, please')
         } else if (shot === 'confirm-close') {
           // The window closed while the agent waits for an answer and a prompt is written and not sent: the question names the object and each thing.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.keyboard.type('ask Write {"file_path":"hollow.py","content":"WALL = 3\\nLID = 2\\n"}')
           await page.keyboard.press('Enter')
@@ -483,7 +486,7 @@ for (const theme of ['light', 'dark'] as const) {
           // The board over the view, from the chat's "Draw on view": a ring round the middle and an arrow to it.
           // Then (`-chip`) the board put away with Done: the drawing is a draft view note among the marks, and the view is attached;
           // or (`-sent`) the prompt it went with, which shows what its ink lies over under its picture.
-          await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+          await newSession(page.locator('[data-region="session"]'))
           await expect(page.locator('[data-chat-composer]')).toBeFocused()
           await page.locator('[data-region="session"]').getByRole('button', { name: 'Draw on view' }).click()
           const board = page.getByRole('dialog', { name: 'Drawing on the view' })
@@ -524,11 +527,11 @@ for (const theme of ['light', 'dark'] as const) {
           writeFileSync(photos[0], png(1600, 1000, 90))
           writeFileSync(photos[1], png(900, 1200, 200))
           await app.evaluate((_electron, picked) => void ((globalThis as unknown as { __tornoMain: Main & { pickPhotos: string[] } }).__tornoMain.pickPhotos = picked), photos)
-          await new_.getByRole('button', { name: 'Add photos…' }).click()
+          await new_.getByRole('button', { name: /^Drop anything/ }).click()
           await expect(new_.locator('.ref-card[data-kind="photos"]')).toHaveCount(2)
           await new_.locator('.ref-card[data-kind="photos"]').first().getByLabel(/^Note for /).fill('the desk edge, seen from the front')
           const sketch = async (): Promise<void> => {
-            await new_.getByRole('button', { name: /^Doodle it/ }).click()
+            await new_.getByRole('button', { name: /^Sketch it/ }).click()
             const board = page.getByRole('dialog', { name: 'Doodle board' })
             const box = (await board.locator('canvas').boundingBox())!
             const at = (fx: number, fy: number): [number, number] => [box.x + box.width * fx, box.y + box.height * fy]
@@ -546,22 +549,21 @@ for (const theme of ['light', 'dark'] as const) {
           const sheet = join(root, 'desk-scan.stl')
           writeFileSync(sheet, stl(grid(30, 1, (x, y) => 41 + 0.4 * Math.sin(x / 3) * Math.cos(y / 4))))
           await app.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: Main }).__tornoMain.pickFile = path), sheet)
-          await new_.getByRole('button', { name: /^Scans/ }).click()
-          await new_.getByRole('button', { name: /^Other projects/ }).click()
+          await new_.getByRole('button', { name: 'Scan', exact: true }).click()
+          await new_.getByRole('button', { name: 'Other project', exact: true }).click()
           await page.getByRole('menuitem', { name: 'plain' }).click()
           await new_.locator('.ref-card[data-kind="objects"]').first().getByLabel(/^Note for /).fill('mounts on this')
           // The sizes, the rules, a link and a PDF: the slots that are rows and text, in both themes.
-          await new_.getByRole('button', { name: /^Sizes I know/ }).click()
+          await new_.locator('[data-slot="sizes"]').getByRole('button', { name: 'Add a size' }).click()
           await new_.getByLabel('What size 1 measures').fill('desk edge')
           await new_.getByLabel('Value of size 1').fill('18')
           await new_.getByLabel('Where size 1 came from').selectOption('measured')
-          await new_.getByRole('button', { name: 'Add a size' }).click()
+          await new_.locator('[data-slot="sizes"]').getByRole('button', { name: 'Add a size' }).click()
           await new_.getByLabel('What size 2 measures').fill('cable')
           await new_.getByLabel('Value of size 2').fill('Ø 6')
           await new_.getByLabel('Where size 2 came from').selectOption('a guess')
-          await new_.getByRole('button', { name: /^Rules/ }).click()
           await new_.locator('[data-slot="rules"] textarea').fill('PETG, 0.4 nozzle, min wall 1.2 mm')
-          await new_.getByRole('button', { name: /^Links and PDFs/ }).click()
+          await new_.getByRole('button', { name: 'Link or PDF', exact: true }).click()
           await new_.getByLabel('Link address').fill('https://example.com/cable-clips')
           await new_.getByLabel('Link address').press('Enter')
           await new_.getByLabel('Note for link 1').fill('a similar clip')
@@ -579,12 +581,12 @@ for (const theme of ['light', 'dark'] as const) {
           await page.locator('.ready-fold').click()
           await expect(page.locator('.ready-line[data-line="claude"]')).toBeVisible()
         } else if (shot === 'ready-sheet') {
-          await page.getByRole('button', { name: 'Folders' }).click()
+          await page.getByRole('button', { name: /^Folder / }).click()
           await page.getByRole('menuitem', { name: 'Check what torno needs' }).click()
           await expect(page.getByRole('dialog', { name: 'What torno needs' })).toBeVisible()
         } else if (shot === 'onboard-missing') {
           // The page of a new object when Claude Code is not found: the line above Create.
-          await page.locator('.show-empty').getByRole('button', { name: 'New project' }).click()
+          await page.locator('.empty-folder').getByRole('button', { name: 'open the full new project page' }).click()
           await page.getByLabel('Name', { exact: true }).fill('cable-clip')
           await page.getByLabel('What is it?').fill('A clip that holds a 6 mm cable to the edge of a desk, printed in PETG.')
           await expect(page.locator('.new-foot .ready[data-variant="missing"]')).toBeVisible()

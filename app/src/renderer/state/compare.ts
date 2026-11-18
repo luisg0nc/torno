@@ -1,4 +1,5 @@
 import type { HistoryEntry } from '../../shared/history'
+import type { TurnSummary } from '../ui/chat/turnSummary'
 
 /** How a kept build is shown against the live one: the earlier alone, over it, the live one alone, or the two side by side. */
 export type CompareMode = 'before' | 'overlay' | 'after' | 'side'
@@ -16,6 +17,8 @@ export interface CompareState {
   prompt?: number
   building?: string
   refused?: string
+  /** What the turn changed, from its own builds' digests (`turnSummary`): the tags Compare writes on the parts and the marks. Absent when the pair did not come from a turn. */
+  changes?: TurnSummary
 }
 
 export const COMPARE_MODES: ReadonlyArray<{ mode: CompareMode; label: string }> = [

@@ -1,4 +1,10 @@
+import { INTENT_CHIP } from '../../shared/reviews'
 import { number } from '../../shared/format'
+import { MONO_STACK, UI_STACK, canvasFont } from '../../shared/fonts'
+import type { Pt } from '../../shared/leader'
+import type { SectionPlane } from '../../shared/view'
+import type { Box } from './section'
+import { handleAt, ruleAt, ruleOf, ruleTicks } from './sectionRule'
 import { scaleBarLength } from './views'
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
@@ -20,10 +26,70 @@ export interface OverlayOptions {
   axes?: readonly [string, string, string]
 }
 
+/** What the tags of the view need of the camera: where a point is drawn, where the view is, and a call after every frame. */
+export interface PaneProjection {
+  /** Pixels from the view's top left; null behind the camera. */
+  project(p: Vec3): Pt | null
+  /** The view, in client pixels. */
+  rect(): { left: number; top: number; width: number; height: number }
+  /** Calls back after every frame drawn; returns what stops it. */
+  onDrawn(cb: () => void): () => void
+  /** A point on what a ref of the layout shown names, as it is drawn, in the same frame as `project`; null where nothing is drawn for it. */
+  refPoint?(ref: string): Vec3 | null
+  /** Whether a point can be seen from the camera: not behind a part, not on what a section cuts away. */
+  seen?(p: Vec3): boolean
+}
+
+let pane: PaneProjection | null = null
+let offPane: (() => void) | null = null
+const paneListeners = new Set<() => void>()
+
+/** The view that tags stand in, bound while the 3D view is on screen; returns what unbinds it. */
+export function bindPane(view: PaneProjection): () => void {
+  offPane?.()
+  pane = view
+  const off = view.onDrawn(() => {
+    for (const cb of [...paneListeners]) cb()
+  })
+  offPane = off
+  return () => {
+    if (pane !== view) return
+    off()
+    pane = null
+    offPane = null
+  }
+}
+
+/** Where a point of the object frame is drawn, in pixels from the top left of the view; null behind the camera, or with no view. */
+export function projectToPane(p: Vec3): Pt | null {
+  return pane ? pane.project(p) : null
+}
+
+/** Where what a ref names is drawn, in pixels from the top left of the view; null when it is not drawn, is behind a part or is off the view. */
+export function refInPane(ref: string): Pt | null {
+  if (!pane?.refPoint) return null
+  const at = pane.refPoint(ref)
+  if (!at || (pane.seen && !pane.seen(at))) return null
+  const p = pane.project(at)
+  const rect = pane.rect()
+  return p && p.x >= 0 && p.y >= 0 && p.x <= rect.width && p.y <= rect.height ? p : null
+}
+
+/** The view in client pixels, or null with none. */
+export function paneRect(): { left: number; top: number; width: number; height: number } | null {
+  return pane ? pane.rect() : null
+}
+
+/** Calls back after every frame the view draws (and from the first one after it is bound): a tag follows the camera with it. */
+export function onPaneDrawn(cb: () => void): () => void {
+  paneListeners.add(cb)
+  return () => paneListeners.delete(cb)
+}
+
 export const PERSPECTIVE_NOTE = 'perspective, no scale bar'
 
-const MONO = "'IBM Plex Mono', ui-monospace, monospace"
-const SANS = "'IBM Plex Sans', system-ui, sans-serif"
+const MONO = MONO_STACK
+const SANS = UI_STACK
 const AXES: { letter: string; axis: Vec3 }[] = [
   { letter: 'X', axis: [1, 0, 0] },
   { letter: 'Y', axis: [0, 1, 0] },
@@ -50,24 +116,11 @@ export function overlayUnit(width: number, height: number): number {
  */
 export const SCREEN_UNIT = 0.85
 
-/** How far above the bottom of the view the triad reaches on the person's screen, in px: what the strip of the Measure tool stands clear of (`styles/tools.css`). */
+/** How far above the bottom of the view, and in from the left, the triad reaches on the person's screen, in px: what the hint at the foot of the view keeps in from each side (`--triad-clear`, `styles/layout.css`). */
 export const TRIAD_CLEAR = Math.ceil((26 + 2 * 38 + 11 + 6) * SCREEN_UNIT)
 
-/** The longest the scale bar is on the person's screen, in px: it stands in the corner a bar of the view keeps clear of. */
+/** The longest the scale bar is on the person's screen, in px. */
 export const SCALE_BAR_MAX = 100
-
-/**
- * How far in from each side of the view the bars at its bottom (the section's, the selection's, the Align and Region
- * tools', the agent's line) keep, in px: past the triad on the left, and past the scale bar or the grid's step on
- * the right (`--bar-side`, `styles/layout.css`).
- */
-export const BAR_SIDE = 124
-
-/** The widest a bar at the bottom of the view is (the Align tool's, `styles/align.css`), in px. */
-const WIDEST_BAR = 560
-
-/** Under this width of the view the bars at its bottom stand above the triad and the scale, not between them (`data-narrow`, `--bar-lift`). */
-export const NARROW_BELOW = WIDEST_BAR + 2 * BAR_SIDE
 
 /**
  * Draws what a still picture needs to be read without the app around it: an
@@ -115,7 +168,7 @@ function drawTriad(ctx: Ctx, o: OverlayOptions, unit: number): void {
     depth: dot(a.axis, toViewer)
   })).sort((a, b) => a.depth - b.depth) // far ones first, so near ones are drawn over them
 
-  ctx.font = `600 ${Math.round(13 * unit)}px ${MONO}`
+  ctx.font = `500 ${Math.round(13 * unit)}px ${MONO}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   for (const arm of arms) {
@@ -278,6 +331,18 @@ const CHIP = { height: 17, pad: 5, radius: 4, font: 11.5, border: 1.5, leader: 1
  */
 const VALUE = { gap: 3, pad: 5, border: 1, hairline: 0.45, failBorder: 2, check: 9, cross: 7, checkGap: 4, weight: 500, stale: 0.45 }
 
+/** The round sign beside a chip (`.sign-disc`, spec "Signs on marks"): an 18 px disc, the sign in the face of numbers, and the room between it and the chip. */
+const SIGN = { size: 18, gap: 3, font: 12, stripe: 2, period: 4, pale: 0.3, core: 6 }
+
+/** How far a chip of a mark with a sign is wider than without: its disc and the gap after it. */
+const signWidth = (sign: '-' | '+' | undefined, unit: number): number => (sign ? (SIGN.size + SIGN.gap) * unit : 0)
+
+/** A colour mixed toward the ground, by colour and never by opacity: `share` of the colour, the rest of the ground. The canvas reads a CSS colour as the page does. */
+const mixed = (colour: string, ground: string, share: number): string => `color-mix(in srgb, ${colour} ${Math.round(share * 100)}%, ${ground})`
+
+/** How much of a chip's colours a mark that is not in the review round keeps: the rest is the ground's (the spec's 70 % toward it). */
+const DIMMED_SHARE = 0.3
+
 /** A value as its chip is given it (`LabelValue`). */
 type ChipValue = { text: string; verdict?: 'pass' | 'fail'; stale?: true; off?: string }
 
@@ -310,13 +375,52 @@ function chipAdvance(ctx: Ctx, unit: number): number {
  * How large the chip of a label is, for `place`: of its number, and of a
  * dimension's value beside it. `unit` is the pixels of this canvas to a nominal one.
  */
-export function chipSize(ctx: Ctx, unit: number): (text: string, value?: ChipValue) => { w: number; h: number } {
+export function chipSize(ctx: Ctx, unit: number): (text: string, value?: ChipValue, sign?: '-' | '+') => { w: number; h: number } {
   const advance = chipAdvance(ctx, unit)
-  return (text, value) => ({ w: numberWidth(advance, text, unit) + (value ? VALUE.gap * unit + valueWidth(advance, value, unit) : 0), h: CHIP.height * unit })
+  return (text, value, sign) => ({ w: signWidth(sign, unit) + numberWidth(advance, text, unit) + (value ? VALUE.gap * unit + valueWidth(advance, value, unit) : 0), h: CHIP.height * unit })
+}
+
+/**
+ * The disc of a sign at `x` (its left) and `cy` (its middle): `+` solid in the agent's colour; `-` hatched in the person's, 2 px stripes
+ * at 135 degrees with the colour mixed 70 % toward white between them, and a solid core of the colour that holds the sign in the colour of paper,
+ * as the chips' letters are (the pale stripes would not hold it).
+ */
+function drawSign(ctx: Ctx, sign: '-' | '+', x: number, cy: number, unit: number, colours: Pick<LabelStyle, 'user' | 'agent' | 'paper'>): void {
+  const r = (SIGN.size * unit) / 2
+  const cx = x + r
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+  if (sign === '+') {
+    ctx.fillStyle = colours.agent
+    ctx.fill()
+  } else {
+    ctx.save()
+    ctx.clip()
+    ctx.fillStyle = mixed(colours.user, 'white', SIGN.pale)
+    ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r)
+    ctx.strokeStyle = colours.user
+    ctx.lineWidth = SIGN.stripe * unit
+    ctx.beginPath()
+    // Stripes along x + y = c, one in every `period` of the gradient's own axis.
+    for (let c = cx + cy - 2 * r; c <= cx + cy + 2 * r; c += SIGN.period * unit * Math.SQRT2) {
+      ctx.moveTo(c - (cy - r), cy - r)
+      ctx.lineTo(c - (cy + r), cy + r)
+    }
+    ctx.stroke()
+    ctx.restore()
+    ctx.beginPath()
+    ctx.arc(cx, cy, SIGN.core * unit, 0, 2 * Math.PI)
+    ctx.fillStyle = colours.user
+    ctx.fill()
+  }
+  ctx.font = `600 ${SIGN.font * unit}px ${MONO}`
+  ctx.fillStyle = colours.paper
+  ctx.fillText(sign === '-' ? INTENT_CHIP.dont : INTENT_CHIP.want, cx, cy + 0.5 * unit)
+  ctx.font = chipFont(unit)
 }
 
 function chipFont(unit: number): string {
-  return `600 ${CHIP.font * unit}px ${MONO}`
+  return `500 ${CHIP.font * unit}px ${MONO}`
 }
 
 /** How faint the ring of the chip the pointer is on is, beside the active one's. */
@@ -332,11 +436,12 @@ const HOVER_RING = 0.4
  */
 export function drawLabels(
   ctx: Ctx,
-  labels: Array<{ id: string; text: string; author: 'user' | 'agent'; x: number; y: number; visible: boolean; box: { x: number; y: number; w: number; h: number }; value?: ChipValue }>,
+  labels: Array<{ id: string; text: string; sign?: '-' | '+'; author: 'user' | 'agent'; x: number; y: number; visible: boolean; box: { x: number; y: number; w: number; h: number }; value?: ChipValue }>,
   style: LabelStyle,
   unit: number,
   active: string | null = null,
-  hovered: string | null = null
+  hovered: string | null = null,
+  dimmed: ReadonlySet<string> | null = null
 ): void {
   ctx.save()
   ctx.lineCap = 'round'
@@ -347,14 +452,16 @@ export function drawLabels(
   const shown = labels.filter((l) => l.visible)
 
   // The ties first, so that no chip is crossed by another's.
-  for (const { x, y, box, author } of shown) {
+  // A chip of a mark not in the review round is mixed toward the ground: a colour, never an opacity, so that its letters keep their contrast with it.
+  const toneOf = (id: string) => (colour: string): string => (dimmed?.has(id) ? mixed(colour, style.surface, DIMMED_SHARE) : colour)
+  for (const { id, x, y, box, author } of shown) {
     const tx = Math.min(Math.max(x, box.x), box.x + box.w)
     const ty = Math.min(Math.max(y, box.y), box.y + box.h)
     if (Math.hypot(tx - x, ty - y) < 3 * unit) continue
     ctx.beginPath()
     ctx.moveTo(x, y)
     ctx.lineTo(tx, ty)
-    ctx.strokeStyle = style[author]
+    ctx.strokeStyle = toneOf(id)(style[author])
     ctx.lineWidth = CHIP.leader * unit
     ctx.stroke()
   }
@@ -362,9 +469,11 @@ export function drawLabels(
   const advance = shown.some((l) => l.value) ? chipAdvance(ctx, unit) : 0
   const verdicts = shown.some((l) => l.value?.verdict) ? verdictColours(style) : null
 
-  for (const { id, text, author, box: whole, value } of shown) {
-    // The number's own chip: all of the box, but for a dimension, whose value stands to its right.
-    const box = value ? { ...whole, w: numberWidth(advance, text, unit) } : whole
+  for (const { id, text, sign, author, box: whole, value } of shown) {
+    const tone = toneOf(id)
+    // The number's own chip: all of the box after its sign, but for a dimension, whose value stands to its right.
+    const lead = signWidth(sign, unit)
+    const box = value ? { ...whole, x: whole.x + lead, w: numberWidth(advance, text, unit) } : { ...whole, x: whole.x + lead, w: whole.w - lead }
     const path = (grow: number) => {
       ctx.beginPath()
       ctx.roundRect(whole.x - grow, whole.y - grow, whole.w + 2 * grow, whole.h + 2 * grow, CHIP.radius * unit + grow)
@@ -386,13 +495,14 @@ export function drawLabels(
     const inset = (CHIP.border * unit) / 2
     ctx.beginPath()
     ctx.roundRect(box.x + inset, box.y + inset, box.w - 2 * inset, box.h - 2 * inset, CHIP.radius * unit - inset)
-    ctx.fillStyle = author === 'user' ? style.user : style.paper
+    ctx.fillStyle = tone(author === 'user' ? style.user : style.paper)
     ctx.fill()
-    ctx.strokeStyle = style[author]
+    ctx.strokeStyle = tone(style[author])
     ctx.lineWidth = CHIP.border * unit
     ctx.stroke()
-    ctx.fillStyle = author === 'user' ? style.paper : style.agent
+    ctx.fillStyle = tone(author === 'user' ? style.paper : style.agent)
     ctx.fillText(text, box.x + box.w / 2, box.y + box.h / 2 + 0.5 * unit)
+    if (sign) drawSign(ctx, sign, whole.x, whole.y + whole.h / 2, unit, { user: tone(style.user), agent: tone(style.agent), paper: tone(style.paper) })
     if (!value) continue
 
     // The value, as on a drawing: ink on paper inside a hairline. One that is not what was expected is
@@ -405,17 +515,17 @@ export function drawLabels(
     const w = whole.x + whole.w - x
     ctx.beginPath()
     ctx.roundRect(x + border / 2, whole.y + border / 2, w - border, whole.h - border, CHIP.radius * unit - border / 2)
-    ctx.fillStyle = style.paper
+    ctx.fillStyle = tone(style.paper)
     ctx.fill()
     // A quiet hairline of ink, whoever made it: its number beside it says whose it is, and only failure is in colour.
-    ctx.strokeStyle = failed ? (verdicts?.fail ?? style.user) : style.ink
+    ctx.strokeStyle = tone(failed ? (verdicts?.fail ?? style.user) : style.ink)
     ctx.globalAlpha = failed ? 1 : VALUE.hairline
     ctx.lineWidth = border
     ctx.stroke()
     ctx.globalAlpha = 1
     ctx.font = `${VALUE.weight} ${CHIP.font * unit}px ${MONO}`
     ctx.textAlign = 'left'
-    ctx.fillStyle = style.ink
+    ctx.fillStyle = tone(style.ink)
     ctx.globalAlpha = value.stale ? VALUE.stale : 1
     ctx.fillText(value.text, x + VALUE.pad * unit, whole.y + whole.h / 2 + 0.5 * unit)
     ctx.globalAlpha = 1
@@ -428,12 +538,12 @@ export function drawLabels(
       ctx.lineTo(left + 2 * half, mid + half)
       ctx.moveTo(left + 2 * half, mid - half)
       ctx.lineTo(left, mid + half)
-      ctx.strokeStyle = verdicts?.fail ?? style.user
+      ctx.strokeStyle = tone(verdicts?.fail ?? style.user)
       ctx.lineWidth = 1.5 * unit
       ctx.stroke()
       // By how much it misses, after the cross and in its colour: what it should be is one look away, not one click.
       if (value.off) {
-        ctx.fillStyle = verdicts?.fail ?? style.user
+        ctx.fillStyle = tone(verdicts?.fail ?? style.user)
         ctx.fillText(value.off, left + (VALUE.cross + VALUE.checkGap) * unit, whole.y + whole.h / 2 + 0.5 * unit)
       }
     }
@@ -444,7 +554,7 @@ export function drawLabels(
       ctx.moveTo(left, mid + 0.5 * unit)
       ctx.lineTo(left + 3 * unit, mid + 3.5 * unit)
       ctx.lineTo(left + VALUE.check * unit, mid - 3.5 * unit)
-      ctx.strokeStyle = verdicts?.ok ?? style.agent
+      ctx.strokeStyle = tone(verdicts?.ok ?? style.agent)
       ctx.lineWidth = 1.5 * unit
       ctx.stroke()
     }
@@ -482,7 +592,162 @@ let fontsLoaded: Promise<unknown> | undefined
 export function overlayFonts(): Promise<unknown> {
   if (typeof document === 'undefined' || !document.fonts) return Promise.resolve()
   fontsLoaded ??= Promise.all(
-    ['12px "IBM Plex Mono"', '600 12px "IBM Plex Mono"', '12px "IBM Plex Sans"'].map((font) => document.fonts.load(font))
+    [canvasFont(12, 400, true), canvasFont(12, 500, true), canvasFont(12)].map((font) => document.fonts.load(font))
   ).catch(() => {}) // a face that cannot be loaded leaves the fallback, as before
   return fontsLoaded
+}
+
+// ---- The section's rule on the ground (Task 22; spec 2026-11-18 "Tags", Section) ----
+
+/** The handle of the section's rule, in px: a square with rounded corners, in the accent. */
+export const RULE_HANDLE = { size: 16, radius: 4 }
+/** Under this length on screen (px) a rule is seen end on: it has no line or ticks to draw, only its handle. */
+const RULE_MIN_PX = 24
+
+/** The colours of the rule: its handle, its line and labels, and what is behind them. */
+export interface RuleStyle {
+  accent: string
+  muted: string
+  surface: string
+}
+
+/**
+ * Draws the rule of the section on the overlay canvas, in the frame of the object (so it is no part of the scene and in no
+ * picture): a line along the plane's normal, ticked every 5 mm and labelled every 20 in the mono face, with the plane's handle
+ * on it. `project` says where a point of the object frame is drawn in the canvas's pixels (null behind the camera). Returns
+ * where the handle is, for what takes hold of it, or null where the rule is out of view.
+ */
+export function drawSectionRule(ctx: Ctx, rule: { plane: SectionPlane; box: Box }, project: (p: Vec3) => Pt | null, colours: RuleStyle): Pt | null {
+  const { min, max, offset } = ruleOf(rule.plane, rule.box)
+  const normal = rule.plane.normal
+  const at = (mm: number) => project(ruleAt(rule.box, normal, mm))
+  const [from, to] = [at(min), at(max)]
+  // Where it stands: the plane's own offset, kept on the rule.
+  const handle = at(min + handleAt(offset, min, max) * (max - min))
+  if (!handle) return null
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  const length = from && to ? Math.hypot(to.x - from.x, to.y - from.y) : 0
+  if (from && to && length >= RULE_MIN_PX) {
+    // Across the rule on screen, to the side that is up and to the left of it.
+    let across: Pt = { x: (to.y - from.y) / length, y: -(to.x - from.x) / length }
+    if (across.x + across.y > 0) across = { x: -across.x, y: -across.y }
+    const path = (): void => {
+      ctx.beginPath()
+      ctx.moveTo(from.x, from.y)
+      ctx.lineTo(to.x, to.y)
+    }
+    ctx.strokeStyle = colours.surface
+    ctx.lineWidth = 3.5
+    path()
+    ctx.stroke()
+    ctx.strokeStyle = colours.muted
+    ctx.lineWidth = 1
+    path()
+    ctx.stroke()
+    ctx.font = `10px ${MONO}`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    for (const tick of ruleTicks(min, max)) {
+      const p = at(tick.at)
+      if (!p) continue
+      const size = tick.label === undefined ? 3 : 6
+      const end = { x: p.x + across.x * size, y: p.y + across.y * size }
+      ctx.beginPath()
+      ctx.moveTo(p.x, p.y)
+      ctx.lineTo(end.x, end.y)
+      ctx.strokeStyle = colours.surface
+      ctx.lineWidth = 3.5
+      ctx.stroke()
+      ctx.strokeStyle = colours.muted
+      ctx.lineWidth = 1
+      ctx.stroke()
+      if (tick.label !== undefined) haloText(ctx, tick.label, end.x + across.x * 8, end.y + across.y * 8, colours.muted, colours.surface, 1)
+    }
+  }
+  const { size, radius } = RULE_HANDLE
+  ctx.beginPath()
+  ctx.roundRect(handle.x - size / 2 - 1.5, handle.y - size / 2 - 1.5, size + 3, size + 3, radius + 1.5)
+  ctx.fillStyle = colours.surface
+  ctx.fill()
+  ctx.beginPath()
+  ctx.roundRect(handle.x - size / 2, handle.y - size / 2, size, size, radius)
+  ctx.fillStyle = colours.accent
+  ctx.fill()
+  ctx.restore()
+  return handle
+}
+
+// ---- Explode's track (ui/ExplodeControl.tsx, viewport/explodeTrack.ts) ----
+
+/** The track of Explode as it is drawn: its ends in px of the view, how far apart the parts are (0 to 1), and whether it can be moved. */
+export interface ExplodeTrackDraw {
+  a: Pt
+  b: Pt
+  amount: number
+  disabled: boolean
+}
+
+/** Side of the handle, in px. */
+export const TRACK_HANDLE = 16
+
+/**
+ * Draws the track Explode stands beside the parts: a line from 0 % to 100 %, graduated every 10 % with the 50s longer and
+ * numbered 0, 50 and 100 in mono 9.5 px, filled in the accent up to the handle (a 16 px accent square, radius 4). On the
+ * overlay, in the frame of the object, so no part of the scene and in no picture for the agent. Its colours are the
+ * quiet text's when it cannot be moved.
+ */
+export function drawExplodeTrack(ctx: Ctx, track: ExplodeTrackDraw, colours: { accent: string; ink: string; muted: string; paper: string }): void {
+  const { a, b } = track
+  const length = Math.hypot(b.x - a.x, b.y - a.y)
+  if (!(length > 0)) return
+  const [dx, dy] = [(b.x - a.x) / length, (b.y - a.y) / length]
+  // The ticks lean to the right of the track (or below it, where it runs across).
+  let [nx, ny] = [-dy, dx]
+  if (nx < -1e-6 || (Math.abs(nx) <= 1e-6 && ny < 0)) [nx, ny] = [-nx, -ny]
+  const at = (t: number, off = 0): Pt => ({ x: a.x + dx * length * t + nx * off, y: a.y + dy * length * t + ny * off })
+  const amount = Math.min(1, Math.max(0, track.amount))
+  const live = track.disabled ? colours.muted : colours.accent
+  ctx.save()
+  ctx.lineCap = 'butt'
+  ctx.strokeStyle = colours.ink
+  ctx.lineWidth = 1.2
+  ctx.beginPath()
+  ctx.moveTo(a.x, a.y)
+  ctx.lineTo(b.x, b.y)
+  ctx.stroke()
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (let k = 0; k <= 100; k += 10) {
+    const [from, to] = [at(k / 100), at(k / 100, k % 50 === 0 ? 10 : 5)]
+    ctx.moveTo(from.x, from.y)
+    ctx.lineTo(to.x, to.y)
+  }
+  ctx.stroke()
+  ctx.font = `400 9.5px ${MONO}`
+  ctx.fillStyle = colours.muted
+  ctx.textBaseline = 'middle'
+  ctx.textAlign = nx > 0.5 ? 'left' : 'center'
+  for (const k of [0, 50, 100]) {
+    const p = at(k / 100, nx > 0.5 ? 14 : 18)
+    ctx.fillText(String(k), p.x, p.y)
+  }
+  // Filled from 0 to the handle.
+  const handle = at(amount)
+  ctx.strokeStyle = live
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(a.x, a.y)
+  ctx.lineTo(handle.x, handle.y)
+  ctx.stroke()
+  const half = TRACK_HANDLE / 2
+  ctx.fillStyle = live
+  ctx.strokeStyle = colours.paper
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.roundRect(handle.x - half, handle.y - half, TRACK_HANDLE, TRACK_HANDLE, 4)
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
 }

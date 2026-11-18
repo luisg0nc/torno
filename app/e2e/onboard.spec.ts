@@ -5,8 +5,8 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { png } from '../src/test/pngFixtures'
 import { box, stl } from '../src/test/scanFixtures'
-import { openPanel } from './helpers'
-import { newFromList, openListed } from './objects'
+import { closeModelMenu, inModelMenu, openSection, showProjects, newSession } from './helpers'
+import { newFromList, openListed, projectCrumb } from './objects'
 
 // Making a new object, from the window: the page, its draft, the doodle board, a photo of 3000 px arriving scaled
 // in the first prompt, the scan imported, and the object made on the disk. The agent is the stand-in. The window is
@@ -53,7 +53,9 @@ test.describe('a new object', () => {
   const cards = (kind: string) => newPage().locator(`.ref-card[data-kind="${kind}"]`)
   const board = () => page.getByRole('dialog', { name: 'Doodle board' })
   const startButton = () => newPage().getByRole('button', { name: /^Start: make the project and ask Claude/ })
-  const doodleIt = () => newPage().getByRole('button', { name: /^Doodle it/ })
+  const doodleIt = () => newPage().getByRole('button', { name: /^Sketch it/ })
+  const dropAnything = () => newPage().getByRole('button', { name: /^Drop anything/ })
+  const also = (name: string) => newPage().getByRole('button', { name, exact: true })
   const slot = (id: string) => newPage().locator(`[data-slot="${id}"]`)
 
   /** Draws a stroke on the board between two fractions of the canvas, with real pointer events. */
@@ -97,6 +99,10 @@ test.describe('a new object', () => {
     await expect(newPage()).toBeVisible()
     expect((await state()).page).toBe('new')
     await expect(page.locator('.viewport-pane')).toBeHidden()
+    // The dock cannot show here: its toggle is disabled, with the reason in its title.
+    await expect(page.locator('.dock')).toBeHidden()
+    await expect(page.locator('.dock-toggle')).toBeDisabled()
+    await expect(page.locator('.dock-toggle')).toHaveAttribute('title', /hidden on this page/)
     await expect(page.getByLabel('Name', { exact: true })).toBeFocused()
     const name = page.getByLabel('Name', { exact: true })
     const create = startButton()
@@ -109,7 +115,7 @@ test.describe('a new object', () => {
     await name.fill('.hidden')
     await expect(newPage()).toContainText('starts with a letter or a digit')
     await name.fill('cable-clip')
-    await expect(newPage().locator('#new-name-help')).toHaveText("The folder's name: letters, digits, - _ (no dots)")
+    await expect(newPage().locator('#new-name-help')).toHaveText("The folder's name: letters, digits, \u2212 and _.")
     // A name alone is not enough.
     await expect(create).toBeDisabled()
     await page.getByLabel('What is it?').fill('A clip that holds a 6 mm cable to the edge of a desk, printed in PETG.')
@@ -145,7 +151,7 @@ test.describe('a new object', () => {
 
   test('photos come through the dialog, scaled to 1280 px for the prompt (a WebP turned into a JPEG) and drawn small', async () => {
     await hook(app, { pickPhotos: [big(), webp()] })
-    await newPage().getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(cards('photos')).toHaveCount(2)
     await expect(cards('photos').nth(0)).toContainText('Photo')
     await expect(cards('photos').nth(0)).toContainText('desk-3000.png')
@@ -155,13 +161,13 @@ test.describe('a new object', () => {
     expect(widths).toEqual([1280, 800])
     await cards('photos').nth(0).getByLabel(/^Note for /).fill('the desk edge, 18 mm thick')
     // The same photo twice is one.
-    await newPage().getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(newPage()).toContainText('2 photos are there already')
     await expect(cards('photos')).toHaveCount(2)
     await cards('photos').nth(1).getByRole('button', { name: 'Remove photo 2' }).click()
     await expect(cards('photos')).toHaveCount(1)
     await hook(app, { pickPhotos: [big(), webp()] })
-    await newPage().getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(cards('photos')).toHaveCount(2)
   })
 
@@ -317,30 +323,30 @@ test.describe('a new object', () => {
 
   test('a vendor STEP file is given as a bought part, with a note, and the preview names it for import_step', async () => {
     await hook(app, { pickStep: bearing() })
-    await newPage().getByRole('button', { name: /^Bought parts/ }).click()
+    await also('Bought part').click()
     await expect(cards('steps')).toHaveCount(1)
     await expect(cards('steps').first()).toContainText('Bought part')
     await expect(cards('steps').first()).toContainText('608ZZ.STEP')
     await cards('steps').first().getByLabel(/^Note for /).fill('the bearing, 8 x 22 x 7')
     // The same file twice is one.
-    await newPage().getByRole('button', { name: /^Bought parts/ }).click()
+    await also('Bought part').click()
     await expect(newPage()).toContainText('608ZZ.STEP is there already')
     await expect(cards('steps')).toHaveCount(1)
   })
 
   test('a scan and another object of the workspace are given with their notes', async () => {
     await hook(app, { pickFile: plate() })
-    await newPage().getByRole('button', { name: /^Scans/ }).click()
+    await also('Scan').click()
     await expect(cards('scans')).toHaveCount(1)
     await expect(cards('scans').first()).toContainText('Scan')
     await expect(cards('scans').first()).toContainText('plate.stl')
     await cards('scans').first().getByLabel(/^Note for /).fill('the desk, scanned')
     // The same scan twice is one.
-    await newPage().getByRole('button', { name: /^Scans/ }).click()
+    await also('Scan').click()
     await expect(newPage()).toContainText('plate.stl is there already')
     await expect(cards('scans')).toHaveCount(1)
 
-    await newPage().getByRole('button', { name: /^Other projects/ }).click()
+    await also('Other project').click()
     const menu = page.getByRole('menu', { name: 'Projects of this workspace' })
     await expect(menu.getByRole('menuitem', { name: 'plain' })).toBeVisible()
     await menu.getByRole('menuitem', { name: 'plain' }).click()
@@ -348,7 +354,7 @@ test.describe('a new object', () => {
     await expect(cards('objects')).toHaveCount(1)
     await cards('objects').first().getByLabel(/^Note for /).fill('same style')
     // It is not offered twice.
-    await newPage().getByRole('button', { name: /^Other projects/ }).click()
+    await also('Other project').click()
     await expect(page.getByRole('menuitem', { name: 'plain' })).toHaveCount(0)
     await page.keyboard.press('Escape')
     await expect(menu).toHaveCount(0)
@@ -358,9 +364,9 @@ test.describe('a new object', () => {
   })
 
   test('sizes, rules, a link and a PDF are given in their slots, the preview says them, and S opens the doodle', async () => {
-    // A tile becomes its rows once opened, and the first field takes the focus.
-    await newPage().getByRole('button', { name: /^Sizes I know/ }).click()
+    // The card is there from the start; its button adds a row, and the first field takes the focus.
     await expect(slot('sizes')).toContainText('Sizes I know')
+    await slot('sizes').getByRole('button', { name: 'Add a size' }).click()
     await expect(newPage().getByLabel('What size 1 measures')).toBeFocused()
     // A row nothing is typed in holds nothing back; one half done does, and says so.
     await expect(startButton()).toBeEnabled()
@@ -385,11 +391,10 @@ test.describe('a new object', () => {
     await expect(board()).toHaveCount(0)
     await newPage().getByLabel('Note for size 1').fill('')
 
-    await newPage().getByRole('button', { name: /^Rules/ }).click()
-    await expect(slot('rules').locator('textarea')).toBeFocused()
+    await expect(slot('rules')).toContainText('Rules')
     await slot('rules').locator('textarea').fill('PETG, 0.4 nozzle, min wall 1.2 mm')
 
-    await newPage().getByRole('button', { name: /^Links and PDFs/ }).click()
+    await also('Link or PDF').click()
     await expect(newPage().getByLabel('Link address')).toBeFocused()
     await newPage().getByLabel('Link address').fill('ftp://example.com/x')
     await newPage().getByLabel('Link address').press('Enter')
@@ -434,7 +439,7 @@ test.describe('a new object', () => {
     const now = await state()
     expect(now.page).toBe('object')
     expect(now.workspace?.objects.map((o) => o.id)).toContain('cable-clip')
-    await expect(page.getByRole('button', { name: 'cable-clip', exact: true })).toBeVisible()
+    await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project cable-clip')
     await expect(newPage()).toHaveCount(0)
 
     // The project opens on its board, with a frame for each kind of what was given.
@@ -465,8 +470,9 @@ test.describe('a new object', () => {
     await expect(dock.locator('.chat-user')).toHaveCount(1)
     await expect(dock.locator('.chat-turn')).toHaveCount(1, { timeout: 30_000 })
     // Started on them, for this session alone: the stand-in runs the model it was given (`--model=haiku`), and the pane says both.
-    await expect(dock.getByLabel('Model', { exact: true })).toHaveValue('haiku')
-    await expect(dock.getByLabel('Effort', { exact: true })).toHaveValue('high')
+    await expect(await inModelMenu(dock, 'Model')).toHaveValue('haiku')
+    await expect(await inModelMenu(dock, 'Effort')).toHaveValue('high')
+    await closeModelMenu(dock)
 
     // The scan was imported into the object.
     await expect.poll(() => (existsSync(join(dir, '.torno', 'scans.json')) ? readFileSync(join(dir, '.torno', 'scans.json'), 'utf8') : ''), { timeout: 60_000 }).toContain('plate.stl')
@@ -477,9 +483,9 @@ test.describe('a new object', () => {
     // The choice is the person's, kept for the next object; the list is now the one the chat's CLI offered.
     await expect(newPage().getByRole('group', { name: 'Claude Code starts on' }).getByLabel('Model')).toHaveValue('haiku')
     await expect(newPage().getByRole('group', { name: 'Claude Code starts on' }).getByLabel('Effort')).toHaveValue('high')
-    // Empty, Escape leaves the page at once, for the object that was open.
+    // Empty, Escape leaves the page at once, for the page of projects it was reached from.
     await page.keyboard.press('Escape')
-    await expect.poll(async () => (await state()).page).toBe('object')
+    await expect.poll(async () => (await state()).page).toBe('objects')
   })
 
   test('a resumed chat shows the references from reference/ again, and says which one is no longer there', async () => {
@@ -529,22 +535,79 @@ test.describe('a new object', () => {
     await expect(newPage()).toBeVisible()
     await newPage().getByRole('button', { name: 'Discard', exact: true }).click()
     await ask.getByRole('button', { name: 'Discard' }).click()
-    await expect.poll(async () => (await state()).page).toBe('object')
+    // Back on the page of projects, which it was reached from.
+    await expect.poll(async () => (await state()).page).toBe('objects')
     await newFromList(page)
     await expect(page.getByLabel('Name', { exact: true })).toHaveValue('')
     await page.keyboard.press('Escape')
-    await expect.poll(async () => (await state()).page).toBe('object')
+    await expect.poll(async () => (await state()).page).toBe('objects')
   })
 
   test('the page of objects has the way in too, and Escape goes back to it', async () => {
-    await openPanel(page, 'Projects')
-    await page.getByRole('button', { name: 'All projects' }).click()
+    await showProjects(page)
     await expect.poll(async () => (await state()).page).toBe('objects')
     await page.locator('.show-new').click()
     await expect(newPage()).toBeVisible()
     await page.keyboard.press('Escape')
     await expect.poll(async () => (await state()).page).toBe('objects')
     await expect(newPage()).toHaveCount(0)
+  })
+})
+
+test.describe('the composer of an empty folder', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  test('Start makes the folder the words name and starts the session with the words as its first prompt', async () => {
+    test.setTimeout(90_000)
+    const root = temp('empty')
+    const { app, page } = await start(root, `node ${fakeAgent}`)
+    try {
+      const composer = page.locator('.empty-folder')
+      await expect(composer.getByRole('heading', { name: 'What are we making?' })).toBeVisible()
+      const words = composer.getByRole('textbox', { name: 'What are we making?' })
+      await words.fill('A clip that holds a 6 mm cable to the edge of a desk')
+      const where = composer.getByRole('button', { name: /^Goes in / })
+      await expect(where).toContainText(`${root.split('/').pop()}/cable-clip`)
+      // The folder offered can be changed, and a name the workspace refuses is said.
+      await where.click()
+      const name = composer.getByLabel('Goes in', { exact: true })
+      await name.fill('tools')
+      await expect(composer.getByRole('button', { name: 'Start', exact: true })).toBeDisabled()
+      await expect(composer.locator('.compose-help')).toContainText('keeps for itself')
+      await name.fill('desk-clip')
+      await name.press('Enter')
+      await expect(composer.getByRole('button', { name: /^Goes in / })).toContainText('/desk-clip')
+      // Nothing is written before Start.
+      expect(readdirSync(root)).toEqual([])
+      await composer.getByRole('button', { name: 'Start', exact: true }).click()
+      await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).objectId, { timeout: 30_000 }).toBe('desk-clip')
+      expect(existsSync(join(root, 'desk-clip', 'desk_clip.py'))).toBe(true)
+      expect(readFileSync(join(root, 'desk-clip', 'brief.md'), 'utf8')).toContain('A clip that holds a 6 mm cable to the edge of a desk')
+      const dock = page.locator('[data-region="session"]')
+      await expect(dock.locator('.chat-user').first()).toContainText('This is a new project, desk-clip', { timeout: 30_000 })
+      await expect(dock.locator('.chat-user').first()).toContainText('A clip that holds a 6 mm cable to the edge of a desk')
+      expect(readdirSync(root)).toEqual(['desk-clip'])
+    } finally {
+      await app.close()
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('the full page takes over what was typed and the folder offered', async () => {
+    const root = temp('empty-full')
+    const { app, page } = await start(root, `node ${fakeAgent}`)
+    try {
+      const composer = page.locator('.empty-folder')
+      await composer.getByRole('textbox', { name: 'What are we making?' }).fill('A hook for a mug')
+      await composer.getByRole('button', { name: 'open the full new project page' }).click()
+      const here = page.getByRole('region', { name: 'New project' })
+      await expect(here.getByLabel('What is it?')).toHaveValue('A hook for a mug')
+      await expect(page.getByLabel('Name', { exact: true })).toHaveValue('mug-hook')
+      expect(readdirSync(root)).toEqual([])
+    } finally {
+      await app.close()
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })
 
@@ -571,7 +634,7 @@ test.describe('a new object whose agent cannot be started', () => {
       // The agent is found now: a session started by hand has the prompt in its box, not sent.
       writeFileSync(command, `#!/bin/sh\nexec node ${fakeAgent} "$@"\n`)
       chmodSync(command, 0o755)
-      await dock.getByRole('button', { name: 'New session' }).click()
+      await newSession(dock)
       await expect(dock.locator('[data-chat-composer]')).toHaveValue(/This is a new project, latch/, { timeout: 30_000 })
       await expect(dock.locator('.session-held')).toContainText('It is in the box below')
       await expect(dock.locator('.chat-turn')).toHaveCount(0)
@@ -595,8 +658,9 @@ test.describe('the window while a new object is made', () => {
   const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
   const dock = () => page.locator('[data-region="session"]')
   const newPage = () => page.getByRole('region', { name: 'New project' })
-  const list = () => page.getByRole('navigation', { name: 'Projects' })
-  const marks = () => page.locator('section[aria-label="Marks"]')
+  const dropAnything = () => newPage().getByRole('button', { name: /^Drop anything/ })
+  const also = (name: string) => newPage().getByRole('button', { name, exact: true })
+  const marks = () => page.locator('[data-region="left"] .route-section[data-section="marks"]')
   const status = () => page.locator('[data-region="status"]')
 
   test.beforeAll(async () => {
@@ -618,27 +682,25 @@ test.describe('the window while a new object is made', () => {
     await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
     await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible({ timeout: 30_000 })
     await newFromList(page)
-    // The first prompt is on the page, beside the slots; the pane says so.
-    await expect(dock().locator('[data-draft-note]')).toBeVisible()
-    await expect(newPage()).toContainText('What Claude gets first')
-    await expect(newPage()).toContainText('Written from the board, updates as you add')
+    // The first prompt is on the page, on the dye at its right: the dock is hidden while the page is up.
+    await expect(dock()).toBeHidden()
+    await expect(newPage().locator('.draft-pane[data-plate]')).toContainText('What Claude gets first')
+    await expect(newPage()).toContainText('Written from this page as you add to it.')
     await expect(newPage().locator('.draft-pane-text')).toContainText('This is a new project')
-    await expect(dock().getByRole('button', { name: 'New session' })).toHaveCount(0)
-    await expect(dock().getByRole('button', { name: 'Resume' })).toHaveCount(0)
     await page.getByLabel('Name', { exact: true }).fill('cable-clip')
     await hook(app, { pickPhotos: [join(files, 'desk.png')] })
-    await page.getByRole('region', { name: 'New project' }).getByRole('button', { name: 'Add photos…' }).click()
+    await dropAnything().click()
     await expect(newPage().locator('.draft-pane')).toContainText('cable-clip')
     await expect(newPage().locator('.draft-pane')).toContainText('reference/photo-1.png')
     await expect(newPage().locator('.draft-pane')).toContainText('attached: picture 1')
     // A bought part is named in the preview, with how the agent is to place it.
     await hook(app, { pickStep: join(files, '608ZZ.STEP') })
-    await page.getByRole('region', { name: 'New project' }).getByRole('button', { name: /^Bought parts/ }).click()
+    await also('Bought part').click()
     await expect(newPage().locator('.draft-pane-text')).toContainText('reference/608ZZ.step')
     await expect(newPage().locator('.draft-pane-text')).toContainText('import_step(')
-    // The list in the Projects panel: no object is current, and "New project" is pressed.
-    await expect(list().locator('[aria-current="true"]')).toHaveCount(0)
-    await expect(list().getByRole('button', { name: 'New project' })).toHaveAttribute('aria-pressed', 'true')
+    // The title bar's crumb reads "New project", and the rail has no index of sections: there is no project open to read.
+    await expect(page.locator('.title-row .crumb-project')).toHaveText('New project')
+    await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
     await expect(marks()).toHaveCount(0)
     await expect(status()).toContainText('New project')
     await expect(status().getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
@@ -650,27 +712,28 @@ test.describe('the window while a new object is made', () => {
     await page.keyboard.press('Escape')
     const ask = page.getByRole('alertdialog', { name: 'Discard this new project?' })
     await ask.getByRole('button', { name: 'Discard' }).click()
+    // The page was reached from the page of projects, and Discard goes back to it; bracket is still the one open under it.
+    await expect.poll(async () => (await state()).page).toBe('objects')
+    expect((await state()).objectId).toBe('bracket')
+    await openListed(page, 'bracket')
     await expect.poll(async () => (await state()).page).toBe('object')
-    await expect(list().getByRole('button', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
-    await expect(list().getByRole('button', { name: 'New project' })).toHaveAttribute('aria-pressed', 'false')
-    await openPanel(page, 'Marks')
+    await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project bracket')
+    await openSection(page, 'Marks')
     await expect(marks()).toHaveCount(1)
     await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible()
     await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
   })
 
-  test('a running session of the object that was open stays in full, with a note of whose it is', async () => {
-    await dock().getByRole('button', { name: 'New session' }).click()
-    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible({ timeout: 30_000 })
+  test('a running session of the object that was open goes on behind the page, and its dock is back when the page is left', async () => {
+    await newSession(dock())
+    await expect(dock().locator('.session-status')).toBeVisible({ timeout: 30_000 })
     await newFromList(page)
-    await expect(dock().locator('.session-status')).toBeVisible()
-    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible()
-    await expect(dock().locator('.session-aside')).toContainText('This is the session of bracket')
-    await expect(dock().locator('[data-draft-note]')).toHaveCount(0)
+    await expect(dock()).toBeHidden()
+    await expect(page.locator('.shell')).toHaveAttribute('data-dock', 'collapsed')
     await page.keyboard.press('Escape')
-    await expect.poll(async () => (await state()).page).toBe('object')
-    await expect(dock().locator('.session-aside')).toHaveCount(0)
-    await expect(dock().getByRole('button', { name: 'End session' })).toBeVisible()
+    await expect.poll(async () => (await state()).page).toBe('objects')
+    await expect(page.locator('.shell')).toHaveAttribute('data-dock', 'open')
+    await expect(dock().locator('.session-status')).toBeVisible()
   })
 })
 
@@ -686,14 +749,14 @@ test.describe('a new project made without starting Claude', () => {
       const here = page.getByRole('region', { name: 'New project' })
       await page.getByLabel('Name', { exact: true }).fill('latch')
       await page.getByLabel('What is it?').fill('A latch for a box lid.')
-      await here.getByRole('button', { name: /^Sizes I know/ }).click()
+      await here.locator('[data-slot="sizes"]').getByRole('button', { name: 'Add a size' }).click()
       await here.getByLabel('What size 1 measures').fill('lid thickness')
       await here.getByLabel('Value of size 1').fill('4')
       // A scan is imported into the project even though no prompt is sent (onboard, which imports it otherwise, is not called).
       const scanFiles = temp('files')
       writeFileSync(join(scanFiles, 'plate.stl'), stl(box([60, 50, 2], [0, 0, -10])))
       await hook(app, { pickFile: join(scanFiles, 'plate.stl') })
-      await here.getByRole('button', { name: /^Scans/ }).click()
+      await here.getByRole('button', { name: 'Scan', exact: true }).click()
       await expect(here.locator('.ref-card[data-kind="scans"]')).toHaveCount(1)
       await here.getByRole('button', { name: 'Or make it without starting Claude' }).click()
       await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).objectId, { timeout: 30_000 }).toBe('latch')

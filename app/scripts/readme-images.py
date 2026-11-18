@@ -38,15 +38,18 @@ def save(image: Image.Image, name: str, width: int | None = None) -> None:
 hero = Image.open(raw / "hero.png")
 save(hero, "hero.png")
 save(Image.open(raw / "hero-dark.png"), "hero-dark.png")
-# With the session pane hidden the view fills the window: the crops keep the list and the part, for the row of three.
-save(Image.open(raw / "marks.png").crop((0, 0, 1520, 1000)), "marks.png")
+# With the session dock hidden the view fills the window: marks.png is the whole window (the card's Checks and Marks, and the part).
+save(Image.open(raw / "marks.png"), "marks.png")
+# The chat is the dock alone, the section the view alone (its tag, its rule and the plane are drawn over the part).
 save(Image.open(raw / "chat.png").crop(box_of("chat", "session")), "chat.png")
-save(Image.open(raw / "section.png").crop((430, 40, 1430, 1000)), "section.png")
+save(Image.open(raw / "section.png").crop(box_of("section", "viewport")), "section.png")
+# A sketch, a review and a tracing show the card's head (the sketch's panel, the round's) beside the view, with the dock hidden: the card and the view.
+for shot in ("sketch", "review", "tracing"):
+    save(Image.open(raw / f"{shot}.png").crop(box_of(shot, "left", "viewport")), f"{shot}.png")
 save(Image.open(raw / "objects.png"), "objects.png")
 save(Image.open(raw / "export.png"), "export.png")
-# The first screen is small in the middle of the window: the crop keeps the air around it.
-first = Image.open(raw / "first-screen.png")
-save(first.crop((400, 250, 1200, 760)), "first-screen.png")
+# The first screen fills the window: the whole of it.
+save(Image.open(raw / "first-screen.png"), "first-screen.png")
 
 # The social preview: a light ground, the logo and the name at the left, the hero's view at the right.
 W, H = 1280, 640
@@ -59,7 +62,7 @@ draw = ImageDraw.Draw(social)
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    for name in (["IBMPlexSans-SemiBold.ttf", "DejaVuSans-Bold.ttf"] if bold else ["IBMPlexSans-Regular.ttf", "DejaVuSans.ttf"]):
+    for name in (["InstrumentSans-SemiBold.ttf", "DejaVuSans-Bold.ttf"] if bold else ["InstrumentSans-Regular.ttf", "DejaVuSans.ttf"]):
         for folder in ("/usr/share/fonts", str(Path.home() / ".local/share/fonts"), str(repo / "app/src/renderer/fonts")):
             found = list(Path(folder).rglob(name)) if Path(folder).exists() else []
             if found:
@@ -70,10 +73,10 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 draw.text((72, 380), "torno", fill=(28, 28, 32), font=font(72, bold=True))
 for n, line in enumerate(["CAD parts with an AI coding agent.", "You point at the part. Claude Code", "writes the model. torno builds it."]):
     draw.text((72, 470 + n * 40), line, fill=(84, 84, 92), font=font(28))
-# The hero's view, the chat beside it, scaled to the right half and let bleed off the bottom and the right.
-view = hero.crop((250, 0, 1600, 1000))
-scale = 560 / view.height * 1.25
+# The hero's view alone (the title bar, the rail, the card, the dock and the status line left out), scaled and let bleed off the bottom and the right.
+view = hero.crop(box_of("hero", "viewport"))
+scale = 0.84
 view = view.resize((round(view.width * scale), round(view.height * scale)), Image.LANCZOS)
-social.paste(view, (W - view.width + 260, 64))
+social.paste(view, (W - view.width + 80, 64))
 draw.rectangle((0, 0, W - 1, H - 1), outline=(214, 212, 206))
 save(social, "social-preview.png")

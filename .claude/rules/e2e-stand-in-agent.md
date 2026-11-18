@@ -69,7 +69,7 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
   "Draw on view" (`e2e/chatask.spec.ts` drives it: a point of the canvas over a part is found with `pickAt` and the
   same fraction of the board is drawn on; "Done" makes a draft view note, which the next `say` carries, and the words of the note are read from what the stand-in says back, line by line).
 - `e2e/review.spec.ts` makes a round on the `gauge` fixture: "Review this build" (`R1` on `h1`), `-` for don't want and a face picked with Select and "Note", the bar's Want and a 3D sketch, a plain view note drawn on the board (it is no waiting note above the box), a prompt sent meanwhile that carries none of them (the text under "Show text" says `R1 is in review, not sent (3 marks).`), Send review and the chip in the composer, then a prompt whose script has the stand-in `resolve_mark` both items (the review line and the items are read from "Show text" too: the script never sees them). A rebuild needs a change of a `.py` file (the history goes by the Python files: `variant.txt` alone makes no new build), and then the round's panel says OK to one item and Still wrong to the other and the board is read for two round frames, the Still wrong card in the second (`board.json`, `source: 'R1'`).
-- `e2e/sketch.spec.ts` draws a 3D sketch on the `gauge` fixture (a line on XZ begun on the Ø8 hole's centre, a freehand stroke on the plane of the top face with `N`, Flow ⌀19, Done) with `page.mouse` and reads the marks file, the Marks list, the board's card and the pens strip. The next prompt is `say received` and its text is read from the chat's "torno added" line after "Show text": the stand-in's script never sees what the hook adds. The panel stands over the left of the view, so the points the spec aims at are on the right of the plate; a press under it is not the canvas's, and `N` finds no face.
+- `e2e/sketch.spec.ts` draws a 3D sketch on the `gauge` fixture (a line on XZ begun on the Ø8 hole's centre, a freehand stroke on the plane of the top face with `N`, Flow ⌀19, Done) with `page.mouse` and reads the marks file, the Marks list, the board's card and the pens strip. The next prompt is `say received` and its text is read from the chat's "with" line (`.chat-added`) after "Show text": the stand-in's script never sees what the hook adds. The panel stands over the left of the view, so the points the spec aims at are on the right of the plate; a press under it is not the canvas's, and `N` finds no face.
 - `e2e/tracings.spec.ts` is the way through a tracing on the `bracket` fixture, not a repeat of the specs of its pieces (`lineup`, `tracing-marks`, `tracing-measures`, `tracing-3d`, `export`): a tracing on the base's top face (found with `geometry.describe`, made through the bridge), a photo the spec writes with `pngFixtures` and hands over with `__tornoMain.pickPhotos`, a line-up by two corners of the cut (read from `outline`'s `snaps`, clicked with `__tornoLineup.client`, each tracing-side click checked to carry a `snap`), `tool mcp__torno__add_layer {…}` said to the stand-in (the row says `by Claude`), a Should be here drag of that layer's circle (`__tornoTracingSheet` says where a point of the plane is), a prompt whose "Show text" holds `offset` and `on T1`, Show in 3D (`__tornoTest.tracings()` and the caption of `look`), and an SVG written through `pickSave` (millimetres, no path of the machine, no photo unless ticked). The app is given a HOME of its own. A picture of the tracing that is read from a `blob:` address must go through an `<img>`: the window's policy refuses `fetch` of one, and only this spec shows it in a real window.
 
 ## Light and dark (`app/e2e`)
@@ -86,13 +86,13 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
 - Tests: `__tornoMain.opened()` (the objects opened in this run: empty while only the page was looked at),
   `window.__tornoTest.timeThumbnail(count, given?)`. `TORNO_SHOTS=<dir>` has `e2e/show.spec.ts` write
   captures of the page, one launch each.
-- A spec opens a panel as a person does, through the rail: `openPanel(page, 'Layers')` of `e2e/helpers.ts` (Projects,
-  Layers, Params, Scans, Marks; one that is open stays as it is), `closePanel`, `railButton`. The marks are open at first (and
-  Projects where no project is open), so what a spec reads in another panel (a layer row, a scan row, Parameters,
-  Checks, the list of projects, the folder menu, "All projects") is read after opening it. A spec opens a project
-  through `openListed(page, name)` of `e2e/objects.ts`: the row in the Projects panel, which it opens and then puts the
-  panel that was open back; `newFromList` is "New project" alike; `switcher(page)` is the rail's Projects button, which
-  carries a session's sign. Never a row by its name alone outside the Projects panel.
+- A spec reaches a section of the route card as a person does, through the rail's index: `openSection(page, 'Parts')` of
+  `e2e/helpers.ts` (Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings, Print profile; it presses the icon and unfolds
+  the section), `foldSection`, `cardSection`, `railButton`; the page of projects through `showProjects`. What a spec reads in a
+  section (a layer row, a scan row, Parameters, Checks) is read after opening it. A spec opens a project through
+  `openListed(page, name)` of `e2e/objects.ts`: the menu of the title bar's project crumb while a project is open, else its card
+  on the page of projects; `newFromList` is "New project" alike; `switcher(page)` is the rail's Projects button, which carries a
+  session's sign. Never a card by its name alone outside the page of projects.
 
 ## Never run a real agent CLI from tests (root `CLAUDE.md`)
 

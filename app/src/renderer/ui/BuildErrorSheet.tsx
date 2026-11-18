@@ -1,10 +1,11 @@
-import { hint, pressed } from '../../shared/keys'
-import { useEffect, useRef, useState } from 'react'
+import { pressed } from '../../shared/keys'
+import { useEffect, useState } from 'react'
 import { type BuildError, kindWords, fixPrompt, rebuildHelps, stillLatest } from '../../shared/build'
 import { WHY, diagnosisText } from '../../shared/diagnosis'
 import { useChat } from '../state/chat'
 import { actions, runningSession, useStore } from '../state/store'
 import { insertIntoSession } from './insertIntoSession'
+import { Popover } from './Popover'
 
 /** Everything the kernel said about a failed build, as one text to paste elsewhere: why a fillet failed after the message. */
 export function errorText(error: BuildError): string {
@@ -29,24 +30,36 @@ export function askLabel(told: Told): string {
   return told === 'none' ? 'Start a session to fix it' : 'Ask Claude Code to fix it'
 }
 
+/** The last lines of the error that say what went wrong: the end of its traceback, or its message when it has none (and the message before them when they do not hold it). */
+export function errorTail(error: BuildError, lines = 6): string {
+  const trace = error.traceback?.trim()
+  if (!trace) return error.message.trim()
+  const tail = trace.split('\n').slice(-lines)
+  return tail.some((line) => line.includes(error.message.trim())) ? tail.join('\n') : [error.message.trim(), ...tail].join('\n')
+}
+
+/** What the title of the popover says: the build the failure came after, when there was one. */
+export const failedTitle = (after: string | undefined): string => (after ? `The build after ${after} failed` : 'The first build failed')
+
 /**
- * The failed build in full: message, why a fillet or a chamfer failed (when the kernel found out), traceback and
- * what the model printed. It
- * rises from the status line over the viewport; the parts of the last good
- * build stay visible above it.
+ * A failed build's error, as a popover from its node in the builds strip (spec 2026-11-18, section 2): "The build after h40
+ * failed", who is told, the tail of the error in mono on the fail wash, then Copy, Whole error (message, why a fillet failed,
+ * traceback and what the model printed, in the card) and Ask Claude Code to fix it. `old` is a failure that a later build
+ * mended or came after: only its line is kept, so it is the line and Copy, with nobody told. `anchor` is the node; with none (the
+ * dock is put away) the card stands from the element it is drawn in, the status line.
  */
-export function BuildErrorSheet({ objectName, error, onClose }: { objectName: string; error: BuildError; onClose: () => void }) {
+export function BuildErrorSheet({ objectName, error, after, old = false, anchor, onClose }: { objectName: string; error: BuildError; after?: string | undefined; old?: boolean; anchor?: HTMLElement | null; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
   /** What "Ask Claude Code to fix it" did a moment ago: put the words in the box, or asked for a session that will. */
   const [handed, setHanded] = useState<'box' | 'start' | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  const [whole, setWhole] = useState(false)
   const build = useStore((st) => st.build)
   const objectId = useStore((st) => st.objectId)
   const session = useStore(runningSession)
   const chat = useChat(session?.view === 'chat' ? session.sessionId : undefined)
   const told: Told = !session ? 'none' : chat?.items.some((i) => i.kind === 'context' && i.forTool && stillLatest(build, i)) ? 'edit' : 'prompt'
-  const retry = build !== null && rebuildHelps(build)
-  const body = useRef<HTMLDivElement>(null)
+  const retry = !old && build !== null && rebuildHelps(build)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -87,74 +100,79 @@ export function BuildErrorSheet({ objectName, error, onClose }: { objectName: st
     try {
       await navigator.clipboard.writeText(errorText(error))
     } catch {
-      // No clipboard access (the window is not focused): copy the text as shown.
-      const selection = getSelection()
-      selection?.selectAllChildren(body.current!)
+      // No clipboard access (the window is not focused): the same text, copied from a field put up for the moment.
+      const field = document.createElement('textarea')
+      field.value = errorText(error)
+      field.setAttribute('readonly', '')
+      field.style.position = 'fixed'
+      field.style.opacity = '0'
+      document.body.append(field)
+      field.select()
       document.execCommand('copy')
-      selection?.removeAllRanges()
+      field.remove()
     }
     setCopied(true)
   }
 
   return (
-    <section className="sheet" role="dialog" aria-label="Build error">
-      <header className="sheet-head">
-        <h2 className="sheet-title">{objectName} did not build</h2>
-        <span className="spacer" />
+    <Popover anchor={anchor ?? null} width={300} className="build-error" aria-label="Build error" onClose={onClose}>
+      <h3 className="build-error-title">{after ? <>The build after <span className="num">{after}</span> failed</> : failedTitle(undefined)}</h3>
+      {!old && (
+        <p className="muted build-error-kind" data-part="kind">
+          {kindWords(error.kind)}
+        </p>
+      )}
+      {!old && (
+        <p className="build-error-told" data-part="told">
+          {toldLine(told)}
+        </p>
+      )}
+      {problem !== null && <p role="alert">{problem}</p>}
+      <pre className="build-error-tail" data-part="tail">{errorTail(error)}</pre>
+      <div className="build-error-actions">
         {/* After a failure outside the model building again is what may help; after an error in it, asking for the fix is. */}
         {retry && (
           <button type="button" className="button button-primary" onClick={() => objectId !== null && void window.torno.object.rebuild(objectId).catch(() => {})}>
             Rebuild
           </button>
         )}
-        <button type="button" className={retry ? 'button' : 'button button-primary'} data-part="ask" onClick={ask}>
-          {handed === 'box' ? 'In the message box' : handed === 'start' ? 'Starting a session…' : askLabel(told)}
-        </button>
+        {!old && (
+          <button type="button" className={retry ? 'button' : 'button button-primary'} data-part="ask" onClick={ask}>
+            {handed === 'box' ? 'In the message box' : handed === 'start' ? 'Starting a session…' : askLabel(told)}
+          </button>
+        )}
         <button type="button" className="button button-quiet" onClick={copy}>
           {copied ? 'Copied' : 'Copy'}
         </button>
-        <button type="button" className="icon-button" aria-label="Close" title={`Close (${hint('sheet.close')})`} onClick={onClose}>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true">
-            <path d="m4 4 8 8M12 4l-8 8" />
-          </svg>
-        </button>
-      </header>
-      <div className="sheet-lead" data-kind={error.kind}>
-        <p className="muted" data-part="kind">
-          {build && build.revision > 0 ? (
+        {!old && (
+          <button type="button" className="button button-quiet" aria-expanded={whole} data-part="whole-toggle" onClick={() => setWhole(!whole)}>
+            Whole error
+          </button>
+        )}
+      </div>
+      {whole && (
+        <div className="build-error-body" data-part="whole">
+          <p className="build-error-message" data-part="message">{error.message}</p>
+          {error.diagnosis && (
             <>
-              Build after <span className="num">r{build.revision}</span> failed
+              <h4 className="build-error-section">Why</h4>
+              <pre className="build-error-pre" data-part="diagnosis">{diagnosisText(error.diagnosis).slice(WHY.length)}</pre>
             </>
-          ) : (
-            'First build failed'
           )}
-          {' · '}
-          {kindWords(error.kind)}
-        </p>
-        <p data-part="told">{toldLine(told)}</p>
-        {problem !== null && <p role="alert">{problem}</p>}
-      </div>
-      <div className="sheet-body" ref={body}>
-        <p className="sheet-message">{error.message}</p>
-        {error.diagnosis && (
-          <>
-            <h3 className="section-title">Why</h3>
-            <pre className="sheet-pre" data-part="diagnosis">{diagnosisText(error.diagnosis).slice(WHY.length)}</pre>
-          </>
-        )}
-        {error.traceback?.trim() && (
-          <>
-            <h3 className="section-title">Traceback</h3>
-            <pre className="sheet-pre" data-part="traceback">{error.traceback.trimEnd()}</pre>
-          </>
-        )}
-        {error.output?.trim() && (
-          <>
-            <h3 className="section-title">Output</h3>
-            <pre className="sheet-pre" data-part="output">{error.output.trimEnd()}</pre>
-          </>
-        )}
-      </div>
-    </section>
+          {error.traceback?.trim() && (
+            <>
+              <h4 className="build-error-section">Traceback</h4>
+              <pre className="build-error-pre" data-part="traceback">{error.traceback.trimEnd()}</pre>
+            </>
+          )}
+          {error.output?.trim() && (
+            <>
+              <h4 className="build-error-section">Output</h4>
+              <pre className="build-error-pre" data-part="output">{error.output.trimEnd()}</pre>
+            </>
+          )}
+        </div>
+      )}
+    </Popover>
   )
 }

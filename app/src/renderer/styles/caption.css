@@ -1,0 +1,137 @@
+/* ---- The caption at the pointer, and the hint at the foot of the view (spec 2026-11-18, section 2) ---- */
+
+/* The caption: an ink pill by the pointer, that says what the tool in hand waits for. Put by `viewport/captionAt.ts` (a
+   transform, written outside React); its words are always in the live region, and it is shown by the pause rule
+   (`captionShows`). Nothing to press: the pointer goes through it. */
+.tool-hint-live {
+  display: contents;
+}
+
+.tool-hint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 3px 4px 3px 9px;
+  border-radius: var(--radius-full);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 90ms ease-out;
+}
+
+.tool-hint[data-shown] {
+  opacity: 1;
+}
+
+/* The words give way to the room there is; the way back stays whole. */
+.tool-hint-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-hint-stop {
+  flex: none;
+}
+
+/* "steps back" is for a screen reader: the sighted read Esc. */
+.tool-hint-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tool-hint kbd,
+.view-hint kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: var(--radius-inline);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  color: inherit;
+}
+
+/* A snap is an accent caption (the canvas draws it so: `viewport/sketchHint.ts`); the same look for any in the DOM. */
+.tool-hint[data-accent] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* The hint: at the foot of the view, in the middle, between the triad and the grid step. The pointer's way, once; the agent's line;
+   a sketch's standing line. */
+.view-hints {
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100% - 2 * var(--triad-clear));
+  pointer-events: none;
+}
+
+.view-hint {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 6px 4px 12px;
+  border-radius: var(--radius-sheet);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: var(--float-shadow);
+  font-size: var(--text-small);
+  line-height: 18px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.view-hint kbd {
+  color: var(--muted);
+}
+
+/* The words give way to the room there is; the key stays whole. */
+.view-hint-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view-hint-key {
+  flex: none;
+}
+
+/* What the agent points at: its refs as chips in the colour of its marks, what it says of them, and a way to put it away. */
+.view-hint.agent-line {
+  gap: var(--space-2);
+  padding: 3px 3px 3px 9px;
+  color: var(--ink);
+  white-space: normal;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-hint {
+    transition: none;
+  }
+}

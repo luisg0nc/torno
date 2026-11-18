@@ -1,0 +1,398 @@
+/* ---- The dyed plate (ui/plate/Plate.tsx): layout blue with the vise scribed on it. Only where there is no model. ---- */
+
+.plate {
+  position: relative;
+  /* The vise sizes itself by the plate's own width and height. */
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 72px 72px;
+  overflow: hidden;
+  background: var(--dye);
+  color: var(--on-dye);
+}
+
+/* Left and top as the design has them (84 and 150 of 780 by 900); as wide as the room leaves it, so that it stays above the words. */
+.plate-vise {
+  position: absolute;
+  top: 72px;
+  left: 10.8%;
+  width: min(77cqw, calc((100cqh - 340px) * 70 / 54));
+  height: auto;
+  overflow: visible;
+}
+
+/* Drawn as it stands: the animation below starts from a vise not yet drawn and ends here. */
+.vise-o {
+  fill: none;
+  stroke: var(--on-dye);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  /* A line is one dash a little longer than its whole (`pathLength` 1), so that no seam is left where it starts and ends. */
+  stroke-dasharray: 1.02;
+  stroke-dashoffset: 0;
+}
+
+.vise-part-line {
+  stroke: var(--on-dye);
+}
+
+.plate-vise[data-unknown] .vise-part-line {
+  stroke: var(--scribe);
+  /* Dashes as long as 2 mm of the part's 48 mm round (the rect's length is taken as 1). */
+  stroke-dasharray: 0.042 0.025;
+}
+
+.vise-fill {
+  fill: var(--accent-wash);
+}
+
+.vise-dim {
+  fill: none;
+  stroke: var(--scribe);
+  stroke-width: 0.3;
+}
+
+.vise-text text {
+  fill: var(--on-dye-muted);
+  font-family: var(--font-mono);
+  font-size: 2.6px;
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vise-o {
+    animation: vise-draw 1.6s var(--ease) both;
+  }
+
+  .plate-vise[data-unknown] .vise-part-line {
+    animation: vise-fade 0.6s 1.4s both;
+  }
+
+  .vise-dim {
+    animation: vise-fade 0.6s 1.1s both;
+  }
+
+  .vise-text {
+    animation: vise-fade 0.6s 1.2s both;
+  }
+
+  .vise-fill {
+    animation: vise-fade 0.5s 1.4s both;
+  }
+}
+
+@keyframes vise-draw {
+  from {
+    stroke-dashoffset: 1.02;
+  }
+}
+
+@keyframes vise-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.plate-headline {
+  margin: 0;
+  color: var(--on-dye);
+  font-size: 86px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+}
+
+.plate-lead {
+  max-width: 560px;
+  margin: var(--space-5) 0 0;
+  color: var(--on-dye-muted);
+  font-size: 21px;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+.plate-lead strong {
+  color: var(--on-dye);
+  font-weight: 500;
+}
+
+/* The logo as lines, wherever it is set on a dyed field. */
+.logo-scribed {
+  color: var(--on-dye);
+}
+
+/* ---- The empty folder (ui/EmptyWorkspace.tsx): the plate at the left, the composer at the right ---- */
+
+/* The page is the screen: no head, no padding. */
+.show-bare {
+  padding: 0;
+}
+
+.empty-folder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(440px, 560px);
+  flex: 1;
+  min-height: 0;
+}
+
+.empty-folder .plate-headline {
+  font-size: 52px;
+  line-height: 1;
+}
+
+.empty-folder .plate-lead {
+  max-width: 480px;
+  font-size: 17px;
+}
+
+.compose {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: 56px 48px 32px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+  background: var(--surface);
+}
+
+.compose-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.compose-lead {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-wrap: pretty;
+}
+
+/* The box: an accent edge and a halo of the wash, on what floats. */
+.compose-box {
+  align-self: stretch;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sheet);
+  background: var(--raise);
+  box-shadow: 0 0 0 4px var(--accent-wash);
+}
+
+.compose-text {
+  display: block;
+  width: 100%;
+  min-height: 130px;
+  padding: 16px 18px 10px;
+  border: 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.compose-text:focus-visible {
+  outline: none;
+}
+
+.compose-text::placeholder {
+  color: var(--muted);
+}
+
+.compose-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+
+.compose-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px dashed var(--field-edge);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.compose-chip .slot-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--muted);
+}
+
+.compose-chip:hover:not(:disabled) {
+  background: var(--accent-wash);
+}
+
+.compose-chip:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.compose-held {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0 12px 10px;
+  list-style: none;
+}
+
+.compose-held li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 4px 0 9px;
+  border-radius: var(--radius-full);
+  background: var(--accent-wash);
+  font-size: 12px;
+}
+
+.compose-remove {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.compose-remove:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.compose-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 10px 12px;
+  border-top: var(--divider);
+}
+
+.compose-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.compose-where[data-editing] {
+  cursor: default;
+}
+
+.compose-parent {
+  color: var(--muted);
+}
+
+.compose-name {
+  width: 16ch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.compose-name:focus-visible {
+  outline: none;
+}
+
+.compose-where:focus-within,
+button.compose-where:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.compose-help {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.compose-help[data-tone='fail'] {
+  color: var(--fail);
+}
+
+.compose-help[data-tone='warn'] {
+  color: var(--warn);
+}
+
+.compose-more {
+  max-width: 48ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-wrap: pretty;
+}
+
+.compose-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.compose-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.compose-fold {
+  max-width: 46ch;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.compose-fold summary {
+  cursor: pointer;
+}
+
+.compose-fold p {
+  margin: var(--space-1) 0 0;
+}
+
+.compose-scope {
+  max-width: 52ch;
+  margin: auto 0 0;
+  padding-top: var(--space-4);
+  color: var(--muted);
+  font-size: 12.5px;
+  text-wrap: balance;
+}

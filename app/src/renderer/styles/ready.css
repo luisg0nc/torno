@@ -9,9 +9,9 @@
   text-align: left;
 }
 
-.show-empty .ready {
+.empty-folder .ready {
   width: min(34rem, 100%);
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .ready-title {
@@ -28,7 +28,7 @@
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: var(--text-small);
+  font-size: 13px;
   text-align: left;
 }
 
@@ -48,44 +48,41 @@
 /* A line: its sign, its name, and what is found, with a second line under it for a note or uv's progress. */
 .ready-line {
   display: grid;
-  grid-template-columns: 6px 9.5rem minmax(0, 1fr);
+  grid-template-columns: 16px 9.5rem minmax(0, 1fr);
   column-gap: var(--space-2);
   row-gap: 2px;
   align-items: baseline;
   min-width: 0;
 }
 
-.ready-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--muted);
-  /* Level with the first line of what is said, whatever follows it. */
-  align-self: start;
-  margin-top: 7px;
-}
-
-.ready-line[data-tone='ok'] .ready-dot,
-.ready-fold .ready-dot {
-  background: var(--ok);
-}
-
-.ready-line[data-tone='warn'] .ready-dot {
-  background: var(--warn);
-}
-
-.ready-line[data-tone='fail'] .ready-dot {
-  background: var(--fail);
-}
-
-.ready-label {
+.ready-glyph {
+  width: 16px;
   color: var(--muted);
-  font-size: var(--text-small);
+  font-weight: 600;
+  text-align: center;
+}
+
+.ready-glyph[data-tone='ok'] {
+  color: var(--ok);
+}
+
+.ready-glyph[data-tone='warn'] {
+  color: var(--warn);
+}
+
+.ready-glyph[data-tone='fail'] {
+  color: var(--fail);
+}
+
+/* The name in ink; what was found after it, in muted (a version, a path and a command in the face of numbers). */
+.ready-label {
+  color: var(--ink);
+  font-weight: 500;
 }
 
 .ready-text {
   min-width: 0;
-  color: var(--ink);
+  color: var(--muted);
   overflow-wrap: anywhere;
   text-wrap: pretty;
   white-space: pre-line;

@@ -22,7 +22,7 @@ type Vec3 = [number, number, number]
 
 export const SCAN_APPROXIMATE = 'a scan is a mesh measured by a phone or a scanner: nothing from it is exact'
 export const PRINT_NOTE = 'layout print poses the parts for the bed: a part is where it is mounted only if the model leaves it there'
-export const NO_SCANS = 'this project has no scans: the user imports one in the Scans panel of the torno window'
+export const NO_SCANS = 'this project has no scans: the user imports one in the Scans section of the torno window'
 
 /** How far round a part scan points are looked at, mm: the kernel's own default and limits (`scanclash.clash`). */
 const MARGIN = { least: 0, most: 50, usual: 5 }
@@ -104,7 +104,7 @@ export async function scanFor(deps: ToolDeps, objectId: string, layout: string, 
   if (busy.includes(scan.id)) return failure(`${scan.id} is being converted or imported again: ask again when that is done`)
   const paths = deps.scanPaths(objectId, scan.id)
   if (!paths) return failure(`${scan.id} was removed while this was asked: call scans for those there are`)
-  if (scan.meshState !== 'ok') return failure(`${scan.id}'s mesh is gone from ${paths.mesh}: the user imports it again from its row in the Scans panel`)
+  if (scan.meshState !== 'ok') return failure(`${scan.id}'s mesh is gone from ${paths.mesh}: the user imports it again from its row in the Scans section`)
   const aligned = alignmentSaid(scan, layout, revision)
   if (aligned.refused !== null || !aligned.alignment) {
     // Only the layouts the build has, in which what is asked about is where the model places it.
@@ -261,7 +261,7 @@ export async function scansTool(deps: ToolDeps, objectId: string, args: ScansArg
   })
   const coming = busy.filter((id) => !scans.some((scan) => scan.id === id))
   if (coming.length > 0) lines.push(`${coming.join(', ')} ${coming.length === 1 ? 'is' : 'are'} still being imported.`)
-  const listed = lines.length > 0 ? lines.join(' ') : 'no scans: the user imports one in the Scans panel of the torno window'
+  const listed = lines.length > 0 ? lines.join(' ') : 'no scans: the user imports one in the Scans section of the torno window'
   const reading = found ? listed : `Nothing is built yet. ${listed}`
   return reply({ layout, ...ofBuild(deps, objectId), scans: told, ...(found ? {} : { note: NOT_BUILT }), approximate: SCAN_APPROXIMATE, reading })
 }

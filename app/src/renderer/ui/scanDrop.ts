@@ -40,7 +40,7 @@ const basename = (path: string): string => path.split(/[\\/]/).pop() || path
 /**
  * Has main read a file, which takes seconds: it is said to be read from now
  * until that is over, and one is read at a time. Why it came to nothing is
- * for the Scans panel to say, while that object is still the open one.
+ * for the Scans section to say, while that object is still the open one.
  */
 function reading<T>(objectId: string, name: string, start: () => Promise<T>): Promise<T | undefined> {
   const now = store.getState().importing

@@ -5,6 +5,7 @@ import { actions, useStore } from '../../state/store'
 import { selectableMembers, setActions, setsStore, useSets } from '../../state/sets'
 import { canTag } from '../../state/setTag'
 import { giveKeysBack } from '../typing'
+import { numbered } from '../numbered'
 import { makeTag } from './makeTag'
 import { partsOfSet, type SetRow } from './rows'
 
@@ -103,8 +104,13 @@ export function SetRowView({ row, layout, indent }: { row: SetRow; layout: strin
           }}
         />
       )}
-      <span className="layer-count num" title={`${row.count} ${row.count === 1 ? 'member' : 'members'}`}>
-        {row.count}
+      {row.comment !== '' && (
+        <span className="set-comment" title={row.comment}>
+          {row.comment}
+        </span>
+      )}
+      <span className="layer-count set-said" title={`${row.count} ${row.count === 1 ? 'member' : 'members'}`}>
+        {numbered(row.said)}
       </span>
       <button
         type="button"

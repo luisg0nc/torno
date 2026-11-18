@@ -5,7 +5,9 @@ import type { BuildState } from '../../shared/build'
 import { standingOf, unmetDimensions } from '../../shared/dimension'
 import type { DimensionMark, Mark } from '../../shared/marks'
 import type { GitState } from '../../shared/git'
+import type { Scene } from '../../shared/scene'
 import type { ObjectCard, ThumbnailOf } from '../../shared/show'
+import { layoutSize } from '../../shared/thumbnail'
 import type { ObjectInfo } from '../../shared/workspace'
 import { FOLDER, writeOwn } from '../own'
 import { ensureIgnored } from '../ignored'
@@ -23,6 +25,8 @@ const THUMB_WIDTH = 480
 const THUMB_HEIGHT = 360
 /** The longest first line of a build's error a card carries. */
 const MAX_ERROR = 200
+/** The most of the question a session waits on that a card carries. */
+export const MAX_WAITING = 140
 
 export interface CardDeps {
   objects(): ObjectInfo[]
@@ -41,6 +45,8 @@ export interface CardDeps {
   git?(dir: string): Promise<GitState | null>
   /** What the last good build of an opened object imported from outside its folder (`Scene.uses`), paths from the workspace. Absent: none is known. */
   uses?(objectId: string): string[]
+  /** The question a session waits on for an object (`Asks.of`), and when it was put; null or absent for none. */
+  waiting?(objectId: string): { question: string; since: number } | null | undefined
 }
 
 /**
@@ -109,6 +115,11 @@ async function cardOf(deps: CardDeps, obj: ObjectInfo, commonOf: (dir: string) =
   const card: ObjectCard = { id: obj.id, name: obj.name, opened, thumb, marks: marks && { open: marks.filter((m) => m.status !== 'resolved').length, drafts: marks.filter((m) => m.status === 'draft').length }, dimensions: null, session: deps.session(obj.id) }
   const git = obj.model === null ? null : await deps.git?.(obj.dir).catch(() => null)
   if (git) card.git = git
+  // The size is the picture's: told of none when there is no picture, and of none the kernel did not give.
+  const box = thumb ? boxOf(meta) : undefined
+  if (box) card.box = box
+  const waiting = deps.waiting?.(obj.id)
+  if (waiting) card.waiting = { question: waiting.question.slice(0, MAX_WAITING), since: waiting.since }
   if (saved !== null) card.sourcesMtimeMs = saved
   if (uses.length > 0) card.uses = uses.slice(0, MAX_USES)
   if (obj.problem !== undefined) {
@@ -157,14 +168,24 @@ export function peekMarks(text: string): Mark[] | null {
  * when either is not known. Null for what is not one.
  */
 export function thumbOf(meta: unknown, sourcesMtimeMs: number | null): ObjectCard['thumb'] {
-  const said = meta as { at?: unknown; layout?: unknown; sourcesMtimeMs?: unknown; cut?: unknown; apart?: unknown; hidden?: unknown } | null
+  const said = meta as { at?: unknown; layout?: unknown; sourcesMtimeMs?: unknown; cut?: unknown; apart?: unknown; hidden?: unknown; bench?: unknown } | null
   if (typeof said !== 'object' || said === null || typeof said.at !== 'string' || typeof said.layout !== 'string' || said.layout === '') return null
   const made = typeof said.sourcesMtimeMs === 'number' ? said.sourcesMtimeMs : null
   const thumb: NonNullable<ObjectCard['thumb']> = { at: said.at.slice(0, 40), layout: said.layout.slice(0, 100), behind: made === null || sourcesMtimeMs === null || sourcesMtimeMs > made }
   if (said.cut === true) thumb.cut = true
   if (said.apart === true) thumb.apart = true
+  if (said.bench === true) thumb.bench = true
   if (typeof said.hidden === 'number' && Number.isSafeInteger(said.hidden) && said.hidden > 0) thumb.hidden = said.hidden
   return thumb
+}
+
+/** The size a `thumb.json` keeps (`saveThumbnail`): three lengths in mm and whether the kernel's box was exact; undefined for anything else. */
+function boxOf(meta: unknown): ObjectCard['box'] {
+  const said = (meta as { box?: { x?: unknown; y?: unknown; z?: unknown; exact?: unknown } | null } | null)?.box
+  if (typeof said !== 'object' || said === null || typeof said.exact !== 'boolean') return undefined
+  const { x, y, z } = said
+  const length = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0
+  return length(x) && length(y) && length(z) ? { x, y, z, exact: said.exact } : undefined
 }
 
 const PNG_HEAD = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
@@ -192,7 +213,7 @@ const saves = new Map<string, Promise<void>>()
  * crash between the two writes) is shown as none (`thumbnailOnFile`, `cardsOf`). Git is told to pass over the
  * two, which change with every build (`ensureIgnored`).
  */
-export function saveThumbnail(dir: string, png: Uint8Array, of: ThumbnailOf & { model: string; sourcesMtimeMs: number | null }, now: Date): Promise<void> {
+export function saveThumbnail(dir: string, png: Uint8Array, of: ThumbnailOf & { model: string; sourcesMtimeMs: number | null; box?: NonNullable<ObjectCard['box']> }, now: Date): Promise<void> {
   const save = (saves.get(dir) ?? Promise.resolve())
     .catch(() => {})
     .then(async () => {
@@ -200,6 +221,8 @@ export function saveThumbnail(dir: string, png: Uint8Array, of: ThumbnailOf & { 
       if (of.cut) meta.cut = true
       if (of.apart) meta.apart = true
       if (of.hidden) meta.hidden = of.hidden
+      if (of.box) meta.box = of.box
+      if (of.box && of.bench) meta.bench = true
       await writeOwn(dir, THUMB_PNG, png)
       await writeOwn(dir, THUMB_JSON, `${JSON.stringify(meta)}\n`)
       await ensureIgnored(dir, [THUMB_PNG, THUMB_JSON])
@@ -234,7 +257,7 @@ export interface KeepDeps {
   /** Opened in this run. */
   opened(objectId: string): boolean
   /** The last good build of an object: its revision, and when the build it came of was started (ms epoch) when that is known. */
-  lastBuild(objectId: string): { revision: number; startedMs?: number; uses?: string[] } | undefined
+  lastBuild(objectId: string): { revision: number; startedMs?: number; uses?: string[]; scene?: Scene } | undefined
 }
 
 /**
@@ -257,7 +280,9 @@ export async function keepThumbnail(deps: KeepDeps, objectId: string, revision: 
   const sourcesMtimeMs = saved === null ? null : built.startedMs === undefined ? saved : Math.min(saved, built.startedMs)
   // The workspace may have been left, or the object built again, while the folders were looked at.
   if (deps.object(objectId)?.dir !== obj.dir || deps.lastBuild(objectId)?.revision !== revision) return false
+  // The size is the kernel's, from the build's own scene: what the window says of it is not taken.
+  const box = built.scene ? layoutSize(built.scene, said.layout) : null
   const hidden = typeof said.hidden === 'number' && Number.isSafeInteger(said.hidden) && said.hidden > 0 ? said.hidden : 0
-  await saveThumbnail(obj.dir, png, { layout: said.layout, parts: said.parts!, model: obj.model, sourcesMtimeMs, ...(said.cut === true ? { cut: true } : {}), ...(said.apart === true ? { apart: true } : {}), ...(hidden ? { hidden } : {}) }, new Date())
+  await saveThumbnail(obj.dir, png, { layout: said.layout, parts: said.parts!, model: obj.model, sourcesMtimeMs, ...(said.cut === true ? { cut: true } : {}), ...(said.apart === true ? { apart: true } : {}), ...(hidden ? { hidden } : {}), ...(box ? { box, ...(said.bench === true ? { bench: true } : {}) } : {}) }, new Date())
   return true
 }

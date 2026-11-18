@@ -1,5 +1,6 @@
-/* Shell layout. The viewport fills the window; the left column, the session
-   dock and the status line sit over it. Colours and sizes come from tokens.css. */
+/* Shell layout: one grid. A title row on top, the rail and the card at the left (the left column spans both), the view,
+   the session dock at the right, and the status line along the foot. A card or a dock that is away is a zero column.
+   Colours and sizes come from tokens.css. */
 
 *,
 *::before,
@@ -47,10 +48,19 @@ button {
   outline-offset: 1px;
 }
 
-/* Every number and ref is set in the monospace face. */
+/* Every number and ref is set in the monospace face. The monospace face is wide: inline in a line of sans it runs smaller, a little
+   tighter, with a margin each side so that the sans space beside it does not vanish. A column or a table sets its own size and margin. */
 .num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.86em;
+  letter-spacing: -0.02em;
+  margin-inline: 0.12em;
+}
+
+/* A control is no run of sans with a number in it: it keeps the face and the size, and takes no margin, so that it is as wide as its box says. */
+:is(button, input, select, textarea).num {
+  margin-inline: 0;
 }
 
 .muted {
@@ -61,18 +71,23 @@ button {
 
 .shell {
   position: relative;
+  display: grid;
+  grid-template-columns: var(--rail-w) var(--card-space) minmax(0, 1fr) var(--dock-space);
+  grid-template-rows: var(--title-h) minmax(0, 1fr) var(--status-h);
   height: 100%;
   overflow: hidden;
-  /* Width the dock takes from the viewport's free area right now. */
+  /* The columns: the card's and the dock's, or nothing while one is away. */
+  --card-space: var(--card-w);
   --dock-space: var(--dock-w);
-  /* How far in from the window's left the view starts: the rail, and the panel docked beside it when one is open. */
-  --left-w: calc(var(--rail-w) + var(--panel-w));
+  /* How far in from the window's left the view starts: the rail, and the card docked beside it when one is open. The sheet that rises
+     from the status line keeps clear of the left column by it. */
+  --left-w: calc(var(--rail-w) + var(--card-space));
   /* How tall the switch of Board and Model is, at the top left of the main area (`pboard-switch`): the bars of the view stand below it, never under it. */
   --switch-h: 34px;
 }
 
-.shell[data-panel='closed'] {
-  --left-w: var(--rail-w);
+.shell[data-left='away'] {
+  --card-space: 0px;
 }
 
 .shell[data-dock='collapsed'] {
@@ -84,59 +99,30 @@ button {
   cursor: col-resize;
 }
 
-/* ---- Viewport: the whole window ---- */
+/* ---- Viewport: the grid's middle cell ---- */
 
 .viewport {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  grid-area: 2 / 3 / 3 / 4;
+  min-width: 0;
+  min-height: 0;
   background: var(--surface);
 }
 
-/* The part of the viewport no panel covers: the canvas, the view bar and
+/* With no folder open the prompt is the whole window: no title row, no rail, no dock. */
+.viewport.welcome {
+  grid-area: 1 / 1 / -1 / -1;
+}
+
+/* The part of the viewport no panel covers: the canvas, the tags and bands over it and
    whatever is said when there is nothing to draw. */
 .viewport-pane {
   position: absolute;
-  inset: 0 var(--dock-space) var(--status-h) var(--left-w);
-  /* What the corners of the view hold: the axis triad bottom left reaches this high (`TRIAD_CLEAR` in viewport/overlay.ts, which a test holds this to), and
-     the scale bar or the grid's step bottom right. The bars at the bottom keep BAR_SIDE in from each side, so as not to cover them, and where the view
-     is narrower than they need (`data-narrow`, set by ViewportPane) they stand above the triad instead. */
+  inset: 0;
+  /* What the corner of the view holds at the left: the axis triad reaches this high and this far across (`TRIAD_CLEAR` in viewport/overlay.ts,
+     which a test holds this to). The hint at the foot of the view keeps this far in from each side, clear of the triad and of the scale bar or the
+     grid's step. Nothing else stands at the foot: the bars are tags, bands and procedure cards, each placed by its own rule. */
   --triad-clear: 102px;
-  --bar-side: 124px;
-  /* The sides of the bars that stack at the foot (the selection's, the section's, the agent's line, the step line, the
-     Region tool's): the same, but in a narrow view, where they also keep clear of the palette of tools. */
-  --stack-side: var(--bar-side);
-  /* Where the bottom of the bars stands without the line at the foot of the view: clear of the corners. */
-  --bar-floor: 0px;
-  --hint-lift: 0px;
-  /* The least a bar a row up stands at: clear of the strip of the Measure tool, when it is there. */
-  --strip-top: 0px;
-  /* Where the bars stand: on the floor, or above the line when it is there (`ToolHint`, which stands on the floor itself). */
-  --bar-lift: calc(var(--bar-floor) + var(--hint-lift));
-}
-
-.viewport-pane[data-narrow] {
-  --bar-side: var(--space-3);
-  /* Clear of the palette of tools, which stands at the left edge halfway up and in a short view reaches the bars as they
-     stack: its 12px from the edge, 42px wide (a 34px button, its padding and border), and a gap. Not the Align tool's
-     bar, whose rows need the width and which stands alone. */
-  --stack-side: 60px;
-  --bar-floor: calc(var(--triad-clear) + var(--space-1));
-}
-
-/* The strip of the Measure tool stands above the triad too, at the left, and a bar is centred: with the tool in hand the bars stand above the strip (36px: its height and a gap), so the two never meet. */
-.viewport-pane[data-narrow]:has(.measure-choice) {
-  --bar-floor: calc(var(--triad-clear) + var(--space-1) + 36px);
-}
-
-/* In a wide view the bottom row stands below the strip, beside the triad; a bar raised a row up (over the selection, over what the agent points at)
-   would reach it, and stands above it instead. */
-.viewport-pane:has(.measure-choice) {
-  --strip-top: calc(var(--triad-clear) + var(--space-1) + 36px);
-}
-
-/* The line at the foot of the view takes the place of the bars' bottom row: they stand above it, a row (40px, as they stand over one another) up. */
-.viewport-pane:has(.tool-hint) {
-  --hint-lift: 40px;
 }
 
 .viewport-canvas,
@@ -209,25 +195,23 @@ button {
 
 .left,
 .dock {
-  position: absolute;
-  z-index: 1; /* above the viewport, which comes after the left column in the DOM (reading order) */
-  top: 0;
-  bottom: var(--status-h);
+  position: relative;
+  z-index: 1; /* above the viewport, which comes after the left column in the DOM (reading order): their edges' hit strips reach over it */
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   background: var(--panel);
 }
 
-/* The rail, then the panel it opens, side by side: the whole is the region the focus goes round as "left". */
+/* The rail, then the route card beside it: the whole is the region the focus goes round as "left". It spans the rail's column and the card's. */
 .left {
-  left: 0;
+  grid-area: 2 / 1 / 3 / 3;
   flex-direction: row;
-  width: var(--left-w);
 }
 
 .dock {
-  right: 0;
-  width: var(--dock-w);
+  grid-area: 2 / 4 / 3 / 5;
   border-left: var(--divider);
 }
 
@@ -247,20 +231,6 @@ button {
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
-}
-
-.workspace-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.left .panel-head {
-  gap: var(--space-2);
-  padding-right: var(--space-2);
 }
 
 .panel-title {
@@ -304,46 +274,7 @@ button {
   outline: none;
 }
 
-/* Shows and hides the dock. It stays in the window's top right corner either
-   way, so it does not move when the dock goes. Over the page of projects, whose head is sticky and
-   stacked above the viewport (z-index 2), or the button could not be pressed with the dock away. */
-.dock-toggle {
-  position: absolute;
-  z-index: 3;
-  top: 6px;
-  right: var(--space-2);
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-}
-
-.dock-toggle:hover {
-  background: var(--accent-wash);
-  color: var(--accent);
-}
-
-/* With the dock hidden the button floats on the viewport and needs its own ground. */
-.shell[data-dock='collapsed'] .dock-toggle {
-  border-color: var(--hairline);
-  background: var(--panel);
-}
-
-.shell[data-dock='collapsed'] .dock-toggle:hover {
-  background: var(--accent-wash);
-}
-
-.dock-toggle svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* The right edge of the docked panel: a band of 9 px to take hold of, a hairline of the accent when it is hot. */
+/* The right edge of the card: a band of 9 px to take hold of, a hairline of the accent when it is hot. */
 .left-edge {
   position: absolute;
   top: 0;

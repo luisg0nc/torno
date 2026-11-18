@@ -65,6 +65,9 @@ test('a tracing takes a photo from the dialog and opens the line-up, the photo o
   await expect(lineup()).toBeVisible()
   await expect(lineup().locator('[data-pane="photo"] img.lu-photo')).toBeVisible()
   await expect(lineup().locator('[data-pane="tracing"]')).toBeVisible()
+  // One accent band says the mode, and the switch has stepped aside for it.
+  await expect(lineup().locator('[data-band="lineup"]')).toContainText('Lining up the photo of T1')
+  await expect(page.locator('.pboard-switch')).toHaveCount(0)
   expect((await tracingOf()).photo).toMatchObject({ width: 400, height: 300, method: 'similar' })
   expect(readFileSync(join(photosDir(), '.gitignore'), 'utf8')).toBe('*\n')
 })

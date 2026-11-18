@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ObjectCard } from '../../shared/show'
-import { ago, buildLine, ordered, cardChips, matching, pictureLine, stepCard } from './cards'
+import { ago, buildLine, cardChips, matching, pictureLine, sizeLine, stepCard, waitedFor, workLine } from './cards'
 
 const card = (over: Partial<ObjectCard> = {}): ObjectCard => ({ id: 'tub', name: 'tub', opened: true, build: { status: 'ok', revision: 3, stale: false }, thumb: null, marks: { open: 0, drafts: 0 }, dimensions: null, session: null, ...over })
 
@@ -23,10 +23,21 @@ describe('what a card says of its build', () => {
     expect(ago(800 * 86_400_000)).toBe('2 years ago')
   })
 
-  it('orders by the last save of the model, the unsaved last', () => {
-    const [a, b, c] = [card({ id: 'a', sourcesMtimeMs: 5 }), card({ id: 'b' }), card({ id: 'c', sourcesMtimeMs: 9 })]
-    expect(ordered([a, b, c], 'recent').map((x) => x.id)).toEqual(['c', 'a', 'b'])
-    expect(ordered([a, b, c], 'name')).toEqual([a, b, c])
+  it('says the size the kernel gave, with a sign when it is the mesh\'s and not the B-rep\'s, and none where the page has no picture of it', () => {
+    const thumb = { at: '2026-11-01T10:00:00.000Z', layout: 'assembly', behind: false, bench: true as const }
+    expect(sizeLine(card({ thumb, box: { x: 150, y: 80, z: 92, exact: true } }))).toBe('150 × 80 × 92 mm')
+    expect(sizeLine(card({ thumb, box: { x: 150.04, y: 80, z: 91.9996, exact: false } }))).toBe('≈ 150 × 80 × 92 mm')
+    expect(sizeLine(card({ thumb }))).toBeNull()
+    expect(sizeLine(card({ box: { x: 1, y: 2, z: 3, exact: true } }))).toBeNull()
+  })
+
+  it('says how long a question has waited, and what a project that works is doing', () => {
+    expect(waitedFor(20_000)).toBe('waiting under 1 min')
+    expect(waitedFor(4 * 60_000 + 5000)).toBe('waiting 4 min')
+    expect(waitedFor(3 * 3_600_000)).toBe('waiting 3 h')
+    expect(waitedFor(49 * 3_600_000)).toBe('waiting 2 days')
+    expect(workLine(card({ build: { status: 'building', revision: 1, stale: true } }))).toBe('Building…')
+    expect(workLine(card({ session: 'working' }))).toBe('Claude Code is working')
   })
 
   it('says a failure with its first line, in the colour of one, and that a build was let go', () => {

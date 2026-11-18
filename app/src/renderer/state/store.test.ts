@@ -4,8 +4,8 @@ import type { Mark } from '../../shared/marks'
 import type { Part, Scene } from '../../shared/scene'
 import type { ScanInfo } from '../../shared/scans'
 import type { Camera } from '../../shared/view'
-import { MAX_PROPOSALS, MAX_VIEWS, type SavedView } from '../../shared/views'
-import { stripChips, viewMatches } from './savedViews'
+import { MAX_PROPOSALS, MAX_VIEWS } from '../../shared/views'
+import { viewMatches } from './savedViews'
 import { actions, explodeNow, layerOf, partsInLayout, runningSession, sceneFileOf, store, visibleKeys } from './store'
 
 const BUF = { offset: 0, length: 0 }
@@ -1340,23 +1340,6 @@ describe('saved views', () => {
     expect(on()).toBe('Apart')
   })
 
-  it('shows six chips at most: the one that is on, then the proposals, then the others as they were saved (review I4)', () => {
-    const view = (name: string, proposed = false): SavedView => ({ name, author: proposed ? 'agent' : 'user', layout: 'assembly', camera: CAMERA, hidden: [], at: '', ...(proposed ? { proposed: true as const } : {}) })
-    const few = [view('a'), view('b'), view('p', true)]
-    expect(stripChips(few, null)).toEqual({ shown: few, more: 0 })
-    const many = [...Array.from({ length: 10 }, (_, n) => view(`v${n}`)), view('p0', true), view('p1', true)]
-    // Chosen in that order, and shown in the order they were saved: no chip changes place under the pointer that clicked it.
-    expect(stripChips(many, 'v7').shown.map((v) => v.name)).toEqual(['v0', 'v1', 'v2', 'v7', 'p0', 'p1'])
-    expect(stripChips(many, 'v7').more).toBe(6)
-    expect(stripChips(many, null).shown.map((v) => v.name)).toEqual(['v0', 'v1', 'v2', 'v3', 'p0', 'p1'])
-    // More proposals than chips: the first of them.
-    expect(stripChips([view('a'), ...Array.from({ length: 8 }, (_, n) => view(`p${n}`, true))], 'a').shown.map((v) => v.name)).toEqual(['a', 'p0', 'p1', 'p2', 'p3', 'p4'])
-    // Exactly as many as fit: none is put behind "more" to be the only one there.
-    expect(stripChips(many.slice(0, 6), null).more).toBe(0)
-    expect(stripChips(many.slice(0, 7), null)).toMatchObject({ more: 1 })
-    expect(stripChips(many.slice(0, 7), null).shown).toHaveLength(6)
-  })
-
   it('are of their object: another object has its own, and a file\'s are read with it', () => {
     open()
     actions.saveView('A', CAMERA)
@@ -1373,11 +1356,11 @@ describe('the page of objects', () => {
   const object = (id: string) => ({ id, name: id, dir: `/ws/${id}`, model: `${id}.py` })
   const workspace = (...ids: string[]) => ({ root: '/ws', hasProject: true, objects: ids.map(object) })
 
-  it('is where a workspace of several objects starts, and of none; one object alone is shown itself', () => {
+  it('is where a workspace starts, whatever it holds: no project is open yet, and the rail\'s Projects is the way to the page', () => {
     actions.setWorkspace(workspace('bracket', 'gear'))
     expect(store.getState().page).toBe('objects')
     actions.setWorkspace(workspace('bracket'))
-    expect(store.getState().page).toBe('object')
+    expect(store.getState().page).toBe('objects')
     actions.setWorkspace(workspace())
     expect(store.getState().page).toBe('objects')
     actions.setWorkspace(null)
@@ -1439,7 +1422,7 @@ describe('the page of objects', () => {
   it('stays as it is when the list of objects is read again', () => {
     actions.setWorkspace(workspace('bracket'))
     actions.refreshWorkspace(workspace('bracket', 'gear'))
-    expect(store.getState().page).toBe('object')
+    expect(store.getState().page).toBe('objects')
   })
 })
 
@@ -1469,28 +1452,35 @@ describe('the session dock', () => {
   })
 })
 
-describe('the rail', () => {
-  it('opens a panel, and the same one again closes it; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ open: 'marks', width: 248 })
-    actions.openPanel('layers')
-    expect(store.getState().column.open).toBe('layers')
+describe('the route card', () => {
+  it('folds a section and unfolds it again; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
+    expect(store.getState().column).toEqual({ folded: ['params', 'scans', 'tracings', 'profile'], width: 296 })
+    actions.toggleSection('parts')
+    expect(store.getState().column.folded).toEqual(['parts', 'params', 'scans', 'tracings', 'profile'])
     actions.openObject('gear', { layers: {} })
     actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.open).toBe('layers')
-    actions.openPanel('layers')
-    expect(store.getState().column.open).toBeNull()
-    actions.openPanel('layers')
-    actions.openPanel('scans')
-    expect(store.getState().column.open).toBe('scans')
-    actions.openPanel(null)
-    expect(store.getState().column.open).toBeNull()
+    expect(store.getState().column.folded).toContain('parts')
+    actions.toggleSection('parts')
+    expect(store.getState().column.folded).toEqual(['params', 'scans', 'tracings', 'profile'])
+    actions.toggleSection('params')
+    expect(store.getState().column.folded).toEqual(['scans', 'tracings', 'profile'])
   })
 
-  it('keeps the width the person gave the panel', () => {
+  it('shows a section: unfolds it, and leaves an open one as it is', () => {
+    store.setState({ column: { folded: ['params', 'scans', 'tracings', 'profile'], width: 296 } })
+    actions.showSection('scans')
+    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+    actions.showSection('scans')
+    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+    actions.showSection('marks')
+    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+  })
+
+  it('keeps the width the person gave the card', () => {
     actions.setPanelWidth(320)
     expect(store.getState().column.width).toBe(320)
     actions.setPanelWidth(100)
-    expect(store.getState().column.width).toBe(248)
+    expect(store.getState().column.width).toBe(264)
   })
 })
 
@@ -1500,6 +1490,16 @@ describe('comparing two kept builds', () => {
     expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay', prompt: 14 })
     actions.compare('h40', 'h41')
     expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay' })
+  })
+
+  it('keeps what the turn changed, for the tags written on the parts, and none when it did not come from a turn', () => {
+    const changes = { files: [], added: [], sketched: [], resketched: [], resolved: [], dimensions: [{ id: 'M3', now: 'pass' as const }], parts: [] }
+    actions.compare('h40', 'h41', 14, changes)
+    expect(store.getState().compare).toEqual({ from: 'h40', to: 'h41', mode: 'overlay', prompt: 14, changes })
+    actions.compareMode('after')
+    expect(store.getState().compare?.changes).toBe(changes)
+    actions.compare('h40', 'h41')
+    expect(store.getState().compare).not.toHaveProperty('changes')
   })
 
   it('changes the way it is shown, and keeps the builds', () => {

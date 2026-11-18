@@ -2,12 +2,12 @@
 paths:
   - "app/src/renderer/ui/Mark*.tsx"
   - "app/src/renderer/ui/markGroups.ts"
+  - "app/src/renderer/ui/markRows.tsx"
+  - "app/src/renderer/ui/card/NeedsYou.tsx"
   - "app/src/renderer/ui/markGroups.test.ts"
   - "app/src/renderer/ui/markHover.ts"
   - "app/src/renderer/ui/markHover.test.ts"
   - "app/src/renderer/ui/ResolvedSummary.tsx"
-  - "app/src/renderer/ui/ChecksSummary.tsx"
-  - "app/src/renderer/ui/ChecksSummary.test.ts"
   - "app/src/renderer/ui/NotePopover.tsx"
   - "app/src/renderer/ui/NotePopover.test.ts"
   - "app/src/renderer/ui/notePlacement.ts"
@@ -26,6 +26,8 @@ paths:
   - "app/src/renderer/tools/pickMarks.ts"
   - "app/src/renderer/viewport/marks/**"
   - "app/src/renderer/styles/marks.css"
+  - "app/src/renderer/styles/card-needs.css"
+  - "app/src/renderer/styles/card-marks.css"
   - "app/src/renderer/styles/late.css"
 ---
 
@@ -39,6 +41,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   nothing else in the UI uses those colours. A picture for the agent draws
   every mark alike: no active mark, no selection, no hover, no gizmo. A mark
   on a part that is not drawn is not drawn either, on screen or in a picture.
+- **What is selected is in the head of the route card** (`ui/card/InHand.tsx`, `ui/card/headKind.ts`, `styles/card-hand.css`; `ui/Selection.tsx` is its logic, `useSelection`, not a bar: nothing of the
+  selection floats over the view). `headKind({ refs, sketchOpen, roundOpen, makingSet })` says what the head holds, in the order sketch, review, makeSet, selection, empty; the
+  sketch and the review round are the panels `HandView` is given as `children` (`SketchPanel`, `data-head="sketch"`; `RoundPanel`, `data-head="review"`; `HeadPanels` keeps a round that is up mounted but `hidden` while a sketch holds the head, so its Compare and its note being written survive the sketch), with no "In hand" and no refs beside them; a set being named still opens its box under the panel (Ctrl+G on a sketch's strokes). The sketch is in hand while the tool is Draw and a sketch is open (`useSketching.open`), the round while `useReview.panel` names one; neither floats over the view. `headMaxHeight(cardHeight)` is the 60 % cap (`.route-hand`). The pure `HandView` draws "In hand", `2 picked, shift-click adds`, each ref
+  (mono 11.5 / 10.5, on `--accent-wash`; `SHOWN_REFS` = 4, then "and N more") and **Insert in prompt**, **Note each** (**Note** for one), **Name a set** and **Clear**. Insert is off without a session or on a stale build, Note on a stale build or
+  while the parts are apart or being made, each with its reason in its tip. The camera `note` needs is the view's (`viewHost().camera()`). The head is `role="group"` `aria-label="Selection"`.
 - A mark's row and its chip in the view point at each other. The pointer on a row or chip, or the keys' focus in a
   row (on one of its buttons, `:focus-visible` only: a click on a button focuses it too, and is the pointer's; a
   note being typed is not), is the store's
@@ -71,38 +78,43 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `noteLights`: each face of `under` once, at most 60, and only those the build shown still has: a part gone, a part switched
   off or a face index past the part's count lights nothing, so a note drawn on an earlier build lights what is left of it;
   none for a note of another layout than the one shown). A click on the row and "Go to" go to the note's camera as any mark's do.
-- **A 3D sketch** (`kind: 'sketch'`): its row is `MarkRow`'s `SketchSummary` (name, take with the diameter of a flow, `countsText`; the words are `shared/sketchText.ts`, one wording for the row, the card, the note's subject and the chip) with an Edit button for the person's own (`editSketch`; Claude's is never edited). It is drawn by `markObjects` (`addSketch`): a `Parts.stroke` line each, 2.5 px, with the casing, its behind pass drawn dashed only when the stroke has `xray` and not drawn otherwise (`userData.hiddenBehind`, shown again by `setDimmed`), a `snap` dot at each snapped point, and for a flow with a diameter a `tube` (`TubeGeometry`, `TUBE_OPACITY` 0.25) along each stroke. The pointer on its row or chip lights its strokes (`setLit`: wider, as the active mark's are), and the row of a plane in the sketch panel lights only that plane's (`MarkLayer.setLitPlane`, `sketchStore.lit`); a picture for the agent lights nothing (`MarkLayer.setLights(false)` in `asPictured`).
+- **A 3D sketch** (`kind: 'sketch'`): its row is `MarkRow`'s `SketchSummary` (name, take with the diameter of a flow, `countsText`; the words are `shared/sketchText.ts`, one wording for the row, the card, the note's subject and the chip) with an Edit button for the person's own (`editSketch`; Claude's is never edited). It is drawn by `markObjects` (`addSketch`): a `Parts.stroke` line each, 2.5 px, with the casing, its behind pass drawn dashed only when the stroke has `xray` and not drawn otherwise (`userData.hiddenBehind`, shown again by `setDimmed`), a `snap` dot at each snapped point, and for a flow with a diameter a `tube` (`TubeGeometry`, `TUBE_OPACITY` 0.25) along each stroke. The offset of the active plane is typed in the panel and read on `SketchPlaneTag` (in `SketchPanel.tsx`, mounted in `ViewportPane`): a `Tag` `sketch-plane` with a leader to the sheet's handle (`Viewport.sketchHandle`, as `subjectAt`, so it follows a drag) whose value follows the sheet as it is laid (`Viewport.sketchOffset`, set on the element each frame); `planeTagWords` says it, and it takes no pointer. The pointer on its row or chip lights its strokes (`setLit`: wider, as the active mark's are), and the row of a plane in the sketch panel lights only that plane's (`MarkLayer.setLitPlane`, `sketchStore.lit`); a picture for the agent lights nothing (`MarkLayer.setLights(false)` in `asPictured`).
   The missing pictures of its card are drawn by `state/sketchPictures.ts` (`MissingPictures`, wired in `ViewportPane`): when a project is shown, each sketch with strokes and no `picture` is drawn from its camera as `look` does, one at a time, each in a turn of its own (a 30 ms timer, never in a frame), not while a sketch is open, and once per run of the project for each sketch; main keeps it (`marks:sketchPicture`).
-- When the project has checks (`isCheck`: an open dimension with an expected value) a line heads the Marks, outside
-  the list's scroll (`ui/ChecksSummary.tsx`): `Checks on r12: 3 pass · 1 fails · 1 not measured`, each count a
-  button to the first such check (`goToRow`), in `--ok`, `--fail`, `--warn`, never a mark's colour. The not
-  measured count is said only when it lasts (`useLasting`, as the status line's does). The group "Checks"
-  (`groupMarks(marks, revision).checks`) holds those checks, drafts too (their row says `to send`), the failing first, then
-  those with no value of the build, then those that pass, ahead of the other groups; a dimension with nothing
-  expected stays in the group its status gives. An open check lists what it measured on the builds of this run
-  (`dimension-history`, `r9 38.6 ✗ · r10 40 ✓`, at most 8, all in its title) and, where worth saying, `fails since
-  r12; passed on r11` (`since`); both are main's `history`, never kept by the window.
-- The Marks list is grouped by what is to be done (`ui/markGroups.ts`): "To send" (drafts, headed `To send N · with your next prompt`),
-  "From the agent" (its own open marks, for the person to read or answer: "Answer in chat" puts the id in the
-  prompt), "To review", "With the agent" (the person's sent marks) and the fold "Resolved"; a heading only for a group that has marks, and the heading says
-  the status, so a row has no status word but a pinned dimension's `pinned`, which is never cut. "To review" is
-  one summary (`ui/ResolvedSummary.tsx`): "The agent resolved N marks.", "Review" walking them (an index held in the
-  component over the ids as they were: `Reviewing 1 of 5 · M5`, the mark active and `focusMark`ed, its row with OK,
-  `Reopen…` and Skip; Reopen opens the note at its end and writes note and `status: 'draft'` in one `update` when the
-  field is left; the end says `Reviewed 5: 4 OK, 1 reopened` for 10 s), and "OK all" (`marks.acknowledge`, no key).
+- A check (`isCheck`: an open dimension with an expected value) is listed under Checks (`ui/card/Checks.tsx`, `checks-and-profile`),
+  not under Marks: `groupMarks(marks, revision).checks` holds them, drafts too (their row says `to send`), the failing first, then
+  those with no value of the build, then those that pass; a dimension with nothing expected stays in the group its status gives.
+  An open check lists what it measured on the builds of this run (`dimension-history`, `r9 38.6 ✗ · r10 40 ✓`, at most 8, all in
+  its title) and, where worth saying, `fails since r12; passed on r11` (`since`); both are main's `history`, never kept by the
+  window. A `MarkRow` carries `data-lit` (the accent wash and a 2 px bar at its left, `card-marks.css`) while the pointer is on a
+  part the mark is on (`useLitRows`, given to the rows by `useMarkRows`).
+- **Who acts next** (`ui/markGroups.ts`): `groupMarks` is the rule (its `failing` is the checks that fail on the build on show), and
+  `splitMarkGroups(groups)` says where each group goes: `needs` (`toReview`, `fromAgent`, `failingChecks`) to Needs you, `marks`
+  (`toSend`, `withAgent`, `resolved`) to Marks. The other checks (`groups.checks`) are the Checks section's. A heading only for a
+  group that has marks, in Marks; a row has no status word but a pinned dimension's `pinned`, which is never cut.
+- **Needs you** (`ui/card/NeedsYou.tsx`, in the `needs` section): `ResolvedSummary` (the marks to review, a row each, `source`
+  `to review`; the line over them says `The agent resolved N marks.` with Review (the walk: an index held in the component over the
+  ids as they were, `Reviewing 1 of 5 · M5`, the mark active and `focusMark`ed, its row also with Skip) and OK all
+  (`marks.acknowledge`, no key); the end says `Reviewed 5: 4 OK, 1 reopened` for 10 s), then the marks from the agent (`source`
+  `from Claude`, the list is named `From the agent`), then one line for each check that fails (`CheckPointer`: a dimension's chip or
+  the model's bar in `--agent-mark`, the words, `fails`), which goes to its row (`goToRow`, or the model's row under Checks). A
+  row's resolution reads `Resolved by Claude` (in `--agent-mark`, 500) with the agent's line, then OK and `Reopen…`; Reopen opens the
+  note at its end and writes note and `status: 'draft'` in one `update` when the field is left. Both sections draw rows with
+  `useMarkRows(where)` (`ui/markRows.tsx`), which also holds what main refused and the undo line, said in the section the change was
+  made from.
 - A row's resolve is a tick in a box (`ResolveIcon`), never the bare tick of a passing check; on a dimension with an
   expected value it asks in the row first (`Confirm`). Delete is immediate and the panel offers `Deleted M3 · Undo` for
   10 s (`marks.restore`), no key.
-- A mark's row is one line, its note cut to the room there is, and the active row (`aria-current`) shows its
-  note whole, wrapped on a line of its own (`late.css`). Its chip is the id alone (`rowLabel`): `~` and `?` are
-  the view's chips' and the pictures' (`labelText`). What the last build did to its mark (`moved:
-  check it`, `its part is gone`) is a line of its own under the note (`.mark-anchor`, `late.css`). The Marks list never scrolls sideways (`e2e/reanchor.spec.ts`, with a note longer
-  than the column). A dimension opened out leaves its value and verdict to its fields under the first line, so
-  that `Add a note` is whole beside the buttons of the row (`marks.css`, `e2e/measure.spec.ts`).
+- A mark's row is two lines (`marks.css`): `.mark-line` (the chip, the note cut to the room there is, the dimension's value, the
+  source) and `.mark-meta` (the kind of mark, `.mark-kind`, with `aria-label`, and what the last build did to it: `moved: check it`,
+  `its part is gone`, `.mark-anchor`, and the other `.mark-layout` words, muted 11.5 px, wrapping). The active row (`aria-current`)
+  shows its note whole, wrapped, and its buttons as words (`.mark-act-word`) in a line of their own under the meta; on the other rows
+  the buttons are icons over the end of the first line while the row is pointed at or holds the focus. A mark the agent resolved keeps
+  the icons: its OK and `Reopen…` are in its resolution. Its chip is the id alone, and the sign (below) is a disc before it: `~` and `?` are the view's chips' and
+  the pictures' (`chipText`). The Marks list never scrolls sideways (`e2e/reanchor.spec.ts`, with a note longer than the column). A
+  dimension opened out leaves its value and verdict to its fields under the meta line (`marks.css`, `e2e/measure.spec.ts`).
 - **What the person says of a mark: want and don't want** (`markIntent`, `shared/marks.ts`; the person's marks only, Claude's
   is never one, a shape's `add` is want and `remove` don't want). A mark keeps its author's colour and no new colour is
-  made: don't want is hatched, want is solid, and both say it in the chip, `− M8` / `+ M8` (`labelText`, `rowLabel`, the sign
-  in the face of numbers, `INTENT_CHIP`). The hatch is `viewport/marks/hatch.ts`, stripes cut by the fragment shader from the
+  made: don't want is hatched, want is solid, and both say it as a **round sign**, an 18 px disc (`ui/SignDisc.tsx`, `.sign-disc` in `reviews.css`: `[data-sign="-"]`: 2 px stripes of `--user-mark` at 135° with it mixed 70 % toward white between them and a solid `--user-mark` core that holds the sign, so `--on-mark` is never on the pale stripes (`contrast.test.ts`); `[data-sign="+"]` solid `--agent-mark`; mono 12 px 600 in `--on-mark`) before the square chip, so that `− M8` is what is read (`labelText`, `INTENT_CHIP`, `INTENT_SIGN`): in the row (`MarkRow`), the intent menu's button, the chat's `RefChip` (`RefInfo.intent`), the round's items and the band's pens. In the view the disc is drawn on the overlay canvas beside the chip (`Label.sign` from `signOf`, `chipText` is the number alone, `drawSign` in `overlay.ts`, and `chipSize` makes room for it), in pictures too. While the review band is on, each item of the round in the layout shown (`roundNoteTags`, six at most) has a leaderless `Tag` at its point (`ui/review/RoundNotes.tsx`, `Tag`'s `leaderless`) with its disc and its note; the chips of the marks outside the round (`outsideRound`) are drawn dimmed: `Viewport.setDimmedMarks` → `OverlayPass.dimmed` → `drawLabels`, each colour `color-mix`ed 70 % toward the ground, never `opacity` (the marks' geometry is not dimmed). The hatch is `viewport/marks/hatch.ts`, stripes cut by the fragment shader from the
   pixel's place on the screen: a don't want shape's fill and a flow's tube (`build`), the faces of a don't want pick (the
   `userDont` layer of `Highlights`, `MarkLayer.pickRefs(...).dont`) and a don't want region on its scan (`KeptRegion.dont`);
   its lines, a stroke's, an arrow's and a sketch's, are dashed (`setDashed`). A person's row has an intent menu
@@ -110,14 +122,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   has not gone, and offers "Take out of R1" (`marks:roundOut`).
 - **A round and its bar** (`state/review.ts`, `ui/ReviewBar.tsx`). `useReview` is what main last said of the rounds (`marks:changed`,
   `marks.rounds`) with the window's own choice (plain, don't want, want) and the panel that is open. While a round is open the bar
-  stands under the view bar (`Review of h41`, the three ways with their keys, `3 − · 2 +`, End, Send review); every place a mark is
+  is the review band at the top left of the view (`Reviewing h41`, the three ways as pens with their keys, `3 − · 2 +`, End, Send review); every place a mark is
   made asks `reviewActions.intentForNew(layout)` (`commitMark`, a new sketch's first send, a note's draft, a region kept) and says
   it in the draft, and main checks it and puts the mark in the round. The round is of one layout: elsewhere the bar says so and
   its choice is off. "Review this build" is in the Marks list (`ui/ReviewSummary.tsx`, which also lists the rounds), on the build
   row of the chat, and `marks.review`; the choice has `review.dont` and `review.want`, the key of the one chosen taking it back to
   plain. All three are scope `window`, and none is `[` or `]`.
 - **The follow-up of a round** (`ui/review/RoundPanel.tsx`, rows in `ui/review/rows.ts`). `reviewActions.openPanel(id)` (the "Open" of a round's row,
-  the bar's "Items", "Open" on the head of a round's board frame) shows the panel over the view: each item's chip, note and Claude's
+  the bar's "Items", "Open" on the head of a round's board frame) shows the panel in the head of the route card (`InHand`, `data-head="review"`; an unsent round says `goes as one prompt` and has "Send review", `reviewActions.send`, as the bar has): each item's sign (`RoundRow.intent` as a `SignDisc` in its own 22 px column), chip, `where` (`whereText`: a face's ref, a part, `3 strokes on 2 planes`) in mono,, note and Claude's
   `resolvedNote`, and for one the agent resolved OK (`marks:judge` `ok`) and Still wrong (a field for a note, then "Send back":
   `still-wrong` with it, which moves the item into the next round). `acknowledged` without `judged` reads `OK (accepted)`; an item not
   resolved says `Not answered yet`. With the panel up, `actions.compare(round.build, newest)` shows the reviewed build faint beside the

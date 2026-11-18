@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { hint, pressed } from '../../../shared/keys'
 import { MAX_SKETCH_DIAMETER, MAX_SKETCH_NAME, type SketchTake } from '../../../shared/marks'
-import { number } from '../../../shared/format'
-import { finishSketch, offsetOf, pickPlane, setDiameter, setLit, setName, setNote, setOffset, setPlane, setTake, undoStroke, useSketching } from '../../state/sketching'
+import { number, offsetNumber } from '../../../shared/format'
+import { finishSketch, offsetOf, pickPlane, setDiameter, setLit, setName, setNote, setOffset, setPlane, setSnapping, setTake, setXray, undoStroke, useSketching } from '../../state/sketching'
 import { useStore } from '../../state/store'
 import { useTool } from '../../state/tools'
 import { Field } from '../Field'
@@ -10,7 +10,10 @@ import { MAX_NOTE } from '../MarkRow'
 import { giveKeysBack } from '../typing'
 import { peek } from '../../state/agent'
 import { selectStroke } from '../../state/sets'
-import { planeRows, strokeRows, surfaceStrokes } from './rows'
+import { planeRows, planeTagWords, strokeRows, surfaceStrokes, type StrokeRow as StrokeRowOf } from './rows'
+import type { Viewport } from '../../viewport/Viewport'
+import { onPaneDrawn } from '../../viewport/overlay'
+import { Tag } from '../view/Tag'
 
 const TAKES: { take: SketchTake; label: string; title: string }[] = [
   { take: 'exact', label: 'Exact', title: 'Follow these points to the millimetre' },
@@ -19,9 +22,10 @@ const TAKES: { take: SketchTake; label: string; title: string }[] = [
 ]
 
 /**
- * The panel of a sketch being drawn, floating at the left of the view while Draw has one open: what it is (its number and
- * whether it is a draft or sent), its name, how literally it is to be taken (and, of a flow, the diameter to keep clear), the
- * planes strokes can go on with how many are on each, a way to make another plane, a comment, Undo and Done.
+ * The panel of a sketch being drawn, which is the head of the route card while Draw has one open (`card/InHand.tsx`): what it is
+ * (its number, "Sketch" and whether it is a draft or sent), its name, how literally it is to be taken (and, of a flow, the diameter
+ * to keep clear), the planes strokes can go on with how many are on each, a way to make another plane, the Snap and X-ray switches,
+ * a comment, Undo and Done.
  * Every change goes to the sketch's store, which sends it to main (`state/sketching.ts`); nothing here moves with the pointer
  * but the row it is on, which lights that plane's strokes in the view.
  */
@@ -31,6 +35,8 @@ export function SketchPanel() {
   const plane = useSketching((s) => s.plane)
   const picking = useSketching((s) => s.picking)
   const undoable = useSketching((s) => s.undoable)
+  const snapping = useSketching((s) => s.snapping)
+  const xray = useSketching((s) => s.xray)
   const problem = useSketching((s) => s.problem)
   const asked = useSketching((s) => s.offsetAsked)
   const selection = useStore((s) => s.selection)
@@ -46,14 +52,15 @@ export function SketchPanel() {
   const strokes = strokeRows(draft, open.id)
   const surface = surfaceStrokes(draft)
   const offset = offsetOf(plane === 'surface' ? null : (draft.planes.find((p) => p.id === plane) ?? null))
-  const word = status === null ? 'not kept yet' : status === 'sent' ? 'sent' : status === 'resolved' ? 'resolved' : 'draft'
+  const word = status === null ? 'not kept yet' : status === 'sent' ? 'sent' : status === 'resolved' ? 'resolved' : 'draft, goes with your next prompt'
 
   return (
-    <aside className="sketchpanel" aria-label="Sketch" data-sent={status === 'sent' ? '' : undefined}>
+    <aside className="sketchpanel" aria-label="Sketch" data-head="sketch" data-sent={status === 'sent' ? '' : undefined}>
       <header className="sketchpanel-head">
         <span className="mark-chip num" data-author="user">
           {open.id ?? 'new'}
         </span>
+        <h3 className="sketchpanel-title">Sketch</h3>
         <span className="sketchpanel-status" title={status === 'sent' ? 'Claude has it: changing it makes it a draft again, for your next prompt' : 'Not sent: it goes to Claude with your next prompt, once you press Done'}>
           {word}
         </span>
@@ -111,9 +118,9 @@ export function SketchPanel() {
         </span>
         <ul className="sketchpanel-planes" aria-labelledby="sketch-planes">
           {rows.map((row) => (
-            <PlaneRowView key={row.id} name={row.name} strokes={row.strokes} active={plane === row.id} on={row.id} />
+            <PlaneRowView key={row.id} name={row.name} strokes={row.strokes} active={plane === row.id} on={row.id} listed={strokes.filter((stroke) => stroke.plane === row.id)} selection={selection} />
           ))}
-          <PlaneRowView name="On surfaces" strokes={surface} active={plane === 'surface'} on="surface" />
+          <PlaneRowView name="On surfaces" strokes={surface} active={plane === 'surface'} on="surface" listed={strokes.filter((stroke) => stroke.plane === 'surface')} selection={selection} />
         </ul>
         {offset !== null && (
           <div className="sketchpanel-offset" ref={offsetBox} aria-keyshortcuts={hint('sketch.offset')}>
@@ -123,20 +130,16 @@ export function SketchPanel() {
             <Field label="Plane offset" unit="mm" value={number(offset)} commit={(value) => setOffset(value, { typed: true })} />
           </div>
         )}
-        {strokes.length > 0 && (
-          <>
-            <span className="sketchpanel-label-text" id="sketch-stroke-list" title={`Select a stroke to put it in a named set (${hint('set.make')}); Shift adds to the selection`}>
-              Strokes
-            </span>
-            <ul className="sketchpanel-strokes" aria-labelledby="sketch-stroke-list">
-              {strokes.map((stroke) => (
-                <li key={stroke.id}>
-                  <StrokeButton ref_={stroke.ref} id={stroke.id} where={stroke.where} on={selection.includes(stroke.ref)} />
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <div className="sketchpanel-switches" role="group" aria-label="Drawing aids">
+          <button type="button" className="sketchpanel-switch" role="switch" aria-checked={snapping} aria-keyshortcuts={hint('sketch.snap')} title={`Snap to a vertex, a hole's centre or an edge. Hold ${hint('sketch.snap')} while drawing to turn it off for a moment`} onClick={() => setSnapping(!snapping)}>
+            <span>Snap</span>
+            <kbd>{hint('sketch.snap')}</kbd>
+          </button>
+          <button type="button" className="sketchpanel-switch" role="switch" aria-checked={xray} aria-keyshortcuts={hint('sketch.xray')} title={`Draw the parts see-through, to draw on what is hidden (${hint('sketch.xray')})`} onClick={() => setXray(!xray)}>
+            <span>X-ray</span>
+            <kbd>{hint('sketch.xray')}</kbd>
+          </button>
+        </div>
         <p className="sketchpanel-new">
           <span>+ New plane: pick</span>
           <button type="button" className="link-button" aria-pressed={picking === 'face'} title={`Click a flat face: strokes go on its plane (${hint('sketch.face')})`} onClick={() => pickPlane(picking === 'face' ? null : 'face')}>
@@ -189,9 +192,14 @@ function leaveField(e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElemen
   giveKeysBack(e.currentTarget)
 }
 
-function PlaneRowView({ name, strokes, active, on }: { name: string; strokes: number; active: boolean; on: number | 'surface' }) {
+/**
+ * One plane: a 28 px row with a small skewed plane glyph, the plane in mono and, at the right, how many strokes are on it. The
+ * strokes by id are folded under their plane: they are listed while it is the one drawn on, or while one of them is selected.
+ */
+function PlaneRowView({ name, strokes, active, on, listed, selection }: { name: string; strokes: number; active: boolean; on: number | 'surface'; listed: StrokeRowOf[]; selection: readonly string[] }) {
+  const open = listed.length > 0 && (active || listed.some((stroke) => selection.includes(stroke.ref)))
   return (
-    <li>
+    <li className="sketchpanel-plane-item">
       <button
         type="button"
         className="sketchpanel-plane"
@@ -206,11 +214,23 @@ function PlaneRowView({ name, strokes, active, on }: { name: string; strokes: nu
         }}
         onBlur={() => setLit(null)}
       >
-        <span className="sketchpanel-plane-name">{name}</span>
+        <svg className="sketchpanel-plane-glyph" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2.5 12 5 4.5h8.5L11 12Z" />
+        </svg>
+        <span className="sketchpanel-plane-name num">{name}</span>
         <span className="sketchpanel-plane-count num" title={`${strokes} ${strokes === 1 ? 'stroke' : 'strokes'}`}>
           {strokes}
         </span>
       </button>
+      {open && (
+        <ul className="sketchpanel-strokes" aria-label={`Strokes on ${name}`} title={`Select a stroke to put it in a named set (${hint('set.make')}); Shift adds to the selection`}>
+          {listed.map((stroke) => (
+            <li key={stroke.id}>
+              <StrokeButton ref_={stroke.ref} id={stroke.id} where={stroke.where} on={selection.includes(stroke.ref)} />
+            </li>
+          ))}
+        </ul>
+      )}
     </li>
   )
 }
@@ -234,5 +254,50 @@ function StrokeButton({ ref_, id, where, on }: { ref_: string; id: string; where
     >
       {id}
     </button>
+  )
+}
+
+/**
+ * The tag on the handle of the sketch's plane (spec 2026-11-18, section 3): "XZ plane `y 40.0 mm` `Tab`", tied to the handle by a leader.
+ * The value is read where it is typed (the panel's field, in the card's head) and where the handle is dragged: the tag follows the handle
+ * and takes the value of the sheet as it is laid, every frame, straight on the elements and not through React.
+ */
+export function SketchPlaneTag({ viewport }: { viewport: Viewport }) {
+  const inHand = useTool() === 'draw'
+  const open = useSketching((s) => s.open)
+  const plane = useSketching((s) => s.plane)
+  const value = useRef<HTMLSpanElement>(null)
+  const active = inHand && open && plane !== 'surface' ? open.draft.planes.find((p) => p.id === plane) : undefined
+  const offset = active ? offsetOf(active) : null
+  const words = active && offset !== null ? planeTagWords(active, offset) : null
+  // A drag of the handle moves the sheet before the offset is kept: what is written follows the sheet.
+  useEffect(() => {
+    if (!words) return
+    return onPaneDrawn(() => {
+      const now = viewport.sketchOffset()
+      if (now === null || !value.current) return
+      const text = offsetNumber(now)
+      if (value.current.textContent !== text) value.current.textContent = text
+    })
+  }, [viewport, words?.name])
+  if (!words || !active) return null
+  return (
+    <Tag id="sketch-plane" subject={null} subjectAt={() => viewport.sketchHandle()} prefer="right">
+      <span className="sketch-plane-tag" data-part="sketch-plane-tag">
+        <span className="sketch-plane-name">{words.name}</span>
+        <span className="tag-value">
+          {words.axis && (
+            <span className="tag-axis-letter" data-axis={words.axis}>
+              {words.axis}
+            </span>
+          )}
+          <span ref={value} className="sketch-plane-value" data-axis={words.axis}>
+            {words.value}
+          </span>
+          <span className="tag-unit">mm</span>
+        </span>
+        <kbd aria-hidden="true">{hint('sketch.offset')}</kbd>
+      </span>
+    </Tag>
   )
 }

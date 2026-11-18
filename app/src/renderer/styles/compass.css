@@ -1,0 +1,597 @@
+/* ---- The compass: the cube, the projection, the layout, Fit and Explode, and the saved views, at the top right of the view (ui/view/Compass.tsx) ---- */
+
+/* Items right-aligned, 7 px apart. Only what is drawn takes the pointer: between and beside it, it is the view's. */
+.compass {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.compass > * {
+  pointer-events: auto;
+}
+
+/* ---- The cube: a tile of 118 x 112 holding a still iso picture ---- */
+
+.cube {
+  position: relative;
+  width: 118px;
+  height: 112px;
+  border-radius: var(--radius-sheet);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: var(--float-shadow);
+}
+
+/* While a sketch is open the tile is the canvas's: it draws the tile and the cube turned as the camera is (`viewport/viewCube.ts`), and a click goes through to it. */
+.compass > .cube[data-live] {
+  background: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.cube-caption {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.cube-picture {
+  position: absolute;
+  top: 8px;
+  left: 11px;
+  width: 96px;
+  height: 96px;
+}
+
+.cube-picture svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cube .face {
+  fill: var(--panel);
+  stroke: var(--field-edge);
+  stroke-width: 1;
+}
+
+.cube [data-on] .face {
+  fill: var(--accent-wash);
+  stroke: var(--accent);
+}
+
+.cube text {
+  fill: var(--ink);
+  font: 10px var(--font-ui);
+  text-anchor: middle;
+}
+
+.cube text.k {
+  fill: var(--muted);
+  font: 9px var(--font-mono);
+}
+
+.cube .corner {
+  fill: var(--accent);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+/* The buttons over the picture, each cut to its face. */
+.cube-face {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cube-face:hover,
+.cube-face:focus-visible {
+  background: var(--accent-wash);
+}
+
+.cube-face .view-lock {
+  position: absolute;
+  width: 9px;
+  height: 11px;
+  color: var(--accent);
+}
+
+/* The corner: Iso. */
+.cube-corner {
+  position: absolute;
+  top: calc(52% - 10px);
+  left: calc(50% - 10px);
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cube-corner:hover,
+.cube-corner:focus-visible {
+  background: var(--accent-wash);
+}
+
+/* "···": Back, Left and Bottom. */
+.cube-more {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+}
+
+.cube-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.cube-dots:hover,
+.cube-dots[aria-expanded='true'],
+.cube-dots[data-locked] {
+  color: var(--accent);
+}
+
+.compass .cube-more .menu {
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+}
+
+/* The view the camera is locked on: square to a principal plane, so what is drawn there is a profile in millimetres. A small padlock. */
+.menu-item[data-locked] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--accent);
+}
+
+.view-lock {
+  flex: none;
+  width: 9px;
+  height: 11px;
+}
+
+/* ---- Pills ---- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: var(--float-shadow);
+  color: var(--ink);
+  font-size: var(--text-row);
+  white-space: nowrap;
+}
+
+.pill:hover {
+  color: var(--accent);
+}
+
+.pill[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.pill[aria-expanded='true'] {
+  color: var(--accent);
+}
+
+/* The key cap beside a name. */
+.pill kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-inline);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 400;
+}
+
+.pill[aria-pressed='true'] kbd {
+  border-color: color-mix(in srgb, var(--on-accent) 45%, transparent);
+  background: transparent;
+  color: var(--on-accent);
+}
+
+.pill .num {
+  margin-inline: 0;
+}
+
+/* Perspective / Ortho: a segment in a pill. */
+.pill-seg {
+  gap: 0;
+  padding: 0 3px;
+}
+
+.pill-seg .seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-row);
+}
+
+.pill-seg .seg:hover {
+  color: var(--ink);
+}
+
+.pill-seg .seg[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* The layout, Fit and Explode, in a row. */
+.compass-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.compass-layout {
+  position: relative;
+}
+
+/* Why E drew nothing apart of one part, said under the row for a moment. */
+.compass-row .explode-said {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+/* ---- The saved views: stacked as pills, or folded to one ---- */
+
+.viewstrip {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  font-size: var(--text-row);
+  white-space: nowrap;
+}
+
+.viewstrip .num {
+  margin-inline: 0;
+}
+
+/* A pill and what can be done with it, as one thing. */
+.view-item {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: var(--float-shadow);
+}
+
+/* The view that is on screen: ringed in the accent. */
+.view-item[data-active] {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+  color: var(--accent);
+}
+
+/* The agent's, until it is kept: dashed, on the surface, in the colour of what the agent made. */
+.view-item[data-proposed] {
+  border: 1px dashed var(--agent-mark);
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--agent-mark);
+}
+
+.view-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* A long name is cut here and whole in the tooltip. */
+  max-width: 150px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 11px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: inherit;
+}
+
+.view-chip[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* Of a layout the model no longer has: it stays, and cannot be applied. In the name's own colour, a line that can be seen. */
+.view-chip[aria-disabled='true'] .view-name,
+.view-row-apply[aria-disabled='true'] .view-name {
+  text-decoration: line-through;
+}
+
+.view-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* What is said of a view beside its name: that it is proposed, that parts of it are gone. */
+.view-note {
+  flex: none;
+  color: var(--muted);
+}
+
+.view-note.view-proposed {
+  color: var(--agent-mark);
+}
+
+/* What can be done with a pill, inside it. */
+.view-act {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+}
+
+.view-act:hover,
+.view-act[aria-expanded='true'] {
+  color: var(--accent);
+}
+
+/* "Keep" in ink, underlined; "Discard" a step away and muted: it cannot be undone. */
+.view-item[data-proposed] .view-act {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.view-item[data-proposed] .view-act:hover {
+  color: var(--accent);
+}
+
+.view-item[data-proposed] .view-discard,
+.view-row .view-discard {
+  margin-right: 5px;
+  color: var(--muted);
+}
+
+/* The actions of a view of the person's: there for the pointer and the keyboard, out of the way otherwise. */
+.view-more {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  padding: 0;
+  margin-right: 3px;
+  color: var(--muted);
+}
+
+.view-item:hover .view-more,
+.view-more:focus-visible,
+.view-more[aria-expanded='true'] {
+  color: var(--ink);
+}
+
+.view-more svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* "+ Save view", with "N more" in the same pill. */
+.view-add {
+  color: var(--accent);
+}
+
+.view-item-add .view-list-button {
+  padding: 0 11px 0 0;
+  color: var(--muted);
+}
+
+.view-item-add .view-add {
+  padding-right: 6px;
+}
+
+.view-item-add .view-list-button:hover,
+.view-list-button[aria-expanded='true'] {
+  color: var(--accent);
+}
+
+/* The one pill the views fold to. */
+.view-item-fold .view-chip {
+  padding: 0 11px;
+}
+
+/* What opens under a pill: its actions, the question before it is deleted, the field for a name, the list. From the right edge, where the compass stands. */
+.compass .view-popover {
+  top: calc(100% + 5px);
+  right: 0;
+  left: auto;
+  white-space: normal;
+}
+
+.view-name-card {
+  width: 248px;
+  padding: 6px;
+  gap: 6px;
+}
+
+.view-name-row {
+  display: flex;
+  gap: 6px;
+}
+
+.view-name-field {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: var(--field-border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-size);
+}
+
+.view-name-field::placeholder {
+  color: var(--muted);
+}
+
+.view-name-field:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.view-name-field[aria-invalid='true'] {
+  border-color: var(--fail);
+}
+
+.view-refusal {
+  margin: 0;
+  padding: 0 2px;
+  color: var(--fail);
+  line-height: 1.35;
+}
+
+.view-confirm {
+  width: max-content;
+  max-width: 260px;
+  padding: 8px;
+  gap: 8px;
+}
+
+.view-confirm p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.view-confirm-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.view-delete:hover {
+  border-color: var(--fail);
+  color: var(--fail);
+}
+
+/* Every view, a row each: its name, and what it holds. */
+.view-list {
+  /* Rows of its own width, not of what is written in them: a long name is cut, and nothing scrolls sideways. */
+  display: block;
+  width: 280px;
+  max-height: 320px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.view-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 26px;
+  border-radius: var(--radius-control);
+}
+
+.view-row .view-name {
+  flex: 1 1 auto;
+}
+
+.view-row[data-active] {
+  background: var(--accent-wash);
+}
+
+.view-row-apply {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.view-row-apply[aria-current='true'] .view-name {
+  color: var(--accent);
+}
+
+.view-row-apply[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.view-row-holds {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+}
+
+.view-row .view-act {
+  height: 26px;
+}
+
+/* Folded, the list ends with the way to save one. */
+.view-save-row {
+  display: block;
+  width: 100%;
+  color: var(--accent);
+}
+
+/* What could not be done with a view, said under the pills for a moment. */
+.viewstrip-said {
+  margin: 0;
+  text-align: right;
+  white-space: normal;
+}
+
+.viewstrip-said span {
+  display: inline-block;
+  max-width: 260px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+/* How far apart, beside the word, while the parts are. */
+.explode-toggle .num {
+  margin-left: 2px;
+}

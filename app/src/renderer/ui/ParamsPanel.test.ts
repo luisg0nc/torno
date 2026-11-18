@@ -5,7 +5,6 @@ import type { Param, Scene } from '../../shared/scene'
 import { COLUMN_DEFAULT } from '../state/column'
 import { store } from '../state/store'
 import { ParamsPanel } from './ParamsPanel'
-import { plainText } from '../../test/plainText'
 
 const PARAMS: Param[] = [
   { name: 'wall', type: 'float', default: 2.4, literal: true, doc: 'Clearance 0.2 mm, M3' },
@@ -15,7 +14,7 @@ const PARAMS: Param[] = [
 ]
 const scene = (params: Param[] | undefined): Scene => ({ model: 'm.py', layouts: ['assembly'], parts: [], seconds: 0, output: '', params }) as unknown as Scene
 
-describe('the Parameters section of the Params panel', () => {
+describe('the body of the Parameters section', () => {
   afterEach(() => store.setState({ scene: null, objectId: null, sessions: {}, column: COLUMN_DEFAULT }))
   // A static render reads the store's first state (zustand's server snapshot): it is made the state there is now.
   const html = (): string => {
@@ -36,13 +35,12 @@ describe('the Parameters section of the Params panel', () => {
     }
   })
 
-  it('is not folded: the panel shows the rows and the count beside the title', () => {
+  it('shows the rows: the count is the head of the section\'s, and the card folds it', () => {
     store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
     const out = html()
-    expect(out).toContain('aria-label="Parameters"')
+    expect(out).toContain('class="section params"')
     expect(out).not.toContain('data-folded')
     expect(out).toContain('data-param="wall"')
-    expect(plainText(out)).toContain('Parameters4')
   })
 
   it('has a row for each field, in the model order, the value in the monospace face', () => {
@@ -102,6 +100,19 @@ describe('the Parameters section of the Params panel', () => {
     const name = out.slice(out.indexOf('data-param="name"'))
     expect(name).not.toContain('aria-label="Try name"')
     expect(name).toContain('<span class="param-value num">&quot;tray&quot;</span>')
+  })
+
+  it('has a gauge at the right of a row whose field has a range in its metadata, and none on a row without one', () => {
+    store.setState({ scene: scene(OFFERED), column: COLUMN_DEFAULT })
+    const out = html()
+    // The value the build used, against the range the model gave: 2.4 of 1 to 5.
+    expect(out.match(/<svg class="gauge"/g)).toHaveLength(1)
+    const wall = out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="ribs"'))
+    expect(wall).toContain('<svg class="gauge"')
+    expect(wall).toContain('aria-label="2.4, inside 1 to 5"')
+    expect(out.slice(out.indexOf('data-param="ribs"'))).not.toContain('class="gauge"')
+    store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
+    expect(html()).not.toContain('class="gauge"')
   })
 
   it('says a row is built with a value other than the file’s, with a Reset, and offers to bake it in', () => {

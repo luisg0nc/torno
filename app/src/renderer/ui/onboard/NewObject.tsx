@@ -11,19 +11,28 @@ import { isScan, NO_PATH } from '../scanDrop'
 import { TYPING, giveKeysBack } from '../typing'
 import { Doodle } from './Doodle'
 import { HEIC_REASON, pastedFiles, prepareImage } from './images'
-import { DraftPaneLive } from './DraftPane'
+import { DraftPaneLive, type Make } from './DraftPane'
 import { LinksSlot } from './LinksSlot'
+import { liveMakeDeps } from './liveDeps'
 import { makeObject, reason } from './make'
 import { ObjectMenu, ReferenceCards } from './ReferenceItems'
 import { RulesSlot } from './RulesSlot'
 import { SessionChoice } from './SessionChoice'
-import { Slot, SlotWords } from './Slot'
+import { PicTile, Slot } from './Slot'
 import { SizesSlot } from './SizesSlot'
 
-/** Brings the page of a new object up over what is shown, and goes on with the draft there is. */
-export function openNewObject(): void {
+/**
+ * Brings the page of a new object up over what is shown, and goes on with the draft there is. The empty folder's composer
+ * hands it what was typed (`typed`: the words, and the folder name when the person chose one); they are put into the draft,
+ * and what was added there (photos, a doodle, parts, scans) is the draft's already.
+ */
+export function openNewObject(typed?: { words: string; name?: string }): void {
   const s = store.getState()
   if (!s.workspace || s.page === 'new') return
+  if (typed) {
+    onboarding.setDescription(typed.words)
+    if (typed.name !== undefined) onboarding.setName(typed.name)
+  }
   onboarding.begin(s.page === 'objects' ? 'objects' : 'object')
   actions.showPage('new')
 }
@@ -49,15 +58,16 @@ interface Source {
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
 
-/** The slots that open to an editor of their own, and stay open while they are empty. */
-type Opened = 'sizes' | 'links' | 'rules'
+/** The slot that opens to an editor of its own, and stays open while it is empty. */
+type Opened = 'links'
 
 /**
- * The page of a new project, in place of the viewport: its name; "What are we making?" (the brief and the photos with
- * their notes); a tile for each other thing the person has (a doodle, bought parts, scans, other projects, sizes,
- * links and PDFs, rules), which becomes its cards or rows once something is in it; and, at the right, what Claude gets
- * first and the buttons that make the project. Nothing is written until Start (`makeObject`). The draft is the window's
- * (`state/onboard.ts`); a dropped file is taken by its path, and a picture is scaled here for the prompt.
+ * The page of a new project, in place of the viewport, as the design has it: the brief on paper at the left (the name as
+ * `parts / cable-clip`, "What are we making?" with its box, the photos, doodles and files as tiles with their notes and the
+ * two dashed tiles that add more, "Sizes I know" and "Rules" as cards, and "Also:" the bought part, the scan, another
+ * project and a link or PDF), and at the right, on the dye, what Claude gets first with the buttons that make the project
+ * (`DraftPane`). Nothing is written until Start (`makeObject`). The draft is the window's (`state/onboard.ts`); a dropped
+ * file is taken by its path, and a picture is scaled here for the prompt.
  */
 export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> }) {
   const workspace = useStore((s) => s.workspace)!
@@ -269,36 +279,9 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
     if (working || !ready) return
     setBusy(start ? 'start' : 'make')
     setProblem(null)
-    const root = store.getState().workspace?.root
     const outcome = await makeObject(
       onboard.getState().draft,
-      {
-        create: (req) => window.torno.objects.create(req),
-        onboard: async (id, d) => {
-          const told = await window.torno.objects.onboard(id, d)
-          // The session was started by main: this window learns of it as it does when it is asked for one.
-          if (told.sessionId !== null) {
-            const info = await window.torno.session.current(id).catch(() => null)
-            if (info?.running && !store.getState().sessions[id]) actions.setSession(id, info.running)
-          }
-          return told
-        },
-        listed: async () => {
-          const info = await window.torno.workspace.current().catch(() => null)
-          if (info) actions.refreshWorkspace(info)
-          return info?.objects.map((o) => o.id) ?? []
-        },
-        open: async (id) => {
-          await onOpen(id)
-          // Another object chosen meanwhile supersedes this one: it is not shown, and is said not to be.
-          if (store.getState().objectId !== id) throw new Error('not shown')
-        },
-        sameWorkspace: () => store.getState().workspace?.root === root,
-        folderOf: (id) => `${root}/${id}`,
-        importScan: (id, path) => window.torno.scans.import(id, path),
-        discard: () => onboarding.discard(),
-        hold: (id, held) => onboarding.hold(id, held)
-      },
+      liveMakeDeps(onOpen),
       onboard.getState().choice,
       start
     )
@@ -315,11 +298,11 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
   const editing = board?.uid ? draft.doodles.find((d) => d.uid === board.uid) : undefined
   const free = (kind: keyof typeof MOST_REFERENCES): boolean => draft[kind].length < MOST_REFERENCES[kind]
   const otherIds = ids.filter((id) => !draft.objects.some((o) => o.id === id))
-  const addAnother = (what: string, onClick: () => void, off: boolean) => (
-    <button type="button" className="button button-quiet" aria-label={`${what}, add another`} disabled={working || off} onClick={onClick}>
-      Add another
-    </button>
-  )
+  const make: Make = ready
+    ? { folder: `${wsName}/${draft.name}/`, module, files, scans: draft.scans.length }
+    : sizeIssue && draft.name !== '' && nameProblem === null && draft.description.trim() !== ''
+      ? 'Finish or remove the sizes that are not whole.'
+      : 'Give it a name and say what it is to start.'
 
   return (
     <>
@@ -347,11 +330,8 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
       <div className="new-layout">
         <div className="new-column">
           <header className="new-head">
-            <div className="new-head-words">
-              <h2>New project</h2>
-              <p className="new-lead">Nothing is written until you start.</p>
-            </div>
-            <button type="button" className="button" disabled={working} title={`Leave this page (${hint('new.back')})`} onClick={leave}>
+            <p className="new-lead">New project. Nothing is written until you start.</p>
+            <button type="button" className="button button-quiet" disabled={working} title={`Leave this page (${hint('new.back')})`} onClick={leave}>
               Discard
             </button>
           </header>
@@ -363,10 +343,17 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
           )}
 
           <div className="new-field">
-            <label htmlFor="new-name">Name</label>
-            <input id="new-name" ref={nameField} className="new-input num" type="text" value={draft.name} spellCheck={false} autoComplete="off" disabled={working} aria-invalid={nameProblem !== null} aria-describedby="new-name-help" onChange={(e) => onboarding.setName(e.target.value)} />
+            <label className="new-name-label" htmlFor="new-name">
+              Name
+            </label>
+            <div className="new-name">
+              <span className="new-name-folder" aria-hidden="true">
+                {wsName} /
+              </span>
+              <input id="new-name" ref={nameField} className="new-name-input" type="text" value={draft.name} placeholder="a-name" spellCheck={false} autoComplete="off" disabled={working} aria-invalid={nameProblem !== null} aria-describedby="new-name-help" onChange={(e) => onboarding.setName(e.target.value)} />
+            </div>
             <p id="new-name-help" className="new-help" data-tone={nameProblem ? 'fail' : undefined}>
-              {nameProblem ?? "The folder's name: letters, digits, - _ (no dots)"}
+              {nameProblem ?? "The folder's name: letters, digits, \u2212 and _."}
             </p>
           </div>
 
@@ -374,116 +361,54 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
             <h3 className="new-label" id="new-making">
               What are we making?
             </h3>
-            <p className="new-help">Drop anything that says what it is. Every card goes to Claude with the first prompt, and stays on the project&apos;s board after.</p>
-            <label className="new-sub" htmlFor="new-what">
-              What is it?
-            </label>
             <textarea
               id="new-what"
-              className="new-input new-what"
-              rows={5}
+              className="new-what"
+              aria-label="What is it?"
+              rows={4}
               value={draft.description}
               disabled={working}
               placeholder="A clip that holds a 6 mm cable to the edge of a desk, printed in PETG…"
               onChange={(e) => onboarding.setDescription(e.target.value)}
             />
-            <p className="new-help">What it is for, what it must fit or hold, how it will be made.</p>
-            <ReferenceCards draft={draft} kinds={['photos']} label="Photos" onEditDoodle={() => {}} />
-            <div className="new-add">
-              <button type="button" className="button" disabled={working || !free('photos')} onClick={() => void addPhotos()}>
-                Add photos…
+            <ReferenceCards
+              draft={draft}
+              kinds={['photos', 'doodles', 'steps', 'scans', 'objects']}
+              label="What you have"
+              onEditDoodle={(key) => setBoard({ uid: key })}
+              tail={
+                <>
+                  <li className="ref-add">
+                    <PicTile title="Sketch it" hint={<>or press <span className="pic-key num">{hint('new.sketch')}</span></>} disabled={working || !free('doodles')} onClick={() => setBoard({ uid: null })} />
+                  </li>
+                  <li className="ref-add">
+                    <PicTile title="Drop anything" hint="photos, STEP, PDF, scans" disabled={working} help="Choose photos, or drop pictures, a STEP file, a PDF or a scan on the page" onClick={() => void addPhotos()} />
+                  </li>
+                </>
+              }
+            />
+            <p className="new-also">
+              Also:{' '}
+              <button type="button" className="new-also-link" disabled={working || !free('steps')} title="A vendor's STEP file of a screw, a bearing, a board: copied into reference/ for Claude to place as a bought part" onClick={() => void addStep()}>
+                Bought part
               </button>
-            </div>
+              <button type="button" className="new-also-link" disabled={working || !free('scans')} onClick={() => void addScan()}>
+                Scan
+              </button>
+              <ObjectMenu ids={otherIds} disabled={working || !free('objects')} onChoose={(id) => void onboarding.addObject(id)} className="new-also-link" label="Other project">
+                Other project
+              </ObjectMenu>
+              <button type="button" className="new-also-link" disabled={working} onClick={() => open('links')}>
+                Link or PDF
+              </button>
+            </p>
           </section>
 
-          <div className="slots" role="group" aria-label="What else you have">
-            <Slot
-              id="sketch"
-              icon="sketch"
-              title="Doodle it"
-              hint="A doodle on a grid, or over a photo"
-              filled={draft.doodles.length > 0}
-              tile={
-                <button type="button" className="slot-tile" disabled={working || !free('doodles')} onClick={() => setBoard({ uid: null })}>
-                  <SlotWords icon="sketch" title="Doodle it" hint="A doodle on a grid, or over a photo" />
-                </button>
-              }
-              add={addAnother('Doodle it', () => setBoard({ uid: null }), !free('doodles'))}
-            >
-              <ReferenceCards draft={draft} kinds={['doodles']} label="Doodles" onEditDoodle={(key) => setBoard({ uid: key })} />
-            </Slot>
-
-            <Slot
-              id="steps"
-              icon="part"
-              title="Bought parts"
-              hint="A vendor's STEP, kept as an obstacle"
-              filled={draft.steps.length > 0}
-              tile={
-                <button type="button" className="slot-tile" disabled={working || !free('steps')} title="A vendor's STEP file of a screw, a bearing, a board: copied into reference/ for Claude to place as a bought part" onClick={() => void addStep()}>
-                  <SlotWords icon="part" title="Bought parts" hint="A vendor's STEP, kept as an obstacle" />
-                </button>
-              }
-              add={addAnother('Bought parts', () => void addStep(), !free('steps'))}
-            >
-              <ReferenceCards draft={draft} kinds={['steps']} label="Bought parts" onEditDoodle={() => {}} />
-            </Slot>
-
-            <Slot
-              id="scans"
-              icon="scan"
-              title="Scans"
-              hint="A 3D scan of where it goes"
-              filled={draft.scans.length > 0}
-              tile={
-                <button type="button" className="slot-tile" disabled={working || !free('scans')} onClick={() => void addScan()}>
-                  <SlotWords icon="scan" title="Scans" hint="A 3D scan of where it goes" />
-                </button>
-              }
-              add={addAnother('Scans', () => void addScan(), !free('scans'))}
-            >
-              <ReferenceCards draft={draft} kinds={['scans']} label="Scans" onEditDoodle={() => {}} />
-            </Slot>
-
-            <Slot
-              id="objects"
-              icon="project"
-              title="Other projects"
-              hint="Parts from this workspace it must fit"
-              filled={draft.objects.length > 0}
-              tile={
-                <ObjectMenu ids={otherIds} disabled={working || !free('objects')} onChoose={(id) => void onboarding.addObject(id)} className="slot-tile" label="Other projects">
-                  <SlotWords icon="project" title="Other projects" hint="Parts from this workspace it must fit" />
-                </ObjectMenu>
-              }
-              add={
-                <ObjectMenu ids={otherIds} disabled={working || !free('objects')} onChoose={(id) => void onboarding.addObject(id)} className="button button-quiet" label="Other projects, add another">
-                  Add another
-                </ObjectMenu>
-              }
-            >
-              <ReferenceCards draft={draft} kinds={['objects']} label="Other projects" onEditDoodle={() => {}} />
-            </Slot>
-
+          <div className="new-cards" role="group" aria-label="What else you know">
             <Slot
               id="sizes"
-              icon="size"
               title="Sizes I know"
               hint="Measured, from a datasheet, or a guess"
-              filled={draft.sizes.length > 0 || isOpen('sizes')}
-              tile={
-                <button
-                  type="button"
-                  className="slot-tile"
-                  disabled={working}
-                  onClick={() => {
-                    setSaid(onboarding.addSize())
-                    open('sizes')
-                  }}
-                >
-                  <SlotWords icon="size" title="Sizes I know" hint="Measured, from a datasheet, or a guess" />
-                </button>
-              }
               add={
                 <button
                   type="button"
@@ -501,35 +426,15 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
               <SizesSlot sizes={draft.sizes} disabled={working} />
             </Slot>
 
-            <Slot
-              id="links"
-              icon="link"
-              title="Links and PDFs"
-              hint="A datasheet, a forum thread"
-              filled={draft.links.length + draft.pdfs.length > 0 || isOpen('links')}
-              tile={
-                <button type="button" className="slot-tile" disabled={working} onClick={() => open('links')}>
-                  <SlotWords icon="link" title="Links and PDFs" hint="A datasheet, a forum thread" />
-                </button>
-              }
-            >
-              <LinksSlot draft={draft} disabled={working} onAddPdf={() => void addPdf()} onSaid={setSaid} />
-            </Slot>
-
-            <Slot
-              id="rules"
-              icon="rules"
-              title="Rules"
-              hint="Printer, material, min wall"
-              filled={draft.rules !== '' || isOpen('rules')}
-              tile={
-                <button type="button" className="slot-tile" disabled={working} onClick={() => open('rules')}>
-                  <SlotWords icon="rules" title="Rules" hint="Printer, material, min wall" />
-                </button>
-              }
-            >
+            <Slot id="rules" title="Rules" hint="Printer, material, min wall">
               <RulesSlot rules={draft.rules} disabled={working} onRefused={setSaid} />
             </Slot>
+
+            {(draft.links.length + draft.pdfs.length > 0 || isOpen('links')) && (
+              <Slot id="links" title="Links and PDFs" hint="A datasheet, a forum thread" wide>
+                <LinksSlot draft={draft} disabled={working} onAddPdf={() => void addPdf()} onSaid={setSaid} />
+              </Slot>
+            )}
           </div>
 
           <p className="new-help new-reading" role="status">
@@ -545,28 +450,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
           </p>
         </div>
 
-        <aside className="new-side" aria-label="The first prompt">
-          <DraftPaneLive />
-          <div className="new-will-block">
-            <p className="new-will">
-              {ready ? (
-                <>
-                  Makes <span className="num">{wsName}/{draft.name}/</span> with <span className="num">{module}.py</span> (a placeholder to be replaced), <span className="num">brief.md</span>
-                  {files > 0 && (
-                    <>
-                      {' '}and <span className="num">reference/</span> ({numbered(plural(files, 'file', 'files'))})
-                    </>
-                  )}
-                  , and lays what you gave out on its board.
-                  {draft.scans.length > 0 && <> {draft.scans.length === 1 ? 'The scan is' : 'The scans are'} imported into the project, not copied.</>}
-                </>
-              ) : sizeIssue && draft.name !== '' && nameProblem === null && draft.description.trim() !== '' ? (
-                'Finish or remove the sizes that are not whole.'
-              ) : (
-                'Give it a name and say what it is to start.'
-              )}
-            </p>
-          </div>
+        <DraftPaneLive make={make}>
           <div className="new-foot">
             {/* What is missing, before the folder is made: the object is made without it, and the agent cannot start in it. */}
             <Readiness variant="missing" />
@@ -583,7 +467,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
               {busy === 'make' ? 'Making…' : 'Or make it without starting Claude'}
             </button>
           </div>
-        </aside>
+        </DraftPaneLive>
       </div>
 
       {asking && (

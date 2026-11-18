@@ -4,6 +4,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace } from './readme-workspace'
+import { newSession } from './helpers'
 
 // The frames of the README's recording of the loop (docs/images/demo.gif and demo.mp4): a person pins the tub wall
 // of an airbox that sits in a scan of the engine bay it is for, "too thin here", asks for 3 mm, the agent looks,
@@ -80,7 +81,7 @@ async function pointAt(page: Page, point: Vec3): Promise<[number, number]> {
 /** The one cosmetic edit: the person's prompt bubble says what a person would have typed, M2 as the chip torno drew for it. */
 async function naturalPrompt(page: Page): Promise<void> {
   await page.evaluate((text) => {
-    const bubble = document.querySelector('.chat-user .chat-user-text')!
+    const bubble = document.querySelector('.chat-user .chat-you')!
     const chip = document.querySelector('.chat-added .ref-chip[data-ref="M2"]')?.cloneNode(true)
     const [before, after] = text.split('M2')
     bubble.replaceChildren(document.createTextNode(before), ...(chip ? [chip] : [document.createTextNode('M2')]), document.createTextNode(after))
@@ -112,13 +113,15 @@ for (const [n, frame] of FRAMES.entries()) {
     test.setTimeout(600_000)
     const { root, home } = workspace()
     const { app, page } = await start(root, home)
-    const row = (id: string) => page.locator(`.mark-row[data-mark="${id}"]`)
+    // The dimension's row in the card's Checks (the section is open while there is a check to read), where a click opens what it says.
+    const check = (id: string) => page.locator(`[data-region="left"] .check-row[data-check-mark="${id}"]`)
+    const verdict = page.locator('[data-region="left"] .dimension-verdict').first()
     try {
       await page.waitForSelector('[data-region="left"]')
       await openListed(page, 'intake')
       await expect.poll(async () => ((await state(page)).objectId === 'intake' ? (await state(page)).build?.status : null), { timeout: 240_000 }).toBe('ok')
       await expect.poll(async () => (await state(page)).scene !== null).toBe(true)
-      await expect(row('M1').locator('.mark-value')).toHaveAttribute('data-verdict', 'fail', { timeout: 60_000 })
+      await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'fails', { timeout: 60_000 })
       await page.waitForTimeout(800)
 
       if (past(frame, 'open')) {
@@ -138,13 +141,13 @@ for (const [n, frame] of FRAMES.entries()) {
       }
       if (frame === 'pinned') {
         // The dimension's row opened: what it says of the wall.
-        await row('M1').click()
-        await expect(row('M1').locator('.dimension-verdict')).toHaveText('Fails: 0.2 under')
+        await check('M1').click()
+        await expect(verdict).toHaveText('Fails: 0.2 under')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
         await page.mouse.move(W / 2, H - 40)
       }
       if (past(frame, 'pinned')) {
-        await dock(page).getByRole('button', { name: 'New session' }).click()
+        await newSession(dock(page))
         await expect(page.locator('[data-chat-composer]')).toBeFocused()
       }
       if (frame === 'compose') await page.keyboard.type(PROMPT)
@@ -157,7 +160,7 @@ for (const [n, frame] of FRAMES.entries()) {
       }
       if (past(frame, 'look')) {
         await expect.poll(async () => (await state(page)).scene !== null && (await state(page)).build?.revision === 2, { timeout: 240_000 }).toBe(true)
-        await expect(row('M1').locator('.mark-value')).toHaveAttribute('data-verdict', 'pass', { timeout: 60_000 })
+        await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'passes', { timeout: 60_000 })
         if (frame !== 'edit') await expect(page.locator('.chat-text').last()).toContainText('Done', { timeout: 120_000 })
         await page.waitForTimeout(800)
       }
@@ -167,11 +170,11 @@ for (const [n, frame] of FRAMES.entries()) {
         await expect(page.locator('.chat-tool .diff')).toBeVisible()
       }
       if (frame === 'passes') {
-        await row('M1').click()
-        await expect(row('M1').locator('.dimension-verdict')).toHaveText('Passes')
+        await check('M1').click()
+        await expect(verdict).toHaveText('Passes')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-        // What the agent resolved, opened: M2 with its line.
-        await page.getByRole('button', { name: 'Review' }).click()
+        // What the agent resolved, opened: M2 with its line, from Needs you.
+        await page.locator('[data-region="left"] .needs-review').getByRole('button', { name: 'Review' }).click()
         await page.mouse.move(W / 2, H - 40)
       }
       if (past(frame, 'compose')) await naturalPrompt(page)

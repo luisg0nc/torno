@@ -1,18 +1,40 @@
 /* ---- Session: the agent's terminal in the dock ---- */
 
-/* The button that shows and hides the dock lies over the header's right end. */
+/* The header, one row of 40 px: the name, the state, then at the right the model, Chat / Terminal and More. The dock's toggle is in the title bar. */
 .session-head {
   gap: var(--space-2);
-  padding-right: 44px;
+  padding: 0 var(--space-3) 0 var(--space-4);
+}
+
+.session-head .panel-title {
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.session-state {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 
 .session-status {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   color: var(--muted);
   font-size: var(--text-small);
   white-space: nowrap;
+}
+
+.session-elapsed {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .session-status[data-status='working'] .status-dot {
@@ -22,6 +44,7 @@
 
 .session-status[data-status='needs_input'] {
   color: var(--warn);
+  font-weight: 600;
 }
 
 .session-status[data-status='needs_input'] .status-dot {
@@ -37,9 +60,107 @@
   box-shadow: inset 0 0 0 1px var(--muted);
 }
 
-.session-head .panel-title {
-  flex: none;
+/* The model: one mono button that opens the menus of the session; a terminal's session has only its name. */
+.session-model {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+button.session-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink);
+  font-size: 11.5px;
+}
+
+button.session-model[aria-expanded='true'] {
+  background: var(--accent-wash);
+}
+
+/* The id inside the button: it gives way with an ellipsis before the button does anything else (the whole id is the button's name and title). */
+.session-model-id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.session-model .chevron {
+  flex: none;
+  width: 10px;
+  height: 10px;
+}
+
+.session-more {
+  flex: none;
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+}
+
+.session-more[aria-expanded='true'] {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+/* The menus of the header, in popovers from their buttons. */
+.session-more-menu,
+.dock-menu {
+  display: grid;
+  gap: 1px;
+}
+
+.session-more-menu .menu-item {
+  width: 100%;
+}
+
+.session-more-menu .menu-item:disabled {
+  color: var(--muted);
+}
+
+.dock-menu {
+  gap: var(--space-2);
+}
+
+/* A choice of the model's menu: its name, and the list. */
+.dock-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dock-menu-name {
+  flex: none;
+  width: 48px;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.dock-menu-select {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--field-edge);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  color: var(--ink);
+  font-size: var(--text-row);
+}
+
+.dock-menu-select:disabled {
+  color: var(--muted);
+}
+
+.dock-menu-row .chat-problem {
+  flex-basis: 100%;
+  margin-top: 0;
 }
 
 /* The sign of a session away from its pane (`ui/SessionDot.tsx`): on an object's row, on the toggle of a hidden dock.
@@ -63,7 +184,7 @@
   background: var(--warn);
 }
 
-/* On the toggle: a dot over the icon's corner, ringed in the ground it lies on; the one that needs you is larger,
+/* On the toggle (in the title bar): a dot over the icon's corner, ringed in the ground it lies on; the one that needs you is larger,
    so that it is not told from the other by colour alone. */
 .dock-toggle .session-sign {
   position: absolute;
@@ -72,7 +193,7 @@
 }
 
 .dock-toggle .session-sign .status-dot {
-  box-shadow: 0 0 0 2px var(--panel);
+  box-shadow: 0 0 0 2px var(--surface);
 }
 
 .dock-toggle .session-sign[data-sign='needs_input'] .status-dot {
@@ -87,7 +208,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: 0 var(--space-4) var(--space-2);
-  color: var(--muted);
+  color: var(--warn);
   font-size: var(--text-small);
 }
 
@@ -173,16 +294,19 @@
   overflow-wrap: anywhere;
 }
 
-/* The instruction files Claude Code reads for the object: paths and sizes in the face of numbers, one quiet line that wraps. */
+/* The instruction files Claude Code reads for the object, unfolded in the More menu: paths and sizes in the face of numbers. */
 .session-reads {
-  flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 var(--space-3);
-  padding: 0 var(--space-4) var(--space-2);
+  display: grid;
+  gap: 2px;
+  padding: 2px 9px 4px;
   color: var(--muted);
   font-size: var(--text-small);
+}
+
+.session-reads-note {
+  margin: 0 0 var(--space-1);
+  color: var(--warn);
+  text-wrap: pretty;
 }
 
 .session-read {

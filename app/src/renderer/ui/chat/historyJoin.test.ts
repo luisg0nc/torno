@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatItem, PromptRow } from '../../../shared/chat'
 import type { HistoryEntry } from '../../../shared/history'
-import { goneBack, joinTurns, numbersOf, savesBetween, saveWords, stripOf, turnFacts } from './historyJoin'
+import { goneBack, joinTurns, numbersOf, savesBetween, saveWords, turnFacts } from './historyJoin'
 
 const user = (id: string, at: number, state: 'sent' | 'queued' = 'sent'): ChatItem => ({ kind: 'user', id, text: id, images: [], state, at })
 const turn = (id: string): ChatItem => ({ kind: 'turn', id, ok: true, stopped: false, seconds: 1, pulled: {} })
@@ -120,16 +120,10 @@ describe('saveWords', () => {
   })
 })
 
-describe('the strip and the facts of a turn', () => {
+describe('the facts of a turn', () => {
   const at = '2026-01-01T00:00:00Z'
   const from = agent('h1', at, 'u0', { failing: ['wall'] })
   const joined = (entries: HistoryEntry[], start: HistoryEntry | undefined = from) => ({ promptId: 'u1', number: 1, entries, ...(start ? { from: start } : {}) })
-
-  it('lays the build it began from before its builds, and cuts a long run to its ends', () => {
-    expect(stripOf(joined([agent('h2', at, 'u1')])).map((s) => (s.kind === 'build' ? s.entry.id : `+${s.count}`))).toEqual(['h1', 'h2'])
-    const many = [2, 3, 4, 5, 6, 7].map((k) => agent(`h${k}`, at, 'u1'))
-    expect(stripOf(joined(many)).map((s) => (s.kind === 'build' ? s.entry.id : `+${s.count}`))).toEqual(['h1', 'h2', '+3', 'h6', 'h7'])
-  })
 
   it('says the parts that changed, the checks that flipped and the builds that failed on the way', () => {
     const turn = joined([agent('h2', at, 'u1', { line: 'tub changed, lid same', failing: [] }), agent('h3', at, 'u1', { failed: true, error: 'x' }), agent('h4', at, 'u1', { line: 'no part changed' })])

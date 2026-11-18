@@ -7,7 +7,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import { TOOLS } from '../src/renderer/state/tools'
 import type { Hit } from '../src/renderer/viewport/picking'
 import type { Camera } from '../src/shared/view'
-import { openPanel } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // Pointing at the parts: what is under the pointer, selecting it, what the
@@ -57,7 +57,7 @@ const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window._
 const camera = (p: Page = page): Promise<Camera> => p.evaluate(() => window.__tornoTest!.camera())
 const termText = (p: Page = page): Promise<string> => p.evaluate(() => window.__tornoTerm!.text())
 const readout = (p: Page = page) => p.locator('.pick-readout')
-const chips = (p: Page = page) => p.locator('.selection-chip')
+const chips = (p: Page = page) => p.locator('.hand-ref')
 
 /** What is picked where a point of the object frame is drawn. */
 function pickOver(point: Vec3, opts?: { edges?: boolean }, p: Page = page): Promise<Hit | null> {
@@ -87,7 +87,7 @@ async function clickOver(point: Vec3, opts: { shift?: boolean } = {}, p: Page = 
 async function openFromAbove(p: Page = page): Promise<void> {
   await openListed(p, 'bracket')
   await expect.poll(async () => (await state(p)).build?.status, { timeout: 20_000 }).toBe('ok')
-  await p.getByRole('button', { name: 'Top', exact: true }).click()
+  await p.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect
     .poll(async () => {
       const c = await camera(p)
@@ -103,14 +103,14 @@ const model = () => join(root, 'bracket', 'bracket.py')
 test('the palette shows the tools, each with its key', async () => {
   await openFromAbove()
   const tools = page.getByRole('toolbar', { name: 'Tools' }).locator('button[data-tool]')
-  // One button for every tool there is, and at their foot the one for the sheet of keys.
+  // One button for every tool there is; the sheet of keys is at the foot of the rail.
   await expect(tools).toHaveCount(TOOLS.length)
-  await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button')).toHaveCount(TOOLS.length + 1)
-  // The key is on the button, in its own words for a reader of the screen, and in the tip beside it (e2e/tools.spec.ts).
+  await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button')).toHaveCount(TOOLS.length)
+  // The key is on no button: it is in its own words for a reader of the screen, in the tip beside it (e2e/tools.spec.ts) and in the name of the tool in hand.
   await expect(page.getByRole('button', { name: 'Section', exact: true })).toHaveAttribute('aria-keyshortcuts', 'X')
   await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveAttribute('aria-keyshortcuts', 'V')
-  await expect(page.getByRole('button', { name: 'Select', exact: true }).locator('.tool-key')).toHaveText('V')
+  await expect(page.getByRole('button', { name: 'Select', exact: true }).locator('.tool-key')).toHaveCount(0)
   for (const name of ['Pin', 'Arrow', 'Draw', 'Shape', 'Section']) await expect(page.getByRole('button', { name, exact: true })).toBeEnabled()
   await page.keyboard.press('s')
   await expect(page.getByRole('button', { name: 'Shape', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -160,7 +160,7 @@ test('an edge within reach wins over the face under it, unless only faces are as
 })
 
 test('a hidden part is never picked; a see-through one is picked like any other', async () => {
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.getByRole('button', { name: 'Show post' }).click()
   await expect.poll(async () => (await state()).layers.post?.visible).toBe(false)
   const through = (await pickOver(ON_POST))!
@@ -174,7 +174,7 @@ test('a hidden part is never picked; a see-through one is picked like any other'
   })
   expect(parts).toEqual(['base', 'nothing'])
 
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
 
   await page.getByRole('button', { name: 'Show post' }).click()
   await page.getByLabel('Opacity of post').fill('0.2')
@@ -197,9 +197,9 @@ test('the pointer is told what it is on, and a click selects it', async () => {
   await page.mouse.up()
   await expect.poll(async () => (await state()).selection).toEqual([hit.ref])
   await expect(chips()).toHaveCount(1)
-  await expect(chips().locator('.selection-ref')).toHaveText(hit.ref)
-  await expect(chips().locator('.selection-descriptor')).toContainText('plane')
-  await expect(chips().locator('.selection-descriptor')).toHaveText('plane, normal +Z, z = 2.5, 1200 mm²')
+  await expect(chips().locator('.hand-ref-name')).toHaveText(hit.ref)
+  await expect(chips().locator('.hand-ref-descriptor')).toContainText('plane')
+  await expect(chips().locator('.hand-ref-descriptor')).toHaveText('plane, normal +Z, z = 2.5, 1200 mm²')
 })
 
 test('Shift adds to the selection, and takes out; Escape and a click on nothing clear it', async () => {
@@ -207,14 +207,27 @@ test('Shift adds to the selection, and takes out; Escape and a click on nothing 
   const post = (await pickOver(ON_POST))!
   await clickOver(ON_POST, { shift: true })
   await expect.poll(async () => (await state()).selection).toEqual([base.ref, post.ref])
-  await expect(chips().locator('.selection-ref')).toHaveText([base.ref, post.ref])
-  await expect(chips().nth(1).locator('.selection-descriptor')).toContainText('plane, normal +Z, z = 22.5')
+  await expect(chips().locator('.hand-ref-name')).toHaveText([base.ref, post.ref])
+  await expect(chips().nth(1).locator('.hand-ref-descriptor')).toContainText('plane, normal +Z, z = 22.5')
+  // The head holds them and says how many. Made taller than the card, it stops at 60 % of the card and scrolls inside itself.
+  await expect(page.locator('.hand-said')).toHaveText('2 picked, shift-click adds')
+  const cap = await page.evaluate(() => {
+    const hand = document.querySelector<HTMLElement>('.route-hand')!
+    const tall = document.createElement('div')
+    tall.style.height = '4000px'
+    hand.querySelector('.hand')!.append(tall)
+    const out = { height: hand.getBoundingClientRect().height, card: document.querySelector('.route-card')!.getBoundingClientRect().height, scrolls: hand.scrollHeight > hand.clientHeight }
+    tall.remove()
+    return out
+  })
+  expect(cap.height).toBeCloseTo(cap.card * 0.6, 0)
+  expect(cap.scrolls).toBe(true)
   await clickOver(ON_POST, { shift: true })
   await expect.poll(async () => (await state()).selection).toEqual([base.ref])
 
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).selection).toEqual([])
-  await expect(page.locator('.selection')).toHaveCount(0)
+  await expect(page.locator('.hand-ref')).toHaveCount(0)
 
   await clickOver(ON_POST)
   await expect.poll(async () => (await state()).selection).toEqual([post.ref])
@@ -229,7 +242,7 @@ test('Shift adds to the selection, and takes out; Escape and a click on nothing 
 
 test('Part takes the whole part, a double click in Any does too, and Note makes a mark of the part', async () => {
   const post = (await pickOver(ON_POST))!
-  await expect(page.locator('.selection')).toHaveCount(0)
+  await expect(page.locator('.hand-ref')).toHaveCount(0)
   // A double click in Any: the part, not the face.
   // Well after the last click of the test before.
   await page.waitForTimeout(600)
@@ -239,13 +252,14 @@ test('Part takes the whole part, a double click in Any does too, and Note makes 
   await page.mouse.click(x, y)
   await expect.poll(async () => (await state()).selection).toEqual([post.part])
   await page.keyboard.press('Escape')
-  // The choice by the corner: Part.
+  // The choice grown out of Select, asked for with a click on it: Part.
+  await page.locator('.tool-button[data-tool="select"]').click()
   await page.getByRole('group', { name: 'What a click selects' }).getByRole('button', { name: 'Part' }).click()
   await clickOver(ON_BASE)
   await expect.poll(async () => (await state()).selection).toEqual([(await pickOver(ON_BASE))!.part])
-  await expect(page.locator('.selection-hint')).toHaveText('Shift-click to add')
+  await expect(page.locator('.hand-said')).toHaveText('1 picked, shift-click adds')
   const before = (await state()).marks.length
-  await page.locator('.selection').getByRole('button', { name: 'Note' }).click()
+  await page.getByRole('group', { name: 'Selection' }).getByRole('button', { name: 'Note', exact: true }).click()
   await expect.poll(async () => (await state()).marks.length).toBe(before + 1)
   const made = (await state()).marks.at(-1)!
   expect(made).toMatchObject({ kind: 'pick', target: 'part' })
@@ -265,7 +279,7 @@ test('a drag turns the camera and selects nothing', async () => {
   await page.mouse.up()
   await expect.poll(async () => (await camera()).position).not.toEqual(before.position)
   expect((await state()).selection).toEqual([])
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   // Straight down again (framed below the bars over the view, so not over the origin itself).
   await expect
     .poll(async () => {
@@ -276,7 +290,7 @@ test('a drag turns the camera and selects nothing', async () => {
 })
 
 test('a drag turns the view about the point of the part under the pointer', async () => {
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
   await expect.poll(async () => Math.abs((await camera()).zoom)).toBeGreaterThan(0)
   const [x, y] = await pageXY(ON_BASE)
   await page.mouse.move(x, y)
@@ -285,7 +299,7 @@ test('a drag turns the view about the point of the part under the pointer', asyn
   await page.mouse.up()
   // The target moved along the view onto the top of the base (z = 2.5), the camera was not moved by that.
   await expect.poll(async () => (await camera()).target[2]).toBeCloseTo(2.5, 1)
-  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
 })
 
 test('F frames the selection, and pressed again all the parts', async () => {
@@ -315,11 +329,11 @@ test('Insert puts the selected refs in the prompt of the running session, and do
   await expect.poll(async () => (await state()).selection).toEqual([base.ref, post.ref])
 
   // No session yet: nowhere to put them.
-  const insert = page.getByRole('button', { name: 'Insert', exact: true })
+  const insert = page.getByRole('button', { name: 'Insert in prompt', exact: true })
   await expect(insert).toBeDisabled()
   await expect(insert).toHaveAttribute('title', 'Start a session to put the selection in its prompt')
 
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(termText).toContain('READY')
   await expect(insert).toBeEnabled()
   await insert.click()
@@ -365,7 +379,7 @@ test('on a stale build nothing is picked, and the pointer is told why; a build t
   await expect(readout()).toHaveText(REBUILDING)
   await expect.poll(async () => (await state()).build, { timeout: 20_000 }).toMatchObject({ status: 'ok', stale: false, revision: before.revision + 1 })
   expect((await state()).selection).toEqual([])
-  await expect(page.locator('.selection')).toHaveCount(0)
+  await expect(page.locator('.hand-ref')).toHaveCount(0)
   writeFileSync(model(), source)
   await expect.poll(async () => (await state()).build, { timeout: 20_000 }).toMatchObject({ status: 'ok', stale: false, revision: before.revision + 2 })
 
@@ -379,12 +393,13 @@ test('on a stale build nothing is picked, and the pointer is told why; a build t
   writeFileSync(model(), `${source}\n# the same parts\n`)
   await expect.poll(async () => (await state()).build, { timeout: 20_000 }).toMatchObject({ status: 'ok', stale: false, revision: before.revision + 3 })
   expect((await state()).selection).toEqual(selected)
-  await expect(page.locator('.selection-chip')).toHaveCount(1)
+  await expect(page.locator('.hand-ref')).toHaveCount(1)
 })
 
 test('the selection is of the layout shown: another layout empties it', async () => {
   expect((await state()).selection).toHaveLength(1)
-  await page.getByRole('button', { name: 'print', exact: true }).click()
+  await page.getByRole('group', { name: 'Layout' }).getByRole('button').click()
+  await page.getByRole('menuitem', { name: 'print', exact: true }).click()
   await expect.poll(async () => (await state()).layout).toBe('print')
   expect((await state()).selection).toEqual([])
 })
@@ -406,12 +421,12 @@ for (const scheme of ['light', 'dark'] as const) {
       await shotPage.emulateMedia({ colorScheme: scheme })
       await openListed(shotPage, 'bracket')
       await expect.poll(async () => (await state(shotPage)).build?.status, { timeout: 90_000 }).toBe('ok')
-      await shotPage.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+      await newSession(shotPage.locator('[data-region="session"]'))
       await expect.poll(() => termText(shotPage)).toContain('READY')
       await clickOver(ON_BASE, {}, shotPage)
       await clickOver([20, 0, 2.5], { shift: true }, shotPage)
       await expect(chips(shotPage)).toHaveCount(2)
-      await expect(chips(shotPage).nth(1).locator('.selection-descriptor')).not.toBeEmpty()
+      await expect(chips(shotPage).nth(1).locator('.hand-ref-descriptor')).not.toBeEmpty()
       // Rest on the post, so the hover and its readout are in the picture.
       const [x, y] = await pageXY([0, -4, 14], shotPage)
       await shotPage.mouse.move(x, y)

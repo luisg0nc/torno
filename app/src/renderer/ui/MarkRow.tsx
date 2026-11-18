@@ -2,7 +2,7 @@ import { pressed } from '../../shared/keys'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { exactText, shownDimension } from '../../shared/dimension'
 import { EXPLODED_TOOLS } from '../../shared/explode'
-import { type Mark, type MarkKind, type MarkPatch, type NoteMark, type SketchMark, awaitsAcknowledgement, isUnchecked } from '../../shared/marks'
+import { type Mark, type MarkKind, type MarkPatch, type NoteMark, type SketchMark, awaitsAcknowledgement, isUnchecked, markIntent } from '../../shared/marks'
 import { isHeld } from '../../shared/reviews'
 import { count, number } from '../../shared/format'
 import { countsText, sketchName, takeText } from '../../shared/sketchText'
@@ -11,13 +11,13 @@ import { actions, explodeNow, partsInLayout, runningSession, store, useStore } f
 import { endReplace, startReplace, useReplacing } from '../state/tools'
 import { editSketch } from '../state/sketching'
 import { editRegion } from '../tools/regionPainting'
-import { rowLabel } from '../viewport/marks/labels'
 import { spanningMarks } from '../viewport/marks/apart'
 import type { ReviewStep } from './ResolvedSummary'
 import { DimensionFields, VerdictIcon, Words } from './DimensionFields'
 import { hoverMark, unhoverMark } from './markHover'
 import { Confirm } from './Confirm'
 import { IntentMenu } from './IntentMenu'
+import { SignDisc } from './SignDisc'
 import { ShapeFields } from './ShapeFields'
 import { useNotePicture } from './chat/useNotePicture'
 import { openNote } from './drawing/make'
@@ -94,7 +94,9 @@ export function MarkRow({
   revision = 0,
   change,
   remove,
-  review
+  review,
+  source,
+  lit = false
 }: {
   mark: Mark
   active: boolean
@@ -111,6 +113,10 @@ export function MarkRow({
   remove: () => void
   /** The row is the one being walked in "To review": what it does with the mark goes on to the next. */
   review?: ReviewStep
+  /** The row is one of Needs you's: what it says at the right, muted ("to review", "from Claude"). */
+  source?: string
+  /** The pointer is on a part the mark is on: the row is washed and barred in the accent (`data-lit`). */
+  lit?: boolean
 }) {
   // The note as it is being written; null while it is only shown.
   const [draft, setDraft] = useState<string | null>(null)
@@ -118,7 +124,7 @@ export function MarkRow({
   // The note is being written as the reason for reopening a mark the agent resolved: it becomes a draft when the field is left.
   const [reopening, setReopening] = useState(false)
   const resolved = mark.status === 'resolved'
-  const label = rowLabel(mark)
+  const intent = markIntent(mark)
   const replacing = useReplacing() === mark.id
   // Offered where it can be done: a pin, a pick or an arrow of the person's that the last build left off its
   // surface or without its part, in the layout shown, where the next click on a part ties it again. Not on
@@ -209,6 +215,7 @@ export function MarkRow({
       data-expanded={fields || expects || awaiting || (stopping && checks) ? '' : undefined}
       data-replacing={replacing ? '' : undefined}
       data-hovered={pointed ? '' : undefined}
+      data-lit={lit ? '' : undefined}
       aria-current={active ? 'true' : undefined}
       onPointerEnter={() => hoverMark(mark.id, 'pointer')}
       onPointerLeave={() => unhoverMark(mark.id, 'pointer')}
@@ -223,112 +230,119 @@ export function MarkRow({
       }}
       onClick={() => actions.selectMark(mark.id)}
     >
-      <span className="mark-chip num" data-author={mark.author} title={[mark.author === 'user' ? 'Your mark' : "The agent's mark", resolved ? '' : anchorNote].filter(Boolean).join('. ')}>
-        {label}
-      </span>
-      <span className="mark-kind" title={what} aria-label={what} role="img">
-        {mark.kind === 'shape' ? SHAPE_ICONS[mark.shape] : KIND_ICON[mark.kind]}
-      </span>
-      {mark.kind === 'note' && <NoteThumb note={mark} />}
-      {mark.kind === 'sketch' && <SketchSummary mark={mark} />}
-      {mark.kind === 'dimension' && <DimensionValue mark={mark} revision={revision} />}
-      {mark.kind === 'region' && (
-        <span className="mark-value num" title={`${count(mark.triangles)} ${mark.triangles === 1 ? 'triangle' : 'triangles'} of ${mark.scan}, ≈ ${number(mark.area)} mm² of its mesh`}>
-          {mark.scan}
+      <div className="mark-line">
+        {intent !== null && <SignDisc intent={intent} />}{' '}
+        <span className="mark-chip num" data-author={mark.author} title={[mark.author === 'user' ? 'Your mark' : "The agent's mark", resolved ? '' : anchorNote].filter(Boolean).join('. ')}>
+          {mark.id}
         </span>
-      )}
-      {draft === null ? (
-        <button
-          type="button"
-          className="mark-note"
-          data-empty={mark.note === '' ? '' : undefined}
-          // The active row shows its note whole: the tooltip says only what the row does not.
-          title={[active ? '' : mark.note, mark.resolvedNote ? `Resolved: ${mark.resolvedNote}` : ''].filter(Boolean).join('\n') || (active ? undefined : 'Write a note')}
-          aria-label={`Note of ${mark.id}: ${mark.note || 'none'}. Edit`}
-          onClick={(e) => {
-            // Writing a note is not asking to go anywhere: the camera stays.
-            e.stopPropagation()
-            actions.setActiveMark(mark.id)
-            setDraft(mark.note)
-          }}
-        >
-          {mark.note || 'Add a note'}
-        </button>
-      ) : (
-        <input
-          ref={field}
-          className="mark-note-input"
-          value={draft}
-          maxLength={MAX_NOTE}
-          aria-label={`Note of ${mark.id}`}
-          autoFocus
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={save}
-          onKeyDown={(e) => {
-            if (pressed(e, 'field.keep')) save()
-            else if (pressed(e, 'field.leave')) {
-              setDraft(null)
-              setReopening(false)
-            }
-            else return
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-        />
-      )}
-      {!resolved && gone ? (
-        <span className="mark-anchor" data-state="orphaned" title={`The build no longer has the layout ${mark.layout}, so this mark cannot be shown`}>
-          {LAYOUT_GONE}
-        </span>
-      ) : unchecked ? (
-        <span
-          className="mark-anchor"
-          data-state="unchecked"
-          title={`Nothing has checked this mark against the build on show: what it says it is on is of an older one${mark.anchorState === 'ok' ? '' : `. ${ANCHOR_NOTE[mark.anchorState]}`}`}
-        >
-          not checked against <span className="num">r{revision}</span>
-        </span>
-      ) : (
-        !resolved &&
-        mark.anchorState !== 'ok' && (
-          <span className="mark-anchor" data-state={mark.anchorState} title={anchorNote}>
-            {lost ?? ANCHOR_BADGE[mark.anchorState]}
+        {mark.kind === 'note' && <NoteThumb note={mark} />}
+        {mark.kind === 'sketch' && <SketchSummary mark={mark} />}
+        {draft === null ? (
+          <button
+            type="button"
+            className="mark-note"
+            data-empty={mark.note === '' ? '' : undefined}
+            // The active row shows its note whole: the tooltip says only what the row does not.
+            title={[active ? '' : mark.note, mark.resolvedNote ? `Resolved: ${mark.resolvedNote}` : ''].filter(Boolean).join('\n') || (active ? undefined : 'Write a note')}
+            aria-label={`Note of ${mark.id}: ${mark.note || 'none'}. Edit`}
+            onClick={(e) => {
+              // Writing a note is not asking to go anywhere: the camera stays.
+              e.stopPropagation()
+              actions.setActiveMark(mark.id)
+              setDraft(mark.note)
+            }}
+          >
+            {mark.note || 'Add a note'}
+          </button>
+        ) : (
+          <input
+            ref={field}
+            className="mark-note-input"
+            value={draft}
+            maxLength={MAX_NOTE}
+            aria-label={`Note of ${mark.id}`}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (pressed(e, 'field.keep')) save()
+              else if (pressed(e, 'field.leave')) {
+                setDraft(null)
+                setReopening(false)
+              }
+              else return
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+          />
+        )}
+        {mark.kind === 'dimension' && <DimensionValue mark={mark} revision={revision} />}
+        {mark.kind === 'region' && (
+          <span className="mark-value num" title={`${count(mark.triangles)} ${mark.triangles === 1 ? 'triangle' : 'triangles'} of ${mark.scan}, ≈ ${number(mark.area)} mm² of its mesh`}>
+            {mark.scan}
           </span>
-        )
-      )}
-      {partHidden && (
-        <span className="mark-layout" title={mark.kind === 'region' ? 'A region is drawn on its scan: switch the scan on to see it' : 'Marks on a part that is switched off are not drawn. Switch the part on to see it'}>
-          {mark.kind === 'region' ? SCAN_HIDDEN : PART_HIDDEN}
+        )}
+        {source !== undefined && <span className="mark-source">{source}</span>}
+      </div>
+      <div className="mark-meta">
+        <span className="mark-kind" title={what} aria-label={what} role="img">
+          {mark.kind === 'shape' ? SHAPE_ICONS[mark.shape] : KIND_ICON[mark.kind]}
+          <span aria-hidden="true">{what}</span>
         </span>
-      )}
-      {split && (
-        <span className="mark-layout row-note" title="Its ends are on parts that are drawn apart from each other: it is drawn dashed between them, as long as they are apart, which measures nothing. What it says is of the parts as assembled">
-          {PARTS_APART}
-        </span>
-      )}
-      {held && (
-        <span className="mark-layout" title={`${mark.round} is a round that has not been sent: this mark waits for Send review, and goes with no prompt before it`}>
-          in review, not sent
-        </span>
-      )}
-      {takeable && (
-        <button type="button" className="link-button mark-round" title={`Take it out of ${mark.round}: it stays, as a plain draft that goes with your next prompt`} onClick={(e) => (e.stopPropagation(), void reviewActions.takeOut(mark.id))}>
-          Take out of <span className="num">{mark.round}</span>
-        </button>
-      )}
-      {elsewhere && <span className="mark-layout num">{mark.layout}</span>}
-      {/* The heading of its group says the status; a dimension the agent has says it is pinned. */}
-      {mark.kind === 'dimension' && mark.status === 'sent' && (
-        <span className="mark-status" data-status={mark.status} title="The agent has it. It stays here with its value until it is resolved">
-          {PINNED}
-        </span>
-      )}
-      {mark.kind === 'dimension' && mark.status === 'draft' && mark.expected !== undefined && (
-        <span className="mark-status" data-status="draft" title="Not sent yet: it goes to the agent with your next prompt">
-          {TO_SEND}
-        </span>
-      )}
+        {!resolved && gone ? (
+          <span className="mark-anchor" data-state="orphaned" title={`The build no longer has the layout ${mark.layout}, so this mark cannot be shown`}>
+            {LAYOUT_GONE}
+          </span>
+        ) : unchecked ? (
+          <span
+            className="mark-anchor"
+            data-state="unchecked"
+            title={`Nothing has checked this mark against the build on show: what it says it is on is of an older one${mark.anchorState === 'ok' ? '' : `. ${ANCHOR_NOTE[mark.anchorState]}`}`}
+          >
+            not checked against <span className="num">r{revision}</span>
+          </span>
+        ) : (
+          !resolved &&
+          mark.anchorState !== 'ok' && (
+            <span className="mark-anchor" data-state={mark.anchorState} title={anchorNote}>
+              {lost ?? ANCHOR_BADGE[mark.anchorState]}
+            </span>
+          )
+        )}
+        {partHidden && (
+          <span className="mark-layout" title={mark.kind === 'region' ? 'A region is drawn on its scan: switch the scan on to see it' : 'Marks on a part that is switched off are not drawn. Switch the part on to see it'}>
+            {mark.kind === 'region' ? SCAN_HIDDEN : PART_HIDDEN}
+          </span>
+        )}
+        {split && (
+          <span className="mark-layout row-note" title="Its ends are on parts that are drawn apart from each other: it is drawn dashed between them, as long as they are apart, which measures nothing. What it says is of the parts as assembled">
+            {PARTS_APART}
+          </span>
+        )}
+        {held && (
+          <span className="mark-layout" title={`${mark.round} is a round that has not been sent: this mark waits for Send review, and goes with no prompt before it`}>
+            in review, not sent
+          </span>
+        )}
+        {takeable && (
+          <button type="button" className="link-button mark-round" title={`Take it out of ${mark.round}: it stays, as a plain draft that goes with your next prompt`} onClick={(e) => (e.stopPropagation(), void reviewActions.takeOut(mark.id))}>
+            Take out of <span className="num">{mark.round}</span>
+          </button>
+        )}
+        {elsewhere && <span className="mark-layout num">{mark.layout}</span>}
+        {/* The heading of its group says the status; a dimension the agent has says it is pinned. */}
+        {mark.kind === 'dimension' && mark.status === 'sent' && (
+          <span className="mark-status" data-status={mark.status} title="The agent has it. It stays here with its value until it is resolved">
+            {PINNED}
+          </span>
+        )}
+        {mark.kind === 'dimension' && mark.status === 'draft' && mark.expected !== undefined && (
+          <span className="mark-status" data-status="draft" title="Not sent yet: it goes to the agent with your next prompt">
+            {TO_SEND}
+          </span>
+        )}
+      </div>
       <span className="mark-actions" onClick={(e) => e.stopPropagation()}>
         {replaceable && (
           <button
@@ -348,11 +362,13 @@ export function MarkRow({
             }}
           >
             <ReplaceIcon />
+            <Word>Re-place</Word>
           </button>
         )}
         {mark.kind === 'region' && !resolved && mark.anchorState === 'ok' && mark.author === 'user' && (
           <button type="button" className="icon-button" aria-label={`Edit ${mark.id}`} title={exploded ?? 'Edit: take its triangles in hand and paint it again'} disabled={exploded !== null} onClick={() => void editRegion(mark)}>
             <BrushIcon />
+            <Word>Edit</Word>
           </button>
         )}
         {mark.kind === 'sketch' && !resolved && mark.author === 'user' && (
@@ -368,6 +384,7 @@ export function MarkRow({
             }}
           >
             <BrushIcon />
+            <Word>Edit</Word>
           </button>
         )}
         {mark.kind === 'note' && (
@@ -383,10 +400,12 @@ export function MarkRow({
             }}
           >
             <BrushIcon />
+            <Word>Edit</Word>
           </button>
         )}
         <button type="button" className="icon-button" aria-label={`Go to ${mark.id}`} title={gone ? LAYOUT_GONE : 'Go to its view'} disabled={gone} onClick={() => actions.focusMark(mark.id)}>
           <FocusIcon />
+          <Word>Go to view</Word>
         </button>
         {fromAgent && (
           <button
@@ -403,11 +422,13 @@ export function MarkRow({
             }}
           >
             <AnswerIcon />
+            <Word>Answer in chat</Word>
           </button>
         )}
         {resolved ? (
           <button type="button" className="icon-button" aria-label={`Reopen ${mark.id}`} title="Reopen as a draft" onClick={() => void change({ status: 'draft' }).catch(() => {})}>
             <ReopenIcon />
+            <Word>Reopen</Word>
           </button>
         ) : (
           <button
@@ -418,10 +439,12 @@ export function MarkRow({
             onClick={() => (checks ? setStopping(true) : void change({ status: 'resolved' }).catch(() => {}))}
           >
             <ResolveIcon />
+            <Word>Resolve</Word>
           </button>
         )}
         <button type="button" className="icon-button" aria-label={`Delete ${mark.id}`} title="Delete" onClick={remove}>
           <BinIcon />
+          <Word>Delete</Word>
         </button>
         {/* Last: the keys' way along a row, from its note to Delete, is as it was. */}
         {mark.author === 'user' && !resolved && mark.kind !== 'span' && mark.kind !== 'offset' && <IntentMenu mark={mark} />}
@@ -447,7 +470,7 @@ export function MarkRow({
       {awaiting && (
         <div className="mark-resolution" onClick={(e) => e.stopPropagation()}>
           <p className="mark-resolution-note selectable">
-            <span className="mark-resolution-by">Resolved by the agent</span>
+            <span className="mark-resolution-by">Resolved by Claude</span>
             {mark.resolvedNote ? `: ${mark.resolvedNote}` : ''}
           </p>
           <button type="button" className="button" title="Seen: move it to the resolved marks" onClick={() => void change({ acknowledged: true }).then(() => review?.step('ok'), () => {})}>
@@ -518,6 +541,15 @@ export function DimensionValue({ mark, revision }: { mark: Extract<Mark, { kind:
     <span className="mark-value num" data-none={shown.none ? '' : undefined} data-stale={shown.stale ? '' : undefined} data-verdict={verdict} title={title}>
       {shown.none ? <Words text={shown.text} /> : shown.text}
       {verdict && <VerdictIcon pass={verdict === 'pass'} />}
+    </span>
+  )
+}
+
+/** What a button of the row says in words, on the active row; elsewhere the button is its icon (`marks.css`). */
+function Word({ children }: { children: ReactNode }) {
+  return (
+    <span className="mark-act-word" aria-hidden="true">
+      {children}
     </span>
   )
 }

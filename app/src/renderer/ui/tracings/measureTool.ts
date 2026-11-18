@@ -26,9 +26,15 @@ export function endOf(at: MeasureClick): SpanEndDraft {
 
 const exactly = (a: SpanEndDraft, b: SpanEndDraft): boolean => a.snap !== undefined && b.snap !== undefined && a.on === 'tracing' && b.on === 'tracing'
 
+/** The number a span between two ends would have, for its tag: the value (in mm) large, and whether it is only approximate (`≈`) because an end is not snapped. */
+export function spanWords(a: SpanEndDraft, b: SpanEndDraft): { approx: boolean; value: string } {
+  return { approx: !exactly(a, b), value: number(Math.hypot(b.uv[0] - a.uv[0], b.uv[1] - a.uv[1])) }
+}
+
 /** The number a span between two ends would have, as the readout says it: `41.8 mm`, and `≈ 41.8 mm` unless both ends are snapped. */
 export function spanReadout(a: SpanEndDraft, b: SpanEndDraft): string {
-  return `${exactly(a, b) ? '' : '≈ '}${number(Math.hypot(b.uv[0] - a.uv[0], b.uv[1] - a.uv[1]))} mm`
+  const { approx, value } = spanWords(a, b)
+  return `${approx ? '≈ ' : ''}${value} mm`
 }
 
 /** The distance from `p` to the segment `a` to `b`. */
@@ -98,6 +104,11 @@ export class MeasureTool {
   /** What the number reads while the pointer is at `to`; nothing before the first end. */
   readout(to: MeasureClick | null): string {
     return this.from === null || to === null ? '' : spanReadout(this.from, endOf(to))
+  }
+
+  /** What the tag of the span says while the second end is chosen at `to`: nothing before the first end. */
+  reading(to: MeasureClick | null): { approx: boolean; value: string } | null {
+    return this.from === null || to === null ? null : spanWords(this.from, endOf(to))
   }
 
   /** The line so far as elements of the draft layer in the sheet's own millimetres (`down` says whether the plane's v runs down the screen). */

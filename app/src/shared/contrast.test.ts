@@ -31,6 +31,45 @@ function hueApart(a: string, b: string): number {
 }
 
 describe.each([['light', tokens(css.slice(0, dark))], ['dark', { ...tokens(css.slice(0, dark)), ...tokens(css.slice(dark)) }]])('%s', (_theme, t) => {
+  it('holds text on the new grounds', () => {
+    for (const g of ['--raise', '--warn-wash', '--fail-wash']) {
+      expect([g, contrast(t['--ink'], t[g]) >= 7]).toEqual([g, true])
+      for (const f of ['--muted', '--accent', '--ok', '--warn', '--fail']) expect([f, g, contrast(t[f], t[g]) >= 4.5]).toEqual([f, g, true])
+    }
+  })
+  it('holds text on the accent, the dye and the marks', () => {
+    expect(contrast(t['--on-accent'], t['--accent'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(t['--on-dye'], t['--dye'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(t['--on-dye-muted'], t['--dye'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(t['--on-mark'], t['--user-mark'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(t['--on-mark'], t['--agent-mark'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(t['--scribe'], t['--dye'])).toBeGreaterThanOrEqual(3)
+    expect(contrast(t['--field-edge'], t['--raise'])).toBeGreaterThanOrEqual(3)
+  })
+  it('holds the round sign on the solid core of its hatch, and the stripes of the hatch apart from what is between them', () => {
+    // `.sign-disc[data-sign="-"]`: 2 px stripes of --user-mark, between them it mixed 70 % toward white; the `−` sits on a core of --user-mark.
+    expect(contrast(t['--on-mark'], t['--user-mark'])).toBeGreaterThanOrEqual(4.5)
+    const channel = (hex: string, at: number): number => parseInt(hex.slice(at, at + 2), 16)
+    const pale = '#' + [1, 3, 5].map((at) => Math.round(0.3 * channel(t['--user-mark'], at) + 0.7 * 255).toString(16).padStart(2, '0')).join('')
+    expect(contrast(t['--user-mark'], pale)).toBeGreaterThanOrEqual(2)
+    // The plus is on solid --agent-mark.
+    expect(contrast(t['--on-mark'], t['--agent-mark'])).toBeGreaterThanOrEqual(4.5)
+  })
+  it('draws the route and the band as hairlines', () => {
+    const r = contrast(t['--route'], t['--panel'])
+    expect(r).toBeGreaterThanOrEqual(1.15)
+    expect(r).toBeLessThanOrEqual(2)
+    const h = contrast(t['--hairline'], t['--raise'])
+    expect(h).toBeGreaterThanOrEqual(1.15)
+    expect(h).toBeLessThanOrEqual(2)
+    expect(contrast(t['--band-edge'], t['--band'])).toBeGreaterThanOrEqual(2)
+    expect(contrast(t['--ok'], t['--band'])).toBeGreaterThanOrEqual(3)
+    expect(contrast(t['--fail'], t['--band'])).toBeGreaterThanOrEqual(3)
+  })
+  it('has the dye as the accent\'s hue: the same value in light, a deep blue in dark', () => {
+    if (_theme === 'light') expect(t['--dye']).toBe(t['--accent'])
+    else expect(t['--dye']).not.toBe(t['--accent'])
+  })
   it('reads: ink and muted text on both grounds, the accent on the panel', () => {
     for (const ground of ['--surface', '--panel']) {
       expect(contrast(t['--ink'], t[ground])).toBeGreaterThanOrEqual(7)
@@ -41,13 +80,13 @@ describe.each([['light', tokens(css.slice(0, dark))], ['dark', { ...tokens(css.s
   it('reads wherever a colour is text: the verdicts on both grounds, what is chosen on its wash, the primary button, the terminal', () => {
     // A verdict is said in words in its colour (the status line, a chip, a card): text, not only a sign.
     for (const name of ['--ok', '--warn', '--fail']) for (const ground of ['--surface', '--panel']) expect([name, ground, contrast(t[name], t[ground]) >= 4.5]).toEqual([name, ground, true])
-    // The row that is chosen is the accent on its wash, and ink on it; the primary button the panel's colour on the accent.
+    // The row that is chosen is the accent on its wash, and ink on it; the primary button --on-accent on the accent.
     expect(contrast(t['--accent'], t['--accent-wash'])).toBeGreaterThanOrEqual(4.5)
     expect(contrast(t['--ink'], t['--accent-wash'])).toBeGreaterThanOrEqual(7)
-    expect(contrast(t['--panel'], t['--accent'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(t['--on-accent'], t['--accent'])).toBeGreaterThanOrEqual(4.5)
     expect(contrast(t['--accent'], t['--surface'])).toBeGreaterThanOrEqual(4.5)
-    // A mark's number is the panel's colour on the person's red; the three axes are letters beside their fields.
-    expect(contrast(t['--panel'], t['--user-mark'])).toBeGreaterThanOrEqual(4.5)
+    // A mark's number is --on-mark on the person's red; the three axes are letters beside their fields.
+    expect(contrast(t['--on-mark'], t['--user-mark'])).toBeGreaterThanOrEqual(4.5)
     // The agent's is its own colour on the panel, outlined.
     expect(contrast(t['--agent-mark'], t['--panel'])).toBeGreaterThanOrEqual(4.5)
     for (const name of ['--axis-x', '--axis-y', '--axis-z']) expect([name, contrast(t[name], t['--panel']) >= 4.5]).toEqual([name, true])
@@ -183,8 +222,9 @@ it('has the light tokens written out where no stylesheet is read, as the stylesh
   expect(LIGHT_THEME.layers).toEqual(LAYER_INKS)
   expect(LAYER_COLOURS.map((name) => night[`--layer-${name}`]).every((hex) => /^#[0-9A-F]{6}$/i.test(hex ?? ''))).toBe(true)
   expect(SHEET).toEqual({ paper: light['--surface'], ink: light['--ink'], muted: light['--muted'], hairline: light['--hairline'] })
-  const main = readFileSync(resolve(__dirname, '../main/index.ts'), 'utf8')
-  expect(main).toContain(`const SURFACE = { light: '${light['--surface']}', dark: '${night['--surface']}' }`)
+  const frame = readFileSync(resolve(__dirname, '../main/frame.ts'), 'utf8')
+  expect(frame).toContain(`export const SURFACE = { light: '${light['--surface']}', dark: '${night['--surface']}' }`)
+  expect(frame).toContain(`const MUTED = { light: '${light['--muted']}', dark: '${night['--muted']}' }`)
   const { AXIS_COLOURS } = await import('../renderer/viewport/overlay')
   expect([...AXIS_COLOURS]).toEqual([light['--axis-x'], light['--axis-y'], light['--axis-z']])
   expect([LIGHT_THEME.axisX, LIGHT_THEME.axisY, LIGHT_THEME.axisZ]).toEqual([...AXIS_COLOURS])
@@ -194,4 +234,8 @@ it('has the light tokens written out where no stylesheet is read, as the stylesh
   expect(make).toContain(`token('--panel', '${light['--panel']}')`)
   // The terminal's plain white is the muted grey, in light.
   expect(light['--ansi-white']).toBe(light['--muted'])
+  // The redesign's values, as the spec's table has them.
+  expect([light['--ink'], light['--muted'], night['--muted'], night['--field-edge']]).toEqual(['#20242B', '#62666D', '#9EA3AA', '#747A82'])
+  expect(css).toMatch(/--text-size:\s*13\.5px/)
+  expect(css).toMatch(/--text-leading:\s*1\.42/)
 })

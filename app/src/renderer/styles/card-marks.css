@@ -1,0 +1,24 @@
+/* ---- Marks (ui/MarksPanel.tsx): what is the person's to send, and what is with the agent ----
+   The rows are two lines (`marks.css`). Review this build and the rounds are at its head; the groups follow. */
+
+.marks .marks-group {
+  padding-top: 8px;
+}
+
+/* The groups are named in the sans, small and muted, and the count after the name is a number. */
+.marks .marks-group .num {
+  margin-left: 2px;
+}
+
+/* A row lit from the view: the pointer is on a part the mark is on. The accent's wash and a 2 px bar at its left (leader rule 4). */
+.mark-row[data-lit] {
+  --row-bg: var(--accent-wash);
+}
+
+.mark-row[data-lit]::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--accent);
+}

@@ -21,6 +21,8 @@ paths:
   - "app/src/renderer/tools/stamp.test.ts"
   - "app/src/renderer/tools/alignTool.ts"
   - "app/src/renderer/ui/RegionBar.tsx"
+  - "app/src/renderer/ui/view/ProcedureCard.tsx"
+  - "app/src/renderer/styles/procedures.css"
   - "app/e2e/region.spec.ts"
   - "app/e2e/align.spec.ts"
 ---
@@ -99,8 +101,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   - The kernel leaves out of `ignore` only the scan vertices every triangle
     round which is painted, and as crossings only painted triangles: the rim
     of a region still counts. Asked for alone (`region`), its rim is its own.
+  - The Region card (`ui/RegionBar.tsx` in a `ProcedureCard`, `ui/view/ProcedureCard.tsx`: bottom right of the view,
+    300 px, "Region of a scan", `data-tag-avoid`) holds the brush's radius (or Through for a box), Erase `E`, Grow to
+    flat, Undo `Z`, the count (22 px mono, "on S3 · ≈ 412 mm², approximate"), a problem and the foot Clear and
+    "Keep as a mark" `↵`. How it paints, Brush or Box, is the reed's pill (`ReedView`): both read and write
+    `regionStore.mode`, and the card does not repeat the choice.
   - The Region tool (`tools/regionTool.ts`; what is painted and not yet
-    kept, and what the bar and a mark's row do with it, is the registry in
+    kept, and what the card and a mark's row do with it, is the registry in
     `tools/regionPainting.ts`) takes the scan only where it is
     what is drawn at the pixel under the pointer: not behind a part in front
     of it, not in the half a section took away. The brush is a ball round
@@ -112,7 +119,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     asked again so when it names an edge), and what a part is nearer than
     is left (`tools/stamp.ts` `stampTriangles`). What was asked is kept for
     the stroke while the camera is where it was. A stamp asks about 1,000
-    anew at most (`STAMP_TESTS`) and takes none unasked: the bar then says,
+    anew at most (`STAMP_TESTS`) and takes none unasked: the card then says,
     once the stroke has ended, that near a part the brush paints slower
     (`SLOWER`). With no part's box near, nothing is asked. When none is
     chosen the brush is a thirtieth of the scan, 25 mm at

@@ -4,6 +4,7 @@ import { type MainAxis, mainPlaneFrame } from '../../../shared/planes'
 import { actions, useStore } from '../../state/store'
 import { tracingActions, useTracings } from '../../state/tracings'
 import { Field } from '../Field'
+import { Band, BandButton, useBand } from '../view/Band'
 
 /** The planes a tracing can lie on without anything picked: the three the axes span, as the model is seen from the front, the top and the right. */
 const PLANES: ReadonlyArray<{ axis: MainAxis; name: string }> = [
@@ -75,30 +76,27 @@ export function NewTracing({ onDone }: { onDone: () => void }) {
   )
 }
 
-/** Over the model while a tracing on a face waits for its face: says what to click, and gives the wait up. */
+/** The quiet band over the model while a tracing on a face waits for its face: says what to click, and gives the wait up. */
 export function FacePickBar() {
-  const facing = useTracings((s) => s.facing)
   const refused = useTracings((s) => s.refused)
-  const page = useStore((s) => s.page === 'object')
-  if (!facing || !page) return null
+  const band = useBand()
+  if (band !== 'facePick') return null
   return (
-    <div className="tr-facebar" role="toolbar" aria-label="Tracing on a face">
+    <Band kind="facePick" label="Tracing on a face" part="face-pick">
       <span>Click a flat face for the tracing</span>
       {refused !== null && (
         <span className="tr-refused" role="status">
           {refused}
         </span>
       )}
-      <button
-        type="button"
-        className="bar-button"
+      <BandButton
         onClick={() => {
           tracingActions.cancelFace()
           actions.setSelection([])
         }}
       >
         Cancel
-      </button>
-    </div>
+      </BandButton>
+    </Band>
   )
 }

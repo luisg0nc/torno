@@ -1,4 +1,5 @@
 import { hint, keyName, pressed } from '../../shared/keys'
+import { canvasFont } from '../../shared/fonts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -6,19 +7,25 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { AGENT_LABEL, busyWith, isTrustQuestion, nextCarries, nextPromptLine } from '../../shared/agents'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
-import { type InstructionFile, READS_TITLE, named, weighed } from '../../shared/instructions'
+import type { InstructionFile } from '../../shared/instructions'
 import { chatActions, connectChat, useChat } from '../state/chat'
 import { heldSaid, onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
+import { BuildsStrip } from './strip/BuildsStrip'
+import { NodePopover } from './strip/NodePopover'
+import type { StripNode } from './strip/strip'
 import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
 import { clearDrafts, holdDraft } from './chat/Composer'
-import { effortsOf } from '../../shared/chat'
-import { EffortMenu } from './chat/EffortMenu'
-import { ModelMenu } from './chat/ModelMenu'
-import { ModeMenu } from './chat/ModeMenu'
+import { ModelButton } from './chat/ModelMenu'
+import { modelShown } from './chat/modelWords'
+import { SessionMore } from './SessionMore'
+import { clock } from './sessionClock'
 import { Confirm } from './Confirm'
+import { QuestionCard } from './QuestionCard'
+import { ExportSheet } from './ExportSheet'
+import { ExportFold } from './export/ExportFold'
 import { numbered } from './numbered'
 import { edgeGround } from './termGround'
 
@@ -28,9 +35,12 @@ const STATUS_WORD: Record<SessionStatus, string> = {
   starting: 'Starting',
   idle: 'Idle',
   working: 'Working',
-  needs_input: 'Needs input',
+  needs_input: 'Needs you',
   exited: 'Ended'
 }
+
+/** When each session began to work, by session id: the header counts from it (`working 0:42`). */
+const workStart = new Map<string, number>()
 
 /** The views of a session, the one it starts in first. */
 const VIEWS: readonly AgentView[] = ['chat', 'terminal']
@@ -115,7 +125,7 @@ let monoLoaded: Promise<unknown> | null = null
 /** The terminal measures its cells when it opens, so its typeface must be there by then. */
 function monoFont(): Promise<unknown> {
   monoLoaded ??= Promise.all(
-    ['400', '500'].map((weight) => document.fonts.load(`${weight} ${FONT_SIZE}px "IBM Plex Mono"`))
+    ([400, 500] as const).map((weight) => document.fonts.load(canvasFont(FONT_SIZE, weight, true)))
   ).catch(() => {})
   return monoLoaded
 }
@@ -244,7 +254,7 @@ function reason(e: unknown): string {
  * its status in the header. `onReveal` opens the dock when the keyboard asks
  * for the session while it is hidden.
  */
-export function SessionPane({ onReveal }: { onReveal: () => void }) {
+export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onExport: (id: string, ticked: string[]) => void }) {
   const root = useStore((s) => s.workspace?.root)
   const objectId = useStore((s) => s.objectId)
   const objectDir = useStore((s) => s.workspace?.objects.find((o) => o.id === s.objectId)?.dir)
@@ -252,9 +262,13 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   const session = useStore((s) => (s.objectId ? s.sessions[s.objectId] : undefined))
   /** The first prompt of a new object that was not sent, and why. */
   const held = useOnboard((s) => (objectId ? s.held[objectId] : undefined))
+  /** Export is open: it takes the dock under the builds strip, and the conversation folds to a band at the foot. */
+  const exporting = useStore((s) => s.exportOf !== null)
   const marks = useStore((s) => s.marks)
   const revision = useStore((s) => s.revision)
   const [resumable, setResumable] = useState(false)
+  // The node of the builds strip that was clicked, and its element: its menu (or its error) stands from it.
+  const [picked, setPicked] = useState<{ node: StripNode; anchor: HTMLElement } | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   /** Whether "New session" is waiting for a yes: the session it would end is in the middle of something. */
@@ -276,6 +290,8 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
   /** What was written in the empty pane and waits for the session it starts (through the trust question too): sent to it, or left in its box. */
   const pending = useRef<{ text: string; send: boolean } | null>(null)
   const host = useRef<HTMLDivElement>(null)
+  /** The header's More button: the question that End or New session asks stands from it. */
+  const [moreButton, setMoreButton] = useState<HTMLButtonElement | null>(null)
   const reveal = useRef(onReveal)
   reveal.current = onReveal
 
@@ -578,14 +594,26 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
     }
   }
 
+  // How long Claude Code has worked on this turn, counted by the second while it does.
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (!sessionId) return
+    if (status !== 'working') {
+      workStart.delete(sessionId)
+      return
+    }
+    const began = workStart.get(sessionId) ?? Date.now()
+    workStart.set(sessionId, began)
+    const tick = (): void => setElapsed((Date.now() - began) / 1000)
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => clearInterval(timer)
+  }, [sessionId, status])
+
   const ended = status === 'exited'
   const busy = session ? busyWith(session.status) : undefined
   // What the next prompt carries, said in one quiet line: of the session there is, or of the one a new session would be.
   const live = session !== undefined && !ended
-  // The New object page: the pane says what the new object's session will start with, unless the open object's
-  // session is live, which stays whole (a question may be waiting in it) with a note of whose it is.
-  const creating = useStore((s) => s.page === 'new')
-  const drafting = creating && !live
   const chatting = session?.view === 'chat'
   const promptsOpen = useStore((s) => s.promptsOpen)
   const chatOf = useChat(chatting ? session.sessionId : undefined)
@@ -715,103 +743,94 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
     else if (objectId) terminals.get(objectId)?.term.focus()
   }
 
+  /** Why the choice in agent.json was not followed, and the button that puts the file right. */
+  const note =
+    choice.note && objectId ? (
+      <div className="session-note">
+        <p role="note">{choice.note}</p>
+        {/* The file is the person's until they say: it is written only by this, or by choosing a view. */}
+        <button type="button" className="button session-note-action" disabled={starting || live} title={live ? 'End the session first' : undefined} onClick={() => void keepChoice()}>
+          Use {AGENT_LABEL}
+        </button>
+      </div>
+    ) : null
+  /** Whether the dock shows the chat, whose box has the foot: the note and an ask of torno's stand there then. */
+  const inChat = session !== undefined && chatting
+
   return (
     <>
       <header className="panel-head session-head">
-        <h2 className="panel-title">{objectId || creating ? AGENT_LABEL : 'Session'}</h2>
-        {session && !drafting && (
-          <span className="session-status" role="status" data-status={session.status}>
-            <span className="status-dot" />
-            {STATUS_WORD[session.status]}
-            {retrying !== null && session.status === 'working' && <span className="session-retry">, {numbered(retrying)}</span>}
+        <h2 className="panel-title">{objectId ? AGENT_LABEL : 'Session'}</h2>
+        {session && (
+          <span className="session-state">
+            <span className="session-status" role="status" data-status={session.status}>
+              <span className="status-dot" />
+              {STATUS_WORD[session.status]}
+              {retrying !== null && session.status === 'working' && <span className="session-retry">, {numbered(retrying)}</span>}
+            </span>
+            {session.status === 'working' && <span className="session-elapsed num">{clock(elapsed)}</span>}
           </span>
         )}
         <span className="spacer" />
-        {session && !ended && (
-          <button type="button" className="button button-quiet" aria-label="End session" title="End this session. Its conversation can be resumed" disabled={starting || asking || ending} onClick={end}>
-            End
-          </button>
-        )}
-        {session && !drafting && (
+        {objectId && (
           <>
-            {ended && resumable && (
-              <button type="button" className="button button-quiet" disabled={starting} onClick={() => void start(true)}>
-                Resume
-              </button>
+            {chatting && chatOf && chatOf.models.length > 0 ? (
+              <ModelButton sessionId={session.sessionId} model={model} models={chatOf.models} mode={chatOf.meta.permissionMode} effort={chatOf.meta.effort} live={!ended} />
+            ) : (
+              model && (
+                <span className="session-model num" title={`${model}: the model of this session`}>
+                  {modelShown(model)}
+                </span>
+              )
             )}
-            <button type="button" className="button button-quiet" disabled={starting || asking || ending} onClick={startNew}>
-              New session
-            </button>
+            <span className="view-switch" role="group" aria-label="View">
+              {VIEWS.map((one) => (
+                <button
+                  key={one}
+                  type="button"
+                  className="button button-quiet"
+                  aria-pressed={view === one}
+                  disabled={starting || asking || ending || switching !== null}
+                  title={one === 'chat' ? 'Talk with Claude Code here' : "Claude Code's own terminal. The same conversation goes on"}
+                  onClick={() => chooseView(one)}
+                >
+                  {one === 'chat' ? 'Chat' : 'Terminal'}
+                </button>
+              ))}
+            </span>
+            <SessionMore
+              session={session !== undefined}
+              ended={ended}
+              resumable={resumable}
+              disabled={starting || asking || ending}
+              reads={reads.objectId === objectId ? reads.files : []}
+              note={choice.note}
+              onEnd={end}
+              onResume={() => void start(true)}
+              onNew={startNew}
+              onShowRead={(i) => void showRead(i)}
+              onButton={setMoreButton}
+            />
           </>
         )}
       </header>
 
-      {/* How Claude Code is shown, and the model of its session: a quiet row of its own under the header. */}
-      {objectId && !drafting && (
-        <div className="session-views">
-          <span className="view-switch" role="group" aria-label="View">
-            {VIEWS.map((one) => (
-              <button
-                key={one}
-                type="button"
-                className="button button-quiet"
-                aria-pressed={view === one}
-                disabled={starting || asking || ending || switching !== null}
-                title={one === 'chat' ? 'Talk with Claude Code here' : "Claude Code's own terminal. The same conversation goes on"}
-                onClick={() => chooseView(one)}
-              >
-                {one === 'chat' ? 'Chat' : 'Terminal'}
-              </button>
-            ))}
-          </span>
-          <span className="spacer" />
-          {chatting && chatOf && chatOf.models.length > 0 ? (
-            <>
-              <ModelMenu sessionId={session.sessionId} model={model} models={chatOf.models} live={!ended} />
-              <ModeMenu sessionId={session.sessionId} mode={chatOf.meta.permissionMode} live={!ended} />
-              <EffortMenu sessionId={session.sessionId} effort={chatOf.meta.effort} efforts={effortsOf(chatOf.models, model)} live={!ended} />
-            </>
-          ) : (
-            model && (
-              <span className="session-model num" title="The model of this session">
-                {model}
-              </span>
-            )
-          )}
-        </div>
-      )}
+      {/* The project's builds, on top of the dock in every mode: the chat, the terminal and no session. */}
+      <BuildsStrip onPick={(node, anchor) => setPicked(node.kind === 'running' ? null : { node, anchor })} onCompared={() => setPicked(null)} />
+      {picked && <NodePopover key={picked.node.id} node={picked.node} anchor={picked.anchor} onClose={() => setPicked(null)} />}
 
-      {next !== null && !drafting && (
+      {exporting && <ExportSheet onOpen={onExport} />}
+
+      {next !== null && !exporting && (
         <p className="session-next" role="status">
           {numbered(next)}
         </p>
       )}
-      {/* What Claude Code reads of the folder by default, for both views: a quiet line, not a question. Paths and sizes; the text is never read. */}
-      {objectId && !drafting && reads.objectId === objectId && reads.files.length > 0 && (
-        <div className="session-reads" role="note" title={READS_TITLE}>
-          <span>Claude Code also reads, by default</span>
-          {reads.files.map((file, i) => (
-            <span key={file.path} className="session-read">
-              <button type="button" className="session-read-open" aria-description="Show in its folder" onClick={() => void showRead(i)}>
-                {named(file)}
-              </button>
-              <span className="session-read-size">{weighed(file)}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      {choice.note && objectId && !drafting && (
-        <div className="session-note">
-          <p role="note">{choice.note}</p>
-          {/* The file is the person's until they say: it is written only by this, or by choosing a view. */}
-          <button type="button" className="button session-note-action" disabled={starting || live} title={live ? 'End the session first' : undefined} onClick={() => void keepChoice()}>
-            Use {AGENT_LABEL}
-          </button>
-        </div>
-      )}
+      {/* Where the chat's box is not (no session, a terminal) the note stands under the strip; with the chat it is the warn line above the box. */}
+      {!inChat && !exporting && note}
 
       {/* The first prompt of a new object that was not sent: the reason, above the pane that holds it. */}
-      {held !== undefined && objectId && !creating && (
+      {held !== undefined && objectId && !exporting && (
         <div className="session-held" role="status">
           <p>
             {heldSaid(held)}
@@ -822,15 +841,10 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
         </div>
       )}
 
-      {creating && live && (
-        <p className="session-aside" role="note">
-          This is the session of {objectName}. It goes on; the new project gets its own when you create it.
-        </p>
-      )}
-
-      <div className="session-body">
+      <div className="session-body" hidden={exporting}>
         {asking && session && (
           <Confirm
+            anchor={moreButton}
             label="End the running session?"
             accept="End it and start new"
             cancel="Keep it"
@@ -849,7 +863,7 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
           </Confirm>
         )}
         {ending && session && (
-          <Confirm label="End the running session?" accept="End it" cancel="Keep it" onCancel={keepSession} onAccept={() => void endSession()}>
+          <Confirm anchor={moreButton} label="End the running session?" accept="End it" cancel="Keep it" onCancel={keepSession} onAccept={() => void endSession()}>
             {AGENT_LABEL} {busy ?? 'is running'}. Ending the session stops it there.
           </Confirm>
         )}
@@ -871,15 +885,11 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
           </Confirm>
         )}
         {/* Always laid out, so a terminal can be fitted before its session starts. */}
-        <div className="session-term" ref={host} data-shown={session && !chatting && !drafting ? '' : undefined} />
+        <div className="session-term" ref={host} data-shown={session && !chatting ? '' : undefined} />
         {/* Where the chat is not (a terminal, or no session yet) Prompts only is a pane of its own over the area; in the chat it is the chat's own toggle. */}
-        {promptsOpen && objectId && !drafting && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
-        {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} />}
-        {drafting ? (
-          <p className="panel-note" data-draft-note="">
-            The first prompt is on the page of the new project, beside the slots.
-          </p>
-        ) : !objectId ? (
+        {promptsOpen && objectId && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
+        {session && chatting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} foot={note} />}
+        {!objectId ? (
           <p className="panel-note">Claude Code works here, one session per project. Make or open a project to start.</p>
         ) : (
           !session &&
@@ -906,7 +916,10 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
             {problem}
           </p>
         )}
+        {/* torno's own ask, where the chat is not in sight (a terminal, no session): over the foot of the dock. */}
+        {!inChat && <QuestionCard where="dock" />}
       </div>
+      {exporting && <ExportFold />}
     </>
   )
 }

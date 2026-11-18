@@ -21,9 +21,18 @@ export interface ObjectCard {
   /**
    * The picture on file: when it was made, of which layout, and whether the model file is newer than it (or
    * another). What it draws otherwise than the object is: `cut` by the section kept with the view, the parts
-   * `apart`, and how many parts of the layout it leaves out (`hidden`). Null for none.
+   * `apart`, and how many parts of the layout it leaves out (`hidden`). `bench` when it is drawn at the bench's
+   * scale (`BENCH_MM_PER_PX`, iso, centred on the layout's box) and so can stand at true scale. Null for none.
    */
-  thumb: { at: string; layout: string; behind: boolean; cut?: true; apart?: true; hidden?: number } | null
+  thumb: { at: string; layout: string; behind: boolean; cut?: true; apart?: true; hidden?: number; bench?: true } | null
+  /**
+   * The size of the last build of the layout the picture is of, in mm, as the kernel gave it, and whether that is
+   * exact (the B-rep's box; else it is widened to the mesh). Kept in `thumb.json` with the picture, so that a project
+   * built in an earlier run has it; absent when the picture has none (made before this was kept) or there is no picture.
+   */
+  box?: { x: number; y: number; z: number; exact: boolean }
+  /** Only while its session waits on an `ask`: the question (the first 140 characters) and when it was put (ms since the epoch). */
+  waiting?: { question: string; since: number }
   /** When the newest source of its model was saved (ms since the epoch), read from the files; absent when it has none. */
   sourcesMtimeMs?: number
   /** Null when the marks file could not be read. */
@@ -50,4 +59,6 @@ export interface ThumbnailOf {
   apart?: boolean
   /** How many parts of the layout it leaves out. */
   hidden?: number
+  /** It is drawn in the bench's mode (`thumbnailPlan`'s `bench`): at `BENCH_MM_PER_PX`, iso, centred on the layout's box. */
+  bench?: boolean
 }

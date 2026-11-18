@@ -2,6 +2,7 @@ import type { Sectioned } from './geometry'
 import { expectedText, measuredValue, valueText } from './dimension'
 import type { DimensionMark, Mark } from './marks'
 import { number } from './format'
+import { MONO_STACK, UI_STACK } from './fonts'
 import { LAYER_COLOURS, type Layer, type LayerColour, type LayerShape, offsetWords, shapeMoved } from './tracings'
 
 // One drawing of a plane, at true scale, for the window's view of a tracing and for the file that is exported from it, so
@@ -33,8 +34,8 @@ const FILL = '#E8E5DE'
 /** The person's marks are red and the agent's green, as in the window. */
 const MARK_INK = { user: '#C23B3B', agent: '#2E8B57' } as const
 /** The face of numbers, and of the rest. */
-const MONO = "'IBM Plex Mono', ui-monospace, monospace"
-const SANS = "'IBM Plex Sans', system-ui, sans-serif"
+const MONO = MONO_STACK
+const SANS = UI_STACK
 
 /**
  * What a layer's colour is in a file, where there is no stylesheet: the light value of each `--layer-*` token of

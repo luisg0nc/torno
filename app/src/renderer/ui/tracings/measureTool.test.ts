@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { PlaneSnap } from '../../../shared/tracings'
-import { MeasureTool, endOf, onOutline, spanReadout } from './measureTool'
+import { MeasureTool, endOf, onOutline, spanReadout, spanWords } from './measureTool'
 
 const CORNER: PlaneSnap = { kind: 'corner', uv: [0, 0], part: 'block' }
 const CORNER_B: PlaneSnap = { kind: 'corner', uv: [30, 40], part: 'block' }
@@ -47,6 +47,16 @@ describe('the Measure tool', () => {
     tool.click({ uv: [0, 0], snap: CORNER })
     expect(tool.readout({ uv: [30, 40], snap: CORNER_B })).toBe('50 mm')
     expect(tool.readout({ uv: [30, 40] })).toBe('≈ 50 mm')
+  })
+
+  it('splits the reading for its tag into the number, large, and whether it is only approximate', () => {
+    const a = endOf({ uv: [0, 0], snap: CORNER })
+    expect(spanWords(a, endOf({ uv: [30, 40], snap: CORNER_B }))).toEqual({ approx: false, value: '50' })
+    expect(spanWords(a, endOf({ uv: [30, 40] }))).toEqual({ approx: true, value: '50' })
+    const tool = new MeasureTool(() => {})
+    expect(tool.reading({ uv: [3, 4] })).toBeNull()
+    tool.click({ uv: [0, 0], snap: CORNER })
+    expect(tool.reading({ uv: [30, 40], snap: CORNER_B })).toEqual({ approx: false, value: '50' })
   })
 
   it('makes nothing of a second click on the first point, and gives up the first end on Esc', () => {

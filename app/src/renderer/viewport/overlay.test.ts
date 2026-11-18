@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DEVIATION_RAMP, BAR_SIDE, NARROW_BELOW, PERSPECTIVE_NOTE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR, chipSize, drawDeviationLegend, drawFrameCues, drawLabels, drawOverlay, type LabelStyle } from './overlay'
+import { MONO_FACE, UI_FACE } from '../../shared/fonts'
+import { DEVIATION_RAMP, PERSPECTIVE_NOTE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR, chipSize, drawDeviationLegend, drawFrameCues, drawLabels, drawOverlay, bindPane, onPaneDrawn, paneRect, projectToPane, type LabelStyle } from './overlay'
 
 /** A canvas context that keeps what was drawn on it: each text with how opaque it was, and each stroke with its colour and its moves. */
 function recorder() {
@@ -26,6 +27,9 @@ function recorder() {
     moveTo: () => void (moves += 1),
     lineTo: () => void (lines += 1),
     roundRect: () => {},
+    arc: () => {},
+    clip: () => {},
+    fillRect: () => {},
     fill: () => void fills.push({ colour: ctx.fillStyle, alpha: ctx.globalAlpha }),
     stroke: () => void strokes.push({ colour: ctx.strokeStyle, moves, lines }),
     fillText: (text: string) => {
@@ -60,6 +64,45 @@ describe('the ring of a chip', () => {
     // The active one keeps its own ring while it is pointed at.
     expect(ringed('M1', 'M1')).toEqual([{ colour: STYLE.ink, alpha: 1 }])
     expect(ringed('M2', 'M3')).toEqual([])
+  })
+})
+
+describe('the round sign beside a chip', () => {
+  it('makes room for the disc, 18 px and its gap, for a mark with a sign and for none without one', () => {
+    const size = chipSize(recorder().ctx, 1)
+    expect(size('M1', undefined, '-').w).toBe(size('M1').w + 21)
+    expect(size('M1', { text: '40 mm' }, '+').w).toBe(size('M1', { text: '40 mm' }).w + 21)
+  })
+
+  it('draws a plus solid in the agent’s colour and a minus hatched in the person’s, each with its sign, beside the number', () => {
+    const want = recorder()
+    drawLabels(want.ctx, [{ ...label(undefined), sign: '+' as const, box: { x: 100, y: 90, w: 51, h: 17 } }], STYLE, 1)
+    expect(want.texts.map((t) => t.text)).toEqual(['M1', '+'])
+    expect(want.fills.some((f) => f.colour === STYLE.agent)).toBe(true)
+    const dont = recorder()
+    drawLabels(dont.ctx, [{ ...label(undefined), sign: '-' as const, box: { x: 100, y: 90, w: 51, h: 17 } }], STYLE, 1)
+    expect(dont.texts.map((t) => t.text)).toEqual(['M1', '−'])
+    expect(dont.fills.some((f) => f.colour === STYLE.user)).toBe(true)
+    // No sign, no disc: the number alone.
+    const plain = recorder()
+    drawLabels(plain.ctx, [label(undefined)], STYLE, 1)
+    expect(plain.texts.map((t) => t.text)).toEqual(['M1'])
+  })
+})
+
+describe('the chips of marks not in the review round', () => {
+  it('are mixed toward the ground, by colour and never by opacity', () => {
+    const { ctx, fills, strokes, texts } = recorder()
+    drawLabels(ctx, [label(undefined)], STYLE, 1, null, null, new Set(['M1']))
+    expect(fills.filter((f) => f.colour.startsWith('color-mix(')).length).toBeGreaterThan(0)
+    expect(strokes.every((s) => s.colour.startsWith('color-mix('))).toBe(true)
+    expect(texts.every((t) => t.alpha === 1)).toBe(true)
+    expect(fills.every((f) => f.alpha === 1)).toBe(true)
+    expect(fills.some((f) => f.colour.includes(STYLE.surface) && f.colour.includes('30%'))).toBe(true)
+    // A chip of the round is drawn as ever.
+    const round = recorder()
+    drawLabels(round.ctx, [label(undefined)], STYLE, 1, null, null, new Set(['M2']))
+    expect(round.fills.some((f) => f.colour.startsWith('color-mix('))).toBe(false)
   })
 })
 
@@ -260,7 +303,7 @@ describe('the axes and the scale on the person’s screen', () => {
     const persp = frame()
     drawFrameCues(persp.ctx, looking([1, 0, 0], [0, 0, 1]), { unit: SCREEN_UNIT, gridStep: 5 })
     const step = persp.texts.find((t) => t.text === 'grid 5 mm')
-    expect(step?.font).toContain('Plex Mono')
+    expect(step?.font).toContain(MONO_FACE)
     expect(persp.texts.map((t) => t.text)).not.toContain(PERSPECTIVE_NOTE)
 
     const small = frame()
@@ -278,33 +321,24 @@ describe('the axes and the scale on the person’s screen', () => {
     const { ctx, texts } = frame()
     drawOverlay(ctx, looking([1, 0, 0], [0, 0, 1]))
     expect(texts.map((t) => t.text)).toContain(PERSPECTIVE_NOTE)
-    expect(texts.find((t) => t.text === PERSPECTIVE_NOTE)?.font).toContain('Plex Sans')
+    expect(texts.find((t) => t.text === PERSPECTIVE_NOTE)?.font).toContain(UI_FACE)
   })
 
-  it('keeps the strip of the Measure tool and the bars at the bottom clear of the triad and the scale: the stylesheet’s sizes are these', () => {
+  it('keeps the triad’s clearance where the hint stands: the stylesheet’s size is this one, and the lift system is gone', () => {
     const layout = readFileSync(resolve(__dirname, '../styles/layout.css'), 'utf8')
     expect(layout).toContain(`--triad-clear: ${TRIAD_CLEAR}px;`)
-    expect(layout).toContain(`--bar-side: ${BAR_SIDE}px;`)
     // The triad's corner, its arms, the letter beyond the tip of the longest and half the letter's height.
     expect(TRIAD_CLEAR).toBeGreaterThanOrEqual(Math.ceil((26 + 2 * 38 + 11 + 6) * SCREEN_UNIT))
-    // The bars stand in from the side by as much as the triad reaches across (its corner, its arm, its letter and half of it), and the scale bar.
-    expect(BAR_SIDE).toBeGreaterThanOrEqual(Math.ceil((26 + 2 * 38 + 11 + 6) * SCREEN_UNIT))
-    expect(BAR_SIDE).toBeGreaterThanOrEqual(Math.ceil(26 * SCREEN_UNIT + SCALE_BAR_MAX))
-    // Every bar at the bottom is held in from both sides, and lifted by the same amount where the view is narrow.
-    for (const sheet of ['overlays.css', 'align.css', 'regions.css']) {
-      const css = readFileSync(resolve(__dirname, '../styles', sheet), 'utf8')
-      expect(css, sheet).not.toMatch(/bottom: (var\(--space-3\)|calc\(var\(--space-3\) \+ \d+px\));/)
-      expect(css, sheet).not.toContain('2 * var(--space-3)')
+    // The foot of the view holds the hint, the triad and the grid step: no bar lifts over them, no view is "narrow".
+    const sheets = ['layout.css', 'caption.css', 'overlays.css', 'tools.css', 'align.css', 'regions.css', 'procedures.css', 'viewbars.css'].map((sheet) => [sheet, readFileSync(resolve(__dirname, '../styles', sheet), 'utf8')] as const)
+    for (const [sheet, css] of sheets) {
+      for (const gone of ['--bar-lift', '--hint-lift', '--bar-floor', '--bar-side', '--stack-side', '--strip-top', 'data-narrow', 'data-raised']) expect(css, `${sheet} ${gone}`).not.toContain(gone)
     }
-    expect(layout).toMatch(/\.viewport-pane\[data-narrow\] \{[^}]*--bar-floor: calc\(var\(--triad-clear\) \+ var\(--space-1\)\)/)
-    // With the Measure tool in hand the bars stand above its strip (36 px: its height and a gap), which is above the triad.
-    expect(layout).toMatch(/\.viewport-pane\[data-narrow\]:has\(\.measure-choice\) \{[^}]*--bar-floor: calc\(var\(--triad-clear\) \+ var\(--space-1\) \+ 36px\)/)
-    // The line at the foot of the view stands on that floor and the bars stand above it, a row (40 px, as the bars stand over one another) up: the line never meets a bar.
-    expect(layout).toContain('--bar-lift: calc(var(--bar-floor) + var(--hint-lift));')
-    expect(layout).toMatch(/\.viewport-pane:has\(\.tool-hint\) \{[^}]*--hint-lift: 40px/)
-    expect(readFileSync(resolve(__dirname, '../styles/tools.css'), 'utf8')).toMatch(/\.tool-hint \{[^}]*bottom: calc\(var\(--space-3\) \+ var\(--bar-floor\)\)/)
-    // Where the view is as wide as the widest bar and both sides, the bars are not lifted.
-    expect(NARROW_BELOW).toBe(560 + 2 * BAR_SIDE)
+    const hints = readFileSync(resolve(__dirname, '../styles/caption.css'), 'utf8').match(/\.view-hints \{[^}]*\}/)![0]
+    expect(hints).toMatch(/bottom: var\(--space-3\)/)
+    expect(hints).toContain('calc(100% - 2 * var(--triad-clear))')
+    expect(readFileSync(resolve(__dirname, '../ui/ViewportPane.tsx'), 'utf8')).not.toContain('data-narrow')
+    expect(readFileSync(resolve(__dirname, './overlay.ts'), 'utf8')).not.toMatch(/BAR_SIDE|NARROW_BELOW/)
   })
 
   it('draws the scale bar no longer than the screen allows, and a picture’s a quarter of its width', () => {
@@ -315,5 +349,42 @@ describe('the axes and the scale on the person’s screen', () => {
     const picture = frame()
     drawOverlay(picture.ctx, { ...looking([1, 0, 0], [0, 0, 1]), width: 2000, mmPerPx: 0.25 })
     expect(picture.texts.map((t) => t.text)).toContain('100 mm')
+  })
+})
+
+describe('the pane the tags stand in', () => {
+  const pane = (over: Partial<Parameters<typeof bindPane>[0] & object> = {}) => {
+    const drawn = new Set<() => void>()
+    return {
+      pane: { project: (p: readonly [number, number, number]) => (p[2] < 0 ? null : { x: p[0], y: p[1] }), rect: () => ({ left: 10, top: 20, width: 600, height: 400 }), onDrawn: (cb: () => void) => (drawn.add(cb), () => drawn.delete(cb)), ...over },
+      draw: () => drawn.forEach((cb) => cb())
+    }
+  }
+
+  it('projects nowhere with no view, and null behind the camera', () => {
+    expect(projectToPane([1, 2, 3])).toBeNull()
+    expect(paneRect()).toBeNull()
+    const { pane: view } = pane()
+    const off = bindPane(view)
+    expect(projectToPane([40, 50, 1])).toEqual({ x: 40, y: 50 })
+    expect(projectToPane([40, 50, -1])).toBeNull()
+    expect(paneRect()).toEqual({ left: 10, top: 20, width: 600, height: 400 })
+    off()
+    expect(projectToPane([40, 50, 1])).toBeNull()
+  })
+
+  it('tells those listening after each frame, whichever came first, and stops when asked', () => {
+    const calls: string[] = []
+    const stop = onPaneDrawn(() => calls.push('early'))
+    const { pane: view, draw } = pane()
+    const off = bindPane(view)
+    draw()
+    expect(calls).toEqual(['early'])
+    stop()
+    draw()
+    expect(calls).toEqual(['early'])
+    off()
+    draw()
+    expect(calls).toEqual(['early'])
   })
 })

@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { CHANGE_LINES, diffText, editHunks, limitHunks } from './lineDiff'
+import { CHANGE_LINES, countLines, diffText, editHunks, limitHunks } from './lineDiff'
 
 const kinds = (text: { rows: Array<{ kind: string; text: string }> }): string[] => text.rows.map((r) => `${r.kind === 'same' ? ' ' : r.kind === 'removed' ? '-' : r.kind === 'added' ? '+' : r.kind === 'gap' ? '~' : '?'}${r.text}`)
 
 describe('the line diff of two texts', () => {
+  it('numbers the lines of the file on request: a removed line by the old file, the others by the new one, gaps counted', () => {
+    const old = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].join('\n')
+    const now = ['a', 'b', 'c', 'D', 'e', 'f', 'g', 'H', 'I'].join('\n')
+    const rows = diffText(old, now, true).rows
+    expect(rows.map((r) => `${r.kind[0]}${r.line ?? ''}`)).toEqual(['g', 's3', 'r4', 'a4', 's5', 's6', 's7', 'r8', 'a8', 'a9'])
+    expect(diffText(old, now).rows.every((r) => r.line === undefined)).toBe(true)
+  })
+
+  it('counts the lines added and removed', () => {
+    expect(countLines(diffText('a\nb', 'a\nx\ny'))).toEqual({ added: 2, removed: 1 })
+  })
+
   it('shows a line changed as the line removed and the line added', () => {
     expect(kinds(diffText('WALL = 2', 'WALL = 3'))).toEqual(['-WALL = 2', '+WALL = 3'])
   })

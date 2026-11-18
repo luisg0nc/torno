@@ -10,6 +10,7 @@ import type { Scene } from '../../shared/scene'
 import { type LookRequest, type LookResult, type SectionPlane, type ViewState, MAX_SELECTION_REPORTED, NOT_A_PLANE, sectionOf } from '../../shared/view'
 import { agentStore, connectAgent, picture, setPictures, type PersonPicture } from '../state/agent'
 import { describe, describeWhole, descriptorOf } from '../state/descriptors'
+import { pointPart } from '../state/pointed'
 import { newCut } from '../../shared/cut'
 import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
@@ -36,30 +37,36 @@ import { routePointer, staleMessage, type Tool, type ToolContext } from '../tool
 import { chipSays, markChips } from '../tools/markChips'
 import { Readout } from '../viewport/highlight'
 import { labelText } from '../viewport/marks/labels'
-import { NARROW_BELOW } from '../viewport/overlay'
+import { bindPane } from '../viewport/overlay'
 import { meshOf } from '../viewport/scans'
 import { Viewport } from '../viewport/Viewport'
-import { AgentLine } from './AgentLine'
-import { QuestionCard } from './QuestionCard'
 import { AlignBar } from './AlignBar'
 import { goToRow } from './BuildStatus'
 import { hoverMark } from './markHover'
 import { RegionBar } from './RegionBar'
+import { ScanReadSheet } from './ScanReadSheet'
 import { NotePopover } from './NotePopover'
-import { MakeSet } from './sets/MakeSet'
 import { importScan, scanDropped } from './scanDrop'
-import { SectionBar } from './SectionBar'
-import { Selection } from './Selection'
+import { SectionTag } from './SectionTag'
 import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
-import { SketchPanel } from './sketch/SketchPanel'
-import { SketchPens } from './sketch/SketchPens'
 import { ToolHint } from './ToolHint'
+import { Hint } from './view/Hint'
 import { ToolPalette } from './ToolPalette'
 import { TYPING } from './typing'
 import { Logo } from './Logo'
 import { openNote } from './drawing/make'
-import { ViewBar } from './ViewBar'
+import { Compass } from './view/Compass'
+import { ExplodeTag } from './ExplodeControl'
+import { MeasureTag } from './view/MeasureTag'
+import { SketchPlaneTag } from './sketch/SketchPanel'
+import { RoundNotes } from './review/RoundNotes'
+import { CompareBar } from './CompareBar'
+import { ReviewBar } from './ReviewBar'
+import { ExportBand, FailedBand, SketchBand, useBand } from './view/Band'
+import { LeftOutTags } from './view/LeftOut'
+import { outsideRound } from '../../shared/reviews'
+import { openRoundNow, useReview } from '../state/review'
 
 const NO_SCENE: Scene = { model: '', layouts: [], parts: [], seconds: 0, output: '' }
 
@@ -268,7 +275,10 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       viewport.canvas.style.cursor = id === null ? (tool?.cursor ?? '') : 'pointer'
       // What the tool lit under the pointer is under the chip: the chip has the pointer now.
       if (id === null) readout.hide()
-      else viewport.setHover(null)
+      else {
+        viewport.setHover(null)
+        pointPart(null)
+      }
     },
     say: (client, id) => {
       const s = store.getState()
@@ -611,7 +621,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       ghosts: () => viewport.ghostKeys(),
       earlier: () => viewport.earlierKeys(),
       later: () => viewport.laterKeys(),
-      compare: (from, to, prompt) => actions.compare(from, to, prompt),
+      compare: (from, to, prompt, changes) => actions.compare(from, to, prompt, changes),
       holdGhosts: (held) => viewport.holdGhosts(held),
       // What a pointer move costs: the same call, at points spread over the canvas in a grid.
       timePicks: (count = 200, opts) => timed(count, (x, y) => viewport.pick(x, y, opts) !== null),
@@ -621,6 +631,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
         const box = canvasBox(viewport)
         return viewport.pickScan(box.left + fx * box.width, box.top + fy * box.height)
       },
+      askedBox: () => viewport.askedBoxShown(),
       projectScan: (id, local) => {
         const scan = viewport.scanState().find((s) => s.id === id)
         if (!scan) throw new Error(`no scan ${id}`)
@@ -707,7 +718,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
 /**
  * Has a file dropped on the view imported as a scan into the open object: the
  * first of those dropped that torno reads. What comes to nothing is said in
- * the Scans panel, where it stays until it is put away. With no object open
+ * the Scans section, where it stays until it is put away. With no object open
  * a drop is not taken at all. Nothing of a drag goes through React.
  * Returns what undoes it.
  */
@@ -758,6 +769,14 @@ export function ViewportPane() {
   useEffect(() => {
     if (viewport) viewport.paused = boardShown
   }, [viewport, boardShown])
+  // While the review band is on, the marks that are not in its round are drawn dimmed: their chips mixed toward the ground.
+  const band = useBand()
+  const reviewing = band === 'review'
+  const roundId = useReview((s) => openRoundNow(s)?.id ?? null)
+  const allMarks = useStore((s) => s.marks)
+  useEffect(() => {
+    viewport?.setDimmedMarks(reviewing && roundId !== null ? outsideRound(allMarks, roundId) : null)
+  }, [viewport, reviewing, roundId, allMarks])
 
   useEffect(() => {
     // A canvas of its own for each viewport: a WebGL context is not handed on.
@@ -774,17 +793,16 @@ export function ViewportPane() {
     const readout = new Readout(host.current!)
     const disconnect = connect(made, readout)
     const pane = host.current!.parentElement!
-    // Where the view is narrower than the bars at its bottom need, they stand above the corners' triad and scale (styles/layout.css). Set on the element, not through React: it follows the size.
-    const sized = new ResizeObserver(() => {
-      made.resize()
-      pane.toggleAttribute('data-narrow', host.current!.clientWidth < NARROW_BELOW)
-    })
+    const sized = new ResizeObserver(() => made.resize())
     sized.observe(host.current!)
     const offDrop = acceptDrops(pane)
     // The first time the person moves the camera, the pointer hint at the foot of the view is done with.
     made.onNavigated(pointerMoved)
+    // The tags of the tools stand in this view: where they put themselves follows its camera.
+    const unbindPane = bindPane(made.paneProjection())
     setViewport(made)
     return () => {
+      unbindPane()
       offDrop()
       sized.disconnect()
       disconnect()
@@ -799,22 +817,30 @@ export function ViewportPane() {
   const hasDetails = Boolean(error?.traceback?.trim() || error?.output?.trim())
 
   return (
-    <div className="viewport-pane" inert={covered || boardShown} hidden={boardShown}>
+    <div className="viewport-pane" inert={covered || boardShown} hidden={boardShown} data-exporting={band === 'export' ? '' : undefined}>
       {/* Always laid out, so the camera is fitted to its real shape; what is said below covers it. */}
       <div className="viewport-canvas" ref={host} />
       {viewport && hasScene && (
         <>
-          <ViewBar viewport={viewport} />
+          <Compass viewport={viewport} />
+          {/* The band at the top left for a mode of the whole view: one shows (`bandOf`). */}
+          <ReviewBar />
+          <CompareBar />
+          <RoundNotes />
+          <SketchBand />
+          <FailedBand />
+          <ExportBand />
+          <LeftOutTags />
           <ToolPalette />
-          <Selection viewport={viewport} />
-          <MakeSet />
-          <SectionBar viewport={viewport} />
+          <SectionTag viewport={viewport} />
+          <SketchPlaneTag viewport={viewport} />
+          {/* The tags of Measure's last reading and of Explode, tied to the line and the track. */}
+          <MeasureTag />
+          <ExplodeTag viewport={viewport} />
           <AlignBar />
           <RegionBar />
-          <SketchPanel />
-          <SketchPens />
-          <AgentLine />
-          <QuestionCard where="view" />
+          <ScanReadSheet viewport={viewport} />
+          <Hint />
           <ToolHint />
           <NotePopover viewport={viewport} />
         </>
@@ -830,7 +856,7 @@ export function ViewportPane() {
           ) : name === null ? (
             <>
               <h2>No project open</h2>
-              <p>Choose a project in the left column to see its parts here.</p>
+              <p>Press Projects at the top of the rail to choose one and see its parts here.</p>
             </>
           ) : error ? (
             <>

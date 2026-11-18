@@ -1,23 +1,25 @@
-/* ---- Tools: the palette at the left edge of the viewport ---- */
+/* ---- The reed: the tools at the left of the view; the one in hand grows its name, key and choices to the right ---- */
 
+/* Centred on the left edge, 14px in. Each group is a pill of its own, 5px from the next. It is also the model view's and the tracing's. */
 .toolbox {
   position: absolute;
   top: 50%;
-  left: var(--space-3);
+  left: 14px;
+  z-index: 6;
   transform: translateY(-50%);
   display: grid;
-  gap: 2px;
-  padding: 3px;
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  justify-items: start;
+  gap: 5px;
 }
 
-/* A group of tools (inspect, mark, scan): spaced as the palette is, split from the next by its rule. */
+/* A group of tools (inspect, mark, scan): the panel at 94 % on the view, with the float shadow. */
 .toolbox-group {
   display: grid;
   gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: var(--float-shadow);
 }
 
 .tool-button {
@@ -28,144 +30,25 @@
   height: 34px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: 50%;
   background: transparent;
   color: var(--ink);
-}
-
-/* The Shape tool and, beside it while it is open, the choice of which shape it places. */
-.tool-with-choice {
-  position: relative;
-  display: grid;
-}
-
-.tool-choice {
-  position: absolute;
-  top: -4px;
-  left: calc(100% + 10px);
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-}
-
-/* In the bottom corner of the viewport while the Measure tool is in hand, clear of the part and of the bars: what its clicks measure.
-   Above the axis triad that corner holds (`--triad-clear`, `styles/layout.css`). */
-.measure-choice {
-  position: absolute;
-  bottom: calc(var(--triad-clear) + var(--space-1));
-  left: var(--space-3);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px;
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-  font-size: var(--text-small);
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.measure-choice .segmented {
-  border-color: transparent;
-  padding: 0;
-}
-
-.measure-choice .segmented + .segmented {
-  padding-left: 4px;
-  border-left: var(--divider);
-  border-radius: 0;
-}
-
-.measure-choice .segmented button {
-  height: 24px;
-  padding: 0 8px;
-}
-
-.measure-key {
-  padding: 0 7px 0 8px;
-  border-left: var(--divider);
-  line-height: 24px;
-}
-
-.measure-key kbd {
-  color: var(--ink);
-}
-
-/* The last measurement: a readout, not a mark, so in ink and muted, never in a mark's colour. */
-.measure-last {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding-left: 8px;
-  border-left: var(--divider);
-  line-height: 24px;
-  white-space: nowrap;
-}
-
-.measure-last-text {
-  color: var(--ink);
-}
-
-.measure-how,
-.measure-refused {
-  color: var(--muted);
-}
-
-.measure-refused {
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.measure-keep {
-  height: 24px;
-  padding: 0 8px;
-  border: var(--divider);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  cursor: pointer;
-}
-
-.measure-keep:hover {
-  background: var(--accent-wash);
-}
-
-.measure-keep:disabled {
-  color: var(--muted);
-  cursor: default;
-}
-
-.tool-choice .tool-button svg {
-  transform: none;
-}
-
-.tool-choice .tool-button[aria-checked='true'] {
-  background: var(--accent-wash);
-  color: var(--accent);
 }
 
 .tool-button svg {
-  width: 16px;
-  height: 16px;
-  /* Up and left a little: the key sits in the other corner. */
-  transform: translate(-2px, -2px);
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.35;
 }
 
 .tool-button:hover:enabled {
   background: var(--accent-wash);
 }
 
+/* The tool in hand: a filled accent circle with its icon on the accent. */
 .tool-button[aria-pressed='true'] {
-  background: var(--accent-wash);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .tool-button:disabled {
@@ -173,32 +56,144 @@
   opacity: 0.55;
 }
 
-/* The key that chooses the tool, like the size stamped on a drill's shank. */
-.tool-key {
-  position: absolute;
-  right: 3px;
-  bottom: 1px;
-  font-size: 11px;
-  line-height: 1.2;
-  color: var(--muted);
-}
-
-.tool-button[aria-pressed='true'] .tool-key {
-  color: inherit;
-}
-
 /* A scan's tool with no scan to work on: offered, and quieter. Not disabled: the click and the tip say why. */
 .tool-button[data-quiet]:not([aria-pressed='true']) svg {
   color: var(--muted);
 }
 
-/* ---- The tip beside a button of the palette: at once on the pointer and on the keys' focus ---- */
-
-/* A button and its tip. The button alone is a grid cell of the palette, as it was. */
+/* A button and what stands to its right: its tip, or the name of the tool in hand. The button alone is a grid cell of the group. */
 .tool-tipped {
   position: relative;
   display: grid;
 }
+
+/* The name that grows out of the tool in hand: an accent pill 6px from its button, the name, its key cap and its choices. It
+   takes the pointer only where its buttons are: the rest is the view's. */
+.reed-pill {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 6px);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 5px 0 12px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-row);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--float-shadow);
+  transform: translateY(-50%);
+  animation: reed-grow 0.22s var(--ease);
+}
+
+@keyframes reed-grow {
+  from {
+    clip-path: inset(0 100% 0 0 round 15px);
+    opacity: 0.4;
+  }
+}
+
+.reed-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--on-accent) 45%, transparent);
+  border-radius: var(--radius-inline);
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* The choices, an inner segment on the accent (`--on-accent` at 18 %), the pressed one `--on-accent` with accent text. */
+.reed-choices {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--on-accent) 18%, transparent);
+}
+
+.reed-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reed-seg + .reed-seg {
+  margin-left: 4px;
+  padding-left: 4px;
+  border-left: 1px solid color-mix(in srgb, var(--on-accent) 30%, transparent);
+}
+
+.reed-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.reed-choice:hover {
+  background: color-mix(in srgb, var(--on-accent) 18%, transparent);
+}
+
+.reed-choice[aria-pressed='true'] {
+  background: var(--on-accent);
+  color: var(--accent);
+}
+
+.reed-choice svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.35;
+}
+
+/* A shape is a picture: a little less padding. */
+.reed-pill[data-pill='shape'] .reed-choice {
+  padding: 0 6px;
+}
+
+.reed-choice-key {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+/* A key held with the pointer, said among the choices (Measure's thickness): no button. */
+.reed-note {
+  padding: 0 8px 0 6px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.reed-note kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reed-pill {
+    animation: none;
+  }
+}
+
+/* ---- The tip beside a button of the palette: at once on the pointer and on the keys' focus ---- */
 
 .tool-tip {
   position: absolute;
@@ -212,9 +207,9 @@
   max-width: 250px;
   padding: 6px 9px 7px;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--text-small);
   line-height: 1.4;
   /* It is looked at, never pointed at: the pointer goes through it to the view. */
@@ -238,7 +233,7 @@
   height: 18px;
   padding: 0 4px;
   border: var(--divider);
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted);
@@ -246,79 +241,4 @@
 
 .tool-tip-note {
   color: var(--muted);
-}
-
-/* The bars at the foot of the view slide to their place when the line below them comes or goes, or the view's width changes
-   (`--bar-lift`, `styles/layout.css`): one short transition, that ends, and none where motion is not wanted. */
-.selection,
-.sectionbar,
-.agent-line,
-.alignbar,
-.regionbar {
-  transition: bottom 120ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .selection,
-  .sectionbar,
-  .agent-line,
-  .alignbar,
-  .regionbar {
-    transition: none;
-  }
-}
-
-/* ---- The line at the foot of the view: what the tool in hand waits for, or, once, how the pointer moves the view ---- */
-
-/* Always there, empty, so that what comes into it is read out. It has no box of its own. */
-.tool-hint-live {
-  display: contents;
-}
-
-.tool-hint {
-  position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-floor));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  max-width: calc(100% - 2 * var(--stack-side));
-  margin: 0;
-  padding: 3px 11px;
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-  font-size: var(--text-small);
-  line-height: 26px;
-  color: var(--muted);
-  white-space: nowrap;
-  /* Nothing to press: the pointer goes through it to the view, and to the chips of the marks. */
-  pointer-events: none;
-}
-
-/* The words give way to the room there is; the way back stays whole. */
-.tool-hint-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tool-hint-stop {
-  flex: none;
-}
-
-.tool-hint kbd {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border: var(--divider);
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1;
-  color: var(--ink);
 }

@@ -1,36 +1,7 @@
 /* ---- Regions of a scan ---- */
 
-/* The bar of the Region tool: the surface of the other bars, two rows. The first is how the scan is painted,
-   the second what to do next and how much is painted. Nothing in it moves with the pointer. */
-.regionbar {
-  position: absolute;
-  bottom: calc(var(--space-3) + var(--bar-lift));
-  left: 50%;
-  transform: translateX(-50%);
-  display: grid;
-  gap: 4px;
-  width: max-content;
-  max-width: calc(100% - 2 * var(--stack-side));
-  padding: 4px 5px 5px;
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-  font-size: var(--text-small);
-}
-
-.regionbar[data-raised='1'] {
-  bottom: calc(var(--space-3) + 40px + var(--bar-lift));
-}
-
-.regionbar[data-raised='2'] {
-  bottom: calc(var(--space-3) + 80px + var(--bar-lift));
-}
-
-.regionbar[data-raised='3'] {
-  bottom: calc(var(--space-3) + 120px + var(--bar-lift));
-}
-
+/* The Region card (a procedure, `procedures.css`): what to do next, how far the brush reaches (or Through), Erase, Grow to
+   flat and Undo, how much is painted, a problem, and Clear and Keep as a mark. Nothing in it moves with the pointer. */
 .regionbar-row {
   display: flex;
   flex-wrap: wrap;
@@ -40,26 +11,15 @@
   white-space: nowrap;
 }
 
-.regionbar-row .segmented {
-  flex: none;
-  border-color: transparent;
-  padding: 0;
-}
-
-.regionbar-row .segmented button {
-  height: 24px;
-  padding: 0 9px;
-}
-
 .regionbar-label {
-  padding-left: 6px;
+  padding-right: 2px;
   color: var(--muted);
 }
 
 /* The field is in a span that is the flex item: the width is asked of that, or the number is clipped to a few figures. */
 .regionbar-radius {
   display: flex;
-  flex: 0 0 76px;
+  flex: 0 0 84px;
 }
 
 .regionbar-radius .align-field {
@@ -67,53 +27,43 @@
   max-width: none;
 }
 
-.regionbar-rule {
-  align-self: stretch;
-  width: 0;
-  margin: 3px 2px;
-  border-left: var(--divider);
-}
-
-.regionbar-row[data-part='foot'] {
-  padding-left: 6px;
-  gap: 6px;
-}
-
-/* The one line that says what to do next: the loudest text of the bar. It may take a second line in a narrow view. */
+/* The one line that says what to do next: the loudest text of the card. */
 .regionbar-next {
-  margin: 0;
-  padding: 0 6px;
   color: var(--ink);
   font-size: var(--text-size);
-  text-wrap: pretty;
 }
 
+/* How much is painted: the count large, in the monospace face, and what it is of under it. */
 .regionbar-count {
-  flex: 1 1 auto;
+  display: grid;
+  gap: 1px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.regionbar-total {
   color: var(--muted);
 }
 
-.regionbar-count .num {
+.regionbar-total .num {
   color: var(--ink);
+  font-size: 22px;
+  line-height: 1.2;
 }
 
 .regionbar-count[data-empty] .num {
   color: var(--muted);
 }
 
-/* What Enter does: the one button of the bar that stands out, as every primary button does: the accent, never a mark's colour. */
-.regionbar-keep:not(:disabled) {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--panel);
+.regionbar-of {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.regionbar-of .num {
+  color: var(--ink);
 }
 
 .regionbar-note {
-  margin: 0;
-  padding: 0 6px 1px;
   color: var(--muted);
   text-wrap: pretty;
   white-space: normal;

@@ -2,6 +2,9 @@ import type { Ready } from '../../shared/ready'
 
 export type Tone = 'ok' | 'warn' | 'fail' | 'wait'
 
+/** The sign at the head of a line: a tick, !, × (the ok, warn and fail colours say the rest), and an ellipsis while it waits. */
+export const glyphOf = (tone: Tone): string => ({ ok: '✓', warn: '!', fail: '×', wait: '…' })[tone]
+
 /** A piece of a line: plain words, or something set in the face of numbers and refs (a path, a version, a command). */
 export type Piece = string | { num: string }
 
@@ -107,9 +110,10 @@ export const lacking = (lines: Line[]): Line[] => lines.filter((l) => l.tone ===
  */
 export const makesEnvironment = (ready: Ready | null): boolean => ready !== null && ready.kernel.state === 'starting' && ready.environment.kind === 'torno' && !ready.environment.made
 
-/** The one line the block folds to when everything is ready. */
+/** The one line the block folds to when everything is ready: "Claude Code 2.1.4 and build123d 0.13.0 are ready" (the version, when it was asked for). */
 export function foldedLine(ready: Ready, lines: Line[]): string {
+  const claude = ready.claude.version ? `Claude Code ${ready.claude.version}` : 'Claude Code'
   const kernel = ready.kernel.state === 'ready' && ready.kernel.versions.build123d ? `build123d ${ready.kernel.versions.build123d}` : null
-  if (kernel === null) return lines.some((l) => l.id === 'kernel') ? "Claude Code and torno's Python environment are ready" : 'Claude Code is ready'
-  return `Claude Code and ${kernel} are ready`
+  if (kernel === null) return lines.some((l) => l.id === 'kernel') ? `${claude} and torno's Python environment are ready` : `${claude} is ready`
+  return `${claude} and ${kernel} are ready`
 }

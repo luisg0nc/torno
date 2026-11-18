@@ -3,9 +3,9 @@ import type { DiffRow, Hunk } from './lineDiff'
 
 const SIGN: Record<DiffRow['kind'], string> = { same: '', removed: '−', added: '+', gap: '' }
 
-function Row({ row }: { row: DiffRow }) {
+function Row({ row, numbers }: { row: DiffRow; numbers: boolean }) {
   if (row.kind === 'gap') return (
-      <div className="diff-row" data-kind="gap">
+      <div className="diff-row" data-kind="gap" data-numbered={numbers ? '' : undefined}>
         <span>{numbered(row.text)}</span>
       </div>
     )
@@ -13,6 +13,11 @@ function Row({ row }: { row: DiffRow }) {
   const line = row.kind === 'removed' ? <del>{row.text}</del> : row.kind === 'added' ? <ins>{row.text}</ins> : <span>{row.text}</span>
   return (
     <div className="diff-row" data-kind={row.kind}>
+      {numbers && (
+        <span className="diff-line num" aria-hidden="true">
+          {row.line}
+        </span>
+      )}
       <span className="diff-sign" aria-hidden="true">
         {SIGN[row.kind]}
       </span>
@@ -24,9 +29,10 @@ function Row({ row }: { row: DiffRow }) {
 /**
  * An edit of a file as lines removed (struck through, with a "−") and added (with a "+"), one block for each edit.
  * Text only, in the monospace face. Neither red nor green: those belong to marks and verdicts. `ofEdit` false: the hunks
- * are of a whole file (the sheet "See changes"), which the caption on an edit's lines would not be true of.
+ * are of a whole file (the sheet "See changes"), which the caption on an edit's lines would not be true of. `numbers`: the rows carry
+ * their line numbers (`diffText(…, true)`), set in a column of their own.
  */
-export function Diff({ hunks, ofEdit = true }: { hunks: Hunk[]; ofEdit?: boolean }) {
+export function Diff({ hunks, ofEdit = true, numbers = false }: { hunks: Hunk[]; ofEdit?: boolean; numbers?: boolean }) {
   return (
     <div className="diff selectable">
       {hunks.map((hunk, n) => (
@@ -38,7 +44,7 @@ export function Diff({ hunks, ofEdit = true }: { hunks: Hunk[]; ofEdit?: boolean
           {hunk.rows.length > 0 && (
             <div className="diff-rows">
               {hunk.rows.map((row, at) => (
-                <Row key={at} row={row} />
+                <Row key={at} row={row} numbers={numbers} />
               ))}
             </div>
           )}

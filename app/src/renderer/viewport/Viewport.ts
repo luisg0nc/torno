@@ -7,14 +7,16 @@ import { STROKE_REF } from '../../shared/sets'
 import type { ScanInfo, ScanTransform, ScanView } from '../../shared/scans'
 import type { Camera, SectionPlane, ViewName } from '../../shared/view'
 import type { AlignPoint } from './alignPoints'
+import type { AskedBox } from './askedBox'
 import type { BrushRing } from './brushRing'
 import { CameraMove, pivotOn, standingAt } from './cameraMoves'
 import { PartsApart, asBuilt, drawnAt, drawnBox, reachingApart, leavesView } from './explode'
+import type { TrackPlan } from './explodeTrack'
 import { groundOf } from './ground'
 import { Highlights, MARK_LAYERS, type HighlightLayer } from './highlight'
 import { mmPerPx, needsCamera } from './marks/labels'
 import { MarkLayer, type Draft } from './marks/MarkLayer'
-import { overlayFonts, type LabelStyle } from './overlay'
+import { overlayFonts, type LabelStyle, type PaneProjection } from './overlay'
 import { OverlayPass } from './overlayPass'
 import { partChanged } from '../../shared/diff'
 import type { CompareMode } from '../state/compare'
@@ -22,6 +24,7 @@ import { Earlier } from './earlier'
 import { Ghosts, type GhostItem } from './ghosts'
 import { STALE_FADE, colorFor, colorsOfParts, edgeTint, mix } from '../../shared/palette'
 import { aimKeyLight, makeLights } from './lights'
+import { refPoint } from './refPoint'
 import { selectionBox } from './selectionBox'
 import { buildPart, type BuiltPart, disposePart } from './partMesh'
 import { type Hit, pickUnder, pointerRay } from './picking'
@@ -30,7 +33,8 @@ import { ThumbnailMaker, type ThumbnailView } from './thumbnail'
 import { PointerRouter, type ViewportPointer } from './pointer'
 import { ScanEdit } from './scanEdit'
 import { ScanLayer, rayOf, reaching, type ScanHit, type ScanLayerState } from './scans'
-import { SectionCut, nearSegmentOnScreen, segmentOnScreen } from './section'
+import { SectionCut, nearSegmentOnScreen, sectionOffset, segmentOnScreen } from './section'
+import { ruleAt } from './sectionRule'
 import { TracingLayer, type ShownTracing, type TracingState } from './tracings'
 import { ShapeGizmo, type GizmoMode, type ShapeTransform } from './ShapeGizmo'
 import { type Theme, LIGHT_THEME, XRAY_OPACITY, markColours, themeOf, toHex } from './theme'
@@ -40,7 +44,7 @@ import { HANDLE_REACH_PX, SketchSheet } from './sketchPlane'
 import { type PlaneDraft } from '../tools/sketch/planes'
 import { SnapIndex, type SnapPart } from '../tools/sketch/snap'
 import { faceAt } from './viewCube'
-import { DEFAULT_FOV, fitBelow, fitCamera, lockedViewOf, viewDirection } from './views'
+import { DEFAULT_FOV, fitCamera, lockedViewOf, viewDirection } from './views'
 
 export interface LayerState {
   visible?: boolean
@@ -123,9 +127,10 @@ export class Viewport {
   private readonly navigatedListeners: (() => void)[] = []
   private navigating = false
   private readonly drawnListeners = new Set<() => void>()
+  /** The box the section is laid across and whether its rule is drawn (`cutBy`): on the screen's frames, not in a picture. */
+  private ruleBox: { min: ArrayLike<number>; max: ArrayLike<number> } = EMPTY_BOX
+  private ruleShown = false
   private readonly sectionListeners = new Set<(plane: SectionPlane | null) => void>()
-  /** How many pixels at the top of the canvas the bars floating over it cover: what is framed on screen is framed below them. */
-  private coveredTop = 0
   /** The camera before the parts drawn apart were framed anew (`keepApartInView`), and the one they were framed by: gone back to when they come together, if the camera is still that one. */
   private framedApart: { before: Camera; after: Camera } | null = null
   private readonly move = new CameraMove()
@@ -195,7 +200,7 @@ export class Viewport {
     this.ground.frustumCulled = false
     this.scene.add(this.ground, this.scans.group, this.tracings.group, this.marks.group, this.section.decor, this.ghosts.group, this.earlier.group, this.later.group, this.sketchSheet.group)
 
-    this.overlay = new OverlayPass({ canvas, marks: this.marks, camera: () => this.camera, layout: () => this.layout, style: () => ({ ...this.labelStyle(), accent: this.theme.accent }), frame: () => ({ muted: this.theme.muted, axes: [this.theme.axisX, this.theme.axisY, this.theme.axisZ] as const, gridStep: this.gridStepMm }), project: (p) => this.project(p), syncMatrices: () => this.syncMatrices(), exploded: () => this.apart.any })
+    this.overlay = new OverlayPass({ canvas, marks: this.marks, camera: () => this.camera, layout: () => this.layout, style: () => ({ ...this.labelStyle(), accent: this.theme.accent, onAccent: this.theme.onAccent }), frame: () => ({ muted: this.theme.muted, axes: [this.theme.axisX, this.theme.axisY, this.theme.axisZ] as const, gridStep: this.gridStepMm }), project: (p) => this.project(p), syncMatrices: () => this.syncMatrices(), exploded: () => this.apart.any, section: () => (this.ruleShown && this.section.get() ? { plane: this.section.get()!, box: this.ruleBox } : null) })
     // A label drawn before its face has loaded is in the fallback face: draw again once it is there.
     void overlayFonts().then(() => this.invalidate())
 
@@ -523,6 +528,23 @@ export class Viewport {
     this.invalidate()
   }
 
+  /** The box a scan would have if it were read in another unit (its read question is asked), dashed with its size: in `--accent`, in no picture. Null for none. */
+  showAskedBox(box: AskedBox | null): void {
+    this.overlay.asked = box
+    this.invalidate()
+  }
+
+  /** The box now drawn for the scan read question, with its words; null for none. Only for the tests. */
+  askedBoxShown(): AskedBox | null {
+    return this.overlay.asked
+  }
+
+  /** The box a scan is drawn in, in the object frame, in the layout shown; null while its mesh has not come or it is switched off. */
+  scanBox(id: string): { min: Vec3; max: Vec3 } | null {
+    const box = this.scans.state().find((scan) => scan.id === id)?.visible ? this.scans.boxIn([id], this.layout) : null
+    return box ? { min: box.min.toArray(), max: box.max.toArray() } : null
+  }
+
   /** Numbered dots for the ends of the pairs being made and the points of a floor: in `--accent`, in no picture. */
   showAlignPoints(points: AlignPoint[]): void {
     this.overlay.alignPoints = points
@@ -580,6 +602,12 @@ export class Viewport {
     this.invalidate()
   }
 
+  /** The marks whose chips are drawn dimmed, mixed toward the ground (the review band is on and they are not in its round); null for none. On screen only. */
+  setDimmedMarks(ids: ReadonlySet<string> | null): void {
+    this.overlay.dimmed = ids
+    this.invalidate()
+  }
+
   /** The mark the pointer is on, in its row or on its chip, or null: its chip is ringed, more faintly than the active one's. On screen only. */
   setHoverMark(id: string | null): void {
     if (id === this.marks.hoverId) return
@@ -630,8 +658,6 @@ export class Viewport {
    */
   setDraft(draft: Draft | null): void {
     this.marks.setDraft(draft)
-    const held = draft?.kind === 'dimension' && draft.to && draft.held !== undefined ? draft : null
-    this.overlay.held = held && held.to ? { at: [(held.from[0] + held.to[0]) / 2, (held.from[1] + held.to[1]) / 2, (held.from[2] + held.to[2]) / 2], text: held.held! } : null
     this.extent = this.measured()
     this.invalidate()
   }
@@ -726,6 +752,16 @@ export class Viewport {
     this.invalidate()
   }
 
+  /** Where the handle of the sketch's sheet is as last sized, in the object frame, for the tag tied to it; null with no sheet. */
+  sketchHandle(): Vec3 | null {
+    return this.sketchSheet.handlePoint()
+  }
+
+  /** How far the sheet is laid from where its plane was made, as it is now, a drag of its handle included; null where it has none. */
+  sketchOffset(): number | null {
+    return this.sketchSheet.offsetNow()
+  }
+
   /** Whether the pointer is on the handle of the sheet (client pixels). */
   onSketchHandle(clientX: number, clientY: number): boolean {
     const at = this.sketchSheet.handlePoint()
@@ -790,8 +826,8 @@ export class Viewport {
   }
 
   /**
-   * Frames the parts again when one of them, drawn apart, would leave the view where it is going, or go under
-   * the bars over its top (`leavesView`, `setCoveredTop`); leaves the camera alone otherwise. Asked whenever the
+   * Frames the parts again when one of them, drawn apart, would leave the view where it is going
+   * (`leavesView`); leaves the camera alone otherwise. Asked whenever the
    * parts are drawn apart otherwise, by whatever path (the view bar, once it is laid out), and when a saved view is
    * applied: the camera is theirs, and is moved only so that no part goes out of sight. What it was before is
    * gone back to when the parts come together (`backFromApart`). True when it was moved.
@@ -799,14 +835,12 @@ export class Viewport {
   keepApartInView(): boolean {
     if (!this.apart.any) return false
     this.syncMatrices()
-    // Where the camera is going, when it is on its way; and the view is what the bars over its top leave of it.
+    // Where the camera is going, when it is on its way.
     const goal = this.move.goal
     const camera = goal ? this.cameraFor(goal, this.aspect, this.extent) : this.camera
-    const height = this.canvas.clientHeight
-    const clear = height > 0 ? Math.max(height - Math.min(this.coveredTop, height / 2), 1) / height : 1
     const seen = (point: Vec3): [number, number] => {
       const v = new THREE.Vector3().fromArray(point).project(camera)
-      return [v.x, (v.y + 1) / clear - 1]
+      return [v.x, v.y]
     }
     if (!leavesView(this.shownParts(), this.apart.target(), seen)) return false
     // Framed anew a second time, the camera goes back to where it was before the first.
@@ -816,12 +850,10 @@ export class Viewport {
     return true
   }
 
-  /**
-   * How many pixels at the top of the canvas the bars floating over it cover. A view key, Fit, a scan's Frame
-   * and `keepApartInView` frame the parts in what the bars leave; a picture for the agent has no bars.
-   */
-  setCoveredTop(px: number): void {
-    this.coveredTop = Number.isFinite(px) ? Math.max(px, 0) : 0
+  /** The track Explode stands beside the parts (`ui/ExplodeControl.tsx`), drawn on the overlay: where it is and how far apart the parts are, 0 to 1; null takes it down. */
+  setExplodeTrack(track: { plan: TrackPlan; amount: number; disabled: boolean } | null): void {
+    this.overlay.explodeTrack = track
+    this.invalidate()
   }
 
   /** Whether the parts are drawn apart, or are on their way there or back: what is on screen is then not where they are. */
@@ -1151,6 +1183,17 @@ export class Viewport {
     return span !== null && nearSegmentOnScreen(this.camera, span[0], span[1], [clientX - rect.left, clientY - rect.top], rect, SECTION_HANDLE_REACH_PX)
   }
 
+  /** Whether a point of the window is on the handle of the section's rule on the ground. False while there is none drawn. */
+  onSectionRuleHandle(clientX: number, clientY: number): boolean {
+    return this.overlay.onRuleHandle(clientX, clientY)
+  }
+
+  /** Where the handle of the section's rule stands, in the object frame; null with no section. A drag of it follows the rule's line. */
+  sectionRuleAt(): Vec3 | null {
+    const plane = this.section.get()
+    return plane ? ruleAt(this.ruleBox, plane.normal, sectionOffset(plane, this.ruleBox)) : null
+  }
+
   /** Which way the handle's arrow points as it is drawn, from its foot to its tip in pixels, y down; null while there is no handle in view. */
   sectionHandleOnScreen(): [number, number] | null {
     const rect = this.canvas.getBoundingClientRect()
@@ -1184,7 +1227,9 @@ export class Viewport {
   /** Cuts by a plane laid across a layout's parts; `decor` says whether the plane itself is drawn. */
   private cutBy(plane: SectionPlane | null, layout: string, decor: boolean): void {
     this.section.showDecor(decor)
-    this.section.set(plane, this.boxOfLayout(layout))
+    this.ruleBox = this.boxOfLayout(layout)
+    this.ruleShown = decor
+    this.section.set(plane, this.ruleBox)
     this.marks.setSection(plane)
     // A picture is drawn at once, with the parts it shows already switched on; the screen's frame asks in `draw`.
     if (!decor) this.section.outline()
@@ -1207,6 +1252,30 @@ export class Viewport {
     this.syncMatrices()
     const v = new THREE.Vector3().fromArray(part === undefined ? point : drawnAt({ name: part, loc: { t: point } }, this.apart.offsets())).project(this.camera)
     return [rect.left + ((v.x + 1) / 2) * rect.width, rect.top + ((1 - v.y) / 2) * rect.height]
+  }
+
+  /**
+   * What the tags of the view need of this camera (`bindPane`, `viewport/overlay.ts`): where a point of the object frame is
+   * drawn in pixels from the canvas's top left, null behind the camera or past its far plane, the canvas's box, and a call
+   * after each frame.
+   */
+  paneProjection(): PaneProjection {
+    return {
+      project: (point) => {
+        this.syncMatrices()
+        const v = new THREE.Vector3().fromArray(point).project(this.camera)
+        if (!(v.z >= -1 && v.z <= 1)) return null
+        const rect = this.canvas.getBoundingClientRect()
+        return { x: ((v.x + 1) / 2) * rect.width, y: ((1 - v.y) / 2) * rect.height }
+      },
+      rect: () => this.canvas.getBoundingClientRect(),
+      onDrawn: (cb) => this.onDrawn(cb),
+      refPoint: (ref) => {
+        this.syncMatrices()
+        return refPoint(this.partNamed, ref)
+      },
+      seen: (point) => this.visibleAt([point[0], point[1], point[2]])
+    }
   }
 
   /** Marks what the pointer is on; null for nothing. */
@@ -1539,11 +1608,11 @@ export class Viewport {
 
   // ---- camera ----
 
-  /** A camera on screen that looks along `dir` and frames `box` in what the bars over the canvas leave of it. */
+  /** A camera on screen that looks along `dir` and frames `box`. */
   private onScreen(box: { min: number[]; max: number[] }, { dir, up }: { dir: number[]; up: number[] }, ortho: boolean): Camera {
     const [width, height] = [this.canvas.clientWidth, this.canvas.clientHeight]
     if (width === 0 || height === 0) return fitCamera(box, dir, up, this.aspect, this.fov, ortho)
-    return fitBelow(box, dir, up, width, height, this.coveredTop, this.fov, ortho)
+    return fitCamera(box, dir, up, width / height, this.fov, ortho)
   }
 
   private namedCamera(name: ViewName, box: { min: number[]; max: number[] }, aspect: number, ortho: boolean): Camera {

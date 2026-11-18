@@ -36,6 +36,13 @@ describe('what a ref in the chat can do', () => {
     expect(refInfo(store.getState(), 'M2')).toMatchObject({ live: true, author: 'agent', lights: [], act: 'focus' })
   })
 
+  it('carries what the person says of their mark, for the round sign before its chip, and nothing of the agent\'s', () => {
+    store.setState({ marks: [{ ...pin('M1', 'user', undefined), intent: 'dont' } as unknown as Mark, { ...pin('M2', 'agent', undefined), intent: 'want' } as unknown as Mark, pin('M3', 'user', undefined)] })
+    expect(refInfo(store.getState(), 'M1').intent).toBe('dont')
+    expect(refInfo(store.getState(), 'M2').intent).toBeUndefined()
+    expect(refInfo(store.getState(), 'M3').intent).toBeUndefined()
+  })
+
   it('says a mark the object does not have is not among its marks, and does nothing', () => {
     expect(refInfo(store.getState(), 'M9')).toMatchObject({ kind: 'mark', live: false, lights: [], title: 'M9 is not among the marks of this project' })
   })

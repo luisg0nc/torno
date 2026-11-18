@@ -1,0 +1,160 @@
+/* The conversation cut into prompts (Task 30): each prompt starts with a head, then the person's words, Claude's text, the tools as chips, and the end of the turn. The blocks themselves are in chat.css. */
+
+/* Air above a prompt, so that the head reads as the start of something. */
+.chat-group:has(> .chat-phead) {
+  margin-top: var(--space-4);
+}
+
+.chat-group:first-child:has(> .chat-phead) {
+  margin-top: 0;
+}
+
+/* The head: "Prompt 14", the builds it made, a hairline to the right edge. */
+.chat-phead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.chat-phead::after {
+  content: '';
+  flex: 1;
+  min-width: var(--space-4);
+  height: 1px;
+  background: var(--hairline);
+}
+
+.chat-phead-n {
+  flex: none;
+  color: var(--ink);
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: -0.03em;
+}
+
+.chat-phead-to {
+  flex: none;
+  font: 400 10.5px var(--font-mono);
+  letter-spacing: -0.03em;
+}
+
+.chat-phead-to b {
+  font-weight: 500;
+}
+
+.chat-phead-new {
+  color: var(--accent);
+}
+
+.chat-phead-fail {
+  color: var(--fail);
+}
+
+.chat-phead[data-builds='failed'] .chat-phead-to {
+  color: var(--fail);
+}
+
+.chat-phead-note {
+  flex: none;
+}
+
+/* A prompt waiting its turn: an outlined block, muted words, no ink. */
+.chat-phead[data-queued] .chat-phead-n {
+  color: var(--muted);
+}
+
+.chat-user[data-state='queued'] .chat-you {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.chat-user[data-state='queued'] .chat-you .ref-chip {
+  box-shadow: none;
+}
+
+/* Claude's words: 13.5 px, a line and a half, no wider than 62 characters. */
+.chat-text {
+  max-width: 62ch;
+  font-size: var(--text-size);
+  line-height: 1.55;
+}
+
+/* The tools of a run, side by side and wrapping; one that is open, with its picture or its build, takes the whole row. */
+.chat-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+
+.chat-tools > .chat-group,
+.chat-tools > .chat-fold {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  content-visibility: visible;
+}
+
+.chat-tools > .chat-group:has(.chat-tool-body, .chat-pictures, .chat-build, .chat-tool-said, .chat-tasks),
+.chat-tools > .chat-fold[data-open] {
+  flex: 1 1 100%;
+}
+
+.chat-group > .chat-item + .chat-turn {
+  margin-top: var(--space-2);
+}
+
+/* The turn's menu: the dots, and the card they open. */
+.turn-more {
+  flex: none;
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+}
+
+.turn-more[aria-expanded='true'] {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+.turn-more-menu {
+  display: grid;
+  gap: 1px;
+}
+
+.turn-more-menu .menu-item {
+  width: 100%;
+}
+
+.turn-icon {
+  flex: none;
+}
+
+/* What Pin said, or what Go back could not do, under the turn's line. */
+.chat-turn-said,
+.chat-turn-actions .chat-turn-problem {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: right;
+}
+
+/* What the person built between two prompts: the ring is in their own mark's colour. */
+.chat-save[data-cause='person']::before {
+  border-color: var(--user-mark);
+}
+
+/* Prompts a Go back undid: the person's block is outlined and muted, not ink, so that it reads as gone and keeps its contrast. */
+.chat-gone-body .chat-you {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.chat-gone-body .chat-you .ref-chip {
+  box-shadow: none;
+}

@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { letGoText, rebuildHelps } from '../../shared/build'
 import { landingText } from '../../shared/diff'
 import { hint } from '../../shared/keys'
-import { unmetDimensions } from '../../shared/dimension'
+import { isCheck, unmetDimensions } from '../../shared/dimension'
 import type { Part } from '../../shared/scene'
 import { partDefects } from '../../shared/sanity'
 import { makesEnvironment } from './readyLines'
 import { landedOn } from '../state/landing'
 import { compareStatus } from '../state/compare'
 import { useSets } from '../state/sets'
-import { actions, partsInLayout, useStore } from '../state/store'
+import { actions, partsInLayout, store, useStore } from '../state/store'
 import { BuildErrorSheet } from './BuildErrorSheet'
 import { withRefs } from './CompareBar'
 import { UNCHECKED_AFTER_MS, useLasting } from './MarkRow'
@@ -18,6 +18,12 @@ import { focusAsk, waitingObjects } from './sessionSign'
 import { gitFilesSaid } from '../../shared/git'
 import { GitText } from './GitText'
 import { useGit } from './useGit'
+import { useElapsed } from './useElapsed'
+import { ticksOf } from './strip/strip'
+import { useFailedAnchor } from './strip/failedAnchor'
+import { useStripNodes } from './strip/useStripNodes'
+import { SavedFile, letGoOnBuild } from './SavedFile'
+import { useKept } from '../state/exportSaved'
 
 /** `2 dimensions fail`, `1 dimension not measured`. */
 export function dimensionCount(count: number, what: 'fail' | 'not measured'): string {
@@ -44,20 +50,18 @@ export function goToRow(id: string): void {
   actions.listMarksOnPart(null)
   actions.selectMark(id)
   actions.setActiveMark(id)
-  // Its row is there already, whichever layout is shown: an open mark is never folded away.
-  document.querySelector(`.mark-row[data-mark="${id}"]`)?.scrollIntoView({ block: 'nearest' })
-}
-
-/** Whole seconds since `startedAt`, counted once a second while a build runs. */
-function useElapsed(startedAt: number | undefined): number {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (startedAt === undefined) return
-    setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [startedAt])
-  return startedAt === undefined ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000))
+  // A dimension check's row is under Checks (the one that is a mark's own opens below it once it is the active mark), any other
+  // mark's under Marks.
+  const mark = store.getState().marks.find((m) => m.id === id)
+  const check = mark !== undefined && isCheck(mark)
+  const row = check ? `.check-row[data-check-mark="${id}"]` : `.mark-row[data-mark="${id}"]`
+  // Its row is there already, whichever layout is shown: an open mark is never folded away. Unless its section of the card is folded:
+  // then the section is unfolded and brought into sight first, and the row once it is drawn.
+  if (document.querySelector(row) !== null) return document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
+  actions.showSection(check ? 'checks' : 'marks')
+  const scroll = (): void => document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(scroll))
+  else scroll()
 }
 
 /** A duration to a tenth of a second, to whole seconds from ten up; never shown as nothing. */
@@ -113,8 +117,18 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
   // What git says of the sources: read by main, never written.
   const git = useGit()
 
-  // The history of the project is "Prompts only" in the session pane: this button puts it up and away.
-  const historyOpen = useStore((st) => st.promptsOpen)
+  // The last builds as ticks, and the build on show for the line that says how it went.
+  const strip = useStripNodes()
+  const ticks = ticksOf(strip.nodes)
+  const shownId = strip.nodes.find((n) => n.onShow)?.id
+  // The error of the failed build stands from its node in the strip, or from this line when the strip is not drawn.
+  const failedAfter = strip.nodes.findLast((n) => n.kind === 'failed')?.after
+  const failedNode = useFailedAnchor()
+  // The file an export wrote stands where Export… is until the next build begins, or a minute (`state/exportSaved.ts`).
+  const kept = useKept((st) => st.file !== null)
+  useEffect(() => {
+    if (building) letGoOnBuild()
+  }, [building])
   const compare = useStore((st) => st.compare)
   // Why Ctrl+G did nothing, for a moment.
   const setSaid = useSets((s) => s.said)
@@ -133,6 +147,13 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
       ) : (
         <>
           <span className="status-name">{name}</span>
+          {ticks.length > 0 && (
+            <span className="status-ticks" role="img" aria-label={`The last ${ticks.length === 1 ? 'build' : `${ticks.length} builds`}${shownId ? `, ${shownId} on show` : ''}`} data-part="ticks">
+              {ticks.map((tick) => (
+                <span key={tick.id} className="status-tick" data-kind={tick.kind} data-on-show={tick.onShow ? '' : undefined} data-saved={tick.saved ? '' : undefined} data-build={tick.id} />
+              ))}
+            </span>
+          )}
           <span className="status-build" data-status={build.status}>
             {/* While a build runs its dot beats with the count of its seconds: once a second, by this render, and by no animation that runs on. */}
             <span className="status-dot" data-beat={building && elapsed % 2 === 1 ? 'off' : undefined} aria-hidden="true" />
@@ -143,7 +164,10 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
             )}
             {build.status === 'building' && firstTime && <span>Making torno's Python environment, first time only</span>}
             {build.status === 'ok' && (
-              <span>Built{build.seconds !== undefined && <> in <span className="num">{seconds(build.seconds)}</span> s</>}</span>
+              <span>
+                {shownId ? <><span className="num">{shownId}</span> built</> : 'Built'}
+                {build.seconds !== undefined && <> in <span className="num">{seconds(build.seconds)}</span> s</>}
+              </span>
             )}
             {build.status === 'ok' && hasScene && landedText !== '' && (
               <span className="status-landed" data-part="landing" title={landedLines === '' ? undefined : `Since the build before:\n${landedLines}`}>
@@ -180,11 +204,6 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
             <span className="status-compare" role="status" title="Two builds are compared in the view, for looking only. Back to the live build ends it" data-part="compare">
               {withRefs(compareStatus(compare))}
             </span>
-          )}
-          {hasScene && (
-            <button type="button" className="status-history" aria-expanded={historyOpen} title="Every prompt of this project, a row each, with the builds that came out of it: compare them" onClick={() => actions.setPromptsOpen(!historyOpen)}>
-              History
-            </button>
           )}
           {git && (
             <span className="status-git" data-part="git" title={git.changed > 0 ? gitFilesSaid(git) : undefined}>
@@ -241,14 +260,20 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
         )}
       </span>
       {/* The open object, as one HTML file or a file of the model. With the page of objects up, the page has the button for them all. */}
-      {objectId !== null && !paged && !creating && (
-        <button type="button" className="status-export" title="Export this project: one HTML file that opens by itself, or a STEP, STL or 3MF file" onClick={() => actions.exportSheet([objectId])}>
-          Export…
-        </button>
+      {kept ? (
+        <SavedFile />
+      ) : (
+        objectId !== null &&
+        !paged &&
+        !creating && (
+          <button type="button" className="status-export" title="Export this project: one HTML file that opens by itself, or a STEP, STL or 3MF file" onClick={() => actions.exportSheet([objectId])}>
+            Export…
+          </button>
+        )
       )}
       {build123d && <span className="num">build123d {build123d}</span>}
       {errorOpen && error && name !== null && (
-        <BuildErrorSheet objectName={name} error={error} onClose={() => actions.setErrorOpen(false)} />
+        <BuildErrorSheet objectName={name} error={error} after={failedAfter} anchor={failedNode} onClose={() => actions.setErrorOpen(false)} />
       )}
     </footer>
   )

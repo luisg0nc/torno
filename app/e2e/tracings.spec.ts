@@ -7,6 +7,7 @@ import type { OffsetMark } from '../src/shared/marks'
 import type { Tracing, TracingCut } from '../src/shared/tracings'
 import { png } from '../src/test/pngFixtures'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // A tracing from start to file, in the hidden window: made on a flat face of the `bracket` fixture, a photo of the part lined up under it by two
 // corners of its outline, a layer of Claude's (the stand-in plays `add_layer` through torno's own MCP server), a shape of it dragged to where it should be,
@@ -90,6 +91,9 @@ test('a tracing on a flat face of the part is T1, with the outline the kernel cu
   await switchTo('Tracing')
   await expect(panel()).toBeVisible()
   await expect(panel()).toHaveAttribute('data-tracing', 'T1')
+  // The panel is in the card: the Tracings section opened by itself when the view came, with the tracing's row above the panel.
+  await expect(page.locator('[data-section="tracings"] .tracing-row[data-tracing="T1"] .tr-panel')).toBeVisible()
+  await expect(page.locator('[data-section="tracings"] .tracing-row[data-open]')).toHaveCount(1)
   await expect(panel().locator('.tr-id')).toHaveText('T1')
   await expect.poll(() => page.evaluate(async () => (await window.torno.tracings.outline('bracket', 'T1')) !== null), { timeout: 20_000 }).toBe(true)
   // The outline is drawn: the kernel's cut of the plane, the base and not the post that stands on it.
@@ -140,7 +144,7 @@ test('a photo is added through the dialog and lined up by two snapped corners; t
 })
 
 test('Claude adds a layer through the stand-in, and its row says by Claude', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   const cut = await outlineOf()
   const [u, v] = [(cut.cut.bounds!.min[0] + cut.cut.bounds!.max[0]) / 2, (cut.cut.bounds!.min[1] + cut.cut.bounds!.max[1]) / 2]
@@ -166,7 +170,8 @@ test('Should be here drags Claude\'s shape to where it belongs, and the next pro
   await page.mouse.move(x, y)
   await page.mouse.down()
   await page.mouse.move(mx, my, { steps: 4 })
-  await expect(page.locator('.tr-pointer-hint')).toContainText('bolt 1 should be here')
+  // Its words are a tag tied to the shape's ghost (Task 24), no longer a line at the pointer.
+  await expect(page.locator('[data-tag="tracing-offset"]')).toContainText('bolt 1 should be here')
   await page.mouse.up()
   await expect.poll(async () => (await marks()).filter((m) => m.kind === 'offset').length).toBe(1)
   const offset = (await marks()).find((m) => m.kind === 'offset')!
@@ -176,7 +181,7 @@ test('Should be here drags Claude\'s shape to where it belongs, and the next pro
 
   await say('say received')
   const added = chat().locator('.chat-added').last()
-  await expect(added).toContainText('torno added', { timeout: 30_000 })
+  await expect(added.locator('.chat-added-label')).toHaveText('with', { timeout: 30_000 })
   await added.getByRole('button', { name: 'Show text' }).click()
   const text = added.locator('.chat-added-text')
   await expect(text).toContainText('offset')
@@ -201,10 +206,12 @@ test('an SVG of the tracing is saved at true scale, in millimetres, with nothing
   await panel().getByRole('button', { name: 'Export', exact: true }).click()
   const sheet = page.getByRole('dialog', { name: 'Export' })
   await expect(sheet).toBeVisible()
-  await expect(sheet.getByRole('group', { name: 'A tracing' }).getByRole('button', { name: 'SVG' })).toBeVisible()
+  await expect(sheet.getByRole('group', { name: 'Format' }).getByRole('button', { name: 'Tracing', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(sheet.getByRole('group', { name: 'Tracing file' }).getByRole('button', { name: 'SVG', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await setMain({ pickSave: out })
-  await sheet.getByRole('button', { name: 'Export', exact: true }).click()
-  await expect(sheet.getByText(`Saved to ${out}`)).toBeVisible({ timeout: 30_000 })
+  await sheet.getByRole('button', { name: 'Export SVG', exact: true }).click()
+  await expect(page.locator('[data-part="saved-file"]')).toContainText('tracing', { timeout: 30_000 })
+  await expect(sheet).toHaveCount(0)
   const svg = readFileSync(out, 'utf8')
   expect(svg).toMatch(/^<\?xml/)
   // True scale: the sheet is named in millimetres, and its units are millimetres.

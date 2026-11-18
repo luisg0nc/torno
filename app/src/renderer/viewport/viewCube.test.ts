@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Vec3 } from '../../shared/marks'
-import { CUBE_HALF_PX, cubeCentre, cubeFaces, faceAt } from './viewCube'
+import { CUBE_HALF_PX, TILE, cubeCentre, cubeFaces, faceAt } from './viewCube'
 
 // A camera as its axes in the object frame: `right` and `up` on screen, and `forward`, the way it looks.
 const FRONT = { right: [1, 0, 0] as Vec3, up: [0, 0, 1] as Vec3, forward: [0, 1, 0] as Vec3 }
@@ -15,12 +15,21 @@ const ISO = (() => {
 })()
 
 describe('the view cube', () => {
-  it('stands in the top right corner of the view', () => {
+  it('stands in the tile of the compass, at the top right corner of the view, whatever way it is turned', () => {
     const [x, y] = cubeCentre(1000)
-    expect(x).toBeGreaterThan(1000 - 2 * CUBE_HALF_PX - 60)
-    expect(x).toBeLessThan(1000 - CUBE_HALF_PX)
-    expect(y).toBeGreaterThan(CUBE_HALF_PX)
-    expect(y).toBeLessThan(120)
+    // The tile is 118 x 112, 14 px in from the top and the right; the cube is in the middle of it, under the caption.
+    expect(x).toBe(1000 - TILE.right - TILE.w / 2)
+    expect(y).toBeGreaterThan(TILE.top + CUBE_HALF_PX)
+    for (const camera of [FRONT, TOP, ISO]) {
+      for (const f of cubeFaces(camera, [x, y], CUBE_HALF_PX)) {
+        for (const [px, py] of f.polygon) {
+          expect(px).toBeGreaterThanOrEqual(1000 - TILE.right - TILE.w)
+          expect(px).toBeLessThanOrEqual(1000 - TILE.right)
+          expect(py).toBeGreaterThanOrEqual(TILE.top)
+          expect(py).toBeLessThanOrEqual(TILE.top + TILE.h)
+        }
+      }
+    }
   })
 
   it('shows one face from the front: XZ, the one that faces the camera', () => {

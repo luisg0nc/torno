@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { SESSION_HEADER } from '../src/main/http'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // The model's groups of parts (groups(p)) in the layers list: a header each, which folds, hides or shows its
@@ -43,7 +43,7 @@ const visible = async (): Promise<string[]> => {
 
 async function open(name: string): Promise<void> {
   await openListed(page, name)
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
 }
 
@@ -87,8 +87,12 @@ test('a part\'s row lights it, its name selects it and a double click frames it,
   // The pointer on a row lights its part in the view, and leaving takes the light away.
   await page.locator('[data-layer="key"]').hover()
   await expect.poll(peeked).toEqual(['key'])
+  // The part lights its row in the card as well (the wash and the bar), and no other row.
+  await expect(page.locator('[data-layer="key"]')).toHaveAttribute('data-lit', '')
+  await expect(page.locator('[data-layer][data-lit]')).toHaveCount(1)
   await page.mouse.move(700, 400)
   await expect.poll(peeked).toEqual([])
+  await expect(page.locator('[data-layer][data-lit]')).toHaveCount(0)
 
   // A click on the name selects the part as a ref.
   await page.locator('[data-layer="key"]').getByRole('button', { name: 'key', exact: true }).click()

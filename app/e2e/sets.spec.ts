@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { NamedSet, SetsFile } from '../src/shared/sets'
-import { openPanel } from './helpers'
+import { openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // Named sets (#171), made and found again in the hidden window, on the fixture `morph` of e2e/reanchor.spec.ts: `variant.txt`
@@ -108,7 +108,7 @@ let before: { top: string; side: string }
 test('Ctrl+G names the two faces that are selected, and sets.json holds both with their forms', async () => {
   await openListed(page, 'morph')
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   before = { top: await faceOver(ON_TOP), side: await faceOver(ON_SIDE) }
   expect(before.top).not.toBe(before.side)
 
@@ -117,8 +117,10 @@ test('Ctrl+G names the two faces that are selected, and sets.json holds both wit
   await expect.poll(async () => (await state()).selection).toEqual([before.top, before.side])
 
   await page.keyboard.press('Control+g')
-  const form = page.getByRole('dialog', { name: 'Name a set' })
+  // The box opens in the head of the card, under the two refs held there.
+  const form = page.locator('.hand').getByRole('dialog', { name: 'Name a set' })
   await expect(form).toBeVisible()
+  await expect(page.locator('.hand .hand-ref')).toHaveCount(2)
   await form.getByLabel('Name').fill('deck')
   await page.keyboard.press('Enter')
   await expect(form).toHaveCount(0)
@@ -136,7 +138,7 @@ test('Ctrl+G names the two faces that are selected, and sets.json holds both wit
   // Layers lists it, under the plate that holds both its faces.
   const row = page.locator('[data-set="N1"]')
   await expect(row.locator('.set-name')).toHaveText('#deck')
-  await expect(row.locator('.layer-count')).toHaveText('2')
+  await expect(row.locator('.layer-count')).toHaveText('2 faces')
   await expect(row.locator('[data-part="lost"]')).toHaveCount(0)
 })
 
@@ -159,7 +161,7 @@ test('rebuilt with the faces renumbered, the set names the faces now there, both
 
   const row = page.locator('[data-set="N1"]')
   await expect(row.locator('.set-name')).toHaveText('#deck')
-  await expect(row.locator('.layer-count')).toHaveText('2')
+  await expect(row.locator('.layer-count')).toHaveText('2 faces')
   await expect(row.locator('[data-part="lost"]')).toHaveCount(0)
   await expect(page.locator('.set-lost')).toHaveCount(0)
   // The same two are what a click on the name selects.
@@ -169,7 +171,7 @@ test('rebuilt with the faces renumbered, the set names the faces now there, both
 })
 
 test('a proposal of Claude is marked until the person accepts it, and then it is theirs', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(chat()).toBeVisible()
   await expect(composer()).toBeEnabled()
   const other = await faceOver([-20, 0, 0])

@@ -1,5 +1,5 @@
 import type { BoardFile, Card } from '../../../shared/board'
-import { type NoteMark, markAnchors } from '../../../shared/marks'
+import { type NoteMark, type ReviewIntent, markAnchors, markIntent } from '../../../shared/marks'
 import { type NamedSet, expandSet, splitSetRef } from '../../../shared/sets'
 import { splitTagRef, tagRefs } from '../../../shared/tags'
 import { type Tracing, tracingName } from '../../../shared/tracings'
@@ -16,6 +16,8 @@ export interface RefInfo {
   act?: 'focus' | 'select' | 'build' | 'card' | 'tracing'
   /** For a mark, who made it: its chip is in its colour. */
   author?: 'user' | 'agent'
+  /** For a person's mark they say they do or do not want, which: the round sign goes before its chip. */
+  intent?: ReviewIntent
   /** What a click selects, when that is not what it lights: a named set lights its strokes too, and selects faces and edges only. */
   select?: string[]
   /** The tooltip: what it is, or why it does nothing. */
@@ -77,7 +79,8 @@ export function refInfo(s: RefState, value: string): RefInfo {
     // Lit where it is tied to the part, when the layout it is in is the one shown.
     const lights = mark.layout === s.layout ? (mark.kind === 'note' ? noteLights(s, mark) : markAnchors(mark).flatMap((a) => (a.ref ? [a.ref] : [])).slice(0, 2)) : []
     const note = mark.note.length > NOTE_WORDS ? `${mark.note.slice(0, NOTE_WORDS)}…` : mark.note
-    return { kind: 'mark', live: true, lights, plain: false, act: 'focus', author: mark.author, title: note === '' ? `Go to ${value}` : `${value}: ${note}` }
+    const intent = markIntent(mark)
+    return { kind: 'mark', live: true, lights, plain: false, act: 'focus', author: mark.author, ...(intent ? { intent } : {}), title: note === '' ? `Go to ${value}` : `${value}: ${note}` }
   }
   if (/^C\d+$/.test(value)) {
     const card = s.board?.cards.find((c) => c.id === value)

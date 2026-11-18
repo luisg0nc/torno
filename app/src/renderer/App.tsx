@@ -14,15 +14,12 @@ import { unsentSessions } from './ui/chat/Composer'
 import { paintings } from './tools/regionPainting'
 import { WorkspaceQuestion } from './ui/WorkspaceQuestion'
 import { openProblem } from './ui/openFolder'
-import { ObjectList } from './ui/ObjectList'
-import { PanelHost } from './ui/PanelHost'
-import { Rail, useRail } from './ui/Rail'
+import { InHand } from './ui/card/InHand'
+import { RouteCard } from './ui/card/RouteCard'
+import { Rail } from './ui/Rail'
 import { SessionPane } from './ui/SessionPane'
-import { SessionDot } from './ui/SessionDot'
-import { dockToggleName, dockToggleSaid, signOf } from './ui/sessionSign'
-import { ExportSheet } from './ui/ExportSheet'
 import { ViewBoard } from './ui/drawing/ViewBoard'
-import { FolderMenu } from './ui/FolderMenu'
+import { BareControls, TitleBar } from './ui/TitleBar'
 import { ShowPage, usePageKey } from './ui/ShowPage'
 import { NewObject, openNewObject } from './ui/onboard/NewObject'
 import { draftHas, onboard, onboarding } from './state/onboard'
@@ -32,20 +29,14 @@ import { BoardView } from './ui/projectBoard/BoardView'
 import { FacePickBar } from './ui/tracings/NewTracing'
 import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
+import { LeaderLayer } from './ui/LeaderLayer'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
-import { RoundPanel } from './ui/review/RoundPanel'
 import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
-import { LEFT_DEFAULT, VIEWPORT_MIN } from './state/column'
+import { CARD_DEFAULT, sectionsFor, windowStorage } from './state/column'
+import { clampDock, DOCK_MIN, dockDefault, readDock, writeDock } from './state/dock'
 
-const DOCK_DEFAULT = 520
-const DOCK_MIN = 320
 const KEY_STEP = 16
-
-function clampDock(width: number, left: number = LEFT_DEFAULT): number {
-  const max = Math.max(DOCK_MIN, window.innerWidth - left - VIEWPORT_MIN)
-  return Math.round(Math.min(Math.max(width, DOCK_MIN), max))
-}
 
 const SAVE_DELAY_MS = 500
 
@@ -322,7 +313,7 @@ function useDockKey(): void {
       if (!pressed(e, 'dock.toggle')) return
       e.preventDefault()
       e.stopPropagation()
-      if (e.repeat) return
+      if (e.repeat || store.getState().page === 'new') return
       actions.setDockOpen(!store.getState().dockOpen)
     }
     window.addEventListener('keydown', onKey, true)
@@ -344,32 +335,36 @@ export function App() {
   const page = useStore((s) => s.page)
   const workspaceKnown = useStore((s) => s.workspaceKnown)
   const shell = useRef<HTMLDivElement>(null)
-  const rail = useRail()
-  const [dockWidth, setDockWidth] = useState(DOCK_DEFAULT)
-  const dockOpen = useStore((s) => s.dockOpen)
+  // The route card stands beside the rail while a project is open, and is away on the pages (`sectionsFor`).
+  const objectId = useStore((s) => s.objectId)
+  const cardOpen = sectionsFor({ page, objectId }).length > 0
+  // The width the person gave the dock, kept by the window; none until they do, and then the CSS default (`--dock-w`) stands.
+  const [kept, setKept] = useState<number | null>(() => readDock(windowStorage()))
+  const dockWidth = kept ?? dockDefault(window.innerWidth)
+  // The page of a new project is the preview of the prompt itself: the dock is hidden while it is up, and comes back as it was.
+  const dockOpen = useStore((s) => s.dockOpen && s.page !== 'new')
   // The board takes the main area's place from the model, on the project's own page.
   const boardOf = useBoard((s) => (s.shown === 'board' ? s.objectId : null))
   // So does a tracing, on the same page.
   const tracingOf = useBoard((s) => (s.shown === 'tracing' ? s.objectId : null))
-  // The sign of the open object's session, for the dock's toggle while the dock is away.
-  const dockSign = useStore((s) => signOf(s.objectId === null ? undefined : s.sessions[s.objectId]?.status))
   // While the edge is dragged the width goes straight to the CSS variable, so
   // React renders once at the end rather than on every pointer move.
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null)
 
-  const leftNow = (): number => document.querySelector('.left')?.getBoundingClientRect().width ?? LEFT_DEFAULT
+  const leftNow = (): number => document.querySelector('.left')?.getBoundingClientRect().width ?? CARD_DEFAULT
 
   function onEdgeDown(e: PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
-    drag.current = { startX: e.clientX, startWidth: dockWidth, width: dockWidth }
+    const startWidth = document.querySelector('.dock')?.getBoundingClientRect().width ?? dockWidth
+    drag.current = { startX: e.clientX, startWidth, width: startWidth }
     shell.current!.toggleAttribute('data-resizing', true)
   }
 
   function onEdgeMove(e: PointerEvent<HTMLDivElement>) {
     const d = drag.current
     if (!d) return
-    d.width = clampDock(d.startWidth + d.startX - e.clientX, leftNow())
+    d.width = clampDock(d.startWidth + d.startX - e.clientX, window.innerWidth, leftNow())
     shell.current!.style.setProperty('--dock-w', `${d.width}px`)
   }
 
@@ -378,7 +373,8 @@ export function App() {
     if (!d) return
     drag.current = null
     shell.current!.toggleAttribute('data-resizing', false)
-    setDockWidth(d.width)
+    // A press that moved nothing keeps what there was (the default stays the default of the window).
+    if (d.width !== d.startWidth) keepDock(d.width)
     // Dragged with the pointer, the edge is done with: the next letter is the view's, not the session pane's.
     giveKeysBack(e.currentTarget)
   }
@@ -387,19 +383,42 @@ export function App() {
     const way = which(e, 'dock.resize')
     if (way < 0) return
     e.preventDefault()
-    setDockWidth((w) => clampDock(w + (way === 0 ? KEY_STEP : -KEY_STEP), leftNow()))
+    const now = document.querySelector('.dock')?.getBoundingClientRect().width ?? dockWidth
+    keepDock(clampDock(now + (way === 0 ? KEY_STEP : -KEY_STEP), window.innerWidth, leftNow()))
   }
+
+  function keepDock(width: number): void {
+    setKept(width)
+    writeDock(windowStorage(), width)
+  }
+
+  // A window made smaller than the dock the person kept leaves the view its room: the width shown follows, what is kept does not.
+  useEffect(() => {
+    if (kept === null) return
+    const fit = (): void => {
+      const el = shell.current
+      if (!el || el.hasAttribute('data-resizing')) return
+      el.style.setProperty('--dock-w', `${clampDock(kept, window.innerWidth, leftNow())}px`)
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [kept])
 
   // Leaving a workspace ends its sessions. `leaving` is where to, while that is
   // being asked about: a folder, or 'pick' for the one still to be chosen.
   const [leaving, setLeaving] = useState<{ to: string; reasons: Reason[] } | null>(null)
-  // What went wrong with the last folder asked for, said under the folder button until the next action.
+  // What went wrong with the last folder asked for, said on the page of projects until the next action.
   const [openFailed, setOpenFailed] = useState<string | null>(null)
   // The sheet that says what torno needs, from the folder menu.
   const [checking, setChecking] = useState(false)
   const go = useCallback((to: string) => {
     setOpenFailed(null)
-    void goTo(to).then(setOpenFailed)
+    void goTo(to).then((problem) => {
+      setOpenFailed(problem)
+      // It is said on the page of projects: the person is taken there to read it.
+      if (problem !== null) actions.showPage('objects')
+    })
   }, [])
   const leave = useCallback(
     (to: string) => {
@@ -452,18 +471,11 @@ export function App() {
 
   const revealDock = useCallback(() => actions.setDockOpen(true), [])
 
-  // The Projects panel: the folder's name and menu at its top, what is to be said of the folder, then the list.
-  const projectsPanel = workspace && (
+  // The page of projects says what is to be said of the folder: that the example is a temporary copy, and a folder that would not open.
+  const projectNotes = (
     <>
-      <header className="panel-head">
-        <h1 className="workspace-name" title={workspace.root}>
-          {basename(workspace.root)}
-        </h1>
-        {/* The way to another folder: those opened lately, the dialog, the example. */}
-        <FolderMenu open={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} />
-      </header>
-      {/* For as long as the example is open: what is made here does not outlive torno, and it says so where the folder is named. */}
-      {workspace.example && (
+      {/* For as long as the example is open: what is made here does not outlive torno, and it says so where the projects are. */}
+      {workspace?.example && (
         <p className="workspace-example" role="note">
           {EXAMPLE_NOTE}{' '}
           <button type="button" className="link-button" disabled={leaving !== null} title="Copies this folder, with whatever was made in it, to a new folder you choose, and opens that one" onClick={() => leave(KEEP)}>
@@ -476,7 +488,6 @@ export function App() {
           {openFailed}
         </p>
       )}
-      <ObjectList onOpen={(id) => void openObject(id)} />
     </>
   )
 
@@ -487,6 +498,7 @@ export function App() {
         <main className="viewport welcome" data-region="viewport">
           <Welcome onPick={() => void pickWorkspace()} onOpened={showWorkspace} />
         </main>
+        <BareControls />
         <KeySheet />
       </div>
     )
@@ -497,12 +509,13 @@ export function App() {
       ref={shell}
       className="shell"
       data-dock={dockOpen ? 'open' : 'collapsed'}
-      data-panel={rail.shown ?? 'closed'}
-      style={{ '--dock-w': `${dockWidth}px` } as CSSProperties}
+      data-left={cardOpen ? 'open' : 'away'}
+      style={kept === null ? undefined : ({ '--dock-w': `${kept}px` } as CSSProperties)}
     >
+      <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
       <aside className="left" data-region="left" aria-label="Panels">
-        <Rail offered={rail.offered} shown={rail.shown} />
-        <PanelHost shown={rail.shown} shell={shell} projects={projectsPanel} />
+        <Rail />
+        {cardOpen && <RouteCard head={<InHand />} shell={shell} />}
       </aside>
 
       <main className="viewport" data-region="viewport">
@@ -513,14 +526,10 @@ export function App() {
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
         {/* Over the model: a tracing on a face waits for the face. */}
         <FacePickBar />
-        {page === 'objects' && <ShowPage onOpen={(id) => void openObject(id)} onExample={() => leave(EXAMPLE)} />}
+        {page === 'objects' && <ShowPage onOpen={openObject} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}
         {page === 'new' && <NewObject onOpen={openObject} />}
-        {/* Over either: what goes into an export, asked before anything is written. */}
-        <ExportSheet onOpen={openThenExport} />
         {/* Over the view: a drawing on it for the chat, while its board is open. */}
         <ViewBoard />
-        {/* Over the model or the board: the follow-up of a review, with the reviewed build faint beside the live one. */}
-        {page === 'object' && <RoundPanel />}
       </main>
 
       <aside className="dock" data-region="session" aria-label="Session" hidden={!dockOpen}>
@@ -538,23 +547,8 @@ export function App() {
           onPointerCancel={onEdgeUp}
           onKeyDown={onEdgeKey}
         />
-        <SessionPane onReveal={revealDock} />
+        <SessionPane onReveal={revealDock} onExport={openThenExport} />
       </aside>
-
-      <button
-        type="button"
-        className="dock-toggle"
-        aria-label={dockToggleName(dockOpen)}
-        aria-description={dockToggleSaid(dockOpen, dockSign)}
-        aria-expanded={dockOpen}
-        title={dockToggleSaid(dockOpen, dockSign) ? `${dockToggleName(dockOpen)}: ${dockToggleSaid(dockOpen, dockSign)}` : dockToggleName(dockOpen)}
-        data-session={!dockOpen && dockSign !== null ? dockSign : undefined}
-        onClick={() => actions.setDockOpen(!dockOpen)}
-      >
-        <DockIcon />
-        {/* Hidden, the session of the open object still shows that it works, or waits for the answer. */}
-        {!dockOpen && dockSign !== null && <SessionDot sign={dockSign} />}
-      </button>
 
       {/* Over everything but the keys: the window's own questions, closing torno and leaving the folder. */}
       {closing !== null && (
@@ -590,6 +584,8 @@ export function App() {
       )}
       <BuildStatus onOpen={(id) => void openObject(id)} />
       {checking && <ReadinessSheet onClose={() => setChecking(false)} />}
+      {/* The leaders of the view: over the panes, under the popovers. Empty until a tool or a pointer gives it one. */}
+      <LeaderLayer />
       {/* Over everything: the keys, asked for with ? or at the foot of the tools. */}
       <KeySheet />
     </div>
@@ -598,13 +594,4 @@ export function App() {
 
 function basename(path: string): string {
   return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
-}
-
-function DockIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden="true">
-      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.75" />
-      <path d="M10 2.75v10.5" />
-    </svg>
-  )
 }

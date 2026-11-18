@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import type { BoardFile } from '../src/shared/board'
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
-import { openPanel, railButton } from './helpers'
+import { cardSection, foldSection, openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // The board in the window: it swaps with the model on Ctrl+Tab, shows the project's marks and brief as cards, and its
@@ -67,12 +67,13 @@ test('a project opens on the model, with the switch at the top left and no board
   expect(await page.evaluate(() => document.querySelector('[data-region="viewport"] button')?.className)).toContain('pboard-switch-button')
 })
 
-test('the bars of the view stand below the switch, not under it: every button of the bar can be pressed', async () => {
+test('the compass stands clear of the switch: every button of it can be pressed', async () => {
   const at = async (selector: string) => (await page.locator(selector).first().boundingBox())!
   const switchBox = await at('.pboard-switch')
-  const bar = await at('.viewbar')
-  expect(bar.y).toBeGreaterThanOrEqual(switchBox.y + switchBox.height)
-  for (const button of await page.locator('.viewbar button').all()) {
+  const bar = await at('.compass')
+  // At the top right, beside the switch at the top left: they do not meet.
+  expect(bar.x).toBeGreaterThanOrEqual(switchBox.x + switchBox.width)
+  for (const button of await page.locator('.compass button').all()) {
     const b = (await button.boundingBox())!
     const over = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.pboard-switch') !== null, { x: b.x + b.width / 2, y: b.y + b.height / 2 })
     expect(over).toBe(false)
@@ -381,7 +382,8 @@ test('M then a click makes a size card from a form; a double click edits it, Ctr
   const stage = await stageBox()
   await page.keyboard.press('m')
   await expect(page.locator('.pboard-tool[data-tool="size"]')).toHaveAttribute('aria-pressed', 'true')
-  await page.mouse.click(stage.x + stage.width * 0.75, stage.y + stage.height * 0.8)
+  // Halfway down: the minimap stands at the stage's foot, and the form opens at the click, so a click low on the stage opens it under the minimap.
+  await page.mouse.click(stage.x + stage.width * 0.75, stage.y + stage.height * 0.5)
   await expect(form).toBeVisible()
   await expect(form.getByLabel('What it measures')).toBeFocused()
 
@@ -495,28 +497,29 @@ async function say(prompt: string): Promise<void> {
   await page.keyboard.press('Enter')
 }
 
-test('a build pinned from the strip under a prompt is a card with its thumb, and its entry is starred', async () => {
+// "Pin to board" is in the menu of a node of the builds strip: a click on the node, then the item; the strip shows the star.
+test('a build pinned from the strip is a card with its thumb, and its entry is starred', async () => {
   await expect(page.locator('.pboard')).toHaveCount(0)
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(composer()).toBeEnabled()
   await say('edit bracket.py "width: float = 40" "width: float = 41"')
   await expect(turns()).toHaveCount(1, { timeout: 30_000 })
   await expect.poll(() => kept().filter((e) => e.cause === 'agent' && !e.failed).length, { timeout: 30_000 }).toBeGreaterThan(0)
-  // The build the prompt began from is the first thumb of its strip; the build it made is the last.
-  const strip = chat().locator('.turn-builds .turn-thumb')
+  // The build the prompt began from and the one it made are nodes of the strip on top of the dock.
+  const strip = dock().locator('.strip .strip-node[data-kind="built"]')
   await expect.poll(() => strip.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
   await expect(strip.first().locator('img')).toBeVisible({ timeout: 15_000 })
   const id = (await strip.first().getAttribute('data-build'))!
-  await strip.first().hover()
-  await strip.first().getByRole('button', { name: `Pin ${id} to the board` }).click()
-  await expect(chat().locator('.turn-pinned')).toContainText(`${id}: pinned to the board`)
+  await strip.first().click()
+  await page.getByRole('menuitem', { name: 'Pin to board' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Pinned to the board' })).toBeVisible()
   const build = (await cardsOf('build'))[0]
   expect(build).toMatchObject({ by: 'person', source: id, copy: { id } })
   expect(build.picture).toMatch(/^p-[0-9a-f]{12}\.(png|jpg)$/)
-  // The entry is starred, in the history and under the prompt.
+  // The entry is starred, in the history and in the strip.
   expect(kept().find((e) => e.id === id)?.starred).toBe(true)
   await expect(strip.first()).toHaveAttribute('data-starred', '')
-  await expect(strip.first().locator('.turn-thumb-star')).toBeVisible()
+  await expect(strip.first().locator('.strip-star')).toBeVisible()
   // On the board it is a card with the picture.
   await switchButton('Board').click()
   await expect(cardOf('build')).toHaveCount(1)
@@ -525,7 +528,7 @@ test('a build pinned from the strip under a prompt is a card with its thumb, and
 })
 
 test('pinning the Params twice says they are on the board already, and the board has one card for them', async () => {
-  await openPanel(page, 'Params')
+  await openSection(page, 'Parameters')
   const pin = page.locator('[data-pin="params"]')
   await expect(pin).toBeVisible()
   await pin.click()
@@ -540,7 +543,9 @@ test('pinning the Params twice says they are on the board already, and the board
 test('a saved view is pinned from its menu in the strip, and a view that is not saved is refused by main', async () => {
   await switchButton('Model').click()
   await expect(page.locator('.pboard')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Actions for front-latch' }).click()
+  // The view is not the one on screen: its menu is in the list behind "1 more".
+  await page.getByRole('button', { name: /more$/ }).click()
+  await page.getByRole('menuitem', { name: 'Actions for front-latch' }).click()
   await page.getByRole('menuitem', { name: 'Pin to board' }).click()
   await expect(cardOf('view')).toHaveCount(0)
   await switchButton('Board').click()
@@ -565,13 +570,12 @@ test('a double click on a view card shows the model with that view on', async ()
   await expect.poll(async () => (await state()).activeView).toBe('front-latch')
 })
 
-test('a double click on the Params card opens the Params panel, and on the brief card has the system open brief.md', async () => {
+test('a double click on the Params card shows the Parameters section, and on the brief card has the system open brief.md', async () => {
   await switchButton('Board').click()
-  await railButton(page, 'Params').click()
-  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'false')
+  await foldSection(page, 'Parameters')
   await cardOf('params').dblclick()
   await expect(page.locator('.pboard')).toHaveCount(0)
-  await expect(railButton(page, 'Params')).toHaveAttribute('aria-pressed', 'true')
+  await expect(cardSection(page, 'Parameters')).not.toHaveAttribute('data-folded', '')
   await switchButton('Board').click()
   await cardOf('brief').dblclick()
   await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __tornoMain: { openedFiles: string[] } }).__tornoMain.openedFiles)).toEqual([join(root, 'bracket', 'brief.md')])
@@ -585,6 +589,10 @@ test('a double click on a build card opens Compare with the live build', async (
   await expect(page.locator('.pboard')).toHaveCount(0)
   const live = kept().filter((e) => !e.failed).at(-1)!
   await expect.poll(async () => (await state()).compare).toMatchObject({ from: build.source, to: live.id })
+  // The compare band holds the top left, so the switch is away until it is put away.
+  await expect(page.locator('.pboard-switch')).toHaveCount(0)
+  await page.locator('[data-band="compare"]').getByRole('button', { name: 'Back to live', exact: true }).click()
+  await expect(page.locator('.pboard-switch')).toBeVisible()
 })
 
 test('a double click on a picture opens it large, and Esc puts it away', async () => {

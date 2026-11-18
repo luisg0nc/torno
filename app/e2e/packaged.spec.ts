@@ -93,8 +93,8 @@ test('offers the example it carries, with its project, marks and views', async (
   let copy = ''
   try {
     const page = await bare.firstWindow()
-    // The first screen also says whether torno's Python environment is made ("Make it now"): not what is checked here.
-    await expect(page.locator('button:not(.ready-make)')).toHaveText(['Open folder', 'Open the example'])
+    // The first screen's two ways in (its readiness line and the drawn window controls are not what is checked here).
+    await expect(page.locator('.welcome-ways').getByRole('button')).toHaveText(['Open folder', 'Open the example'])
     await page.getByRole('button', { name: 'Open the example' }).click()
     await page.waitForSelector('[data-region="left"]')
     // The hooks are installed when the viewport mounts, a moment after the left column.
@@ -103,7 +103,7 @@ test('offers the example it carries, with its project, marks and views', async (
     // A copy in the temporary folder, never the resources themselves.
     const resources = await bare.evaluate(() => process.resourcesPath)
     expect(copy.startsWith(resources)).toBe(false)
-    await expect(page.locator('.object-row')).toHaveText([...EXAMPLE_OBJECTS].sort())
+    await expect(page.locator('.show .card .card-name')).toHaveText([...EXAMPLE_OBJECTS].sort())
     // Its marks and its views came with it, from the resources.
     for (const file of ['marks.json', 'scene.json']) expect(existsSync(join(copy, EXAMPLE_OBJECTS[0], '.torno', file))).toBe(true)
   } finally {

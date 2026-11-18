@@ -90,6 +90,20 @@ describe('the Should be here tool', () => {
     expect(tool.readout()).toBe('head bolt 4 should be here · 1.8 mm left, 0.6 mm up')
   })
 
+  it('says where the ghost of the shape in hand stands, the point its tag is tied to, and none with no shape in hand', () => {
+    const tool = new OffsetTool(vi.fn())
+    expect(tool.ghostAt()).toBeNull()
+    tool.press(BOLT, [0, 0])
+    expect(tool.ghostAt()).toEqual([10, 5])
+    tool.move([1, 1])
+    // The ghost stays where the shape was; the tag does not run after the pointer.
+    expect(tool.ghostAt()).toEqual([10, 5])
+    tool.press(PLATE, [0, 0])
+    expect(tool.ghostAt()).toEqual([2, 1])
+    tool.cancel()
+    expect(tool.ghostAt()).toBeNull()
+  })
+
   it('names a shape with no name by its place in its layer', () => {
     expect(shapeLabel(PLATE)).toBe('shape 1 of head bolts')
     expect(shapeLabel(BOLT)).toBe('head bolt 4')

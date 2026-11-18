@@ -1,3 +1,5 @@
+import { placeTag, type Side } from '../../shared/tagPlace'
+
 /** A box in pixels, from the top left of the viewport pane. */
 export interface Box {
   left: number
@@ -18,28 +20,25 @@ function clamp(value: number, low: number, high: number): number {
 }
 
 /**
- * Where the note of a mark goes so that it does not cover the mark: beside it,
- * on the side with more room; failing that below or above it, again where
- * there is more room. `mark` is what the mark covers and `at` its point,
- * `card` the size of the note, and `within` the part of the pane it may use.
- * A mark that leaves no room on any side (an arrow across the whole view) is
- * taken for its point alone. The answer is the note's top left corner.
+ * Where the note of a mark goes so that it does not cover the mark: beside it, on the side with more room (the rule of a
+ * tag, `placeTag`, tried from that side), failing that below or above it. `mark` is what the mark covers and `at` its
+ * point, `card` the size of the note, and `within` the part of the pane it may use. A mark that leaves no room on any
+ * side (an arrow across the whole view) is taken for its point alone. The answer is the note's top left corner.
  */
 export function placeBeside(mark: Box, at: [number, number], card: { w: number; h: number }, within: Box): { x: number; y: number; side: 'right' | 'left' | 'below' | 'above' } {
-  const maxX = within.right - card.w
-  const maxY = within.bottom - card.h
-  const beside = (box: Box, force: boolean): ReturnType<typeof placeBeside> | null => {
-    const room = { right: within.right - box.right - NOTE_GAP, left: box.left - within.left - NOTE_GAP, below: within.bottom - box.bottom - NOTE_GAP, above: box.top - within.top - NOTE_GAP }
-    const horizontal = room.right >= room.left ? 'right' : 'left'
-    if (room[horizontal] >= card.w || force) {
-      const x = horizontal === 'right' ? box.right + NOTE_GAP : box.left - NOTE_GAP - card.w
-      return { x: clamp(x, within.left, maxX), y: clamp(at[1] - RISE, within.top, maxY), side: horizontal }
-    }
-    const vertical = room.below >= room.above ? 'below' : 'above'
-    if (room[vertical] < card.h) return null
-    const y = vertical === 'below' ? box.bottom + NOTE_GAP : box.top - NOTE_GAP - card.h
-    return { x: clamp(at[0] - card.w / 2, within.left, maxX), y: clamp(y, within.top, maxY), side: vertical }
+  const view = { x: within.left, y: within.top, w: within.right - within.left, h: within.bottom - within.top }
+  const subject = { x: at[0], y: at[1] }
+  const around = (box: Box) => ({ x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top })
+  const beside = (box: Box): { x: number; y: number; side: 'right' | 'left' | 'below' | 'above' } | null => {
+    const horizontal: Side = within.right - box.right >= box.left - within.left ? 'right' : 'left'
+    const placed = placeTag(subject, card, view, [], horizontal, { around: around(box), gap: NOTE_GAP, rise: RISE, clearLeft: 0 })
+    return placed.side === 'docked' ? null : { x: placed.box.x, y: placed.box.y, side: placed.side }
   }
   const point: Box = { left: at[0] - POINT_REACH, top: at[1] - POINT_REACH, right: at[0] + POINT_REACH, bottom: at[1] + POINT_REACH }
-  return beside(mark, false) ?? beside(point, true)!
+  const found = beside(mark) ?? beside(point)
+  if (found) return found
+  // No side has room even for the point: beside it all the same, on the side with more room, kept inside the pane.
+  const right = within.right - point.right >= point.left - within.left
+  const x = right ? point.right + NOTE_GAP : point.left - NOTE_GAP - card.w
+  return { x: clamp(x, within.left, within.right - card.w), y: clamp(at[1] - RISE, within.top, within.bottom - card.h), side: right ? 'right' : 'left' }
 }

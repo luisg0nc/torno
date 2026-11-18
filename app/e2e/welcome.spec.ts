@@ -4,8 +4,8 @@ import { delimiter, join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { EXAMPLE_OBJECTS } from '../src/main/example'
-import { KEYS } from '../src/shared/keys'
-import { POINTER } from '../src/shared/pointer'
+import { KEYBOARD, PLACES } from '../src/shared/keyboard'
+import { railButton } from './helpers'
 import { openListed } from './objects'
 
 // The first screen, and the sheet of keys: what someone who has never seen torno meets, and where they look a key up.
@@ -49,37 +49,81 @@ async function open(id: string): Promise<void> {
   await expect.poll(async () => (await state()).scene !== null).toBe(true)
 }
 
-test('the first run shows what to open and how a folder of objects is laid out, and a folder with nothing in it says what to make', async () => {
+test('the first run shows the dyed plate with the vise scribed on it, what to open, and a folder with nothing in it says what to make', async () => {
   const bare = await launch()
   const empty = temp('empty')
   try {
     const first = await bare.firstWindow()
     expect(await bare.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(false)
     const says = first.locator('[data-region="viewport"]')
-    await expect(says).toContainText('Make CAD parts with an AI agent: it writes the model, you point at what to change.')
-    const tree = first.getByRole('figure', { name: 'How a folder of projects is laid out' })
-    await expect(tree.locator('.num')).toHaveText(['projects/', 'bracket/', 'bracket.py'])
-    await expect(tree).toContainText('the folder you open')
+    // The plate: the headline and the tagline in the words of the design, the plate 780 of 1440 of the window.
+    const plate = first.locator('[data-plate]')
+    await expect(plate).toBeVisible()
+    await expect(plate.getByRole('heading', { name: 'torno', level: 1 })).toBeVisible()
+    await expect(plate).toContainText('Make CAD parts with an AI agent. It writes the model in build123d; you point at what to change.')
+    const box = (await plate.boundingBox())!
+    const whole = (await first.locator('.welcome-page').boundingBox())!
+    expect(Math.abs(box.width / whole.width - 780 / 1440)).toBeLessThan(0.005)
+    expect(box.x).toBe(0)
+    // The folder idea in a sentence, in place of a list, and the ways in.
+    await expect(says.getByRole('heading', { name: 'Open a folder to work in' })).toBeVisible()
+    await expect(first.getByRole('figure')).toHaveCount(0)
     await expect(says).toContainText('An empty folder is fine: torno helps you make the first project.')
-    await expect(says).toContainText('A temporary copy, removed when torno quits.')
+    await expect(says).toContainText('The example is a temporary copy, removed when torno quits.')
     await expect(says).toContainText('torno writes only into a .torno folder inside each project, and the new folder when you make a project.')
     await expect(says).not.toContainText('for the keys')
-    // The main way in is the one primary button; the example is a quiet one.
+    // The main way in is the one primary button (42 px, radius 10); the example is the other.
     await expect(first.locator('.welcome-page .button-primary')).toHaveText(['Open folder'])
-    await expect(first.getByRole('button', { name: 'Open the example' })).toHaveClass(/button-quiet/)
-    // Over the name, the logo as the icon has it: the vise in the ink, the part it holds in the accent.
-    await expect(first.locator('.welcome-head').getByRole('heading', { name: 'torno', level: 1 })).toBeVisible()
-    const logo = await first.evaluate(() => {
+    expect(await first.locator('.welcome-page .button-primary').evaluate((el) => [el.getBoundingClientRect().height, getComputedStyle(el).borderTopLeftRadius])).toEqual([42, '10px'])
+    // The dye, the lines of the vise and the words, in the tokens of the theme.
+    const dye = await first.evaluate(() => {
       const probe = document.createElement('i')
       document.body.append(probe)
-      const token = (name: string): string => ((probe.style.color = `var(${name})`), getComputedStyle(probe).color)
-      const [accent, ink] = [token('--accent'), token('--ink')]
+      const colour = (name: string): string => ((probe.style.color = `var(${name})`), getComputedStyle(probe).color)
+      const tokens = { dye: colour('--dye'), onDye: colour('--on-dye'), scribe: colour('--scribe'), muted: colour('--on-dye-muted'), wash: colour('--accent-wash') }
       probe.remove()
-      const svg = document.querySelector('.welcome-head svg.logo')
-      const part = svg?.querySelectorAll('.logo-part')
-      return { parts: part?.length, part: part?.[0] && getComputedStyle(part[0]).fill, vise: svg && getComputedStyle(svg).color, accent, ink }
+      const style = (selector: string): CSSStyleDeclaration => getComputedStyle(document.querySelector(selector)!)
+      return {
+        tokens,
+        plate: style('[data-plate]').backgroundColor,
+        headline: style('.plate-headline').color,
+        lead: style('.plate-lead').color,
+        outline: style('.plate-vise .vise-o').stroke,
+        dimension: style('.plate-vise .vise-dim path').stroke,
+        number: [style('.plate-vise .vise-text text').fill, style('.plate-vise .vise-text text').fontFamily],
+        part: style('.plate-vise .vise-fill').fill,
+        wash: tokens.wash
+      }
     })
-    expect(logo).toEqual({ parts: 1, part: logo.accent, vise: logo.ink, accent: logo.accent, ink: logo.ink })
+    expect(dye.plate).toBe(dye.tokens.dye)
+    expect(dye.headline).toBe(dye.tokens.onDye)
+    expect(dye.lead).toBe(dye.tokens.muted)
+    expect(dye.outline).toBe(dye.tokens.onDye)
+    expect(dye.dimension).toBe(dye.tokens.scribe)
+    expect(dye.number[0]).toBe(dye.tokens.muted)
+    expect(dye.number[1]).toContain('Martian Mono')
+    expect(dye.part).toBe(dye.tokens.wash)
+    // It draws itself once: the outline in 1.6 s, the dimensions fading in at 1.1 s and the part at 1.4 s, none for ever.
+    const motion = await first.evaluate(() => {
+      const of = (selector: string): CSSStyleDeclaration => getComputedStyle(document.querySelector(selector)!)
+      return [of('.vise-o'), of('.vise-dim'), of('.vise-fill')].map((s) => [s.animationDuration, s.animationDelay, s.animationIterationCount])
+    })
+    expect(motion).toEqual([
+      ['1.6s', '0s', '1'],
+      ['0.6s', '1.1s', '1'],
+      ['0.5s', '1.4s', '1']
+    ])
+    // The window has no frame: the top of the screen moves it, and the controls and the buttons are for clicking.
+    const region = (selector: string): Promise<string> => first.locator(selector).first().evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region'))
+    expect(await region('.welcome-drag')).toBe('drag')
+    expect(await region('.title-bare')).toBe('no-drag')
+    expect(await region('.welcome-ways .button-primary')).toBe('no-drag')
+    expect(await first.locator('.welcome-drag').evaluate((el) => [el.getBoundingClientRect().top, el.getBoundingClientRect().height])).toEqual([0, 40])
+    // With reduced motion it is shown drawn, with nothing animated.
+    await first.emulateMedia({ reducedMotion: 'reduce' })
+    expect(await first.evaluate(() => [...document.querySelectorAll('.plate-vise *')].map((el) => getComputedStyle(el).animationName).filter((name) => name !== 'none'))).toEqual([])
+    expect(await first.evaluate(() => [getComputedStyle(document.querySelector('.vise-o')!).strokeDashoffset, getComputedStyle(document.querySelector('.vise-fill')!).opacity])).toEqual(['0px', '1'])
+    await first.emulateMedia({ reducedMotion: null })
     // Run from the repository it has its example beside it; with no folder ever opened there is no list.
     await expect(first.locator('.welcome-ways').getByRole('button')).toHaveText(['Open folder', 'Open the example'])
     await expect(first.getByRole('navigation', { name: 'Recent folders' })).toHaveCount(0)
@@ -93,11 +137,18 @@ test('the first run shows what to open and how a folder of objects is laid out, 
     await first.getByRole('button', { name: 'Open folder' }).click()
     expect(await bare.evaluate(() => (globalThis as unknown as { __tornoMain: Main }).__tornoMain.picks)).toBe(1)
     const name = empty.split('/').pop()!
-    await expect(says).toContainText(`No projects in ${name} yet`)
-    await expect(says.getByRole('heading', { name: 'Make your first project' })).toBeVisible()
-    // New object leads and the example is offered beside it; the manual route and the pyproject note are in a closed fold.
-    await expect(says.getByRole('button').first()).toHaveText('New project')
-    await expect(says.getByRole('button', { name: 'open the example to look around' })).toBeVisible()
+    // The dyed plate with nothing in the vise, and the composer: the words, the chips, the folder offered, Start.
+    await expect(says.locator('[data-plate]')).toContainText(`No projects in ${name}`)
+    await expect(says.getByRole('heading', { name: 'Nothing in the vise yet' })).toBeVisible()
+    await expect(says.getByRole('heading', { name: 'What are we making?' })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'open the example' })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'open the full new project page' })).toBeVisible()
+    for (const chip of ['Photo', 'Doodle', 'Bought part', 'Scan']) await expect(says.getByRole('button', { name: chip, exact: true })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'Start', exact: true })).toBeDisabled()
+    await says.getByRole('textbox', { name: 'What are we making?' }).fill('A clip that holds a 6 mm cable to the edge of a desk')
+    await expect(says.getByRole('button', { name: `Goes in ${name}/cable-clip` })).toBeVisible()
+    await expect(says.getByRole('button', { name: 'Start', exact: true })).toBeEnabled()
+    // The manual route and the pyproject note are in a closed fold.
     await expect(says.getByText('part/part.py')).toBeHidden()
     await says.getByText('Already have build123d models?').click()
     await expect(says).toContainText(`Make a folder with a Python model in it, for example part/part.py, and it appears here.`)
@@ -126,9 +177,13 @@ test('the folders opened lately are listed from torno\'s own file: one that is g
     const list = first.getByRole('navigation', { name: 'Recent folders' })
     // Eight at most, whatever the file holds.
     await expect(list.locator('li')).toHaveCount(8)
-    // Coming back, the list is what is shown first, and the explanation is not.
-    await expect(first.getByRole('figure', { name: 'How a folder of projects is laid out' })).toHaveCount(0)
+    // Coming back, the list is what is shown first, beside the same plate, and the explanation is not.
+    await expect(first.locator('[data-plate]').getByRole('heading', { name: 'torno', level: 1 })).toBeVisible()
+    await expect(first.getByRole('heading', { name: 'Recent folders', level: 2 })).toBeVisible()
     await expect(first.locator('.welcome-page').getByText('An empty folder is fine', { exact: false })).toHaveCount(0)
+    // A row is 68 px high, and one that is gone has a dashed box where the drawing goes.
+    expect(await list.locator('li').first().evaluate((el) => el.getBoundingClientRect().height)).toBe(68)
+    expect(await list.locator('li[data-missing] .recent-thumb').evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('dashed')
     const missing = list.locator('li[data-missing]')
     await expect(missing).toHaveCount(1)
     await expect(missing).toContainText('gone')
@@ -136,13 +191,13 @@ test('the folders opened lately are listed from torno\'s own file: one that is g
     expect(await missing.locator('.recent-name').evaluate((el) => getComputedStyle(el).textDecorationLine)).toBe('line-through')
     await expect(missing.locator('.recent-row')).toBeDisabled()
     // The path is a path: in the monospace face.
-    expect(await list.locator('.recent-path').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
+    expect(await list.locator('.recent-path').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
     await missing.getByRole('button', { name: 'Remove gone from the list' }).click()
     await expect(list.locator('li')).toHaveCount(7)
     await expect.poll(() => (JSON.parse(readFileSync(config, 'utf8')) as { recent: string[] }).recent).toEqual([here, ...others.slice(0, 6)])
     // One that is there opens, and is then the newest.
     await list.getByRole('button', { name: /^parts/ }).click()
-    await expect(first.locator('aside[data-region="left"] .workspace-name')).toHaveText('parts')
+    await expect(first.locator('.title-row .workspace-name')).toHaveText('parts')
     await expect.poll(() => JSON.parse(readFileSync(config, 'utf8')) as unknown).toEqual({ workspace: here, recent: [here, ...others.slice(0, 6)] })
     // Nothing of the list is in the folder that was opened.
     expect(readdirSync(here)).toEqual(['plate'])
@@ -165,9 +220,9 @@ test('the example is a copy in a temporary folder: the repository\'s own is neit
     copy = (await first.evaluate(() => window.__tornoTest!.state())).workspace!.root
     expect(copy.startsWith(join(tmpdir(), 'torno-example-')) || copy.startsWith(join(realpathSync(tmpdir()), 'torno-example-'))).toBe(true)
     expect(copy.startsWith(exampleSource)).toBe(false)
-    await expect(first.locator('.object-row')).toHaveText([...EXAMPLE_OBJECTS].sort())
+    await expect(first.locator('.show .card .card-name')).toHaveText([...EXAMPLE_OBJECTS].sort())
     // It builds, in the copy, and its marks and views are there.
-    await first.locator('.object-row', { hasText: 'enclosure' }).click()
+    await first.locator('.show .card[data-object="enclosure"]').click()
     await expect.poll(async () => (await first.evaluate(() => window.__tornoTest!.state())).build?.status, { timeout: 60_000 }).toBe('ok')
     expect(existsSync(join(copy, 'enclosure', '.torno', 'marks.json'))).toBe(true)
     expect(existsSync(config)).toBe(false)
@@ -206,14 +261,14 @@ test('the example can be kept as a folder: a new one at the path chosen, never o
     const kept = join(home, 'my-enclosure')
     await choose(kept)
     await keep.click()
-    await expect(first.locator('.workspace-name')).toHaveText('my-enclosure')
+    await expect(first.locator('.title-row .workspace-name')).toHaveText('my-enclosure')
     await expect(first.locator('.workspace-example')).toHaveCount(0)
     expect((await first.evaluate(() => window.__tornoTest!.state())).workspace!.root).toBe(realpathSync(kept))
     expect(readdirSync(kept, { recursive: true }).map(String).sort()).toEqual(['enclosure', 'enclosure/.torno', 'enclosure/.torno/marks.json', 'enclosure/.torno/scene.json', 'enclosure/brief.md', 'enclosure/enclosure.py'])
     expect(readdirSync(home).filter((name) => name.includes('torno-new'))).toEqual([])
     await expect.poll(() => (JSON.parse(readFileSync(config, 'utf8')) as { recent: string[] }).recent[0]).toBe(realpathSync(kept))
     // It is a folder of the person's own: it builds, and its marks came with it.
-    await first.locator('.object-row', { hasText: 'enclosure' }).click()
+    await first.locator('.show .card[data-object="enclosure"]').click()
     await expect.poll(async () => (await first.evaluate(() => window.__tornoTest!.state())).build?.status, { timeout: 60_000 }).toBe('ok')
   } finally {
     await bare.close()
@@ -221,38 +276,58 @@ test('the example can be kept as a folder: a new one at the path chosen, never o
   }
 })
 
-test('? shows every key of the one table; what is typed searches it, and no tool behind it hears a key', async () => {
+test('? raises the keyboard; what is typed or pointed at is answered in sentences, and no tool behind it hears a key', async () => {
   await open('plain')
   await page.locator('[data-region="viewport"] canvas').first().click({ position: { x: 5, y: 5 } })
   await page.keyboard.press('?')
   await expect(sheet()).toBeVisible()
   await expect(sheet()).toHaveAttribute('aria-modal', 'true')
-  for (const line of ['Pin: click a point and leave a note', 'Draw the parts apart, or together again', 'Region: undo the last stroke', 'Export to one HTML file, or to STEP, STL or 3MF']) await expect(sheet()).toContainText(line)
-  // `P` is the Pin tool, with a sketch open the point to point pen, and in a tracing the Pin tool of the sheet: three rows, each in its own group.
-  await expect(sheet().locator('kbd', { hasText: /^P$/ })).toHaveCount(3)
-  // Every row that is shown is there, under where it is listened to, its keys in the monospace face.
-  await expect(sheet().locator('li')).toHaveCount(POINTER.length + KEYS.filter((row) => !row.hidden).length)
-  // The pointer first: gestures, not keys, so no cap of its own.
-  await expect(sheet().locator('h3')).toHaveText(['Pointer', 'Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
-  expect(await sheet().locator('kbd').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono')
   // The focus is in its field: a letter searches, and is no tool's key.
   await expect(sheet().getByRole('textbox', { name: 'Search the keys' })).toBeFocused()
+  // The places are chips, the view the one chosen; the keyboard is drawn whole, and what a key does is in the place chosen.
+  await expect(sheet().getByRole('group', { name: 'Where keys are heard' }).getByRole('button')).toHaveText(PLACES.map((place) => place.name))
+  await expect(sheet().getByRole('button', { name: 'In the view' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(sheet().locator('.keys-cap')).toHaveCount(KEYBOARD.flat().length)
+  await expect(sheet().locator('[data-cap="KeyE"]')).toHaveText('Eexplode')
+  await expect(sheet().locator('[data-cap="KeyE"]')).toHaveAttribute('data-kind', 'view')
+  await expect(sheet().locator('[data-cap="KeyD"]')).toHaveAttribute('data-kind', 'tool')
+  expect(await sheet().locator('[data-cap="KeyE"]').evaluate((el) => { const box = el.getBoundingClientRect(); return [box.width, box.height] })).toEqual([56, 48])
+  await expect(sheet().locator('[data-cap="KeyQ"]')).not.toHaveAttribute('data-bound', 'true')
+  await sheet().getByRole('button', { name: 'Sketching' }).click()
+  await expect(sheet().locator('[data-cap="KeyB"]')).toHaveText('Bfree')
+  await sheet().getByRole('button', { name: 'With a tool in hand' }).click()
+  await expect(sheet().locator('.keys-chords')).toContainText('Shift+Arrows')
+  await sheet().getByRole('button', { name: 'In the view' }).click()
+  // The pointer is listed under the keyboard in the view, and the keys with a modifier, their caps in the monospace face.
+  await expect(sheet().locator('.keys-chords')).toContainText('Zoom, towards the pointer')
+  expect(await sheet().locator('.keys-chords kbd').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
+  // Pointing at a key asks the table about it: its cap is outlined in the accent, and what it does is told where it is heard.
+  await sheet().locator('[data-cap="KeyE"]').hover()
+  await expect(sheet().locator('[data-cap="KeyE"]')).toHaveAttribute('data-lit', 'true')
+  await expect(sheet().locator('.keys-said')).toHaveText([
+    'In the view, E draws the parts apart, or together again.Not while a field or the terminal has the keys.',
+    'With Region of a scan in hand, E paints or rubs out.Not while a field or the terminal has the keys. The tool hears the key before the view does.'
+  ])
+  await expect(sheet().locator('.keys-said.on')).toHaveCount(1)
+  // A press on a chip took the focus; the field is clicked and a letter searches, and is no tool's key.
+  await sheet().getByRole('textbox', { name: 'Search the keys' }).click()
   await page.keyboard.type('m')
   expect(await tool()).toBe('select')
   await page.keyboard.type('easure wall')
-  await expect(sheet().locator('li')).toHaveText(['TMeasure: the wall under the pointer'])
-  // A search that only the pointer answers: the count says so, beside the group it shows.
+  await expect(sheet().locator('.keys-said').first()).toContainText('With Measure in hand, T is the wall under the pointer.')
+  // A search that only the pointer answers: the count says so, and the sentence is the pointer's.
   await sheet().getByRole('textbox').fill('towards')
-  await expect(sheet().locator('.keys-count')).toHaveText('0 keys found, 1 of the pointer')
-  await expect(sheet().locator('li')).toHaveText(['ScrollZoom, towards the pointer'])
+  await expect(sheet().locator('.keys-count')).toHaveText('0 keys found, 1 of the pointer.')
+  await expect(sheet().locator('.keys-said')).toHaveText(['In the view, Scroll zooms, towards the pointer.'])
   await sheet().getByRole('textbox').fill('nothing does this')
   await expect(sheet()).toContainText('No key says nothing does this.')
   await sheet().getByRole('textbox').fill('')
-  // Tab goes round within it.
+  await expect(sheet().locator('.keys-count')).toContainText('Tools are in the accent, keys heard in the view are outlined.')
+  // Tab goes round within it: the places, the field, the key that puts it away.
   await page.keyboard.press('Tab')
   await expect(sheet().getByRole('button', { name: 'Close' })).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(sheet().getByRole('textbox')).toBeFocused()
+  await expect(sheet().getByRole('button', { name: 'Everywhere' })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
   await expect(sheet().getByRole('button', { name: 'Close' })).toBeFocused()
   // Escape puts the sheet away, not the tool down: Measure, taken before, is still in hand.
@@ -270,8 +345,8 @@ test('? shows every key of the one table; what is typed searches it, and no tool
   await expect(sheet()).toBeVisible()
   await page.keyboard.press('?')
   await expect(sheet()).toBeHidden()
-  // The button at the foot of the tools, to which the focus comes back.
-  const button = page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Keys' })
+  // The button at the foot of the rail, to which the focus comes back.
+  const button = railButton(page, 'Keys')
   await expect(button).toHaveAttribute('aria-keyshortcuts', '?')
   await button.focus()
   await page.keyboard.press('Enter')
@@ -280,7 +355,12 @@ test('? shows every key of the one table; what is typed searches it, and no tool
   await expect(button).toBeFocused()
   await button.click()
   await expect(sheet()).toBeVisible()
-  await page.mouse.click(8, 8)
+  // The button is the rail's, which stays: pressed again it puts the keyboard away, and a press on the scrim above it does too.
+  await button.click()
+  await expect(sheet()).toBeHidden()
+  await button.click()
+  await expect(sheet()).toBeVisible()
+  await page.mouse.click(700, 80)
   await expect(sheet()).toBeHidden()
   await page.keyboard.press('Escape')
   expect(await tool()).toBe('select')
@@ -410,10 +490,10 @@ test('the empty workspace and the page of a new object say what is missing, and 
   try {
     const gone = await lost.firstWindow()
     await gone.waitForSelector('[data-region="left"]')
-    const block = gone.locator('.show-empty .ready')
+    const block = gone.locator('.empty-folder .ready')
     await expect(block.locator('.ready-line[data-line="claude"]')).toContainText('Not found on PATH')
     // The page of a new object has the line above Start, and says what that means for the object.
-    await gone.locator('.show-empty').getByRole('button', { name: 'New project' }).click()
+    await gone.locator('.empty-folder').getByRole('button', { name: 'open the full new project page' }).click()
     const foot = gone.locator('.new-foot .ready[data-variant="missing"]')
     await expect(foot.locator('.ready-line[data-line="claude"]')).toHaveAttribute('data-tone', 'fail')
     await expect(foot).toContainText('The project will be made, but Claude Code cannot start in it until this is put right.')
@@ -423,14 +503,14 @@ test('the empty workspace and the page of a new object say what is missing, and 
     // With Claude Code found the new object's page has no such block.
     const fine = await ok.firstWindow()
     await fine.waitForSelector('[data-region="left"]')
-    await fine.locator('.show-empty').getByRole('button', { name: 'New project' }).click()
+    await fine.locator('.empty-folder').getByRole('button', { name: 'open the full new project page' }).click()
     await expect(fine.locator('.new-foot')).toBeVisible()
     await expect(fine.locator('.new-foot .ready')).toHaveCount(0)
     await fine.keyboard.press('Escape')
-    await expect(fine.locator('.show-empty')).toBeVisible()
+    await expect(fine.locator('.empty-folder')).toBeVisible()
 
     // The folder menu has the check, as a dialog over the window.
-    await fine.getByRole('button', { name: 'Folders' }).click()
+    await fine.getByRole('button', { name: /^Folder / }).click()
     await fine.getByRole('menuitem', { name: 'Check what torno needs' }).click()
     const sheet = fine.getByRole('dialog', { name: 'What torno needs' })
     await expect(sheet).toBeVisible()

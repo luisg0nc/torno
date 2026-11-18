@@ -3,10 +3,9 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { BAR_SIDE, SCALE_BAR_MAX, SCREEN_UNIT, TRIAD_CLEAR } from '../src/renderer/viewport/overlay'
 import type { Hit } from '../src/renderer/viewport/picking'
 import type { Camera, LookRequest, SectionPlane, ViewState } from '../src/shared/view'
-import { openPanel } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 import { stableBox } from './stable'
 
@@ -59,7 +58,8 @@ type Vec3 = [number, number, number]
 const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window.__tornoTest!.state())
 const camera = (p: Page = page): Promise<Camera> => p.evaluate(() => window.__tornoTest!.camera())
 const section = async (p: Page = page): Promise<SectionPlane | null> => (await state(p)).section
-const bar = (p: Page = page) => p.locator('.sectionbar')
+// The section's controls are a tag on the plane (`[data-tag="section"]`), and the slider is the handle of its rule on the ground.
+const bar = (p: Page = page) => p.locator('[data-tag="section"]')
 const offset = (p: Page = page) => bar(p).getByRole('textbox', { name: 'Plane position in millimetres' })
 const readout = (p: Page = page) => p.locator('.pick-readout')
 const sceneFile = (object = 'bracket') => join(root, object, '.torno', 'scene.json')
@@ -298,7 +298,10 @@ test('a drag from the handle moves the plane along its normal; a drag from anywh
 
   // Away from the handle the pointer turns the camera, as with any tool: the plane stays.
   const before = await camera()
-  const [bx, by] = await pageXY([18, -12, 0])
+  // A place of the view with nothing on it, off the plane's handle: a third in from the left, a third down. (The corner of the
+  // base the test used before is under the bar at the foot of a view that is this narrow.)
+  const box = (await canvas.boundingBox())!
+  const [bx, by] = [box.x + box.width * 0.3, box.y + box.height * 0.33]
   await page.mouse.move(bx, by)
   expect(await canvas.evaluate((el: HTMLElement) => el.style.cursor)).toBe('')
   await page.mouse.down()
@@ -332,26 +335,26 @@ test('a drag from the handle moves the plane along its normal; a drag from anywh
   await expect.poll(() => canvas.evaluate((el: HTMLElement) => el.style.cursor)).toMatch(/^(nwse|nesw|ew)-resize$/)
 })
 
-test('a handle drag let go over the bar, off the canvas, is kept all the same, and the camera is the pointer\'s again', async () => {
+test('a handle drag let go over the tag, off the canvas, is kept all the same, and the camera is the pointer\'s again', async () => {
   await cutAt('Z', HALF_POST - 10)
   await page.keyboard.press('x')
   const home = await fromTheCorner()
   const [x, y] = await pageXY([0, 0, HALF_POST])
   const over = await stableBox(bar().getByRole('button', { name: 'Flip' }))
   const [toX, toY] = [over.x + over.width / 2, over.y + over.height / 2]
-  expect(toY).toBeGreaterThan(y + 100)
   await page.mouse.move(x, y - 10)
   await page.mouse.down()
   await page.mouse.move(x, y + 40)
   await page.mouse.move((x + toX) / 2, (y + toY) / 2)
-  // Over the bar, which lies on the viewport: the plane still follows, in the view only.
+  // Over the tag where it stood when the drag began, which lies on the viewport: the plane still follows, in the view only.
   await page.mouse.move(toX, toY)
   expect(await section()).toEqual({ origin: [0, 0, HALF_POST], normal: [0, 0, 1] })
   await page.mouse.up()
-  // Kept where the drag had it, the moment it was let go: no button of the bar was pressed by that.
+  // Kept where the drag had it, the moment it was let go: no button of the tag was pressed by that.
   const dragged = (await section())!
   expect(dragged.normal).toEqual([0, 0, 1])
-  expect(dragged.origin[2]).toBeLessThan(HALF_POST - 2)
+  // The tag stands above the plane now, so the way to it is up the screen: the plane went that way, to the top of the parts.
+  expect(dragged.origin[2]).toBeGreaterThan(HALF_POST + 2)
   await expect.poll(async () => (await mainView('bracket'))?.section).toEqual(dragged)
   // Back over the canvas with no button held, nothing more happens to it.
   await page.mouse.move(x + 150, y)
@@ -367,12 +370,12 @@ test('a handle drag let go over the bar, off the canvas, is kept all the same, a
   // Back to the view from the corner, and at rest there.
   expect(await fromTheCorner()).toEqual(home)
 
-  // Changed from the bar in the middle of a drag, the section is what the bar made it: the drag is dropped.
+  // Changed from the tag in the middle of a drag, the section is what the tag made it: the drag is dropped.
   const [hx, hy] = await pageXY(dragged.origin)
   await page.mouse.move(hx, hy - 10)
   await page.mouse.down()
   await page.mouse.move(hx, hy - 60)
-  await page.evaluate(() => (document.querySelector('.sectionbar button[title="Show the parts whole again"]') as HTMLElement).click())
+  await page.evaluate(() => (document.querySelector('[data-tag="section"] button[title="Show the parts whole again"]') as HTMLElement).click())
   expect(await section()).toBeNull()
   await page.mouse.move(hx, hy - 80)
   await page.mouse.up()
@@ -383,20 +386,37 @@ test('a handle drag let go over the bar, off the canvas, is kept all the same, a
   await cutAt('Z', 3.4)
 })
 
-test('the slider moves the plane across the parts, and keeps it when it is let go', async () => {
-  const slider = bar().getByRole('slider', { name: 'Offset along the normal' })
-  expect(await slider.evaluate((el: HTMLInputElement) => [Number(el.min), Number(el.max)])).toEqual([-12.5, 12.5])
-  await slider.focus()
-  await slider.evaluate((el: HTMLInputElement) => {
-    el.value = '-6'
-    el.dispatchEvent(new Event('input', { bubbles: true }))
-  })
-  // Moved in the view and in the number beside it, not kept yet.
-  await expect(offset()).toHaveValue('4')
-  expect((await section())!.origin[2]).toBe(13.4)
-  await slider.evaluate((el: HTMLInputElement) => el.dispatchEvent(new Event('change', { bubbles: true })))
+test('the handle of the rule moves the plane across the parts, and keeps it when it is let go', async () => {
+  const slider = page.getByRole('slider', { name: 'Offset along the normal' })
+  // The slider is the rule's handle: it has the plane's reach, from the middle of the parts.
+  await expect(slider).toHaveAttribute('aria-valuemin', '-12.5')
+  await expect(slider).toHaveAttribute('aria-valuemax', '12.5')
+  const hand = page.locator('.tool-button[data-tool="section"]')
+  if ((await hand.getAttribute('aria-pressed')) !== 'true') await hand.click()
+  await cutAt('Z', -6)
+  await expect(slider).toHaveAttribute('aria-valuenow', '-6')
+  // Taken by its square on the rule and dragged up along it: moved in the view and in the number, not kept yet.
+  const at = async () => {
+    const box = await stableBox(slider)
+    return [box.x + box.width / 2, box.y + box.height / 2] as const
+  }
+  const [hx, hy] = await at()
+  await page.mouse.move(hx, hy)
+  await page.mouse.down()
+  await page.mouse.move(hx, hy - 40, { steps: 3 })
+  await page.mouse.move(hx, hy - 120, { steps: 6 })
+  await expect.poll(async () => Number(await offset().inputValue())).toBeGreaterThan(5)
+  expect((await section())!.origin[2]).toBe(4)
+  await page.mouse.up()
+  // Kept where it was let go, and the handle is on the rule where the plane is.
+  const kept = (await section())!
+  expect(kept.normal).toEqual([0, 0, 1])
+  expect(kept.origin[2]).toBeGreaterThan(5)
+  await expect(slider).toHaveAttribute('aria-valuenow', String(kept.origin[2] - 10))
+  await cutAt('Z', -6)
   expect(await section()).toEqual({ origin: [0, 0, 4], normal: [0, 0, 1] })
   // With the slider in focus the arrows are a millimetre, and a tenth with Shift, as everywhere.
+  await slider.focus()
   await page.keyboard.press('ArrowRight')
   expect(await section()).toEqual({ origin: [0, 0, 5], normal: [0, 0, 1] })
   await page.keyboard.press('Shift+ArrowLeft')
@@ -449,7 +469,7 @@ test('a plane that leaves nothing of the parts says so, with a way back to the m
   await bar().getByRole('button', { name: 'Flip' }).click()
   await expect(note).toHaveCount(0)
   // With the post switched off there is nothing.
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.locator('[data-layer="post"]').hover()
   await page.getByRole('button', { name: 'Show post' }).click()
   await expect(note).toHaveText('Everything is on the cut side')
@@ -463,15 +483,16 @@ test('a plane that leaves nothing of the parts says so, with a way back to the m
   await expect(note).toHaveText('Everything is on the cut side')
   const empty = await look({ view: 'iso', marks: false }, [CENTRE])
   expect(near(empty.at[0], SURFACE, 30)).toBe(true)
-  await bar().getByRole('button', { name: 'Middle' }).click()
+  await bar().getByRole('button', { name: 'More about the section' }).click()
+  await page.getByRole('menuitem', { name: 'Middle' }).click()
   expect(await section()).toEqual({ origin: [0, 0, 10], normal: [0, 0, 1] })
   await expect(note).toHaveCount(0)
   await cutAt('Z', -6)
 })
 
 test('from face puts the plane on a flat face that is clicked, and refuses a round one', async () => {
-  await bar().getByRole('button', { name: 'From face' }).click()
-  await expect(bar().getByRole('button', { name: 'From face' })).toHaveAttribute('aria-pressed', 'true')
+  await bar().getByRole('button', { name: 'From a face' }).click()
+  await expect(bar().getByRole('button', { name: 'From a face' })).toHaveAttribute('aria-pressed', 'true')
   // The side of the post is a cylinder.
   let [x, y] = await pageXY([0, -4, 3.5])
   await page.mouse.move(x, y)
@@ -480,15 +501,15 @@ test('from face puts the plane on a flat face that is clicked, and refuses a rou
   await expect(readout()).toHaveText('That face is not flat: the plane needs a flat one')
   expect(await section()).toEqual({ origin: [0, 0, 4], normal: [0, 0, 1] })
 
-  // The side of the base at x = 20, which the view from the corner shows.
-  ;[x, y] = await pageXY([20, 3, 0])
+  // The side of the base at x = 20, which the view from the corner shows (near its top edge: lower, the bar at the foot of the view is over it).
+  ;[x, y] = await pageXY([20, 3, 2])
   await page.mouse.move(x, y)
   await page.mouse.down()
   await page.mouse.up()
   await expect.poll(async () => (await section())?.normal).toEqual([1, 0, 0])
   // Where the kernel says the face is: its own point of it, exactly on x = 20.
   expect(await section()).toEqual({ origin: [20, 0, 0], normal: [1, 0, 0] })
-  await expect(bar().getByRole('button', { name: 'From face' })).toHaveAttribute('aria-pressed', 'false')
+  await expect(bar().getByRole('button', { name: 'From a face' })).toHaveAttribute('aria-pressed', 'false')
   await expect(offset()).toHaveValue('20')
   // On the face nothing is cut yet: the face is still there to be picked.
   await page.keyboard.press('v')
@@ -523,7 +544,7 @@ test('the agent\'s show cuts by a plane for now: the scene file goes on saying w
   await expect.poll(async () => (await mainView('bracket'))?.section).toEqual({ origin: [5, 0, 0], normal: [1, 0, 0] })
 
   // A change of the person's own is saved, and with it their section, not the agent's.
-  await openPanel(page, 'Layers')
+  await openSection(page, 'Parts')
   await page.locator('[data-layer="post"]').hover()
   await page.getByRole('button', { name: 'Show post' }).click()
   await expect.poll(() => JSON.parse(readFileSync(sceneFile(), 'utf8')).layers.post, { timeout: 5_000 }).toEqual({ visible: false })
@@ -677,8 +698,8 @@ for (const shot of [
   })
 }
 
-test('the bar stays clear of the triad bottom left and the scale bottom right, in a wide view and in a narrow one, raised or not', async () => {
-  test.setTimeout(180_000)
+test('nothing over the reed, the compass or the band: the tag stands inside the view and clear of them, at 1440 by 900 and 1280 by 800, with and without a selection, with Section or Measure in hand', async () => {
+  test.setTimeout(240_000)
   await open('bracket')
   if ((await section()) === null) {
     if ((await page.locator('.tool-button[data-tool="section"]').getAttribute('aria-pressed')) !== 'true') await page.keyboard.press('x')
@@ -687,69 +708,56 @@ test('the bar stays clear of the triad bottom left and the scale bottom right, i
   expect(await section()).not.toBeNull()
   await expect(bar()).toBeVisible()
   const was = await page.evaluate(() => [window.innerWidth, window.innerHeight])
-  const widths: number[] = []
+
+  /** Selects a face the pointer finds, with the select tool: the first on a grid over the view that is not the cut face. */
+  const select = async (): Promise<void> => {
+    await page.keyboard.press('v')
+    const canvas = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
+    const found = await page.evaluate(() => {
+      for (let fy = 0.2; fy <= 0.9; fy += 0.05) for (let fx = 0.3; fx <= 0.8; fx += 0.05) if (window.__tornoTest!.pickAt(fx, fy, { edges: false })) return [fx, fy]
+      return null
+    })
+    expect(found).not.toBeNull()
+    await page.mouse.click(canvas.x + found![0] * canvas.width, canvas.y + found![1] * canvas.height)
+    await expect.poll(async () => (await state()).selection.length).toBeGreaterThan(0)
+  }
+  const unselect = async (): Promise<void> => {
+    await page.keyboard.press('v')
+    await page.locator('.viewport-canvas').click({ position: { x: 5, y: 5 } })
+    await expect.poll(async () => (await state()).selection.length).toBe(0)
+  }
+
   try {
-    for (const [selected, tool] of [[false, 'section'], [false, 'measure'], [true, 'section'], [true, 'measure']] as const) {
-      if (selected && (await state()).selection.length === 0) {
-        // A face of the post below the plane: the selection's bar takes the bottom row, and the section's stands a row up.
-        await page.locator('.tool-button[data-tool="select"]').click()
-        const [x, y] = await pageXY([0, -4, 8])
-        await page.mouse.click(x, y)
-        await expect.poll(async () => (await state()).selection.length).toBe(1)
-      }
-      if (selected) await expect(bar()).toHaveAttribute('data-raised', '1')
-      else await expect(bar()).not.toHaveAttribute('data-raised')
-      // The strip of the Measure tool is in the corner too: with it in hand the bar, which stays while a plane is cut, must clear it as well.
-      const hand = page.locator(`.tool-button[data-tool="${tool}"]`)
-      if ((await hand.getAttribute('aria-pressed')) !== 'true') await hand.click()
-      await expect(hand).toHaveAttribute('aria-pressed', 'true')
-      await expect(page.locator('.measure-choice')).toHaveCount(tool === 'measure' ? 1 : 0)
-      // The window narrows the view with it: the pane is the window less the left column and the dock.
-      // 1280 by 800 is a short window with the dock open: the palette, centred on the left, reaches low.
-      for (const [width, height] of [[1100, 900], [1280, 800], [1300, 900], [1440, 900], [1700, 900], [2000, 900], [2600, 900]]) {
+    for (const tool of ['section', 'measure']) {
+      for (const [width, height] of [[1440, 900], [1280, 800]]) {
         await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [width, height])
         await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width)
-        // The attribute follows the view's width, set when the observer is told.
-        await expect
-          .poll(async () => {
-            const pane = (await page.locator('.viewport-pane').boundingBox())!
-            return (await page.locator('.viewport-pane').getAttribute('data-narrow')) === null === pane.width >= 560 + 2 * BAR_SIDE
-          })
-          .toBe(true)
-        const pane = (await page.locator('.viewport-pane').boundingBox())!
-        const box = await stableBox(bar())
-        widths.push(Math.round(pane.width))
-        const bottom = pane.y + pane.height
-        // The corners as the overlay draws them: the triad's reach (its corner, arms and letters) and the scale bar or the grid's step at its longest.
-        const triad = { left: pane.x, right: pane.x + Math.ceil((26 + 2 * 38 + 11 + 6) * SCREEN_UNIT), top: bottom - TRIAD_CLEAR }
-        const scale = { left: pane.x + pane.width - Math.ceil(26 * SCREEN_UNIT + SCALE_BAR_MAX), right: pane.x + pane.width, top: bottom - Math.ceil(26 * SCREEN_UNIT + 20) }
-        const meets = (corner: { left: number; right: number; top: number }): boolean => box.x < corner.right && box.x + box.width > corner.left && box.y + box.height > corner.top && box.y < bottom
-        expect([width, 'triad', meets(triad)]).toEqual([width, 'triad', false])
-        expect([width, 'scale', meets(scale)]).toEqual([width, 'scale', false])
-        // Nor does it reach the palette of tools on the left, however high it is raised.
-        const palette = (await page.getByRole('toolbar', { name: 'Tools' }).boundingBox())!
-        const besides = box.x >= palette.x + palette.width || box.y + box.height <= palette.y || box.y >= palette.y + palette.height
-        expect([width, height, selected, tool, 'palette', besides]).toEqual([width, height, selected, tool, 'palette', true])
-        // In the room that leaves, all of it is there, nothing running past its edge: in a view as narrow as the short window's
-        // (512px) and wider. One narrower than the bar's least (about 374px and the sides) has it run over.
-        if (pane.width >= 512) {
-          const fits = await bar().evaluate((el) => [...el.children].every((child) => child.getBoundingClientRect().right <= el.getBoundingClientRect().right + 0.5))
-          expect([width, height, 'bar whole', fits]).toEqual([width, height, 'bar whole', true])
-        }
-        if (tool === 'measure') {
-          const strip = (await page.locator('.measure-choice').boundingBox())!
-          // Above the triad, and not under the bar: one of them is wholly above the other.
-          expect([width, 'strip over the triad', strip.y + strip.height <= triad.top]).toEqual([width, 'strip over the triad', true])
-          const apart = (other: { x: number; y: number; width: number; height: number }): boolean =>
-            strip.y + strip.height <= other.y || other.y + other.height <= strip.y || strip.x + strip.width <= other.x || other.x + other.width <= strip.x
-          expect([width, selected, 'strip clear of the bar', apart(box)]).toEqual([width, selected, 'strip clear of the bar', true])
-          if (selected) expect([width, 'strip clear of the selection', apart((await page.getByRole('group', { name: 'Selection' }).boundingBox())!)]).toEqual([width, 'strip clear of the selection', true])
+        for (const selected of [false, true]) {
+          if (selected) await select()
+          const hand = page.locator(`.tool-button[data-tool="${tool}"]`)
+          if ((await hand.getAttribute('aria-pressed')) !== 'true') await hand.click()
+          await expect(hand).toHaveAttribute('aria-pressed', 'true')
+          const here = [width, height, tool, selected ? 'selected' : 'nothing selected']
+          const pane = (await page.locator('.viewport-pane').boundingBox())!
+          const box = await stableBox(bar())
+          // Inside the view, and meeting no box a tag keeps clear of (the reed and what grows from it, the compass, a band).
+          expect([...here, 'in the view', box.x >= pane.x && box.y >= pane.y && box.x + box.width <= pane.x + pane.width && box.y + box.height <= pane.y + pane.height]).toEqual([...here, 'in the view', true])
+          const avoided = await page.evaluate(() =>
+            [...document.querySelectorAll<HTMLElement>('[data-tag-avoid]')]
+              .map((el) => ({ what: el.className, r: el.getBoundingClientRect() }))
+              .filter((o) => o.r.width > 0 && o.r.height > 0)
+              .map((o) => ({ what: o.what, x: o.r.x, y: o.r.y, w: o.r.width, h: o.r.height }))
+          )
+          expect(avoided.some((a) => a.what.includes('compass'))).toBe(true)
+          expect(avoided.some((a) => a.what.includes('toolbox'))).toBe(true)
+          for (const a of avoided) {
+            const apart = box.x + box.width <= a.x || a.x + a.w <= box.x || box.y + box.height <= a.y || a.y + a.h <= box.y
+            expect([...here, a.what, apart]).toEqual([...here, a.what, true])
+          }
+          if (selected) await unselect()
         }
       }
     }
-    // The widths cover both the lifted bar and the one between the corners.
-    expect(Math.min(...widths)).toBeLessThan(560 + 2 * BAR_SIDE)
-    expect(Math.max(...widths)).toBeGreaterThan(560 + 2 * BAR_SIDE)
   } finally {
     await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), was)
     await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(was[0])

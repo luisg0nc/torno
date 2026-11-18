@@ -8,13 +8,14 @@ paths:
   - "app/src/main/mcp/viewTools.ts"
   - "app/src/main/mcp/views.ts"
   - "app/src/main/mcp/views.test.ts"
-  - "app/src/renderer/ui/ViewsStrip.tsx"
+  - "app/src/renderer/ui/view/SavedViews.tsx"
+  - "app/src/renderer/ui/view/compassFold.ts"
   - "app/src/renderer/state/savedViews.ts"
-  - "app/src/renderer/styles/views.css"
+  - "app/src/renderer/styles/compass.css"
   - "app/e2e/views.spec.ts"
 ---
 
-# Saved views: the file, whose a view is, the agent and the strip
+# Saved views: the file, whose a view is, the agent and the compass
 
 Moved as written from the folder `CLAUDE.md` files; each heading names the folder it came from, and paths are written as they were there (see "Rules by area" in the root `CLAUDE.md`).
 
@@ -27,7 +28,7 @@ off, a section or an explode, and how each scan is shown (`visible`,
 order they were saved): 24 at most of the person's (`MAX_VIEWS`: those they
 made or kept), and beside them at most 12 proposals of the agent's
 (`MAX_PROPOSALS`), which take no place of theirs. The person at 24 is told so
-where they ask for one more (the field, or under the strip for "Keep"); the
+where they ask for one more (the field, or under the pills for "Keep"); the
 agent is never told to remove a view.
 
 - **View state only.** Applying a view changes no geometry, no mark and no
@@ -39,7 +40,7 @@ agent is never told to remove a view.
   part the model gains later is in the view, as it is on screen. A view
   names its layout, its hidden parts and its scans; what of that is gone
   when it is applied is passed over and said, never in silence (`viewGone`,
-  one rule for the strip, the tools and `state.md`). The chip says `2 parts
+  one rule for the pills, the tools and `state.md`). The chip says `2 parts
   gone`; the reply of `look` and `show` names them after the caption
   (` · passed over, of the view "Hinge side": the part clip, which layout
   assembly no longer has`); an explode kept of a layout that can no longer
@@ -49,7 +50,7 @@ agent is never told to remove a view.
   (`savedViewOf`): a layout of more than a line is no view, a hidden name of
   more than a line is dropped, a camera beyond ±1e9 mm is none and its zoom
   is kept within 0.001 to 1000. A view whose layout is gone
-  stays in the strip, cannot be applied and says why. A file with a broken
+  stays in the list, cannot be applied and says why. A file with a broken
   view loses that view only.
 - **A name** is trimmed, one line with no control character, 1 to 40
   characters, never `current` or a standard view's (`RESERVED_VIEW_NAMES`),
@@ -102,7 +103,7 @@ agent is never told to remove a view.
   plane and the explode; the window (`proposeView` in `state/agent.ts`)
   builds the view from the request and from what is on screen for what the
   request leaves out (the camera is where it is going when `show` has just
-  sent it somewhere: `Viewport.cameraGoal`, which the strip's save and
+  sent it somewhere: `Viewport.cameraGoal`, which the compass's save and
   update use too), keeps it as the agent's and proposed
   (`actions.proposeView`, whatever the view says of itself), and gives the
   scene file to main at once. The tool answers once that file is on the
@@ -127,18 +128,16 @@ agent is never told to remove a view.
   cleared, and what the view does not set is as the person had it
   (`sceneFileOf`). The caller then moves the camera
   (`viewport.setView(view.camera, true)`).
-- **The strip** (`ui/ViewsStrip.tsx`, the last child of `.viewbars`,
-  `role="toolbar"`): a chip per view (`button.view-chip[data-view]`), the
-  one that is on marked (`aria-pressed`: `activeView`, while the screen
-  still shows what it holds, `viewMatches`, and until the camera rests
-  somewhere else, `actions.cameraSettled`), and "+ Save view" with one field.
-  Six chips at most (`stripChips`: the one that is on, then the proposals,
-  then the others as saved, shown in saved order), each name cut at 160 px
-  and whole in the tooltip; with more views a chip `18 more` opens the list
-  of all of them, a row each with what it holds. The strip is two rows at
-  most at the default pane (`views.spec.ts` holds it to that with 26). Its
-  menus take the focus, the arrows, Home and End; Escape and every action
-  give the focus back to the chip, and never reach the pane's own Escape.
-  A proposal is drawn dashed with the word `proposed`, "Keep" and
-  "Discard": in no mark's colour, as a view is not a mark. The digits are
-  not bound to the saved views: `1` to `4` are the standard views.
+- **The compass's views** (`ui/view/SavedViews.tsx`, the foot of `ui/view/Compass.tsx`, `role="group"`): as pills, stacked:
+  the one that is on (a ring in the accent; `activeView`, while the screen still shows what it holds, `viewMatches`, and
+  until the camera rests somewhere else, `actions.cameraSettled`), then the first proposal of the agent's, then
+  "+ Save view" with `N more` in the same pill (`compassViews` in `ui/view/compassFold.ts`: the others, as saved, are behind
+  `N more`, which opens the list of all of them as a popover: a row each with what it holds, and its menu of actions).
+  A pill is `button.view-chip[data-view]`, its name cut at 150 px and whole in the tooltip. Which way they stand is
+  `foldSavedViews`: `none` while Align or Region is in hand, one pill "Saved views N" (the same list, which then ends
+  with "+ Save view") while a tool with tags is in hand (`hasTags`: Section, Measure, Draw, until their tags exist and
+  say it themselves), explode is open (`useExplodeShown`) or the stack, drawn out, would reach a tag
+  (`[data-tag]`, measured after each frame), and the stack otherwise. Its menus take the focus, the arrows, Home and End
+  (`PopMenu`); Escape and every action give the focus back to the pill, and never reach the pane's own Escape. A
+  proposal is drawn dashed in `--agent-mark` with the word `proposed`, "Keep" and "Discard": a view is not a mark, and
+  the colour is the one of what the agent made. The digits are not bound to the saved views: `1` to `4` are the standard views.

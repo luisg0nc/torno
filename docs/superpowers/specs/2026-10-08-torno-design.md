@@ -180,7 +180,7 @@ Common fields: `id`, `kind`, `author` (`user` or `agent`), `note`, `anchors` (po
 
 Strokes drawn on a locked orthographic view are stored as 2D polylines in millimetres on a named plane (for example "plane XZ at y = 40"). That is the form in which a hand-drawn profile is directly usable by build123d.
 
-The agent can create marks too (`add_mark`), to ask "do you mean this face?" or to show where a change was made, and resolves the user's marks when it has acted on them. The panel lists marks by what is to be done with them (to send, from the agent, to review, with the agent, resolved); what the agent resolved waits under "To review" as one summary, with Review and OK all, until the person acknowledges it.
+The agent can create marks too (`add_mark`), to ask "do you mean this face?" or to show where a change was made, and resolves the user's marks when it has acted on them. The Marks section of the route card lists marks by what is to be done with them (to send, from the agent, to review, with the agent, resolved); what the agent resolved waits under "To review" as one summary, with Review and OK all, until the person acknowledges it.
 
 **Pinned dimensions** are dimension marks that stay. They are re-measured on every build. With an expected value and tolerance they show pass or fail. This is the ruler that verifies.
 
@@ -250,13 +250,13 @@ Custom, on plain three.js with three-mesh-bvh. It is the centre of the product a
 - **Layers:** every part, reference and scan has visibility, colour and opacity. The model's groups of parts are headers that fold, hide or show their parts, or show only them; which are folded is kept in `scene.json`. Layout switch between assembly and print. Explode slider: per layout, for display only. Nothing is marked, measured or cut while the parts are drawn apart, and no position told to the agent is an exploded one. A section is never drawn exploded.
 - **Views:** standard views, perspective/orthographic toggle, named views saved per object.
 - **Section:** one plane, axis-aligned or taken from a picked face, dragged along its normal, with stencil caps coloured per part. Scans are clipped without caps.
-- **Measure:** point, edge and face snapping; live readout from the mesh while hovering (`≈`), then the kernel's value. A measurement leaves no mark and is told to no one; the last one stays in the tool's strip (`Last: 6 mm between planes`) and is kept as a dimension only by "Keep as a dimension" or `Enter`.
+- **Measure:** point, edge and face snapping; live readout from the mesh while hovering (`≈`), then the kernel's value. A measurement leaves no mark and is told to no one; the last one stays in the tool's tag, at the middle of the measured line (`6 mm`, `between planes, exact`) and is kept as a dimension only by "Keep as a dimension" or `Enter`.
 - **Scans:** a list of their own under the layers, a row of one line each; drawn with vertex colours baked from the texture, opacity slider, one mesh for drawing, picking and checking (reduced only above 2 M triangles).
 - **Render on demand**, not a continuous loop.
 
 ## 8. Scans
 
-Import GLB, glTF, OBJ, PLY or STL by drop or dialog. The import process (trimesh) bakes vertex colours from the texture, converts to millimetres and Z up, and writes one mesh, `mesh.bin`; up to 2,000,000 triangles it is not reduced (the bay scan: 1.6 M, 3.4 s, 34 MB). The source is referenced by path, size and hash and never copied. Unit and up axis are assumed from the format and the size (glTF: metres, Y up), asked about once right after an import in the window (with the size the scan would have), and can be changed afterwards. A scan's row in the panel is one line like a layer's (id, name, its state in one word, the eye: `placed` for an alignment tied to no point of the model, which no build checks), and the rest opens beneath it.
+Import GLB, glTF, OBJ, PLY or STL by drop or dialog. The import process (trimesh) bakes vertex colours from the texture, converts to millimetres and Z up, and writes one mesh, `mesh.bin`; up to 2,000,000 triangles it is not reduced (the bay scan: 1.6 M, 3.4 s, 34 MB). The source is referenced by path, size and hash and never copied. Unit and up axis are assumed from the format and the size (glTF: metres, Y up), asked about once right after an import in the window (with the size the scan would have), and can be changed afterwards. A scan's row in the Scans section of the route card is one line like a layer's (id, name, its state in one word, the eye: `placed` for an alignment tied to no point of the model, which no build checks), and the rest opens beneath it.
 
 Alignment, in order of use:
 
@@ -274,13 +274,37 @@ The objects of a workspace are on one page of cards: a picture of the last build
 
 Its own, and deliberately far from a dark control room.
 
-- **Idea:** a toolroom surface plate. Calm, light, exact. The part is the only loud thing on screen.
-- **Layout:** the viewport fills the window. Tools float on it in one small palette, in three groups split by a hairline: those that inspect (Select, Measure, Section), those that mark (Pin, Arrow, Draw, Shape, Region of a scan) and the scan's (Align scan). Layers and marks sit in a narrow column on the left; the session docks on the right and can be widened, hidden or made full height. No frames within frames.
-- **Colour:** warm paper-grey surfaces and graphite text in light mode, with a matching dark mode. One accent, layout blue (the blue machinists paint on steel before scribing). User marks are red pencil, agent marks are green, so authorship is visible at a glance. Parts use a muted, distinguishable palette.
-- **Logo** (2026-10-16): torno is Portuguese for a bench vise. The mark is one seen from the side: its jaws and slide holding a part in layout blue, its screw and handle, its base, the vise in graphite on the paper grey. The logo is the mark over the name in the sans, semibold, lowercase. The icon is `scripts/torno.svg` (and `torno-16.svg`, drawn again on whole pixels for 16 px), the window's `app/resources/icon.png` is made from it, and `ui/Logo.tsx` draws the same in the window: in the theme's ink and accent, or in one colour where it stands in for a picture.
-- **Type:** a humanist sans for UI and a monospace with tabular figures for every number and ref. Sentence case. No all-caps labels.
-- **Feel:** small radii, hairline dividers, no glow, no ornament. Motion only where it explains a change (camera moves, a rebuild landing).
-- **Keyboard:** single-key tools (`P` pin, `A` arrow, `D` draw, `S` shape, `M` measure, `X` section), `E` explode, and `?` for the sheet of keys.
+- **Idea:** a toolroom surface plate. Calm, light, exact. The part is the only loud thing on a screen that has a part.
+  Layout blue, the dye machinists paint on steel before scribing it, is also a material: a field of it covers the
+  screens that have no model (the first screen, an empty folder, the prompt side of a new project), with the vise
+  scribed on it in fine lines. Everywhere else it marks one thing at a time.
+- **Layout:** a title bar with the folder and the project, a rail of icons at the left, the route card of the project
+  beside it, the view in the middle, the session docked at the right and a status line at the foot. The route card
+  reads the project from top to bottom (what is in your hand, what needs you, the parts, parameters, checks, marks,
+  scans, tracings, the print profile), and the rail is its index. The tools are a slim reed at the left of the view.
+  A tool's controls stand beside what they act on, tied to it by leaders. The view's own controls are a compass at its
+  top right. The session's builds strip is the project's memory and stays at the top of the dock in every mode. No
+  frames within frames.
+- **Colour:** warm paper-grey surfaces and graphite text in light mode, with a matching dark mode. One accent, layout
+  blue. User marks are red pencil, agent marks are green, so authorship is visible at a glance. Claude's green also
+  marks what Claude proposed (a saved view, a named set, a tracing's layer). In a review, red and green also mean Don't
+  want and Want, told apart from authorship by shape: hatched against solid, a round minus or plus beside the number,
+  and the other marks dimmed. Parts use a muted, distinguishable palette.
+- **Logo** (2026-10-16): torno is Portuguese for a bench vise. The mark is one seen from the side: its jaws and slide
+  holding a part in layout blue, its screw and handle, its base, the vise in graphite on the paper grey. The logo is
+  the mark over the name in the sans, semibold, lowercase. The icon is `scripts/torno.svg` (and `torno-16.svg`, drawn
+  again on whole pixels for 16 px), the window's `app/resources/icon.png` is made from it, and `ui/Logo.tsx` draws the
+  same in the window: in the theme's ink and accent, in one colour where it stands in for a picture, or scribed in
+  lines on the dye.
+- **Type:** Instrument Sans, a grotesque, for the interface, and Martian Mono, with tabular figures, for every number,
+  ref, file name and key. Both are bundled with the app. Sentence case. No all-caps labels.
+- **Feel:** hairline dividers, no glow, no ornament. Radii grow with how far a thing floats: 4 px for a chip in a line,
+  6 px for a control, 10 px for a tag or a popover, 14 px for a sheet, round for the reed, pills and bands. Motion only
+  where it explains a change (a build landing, a leader drawing out, a tool taken up), once, and none when the system
+  asks for less.
+- **Keyboard:** single-key tools (`V` select, `M` measure, `X` section, `P` pin, `A` arrow, `D` draw, `S` shape, `B`
+  region of a scan, `L` align scan), `E` explode, and `?` for the keys. While a sketch is open its own keys take over
+  (the pens `B`, `L`, `P`, `C`, the planes `Shift+1` to `Shift+3`, x-ray `I`).
 
 ## 11. Errors
 

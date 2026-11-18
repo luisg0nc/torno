@@ -1,11 +1,9 @@
 /* ---- Status line ---- */
 
 .status {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  grid-area: 3 / 1 / 4 / -1;
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -145,89 +143,35 @@
   text-underline-offset: 3px;
 }
 
-/* ---- Build error sheet: rises from the status line over the viewport ---- */
-
-.sheet {
-  position: absolute;
-  left: var(--left-w);
-  right: var(--dock-space);
-  bottom: 100%;
-  display: flex;
-  flex-direction: column;
-  max-height: min(60vh, 560px);
-  border-top: var(--divider);
-  background: var(--panel);
-  color: var(--ink);
-  font-size: var(--text-size);
-  white-space: normal;
-}
-
-.sheet-head {
-  display: flex;
+/* The last builds as ticks, after the project's name: the one on show taller and in the accent, a failed one in the fail colour, the person's own saves in their mark. */
+.status-ticks {
+  display: inline-flex;
   align-items: center;
-  flex: none;
-  gap: var(--space-3);
-  height: 44px;
-  padding: 0 var(--space-3) 0 var(--space-4);
+  gap: 3px;
 }
 
-.sheet-title {
-  font-weight: 600;
-  color: var(--fail);
+.status-tick {
+  width: 7px;
+  height: 11px;
+  background: color-mix(in srgb, var(--field-edge) 50%, transparent);
 }
 
-/* Who is told of the failure, under the head: two quiet lines that do not scroll away. */
-.sheet-lead {
-  flex: none;
-  padding: 0 var(--space-4) var(--space-3);
+.status-tick[data-saved] {
+  background: color-mix(in srgb, var(--user-mark) 75%, transparent);
 }
 
-.sheet-lead p {
-  max-width: 90ch;
-  margin: 0;
+.status-tick[data-kind='failed'] {
+  background: var(--fail);
 }
 
-.sheet-lead p + p {
-  margin-top: var(--space-1);
-}
-
-.sheet-body {
-  min-height: 0;
-  padding: 0 0 var(--space-4);
-  overflow-y: auto;
-  user-select: text;
-  cursor: text;
-}
-
-.sheet-message {
-  max-width: 90ch;
-  padding: 0 var(--space-4) var(--space-2);
-  overflow-wrap: anywhere;
-}
-
-.sheet-pre {
-  margin: 0;
-  padding: 0 var(--space-4) var(--space-2);
-  font: 400 var(--text-small) / 1.55 var(--font-mono);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-/* The button that opens the builds kept of the project, in the status line. */
-.status-history {
-  padding: 0 var(--space-1);
-  color: var(--muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.status-history[aria-expanded='true'] {
-  color: var(--ink);
-}
-
-.status-history {
-  border: 0;
+.status-tick[data-kind='running'] {
   background: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.status-tick[data-on-show] {
+  height: 13px;
+  background: var(--accent);
 }
 
 /* An earlier build is drawn over the current one: said in the line, with the way to put it away. */
@@ -237,4 +181,75 @@
   padding: 0;
   color: var(--ink);
   font-weight: 500;
+}
+
+/* The file an export wrote, where Export… was: on the accent wash, with the read-back in a popover above it (ui/SavedFile.tsx). */
+.status-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 4px 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+.status-saved-tick {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.status-saved-size {
+  color: var(--muted);
+}
+
+.status-saved-away {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-inline);
+  background: transparent;
+  color: var(--muted);
+}
+
+.status-saved-away:hover {
+  color: var(--ink);
+}
+
+.saved-pop {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--text-small);
+  white-space: normal;
+}
+
+.saved-pop h4,
+.saved-pop p {
+  margin: 0;
+}
+
+.saved-pop h4 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.saved-pop-where {
+  color: var(--muted);
+}
+
+.saved-pop [data-tone='warn'] {
+  color: var(--warn);
+}
+
+.saved-pop [data-tone='fail'] {
+  color: var(--fail);
+}
+
+.saved-pop .button {
+  justify-self: start;
 }

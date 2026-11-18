@@ -1,11 +1,12 @@
 import * as THREE from 'three'
+import { MONO_STACK } from '../../shared/fonts'
 import type { Vec3 } from '../../shared/marks'
 
 /** A point of an alignment being made: where it is, in the object frame, and its number. A model end is drawn hollow, a scan end filled. */
 export interface AlignPoint { at: Vec3; label: string; hollow?: boolean }
 
 const RADIUS = 8
-const MONO = "'IBM Plex Mono', ui-monospace, monospace"
+const MONO = MONO_STACK
 const seen = new THREE.Vector3()
 
 /**
@@ -16,7 +17,7 @@ const seen = new THREE.Vector3()
 export function drawAlignPoints(ctx: CanvasRenderingContext2D, points: readonly AlignPoint[], camera: THREE.Camera, size: { width: number; height: number }, colours: { accent: string; paper: string }): void {
   if (points.length === 0) return
   ctx.save()
-  ctx.font = `600 10.5px ${MONO}`
+  ctx.font = `500 10.5px ${MONO}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   for (const point of points) {

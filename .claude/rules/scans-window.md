@@ -11,6 +11,9 @@ paths:
   - "app/src/renderer/ui/Scan*.tsx"
   - "app/src/renderer/ui/scan*.ts"
   - "app/src/renderer/ui/AlignBar.tsx"
+  - "app/src/renderer/ui/view/ProcedureCard.tsx"
+  - "app/src/renderer/styles/procedures.css"
+  - "app/src/renderer/viewport/askedBox*.ts"
   - "app/src/renderer/ui/align/**"
   - "app/src/renderer/state/align.ts"
   - "app/src/renderer/state/align.test.ts"
@@ -68,6 +71,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the line "Not all in view" in its row's detail from `store.scansClipped`, which
   the viewport sets with every view it reports, and `reaches beyond the
   view: not all of it is drawn` in a picture's caption).
+- **Import scan…** is `ImportScan` (`ui/ScansPanel.tsx`), the `action` of the Scans section's `CardSection`: at the right of the head's line, beside the head's button and not in it (`.route-head-action`, `card-misc.css`), so it stays there while the section is folded, and is off while a scan is read.
 - A scan's row (`ScanRow` in `ui/ScansPanel.tsx`) is one line, as a layer's: id, name (`.row-name`, whole with
   its source in the `title`), a dot while how it was read is a guess, its state in one word, the opacity on
   hover, the eye, and the arrow that opens its detail beneath it (`.scan-detail`; one open at a time, the
@@ -76,24 +80,24 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   come from `ui/scanState.ts` (`scanState`): `aligned`, `placed`, `pending`, `check`, `rough`, `unaligned`,
   `missing`. `placed` is an alignment tied to no point of the model (`tiedPoints` 0), which no build checks:
   it never reads as `aligned`. How a scan this window just imported is read, when its unit or up axis was
-  assumed, is asked once by `ui/ScanReadSheet.tsx` at the top of the section, shown for `store.scanAsking`
-  (set by `importScan`, cleared by Keep, Apply, Later or another object), with the size from `sizeAs`
+  assumed, is asked once by `ui/ScanReadSheet.tsx`, a card in the view (330 px, the tag's look, `data-tag-avoid`) under the switch at the top left (`left: 66px`, past the reed), shown for `store.scanAsking`
+  (set by `importScan`, cleared by Keep, Read it in, Next: align, Later or another object), with the dial of `ui/scanDial.ts` (`dialSizes`: the longest side as each unit would make it, in the mono form; a foot is there for the dial's sake, but a scan is read in mm, cm, m or in only, so the card shows those four), the size from `sizeAs`
   (`shared/scans.ts`), the size of the parts of the layout shown (`boxSize`, worded "about"), and, past
   `UNIT_DOUBT` (100) times either way, a `--warn` line naming the unit `sizeAgainst` finds nearest. While it is up,
-  the scan's detail does not ask the same (no "right? Yes", no "Read as" fields). A scan just imported is framed
+  the scan's detail does not ask the same (no "right? Yes", no "Read as" fields: it says "Asked in the view"). Pointing at (or focusing) a unit draws the scan's box at that size from the scan's lowest corner, dashed in `--accent` with its size (`Viewport.showAskedBox`, `viewport/askedBox.ts`, on the overlay canvas, in no picture; `scanDial.askedBox`), and the card is tied to the scan's nearest corner in view by a leader published through `publishTag` (`ui/view/useTagAt.ts`, id `scan-ask`), never `setToolLeaders`. The change of unit that drops an alignment asks with `Confirm`, a popover from the button. A scan just imported is framed
   with the parts once (`importScan`, `actions.frameScan`; the viewport waits for the mesh if it is not drawn yet),
   and again after Apply; `F` and the named views still frame the parts only. `unaligned` is `--muted` for a scan
   never aligned in any layout (`data-never`), `--warn` otherwise.
-- The align bar is `ui/AlignBar.tsx`, its three bodies `ui/align/`. Its three ways are numbered steps
-  (`1 Floor · 2 Pairs · 3 Nudge`) with a tick (`--ok`) for each in `stepsDone` of the alignment in the layout shown
-  and one line of what the step is for. `state/align.ts` `firstStep` picks where the tool opens (`beginAlign`, from
-  `alignScan` in `ui/scanDrop.ts`: the Align button, "Next: align S1" on the read sheet, the bar's scan select): Floor for
+- The Align card is `ui/AlignBar.tsx` in a `ProcedureCard` (`ui/view/ProcedureCard.tsx`: bottom right of the view, 320 px for Align, title "Align scan" with its icon and "Esc put down", `data-tag-avoid`, `styles/procedures.css`), its three bodies `ui/align/`. Its three ways are steps one under the other
+  (`1 Floor · 2 Pairs · 3 Nudge`: a number in a 20 px circle, done in ink, current in the accent, to come in the hairline) with a tick (`--ok`) for each in `stepsDone` of the alignment in the layout shown
+  and a muted line of what the step is for; the current step holds its body. The rough question is a `--warn-wash` block with "Not yet" and "Keep as rough". The pairs are two lines each (the point and its part, then three fields and the residual). `state/align.ts` `firstStep` picks where the tool opens (`beginAlign`, from
+  `alignScan` in `ui/scanDrop.ts`: the Align button, "Next: align S1" on the read card, the card's scan select): Floor for
   a scan `muchLarger` than the parts (`SURROUNDINGS`, 10 times the diagonal) with nothing done, else Pairs, Nudge once
   there are pairs; it comes back to what was chosen last for that scan (`chooseAlignMode`); a floor or pairs kept
   moves it on (`advanceAlign`). A tick is a step, not a state: the row still says `placed` for a floor only.
   (`FloorBody`, `PairsBody`, `NudgeBody`, and `format.ts` for what they
   share); the field one number is typed in is `ui/Field.tsx`, the Region
-  bar's too, and what was typed is read by `ui/typed.ts`.
+  card's too, and what was typed is read by `ui/typed.ts`.
 - Refs and numbers in a sentence are set in the monospace face by
   `ui/numbered.tsx`, a ref whole. `.torno/views/` ignores itself for git.
 - A scan and a picture coloured by distance use tokens of their own

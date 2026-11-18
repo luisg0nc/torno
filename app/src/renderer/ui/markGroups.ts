@@ -1,5 +1,5 @@
 import { isCheck, standingOf } from '../../shared/dimension'
-import { type Mark, awaitsAcknowledgement } from '../../shared/marks'
+import { type DimensionMark, type Mark, awaitsAcknowledgement } from '../../shared/marks'
 
 /** How a check is ordered in its group: what fails first, then what has no value of the build, then what passes. */
 const CHECK_ORDER: Record<string, number> = { fail: 0, unmeasurable: 1, unmeasured: 1, pass: 2, measured: 2 }
@@ -21,10 +21,30 @@ export function groupMarks(marks: readonly Mark[], revision?: number) {
     .map(({ m }) => m)
   return {
     checks,
+    /** The checks that fail on the build `revision`, in the order of `checks`: what Needs you points at. */
+    failing: checks.filter((m) => standingOf(m, revision) === 'fail'),
     toSend: rest.filter((m) => m.status === 'draft'),
     fromAgent: rest.filter((m) => m.status === 'sent' && m.author === 'agent'),
     withAgent: rest.filter((m) => m.status === 'sent' && m.author !== 'agent'),
     toReview: marks.filter(awaitsAcknowledgement),
     resolved: marks.filter((m) => m.status === 'resolved' && !awaitsAcknowledgement(m))
+  }
+}
+
+/** What `groupMarks` says. */
+export type MarkGroups = ReturnType<typeof groupMarks>
+
+/**
+ * The groups by who acts next. What waits on the person goes to Needs you: the marks the agent resolved and they have not judged,
+ * the marks it left for them, and the checks that fail. What is theirs to send, with the agent, or done goes to Marks. The other
+ * checks (not measured, passing) are the Checks section's, which reads `groups.checks`.
+ */
+export function splitMarkGroups(groups: MarkGroups): {
+  needs: { toReview: Mark[]; fromAgent: Mark[]; failingChecks: DimensionMark[] }
+  marks: { toSend: Mark[]; withAgent: Mark[]; resolved: Mark[] }
+} {
+  return {
+    needs: { toReview: groups.toReview, fromAgent: groups.fromAgent, failingChecks: groups.failing },
+    marks: { toSend: groups.toSend, withAgent: groups.withAgent, resolved: groups.resolved }
   }
 }

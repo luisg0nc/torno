@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HINT_KEY, hintLine, pointerHintDue, rememberPointerHint, scanless, stepFor } from './step'
+import { CAPTION_PAUSE_MS, CAPTION_USES, HINT_KEY, TOOL_USES_KEY, captionShows, countToolUse, hintLine, pointerHintDue, rememberPointerHint, scanless, sketchLine, stepFor, toolUses } from './step'
 import { NO_SCAN_YET, TOOL_KEYS, hint } from '../../shared/keys'
 
 /** A storage of the window, as the tests need it. */
@@ -90,5 +90,39 @@ describe('the line at the foot of the view', () => {
     expect(scanless('region', null)).toBe(false)
     expect(scanless('region', 2)).toBe(false)
     expect(scanless('pin', 0)).toBe(false)
+  })
+})
+
+describe('the caption at the pointer', () => {
+  it('shows for the first ten uses of a tool at once, and after that only when the pointer has been still for half a second', () => {
+    expect([CAPTION_USES, CAPTION_PAUSE_MS]).toEqual([10, 500])
+    expect(captionShows(3, 0)).toBe(true)
+    expect(captionShows(CAPTION_USES - 1, 0)).toBe(true)
+    expect(captionShows(10, 100)).toBe(false)
+    expect(captionShows(10, 499)).toBe(false)
+    expect(captionShows(10, 500)).toBe(true)
+    expect(captionShows(250, 5000)).toBe(true)
+  })
+
+  it('counts a use in the window’s storage, and a storage that is not there or refuses counts none', () => {
+    expect(TOOL_USES_KEY).toBe('torno.toolUses')
+    const storage = memory()
+    expect(toolUses(storage)).toBe(0)
+    countToolUse(storage)
+    countToolUse(storage)
+    expect(toolUses(storage)).toBe(2)
+    expect(Object.keys(storage.data)).toEqual([TOOL_USES_KEY])
+    expect(toolUses(refusing)).toBe(0)
+    expect(toolUses(null)).toBe(0)
+    expect(toolUses(memory({ [TOOL_USES_KEY]: 'many' }))).toBe(0)
+    expect(() => countToolUse(refusing)).not.toThrow()
+    expect(() => countToolUse(null)).not.toThrow()
+  })
+})
+
+describe('a sketch’s standing line at the foot of the view', () => {
+  it('says whether it snaps and how to drop it, and where x-ray is', () => {
+    expect(sketchLine({ snapping: true, xray: false })).toEqual({ snap: `Snapping on, hold ${hint('sketch.snap')} to drop it.`, xray: 'X-ray', cap: hint('sketch.xray') })
+    expect(sketchLine({ snapping: false, xray: true })).toEqual({ snap: 'Snapping off.', xray: 'X-ray on', cap: hint('sketch.xray') })
   })
 })

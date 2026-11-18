@@ -1,45 +1,4 @@
-/* ---- View bar: the one palette floating on the viewport ---- */
-
-/* The bars at the top of the view, one under the other, in the middle: the view bar, and under it what it opens. */
-.viewbars {
-  position: absolute;
-  /* Below the switch of Board and Model, which stands over the top left of this area (`--switch-h`): at the widths a view can have, bars that are centred reach under it. */
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  left: var(--space-3);
-  right: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  /* Only the bars take the pointer: between and beside them it is the view's. */
-  pointer-events: none;
-}
-
-.viewbar {
-  position: relative;
-  max-width: 100%;
-  pointer-events: auto;
-  /* Its menus are stacked within it, and over the bar under it. */
-  z-index: 1;
-  display: flex;
-  /* One row; in a pane too narrow for it, what does not fit goes to a second rather than under the panels. */
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-  font-size: var(--text-small);
-  white-space: nowrap;
-}
-
-.viewbar-group {
-  display: flex;
-  gap: 2px;
-}
+/* ---- What bars left: the rule between a tracing's tools, the plain button, the menu, and the sides Compare names (`.viewbar-rule`, `.bar-button`, `.menu`) ---- */
 
 .viewbar-rule {
   width: 1px;
@@ -52,7 +11,7 @@
   height: 26px;
   padding: 0 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: transparent;
 }
 
@@ -76,50 +35,6 @@
   color: var(--accent);
 }
 
-/* The view the camera is locked on: square to a principal plane, so what is
-   drawn there is a profile in millimetres. A small padlock before its name. */
-.bar-button[data-locked] {
-  color: var(--accent);
-}
-
-.bar-button[data-locked]:not(.bar-icon) {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.view-lock,
-.bar-icon .view-lock {
-  flex: none;
-  width: 9px;
-  height: 11px;
-}
-
-.menu-item[data-locked] {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  color: var(--accent);
-}
-
-.bar-icon {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  padding: 0;
-  color: var(--muted);
-}
-
-.bar-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-.viewbar-more {
-  position: relative;
-}
-
 .menu {
   position: absolute;
   z-index: 1;
@@ -129,16 +44,16 @@
   min-width: 96px;
   padding: 3px;
   border: var(--divider);
-  border-radius: var(--radius-palette);
+  border-radius: var(--radius-float);
   background: var(--panel);
-  box-shadow: var(--palette-shadow);
+  box-shadow: var(--float-shadow);
 }
 
 .menu-item {
   height: 26px;
   padding: 0 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: transparent;
   text-align: left;
 }
@@ -150,100 +65,10 @@
 
 /* ---- Compare: two kept builds in the view (ui/CompareBar.tsx) ---- */
 
-/* Under the view bar: which builds, how they are shown, and the way back. */
-.comparebar {
-  gap: var(--space-2);
-  padding-left: var(--space-3);
-}
-
-.comparebar-label {
-  color: var(--muted);
-}
-
-.comparebar .segmented {
-  /* The segmented control of the marks panel, at the height of a bar's buttons. */
-  height: 26px;
-}
-
-.comparebar .segmented button {
-  height: 22px;
-  padding: 0 10px;
-}
-
-/* The boxes hang from the bars at the corners of the view: they say, and take no pointer. */
-.compare-boxes {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  pointer-events: none;
-}
-
-.compare-box {
-  max-width: 260px;
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-palette);
-  background: var(--panel);
-  box-shadow: var(--palette-shadow);
-  font-size: var(--text-small);
-  line-height: 1.6;
-  pointer-events: none;
-}
-
-.compare-box h3 {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-small);
-  font-weight: 600;
-}
-
-.compare-box ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.compare-box li {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.compare-box p {
-  margin: 0;
-}
-
-.compare-moved {
-  min-width: 200px;
-  margin-left: auto;
-}
-
-.compare-moved [data-better='true'] {
-  color: var(--ok);
-}
-
-.compare-moved [data-better='false'] {
-  color: var(--fail);
-}
-
-/* What main said of a build it could not draw: in place of nothing. */
-.compare-refused {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--fail);
-}
-
 /* Side by side: which half is which, over its middle. */
 .compare-sides {
   position: absolute;
-  top: calc(100% + var(--space-2));
+  top: 98px;
   left: 0;
   right: 0;
   display: grid;
@@ -252,8 +77,4 @@
   font-size: var(--text-small);
   color: var(--muted);
   pointer-events: none;
-}
-
-.compare-refused {
-  max-width: min(420px, 100%);
 }

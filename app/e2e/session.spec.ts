@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { agentsIn, inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
+import { fromMore, moreItems, newSession } from './helpers'
 
 // The session pane through the window, with a stand-in for the agent's CLI
 // (test/fake-agent.mjs, named by TORNO_AGENT_CMD): no test here runs `claude`.
@@ -76,7 +77,7 @@ test('with no object open the dock says what to do; with one, it offers a new se
 })
 
 test('a new session runs the agent in a terminal, and what is typed reaches it', async () => {
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect.poll(text).toContain('READY')
   await expect(sessionStatus()).toHaveText('Idle')
   await expect(dock().locator('.session-empty')).toHaveCount(0)
@@ -121,13 +122,46 @@ test('the agent was started at the size of the terminal, and is told when it cha
   expect(await text()).toContain('> hi')
 })
 
+test('the title bar holds the folder, the project and its menu, the dock toggle and the window controls', async () => {
+  await openObject('bracket')
+  const bar = page.locator('.title-row')
+  await expect(bar.getByRole('button', { name: /^Folder / })).toBeVisible()
+  const project = bar.getByRole('button', { name: 'Project bracket' })
+  await expect(project).toBeVisible()
+  // The bar is the window's drag region, and its crumbs are not.
+  const region = (sel: string) => page.locator(sel).first().evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region'))
+  expect(await region('.title-row')).toBe('drag')
+  expect(await region('.crumb-folder')).toBe('no-drag')
+  // The project menu: All projects at its head, then the folder's projects; one chosen is the open project.
+  await project.click()
+  const menu = page.getByRole('menu', { name: 'Projects' })
+  await expect(menu.getByRole('menuitem').first()).toHaveText(/^All projects/)
+  await expect(menu.getByRole('menuitem', { name: 'bracket', exact: true })).toHaveAttribute('aria-current', 'true')
+  await menu.getByRole('menuitem', { name: 'hollow', exact: true }).click()
+  await expect(menu).toHaveCount(0)
+  await expect(bar.getByRole('button', { name: 'Project hollow' })).toBeVisible()
+  await expect.poll(async () => (await state()).objectId).toBe('hollow')
+  // On the page of projects only the folder shows.
+  await page.keyboard.press('Escape')
+  await bar.getByRole('button', { name: 'Project hollow' }).click()
+  await menu.getByRole('menuitem', { name: /^All projects/ }).click()
+  await expect(bar.getByRole('button', { name: /^Project / })).toHaveCount(0)
+  await expect(bar.getByRole('button', { name: /^Folder / })).toBeVisible()
+  // The dock's toggle is in the bar, and the window draws its controls here: 46 by 40 each.
+  await expect(bar.getByRole('button', { name: 'Hide session' })).toBeVisible()
+  const controls = bar.locator('.window-control')
+  await expect(controls).toHaveCount(3)
+  for (const control of await controls.all()) expect(await control.boundingBox()).toMatchObject({ width: 46, height: 40 })
+  await openObject('bracket')
+})
+
 test('the terminal is drawn in the colours of the tokens, in both schemes', async () => {
   const theme = () => page.evaluate(() => window.__tornoTerm!.theme())
-  expect(await theme()).toEqual({ background: '#FAF9F6', foreground: '#22252A' })
+  expect(await theme()).toEqual({ background: '#FAF9F6', foreground: '#20242B' })
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect.poll(theme).toEqual({ background: '#222529', foreground: '#E9E7E2' })
   await page.emulateMedia({ colorScheme: 'light' })
-  await expect.poll(theme).toEqual({ background: '#FAF9F6', foreground: '#22252A' })
+  await expect.poll(theme).toEqual({ background: '#FAF9F6', foreground: '#20242B' })
   expect(await page.evaluate(() => window.__tornoTerm!.renderer())).not.toBeNull()
 })
 
@@ -150,7 +184,7 @@ test('the status follows the hooks the agent posts', async () => {
   await expect.poll(text).toContain('context: [torno] bracket · ')
   await expect(sessionStatus()).toHaveText('Working')
   await typeLine('hook PermissionRequest')
-  await expect(sessionStatus()).toHaveText('Needs input')
+  await expect(sessionStatus()).toHaveText('Needs you')
   await typeLine('hook Stop')
   await expect(sessionStatus()).toHaveText('Idle')
   // The conversation is on file once the agent has named it.
@@ -203,7 +237,7 @@ test('each object has its own session, kept while another is shown', async () =>
   await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
   await expect(sessionStatus()).toHaveCount(0)
   expect(await text()).toBe('')
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect.poll(text).toContain('READY')
   // The address it was given, in the file its `--mcp-config` names, ends in its object.
   expect(await mcpAddress()).toMatch(/\/mcp\/plain$/)
@@ -226,15 +260,15 @@ test('a session that ends keeps what it said, and its conversation can be resume
   expect(await text()).toContain('> still here')
   await expect.poll(() => agentsIn(join(root, 'bracket'))).toEqual([])
 
-  await dock().getByRole('button', { name: 'Resume' }).click()
+  await fromMore(dock(), 'Resume')
   await expect.poll(text).toContain(`"--resume","${conversation}"`)
   await expect(sessionStatus()).toHaveText('Idle')
   expect(await text()).not.toContain('> still here')
-  await expect(dock().getByRole('button', { name: 'Resume' })).toHaveCount(0)
+  expect(await moreItems(dock())).not.toContain('Resume')
 
   // A new session takes the place of the one running.
   const [old] = agentsIn(join(root, 'bracket'))
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect.poll(text).toContain('"--session-id"')
   await expect.poll(() => agentsIn(join(root, 'bracket')).filter((pid) => pid !== old)).toHaveLength(1)
   await expect.poll(() => agentsIn(join(root, 'bracket'))).not.toContain(old)
@@ -254,36 +288,96 @@ test('a window loaded again finds the session still running', async () => {
 
 // Seen on the visible screen: a session could be ended only by typing /exit, by replacing it or by choosing another agent.
 test('"End" ends the session and starts none, asking first when it is in the middle of something', async () => {
-  const end = () => dock().getByRole('button', { name: 'End session' })
+  const end = () => fromMore(dock(), 'End')
   const asked = () => dock().getByRole('alertdialog', { name: 'End the running session?' })
   await expect(sessionStatus()).toHaveText('Idle')
   await typeLine('hook')
   await expect(sessionStatus()).toHaveText('Working')
-  await end().click()
+  await end()
   await expect(asked()).toContainText('Claude Code is working. Ending the session stops it there.')
   await asked().getByRole('button', { name: 'Keep it' }).click()
   await expect(asked()).toHaveCount(0)
   await expect(sessionStatus()).toHaveText('Working')
   expect(agentsIn(join(root, 'bracket'))).toHaveLength(1)
-  await end().click()
+  await end()
   await asked().getByRole('button', { name: 'End it' }).click()
   await expect(sessionStatus()).toHaveText('Ended')
   await expect.poll(() => agentsIn(join(root, 'bracket'))).toEqual([])
   // Ended, there is nothing to end; its conversation can be resumed, as after any end.
-  await expect(end()).toHaveCount(0)
-  await expect(dock().getByRole('button', { name: 'Resume' })).toBeVisible()
+  expect(await moreItems(dock())).toEqual(['Resume', 'New session', 'Prompts only', 'What Claude Code reads', 'Hide session'])
 
   // One at rest is ended at once.
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(sessionStatus()).toHaveText('Idle')
   await expect.poll(() => agentsIn(join(root, 'bracket'))).toHaveLength(1)
-  await end().click()
+  await end()
   await expect(asked()).toHaveCount(0)
   await expect(sessionStatus()).toHaveText('Ended')
   await expect.poll(() => agentsIn(join(root, 'bracket'))).toEqual([])
-  await dock().getByRole('button', { name: 'New session' }).click()
+  await newSession(dock())
   await expect(sessionStatus()).toHaveText('Idle')
   await expect.poll(() => agentsIn(join(root, 'bracket'))).toHaveLength(1)
+})
+
+// The header is one row (spec 2026-11-18, the session dock): the name, the state, the model with its menu, Chat / Terminal, More.
+test('the dock\'s header is one row, and "More" holds End, Resume, New session, Prompts only, what Claude Code reads and Hide session', async () => {
+  const folder = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-header-'))
+  cpSync(fixtures, folder, { recursive: true, filter: (source) => !source.endsWith('__pycache__') })
+  const one = await launch({ TORNO_WORKSPACE: folder })
+  try {
+    const window = await one.firstWindow()
+    await window.waitForSelector('[data-region="left"]')
+    await openObject('bracket', window)
+    await newSession(dock(window))
+    const header = dock(window).locator('.session-head')
+    await expect(header.getByRole('heading', { name: 'Claude Code' })).toBeVisible()
+    await expect(header.getByRole('status')).toHaveText('Idle')
+    // One button, named by the model (the CLI says it with its first answer), and the menu it opens holds the model, the edits and the effort.
+    await expect(header.getByRole('button', { name: 'Model' })).toBeVisible()
+    await dock(window).locator('[data-chat-composer]').focus()
+    await window.keyboard.type('say hello there')
+    await window.keyboard.press('Enter')
+    await expect(dock(window).locator('.chat-turn')).toHaveCount(1, { timeout: 30_000 })
+    const model = header.getByRole('button', { name: /^fake-model/ })
+    await expect(model).toBeVisible()
+    await expect(header.getByRole('combobox')).toHaveCount(0)
+    await model.click()
+    for (const name of ['Model', 'Edits', 'Effort']) await expect(window.getByRole('combobox', { name })).toBeVisible()
+    await window.keyboard.press('Escape')
+    await expect(window.getByRole('combobox', { name: 'Model' })).toHaveCount(0)
+    await expect(model).toBeFocused()
+    // Chat / Terminal.
+    const views = header.getByRole('group', { name: 'View' })
+    await expect(views.getByRole('button')).toHaveText(['Chat', 'Terminal'])
+    await expect(views.getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true')
+    // The quiet lines of today are not under it: they are in the menu.
+    await expect(dock(window).locator('.session-reads')).toHaveCount(0)
+
+    const more = header.getByRole('button', { name: 'More', exact: true })
+    const menu = window.getByRole('menu', { name: 'More' })
+    await more.click()
+    await expect(menu.getByRole('menuitem')).toHaveText(['End', 'New session', 'Prompts only', 'What Claude Code reads', 'Hide session'])
+    await window.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+    await expect(more).toBeFocused()
+
+    // What Claude Code reads is in the menu, as paths and sizes.
+    await more.click()
+    await menu.getByRole('menuitem', { name: 'What Claude Code reads' }).click()
+    await expect(menu.locator('.session-reads')).toBeVisible()
+    await window.keyboard.press('Escape')
+
+    // End, then Resume is offered; New session starts again.
+    await fromMore(dock(window), 'End')
+    await expect(header.getByRole('status')).toHaveText('Ended')
+    await more.click()
+    await expect(menu.getByRole('menuitem')).toHaveText(['Resume', 'New session', 'Prompts only', 'What Claude Code reads', 'Hide session'])
+    await menu.getByRole('menuitem', { name: 'Hide session' }).click()
+    await expect(dock(window)).toBeHidden()
+  } finally {
+    await one.close().catch(() => {})
+    rmSync(folder, { recursive: true, force: true })
+  }
 })
 
 // Seen on the visible screen: the window manager's close ended torno and an agent in the middle of its work, with no question.
@@ -296,7 +390,7 @@ test('closing the window asks first while a session is in the middle of somethin
     const window = await busy.firstWindow()
     await window.waitForSelector('[data-region="left"]')
     await openObject('bracket', window)
-    await dock(window).getByRole('button', { name: 'New session' }).click()
+    await newSession(dock(window))
     await expect(sessionStatus(window)).toHaveText('Idle')
     await typeLine('hook', window)
     await expect(sessionStatus(window)).toHaveText('Working')
@@ -336,7 +430,7 @@ test('closing the window asks first while a session is in the middle of somethin
     const window = await quiet.firstWindow()
     await window.waitForSelector('[data-region="left"]')
     await openObject('bracket', window)
-    await dock(window).getByRole('button', { name: 'New session' }).click()
+    await newSession(dock(window))
     await expect(sessionStatus(window)).toHaveText('Idle')
     const closed = quiet.waitForEvent('close')
     await closeWindow(quiet)
@@ -361,7 +455,7 @@ test('an agent that is not installed is named, and the buttons stay', async () =
     const otherPage = await other.firstWindow()
     await otherPage.waitForSelector('[data-region="left"]')
     await openObject('plain', otherPage)
-    await dock(otherPage).getByRole('button', { name: 'New session' }).click()
+    await newSession(dock(otherPage))
     await expect(dock(otherPage).getByRole('alert')).toHaveText("cannot start the agent: 'torno-no-such-agent' was not found on PATH")
     await expect(dock(otherPage).getByRole('button', { name: 'New session' })).toBeEnabled()
     await expect(sessionStatus(otherPage)).toHaveCount(0)
@@ -388,7 +482,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await openObject('bracket', shotPage)
       await expect.poll(async () => (await state(shotPage)).build?.status, { timeout: 90_000 }).not.toBe('building')
       if (!process.env.TORNO_SHOTS_EMPTY) {
-        await dock(shotPage).getByRole('button', { name: 'New session' }).click()
+        await newSession(dock(shotPage))
         await expect.poll(() => text(shotPage)).toContain('READY')
         await typeLine('make the post 4 mm taller', shotPage)
         await typeLine('palette', shotPage)

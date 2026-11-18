@@ -8,6 +8,7 @@ import type { Hit } from '../src/renderer/viewport/picking'
 import type { DimensionMark, MarksFile } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { openListed } from './objects'
+import { newSession } from './helpers'
 
 // The Measure tool and the dimensions it leaves, on the `measures` fixture: a
 // plate 40 × 30 × 6 with two Ø8 holes 20 apart, a 45° chamfer and a pocket.
@@ -54,8 +55,8 @@ const dimension = (dir: string, id: string): DimensionMark | undefined => marksO
 const readout = (p: Page) => p.locator('.pick-readout')
 const canvas = (p: Page) => p.locator('.viewport-canvas canvas').first()
 const row = (id: string, p: Page) => p.locator(`.mark-row[data-mark="${id}"]`)
-/** The last measurement, in the strip of the Measure tool: no mark until it is kept. */
-const last = (p: Page) => p.locator('.measure-last')
+/** The last measurement, in the tag at the middle of its line, inside the view: no mark until it is kept. */
+const last = (p: Page) => p.locator('.viewport-pane [data-tag="measure"]')
 
 function pickOver(point: Vec3, p: Page): Promise<Hit | null> {
   return p.evaluate((at) => {
@@ -117,6 +118,8 @@ async function openMeasures(p: Page): Promise<void> {
 const ON_TOP: Vec3 = [-2, 10, 3]
 /** Also on its top, clear of the chip of the dimension kept there (M1). */
 const ON_TOP_CLEAR: Vec3 = [2, -6, 3]
+/** Also on its top, to the right of where the pill of Measure lies over the plate when it is seen from above. */
+const ON_TOP_RIGHT: Vec3 = [10, 10, 3]
 const UNDER: Vec3 = [-2, -2, -3]
 const IN_HOLE: Vec3 = [-10 - 2.83, 5 + 2.83, 1.6]
 const IN_OTHER_HOLE: Vec3 = [10 - 2.83, 5 + 2.83, 1.6]
@@ -211,18 +214,30 @@ test('two clicks, on the top and on the bottom of the plate, read out its thickn
 
   // The kernel's value is read out at the pointer and held in the strip; nothing is kept of it, and no row is made.
   await expect(readout(page)).toHaveText(/^\s*6 mm\s*between planes\s*$/)
-  await expect(last(page)).toContainText('Last: 6 mm between planes')
+  await expect(last(page).locator('.measure-reading')).toHaveText('6mm')
+  await expect(last(page).locator('.measure-words')).toContainText('between planes, exact')
+  await expect(last(page).locator('.measure-reading .tag-unit')).toHaveText('mm')
+  // The reading is mono 19 px with its unit at 11 px, and the tag stands inside the view, clear of its edges.
+  expect(await last(page).locator('.measure-reading').evaluate((el) => getComputedStyle(el).fontSize)).toBe('19px')
+  expect(await last(page).locator('.tag-unit').evaluate((el) => getComputedStyle(el).fontSize)).toBe('11px')
+  const pane = (await page.locator('.viewport-pane').boundingBox())!
+  const tag = (await last(page).boundingBox())!
+  expect(tag.x).toBeGreaterThanOrEqual(pane.x)
+  expect(tag.y).toBeGreaterThanOrEqual(pane.y)
+  expect(tag.x + tag.width).toBeLessThanOrEqual(pane.x + pane.width)
+  expect(tag.y + tag.height).toBeLessThanOrEqual(pane.y + pane.height)
   await expect(last(page).locator('.measure-delta')).toHaveCount(3)
   // And drawn in the view between the kernel's two points, with its value, as a held draft (not a mark).
   expect(await page.evaluate(() => window.__tornoTest!.draft())).toMatchObject({ kind: 'dimension', held: '6 mm', from: expect.any(Array), to: expect.any(Array) })
-  await expect(last(page).locator('.measure-last-text')).toHaveAttribute('title', `Measured on r${(await state(page)).revision}, not kept: the agent is not told`)
+  await expect(last(page).locator('.measure-words')).toHaveAttribute('title', `Measured on r${(await state(page)).revision}, not kept: the agent is not told`)
   await page.waitForTimeout(500)
   expect(marksOnDisk(root).marks).toEqual([])
   await expect(page.locator('.mark-row')).toHaveCount(0)
 
   // Kept, it is a dimension: main measures it again as it keeps it.
   await last(page).getByRole('button', { name: 'Keep as a dimension' }).click()
-  await expect(last(page)).toHaveText('Kept as M1')
+  await expect(last(page)).toContainText('Kept as M1')
+  await expect(last(page).getByRole('button', { name: 'Keep as a dimension' })).toHaveCount(0)
   await expect.poll(() => dimension(root, 'M1')?.value).toBeCloseTo(6, 9)
   const kept = dimension(root, 'M1')!
   expect(kept).toMatchObject({ kind: 'dimension', measure: 'distance', how: 'between planes', status: 'draft', author: 'user', anchorState: 'ok' })
@@ -244,10 +259,11 @@ test('a double click on the wall of a hole measures its diameter, ⌀ 8, and Ent
   const hit = await pickOver(IN_HOLE, page)
   expect(hit).toMatchObject({ kind: 'face', part: 'plate' })
   await clickOver(IN_HOLE, page, 2)
-  await expect(last(page)).toContainText('Last: ⌀ 8 mm cylinder')
+  await expect(last(page).locator('.measure-reading')).toHaveText('⌀ 8mm')
+  await expect(last(page).locator('.measure-words')).toContainText('cylinder')
   expect(marksOnDisk(root).marks).toHaveLength(1)
   await page.keyboard.press('Enter')
-  await expect(last(page)).toHaveText('Kept as M2')
+  await expect(last(page)).toContainText('Kept as M2')
   await expect.poll(() => dimension(root, 'M2')?.value).toBeCloseTo(8, 9)
   const kept = dimension(root, 'M2')!
   expect(kept).toMatchObject({ measure: 'diameter', how: 'cylinder', a: { ref: hit!.ref } })
@@ -298,10 +314,13 @@ test('with an expected value the hole fails: the row says so, and the chip in th
   expect(dimension(root, 'M2')).toMatchObject({ expected: 8.5, value: 8 })
   await expect(row('M2', page).locator('.mark-value')).toHaveAttribute('data-verdict', 'fail')
   await expect(fields.locator('.dimension-verdict')).toHaveText('Fails: 0.5 under')
-  // The summary heading the marks counts it, and its count goes to the check.
-  await expect(page.locator('.checks-summary')).toHaveText(/^Checks on r\d+: 1 fails$/)
+  // Under Checks its row says it fails, with its gauge, and it is the one row that does.
+  await expect(page.locator('.check-row[data-check-mark="M2"]')).toHaveAttribute('data-verdict', 'fails')
+  await expect(page.locator('.check-row[data-check-mark="M2"] .check-standing')).toHaveText('fails')
+  await expect(page.locator('.check-row[data-check-mark="M2"] .gauge')).toHaveAttribute('aria-label', /^8, outside 8\.45 to 8\.55$/)
+  await expect(page.locator('.check-row[data-verdict="fails"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'Checks' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
-  // The row, open and with the pointer on it: its value, its verdict and the way to a note, none of them cut.
+  // The row, open and with the pointer on it: its value, its verdict and the way to a note, none of them cut. Its words are under it.
   await row('M2', page).hover()
   const note = row('M2', page).locator('.mark-note')
   await expect(note).toHaveAttribute('data-empty', '')
@@ -312,7 +331,9 @@ test('with an expected value the hole fails: the row says so, and the chip in th
     const actions = li.querySelector('.mark-actions')!.getBoundingClientRect()
     const ink = document.createRange()
     ink.selectNodeContents(li.querySelector('.mark-note')!)
-    return ink.getBoundingClientRect().right > actions.left && text.top < actions.bottom && getComputedStyle(li.querySelector('.mark-actions')!).opacity !== '0'
+    const ink_ = ink.getBoundingClientRect()
+    // The two overlap when they share a stretch of the row's width and of its height.
+    return ink_.right > actions.left && ink_.left < actions.right && text.top < actions.bottom && text.bottom > actions.top && getComputedStyle(li.querySelector('.mark-actions')!).opacity !== '0'
   })
   expect(covered).toBe(false)
 
@@ -387,12 +408,14 @@ test('T over a face reads out the thickness of the wall there and leaves no mark
   const [x, y] = await pageXY(floor, page)
   await page.mouse.move(x, y)
   await page.keyboard.press('t')
-  await expect(last(page)).toContainText('Last: 2 mm wall, along the normal')
+  await expect(last(page).locator('.measure-reading')).toHaveText('2mm')
+  await expect(last(page).locator('.measure-words')).toContainText('wall, along the normal')
   await expect(readout(page)).toContainText('2 mm')
   expect(marksOnDisk(root).marks.map((m) => m.id)).toEqual(['M1', 'M2'])
 
-  // A first end lets go of the last measurement.
-  await clickOver(ON_TOP, page)
+  // A first end lets go of the last measurement. On the top, to the right of the plate's middle: from above, the pill of
+  // Measure, grown out to the right of its button, lies over the plate's middle at this height, and a click there is its.
+  await clickOver(ON_TOP_RIGHT, page)
   await expect(last(page)).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Measure', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -421,7 +444,7 @@ test('a dimension is given to the agent with the next prompt like any mark, and 
   await expect(page.getByRole('list', { name: 'Checks' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'To send' })).toHaveCount(0)
   await expect(row('M1', page).locator('.mark-status')).toHaveText('to send')
-  await expect(page.locator('.checks-summary')).toContainText('1 pass')
+  await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'passes')
   expect(dimension(root, 'M1')).toMatchObject({ status: 'draft', sentBefore: true, expected: 6, verdict: 'pass' })
 })
 
@@ -485,12 +508,12 @@ test('on the gauge, the thickness of the plate and the diameter of its hole are 
   expect(await pickOver(GAUGE_TOP, page)).toMatchObject({ kind: 'face', normal: [0, 0, 1] })
   await page.mouse.move(...(await pageXY(GAUGE_TOP, page)))
   await page.keyboard.press('t')
-  await expect(last(page)).toContainText('Last: 6 mm')
+  await expect(last(page).locator('.measure-reading')).toHaveText('6mm')
   await page.keyboard.press('Enter')
   await expect.poll(() => gauge('M1')?.value).toBeCloseTo(6, 9)
   expect(await pickOver(GAUGE_HOLE, page)).toMatchObject({ kind: 'face', part: 'plate' })
   await clickOver(GAUGE_HOLE, page, 2)
-  await expect(last(page)).toContainText('Last: ⌀ 8 mm')
+  await expect(last(page).locator('.measure-reading')).toHaveText('⌀ 8mm')
   await last(page).getByRole('button', { name: 'Keep as a dimension' }).click()
   await expect.poll(() => gauge('M2')?.value).toBeCloseTo(8, 9)
   expect(gauge('M1')).toMatchObject({ measure: 'thickness', measuredRevision: 1 })
@@ -498,7 +521,7 @@ test('on the gauge, the thickness of the plate and the diameter of its hole are 
   // One more, not kept: it is told to no one (the next test's prompt has only M1 and M2).
   await page.mouse.move(...(await pageXY(GAUGE_TOP, page)))
   await page.keyboard.press('t')
-  await expect(last(page)).toContainText('Last: 6 mm')
+  await expect(last(page).locator('.measure-reading')).toHaveText('6mm')
   // Escape lets go of it, and the next puts the tool down.
   await page.keyboard.press('Escape')
   await expect(last(page)).toHaveCount(0)
@@ -517,7 +540,7 @@ test('on the gauge, the thickness of the plate and the diameter of its hole are 
 })
 
 test('given to the agent they are pinned: the next prompt says only how many pass', async () => {
-  await page.locator('[data-region="session"]').getByRole('button', { name: 'New session' }).click()
+  await newSession(page.locator('[data-region="session"]'))
   await expect.poll(terminal).toContain('READY')
   // New to the agent: told as marks, with their values and verdicts.
   const first = await prompted()
@@ -526,15 +549,13 @@ test('given to the agent they are pinned: the next prompt says only how many pas
   expect(first).not.toContain('Dimensions')
   // The measurement that was not kept is not in it.
   expect(first).not.toContain('M3')
-  await expect(row('M1', page).locator('.mark-status')).toHaveText('pinned')
+  // Their rows are under Checks, and each opens out under its own while it is the active mark.
+  await page.locator('.check-row[data-check-mark="M2"] .check-go').click()
   await expect(row('M2', page).locator('.mark-status')).toHaveText('pinned')
-  // The word of a row that is no draft takes no room until the row is pointed at: the width is the note's.
-  const quiet = (await page.evaluate(() => window.__tornoTest!.state().activeMark)) === 'M1' ? 'M2' : 'M1'
-  const word = row(quiet, page).locator('.mark-status')
-  await page.mouse.move(700, 400)
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-  await expect.poll(async () => (await word.boundingBox())!.width).toBeLessThanOrEqual(1)
-  await row(quiet, page).hover()
+  await page.locator('.check-row[data-check-mark="M1"] .check-go').click()
+  await expect(row('M1', page).locator('.mark-status')).toHaveText('pinned')
+  // The word of a row is on its second line, where there is room for it: it is never cut and takes none of the note's.
+  const word = row('M1', page).locator('.mark-status')
   await expect.poll(async () => (await word.boundingBox())!.width).toBeGreaterThan(20)
   await page.mouse.move(700, 400)
   // From then on: nothing of them but the count, while they pass.
@@ -559,8 +580,9 @@ test('a build that makes the plate 5 mm thick fails them: the rows, the status l
   await expect(row('M1', page).locator('.mark-value')).toHaveText('5 mm')
   await expect(row('M1', page).locator('.mark-value')).toHaveAttribute('data-verdict', 'fail')
   await expect(row('M1', page).locator('.mark-anchor')).toHaveText('moved: check it')
+  await expect(page.locator('.check-row[data-check-mark="M2"] .check-detail')).toContainText('⌀ 10 mm')
+  await page.locator('.check-row[data-check-mark="M2"] .check-go').click()
   await expect(row('M2', page).locator('.mark-value')).toHaveText('⌀ 10 mm')
-  await row('M2', page).click()
   await expect(row('M2', page).locator('.dimension-verdict')).toHaveText('Fails: 2 over')
 
   // The status line counts them, in the colour of failure, and goes to the first.
@@ -581,10 +603,10 @@ test('a build that makes the plate 5 mm thick fails them: the rows, the status l
   await expect(row('M1', page)).toBeInViewport()
   await expect(row('M1', page).locator('.dimension-verdict')).toHaveText('Fails: 1 under')
   await expect(row('M1', page).locator('.dimension-how')).toHaveText('wall, along the normal, measured from what is under its ends now')
-  // The regression: it passed on r1 and fails since r2, with both values in the open row, and the summary counts both.
+  // The regression: it passed on r1 and fails since r2, with both values in the open row, and Checks lists both as failing.
   await expect(row('M1', page).locator('.dimension-since')).toHaveText('fails since r2; passed on r1')
   await expect(row('M1', page).locator('.dimension-history')).toHaveText('r1 6 · r2 5')
-  await expect(page.locator('.checks-summary')).toHaveText('Checks on r2: 2 fail')
+  await expect(page.locator('.check-row[data-verdict="fails"]')).toHaveCount(2)
   await page.evaluate(() => (document.activeElement as HTMLElement).blur())
 
   // The agent is told of both with the prompt, and with the one after: they are not news that is told once.
@@ -618,7 +640,7 @@ test('built as it should be again, they pass: the status line is clear, and the 
   await expect(row('M1', page).locator('.mark-value')).toHaveText('6 mm')
   await expect(row('M1', page).locator('.mark-value')).toHaveAttribute('data-verdict', 'pass')
   await expect(statusLine().locator('.status-dimensions')).toHaveCount(0)
-  await expect(page.locator('.checks-summary')).toHaveText('Checks on r3: 2 pass')
+  await expect(page.locator('.check-row[data-verdict="passes"]')).toHaveCount(2)
   await row('M1', page).click()
   await expect(row('M1', page).locator('.dimension-since')).toHaveText('passes since r3; failed on r2')
   await expect(row('M1', page).locator('.dimension-history')).toHaveText('r1 6 · r2 5 · r3 6')
@@ -651,13 +673,13 @@ for (const shot of ['light', 'dark', 'look'] as const) {
       await clickOver(IN_HOLE, p)
       await p.waitForTimeout(500)
       await clickOver(IN_OTHER_HOLE, p)
-      await expect(last(p)).toContainText('Last:')
+      await expect(last(p)).toContainText('exact')
       await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M1')?.value).toBeCloseTo(20, 9)
       // The diameter of one, which should have been 8.5.
       await p.waitForTimeout(500)
       await clickOver(IN_OTHER_HOLE, p, 2)
-      await expect(last(p)).toContainText('Last:')
+      await expect(last(p)).toContainText('exact')
       await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M2')?.value).toBeCloseTo(8, 9)
       // The chamfer against the top.
@@ -665,14 +687,14 @@ for (const shot of ['light', 'dark', 'look'] as const) {
       await clickOver([14, -6, 3], p)
       await p.waitForTimeout(500)
       await clickOver(ON_CHAMFER, p)
-      await expect(last(p)).toContainText('Last:')
+      await expect(last(p)).toContainText('exact')
       await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M3')?.value).toBeCloseTo(45, 9)
       // The plate itself, which is as thick as it should be.
       const [x, y] = await pageXY([-14, -10, 3], p)
       await p.mouse.move(x, y)
       await p.keyboard.press('t')
-      await expect(last(p)).toContainText('Last:')
+      await expect(last(p)).toContainText('exact')
       await p.keyboard.press('Enter')
       await expect.poll(() => dimension(shotRoot, 'M4')?.value).toBeCloseTo(6, 9)
       const expect_ = async (id: string, value: string): Promise<void> => {

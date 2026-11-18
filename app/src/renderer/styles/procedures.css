@@ -1,0 +1,164 @@
+/* ---- procedure cards: Align and Region at the bottom right of the view (ui/view/ProcedureCard.tsx; spec 2026-11-18, section 2) ---- */
+
+/* 300 px wide, 320 for Align, above the grid step: `--raise`, radius 10, padding 12. No transform on it, so that a popover from one of its buttons stays `position: fixed` against the window. */
+.procedure {
+  position: absolute;
+  right: 14px;
+  bottom: 52px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: 300px;
+  /* Clear of the compass above it: its tile, the layout row and Fit, and no saved views while a procedure is in hand. What does not fit scrolls. */
+  max-height: calc(100% - 240px);
+  padding: var(--space-3);
+  overflow-y: auto;
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--raise);
+  box-shadow: var(--float-shadow);
+  color: var(--ink);
+  font-size: var(--text-row);
+}
+
+.procedure.alignbar {
+  width: 320px;
+}
+
+.procedure p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.procedure-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.procedure-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
+
+.procedure-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.procedure-title {
+  flex: 1;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.procedure-esc {
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.procedure kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border: var(--divider);
+  border-radius: var(--radius-inline);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* A key on a button that is pressed: the cap keeps the button's own colour. */
+.procedure-button kbd {
+  margin-left: 4px;
+  color: inherit;
+}
+
+.procedure-button[data-primary] kbd {
+  border-color: color-mix(in srgb, var(--on-accent) 45%, transparent);
+}
+
+.procedure-caps {
+  display: inline-flex;
+  gap: 3px;
+}
+
+/* A 26 px control of a card: quiet until it is pointed at, the accent for the one that keeps, and disabled in the muted colour, not dimmed. */
+.procedure-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.procedure-button:hover {
+  background: var(--surface);
+}
+
+.procedure-button[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.procedure-button[data-primary]:not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.procedure-button[data-primary]:not(:disabled):hover {
+  background: var(--accent);
+  filter: brightness(1.1);
+}
+
+.procedure-button:disabled {
+  color: var(--muted);
+  cursor: default;
+  pointer-events: none;
+}
+
+/* The foot: what is the case, and what to do with it. */
+.procedure-foot {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--divider);
+}
+
+.procedure-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+/* What shared rules hold in a card: numbers on a `--surface` well (radius 7), a segment of choices on the same ground. */
+.procedure .shape-field {
+  height: 26px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.procedure .segmented {
+  background: var(--surface);
+}
+
+.procedure .segmented button {
+  height: 22px;
+}
