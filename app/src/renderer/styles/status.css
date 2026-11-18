@@ -211,21 +211,35 @@
   overflow-wrap: anywhere;
 }
 
-/* The button that opens the builds kept of the project, in the status line. */
-.status-history {
-  padding: 0 var(--space-1);
-  color: var(--muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+/* The last builds as ticks, after the project's name: the one on show taller and in the accent, a failed one in the fail colour, the person's own saves in their mark. */
+.status-ticks {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
-.status-history[aria-expanded='true'] {
-  color: var(--ink);
+.status-tick {
+  width: 7px;
+  height: 11px;
+  background: color-mix(in srgb, var(--field-edge) 50%, transparent);
 }
 
-.status-history {
-  border: 0;
+.status-tick[data-saved] {
+  background: color-mix(in srgb, var(--user-mark) 75%, transparent);
+}
+
+.status-tick[data-kind='failed'] {
+  background: var(--fail);
+}
+
+.status-tick[data-kind='running'] {
   background: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.status-tick[data-on-show] {
+  height: 13px;
+  background: var(--accent);
 }
 
 /* An earlier build is drawn over the current one: said in the line, with the way to put it away. */

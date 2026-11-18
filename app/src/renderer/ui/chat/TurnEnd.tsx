@@ -7,7 +7,6 @@ import { AskSession } from './AskCard'
 import { ChangesSheet } from './ChangesSheet'
 import { GoBack } from './GoBack'
 import type { JoinedTurn } from './historyJoin'
-import { TurnBuilds } from './TurnBuilds'
 import { UndoableTurn } from './turnContext'
 import { isEmpty, summaryParts, type TurnAccount, type TurnSummary } from './turnSummary'
 
@@ -89,7 +88,6 @@ export const TurnEnd = memo(function TurnEnd({ item, account, joined }: { item: 
     <div ref={row} className="chat-item chat-turn" data-kind="turn" data-ok={item.ok && !item.stopped ? '' : undefined}>
       <p className="chat-turn-line">{numbered([head, ...parts].join(' · '))}</p>
       {pulled && <p className="chat-turn-line chat-turn-pulled">{numbered(pulled)}</p>}
-      {joined && <TurnBuilds joined={joined} />}
       <TurnActions>
         {joined && joined.entries.length > 0 ? <Compare joined={joined} summary={account?.summary} /> : null}
         {account && editedModel(account) ? <SeeChanges item={item} account={account} row={row} /> : null}

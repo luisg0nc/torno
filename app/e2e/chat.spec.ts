@@ -446,12 +446,11 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   await say('edit hollow.py "wall: float = 4" "wall: float = 5"')
   await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
   const end = turns().last()
-  // The build the prompt began from and the one it made, a picture frame each, and the four buttons.
-  const strip = end.locator('.turn-builds')
-  await expect(strip.locator('.turn-thumb')).toHaveCount(2, { timeout: 15_000 })
-  await expect(strip.locator('.turn-thumb[data-start]')).toHaveCount(1)
+  // The four buttons; the builds are the strip's, on top of the dock: the build the prompt began from and the one it made are its last two nodes.
   for (const name of ['Compare', 'See changes', GO_BACK, 'Star']) await expect(end.getByRole('button', { name, exact: true })).toBeVisible()
-  const ids = await strip.locator('.turn-thumb').evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))
+  const nodes = dock().locator('.strip-node[data-kind="built"]')
+  await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
+  const ids = (await nodes.evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))).slice(-2)
 
   // Compare: the last build over the one the prompt began from, for this prompt's number; again puts it away.
   await end.getByRole('button', { name: 'Compare', exact: true }).click()

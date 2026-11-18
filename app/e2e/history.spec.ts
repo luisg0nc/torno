@@ -30,7 +30,11 @@ const composer = () => dock().locator('[data-chat-composer]')
 const turns = () => chat().locator('.chat-turn')
 const prompts = () => dock().locator('[data-part="prompts"]')
 const rows = () => prompts().locator('.prompt')
-const historyButton = () => page.getByRole('button', { name: 'History', exact: true })
+/** The history is Prompts only, which the dock's More menu opens (the status line's History button is the strip's ticks now). */
+async function openPrompts(): Promise<void> {
+  await dock().getByRole('button', { name: 'More', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Prompts only' }).click()
+}
 
 async function say(prompt: string): Promise<void> {
   await composer().focus()
@@ -81,7 +85,7 @@ test.afterAll(async () => {
   rmSync(root, { recursive: true, force: true })
 })
 
-test('History in the status line opens Prompts only: a row for each prompt, newest first, with the builds that came out of it', async () => {
+test('More in the dock opens Prompts only: a row for each prompt, newest first, with the builds that came out of it', async () => {
   await openListed(page, 'hollow')
   await builtRevision(1)
   await newSession(dock())
@@ -91,9 +95,8 @@ test('History in the status line opens Prompts only: a row for each prompt, newe
   await say('say nothing was built')
   await expect(turns()).toHaveCount(3, { timeout: 30_000 })
 
-  await historyButton().click()
+  await openPrompts()
   await expect(prompts()).toBeVisible()
-  await expect(historyButton()).toHaveAttribute('aria-expanded', 'true')
   await expect(chat().getByRole('button', { name: 'Prompts only' })).toHaveAttribute('aria-pressed', 'true')
   await expect(rows()).toHaveCount(3)
   // Numbered across the project, newest first.
@@ -112,18 +115,51 @@ test('History in the status line opens Prompts only: a row for each prompt, newe
   // Where the conversation began.
   await expect(prompts().locator('.prompt-began')).toContainText('Conversation began')
 
-  // The same button, or the chat's own toggle, puts it away.
-  await historyButton().click()
+  // The chat's own toggle puts it away, and brings it back.
+  await chat().getByRole('button', { name: 'Chat', exact: true }).click()
   await expect(prompts()).toHaveCount(0)
-  await expect(historyButton()).toHaveAttribute('aria-expanded', 'false')
   await chat().getByRole('button', { name: 'Prompts only' }).click()
   await expect(prompts()).toBeVisible()
   await chat().getByRole('button', { name: 'Chat', exact: true }).click()
   await expect(prompts()).toHaveCount(0)
 })
 
+test('the builds strip holds the project\'s builds, a bracket stands under the prompts in sight, the status line has the ticks, and under 640 px of dock it folds', async () => {
+  const strip = dock().locator('.strip')
+  await expect(strip).toBeVisible()
+  expect((await strip.boundingBox())!.height).toBeCloseTo(136, 0)
+  await expect(strip.locator('.strip-head')).toContainText('Builds of')
+  // A node for each build kept that drew, oldest first; the newest is on show.
+  const built = strip.locator('.strip-node[data-kind="built"]')
+  await expect.poll(() => built.count(), { timeout: 15_000 }).toBe(kept().filter((e) => !e.failed).length)
+  const last = kept().filter((e) => !e.failed).at(-1)!.id
+  await expect(built.last()).toHaveAttribute('data-build', last)
+  await expect(built.last()).toHaveAttribute('data-on-show', '')
+  await expect(built.last()).toContainText('on show')
+  await expect(strip.locator('.strip-head .num').first()).toHaveText(String(kept().filter((e) => !e.failed).length))
+  // The agent's builds say their prompt; a bracket stands under the ones in sight in the conversation.
+  await expect(built.nth(-2)).toContainText(/prompt \d/)
+  await expect(strip.locator('[data-part="bracket"]')).toContainText('in sight below')
+  // The ticks of the status line: the last eight, the one on show taller and in the accent.
+  const ticks = page.locator('[data-region="status"] [data-part="ticks"] .status-tick')
+  await expect(ticks).toHaveCount(Math.min(8, kept().filter((e) => !e.failed).length))
+  await expect(ticks.last()).toHaveAttribute('data-on-show', '')
+  await expect(ticks.last()).toHaveAttribute('data-build', last)
+  await expect(page.locator('[data-region="status"]')).toContainText(`${last} built in`)
+
+  // Under 640 px of dock height (the window's least height is that) it folds to its head line and a row of ticks, and unfolds with the room.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 700))
+  await expect(strip).toHaveAttribute('data-folded', '')
+  await expect(strip.locator('.strip-head')).toBeVisible()
+  await expect(strip.locator('.strip-tick')).toHaveCount(kept().filter((e) => !e.failed).length)
+  await expect(strip.locator('.strip-node')).toHaveCount(0)
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 860))
+  await expect(strip).not.toHaveAttribute('data-folded', '')
+  await expect(strip.locator('.strip-node[data-kind="built"]').last()).toHaveAttribute('data-on-show', '')
+})
+
 test('a click on a row compares that prompt, with its number in the status line; again puts it away', async () => {
-  await historyButton().click()
+  await openPrompts()
   const row = rows().nth(1)
   const [from, to] = (await row.locator('.prompt-facts .num').first().innerText()).split(' → ')
   await row.locator('.prompt-row').click()
@@ -144,7 +180,7 @@ test('Starred lists the prompts with a starred build, and the saves of the perso
   await chat().getByRole('button', { name: 'Chat', exact: true }).click()
   await turns().nth(1).getByRole('button', { name: 'Star', exact: true }).click()
   await expect.poll(() => kept().some((e) => e.starred)).toBe(true)
-  await historyButton().click()
+  await openPrompts()
   await expect(rows().nth(1).locator('.prompt-star')).toBeVisible()
   await prompts().getByRole('button', { name: 'Starred', exact: true }).click()
   await expect(rows()).toHaveCount(1)
@@ -170,7 +206,7 @@ test('a double click on a row opens the chat at that prompt', async () => {
   await expect(chat().locator(`.chat-group[data-id="${id}"]`)).toBeInViewport()
   await expect(chat().locator(`.chat-group[data-id="${id}"]`)).toContainText('wall: float = 3')
   // Another way in, by the keys: "Open in chat" on the row.
-  await historyButton().click()
+  await openPrompts()
   await rows().nth(1).getByRole('button', { name: 'Open in chat' }).click()
   await expect(prompts()).toHaveCount(0)
 })
@@ -185,7 +221,7 @@ test('a new conversation goes on with the numbers, lists beside the earlier one,
   await expect.poll(async () => (await state()).compare).toMatchObject({ prompt: 4 })
   await turns().last().getByRole('button', { name: 'Comparing' }).click()
 
-  await historyButton().click()
+  await openPrompts()
   await expect(rows().locator('.prompt-number')).toHaveText(['4', '3', '2', '1'])
   await expect(prompts().locator('.prompt-began')).toHaveCount(2)
   await expect(prompts().locator('.prompt-began', { hasText: 'the one in the chat' })).toHaveCount(1)
@@ -201,7 +237,7 @@ test('a new conversation goes on with the numbers, lists beside the earlier one,
   await expect(earlier).toContainText('say nothing was built')
 
   // A double click on a prompt of that conversation opens it there.
-  await historyButton().click()
+  await openPrompts()
   const old = rows().nth(3)
   const id = (await old.getAttribute('data-prompt'))!
   await old.locator('.prompt-row').dblclick()
@@ -212,7 +248,9 @@ test('where the agent is a terminal the same list is a pane over the session, fr
   await openListed(page, 'bracket')
   await builtRevision(1)
   await expect(prompts()).toHaveCount(0)
-  await historyButton().click()
+  // The builds strip is on top of the dock in the terminal's view too, with the three builds the history keeps (and the one this opening made).
+  await expect.poll(() => dock().locator('.strip .strip-node[data-kind="built"]').count()).toBeGreaterThanOrEqual(3)
+  await openPrompts()
   const pane = dock().locator('.session-prompts')
   await expect(pane).toBeVisible()
   await expect(rows()).toHaveCount(2)
@@ -232,5 +270,4 @@ test('where the agent is a terminal the same list is a pane over the session, fr
   await expect(pane.locator('.prompt-began')).toHaveCount(1)
   await pane.getByRole('button', { name: 'Close' }).click()
   await expect(pane).toHaveCount(0)
-  await expect(historyButton()).toHaveAttribute('aria-expanded', 'false')
 })

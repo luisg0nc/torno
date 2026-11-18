@@ -4,7 +4,7 @@ paths:
   - "app/src/main/goback.test.ts"
   - "app/src/main/ipc.ts"
   - "app/src/shared/history.ts"
-  - "app/src/renderer/ui/chat/TurnBuilds.tsx"
+  - "app/src/renderer/ui/strip/BuildsStrip.tsx"
 ---
 
 # Go back

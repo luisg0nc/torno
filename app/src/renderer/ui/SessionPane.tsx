@@ -12,6 +12,7 @@ import { chatActions, connectChat, useChat } from '../state/chat'
 import { heldSaid, onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
+import { BuildsStrip } from './strip/BuildsStrip'
 import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
 import { clearDrafts, holdDraft } from './chat/Composer'
@@ -793,6 +794,9 @@ export function SessionPane({ onReveal }: { onReveal: () => void }) {
           </>
         )}
       </header>
+
+      {/* The project's builds, on top of the dock in every mode: the chat, the terminal and no session. */}
+      {!drafting && <BuildsStrip />}
 
       {next !== null && !drafting && (
         <p className="session-next" role="status">

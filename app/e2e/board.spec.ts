@@ -497,28 +497,27 @@ async function say(prompt: string): Promise<void> {
   await page.keyboard.press('Enter')
 }
 
-test('a build pinned from the strip under a prompt is a card with its thumb, and its entry is starred', async () => {
+// "Pin to board" is in the menu of a node of the builds strip (Task 29); until then the pin is asked of main as the menu will, and the strip shows the star.
+test('a build pinned from the strip is a card with its thumb, and its entry is starred', async () => {
   await expect(page.locator('.pboard')).toHaveCount(0)
   await newSession(dock())
   await expect(composer()).toBeEnabled()
   await say('edit bracket.py "width: float = 40" "width: float = 41"')
   await expect(turns()).toHaveCount(1, { timeout: 30_000 })
   await expect.poll(() => kept().filter((e) => e.cause === 'agent' && !e.failed).length, { timeout: 30_000 }).toBeGreaterThan(0)
-  // The build the prompt began from is the first thumb of its strip; the build it made is the last.
-  const strip = chat().locator('.turn-builds .turn-thumb')
+  // The build the prompt began from and the one it made are nodes of the strip on top of the dock.
+  const strip = dock().locator('.strip .strip-node[data-kind="built"]')
   await expect.poll(() => strip.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
   await expect(strip.first().locator('img')).toBeVisible({ timeout: 15_000 })
   const id = (await strip.first().getAttribute('data-build'))!
-  await strip.first().hover()
-  await strip.first().getByRole('button', { name: `Pin ${id} to the board` }).click()
-  await expect(chat().locator('.turn-pinned')).toContainText(`${id}: pinned to the board`)
+  expect(await page.evaluate((build) => window.torno.board.pin('bracket', { kind: 'build', id: build }), id)).not.toHaveProperty('refused')
   const build = (await cardsOf('build'))[0]
   expect(build).toMatchObject({ by: 'person', source: id, copy: { id } })
   expect(build.picture).toMatch(/^p-[0-9a-f]{12}\.(png|jpg)$/)
-  // The entry is starred, in the history and under the prompt.
+  // The entry is starred, in the history and in the strip.
   expect(kept().find((e) => e.id === id)?.starred).toBe(true)
   await expect(strip.first()).toHaveAttribute('data-starred', '')
-  await expect(strip.first().locator('.turn-thumb-star')).toBeVisible()
+  await expect(strip.first().locator('.strip-star')).toBeVisible()
   // On the board it is a card with the picture.
   await switchButton('Board').click()
   await expect(cardOf('build')).toHaveCount(1)
