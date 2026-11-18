@@ -1974,16 +1974,16 @@ under it). The sheet has a faint grid every millimetre once you are zoomed in an
 a title block at the bottom right. Zoom is told as a ratio: `1:1` is one CSS millimetre on the screen for a millimetre of the
 model (a screen does not say its true pixel size, so this is the page's own millimetre, not a ruler's). The wheel or two fingers
 move the sheet and a drag moves it, `Ctrl` and the wheel (or a pinch) zoom about the pointer, **Fit** or `Shift+1` frames the
-outline and what is drawn on it, not a photo that is much larger than they are (clear of the panel at the top left: on a narrow window it goes right of the panel or below it), **1:1** or `Shift+0` sets true size. The pointer's place on the plane, `u, v` in millimetres, is read out at the bottom left.
+outline and what is drawn on it, not a photo that is much larger than they are, **1:1** or `Shift+0` sets true size. The pointer's place on the plane, `u, v` in millimetres, is read out at the bottom left.
 
 The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
 tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
 (the Section bar has **Make a tracing** too, which lays the cut flat), or on a face: the view goes to the model, and the next flat face you
-select is the tracing's (a face that is not flat is refused, in words). The panel at the top left says its name (**Rename** and
+select is the tracing's (a face that is not flat is refused, in words). **New tracing** is also in the head of the **Tracings** section of the route card, which opens the same choices (and the first tracing of a project is made there, or from the Section bar). Each tracing has a row in that section (`T1`, its name, and at the right its photo's file), and a click on it opens the tracing in this view; under the open or shown one the section says `Photo lined up by 4 points, 0.42 mm a pixel. Redrawn at each build.` The tracing's panel is in that section, under its row, while this view shows: the section opens and the card scrolls to it when you come to the view, and you may fold it after. The panel says its name (**Rename** and
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
-tracing is cut unspread. **Show in 3D** (here and at the foot of the tools) puts the tracing in the model view, as [below](#a-tracing-in-the-3d-view); **Export** opens the export sheet on this tracing's drawing (see
+tracing is cut unspread. **Show in 3D** (in the panel and at the foot of the tools) puts the tracing in the model view, as [below](#a-tracing-in-the-3d-view); **Export** opens the export sheet on this tracing's drawing (see
 [Export](#export)). The panel's **Photo** says how the photo is lined up, below.
 
 **Layers** lie over the outline: each is a named set of shapes (lines, circles and labels) in one of eight colours (blue, teal,
@@ -2037,7 +2037,7 @@ by eye. Claude is told it as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm 
 ### A photo under a tracing
 
 A tracing keeps one **photo**, under the outline, lined up with it so that what is on the photo can be traced in millimetres. **Add photo** in the
-panel takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
+panel (in the Tracings section of the card) takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
 the same. torno turns the picture the way the camera held it, scales it to at most 4000 pixels on its long edge and keeps its own copy in
 `.torno/tracings/photos/`, a folder git ignores: a photo stays on this computer, and a tracing opened on another one says `photo not on this
 computer`, with its line-up still told. HEIC is not read (set the phone to Most compatible, or export as JPEG).
@@ -2067,8 +2067,8 @@ photo's fade times 0.6, the outline of the last build in the ink colour, each la
 its place), and a faint sheet, with its edge, a margin past all of it. It is for reading the tracing against the parts, not a surface: nothing of it is
 written into the depth of the view, so the parts show through it, and it shows through the parts the plane cuts. It is never cut by a section, as marks are
 not, and it is never picked: a click goes through to the parts. The switch is a button in the tracing's panel and one under its tools, pressed while the
-tracing is shown. A tracing is drawn in the layout it was made in. Each tracing shown has a row under **Tracings** in the layers list (there is none while no
-tracing is shown), with the eye that puts it away. Its marks are drawn with the marks, whatever is done to the tracing.
+tracing is shown. A tracing is drawn in the layout it was made in. Each tracing has a row in the **Tracings** section of the route card, with the eye that shows it
+in 3D or puts it away (the eye is lit while it is shown). Its marks are drawn with the marks, whatever is done to the tracing.
 
 Which tracings are shown is how you last looked at the project, and is kept in `scene.json` as `tracingsShown`, with the layers and the section. It is a view, not
 a change: it does not go to Claude as one, and no mark, build or file of the model changes with it. A tracing shown is cut again after every build, like the one you

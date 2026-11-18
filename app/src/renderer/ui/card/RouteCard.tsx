@@ -9,15 +9,14 @@ import { numbered } from '../numbered'
 import { ParamsPanel } from '../ParamsPanel'
 import { PrintProfile } from '../PrintProfile'
 import { ImportScan, ScansPanel } from '../ScansPanel'
-import { TracingRows } from '../TracingRows'
 import { CardSection } from './CardSection'
+import { NewTracingAction, TracingsBody } from './Tracings'
 import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from './sections'
 
 /** The body of each section: today's component for it. The card is these in a column, and each section's task restyles its own. */
 function Body({ id }: { id: SectionId }): ReactNode {
   const marks = useStore((s) => s.marks)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
-  const layout = useStore((s) => s.layout)
   switch (id) {
     case 'needs':
       return null
@@ -37,7 +36,7 @@ function Body({ id }: { id: SectionId }): ReactNode {
     case 'scans':
       return <ScansPanel />
     case 'tracings':
-      return <TracingRows layout={layout} />
+      return <TracingsBody />
     case 'profile':
       return <PrintProfile />
   }
@@ -96,7 +95,7 @@ export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<
             </>
           )
           return (
-            <CardSection key={id} id={id} title={title} said={said} needs={f.needs} empty={f.empty} action={id === 'scans' ? <ImportScan /> : undefined}>
+            <CardSection key={id} id={id} title={title} said={said} needs={f.needs} empty={f.empty} action={id === 'scans' ? <ImportScan /> : id === 'tracings' ? <NewTracingAction /> : undefined}>
               <Body id={id} />
             </CardSection>
           )
