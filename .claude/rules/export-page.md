@@ -48,6 +48,11 @@ The page an export writes: its style (`page.css`) and its viewer (`viewer/`), wh
   base64'd, by the part's `hash`, so a shape in two layouts is in the file once. A faceted part (`shared/faceted.ts`)
   has no edges in the file: the page draws its creases. A scan is reduced by `clusterScan` (`decimate.ts`) to
   60,000 triangles and packed by `packScan`.
+- The plan says what each line weighs (`ExportPlan.items`, `exportPlan` in `build.ts`): the page, each project listed, and of a
+  project chosen its marks, resolved marks, switched-off parts and scans, each `on` or not (a line not ticked says what it
+  would add). A line is measured as the page with it less the page without; the page takes the rest, so the `bytes` of the
+  lines that are `on` add up to `ExportPlan.bytes` exactly. A plan refused above `EXPORT_MOST` still lists its lines
+  (the sheet shows no rule for it); a file of the model has none.
 - The budget (`EXPORT_BUDGET`, 12 MB): over it the largest scan goes to 30,000, then 15,000 triangles, then out
   (`SCAN_TRIANGLES`), the last of each scan said in `dropped`: in the sheet before saving, and in the page under
   "About this file". Parts are never reduced; with the parts alone over it the sheet says so and writes all the same; above

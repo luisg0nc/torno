@@ -345,6 +345,15 @@ export interface ExportRequest {
   title?: string
 }
 
+export interface ExportItem {
+  id: string
+  kind: 'page' | 'object' | 'marks' | 'resolved' | 'off' | 'scan'
+  /** The project it is of: none for the page. */
+  object?: string
+  bytes: number
+  on: boolean
+}
+
 /** What a file of a request would hold and weigh, said before anything is written. */
 export interface ExportPlan {
   objects: Array<{
@@ -371,6 +380,15 @@ export interface ExportPlan {
     /** What a file of the model can hold, layout by layout: each part, whether it has a solid (an STL or a 3MF is of solids alone) and whether it is switched off in torno. */
     layoutParts?: Array<{ layout: string; parts: Array<{ name: string; solid: boolean; off?: true; arranged?: true; reference?: true }> }>
   }>
+  /**
+   * What each line of the sheet weighs in the page, in the order the sheet shows them: the page itself, then of each
+   * project listed that can be exported the project, and of a project chosen its marks, its resolved marks, its switched-off
+   * parts (each only when it has some) and its scans (`id` is the `<objectId>/<scanId>` a request names). A line that is
+   * not ticked says what it would add, with `on: false`. The `bytes` of the lines that are on add up to `bytes`, exactly:
+   * the page takes what no other line owns. A file of the model is made when it is saved, and has no lines. Each weight is of that
+   * line alone, as the file stands.
+   */
+  items: ExportItem[]
   /** What the file would weigh, and what was cut or left out to keep it under the budget, a sentence each. */
   bytes: number
   dropped: string[]
