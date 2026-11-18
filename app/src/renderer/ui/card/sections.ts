@@ -63,6 +63,7 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const scans = useStore((s) => s.scans)
   const tracings = useTracings((s) => s.file?.tracings)
+  const openTracing = useTracings((s) => (s.open === null ? undefined : s.file?.tracings.find((t) => t.id === s.open)))
   const profile = useProfile(useStore((s) => s.objectId))
   return useMemo(() => {
     const parts = (scene?.parts ?? []).filter((p) => p.layout === layout)
@@ -94,12 +95,12 @@ function useFacts(): { sections: Record<SectionId, SectionFacts>; badges: BadgeD
       marks: marks.length === 0 ? { ...NONE, empty: false } : { said: said(`${open} open`, grouped.toSend.length > 0 && `${grouped.toSend.length} to send`), bad: null, needs: false, empty: false },
       // Import and the first tracing are made in the section's body: a scan or a tracing's section is never shut for being empty.
       scans: { said: scans.length === 0 ? 'none' : said(`${scans.length}`, unaligned > 0 && `${unaligned} unaligned`), bad: null, needs: false, empty: false },
-      tracings: { said: (tracings?.length ?? 0) === 0 ? 'none' : `${tracings!.length}`, bad: null, needs: false, empty: (tracings?.length ?? 0) === 0 },
+      tracings: { said: (tracings?.length ?? 0) === 0 ? 'none' : said(`${tracings!.length}`, openTracing !== undefined && `${openTracing.id}${openTracing.name === '' ? '' : ` ${openTracing.name}`}`), bad: null, needs: false, empty: false },
       // The printer and the material the project is made for; its choosers are in the body, so it is never shut for being empty.
       profile: { said: profileSaid(profile), bad: null, needs: false, empty: false, plain: true }
     }
     return { sections, badges }
-  }, [scene, layout, layers, marks, revision, scans, tracings, profile])
+  }, [scene, layout, layers, marks, revision, scans, tracings, openTracing, profile])
 }
 
 /** Where the card's reading line stands, as a share of the scroll's height from its top: the section whose head has passed it is in sight. */

@@ -25,10 +25,9 @@ import { PinTool } from './pinTool'
 import { hitTest, selectedElements, selectedShapeElements } from './selectTool'
 import { snapAt, type Snapped } from './snap'
 import { TraceTool } from './traceTool'
-import { TracingPanel } from './TracingPanel'
 
 // A tracing at true scale, in place of the 3D view: a sheet with the kernel's outline on a millimetre grid, which the sheet's
-// own transform moves and scales (`Sheet`), a panel of what the tracing is, a picker of which is shown, the scale bar and the
+// own transform moves and scales (`Sheet`), a picker of which is shown, the scale bar and the
 // title block, and a readout of where the pointer is on the plane. The Trace tool puts a line, a circle or a label into the
 // person's layer, snapping to the cut's own points; what is under way is drawn on a layer of its own. Panning, zooming, the
 // readout, the grid and the draft are made on the elements and never go through React state, so nothing is drawn again for them (`__tornoTracingRenders` counts the layer's draws under
@@ -216,15 +215,6 @@ export function TracingView() {
     el.innerHTML = out
   }
 
-  // What floats over the sheet's top left, as far as its right and bottom edges on the stage: Fit leaves the outline clear of it.
-  const clearOfPanel = (): { right: number; bottom: number } | undefined => {
-    const panel = root.current?.querySelector('.tr-panel')
-    const at = stage.current?.getBoundingClientRect()
-    if (!panel || !at) return undefined
-    const p = panel.getBoundingClientRect()
-    return { right: p.right - at.left, bottom: p.bottom - at.top }
-  }
-
   // The readout of a shape being dragged, at the pointer: its mark's number, its name and how far it has moved.
   function showOffset(): void {
     const el = hintEl.current
@@ -296,7 +286,7 @@ export function TracingView() {
       sheet.restore(kept)
       placed.current = key
     } else if (drawing !== null && (stage.current?.getBoundingClientRect().width ?? 0) > 0) {
-      sheet.fit(clearOfPanel())
+      sheet.fit()
       placed.current = key
     }
   }, [sheet, drawing, key])
@@ -380,7 +370,7 @@ export function TracingView() {
       const onSheet = e.target === document.body || (e.target instanceof Node && stage.current?.contains(e.target) === true)
       if (pressed(e, 'tracing.fit')) {
         stop()
-        sheet.fit(clearOfPanel())
+        sheet.fit()
       } else if (pressed(e, 'tracing.actual')) {
         stop()
         sheet.actual()
@@ -705,7 +695,7 @@ export function TracingView() {
           </select>
         )}
         <span className="viewbar-rule" aria-hidden="true" />
-        <button type="button" className="bar-button" aria-keyshortcuts={hint('tracing.fit')} title={`Fit the outline (${hint('tracing.fit')})`} onClick={() => sheet?.fit(clearOfPanel())}>
+        <button type="button" className="bar-button" aria-keyshortcuts={hint('tracing.fit')} title={`Fit the outline (${hint('tracing.fit')})`} onClick={() => sheet?.fit()}>
           Fit
         </button>
         <button type="button" className="bar-button" aria-keyshortcuts={hint('tracing.actual')} title={`True size, a millimetre for a millimetre (${hint('tracing.actual')})`} onClick={() => sheet?.actual()}>
@@ -722,9 +712,7 @@ export function TracingView() {
         </div>
       )}
 
-      {tracing !== undefined ? (
-        <TracingPanel />
-      ) : (
+      {tracing === undefined && (
         <div className="tr-none">
           <h2 className="tr-none-title">No tracings yet</h2>
           <p className="tr-note">A tracing lays one plane of the model flat at true size, on a millimetre grid, to draw on and measure.</p>

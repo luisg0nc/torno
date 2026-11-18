@@ -83,7 +83,7 @@ function exactOutline(cut: TracingCut): boolean {
 }
 
 /**
- * The panel of the tracing shown, top left of its sheet: its name, its plane and the build it was redrawn for, "Model outline"
+ * The panel of the tracing open, in the Tracings section of the card under its row while the Tracing view shows: its name, its plane and the build it was redrawn for, "Model outline"
  * with its parts, the layers, and what can be done with it. Pure, so that it is drawn the same from any state.
  */
 export function TracingPanelView({ tracing, cut, parts, built, building, spread, refused, onRename, onPart, onRemove, onExport, shownIn3D, onShowIn3D, into, onInto, onHide, onRemoveLayer, onAddLayer, layerRemoved, onUndoLayer, tool, traceMode, onTraceMode, inkPen, onInkPen, photoThumb, photoHere, references, addingPhoto, onAddPhoto, onReferencePhoto, onFade, onFadeCommit, onHidePhoto, onLineUp, onSwapPhoto, onRemovePhoto }: TracingPanelProps) {
@@ -117,7 +117,7 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
             }}
           />
         ) : (
-          <h2 className="tr-name">{tracingName(tracing)}</h2>
+          <h3 className="tr-name">{tracingName(tracing)}</h3>
         )}
         {tracing.name !== '' && <span className="tr-id num">{tracing.id}</span>}
       </header>
@@ -143,14 +143,14 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
 
       <div className="tr-section">
         <div className="section-head">
-          <h3 className="tr-heading">
+          <h4 className="tr-heading">
             Model outline{' '}
             {cut !== null && (
               <span className="tr-exact" data-exact={exactOutline(cut)} title={exactOutline(cut) ? 'Cut from the B-rep by the kernel' : 'The kernel cut it, and could not hold the areas to the B-rep'}>
                 {exactOutline(cut) ? 'exact' : 'not exact'}
               </span>
             )}
-          </h3>
+          </h4>
         </div>
         <ul className="tr-parts">
           {parts.map((name) => {
@@ -172,14 +172,14 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
 
       <div className="tr-section">
         <div className="section-head">
-          <h3 className="tr-heading">Layers</h3>
+          <h4 className="tr-heading">Layers</h4>
         </div>
         <LayerRows layers={tracing.layers} into={into ?? null} onInto={onInto} onHide={onHide} onRemove={onRemoveLayer} onAdd={onAddLayer} removed={layerRemoved} onUndo={onUndoLayer} />
       </div>
 
       <div className="tr-section" data-part="photo">
         <div className="section-head">
-          <h3 className="tr-heading">Photo</h3>
+          <h4 className="tr-heading">Photo</h4>
         </div>
         {tracing.photo === undefined ? (
           <AddPhoto references={references ?? []} busy={addingPhoto} onChoose={onAddPhoto} onReference={onReferencePhoto} />
@@ -191,7 +191,7 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
       {tool === 'trace' && (
         <div className="tr-section" data-part="trace">
           <div className="section-head">
-            <h3 className="tr-heading">Trace</h3>
+            <h4 className="tr-heading">Trace</h4>
           </div>
           <div className="segmented tr-trace-modes" role="group" aria-label="Trace draws">
             {TRACE_MODES.map((m) => (
@@ -209,7 +209,7 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
       {tool === 'pin' && (
         <div className="tr-section" data-part="pin">
           <div className="section-head">
-            <h3 className="tr-heading">Pin</h3>
+            <h4 className="tr-heading">Pin</h4>
           </div>
           <p className="tr-note">
             Click a point, then type its note where it is: <kbd className="num">{hint('field.keep')}</kbd> keeps it, <kbd className="num">{hint('tracing.leave')}</kbd> gives it up. On the outline the pin is tied to the face under it; elsewhere it is a point in the plane. A pin goes to Claude with your next prompt, like any mark.
@@ -220,7 +220,7 @@ export function TracingPanelView({ tracing, cut, parts, built, building, spread,
       {tool === 'ink' && (
         <div className="tr-section" data-part="ink">
           <div className="section-head">
-            <h3 className="tr-heading">Ink</h3>
+            <h4 className="tr-heading">Ink</h4>
           </div>
           <div className="segmented tr-trace-modes" role="group" aria-label="Ink draws">
             {INK_PENS.map((p) => (

@@ -8,11 +8,8 @@ import type { NamedSet, SetMember } from '../../shared/sets'
 import { agentStore } from '../state/agent'
 import { pointedStore } from '../state/pointed'
 import { setsStore } from '../state/sets'
-import { actions, store } from '../state/store'
-import { tracingsStore } from '../state/tracings'
-import { planeOfFrom, type Tracing } from '../../shared/tracings'
+import { store } from '../state/store'
 import { Layers } from './Layers'
-import { TracingRows } from './TracingRows'
 
 describe('a layer row of a part the build says is broken', () => {
   afterEach(() => store.setState({ scene: null, layout: 'assembly', layers: {}, marks: [] }))
@@ -189,58 +186,5 @@ describe('the named sets in Layers', () => {
     expect(out).toContain('>Dismiss</button>')
     setsStore.setState({ problem: null })
     expect(rows()).not.toContain('sets-problem')
-  })
-})
-
-describe('the tracings shown in 3D, in the Tracings section', () => {
-  afterEach(() => {
-    store.setState({ scene: null, layout: 'assembly', layers: {}, marks: [], tracingsShown: [] })
-    tracingsStore.setState({ objectId: null, file: null, open: null }, false)
-  })
-  const rows = (): string => {
-    const spies = [vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState()), vi.spyOn(tracingsStore, 'getInitialState').mockReturnValue(tracingsStore.getState())]
-    try {
-      return renderToStaticMarkup(createElement(TracingRows, { layout: store.getState().layout }))
-    } finally {
-      for (const spy of spies) spy.mockRestore()
-    }
-  }
-  const part = (name: string) => ({ key: `assembly:${name}`, name, layout: 'assembly', valid: true })
-  const scene = { model: 'm.py', layouts: ['assembly', 'print'], parts: [part('tub')], seconds: 0, output: '' } as unknown as Scene
-  const tracing = (id: string, over: Partial<Tracing> = {}): Tracing => ({ id, by: 'person', name: '', layout: 'assembly', createdAt: '2026-11-17T10:00:00.000Z', plane: planeOfFrom({ kind: 'main', axis: 'XZ', offset: 0 })!, layers: [], nextLayer: 1, ...over })
-  const open = (shown: string[], ...tracings: Tracing[]): string => {
-    store.setState({ scene, layout: 'assembly', layers: {}, folded: [], marks: [], tracingsShown: shown })
-    tracingsStore.setState({ file: { next: 9, tracings } })
-    return rows()
-  }
-
-  it('has no row when no tracing is shown in 3D', () => {
-    const out = open([], tracing('T1'))
-    expect(out).toBe('')
-  })
-
-  it('has a row for each tracing shown, of the layout shown, with its name and plane, and a way to hide it', () => {
-    const out = open(['T1', 'T2', 'T3'], tracing('T1', { name: 'Front of the block' }), tracing('T2', { layout: 'print' }), tracing('T3'))
-    expect(out).toContain('data-part="tracings"')
-    expect(out).toContain('data-tracing="T1"')
-    expect(out).toContain('Front of the block')
-    expect(out).toContain('XZ at y = 0')
-    // A tracing with no name is its number.
-    expect(out).toContain('data-tracing="T3"')
-    expect(out).toContain('Tracing T3')
-    expect(out).not.toContain('data-tracing="T2"')
-    expect(out).toContain('aria-label="Hide T1 in 3D"')
-  })
-
-  it('leaves out a tracing that is shown in the file and that the project no longer has', () => {
-    expect(open(['T7'], tracing('T1'))).not.toContain('data-tracing=')
-  })
-
-  it('hides a tracing from its row: it is no longer shown in 3D, and its row goes', () => {
-    open(['T1', 'T2'], tracing('T1'), tracing('T2'))
-    actions.setTracingShown('T1', false)
-    const out = rows()
-    expect(out).not.toContain('data-tracing="T1"')
-    expect(out).toContain('data-tracing="T2"')
   })
 })

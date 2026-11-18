@@ -362,7 +362,7 @@
   pointer-events: none;
 }
 
-/* ---- Over the sheet: the head at the top right, the panel at the top left, the scale bar and readout at the bottom left, the title block at the bottom right ---- */
+/* ---- Over the sheet: the head at the top right, the scale bar and readout at the bottom left, the title block at the bottom right ---- */
 
 .tr-head {
   position: absolute;
@@ -421,20 +421,11 @@
 }
 
 .tr-panel {
-  position: absolute;
-  top: calc(var(--space-3) + var(--switch-h) + var(--space-2));
-  /* Beside the palette at the left edge, not under it. */
-  left: calc(var(--space-3) + 42px + var(--space-2));
-  z-index: 3;
-  width: 284px;
-  max-height: calc(100% - var(--switch-h) - 130px);
+  /* In the Tracings section of the card, under the tracing's row: as wide as the card leaves it, and as long as its groups are. */
   box-sizing: border-box;
-  overflow-y: auto;
-  padding: var(--space-3);
-  border: var(--divider);
-  border-radius: var(--radius-float);
-  background: var(--panel);
-  box-shadow: var(--float-shadow);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) 0 0;
+  border-top: var(--divider);
   font-size: var(--text-small);
 }
 
@@ -1151,17 +1142,6 @@
   paint-order: stroke;
   stroke: var(--surface);
   stroke-width: 3px;
-}
-
-/* The tracings shown in the model view, in the layers list: an outlined square for each, a sheet seen edge on, in ink. */
-.layer-tracings {
-  margin-top: var(--space-2);
-}
-
-.tracing-swatch {
-  box-sizing: border-box;
-  border: 1.25px solid var(--ink);
-  background: transparent;
 }
 
 /* Show in 3D, while it is on: the button of the panel is pressed in the accent. */
