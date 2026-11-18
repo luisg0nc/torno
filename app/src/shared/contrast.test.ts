@@ -215,7 +215,7 @@ it('has the light tokens written out where no stylesheet is read, as the stylesh
   expect(SHEET).toEqual({ paper: light['--surface'], ink: light['--ink'], muted: light['--muted'], hairline: light['--hairline'] })
   const frame = readFileSync(resolve(__dirname, '../main/frame.ts'), 'utf8')
   expect(frame).toContain(`export const SURFACE = { light: '${light['--surface']}', dark: '${night['--surface']}' }`)
-  expect(frame).toContain(`const INK = { light: '${light['--ink']}', dark: '${night['--ink']}' }`)
+  expect(frame).toContain(`const MUTED = { light: '${light['--muted']}', dark: '${night['--muted']}' }`)
   const { AXIS_COLOURS } = await import('../renderer/viewport/overlay')
   expect([...AXIS_COLOURS]).toEqual([light['--axis-x'], light['--axis-y'], light['--axis-z']])
   expect([LIGHT_THEME.axisX, LIGHT_THEME.axisY, LIGHT_THEME.axisZ]).toEqual([...AXIS_COLOURS])

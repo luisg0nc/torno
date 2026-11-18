@@ -1,10 +1,10 @@
 import type { BrowserWindowConstructorOptions } from 'electron'
 
 // The window's own background, painted before the renderer's first frame.
-// Keep equal to --surface and --ink in src/renderer/styles/tokens.css (shared/contrast.test.ts holds them to it).
+// Keep equal to --surface and --muted in src/renderer/styles/tokens.css (shared/contrast.test.ts holds them to it).
 export const SURFACE = { light: '#F1EFEA', dark: '#1A1C1F' }
-/** The symbols of the platform's controls: --ink of each theme. */
-const INK = { light: '#20242B', dark: '#E9E7E2' }
+/** The symbols of the platform's controls: --muted of each theme. */
+const MUTED = { light: '#62666D', dark: '#9EA3AA' }
 
 /** The height of the title bar, which is also the height of the platform's controls. */
 export const TITLE_BAR_HEIGHT = 40
@@ -22,7 +22,7 @@ export function frameOptions(
   const theme = dark ? 'dark' : 'light'
   return {
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: SURFACE[theme], symbolColor: INK[theme], height: TITLE_BAR_HEIGHT }
+    titleBarOverlay: { color: SURFACE[theme], symbolColor: MUTED[theme], height: TITLE_BAR_HEIGHT }
   }
 }
 

@@ -61,7 +61,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - **The window has no native frame** (`createWindow` in `index.ts`, `frame.ts`): `titleBarStyle: 'hidden'`, at least 1100 × 700.
   Where the platform draws its controls (`frameOptions`: Windows, macOS) it is given `titleBarOverlay` of the bar's
-  height (40) in `--surface` and the ink, and keeps them with the system theme (`setTitleBarOverlay`); on Linux there is
+  height (40) in `--surface` and `--muted` symbols, and keeps them with the system theme (`setTitleBarOverlay`); on Linux there is
   no overlay, `bridge.window.drawsControls()` is true and the window draws the three buttons, asking main through
   `bridge.window.minimize`, `toggleMaximize` and `close` (channels `window:minimize`, `window:toggleMaximize`, `window:close`;
   a sender other than the window is ignored). `close` is `win.close()`, so it meets the question below. `onMaximized`
