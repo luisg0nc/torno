@@ -51,7 +51,8 @@ from the spec, the spec wins.
 - **Each task leaves the four suites green:** `pnpm test`, `pnpm test:kernel`, `(cd kernel && uv run pytest -q)`,
   `pnpm test:e2e`, and `pnpm -C app typecheck`. While iterating, run the focused file. Run all four before the commit.
   From Claude's shell `pnpm` may not be on PATH and the display variables are unset: from `app/`, use
-  `export PATH="$PWD/node_modules/.bin:$PATH" XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-1 DISPLAY=:0`, then
+  `export PATH="$PWD/node_modules/.bin:$PATH"` and the display variables of your session (see the note on running e2e
+  from an agent's shell), then
   `electron-vite build && node scripts/build-viewer.mjs` for the build and `playwright test e2e/<file>` for one spec.
   Never run heavy jobs side by side: the machine is short on memory.
 - **Do not disturb the live desktop:** no visible window, no focus stealing, no touching running dev servers or other
