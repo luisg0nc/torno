@@ -1,5 +1,5 @@
 import type { Mark } from '../../../shared/marks'
-import { type NamedSet, lostText, memberRef } from '../../../shared/sets'
+import { type NamedSet, type SetMember, lostText, memberRef } from '../../../shared/sets'
 
 /** What can be done with a set from its row. `light` is the pointer on the row; the others are buttons. */
 export type SetAction = 'light' | 'isolate' | 'rename' | 'recolour' | 'add' | 'take' | 'repick' | 'tag' | 'delete' | 'accept' | 'dismiss'
@@ -14,6 +14,10 @@ export interface SetRow {
   colour: number
   /** How many members it has, lost ones too. */
   count: number
+  /** What the person wrote of it: `deck face`. May be empty. */
+  comment: string
+  /** What it holds, in words: `4 faces, 1 stroke`. */
+  said: string
   /** `2 of 5 faces lost`, or null when none is: with it the row offers Re-pick. */
   lost: string | null
   /** Claude's proposal, not yet the person's: its swatch is dashed and its row says so. */
@@ -33,12 +37,27 @@ function onlyPart(set: Pick<NamedSet, 'members'>): string | null {
   return parts.size === 1 ? [...parts][0] : null
 }
 
+const KINDS = [
+  ['face', 'faces'],
+  ['edge', 'edges'],
+  ['part', 'parts'],
+  ['stroke', 'strokes']
+] as const
+
+/** What a set holds, in words, lost members included: `4 faces, 1 stroke`; `empty` for none. */
+export function membersSaid(members: readonly SetMember[]): string {
+  const n = { face: 0, edge: 0, part: 0, stroke: 0 }
+  for (const m of members) n['face' in m ? 'face' : 'edge' in m ? 'edge' : 'stroke' in m ? 'stroke' : 'part']++
+  const said = KINDS.filter(([one]) => n[one] > 0).map(([one, many]) => `${n[one]} ${n[one] === 1 ? one : many}`)
+  return said.length === 0 ? 'empty' : said.join(', ')
+}
+
 function rowOf(set: NamedSet, marks: readonly Mark[]): SetRow {
   const lost = lostText(set, marks)
   const actions: SetAction[] = set.proposed
     ? ['light', 'isolate', 'accept', 'dismiss']
     : ['light', 'isolate', 'rename', 'recolour', 'add', 'take', ...(lost !== null ? (['repick'] as const) : []), 'tag', 'delete']
-  return { id: set.id, ref: `#${set.slug}`, name: set.name, colour: set.colour, count: set.members.length, lost, proposed: set.proposed === true, actions }
+  return { id: set.id, ref: `#${set.slug}`, name: set.name, colour: set.colour, count: set.members.length, comment: set.comment, said: membersSaid(set.members), lost, proposed: set.proposed === true, actions }
 }
 
 /**

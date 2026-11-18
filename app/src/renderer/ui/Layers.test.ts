@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { Scene } from '../../shared/scene'
 import type { NamedSet, SetMember } from '../../shared/sets'
+import { agentStore } from '../state/agent'
+import { pointedStore } from '../state/pointed'
 import { setsStore } from '../state/sets'
 import { actions, store } from '../state/store'
 import { tracingsStore } from '../state/tracings'
@@ -14,11 +18,11 @@ describe('a layer row of a part the build says is broken', () => {
   afterEach(() => store.setState({ scene: null, layout: 'assembly', layers: {}, marks: [] }))
   // A static render reads the store's first state (zustand's server snapshot): it is made the state there is now.
   const rows = (): string => {
-    const now = vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState())
+    const spies = [vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState()), vi.spyOn(agentStore, 'getInitialState').mockReturnValue(agentStore.getState()), vi.spyOn(pointedStore, 'getInitialState').mockReturnValue(pointedStore.getState())]
     try {
       return renderToStaticMarkup(createElement(Layers))
     } finally {
-      now.mockRestore()
+      for (const spy of spies) spy.mockRestore()
     }
   }
   const part = (name: string, more: object = {}) => ({ key: `assembly:${name}`, name, layout: 'assembly', valid: true, ...more })
@@ -52,6 +56,34 @@ describe('a layer row of a part the build says is broken', () => {
     expect(out).not.toContain('data-failing')
     store.setState({ marks: [] })
   })
+
+  it('says "hidden" at the right of a part that is switched off, and nothing of one that is on', () => {
+    const scene = { model: 'm.py', layouts: ['assembly'], parts: [part('tub'), part('lid')], seconds: 0, output: '' } as unknown as Scene
+    store.setState({ scene, layout: 'assembly', layers: { lid: { visible: false } }, folded: [] })
+    const out = rows()
+    expect(out).toContain('<span class="layer-off">hidden</span>')
+    expect(out.match(/layer-off/g)).toHaveLength(1)
+  })
+
+  describe('lit from the view', () => {
+    const scene = { model: 'm.py', layouts: ['assembly'], parts: [part('tub'), part('lid')], seconds: 0, output: '' } as unknown as Scene
+    afterEach(() => {
+      pointedStore.setState({ part: null })
+      agentStore.setState({ peek: [] })
+    })
+    const lit = (out: string): string[] => [...out.matchAll(/data-layer="([^"]+)"[^>]*? data-lit=""/g)].map((m) => m[1])
+    it('lights the row of the part the pointer is on in the view, and no other', () => {
+      store.setState({ scene, layout: 'assembly', layers: {}, folded: [] })
+      expect(lit(rows())).toEqual([])
+      pointedStore.setState({ part: 'lid' })
+      expect(lit(rows())).toEqual(['lid'])
+    })
+    it('lights the row of a part a ref in the chat or a row of the card points at, by a face of it too', () => {
+      store.setState({ scene, layout: 'assembly', layers: {}, folded: [] })
+      agentStore.setState({ peek: ['tub/F3'] })
+      expect(lit(rows())).toEqual(['tub'])
+    })
+  })
 })
 
 describe('the named sets in Layers', () => {
@@ -60,7 +92,7 @@ describe('the named sets in Layers', () => {
     setsStore.setState({ sets: [], repicking: null, removed: null, refused: null })
   })
   const rows = (): string => {
-    const spies = [vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState()), vi.spyOn(setsStore, 'getInitialState').mockReturnValue(setsStore.getState())]
+    const spies = [vi.spyOn(store, 'getInitialState').mockReturnValue(store.getState()), vi.spyOn(setsStore, 'getInitialState').mockReturnValue(setsStore.getState()), vi.spyOn(agentStore, 'getInitialState').mockReturnValue(agentStore.getState()), vi.spyOn(pointedStore, 'getInitialState').mockReturnValue(pointedStore.getState())]
     try {
       return renderToStaticMarkup(createElement(Layers))
     } finally {
@@ -98,6 +130,20 @@ describe('the named sets in Layers', () => {
     expect(out).toContain('style="--set-colour:var(--set-4)"')
     expect(out).toContain('style="--set-colour:var(--set-2)"')
     expect(out).toContain('title="#deck: select its members"')
+  })
+
+  it('draws a set as a 10 px dashed swatch in its colour, its name in the monospace face, and what it holds in words', () => {
+    const out = open(named('N2', 'deck', [face('lid/F1'), face('tub/F2')], { colour: 1, comment: 'deck face' }))
+    expect(out).toContain('class="swatch set-swatch" style="--set-colour:var(--set-2)"')
+    expect(out).toMatch(/class="row-name layer-name set-name num"[^>]*>#deck</)
+    expect(out).toContain('<span class="set-comment" title="deck face">deck face</span>')
+    expect(out).toContain('<span class="num">2</span> faces')
+    const css = readFileSync(join(__dirname, '..', 'styles', 'card-parts.css'), 'utf8')
+    const swatch = /\n\.layers \.set-swatch \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(swatch).toMatch(/width: 10px/)
+    expect(swatch).toMatch(/border: 1\.5px dashed var\(--set-colour\)/)
+    const proposed = /\n\.layers \.set-swatch\[data-proposed\] \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(proposed).toMatch(/var\(--agent-mark\)/)
   })
 
   it('is of the layout shown: a set of another layout has no row', () => {

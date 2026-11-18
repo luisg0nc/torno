@@ -30,6 +30,12 @@ describe('the rows of named sets in Layers', () => {
     const { across } = setRows([set('N4', 'deck face', [{ part: 'lid' }, { part: 'block' }], { slug: 'deck-face', colour: 5 })], parts, [])
     expect(across[0]).toMatchObject({ id: 'N4', ref: '#deck-face', name: 'deck face', colour: 5, count: 2, lost: null, proposed: false })
   })
+  it('says what it holds in words, the comment apart, a stroke and a part counted too', () => {
+    const { across, byPart } = setRows([set('N1', 'hose', [face('block/F1'), face('lid/F2'), { stroke: 'M7/k3' }, { part: 'lid' }], { comment: 'the hose run' }), set('N2', 'one', [face('lid/F1'), { edge: 'lid/E2', point: [0, 0, 0], state: 'ok' }]), set('N3', 'nothing', [])], parts, [sketch])
+    expect(across[0]).toMatchObject({ comment: 'the hose run', said: '2 faces, 1 part, 1 stroke' })
+    expect(byPart.lid[0]).toMatchObject({ comment: '', said: '1 face, 1 edge' })
+    expect(across[1].said).toBe('empty')
+  })
   it('offers Re-pick only with a lost member, a stroke whose sketch is gone counting as lost', () => {
     const whole = set('N1', 'deck', [face('block/F1'), face('block/F2')])
     const worn = set('N2', 'worn', [face('block/F1'), face('block/F2', 'lost')])

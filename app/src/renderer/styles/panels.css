@@ -238,51 +238,6 @@ button.param-button:focus-visible {
   font-size: var(--text-small);
 }
 
-.layer-defect {
-  flex: none;
-  font-size: var(--text-small);
-  color: var(--fail);
-}
-
-.layer-bought {
-  flex: none;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.layer-row[data-hidden] .row-name {
-  color: var(--muted);
-}
-
-.layer-row[data-hidden] .swatch {
-  opacity: 0.35;
-}
-
-/* A group of parts (the model's groups(p)): a header, its parts indented under it. */
-.layer-group {
-  padding-left: var(--space-2);
-}
-
-.layer-group .row-name {
-  font-size: var(--text-small);
-  font-weight: 500;
-}
-
-.layer-count {
-  flex: none;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.layer-row[data-in-group] {
-  padding-left: calc(var(--space-4) + var(--space-3));
-}
-
-.layer-group[data-seen='none'] .row-name,
-.layer-group[data-seen='some'] .layer-group-eye {
-  color: var(--muted);
-}
-
 /* "Show only": out of the way until the header is pointed at, as the opacity of a part is. */
 .layer-solo {
   opacity: 0;
@@ -304,38 +259,6 @@ button.param-button:focus-visible {
   font-family: var(--font-mono); /* a part's name is a ref: the .num face, which "font: inherit" would take back */
   font-size: var(--text-small);
   text-align: left;
-}
-
-.layer-row[data-selected] .layer-name {
-  color: var(--accent);
-}
-
-/* How many marks are open on the part: quiet, and in the colour of a verdict that fails when one of them is a check that does. */
-.layer-marks {
-  flex: none;
-  min-width: 18px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.layer-marks[data-failing] {
-  color: var(--fail);
-}
-
-.layer-marks[aria-pressed='true'] {
-  background: var(--accent-wash);
-}
-
-/* "3 hidden · Show all", after the title of the layers. */
-.layers-hidden {
-  flex: none;
-  padding-right: var(--space-4);
-  color: var(--muted);
-  font-size: var(--text-small);
 }
 
 /* A chip above the marks while they are cut to one part. */

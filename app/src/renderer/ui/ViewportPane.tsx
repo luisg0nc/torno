@@ -10,6 +10,7 @@ import type { Scene } from '../../shared/scene'
 import { type LookRequest, type LookResult, type SectionPlane, type ViewState, MAX_SELECTION_REPORTED, NOT_A_PLANE, sectionOf } from '../../shared/view'
 import { agentStore, connectAgent, picture, setPictures, type PersonPicture } from '../state/agent'
 import { describe, describeWhole, descriptorOf } from '../state/descriptors'
+import { pointPart } from '../state/pointed'
 import { newCut } from '../../shared/cut'
 import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
@@ -268,7 +269,10 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       viewport.canvas.style.cursor = id === null ? (tool?.cursor ?? '') : 'pointer'
       // What the tool lit under the pointer is under the chip: the chip has the pointer now.
       if (id === null) readout.hide()
-      else viewport.setHover(null)
+      else {
+        viewport.setHover(null)
+        pointPart(null)
+      }
     },
     say: (client, id) => {
       const s = store.getState()

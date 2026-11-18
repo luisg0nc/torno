@@ -87,8 +87,12 @@ test('a part\'s row lights it, its name selects it and a double click frames it,
   // The pointer on a row lights its part in the view, and leaving takes the light away.
   await page.locator('[data-layer="key"]').hover()
   await expect.poll(peeked).toEqual(['key'])
+  // The part lights its row in the card as well (the wash and the bar), and no other row.
+  await expect(page.locator('[data-layer="key"]')).toHaveAttribute('data-lit', '')
+  await expect(page.locator('[data-layer][data-lit]')).toHaveCount(1)
   await page.mouse.move(700, 400)
   await expect.poll(peeked).toEqual([])
+  await expect(page.locator('[data-layer][data-lit]')).toHaveCount(0)
 
   // A click on the name selects the part as a ref.
   await page.locator('[data-layer="key"]').getByRole('button', { name: 'key', exact: true }).click()

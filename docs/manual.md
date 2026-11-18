@@ -440,10 +440,14 @@ The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
 a click with Select would, so "Insert" and "Note" work on it) and a double click brings it into view, the target on
-the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. After the
-name, a muted number counts the open marks on the part (in the colour of a failing check when one of them is
-one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
-rest back. That is a view of the list: the agent is told every mark as before. Parameters lists the fields of
+the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. A part that
+is switched off says `hidden` at the right of its row, with its colour faint. The slider for its opacity, the target and the
+eye are on the row while the pointer is on it or the keys are, as a group's header (in the sans, since the name is the model's) has
+its own. After the name, a small ring holds the number of open marks on the part (in the colour of a failing check when one of
+them is one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
+rest back. That is a view of the list: the agent is told every mark as before. It works the other way too: the pointer on a part
+in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
+lines drawn to them. Parameters lists the fields of
 the model's `Params` (a model with none says so): each
 field's name, its default in the monospace face (four digits at most, the whole value on hover) and
 its comment as the model has it, and, for a default the model works out (an expression, not a
@@ -1469,8 +1473,8 @@ after every build. The model's own `groups(p)` (groups of parts in the code) are
 - **The Set scope.** With Set chosen in the corner of Select, the pointer on a face lights the whole set in its colour and
   the readout says `#deck` (and `also in #intake`); a click selects all its faces, edges and parts. A face in no set is
   passed over. Strokes are selected from the sketch's list, and are never offered by the pointer.
-- **Layers.** Each set is a row, under its part when all its members are of one part, else under "Named sets": its colour,
-  `#deck`, how many members, "Show only" and a menu with Rename, Colour, Add selection, Take away selection, Re-pick, Make it a
+- **Layers.** Each set is a row, under its part when all its members are of one part, else under the subheading "Named sets": a dashed square in its colour,
+  `#deck`, what you wrote of it, what it holds (`2 faces`, `4 faces, 1 stroke`), "Show only" and a menu with Rename, Colour, Add selection, Take away selection, Re-pick, Make it a
   tag and Delete (Undo is offered for ten seconds). The pointer on the row lights the set in the view; its name selects
   the members. A colour is only a colour: none is red or green, which are yours and Claude's.
 - **Found again after each build.** A face or an edge keeps the kernel's selector for it (a form torno can rebuild, never
