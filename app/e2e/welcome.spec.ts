@@ -4,8 +4,7 @@ import { delimiter, join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { EXAMPLE_OBJECTS } from '../src/main/example'
-import { KEYS } from '../src/shared/keys'
-import { POINTER } from '../src/shared/pointer'
+import { KEYBOARD, PLACES } from '../src/shared/keyboard'
 import { railButton } from './helpers'
 import { openListed } from './objects'
 
@@ -222,38 +221,58 @@ test('the example can be kept as a folder: a new one at the path chosen, never o
   }
 })
 
-test('? shows every key of the one table; what is typed searches it, and no tool behind it hears a key', async () => {
+test('? raises the keyboard; what is typed or pointed at is answered in sentences, and no tool behind it hears a key', async () => {
   await open('plain')
   await page.locator('[data-region="viewport"] canvas').first().click({ position: { x: 5, y: 5 } })
   await page.keyboard.press('?')
   await expect(sheet()).toBeVisible()
   await expect(sheet()).toHaveAttribute('aria-modal', 'true')
-  for (const line of ['Pin: click a point and leave a note', 'Draw the parts apart, or together again', 'Region: undo the last stroke', 'Export to one HTML file, or to STEP, STL or 3MF']) await expect(sheet()).toContainText(line)
-  // `P` is the Pin tool, with a sketch open the point to point pen, and in a tracing the Pin tool of the sheet: three rows, each in its own group.
-  await expect(sheet().locator('kbd', { hasText: /^P$/ })).toHaveCount(3)
-  // Every row that is shown is there, under where it is listened to, its keys in the monospace face.
-  await expect(sheet().locator('li')).toHaveCount(POINTER.length + KEYS.filter((row) => !row.hidden).length)
-  // The pointer first: gestures, not keys, so no cap of its own.
-  await expect(sheet().locator('h3')).toHaveText(['Pointer', 'Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
-  expect(await sheet().locator('kbd').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
   // The focus is in its field: a letter searches, and is no tool's key.
   await expect(sheet().getByRole('textbox', { name: 'Search the keys' })).toBeFocused()
+  // The places are chips, the view the one chosen; the keyboard is drawn whole, and what a key does is in the place chosen.
+  await expect(sheet().getByRole('group', { name: 'Where keys are heard' }).getByRole('button')).toHaveText(PLACES.map((place) => place.name))
+  await expect(sheet().getByRole('button', { name: 'In the view' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(sheet().locator('.keys-cap')).toHaveCount(KEYBOARD.flat().length)
+  await expect(sheet().locator('[data-cap="KeyE"]')).toHaveText('Eexplode')
+  await expect(sheet().locator('[data-cap="KeyE"]')).toHaveAttribute('data-kind', 'view')
+  await expect(sheet().locator('[data-cap="KeyD"]')).toHaveAttribute('data-kind', 'tool')
+  expect(await sheet().locator('[data-cap="KeyE"]').evaluate((el) => { const box = el.getBoundingClientRect(); return [box.width, box.height] })).toEqual([56, 48])
+  await expect(sheet().locator('[data-cap="KeyQ"]')).not.toHaveAttribute('data-bound', 'true')
+  await sheet().getByRole('button', { name: 'Sketching' }).click()
+  await expect(sheet().locator('[data-cap="KeyB"]')).toHaveText('Bfree')
+  await sheet().getByRole('button', { name: 'With a tool in hand' }).click()
+  await expect(sheet().locator('.keys-chords')).toContainText('Shift+Arrows')
+  await sheet().getByRole('button', { name: 'In the view' }).click()
+  // The pointer is listed under the keyboard in the view, and the keys with a modifier, their caps in the monospace face.
+  await expect(sheet().locator('.keys-chords')).toContainText('Zoom, towards the pointer')
+  expect(await sheet().locator('.keys-chords kbd').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Martian Mono')
+  // Pointing at a key asks the table about it: its cap is outlined in the accent, and what it does is told where it is heard.
+  await sheet().locator('[data-cap="KeyE"]').hover()
+  await expect(sheet().locator('[data-cap="KeyE"]')).toHaveAttribute('data-lit', 'true')
+  await expect(sheet().locator('.keys-said')).toHaveText([
+    'In the view, E draws the parts apart, or together again.Not while a field or the terminal has the keys.',
+    'With Region of a scan in hand, E paints or rubs out.Not while a field or the terminal has the keys. The tool hears the key before the view does.'
+  ])
+  await expect(sheet().locator('.keys-said.on')).toHaveCount(1)
+  // A press on a chip took the focus; the field is clicked and a letter searches, and is no tool's key.
+  await sheet().getByRole('textbox', { name: 'Search the keys' }).click()
   await page.keyboard.type('m')
   expect(await tool()).toBe('select')
   await page.keyboard.type('easure wall')
-  await expect(sheet().locator('li')).toHaveText(['TMeasure: the wall under the pointer'])
-  // A search that only the pointer answers: the count says so, beside the group it shows.
+  await expect(sheet().locator('.keys-said').first()).toContainText('With Measure in hand, T is the wall under the pointer.')
+  // A search that only the pointer answers: the count says so, and the sentence is the pointer's.
   await sheet().getByRole('textbox').fill('towards')
-  await expect(sheet().locator('.keys-count')).toHaveText('0 keys found, 1 of the pointer')
-  await expect(sheet().locator('li')).toHaveText(['ScrollZoom, towards the pointer'])
+  await expect(sheet().locator('.keys-count')).toHaveText('0 keys found, 1 of the pointer.')
+  await expect(sheet().locator('.keys-said')).toHaveText(['In the view, Scroll zooms, towards the pointer.'])
   await sheet().getByRole('textbox').fill('nothing does this')
   await expect(sheet()).toContainText('No key says nothing does this.')
   await sheet().getByRole('textbox').fill('')
-  // Tab goes round within it.
+  await expect(sheet().locator('.keys-count')).toContainText('Tools are in the accent, keys heard in the view are outlined.')
+  // Tab goes round within it: the places, the field, the key that puts it away.
   await page.keyboard.press('Tab')
   await expect(sheet().getByRole('button', { name: 'Close' })).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(sheet().getByRole('textbox')).toBeFocused()
+  await expect(sheet().getByRole('button', { name: 'Everywhere' })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
   await expect(sheet().getByRole('button', { name: 'Close' })).toBeFocused()
   // Escape puts the sheet away, not the tool down: Measure, taken before, is still in hand.
@@ -281,7 +300,12 @@ test('? shows every key of the one table; what is typed searches it, and no tool
   await expect(button).toBeFocused()
   await button.click()
   await expect(sheet()).toBeVisible()
-  await page.mouse.click(8, 8)
+  // The button is the rail's, which stays: pressed again it puts the keyboard away, and a press on the scrim above it does too.
+  await button.click()
+  await expect(sheet()).toBeHidden()
+  await button.click()
+  await expect(sheet()).toBeVisible()
+  await page.mouse.click(700, 80)
   await expect(sheet()).toBeHidden()
   await page.keyboard.press('Escape')
   expect(await tool()).toBe('select')

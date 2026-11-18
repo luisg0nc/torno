@@ -1,17 +1,15 @@
-/* ---- The sheet of keys (ui/KeySheet.tsx), opened from the foot of the rail ---- */
+/* ---- The keyboard (ui/KeySheet.tsx): raised from the foot of the window, over the view and the card. The rail and the status line stay. ---- */
 
 .keys-layer {
-  /* Over the whole window: a press beside the sheet puts it away, and nothing behind takes it. */
+  /* Over the view and the card: a press on what is left of them puts it away, and nothing behind takes it. */
   position: fixed;
-  inset: 0;
+  inset: var(--title-h) 0 var(--status-h) var(--rail-w);
   z-index: 40;
-  display: grid;
-  /* One row as high as the window allows and no higher: the sheet's `max-height: 100%` is of it, and what does not fit scrolls inside the sheet. */
-  grid-template-rows: minmax(0, 1fr);
-  place-items: center;
-  padding: var(--space-4);
-  /* A scrim: the sheet is over the window, not part of it. */
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  display: flex;
+  align-items: flex-end;
+  /* The scrim fades in from a fifth of the way down, so the top of the view is as it was. */
+  background: linear-gradient(to bottom, transparent 20%, var(--scrim) 55%);
+  animation: keys-veil 0.32s var(--ease);
 }
 
 .keys-sheet:focus {
@@ -19,123 +17,194 @@
 }
 
 .keys-sheet {
-  display: flex;
-  flex-direction: column;
-  width: min(940px, 100%);
-  max-height: 100%;
-  border: var(--divider);
-  border-radius: var(--radius-float);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  width: 100%;
+  height: min(400px, 100%);
+  border-top: var(--divider);
   background: var(--panel);
   box-shadow: var(--float-shadow);
+  animation: keys-up 0.32s var(--ease);
+}
+
+@keyframes keys-veil {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes keys-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keys-layer,
+  .keys-sheet {
+    animation: none;
+  }
+}
+
+/* ---- Left: the places, the keyboard, the keys with a modifier ---- */
+
+.keys-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3) var(--space-5) 0;
+  border-right: var(--divider);
 }
 
 .keys-head {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
-  border-bottom: var(--divider);
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 .keys-head h2 {
-  flex: 1;
+  margin-right: var(--space-2);
   font-size: 15px;
   font-weight: 600;
 }
 
-.keys-search {
+.keys-places {
   display: flex;
-  width: 220px;
-  height: 28px;
-  padding: 0 var(--space-3);
-  border: var(--field-border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  cursor: text;
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
-.keys-search:focus-within {
-  border-color: var(--accent);
-  outline: var(--focus-ring);
-  outline-offset: 1px;
-}
-
-.keys-search input {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  border: 0;
+.keys-place {
+  height: 24px;
+  padding: 0 9px;
+  border: var(--divider);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--ink);
-  font: inherit;
+  font-size: var(--text-small);
 }
 
-.keys-search input::placeholder {
-  color: var(--muted);
+.keys-place:hover {
+  background: var(--surface);
 }
 
-.keys-search input:focus-visible {
-  outline: none;
+.keys-place[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--panel);
 }
 
-.keys-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: var(--space-4);
-  overflow-y: auto;
+.keys-board {
+  display: grid;
+  flex: none;
+  gap: 5px;
+  width: max-content;
+  max-width: 100%;
+  padding-bottom: 2px;
+  overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--scroll-thumb) transparent;
 }
 
-.keys-columns {
-  columns: 3 250px;
-  column-gap: var(--space-4);
+.keys-line {
+  display: flex;
+  gap: 5px;
 }
 
-.keys-group {
-  margin-bottom: var(--space-4);
-  break-inside: avoid;
-}
-
-.keys-group h3 {
-  font-size: var(--text-size);
-  font-weight: 600;
-}
-
-.keys-when {
-  margin-bottom: var(--space-1);
+/* A key: 56 by 48, a 3 px edge below it. `--w` is its width in keys. */
+.keys-cap {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: calc(var(--w) * 56px + (var(--w) - 1) * 5px);
+  height: 48px;
+  padding: 4px 6px;
+  border: 1px solid var(--hairline);
+  border-bottom-width: 3px;
+  border-radius: 7px;
+  background: var(--surface);
   color: var(--muted);
-  font-size: var(--text-small);
+  font-size: 10px;
+  line-height: 1.15;
+  overflow: hidden;
+  cursor: pointer;
 }
 
-/* Two columns a group: the caps, and what they do, which all begins on one edge. */
-.keys-group ul {
+.keys-cap b {
+  color: var(--ink);
+  font: 500 12px var(--font-mono);
+}
+
+.keys-cap span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The modifiers and the keys of the layout are greyer. */
+.keys-cap[data-mod] {
+  background: color-mix(in srgb, var(--surface) 50%, var(--hairline));
+}
+
+/* Where nothing is bound, the letter is in the muted colour. */
+.keys-cap:not([data-bound]) b {
+  color: var(--muted);
+}
+
+/* Keys heard in the view are outlined; those that pick a tool are on the accent wash, their letter in the accent. */
+.keys-cap[data-kind='view'] {
+  border-color: var(--field-edge);
+  background: var(--panel);
+}
+
+.keys-cap[data-kind='tool'] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline));
+  background: var(--accent-wash);
+}
+
+.keys-cap[data-kind='tool'] b {
+  color: var(--accent);
+}
+
+/* The key pointed at, or the one that is searched. */
+.keys-cap[data-lit] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The keys with a modifier, and the pointer's gestures where they are the view's. */
+.keys-chords {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-content: start;
+  gap: 4px var(--space-4);
+  min-height: 0;
+  margin: var(--space-3) 0 0;
+  padding: 0 0 var(--space-3);
+  overflow-y: auto;
+  list-style: none;
+  font-size: var(--text-small);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+.keys-chords li {
   display: grid;
   grid-template-columns: minmax(72px, max-content) 1fr;
   align-items: baseline;
-  gap: 6px var(--space-2);
-  margin: 0;
-  padding: 3px 0;
-  list-style: none;
-}
-
-.keys-group li {
-  display: contents;
+  gap: var(--space-2);
 }
 
 .keys-caps {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
-}
-
-/* How many keys are shown: what is said aloud as the search is typed. */
-.keys-count {
-  margin: 0;
-  padding: 0 var(--space-4) var(--space-2);
-  color: var(--muted);
-  font-size: var(--text-small);
 }
 
 /* A key cap of the sheet: a size up from those in a line of text, and in the ink. */
@@ -162,7 +231,111 @@
   background: var(--surface);
 }
 
+/* ---- Right: the search, and what it answers in sentences ---- */
+
+.keys-find {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.keys-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+  cursor: text;
+}
+
+.keys-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.keys-search input::placeholder {
+  color: var(--muted);
+}
+
+.keys-search input:focus-visible {
+  outline: none;
+}
+
+/* The key that puts it away, as a cap: it is a button. */
+.keys-esc {
+  display: inline-grid;
+  place-items: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 5px;
+  border: var(--divider);
+  border-radius: var(--radius-inline);
+  background: var(--surface);
+  color: var(--ink);
+  font: 11px var(--font-mono);
+}
+
+.keys-answers {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+.keys-said {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: var(--text-size);
+  line-height: 1.5;
+}
+
+/* The place chosen. */
+.keys-said.on {
+  background: var(--accent-wash);
+}
+
+.keys-said mark {
+  background: none;
+  color: var(--accent);
+  font: 600 12px var(--font-mono);
+}
+
+.keys-said small {
+  display: block;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* How many keys are shown: what is said aloud as the search is typed. */
+.keys-count {
+  flex: none;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
 .keys-none {
+  margin: 0;
   color: var(--muted);
 }
 

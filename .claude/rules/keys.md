@@ -8,6 +8,10 @@ paths:
   - "app/src/renderer/state/tools.ts"
   - "app/src/shared/keys.ts"
   - "app/src/shared/keys.test.ts"
+  - "app/src/shared/keyboard.ts"
+  - "app/src/shared/keyboard.test.ts"
+  - "app/src/shared/keySentences.ts"
+  - "app/src/shared/keySentences.test.ts"
   - "app/src/renderer/ui/KeySheet.tsx"
   - "app/src/renderer/ui/typing.ts"
   - "app/src/main/devkeys.ts"
@@ -119,3 +123,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `Esc`): its rows are `tracing.*` ids in the scope `lineup`, so a key the tracing scope has too (`Backspace`, `Enter`, `Esc`) is not heard twice. Neither scope takes a key of another scope
   with the same chord (`keyClashes`), and the buttons and hints take their keys from `hint()`, never written out. The tests of `tools/*.test.ts` and `keys.test.ts` hold the table, and the
   manual's key table is generated from it (`readme.test.ts`).
+- **The keyboard** (`?`, or Keys on the rail; `ui/KeySheet.tsx`, `styles/keys.css`) rises from the foot of the window, 400 px high over the view and the card (the rail and
+  the status line stay), with `--scrim` fading in from a fifth of the height above it (0.32 s, none under reduced motion). The places are chips (`PLACES` in `shared/keyboard.ts`, each
+  holding finer `Context`s, from `contextOf(row)`: scope and group of the row); a field, a menu and the keys for working on torno are searched, not browsed. The keyboard is `KEYBOARD` (US
+  QWERTY, `Esc` and `F6` among its caps), 56 by 48 keys with a 7 px radius (the one hard radius `styles.test.ts` allows in `keys.css`); `capOf(code, context)` says what a cap does there (a word from
+  the row's id, the whole text for its tip), whether it is a tool's key (accent wash) and whether it is heard in the view (outline); what is heard everywhere shows in every place. The sheet draws
+  `drawnKeyboard(...)` and never reads a key press: a cap's `code` is read only in `shared/` (`keys.test.ts` scans the window's sources). Keys with a modifier are listed under the keyboard, by place.
+  **Search answers in sentences** (`shared/keySentences.ts`): `sentencesFor(query)` is one sentence for each place a key or words are heard, from the rows' `does` turned from the imperative
+  ("Draw the parts apart") to what the key does ("E draws the parts apart"); several keys take the verb as it is, a row's `Label:` is the sentence's "for Label" (or, for a tool's key, "V picks Select: ...";
+  for a label that is a verb, "Esc steps back: ..."), and `notHeard` says where a key is not heard, from its scope. No sentence is written by hand for a key: the grammar knows the verbs (`VERBS`, `NOUNS`)
+  and `keySentences.test.ts` fails for a row that begins with a word it does not know, so a new row either reads as a sentence or its first word is added there. A single key's name searches by key
+  (`E`); anything else is all the words, in what a row does, its keys, its place and its id (`explode`). The count line is said once (`aria-live`); the pointer's rows are searched as before (`matchingPointer`).

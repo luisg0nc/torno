@@ -454,7 +454,7 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left, a rail of icons, no word under them (the name shows in a small tip beside the icon when the pointer is over it or the keyboard is on it): Projects at the top, which shows the page of projects (it is a dark blue tile while that page is up; press it again to go back), a hairline, and then, while a project is open, one icon for each section of the route card: Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings and Print profile. Keys is at the foot, and opens the sheet of keys.
+**The window.** On the left, a rail of icons, no word under them (the name shows in a small tip beside the icon when the pointer is over it or the keyboard is on it): Projects at the top, which shows the page of projects (it is a dark blue tile while that page is up; press it again to go back), a hairline, and then, while a project is open, one icon for each section of the route card: Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings and Print profile. Keys is at the foot, and raises the keyboard.
 Beside the rail is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Needs you, Parts, Checks and Marks are open; Parameters, Scans, Tracings and Print profile are folded. A press on an icon of the rail brings its section into sight, and opens it if it was folded; the section in sight is the one the rail shows in the accent's wash. What a folded title used to say shows as a small badge on the icon: what waits for you on Needs you, the parts switched off on Parts, the model's checks that fail plus the dimensions that fail on Checks, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside the rail and
@@ -2298,8 +2298,17 @@ the ending gets it).
 
 ## Keys
 
-`?` shows this table in the window, and searches it. Above the keys the sheet lists
-the pointer, which has no keys:
+`?`, or Keys on the rail, raises a keyboard from the foot of the window, over the view and the card; the rail and the status
+line stay, and it comes up in a third of a second (at once with reduced motion). Press `?` or `Esc` again, or press beside it, to put it away.
+Along its top are the places keys are heard in, as chips: Everywhere, In the view, With a tool in hand, Sketching, Board, Tracing, Projects
+and Session. The keyboard is the US layout, and in the place you chose each key says in a word what it does there. The keys that
+pick a tool are on the accent wash with their letter in the accent, and those heard in the view are outlined. Keys with `Ctrl` or
+`Shift` held are listed under the keyboard, with the pointer's gestures in the view. Point at a key, or click it, and it is asked about.
+
+At the right is a search, and it answers in sentences: type a key (`E`) or words (`explode`, `wall`) and each place where it is
+heard has one, built from the rows of the table below, such as "In the view, E draws the parts apart, or together again." Under a
+sentence a muted line says where the key is not heard. The sentence for the place you chose is on the accent wash. A line at the foot
+counts the keys; a search that finds nothing says "No key says ...". The pointer has no keys:
 
 <!-- pointer: generated from POINTER in app/src/shared/pointer.ts; `TORNO_README=write pnpm -C app exec vitest run src/readme.test.ts` writes it -->
 | Pointer | What it does |

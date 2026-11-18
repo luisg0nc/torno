@@ -185,8 +185,8 @@ test('the sheet of keys is a dialog: a click inside it keeps the keys in it, and
   const sheet = page.getByRole('dialog', { name: 'Keys' })
   await expect(sheet).toBeVisible()
   const before = await tool()
-  // A click on a row: the focus stays within the sheet, and a letter takes no tool behind it.
-  await sheet.locator('.keys-group li span').last().click()
+  // A click on a line of the list under the keyboard: the focus stays within the sheet, and a letter takes no tool behind it.
+  await sheet.locator('.keys-chords li span').last().click()
   expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]')?.getAttribute('aria-label'))).toBe('Keys')
   await page.keyboard.press('a')
   expect(await tool()).toBe(before)
@@ -194,50 +194,45 @@ test('the sheet of keys is a dialog: a click inside it keeps the keys in it, and
   await expect(sheet.locator('[aria-live]')).toHaveCount(1)
   await expect(sheet.locator('.keys-count')).toHaveAttribute('aria-live', 'polite')
   await expect(sheet.locator('.keys-count')).toContainText('keys')
-  // Its scrim lies over the window, and "Developer tools" is the last thing in it.
-  expect(await page.locator('.keys-layer').evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)')
-  await expect(sheet.locator('.keys-group li').last()).toContainText('Developer tools')
+  // It rises from the foot, 400 px high, and a scrim fades in above it: not a centred sheet.
+  const box = (await sheet.boundingBox())!
+  const win = await page.evaluate(() => [window.innerWidth, window.innerHeight])
+  expect(box.height).toBe(400)
+  expect(Math.round(box.y + box.height)).toBe(win[1] - 28)
+  expect(await page.locator('.keys-layer').evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('linear-gradient')
+  // The rail and the status line stay: the keyboard does not cover them.
+  expect(Math.round(box.x)).toBe(52)
+  // What is not in a chip is found by a search: the keys for working on torno, in a sentence.
+  await sheet.getByRole('textbox').fill('developer')
+  await expect(sheet.locator('.keys-said').last()).toContainText('are developer tools.')
+  await sheet.getByRole('button', { name: 'With a tool in hand' }).click()
   await expect(sheet).toContainText('Shift+Arrows')
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
   expect(await tool()).toBe(before)
 })
 
-// Re-review I-1: the sheet was 989 px high whatever the window, and nothing in it scrolled.
-test('the sheet of keys ends inside the window, however small, and what does not fit scrolls inside it', async () => {
+// Re-review I-1: the sheet was 989 px high whatever the window, and nothing in it scrolled. The window is no lower than 700 px; the keyboard is 400.
+test('the sheet of keys ends inside the window, and its list under the keyboard stays within it and scrolls when it is longer', async () => {
   const size = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 720))
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 700))
   try {
-    await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(720)
+    await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(700)
     await canvas().click({ position: { x: 5, y: 5 } })
     await page.keyboard.press('?')
     const sheet = page.getByRole('dialog', { name: 'Keys' })
     await expect(sheet).toBeVisible()
+    await sheet.getByRole('button', { name: 'Everywhere' }).click()
     const box = (await sheet.boundingBox())!
     expect(box.y).toBeGreaterThanOrEqual(0)
-    expect(box.y + box.height).toBeLessThanOrEqual(720)
-    // Its rows are more than it shows: the body scrolls, and the last row can be brought into view within the sheet.
-    const body = sheet.locator('.keys-body')
-    const scroll = await body.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight, sideways: el.scrollWidth > el.clientWidth }))
-    expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight)
-    expect(scroll.sideways).toBe(false)
-    // The row that is furthest down, in whichever column it is.
-    const lowest = await sheet.locator('.keys-group li span').evaluateAll((rows) => {
-      let at = 0
-      rows.forEach((row, i) => {
-        if (row.getBoundingClientRect().bottom > rows[at].getBoundingClientRect().bottom) at = i
-      })
-      return at
-    })
-    const last = sheet.locator('.keys-group li span').nth(lowest)
-    expect((await last.boundingBox())!.y).toBeGreaterThan(box.y + box.height - 40)
-    await last.evaluate((el) => el.scrollIntoView({ block: 'nearest' }))
-    const row = (await last.boundingBox())!
-    const inside = (await body.boundingBox())!
-    expect(row.y).toBeGreaterThanOrEqual(inside.y)
-    // A scroll offset is a whole number of pixels: brought into view, the row may stand less than one beyond the body's edge.
-    expect(row.y + row.height).toBeLessThan(inside.y + inside.height + 1)
-    expect(await body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    expect(box.y + box.height).toBeLessThanOrEqual(700)
+    // The list under the keyboard ends within the sheet and is the one that scrolls: the sheet itself never does.
+    const list = sheet.locator('.keys-chords')
+    const inside = (await list.boundingBox())!
+    expect(inside.y + inside.height).toBeLessThanOrEqual(box.y + box.height)
+    expect(await list.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto')
+    expect(await sheet.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true)
+    expect(await list.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
     await page.keyboard.press('Escape')
     await expect(sheet).toHaveCount(0)
   } finally {
