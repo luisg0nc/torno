@@ -313,7 +313,7 @@ function useDockKey(): void {
       if (!pressed(e, 'dock.toggle')) return
       e.preventDefault()
       e.stopPropagation()
-      if (e.repeat) return
+      if (e.repeat || store.getState().page === 'new') return
       actions.setDockOpen(!store.getState().dockOpen)
     }
     window.addEventListener('keydown', onKey, true)

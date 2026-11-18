@@ -289,7 +289,7 @@ for (const theme of ['light', 'dark'] as const) {
         if (shot === 'welcome') await expect(page.getByRole('navigation', { name: 'Recent folders' }).locator('li')).toHaveCount(3)
         else if ((FIRST_SCREEN as readonly string[]).includes(shot)) await expect(page.locator('.ready')).toBeVisible()
         else await page.waitForSelector('[data-region="left"]')
-        if (shot === 'empty' || shot === 'ready-sheet' || shot === 'onboard-missing') await expect(page.locator('.show-empty')).toBeVisible()
+        if (shot === 'empty' || shot === 'ready-sheet' || shot === 'onboard-missing') await expect(page.locator('.empty-folder')).toBeVisible()
         if (!NOTHING_OPENED.includes(shot)) await open(page, 'hollow')
         if (shot === 'main') {
           // Another object whose session waits for an answer, while hollow is open: its row and the status line say so.
@@ -584,7 +584,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(page.getByRole('dialog', { name: 'What torno needs' })).toBeVisible()
         } else if (shot === 'onboard-missing') {
           // The page of a new object when Claude Code is not found: the line above Create.
-          await page.locator('.show-empty').getByRole('button', { name: 'New project' }).click()
+          await page.locator('.empty-folder').getByRole('button', { name: 'open the full new project page' }).click()
           await page.getByLabel('Name', { exact: true }).fill('cable-clip')
           await page.getByLabel('What is it?').fill('A clip that holds a 6 mm cable to the edge of a desk, printed in PETG.')
           await expect(page.locator('.new-foot .ready[data-variant="missing"]')).toBeVisible()

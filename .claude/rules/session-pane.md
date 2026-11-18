@@ -50,10 +50,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   as its description, a click opens it and, if it waits, shows the dock and `focusAsk`), the dock's toggle (same name, description and
   title as before, `.dock-toggle`), and `WindowControls` (46 x 40, `--muted` 10 px glyphs) only when `drawsControls()`. The first
   screen has no bar, only `BareControls`.
-- On the New object page the dock is hidden (Task 39: `App.tsx`), and the preview is `DraftPane` on the page itself. The pane that stays mounted under `hidden` is still of the object being made (`drafting` in `SessionPane`; these branches only keep it quiet, and are the ones to remove when the pane is next reworked): no status, no End,
-  New session or Resume, no view switch, no held prompt, and a note in the body; `.session-term` stays laid out.
-  A live session (any status but `exited`) of the object that was open stays as it is, with the note
-  `.session-aside` above it ("This is the session of …"); an ended one counts as none.
+- On the page of a new project the dock is hidden (`App.tsx`), and the preview is `DraftPane` on the page itself. The pane stays mounted under `hidden` and has no
+  branch of its own for that page. The dock's toggle in the title bar is disabled there (its title says why), the dock key does nothing, and the stored
+  choice is untouched, so the dock comes back as it was.
 - **The pane with no session, in the chat view** (`ui/chat/StartChat.tsx`, in `SessionPane` when `choice.view` is `chat`)
   has the box at its foot (`data-start-composer`, not `data-chat-composer`: that is the live chat's): Enter starts a
   session and sends the prompt to it (`startWith`, the prompt held in `pending` until the session exists, so that the

@@ -99,6 +99,10 @@ test.describe('a new object', () => {
     await expect(newPage()).toBeVisible()
     expect((await state()).page).toBe('new')
     await expect(page.locator('.viewport-pane')).toBeHidden()
+    // The dock cannot show here: its toggle is disabled, with the reason in its title.
+    await expect(page.locator('.dock')).toBeHidden()
+    await expect(page.locator('.dock-toggle')).toBeDisabled()
+    await expect(page.locator('.dock-toggle')).toHaveAttribute('title', /hidden on this page/)
     await expect(page.getByLabel('Name', { exact: true })).toBeFocused()
     const name = page.getByLabel('Name', { exact: true })
     const create = startButton()

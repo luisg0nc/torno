@@ -613,10 +613,6 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
   const busy = session ? busyWith(session.status) : undefined
   // What the next prompt carries, said in one quiet line: of the session there is, or of the one a new session would be.
   const live = session !== undefined && !ended
-  // The New object page: the pane says what the new object's session will start with, unless the open object's
-  // session is live, which stays whole (a question may be waiting in it) with a note of whose it is.
-  const creating = useStore((s) => s.page === 'new')
-  const drafting = creating && !live
   const chatting = session?.view === 'chat'
   const promptsOpen = useStore((s) => s.promptsOpen)
   const chatOf = useChat(chatting ? session.sessionId : undefined)
@@ -748,7 +744,7 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
 
   /** Why the choice in agent.json was not followed, and the button that puts the file right. */
   const note =
-    choice.note && objectId && !drafting ? (
+    choice.note && objectId ? (
       <div className="session-note">
         <p role="note">{choice.note}</p>
         {/* The file is the person's until they say: it is written only by this, or by choosing a view. */}
@@ -758,13 +754,13 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
       </div>
     ) : null
   /** Whether the dock shows the chat, whose box has the foot: the note and an ask of torno's stand there then. */
-  const inChat = session !== undefined && chatting && !drafting
+  const inChat = session !== undefined && chatting
 
   return (
     <>
       <header className="panel-head session-head">
-        <h2 className="panel-title">{objectId || creating ? AGENT_LABEL : 'Session'}</h2>
-        {session && !drafting && (
+        <h2 className="panel-title">{objectId ? AGENT_LABEL : 'Session'}</h2>
+        {session && (
           <span className="session-state">
             <span className="session-status" role="status" data-status={session.status}>
               <span className="status-dot" />
@@ -775,7 +771,7 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
           </span>
         )}
         <span className="spacer" />
-        {objectId && !drafting && (
+        {objectId && (
           <>
             {chatting && chatOf && chatOf.models.length > 0 ? (
               <ModelButton sessionId={session.sessionId} model={model} models={chatOf.models} mode={chatOf.meta.permissionMode} effort={chatOf.meta.effort} live={!ended} />
@@ -819,12 +815,12 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
       </header>
 
       {/* The project's builds, on top of the dock in every mode: the chat, the terminal and no session. */}
-      {!drafting && <BuildsStrip onPick={(node, anchor) => setPicked(node.kind === 'running' ? null : { node, anchor })} onCompared={() => setPicked(null)} />}
-      {picked && !drafting && <NodePopover key={picked.node.id} node={picked.node} anchor={picked.anchor} onClose={() => setPicked(null)} />}
+      <BuildsStrip onPick={(node, anchor) => setPicked(node.kind === 'running' ? null : { node, anchor })} onCompared={() => setPicked(null)} />
+      {picked && <NodePopover key={picked.node.id} node={picked.node} anchor={picked.anchor} onClose={() => setPicked(null)} />}
 
       {exporting && <ExportSheet onOpen={onExport} />}
 
-      {next !== null && !drafting && !exporting && (
+      {next !== null && !exporting && (
         <p className="session-next" role="status">
           {numbered(next)}
         </p>
@@ -833,7 +829,7 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
       {!inChat && !exporting && note}
 
       {/* The first prompt of a new object that was not sent: the reason, above the pane that holds it. */}
-      {held !== undefined && objectId && !creating && !exporting && (
+      {held !== undefined && objectId && !exporting && (
         <div className="session-held" role="status">
           <p>
             {heldSaid(held)}
@@ -842,12 +838,6 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
             Dismiss
           </button>
         </div>
-      )}
-
-      {creating && live && !exporting && (
-        <p className="session-aside" role="note">
-          This is the session of {objectName}. It goes on; the new project gets its own when you create it.
-        </p>
       )}
 
       <div className="session-body" hidden={exporting}>
@@ -894,15 +884,11 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
           </Confirm>
         )}
         {/* Always laid out, so a terminal can be fitted before its session starts. */}
-        <div className="session-term" ref={host} data-shown={session && !chatting && !drafting ? '' : undefined} />
+        <div className="session-term" ref={host} data-shown={session && !chatting ? '' : undefined} />
         {/* Where the chat is not (a terminal, or no session yet) Prompts only is a pane of its own over the area; in the chat it is the chat's own toggle. */}
-        {promptsOpen && objectId && !drafting && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
-        {session && chatting && !drafting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} foot={note} />}
-        {drafting ? (
-          <p className="panel-note" data-draft-note="">
-            The first prompt is on the page of the new project, beside the slots.
-          </p>
-        ) : !objectId ? (
+        {promptsOpen && objectId && !(session && chatting) && <PromptsPane onClose={() => actions.setPromptsOpen(false)} />}
+        {session && chatting && <ChatPane key={session.sessionId} sessionId={session.sessionId} live={!ended} working={status === 'working' || status === 'needs_input'} dir={objectDir} onWholePrompt={() => void start(true, false)} onUseTerminal={offerTerminal} terminalDisabled={starting || asking || ending || switching !== null} foot={note} />}
+        {!objectId ? (
           <p className="panel-note">Claude Code works here, one session per project. Make or open a project to start.</p>
         ) : (
           !session &&

@@ -141,9 +141,13 @@ function ProjectMenu({ name, openId, onOpen }: { name: string; openId: string; o
   )
 }
 
+const NO_DOCK = 'The session is hidden on this page: the draft on the page is the preview'
+
 /** Shows and hides the session dock; hidden, the open project's session that works or waits shows on it. */
 function DockToggle() {
   const dockOpen = useStore((s) => s.dockOpen)
+  // The page of a new project hides the dock (the draft pane is the preview): the choice stays as it was and comes back.
+  const away = useStore((s) => s.page === 'new')
   const sign = useStore((s) => signOf(s.objectId === null ? undefined : s.sessions[s.objectId]?.status))
   const said = dockToggleSaid(dockOpen, sign)
   return (
@@ -152,8 +156,9 @@ function DockToggle() {
       className="dock-toggle"
       aria-label={dockToggleName(dockOpen)}
       aria-description={said}
-      aria-expanded={dockOpen}
-      title={said ? `${dockToggleName(dockOpen)}: ${said}` : dockToggleName(dockOpen)}
+      aria-expanded={dockOpen && !away}
+      disabled={away}
+      title={away ? NO_DOCK : said ? `${dockToggleName(dockOpen)}: ${said}` : dockToggleName(dockOpen)}
       data-session={!dockOpen && sign !== null ? sign : undefined}
       onClick={() => actions.setDockOpen(!dockOpen)}
     >

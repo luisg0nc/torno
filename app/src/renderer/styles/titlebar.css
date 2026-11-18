@@ -263,9 +263,15 @@ button.crumb[aria-expanded='true'] {
   -webkit-app-region: no-drag;
 }
 
-.dock-toggle:hover {
+.dock-toggle:hover:not(:disabled) {
   background: var(--accent-wash);
   color: var(--accent);
+}
+
+/* On the page of a new project, where the dock cannot show: still in its place, and its title says why. */
+.dock-toggle:disabled {
+  color: var(--muted);
+  cursor: default;
 }
 
 .dock-toggle svg {
