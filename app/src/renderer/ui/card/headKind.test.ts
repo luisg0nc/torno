@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { plainText } from '../../../test/plainText'
 import { HandView, type HandViewProps } from './InHand'
-import { HEAD_MAX_SHARE, headKind, moreRefs, pickedSaid, SHOWN_REFS } from './inHand'
+import { HEAD_MAX_SHARE, headKind, moreRefs, pickedSaid, SHOWN_REFS } from './headKind'
 
 const none = { refs: 0, sketchOpen: false, roundOpen: false, makingSet: false }
 

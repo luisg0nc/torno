@@ -4,7 +4,7 @@ import { setActions, useSets } from '../../state/sets'
 import { numbered } from '../numbered'
 import { MakeSet, useSetKeys } from '../sets/MakeSet'
 import { type HandRef, useSelection } from '../Selection'
-import { headKind, moreRefs, pickedSaid, SHOWN_REFS, type HeadKind } from './inHand'
+import { headKind, moreRefs, pickedSaid, SHOWN_REFS, type HeadKind } from './headKind'
 
 export interface HandViewProps {
   kind: HeadKind
