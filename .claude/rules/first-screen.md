@@ -70,6 +70,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `bridge.window.minimize`, `toggleMaximize` and `close` (channels `window:minimize`, `window:toggleMaximize`, `window:close`;
   a sender other than the window is ignored). `close` is `win.close()`, so it meets the question below. `onMaximized`
   tells the window (`window:maximized`) when it is maximised, and once on load.
+  The title bar keeps its content out of the platform's controls: `.title-row` is padded by the Window Controls Overlay's
+  `env(titlebar-area-x)` and `titlebar-area-width`, and on macOS (`bridge.window.platform` set on `<html>` as
+  `data-platform` in `main.tsx`) at least 78 px at the left for the traffic lights; Linux has none of it (`titlebar.css`).
 - **Closing the window ends torno and every session in it, so it is asked first.** Main holds the window's
   `close` (`createWindow` in `index.ts`) and sends `window:closeAsked`; the window answers `window:closeAnswer`
   at once (`App.tsx`, from `renderer/closing.ts` `closingWhy`): `true` when nothing would be cut short, and the

@@ -11,10 +11,18 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  padding-left: var(--space-3);
+  /* Where the platform draws its controls over the bar (titleBarOverlay: Windows, at the right), the Window Controls Overlay's area
+     is what the bar's content may use: what is outside it is padding. Where there is none the env() fallbacks make both 0 (Linux). */
+  padding-left: max(var(--space-3), env(titlebar-area-x, 0px));
+  padding-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%));
   border-bottom: var(--divider);
   background: var(--surface);
   -webkit-app-region: drag;
+}
+
+/* macOS draws its traffic lights at the left (`data-platform` is set on <html> from the preload), whatever the env says. */
+:root[data-platform='darwin'] .title-row {
+  padding-left: max(78px, env(titlebar-area-x, 0px));
 }
 
 .title-vise {

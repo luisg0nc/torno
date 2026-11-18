@@ -10,6 +10,9 @@ import './styles/tokens.css'
 import './styles/app.css'
 import { App } from './App'
 
+// The title bar leaves room for the platform's own controls by this (`styles/titlebar.css`).
+document.documentElement.dataset.platform = window.torno.window.platform
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

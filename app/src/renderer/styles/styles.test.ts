@@ -187,3 +187,16 @@ it('keeps the sizes the code repeats in step with the tokens: the rail, the card
   expect(narrow![1]).toContain(`--card-w: ${CARD_NARROW}px;`)
   expect(narrow![1]).toContain(`--dock-w: ${DOCK_NARROW}px;`)
 })
+
+it('the title bar leaves room for the platform\'s own controls: the overlay area where there is one, the traffic lights on macOS', () => {
+  const css = readFileSync(resolve(__dirname, 'titlebar.css'), 'utf8')
+  const row = rules(css).filter((r) => r.selector === '.title-row')
+  const body = row.map((r) => r.body).join('\n')
+  // The Window Controls Overlay's area (Windows, and macOS where Electron sets it): what is left of it on each side is padding.
+  expect(body).toMatch(/padding-left:\s*max\([^;]*env\(titlebar-area-x/)
+  expect(body).toMatch(/padding-right:\s*calc\([^;]*env\(titlebar-area-x[^;]*env\(titlebar-area-width/)
+  // macOS draws its lights at the left whatever the env says; Linux draws its own controls at the right and is left as it was.
+  const mac = rules(css).find((r) => /\[data-platform=['"]darwin['"]\]\s+\.title-row$/.test(r.selector))
+  expect(mac?.body).toMatch(/padding-left:\s*max\(78px/)
+  expect(rules(css).some((r) => /data-platform=['"]linux/.test(r.selector))).toBe(false)
+})
