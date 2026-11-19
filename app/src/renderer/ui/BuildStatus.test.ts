@@ -150,7 +150,15 @@ describe('a build the kernel let go to make room', () => {
 })
 
 describe('the status line while a build runs', () => {
-  const text = (html: string): string => html.replace(/<[^>]+>/g, '')
+  // The words of markup React rendered here: strip tags until none is left, so that no tag is pieced back together.
+  const text = (html: string): string => {
+    let out = html
+    for (let before = ''; before !== out; ) {
+      before = out
+      out = out.replace(/<[^>]*>/g, '')
+    }
+    return out
+  }
   it('names the build running, its clock and the build on show', () => {
     expect(text(renderToStaticMarkup(createElement(BuildingSaid, { shownRevision: 12, seconds: 100 })))).toBe('Building r13 · 1:40 · you are on r12')
   })
