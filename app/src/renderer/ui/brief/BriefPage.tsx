@@ -6,6 +6,7 @@ import { sizesTold, tallyReadings, tieReading } from '../../../shared/ties'
 import type { SizeFact } from '../../../shared/size'
 import { boardActions, useBoard } from '../../state/board'
 import { actions, useStore } from '../../state/store'
+import { tyingActions } from '../../state/tying'
 import { HEIC_REASON, isHeic, prepareImage } from '../onboard/images'
 import { addNote, addPicture, addRule, addSize, editSize, editText, removeCard, restoreCard, tieSize, unhideCard } from './ops'
 import { TiePanel } from './TiePanel'
@@ -253,6 +254,7 @@ export function BriefPage() {
                       marks={marks}
                       sizes={sections.sizes}
                       revision={build}
+                      onMeasure={build === undefined ? null : () => tyingActions.begin(id, c)}
                       onClose={() => setTying(null)}
                       onTie={(mark, tolerance) => void tieSize(id, c.id, mark, tolerance).then((ok) => ok && setTying(null))}
                       onUntie={() => void tieSize(id, c.id, null).then((ok) => ok && setTying(null))}

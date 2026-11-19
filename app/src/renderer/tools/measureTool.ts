@@ -1,6 +1,7 @@
 import { pressed } from '../../shared/keys'
 import { isSpreadRefusal, valueText } from '../../shared/dimension'
-import { keepHeld, measuredStore } from '../state/measured'
+import { measuredStore } from '../state/measured'
+import { keepHeldAndTie } from '../state/tying'
 import type { Described } from '../../shared/geometry'
 import type { Anchor, MeasureKind, Vec3 } from '../../shared/marks'
 import { setStage } from '../state/step'
@@ -345,7 +346,7 @@ export function measureTool(): Tool {
         const last = measuredStore.getState().held
         if (!last || last.objectId !== ctx.objectId) return false
         if (e.repeat) return true
-        void keepHeld((_objectId, mark) => ctx.commit(mark)).catch((err: unknown) => {
+        void keepHeldAndTie((_objectId, mark) => ctx.commit(mark)).catch((err: unknown) => {
           const at = hover?.client ?? ctx.viewport.pointerAt?.() ?? null
           if (!at) return
           release()
