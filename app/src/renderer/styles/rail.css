@@ -40,6 +40,11 @@
   color: var(--muted);
 }
 
+/* A section that says "none" (its head does not unfold): the icon is fainter, the badge and the press are as ever. Before hover and the section in sight, which win. */
+.rail-button[data-empty='true'] {
+  color: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+
 .rail-button:hover {
   color: var(--ink);
 }
@@ -48,11 +53,6 @@
 .rail-button[aria-current='true'] {
   background: var(--accent-wash);
   color: var(--accent);
-}
-
-/* A section that says "none" (its head does not unfold): the icon is dimmed, the badge and the press are as ever. */
-.rail-button[data-empty='true'] svg {
-  opacity: 0.45;
 }
 
 /* Projects pressed on the page of projects: the dyed tile, white on the dye, and in the dark the accent. */
