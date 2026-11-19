@@ -22,7 +22,7 @@ import { addCardTool, boardTool } from './boardTools'
 import type { NamedSet, SetMember } from '../../shared/sets'
 import { addMarkTool, highlightTool, resolveMarkTool } from './markTools'
 import { type AddMarkArgs, TOOLS, refusedKeys } from './schemas'
-import { describeTool, marksTool, selectorFrame, type ToolDeps } from './tools'
+import { describeTool, marksTool, registerTools, selectorFrame, type ToolDeps } from './tools'
 import { MESH_NOTE, OPEN_NOTE, REVERSED_NOTE, explodeAsked, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 
 const BRACKET: ObjectInfo = { id: 'bracket', name: 'bracket', dir: '/ws/bracket', model: 'bracket.py' }
@@ -3064,5 +3064,44 @@ describe('scene lists the named sets', () => {
     expect(told.sets[0].stale).toBe(`not refound against r${told.build.revision} yet`)
     const behind = JSON.parse(textOf(sceneTool(fake(), 'bracket', undefined, undefined, undefined, {}, { sets: [deck], refs: { N3: told.build.revision - 1 } })))
     expect(behind.sets[0].stale).toBe(`not refound against r${told.build.revision} yet; its refs are of r${told.build.revision - 1}`)
+  })
+})
+
+describe('a read right after a save', () => {
+  /** The handlers `registerTools` gives a server, by tool name. */
+  function handlers(deps: ToolDeps): Record<string, (args: unknown) => Promise<{ content: Array<{ text?: string }> }>> {
+    const by: Record<string, (args: unknown) => Promise<{ content: Array<{ text?: string }> }>> = {}
+    const server = { registerTool: (name: string, _config: unknown, run: (args: unknown, extra: unknown) => Promise<{ content: Array<{ text?: string }> }>) => void (by[name] = (args) => run(args, { signal: new AbortController().signal, _meta: {} })) }
+    registerTools(server as never, deps, 'bracket')
+    return by
+  }
+
+  it('waits for the build the save started, and answers of that build', async () => {
+    let newer = true
+    const deps = fake({ fresh: { settle: async () => void (newer = false), newer: () => newer } })
+    const scene = JSON.parse(textOf(await handlers(deps).scene({})))
+    expect(scene.build.stale).toBe(false)
+    expect(scene.build.staleWhy).toBeUndefined()
+  })
+
+  it('says the build is stale, and why, when the files are newer and the wait ended with no build', async () => {
+    const deps = fake({ fresh: { settle: async () => undefined, newer: () => true } })
+    const by = handlers(deps)
+    const scene = JSON.parse(textOf(await by.scene({})))
+    expect(scene.build.stale).toBe(true)
+    expect(scene.build.staleWhy).toBe("the model's files are newer than this build")
+    expect(JSON.parse(textOf(await by.describe({ ref: 'base' }))).stale).toContain("the model's files are newer than this build")
+  })
+
+  it('says nothing is stale when the files are not newer', async () => {
+    const deps = fake({ fresh: { settle: async () => undefined, newer: () => false } })
+    expect(JSON.parse(textOf(await handlers(deps).describe({ ref: 'base' }))).stale).toBeUndefined()
+  })
+
+  it('a tool that reads nothing of the build does not wait', async () => {
+    let waited = 0
+    const deps = fake({ fresh: { settle: async () => void (waited += 1), newer: () => false } })
+    await handlers(deps).history?.({})
+    expect(waited).toBe(0)
   })
 })

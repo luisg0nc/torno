@@ -1,5 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { LOOK_OFF } from '../ablations'
+import { NEWER_FILES } from '../freshness'
 import { z } from 'zod'
 import type { BuildState } from '../../shared/build'
 import { diagnosisText } from '../../shared/diagnosis'
@@ -78,6 +79,11 @@ export interface ToolDeps {
   /** The printer and material the project is made for (`.torno/profile.json`): the person's numbers, which `check` and `measure` take as defaults. None when it has none. */
   profile?(objectId: string): Profile | undefined
   build(objectId: string): BuildState | undefined
+  /**
+   * Whether the model is built as its files are (`Freshness`). `settle` waits, for a few seconds, for the build a save
+   * started; `newer` says whether the files are newer than the latest build. Without it, only the build's own state is told.
+   */
+  fresh?: { settle(objectId: string): Promise<void>; newer(objectId: string): boolean }
   /** The last successful build. */
   scene(objectId: string): { revision: number; scene: Scene } | undefined
   /** The last two successful builds, the older first (`diff`). Without it, only the last is known. */
@@ -223,6 +229,9 @@ export function planeArg(value: unknown): SectionPlane | ToolResult {
   return (unknownKeys(value, PLANE_KEYS, 'the plane') === null ? planeOf(value) : null) ?? failure(NO_PLANE)
 }
 
+/** The tools that answer from the last build: each waits for the build a save started (`ToolDeps.fresh`). */
+const SETTLES: ReadonlySet<string> = new Set(['scene', 'look', 'marks', 'describe', 'show', 'add_mark', 'add_sketch', 'add_set', 'measure', 'section', 'check', 'diff', 'tracings', 'add_tracing', 'add_layer', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
+
 /**
  * The tools of one object's MCP server. Each is registered with a schema that lets every key through, and is
  * run only when every key given is one it takes: the SDK would drop the others without a word, and a misspelt
@@ -234,18 +243,21 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
     server.registerTool(
       name,
       { title: of.title, description: of.description, annotations: of.annotations, ...('meta' in of ? { _meta: of.meta } : {}), inputSchema: z.looseObject('inputSchema' in of ? of.inputSchema : {}) },
-      async (args: unknown, extra) =>
-        deps.off?.has(name)
-          ? failure(name === 'look' ? LOOK_OFF : `${name} is turned off in this eval run.`)
-          : (refusedKeys(name, args) ??
-            run(args as A, {
+      async (args: unknown, extra) => {
+        if (deps.off?.has(name)) return failure(name === 'look' ? LOOK_OFF : `${name} is turned off in this eval run.`)
+        const refused = refusedKeys(name, args)
+        if (refused) return refused
+        // A save a moment ago has a build queued or running: wait for it, a few seconds, so that what is answered is of the model as it is.
+        if (SETTLES.has(name)) await deps.fresh?.settle(objectId).catch(() => undefined)
+        return run(args as A, {
               signal: extra.signal,
               // Only a client that sent a progress token is told: without one there is nothing to tie the notice to.
               progress: async (progress, message) => {
                 const token = extra._meta?.progressToken
                 if (token !== undefined) await extra.sendNotification({ method: 'notifications/progress', params: { progressToken: token, progress, message } })
               }
-            }))
+            })
+      }
     )
   }
   tool<SceneArgs>('scene', async (args) => {
@@ -398,7 +410,7 @@ export async function scansFor(deps: ToolDeps, objectId: string, marks: readonly
 /** Why the last successful build of an object is not of its model as it now is: a build is running, or the latest failed. '' otherwise. */
 export function behind(deps: ToolDeps, objectId: string): string {
   const status = deps.build(objectId)?.status
-  return status === 'building' ? 'a build is running' : status === 'failed' ? 'the latest build failed' : ''
+  return status === 'building' ? 'a build is running' : status === 'failed' ? 'the latest build failed' : deps.fresh?.newer(objectId) ? NEWER_FILES : ''
 }
 
 /**

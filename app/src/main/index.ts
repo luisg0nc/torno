@@ -22,7 +22,7 @@ import { startHttp } from './http'
 import { buildContextFor, contextFor, tellsInstructions } from './context'
 import { takeGoBackNotice } from './goback'
 import { listReferences } from './sessions/reference'
-import { buildIdentity, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject, tracingDoors } from './ipc'
+import { buildIdentity, buildStartedAt, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject, tracingDoors } from './ipc'
 import { forgetSketchesWith, openSketch } from './sketches/ipc'
 import { cannotStart, environmentCommand } from './kernel/client'
 import { ReadyKeeper } from './readiness'
@@ -66,7 +66,8 @@ import { claudeAdapter } from './sessions/claude'
 import { Sessions } from './sessions/manager'
 import { Attention } from './attention'
 import { StateFiles } from './statefile'
-import { newestPython, sourceFolders } from './show/cards'
+import { newestPython, newestUsed, sourceFolders } from './show/cards'
+import { Freshness } from './freshness'
 import { Verdicts } from './verdicts'
 import { valueAgainstExpected } from '../shared/dimension'
 import { HOOK_DEADLINE_MS, InstructionList } from './instructions'
@@ -407,7 +408,20 @@ const expectations = new Expectations()
 const off = ablations()
 const tuning = evalTuning()
 
+/** The newest save of what an object is built from: its folder, `common/`, and the files its last build imported from beside it. */
+async function newestSource(id: string): Promise<number | null> {
+  const obj = findObject(id)
+  if (!obj) return null
+  const [own, common] = sourceFolders(obj.dir)
+  const [a, b, c] = await Promise.all([newestPython(own), newestPython(common), newestUsed(dirname(obj.dir), lastScene(id)?.scene.uses ?? [])])
+  const saved = [a, b, c].filter((at): at is number => at !== null)
+  return saved.length > 0 ? Math.max(...saved) : null
+}
+/** Whether the tools' answers are of the model as it is on disk (`ToolDeps.fresh`); told of every change of a build. */
+const freshness = new Freshness({ state: buildState, startedAt: buildStartedAt, newestSource })
+
 const toolDeps: ToolDeps = {
+  fresh: { settle: (id) => freshness.settle(id), newer: (id) => freshness.newer(id) },
   ...(off.has('look') ? { off: new Set(['look']) } : {}),
   ...(tuning.lookSize ? { lookSize: tuning.lookSize } : {}),
   expectations,
@@ -764,6 +778,7 @@ void app.whenReady().then(async () => {
     views: savedViews,
     onBuild: (state) => {
       stateFiles.changed(state.objectId)
+      freshness.changed()
       sessions?.built(state)
     },
     // The verdicts of the build the marks were checked against, as the check left them.

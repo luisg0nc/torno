@@ -100,7 +100,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   button is held in the viewport. `marks`, `describe`, `add_mark`, `measure`,
   `section`, `check` and the three scan tools say which
   revision they answer from, and that it is stale while a newer build runs or
-  has failed. `scene` counts the unresolved dimensions held to a value
+  has failed, or while the model's files are newer than the build (`behind`, `NEWER_FILES`).
+  **A read right after a save** (`main/freshness.ts`, `Freshness`, `ToolDeps.fresh`, wired in `index.ts`): the watcher reports a save
+  300 ms late and the build it starts is queued or running after that, so `registerTools` has every tool in `SETTLES` (those that
+  answer from the last build) call `fresh.settle` first. It looks at the disk (`newestSource`: the project's `.py` files, `common/`, the
+  files the last build imported, `Scene.uses`) against when the latest build began (`Builds.startedAt`; a time to the millisecond
+  below it is not newer), and waits up to `SETTLE_MS` (15 s) for a build that runs, `BEGIN_GRACE_MS` (3 s) for one to begin. What it
+  does not get is told, never as current: `behind` says `the model's files are newer than this build` and `scene`'s `build.stale`
+  is true with `staleWhy`. `scene` counts the unresolved dimensions held to a value
   (`dimensions: {pass, fail, notMeasured}`).
   - What a client reads of a tool before it calls one is beside its description in `TOOLS`: a `title` (sentence
     case), `annotations` and, for the tools loaded upfront, `meta`. Every tool has `openWorldHint: false`; the

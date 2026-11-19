@@ -1255,7 +1255,9 @@ Torno's MCP server (on `127.0.0.1`, a port of its own choosing, answering only
 requests that carry the token of the project's session) gives the
 agent of a project these tools for that project. They answer from the last
 build that worked, say which revision that is, and say so when a newer build
-is running or has failed. A tool given a key it does not take is refused,
+is running or has failed. Right after a save the tools that read the build wait, up to fifteen seconds, for the build
+the save started, and answer of that one. A build that runs longer, or files that are newer than the build with none begun,
+is told as stale (`scene` gives `stale: true` and, for files, `staleWhy`), never as current. A tool given a key it does not take is refused,
 naming the keys it takes.
 
 The tools that only read (`scene`, `look`, `marks`, `describe`, `measure`, `section`, `check`, `diff`, `history`,
