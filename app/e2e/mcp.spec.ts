@@ -368,10 +368,13 @@ test("show changes what the user sees for now, not the layers they saved, and wa
   await page.mouse.move(box.x + box.width - 40, box.y + box.height - 80)
   await page.mouse.down()
   await page.mouse.move(box.x + box.width - 60, box.y + box.height - 90, { steps: 2 })
-  const refused = await call(bracket, 'show', { parts: ['base', 'post'], layout: 'print' })
-  expect(refused).toMatchObject({ isError: true, text: 'the user is in the middle of a stroke or drag; try again' })
+  const queued = await call(bracket, 'show', { parts: ['base', 'post'], layout: 'print' })
+  expect(queued.isError).toBe(false)
+  expect(queued.text).toContain('queued: the user has a button down in the viewport')
   expect(await state()).toMatchObject({ layout: 'assembly', layers: { post: { visible: false } } })
+  // It is made as soon as they let go.
   await page.mouse.up()
+  await expect.poll(async () => await state()).toMatchObject({ layout: 'print', layers: { post: { visible: true } } })
 
   const shown = await call(bracket, 'show', { parts: ['base', 'post'], layout: 'print' })
   expect(shown.isError).toBe(false)
