@@ -283,6 +283,8 @@ export interface SendPrompt {
 
 export class Sessions {
   private readonly sessions = new Map<string, Session>()
+  /** Why the last few sessions that ended without the CLI saying anything ended, for a `began` asked after they went. */
+  private readonly leftSilent = new Map<string, string>()
   /** The transcript of each chat session there is, and of the last one of each object that has ended. */
   private readonly records = new Map<string, ChatRecord>()
   /** By object: when its latest build began, and the count of `finished` when its latest build ended. */
@@ -827,7 +829,8 @@ export class Sessions {
    */
   began(sessionId: string, within = 10_000): Promise<Began> {
     const s = this.sessions.get(sessionId)
-    if (!s?.agent) return Promise.resolve({ began: false, why: 'The session ended before its first prompt was taken up.' })
+    // A CLI that leaves at once may be gone before this is asked: its own note, not a guess, when it was kept.
+    if (!s?.agent) return Promise.resolve({ began: false, why: this.leftSilent.get(sessionId) ?? 'The session ended before its first prompt was taken up.' })
     if (s.heard) return Promise.resolve({ began: true })
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -1134,6 +1137,11 @@ export class Sessions {
       for (const requestId of session.asks.keys()) this.emit('asked', { sessionId: session.id, requestId, answered: false })
       session.asks.clear()
       const why = !asked || (code !== null && code !== 0) ? this.stoppedNote(session, code, signal) : 'The session was stopped.'
+      if (!session.heard && why) {
+        this.leftSilent.set(session.id, why)
+        // Only the latest few are kept: a `began` comes moments after the start, if it comes at all.
+        if (this.leftSilent.size > 20) this.leftSilent.delete(this.leftSilent.keys().next().value as string)
+      }
       for (const watcher of session.watchers.splice(0)) watcher({ began: false, why: why || 'The session ended.' })
       // What was open ends in a stated state, and the log has all of it before the session counts as gone.
       session.chat?.transcript.ended()
