@@ -12,7 +12,7 @@ import { openListed } from './objects'
 // build" starts R1 on h1, a face is picked as what is not wanted (the `-` key), a sketch is drawn as what is wanted, a view note is
 // drawn as a plain mark of the round, and a prompt sent meanwhile carries none of them (they are held). Send review puts the round in the composer, the next prompt carries the review
 // line and both items, and the stand-in agent resolves both. After the plate is built again (h2) the round's panel says OK to
-// one item and Still wrong to the other, and the board holds two frames of rounds, the Still wrong card in the second.
+// one item and Still wrong to the other, and the board holds no frame or card for them (#248).
 // Everything is read from marks.json, board.json, the store, the DOM and what the stand-in is told: no screenshots.
 const appDir = resolve(__dirname, '..')
 const fixtures = resolve(appDir, '../kernel/tests/fixtures/ws')
@@ -234,7 +234,7 @@ test('a prompt sent now carries none of the items: the round is held until Send 
   await send(['say received'])
   const text = await added(0)
   expect(text).toContain('R1 is in review, not sent (3 marks).')
-  // The board's line names the round's frame, but no review line and no item is in it.
+  // The board's line has no frame of a round to name, and no review line and no item is in it.
   expect(text).not.toContain('Review of h1 (R1)')
   expect(text).not.toContain("don't want")
   expect(text).not.toMatch(/\bM[12] ·/)
@@ -301,31 +301,12 @@ test('after a rebuild the panel of R1 says OK to one item and Still wrong to the
   await expect(roundPanel()).toHaveCount(0)
 })
 
-test('the board holds a frame for each round, with the Still wrong card in the second', async () => {
+test('the board holds no frame for a round and no card for its marks', async () => {
   await page.keyboard.press('Control+Tab')
-  const frames = page.locator('.pboard-card[data-kind="frame"][data-by="torno"]')
-  await expect(frames).toHaveCount(2, { timeout: 20_000 })
-  // R1 keeps the item that was accepted; its name follows its counts, and the other item has gone into the next round.
-  await expect(frames.nth(0)).toContainText('Review of h1 · 1 −')
-  await expect(frames.nth(1)).toContainText('Review of h2 · 1 +')
-  const m1 = page.locator('.pboard-card[data-kind="mark"]', { hasText: 'M1' })
-  const m2 = page.locator('.pboard-card[data-kind="mark"]', { hasText: 'M2' })
-  await expect(m1).toContainText('OK in h2')
-  await expect(m2).toContainText('Still wrong')
-  // Who is in which frame is main's reading of the file.
-  await expect
-    .poll(() => {
-      const board = boardFile()
-      if (!board) return null
-      const frameOf = (source: string): string | undefined => board.cards.find((c) => c.kind === 'frame' && c.by === 'torno' && c.source === source)?.id
-      const inFrame = (id: string): string | undefined => board.cards.find((c) => c.kind === 'mark' && c.source === id)?.frame
-      const [r1, r2] = [frameOf('R1'), frameOf('R2')]
-      return r1 !== undefined && r2 !== undefined && r1 !== r2 && inFrame('M1') === r1 && inFrame('M2') === r2
-    })
-    .toBe(true)
-  // The head of a frame has the way to the panel of its round.
-  await frames.nth(1).getByRole('button', { name: 'Open the panel of R2' }).click()
-  await expect(roundPanel()).toBeVisible()
-  await expect(roundPanel()).toContainText('Review of h2 · 1 +')
+  await expect(page.locator('.pboard')).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('.pboard-card[data-kind="frame"]')).toHaveCount(0)
+  await expect(page.locator('.pboard-card[data-kind="mark"]')).toHaveCount(0)
+  const board = boardFile()
+  expect(board?.cards.filter((c) => c.kind === 'frame' || c.kind === 'mark') ?? []).toEqual([])
   await page.keyboard.press('Control+Tab')
 })
