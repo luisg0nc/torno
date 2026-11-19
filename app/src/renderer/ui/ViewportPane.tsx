@@ -22,6 +22,7 @@ import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
 import { pointerMoved } from '../state/step'
 import { endReplace, setTool, toolStore, type ToolName } from '../state/tools'
+import { tyingActions, tyingStore } from '../state/tying'
 import { alignTool, connectAlign } from '../tools/alignTool'
 import { arrowTool } from '../tools/arrowTool'
 import { connectSketching, sayRefusal, sketchTool } from '../tools/sketchTool'
@@ -284,6 +285,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       const s = store.getState()
       const mark = s.marks.find((m) => m.id === id)
       if (!mark || !s.objectId) return
+      // While a size is being tied a dimension's chip is the one to tie it to (main says why when it cannot).
+      if (mark.kind === 'dimension' && tyingStore.getState().tying?.objectId === s.objectId) return void tyingActions.tieTo(id)
       // Its row opens, in view; the camera stays: the person is looking at it.
       goToRow(id)
       // A mark of the person's not yet sent: its note opens beside it, to be written; a 3D sketch of theirs opens in Draw instead, where its comment is.
@@ -348,6 +351,11 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     // No tool but Select is handed a key either while the parts are drawn apart: a key measures and keeps as a press does.
     const handed = tool && (tool.id === 'select' || (explodeNow(store.getState()) === null && !viewport.exploded())) ? tool : undefined
     if (handed?.onKey?.(e, context())) return e.preventDefault()
+    // A size being tied is let go of with the tool (Esc with a measurement held was the tool's, above): the brief it came from is shown.
+    if (pressed(e, 'escape') && tyingStore.getState().tying) {
+      tyingActions.end()
+      return e.preventDefault()
+    }
     if (!pressed(e, 'escape') || toolStore.getState().tool === 'select') return
     setTool('select')
     e.preventDefault()
