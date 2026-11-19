@@ -1973,7 +1973,7 @@ loaded while the board or a tracing is shown, so nothing is built again on the s
 
 **What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
 `brief.md` (its text, read only, scrolling), each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
-its note and its state), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
+its note and its state; the card of a view note is made larger, in the shape of its picture, so that the drawing reads), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
 build with its layers; before a build of this run it says "build to see the outline", and a double click opens it in the Tracing view). Removing one of these hides it: the mark, scan, photo or tracing is untouched, and "Hidden cards"
 at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed, a tracing removed) its card goes with it. Claude is told of a tracing's card as `C9 · tracing T1 "Front of the block": XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)`, and it is new to Claude when the name, plane, layers or line-up change. These
 you pin, with "Pin to board":
