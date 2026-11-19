@@ -38,14 +38,14 @@ export type Outcome =
 
 /** What `create` will name the photos and the doodles of the draft: photo-<n> with the extension of the file, doodle-<n>.png. */
 export function referenceFiles(draft: Draft): OnboardDraft['items'] {
-  const photoFile = (n: number): string => `reference/photo-${n + 1}${extensionOf(draft.photos[n].path)}`
+  const photoFile = (n: number): string => `reference/photo-${n + 1}${draft.photos[n].pasted ? '.png' : extensionOf(draft.photos[n].path)}`
   return [
     ...draft.photos.map((p, n) => ({ file: photoFile(n), note: p.note, image: p.image })),
     ...draft.doodles.map((d, n) => {
       // The words `create` puts on the card of a doodle drawn over a photo, so that the prompt and the board agree.
       const over = overIndex(draft, d)
       const said = over !== undefined ? `drawn over ${photoFile(over)}` : d.onPhoto ? 'drawn over a photo' : ''
-      return { file: `reference/doodle-${n + 1}.png`, note: said === '' ? d.note : d.note === '' ? said : `${d.note} (${said})`, image: d.png }
+      return { file: `reference/doodle-${n + 1}.png`, note: said === '' ? d.note : d.note === '' ? said : `${d.note} (${said})`, image: d.png, ...(said !== '' ? { over: true as const } : {}) }
     })
   ]
 }
@@ -82,7 +82,7 @@ const pdfsOf = (draft: Draft): CreateRequest['pdfs'] => draft.pdfs.map((p) => ({
 export function previewDraft(draft: Draft): PromptPreviewDraft {
   return {
     description: draft.description.trim(),
-    items: referenceFiles(draft).map((i) => ({ file: i.file, note: i.note, picture: (i.image?.byteLength ?? 0) > 0 })),
+    items: referenceFiles(draft).map((i) => ({ file: i.file, note: i.note, picture: (i.image?.byteLength ?? 0) > 0, ...(i.over ? { over: true as const } : {}) })),
     steps: stepReferences(draft),
     scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
     objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),
@@ -117,7 +117,7 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
     const request: CreateRequest = {
       name: draft.name,
       description,
-      photos: draft.photos.map((p) => ({ path: p.path, note: p.note })),
+      photos: draft.photos.map((p) => (p.pasted ? { png: p.image, note: p.note } : { path: p.path, note: p.note })),
       doodles: draft.doodles.map((d) => {
         const over = overIndex(draft, d)
         return { png: d.png, note: d.note, ...(over !== undefined ? { over } : d.onPhoto ? { onPhoto: true as const } : {}) }

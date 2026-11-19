@@ -300,6 +300,25 @@ describe('creating an object', () => {
     })
   })
 
+  it('writes a pasted picture, given as bytes, as photo-<n>.png among the photos from files, with the checks of a doodle', async () => {
+    const desk = join(files, 'desk.jpeg')
+    writeFileSync(desk, JPG)
+    const dir = join(ws, 'cable-clip')
+    await make(request({ photos: [{ path: desk, note: 'the desk' }, { png: PNG, note: 'a screenshot' }], doodles: [{ png: PNG, note: 'on it', over: 1 }] }))
+    expect(tree(dir)).toEqual([...BOARD, 'brief.md', 'cable_clip.py', 'reference/', 'reference/doodle-1.png', 'reference/photo-1.jpeg', 'reference/photo-2.png'])
+    expect([...readFileSync(join(dir, 'reference', 'photo-2.png'))]).toEqual([...PNG])
+    const brief = readFileSync(join(dir, 'brief.md'), 'utf8')
+    expect(brief).toContain('- reference/photo-2.png: a screenshot\n')
+    expect(brief).toContain('- reference/doodle-1.png: on it (drawn over reference/photo-2.png)\n')
+    // Two pasted pictures are two photos, not the same one twice.
+    await make(request({ name: 'two', photos: [{ png: PNG, note: '' }, { png: PNG, note: '' }] }))
+    expect(tree(join(ws, 'two')).filter((f) => f.startsWith('reference/photo'))).toEqual(['reference/photo-1.png', 'reference/photo-2.png'])
+    await expect(make(request({ name: 'bad', photos: [{ png: JPG, note: '' }] }))).rejects.toThrow(/PNG/)
+    await expect(make(request({ name: 'big', photos: [{ png: new Uint8Array(8 * 1024 * 1024 + 1).fill(1), note: '' }] }))).rejects.toThrow(/8 MB/)
+    await expect(make(request({ name: 'both', photos: [{ png: PNG, path: desk, note: '' } as never] }))).rejects.toThrow()
+    expect(existsSync(join(ws, 'bad'))).toBe(false)
+  })
+
   it('refuses a doodle that is not a PNG, or too big, and removes what was copied', async () => {
     writeFileSync(join(files, 'good.png'), PNG)
     const photos = [{ path: join(files, 'good.png'), note: '' }]

@@ -24,9 +24,13 @@ interface Item {
   note: string
 }
 
-/** A photo: `path` is where the file is on the disk (main copies it from there); `image` is the picture for the prompt, scaled to 1280 px. */
+/**
+ * A photo: `path` is where the file is on the disk (main copies it from there); `image` is the picture for the prompt, scaled to 1280 px.
+ * A picture pasted from the clipboard has no file: `path` is empty, `pasted` is set, and `image` (a PNG) is what main writes as `photo-<n>.png`.
+ */
 export interface PhotoDraft extends Item {
   path: string
+  pasted?: true
   file: string
   image: Uint8Array
   /** The picture as an object URL for a thumbnail; let go when the item goes. */
@@ -196,7 +200,7 @@ export const onboarding = {
     let left = 0
     let same = 0
     for (const item of items) {
-      if ([...now, ...kept].some((p) => p.path === item.path)) {
+      if (item.pasted !== true && [...now, ...kept].some((p) => p.path === item.path)) {
         same += 1
         revoke(item.url)
       } else if (now.length + kept.length >= MOST_REFERENCES.photos) {

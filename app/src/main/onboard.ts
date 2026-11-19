@@ -73,7 +73,7 @@ export interface PromptInput {
   name: string
   description: string
   /** Photos, then doodles. `image` is none for a picture that cannot be attached. */
-  items: Array<{ file: string; note: string; image?: ImageBytes }>
+  items: Array<{ file: string; note: string; image?: ImageBytes; /** A doodle drawn over a photo: the flag the draft keeps, not read from the note. */ over?: true }>
   /** The vendor STEP files copied into `reference/`. */
   steps?: Array<{ file: string; note: string }>
   /** `id` is none for a scan that could not be imported, and `problem` says why. */
@@ -91,8 +91,8 @@ export interface PromptInput {
 
 const imageBlock = (image: ImageBytes): PromptBlock => ({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: Buffer.from(image.bytes).toString('base64') } })
 
-/** A doodle the person drew over a photo (one they gave, or one they took away after): `create.ts` says so in its note. */
-const overPhoto = (item: { note: string }): boolean => item.note.includes('drawn over reference/photo-') || item.note.includes('drawn over a photo')
+/** A doodle the person drew over a photo (one they gave, or one they took away after): the draft says so (`over`), whatever its note says. */
+const overPhoto = (item: { over?: true }): boolean => item.over === true
 
 const CLAUDE_TOOL = (tool: string): string => `mcp__torno__${tool}`
 
@@ -198,7 +198,7 @@ export async function previewPrompt(deps: Pick<OnboardDeps, 'object' | 'scene'>,
   const built = onboardPrompt({
     name: name.trim() === '' ? 'new-project' : name.trim(),
     description: draft.description,
-    items: draft.items.map((item) => ({ file: text(item?.file), note: text(item?.note), ...(item?.picture === true ? { image: STAND_IN } : {}) })),
+    items: draft.items.map((item) => ({ file: text(item?.file), note: text(item?.note), ...(item?.picture === true ? { image: STAND_IN } : {}), ...(item?.over === true ? { over: true as const } : {}) })),
     steps: draft.steps.map((step) => ({ file: text(step?.file), note: text(step?.note) })),
     scans: draft.scans.map((scan, i) => ({ id: `S${i + 1}`, file: basename(text(scan?.path)), note: text(scan?.note) })),
     objects,
@@ -353,7 +353,7 @@ async function onboarded(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft
   const { text, held, blocks } = onboardPrompt({
     name: obj.id,
     description: draft.description,
-    items: draft.items.map((item) => ({ file: item.file, note: item.note, image: checkedImage(item.image) ?? undefined })),
+    items: draft.items.map((item) => ({ file: item.file, note: item.note, image: checkedImage(item.image) ?? undefined, ...(item.over === true ? { over: true as const } : {}) })),
     steps: draft.steps.map((step) => ({ file: step.file, note: step.note })),
     scans,
     objects,

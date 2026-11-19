@@ -171,6 +171,28 @@ test.describe('a new object', () => {
     await expect(cards('photos')).toHaveCount(2)
   })
 
+  test('a screenshot pasted from the clipboard has no file and is kept as a photo from its bytes (#196)', async () => {
+    const before = await cards('photos').count()
+    // A paste event made in the page, with a PNG and no path: the clipboard itself is never touched.
+    await page.evaluate(async () => {
+      const canvas = new OffscreenCanvas(300, 200)
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = '#aa5544'
+      ctx.fillRect(0, 0, 300, 200)
+      const file = new File([await canvas.convertToBlob({ type: 'image/png' })], 'image.png', { type: 'image/png' })
+      const data = new DataTransfer()
+      data.items.add(file)
+      document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+    })
+    await expect(cards('photos')).toHaveCount(before + 1)
+    const pasted = cards('photos').nth(before)
+    await expect(pasted).toContainText('pasted.png')
+    await expect(pasted).toContainText('300 × 200')
+    await expect(newPage()).not.toContainText('no place on the disk')
+    await pasted.getByRole('button', { name: `Remove photo ${before + 1}` }).click()
+    await expect(cards('photos')).toHaveCount(before)
+  })
+
   test('main serves the bytes only of the photos its own dialog offered', async () => {
     const refused = await page.evaluate((path) => window.torno.objects.readPhoto(path).then(() => 'read', (e: Error) => e.message), join(files, 'stranger.png'))
     expect(refused).toMatch(/not chosen in this window/)
@@ -293,6 +315,12 @@ test.describe('a new object', () => {
     await board().getByLabel('Draw over').selectOption({ label: 'Photo 2, bench.webp' })
     await expect(board().locator('canvas')).not.toHaveAttribute('data-grid')
     await expect(board().locator('canvas')).toHaveAttribute('data-ground', '')
+    // Only the background was changed, no stroke: leaving still asks (#197).
+    await page.keyboard.press('Escape')
+    const ask = page.getByRole('alertdialog', { name: 'Discard this doodle?' })
+    await expect(ask).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(ask).toHaveCount(0)
     await stroke([0.2, 0.3], [0.8, 0.3])
     await board().getByRole('button', { name: 'Done' }).click()
     await expect(board()).toHaveCount(0)

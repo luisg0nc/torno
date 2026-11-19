@@ -77,6 +77,20 @@ describe('making the object', () => {
     expect(made.hold).not.toHaveBeenCalled()
   })
 
+  it('hands main the bytes of a pasted picture, which has no file, and names it photo-<n>.png (#196)', async () => {
+    const d = draft()
+    d.photos = [d.photos[0], { uid: 'p', path: '', pasted: true, file: 'pasted.png', note: 'screenshot', image: new Uint8Array([9]), url: 'blob:p' }]
+    d.doodles = [{ uid: 'c', strokes: [], png: new Uint8Array([3]), note: '', url: 'blob:c', over: 'p' }]
+    const { made } = deps()
+    await makeObject(d, made)
+    const req = (made.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as CreateRequest
+    expect(req.photos).toEqual([{ path: '/home/me/IMG_1.JPG', note: 'desk edge' }, { png: new Uint8Array([9]), note: 'screenshot' }])
+    expect(req.doodles).toEqual([{ png: new Uint8Array([3]), note: '', over: 1 }])
+    const sent = (made.onboard as ReturnType<typeof vi.fn>).mock.calls[0][1] as OnboardDraft
+    expect(sent.items.map((i) => i.file)).toEqual(['reference/photo-1.jpg', 'reference/photo-2.png', 'reference/doodle-1.png'])
+    expect(sent.items[2].note).toBe('drawn over reference/photo-2.png')
+  })
+
   it('sends the index of the photo a doodle is drawn over, and says so in the note the prompt gets, as create does on the card', async () => {
     const d = draft()
     d.doodles = [
@@ -97,6 +111,8 @@ describe('making the object', () => {
       { png: new Uint8Array([7]), note: '', onPhoto: true }
     ])
     const sent = (made.onboard as ReturnType<typeof vi.fn>).mock.calls[0][1] as OnboardDraft
+    // The flag the prompt reads: set for the doodles over a photo or one taken out after, never for the plain one.
+    expect(sent.items.slice(2).map((i) => i.over === true)).toEqual([true, true, false, true, true])
     expect(sent.items.slice(2).map((i) => [i.file, i.note])).toEqual([
       ['reference/doodle-1.png', 'the shape (drawn over reference/photo-2.webp)'],
       ['reference/doodle-2.png', 'drawn over reference/photo-1.jpg'],

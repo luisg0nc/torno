@@ -822,3 +822,17 @@ test('the card of a view note shows its picture with the ink and its comment, an
   await expect(page.locator('.pboard')).toHaveCount(0)
   await page.keyboard.press('Escape')
 })
+
+test('a view is pinned the moment it is saved, with nothing waited for between', async () => {
+  await switchButton('Model').click()
+  await expect(page.locator('.pboard')).toHaveCount(0)
+  await page.getByRole('group', { name: 'Saved views' }).getByRole('button', { name: 'Save view' }).click()
+  const field = page.getByRole('textbox', { name: 'Name of the view' })
+  await expect(field).toBeVisible()
+  await field.fill('right-away')
+  // Kept and pinned with nothing waited for between them.
+  await field.press('Enter')
+  const said = await page.evaluate(() => window.torno.board.pin('bracket', { kind: 'view', name: 'right-away' }))
+  expect(said).not.toHaveProperty('refused')
+  expect((await cardsOf('view')).map((c) => c.source)).toContain('right-away')
+})

@@ -30,8 +30,11 @@ import type { Material, Printer, Profile, Profiles } from './profile'
 export interface CreateRequest {
   name: string
   description: string
-  /** Files on the disk (from a drop or main's dialog): copied into `reference/` as `photo-<n>.<ext>`. */
-  photos: Array<{ path: string; note: string }>
+  /**
+   * Files on the disk (from a drop or main's dialog): copied into `reference/` as `photo-<n>.<ext>`. Or, for a picture that has no
+   * file (a screenshot pasted from the clipboard), the bytes of the PNG the window scaled: written as `photo-<n>.png`, checked as a doodle's PNG is.
+   */
+  photos: Array<{ path: string; note: string } | { png: Uint8Array; note: string }>
   /** PNG bytes of a drawing: `reference/doodle-<n>.png`. `over` is the index into `photos` of the photo it is drawn over. */
   doodles: Array<{ png: Uint8Array; note: string; over?: number; /** The photo it was drawn over is no longer among the photos: the picture still has it under the ink, and the card says "drawn over a photo". */ onPhoto?: true }>
   /** Vendor STEP files of bought parts (`.step`, `.stp`, at most 50 MB): copied into `reference/` under their own names (`stepFiles`). */
@@ -162,7 +165,7 @@ export interface NoteEdit {
 export interface OnboardDraft {
   description: string
   /** The photos, then the doodles, as `create` named them: `reference/photo-1.jpg`, `reference/doodle-1.png`. The note of a doodle drawn over a photo says so, as `create` writes it on its card (`drawn over reference/photo-2.jpg`, or `drawn over a photo` when that photo is no longer in the draft). */
-  items: Array<{ file: string; note: string; image?: Uint8Array }>
+  items: Array<{ file: string; note: string; image?: Uint8Array; /** A doodle drawn over a photo (one in the draft, or one taken out after): the prompt reads this, never the note's words. */ over?: true }>
   /** The vendor STEP files, as `create` named them: `reference/608zz.step`. */
   steps: Array<{ file: string; note: string }>
   /** The scans to import into the new object, by the path the dialog or the drop gave. */
@@ -183,7 +186,7 @@ export interface OnboardDraft {
 /** A draft as `objects.previewPrompt` takes it: what the prompt says of it, and no picture data (`picture`: the window holds one fit to attach). */
 export interface PromptPreviewDraft {
   description: string
-  items: Array<{ file: string; note: string; picture: boolean }>
+  items: Array<{ file: string; note: string; picture: boolean; /** A doodle drawn over a photo, as `OnboardDraft.items` says. */ over?: true }>
   steps: Array<{ file: string; note: string }>
   scans: Array<{ path: string; note: string }>
   objects: Array<{ id: string; note: string }>

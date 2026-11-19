@@ -79,6 +79,7 @@ export function Doodle({
       tools={photos.length > 0 ? choice : undefined}
       foot="Claude gets this as a picture, with your note."
       look={() => (photo ? OVER_PICTURE : { ink: inkNow() })}
+      changed={over !== (opened !== undefined && photos.some((p) => p.uid === opened) ? opened : undefined)}
       initial={initial}
       discard={{ label: 'Discard this doodle?', text: 'Discard this doodle? What was drawn since it was opened is not kept.' }}
       onDone={async (strokes) => {
