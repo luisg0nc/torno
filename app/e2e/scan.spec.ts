@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { LookRequest, ViewState } from '../src/shared/view'
 import { box, grid, stl } from '../src/test/scanFixtures'
 import type { ScanLayerState } from '../src/renderer/viewport/scans'
-import { cardSection, openSection } from './helpers'
+import { cardSection, openSection, clickImportScan } from './helpers'
 import { openListed } from './objects'
 
 // A scan on screen: imported from the panel with the real import process, drawn with the parts, switched and
@@ -103,7 +103,7 @@ test('a scan is imported from the panel, drawn, and said in millimetres', async 
   await expect(sectionHead.locator('.route-head-button').getByRole('button')).toHaveCount(0)
   await expect(sectionHead.locator('.route-said')).toHaveText('none')
   await pickFile(scanFile)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await expect(row('S1')).toContainText('plate under.stl')
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   // Issue #21: a guess is asked about once, in the view by the scan (Task 25), with the size another reading would give.
@@ -241,7 +241,7 @@ test('a file that is no scan is said to be none, and a scan is removed with its 
   const other = join(root, 'part.3mf')
   writeFileSync(other, '')
   await pickFile(other)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await expect(page.getByRole('region', { name: 'Scans' })).toContainText('part.3mf is not a scan torno reads: .glb, .gltf, .obj, .ply or .stl')
   await (await detail('S1')).getByRole('button', { name: 'Remove' }).click()
   await page.getByRole('button', { name: 'Remove', exact: true }).last().click()
@@ -300,7 +300,7 @@ test('a scan with colours of its own is drawn in them, or plain, as its row says
   writeFileSync(coloured, `${lines.join('\n')}\n`)
 
   await pickFile(coloured)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await expect(row('S2')).toContainText('plate.ply')
   await expect.poll(async () => (await scans())[0]).toMatchObject({ id: 'S2', loaded: true, triangles: 12 })
   expect((await state()).scans[0].imported.colours).toBe('vertex')
@@ -458,7 +458,7 @@ test('a scan read with a guess is asked about once after its import, and Apply r
   const again = join(root, 'plate again.stl')
   writeFileSync(again, PLATE)
   await pickFile(again)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   const sheet = page.getByRole('dialog', { name: 'How is S3 read?' })
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 60 × 50 × 2 mm')
   await expect(row('S3').getByRole('img', { name: 'Read as assumed' })).toBeVisible()
@@ -499,7 +499,7 @@ test('a scan read as metres that is far larger than the parts is compared with t
   const big = join(root, 'engine bay.stl')
   writeFileSync(big, stl(box([13, 13, 1], [0, 0, 0])))
   await pickFile(big)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   const sheet = page.getByRole('dialog', { name: 'How is S4 read?' })
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 13000 × 13000 × 1000 mm')
   await expect(sheet.locator('[data-part="parts"]')).toContainText('The parts of assembly: about')
@@ -523,7 +523,7 @@ test('a long scan name keeps ten characters on a hovered row, and the detail is 
   writeFileSync(long, PLATE)
   const count = (await state()).scans.length
   await pickFile(long)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await expect.poll(async () => (await state()).scans.length).toBe(count + 1)
   const last = (await state()).scans.at(-1)!.id
   await page.getByRole('dialog', { name: `How is ${last} read?` }).getByRole('button', { name: 'Keep mm' }).click()
@@ -562,7 +562,7 @@ test.describe('a large scan', () => {
     const wavy = join(root, 'wavy.stl')
     writeFileSync(wavy, stl(grid(317, 1, (x, y) => -20 + 3 * Math.sin(x / 20) * Math.cos(y / 20))))
     await pickFile(wavy)
-    await page.getByRole('button', { name: 'Import scan…' }).click()
+    await clickImportScan(page)
     await expect.poll(async () => (await scans())[0]?.loaded, { timeout: 60_000 }).toBe(true)
     // That the tree is made off the window's thread is said by `how` below: nothing here times the window meanwhile.
     await expect.poll(async () => (await scans())[0].ready, { timeout: 30_000 }).toBe(true)

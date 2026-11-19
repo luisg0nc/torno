@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { box, stl } from '../src/test/scanFixtures'
-import { cardSection, openSection, showBrief, showModel, showProjects } from './helpers'
+import { openSection, showBrief, showModel, showProjects, clickImportScan } from './helpers'
 import { openListed, projectCard } from './objects'
 
 // The app is driven by single letters. After a click or an action, wherever it was, the next letter is the
@@ -114,7 +114,7 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await openSection(page, 'Scans')
   for (const name of ['plate.stl', 'floor.stl']) {
     await pickFile(join(root, name))
-    await page.getByRole('button', { name: 'Import scan…' }).click()
+    await clickImportScan(page)
   }
   await expect(page.locator('.scan-row')).toHaveCount(2)
   await page.getByRole('button', { name: 'Details of S1' }).click()
@@ -131,13 +131,11 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.getByRole('button', { name: 'Show post' }).click()
   await page.getByRole('button', { name: 'Show post' }).click()
   await pinIsInHand('a part switched off and on')
-  // Each section of the card's head pressed with the pointer: folded, then open.
-  for (const name of ['Scans'] as const) {
-    await cardSection(page, name).locator('.route-head-button').click()
-    await pinIsInHand(`${name} head pressed`)
-    await cardSection(page, name).locator('.route-head-button').click()
-    await pinIsInHand(`${name} again`)
-  }
+  // The view's switch pressed with the pointer: Scans away to the model, and back.
+  await showModel(page)
+  await pinIsInHand('the model tab pressed')
+  await openSection(page, 'Scans')
+  await pinIsInHand('the scans tab pressed')
   // The panel made wider by its edge, and the default put back with a double click.
   const line = page.getByRole('separator', { name: 'Resize panel' })
   const from = (await line.boundingBox())!

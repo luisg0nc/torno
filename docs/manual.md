@@ -437,7 +437,7 @@ What a kept build had then (checks that failed, parts with a defect, how your di
 **Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
 the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
-have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Model, Brief and Tracing steps aside. What the turn changed is written on the parts and the marks that changed, as
+have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the view's switch steps aside. What the turn changed is written on the parts and the marks that changed, as
 tags tied to them by a leader (`tub volume 28400 → 26000 mm³`, `M3 now passes`, from the numbers of the builds of the turn; `≈` where a volume is not exact): four at most,
 a dimension that changed its verdict first, then the parts whose volume moved most. The rest are in the band's **and N more** (or **What changed**, when there is nothing
 left out), a list that also says what the later build changed (its line) and how the checks and your dimensions moved between the two builds. A tag stands only on
@@ -478,11 +478,10 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the **On h18** block (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Under the tabs are Scans and Tracings, each a head with its name and a line of what it holds (`2 unaligned`), folded at first; click a head to open it, and an open one scrolls inside its own room. (They move to the view's switch in the next step of the redesign of the left side.) Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the **On h18** block (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels beside the view (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
-the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
-sections are folded and how wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
+the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. How wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
 project is made and with no project open, there is no card (the page of a new project has an "All projects" button in the title bar, which keeps its draft). The folder's name and its menu are in the title bar.
 **The print profile chip.** While a project is open, the status line has a chip with the printer and the material the project is made for (`Bambu X1C, PETG`; "Print profile" while it has none). Press it to choose them in a card above it; Esc, or a press elsewhere, puts it away.
 The
@@ -1815,7 +1814,7 @@ parts, so that you and the agent can check the model against it. It is good to
 a few millimetres at best and shows only what the camera saw. **Nothing taken
 from a scan is exact**, and torno never says that it is.
 
-**Importing.** "Import scan…", at the right of the head of the Scans section, or a file dropped on the
+**Importing.** "Import scan…", in the `+` menu at the end of the view's switch (or at the head of the Scans panel once the project has a scan), or a file dropped on the
 view: GLB, glTF, OBJ, PLY or STL, with faces (a point cloud is refused). The
 file is only read. Torno keeps its path, size, date and hash, and makes one
 mesh of it in millimetres and Z up under `.torno/scans/`, baking a texture
@@ -1847,7 +1846,7 @@ what was assumed (`120 × 120 × 0 mm, from m, Z up (assumed)`) and asks
 while the card is up: the row then says "Asked in the view").
 Changing either drops the scan's alignments, which torno says before it does it.
 
-**The Scans section.** Each scan (`S1`, `S2`, never reused) has a row of one
+**The Scans tab.** A project with a scan has a **Scans** tab in the switch at the top left of the view (importing the first scan opens it). The model stays in view, the room beside it gives way to the Scans panel at the right, with Import scan… at its head, and the rows are there. Each scan (`S1`, `S2`, never reused) has a row of one
 line, built like a layer's: its id, its name (whole, with the path of its source,
 in the tooltip), how it stands in the layout on screen in one word (its sentence
 in the tooltip), an opacity slider when pointed at, and a switch. The arrow at
@@ -2014,9 +2013,8 @@ replace its own proposals (12 at most) and never a view of yours.
 
 ## The brief
 
-Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief** and **Tracing** (below) take the main
-area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); a project with no tracing goes round
-the model and the brief only. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
+Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief**, **Scans** and **Tracing** (below) take the main
+area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); Scans and Tracing are in the switch only while the project has a scan or a tracing (or while that view is the one shown), and `Ctrl+Tab` passes over what is not there. A `+` at the end of the switch makes the first of either: **Import scan…** and **New tracing…**. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
 The model stays loaded while the brief or a tracing is shown, so nothing is built again on the swap, and the card, the chat and the status line stay as they are.
 
 The page reads like an inspection sheet, from the top:
@@ -2060,7 +2058,7 @@ outline and what is drawn on it, not a photo that is much larger than they are, 
 The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
 tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
 (the Section tag's `···` menu has **Make a tracing** too, which lays the cut flat), or on a face: the view goes to the model, and the next flat face you
-select is the tracing's (a face that is not flat is refused, in words). **New tracing** is also in the head of the **Tracings** section of the route card, which opens the same choices (and the first tracing of a project is made there, or from the Section tag). Each tracing has a row in that section (`T1`, its name, and at the right its photo's file), and a click on it opens the tracing in this view; under the open or shown one the section says `Photo lined up by 4 points, 0.42 mm a pixel. Redrawn at each build.` The tracing's panel is in that section, under its row, while this view shows: the section opens and the card scrolls to it when you come to the view, and you may fold it after. The panel says its name (**Rename** and
+select is the tracing's (a face that is not flat is refused, in words). **New tracing** is also in the head of the panel at the right of this view, which opens the same choices (and the first tracing of a project is made from the `+` of the switch, or from the Section tag). Each tracing has a row in that panel (`T1`, its name, and at the right its photo's file), and a click on it opens the tracing in this view; under the open or shown one the panel says `Photo lined up by 4 points, 0.42 mm a pixel. Redrawn at each build.` The tracing's own panel is in it, under its row. The panel says its name (**Rename** and
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
@@ -2118,7 +2116,7 @@ by eye. Claude is told it as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm 
 ### A photo under a tracing
 
 A tracing keeps one **photo**, under the outline, lined up with it so that what is on the photo can be traced in millimetres. **Add photo** in the
-panel (in the Tracings section of the card) takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
+panel (in the Tracing view's panel) takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
 the same. torno turns the picture the way the camera held it, scales it to at most 4000 pixels on its long edge and keeps its own copy in
 `.torno/tracings/photos/`, a folder git ignores: a photo stays on this computer, and a tracing opened on another one says `photo not on this
 computer`, with its line-up still told. HEIC is not read (set the phone to Most compatible, or export as JPEG).
@@ -2148,7 +2146,7 @@ photo's fade times 0.6, the outline of the last build in the ink colour, each la
 its place), and a faint sheet, with its edge, a margin past all of it. It is for reading the tracing against the parts, not a surface: nothing of it is
 written into the depth of the view, so the parts show through it, and it shows through the parts the plane cuts. It is never cut by a section, as marks are
 not, and it is never picked: a click goes through to the parts. The switch is a button in the tracing's panel and one under its tools, pressed while the
-tracing is shown. A tracing is drawn in the layout it was made in. Each tracing has a row in the **Tracings** section of the route card, with the eye that shows it
+tracing is shown. A tracing is drawn in the layout it was made in. Each tracing has a row in the Tracing view's panel, with the eye that shows it
 in 3D or puts it away (the eye is lit while it is shown). Its marks are drawn with the marks, whatever is done to the tracing.
 
 Which tracings are shown is how you last looked at the project, and is kept in `scene.json` as `tracingsShown`, with the layers and the section. It is a view, not

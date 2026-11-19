@@ -15,7 +15,7 @@ import { newCut } from '../../shared/cut'
 import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
 import { isLive } from '../state/compare'
-import { useBoard } from '../state/board'
+import { inModel, useBoard } from '../state/board'
 import { drivenRefs, drivesStore } from '../state/drives'
 import { isStrokeRef, litSet, setsStore } from '../state/sets'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
@@ -770,7 +770,7 @@ export function ViewportPane() {
   // Under the page of objects or of a new object the view stays as it is, and takes neither the pointer nor the keys.
   const covered = useStore((s) => s.page !== 'object')
   // The board or a tracing shown in its place: the view stays mounted, so nothing is built again on the swap, but it draws nothing meanwhile.
-  const boardShown = useBoard((s) => s.shown !== 'model')
+  const boardShown = useBoard((s) => !inModel(s.shown))
   useEffect(() => {
     if (viewport) viewport.paused = boardShown
   }, [viewport, boardShown])

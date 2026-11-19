@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { hint, pressed } from '../../../shared/keys'
 import { SET_COLOURS, SET_COMMENT_MAX, SET_NAME_MAX, parseSetRef, setNameError } from '../../../shared/sets'
-import { boardStore } from '../../state/board'
+import { boardStore, inModel } from '../../state/board'
 import { describe, descriptorOf } from '../../state/descriptors'
 import { isStrokeRef, nextColour, setActions, suggestName, useSets } from '../../state/sets'
 import { store, useStore } from '../../state/store'
@@ -36,7 +36,7 @@ export function useSetKeys(): void {
       if (e.target instanceof Element && e.target.closest(TYPING)) return
       const s = store.getState()
       // Only with the model on show: the page of projects, the page of a new one, the board and a tracing have keys of their own.
-      if (s.page !== 'object' || s.objectId === null || boardStore.getState().shown !== 'model') return
+      if (s.page !== 'object' || s.objectId === null || !inModel(boardStore.getState().shown)) return
       e.preventDefault()
       setActions.startMake()
     }

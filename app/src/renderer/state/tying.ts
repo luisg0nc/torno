@@ -3,7 +3,7 @@ import { createStore } from 'zustand/vanilla'
 import type { Card } from '../../shared/board'
 import type { DimensionMark, Mark, NewMark } from '../../shared/marks'
 import { tieRefusal, tieToleranceFor } from '../../shared/ties'
-import { boardActions, boardStore } from './board'
+import { boardActions, boardStore, inModel } from './board'
 import { keepHeld, measuredStore, type Held } from './measured'
 import { setTool, toolStore } from './tools'
 
@@ -122,5 +122,5 @@ export async function keepHeldAndTie(commit: (objectId: string, mark: NewMark) =
 boardStore.subscribe((s) => {
   const { tying } = tyingStore.getState()
   if (!tying) return
-  if (s.objectId !== tying.objectId || s.shown !== 'model' || tyingCard() === null) tyingActions.end(null)
+  if (s.objectId !== tying.objectId || !inModel(s.shown) || tyingCard() === null) tyingActions.end(null)
 })
