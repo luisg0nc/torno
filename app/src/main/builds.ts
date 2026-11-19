@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { watch as chokidarWatch } from 'chokidar'
 import { type BuildError, type BuildReason, type BuildState, REBUILD_KEY } from '../shared/build'
-import { keepNotes } from '../shared/modelChecks'
+import { assumedAgainst, keepNotes } from '../shared/modelChecks'
 import { isBoolean } from '../shared/diagnosis'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
@@ -574,6 +574,11 @@ export class Builds {
   private succeeded(entry: Entry, scene: Scene, blob: Buffer): void {
     const id = entry.obj.id
     const revision = entry.state.revision + 1
+    // A check against a reference made from assumed sizes says so, wherever it is read.
+    if (scene.checks) {
+      const refs = assumedAgainst(scene.checks, scene)
+      scene.checks = scene.checks.map((c, i) => (refs[i].length > 0 ? { ...c, assumedRefs: refs[i] } : c))
+    }
     // The checks the model declares, against the build before: one removed or made easier to pass is noted, and stays noted while it is.
     if (entry.lastGood) scene.checkNotes = keepNotes(entry.lastGood.scene.checkNotes ?? [], entry.lastGood.scene.checks, scene.checks, revision)
     if (entry.lastGood) entry.previousGood = { revision: entry.lastGood.revision, scene: entry.lastGood.scene }

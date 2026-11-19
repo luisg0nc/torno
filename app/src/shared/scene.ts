@@ -62,6 +62,8 @@ export interface Part {
    * never printed, counted by `bed`, weighed, or put in a mesh export. Absent of a part to make.
    */
   role?: 'reference'
+  /** For a reference: the `Params` fields `references(p)` read to make it, which tells whether it was drawn from assumed sizes (`assumedReferences`). Absent when the kernel could not tell. */
+  reads?: string[]
 }
 /** What a tag names on a part: faces and edges by index; an empty list is left out. */
 export interface PartTag { faces?: number[]; edges?: number[] }

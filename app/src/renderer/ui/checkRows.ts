@@ -1,4 +1,4 @@
-import { type CheckNote, type ModelCheck, noteText, readingText, wantedText } from '../../shared/modelChecks'
+import { type CheckNote, type ModelCheck, againstText, noteText, readingText, wantedText } from '../../shared/modelChecks'
 
 /** A check of the model in words, for its row: its name (the model's own words), how it stands in a word, and what was measured against what was wanted. */
 export interface CheckWords {
@@ -11,6 +11,8 @@ export interface CheckWords {
   wanted: string
   /** Said where the number is not the kernel's exact one: found by sampling, or approximate. */
   caution: string | null
+  /** `against an assumed reference: radiator`: the check holds only as far as the guessed sizes of that bought part do; null for none. */
+  assumed: string | null
   /** The whole of it for hover: what the kernel says of how it was taken. */
   title: string
 }
@@ -21,7 +23,7 @@ export function checkRow(c: ModelCheck): CheckWords {
   const reading = measured ? readingText({ ...c, exact: undefined }) : (c.reason ?? '')
   const wanted = measured ? `wanted ${wantedText(c)}` : ''
   const caution = measured && c.exact === false ? (c.kind === 'thin' ? 'found by sampling' : 'approximate') : null
-  return { name: c.name, standing, reading, wanted, caution, title: [c.how, c.layout ? `layout ${c.layout}` : null].filter(Boolean).join('; ') || c.name }
+  return { name: c.name, standing, reading, wanted, caution, assumed: measured && againstText(c) ? againstText(c) : null, title: [c.how, c.layout ? `layout ${c.layout}` : null].filter(Boolean).join('; ') || c.name }
 }
 
 /** What was made easier to pass or taken out since it was first declared, one line each. */

@@ -329,6 +329,9 @@ distance, mm), `overlap` (the volume shared, nothing unless told), `solids` (how
 A declaration that is not one fails the build and says what is wrong, as a bad `groups(p)` does. A check that fails
 never fails the build, and never holds the agent back when it would stop; it is told with the build
 (What the agent is told) and listed in the window under Checks. torno never writes `checks(p)`.
+A check that names a reference built from sizes the model's comments call `assumed:` (the reference's own `references(p)` read
+them) says so: "pass, against an assumed reference: radiator". It is only as good as that guess, and the build result, `scene`
+and the Checks section all say it.
 
 **Names for faces and edges.** A face number (`lid/F12`) changes whenever the topology does. A model with `Params()`
 may also define `tags(p, parts)`, which names faces and edges, and a name holds across builds:
@@ -1139,7 +1142,7 @@ Open marks: M2 (moved), M6 (unchecked)
 - `Checks` is there when the model declares checks (`checks(p)`), after the dimensions: how many pass, fail,
   could not be measured or were not run, and each that did not pass with its value and what was wanted
   (`Checks (the model's own, on r3): 2 pass, 1 fails: lid fits the tub (0.12 mm, wanted 0.15 to 0.25 mm)`). It says
-  what was measured and never that the part is verified; passes that were found by sampling or are approximate are counted.
+  what was measured and never that the part is verified; passes that were found by sampling or are approximate are counted, and so are passes against a reference built from assumed sizes.
 - A mark of yours that says what you want or do not want has it after its number (`M8 · don't want · pick on lid/F12 …`),
   and one in a round `[in R1]` at the end. A round that is not sent is left out of every prompt, and one line says so
   (`R1 is in review, not sent (3 marks). Wait until the review is sent: do not resolve its marks.`). `resolve_mark` refuses a draft of such a round until it is sent, and a view note of it does not go with a prompt either. The prompt that carries a sent round has, before its marks,
