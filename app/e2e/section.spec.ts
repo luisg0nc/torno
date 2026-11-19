@@ -740,8 +740,8 @@ test('nothing over the reed, the compass or the band: the tag stands inside the 
           const here = [width, height, tool, selected ? 'selected' : 'nothing selected']
           const pane = (await page.locator('.viewport-pane').boundingBox())!
           const box = await stableBox(bar())
-          // Inside the view, and meeting no box a tag keeps clear of (the reed and what grows from it, the compass, a band).
-          expect([...here, 'in the view', box.x >= pane.x && box.y >= pane.y && box.x + box.width <= pane.x + pane.width && box.y + box.height <= pane.y + pane.height]).toEqual([...here, 'in the view', true])
+          // Inside the view (a tag is placed on whole pixels, so its edge may pass the pane's by a fraction), and meeting no box a tag keeps clear of (the reed and what grows from it, the compass, a band).
+          expect([...here, 'in the view', box.x >= pane.x && box.y >= pane.y && box.x + box.width <= pane.x + pane.width + 1 && box.y + box.height <= pane.y + pane.height + 1]).toEqual([...here, 'in the view', true])
           const avoided = await page.evaluate(() =>
             [...document.querySelectorAll<HTMLElement>('[data-tag-avoid]')]
               .map((el) => ({ what: el.className, r: el.getBoundingClientRect() }))

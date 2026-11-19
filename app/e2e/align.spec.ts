@@ -34,6 +34,9 @@ test.beforeAll(async () => {
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
   await page.waitForSelector('[data-region="viewport"]')
+  // The rail is gone (it took 52 px): the window is that much narrower, so the view is as wide as the picks of this spec were written for.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1388, 900))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1388)
 })
 
 test.afterAll(async () => {
