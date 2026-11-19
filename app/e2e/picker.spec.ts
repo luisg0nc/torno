@@ -77,3 +77,14 @@ test('a part taken is selected, and Alt+H hides it from the picker', async () =>
   await expect.poll(async () => (await state()).selection).toEqual([name])
   expect((await state()).layers[name]?.visible).not.toBe(false)
 })
+
+test('a value taken shows the column if it was hidden', async () => {
+  await page.locator('[data-region="viewport"]').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.press('Control+Shift+L')
+  await expect.poll(async () => (await state()).leftOpen).toBe(false)
+  await page.keyboard.press('Control+p')
+  await page.keyboard.type('ribs')
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await state()).leftOpen).toBe(true)
+  await expect(page.getByLabel('Try ribs', { exact: true })).toBeFocused()
+})

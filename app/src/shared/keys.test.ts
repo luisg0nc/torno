@@ -145,9 +145,9 @@ it('has the keys of a review in the window\'s scope, free of every other and nev
 
 it('has nothing heard while typing that typing or the terminal would take', () => {
   for (const key of ['V', '?', 'Esc', 'Enter', 'Shift+Enter', 'Left', 'Ctrl+C', 'Ctrl+R', 'Ctrl+E']) expect([key, typed(key)]).toEqual([key, true])
-  for (const key of ['Ctrl+Shift+E', 'Ctrl+Shift+B', 'Ctrl+Shift+D', 'F6', 'Shift+F6', 'Ctrl+`', 'F12', 'Ctrl+Shift+I']) expect([key, typed(key)]).toEqual([key, false])
+  for (const key of ['Ctrl+Shift+E', 'Ctrl+Shift+B', 'Ctrl+Shift+D', 'Ctrl+Shift+L', 'F6', 'Shift+F6', 'Ctrl+`', 'F12', 'Ctrl+Shift+I']) expect([key, typed(key)]).toEqual([key, false])
   const global = KEYS.filter((row) => row.scope === 'global')
-  expect(global.map((row) => row.id)).toEqual(['session.focus', 'region.next', 'region.previous', 'dock.toggle', 'export', 'rebuild', 'devtools'])
+  expect(global.map((row) => row.id)).toEqual(['session.focus', 'region.next', 'region.previous', 'dock.toggle', 'column.toggle', 'export', 'rebuild', 'devtools'])
   for (const row of global) for (const key of row.keys) expect([key, typed(key)]).toEqual([key, false])
   // And nothing that is listened to only outside a field needs a chord to be told from typing.
   // (The board's swap, Ctrl+Tab, is a chord typing does not take, and is still not heard in a field: the spec's call, so a page with a field of its own keeps its Tab.)

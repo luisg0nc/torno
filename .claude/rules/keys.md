@@ -134,3 +134,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   for a label that is a verb, "Esc steps back: ..."), and `notHeard` says where a key is not heard, from its scope. No sentence is written by hand for a key: the grammar knows the verbs (`VERBS`, `NOUNS`)
   and `keySentences.test.ts` fails for a row that begins with a word it does not know, so a new row either reads as a sentence or its first word is added there. A single key's name searches by key
   (`E`); anything else is all the words, in what a row does, its keys, its place and its id (`explode`). The count line is said once (`aria-live`); the pointer's rows are searched as before (`matchingPointer`).
+
+## The left column's key
+
+- `column.toggle` (`Ctrl+Shift+L`, scope `global`, as `dock.toggle` is) shows or hides the left column (`useColumnKey` in `App.tsx`, `store.leftOpen`, `actions.setLeftOpen`). It is the window's and is not kept: a window opens with the column shown. It does nothing on the pages that have no column. Hidden, the `aside.left` is `hidden`, so F6 skips it, and the status line says what waits: the dimensions that fail (`.status-dimensions`) and, when `leftOpen` is false, `N values tried` (`data-part="tried"`), a button that shows the column. Opening a tab of the bench (`actions.setBenchTab`, so `/` too, whose key is heard by `App`, not the bench) shows the column again.

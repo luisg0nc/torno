@@ -5,6 +5,7 @@ import { hint } from '../../shared/keys'
 import { isCheck, unmetDimensions } from '../../shared/dimension'
 import type { Part } from '../../shared/scene'
 import { partDefects } from '../../shared/sanity'
+import { tried } from './paramRows'
 import { makesEnvironment } from './readyLines'
 import { landedOn } from '../state/landing'
 import { compareStatus } from '../state/compare'
@@ -126,6 +127,8 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
   // The kernel is starting and torno's own Python environment is not made: this build is the one that makes it, once.
   const firstTime = useStore((s) => makesEnvironment(s.ready))
   const marks = useStore((s) => s.marks)
+  const leftOpen = useStore((s) => s.leftOpen)
+  const triedCount = useStore((s) => (s.scene?.params ?? []).filter(tried).length)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const { failing, unmeasured } = unmetDimensions(marks, revision)
   // Every build leaves every dimension unmeasured for the moment the measuring takes: said only when it lasts.
@@ -237,6 +240,11 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
           {hasScene && failing.length > 0 && (
             <button type="button" className="status-dimensions" data-state="fail" title={`Not what was expected on r${revision}: ${failing.map((m) => m.id).join(', ')}. Go to the first`} onClick={() => goToRow(failing[0].id)}>
               <span className="num">{failing.length}</span> {dimensionCount(failing.length, 'fail')}
+            </button>
+          )}
+          {hasScene && !leftOpen && triedCount > 0 && (
+            <button type="button" className="status-dimensions" data-state="tried" data-part="tried" title={`${triedCount} ${triedCount === 1 ? 'value is' : 'values are'} being tried, not yet in the model. Show the column`} onClick={() => actions.setLeftOpen(true)}>
+              <span className="num">{triedCount}</span> {triedCount === 1 ? 'value' : 'values'} tried
             </button>
           )}
           {hasScene && waiting && unmeasured.length > 0 && (
