@@ -35,7 +35,7 @@ denial in the turn's `result`) and `argv` play the rest. `write <file> <content>
 between them (`file` from the folder it runs in, a `\n` in the content a new line), and the answer of the `PostToolUse`
 is said as a `system`/`hook_response`; `edit <file> <old> <new>` plays an `Edit` the same way (`old_string`,
 `new_string`; the words are bare or JSON strings, `edit part.py "W = 2" "W = 3"`), replacing `old` by `new` in the
-file between the hooks. A `Stop` torno answers with `decision: block` is not the end of the turn: the
+file between the hooks. A `PreToolUse` that torno answers with `permissionDecision: deny` writes nothing: the tool's result is the reason, an error. A `Stop` torno answers with `decision: block` is not the end of the turn: the
 stand-in says the reason as a `hook_response` of the `Stop` and posts it again with `stop_hook_active`, as the CLI does. `FAKE_AGENT_FAIL=<text>` makes it write that to stderr and exit 1
 at once; `FAKE_AGENT_INIT_ERROR=<text>` makes it answer `initialize` with that error; `FAKE_AGENT_AUTH_ERROR=<text>` makes its first
 turn one that could not authenticate (after the hook and the `init`, an assistant message of `<synthetic>` whose text is

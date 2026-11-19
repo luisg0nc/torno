@@ -726,6 +726,12 @@ pane has no "Attach view" or "Draw on view": those are of a session. ``Ctrl+` ``
 the viewport; `F6` and `Shift+F6` go round the parts of the window, and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
 `Ctrl+Shift+V` copy and paste.
 
+A session writes only in its own project's folder and in the workspace's `common/`. If it tries `Write`, `Edit` or
+`NotebookEdit` on a file anywhere else (another project, the root of the workspace, a new folder), torno refuses
+the edit and tells the agent why, in words it can read, so it can ask you to open the other project. A new project is
+made from the page, never by the agent creating a folder. A shell command (`Bash`) is not judged by path: it keeps
+Claude Code's own permission card.
+
 ### What goes well, and what does not
 
 What torno and the agent do well, and where you have to help. This comes from how the loop has gone on real
