@@ -4,7 +4,7 @@ import { EXAMPLE_NOTE, type WorkspaceInfo } from '../shared/workspace'
 import { connectLook } from './state/agent'
 import { connectAsks } from './state/asks'
 import { connectBoard, useBoard } from './state/board'
-import { connectTracings, useTracings } from './state/tracings'
+import { connectTracings } from './state/tracings'
 import { connectReview } from './state/review'
 import { connectSets, setActions } from './state/sets'
 import { actions, sceneFileOf, store, useStore } from './state/store'
@@ -27,8 +27,6 @@ import { BoardSwitch, useBoardSwapKey } from './ui/brief/BoardSwitch'
 import { BriefPage } from './ui/brief/BriefPage'
 import { FacePickBar } from './ui/tracings/NewTracing'
 import { TracingView } from './ui/tracings/TracingView'
-import { TracingsSide } from './ui/card/Tracings'
-import { ScansSide } from './ui/ScansPanel'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { LeaderLayer } from './ui/LeaderLayer'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
@@ -348,11 +346,6 @@ export function App() {
   const briefOf = useBoard((s) => (s.shown === 'brief' ? s.objectId : null))
   // So does a tracing, on the same page.
   const tracingOf = useBoard((s) => (s.shown === 'tracing' ? s.objectId : null))
-  // The scans are looked at in the 3D view, with their panel beside it; a tracing has its panel beside the sheet once the project has one.
-  const scansOf = useBoard((s) => (s.shown === 'scans' ? s.objectId : null))
-  const hasScans = useStore((s) => s.scans.length > 0)
-  const hasTracings = useTracings((s) => (s.file?.tracings.length ?? 0) > 0)
-  const panel = page === 'object' ? (scansOf !== null && hasScans ? 'scans' : tracingOf !== null && hasTracings ? 'tracings' : null) : null
   // While the edge is dragged the width goes straight to the CSS variable, so
   // React renders once at the end rather than on every pointer move.
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null)
@@ -523,14 +516,12 @@ export function App() {
         {cardOpen && <RouteCard head={<Head />} shell={shell} />}
       </aside>
 
-      <main className="viewport" data-region="viewport" data-panel={panel ?? undefined}>
+      <main className="viewport" data-region="viewport">
         {/* First in the region, so that the focus a region key gives lands on it. */}
         <BoardSwitch />
         <ViewportPane />
         {page === 'object' && briefOf !== null && <BriefPage key={briefOf} />}
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
-        {page === 'object' && panel === 'scans' && <ScansSide />}
-        {page === 'object' && panel === 'tracings' && <TracingsSide />}
         {/* Over the model: a tracing on a face waits for the face. */}
         <FacePickBar />
         {page === 'objects' && <ShowPage onOpen={openObject} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}

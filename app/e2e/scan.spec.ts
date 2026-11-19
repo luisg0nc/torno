@@ -96,14 +96,17 @@ test.beforeAll(async () => {
 })
 
 test('a scan is imported from the panel, drawn, and said in millimetres', async () => {
-  await expect(page.getByRole('region', { name: 'Scans' })).toContainText('Drop a scan on the view, or import one.')
-  // Import scan… is in the head's line, beside the head's button and not in it.
-  const sectionHead = cardSection(page, 'Scans').locator('.route-head')
-  await expect(sectionHead.getByRole('button', { name: 'Import scan…' })).toBeVisible()
-  await expect(sectionHead.locator('.route-head-button').getByRole('button')).toHaveCount(0)
-  await expect(sectionHead.locator('.route-said')).toHaveText('none')
+  // A project with no scan has no Scans tab; the `+` at the end of the switch imports the first.
+  await expect(page.locator('.pboard-switch').getByRole('button', { name: 'Scans', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Add a scan or a tracing' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Import scan…' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menuitem', { name: 'Import scan…' })).toHaveCount(0)
   await pickFile(scanFile)
   await clickImportScan(page)
+  // The first scan shows the Scans tab, with its panel in the column and Import scan… at its head.
+  await expect(page.locator('.pboard-switch').getByRole('button', { name: 'Scans', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(cardSection(page, 'Scans').getByRole('button', { name: 'Import scan…' })).toBeVisible()
   await expect(row('S1')).toContainText('plate under.stl')
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   // Issue #21: a guess is asked about once, in the view by the scan (Task 25), with the size another reading would give.
@@ -196,6 +199,7 @@ test('opacity and the eye are kept in scene.json as the person set them, and are
   await page.waitForSelector('[data-region="viewport"]')
   await open('bracket')
   await expect.poll(async () => (await scans())[0]).toMatchObject({ id: 'S1', loaded: true, visible: false, opacity: 0.6 })
+  await openSection(page, 'Scans')
   await row('S1').getByRole('button', { name: 'Show S1' }).click()
 })
 

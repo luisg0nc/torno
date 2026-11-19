@@ -536,6 +536,7 @@ test('with a scan imported, five mark rows and more are in view in the Marks pan
     await expect.poll(async () => (await state(p)).scans.length, { timeout: 60_000 }).toBe(1)
     const asked = p.getByRole('dialog', { name: 'How is S1 read?' })
     if (await asked.isVisible()) await asked.getByRole('button', { name: 'Later' }).click()
+    await openSection(p, 'Scans')
     await p.getByRole('button', { name: 'Details of S1' }).click()
     await expect(p.locator('.scan-detail')).toBeVisible()
     await openSection(p, 'Marks')

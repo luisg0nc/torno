@@ -112,9 +112,10 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await pinIsInHand('the session pane resized')
   // Two scans: a unit chosen on a row, and in the align bar which scan to align.
   await openSection(page, 'Scans')
-  for (const name of ['plate.stl', 'floor.stl']) {
+  for (const [at, name] of ['plate.stl', 'floor.stl'].entries()) {
     await pickFile(join(root, name))
     await clickImportScan(page)
+    await expect(page.locator('.scan-row')).toHaveCount(at + 1)
   }
   await expect(page.locator('.scan-row')).toHaveCount(2)
   await page.getByRole('button', { name: 'Details of S1' }).click()

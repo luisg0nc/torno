@@ -71,7 +71,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the line "Not all in view" in its row's detail from `store.scansClipped`, which
   the viewport sets with every view it reports, and `reaches beyond the
   view: not all of it is drawn` in a picture's caption).
-- **Import scan…** is `pickScan` (`ui/scanDrop.ts`), asked from `ImportScan` (`ui/ScansPanel.tsx`), the `action` in the head of the Scans view's panel (`ScansSide`, a `ViewPanel`: the Scans tab of the view's switch, shown while the project has a scan, with the 3D view beside it), and from the `+` menu of the switch, which is how the first scan of a project is imported (a project with none has no Scans tab). Both are off while a scan is read.
+- **Import scan…** is `pickScan` (`ui/scanDrop.ts`), asked from `ImportScan` (`ui/ScansPanel.tsx`), the `action` in the head of the Scans view's panel (`ScansSide`, a `ViewPanel`: the Scans tab of the view's switch, shown while the project has a scan, with the 3D view kept, the panel in the column in the bench's place), and from the `+` menu of the switch, which is how the first scan of a project is imported (a project with none has no Scans tab). Both are off while a scan is read.
 - A scan's row (`ScanRow` in `ui/ScansPanel.tsx`) is one line, as a layer's: id, name (`.row-name`, whole with
   its source in the `title`), a dot while how it was read is a guess, its state in one word, the opacity on
   hover, the eye, and the arrow that opens its detail beneath it (`.scan-detail`; one open at a time, the

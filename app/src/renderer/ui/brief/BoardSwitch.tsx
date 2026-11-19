@@ -40,7 +40,8 @@ export function BoardSwitch() {
   const shown = useBoard((s) => s.shown)
   const open = useStore((s) => s.page === 'object' && s.objectId !== null)
   const objectId = useStore((s) => s.objectId)
-  const hasScans = useStore((s) => s.scans.length > 0)
+  // A scans file that could not be read has its word in the panel, so the tab is there for it too.
+  const hasScans = useStore((s) => s.scans.length > 0 || s.scansProblem !== null)
   const importing = useStore((s) => s.importing !== null)
   const hasTracings = useTracings((s) => (s.file?.tracings.length ?? 0) > 0)
   const band = useBand()

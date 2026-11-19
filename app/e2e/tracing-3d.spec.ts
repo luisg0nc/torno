@@ -67,7 +67,7 @@ test('a picture for Claude draws the tracing shown and says so; it is back in th
 
 test('the Tracing view\'s panel has a row for it, and its eye puts the tracing away and shows it again', async () => {
   await openSection(page, 'Tracings')
-  const row = page.locator('[data-view-panel="tracings"] .tracing-rows [data-tracing="T1"]')
+  const row = page.locator('[data-view-panel="tracings"] .tracing-rows li[data-tracing="T1"]')
   await expect(row).toBeVisible()
   await expect(row).toContainText('Front')
   await row.getByRole('button', { name: 'Hide T1 in 3D' }).click()

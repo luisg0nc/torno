@@ -1,27 +1,12 @@
-/* ---- The panel of the Scans view and of the Tracing view (ui/view/ViewPanel.tsx) ---- */
-
-.viewport {
-  --panel-w: 304px;
-}
-
-/* The view beside it gives up the room: the 3D view for the scans, the sheet for a tracing. */
-.viewport[data-panel] .viewport-pane,
-.viewport[data-panel] .tracing {
-  right: var(--panel-w);
-}
+/* ---- The panel of the Scans view and of the Tracing view (ui/view/ViewPanel.tsx): in the column, where the bench was ---- */
 
 .view-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
+  min-height: 160px;
   box-sizing: border-box;
-  width: var(--panel-w);
-  border-left: var(--divider);
-  background: var(--panel);
+  background: var(--raise);
 }
 
 .view-panel-head {
@@ -31,6 +16,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: var(--divider);
 }
 
 .view-panel-title {
