@@ -1071,15 +1071,20 @@ describe('reanchorAll', () => {
   })
 
   describe('followed', () => {
+    /** The checks under way: the count is up from the call until the check has answered and written, and a call made meanwhile is run straight after, with no turn between. */
+    let underway = 0
     /** The check as main wires it: one at a time, and again for a mark that is added or reopened. */
-    const follow = (): void => followMarks(store, coalesced((id) => reanchorAll({ marks: store, query, scene: last, log: (message) => logged.push(message) }, id).then(() => {})))
-    const quiet = async (): Promise<void> => {
-      // Until a few turns of the loop pass with nothing more asked or written.
-      let seen = -1
-      while (seen !== asked.length + saves.mock.calls.length) {
-        seen = asked.length + saves.mock.calls.length
-        await new Promise((resolve) => setTimeout(resolve, 25))
+    const follow = (): void => {
+      underway = 0
+      const check = (id: string): Promise<void> => {
+        underway++
+        return reanchorAll({ marks: store, query, scene: last, log: (message) => logged.push(message) }, id).then(() => {}).finally(() => underway--)
       }
+      followMarks(store, coalesced(check))
+    }
+    /** Until no check is under way: waits on the checks themselves, so how long they take (a loaded machine) does not matter. */
+    const quiet = async (): Promise<void> => {
+      while (underway > 0) await new Promise((resolve) => setImmediate(resolve))
     }
 
     it('a resolved mark that is reopened is checked against the build there is, without another', async () => {
