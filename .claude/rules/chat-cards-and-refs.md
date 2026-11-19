@@ -39,8 +39,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `chat.close` Esc (a picture shown large; the focus returns to its thumbnail), `chat.stop` Ctrl+C (composer, only while the session
   works and nothing in the box is selected: with a selection it is a copy) and `chat.allow` Enter (scope `ask`: on the card itself
   in focus, not its buttons or its field, where Enter refuses; not on a question) and `ask.option` 1 to 9 (scope `ask`, heard on the block at the foot, never in a field: torno's own question takes 1 to 3; on
-  a question of `AskUserQuestion` the key picks or toggles that option of the first question not yet answered, the last once all are, and the
-  option shows its key cap, `aria-keyshortcuts`). While a permission or a plan is open
+  a question of `AskUserQuestion` the key picks or toggles that option of the question in view, and the
+  option shows its key cap, `aria-keyshortcuts`). The questions of `AskUserQuestion` come **one at a time** (`Questions` in `AskCard.tsx`): a line "1 of 3" with
+  the question's header and a dot for each (done in ink, this one in the accent), its options as a compact list of rows (key, label, the description small and
+  muted beneath, then one "Other" row), Back and Next (Skip while it has no answer). A single choice is its answer and takes the person to the next question
+  (not when it is the only one); a multiple one is toggled and left. After the last a step "Review" reads each question with its answer (a click on one goes
+  back to it) and "Send answers" sends; one question alone has no steps and "Submit". Enter in "Other" goes on. While a permission or a plan is open
   (`openAsk` in `Composer`) the box's placeholder is "Answer the card above, or say what to do instead", its primary button
   is "Deny and send" (`chat.answer` with `allow: false` and the text as the message; Enter in the box does the same) and "Queue"
   is the secondary; a question (`AskUserQuestion`) changes nothing in the box. The card is at the foot of the dock, over the box

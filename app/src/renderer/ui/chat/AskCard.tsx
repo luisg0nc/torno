@@ -164,28 +164,44 @@ function Plan({ item, answering, answer }: { item: Ask } & Answering) {
   )
 }
 
-/** One question: its options as buttons that are pressed or not, and a line of its own for anything else. */
-function QuestionView({ question, picked, other, onPick, onOther, disabled, keyed }: { question: Question; picked: string[]; other: string; onPick: (label: string) => void; onOther: (text: string) => void; disabled: boolean; keyed: boolean }) {
+/** One question: a list of rows, each a key, a label and its description small and muted beneath, and a row of its own for anything else. */
+function QuestionView({ question, picked, other, onPick, onOther, disabled, keyed, onAdvance }: { question: Question; picked: string[]; other: string; onPick: (label: string) => void; onOther: (text: string) => void; disabled: boolean; keyed: boolean; onAdvance: () => void }) {
   return (
     <fieldset className="chat-ask-question" disabled={disabled}>
       <legend>
-        {question.header !== '' && <span className="chat-ask-header">{numbered(question.header)}</span>}
         <span className="chat-ask-text">{numbered(question.question)}</span>
       </legend>
       <div className="chat-ask-options" role="group" aria-label={question.question}>
         {question.options.map((option, n) => (
-          <button key={option.label} type="button" className="chat-ask-option" aria-pressed={picked.includes(option.label)} aria-keyshortcuts={keyed && n < KEYED ? String(n + 1) : undefined} onClick={() => onPick(option.label)}>
-            {keyed && n < KEYED && (
-              <span className="ask-key num" aria-hidden="true">
-                {n + 1}
-              </span>
-            )}
-            <span className="chat-ask-label">{numbered(option.label)}</span>
-            {option.description !== '' && <span className="chat-ask-desc">{numbered(option.description)}</span>}
+          <button key={option.label} type="button" className="chat-ask-option" data-multi={question.multi ? '' : undefined} aria-pressed={picked.includes(option.label)} aria-keyshortcuts={keyed && n < KEYED ? String(n + 1) : undefined} onClick={() => onPick(option.label)}>
+            <span className="ask-key num" aria-hidden="true">
+              {keyed && n < KEYED ? n + 1 : ''}
+            </span>
+            <span className="chat-ask-words">
+              <span className="chat-ask-label">{numbered(option.label)}</span>
+              {option.description !== '' && <span className="chat-ask-desc">{numbered(option.description)}</span>}
+            </span>
           </button>
         ))}
+        <input
+          type="text"
+          className="chat-ask-other"
+          aria-label={`Other answer to ${question.question}`}
+          placeholder="Other"
+          value={other}
+          onChange={(e) => onOther(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return
+            if (pressed(e, 'field.keep')) {
+              e.preventDefault()
+              onAdvance()
+            } else if (pressed(e, 'field.leave')) {
+              e.preventDefault()
+              giveKeysBack(e.currentTarget)
+            }
+          }}
+        />
       </div>
-      <input type="text" className="chat-ask-other" aria-label={`Other answer to ${question.question}`} placeholder="Other" value={other} onChange={(e) => onOther(e.target.value)} />
     </fieldset>
   )
 }
@@ -206,6 +222,8 @@ function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & An
     // One of a single choice; any number of a multiple one. A choice takes back what was written beside it.
     setPicks(set(picks, at, questions[at].multi ? (now.includes(label) ? now.filter((l) => l !== label) : [...now, label]) : [label]))
     setOthers(set(others, at, ''))
+    // A single choice is the answer to it: the next question comes, unless it is the only one.
+    if (!questions[at].multi && summary) setStep(at + 1)
   }
   function write(at: number, text: string): void {
     setOthers(set(others, at, text))
@@ -215,12 +233,17 @@ function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & An
     if (!complete) return
     answer({ allow: true, updatedInput: { answers: Object.fromEntries(questions.map((q, n) => [q.question, answers[n] as string])) } })
   }
-  // The keys 1 to 9 act on the first question still unanswered (the last, once all are): a choice is picked, a multiple one toggled.
-  const unanswered = answers.findIndex((a) => a === undefined)
-  const keyedAt = unanswered >= 0 ? unanswered : questions.length - 1
+  // One question at a time; with more than one, a last step reads the answers back before they are sent.
+  const [step, setStep] = useState(0)
+  const summary = questions.length > 1
+  const last = summary ? questions.length : questions.length - 1
+  const at = Math.min(step, last)
+  const onSummary = summary && at === questions.length
+  const go = (n: number): void => setStep(Math.max(0, Math.min(last, n)))
+  // The keys 1 to 9 act on the question in view: a choice is picked (and the next question comes), a multiple one toggled.
   onKey.current = (n) => {
-    const label = questions[keyedAt]?.options[n]?.label
-    if (open && !answering && label !== undefined) pick(keyedAt, label)
+    const label = questions[at]?.options[n]?.label
+    if (open && !answering && label !== undefined) pick(at, label)
   }
   const [reason, setReason] = useState('')
   if (questions.length === 0) {
@@ -248,13 +271,54 @@ function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & An
       <h4 className="chat-ask-title">Claude Code {open ? 'asks' : 'asked'} {questions.length === 1 ? 'a question' : 'some questions'}</h4>
       {open ? (
         <>
-          {questions.map((q, n) => (
-            <QuestionView key={n} question={q} picked={picks[n] ?? []} other={others[n] ?? ''} onPick={(label) => pick(n, label)} onOther={(t) => write(n, t)} disabled={answering} keyed={n === keyedAt} />
-          ))}
+          {summary && (
+            <div className="chat-ask-steps">
+              <span className="chat-ask-step num">{onSummary ? 'Review' : `${at + 1} of ${questions.length}`}</span>
+              {!onSummary && questions[at].header !== '' && <span className="chat-ask-header">{numbered(questions[at].header)}</span>}
+              <span className="chat-ask-dots" aria-hidden="true">
+                {answers.map((a, n) => (
+                  <i key={n} data-state={n === at ? 'now' : a !== undefined ? 'done' : 'todo'} />
+                ))}
+              </span>
+            </div>
+          )}
+          {!summary && questions[0].header !== '' && (
+            <div className="chat-ask-steps">
+              <span className="chat-ask-header">{numbered(questions[0].header)}</span>
+            </div>
+          )}
+          {onSummary ? (
+            <ul className="chat-ask-recap">
+              {questions.map((q, n) => (
+                <li key={n}>
+                  <button type="button" className="chat-ask-recap-row" disabled={answering} onClick={() => go(n)} aria-label={`Change the answer to ${q.question}`}>
+                    <span className="chat-ask-recap-q">{numbered(q.question)}</span>
+                    <span className="chat-ask-recap-a" data-empty={answers[n] === undefined ? '' : undefined}>
+                      {answers[n] === undefined ? 'Not answered' : numbered(answers[n] as string)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <QuestionView key={at} question={questions[at]} picked={picks[at] ?? []} other={others[at] ?? ''} onPick={(label) => pick(at, label)} onOther={(t) => write(at, t)} disabled={answering} keyed onAdvance={() => (summary ? go(at + 1) : submit())} />
+          )}
           <div className="chat-ask-actions">
-            <button type="button" className="button button-primary" disabled={!complete || answering} onClick={submit}>
-              Submit
-            </button>
+            {summary && (
+              <button type="button" className="button" disabled={at === 0 || answering} onClick={() => go(at - 1)}>
+                Back
+              </button>
+            )}
+            {summary && !onSummary && (
+              <button type="button" className="button" disabled={answering} onClick={() => go(at + 1)}>
+                {answers[at] === undefined ? 'Skip' : 'Next'}
+              </button>
+            )}
+            {(!summary || onSummary) && (
+              <button type="button" className="button button-primary" disabled={!complete || answering} onClick={submit}>
+                {summary ? 'Send answers' : 'Submit'}
+              </button>
+            )}
           </div>
         </>
       ) : (
