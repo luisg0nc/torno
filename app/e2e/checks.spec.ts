@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { cardSection, openSection, railButton } from './helpers'
+import { cardSection, openSection } from './helpers'
 import { openListed } from './objects'
 
 // The checks a model declares in its checks(p): measured by the kernel at every build, listed in the left column
@@ -45,7 +45,7 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -66,16 +66,13 @@ test('a model with no checks says so in the head of its section, which does not 
   await open('plain')
   await openSection(page, 'Parts')
   await expect(page.locator('.left .layers')).toBeVisible()
-  await openSection(page, 'Print profile')
-  await expect(page.locator('.left .print')).toBeVisible()
-  await railButton(page, 'Checks').click()
+  await cardSection(page, 'Checks').scrollIntoViewIfNeeded()
   await expect(cardSection(page, 'Checks')).toContainText('none')
   await expect(cardSection(page, 'Checks')).toHaveAttribute('data-empty', '')
   await expect(section()).toHaveCount(0)
-  await expect(railButton(page, 'Checks')).not.toHaveAttribute('aria-description', /./)
 })
 
-test('a check that fails does not fail the build, and is told in the head and on the rail', async () => {
+test('a check that fails does not fail the build, and is told in the head of its section', async () => {
   await open('lidded')
   await openSection(page, 'Checks')
   await expect(section()).toBeVisible()
@@ -84,9 +81,7 @@ test('a check that fails does not fail the build, and is told in the head and on
   expect(order.indexOf('checks')).toBe(order.indexOf('params') + 1)
   expect(order.indexOf('marks')).toBe(order.indexOf('checks') + 1)
   await expect(said()).toHaveText('2, 1 fails')
-  // The icon says one check fails, the head's ring says it waits, and what waits on the person is a row of the On block.
-  await expect(railButton(page, 'Checks')).toHaveAttribute('aria-description', '1 check fails')
-  await expect(railButton(page, 'Checks').locator('.rail-badge')).toHaveText('1')
+  // The head's ring says it waits, and what waits on the person is a row of the On block.
   await expect(cardSection(page, 'Checks')).toHaveAttribute('data-needs', '')
   await expect(page.locator('[data-region="left"] .on-block .on-head .on-said')).toHaveText('1 fails, 1 pass')
   await expect(page.locator('[data-region="left"] .on-block .on-row[data-kind="check"]')).toHaveCount(1)

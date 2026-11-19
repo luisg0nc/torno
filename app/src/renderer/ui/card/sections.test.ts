@@ -3,8 +3,8 @@ import { inSight, SECTIONS } from './sections'
 
 describe('the sections of the route card', () => {
   it('are the seven, in the order they are read, with their names', () => {
-    expect(SECTIONS.map((s) => s.title)).toEqual(['Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile'])
-    expect(SECTIONS.map((s) => s.id)).toEqual(SECTIONS.map((s) => s.icon))
+    expect(SECTIONS.map((s) => s.title)).toEqual(['Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings'])
+    expect(SECTIONS.map((s) => s.id)).toEqual(['parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
   })
 })
 

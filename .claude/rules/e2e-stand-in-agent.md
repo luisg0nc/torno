@@ -86,13 +86,13 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
 - Tests: `__tornoMain.opened()` (the objects opened in this run: empty while only the page was looked at),
   `window.__tornoTest.timeThumbnail(count, given?)`. `TORNO_SHOTS=<dir>` has `e2e/show.spec.ts` write
   captures of the page, one launch each.
-- A spec reaches a section of the route card as a person does, through the rail's index: `openSection(page, 'Parts')` of
-  `e2e/helpers.ts` (Parts, Parameters, Checks, Marks, Scans, Tracings, Print profile; it presses the icon and unfolds
-  the section), `foldSection`, `cardSection`, `railButton`; the page of projects through `showProjects`. What a spec reads in a
+- A spec reaches a section of the route card as a person does, with no rail: `openSection(page, 'Parts')` of
+  `e2e/helpers.ts` (Parts, Parameters, Checks, Marks, Scans, Tracings; it scrolls the card to the section and unfolds
+  it with a click on its head), `foldSection`, `cardSection`; the page of projects through `showProjects` (the key `W`, `Escape` goes back);
+  the print profile through `profileChip(page)` and `openProfile`, the keyboard through `keysButton(page)`. What a spec reads in a
   section (a layer row, a scan row, Parameters, Checks) is read after opening it. A spec opens a project through
   `openListed(page, name)` of `e2e/objects.ts`: the menu of the title bar's project crumb while a project is open, else its card
-  on the page of projects; `newFromList` is "New project" alike; `switcher(page)` is the rail's Projects button, which carries a
-  session's sign. Never a card by its name alone outside the page of projects.
+  on the page of projects; `newFromList` is "New project" alike; `switcher(page)` is the title bar's pill for another project's session (`.title-sign`), which carries its sign. Never a card by its name alone outside the page of projects.
 
 ## Never run a real agent CLI from tests (root `CLAUDE.md`)
 

@@ -11,7 +11,7 @@ point at the parts to say what you mean, measure them, and hold them to
 numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
-The window has three parts. On the left, a thin rail of icons and, beside it, the
+The window has three parts. On the left, the
 route card: the project read from top to bottom, in sections you fold, which pushes
 the 3D view over. In the
 middle, the parts in 3D, with the compass at the top right and the tools down the
@@ -284,9 +284,9 @@ its question. The session pane's show and hide button is there too, before the w
 where the system gives none. On the page of projects only the folder shows, and on the page of a new project the second crumb reads
 "New project".
 
-The projects of the folder are on the page of projects (the Projects icon at the top of the rail, or "All projects `W`"
-in the project crumb's menu), and the crumb's menu lists them too, a dot on a row for a session that works or waits. When
-any project's session waits for you, the Projects icon on the rail has its dot and says so ("bracket needs you").
+The projects of the folder are on the page of projects ("All projects `W`"
+in the project crumb's menu of the title bar, or `W`), and the crumb's menu lists them too, a dot on a row for a session that works or waits. When
+any other project's session works or waits for you, the title bar has a pill for it ("bracket needs you").
 
 The kernel imports the model file as a module (`if __name__ == "__main__"` does
 not run) and takes the first of:
@@ -478,13 +478,13 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left, a rail of icons, no word under them (the name shows in a small tip beside the icon when the pointer is over it or the keyboard is on it): Projects at the top, which shows the page of projects (it is a dark blue tile while that page is up; press it again to go back), a hairline, and then, while a project is open, one icon for each section of the route card: Parts, Parameters, Checks, Marks, Scans, Tracings and Print profile. Keys is at the foot, and raises the keyboard.
-Beside the rail is the route card, 296 px wide. Over everything in it stands the **On h18** block (see Marks); under it the project is read from top to bottom, a section after another down a line, each with a dot on it. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Parts, Checks and Marks are open; Parameters, Scans, Tracings and Print profile are folded. A press on an icon of the rail brings its section into sight, and opens it if it was folded; the section in sight is the one the rail shows in the accent's wash. What a folded title used to say shows as a small badge on the icon: the parts switched off on Parts, the model's checks that fail plus the dimensions that fail on Checks, the scans not aligned on Scans, the marks to review on Marks. The icon of a section that says "none" is dimmed. Drag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. Over the sections stands the **On h18** block (see Marks). At first Parts, Checks and Marks are open; Parameters, Scans and Tracings are folded. Every section is in the card, one scroll down it: scroll to it and click its head to open it. Drag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
-narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside the rail and
+narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
 sections are folded and how wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
-project is made and with no project open, the rail holds Projects and Keys alone. The folder's name and its menu are in the title bar.
+project is made and with no project open, there is no card (the page of a new project has an "All projects" button in the title bar, which keeps its draft). The folder's name and its menu are in the title bar.
+**The print profile chip.** While a project is open, the status line has a chip with the printer and the material the project is made for (`Bambu X1C, PETG`; "Print profile" while it has none). Press it to choose them in a card above it; Esc, or a press elsewhere, puts it away.
 The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
@@ -706,9 +706,7 @@ it. It keeps running while another project is shown. A session that works or
 that waits for your answer (a permission, a question, a plan) says so wherever
 you are, not only in its own pane. In the project crumb's menu its row has a dot
 after the name: a quiet one while it works, and, in the warning colour with the
-words "needs you", while it waits. On the rail, the Projects icon has the dot of any
-session of the folder that works or waits, and says which project's waits
-("bracket needs you") in its description. Nothing is shown for a session that is idle
+words "needs you", while it waits. In the title bar, another project whose session works or waits has a pill with the dot and the project's name (two at most, then `+N`). Nothing is shown for a session that is idle
 or ended. When the session pane is hidden, its button has the same dot for the
 open project's session. And when any session of the folder waits for you, the
 status line has a button "*bracket* needs you" (with "and N more" if several do,
@@ -1744,8 +1742,8 @@ they are of the `print` layout when the model has one and no other is named.
 | `bed` | with `size` ([x, y, z] mm; the profile's printer's bed when none is given), no part: whether the layout's box `fits` the bed, its `size`, and by how much it is `over` along each axis; exact only when every part's box is |
 
 **The print profile** is the printer (bed, nozzle, layer) and the material (density, shrink, the gap per side of a
-press, a sliding and a loose fit, least wall, overhang angle) a project is made for. Choose them under "Print profile" in the
-route card (its head says what is chosen: `Bambu X1C, PETG`). The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
+press, a sliding and a loose fit, least wall, overhang angle) a project is made for. Choose them in the print profile chip of the
+status line (it says what is chosen: `Bambu X1C, PETG`). The printers are yours, kept in torno's settings (`profiles.json`, next to `config.json`; "Add a printer…"
 makes one); PLA, PETG and ABS come with typical values, and a material of your own goes in that file (`materials`: `name`,
 `density`, and optionally `shrink`, `fits`, `minWall`, `overhang`). A choice is copied into `<project>/.torno/profile.json`,
 so the project travels with the numbers it was checked against. With a profile, `check` bed, thin and overhang and
@@ -2008,7 +2006,7 @@ replace its own proposals (12 at most) and never a view of yours.
 Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief** and **Tracing** (below) take the main
 area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); a project with no tracing goes round
 the model and the brief only. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
-The model stays loaded while the brief or a tracing is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
+The model stays loaded while the brief or a tracing is shown, so nothing is built again on the swap, and the card, the chat and the status line stay as they are.
 
 The page reads like an inspection sheet, from the top:
 
@@ -2348,8 +2346,8 @@ the ending gets it).
 
 ## Keys
 
-`?`, or Keys on the rail, raises a keyboard from the foot of the window, over the view and the card; the rail and the status
-line stay, and it comes up in a third of a second (at once with reduced motion). Press `?` or `Esc` again, or press beside it, to put it away.
+`?`, or the `?` button in the status line, raises a keyboard from the foot of the window, over the view and the card; the status
+line stays, and it comes up in a third of a second (at once with reduced motion). Press `?` or `Esc` again, or press beside it, to put it away.
 Along its top are the places keys are heard in, as chips: Everywhere, In the view, With a tool in hand, Sketching, Tracing, Projects
 and Session. The keyboard is the US layout, and in the place you chose each key says in a word what it does there. The keys that
 pick a tool are on the accent wash with their letter in the accent, and those heard in the view are outlined. Keys with `Ctrl` or
@@ -2478,7 +2476,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Session | `1` `2` `3` `4` `5` `6` `7` `8` `9` | Ask: the option of that number: answers torno's question (the first three), picks or toggles it on the question Claude Code asks |
 | Session | `Esc` | Chat: put away a picture shown large |
 | Session | `Left` `Right` | On the edge of the session pane: wider or narrower |
-| Session | `Left` `Right` | On the edge of the card by the rail: narrower or wider |
+| Session | `Left` `Right` | On the edge of the card: narrower or wider |
 | In a field, a menu or a sheet | `Enter` | Field: keep what was typed |
 | In a field, a menu or a sheet | `Esc` | Field: leave it as it was |
 | In a field, a menu or a sheet | `Shift+Enter` | Note: a new line |
@@ -2521,7 +2519,7 @@ place.
 | `board/told.json` | what Claude was last told of each card, so that only what is new is said | ignored |
 | `tracings/told.json` | what Claude was last told of each tracing (its name, plane, layers and photo's line-up), so that its line says what changed | ignored |
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
-| `profile.json` | the printer and material the project is made for (a copy of your choice under "Print profile") | travels with the project |
+| `profile.json` | the printer and material the project is made for (a copy of your choice in the print profile chip) | travels with the project |
 | `agent.json` | whether Claude Code is shown as a chat or a terminal; without it, in a chat | travels |
 | `chat/<conversation>.jsonl` | what a chat session said and did, as text (a turn's line holds the tokens it used, as numbers); no picture data, no address (a picture of `reference/` by its path) | ignored |
 | `session.json` | the conversation to resume | ignored |
@@ -2890,10 +2888,7 @@ On the screen:
 - **The window's own title bar and controls on Linux.** The window has no frame of the window manager's: at the top, a bar 40 px high in the ground's colour. Start torno on Hyprland and on another desktop (KDE, GNOME) and try once: the bar drags the window, and the three buttons at its right (minimise, maximise or restore, close) each do what they say, also after the window was tiled or maximised by a key; Close with a session working asks "Close torno?" as the window manager's close does; the window cannot be made smaller than 1120 × 700; the bar is legible in light and dark. On Windows and macOS the platform's own controls sit over the bar in the same colours: not tried.
 - **Closing.** With a session working, close the window through the window manager: torno asks "Close torno?", "Keep it open" keeps everything as it was, "Close torno" ends torno and the session. With nothing under way it closes at once.
 - **A session that needs you, away from its pane.** In two projects, ask Claude Code in one for something that needs a permission, then open the other (and again with the session pane hidden): the first one's row has a dot and "needs you" in the warning colour, the status line has the button "*name* needs you", which opens it and brings you to the card, and a working session's dot is a quiet grey. In a window that is not in front (another window on top, or a workspace switched away) the frame should flash on Linux, and the dock icon bounce once on a Mac: no test shows a window, so only the rule is tested.
-- **The rail and the route card.** The icons have no word under them, and each name shows in a tip beside it on hover and on keyboard focus; Keys is at the foot; pressing a section's icon scrolls the card to that section and opens it,
-  and the icon of the section in sight is in the accent's wash as you scroll. Click a head to fold and open its section. The badges (what waits for you, parts
-  switched off, failing checks, unaligned scans, marks to review) are legible in light and dark and count what the
-  section then shows. Drag the card's edge wider and narrower: it moves without lag. Start torno again: the folded
+- **The route card without a rail.** The window has no rail: the card is at the left edge, the `?` button and the print profile chip are at the right of the status line. Scroll the card to each of its seven sections and click a head to fold and open it. Drag the card's edge wider and narrower: it moves without lag. Start torno again: the folded
   sections and the card's width are as you left them.
 - **Layers of a model with many parts.** Open a project of ten parts or more: the pointer on a layer row lights that
   part in the view in the accent (and nothing else changes), the target shows it alone, `Show all` at the top of the section brings
@@ -2910,7 +2905,7 @@ On the screen:
 - **The clipboard in the terminal.** Select text in a session and press `Ctrl+Shift+C`, then `Ctrl+Shift+V`: it is copied and pasted. No test touches the clipboard. "Copy" on the build error sheet likewise.
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of projects and on the page of projects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
-- **The Print profile.** Open the Print profile section of the route card: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; legible in both themes, and its head says what is chosen (`Bambu X1C, PETG`), also while the section is folded.
+- **The print profile chip.** Press the chip in the status line: the Printer and Material lists, "Add a printer…" with its three bed fields, the lines under them in the monospace face; the card stands above the chip, legible in both themes, and the chip says what is chosen (`Bambu X1C, PETG`).
 - **The Scans section.** Import a scan of your own, with "Import scan…" in the section's head, which stays there while the section is folded: the card `How is S1 read?` is in the view under the switch with the size it would have; "Later" leaves a dot on the row. The row is one line at the panel's default width, the name cut with an ellipsis and whole in its tooltip, the word legible in both themes, the dot and a `check` or `rough` word told apart from the rest. Open its detail and another's: one is open at a time, and Frame, Align and Rename are on one line.
 - **Drawing on the view with the real Claude Code.** In a chat, "Draw on view", ring a face and draw an arrow to it with a mouse and with a tablet pen, "Done", then a prompt ("make this thicker"): the ink follows the pointer, the eraser takes ink and never the picture, the note is a draft among the marks until the prompt carries it, and the prompt names the faces the ink lies over (and says so, in the warning colour, when it could not be worked out), "Attach view" shows a small picture of the view before it goes, the chat shows the picture and that line with the prompt, and Claude Code's reply speaks of the ringed place and names the face the caption gave. Tests drew with synthetic pointer events and the stand-in agent.
 - **The sheet of a view note, by eye.** The labels (the field at the point you click, the arrow dragged from it, the words set in the picture in the face of the window, legible over the ink), the references (the list under the picture, the dialog for a photo, a drop, the line of each, six at most) and the comment, in light and dark, at the size of the window and in a narrow one; and that a label in the sheet sits where it is in the picture that is kept.
@@ -2973,7 +2968,7 @@ On the screen:
 - **The scans walk-through.** Import, align and check a scan by the steps the Scans section offers: each step is where the eye goes next, in both themes.
 - **The export in the dock.** Each of the five tiles (a person's page, CAD, slicer, picture, tracing): the dock is legible in both themes, the rule fills in once and ends at the 12 MB tick, and the file lands in the status line with its read-back above it.
 - **The sources line of Parameters.** A field's source word is shown after its comment, in the monospace face, and "no source" is quiet.
-- **The rail and its badges.** Press each of the eight icons of the index: the card scrolls to its section and opens it, each icon's tip reads at once on hover and on keyboard focus, Projects pressed on the page of projects is a dyed tile, and the drawn icons are of one weight and distinct at their size, in both themes. The badges (the parts switched off, the checks that fail, the scans not aligned, the marks to review) and the dot of a session that waits read at a glance on the rail, and the rail stays in its place in a narrow window.
+- **Another project's session, in the title bar.** A session of another project that works or waits has its pill beside the dock's toggle, readable at a glance in both themes.
 - **Compare in all four modes.** Compare a turn, a row and an older build with **Before**, **Overlay**, **After** and **Side by side**: the grey translucent earlier build over the later one, each build alone in its part colours, one camera for both halves, the two boxes over the corners, the band and the status line (`comparing prompt 14 · h40 → h41`) legible in both themes and clear of the compass. Tests drove them in the hidden window and never looked. Compare a turn while newer builds land: the older build is drawn in the live one's place and the view says so; check it reads as the live build, not as a second model. An older build is built again from its copy (tested against the real kernel on small models in a temporary folder): on a real project, how long the wait is, and that `Building h40 to compare…` is shown while it runs.
 - **Prompts only and Earlier conversations.** **Prompts only** in More, and **Close** on the list: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.
 - **The builds strip, by eye.** On top of the session pane in the chat, the terminal and with no session: the pictures of the builds (which a test never sees), the 2 px ring on the one on show, the hatch of a failed build, the outline and seconds of the running one, the bracket under the prompts in sight as you scroll the chat, a build sliding in, the fold when the pane is short, and the ticks in the status line, in both themes and in a narrow dock. With forty builds the strip scrolls sideways and the build on show stays in sight.

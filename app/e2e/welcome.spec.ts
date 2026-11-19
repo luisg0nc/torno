@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { EXAMPLE_OBJECTS } from '../src/main/example'
 import { KEYBOARD, PLACES } from '../src/shared/keyboard'
-import { railButton } from './helpers'
+import { keysButton } from './helpers'
 import { openListed } from './objects'
 
 // The first screen, and the sheet of keys: what someone who has never seen torno meets, and where they look a key up.
@@ -31,7 +31,7 @@ test.beforeAll(async () => {
   cpSync(fixtures, root, { recursive: true, filter: (source) => !source.endsWith('__pycache__') })
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -216,7 +216,7 @@ test('the example is a copy in a temporary folder: the repository\'s own is neit
   try {
     const first = await bare.firstWindow()
     await first.getByRole('button', { name: 'Open the example' }).click()
-    await first.waitForSelector('[data-region="left"]')
+    await first.waitForSelector('[data-region="viewport"]')
     copy = (await first.evaluate(() => window.__tornoTest!.state())).workspace!.root
     expect(copy.startsWith(join(tmpdir(), 'torno-example-')) || copy.startsWith(join(realpathSync(tmpdir()), 'torno-example-'))).toBe(true)
     expect(copy.startsWith(exampleSource)).toBe(false)
@@ -243,7 +243,7 @@ test('the example can be kept as a folder: a new one at the path chosen, never o
   try {
     const first = await bare.firstWindow()
     await first.getByRole('button', { name: 'Open the example' }).click()
-    await first.waitForSelector('[data-region="left"]')
+    await first.waitForSelector('[data-region="viewport"]')
     const copy = (await first.evaluate(() => window.__tornoTest!.state())).workspace!.root
     const keep = first.getByRole('button', { name: 'Keep this as a folder…' })
     // A name that is taken is refused, and said under the folder's name; nothing is written and the example stays open.
@@ -345,8 +345,8 @@ test('? raises the keyboard; what is typed or pointed at is answered in sentence
   await expect(sheet()).toBeVisible()
   await page.keyboard.press('?')
   await expect(sheet()).toBeHidden()
-  // The button at the foot of the rail, to which the focus comes back.
-  const button = railButton(page, 'Keys')
+  // The `?` button of the status line, to which the focus comes back.
+  const button = keysButton(page)
   await expect(button).toHaveAttribute('aria-keyshortcuts', '?')
   await button.focus()
   await page.keyboard.press('Enter')
@@ -355,7 +355,7 @@ test('? raises the keyboard; what is typed or pointed at is answered in sentence
   await expect(button).toBeFocused()
   await button.click()
   await expect(sheet()).toBeVisible()
-  // The button is the rail's, which stays: pressed again it puts the keyboard away, and a press on the scrim above it does too.
+  // The button is the status line's, which stays: pressed again it puts the keyboard away, and a press on the scrim above it does too.
   await button.click()
   await expect(sheet()).toBeHidden()
   await button.click()
@@ -489,7 +489,7 @@ test('the empty workspace and the page of a new object say what is missing, and 
   const own = await launch({ TORNO_WORKSPACE: project })
   try {
     const gone = await lost.firstWindow()
-    await gone.waitForSelector('[data-region="left"]')
+    await gone.waitForSelector('[data-region="viewport"]')
     const block = gone.locator('.empty-folder .ready')
     await expect(block.locator('.ready-line[data-line="claude"]')).toContainText('Not found on PATH')
     // The page of a new object has the line above Start, and says what that means for the object.
@@ -502,7 +502,7 @@ test('the empty workspace and the page of a new object say what is missing, and 
 
     // With Claude Code found the new object's page has no such block.
     const fine = await ok.firstWindow()
-    await fine.waitForSelector('[data-region="left"]')
+    await fine.waitForSelector('[data-region="viewport"]')
     await fine.locator('.empty-folder').getByRole('button', { name: 'open the full new project page' }).click()
     await expect(fine.locator('.new-foot')).toBeVisible()
     await expect(fine.locator('.new-foot .ready')).toHaveCount(0)
@@ -521,7 +521,7 @@ test('the empty workspace and the page of a new object say what is missing, and 
 
     // A folder with a pyproject.toml and no .venv: said before the first build, and nothing is made there.
     const mine = await own.firstWindow()
-    await mine.waitForSelector('[data-region="left"]')
+    await mine.waitForSelector('[data-region="viewport"]')
     const line = await readyLine(mine, 'project')
     await expect(line).toHaveAttribute('data-tone', 'fail')
     await expect(line).toContainText('has a pyproject.toml but no .venv. Run uv sync in it once and open it again: torno never does that.')

@@ -17,6 +17,8 @@ import { AGENT_LABEL } from '../../shared/agents'
 import { focusAsk, waitingObjects } from './sessionSign'
 import { gitFilesSaid } from '../../shared/git'
 import { GitText } from './GitText'
+import { showKeys } from './KeySheet'
+import { ProfileChip } from './ProfileChip'
 import { useGit } from './useGit'
 import { useElapsed } from './useElapsed'
 import { ticksOf } from './strip/strip'
@@ -278,6 +280,8 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
           </button>
         )}
       </span>
+      {/* The printer and the material of the open project: a chip that opens its choosers. */}
+      {objectId !== null && !paged && !creating && <ProfileChip />}
       {/* The open object, as one HTML file or a file of the model. With the page of objects up, the page has the button for them all. */}
       {kept ? (
         <SavedFile />
@@ -290,6 +294,9 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
           </button>
         )
       )}
+      <button type="button" className="status-keys" data-keys-button aria-label="Keys" aria-keyshortcuts={hint('keys')} title={`Every key, and how the pointer turns, pans and zooms the view (${hint('keys')})`} onClick={() => showKeys()}>
+        ?
+      </button>
       {build123d && <span className="num">build123d {build123d}</span>}
       {errorOpen && error && name !== null && (
         <BuildErrorSheet objectName={name} error={error} after={failedAfter} anchor={failedNode} onClose={() => actions.setErrorOpen(false)} />

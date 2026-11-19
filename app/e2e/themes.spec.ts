@@ -9,7 +9,7 @@ import { contrast } from '../src/shared/contrast'
 import { png } from '../src/test/pngFixtures'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openSection, railButton, showProjects, newSession } from './helpers'
+import { cardSection, openSection, showProjects, newSession } from './helpers'
 import { newFromList, openListed, projectCard, switcher } from './objects'
 import { stableBox } from './stable'
 
@@ -120,7 +120,7 @@ for (const theme of ['light', 'dark'] as const) {
     const { app, page } = await start(theme, { TORNO_WORKSPACE: root })
     let client: Client | null = null
     try {
-      await page.waitForSelector('[data-region="left"]')
+      await page.waitForSelector('[data-region="viewport"]')
       await open(page, 'hollow')
       // A mark of the agent's left as the agent leaves one, and a view saved under a name.
       client = await agent(app, 'hollow')
@@ -288,7 +288,7 @@ for (const theme of ['light', 'dark'] as const) {
       try {
         if (shot === 'welcome') await expect(page.getByRole('navigation', { name: 'Recent folders' }).locator('li')).toHaveCount(3)
         else if ((FIRST_SCREEN as readonly string[]).includes(shot)) await expect(page.locator('.ready')).toBeVisible()
-        else await page.waitForSelector('[data-region="left"]')
+        else await page.waitForSelector('[data-region="viewport"]')
         if (shot === 'empty' || shot === 'ready-sheet' || shot === 'onboard-missing') await expect(page.locator('.empty-folder')).toBeVisible()
         if (!NOTHING_OPENED.includes(shot)) await open(page, 'hollow')
         if (shot === 'main') {
@@ -300,9 +300,9 @@ for (const theme of ['light', 'dark'] as const) {
           await page.keyboard.press('Enter')
           await expect(page.locator('.chat-ask[data-state="open"]')).toBeVisible({ timeout: 30_000 })
           await open(page, 'hollow')
-          // The rail's Projects icon carries the sign of bracket's session, and names it in its description.
-          await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
-          await expect(switcher(page)).toHaveAttribute('aria-description', 'bracket needs you')
+          // The title bar's pill carries the sign of bracket's session, and names it in its description.
+          await expect(switcher(page)).toHaveAttribute('data-sign', 'needs_input')
+          await expect(switcher(page)).toHaveAccessibleName('bracket')
           await expect(page.locator('.status-needs')).toContainText('bracket needs you')
           // A mark's row opened, as when it is being read.
           await page.locator('.mark-row').first().click()
@@ -436,8 +436,7 @@ for (const theme of ['light', 'dark'] as const) {
           await scan()
           await page.getByRole('dialog', { name: 'How is S1 read?' }).getByRole('button', { name: 'Later' }).click()
           await openSection(page, 'Marks')
-          await expect(railButton(page, 'Scans').locator('.rail-badge')).toHaveText('1')
-          await expect(railButton(page, 'Scans')).toHaveAttribute('aria-description', '1 unaligned')
+          await expect(cardSection(page, 'Scans').locator('.route-said')).toContainText('1 unaligned')
         } else if (shot === 'params') {
           // The Params panel, a session running so that the rows are buttons.
           await newSession(page.locator('[data-region="session"]'))

@@ -5,8 +5,8 @@
 .title-row {
   grid-area: 1 / 1 / 2 / -1;
   position: relative;
-  /* Above the panels and the view, so that the menus that hang from it are not under them; under the sheets. */
-  z-index: 4;
+  /* Above the panels and the view (their tools and bands stand at 6 to 8, and the project menu hangs over them now that the rail is gone), so that the menus that hang from it are not under them; under the sheets. */
+  z-index: 9;
   display: flex;
   align-items: center;
   gap: var(--space-1);

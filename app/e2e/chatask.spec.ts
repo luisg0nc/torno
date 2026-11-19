@@ -34,7 +34,7 @@ test.beforeAll(async () => {
   // this run: nothing of the settings of the person's own Claude Code may be written there, or anywhere.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, HOME: home, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -1082,18 +1082,16 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
   await expect(toggle()).toHaveAttribute('aria-description', 'Claude Code needs you')
   await expect(toggle()).toHaveAttribute('title', 'Show session: Claude Code needs you')
   await expect(toggle().locator('.session-sign[data-sign="needs_input"]')).toBeVisible()
-  // The rail's Projects icon says it as well, of the open object, in words, and the status line has the button.
-  await expect(switcher(page)).toHaveAttribute('aria-description', 'session needs you')
-  // Its name is Projects: found by it exactly, state or none.
-  await expect(page.getByRole('button', { name: 'Projects', exact: true })).toHaveCount(1)
+  // The title bar has no pill for the open object's own session (the toggle has the dot), and the status line has the button.
+  await expect(switcher(page)).toHaveCount(0)
   await expect(needs()).toContainText('bracket needs you')
 
   // Another object shown: the Projects icon carries the sign of the one that asks, and names it; so does its row of
   // the list; and the toggle (of an object with no session) has none.
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).objectId).toBe('hollow')
-  await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
-  await expect(switcher(page)).toHaveAttribute('aria-description', 'bracket needs you')
+  await expect(switcher(page)).toHaveAttribute('data-sign', 'needs_input')
+  await expect(switcher(page)).toHaveAccessibleName('bracket')
   await projectCrumb(page).click()
   await expect(item('bracket')).toHaveAttribute('data-session', 'needs_input')
   await expect(item('bracket')).toHaveAttribute('aria-description', 'session needs you')
@@ -1115,8 +1113,7 @@ test('a request that waits for the person shows on the dock\'s toggle when the d
   await finished()
   await expect(status()).toHaveText('Idle')
   await expect(needs()).toHaveCount(0)
-  await expect(switcher(page)).not.toHaveAttribute('data-session', /./)
-  await expect(switcher(page)).not.toHaveAttribute('aria-description', /./)
+  await expect(switcher(page)).toHaveCount(0)
   await toggle().click()
   await expect(toggle()).toHaveAttribute('aria-label', 'Show session')
   await expect(toggle()).not.toHaveAttribute('aria-description', /./)

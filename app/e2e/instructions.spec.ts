@@ -35,7 +35,7 @@ async function launch(): Promise<void> {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', HOME: home, TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 }
 
 test.afterEach(async () => {

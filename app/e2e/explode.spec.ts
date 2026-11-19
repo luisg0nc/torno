@@ -36,10 +36,10 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
-  // The rail takes 56 px more than the column did: the window is that much wider, so the view is as wide as the tests were written for.
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1496, 900))
-  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1496)
+  await page.waitForSelector('[data-region="viewport"]')
+  // The rail is gone (it took 52 px): the window is that much narrower, so the view is as wide as the tests were written for.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1444, 900))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1444)
   await page.emulateMedia({ colorScheme: 'light' })
   await openListed(page, 'hollow')
   await expect.poll(async () => (await state()).build?.status, { timeout: 30_000 }).toBe('ok')
@@ -413,7 +413,7 @@ test('a dimension between two parts drawn apart is drawn dashed between them, sa
 test('the compass fits at 1280 × 800 for an object with two layouts, apart or together; and a stroke begun as the parts come together keeps nothing of where they were drawn', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build?.status, { timeout: 30_000 }).toBe('ok')
-  // The narrowest window the compass is held to: its view is 1280 - 52 - 264 - 384 wide below 1360.
+  // The narrowest window the compass is held to: its view is 1280 - 264 - 384 wide below 1360.
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 800))
   await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([1280, 800])
   const compass = async () => (await page.locator('.compass').boundingBox())!
@@ -501,8 +501,8 @@ test('the compass fits at 1280 × 800 for an object with two layouts, apart or t
   }
   await page.keyboard.press('v')
   // The width the other tests were written for.
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1496, 900))
-  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1496)
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1444, 900))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1444)
 })
 
 test('drawn apart by any way, every part stays in sight and clear of the bars; together, the camera goes back to where it was', async () => {

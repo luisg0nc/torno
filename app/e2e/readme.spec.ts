@@ -289,11 +289,11 @@ for (const shot of SHOTS) {
         await expect(page.locator('.ready')).toBeVisible()
         await page.waitForTimeout(800)
       } else if (shot === 'marks') {
-        await page.waitForSelector('[data-region="left"]')
+        await page.waitForSelector('[data-region="viewport"]')
         await open(page, 'speaker-stand')
         await marksSettled(page)
       } else if (shot !== 'objects') {
-        await page.waitForSelector('[data-region="left"]')
+        await page.waitForSelector('[data-region="viewport"]')
         await open(page, 'intake')
         if (!isBare(shot)) await marksSettled(page)
       }
@@ -366,7 +366,7 @@ for (const shot of SHOTS) {
         else await tracing(page)
       } else if (shot === 'objects') {
         // The page of projects, each built once so that its card has a picture.
-        await page.waitForSelector('[data-region="left"]')
+        await page.waitForSelector('[data-region="viewport"]')
         const listed = (await state(page)).workspace!.objects.map((o) => o.id)
         // The airbox last, so that the project the page says is open is the one of the other pictures.
         for (const id of [...listed.filter((id) => id !== 'intake'), ...listed.filter((id) => id === 'intake')]) await open(page, id)
@@ -396,7 +396,7 @@ test('README picture: export, the page in a browser', async () => {
   const { app, page } = await start('light', { TORNO_WORKSPACE: root }, home)
   const file = join(root, 'intake.html')
   try {
-    await page.waitForSelector('[data-region="left"]')
+    await page.waitForSelector('[data-region="viewport"]')
     await open(page, 'intake')
     await marksSettled(page)
     await app.evaluate((_electron, to) => void ((globalThis as unknown as { __tornoMain: Main }).__tornoMain.pickSave = to), file)

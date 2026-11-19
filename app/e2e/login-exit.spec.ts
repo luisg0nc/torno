@@ -23,7 +23,7 @@ test.beforeAll(async () => {
   const env = { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root, FAKE_AGENT_AUTH_ERROR: 'Not logged in · Please run /login', FAKE_AGENT_AUTH_EXIT: '1' }
   app = await electron.launch({ args: ['.'], cwd: appDir, env })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {

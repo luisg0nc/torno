@@ -170,10 +170,10 @@ test.beforeAll(async () => {
   app = await launch({ TORNO_WORKSPACE: root })
   app.process().stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
-  // The rail takes 56 px more than the column did: the window is that much wider, so the view is as wide as the tests were written for.
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1496, 900))
-  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1496)
+  await page.waitForSelector('[data-region="viewport"]')
+  // The rail is gone (it took 52 px): the window is that much narrower, so the view is as wide as the tests were written for.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1444, 900))
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1444)
   await openMeasures(page)
 })
 
@@ -666,7 +666,7 @@ for (const shot of ['light', 'dark', 'look'] as const) {
     try {
       const p = await shotApp.firstWindow()
       await p.emulateMedia({ colorScheme: shot === 'dark' ? 'dark' : 'light' })
-      await p.waitForSelector('[data-region="left"]')
+      await p.waitForSelector('[data-region="viewport"]')
       await openMeasures(p)
       await p.keyboard.press('m')
       // Between the axes of the two holes.

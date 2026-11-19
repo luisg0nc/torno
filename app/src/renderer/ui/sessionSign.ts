@@ -24,26 +24,6 @@ export function rowSaid(sign: Sign | null): string | undefined {
   return sign === null ? undefined : `session ${SIGN_SAID[sign]}`
 }
 
-/**
- * The sign of the list of objects as the rail's Projects icon carries it: of any object of the list whose session works
- * or waits, the one that waits first; what it says, as the icon's description and in its title, the open object's as a
- * row says it, another's by its name (`session is working; plain needs you`), in the order of the list; and the words
- * a place with room for them could put beside the dot when a session waits (`word`): `needs you` for the open
- * object's, else the name of the first that waits (`plain needs you`), so that they are never read as the open object's.
- */
-export function switcherSign(openId: string | null, objects: readonly { id: string; name: string }[], sessions: Record<string, Pick<SessionView, 'status'>>): { sign: Sign | null; said: string | undefined; word: string | undefined } {
-  const signed = objects.flatMap((o) => {
-    const sign = signOf(sessions[o.id]?.status)
-    return sign === null ? [] : [{ id: o.id, sign, said: o.id === openId ? rowSaid(sign)! : `${o.name} ${SIGN_SAID[sign]}` }]
-  })
-  const waiting = signed.find((one) => one.id === openId && one.sign === 'needs_input') ?? signed.find((one) => one.sign === 'needs_input')
-  return {
-    sign: signed.length === 0 ? null : waiting ? 'needs_input' : 'working',
-    said: signed.length === 0 ? undefined : signed.map((one) => one.said).join('; '),
-    word: waiting === undefined ? undefined : waiting.id === openId ? SIGN_SAID.needs_input : waiting.said
-  }
-}
-
 /** The dock's toggle: its name, which is the same with or without a sign. */
 export function dockToggleName(open: boolean): string {
   return open ? 'Hide session' : 'Show session'

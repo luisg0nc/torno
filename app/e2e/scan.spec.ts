@@ -91,7 +91,7 @@ test.beforeAll(async () => {
   writeFileSync(scanFile, PLATE)
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await open('bracket')
 })
 
@@ -193,7 +193,7 @@ test('opacity and the eye are kept in scene.json as the person set them, and are
   await app.close()
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await open('bracket')
   await expect.poll(async () => (await scans())[0]).toMatchObject({ id: 'S1', loaded: true, visible: false, opacity: 0.6 })
   await row('S1').getByRole('button', { name: 'Show S1' }).click()
@@ -219,7 +219,7 @@ test('the section cuts a scan open, and what the view tells main names it', asyn
 test('a unit that was assumed wrongly is changed on the row, without the source', async () => {
   rmSync(scanFile)
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await open('bracket')
   await expect((await detail('S1')).locator('.scan-said[data-part="source"]')).toHaveText(`Source missing: ${scanFile} is no longer there. The scan goes on working from what torno made of it.`)
   // Changed for issue #21: a guess put off is still asked about in the detail, with what changes it.
@@ -324,7 +324,7 @@ test('a scan with colours of its own is drawn in them, or plain, as its row says
 test('a scan whose mesh is gone says so, is not drawn, and has its source read again into the scan it is', async () => {
   rmSync(join(root, 'bracket', '.torno', 'scans', 'S2', 'mesh.bin'))
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await open('bracket')
   await expect(row('S2').locator('.chip[data-state="mesh-missing"]')).toHaveText('missing')
   expect((await scans())[0]).toMatchObject({ id: 'S2', loaded: false })
@@ -552,7 +552,7 @@ test.describe('a large scan', () => {
     root = copyFixtures()
     app = await launch({ TORNO_WORKSPACE: root })
     page = await app.firstWindow()
-    await page.waitForSelector('[data-region="left"]')
+    await page.waitForSelector('[data-region="viewport"]')
     await open('bracket')
   })
 

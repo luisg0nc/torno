@@ -59,7 +59,7 @@ export interface TornoState {
   dockOpen: boolean
   /** Which sections of the route card are folded and how wide it is (`state/column.ts`). The window's, kept in its own storage. */
   column: ColumnPrefs
-  /** The section of the route card in sight (found by the card's observer on the heads), which the rail's index shows. Null while there is no card. */
+  /** The section of the route card in sight (found by the card's observer on the heads), which the card's own reading shows. Null while there is no card. */
   sectionHere: SectionId | null
   /** The last good scene of the open object, and the revision it is. */
   scene: Scene | null
@@ -754,7 +754,7 @@ export const actions = {
     setColumn({ ...column, folded: SECTION_ORDER.filter((one) => folded.includes(one)) })
   },
 
-  /** Brings a section into sight: unfolded if it was folded, and the card scrolled to its head once it is drawn. The rail's index presses this. */
+  /** Brings a section into sight: unfolded if it was folded, and the card scrolled to its head once it is drawn. */
   showSection(id: SectionId): void {
     const { column } = store.getState()
     if (column.folded.includes(id)) setColumn({ ...column, folded: column.folded.filter((one) => one !== id) })

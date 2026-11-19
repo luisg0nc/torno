@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { cardSection, foldSection, openSection, railButton, newSession } from './helpers'
+import { cardSection, foldSection, openSection, newSession, openProfile, profileChip } from './helpers'
 import { openListed } from './objects'
 
 // The model's Params in the left column, read only: a row for each field with its default in the monospace face and
@@ -39,7 +39,7 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -62,7 +62,6 @@ test('a model with no Params says so in the head of its section, which does not 
   await open('plain')
   await openSection(page, 'Parts')
   await expect(page.locator('.left .layers')).toBeVisible()
-  await railButton(page, 'Parameters').click()
   await expect(cardSection(page, 'Parameters')).toContainText('none')
   await expect(cardSection(page, 'Parameters')).toHaveAttribute('data-empty', '')
   await expect(section()).toHaveCount(0)
@@ -74,7 +73,7 @@ test('the Parameters section says its count in its head, and has a row for each 
   await openSection(page, 'Parameters')
   await expect(section()).toBeVisible()
   const order = await page.locator('.left .route-section').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
-  expect(order).toEqual(['parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile'])
+  expect(order).toEqual(['parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
   await expect(cardSection(page, 'Parameters').locator('.route-said')).toHaveText(/^5\b/)
   await expect.poll(() => section().locator('[data-param]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-param')))).toEqual(['side', 'wall', 'gap', 'inner', 'ribs'])
 })
@@ -115,9 +114,17 @@ test('a field with a range in its metadata has a gauge at the right of its row, 
   await expect(section().locator('svg.gauge')).toHaveCount(1)
 })
 
-test('the head of the Print profile says what the project is made for, also while folded', async () => {
-  await foldSection(page, 'Print profile')
-  await expect(cardSection(page, 'Print profile').locator('.route-said')).toHaveText('none')
+test('the print profile chip of the status line says what the project is made for, and opens its choosers', async () => {
+  await expect(page.locator('.left [data-section="profile"]')).toHaveCount(0)
+  await expect(profileChip(page)).toHaveText('Print profile')
+  const card = await openProfile(page)
+  await expect(card.getByRole('combobox', { name: 'Printer' })).toBeVisible()
+  await card.getByRole('combobox', { name: 'Material' }).selectOption('PLA')
+  await expect(profileChip(page)).toHaveText('PLA')
+  await card.getByRole('combobox', { name: 'Material' }).selectOption({ label: 'None' })
+  await expect(profileChip(page)).toHaveText('Print profile')
+  await page.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
 })
 
 test('with no session running the rows are text, and say why', async () => {

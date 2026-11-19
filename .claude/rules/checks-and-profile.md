@@ -14,6 +14,7 @@ paths:
   - "app/src/renderer/ui/card/checksOrder.test.ts"
   - "app/src/renderer/ui/checkRows.ts"
   - "app/src/renderer/ui/PrintProfile.tsx"
+  - "app/src/renderer/ui/ProfileChip.tsx"
   - "app/e2e/checks.spec.ts"
 ---
 
@@ -86,9 +87,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Print profile (`app/src/renderer`)
 
-- `ui/PrintProfile.tsx`, the body of the Print profile section of the route card (its head says
-  `Bambu X1C, PETG`, the printer's and the material's names, or `none`: `profileSaid`, read through `state/profile.ts`,
-  which the body shares, so the head says it while the section is folded) with two lists, Printer and Material, and "Add a printer…" (name, bed X Y Z, nozzle),
+- `ui/ProfileChip.tsx`, a chip in the status line (`.status-profile`, drawn by `BuildStatus` while a project is open and no page is up)
+  that says `Bambu X1C, PETG`, the printer's and the material's names, or "Print profile" while there are none (`profileSaid`, read through
+  `state/profile.ts`, which the body shares); pressed, it opens a `Popover` above it holding `ui/PrintProfile.tsx` (Esc, or a press outside
+  it, puts it away). There is no Print profile section in the route card. `PrintProfile` has two lists, Printer and Material, and "Add a printer…" (name, bed X Y Z, nozzle),
   through `window.torno.profile` (`profile:*` channels). A choice is copied into the object's `.torno/profile.json` by
   main; the printers are the person's, in torno's settings. The numbers shown are the person's, set in the monospace
   face, with the line that they are not measured. Materials of the person's own are added in `profiles.json` (no form).

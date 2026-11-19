@@ -43,7 +43,7 @@ test.beforeAll(async () => {
   root = copyFixtures()
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -1164,7 +1164,7 @@ test('the pointer hint shows the first time an object is drawn, goes at the firs
   const first = await launch({ TORNO_WORKSPACE: fresh })
   try {
     const win = await first.firstWindow()
-    await win.waitForSelector('[data-region="left"]')
+    await win.waitForSelector('[data-region="viewport"]')
     await openListed(win, 'bracket')
     await expect.poll(async () => (await state(win)).build?.status, { timeout: 30_000 }).toBe('ok')
     // On first open: how the pointer moves the view, and the key of the sheet of keys; no tool in hand.
@@ -1214,7 +1214,7 @@ test('the wheel is a move of the camera too, and a storage that refuses leaves t
   const second = await launch({ TORNO_WORKSPACE: fresh })
   try {
     const win = await second.firstWindow()
-    await win.waitForSelector('[data-region="left"]')
+    await win.waitForSelector('[data-region="viewport"]')
     // The window’s storage refuses: the hint is shown, and nothing breaks when it cannot be remembered.
     await win.evaluate(() => {
       Storage.prototype.setItem = () => {
