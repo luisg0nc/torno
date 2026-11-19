@@ -112,8 +112,10 @@ async function explodeTo(percent: number): Promise<void> {
 
 async function open(id: string): Promise<void> {
   await openListed(page, id)
-  await openSection(page, 'Parts')
+  // Parts are opened once there are some: a section with none (the build is not in yet) does not unfold, and on a slow
+  // runner the click came before the build.
   await expect.poll(async () => ((await state()).objectId === id ? (await state()).build?.status : null), { timeout: 30_000 }).toBe('ok')
+  await openSection(page, 'Parts')
   await expect.poll(async () => (await state()).scene !== null).toBe(true)
 }
 
