@@ -40,6 +40,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   The ground is clear (alpha 0) and the part palette is the same in both themes, so one file serves
   both. Parts are built with `buildPart(part, blob, { tree: false })` and disposed of after the frame; the PNG
   is `pngOf` (`viewport/picture.ts`) with the alpha kept.
+  **The picture never makes the window wait**: the pixels are read back with `readRenderTargetPixelsAsync` (`pixelsOfAsync`, which `pngOf` uses), not
+  `readPixels`, which stops the window until the GPU has drawn everything before it; and the first part's materials of each picture are kept
+  alive for the next (`WarmMaterials`), because three.js drops a program when its last material is disposed, and without one every picture compiled its
+  programs again (free on a GPU, many seconds of the window's time in software GL, where `compare.spec.ts` stopped answering for the 30 s of its budget).
 
 ## The page of objects (`app/src/main`)
 
