@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import { openListed } from './objects'
-import { newSession } from './helpers'
+import { newSession, openStrip } from './helpers'
 
 // The history of a project is Prompts only: one row for each prompt, across the project's conversations, opened by the
 // status line's History button or by the chat's own toggle. Clicking a row compares it, a double click opens it in the chat;
@@ -126,8 +126,15 @@ test('More in the dock opens Prompts only: a row for each prompt, newest first, 
 test('the builds strip holds the project\'s builds, a bracket stands under the prompts in sight, the status line has the ticks, and under 640 px of dock it folds', async () => {
   const strip = dock().locator('.strip')
   await expect(strip).toBeVisible()
-  expect((await strip.boundingBox())!.height).toBeCloseTo(136, 0)
+  // It starts shut: one line, the build on show and how many are kept, and no node.
   await expect(strip.locator('.strip-head')).toContainText('Builds of')
+  await expect(strip.locator('.strip-toggle')).toHaveAttribute('aria-expanded', 'false')
+  await expect(strip.locator('.strip-toggle')).toContainText('on show')
+  await expect(strip.locator('.strip-node')).toHaveCount(0)
+  expect((await strip.boundingBox())!.height).toBeLessThan(60)
+  // One click opens it.
+  await openStrip(page)
+  expect((await strip.boundingBox())!.height).toBeCloseTo(136, 0)
   // A node for each build kept that drew, oldest first; the newest is on show.
   const built = strip.locator('.strip-node[data-kind="built"]')
   await expect.poll(() => built.count(), { timeout: 15_000 }).toBe(kept().filter((e) => !e.failed).length)
@@ -251,6 +258,7 @@ test('"Go back to here" on a node asks from that node, strikes what it would und
   const before = all.slice(0, first).findLast((e) => !e.failed)!
   const made = all.filter((e) => e.turn?.prompt === promptId && !e.failed)
   expect(made.length).toBeGreaterThan(0)
+  await openStrip(page)
   const strip = dock().locator('.strip')
   const node = (id: string) => strip.locator(`.strip-node[data-build="${id}"]`)
   const group = chat().locator(`.chat-group[data-id="${promptId}"]`)
@@ -299,6 +307,7 @@ test('where the agent is a terminal the same list is a pane over the session, fr
   await builtRevision(1)
   await expect(prompts()).toHaveCount(0)
   // The builds strip is on top of the dock in the terminal's view too, with the three builds the history keeps (and the one this opening made).
+  await openStrip(page)
   await expect.poll(() => dock().locator('.strip .strip-node[data-kind="built"]').count()).toBeGreaterThanOrEqual(3)
   await openPrompts()
   const pane = dock().locator('.session-prompts')

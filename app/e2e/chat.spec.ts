@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import type { Mark } from '../src/shared/marks'
 import { openListed } from './objects'
-import { closeModelMenu, fromMore, inModelMenu, newSession } from './helpers'
+import { closeModelMenu, fromMore, inModelMenu, newSession, openStrip } from './helpers'
 
 // The chat pane of Claude Code, through the window: what is said and shown, what torno added to a prompt, every torno
 // tool the agent used (through the real MCP server), refs that point into the viewport, stopping, the switch to the
@@ -488,6 +488,7 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   for (const name of [GO_BACK, 'Star', 'Pin to board']) await expect(end.getByRole('menuitem', { name, exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(end.getByRole('menu')).toHaveCount(0)
+  await openStrip(page)
   const nodes = dock().locator('.strip-node[data-kind="built"]')
   await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
   const ids = (await nodes.evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))).slice(-2)

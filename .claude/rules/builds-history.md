@@ -152,6 +152,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## The builds strip (`app/src/renderer/ui/strip`)
 
+- **The strip is shut until it is wanted** (#211): its head line is a button (`.strip-toggle`, `aria-expanded`, a chevron, "Builds of x", `<n> kept`, and `h41 on show` while shut) and the nodes (or, in a short dock, the ticks) show only while it is open. It opens by a click on the line, by itself when a build fails (`failedId` appears, and `errorOpen`), and is held open while comparing (`store.compare`) and while Go back asks (`useStruckNodes`); the person's own open/shut is the component's state (not kept across a reload). `e2e/helpers.ts` `openStrip` opens it in a spec.
 - `BuildsStrip` is on top of the dock under the header, in every mode (`SessionPane`: chat, terminal, no session; not while a new project is drafted), over
   `useStripNodes` (`useHistory`, `usePrompts` for the numbers of prompts, the build state, the open round of `state/review`). The rules are `strip.ts`, pure
   and held by `strip.test.ts`: `stripNodes(history, live, numbering)` (oldest to newest: every kept build, a failed one `after` the build before it, a failure the history
