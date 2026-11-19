@@ -45,7 +45,7 @@ export function referenceFiles(draft: Draft): OnboardDraft['items'] {
       // The words `create` puts on the card of a doodle drawn over a photo, so that the prompt and the board agree.
       const over = overIndex(draft, d)
       const said = over !== undefined ? `drawn over ${photoFile(over)}` : d.onPhoto ? 'drawn over a photo' : ''
-      return { file: `reference/doodle-${n + 1}.png`, note: said === '' ? d.note : d.note === '' ? said : `${d.note} (${said})`, image: d.png }
+      return { file: `reference/doodle-${n + 1}.png`, note: said === '' ? d.note : d.note === '' ? said : `${d.note} (${said})`, image: d.png, ...(said !== '' ? { over: true as const } : {}) }
     })
   ]
 }
@@ -82,7 +82,7 @@ const pdfsOf = (draft: Draft): CreateRequest['pdfs'] => draft.pdfs.map((p) => ({
 export function previewDraft(draft: Draft): PromptPreviewDraft {
   return {
     description: draft.description.trim(),
-    items: referenceFiles(draft).map((i) => ({ file: i.file, note: i.note, picture: (i.image?.byteLength ?? 0) > 0 })),
+    items: referenceFiles(draft).map((i) => ({ file: i.file, note: i.note, picture: (i.image?.byteLength ?? 0) > 0, ...(i.over ? { over: true as const } : {}) })),
     steps: stepReferences(draft),
     scans: draft.scans.map((s) => ({ path: s.path, note: s.note })),
     objects: draft.objects.map((o) => ({ id: o.id, note: o.note })),

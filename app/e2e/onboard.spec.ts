@@ -293,6 +293,12 @@ test.describe('a new object', () => {
     await board().getByLabel('Draw over').selectOption({ label: 'Photo 2, bench.webp' })
     await expect(board().locator('canvas')).not.toHaveAttribute('data-grid')
     await expect(board().locator('canvas')).toHaveAttribute('data-ground', '')
+    // Only the background was changed, no stroke: leaving still asks (#197).
+    await page.keyboard.press('Escape')
+    const ask = page.getByRole('alertdialog', { name: 'Discard this doodle?' })
+    await expect(ask).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(ask).toHaveCount(0)
     await stroke([0.2, 0.3], [0.8, 0.3])
     await board().getByRole('button', { name: 'Done' }).click()
     await expect(board()).toHaveCount(0)

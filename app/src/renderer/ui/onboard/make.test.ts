@@ -97,6 +97,8 @@ describe('making the object', () => {
       { png: new Uint8Array([7]), note: '', onPhoto: true }
     ])
     const sent = (made.onboard as ReturnType<typeof vi.fn>).mock.calls[0][1] as OnboardDraft
+    // The flag the prompt reads: set for the doodles over a photo or one taken out after, never for the plain one.
+    expect(sent.items.slice(2).map((i) => i.over === true)).toEqual([true, true, false, true, true])
     expect(sent.items.slice(2).map((i) => [i.file, i.note])).toEqual([
       ['reference/doodle-1.png', 'the shape (drawn over reference/photo-2.webp)'],
       ['reference/doodle-2.png', 'drawn over reference/photo-1.jpg'],

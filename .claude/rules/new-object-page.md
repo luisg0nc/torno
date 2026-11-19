@@ -50,7 +50,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **The board** (`Doodle.tsx`, a wrapper over `ui/ink/InkPad.tsx`, which the chat's "Draw on view" uses too) is a sheet over the whole window below the title bar (#101): a canvas of 1200 x 800 board pixels, scaled to fit the room, with a grid (`grid`: a CSS background every 40 board pixels in `--hairline`, a doodle's only; the PNG has it too, at 15 % grey, and the first prompt says 1 square = 40 px) and Shift while drawing for a straight line (`board.straight`, `straighten` in `strokes.ts`: the stroke is its first point and the pointer), pointer
   events and canvas only (no React state per move). A thin and a thick pen and an eraser; Undo takes the last
   stroke, Clear all of them; Done gives back the strokes and the PNG, Cancel and Esc leave, asking "Discard this
-  doodle?" when the strokes are other than it was opened with. Its keys (Esc is `sheet.close`, Ctrl+Z `board.undo`)
+  doodle?" when the strokes are other than it was opened with, or the photo it is drawn over is (`InkPad`'s `changed`). Its keys (Esc is `sheet.close`, Ctrl+Z `board.undo`)
   are heard in the capture phase before anything else, so that no tool under the board gets them. The PNG is made
   by `strokes.ts` with a white ground and dark ink whatever the theme: what is drawn on screen follows the theme,
   what Claude receives does not (`PNG_GROUND`). A doodle can be drawn over one of the draft's photos

@@ -667,7 +667,7 @@ off. Both can be changed in the chat afterwards.
 
 The doodle board (the same board as the chat's "Draw on view") has a thin pen, a thick pen and an eraser, "Undo" and `Ctrl+Z`, "Clear", and "Done" and "Cancel". The doodle board fills the window and has a light grid
 under the ink; hold `Shift` while drawing for a straight line from where the stroke began. (A drawing on the view has no grid: its ground is the picture.)
-`Esc` puts the board away; if strokes were drawn since it was opened it asks "Discard this doodle?" first. A
+`Esc` puts the board away; if strokes were drawn since it was opened it asks "Discard this doodle?" first, also when only the photo under the ink was changed. A
 doodle can be opened again from its card and changed. "Draw over" (when photos are given) puts one of them under the ink,
 fitted whole on a white ground, with no grid; on screen the ink is dark with a light edge over a photo (and over a doodle you draw on again), so it shows on a white one and a dark one in both themes; Claude gets the photo with your ink on it, and the note says "drawn over reference/photo-N.ext", and the prompt says it is your ink over that photo and not a drawing on the grid. If you remove that photo
 the doodle stays as it was drawn, and still says it is drawn over a photo (with no file named).
