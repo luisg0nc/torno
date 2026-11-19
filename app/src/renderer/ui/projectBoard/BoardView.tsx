@@ -5,7 +5,7 @@ import { boardActions, boardStore, memoryEpoch, onBoardForgotten, useBoard, type
 import { pictureStore } from '../../state/boardPictures'
 import { actions, store } from '../../state/store'
 import { InkPad } from '../ink/InkPad'
-import { BOARD, doodlePng, doodlePngOver } from '../ink/strokes'
+import { BOARD, OVER_PICTURE, doodlePng, doodlePngOver } from '../ink/strokes'
 import { HEIC_REASON, isHeic, prepareImage } from '../onboard/images'
 import { TYPING } from '../typing'
 import { Arrows } from './Arrows'
@@ -618,7 +618,7 @@ export function BoardView() {
           size={BOARD}
           {...(sketching.ground ? { ground: sketching.ground.url } : {})}
           foot={sketching.card ? 'The card shows the new drawing, and Claude gets it as a picture when you send it.' : 'It becomes a card on the board, and Claude gets it as a picture when you send it.'}
-          look={() => ({ ink: inkNow() })}
+          look={() => (sketching.ground ? OVER_PICTURE : { ink: inkNow() })}
           initial={[]}
           discard={{ label: 'Discard this doodle?', text: 'Discard this doodle? What was drawn since it was opened is not kept.' }}
           onDone={async (strokes) => {

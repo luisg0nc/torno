@@ -5,10 +5,57 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  height: 136px;
+  height: auto;
   padding-top: 6px;
   border-bottom: var(--divider);
   background: var(--surface);
+}
+
+/* Open, the track has its room; shut, only the head line stands. */
+.strip[data-open]:not([data-folded]) {
+  height: 136px;
+}
+
+.strip:not([data-open]) .strip-head {
+  padding-bottom: 6px;
+}
+
+.strip-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+
+.strip-toggle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.strip-chevron {
+  display: inline-flex;
+  align-self: center;
+  transform: rotate(-90deg);
+  transition: transform 0.15s var(--ease);
+}
+
+.strip-chevron[data-open] {
+  transform: none;
+}
+
+.strip-chevron .chevron {
+  width: 10px;
+  height: 10px;
+}
+
+.strip-shown::before {
+  content: '· ';
 }
 
 /* Under 640 px of dock height: the head line and a row of ticks. */

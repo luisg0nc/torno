@@ -23,6 +23,18 @@ export const CARD_SIZE: Record<'brief' | 'reference' | 'mark' | 'scan' | 'tracin
   round: { w: 2 * GAP + 3 * 240 + 2 * GAP, h: FRAME_HEADER + 2 * 120 + GAP + GAP }
 }
 
+/** The width of a view note's card, and what its head and lines take of its height besides the picture, and the room at its sides: the picture is what is left (#214). */
+export const NOTE_CARD_WIDTH = 320
+const NOTE_CHROME = { w: 24, h: 110 }
+const NOTE_CARD_HEIGHT = { least: 160, most: 520 }
+
+/** The size of the card of a view note whose picture is `picture` pixels: wide enough for it to read, in the picture's own shape. */
+export function noteCardSize(picture: { w: number; h: number }): { w: number; h: number } {
+  const shown = (NOTE_CARD_WIDTH - NOTE_CHROME.w) * (picture.h / picture.w)
+  const h = Math.round(shown + NOTE_CHROME.h)
+  return { w: NOTE_CARD_WIDTH, h: Math.min(NOTE_CARD_HEIGHT.most, Math.max(NOTE_CARD_HEIGHT.least, Number.isFinite(h) ? h : CARD_SIZE.mark.h)) }
+}
+
 /** How many mark cards stand across a round's frame. */
 const ROUND_COLUMNS = 3
 /** What one more row of mark cards takes of a round's frame. */
@@ -40,7 +52,7 @@ export interface Found {
   /** The `reference/` paths of its files, as a card names them (`reference/photo-1.jpg`). */
   references: string[]
   /** `round` is the round a mark is an item of (`R1`). */
-  marks: Array<{ id: string; layout: string; round?: string }>
+  marks: Array<{ id: string; layout: string; round?: string; /** The size of a view note's picture. */ picture?: { w: number; h: number } }>
   scans: string[]
   /** The tracings, by id (`T1`). */
   tracings: Array<{ id: string }>
@@ -49,21 +61,21 @@ export interface Found {
 }
 
 /** A card of main's own, with no place yet (`place` gives it one). */
-type Wanted = Pick<Card, 'kind' | 'source'> & { layout?: string; round?: string }
+type Wanted = Pick<Card, 'kind' | 'source'> & { layout?: string; round?: string; picture?: { w: number; h: number } }
 
 function wanted(found: Found): Wanted[] {
   return [
     ...(found.brief ? [{ kind: 'brief' as const, source: 'brief' }] : []),
     ...found.references.map((source) => ({ kind: 'reference' as const, source })),
-    ...found.marks.map((m) => ({ kind: 'mark' as const, source: m.id, layout: m.layout, ...(m.round !== undefined ? { round: m.round } : {}) })),
+    ...found.marks.map((m) => ({ kind: 'mark' as const, source: m.id, layout: m.layout, ...(m.round !== undefined ? { round: m.round } : {}), ...(m.picture !== undefined ? { picture: m.picture } : {}) })),
     ...found.scans.map((source) => ({ kind: 'scan' as const, source })),
     ...found.tracings.map((t) => ({ kind: 'tracing' as const, source: t.id }))
   ]
 }
 
 /** Gives `card` a free spot and the next id, and puts it on `board` (which is a copy). */
-function place(board: BoardFile, card: Omit<Card, 'id' | 'x' | 'y' | 'w' | 'h'> & { kind: Exclude<keyof typeof CARD_SIZE, 'round'> }, spot?: { x: number; y: number }): void {
-  const size = CARD_SIZE[card.kind]
+function place(board: BoardFile, card: Omit<Card, 'id' | 'x' | 'y' | 'w' | 'h'> & { kind: Exclude<keyof typeof CARD_SIZE, 'round'> }, spot?: { x: number; y: number }, made?: { w: number; h: number }): void {
+  const size = made ?? CARD_SIZE[card.kind]
   board.cards.push({ id: `C${board.next++}`, ...(spot ?? freeSpot(board.cards, size) ?? { x: 0, y: 0 }), ...size, ...card })
 }
 
@@ -152,8 +164,9 @@ export function reconcile(board: BoardFile, found: Found): BoardFile | null {
   for (const w of missing) {
     if (next.cards.length >= MAX_CARDS) break
     const frame = w.round === undefined ? undefined : frameOf(next, w.round)
-    const spot = frame && !frame.hidden && w.kind === 'mark' ? roomIn(next, frame, CARD_SIZE.mark) : null
-    place(next, { kind: w.kind as Exclude<keyof typeof CARD_SIZE, 'round'>, by: 'torno', source: w.source, ...(w.layout !== undefined ? { layout: w.layout } : {}), ...(spot && frame ? { frame: frame.id } : {}) }, spot ?? undefined)
+    const size = w.picture ? noteCardSize(w.picture) : CARD_SIZE.mark
+    const spot = frame && !frame.hidden && w.kind === 'mark' ? roomIn(next, frame, size) : null
+    place(next, { kind: w.kind as Exclude<keyof typeof CARD_SIZE, 'round'>, by: 'torno', source: w.source, ...(w.layout !== undefined ? { layout: w.layout } : {}), ...(spot && frame ? { frame: frame.id } : {}) }, spot ?? undefined, w.kind === 'mark' && w.picture ? size : undefined)
   }
   return changed ? next : null
 }

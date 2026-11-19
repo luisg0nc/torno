@@ -357,6 +357,9 @@ const historyInput = {
   id: z.string().optional().describe('A kept build by its id ("h41"): the answer is that build alone, with where its copies of the sources are. Default: the list.'),
   limit: z.number().int().optional().describe('How many builds the list gives, the newest first, 1 to 100. Default 20.')
 }
+const waitBuildInput = {
+  seconds: z.number().optional().describe('The most seconds to wait, 1 to 600. Default 60. When it is up and the build still runs, the answer says so and you call again.')
+}
 const boardInput = {
   frame: z.string().optional().describe('Only this frame and the cards in it: its name ("Latch") or its id ("C3"). Default: the whole board.'),
   pictures: z.boolean().optional().describe('Also send the pictures of the cards that have one, at most 6, each at most 1280 px on its long edge. Default false: they are named in the text.')
@@ -660,6 +663,13 @@ export const TOOLS = {
       "Returns JSON of the builds torno kept of this project under .torno/history/, newest first: for each its id (h41, which counts on across runs of torno), when it was made, its revision if it was made in this run, what changed from the build kept before it in a line that also says what caused it (by Claude under which prompt, the person's own edit, params, a go back to an earlier build, or nothing for a build kept before torno said), whether a go back undid it, and, for a build that failed to build (kept as a line, with no scene or copies: diff refuses it), the line of its error, the checks of the model that failed and the parts with a defect in it (a build that fails them is kept all the same), how the person's dimensions stood when it was checked (as of then, never how they stand now), what sources it was made from, and whether the person starred it. With id, that build alone, with the paths of the copies of its Python files: read them to go back to that build, then edit the project's own files to match, since a copy is not to be edited and torno restores files only when the person chooses Go back in the window, after confirming (you are told when it has). Use it to find the build to compare with diff, or to go back to.",
     inputSchema: historyInput
   },
+  wait_build: {
+    title: 'Wait for the build',
+    annotations: READ_ONLY,
+    description:
+      'Returns the result of the build that is running, or of the one a save of the model\'s files has just started, once it ends: status and revision, how long it took, its error when it failed, and what torno tells you after an edit (what changed in the parts, the checks, what the model printed). Use it after you change the model by any means, a script in a shell included, instead of calling scene until the revision moves or guessing a sleep. seconds is the longest it waits (default 60, at most 600); with the build still running by then limitReached is true and you call again, and with no build running it returns at once.',
+    inputSchema: waitBuildInput
+  },
   board: {
     title: 'Read the board',
     annotations: READ_ONLY,
@@ -763,18 +773,19 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - section: the outlines a plane cuts of the parts, with their areas, and a 2D drawing.
 - check: overlap and clearance between parts, interference of a layout, a closed mesh, and for printing overhangs, thin walls, bed fit.
 - diff: what changed between two successful builds (the last two, or kept ones): parts added or removed, volume, size and face counts.
-- history: the builds kept, by id (h41), with what changed in each.
-- board: the person's board: text, pictures, doodles, frames, arrows, cards for their marks, scans, references and pinned builds; read a frame by name.
-- add_card: leave a card of yours on the board (a plan, a note, a size, a view), in a frame, with an arrow; change or remove only your own.
+- history: the builds kept (h41), and what changed in each.
+- wait_build: wait for the running or next build, up to your limit, and get its result.
+- board: the person's board: text, pictures, doodles, frames, arrows, cards; read a frame by name.
+- add_card: leave a card of yours on the board (a plan, note, size or view), in a frame or with an arrow; change or remove only your own.
 - expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the next build is checked against it.
 - try_fillet: try a fillet or chamfer of edges on the last build, thrown away after: whether it works, the largest radius that does, which edges or pairs fail.
 - try_params: build with other Params values in a throwaway worker and measure or check there, to search a value without editing the model.
-- features: the holes (diameter, depth, through or blind, counterbore, countersink), bosses, fillets, chamfers and patterns (4 holes on a square, a bolt circle) of a part, exact, with their faces.
+- features: the holes (diameter, depth, through or blind, counterbore), bosses, fillets, chamfers and patterns (4 holes on a square, a bolt circle) of a part, exact, with their faces.
 - scans: the person's imported scans, and how each is aligned to the model.
 - scan_clash: what of a scan is inside a part, as clusters with their depth.
 - scan_deviation: how far a part, or some of its faces, lie from a scan (min, mean, max, percentiles).
 - highlight: tint faces or edges in the person's viewport with a note, to ask "this one?" before a costly change.
-- ask: ask the person to choose between options (answers are refs) or to pick a face or edge, and wait.
+- ask: ask the person to choose between options or pick a face or edge, and wait.
 - show: change the person's camera, layout, visible parts, section, explode or scans, show a saved view, or point their camera at a ref, mark or box.
 - save_view: propose a saved view for the person's strip, to keep or discard.
 - add_mark: leave a mark of yours (pin, pick, arrow, shape, or a dimension measured on every build).

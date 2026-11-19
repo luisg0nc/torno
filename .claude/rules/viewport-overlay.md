@@ -120,7 +120,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   compass (pressed while the parts are apart or its tag is up, with the
   amount beside the word; pressed while apart it puts them together), and
   `ExplodeTag`: a **track** (`viewport/explodeTrack.ts`: `planTrack` stands it beside the parts' box along Z, or the
-  axis the view shows longest when Z is end on, keeping its corner while that is about as good; drawn on the overlay by
+  axis the view shows longest when Z is end on, keeping its corner while that is about as good, and only a place with both ends in the view (`trackFits`, `TRACK_CLEAR` from the edges); where none has, a fixed place at the view's bottom right, `TrackPlan.screen` from `fixedTrack`, #212; `trackEnds` is where its ends are drawn either way, and the tag takes `Tag`'s `clear` (`trackBox`) so it stands beside the track and never over it; drawn on the overlay by
   `drawExplodeTrack`, graduated every 10 % and numbered 0, 50, 100, with a 16 px handle; `Viewport.setExplodeTrack`) and
   a `Tag` (`data-tag="explode"`) at its top with the amount (mono 19 px), "apart, for the view only", `From centre X Y Z`,
   `×0.5 ×1 ×2 ×4`, and a last line with `role="status"` that says what `E` does, or why nothing is

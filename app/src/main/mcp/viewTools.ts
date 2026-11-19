@@ -20,7 +20,8 @@ import { unknownKeys } from './keys'
 import { NO_LOOK_SCANS, NO_SCAN_OPACITY, NO_SHOW_SCANS, isScanOpacity, scanColourFor, scanIds } from './scanTools'
 import { type CameraArg, type LookArgs, type SaveViewArgs, type ShowArgs, CAMERA_KEYS, FOV, VIEW_NAMES, explodeHelp } from './schemas'
 import { modelOutput } from '../context'
-import { type ToolDeps, type ToolResult, REFERENCE_NOTE, SPREAD_NOTE, TRACEBACK_LINES, built, clampSize, failure, lastLines, layoutFor, messageOf, notOpen, onScreen, planeArg, tidy } from './tools'
+import { NEWER_FILES } from '../freshness'
+import { type ToolDeps, type ToolResult, REFERENCE_NOTE, SPREAD_NOTE, TRACEBACK_LINES, behind, built, clampSize, failure, lastLines, layoutFor, messageOf, notOpen, onScreen, planeArg, tidy } from './tools'
 
 // The tools of the view: `scene`, which says what the object is and what the user sees of it, `look`, a picture
 // from the window, `show`, which changes what the window shows for now, and `save_view`, which leaves the user a
@@ -74,7 +75,11 @@ export interface NamedSets {
 const SCENE_PARTS = 200
 const SCENE_CHARS = 30_000
 
-export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], args: SceneArgs = {}, named?: NamedSets): ToolResult {
+/** How long recent builds took, newest first, from the history: `scene` tells them so that a wait is not a guess. */
+export interface RecentBuild { id: string; seconds: number; failed?: true }
+export const RECENT_BUILDS = 5
+
+export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], args: SceneArgs = {}, named?: NamedSets, recent?: readonly RecentBuild[]): ToolResult {
   const found = built(deps, objectId)
   if ('content' in found) {
     // The first build failed: nothing was built, and what the model printed is all there is besides the error.
@@ -182,7 +187,12 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
       status: build.status,
       revision: build.revision,
       ...(build.seconds === undefined ? {} : { seconds: round(build.seconds) }),
-      stale: build.stale,
+      // Stale also while the files are newer than the build, though none has begun, and it says why.
+      // How long this one has run (its stage, loading or meshing, is not told: the kernel does not say it).
+      ...(build.status === 'building' && build.startedAt ? { runningSeconds: round((Date.now() - build.startedAt) / 1000) } : {}),
+      ...(recent && recent.length > 0 ? { recentBuilds: recent } : {}),
+      stale: build.stale || behind(deps, objectId) !== '',
+      ...(behind(deps, objectId) === NEWER_FILES ? { staleWhy: NEWER_FILES } : {}),
       ...(build.letGo ? { letGo: build.letGo } : {}),
       ...(error ? { error } : {})
     },
@@ -387,9 +397,8 @@ async function undrawnScans(deps: ToolDeps, objectId: string, asked: string[] | 
 function staleNote(deps: ToolDeps, objectId: string, picture: { revision: number; stale: boolean }): string {
   const latest = deps.scene(objectId)?.revision ?? picture.revision
   if (latest > picture.revision) return `, stale: r${latest} was built while this picture was made; look again to see it`
-  if (!picture.stale) return ''
-  const status = deps.build(objectId)?.status
-  const why = status === 'building' ? 'a build is running' : status === 'failed' ? 'the latest build failed' : 'a newer build was started'
+  const why = behind(deps, objectId) || (picture.stale ? 'a newer build was started' : '')
+  if (!why) return ''
   return `, stale: ${why}, so these are still the parts of r${picture.revision}`
 }
 

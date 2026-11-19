@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { type BoardFile, type BuildCopy, emptyBoard } from '../../shared/board'
-import { CARD_SIZE, pin, reconcile } from './sources'
+import { CARD_SIZE, NOTE_CARD_WIDTH, noteCardSize, pin, reconcile } from './sources'
 
-const none = { brief: false, references: [] as string[], marks: [] as Array<{ id: string; layout: string; round?: string }>, scans: [] as string[], rounds: [] as Array<{ id: string; name: string; items: string[]; from?: string }>, tracings: [] as Array<{ id: string }> }
+const none = { brief: false, references: [] as string[], marks: [] as Array<{ id: string; layout: string; round?: string; picture?: { w: number; h: number } }>, scans: [] as string[], rounds: [] as Array<{ id: string; name: string; items: string[]; from?: string }>, tracings: [] as Array<{ id: string }> }
 const mark = (n: number, layout = 'assembly', round?: string) => ({ id: `M${n}`, layout, ...(round !== undefined ? { round } : {}) })
 const sourcesOf = (board: BoardFile): string[] => board.cards.map((c) => `${c.kind}:${c.source}`)
 const done = (value: BoardFile | null): BoardFile => {
@@ -10,6 +10,26 @@ const done = (value: BoardFile | null): BoardFile => {
   return value
 }
 const copy: BuildCopy = { id: 'h41', line: 'lid thinner', cause: 'agent', sources: 'abc' }
+
+describe('the card of a view note', () => {
+  it('is made at a size where its picture reads, and keeps the picture\'s shape', () => {
+    const board = done(reconcile(emptyBoard(), { ...none, marks: [{ ...mark(1), picture: { w: 1280, h: 800 } }, mark(2)] }))
+    const [note, plain] = board.cards
+    expect(note.w).toBe(NOTE_CARD_WIDTH)
+    expect(note.w).toBeGreaterThan(CARD_SIZE.mark.w)
+    // The picture's own room: the card less its head and its two lines.
+    const room = { w: note.w - 24, h: note.h - 110 }
+    expect(room.w / room.h).toBeCloseTo(1280 / 800, 1)
+    expect(room.h).toBeGreaterThanOrEqual(150)
+    // A mark that is no note keeps the mark card's size.
+    expect({ w: plain.w, h: plain.h }).toEqual(CARD_SIZE.mark)
+  })
+
+  it('is held between a least and a most height for a very wide or very tall picture', () => {
+    expect(noteCardSize({ w: 4000, h: 100 }).h).toBeGreaterThanOrEqual(160)
+    expect(noteCardSize({ w: 100, h: 4000 }).h).toBeLessThanOrEqual(520)
+  })
+})
 
 describe('reconcile', () => {
   it('is null for an empty board with nothing found', () => {

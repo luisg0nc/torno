@@ -46,7 +46,7 @@ export async function reconcileProject(deps: FollowDeps, objectId: string): Prom
     const found: Found = {
       brief,
       references: listBoardReferences(obj.dir).map((name) => `reference/${name}`),
-      marks: marks.map((m) => ({ id: m.id, layout: m.layout, ...(m.round !== undefined ? { round: m.round } : {}) })),
+      marks: marks.map((m) => ({ id: m.id, layout: m.layout, ...(m.round !== undefined ? { round: m.round } : {}), ...(m.kind === 'note' ? { picture: m.size } : {}) })),
       scans,
       tracings: tracings.map((t) => ({ id: t.id })),
       rounds: foundRounds(rounds, marks)

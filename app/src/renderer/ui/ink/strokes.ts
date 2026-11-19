@@ -11,6 +11,11 @@ export const ERASER_WIDTH = 28
 /** The ink of a doodle sent to the agent: dark on white, whichever theme the person draws it in. */
 export const PNG_INK = '#1a1a1a'
 export const PNG_GROUND = '#ffffff'
+/**
+ * The ink on screen over a picture (a photo, an earlier drawing): the picture is white or dark whatever the theme, so the ink
+ * follows the ground, not the theme: the PNG's dark ink with a light halo, which shows on both. Claude's picture has no halo.
+ */
+export const OVER_PICTURE = { ink: PNG_INK, casing: PNG_GROUND } as const
 
 /** A pointer closer than this to the last point of a stroke (board pixels) adds nothing. */
 const MIN_STEP = 1.5

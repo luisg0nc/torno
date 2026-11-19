@@ -122,7 +122,7 @@ afterEach(async () => {
 
 afterAll(() => http.close())
 
-const ALL = ['add_card', 'add_layer', 'add_mark', 'add_set', 'add_sketch', 'add_tracing', 'ask', 'board', 'check', 'describe', 'diff', 'expect', 'features', 'highlight', 'history', 'look', 'marks', 'measure', 'resolve_mark', 'save_view', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'show', 'tracings', 'try_fillet', 'try_params']
+const ALL = ['add_card', 'add_layer', 'add_mark', 'add_set', 'add_sketch', 'add_tracing', 'ask', 'board', 'check', 'describe', 'diff', 'expect', 'features', 'highlight', 'history', 'look', 'marks', 'measure', 'resolve_mark', 'save_view', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'show', 'tracings', 'try_fillet', 'try_params', 'wait_build']
 /** The least each tool can be called with. */
 const MINIMAL: Record<string, Record<string, unknown>> = {
   scene: {},
@@ -211,7 +211,7 @@ describe('the MCP server', () => {
     const client = await connect('bracket')
     const { tools } = await client.listTools()
     const readOnly = tools.filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name).sort()
-    expect(readOnly).toEqual(['board', 'check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'tracings', 'try_fillet', 'try_params'])
+    expect(readOnly).toEqual(['board', 'check', 'describe', 'diff', 'features', 'history', 'look', 'marks', 'measure', 'scan_clash', 'scan_deviation', 'scans', 'scene', 'section', 'tracings', 'try_fillet', 'try_params', 'wait_build'])
     for (const tool of tools) {
       expect(tool.title, tool.name).toBeTruthy()
       expect(tool.annotations?.openWorldHint, tool.name).toBe(false)

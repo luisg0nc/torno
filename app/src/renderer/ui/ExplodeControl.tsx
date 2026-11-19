@@ -5,7 +5,7 @@ import { createStore } from 'zustand/vanilla'
 import { type ExplodeState, NO_EXPLODE, SECTION_FIRST, SHARED_CENTRE, nothingApart } from '../../shared/explode'
 import { number } from '../../shared/format'
 import { actions, explodeNow, partsInLayout, store, useStore, type TornoState } from '../state/store'
-import { amountAlong, planTrack, trackPoint, type TrackPlan } from '../viewport/explodeTrack'
+import { amountAlong, planTrack, samePlan, trackBox, trackEnds, trackPoint, type TrackPlan } from '../viewport/explodeTrack'
 import { onPaneDrawn, paneRect, projectToPane } from '../viewport/overlay'
 import type { Viewport } from '../viewport/Viewport'
 import { Tag } from './view/Tag'
@@ -199,9 +199,10 @@ export function ExplodeTag({ viewport }: { viewport: Viewport }) {
   useEffect(() => {
     if (!visible) return
     const frame = (): void => {
-      const next = planTrack(viewport.bounds(), (p) => projectToPane(p), track.current)
+      const rect = paneRect()
+      const next = planTrack(viewport.bounds(), (p) => projectToPane(p), track.current, rect ? { width: rect.width, height: rect.height } : undefined)
       const was = track.current
-      if (!(next === was || (next && was && next.axis === was.axis && next.from.join() === was.from.join() && next.to.join() === was.to.join()))) {
+      if (!samePlan(next, was)) {
         track.current = next
         setPlan(next)
       }
@@ -245,9 +246,25 @@ export function ExplodeTag({ viewport }: { viewport: Viewport }) {
   const valueAt = (clientX: number, clientY: number): number | null => {
     const at = track.current
     const rect = paneRect()
-    const [a, b] = at ? [projectToPane(at.from), projectToPane(at.to)] : [null, null]
-    if (!a || !b || !rect) return null
+    const ends = at ? trackEnds(at, projectToPane) : null
+    if (!ends || !rect) return null
+    const { a, b } = ends
     return Math.round(amountAlong(a, b, { x: clientX - rect.left, y: clientY - rect.top }) * 100)
+  }
+
+  /** The top of the track, in window pixels: what the tag stands beside, wherever the track is (beside the parts, or fixed). */
+  const topOfTrack = (): { x: number; y: number } | null => {
+    const rect = paneRect()
+    const ends = track.current ? trackEnds(track.current, projectToPane) : null
+    return rect && ends ? { x: rect.left + ends.b.x, y: rect.top + ends.b.y } : null
+  }
+  /** What the track takes, in window pixels: the tag stands beside it, never over it. */
+  const trackClear = (): { x: number; y: number; w: number; h: number } | null => {
+    const rect = paneRect()
+    const ends = track.current ? trackEnds(track.current, projectToPane) : null
+    if (!rect || !ends) return null
+    const box = trackBox(ends)
+    return { ...box, x: box.x + rect.left, y: box.y + rect.top }
   }
 
   if (!visible) return null
@@ -259,7 +276,7 @@ export function ExplodeTag({ viewport }: { viewport: Viewport }) {
 
   return (
     <>
-      <Tag id="explode" subject={plan?.to ?? null} prefer="left">
+      <Tag id="explode" subject={plan?.to ?? null} subjectClient={topOfTrack} clear={trackClear} prefer="left">
         <div className="explode-head">
           <span ref={amount} className="explode-amount tag-reading" data-disabled={disabled ? '' : undefined}>
             {shown}
@@ -343,7 +360,8 @@ export function ExplodeTag({ viewport }: { viewport: Viewport }) {
 /** Puts the handle on the track at `t` (0 to 1): where the overlay draws it, in px of the view; out of sight with no track. */
 function placeHandle(el: HTMLElement | null, plan: TrackPlan | null, t: number): void {
   if (!el) return
-  const at = plan ? projectToPane(trackPoint(plan, Math.min(1, Math.max(0, t)))) : null
+  const ends = plan ? trackEnds(plan, projectToPane) : null
+  const at = plan && ends ? (plan.screen ? { x: ends.a.x + (ends.b.x - ends.a.x) * Math.min(1, Math.max(0, t)), y: ends.a.y + (ends.b.y - ends.a.y) * Math.min(1, Math.max(0, t)) } : projectToPane(trackPoint(plan, Math.min(1, Math.max(0, t))))) : null
   if (!at) {
     el.style.visibility = 'hidden'
     return

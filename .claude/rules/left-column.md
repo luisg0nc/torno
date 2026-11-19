@@ -79,7 +79,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (no highlight of the agent's, no locked tools; a row that goes while it is lit takes the light away), its name is a
   button that selects the part as a ref (`setSelection([name])`) and, double clicked, brings it into view
   (`actions.framePart`, `Viewport.framePart`: where it is drawn, the camera not turned), the target is "Show only"
-  (`soloLayers(layout, [name])`) and the title says `N hidden · Show all` while a part of the layout is off. After the
+  (`soloLayers(layout, [name])`) and the title says `N hidden · Show all` while a part of the layout is off. A part the person switched off is remembered by its name through builds (`applyScene` drops the settings of names the build no longer has); when none of the parts that were shown is left and the ones that are all stand switched off, `applyScene` shows them, so a build never leaves the view empty (#220). The build line (`context.ts`) names no part hidden when the view it was told of (`ViewState.visible`) holds none of the build's parts: that view is of the build before. After the
   name, the count of the open marks on the part in the layout shown, in a 16 px pill (`ui/layerMarks.ts` `marksByPart`; `--fail` when
   one is a check that fails on the build); a click lists only the marks on that part in the Marks section
   (`store.marksOnPart`, the window's alone and dropped with the object; a chip `Only marks on lid` with a cross

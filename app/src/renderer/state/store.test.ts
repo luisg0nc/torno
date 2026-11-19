@@ -67,6 +67,33 @@ describe('applying a scene', () => {
     expect(store.getState().layers).toEqual({ post: { visible: false } })
   })
 
+  it('shows the parts when none of the parts that were shown is left and the rest were hidden', () => {
+    actions.applyScene({ objectId: 'bracket', revision: 1, scene: scene({ assembly: ['part', 'post'] }) })
+    actions.setLayer('post', { visible: false, opacity: 0.5 })
+    actions.applyScene({ objectId: 'bracket', revision: 2, scene: scene({ assembly: ['post', 'cap'] }) })
+    // `cap` is new and shown, so `post` stays as the person left it.
+    expect(visibleKeys(store.getState())).toEqual(['assembly:cap'])
+    actions.applyScene({ objectId: 'bracket', revision: 3, scene: scene({ assembly: ['post'] }) })
+    // Nothing of what was shown is left and only `post` is: the view is not left empty.
+    expect(visibleKeys(store.getState())).toEqual(['assembly:post'])
+    expect(layerOf(store.getState().layers, 'post')).toEqual({ opacity: 0.5 })
+  })
+
+  it('keeps what the person hid when some part that was shown is still there', () => {
+    actions.applyScene({ objectId: 'bracket', revision: 1, scene: BRACKET })
+    actions.setLayer('post', { visible: false })
+    actions.applyScene({ objectId: 'bracket', revision: 2, scene: scene({ assembly: ['base', 'post', 'cap'] }) })
+    expect(visibleKeys(store.getState()).sort()).toEqual(['assembly:base', 'assembly:cap'])
+  })
+
+  it('does not show parts when the person had hidden all of them', () => {
+    actions.applyScene({ objectId: 'bracket', revision: 1, scene: BRACKET })
+    actions.setLayer('base', { visible: false })
+    actions.setLayer('post', { visible: false })
+    actions.applyScene({ objectId: 'bracket', revision: 2, scene: scene({ assembly: ['post', 'cap'] }) })
+    expect(layerOf(store.getState().layers, 'post')?.visible).toBe(false)
+  })
+
   it('keeps the layout shown when the new scene still has it, else falls back to the first', () => {
     actions.applyScene({ objectId: 'bracket', revision: 1, scene: BRACKET })
     actions.setLayout('print')

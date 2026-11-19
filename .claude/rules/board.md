@@ -115,7 +115,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   with the head and the notes, and past that it ends with the sentence that says to read the rest with `board`.
   The ids sent are card ids only (never an arrow's); the line under the prompt says what went ("board: Latch, 3 cards, 1
   arrow").
-- A mark's card for a view note shows the picture with the ink (`notes.picture(…, 'ink')` through `useNotePicture`, not the board's `pictures/`: it is of this computer, "picture not on this computer" otherwise) and its comment and status (`faces.ts` `markFace`); the card appears by itself as any mark's does (`follow.ts`), and is never news to the agent, as no mark card is.
+- A mark's card for a view note shows the picture with the ink (`notes.picture(…, 'ink')` through `useNotePicture`, not the board's `pictures/`: it is of this computer, "picture not on this computer" otherwise) and its comment and status (`faces.ts` `markFace`); the card appears by itself as any mark's does (`follow.ts`), and is never news to the agent, as no mark card is. A view note's card is made at `noteCardSize(note.size)` (`sources.ts`, `Found.marks[].picture`, from `follow.ts`): `NOTE_CARD_WIDTH` wide and as tall as its picture's shape and the head and two lines need, so the drawing reads (#214); one made before that keeps its size.
 - `C<n>` is a ref like `M<n>` (`refsIn`): the chat shows it as a chip (`RefChip`), and a click shows the board with that card
   selected. One the board does not have, or has hidden, is only text.
 

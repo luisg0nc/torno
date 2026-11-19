@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { join } from 'node:path'
-import { isInsideFolder } from './inside'
+import { dirname, join, resolve } from 'node:path'
+import { isInsideFolder, realPathOrNearest } from './inside'
 import * as pty from 'node-pty'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import { type AgentChoice, agentChoiceOf, type ChatAnswer, type ChatCommand, type ChatHistory, type ChatItem, type ChatMeta, type ChatModel, type Effort, isEffort, type Mode } from '../../shared/chat'
@@ -351,7 +351,9 @@ export class Sessions {
       /** Resolves once the marks of an object are checked against build `revision`, and its dimensions measured, or at `until` (ms epoch): the answer to an edit waits for it (`Verdicts.settled`). */
       settled?: (objectId: string, revision: number, until: number) => Promise<void>
       /** When the newest `.py` of an object, and of the `common/` beside it, was saved (null: none): a `Bash` after which it is newer has rewritten the model. Absent: a `Bash` is taken for no change. */
-      sourcesSaved?: (objectDir: string) => Promise<number | null>
+      sourcesSaved?: (objectDir: string, objectId: string) => Promise<number | null>
+      /** The files the last good build of an object imported from beside its folder (`Scene.uses`), as paths from the workspace: an edit of one is answered with the build it started. Absent: none is known. */
+      uses?: (objectId: string) => string[]
       /** What the build of this run with this revision was made from: told under the chat's build lines and chips. Absent: nothing is. */
       identity?: (objectId: string, revision: number) => BuildIdentity | undefined
       /** Tests only: how long an edit's answer waits for its build, and for it to begin, and how long a `Stop` waits for a build. */
@@ -636,7 +638,7 @@ export class Sessions {
       const now = Date.now()
       if (!begun && now >= grace) return {}
       if (begun && now >= deadline) {
-        const text = `A build is running (r${(state?.revision ?? 0) + 1}); call ${this.deps.adapter.toolName('scene')} for its result.`
+        const text = `A build is running (r${(state?.revision ?? 0) + 1}); call ${this.deps.adapter.toolName('wait_build')} to wait for its result.`
         session.chat?.transcript.toolContext({ toolUseId: session.turn?.lastToolUse, text, buildState: 'building' })
         return { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } }
       }
@@ -710,7 +712,7 @@ export class Sessions {
       return { decision: 'block', reason: text }
     }
     if (state.status === 'building' && runs()) {
-      return hold('running', `A build begun in this turn is still running (r${state.revision + 1}). Call ${toolName('scene')} for its result, then ${toolName('look')}, before finishing.`)
+      return hold('running', `A build begun in this turn is still running (r${state.revision + 1}). Call ${toolName('wait_build')} for its result, then ${toolName('look')}, before finishing.`)
     }
     const builtInTurn = (this.buildEnds.get(objectId) ?? 0) > turn.since
     if (!builtInTurn) return null
@@ -1298,7 +1300,7 @@ export class Sessions {
       return {}
     }
     if (name === 'Bash') return this.aroundBash(session, turn, event, useId)
-    if (!EDIT_TOOLS.has(name) || !this.ofObject(session, body.tool_input)) return {}
+    if (!EDIT_TOOLS.has(name) || !this.ofSource(session, body.tool_input)) return {}
     if (event === 'PreToolUse') {
       const at = Date.now()
       turn.editing.set(useId, at)
@@ -1321,15 +1323,18 @@ export class Sessions {
     const { sourcesSaved } = this.deps
     if (!sourcesSaved) return {}
     const at = Date.now()
-    const saved = await sourcesSaved(session.object.dir).catch(() => null)
+    const saved = await sourcesSaved(session.object.dir, session.object.id).catch(() => null)
     if (event === 'PreToolUse') {
       turn.bashing.set(useId, { at, saved })
       return {}
     }
     const was = turn.bashing.get(useId)
     turn.bashing.delete(useId)
-    if (was && saved !== null && (was.saved === null || saved > was.saved)) turn.changedAt ??= was.at
-    return {}
+    if (!was || saved === null || (was.saved !== null && saved <= was.saved)) return {}
+    turn.changedAt ??= was.at
+    turn.lastToolUse = useId || undefined
+    // The build the command started, if one did, is told as an edit's is: at once, or that it is still running.
+    return this.afterEdit(session, was.at)
   }
 
   /** A turn begins: the builds ended so far are not its, and the build it begins with, and what its dimensions say of it, is what it is held to. */
@@ -1340,11 +1345,17 @@ export class Sessions {
     return { since: this.finished, startedAt: Date.now(), lookedAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
   }
 
-  /** Whether a tool's input names a `.py` inside the object's folder. */
-  private ofObject(session: Session, input: unknown): boolean {
+  /**
+   * Whether a tool's input names a file the build is made from: a `.py` inside the object's folder or the workspace's
+   * `common/`, or a file the last build imported from beside the project (`uses`).
+   */
+  private ofSource(session: Session, input: unknown): boolean {
     const path = typeof input === 'object' && input !== null ? (input as { file_path?: unknown }).file_path : undefined
     if (typeof path !== 'string' || !path.endsWith('.py')) return false
-    return isInsideFolder(session.object.dir, path)
+    const { dir, id } = session.object
+    if (isInsideFolder(dir, path) || isInsideFolder(join(dirname(dir), 'common'), path)) return true
+    const root = dirname(dir)
+    return (this.deps.uses?.(id) ?? []).some((used) => realPathOrNearest(resolve(root, used)) === realPathOrNearest(resolve(dir, path)))
   }
 
   /** `POST /hooks/<sessionId>/<event>`, with the hook's JSON as the body (the router let it through only with that session's token); `rest` is what comes after `/hooks`. */

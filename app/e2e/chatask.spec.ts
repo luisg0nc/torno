@@ -219,7 +219,7 @@ test('a card takes the focus only when nothing is being written: not from a prom
   await finished()
 })
 
-test('the questions of AskUserQuestion are one card: radio-like buttons, toggles joined by a comma, an Other line, and Submit once all are answered', async () => {
+test('the questions of AskUserQuestion are one card, one question at a time: a step count, a list of rows, the keys 1 to 9, an Other line, and a last step that sends', async () => {
   const input = {
     questions: [
       { question: 'Which wall?', header: 'Wall', multiSelect: false, options: [{ label: '2 mm', description: 'thin' }, { label: '3 mm', description: 'thick' }] },
@@ -228,51 +228,57 @@ test('the questions of AskUserQuestion are one card: radio-like buttons, toggles
   }
   await say(`ask AskUserQuestion ${JSON.stringify(input)}`)
   const card = asks().last()
+  // Only the first question is drawn, with its place among them.
   await expect(card).toContainText('Which wall?')
-  await expect(card).toContainText('Finish?')
+  await expect(card).toContainText('1 of 2')
   await expect(card).toContainText('thick')
-  const submit = card.getByRole('button', { name: 'Submit', exact: true })
-  await expect(submit).toBeDisabled()
+  await expect(card).not.toContainText('Finish?')
+  await expect(card.getByRole('button', { name: 'Submit' })).toHaveCount(0)
+  await expect(card.getByRole('button', { name: 'Back' })).toBeDisabled()
   await expect(status()).toHaveText('Needs you')
 
-  // The keys 1 to 9 choose among the options of the question still unanswered, and toggle those of a multiple one; a letter in a field is typed.
+  // The keys 1 to 9 choose among the options of the question in view; a single choice takes the person to the next.
   await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-keyshortcuts', '1')
   await expect(card.getByRole('button', { name: /^3 mm/ })).toHaveAttribute('aria-keyshortcuts', '2')
   await expect(card.locator('.chat-ask-option .ask-key')).toHaveText(['1', '2'])
   await card.focus()
   await page.keyboard.press('1')
-  await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-pressed', 'true')
-  // The next presses are for the second question, the first unanswered and then the last: its options are toggled.
+  await expect(card).toContainText('2 of 2')
+  await expect(card).toContainText('Finish?')
   await expect(card.locator('.chat-ask-option .ask-key')).toHaveText(['1', '2', '3'])
+  // A multiple one is toggled and stays.
   await page.keyboard.press('1')
   await page.keyboard.press('3')
   await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(card.getByRole('button', { name: /^Brushed/ })).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.press('3')
   await expect(card.getByRole('button', { name: /^Brushed/ })).toHaveAttribute('aria-pressed', 'false')
-  await page.keyboard.press('1')
-  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'false')
   // In the box, a digit is a digit.
   await composer().focus()
   await page.keyboard.type('12')
   await expect(composer()).toHaveValue('12')
-  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'false')
+  await expect(card.getByRole('button', { name: /^Gloss/ })).toHaveAttribute('aria-pressed', 'false')
   await composer().fill('')
-  // One of a single choice: choosing another takes the first back.
-  await card.getByRole('button', { name: /^2 mm/ }).click()
-  await card.getByRole('button', { name: /^3 mm/ }).click()
-  await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-pressed', 'false')
-  await expect(card.getByRole('button', { name: /^3 mm/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(submit).toBeDisabled()
-  // As many as are toggled on, joined.
-  await card.getByRole('button', { name: /^Matte/ }).click()
   await card.getByRole('button', { name: /^Gloss/ }).click()
-  await card.getByRole('button', { name: /^Brushed/ }).click()
-  await card.getByRole('button', { name: /^Brushed/ }).click()
-  await expect(submit).toBeEnabled()
-  await submit.click()
+  // Back and forward keep the answers; choosing another takes the first back.
+  await card.getByRole('button', { name: 'Back' }).click()
+  await expect(card).toContainText('1 of 2')
+  await expect(card.getByRole('button', { name: /^2 mm/ })).toHaveAttribute('aria-pressed', 'true')
+  await card.getByRole('button', { name: /^3 mm/ }).click()
+  await expect(card).toContainText('2 of 2')
+  await expect(card.getByRole('button', { name: /^Matte/ })).toHaveAttribute('aria-pressed', 'true')
+  await card.getByRole('button', { name: 'Next' }).click()
+  // The last step reads the answers back; nothing is sent until it says so.
+  await expect(card).toContainText('Review')
+  await expect(card).toContainText('Matte, Gloss')
+  await expect(card).toContainText('3 mm')
+  await expect(card).toHaveAttribute('data-state', 'open')
+  await card.getByRole('button', { name: 'Change the answer to Which wall?' }).click()
+  await expect(card).toContainText('1 of 2')
+  await card.getByRole('button', { name: 'Next' }).click()
+  await card.getByRole('button', { name: 'Next' }).click()
+  await card.getByRole('button', { name: 'Send answers', exact: true }).click()
   await expect(card).toHaveAttribute('data-state', 'allowed')
-  await expect(card).toContainText('Which wall?')
   await expect(card).toContainText('3 mm')
   await expect(card).toContainText('Matte, Gloss')
   await finished()
