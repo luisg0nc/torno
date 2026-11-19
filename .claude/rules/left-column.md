@@ -14,6 +14,9 @@ paths:
   - "app/src/renderer/state/paramFind.test.ts"
   - "app/src/renderer/state/pointed.ts"
   - "app/src/renderer/ui/LeftEdge.tsx"
+  - "app/src/renderer/ui/PartPicker.tsx"
+  - "app/src/renderer/ui/pickerRows.ts"
+  - "app/src/renderer/ui/pickerRows.test.ts"
   - "app/src/renderer/state/column.ts"
   - "app/src/renderer/state/column.test.ts"
   - "app/src/renderer/styles/panels.css"
@@ -131,3 +134,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **The projects of the folder** are the page of projects (`ShowPage`), and the project crumb's menu of the title bar (All projects at its head, a project that cannot be built muted, its reason the title). The example's note
   ("A temporary copy…", with Keep this as a folder…) and a folder that would not open (`role="alert"`, which brings the page up to be read) are said at the top of the page of projects (`ShowPage`'s `notes`, the spec being silent on where). There
   is no switcher: the title bar's pills say that a session of another project works or waits.
+
+## The picker (`Ctrl+P`)
+
+- `ui/PartPicker.tsx` is one sheet over the view (`picker.open`, scope `window`: not in a field or the terminal), with the parts of the
+  layout (a group's first, as the Parts tab has them) and the model's Params in one list, found by `pickerRows` (pure, `ui/pickerRows.ts`:
+  every word typed in a part's name or its group's, in a Param's name or its comment, at most `PICKER_LIMIT` rows drawn and the
+  count of those found). It is no second list of parts: the rows are the scene's and the layers' own. Enter on a part selects it, switches it on
+  and frames it (`framePart`); on a Param it opens the Parameters tab with the find cleared, scrolls to the row and focuses its control
+  (the focus lights what it drives, `drives`). Alt+Enter is `soloLayers`, Alt+H the part's eye. The pointer on a part row is `peek`, as in
+  Layers. It writes nothing but what those actions do.

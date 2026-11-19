@@ -921,3 +921,126 @@
   font-family: var(--font-mono);
   font-size: var(--text-small);
 }
+
+/* ---- The picker (ui/PartPicker.tsx): Ctrl+P, a sheet over the middle of the view. A press beside it puts it away. ---- */
+
+.picker-layer {
+  position: fixed;
+  inset: var(--title-h) 0 var(--status-h) 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 58px;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  width: min(440px, calc(100% - 2 * var(--space-4)));
+  max-height: calc(100% - 130px);
+  border: var(--divider);
+  border-radius: var(--radius-sheet);
+  background: var(--raise);
+  box-shadow: var(--float-shadow);
+}
+
+.picker-find {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-3) var(--space-2);
+}
+
+.picker-find input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+.picker-find input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.picker-rows {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--space-2) var(--space-2);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.picker-head {
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.picker-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-height: 30px;
+  padding: 5px var(--space-2);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.picker-row[aria-selected='true'] {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.picker-row[data-hidden] .picker-name {
+  color: var(--muted);
+}
+
+.picker-note,
+.picker-doc,
+.picker-none {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.picker-value {
+  margin-left: auto;
+}
+
+.picker-doc {
+  flex: 0 1 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-value + .picker-doc {
+  margin-left: var(--space-2);
+}
+
+.picker-none {
+  padding: var(--space-3) var(--space-2);
+}
+
+.picker-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 34px;
+  padding: 0 var(--space-4);
+  border-top: var(--divider);
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.picker-count {
+  margin-left: auto;
+}
