@@ -723,7 +723,7 @@ under "Last conversation, 2 days ago", with "Continue" (the default) and "New co
 buttons "New session" and "Resume" start one with no prompt and leave what you wrote in its box, unsent. If
 the folder has Claude Code settings of its own, the question is asked first and your prompt waits in the box. The empty
 pane has no "Attach view" or "Draw on view": those are of a session. ``Ctrl+` `` moves between the session and
-the viewport; `F6` and `Shift+F6` go round the parts of the window, and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
+the viewport; `F6` and `Shift+F6` go round the parts of the window, `Ctrl+Shift+L` shows or hides the left column (the bench; while it is hidden the status line keeps the dimensions that fail and says how many values are tried, and a click on that brings the column back), and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
 `Ctrl+Shift+V` copy and paste.
 
 A session writes only in its own project's folder and in the workspace's `common/`. If it tries `Write`, `Edit` or
@@ -2396,6 +2396,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Everywhere | `F6` | To the next part of the window: projects, view, session, status line |
 | Everywhere | `Shift+F6` | To the part before |
 | Everywhere | `Ctrl+Shift+D` | Show or hide the session pane |
+| Everywhere | `Ctrl+Shift+L` | Show or hide the left column: the Parameters and Parts bench |
 | Everywhere | `Ctrl+Shift+E` | Export to one HTML file, or to STEP, STL or 3MF: the open project, or from the page of projects any of them |
 | Everywhere | `Ctrl+Shift+B` | Rebuild: build the open project again, as the button in the status line does |
 | Everywhere | `Ctrl+Tab` | The model, the brief and a tracing, in turn |

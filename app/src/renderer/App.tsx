@@ -321,12 +321,29 @@ function useDockKey(): void {
   }, [])
 }
 
+/** The key that shows or hides the left column, as the dock's does: heard everywhere. */
+function useColumnKey(): void {
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent): void => {
+      if (!pressed(e, 'column.toggle')) return
+      e.preventDefault()
+      e.stopPropagation()
+      const s = store.getState()
+      if (e.repeat || sectionsFor({ page: s.page, objectId: s.objectId }).length === 0) return
+      actions.setLeftOpen(!s.leftOpen)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+}
+
 export function App() {
   useMain()
   useReadyFeed()
   useRebuildKey()
   useRegionKeys()
   useDockKey()
+  useColumnKey()
   usePageKey()
   useKeysKey()
   usePickerKey()
@@ -338,7 +355,9 @@ export function App() {
   const shell = useRef<HTMLDivElement>(null)
   // The route card stands at the left while a project is open, and is away on the pages (`sectionsFor`).
   const objectId = useStore((s) => s.objectId)
-  const cardOpen = sectionsFor({ page, objectId }).length > 0
+  const leftOpen = useStore((s) => s.leftOpen)
+  const cardHere = sectionsFor({ page, objectId }).length > 0
+  const cardOpen = cardHere && leftOpen
   // The width the person gave the dock, kept by the window; none until they do, and then the CSS default (`--dock-w`) stands.
   const [kept, setKept] = useState<number | null>(() => readDock(windowStorage()))
   const dockWidth = kept ?? dockDefault(window.innerWidth)
@@ -514,7 +533,7 @@ export function App() {
       style={kept === null ? undefined : ({ '--dock-w': `${kept}px` } as CSSProperties)}
     >
       <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
-      <aside className="left" data-region="left" aria-label="Panels">
+      <aside className="left" data-region="left" aria-label="Panels" hidden={cardHere && !leftOpen}>
         {cardOpen && <RouteCard head={<Head />} shell={shell} />}
       </aside>
 

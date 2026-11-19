@@ -144,3 +144,5 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   and frames it (`framePart`); on a Param it opens the Parameters tab with the find cleared, scrolls to the row and focuses its control
   (the focus lights what it drives, `drives`). Alt+Enter is `soloLayers`, Alt+H the part's eye. The pointer on a part row is `peek`, as in
   Layers. It writes nothing but what those actions do.
+- **Hiding the column** is `column.toggle` (`Ctrl+Shift+L`; see `keys`): `store.leftOpen`, the grid's `data-left='away'`, the `aside.left` `hidden`. The status line keeps the failing dimensions and a `N values tried` button (`BuildStatus`).
+

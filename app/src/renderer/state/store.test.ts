@@ -1466,6 +1466,18 @@ describe('the sheet of the failed build', () => {
   })
 })
 
+describe('the left column', () => {
+  it('is shown to begin with, and shown or hidden as it is asked; another object leaves it as it is', () => {
+    expect(store.getState().leftOpen).toBe(true)
+    actions.setLeftOpen(false)
+    expect(store.getState().leftOpen).toBe(false)
+    actions.openObject('gear', { layers: {} })
+    expect(store.getState().leftOpen).toBe(false)
+    actions.setLeftOpen(true)
+    expect(store.getState().leftOpen).toBe(true)
+  })
+})
+
 describe('the session dock', () => {
   it('is shown to begin with, and shown or hidden as it is asked; another object or workspace leaves it as it is', () => {
     expect(store.getState().dockOpen).toBe(true)

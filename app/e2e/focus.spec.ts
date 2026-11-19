@@ -187,6 +187,13 @@ test('a choice made with the keys keeps them: the next arrow is the list\'s', as
   await unit.selectOption('cm')
   await expect(unit).toBeFocused()
   await unit.selectOption('mm')
+  const column = (await state()).leftOpen
+  await page.keyboard.press('Control+Shift+L')
+  expect((await state()).leftOpen).toBe(!column)
+  await expect(page.locator('.left')).toBeHidden()
+  await page.keyboard.press('Control+Shift+L')
+  expect((await state()).leftOpen).toBe(column)
+  await expect(page.locator('.left')).toBeVisible()
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
 })
 

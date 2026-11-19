@@ -57,6 +57,8 @@ export interface TornoState {
   promptsOpen: boolean
   /** Whether the session dock is shown. The window's, not an object's: another object or workspace leaves it as it is. */
   dockOpen: boolean
+  /** The left column is shown (the window's, as `dockOpen` is; not kept). */
+  leftOpen: boolean
   /** Which sections of the route card are folded and how wide it is (`state/column.ts`). The window's, kept in its own storage. */
   column: ColumnPrefs
   /** The open tab of the bench, for each project (`torno.bench`). */
@@ -211,6 +213,7 @@ export const store = createStore<TornoState>(() => ({
   edits: 0,
   sessions: {},
   dockOpen: true,
+  leftOpen: true,
   column: readColumn(storedColumn(windowStorage())),
   benchTab: readBench(storedBench(windowStorage())),
   sectionHere: null,
@@ -790,6 +793,11 @@ export const actions = {
     const { column } = store.getState()
     const width = keptWidth(px)
     if (column.width !== width) setColumn({ ...column, width })
+  },
+
+  /** The left column is shown or hidden. */
+  setLeftOpen(open: boolean): void {
+    if (store.getState().leftOpen !== open) store.setState({ leftOpen: open })
   },
 
   /** The session dock is shown or hidden. */

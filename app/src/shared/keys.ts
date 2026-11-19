@@ -124,6 +124,7 @@ const ROWS = [
   row('region.next', ['F6'], 'To the next part of the window: projects, view, session, status line', 'Everywhere', 'global'),
   row('region.previous', ['Shift+F6'], 'To the part before', 'Everywhere', 'global'),
   row('dock.toggle', ['Ctrl+Shift+D'], 'Show or hide the session pane', 'Everywhere', 'global'),
+  row('column.toggle', ['Ctrl+Shift+L'], 'Show or hide the left column: the Parameters and Parts bench', 'Everywhere', 'global'),
   row('export', ['Ctrl+Shift+E'], 'Export to one HTML file, or to STEP, STL or 3MF: the open project, or from the page of projects any of them', 'Everywhere', 'global'),
   row('rebuild', ['Ctrl+Shift+B'], 'Rebuild: build the open project again, as the button in the status line does', 'Everywhere', 'global'),
   row('reload', ['F5', 'Ctrl+R'], 'Reload the window, under the dev server only', 'Everywhere', 'dev', true),
