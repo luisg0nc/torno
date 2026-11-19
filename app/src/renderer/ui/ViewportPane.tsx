@@ -50,6 +50,7 @@ import { ScanReadSheet } from './ScanReadSheet'
 import { NotePopover } from './NotePopover'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionTag } from './SectionTag'
+import { HandTag } from './view/HandTag'
 import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
 import { ToolHint } from './ToolHint'
@@ -837,6 +838,7 @@ export function ViewportPane() {
           <LeftOutTags />
           <ToolPalette />
           <SectionTag viewport={viewport} />
+          <HandTag />
           <SketchPlaneTag viewport={viewport} />
           {/* The tags of Measure's last reading and of Explode, tied to the line and the track. */}
           <MeasureTag />

@@ -1362,7 +1362,7 @@ The tools, each with its key (all keys are under [Keys](#keys)). They are the **
 
 | Key | Tool | What it does |
 |---|---|---|
-| `V` | Select | Click selects a face or an edge, and a double click its part; the scope that grows out of its button (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held at the head of the card, under "In hand": each ref with what the kernel says of it (the first four, then "and 2 more"), and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Name a set** (`Ctrl+G`) and **Clear**. With nothing selected the head says "Click a face, an edge or a part to hold it here." |
+| `V` | Select | Click selects a face or an edge, and a double click its part; the scope that grows out of its button (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held in a **tag by the part**, under "In hand", tied by a leader to the first ref: each ref with what the kernel says of it (the first four, then "and 2 more"), a line **On it** with the checks that have an end on the parts (`M9 fails, M7 M8 hold`) and the open marks left on them, and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Hide** and **Only this**, which switch the parts off or show only them, **Name a set** (`Ctrl+G`) and **Clear**. The tag stands while Select is the tool and something is selected; with nothing selected there is no tag. |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
 | `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
@@ -1433,8 +1433,9 @@ the camera stays still).
   (**Brief** opens the Brief page), the marks Claude resolved and you have not judged (**OK** says you have seen it, **Reopen**
   makes it a draft again), the marks it left for you (a click goes to its row in Marks, under **From the agent**, with **Answer in chat** and **Resolve**; the marks Claude resolved are there too, with Review, OK all and Reopen…) and the values you tried, in one row
   (**Ask Claude to keep** puts the request in the box of the chat, never sent). It lists four rows at most; **N more** opens the
-  rest and **Fewer** shuts them. When nothing waits it is the verdict alone. Under it the "In hand" head says what to click
-  while nothing is in hand, so that the rows below do not move when you select something.
+  rest and **Fewer** shuts them. When nothing waits it is the verdict alone. While a sketch is open, a review round's panel is
+  up or a size is being tied, that panel takes the block's place at the top of the card until it is done. What you select is
+  not in the card at all: it is a tag by the part (see Select), so selecting moves no row of the column.
 - Your dimension checks (every dimension that has an expected value and is not resolved, sent or not) are under **Checks**, in
   one list with the model's own (see Parameters). The Marks list is grouped by who acts next: **To send** (yours, "with your
   next prompt"), **With the agent** (your sent marks), then **Resolved**, folded. A row is two lines: the chip and the note, then the kind of mark and what is the matter with it in
