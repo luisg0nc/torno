@@ -3,7 +3,7 @@ import { isMode, MODE_NOTE, MODES } from '../../../shared/chat'
 import { chosen, pointerChoice } from '../typing'
 
 /** How a mode is named to the person: what happens to an edit. */
-const LABEL: Readonly<Record<string, string>> = { default: 'Ask before edits', acceptEdits: 'Accept edits', plan: 'Plan only' }
+const LABEL: Readonly<Record<string, string>> = { default: 'Ask before edits', acceptEdits: 'Accept edits', plan: 'Plan first' }
 
 /**
  * How Claude Code asks about edits in a chat session. A choice is sent to the CLI for this session only

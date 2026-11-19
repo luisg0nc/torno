@@ -1016,7 +1016,7 @@ test('the effort menu offers what the model takes, and sets the effort of the se
 
 test('the edits menu sets how edits are asked for this session only, and the CLI reports it', async () => {
   const menu = await inModelMenu(dock(), 'Edits')
-  await expect(menu.locator('option')).toHaveText(['Ask before edits', 'Accept edits', 'Plan only'])
+  await expect(menu.locator('option')).toHaveText(['Ask before edits', 'Accept edits', 'Plan first'])
   await menu.selectOption({ label: 'Accept edits' })
   await expect(menu).toHaveValue('acceptEdits')
   await expect(chat().locator('.chat-note').last()).toContainText('Edits: accept edits')
