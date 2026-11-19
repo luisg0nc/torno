@@ -32,6 +32,16 @@ describe('the rail', () => {
     expect(out).toContain('aria-pressed="false"')
   })
 
+  it('dims the icon of a section that says none, and of no other', () => {
+    store.setState({ objectId: 'o', scene, layout: 'assembly' })
+    const out = html()
+    const empty = [...out.matchAll(/data-section="(\w+)" data-empty="true"/g)].map((m) => m[1])
+    expect(empty).toContain('params')
+    expect(empty).not.toContain('parts')
+    // Marks, scans, tracings and the print profile are never shut, so never dimmed.
+    expect(empty).not.toContain('profile')
+  })
+
   it('has Projects, a hairline, the eight sections of the card and Keys at the foot, with no word under an icon', () => {
     store.setState({ objectId: 'o', scene, layout: 'assembly' })
     const out = html()

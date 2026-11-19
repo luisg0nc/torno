@@ -107,17 +107,27 @@ export function stillLatest(build: Pick<BuildState, 'status' | 'revision' | 'err
   return build.revision === (item.revision ?? 0) && errorLine(build.error) === item.error
 }
 
-/** How long a build runs before the parts on screen fade: most builds land before it, and nothing blinks at each save. */
-export const FADE_AFTER_MS = 600
+/**
+ * Why the tools of the window wait, or null while they work. The parts on screen are the last good build and a build
+ * under way or a failed one does not change that: the marks, picks and measures are of that build and are checked
+ * against the next. They wait only when the kernel let that build go to make room (`letGo`): nothing can then be
+ * asked of it, so a pick could not be described.
+ */
+export function picksWait(build: Pick<BuildState, 'status' | 'letGo'> | null | undefined): string | null {
+  return build?.letGo === 'memory' ? 'The kernel let this build go to make room (memory): picks wait for a build' : null
+}
+
+/** Seconds as a clock: `0:05`, `1:40`. */
+export function clockText(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds))
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
+}
 
 /**
- * When the parts on screen fade for a build, in ms from `now`: null while they are not to fade (not stale), 0 for
- * now, else the wait left. A failed build fades them at once (the previous revision stays, dimmed); one under way
- * only once it has run `FADE_AFTER_MS`, unless they are faded already (it follows a failed one). The pick lock is
- * not this: it holds from the first moment (`stale`).
+ * What the status line says while a build runs: the build it makes (the one after the revision on show), how long it has
+ * run, and the build on show. `shownRevision` is 0 before a first build has landed: nothing is on show then, and the
+ * running build has no number to give.
  */
-export function fadeIn(build: Pick<BuildState, 'status' | 'stale' | 'startedAt'> | null | undefined, now: number, faded = false): number | null {
-  if (!build?.stale) return null
-  if (build.status !== 'building' || faded) return 0
-  return Math.max(0, (build.startedAt ?? now) + FADE_AFTER_MS - now)
+export function buildingText(shownRevision: number, seconds: number): { running: string | null; clock: string; shown: string | null } {
+  return shownRevision > 0 ? { running: `r${shownRevision + 1}`, clock: clockText(seconds), shown: `r${shownRevision}` } : { running: null, clock: clockText(seconds), shown: null }
 }

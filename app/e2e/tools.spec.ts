@@ -21,7 +21,6 @@ import { stableBox } from './stable'
 const appDir = resolve(__dirname, '..')
 const fixtures = resolve(appDir, '../kernel/tests/fixtures/ws')
 const fakeAgent = resolve(appDir, 'test/fake-agent.mjs')
-const FAILED = 'The last build failed: picks wait for a build that works'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -675,20 +674,20 @@ test('the note closes when another layout is shown', async () => {
   await expect(card()).toHaveCount(0)
 })
 
-test('on a stale build the tools leave nothing, and the pointer is told why', async () => {
+test('on a failed build the tools work on the last good build: the pointer waits for nothing, and a pin hovers the face as ever', async () => {
   const before = marksOnDisk().marks.length
   const source = readFileSync(model(), 'utf8')
   appendFileSync(model(), '\nthis is not python(\n')
   await expect.poll(async () => (await state()).build, { timeout: 20_000 }).toMatchObject({ status: 'failed', stale: true })
 
+  // Hovering only, so that no mark is made and the ids of the tests after this one stay as they are.
   await page.keyboard.press('p')
-  await clickOver(ON_BASE)
-  await expect(readout()).toHaveText(FAILED)
-  await page.keyboard.press('a')
-  await dragOver(ON_BASE, [-12, 9, 2.5])
-  await expect(readout()).toHaveText(FAILED)
-  // The drag was not taken by the tool: nothing is drawn, nothing is kept.
-  await expect(card()).toHaveCount(0)
+  await expect(tool('Pin')).toHaveAttribute('aria-pressed', 'true')
+  const [x, y] = await pageXY(ON_BASE)
+  await page.mouse.move(x, y)
+  await expect(readout()).toBeVisible()
+  await expect(readout()).not.toHaveText(/picks wait|build failed/i)
+  await page.keyboard.press('Escape')
   expect(marksOnDisk().marks).toHaveLength(before)
 
   writeFileSync(model(), source)

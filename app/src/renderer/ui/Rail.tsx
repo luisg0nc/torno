@@ -2,7 +2,7 @@ import { useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { hint } from '../../shared/keys'
 import { type SectionId, sectionsFor } from '../state/column'
 import { actions, useStore } from '../state/store'
-import { SECTIONS, useBadgeData } from './card/sections'
+import { SECTIONS, useBadgeData, useSectionFacts } from './card/sections'
 import { showKeys } from './KeySheet'
 import { badgeSaid, badgeText } from './railBadges'
 import { RailTip } from './RailTip'
@@ -103,6 +103,7 @@ export function Rail() {
   const objectId = useStore((s) => s.objectId)
   const here = useStore((s) => s.sectionHere)
   const badges = useBadgeData()
+  const facts = useSectionFacts()
   const objects = useStore((s) => s.workspace?.objects)
   const creating = useStore((s) => s.page === 'new')
   const onPage = page === 'objects'
@@ -135,6 +136,7 @@ export function Rail() {
             key={section.id}
             label={section.title}
             data-section={section.id}
+            data-empty={facts[section.id].empty ? 'true' : undefined}
             aria-description={badgeSaid(section.id, badges)}
             aria-current={here === section.id ? 'true' : undefined}
             onClick={(e) => {

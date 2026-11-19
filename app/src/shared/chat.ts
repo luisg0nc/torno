@@ -114,7 +114,7 @@ export interface ChatModel {
 export const MODES = ['default', 'acceptEdits', 'plan'] as const
 export type Mode = (typeof MODES)[number]
 /** How a mode is named to the person (the menu and the note in the chat). */
-export const MODE_NOTE: Readonly<Record<string, string>> = { default: 'ask first', acceptEdits: 'accept edits', plan: 'plan only' }
+export const MODE_NOTE: Readonly<Record<string, string>> = { default: 'ask first', acceptEdits: 'accept edits', plan: 'plan first' }
 
 export function isMode(v: unknown): v is Mode {
   return typeof v === 'string' && (MODES as readonly string[]).includes(v)

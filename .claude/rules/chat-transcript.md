@@ -50,7 +50,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   a `warn` note `NO_HOOKS` says once per session that the hooks do not arrive: a prompt of ours the CLI started
   (`command_lifecycle`, not a `/` command) with no `UserPromptSubmit` by `hookWaitMs` (8 s) or the end of its turn, in a
   session where none has come (a setting that limits `httpHookAllowedEnvVars` makes every hook 404). It never moves
-  the status; the stand-in's `FAKE_AGENT_NO_HOOKS=1` plays it. The terminal view cannot tell it: the manual's
+  the status; the stand-in's `FAKE_AGENT_NO_HOOKS=1` plays it. When the `init` names a key as the credentials' source (`apiKeySource` not `none` or `oauth`) the note is `RUNNING_BARE` instead (#260: `-p` under `--bare` runs no `--settings` hook and reads no login), which says what breaks and to use the terminal view; `FAKE_AGENT_NO_HOOKS=1` with `FAKE_AGENT_INIT={"apiKeySource":"ANTHROPIC_API_KEY"}` plays it. The terminal view cannot tell it: the manual's
   troubleshooting names it.
   `api_retry` sets `retrying` (`{ attempt }`) until a `stream_event`, an `assistant`, a `user` or a `result` comes.
   Notes: a `warn` when torno's tools are `failed` (with the text of the entry of `mcp_server_errors` that is

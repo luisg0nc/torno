@@ -390,7 +390,8 @@ whether that works. Saving a `.py` file during a build cancels that build
 and starts another. Any other file changing during a build may be the model's
 own doing, so the build is left to finish and one more follows it. A build
 that runs longer than 600 s is stopped; `TORNO_BUILD_TIMEOUT` sets another
-limit. The line at the bottom says building with the seconds elapsed, built
+limit. The line at the bottom says, while a build runs, which build it makes, how long it has run and which one you are on
+(`Building r13 · 1:40 · you are on r12`), then built
 with the time it took and the revision (`r3`), or failed. A failed build keeps
 the last good parts on screen, a quiet band at the top left of the view says `On show: h40. The build after it failed.`, and its status opens the error with the
 traceback.
@@ -478,7 +479,7 @@ distance is OpenCascade's and is told with `≈`; a count of points of one lying
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
 **The window.** On the left, a rail of icons, no word under them (the name shows in a small tip beside the icon when the pointer is over it or the keyboard is on it): Projects at the top, which shows the page of projects (it is a dark blue tile while that page is up; press it again to go back), a hairline, and then, while a project is open, one icon for each section of the route card: Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings and Print profile. Keys is at the foot, and raises the keyboard.
-Beside the rail is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Needs you, Parts, Checks and Marks are open; Parameters, Scans, Tracings and Print profile are folded. A press on an icon of the rail brings its section into sight, and opens it if it was folded; the section in sight is the one the rail shows in the accent's wash. What a folded title used to say shows as a small badge on the icon: what waits for you on Needs you, the parts switched off on Parts, the model's checks that fail plus the dimensions that fail on Checks, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the card to make it
+Beside the rail is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Needs you, Parts, Checks and Marks are open; Parameters, Scans, Tracings and Print profile are folded. A press on an icon of the rail brings its section into sight, and opens it if it was folded; the section in sight is the one the rail shows in the accent's wash. What a folded title used to say shows as a small badge on the icon: what waits for you on Needs you, the parts switched off on Parts, the model's checks that fail plus the dimensions that fail on Checks, the scans not aligned on Scans, the marks to review on Marks. The icon of a section that says "none" is dimmed. Drag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside the rail and
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
@@ -559,9 +560,12 @@ reason outside the model (the build took too long, stopped, or was cancelled) or
 was let go to make room: building the same sources again may work. After an error
 in the model it stays quiet, since the same sources give the same error. While a
 build runs it reads "Building…" and takes no press: that build is of the sources
-as they are. The parts on screen are older than that build, so a click cannot pick
-them from the first moment; they fade only when it has run for 0.6 s, so a quick
-save does not make them blink. A build that fails fades them at once.
+as they are. The parts on screen are the last good build, and they stay as they are
+while the next one builds and after one fails: not faded, and every tool (Select, Pin,
+Arrow, Draw, Measure, Note) works on them. A mark made meanwhile is made on that build
+and, like every mark, is checked against the build that lands; one whose face moved
+is flagged (`moved: check it`) before it is sent. Only when the kernel let the build go
+to make room (see above) do picks wait, since nothing can then be asked of it.
 
 When a build lands after another of the same project, the status line says which parts it changed:
 "tub changed, lid same", or "no part changed" when a save made no difference to what is drawn. A part counts as
@@ -995,7 +999,7 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   those the model takes. It too is for this session only, and a note in the chat
   says each change. **The edits menu** under them sets how Claude Code asks
   before it changes something: "Ask before edits", "Accept edits" (edits go
-  through without a question; other asks still come to you) or "Plan only". It is
+  through without a question; other asks still come to you) or "Plan first" (Claude Code plans and does not edit until you agree). It is
   for this session only too, and your settings are not written. A mode your own
   settings start the session in stands as it is until you choose one. A line under the box shows the rate limit once more than half of
   it is used.
@@ -2750,8 +2754,8 @@ build is not built again until a source changes.
 - **Every build fails saying to run `uv sync`.** The workspace has a
   `pyproject.toml` and no `.venv`. Torno never makes one: run `uv sync` in the
   workspace once, then open it again.
-- **A build fails.** The last good parts stay on screen, the pointer says
-  that picks wait for a build that works, and "Build failed" at the bottom
+- **A build fails.** The last good parts stay on screen as they were, and the tools
+  keep working on them, and "Build failed" at the bottom
   opens the error with the traceback. The agent is told the same, after its own
   edit and with your next prompt, and its tools answer from the last build that
   worked, saying so. "Ask Claude Code to fix it" in that sheet puts the request in
@@ -2779,6 +2783,13 @@ build is not built again until a source changes.
   `TORNO_SESSION`. Add it there, or take the limit off, and start the session
   again. The note changes nothing else; in the terminal view the same fault
   shows only as a status that never moves.
+- **The chat says "Claude Code is running bare".** No hook came for a prompt, and
+  the CLI named an API key as the source of its credentials. That is what
+  `claude -p --bare` looks like, and Claude Code says `--bare` will become the
+  default for `-p`: it loads no hook that torno passes, so marks are not sent,
+  the Stop is not checked and the status does not move, and it reads no login.
+  Use the terminal view, or an older Claude Code. Torno cannot tell bare from a
+  key in the environment with hooks blocked; the note says the same of both.
 - **A build takes minutes.** It is the model that takes them: see "What it
   costs" above. `TORNO_BUILD_TIMEOUT` raises the limit of 600 s.
 - **The agent says to press Rebuild, or a build failed for no reason of the
@@ -3069,7 +3080,7 @@ With a real agent:
 - **Asking for the missing sizes, with the real Claude Code.** Make a project whose description gives one size and leaves out the rest (a lid for a box of an unnamed size, screws not named): before the first write of the model, Claude Code asks once, in a card with at most four questions, each with a typical value among its options and "Other" taking "build with assumptions"; it asks nothing about a fillet radius; after the answers it builds, and a size you did not give is a field of `Params` commented "assumed" and listed in its reply. Then ask for a new feature with no key size (a hole for "a screw"): it asks once, not again. The stand-in agent only plays the card; the real model's choice to ask has not been seen, and the eval harness (#121) does not yet measure it.
 - **The edits menu with the real Claude Code.** In a chat, choose "Accept edits" and ask for a change: the CLI
   should take the edit without asking, and the menu should show the mode again after the next prompt; then "Plan
-  only", then "Ask before edits". torno sends the control request `set_permission_mode` (`mode`), the one the
+  first" (the CLI should plan and not edit), then "Ask before edits". torno sends the control request `set_permission_mode` (`mode`), the one the
   Agent SDK documents, answered here only by the stand-in: check that the real CLI answers it in `-p` stream-json,
   that its `init` and `status` report `permissionMode` after it, and that the "Allow for this session" of an Edit
   ask still writes nothing in `.claude/`.

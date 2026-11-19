@@ -103,8 +103,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   section or an explode on, for a part switched off, or of another layout, and they are hidden for a picture
   (`hideGizmo` in the host of `PictureMaker`). Not a mark, in no mark colour. `__tornoTest.ghosts()` and
   `holdGhosts()` are for tests.
-- The parts fade for a build only once it has run `FADE_AFTER_MS` (`fadeIn` of `shared/build.ts`, applied by
-  `ViewportPane`); a failed build fades them at once; the pick lock does not wait.
+- The parts of the last good build are never faded by a build under way or a failed one, and every tool works on them (#179).
+  The one hold is `picksWait` of `shared/build.ts` (`ViewportPane`, `Selection`): only when the kernel let the build go
+  (`letGo`). A mark made meanwhile is of the revision on show and is checked by the build that lands (`reanchor`). While a build
+  runs the status line says `Building r13 · 1:40 · you are on r12` (`buildingText`, `BuildingSaid`); the plain `r12` of the line waits for the build to end.
 
 ## History of builds (`app/src/renderer`)
 
