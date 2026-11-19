@@ -203,7 +203,15 @@ export class History {
         const index = await readIndex(obj.dir)
         const newest = index.entries.at(-1)
         // The person's Params are no part of the sources: a build they made, of the same files, is a build of its own.
-        if (newest && !newest.failed && newest.sources === record.sources && cause.cause !== 'params') return newest
+        if (newest && !newest.failed && newest.sources === record.sources && cause.cause !== 'params') {
+          // Nothing new is kept, but this build is the one on show: the entry takes its run and revision, so that it is found as the live build
+          // (the strip's "on show" node, the thumbnail, the mesh of this run). Its sources, scene and cause are what they were.
+          if (newest.run === record.run && newest.revision === record.revision) return newest
+          const stood: HistoryEntry = { ...newest, run: record.run, revision: record.revision }
+          await writeFileAtomic(join(await folderOf(obj.dir), INDEX), indexText(index.next, [...index.entries.slice(0, -1), stood], index.drawnGone, []))
+          this.changed(obj.dir)
+          return stood
+        }
         const sources = await readSources(obj.dir, scene.uses ?? [])
         // The copies are of what the build read only when the files are as they were when it was hashed.
         const total = sources.reduce((sum, f) => sum + f.bytes.length, 0)

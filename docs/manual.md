@@ -389,7 +389,7 @@ traceback.
 the Python files it was made from, its parts' numbers, and a small picture. A kept build has an id of its own, `h41`,
 which goes on counting across runs of torno; the revision (`r3`) is of one run and is told beside it. The latest 100
 are kept, and every one you star. A build that fails the model's own checks is kept too, marked: it is often the one
-to compare against. A rebuild of sources the newest kept build was made from is not kept again. **Prompts only** (in the session's **More** menu) is
+to compare against. A rebuild of sources the newest kept build was made from is not kept again; that build is then the one on show (after a restart too), so it can be compared with. **Prompts only** (in the session's **More** menu) is
 the history as a list, put away again by its **Close**: one row for each prompt of the project, newest first, across
 every conversation of it as one thread, with a quiet line where a conversation began. A prompt has one number wherever it is shown (a turn
 of the chat, a row, `comparing prompt 14` in the status line), counted from 1 across the project by the time it was said. A row is the number, the
