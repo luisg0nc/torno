@@ -1,6 +1,7 @@
 import type { AskAnswer, OpenAsk } from './ask'
 import type { BoardAttach, BoardFile, BoardOpen, PersonChange, PinWhat } from './board'
 import type { BuildState } from './build'
+import type { DrivesAnswer } from './drives'
 import type { TurnChanges } from './changes'
 import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode, PromptRow } from './chat'
 import type { GitState } from './git'
@@ -274,6 +275,12 @@ export interface TornoBridge {
     setParam(id: string, name: string, value: number | boolean | string): Promise<void>
     /** Back to the file's values: one field's override, or all of them; builds again. */
     resetParams(id: string, name?: string): Promise<void>
+    /**
+     * What a field of the Params drives, on the build on show: the faces that move or change with a small step of its
+     * value, found by building the model once more with it in a worker thrown away. Kept for the field until the next build.
+     * Never changes the model, the overrides or the build on show.
+     */
+    drives(id: string, name: string): Promise<DrivesAnswer>
     loadSceneFile(id: string): Promise<SceneFile>    // <object>/.torno/scene.json, defaults when there is none
     saveSceneFile(id: string, file: SceneFile): void
     onBuild(cb: (s: BuildState) => void): () => void

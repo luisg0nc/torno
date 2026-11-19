@@ -59,6 +59,7 @@ const bridge: TornoBridge = {
     rebuild: (id) => invoke('object:rebuild', id),
     setParam: (id, name, value) => invoke('object:setParam', id, name, value),
     resetParams: (id, name) => invoke('object:resetParams', id, name),
+    drives: (id, name) => invoke('object:drives', id, name),
     loadSceneFile: (id) => invoke('object:sceneFile', id),
     saveSceneFile: (id, file) => ipcRenderer.send('object:saveSceneFile', id, file),
     onBuild: (cb) => subscribe('object:build', cb),

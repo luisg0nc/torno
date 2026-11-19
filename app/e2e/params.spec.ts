@@ -169,6 +169,30 @@ test('trying a value builds the model with it, says it differs from the file, an
   expect(JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'params.json'), 'utf8'))).toEqual({ overrides: {} })
 })
 
+test('resting on a field lights the faces it drives on the model, kept until the next build, and writes nothing', async () => {
+  await open('hollow')
+  const lit = (): Promise<readonly string[]> => page.evaluate(() => window.__tornoTest!.highlighted().drives)
+  const row = section().locator('[data-param="wall"]')
+  expect(await lit()).toEqual([])
+  await row.hover()
+  // After half a second at rest the row says it is working, then the faces the wall drives are lit.
+  await expect.poll(async () => (await lit()).length, { timeout: 60_000 }).toBeGreaterThan(0)
+  await expect(row.locator('.param-drives')).toHaveCount(0)
+  expect((await lit()).every((ref) => /^[a-z]+(\/F\d+)?$/.test(ref))).toBe(true)
+  // Out of the row it goes out; the second rest is answered from what main kept, with no trial.
+  await section().locator('[data-param="side"]').hover()
+  await page.mouse.move(0, 0)
+  await expect.poll(lit).toEqual([])
+  const started = Date.now()
+  await row.hover()
+  await expect.poll(async () => (await lit()).length, { timeout: 5000 }).toBeGreaterThan(0)
+  expect(Date.now() - started).toBeLessThan(4000)
+  // Nothing was written: the model is the file's, and no value is tried.
+  expect(readFileSync(join(root, 'hollow', 'hollow.py'), 'utf8')).toContain('wall: float = 2\n')
+  await expect(row).not.toHaveAttribute('data-tried', '')
+  await page.mouse.move(0, 0)
+})
+
 test('the folding is the window\'s: it is kept when another project is opened', async () => {
   await expect(cardSection(page, 'Parameters')).not.toHaveAttribute('data-folded', '')
   await open('plain')

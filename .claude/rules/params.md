@@ -7,6 +7,10 @@ paths:
   - "app/src/shared/params.ts"
   - "app/src/shared/params.test.ts"
   - "app/src/renderer/ui/ParamsPanel.tsx"
+  - "app/src/renderer/state/drives.ts"
+  - "app/src/renderer/state/drives.test.ts"
+  - "app/src/main/drives/**"
+  - "app/src/shared/drives.ts"
   - "app/src/renderer/ui/ParamsPanel.test.ts"
   - "app/src/renderer/ui/paramRows.ts"
   - "app/src/renderer/ui/paramRows.test.ts"
@@ -67,6 +71,20 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the row's title (type, value whole, comment) and then what a click does. With no session running a row is text, not a
   button, and the description says to start one (`e2e/params.spec.ts`, which writes its own `Params` into its copy of a
   fixture).
+- **What a value drives** (`state/drives.ts`, `main/drives/`, `shared/drives.ts`). The pointer or the keys' focus on the row of an `editable`
+  field for `REST_MS` (500 ms) asks main (`object.drives`, channel `object:drives`), which builds the model once more with that one
+  value nudged (`nudgeOf`: a tenth of a number, at least `step` or 0.5, kept inside `min` and `max`; a count by 1; a flag turned; the
+  next choice) in a trial worker (`Builds.trial`, the way `try_params` and Compare build; the person's other overrides stand) and
+  holds `face_prints` of that build against those of the build on show, layout by layout (`compareBuilds`, pure): a face
+  of the same place in the kernel's order and type that moved, changed size or turned is lit (`part/F<i>`); a part whose faces
+  are no longer the same ones (another count or types, or gone) is lit whole. The answer is kept for the field, and the prints of the
+  build on show for every field, until the next build (`Drives`: the scene's revision); a trial the kernel could not make now (`busy`,
+  `no_room`, `cancelled`, a crash, a timeout) or one for a build that is no longer on show is never kept, one the model's own error
+  ended is, until the next build. Trials run one at a time. The build on show is only asked with a query that never builds it again,
+  and a build that starts cancels the trial. The faces are on the viewport's `drives` layer (`Viewport.setDriven`), in the accent,
+  never the selection's or a set's; the row says `Working out what this drives…` (`DRIVES_WORKING`) while it runs and the reason
+  when it fails (`param-note`, `role="status"`). A new build or leaving the row puts it out; it lights nothing of a preview and
+  writes no file.
 - **Trying a value.** A field the kernel says is `editable` (`Param.editable`: `float`, `int`, `bool`, `choice`)
   has a control under its name (`ParamControl`): a number field, plus a slider when the model gives `min` and `max`
   in the field's `metadata`; a checkbox; a select. A number is taken on Enter or when the field is left, a slider when
