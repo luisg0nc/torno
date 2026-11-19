@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PromptRow } from '../../../shared/chat'
 import type { HistoryEntry } from '../../../shared/history'
-import { promptLines, resultWord, type PromptLine } from './promptsView'
+import { carriedOf, promptLines, resultWord, type PromptLine } from './promptsView'
 
 const T0 = Date.parse('2026-01-01T00:00:00Z')
 const iso = (min: number): string => new Date(T0 + min * 60_000).toISOString()
@@ -68,5 +68,26 @@ describe('resultWord', () => {
   it('says nothing of a prompt that built nothing, and that checks fail where they do', () => {
     expect(line([])).toBe('')
     expect(line([agent('h1', 1, 'u1', { failing: ['a', 'b'] })])).toBe('2 checks fail')
+  })
+})
+
+describe('carriedOf', () => {
+  const mark = (id: string, extra: Record<string, unknown> = {}) => ({ id, status: 'sent', ...extra }) as unknown as import('../../../shared/marks').Mark
+  const said = (marks?: string[], review?: string): PromptRow => ({ ...row('u1', 1, 0), ...(marks ? { marks } : {}), ...(review ? { review } : {}) })
+
+  it('says nothing for a prompt that carried no marks, or whose marks are gone', () => {
+    expect(carriedOf(said(), [mark('M1')])).toBeUndefined()
+    expect(carriedOf(said(['M9']), [mark('M1')])).toBeUndefined()
+  })
+
+  it('counts the marks it carried that are still there, and how many are resolved', () => {
+    const marks = [mark('M1', { status: 'resolved' }), mark('M2'), mark('M3', { status: 'resolved' }), mark('M4', { status: 'resolved' })]
+    expect(carriedOf(said(['M1', 'M2', 'M3', 'M7']), marks)).toEqual({ marks: 3, resolved: 2, ok: 0, stillWrong: 0 })
+  })
+
+  it('counts a review\'s verdicts, and none for marks that were not a review', () => {
+    const marks = [mark('M1', { status: 'resolved', judged: { verdict: 'ok', build: 'h2' } }), mark('M2', { judged: { verdict: 'still-wrong', build: 'h2' } }), mark('M3')]
+    expect(carriedOf(said(['M1', 'M2', 'M3'], 'R1'), marks)).toEqual({ marks: 3, resolved: 1, ok: 1, stillWrong: 1 })
+    expect(carriedOf(said(['M1', 'M2', 'M3']), marks)).toEqual({ marks: 3, resolved: 1, ok: 0, stillWrong: 0 })
   })
 })

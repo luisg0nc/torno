@@ -1,4 +1,5 @@
 import type { PromptRow } from '../../../shared/chat'
+import type { Mark } from '../../../shared/marks'
 import { drawable, type HistoryEntry } from '../../../shared/history'
 import { goneBack, savesBetween, type SaveRun } from './historyJoin'
 
@@ -103,4 +104,26 @@ export function promptLines(rows: readonly PromptRow[], entries: readonly Histor
   }
   close()
   return (opts.hideGone ? out.filter((l) => l.kind !== 'gone') : out).reverse()
+}
+
+/** What a prompt carried, as the marks are now: how many of its marks there still are, how many are resolved, and a review's verdicts. */
+export interface Carried {
+  marks: number
+  resolved: number
+  /** Of a review's items: the person's verdicts on the agent's answers. */
+  ok: number
+  stillWrong: number
+}
+
+/**
+ * The marks the prompt carried (`row.marks`) as they are in `marks` now: a mark that was deleted since is not counted. A
+ * review's verdicts (`judged`) are counted over the marks of the round it told. Nothing for a prompt that carried none.
+ */
+export function carriedOf(row: PromptRow, marks: readonly Mark[]): Carried | undefined {
+  const ids = new Set(row.marks ?? [])
+  if (ids.size === 0) return undefined
+  const mine = marks.filter((m) => ids.has(m.id))
+  if (mine.length === 0) return undefined
+  const judged = row.review === undefined ? [] : mine.filter((m) => m.judged !== undefined)
+  return { marks: mine.length, resolved: mine.filter((m) => m.status === 'resolved').length, ok: judged.filter((m) => m.judged?.verdict === 'ok').length, stillWrong: judged.filter((m) => m.judged?.verdict === 'still-wrong').length }
 }

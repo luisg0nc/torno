@@ -49,6 +49,9 @@ export interface PromptRow {
   text: string
   /** When it was said, ms; for a terminal's prompt, when its first build landed (the time it was said is not kept). */
   at: number
+  /** The marks (`M3`) torno sent with it, and the round (`R2`) of a review it told, from the log; none for a terminal's prompt, whose context is not kept. */
+  marks?: string[]
+  review?: string
 }
 
 /** The tokens of one kind of request, as the CLI counts them. */

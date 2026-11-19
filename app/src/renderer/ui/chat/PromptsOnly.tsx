@@ -7,7 +7,7 @@ import { GoBack } from './GoBack'
 import { ago } from './ago'
 import { SaveLine } from './SaveLine'
 import { PromptNumbers, ChatIdle } from './turnContext'
-import { promptLines, resultWord, type PromptItem, type PromptLine } from './promptsView'
+import { carriedOf, promptLines, resultWord, type Carried, type PromptItem, type PromptLine } from './promptsView'
 import { usePrompts } from './usePrompts'
 import { useThumb } from './useThumb'
 
@@ -22,6 +22,31 @@ function Thumb({ objectId, entry }: { objectId: string; entry: HistoryEntry | un
 /** One word of what the prompt came to, in the tone it is: a failure is told as one. */
 const toneOf = (word: string): 'fail' | 'warn' | 'ok' | undefined => (word.includes('fail') ? 'fail' : word === 'passes' || word === 'starred' ? 'ok' : word === 'gone back from' ? 'warn' : undefined)
 
+/** The marks a prompt carried and how many are resolved, and a review's verdicts: one short run that is cut with an ellipsis before the row grows. */
+function CarriedFacts({ carried }: { carried: Carried }) {
+  const { marks, resolved, ok, stillWrong } = carried
+  const verdicts = [ok > 0 ? `${ok} OK` : '', stillWrong > 0 ? `${stillWrong} still wrong` : ''].filter(Boolean)
+  const full = `${marks} ${marks === 1 ? 'mark' : 'marks'}, ${resolved} resolved${verdicts.length > 0 ? `; ${verdicts.join(', ')}` : ''}`
+  const num = (n: number): ReactNode => <span className="num">{n}</span>
+  return (
+    <span className="prompt-carried" title={full} data-carried>
+      {num(marks)} {marks === 1 ? 'mark' : 'marks'} · {num(resolved)} resolved
+      {ok > 0 && (
+        <>
+          {' · '}
+          {num(ok)} OK
+        </>
+      )}
+      {stillWrong > 0 && (
+        <>
+          {' · '}
+          {num(stillWrong)} still wrong
+        </>
+      )}
+    </span>
+  )
+}
+
 /**
  * One row: the number, the picture of the last build, what was said cut to one line, and under it where the builds went
  * (`h40 → h41`), what they came to in a word, and when. A click compares the prompt (its last build over the one it started
@@ -29,6 +54,8 @@ const toneOf = (word: string): 'fail' | 'warn' | 'ok' | undefined => (word.inclu
  */
 const PromptRowView = memo(function PromptRowView({ objectId, item, onOpen, goBack, blocked, now }: { objectId: string; item: PromptItem; onOpen?: (row: PromptRow) => void; goBack?: boolean; blocked: string | null; now: number }) {
   const { row, from, to } = item
+  const marks = useStore((s) => s.marks)
+  const carried = useMemo(() => carriedOf(row, marks), [row, marks])
   // A terminal's prompt is in no chat: there is nothing to open.
   const open = row.id.startsWith('t-') ? undefined : onOpen
   const comparing = useStore((s) => from !== undefined && to !== undefined && s.compare !== null && s.compare.from === from.id && s.compare.to === to.id)
@@ -78,7 +105,8 @@ const PromptRowView = memo(function PromptRowView({ objectId, item, onOpen, goBa
                 )}
               </span>
             )}
-            <span>{ago(new Date(row.at).toISOString(), now)}</span>
+            {carried && <CarriedFacts carried={carried} />}
+            <span className="prompt-when">{ago(new Date(row.at).toISOString(), now)}</span>
           </span>
         </span>
       </button>

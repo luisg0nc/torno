@@ -397,7 +397,9 @@ the history as a list, put away again by its **Close**: one row for each prompt 
 every conversation of it as one thread, with a quiet line where a conversation began. A prompt has one number wherever it is shown (a turn
 of the chat, a row, `comparing prompt 14` in the status line), counted from 1 across the project by the time it was said. A row is the number, the
 picture of the prompt's last build, what you said cut to a line, and under it the builds it went through (`h40 → h41`), what they came to
-in a word (`passes`, `2 failed on the way`, `build failed`, `starred`, `gone back from`) and when. What you built yourself between two prompts
+in a word (`passes`, `2 failed on the way`, `build failed`, `starred`, `gone back from`), the marks it carried and how many of them are resolved (`3 marks · 2 resolved`) and, for a review, the verdicts you gave
+(`2 OK · 1 still wrong`), and when. The line stays one line: in a narrow dock the marks and verdicts are cut short (hover for all of it). A prompt of a
+terminal session has none, because the terminal keeps no record of what was sent with it. What you built yourself between two prompts
 (your saves in your own editor, the Params you tried) is a line between the rows; the prompts a Go back undid are one faded row, openable. **Starred** keeps the
 prompts with a starred build, **Hide gone back** leaves out the ones you went back from. Click a row to compare it (below), double-click it, or **Open in chat**, to read it in the chat where it was said.
 The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
@@ -2979,7 +2981,7 @@ On the screen:
   can use it and be exact; if not, the asked undo stays (torno's own restore, from the copies under `.torno/history/`, does not need it).
 - **Prompts only.** Send Claude Code a few prompts that edit the model, then open **Prompts only** from **More** in the session pane: one row for each
   prompt, newest first, in the pane of the chat, each with a picture of the project as it was after it, legible in light and dark, its
-  number and `h40 → h41` in the face of numbers. A click compares the prompt (a band with Before, Overlay, After and Side by side at the top left of the view, two boxes over the corners,
+  number and `h40 → h41` in the face of numbers; a prompt sent with marks says how many and how many are resolved, and a review's says its OK and Still wrong. A click compares the prompt (a band with Before, Overlay, After and Side by side at the top left of the view, two boxes over the corners,
   `comparing prompt 14 · h40 → h41` in the status line; **Back to the live build** or `Esc` ends it), a double click opens it in the chat. Start a new session, send a prompt, and check
   that its number goes on from the last and that **Earlier conversations** reads the first. With the terminal as the view, the same list is a pane over it. Try it with a real Claude Code, the
   terminal too: after a prompt that edits the model, is its row there with the build it made?

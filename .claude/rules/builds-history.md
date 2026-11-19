@@ -116,7 +116,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   rows, a `began` line where a conversation's run starts (`current`: the conversation of the open chat), the prompts of `goneBack` folded into one
   openable row, `Starred` (a build of the prompt is starred) and `Hide gone back`. A row: number, `useThumb` of its last build, the text cut to a line,
   `<from> → <to>` (where it started from, its last drawable build), `resultWord` (`gone back from`, `build failed`, `<n> failed on the way`,
-  `<n> checks fail`, `starred`, `passes`; nothing for a prompt that built nothing) and `ago`. A click is `actions.compare(from, to, number)` (a second
+  `<n> checks fail`, `starred`, `passes`; nothing for a prompt that built nothing), `CarriedFacts` (the marks the prompt carried and how many are resolved, and a
+  review's OK and Still wrong: `carriedOf(row, marks)` over `PromptRow.marks` and `.review`, which `listPrompts` takes from the context item under the user item in the
+  chat's log (`readPrompts`'s `carried`); a deleted mark is not counted, a terminal's prompt has none; `.prompt-facts` is `nowrap` and `.prompt-carried` is what gives way, with an ellipsis and a title) and `ago`. A click is `actions.compare(from, to, number)` (a second
   click `endCompare`; `aria-disabled` with the reason when there is nothing to compare or a section or an explode is on), a double click or the row's
   "Open in chat" is `ChatPane.openInChat`: it puts Prompts only away, reads the earlier conversations first when the prompt is of another, and scrolls
   `.chat-group[data-id=<user item id>]` into view. A terminal's prompt (`t-` ids) is never opened. The chat's **Earlier conversations (n)** button (at the
