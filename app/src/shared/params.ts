@@ -83,10 +83,23 @@ export interface Tried {
 /** What a value of a field is said as: a number to three decimals, anything else as it is. */
 export const said = (v: unknown): string => String(typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)
 
+/** Whether two values of a field are the same value: a tuple or a list by its items, an object by its keys, the rest as they are (#310). */
+export function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => sameValue(v, b[i]))
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false
+  const ka = Object.keys(a)
+  const kb = Object.keys(b)
+  return ka.length === kb.length && ka.every((k) => Object.hasOwn(b, k) && sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+}
+
+/** Whether a field's value in this build is other than the default the file gives. */
+export const isTried = (p: Pick<Param, 'value' | 'default'>): boolean => p.value !== undefined && !sameValue(p.value, p.default)
+
 /** The fields whose value in this build is other than the default the file gives, in the model's order. */
 export function triedParams(params: readonly Param[] | undefined): Tried[] {
   const tried: Tried[] = []
-  for (const p of params ?? []) if (p.value !== undefined && p.value !== p.default) tried.push({ name: p.name, value: p.value, default: p.default })
+  for (const p of params ?? []) if (isTried(p)) tried.push({ name: p.name, value: p.value, default: p.default })
   return tried
 }
 

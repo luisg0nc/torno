@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assumedKey, assumedLine, sourceCount, sourceOf, whyUnsaid } from './params'
+import { assumedKey, assumedLine, sameValue, sourceCount, sourceOf, triedParams, whyUnsaid } from './params'
 import type { Param } from './scene'
 
 const p = (name: string, def: unknown, doc: string | null): Param => ({ name, type: 'float', default: def, literal: true, doc })
@@ -51,5 +51,29 @@ describe('assumedLine', () => {
   it('keys change with the set', () => {
     expect(assumedKey(params)).toBe(assumedKey([...params]))
     expect(assumedKey(params)).not.toBe(assumedKey(params.slice(1)))
+  })
+})
+
+describe('triedParams', () => {
+  const param = (name: string, value: unknown, def: unknown): Param => ({ name, value, default: def }) as unknown as Param
+  it('a tuple or a list equal to its default is not tried (#310)', () => {
+    expect(triedParams([param('hole', [10, 20], [10, 20]), param('nested', [[1, 2], [3]], [[1, 2], [3]])])).toEqual([])
+  })
+  it('a tuple that differs from its default is tried', () => {
+    expect(triedParams([param('hole', [10, 21], [10, 20]), param('short', [10], [10, 20])]).map((t) => t.name)).toEqual(['hole', 'short'])
+  })
+  it('numbers, flags and words compare as before', () => {
+    expect(triedParams([param('wall', 2, 2), param('lid', false, true), param('name', 'a', 'a'), param('none', undefined, 3)]).map((t) => t.name)).toEqual(['lid'])
+  })
+})
+
+describe('sameValue', () => {
+  it('compares by value, not by identity', () => {
+    expect(sameValue([1, [2, 3]], [1, [2, 3]])).toBe(true)
+    expect(sameValue([1, 2], [1, 2, 3])).toBe(false)
+    expect(sameValue({ a: 1 }, { a: 1 })).toBe(true)
+    expect(sameValue({ a: 1 }, { a: 2 })).toBe(false)
+    expect(sameValue(null, null)).toBe(true)
+    expect(sameValue(1, '1')).toBe(false)
   })
 })
