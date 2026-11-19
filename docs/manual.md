@@ -127,7 +127,9 @@ folders opened lately, as one opened from the window is.
 
 Once a folder is open, the title bar across the top of the window names it, as the first crumb
 (`parts ▾`), and that crumb opens a menu with the same ways to another: the folders opened lately (one that is not found is
-struck and can be removed), "Open folder…" and "Open the example", and "Check what torno needs".
+struck and can be removed), "Open folder…" and "Open the example", "Refresh folder" and "Check what torno needs".
+"Refresh folder" reads the open folder again: a project another tool made is listed, one that went is not, and the project on
+screen is built again from its files as they are now. It writes nothing.
 
 Left alone, Electron chooses whether to draw on Wayland or X11. If the window
 does not come up, or comes up wrong, `TORNO_OZONE=wayland` or `TORNO_OZONE=x11`

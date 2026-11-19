@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
@@ -155,8 +155,8 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   const menu = page.getByRole('menu', { name: 'Folders' })
   await expect(menu).toBeVisible()
   // Whole when it comes: never the dialog alone first, with the list arriving after.
-  expect(await menu.getByRole('menuitem').count()).toBe(4)
-  await expect(menu.getByRole('menuitem')).toHaveText([/torno-e2e-finalfix-/, 'Open folder…', 'Open the example', 'Check what torno needs'])
+  expect(await menu.getByRole('menuitem').count()).toBe(5)
+  await expect(menu.getByRole('menuitem')).toHaveText([/torno-e2e-finalfix-/, 'Open folder…', 'Open the example', 'Refresh folder', 'Check what torno needs'])
   // The open one is marked, and is not to be opened again.
   await expect(menu.locator('.folder-row[data-open]')).toContainText('current')
   await expect(menu.getByRole('menuitem').first()).toBeDisabled()
@@ -177,6 +177,21 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).page).toBe('object')
   await expect(page.getByRole('region', { name: 'Parts' })).toBeVisible()
+})
+
+test('Refresh folder reads the folder again: a project another tool made is listed, one that went is not', async () => {
+  const names = async (): Promise<string[]> => (await state()).workspace!.objects.map((o) => o.id)
+  expect(await names()).not.toContain('made-outside')
+  mkdirSync(join(root, 'made-outside'))
+  writeFileSync(join(root, 'made-outside', 'model.py'), 'from build123d import *\nresult = Box(10, 10, 10)\n')
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem', { name: 'Refresh folder' }).click()
+  await expect.poll(names).toContain('made-outside')
+  await expect(page.getByRole('menu', { name: 'Folders' })).toHaveCount(0)
+  rmSync(join(root, 'made-outside'), { recursive: true })
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await page.getByRole('menu', { name: 'Folders' }).getByRole('menuitem', { name: 'Refresh folder' }).click()
+  await expect.poll(names).not.toContain('made-outside')
 })
 
 test('the sheet of keys is a dialog: a click inside it keeps the keys in it, and it is counted aloud, not read out', async () => {

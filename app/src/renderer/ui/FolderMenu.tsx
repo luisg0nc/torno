@@ -9,7 +9,7 @@ export function folderName(root: string): string {
 }
 
 /** What the menu asks to be opened: a folder by its path, the one still to be chosen in the dialog, or the example. */
-export type FolderChoice = { root: string } | 'pick' | 'example' | 'ready'
+export type FolderChoice = { root: string } | 'pick' | 'example' | 'ready' | 'refresh'
 
 /**
  * The folder crumb of the title bar (`parts ▾`), and the menu that hangs from it: the folders opened lately (the open one
@@ -85,6 +85,9 @@ export function FolderMenu({ open: current, disabled, onChoose }: { open: string
             </button>
           )}
           <hr className="menu-rule" />
+          <button type="button" role="menuitem" className="menu-item" title="Read this folder again: the projects on disk, and the open one built from its files as they are now" onClick={() => choose('refresh')}>
+            Refresh folder
+          </button>
           <button type="button" role="menuitem" className="menu-item" title="Whether Claude Code, uv and the kernel's Python environment are there" onClick={() => choose('ready')}>
             Check what torno needs
           </button>

@@ -111,7 +111,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   main shows the save dialog and copies (`workspace.keepExample`); the folder it made is opened in place of the copy.
 - With a folder open, the folder crumb of the title bar (`ui/TitleBar.tsx`, `Folder parts`) is a menu
   (`ui/FolderMenu.tsx`, hung from the crumb as a popover, `useMenu` for its keys): the recent folders, "Open folder…", "Open the
-  example". A folder torno is started with (`TORNO_WORKSPACE`) is added to the
+  example", "Refresh folder" (`workspace:refresh`: main `rescan`s, builds the project on screen again with `builds.update` or `rebuild`,
+  and answers with the list, which `refreshWorkspace` puts in the store; it writes nothing) and "Check what torno needs". A folder torno is started with (`TORNO_WORKSPACE`) is added to the
   recent ones; the workspace to open next stays the one chosen in the window. The open folder's row is marked
   with a check and the word "current" in the muted face. A folder that cannot be opened (one gone since the menu
   was read, one main refuses) leaves the workspace as it is and is said at the top of the page of projects, a `role="alert"`
