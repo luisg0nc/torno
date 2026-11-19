@@ -189,3 +189,34 @@
   margin: 8px 0 0;
   color: var(--fail);
 }
+
+/* The selection is a tag by the part (`view/HandTag.tsx`): the head's route square and left room are the column's, not the tag's. */
+.tag .hand {
+  width: 300px;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 0;
+  background: transparent;
+}
+
+.tag .hand::before {
+  display: none;
+}
+
+.hand-on {
+  margin: 6px 0 0;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+/* The tag stands over the model: only what can be pressed in it takes the pointer, so a click on its empty parts still picks the part under it. */
+.tag[data-tag='hand'] {
+  pointer-events: none;
+}
+
+.tag[data-tag='hand'] button,
+.tag[data-tag='hand'] input,
+.tag[data-tag='hand'] textarea,
+.tag[data-tag='hand'] select {
+  pointer-events: auto;
+}

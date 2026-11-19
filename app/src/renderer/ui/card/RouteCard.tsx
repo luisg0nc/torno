@@ -7,6 +7,7 @@ import { ImportScan, ScansPanel } from '../ScansPanel'
 import { Bench } from './Bench'
 import { CardSection } from './CardSection'
 import { Checks } from './Checks'
+import { useColumnHead } from './InHand'
 import { OnBlock } from './OnBlock'
 import { NewTracingAction, TracingsBody } from './Tracings'
 import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from './sections'
@@ -27,13 +28,14 @@ function Body({ id }: { id: SectionId }): ReactNode {
 
 /**
  * The project read from top to bottom: the card docked at the left, as wide as `--card-w` says. Its head slot (`head`: what
- * is in your hand) is pinned above the bench; the bench (`Bench`: Parameters and Parts as two tabs) fills the column; under it the four sections of `SECTIONS`
+ * is in your hand) takes the place of the "On hN" block while the sketch, a review round or a size being tied is in hand; the bench (`Bench`: Parameters and Parts as two tabs) fills the column; under it the four sections of `SECTIONS`
  * (Checks, Marks, Scans, Tracings: they leave when the Brief page and the view's switch take them) follow one another down a route line,
- * each folded to its head or open, in a scroll of their own; over all stands the "On hN" block (`OnBlock`), which says how the build on show stands and what waits. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
+ * each folded to its head or open, in a scroll of their own; at the top stands the "On hN" block (`OnBlock`), which says how the build on show stands and what waits. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
  * `store.sectionHere` has it. Its right edge makes it wider (`LeftEdge`).
  */
 export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<HTMLDivElement | null> }) {
   const facts = useSectionFacts()
+  const held = useColumnHead()
   const scroll = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -63,8 +65,8 @@ export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<
 
   return (
     <div className="route-card">
-      <OnBlock />
-      {head && <div className="route-hand">{head}</div>}
+      {/* The sketch being drawn, the round whose panel is up or a size being tied take the "On" block's place; a selection is a tag by the part. */}
+      {held ? <div className="route-hand">{head}</div> : <OnBlock />}
       <Bench />
       <div className="route-scroll" ref={scroll}>
         {SECTIONS.map(({ id, title }) => {

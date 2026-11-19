@@ -63,11 +63,17 @@ const props = (over: Partial<HandViewProps> = {}): HandViewProps => ({ kind: 'se
 const html = (over: Partial<HandViewProps> = {}): string => renderToStaticMarkup(createElement(HandView, props(over)))
 
 describe('the head of the card', () => {
-  it('says what to click when nothing is held', () => {
-    const out = html({ kind: 'empty', refs: [] })
-    expect(plainText(out)).toContain('In hand')
-    expect(plainText(out)).toContain('Click a face, an edge or a part to hold it here.')
-    expect(out).not.toContain('Insert in prompt')
+  it('draws nothing when nothing is held: the selection is a tag by the part, and the column has no head for it', () => {
+    expect(html({ kind: 'empty', refs: [] })).toBe('')
+  })
+
+  it('says what is on the parts in hand, and offers Hide and Only this when it holds parts', () => {
+    const out = html({ onIt: 'M9 fails, M7 M8 hold', canHide: true })
+    expect(plainText(out)).toContain('On it: M9 fails, M7 M8 hold')
+    for (const name of ['Hide', 'Only this']) expect(plainText(out)).toContain(name)
+    const bare = html()
+    expect(bare).not.toContain('On it')
+    expect(plainText(bare)).not.toContain('Only this')
   })
 
   it('lists each ref with what the kernel says of it, and the actions', () => {

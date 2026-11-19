@@ -102,9 +102,14 @@ test('a part\'s row lights it, its name selects it and a double click frames it,
   // A double click brings it into view: the camera comes to rest somewhere else.
   const camera = (): Promise<unknown> => page.evaluate(() => window.__tornoTest!.camera())
   const before = JSON.stringify(await camera())
-  // A click first: the selection puts what is in hand over the bench, which moves the rows; the double click is then on a row that stays.
-  await page.locator('[data-layer="tall-a"]').getByRole('button', { name: 'tall-a', exact: true }).click()
-  await expect(page.locator('.route-hand')).not.toBeEmpty()
+  // A click first: the selection is a tag by the part and moves no row of the column, so the double click lands on the row it aimed at.
+  const row = page.locator('[data-layer="tall-a"]')
+  const rowTop = async (): Promise<number> => (await row.boundingBox())!.y
+  const top = await rowTop()
+  await row.getByRole('button', { name: 'tall-a', exact: true }).click()
+  await expect(page.locator('[data-tag="hand"]')).toBeVisible()
+  await expect(page.locator('.route-hand')).toHaveCount(0)
+  expect(await rowTop()).toBe(top)
   await page.locator('[data-layer="tall-a"]').getByRole('button', { name: 'tall-a', exact: true }).dblclick()
   await expect.poll(async () => JSON.stringify(await camera())).not.toBe(before)
 
