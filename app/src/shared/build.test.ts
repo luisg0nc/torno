@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ERROR_LINE, FADE_AFTER_MS, errorLine, fadeIn, failedAfter, kindWords, fixPrompt, rebuildHelps } from './build'
+import { ERROR_LINE, buildingText, clockText, errorLine, failedAfter, kindWords, fixPrompt, picksWait, rebuildHelps } from './build'
 
 describe('the line of a failed build the chat shows', () => {
   it('is the last line of the traceback, which names the kind of error', () => {
@@ -60,26 +60,33 @@ describe('a failed build said in words', () => {
   })
 })
 
-describe('when the parts on screen fade for a build', () => {
-  const at = 10_000
-  it('does not fade a build under way until it has run 600 ms, and then does', () => {
-    const building = { status: 'building' as const, stale: true, startedAt: at }
-    expect(FADE_AFTER_MS).toBe(600)
-    expect(fadeIn(building, at)).toBe(600)
-    expect(fadeIn(building, at + 250)).toBe(350)
-    expect(fadeIn(building, at + 600)).toBe(0)
-    expect(fadeIn(building, at + 5000)).toBe(0)
+describe('the parts of the last good build while the next one builds', () => {
+  it('stay usable: a build under way or a failed one waits for nothing', () => {
+    expect(picksWait({ status: 'building' })).toBeNull()
+    expect(picksWait({ status: 'failed' })).toBeNull()
+    expect(picksWait({ status: 'ok' })).toBeNull()
+    expect(picksWait(null)).toBeNull()
   })
-  it('fades a failed build at once', () => {
-    expect(fadeIn({ status: 'failed', stale: true }, at)).toBe(0)
+  it('wait only when the kernel let the build go, since nothing can then be asked of it', () => {
+    expect(picksWait({ status: 'building', letGo: 'memory' })).toMatch(/let this build go/)
+    expect(picksWait({ status: 'failed', letGo: 'memory' })).toMatch(/let this build go/)
   })
-  it('keeps the parts faded when a build starts after a failure, and does not fade fresh parts', () => {
-    expect(fadeIn({ status: 'building', stale: true, startedAt: at }, at, true)).toBe(0)
-    expect(fadeIn({ status: 'ok', stale: false }, at)).toBeNull()
-    expect(fadeIn({ status: 'building', stale: false, startedAt: at }, at)).toBeNull()
-    expect(fadeIn(null, at)).toBeNull()
+})
+
+describe('the clock of a build', () => {
+  it('counts minutes and seconds', () => {
+    expect(clockText(0)).toBe('0:00')
+    expect(clockText(5)).toBe('0:05')
+    expect(clockText(100)).toBe('1:40')
+    expect(clockText(3725)).toBe('62:05')
   })
-  it('waits the full time for a build that says no start', () => {
-    expect(fadeIn({ status: 'building', stale: true }, at)).toBe(600)
+})
+
+describe('the status line while a build runs', () => {
+  it('names the build running, its clock and the build shown', () => {
+    expect(buildingText(12, 100)).toEqual({ running: 'r13', clock: '1:40', shown: 'r12' })
+  })
+  it('names no build shown before the first one has landed', () => {
+    expect(buildingText(0, 5)).toEqual({ running: null, clock: '0:05', shown: null })
   })
 })

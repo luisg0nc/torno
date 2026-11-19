@@ -365,3 +365,31 @@ test("a mark of the agent's that lost its part is not offered Re-place, and main
   )
   expect(refused).toBe(`${theirs.id} is the agent's mark: it is not put somewhere else`)
 })
+
+test('a pin made while the next build runs is made on the build on show, and the build that lands checks it and flags it when its face moved', async () => {
+  const dir = join(root, 'morph')
+  const was = readFileSync(join(dir, 'variant.txt'), 'utf8').trim()
+  const other = was === 'a' ? 'b' : 'a'
+  const shown = (await state()).build!.revision
+  // The model takes its time, so that the build lasts while the pin is made.
+  const source = readFileSync(join(dir, 'morph.py'), 'utf8')
+  writeFileSync(join(dir, 'variant.txt'), `${other}\n`)
+  writeFileSync(join(dir, 'morph.py'), `import time\n\ntime.sleep(4)\n${source}`)
+  await expect.poll(async () => (await state()).build?.status, { timeout: 20_000 }).toBe('building')
+
+  // The line names the build that runs and the one on show; the parts are not faded; the tools are not held.
+  const line = page.locator('[data-region="status"] [data-part="building"]')
+  await expect(line).toHaveText(new RegExp(`^Building r${shown + 1} · \\d+:\\d\\d · you are on r${shown}$`))
+  expect(await page.evaluate(() => window.__tornoTest!.faded())).toBe(false)
+
+  // On the face that is on top in the build on show (the plate of b is 3 mm higher than that of a).
+  const top: Vec3 = was === 'a' ? ON_TOP : [14, 9, 5.5]
+  const made = await pinAt(top, 'made while building')
+  expect(made.revision).toBe(shown)
+  expect(made.anchor.part).toBe('plate')
+
+  await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: shown + 1, stale: false })
+  // Checked against the build that landed, and flagged: the face it was put on is not where it was.
+  await expect.poll(async () => (await marks()).find((m) => m.id === made.id)?.anchorState, { timeout: 15_000 }).toBe('drifted')
+  await expect(row(made.id).locator('.mark-anchor')).toHaveText('moved: check it')
+})

@@ -8,7 +8,7 @@ import { isStrokeRef } from '../state/sets'
 import { actions, explodeNow, runningSession, store, useStore } from '../state/store'
 import { useTool } from '../state/tools'
 import { noteSelection } from '../tools/pickMarks'
-import { staleMessage } from '../tools/Tool'
+import { picksWait } from '../../shared/build'
 import { insertIntoSession } from './insertIntoSession'
 import { TYPING } from './typing'
 
@@ -31,8 +31,8 @@ export function useSelection() {
   const parts = useStore((s) => s.scene?.parts)
   const canInsert = useStore((s) => runningSession(s) !== undefined)
   const selecting = useTool() === 'select'
-  // Why no note can be left: the parts on screen are older than the model, and the refs would name other geometry.
-  const stale = useStore((s) => (s.build?.stale ? staleMessage(s.build.status) : null))
+  // Why no note can be left: the kernel let the build on screen go, and nothing can be asked of it. A build under way does not stop it: the refs are of the build on show.
+  const stale = useStore((s) => picksWait(s.build))
   // Why no note can be left: the parts are drawn apart, and no mark is placed in a view whose parts are not where they are.
   const exploded = useStore((s) => (explodeNow(s) ? EXPLODED_TOOLS : null))
   // While the marks of a selection are being made, so that they are made once.

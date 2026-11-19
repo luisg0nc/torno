@@ -144,6 +144,7 @@ test('after the agent starts another conversation, the next prompt lists the ope
   await expect.poll(lastContext).toContain(squeezed('Marks still open (this conversation has not seen them): M1 pin on base/F'))
   expect(await lastContext()).not.toContain('(changed)')
   await prompt('11111111-2222-4333-8444-555555555555')
+  // The mark is no card on the board (#248), and an empty board has no line.
   await expect.poll(async () => squeezed(await lastContext())).toMatch(/base,post\.Openmarks:M1$/)
 })
 
@@ -161,10 +162,11 @@ test('what is selected goes with the prompt, each ref with what the kernel says 
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).selection).toEqual([])
   await prompt()
+  // The mark is no card on the board (#248), and an empty board has no line.
   await expect.poll(async () => squeezed(await lastContext())).toMatch(/base,post\.Openmarks:M1$/)
 })
 
-test('on a stale build the selection cannot be put in the prompt: its refs would name other geometry', async () => {
+test('on a failed build the selection can still be put in the prompt: its refs are of the build on show, which the agent is told of', async () => {
   await tool('Select').click()
   await clickOver(ON_POST)
   await expect.poll(async () => (await state()).selection.length).toBe(1)
@@ -175,9 +177,8 @@ test('on a stale build the selection cannot be put in the prompt: its refs would
   const source = readFileSync(model, 'utf8')
   writeFileSync(model, `${source}\nraise RuntimeError("not today")\n`)
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'failed', stale: true })
-  await expect(insert).toBeDisabled()
-  await expect(insert).toHaveAttribute('title', 'The last build failed: picks wait for a build that works')
-  // Nor is it told to the agent with a prompt.
+  await expect(insert).toBeEnabled()
+  // It is not told to the agent as a selection with a prompt: the build it names is not the one just edited.
   await prompt()
   await expect.poll(lastContext).toContain('BUILDFAILED')
   expect(await lastContext()).not.toContain('Selected:')

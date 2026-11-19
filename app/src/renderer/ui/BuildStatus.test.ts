@@ -4,7 +4,7 @@ import type { Scene } from '../../shared/scene'
 import { letGoText } from '../../shared/build'
 import { setsStore } from '../state/sets'
 import { store } from '../state/store'
-import { BuildStatus, defectsSaid, dimensionCount, goToRow } from './BuildStatus'
+import { BuildStatus, BuildingSaid, defectsSaid, dimensionCount, goToRow } from './BuildStatus'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { OFF_EDGE_ADVICE, shownValue, verdictShown, whyNotMeasurable } from './DimensionFields'
@@ -146,6 +146,24 @@ describe('a build the kernel let go to make room', () => {
     expect(letGoText({ status: 'building' })).toBeNull()
     expect(letGoText({ status: 'ok' })).toBeNull()
     expect(letGoText({ status: 'ok', letGo: 'memory' })).toBe('This build was let go to make room (memory): it is built again when something is asked of it.')
+  })
+})
+
+describe('the status line while a build runs', () => {
+  // The words of markup React rendered here: strip tags until none is left, so that no tag is pieced back together.
+  const text = (html: string): string => {
+    let out = html
+    for (let before = ''; before !== out; ) {
+      before = out
+      out = out.replace(/<[^>]*>/g, '')
+    }
+    return out
+  }
+  it('names the build running, its clock and the build on show', () => {
+    expect(text(renderToStaticMarkup(createElement(BuildingSaid, { shownRevision: 12, seconds: 100 })))).toBe('Building r13 · 1:40 · you are on r12')
+  })
+  it('names none before a first build has landed', () => {
+    expect(text(renderToStaticMarkup(createElement(BuildingSaid, { shownRevision: 0, seconds: 7 })))).toBe('Building 0:07')
   })
 })
 

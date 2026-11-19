@@ -3,7 +3,7 @@ import { MeshAsks } from './scanMeshes'
 import { useEffect, useRef, useState } from 'react'
 import { apply } from '../../shared/align'
 import { EXPLODED_TOOLS, explodeOf } from '../../shared/explode'
-import { fadeIn } from '../../shared/build'
+import { picksWait } from '../../shared/build'
 import { measuredValue } from '../../shared/dimension'
 import type { Vec3 } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
@@ -34,7 +34,7 @@ import { connectRegion, regionTool } from '../tools/regionTool'
 import { sectionTool } from '../tools/sectionTool'
 import { selectTool } from '../tools/selectTool'
 import { connectShapeEdit, shapeTool } from '../tools/shapeTool'
-import { routePointer, staleMessage, type Tool, type ToolContext } from '../tools/Tool'
+import { routePointer, type Tool, type ToolContext } from '../tools/Tool'
 import { chipSays, markChips } from '../tools/markChips'
 import { Readout } from '../viewport/highlight'
 import { labelText } from '../viewport/marks/labels'
@@ -206,16 +206,6 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   const underTest = new URLSearchParams(location.search).has('test')
   // The pictures on the cards of the page of objects: one of every build that lands, of whichever object. The
   // one subscription to the builds is this one, which hands each on: the meshes cross from main once.
-  // The parts fade for a build that takes a while (`fadeIn`), not at each save; the pick lock does not wait.
-  let fadeTimer: ReturnType<typeof setTimeout> | undefined
-  const fade = (s: TornoState): void => {
-    clearTimeout(fadeTimer)
-    fadeTimer = undefined
-    const wait = s.scene === null ? null : fadeIn(s.build, Date.now(), viewport.faded())
-    if (wait === null || wait === 0) return viewport.setStale(wait === 0)
-    viewport.setStale(false)
-    fadeTimer = setTimeout(() => fade(store.getState()), wait)
-  }
   const thumbs = connectThumbs(viewport)
   const offScene = window.torno.object.onScene((m) => {
     thumbs.landed(m)
@@ -228,7 +218,6 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     viewport.setLayout(s.layout)
     // Before the first view is fitted: it frames the parts where they are drawn.
     viewport.setExplode(explodeNow(s))
-    fade(s)
     if (first) viewport.setView('iso')
     report()
   })
@@ -248,7 +237,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       get camera() {
         return viewport.getCamera()
       },
-      stale: s.build?.stale ? staleMessage(s.build.status) : null,
+      // Only when the kernel let the build on show go: a build under way or a failed one leaves the parts on screen to work on.
+      stale: picksWait(s.build),
       // By the store and by the screen: the parts are still apart for a moment after the store says together (and under a slider being dragged before it says apart), and what a pointer's ray meets then is not where the parts are.
       exploded: explodeNow(s) !== null || viewport.exploded() ? EXPLODED_TOOLS : null,
       descriptor: (ref) => descriptorOf(objectId, revision, layout, ref),
@@ -503,17 +493,14 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       if (s.objectId === prev.objectId) report()
     }
     // What was pointed at belongs to the object, the layout and the build it was pointed at in.
-    if (s.objectId !== prev.objectId || s.layout !== prev.layout || s.revision !== prev.revision || (s.build?.stale ?? false) !== (prev.build?.stale ?? false)) putDown()
+    if (s.objectId !== prev.objectId || s.layout !== prev.layout || s.revision !== prev.revision || picksWait(s.build) !== picksWait(prev.build)) putDown()
     // The parts are drawn apart from now: whatever a tool had under way was of the parts where they are, and is dropped once.
     if (apart !== null && wasApart === null) putDown()
     if (s.objectId !== prev.objectId || (prev.scene && !s.scene)) {
       viewport.setScene(NO_SCENE, new ArrayBuffer(0))
-      clearTimeout(fadeTimer)
-      viewport.setStale(false)
       return
     }
     if (s.scene !== prev.scene) return // the scene handler above brings the viewport in line
-    if (s.build !== prev.build) fade(s)
     if (s.layout !== prev.layout) viewport.setLayout(s.layout)
     if (s.layers !== prev.layers) applyLayers(s)
     // After the layout, whose parts it is of. Over a moment when it is all that changed (a key, the agent, the
@@ -695,7 +682,6 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   }
 
   return () => {
-    clearTimeout(fadeTimer)
     putDown()
     // The window goes: the sketch is closed where main can be told, and its card goes without a picture.
     offSketching()

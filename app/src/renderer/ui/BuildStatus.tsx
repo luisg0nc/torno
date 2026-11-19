@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { letGoText, rebuildHelps } from '../../shared/build'
+import { buildingText, letGoText, rebuildHelps } from '../../shared/build'
 import { landingText } from '../../shared/diff'
 import { hint } from '../../shared/keys'
 import { isCheck, unmetDimensions } from '../../shared/dimension'
@@ -62,6 +62,28 @@ export function goToRow(id: string): void {
   const scroll = (): void => document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(scroll))
   else scroll()
+}
+
+/**
+ * While a build runs: which build it makes, how long it has run, and which one is on show (`Building r13 · 1:40 · you are
+ * on r12`). The tools work on the one on show, and the marks made meanwhile are of it. Before a first build has landed
+ * there is no number to give.
+ */
+export function BuildingSaid({ shownRevision, seconds }: { shownRevision: number; seconds: number }) {
+  const said = buildingText(shownRevision, seconds)
+  return (
+    <span data-part="building">
+      Building {said.running && <span className="num">{said.running}</span>}
+      {said.running && ' · '}
+      <span className="num">{said.clock}</span>
+      {said.shown && (
+        <>
+          {' · you are on '}
+          <span className="num">{said.shown}</span>
+        </>
+      )}
+    </span>
+  )
 }
 
 /** A duration to a tenth of a second, to whole seconds from ten up; never shown as nothing. */
@@ -157,11 +179,7 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
           <span className="status-build" data-status={build.status}>
             {/* While a build runs its dot beats with the count of its seconds: once a second, by this render, and by no animation that runs on. */}
             <span className="status-dot" data-beat={building && elapsed % 2 === 1 ? 'off' : undefined} aria-hidden="true" />
-            {build.status === 'building' && !firstTime && (
-              <span>
-                Building <span className="num">{elapsed}</span> s
-              </span>
-            )}
+            {build.status === 'building' && !firstTime && <BuildingSaid shownRevision={hasScene ? build.revision : 0} seconds={elapsed} />}
             {build.status === 'building' && firstTime && <span>Making torno's Python environment, first time only</span>}
             {build.status === 'ok' && (
               <span>
@@ -194,7 +212,7 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
             {building ? 'Building…' : 'Rebuild'}
           </button>
           {letGoText(build) && <span className="status-letgo" data-part="let-go">{letGoText(build)}</span>}
-          {build.revision > 0 && (
+          {build.revision > 0 && !building && (
             <span data-part="revision">
               {build.stale && 'showing '}
               <span className="num">r{build.revision}</span>
