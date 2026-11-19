@@ -753,10 +753,12 @@ export const actions = {
     if (store.getState().noting !== null) store.setState({ noting: null })
   },
 
-  /** Opens a tab of the bench for the open project; the window keeps it for the next time. */
+  /** Opens a tab of the bench for the open project, showing the left column if it was hidden; the window keeps the tab for the next time. */
   setBenchTab(tab: BenchTab): void {
     const { objectId, benchTab } = store.getState()
-    if (objectId === null || benchTab[objectId] === tab) return
+    if (objectId === null) return
+    if (!store.getState().leftOpen) store.setState({ leftOpen: true })
+    if (benchTab[objectId] === tab) return
     const next = { ...benchTab, [objectId]: tab }
     store.setState({ benchTab: next })
     writeBench(windowStorage(), next)

@@ -25,7 +25,6 @@ export function Bench() {
   const tabs = benchTabs(parts, params?.length ?? 0)
   const open = tabShown(kept, tabs)
   const list = useRef<HTMLDivElement>(null)
-  useFindKey()
 
   const move = (e: KeyboardEvent<HTMLButtonElement>): void => {
     const to = pressed(e, 'bench.next') ? 1 : pressed(e, 'bench.previous') ? -1 : 0
@@ -68,8 +67,8 @@ export function Bench() {
   )
 }
 
-/** `/` outside a field and the terminal opens the Parameters tab and puts the cursor in its find box. */
-function useFindKey(): void {
+/** `/` outside a field and the terminal opens the Parameters tab (and the column, if it was hidden) and puts the cursor in its find box. */
+export function useFindKey(): void {
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent): void => {
       if (e.defaultPrevented || e.repeat || !pressed(e, 'params.find')) return
@@ -78,7 +77,8 @@ function useFindKey(): void {
       e.preventDefault()
       actions.setBenchTab('params')
       const focus = (): void => document.querySelector<HTMLInputElement>('[data-param-find]')?.focus()
-      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(focus)
+      // Twice: a column that was hidden is drawn by the first frame.
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(focus))
       else focus()
     }
     window.addEventListener('keydown', onKey)

@@ -16,6 +16,7 @@ import { WorkspaceQuestion } from './ui/WorkspaceQuestion'
 import { openProblem } from './ui/openFolder'
 import { Head } from './ui/card/TyingHead'
 import { RouteCard } from './ui/card/RouteCard'
+import { useFindKey } from './ui/card/Bench'
 import { SessionPane } from './ui/SessionPane'
 import { ViewBoard } from './ui/drawing/ViewBoard'
 import { BareControls, TitleBar } from './ui/TitleBar'
@@ -344,6 +345,7 @@ export function App() {
   useRegionKeys()
   useDockKey()
   useColumnKey()
+  useFindKey()
   usePageKey()
   useKeysKey()
   usePickerKey()

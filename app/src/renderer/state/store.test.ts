@@ -1478,6 +1478,19 @@ describe('the left column', () => {
   })
 })
 
+describe('the left column and the bench', () => {
+  it('opening a tab of the bench shows the column if it was hidden', () => {
+    actions.openObject('gear', { layers: {} })
+    actions.setBenchTab('params')
+    actions.setLeftOpen(false)
+    actions.setBenchTab('params')
+    expect(store.getState().leftOpen).toBe(true)
+    actions.setLeftOpen(false)
+    actions.setBenchTab('parts')
+    expect(store.getState().leftOpen).toBe(true)
+  })
+})
+
 describe('the session dock', () => {
   it('is shown to begin with, and shown or hidden as it is asked; another object or workspace leaves it as it is', () => {
     expect(store.getState().dockOpen).toBe(true)
