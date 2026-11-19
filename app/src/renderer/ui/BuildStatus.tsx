@@ -179,8 +179,9 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
           <span className="status-build" data-status={build.status}>
             {/* While a build runs its dot beats with the count of its seconds: once a second, by this render, and by no animation that runs on. */}
             <span className="status-dot" data-beat={building && elapsed % 2 === 1 ? 'off' : undefined} aria-hidden="true" />
-            {build.status === 'building' && !firstTime && <BuildingSaid shownRevision={hasScene ? build.revision : 0} seconds={elapsed} />}
-            {build.status === 'building' && firstTime && <span>Making torno's Python environment, first time only</span>}
+            {build.status === 'building' && build.waiting && <span>Waiting for another build</span>}
+            {build.status === 'building' && !build.waiting && !firstTime && <BuildingSaid shownRevision={hasScene ? build.revision : 0} seconds={elapsed} />}
+            {build.status === 'building' && !build.waiting && firstTime && <span>Making torno's Python environment, first time only</span>}
             {build.status === 'ok' && (
               <span>
                 {shownId ? <><span className="num">{shownId}</span> built</> : 'Built'}

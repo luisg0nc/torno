@@ -125,6 +125,12 @@ interface Entry {
   failure?: BuildError
   /** The kernel let this object's last build go to make room when a build of it started, and none has landed since. */
   letGo: boolean
+  /**
+   * A source changed while nobody was looking at this project and no session works in it (`keepsFresh`), so no build
+   * was started: the parts it last built are behind. It is built when it is shown, when a session starts in it, or
+   * when a tool asks about it.
+   */
+  outdated: boolean
   /** Queries waiting for the next build to end, because the kernel no longer holds the last one (see `query`). */
   rebuilt?: { promise: Promise<void>; resolve: () => void; reject: (e: KernelError) => void }
 }
@@ -148,6 +154,7 @@ export class Builds {
   private readonly exists: (path: string) => boolean
   private readonly timeout: number | undefined
   private readonly overrides: OverridesPort | undefined
+  private readonly working: (objectId: string) => boolean
   private readonly entries = new Map<string, Entry>()
   private readonly buildListeners: Array<(s: BuildState) => void> = []
   private readonly sceneListeners: Array<(m: SceneMessage) => void> = []
@@ -168,6 +175,8 @@ export class Builds {
      * whether the build is of one that was (so that another follows).
      */
     overrides?: OverridesPort
+    /** Whether an agent session works in the project: it is built on every save, shown or not. */
+    working?: (objectId: string) => boolean
   }) {
     this.kernel = deps.kernel
     this.watch = deps.watch
@@ -175,12 +184,39 @@ export class Builds {
     this.exists = deps.exists ?? existsSync
     this.timeout = deps.timeout
     this.overrides = deps.overrides
+    this.working = deps.working ?? (() => false)
     this.kernel.onExit(() => this.kernelStopped())
   }
 
   /** The object the window shows from now on: of those waiting for the kernel, it is built first. */
   show(objectId: string | null): void {
     this.shown = objectId
+    if (objectId !== null) this.catchUp(objectId)
+  }
+
+  /**
+   * Whether a save of this project's files is built at once: the project on screen, one a session works in, and
+   * every project while none is shown (nothing is preferred then). The others are marked out of date and built when
+   * they are wanted (`catchUp`), so that a save in `common/` does not rebuild every project opened during the run.
+   */
+  private keepsFresh(entry: Entry): boolean {
+    return this.shown === null || this.shown === entry.obj.id || this.working(entry.obj.id)
+  }
+
+  /** Nothing is built for a change nobody waits for: the parts built so far are behind, and the status and the cards say so. */
+  private markOutdated(entry: Entry): void {
+    entry.outdated = true
+    entry.restoring = false
+    entry.failure = undefined
+    if (entry.state.status === 'building' || entry.state.stale || entry.state.revision === 0) return
+    this.set(entry, { ...entry.state, stale: true })
+  }
+
+  /** Build a project whose sources changed while it was not wanted, now that it is: shown, worked in, or asked about. */
+  catchUp(objectId: string): void {
+    const entry = this.entries.get(objectId)
+    if (!entry?.outdated || entry.state.status === 'building') return
+    this.start(entry)
   }
 
   /**
@@ -202,6 +238,7 @@ export class Builds {
         changedMeanwhile: false,
         restoring: false,
         letGo: false,
+        outdated: false,
         unwatch: []
       }
       this.entries.set(obj.id, entry)
@@ -236,7 +273,8 @@ export class Builds {
     entry.restoring = false
     entry.failure = undefined
     this.setReason(entry, 'watch')
-    this.start(entry)
+    if (this.keepsFresh(entry)) this.start(entry)
+    else this.markOutdated(entry)
     return true
   }
 
@@ -247,6 +285,8 @@ export class Builds {
   changed(objectId: string, paths: string[] = [], reason: BuildReason = 'watch'): void {
     const entry = this.entries.get(objectId)
     if (!entry) return
+    // A save nobody waits for is not built: the project is built when it is wanted. What the person or a tool asks for is built.
+    if (reason === 'watch' && !this.keepsFresh(entry)) return this.markOutdated(entry)
     const building = entry.state.status === 'building'
     if (building && paths.length > 0 && !paths.some((path) => path.endsWith('.py'))) entry.changedMeanwhile = true
     else this.startChanged(entry, reason)
@@ -364,6 +404,11 @@ export class Builds {
       const message = `${objectId} has not been built successfully yet, so there is nothing to ask about`
       throw new KernelError('no_build', message)
     }
+    // Sources changed that no build was started for: what is asked is answered of a build of them, not of the one before.
+    if (entry.outdated && opts?.restore !== false) {
+      await this.waitForBuild(entry, objectId)
+      return this.kernel.query<T>(entry.obj.dir, name, args, asked)
+    }
     try {
       return await this.kernel.query<T>(entry.obj.dir, name, args, asked)
     } catch (e) {
@@ -381,6 +426,12 @@ export class Builds {
     if (failure) {
       throw new NotBuilding(failure.kind, `there is no build of ${objectId} to answer from: the kernel let the last one go, and the model does not build now (${failure.message}). It is built again when a source changes, or when the user presses Rebuild in the status line of torno (${REBUILD_KEY}).`)
     }
+    await this.waitForBuild(entry, objectId)
+    return this.kernel.query<T>(entry.obj.dir, name, args, asked)
+  }
+
+  /** Wait for the next build of an object to land, starting one if none is on its way. */
+  private async waitForBuild(entry: Entry, objectId: string): Promise<void> {
     try {
       await this.builtAgain(entry)
     } catch (e) {
@@ -388,7 +439,6 @@ export class Builds {
       if (e instanceof KernelError && this.entries.get(objectId) === entry && entry.state.status === 'failed' && entry.failure) throw new NotBuilding(e.kind, e.message, e.reason)
       throw e
     }
-    return this.kernel.query<T>(entry.obj.dir, name, args, asked)
   }
 
   /** For tests: as when the kernel let an object's build go to make room for another's (`letGo`), without a kernel short of memory. */
@@ -433,10 +483,11 @@ export class Builds {
       entry.rebuilt = { promise, resolve, reject }
       // A build of this object that is running, or waiting for its turn, will do.
       if (entry.state.status !== 'building') {
-        entry.restoring = true
-        this.setReason(entry, 'rebuild')
+        // Of sources that changed since the last build (`outdated`) the parts on screen are stale; else they are what it will make.
+        entry.restoring = !entry.outdated
+        this.setReason(entry, entry.outdated ? 'watch' : 'rebuild')
         if (this.running === null) this.start(entry)
-        else this.displaced.add(entry.obj.id) // started when the kernel is free
+        else this.defer(entry.obj.id) // started when the kernel is free
       }
     }
     return entry.rebuilt.promise
@@ -467,6 +518,7 @@ export class Builds {
     const stale = entry.restoring ? entry.state.stale : revision > 0
     this.displaced.delete(id)
     entry.changedMeanwhile = false // this build sees whatever changed
+    entry.outdated = false
 
     if (obj.model === null) {
       const message = obj.problem ?? `no model file in ${obj.dir}`
@@ -478,7 +530,7 @@ export class Builds {
 
     // The kernel drops the build it is running for this one. Its `cancelled` may land after this build
     // has ended and the kernel is free again, when nothing would say any more that it was displaced.
-    if (this.running !== null && this.running !== id) this.displaced.add(this.running)
+    if (this.running !== null && this.running !== id) this.defer(this.running)
     entry.startedAt = this.now()
     this.set(entry, { objectId: id, status: 'building', revision, startedAt: entry.startedAt, stale, ...this.why(entry) })
     this.running = id
@@ -523,8 +575,10 @@ export class Builds {
           this.displaced.delete(id) // it ended by itself after all: there is nothing to start again
         }
         if (result.ok) this.succeeded(entry, result.scene, result.blob)
-        else if (displaced) this.displaced.add(id)
+        else if (displaced) this.defer(id)
         else this.failed(entry, result.error)
+        // A save came while it built and nobody waited for it (`markOutdated`): what landed is already behind.
+        if (entry.outdated && !displaced && this.entries.get(id) === entry && entry.attempt === attempt && entry.state.status !== 'building' && !entry.state.stale) this.set(entry, { ...entry.state, stale: true })
         // A listener may have closed the object, or started it again, by now.
         if ((again || overridden) && !displaced && this.entries.get(id) === entry && entry.attempt === attempt) this.start(entry, true)
       }
@@ -636,6 +690,13 @@ export class Builds {
     this.startDisplaced()
   }
 
+  /** A build that waits for the kernel to be free: the status says it waits its turn. */
+  private defer(id: string): void {
+    this.displaced.add(id)
+    const entry = this.entries.get(id)
+    if (entry && entry.state.status === 'building' && !entry.state.waiting) this.set(entry, { ...entry.state, waiting: true })
+  }
+
   private startDisplaced(): void {
     if (this.running !== null) return
     const waiting = [...this.displaced]
@@ -643,10 +704,17 @@ export class Builds {
     for (const id of waiting) {
       this.displaced.delete(id)
       const entry = this.entries.get(id)
-      if (entry) {
-        this.start(entry)
-        return
+      if (!entry) continue
+      // A build nobody waits for any more (another project was shown meanwhile) is not made: it is built when it is wanted.
+      if (!this.keepsFresh(entry) && !entry.rebuilt) {
+        entry.outdated = true
+        entry.restoring = false
+        const { waiting: _waits, startedAt: _began, ...rest } = entry.state
+        this.set(entry, { ...rest, status: entry.lastGood ? 'ok' : 'idle', stale: entry.state.revision > 0 })
+        continue
       }
+      this.start(entry)
+      return
     }
   }
 

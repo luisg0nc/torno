@@ -122,7 +122,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **A card says how far its picture can be trusted** (`ui/cards.ts`): when it was made (with the year when
   that is not this one); what it draws otherwise than the object is (`cut by its section`, `parts drawn
   apart`, `1 part left out`); and `A source has changed since` (`thumbOf`: `behind`). The sources of an object
-  are what a change in has it built again (`Builds.open`): the `.py` files directly in its folder and in
+  are what a change in has it built again, when it is on screen or a session works in it (`Builds.open`, `keepsFresh`): the `.py` files directly in its folder and in
   `<workspace>/common` (`sourceFolders`, `newestPython`; the kernel does not say which files a model read, so
   there is nothing finer). `sourcesMtimeMs` is the newest of them when the picture was kept, and no later
   than when that build was started, so a source saved during the build is newer than its picture; a card is
