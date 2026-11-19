@@ -484,7 +484,7 @@ test("add_mark places the agent's own marks, by ref and by point, which the user
 
   const row = page.locator('.mark-row[data-mark="M2"]')
   await expect(row).toHaveAttribute('data-author', 'agent')
-  // In Needs you, for the person to read or answer; the person's sent M1 stays with the agent, in Marks.
+  // Under From the agent in Marks, for the person to read or answer; the person's sent M1 stays with the agent, in Marks.
   await expect(page.getByRole('list', { name: 'From the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(0)
@@ -641,8 +641,8 @@ test('resolve_mark resolves a mark, which the user sees as resolved by the agent
   const result = await call(bracket, 'resolve_mark', { id: 'M1', note: 'made the corner 2 mm thicker' })
   expect(result).toMatchObject({ isError: false, text: `resolved: ${describeMark(pin)}\nnote: made the corner 2 mm thicker` })
   const marks = page.getByRole('region', { name: 'Marks' })
-  const needs = page.getByRole('region', { name: 'Needs you' })
-  // In Needs you, saying who resolved it and what was done, in words on the row.
+  const needs = page.getByRole('region', { name: 'Marks' })
+  // Under From the agent, saying who resolved it and what was done, in words on the row.
   await expect(needs.locator('.needs-review')).toContainText('The agent resolved 1 mark.')
   await needs.locator('.needs-review').getByRole('button', { name: 'Review' }).click()
   const awaiting = needs.getByRole('list', { name: 'To review' }).locator('[data-mark="M1"]')

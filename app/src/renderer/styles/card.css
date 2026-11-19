@@ -1,5 +1,5 @@
 /* ---- The route card (ui/card/RouteCard.tsx): the project read top to bottom ----
-   A route line runs down its left, and each section has a dot on it. The sections' own looks are in card-hand, card-needs,
+   A route line runs down its left, and each section has a dot on it. The sections' own looks are in card-hand, card-on,
    card-parts, card-checks, card-marks and card-misc, which come after this. */
 
 .route-card {
