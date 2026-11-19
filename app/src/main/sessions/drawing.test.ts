@@ -79,7 +79,7 @@ describe('a stroke as a vector', () => {
   it('is kept by the check and said in words with its ends, length and direction', () => {
     const one = strokeOf(stroke, 100, 100)!
     expect(one.vector).toEqual(stroke.vector)
-    expect(strokeLine(one, 1)).toContain('from (0, 0, 5) to (25, 0, 5) mm on the surface, 25 mm long, direction (1, 0, 0) (an arrow, its head at the second end; read off the view\'s mesh, not exact)')
+    expect(strokeLine(one, 1)).toContain('from (0, 0, 5) to (25, 0, 5), 25 mm long, direction (1, 0, 0), head at the second end')
   })
   it('refuses a vector that is not one', () => {
     expect(strokeOf({ ...stroke, vector: { ...stroke.vector, length: 'long' } }, 100, 100)).toBeNull()

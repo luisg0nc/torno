@@ -108,8 +108,11 @@ export function strokeLine(stroke: StrokeUnder, n: number): string {
 const mm = (n: number): string => String(Math.round(n * 10) / 10 + 0)
 const point = (p: readonly number[]): string => `(${p.map(mm).join(', ')})`
 
-/** A stroke as a vector, in words: the ends in mm of the object frame on the surface, how long, which way, which end has the head. Read off the view's mesh: not exact. */
+/** A stroke as a vector, in words: the ends on the surface, how long, which way, which end has the head. The line above says the numbers are not exact (`VECTOR_NOTE`). */
 export function vectorText(v: StrokeVector): string {
-  const way = v.head === 'to' ? 'an arrow, its head at the second end' : 'which end has a head is not clear'
-  return `from ${point(v.from)} to ${point(v.to)} mm on the surface, ${mm(v.length)} mm long, direction ${point(v.direction.map((n) => Math.round(n * 100) / 100))} (${way}; read off the view's mesh, not exact)`
+  const direction = point(v.direction.map((n) => Math.round(n * 100) / 100))
+  return `from ${point(v.from)} to ${point(v.to)}, ${mm(v.length)} mm long, direction ${direction}, ${v.head === 'to' ? 'head at the second end' : 'head unknown'}`
 }
+
+/** Said once, before the strokes, when any of them is a vector. */
+export const VECTOR_NOTE = "A stroke with from/to is a vector: its ends in mm of the object frame on the surface, read off the view's mesh, so not exact."
