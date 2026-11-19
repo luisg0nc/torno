@@ -24,7 +24,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
-    <img src="docs/images/hero.png" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the parts, checks and marks of the project in a card on the left, the model in 3D in the middle with a pin and dimensions on it, the conversation with Claude Code on the right" width="900">
+    <img src="docs/images/hero.png" alt="torno with an airbox open, sitting in a 3D scan of the engine bay it is for: the build's verdict and what waits on you at the top of the column on the left, the model in 3D in the middle with a pin and dimensions on it, the conversation with Claude Code on the right" width="900">
   </picture>
 </p>
 
@@ -55,7 +55,11 @@ what you mean rather than make geometry. The model is the Python file, and torno
 - **Live builds.** Every save rebuilds the model and redraws it. When a build fails, the last good parts stay on
   screen and the traceback is one click away. A failed fillet tells you which edges and what radius would work.
 - **Point, don't describe.** Pins, arrows, strokes, shapes and picks on faces and edges, each with a note. The
-  agent gets them with your next prompt as refs like `lid/F12`, never as vague words.
+  agent gets them with your next prompt as refs like `lid/F12`, never as vague words. What you have selected waits
+  in a tag by the part, with what the kernel says of it.
+- **What waits on you.** The top of the left column says how the build on show stands (`2 fail, 5 pass`) and lists
+  what needs you: a failing check, Claude's question, a mark to review. Parameters and Parts are two tabs under it,
+  and `Ctrl+P` finds any part or value in a model of many. `Ctrl+Shift+L` hides the column.
 - **Sketch in 3D.** Draw strokes in space, on a plane or on the surface of the parts, in millimetres, to show
   where something goes or how it runs. [More](docs/manual.md#3d-sketches)
 - **Review a build.** Go over a build once, marking what you don't want and what you want, and send it as one
@@ -72,33 +76,34 @@ what you mean rather than make geometry. The model is the Python file, and torno
 - **Section, explode, saved views.** Cut through the parts, pull an assembly apart, keep a camera under a
   name.
 - **Scans.** Import a phone or scanner mesh of the place the part has to fit, align it, and check clashes and
-  deviation against it. torno always marks scan numbers as approximate.
+  deviation against it. torno always marks scan numbers as approximate. A scan is a tab beside Model and Brief.
 - **Tracings.** Lay one plane of the model flat at true size on a millimetre grid, over a photo of the real thing
-  if you have one. The outline is redrawn after every build. [More](docs/manual.md#the-tracing-view)
+  if you have one. The outline is redrawn after every build. It is a tab of the same switch.
+  [More](docs/manual.md#the-tracing-view)
 - **A brief for each project.** One page with what you are making, the sizes you know and where each came from,
-  the rules, and the photos and notes. Claude is told the sizes and rules in every new conversation.
-  [More](docs/manual.md#the-brief)
+  the rules, the photos and notes, and your checks, dimensions and marks. Claude is told the sizes and rules in
+  every new conversation. [More](docs/manual.md#the-brief)
 - **Start from what you have.** A new project can start from a description, photos, doodles, scans and other
   projects in the workspace. Claude gets all of it with its first prompt. All your projects stand on one bench at
   true scale, the ones waiting on you first.
 - **Export.** A single HTML file anyone can open in a browser without installing anything, or STEP, STL and 3MF, a PNG of the view, and an SVG or PDF drawing of a section or a tracing at true scale.
 - **Local.** torno itself uploads nothing. The agent is your own `claude`, under your own login, and torno
-  leaves its settings alone. In your folders, torno writes only under `<project>/.torno/`.
+  leaves its settings alone. In your folders, torno writes only under `<project>/.torno/`, and a session can edit files only in its own project.
 
 <table>
   <tr>
-    <td><img src="docs/images/marks.png" alt="A speaker stand with one pin and three dimensions drawn on it, one of them failing, and the card listing two checks that pass and one that fails"></td>
+    <td><img src="docs/images/marks.png" alt="The Brief page of a speaker stand: its checks, two that pass and one that fails, and its marks, with the Parameters and Parts bench at the left"></td>
     <td><img src="docs/images/chat.png" alt="The conversation in the dock: a prompt with the marks torno added, the agent calling look and measure, its edit of the model and the build that followed"></td>
     <td><img src="docs/images/section.png" alt="A section through the airbox showing the filter pod inside the lid and the ribs of the tub"></td>
   </tr>
   <tr>
-    <td align="center">Marks and dimensions</td>
+    <td align="center">Checks and marks on the Brief page</td>
     <td align="center">The agent's view</td>
     <td align="center">Section</td>
   </tr>
   <tr>
-    <td><img src="docs/images/sketch.png" alt="A 3D sketch open on the airbox: a hose route drawn on a plane in front of it, with the sketch's panel in the card and the Sketching band at the top of the view"></td>
-    <td><img src="docs/images/review.png" alt="A review round open on the airbox: one pin marked as not wanted and one as wanted, each with its sign and note, and the round's items listed in the card"></td>
+    <td><img src="docs/images/sketch.png" alt="A 3D sketch open on the airbox: a hose route drawn on a plane in front of it, with the sketch's panel in the left column and the Sketching band at the top of the view"></td>
+    <td><img src="docs/images/review.png" alt="A review round open on the airbox: one pin marked as not wanted and one as wanted, each with its sign and note, and the round's panel in the left column"></td>
     <td><img src="docs/images/tracing.png" alt="The Tracing view: a flat cut across the airbox laid out on a millimetre grid, with the parts named, a scale bar and a title block"></td>
   </tr>
   <tr>

@@ -4,7 +4,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace } from './readme-workspace'
-import { newSession } from './helpers'
+import { newSession, onBrief } from './helpers'
 
 // The frames of the README's recording of the loop (docs/images/demo.gif and demo.mp4): a person pins the tub wall
 // of an airbox that sits in a scan of the engine bay it is for, "too thin here", asks for 3 mm, the agent looks,
@@ -113,15 +113,17 @@ for (const [n, frame] of FRAMES.entries()) {
     test.setTimeout(600_000)
     const { root, home } = workspace()
     const { app, page } = await start(root, home)
-    // The dimension's row in the card's Checks (the section is open while there is a check to read), where a click opens what it says.
-    const check = (id: string) => page.locator(`[data-region="left"] .check-row[data-check-mark="${id}"]`)
-    const verdict = page.locator('[data-region="left"] .dimension-verdict').first()
+    // The dimension's row in the On block of the left column: what fails, with its reading, `2.8 mm, expected 3 ± 0.05` (the rows of Checks are on the Brief page, which hides the model).
+    const onCheck = page.locator('[data-region="left"] .on-block .on-row[data-kind="check"]')
+    const onHead = page.locator('[data-region="left"] .on-block .on-head .on-said')
+    // A check's verdict, read on the Brief page; the model is shown again after.
+    const verdictOf = (id: string) => onBrief(page, () => page.locator(`.brief-page .check-row[data-check-mark="${id}"]`).getAttribute('data-verdict'))
     try {
       await page.waitForSelector('[data-region="viewport"]')
       await openListed(page, 'intake')
       await expect.poll(async () => ((await state(page)).objectId === 'intake' ? (await state(page)).build?.status : null), { timeout: 240_000 }).toBe('ok')
       await expect.poll(async () => (await state(page)).scene !== null).toBe(true)
-      await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'fails', { timeout: 60_000 })
+      await expect.poll(() => verdictOf('M1'), { timeout: 60_000 }).toBe('fails')
       await page.waitForTimeout(800)
 
       if (past(frame, 'open')) {
@@ -140,9 +142,8 @@ for (const [n, frame] of FRAMES.entries()) {
         await page.keyboard.press('Escape')
       }
       if (frame === 'pinned') {
-        // The dimension's row opened: what it says of the wall.
-        await check('M1').click()
-        await expect(verdict).toHaveText('Fails: 0.2 under')
+        // The On block says what the wall does: the dimension fails, with its reading.
+        await expect(onCheck.first()).toContainText('2.8 mm, expected 3')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
         await page.mouse.move(W / 2, H - 40)
       }
@@ -160,7 +161,7 @@ for (const [n, frame] of FRAMES.entries()) {
       }
       if (past(frame, 'look')) {
         await expect.poll(async () => (await state(page)).scene !== null && (await state(page)).build?.revision === 2, { timeout: 240_000 }).toBe(true)
-        await expect(page.locator('.check-row[data-check-mark="M1"]')).toHaveAttribute('data-verdict', 'passes', { timeout: 60_000 })
+        await expect.poll(() => verdictOf('M1'), { timeout: 60_000 }).toBe('passes')
         if (frame !== 'edit') await expect(page.locator('.chat-text').last()).toContainText('Done', { timeout: 120_000 })
         await page.waitForTimeout(800)
       }
@@ -170,8 +171,8 @@ for (const [n, frame] of FRAMES.entries()) {
         await expect(page.locator('.chat-tool .diff')).toBeVisible()
       }
       if (frame === 'passes') {
-        await check('M1').click()
-        await expect(verdict).toHaveText('Passes')
+        await expect(onCheck).toHaveCount(0)
+        await expect(onHead).toContainText('1 pass')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
         // What the agent resolved waits as a row of the On block: M2 with its line.
         await page.locator('[data-region="left"] .on-block .on-row[data-kind="review"]').first().hover()

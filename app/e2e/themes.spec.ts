@@ -9,7 +9,7 @@ import { contrast } from '../src/shared/contrast'
 import { png } from '../src/test/pngFixtures'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { cardSection, openSection, showProjects, newSession, clickImportScan } from './helpers'
+import { cardSection, onBrief, openSection, showProjects, newSession, clickImportScan } from './helpers'
 import { newFromList, openListed, projectCard, switcher } from './objects'
 import { stableBox } from './stable'
 
@@ -305,14 +305,16 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(switcher(page)).toHaveAccessibleName('bracket')
           await expect(page.locator('.status-needs')).toContainText('bracket needs you')
           // A mark's row opened, as when it is being read.
-          await page.locator('.mark-row').first().click()
+          // The rows are a block of the Brief page: it is shown for the click, and the model comes back for the picture.
+          await onBrief(page, () => page.locator('.mark-row').first().click())
         } else if (shot === 'mark-chip') {
-          // The pointer on a failing dimension's chip: the hand, its check row lit, the chip ringed and its numbers at the pointer.
+          // The pointer on a failing dimension's chip: the hand, the chip ringed and its numbers at the pointer.
           const at = (await page.evaluate(() => window.__tornoTest!.markScreen('M3')))!
           const view = (await canvas.boundingBox())!
           await page.mouse.move(view.x + at.x * view.width, view.y + at.y * view.height)
           await expect(page.locator('.pick-readout')).toContainText('2 under')
-          await expect(page.locator('.check-row[data-check-mark="M3"]')).toHaveAttribute('data-lit', '')
+          // The check's row is on the Brief page, which is not shown: the ring on the chip is the sign.
+          await expect.poll(() => page.evaluate(() => window.__tornoTest!.hoveredMark())).toBe('M3')
         } else if (shot === 'instructions') {
           // The instruction files, unfolded in the header's More menu, with a chat running under it.
           await page.locator('[data-region="session"]').getByRole('button', { name: 'More', exact: true }).click()
@@ -432,7 +434,7 @@ for (const theme of ['light', 'dark'] as const) {
           await showProjects(page)
           await expect(projectCard(page, 'two').locator('[data-part="build"]')).toHaveAttribute('title', /more than one model file/)
         } else if (shot === 'badges') {
-          // A scan in, and a part switched off, the panels shut: the rail's icons say what matters of what they hold.
+          // A scan in, and a part switched off, the panels shut: the tabs say what matters of what they hold.
           await scan()
           await page.getByRole('dialog', { name: 'How is S1 read?' }).getByRole('button', { name: 'Later' }).click()
           await expect(cardSection(page, 'Scans').locator('.scan-row .chip[data-state="unaligned"]')).toHaveText('unaligned')
@@ -502,7 +504,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect(board.locator('canvas')).toHaveAttribute('data-strokes', '4')
           if (shot !== 'view-board') {
             await board.getByRole('button', { name: 'Done' }).click()
-            await expect(page.locator('.mark-row[data-status="draft"]').filter({ has: page.getByRole('img', { name: 'View note' }) })).toHaveCount(1)
+            await onBrief(page, () => expect(page.locator('.mark-row[data-status="draft"]').filter({ has: page.getByRole('img', { name: 'View note' }) })).toHaveCount(1))
             const dock = page.locator('[data-region="session"]')
             if (shot === 'view-board-chip') {
               await dock.getByRole('button', { name: 'Attach view' }).click()
