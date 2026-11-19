@@ -22,8 +22,8 @@ describe('what the tools tell a client', () => {
     for (const [name, tool] of entries.filter(([name]) => !readOnly.includes(name))) expect(tool.annotations, name).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false })
   })
 
-  it('loads upfront the five tools needed on nearly every turn, and no other', () => {
-    expect(entries.filter(([, tool]) => tool.meta?.['anthropic/alwaysLoad'] === true).map(([name]) => name).sort()).toEqual(['describe', 'look', 'marks', 'measure', 'scene'])
+  it('loads upfront the eight tools the prompt relies on, and no other', () => {
+    expect(entries.filter(([, tool]) => tool.meta?.['anthropic/alwaysLoad'] === true).map(([name]) => name).sort()).toEqual(['describe', 'features', 'look', 'marks', 'measure', 'resolve_mark', 'scene', 'show'])
     for (const [name, tool] of entries) {
       expect(Object.keys(tool.meta ?? {}).filter((key) => key !== 'anthropic/alwaysLoad'), name).toEqual([])
       // Claude Code cuts a description loaded upfront at this many characters.

@@ -1,5 +1,5 @@
 
-import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } from '../../shared/drawing'
+import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder, type StrokeVector } from '../../shared/drawing'
 import type { Camera } from '../../shared/view'
 
 // What a view note holds of what the ink lies over, checked field by field (`notes/check.ts`) and worded for the agent
@@ -43,6 +43,20 @@ export function cameraOf(v: unknown): Camera | null {
   return { position, target, up, ortho: v.ortho, fov: v.fov, zoom: v.zoom }
 }
 
+const MAX_MM = 1e6
+const vec3 = (t: unknown): [number, number, number] | null => (Array.isArray(t) && t.length === 3 && t.every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= MAX_MM) ? [t[0], t[1], t[2]] : null)
+
+/** What a stroke says as a vector (`StrokeVector`), as the window sends it and a note keeps it; null when it is not one. */
+export function vectorOf(v: unknown): StrokeVector | null {
+  if (!isRecord(v)) return null
+  const from = vec3(v.from)
+  const to = vec3(v.to)
+  const direction = vec3(v.direction)
+  if (!from || !to || !direction || typeof v.length !== 'number' || !Number.isFinite(v.length) || v.length < 0 || v.length > MAX_MM) return null
+  if (v.head !== 'to' && v.head !== 'unknown') return null
+  return { from, to, length: v.length, direction, head: v.head }
+}
+
 /** One stroke of what the window says is under the ink, within a picture of that size; null when it is not one. */
 export function strokeOf(v: unknown, width: number, height: number): StrokeUnder | null {
   if (!isRecord(v) || !Array.isArray(v.box) || v.box.length !== 4 || !v.box.every((n) => typeof n === 'number' && Number.isFinite(n))) return null
@@ -62,7 +76,9 @@ export function strokeOf(v: unknown, width: number, height: number): StrokeUnder
   if (!scans.every((s): s is string => typeof s === 'string' && SCAN.test(s))) return null
   // Over something, and nothing of it named: no stroke the window would say.
   if (refs.length === 0 && cuts.length === 0 && scans.length === 0 && !v.bare) return null
-  return { box: [left, top, right, bottom], refs, ...(v.moreRefs ? { moreRefs: v.moreRefs } : {}), cuts: [...cuts], scans: [...scans], bare: v.bare }
+  const vector = v.vector === undefined ? undefined : vectorOf(v.vector)
+  if (vector === null) return null
+  return { box: [left, top, right, bottom], refs, ...(v.moreRefs ? { moreRefs: v.moreRefs } : {}), cuts: [...cuts], scans: [...scans], bare: v.bare, ...(vector ? { vector } : {}) }
 }
 
 /** Where in the picture, as the agent reads it: `412–630`. */
@@ -86,5 +102,17 @@ export function overText(stroke: StrokeUnder): string {
 /** What one stroke lies over, as a line of the caption. */
 export function strokeLine(stroke: StrokeUnder, n: number): string {
   const [left, top, right, bottom] = stroke.box
-  return `- stroke ${n}, x ${span(left, right)}, y ${span(top, bottom)}: ${overText(stroke)}`
+  return `- stroke ${n}, x ${span(left, right)}, y ${span(top, bottom)}: ${overText(stroke)}${stroke.vector ? `; ${vectorText(stroke.vector)}` : ''}`
 }
+
+const mm = (n: number): string => String(Math.round(n * 10) / 10 + 0)
+const point = (p: readonly number[]): string => `(${p.map(mm).join(', ')})`
+
+/** A stroke as a vector, in words: the ends on the surface, how long, which way, which end has the head. The line above says the numbers are not exact (`VECTOR_NOTE`). */
+export function vectorText(v: StrokeVector): string {
+  const direction = point(v.direction.map((n) => Math.round(n * 100) / 100))
+  return `from ${point(v.from)} to ${point(v.to)}, ${mm(v.length)} mm long, direction ${direction}, ${v.head === 'to' ? 'head at the second end' : 'head unknown'}`
+}
+
+/** Said once, before the strokes, when any of them is a vector. */
+export const VECTOR_NOTE = "A stroke with from/to is a vector: its ends in mm of the object frame on the surface, read off the view's mesh, so not exact."

@@ -102,6 +102,8 @@ describe('the rows of the checks, in words', () => {
     expect(checkRow(fits)).toMatchObject({ standing: 'fails', reading: '0.12 mm', wanted: 'wanted 0.15 to 0.25 mm', caution: null })
     expect(checkRow(walls)).toMatchObject({ standing: 'pass', reading: 'none found by sampling', caution: 'found by sampling' })
     expect(checkRow(gone)).toMatchObject({ standing: 'not measured', reading: 'a and b are the same part', wanted: '' })
+    expect(checkRow({ ...fits, status: 'pass', assumedRefs: ['radiator'] }).assumed).toBe('against an assumed reference: radiator')
+    expect(checkRow(fits).assumed).toBeNull()
     expect(checkRow({ ...gone, status: 'not run', reason: 'the 10 s ran out' }).standing).toBe('not run')
   })
 })

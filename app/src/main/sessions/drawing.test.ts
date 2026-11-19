@@ -73,3 +73,16 @@ describe('strokeLine and overText', () => {
     expect(strokeLine(under(), 1)).not.toMatch(/^(say|tool|ask|slow|work|rate|images|garbage)\b/)
   })
 })
+
+describe('a stroke as a vector', () => {
+  const stroke = { box: [0, 0, 10, 10], refs: [{ ref: 'plate/F1' }], cuts: [], scans: [], bare: false, vector: { from: [0, 0, 5], to: [25, 0, 5], length: 25, direction: [1, 0, 0], head: 'to' } }
+  it('is kept by the check and said in words with its ends, length and direction', () => {
+    const one = strokeOf(stroke, 100, 100)!
+    expect(one.vector).toEqual(stroke.vector)
+    expect(strokeLine(one, 1)).toContain('from (0, 0, 5) to (25, 0, 5), 25 mm long, direction (1, 0, 0), head at the second end')
+  })
+  it('refuses a vector that is not one', () => {
+    expect(strokeOf({ ...stroke, vector: { ...stroke.vector, length: 'long' } }, 100, 100)).toBeNull()
+    expect(strokeOf({ ...stroke, vector: { ...stroke.vector, head: 'both' } }, 100, 100)).toBeNull()
+  })
+})

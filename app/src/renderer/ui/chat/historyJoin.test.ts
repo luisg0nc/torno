@@ -118,6 +118,18 @@ describe('saveWords', () => {
     expect(saveWords({ cause: 'params', entries: [entry('h5', '2026-01-01T00:00:00Z', { cause: 'params', tried: ['wall', 'lid'] })] })).toBe('You tried wall, lid · h5')
     expect(saveWords({ cause: 'params', entries: [entry('h5', '2026-01-01T00:00:00Z', { cause: 'params' })] })).toBe('You tried other values of Params · h5')
   })
+  it('says a value that was set, and that the model does not have it yet', () => {
+    const set = (id: string, tried: string[], values: Record<string, number | boolean | string>) => entry(id, '2026-01-01T00:00:00Z', { cause: 'params', tried, set: values })
+    expect(saveWords({ cause: 'params', entries: [set('h5', ['wall'], { wall: 3 })] })).toBe('You set wall to 3 · not in the model yet · h5')
+    expect(saveWords({ cause: 'params', entries: [set('h5', ['lid', 'wall'], { wall: 3, lid: false })] })).toBe('You set lid to false, wall to 3 · not in the model yet · h5')
+  })
+  it('says a value put back to the file\'s, and the last word on a name over several builds', () => {
+    const set = (id: string, tried: string[], values: Record<string, number | boolean | string>) => entry(id, '2026-01-01T00:00:00Z', { cause: 'params', tried, set: values })
+    expect(saveWords({ cause: 'params', entries: [set('h5', ['wall'], {})] })).toBe('You put wall back to the file\'s value · h5')
+    expect(saveWords({ cause: 'params', entries: [set('h5', ['wall'], { wall: 3 }), set('h6', ['wall'], { wall: 4 })] })).toBe('You set wall to 4 · not in the model yet · h5 to h6')
+    expect(saveWords({ cause: 'params', entries: [set('h5', ['wall'], { wall: 3 }), set('h6', ['wall', 'lid'], { wall: 3, lid: true })] })).toBe('You set wall to 3, lid to true · not in the model yet · h5 to h6')
+    expect(saveWords({ cause: 'params', entries: [set('h5', ['wall', 'lid'], { wall: 3, lid: true }), set('h6', ['lid'], { wall: 3 })] })).toBe('You set wall to 3 and put lid back to the file\'s value · not in the model yet · h5 to h6')
+  })
 })
 
 describe('the facts of a turn', () => {

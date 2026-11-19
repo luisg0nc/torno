@@ -1,4 +1,4 @@
-import type { Param } from './scene'
+import type { Param, Scene } from './scene'
 
 /**
  * Where a size of the model's `Params` says it comes from: the first word of the field's comment, before a `:`
@@ -23,6 +23,17 @@ export function sourceOf(doc: string | null | undefined): Source {
 /** A field is a size when its default is a number (a count, a clearance); text, flags and lists have no source to tell. */
 export const isSize = (param: Param): boolean => typeof param.default === 'number'
 
+/**
+ * Why a comment does not count as a source, in a few words: it has none, it does not begin with a word and a colon
+ * (`source: …`), or the word is not one of the convention's. '' for a comment that counts.
+ */
+export function whyUnsaid(doc: string | null | undefined): string {
+  if (sourceOf(doc) !== 'unsaid') return ''
+  if (!doc || doc.trim() === '') return 'no comment'
+  const word = /^\s*([A-Za-z][^:\n]*?)\s*(?:≈\s*)?:/.exec(doc)?.[1]
+  return word ? `"${word}" is not a source word (${SOURCES.join(', ')})` : 'its comment does not begin with a source word and a colon (brief: …)'
+}
+
 export interface SourceCount {
   /** The sizes of the model. */
   sizes: number
@@ -43,12 +54,17 @@ export function sourceCount(params: readonly Param[] | undefined): SourceCount {
 
 const value = (p: Param): string => String(typeof p.default === 'number' ? Math.round(p.default * 1000) / 1000 : p.default)
 
-/** `Assumed: wall 2, lip 3 (2 of 14 sizes); no source: 4`; '' when there is nothing to say. */
+const SHOWN_UNSAID = 8
+const unsaidWhy = (unsaid: readonly Param[]): string =>
+  `${unsaid.slice(0, SHOWN_UNSAID).map((p) => `${p.name}: ${whyUnsaid(p.doc)}`).join('; ')}${unsaid.length > SHOWN_UNSAID ? `; and ${unsaid.length - SHOWN_UNSAID} more` : ''}`
+const unsaidText = (unsaid: readonly Param[]): string => `no source: ${unsaid.length} (${unsaidWhy(unsaid)})`
+
+/** `Assumed: wall 2, lip 3 (2 of 14 sizes); no source: 1 (lid: no comment)`, each field named with why its comment does not count; '' when there is nothing to say. */
 export function assumedLine(params: readonly Param[] | undefined): string {
   const { sizes, assumed, unsaid } = sourceCount(params)
   if (assumed.length === 0 && unsaid.length === 0) return ''
-  if (assumed.length === 0) return `No source: ${unsaid.length} of ${sizes} sizes`
-  return `Assumed: ${assumed.map((p) => `${p.name} ${value(p)}`).join(', ')} (${assumed.length} of ${sizes} sizes)${unsaid.length > 0 ? `; no source: ${unsaid.length}` : ''}`
+  if (assumed.length === 0) return `No source: ${unsaid.length} of ${sizes} sizes (${unsaidWhy(unsaid)})`
+  return `Assumed: ${assumed.map((p) => `${p.name} ${value(p)}`).join(', ')} (${assumed.length} of ${sizes} sizes)${unsaid.length > 0 ? `; ${unsaidText(unsaid)}` : ''}`
 }
 
 /** The set of assumed and unsaid sizes as one string, to tell whether it changed between two builds. */
@@ -88,4 +104,20 @@ export function triedLine(params: readonly Param[] | undefined, dropped: Readonl
   }
   if (dropped.length > 0) parts.push(`Params overrides let go of: ${dropped.map((d) => `${d.name} (${d.reason})`).join('; ')}.`)
   return parts.join(' ')
+}
+
+/**
+ * The references (bought parts) of a build that were made from sizes the model's comments say are assumed, by name,
+ * each with those sizes: `references(p)` read an `assumed:` field of `Params` (`Part.reads`). A kernel that did not
+ * say what it read counts it as having read every one. The model's own claim of the sources, as `sourceCount` is.
+ */
+export function assumedReferences(scene: Pick<Scene, 'parts' | 'params'>): Map<string, string[]> {
+  const { assumed } = sourceCount(scene.params)
+  const found = new Map<string, string[]>()
+  for (const part of scene.parts) {
+    if (part.role !== 'reference' || found.has(part.name)) continue
+    const mine = assumed.filter((p) => part.reads === undefined || part.reads.includes(p.name)).map((p) => p.name)
+    if (mine.length > 0) found.set(part.name, mine)
+  }
+  return found
 }

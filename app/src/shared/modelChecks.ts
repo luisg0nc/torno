@@ -1,4 +1,6 @@
 import { number } from './format'
+import { assumedReferences } from './params'
+import type { Scene } from './scene'
 
 /**
  * A check the model declares in its `checks(p)` and the kernel measured on a build (`kernel/src/torno_kernel/modelchecks.py`).
@@ -19,6 +21,8 @@ export interface ModelCheck {
   how?: string
   reason?: string
   declared?: Record<string, unknown>
+  /** The references this check names (or, an interference, all) that were made from assumed sizes: it holds only as far as that guess does. Main's, after the build; absent for none. */
+  assumedRefs?: string[]
 }
 
 /**
@@ -59,7 +63,27 @@ export function readingText(c: Pick<ModelCheck, 'value' | 'unit' | 'kind' | 'exa
 export function checkText(c: ModelCheck): string {
   if (c.status === 'error') return `${c.name} (could not be measured: ${c.reason ?? 'no reason given'})`
   if (c.status === 'not run') return `${c.name} (not run: ${c.reason ?? 'no time'})`
-  return `${c.name} (${readingText(c)}, wanted ${wantedText(c)})`
+  return `${c.name} (${readingText(c)}, wanted ${wantedText(c)}${againstText(c) ? `; ${againstText(c)}` : ''})`
+}
+
+/** `against an assumed reference: radiator`; empty when the check names none. */
+export function againstText(c: Pick<ModelCheck, 'assumedRefs'>): string {
+  const refs = c.assumedRefs ?? []
+  return refs.length === 0 ? '' : `against ${refs.length === 1 ? 'an assumed reference' : 'assumed references'}: ${refs.join(', ')}`
+}
+
+/**
+ * For each check, the references it is against that were made from assumed sizes (`assumedReferences`): those of its `a`
+ * and `b`, a group by its parts, and for an `interference` every one. In the order of `checks`; `[]` for a check against none.
+ */
+export function assumedAgainst(checks: readonly ModelCheck[], scene: Pick<Scene, 'parts' | 'params' | 'groups'>): string[][] {
+  const assumed = assumedReferences(scene)
+  if (assumed.size === 0) return checks.map(() => [])
+  const expand = (ref: unknown): string[] => (typeof ref !== 'string' ? [] : (scene.groups?.find((g) => g.name === ref)?.parts ?? [ref]))
+  return checks.map((c) => {
+    const named = c.kind === 'interference' ? [...assumed.keys()] : [c.declared?.a, c.declared?.b].flatMap(expand)
+    return [...new Set(named)].filter((name) => assumed.has(name))
+  })
 }
 
 /** How the model's checks stand, counted: `pass`, `fail`, could not be measured, not run, and how many passes are by sampling or approximate. */
@@ -76,7 +100,8 @@ export function checksLine(checks: readonly ModelCheck[], revision: number | und
   if (checks.length === 0) return ''
   const n = checksCount(checks)
   const parts = [`${n.pass} pass`, ...(n.fail > 0 ? [`${n.fail} ${n.fail === 1 ? 'fails' : 'fail'}`] : []), ...(n.error > 0 ? [`${n.error} could not be measured`] : []), ...(n.notRun > 0 ? [`${n.notRun} not run`] : [])]
-  const sampled = n.approximate > 0 ? ` (${n.approximate} of the passes by sampling or approximate)` : ''
+  const guessed = checks.filter((c) => c.status === 'pass' && (c.assumedRefs ?? []).length > 0).length
+  const sampled = `${n.approximate > 0 ? ` (${n.approximate} of the passes by sampling or approximate)` : ''}${guessed > 0 ? ` (${guessed} of the passes against an assumed reference)` : ''}`
   const head = `Checks (the model's own${revision === undefined ? '' : `, on r${revision}`}): ${parts.join(', ')}${sampled}`
   const unmet = checks.filter((c) => c.status !== 'pass')
   if (unmet.length === 0) return head
@@ -118,6 +143,25 @@ function compare(from: ModelCheck, now: ModelCheck): Pick<CheckNote, 'what' | 't
 }
 
 /**
+ * The checks a build adds that stand in the place of ones it drops: the same kind, in the same layout, under a name
+ * the build before did not have (the parts were renamed, so the check was rewritten). Each new check replaces one
+ * old check at most; the pairs are in the order the model declares them.
+ */
+function replacements(before: readonly ModelCheck[], now: readonly ModelCheck[]): Map<string, ModelCheck> {
+  const old = new Set(before.map((c) => c.name))
+  const gone = before.filter((c) => !now.some((n) => n.name === c.name))
+  const added = now.filter((c) => !old.has(c.name))
+  const out = new Map<string, ModelCheck>()
+  for (const from of gone) {
+    const at = added.findIndex((c) => c.kind === from.kind && same(c.declared?.layout, from.declared?.layout))
+    if (at < 0) continue
+    out.set(from.name, added[at])
+    added.splice(at, 1)
+  }
+  return out
+}
+
+/**
  * The notes on the checks of a new build: those of the build before kept as long as the check is still weaker than it
  * first was, and those the new build adds, each against the check as it was before (the earliest `from` there is). A
  * check back to what it was, or tighter, is no longer noted. `revision` is the new build's.
@@ -125,6 +169,8 @@ function compare(from: ModelCheck, now: ModelCheck): Pick<CheckNote, 'what' | 't
 export function keepNotes(notes: readonly CheckNote[], before: readonly ModelCheck[] | undefined, now: readonly ModelCheck[] | undefined, revision: number): CheckNote[] {
   if (!before || !now) return [...notes]
   const kept = new Map(notes.map((n) => [n.name, n]))
+  // A check rewritten for renamed parts is the same check, not a removed one: it is held to its bounds as they were, under its new name.
+  const replaced = replacements(before, now)
   const names = new Set([...kept.keys(), ...before.map((c) => c.name)])
   const out: CheckNote[] = []
   for (const name of names) {
@@ -132,6 +178,13 @@ export function keepNotes(notes: readonly CheckNote[], before: readonly ModelChe
     const from = note?.from ?? before.find((c) => c.name === name)
     if (!from) continue
     const current = now.find((c) => c.name === name)
+    const stands = !current && !note ? replaced.get(name) : undefined
+    if (stands) {
+      const asBefore: ModelCheck = { ...from, name: stands.name, declared: { ...from.declared, a: stands.declared?.a, b: stands.declared?.b } as ModelCheck['declared'] }
+      const said = compare(asBefore, stands)
+      if (said) out.push({ name: stands.name, ...said, since: revision, from: asBefore })
+      continue
+    }
     if (!current) {
       out.push({ name, what: 'removed', text: `${name}: removed`, since: note?.since ?? revision, from })
       continue

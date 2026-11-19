@@ -4,7 +4,7 @@ import type { SceneFile } from '../../shared/scenefile'
 import type { Camera, HighlightRequest, LookRequest, LookResult, SaveViewRequest, SaveViewResult, SectionDrawingRequest, ShowRequest } from '../../shared/view'
 import type { TracingPictureRequest } from '../../shared/tracings'
 import { MAX_PROPOSALS } from '../../shared/views'
-import { agentStore, canPointAgain, connectAgent, connectLook, dismissHighlight, HIGHLIGHT_FOR_MS, noteTool, peek, pointAgain, seeInView, setPictures } from './agent'
+import { agentStore, canPointAgain, connectAgent, connectLook, dismissHighlight, HIGHLIGHT_FOR_MS, noteTool, peek, pointAgain, seeInView, setPictures, SHOW_QUEUED } from './agent'
 import { actions, explodeNow, sceneFileOf, store } from './store'
 
 const part = (layout: string, name: string): Part => ({ key: `${layout}:${name}`, name, layout, faceCount: 6, edgeCount: 12, bbox: name === 'post' ? { min: [-4, -4, 2.5], max: [4, 4, 22.5] } : { min: [-20, -15, -2.5], max: [20, 15, 2.5] } }) as Part
@@ -431,15 +431,32 @@ describe('show', () => {
     expect(store.getState()).toMatchObject({ layout: 'assembly', section: null })
   })
 
-  it('is refused while the person has a button down in the viewport, and changes nothing', () => {
+  it('keeps a change asked while the person has a button down, and makes it when they let go', () => {
     busy = true
     show({ view: 'top', layout: 'print', parts: ['post'] })
-    expect(replies).toEqual([{ id: 9, result: { error: 'the user is in the middle of a stroke or drag; try again' } }])
+    expect(replies).toEqual([{ id: 9, result: { caption: SHOW_QUEUED, objectId: 'bracket', revision: 3, stale: false, queued: true } }])
+    // Nothing changes under their hand.
+    vi.advanceTimersByTime(500)
     expect(store.getState()).toMatchObject({ layout: 'assembly', layers: {} })
     expect(views).toEqual([])
     busy = false
-    show({ view: 'top' })
+    vi.advanceTimersByTime(100)
+    expect(store.getState().layout).toBe('print')
     expect(views).toEqual(['top'])
+    // Once: nothing is made again later.
+    vi.advanceTimersByTime(1000)
+    expect(views).toEqual(['top'])
+    show({ view: 'top' })
+    expect(views).toEqual(['top', 'top'])
+  })
+
+  it('refuses at once what cannot be done, even while the button is down', () => {
+    busy = true
+    show({ layout: 'nowhere' })
+    expect(replies).toEqual([{ id: 9, result: { error: "no layout 'nowhere'; layouts: assembly, print" } }])
+    busy = false
+    vi.advanceTimersByTime(500)
+    expect(store.getState().layout).toBe('assembly')
   })
 
   it('switches a hidden part back on when it is named', () => {

@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import type { BoardFile } from '../src/shared/board'
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
-import { cardSection, foldSection, openSection, newSession } from './helpers'
+import { cardSection, foldSection, openSection, openStrip, newSession } from './helpers'
 import { openListed } from './objects'
 
 // The board in the window: it swaps with the model on Ctrl+Tab, shows the project's marks and brief as cards, and its
@@ -506,6 +506,7 @@ test('a build pinned from the strip is a card with its thumb, and its entry is s
   await expect(turns()).toHaveCount(1, { timeout: 30_000 })
   await expect.poll(() => kept().filter((e) => e.cause === 'agent' && !e.failed).length, { timeout: 30_000 }).toBeGreaterThan(0)
   // The build the prompt began from and the one it made are nodes of the strip on top of the dock.
+  await openStrip(page)
   const strip = dock().locator('.strip .strip-node[data-kind="built"]')
   await expect.poll(() => strip.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
   await expect(strip.first().locator('img')).toBeVisible({ timeout: 15_000 })

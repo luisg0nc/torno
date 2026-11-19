@@ -1,7 +1,7 @@
 import { MOST_STROKES_TOLD } from '../../shared/drawing'
 import { type NoteMark, penStrokes } from '../../shared/marks'
 import { describeMark } from '../marks/describe'
-import { counted, folded, overText, strokeLine } from '../sessions/drawing'
+import { VECTOR_NOTE, counted, folded, overText, strokeLine } from '../sessions/drawing'
 
 // What Claude reads of a view note, in words: the one wording the `marks` tool and the prompt that carries a note share.
 // The pictures are attached beside it (`pictures.ts`); this is all the text there is. No line of it begins with a word
@@ -50,6 +50,7 @@ export function noteText(mark: NoteMark, latestRevision: number | undefined, opt
     if (mark.under.length === 0) lines.push('What the ink lies over was not worked out.')
     else {
       lines.push(`Under the ink, stroke by stroke (x and y are pixels of the ${mark.size.w}×${mark.size.h} picture; faces are of r${mark.revision}):`)
+      if (mark.under.slice(0, told).some((u) => u.vector)) lines.push(VECTOR_NOTE)
       mark.under.slice(0, told).forEach((stroke, i) => lines.push(strokeLine(stroke, i + 1)))
       if (pens > told) lines.push(`(${counted(pens - told, 'more stroke', 'more strokes')}, not told)`)
     }

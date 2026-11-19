@@ -416,19 +416,128 @@
   background: var(--raise);
 }
 
-/* AskUserQuestion's options, in the same cards. */
+/* AskUserQuestion: one question at a time, its options as a compact list of rows (spec 2026-11-18, "An ask"). */
+.ask-takeover .chat-ask-question {
+  margin: var(--space-2) 0 0;
+}
+
 .ask-takeover .chat-ask-options {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 2px;
+  margin: 0;
 }
 
 .ask-takeover .chat-ask-option {
-  flex: 1 1 30%;
+  display: grid;
+  grid-template-columns: 1.4em minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  width: 100%;
+  padding: 5px var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.ask-takeover .chat-ask-option:hover:not(:disabled) {
+  background: var(--raise);
+}
+
+.ask-takeover .chat-ask-option[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.ask-takeover .chat-ask-words {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ask-takeover .chat-ask-label {
+  overflow-wrap: anywhere;
+}
+
+.ask-takeover .chat-ask-desc {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.ask-takeover .chat-ask-other {
+  margin-top: 2px;
+  padding: 5px var(--space-2);
+  font-size: 13px;
+}
+
+/* "1 of 3", the question's header and a dot for each question. */
+.chat-ask-steps {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.chat-ask-steps .chat-ask-header {
+  margin: 0;
+}
+
+.chat-ask-dots {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.chat-ask-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--field-edge);
+}
+
+.chat-ask-dots i[data-state='done'] {
+  background: var(--ink);
+}
+
+.chat-ask-dots i[data-state='now'] {
+  background: var(--accent);
+}
+
+/* The last step: each question with its answer, one click to change it. */
+.chat-ask-recap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-ask-recap-row {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 8px 9px;
-  border-radius: var(--radius-float);
+  width: 100%;
+  padding: 5px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+}
+
+.chat-ask-recap-row:hover:not(:disabled) {
   background: var(--raise);
+}
+
+.chat-ask-recap-q {
+  color: var(--muted);
   font-size: 12px;
+}
+
+.chat-ask-recap-a[data-empty] {
+  color: var(--warn);
 }

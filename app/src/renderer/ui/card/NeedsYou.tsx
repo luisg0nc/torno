@@ -60,7 +60,7 @@ export function NeedsYou() {
           ))}
           {failingModel.map((c) => {
             const r = checkRow(c)
-            return <CheckPointer key={c.name} chip={null} words={[r.name, [r.reading, r.wanted].filter(Boolean).join(', ')].filter(Boolean).join(' ')} title={`${r.title}. Go to its row under Checks`} onGo={() => showModelCheck(c.name)} />
+            return <CheckPointer key={c.name} chip={null} words={[r.name, [r.reading, r.wanted, r.assumed].filter(Boolean).join(', ')].filter(Boolean).join(' ')} title={`${r.title}. Go to its row under Checks`} onGo={() => showModelCheck(c.name)} />
           })}
         </ul>
       )}

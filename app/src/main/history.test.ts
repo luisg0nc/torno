@@ -77,6 +77,13 @@ describe('History.keep', () => {
     expect((await readHistory(box.dir)).map((e) => e.id)).toEqual(['h1', 'h2', 'h3'])
   })
 
+  it('lets the newest entry stand for a build of the same sources made in another run or revision: it is the build on show (#234)', async () => {
+    await build('a = 1\n', sceneOf(100), 'run1')
+    const again = await build('a = 1\n', sceneOf(100), 'run2')
+    expect(again).toMatchObject({ id: 'h1', run: 'run2', revision: 2 })
+    expect(await readHistory(box.dir)).toMatchObject([{ id: 'h1', run: 'run2', revision: 2 }])
+  })
+
   it('marks a build whose declared checks fail or that has a defect, and keeps it', async () => {
     const checks = [{ name: 'wall', kind: 'thin', status: 'fail' }, { name: 'bed', kind: 'bed', status: 'pass' }] as Scene['checks']
     const scene = sceneOf(5000, { checks })
@@ -175,8 +182,10 @@ describe('the Params a params build says were tried', () => {
     await build('a = 1\n', sceneOf(100, { overrides: { applied: { wall: 3 }, dropped: [] } }))
     const more = await build('a = 1\n', sceneOf(200, { overrides: { applied: { wall: 3, lid: 2 }, dropped: [] } }), 'run1', { cause: 'params' })
     expect(more?.tried).toEqual(['lid'])
+    expect(more?.set).toEqual({ lid: 2 })
     const reset = await build('a = 1\n', sceneOf(300), 'run1', { cause: 'params' })
     expect(reset?.tried).toEqual(['lid', 'wall'])
+    expect(reset?.set).toEqual({})
     const saved = await build('a = 2\n', sceneOf(400), 'run1', { cause: 'person' })
     expect(saved?.tried).toBeUndefined()
     expect(JSON.parse(readFileSync(join(box.dir, '.torno/history/index.json'), 'utf8')).entries[1].tried).toEqual(['lid'])

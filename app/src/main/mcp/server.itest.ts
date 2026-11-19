@@ -207,7 +207,7 @@ describe('the MCP server', () => {
     for (const name of ALL) expect(instructions, name).toMatch(new RegExp(`^- (?:[a-z_]+, )*${name}(?:, [a-z_]+)*: `, 'm'))
   })
 
-  it('lists each tool with a title, annotations that say what only reads, and the five that load upfront', async () => {
+  it('lists each tool with a title, annotations that say what only reads, and the eight that load upfront', async () => {
     const client = await connect('bracket')
     const { tools } = await client.listTools()
     const readOnly = tools.filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name).sort()
@@ -217,7 +217,7 @@ describe('the MCP server', () => {
       expect(tool.annotations?.openWorldHint, tool.name).toBe(false)
       if (!readOnly.includes(tool.name)) expect(tool.annotations, tool.name).toEqual(expect.objectContaining({ readOnlyHint: false, destructiveHint: false }))
     }
-    expect(tools.filter((t) => t._meta?.['anthropic/alwaysLoad'] === true).map((t) => t.name).sort()).toEqual(['describe', 'look', 'marks', 'measure', 'scene'])
+    expect(tools.filter((t) => t._meta?.['anthropic/alwaysLoad'] === true).map((t) => t.name).sort()).toEqual(['describe', 'features', 'look', 'marks', 'measure', 'resolve_mark', 'scene', 'show'])
   })
 
   it('lists the tools that ask about a scan, each with a description and a schema that requires nothing and names every argument', async () => {
@@ -311,7 +311,7 @@ describe('the MCP server', () => {
     expect(image).toMatchObject({ type: 'image', mimeType: 'image/png' })
     expect(new Uint8Array(Buffer.from(image.data!, 'base64'))).toEqual(PNG)
     expect(text.text).toBe('view iso\nrevision r2\nsaved as /ws/bracket/.torno/views/1.png')
-    expect(looks).toEqual([{ objectId: 'bracket', req: { view: 'iso', size: 2000, explode: 'current' } }])
+    expect(looks).toEqual([{ objectId: 'bracket', req: { view: 'iso', size: 2000, explode: null } }])
   })
 
   it("answers the tools that read and write marks, point things out and change the user's view", async () => {

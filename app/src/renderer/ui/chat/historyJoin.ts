@@ -102,6 +102,7 @@ export interface Piece {
   mono?: true
 }
 
+const BACK = Symbol('back to the file')
 const plain = (text: string): Piece => ({ text })
 const mono = (text: string): Piece => ({ text, mono: true })
 
@@ -111,14 +112,47 @@ function listed(names: string[], what: string): Piece[] {
   return names.length <= MOST ? shown : [...shown, plain(` and ${names.length - MOST} more ${what}`)]
 }
 
+/** The value of a tried Param as the line says it: a number to three decimals, anything else as it is. */
+const valueSaid = (v: unknown): string => String(typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)
+
+/**
+ * What the person did with Params, as pieces: `You set wall to 3 · not in the model yet`, `You put wall back to the
+ * file's value`, both joined by "and". A name is said as its last build left it. A build kept before the values were
+ * kept (no `set`) has only the names: `You tried wall`.
+ */
+function paramsParts(run: SaveRun): Piece[] {
+  const last = new Map<string, unknown>()
+  const unknown = new Set<string>()
+  for (const e of run.entries) {
+    for (const name of e.tried ?? []) {
+      if (e.set === undefined) {
+        unknown.add(name)
+        last.delete(name)
+      } else {
+        unknown.delete(name)
+        last.set(name, name in e.set ? e.set[name] : BACK)
+      }
+    }
+  }
+  if (last.size === 0) return [plain('You tried '), ...(unknown.size > 0 ? listed([...unknown], 'Params') : [plain('other values of Params')])]
+  const [set, back] = [[...last].filter(([, v]) => v !== BACK), [...last].filter(([, v]) => v === BACK)]
+  const pieces: Piece[] = []
+  if (set.length > 0) {
+    pieces.push(plain('You set '))
+    set.slice(0, MOST).forEach(([name, v], at) => pieces.push(...(at > 0 ? [plain(', ')] : []), mono(name), plain(' to '), mono(valueSaid(v))))
+    if (set.length > MOST) pieces.push(plain(` and ${set.length - MOST} more Params`))
+  }
+  if (back.length > 0) pieces.push(plain(set.length > 0 ? ' and put ' : 'You put '), ...listed(back.map(([name]) => name), 'Params'), plain(" back to the file's value"))
+  if (unknown.size > 0) pieces.push(plain(' and tried '), ...listed([...unknown], 'Params'))
+  if (set.length > 0) pieces.push(plain(' · not in the model yet'))
+  return pieces
+}
+
 /** The line between turns for a run, as pieces: `You saved common/fillets.py in your editor · h39`, `You tried wall, lid · h40`. */
 export function saveParts(run: SaveRun): Piece[] {
   const [first, last] = [run.entries[0], run.entries[run.entries.length - 1]]
   const builds = run.entries.length > 1 ? [mono(first.id), plain(' to '), mono(last.id)] : [mono(first.id)]
-  if (run.cause === 'params') {
-    const names = [...new Set(run.entries.flatMap((e) => e.tried ?? []))]
-    return [plain('You tried '), ...(names.length > 0 ? listed(names, 'Params') : [plain('other values of Params')]), plain(' · '), ...builds]
-  }
+  if (run.cause === 'params') return [...paramsParts(run), plain(' · '), ...builds]
   if (run.entries.length > 1) return [plain('You saved '), mono(String(run.entries.length)), plain(' times in your editor · '), ...builds]
   return [plain('You saved '), ...(first.files.length > 0 ? listed(first.files, 'files') : [plain('the model')]), plain(' in your editor · '), ...builds]
 }

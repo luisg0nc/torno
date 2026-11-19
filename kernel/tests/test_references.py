@@ -240,3 +240,23 @@ def test_references_and_tags_work_together(tmp_path):
     top = part(scene, "assembly", "housing")["tags"]["top"]["faces"][0]
     assert queries.describe(shapes, "assembly:housing/@top", kept)["ref"] == f"assembly:housing/F{top}"
     assert queries.describe(shapes, "assembly:608/@outer", kept)["tag"] == "outer"
+
+
+READING = MODEL.replace("    bore: float = 22.2\n", "    bore: float = 22.2\n    depth: float = 7\n    other: float = 1\n").replace(
+    "def references(p):\n    return REFERENCES\n", "def references(p):\n    _ = p.depth\n    return REFERENCES\n"
+)
+
+
+def test_the_params_a_reference_reads_are_told_on_it(tmp_path):
+    write(tmp_path, source=READING)
+    layouts, _, _, _ = load_model(tmp_path, "m.py")
+    assert layouts.references_read == ("depth",)
+    scene, _, _ = build_scene(layouts, "m.py", {})
+    assert part(scene, "assembly", "608")["reads"] == ["depth"]
+    assert "reads" not in part(scene, "assembly", "housing")
+
+
+def test_a_reference_that_reads_no_param_says_so(built):
+    scene, _, _, layouts = built
+    assert layouts.references_read == ()
+    assert part(scene, "assembly", "608")["reads"] == []

@@ -10,6 +10,7 @@ import { ROUND_ID, type Round } from '../../shared/reviews'
 import { TAG_NAME } from '../../shared/tags'
 import { MAX_LAYER_NAME, MAX_SHAPE_NAME, type PlaneSnap, TRACING_ID } from '../../shared/tracings'
 import { SET_REF } from '../../shared/sets'
+import { vectorOf } from '../sessions/drawing'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 import { numberStrokes, readSketch } from '../sketches/read'
 import { readShape } from '../tracings/file'
@@ -391,7 +392,9 @@ function underOf(value: unknown): StrokeUnder | null {
     refs.push(typeof one.descriptor === 'string' ? { ref: one.ref, descriptor: one.descriptor.slice(0, 300) } : { ref: one.ref })
   }
   const more = isNumber(value.moreRefs) && Number.isSafeInteger(value.moreRefs) && value.moreRefs > 0
-  return { box, refs, ...(more ? { moreRefs: value.moreRefs as number } : {}), cuts: [...cuts], scans: [...scans], bare: value.bare }
+  const vector = value.vector === undefined ? undefined : vectorOf(value.vector)
+  if (vector === null) return null
+  return { box, refs, ...(more ? { moreRefs: value.moreRefs as number } : {}), cuts: [...cuts], scans: [...scans], bare: value.bare, ...(vector ? { vector } : {}) }
 }
 
 /** The longest account of how a value was taken that a dimension keeps. */

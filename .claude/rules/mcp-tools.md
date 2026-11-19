@@ -96,8 +96,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `features`, the scans') say so. `describe` strips `selector.form` before the agent reads it: a form is for torno's own sets.
   `look` and `show` take the name of a saved view as `view`, and `save_view`
   proposes one (Views). `show` changes
-  the view for now and is never saved to `scene.json`; it is refused while a
-  button is held in the viewport. `marks`, `describe`, `add_mark`, `measure`,
+  the view for now and is never saved to `scene.json`; while a
+  button is held in the viewport it is checked at once (a wrong request is refused), kept and made when the
+  button is up (`queued` in `ShowResult`, `state/agent.ts`), and the answer says it is queued, not that it is on screen. `marks`, `describe`, `add_mark`, `measure`,
   `section`, `check` and the three scan tools say which
   revision they answer from, and that it is stale while a newer build runs or
   has failed, or while the model's files are newer than the build (`behind`, `NEWER_FILES`).
@@ -124,7 +125,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     ones that only read have `readOnlyHint: true` (`scene`, `look`, `marks`, `describe`, `measure`, `section`,
     `check`, `diff`, `history`, `wait_build`, `board`, `tracings`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
     `look` reads, the picture it writes under `.torno/views/` being torno's own), the rest `readOnlyHint: false,
-    destructiveHint: false`. `scene`, `look`, `marks`, `describe` and `measure` have
+    destructiveHint: false`. `scene`, `look`, `marks`, `describe`, `measure`, `show`, `resolve_mark` and `features` have
     `_meta["anthropic/alwaysLoad"]` (Claude Code's tool search defers every other MCP tool until it is searched for,
     and each upfront tool costs context in every turn and sits in the prompt cache's prefix: the list stays short).
     The server gives `instructions` at `initialize` (`SERVER_INSTRUCTIONS`: a paragraph on what the server is for,

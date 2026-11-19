@@ -1,6 +1,7 @@
 import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, MOST_STROKES_TOLD, type StrokeUnder } from '../../../shared/drawing'
 import type { NoteLabel, Vec3 } from '../../../shared/marks'
 import type { Stroke } from '../../state/onboard'
+import { vectorOf } from './vector'
 
 // What the person's ink lies over in a drawing on the view: points along each pen stroke where ink is still left,
 // looked under in the view (the caller picks there), and said per stroke as faces, scans and what is over nothing.
@@ -90,7 +91,9 @@ export function underInk(
       more += 1
       continue
     }
-    under.push(strokeUnder(boxOf(stroke, size), look(points)))
+    const found = look(points)
+    const vector = vectorOf(stroke.points, points, found)
+    under.push({ ...strokeUnder(boxOf(stroke, size), found), ...(vector ? { vector } : {}) })
   }
   return { under, more, kept }
 }

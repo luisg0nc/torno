@@ -62,7 +62,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `show:saveThumbnail` once `keepThumbnail` took it; at most `MOST_THUMB_BYTES`). The folder of a build is written before the index names it,
   so a crash leaves the index whole and at most a folder no index names, which the next change sweeps (only folders named `h<n>`). **An id
   is `h<n>`, counts on across runs and is never given twice** (`next`, and above any folder there: a lost index does not repeat one); a revision
-  is of its run and is told beside it. A build made from the sources the newest entry was made from is not kept again (unless the person's
+  is of its run and is told beside it. A build made from the sources the newest entry was made from is not kept again, and the newest entry takes the run and revision of that build, so the window finds it as the build on show (#234: else no node is on show after a restart and Compare has nothing to draw against) (unless the person's
   `Params` made it: the files are the same and the shape is not). **What caused each build, and its prompt, are main's alone** (`cause`, `turn`,
   `wentBackTo`: never from the window or a tool): `Builds` says what it started a build for (`BuildReason`: `watch`, `params`, `rebuild`,
   `goback`, `open`, on the `build` and `scene` events), `params` and `goback` are the cause as they are, and else `Sessions.causeOf(objectId,
@@ -152,6 +152,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## The builds strip (`app/src/renderer/ui/strip`)
 
+- **The strip is shut until it is wanted** (#211): its head line is a button (`.strip-toggle`, `aria-expanded`, a chevron, "Builds of x", `<n> kept`, and `h41 on show` while shut) and the nodes (or, in a short dock, the ticks) show only while it is open. It opens by a click on the line, by itself when a build fails (`failedId` appears, and `errorOpen`), and is held open while comparing (`store.compare`) and while Go back asks (`useStruckNodes`); the person's own open/shut is the component's state (not kept across a reload). `e2e/helpers.ts` `openStrip` opens it in a spec.
 - `BuildsStrip` is on top of the dock under the header, in every mode (`SessionPane`: chat, terminal, no session; not while a new project is drafted), over
   `useStripNodes` (`useHistory`, `usePrompts` for the numbers of prompts, the build state, the open round of `state/review`). The rules are `strip.ts`, pure
   and held by `strip.test.ts`: `stripNodes(history, live, numbering)` (oldest to newest: every kept build, a failed one `after` the build before it, a failure the history
