@@ -297,10 +297,10 @@ export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs
     if ('content' in colouring) return colouring
     request.scanColour = colouring
   }
-  // As on screen unless the picture says how far apart it draws the parts; never apart and cut.
+  // Together unless the picture says how far apart it draws the parts, or is of the user's own camera, which draws them as they have them; never apart and cut.
   const explode = explodeAsked(args.explode)
   if (typeof explode === 'string') return failure(explode)
-  request.explode = explode === undefined ? 'current' : explode
+  request.explode = explode === undefined ? (view === 'current' ? 'current' : null) : explode
   if (isExploded(explode) && (args.section === undefined || args.section === 'current' ? deps.view(objectId)?.section : args.section)) return failure(NOT_EXPLODED_AND_CUT)
   // Asked apart where nothing can be: said, not passed over with a picture of the parts together.
   const nothing = drawsNothingApart(scene, args.layout ?? deps.view(objectId)?.layout, explode)

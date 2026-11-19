@@ -511,7 +511,7 @@ describe('look', () => {
     await lookTool(deps, 'bracket', { view: 'top', layout: 'print', parts: ['post'], size: 800 })
     expect(deps.looks).toEqual([
       { objectId: 'bracket', req: { view: 'current', size: 1280, explode: 'current' } },
-      { objectId: 'bracket', req: { view: 'top', layout: 'print', parts: ['post'], size: 800, explode: 'current' } }
+      { objectId: 'bracket', req: { view: 'top', layout: 'print', parts: ['post'], size: 800, explode: null } }
     ])
   })
 
@@ -1776,6 +1776,15 @@ describe('explode', () => {
     expect(d.looks.at(-1)!.req).toMatchObject({ explode: { amount: 0.5, scale: 1, axis: 'centre' } })
     await lookTool(d, 'bracket', {})
     expect(d.looks.at(-1)!.req.explode).toBe('current')
+    await lookTool(d, 'bracket', { view: 'current' })
+    expect(d.looks.at(-1)!.req.explode).toBe('current')
+    // The agent's own checks draw the parts together, whatever the person has.
+    await lookTool(d, 'bracket', { view: 'iso' })
+    expect(d.looks.at(-1)!.req.explode).toBeNull()
+    await lookTool(d, 'bracket', { view: { position: [0, -50, 20], target: [0, 0, 0] } })
+    expect(d.looks.at(-1)!.req.explode).toBeNull()
+    await lookTool(d, 'bracket', { view: 'iso', explode: 0.5 })
+    expect(d.looks.at(-1)!.req.explode).toMatchObject({ amount: 0.5 })
     await lookTool(d, 'bracket', { explode: 0 })
     expect(d.looks.at(-1)!.req.explode).toBeNull()
     await lookTool(d, 'bracket', { explode: null })
@@ -1906,7 +1915,7 @@ describe('saved views', () => {
     // The standard views and the user's own camera are what they were.
     await lookTool(d, 'bracket', { view: 'top' })
     await lookTool(d, 'bracket', { view: 'current' })
-    expect(d.looks.slice(-2).map((look) => look.req)).toEqual([{ view: 'top', size: 1280, explode: 'current' }, { view: 'current', size: 1280, explode: 'current' }])
+    expect(d.looks.slice(-2).map((look) => look.req)).toEqual([{ view: 'top', size: 1280, explode: null }, { view: 'current', size: 1280, explode: 'current' }])
   })
 
   it('refuses a name that is no view with the names there are, and a view whose layout is gone', async () => {
