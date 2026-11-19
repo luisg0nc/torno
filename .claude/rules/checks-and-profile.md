@@ -33,7 +33,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   and its checks, so `Builds.succeeded` compares each new build's checks with the build before (`keepNotes`) and
   keeps, as `Scene.checkNotes`, a note for each check removed, made easier to pass (`min` lowered, `max` raised or
   dropped, a bed made larger, an angle widened) or aimed at other parts, with the build it was first seen on; it
-  stays while the check is weaker than it first was, in memory only. The window shows the notes; the agent is told
+  stays while the check is weaker than it first was, in memory only. A check the model rewrote for renamed parts (a
+  check the build before did not have, of the kind and layout of one it drops) is that check under a new name, not a
+  removed one: it is noted only when its bounds are looser, under the new name (`replacements`), and then as any note. The window shows the notes; the agent is told
   of them by `state.md` and `scene` (`checksEasier`).
 
 ## Print profile (`app/src/main`)

@@ -513,7 +513,7 @@ band; its label says it in words (`2.8, outside 2.95 to 3.05`). A failing row ha
 slides from where it was, and its row lights once. A dimension's row goes to its mark, and opens out under the row where its
 fields are (what it should be, resolve, delete) while it is the active mark. A dimension and a model check on the same thing
 stay two rows. A check of a part lights when the pointer is on that part in the view. A check the agent made easier to pass, or removed, since it was first declared is
-said under the rows (`walls: min 1.2 → 0.6 mm (since r7)`). A model that says which of its parts belong together (an optional
+said under the rows (`walls: min 1.2 → 0.6 mm (since r7)`). A check the model rewrote for parts you renamed (the same kind of check in the same layout, under a new name) is not counted as removed. A model that says which of its parts belong together (an optional
 `groups(p)` beside `assembly`, group name to part names) has them listed under a
 header each, which folds the group, hides or shows all of it, or, on "Show only",
 shows that group alone in the layout; ask the agent to group parts and it edits
