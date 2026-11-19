@@ -27,8 +27,8 @@ const refusing = {
 } as unknown as Storage
 
 describe('the route card as the person keeps it', () => {
-  it('starts with the four sections under the bench folded, at the default width', () => {
-    expect(COLUMN_DEFAULT).toEqual({ folded: ['checks', 'marks', 'scans', 'tracings'], width: 296 })
+  it('starts with Checks, Scans and Tracings folded and Marks open, at the default width', () => {
+    expect(COLUMN_DEFAULT).toEqual({ folded: ['checks', 'scans', 'tracings'], width: 296 })
     expect(readColumn(null)).toEqual(COLUMN_DEFAULT)
     expect(readColumn('nope')).toEqual(COLUMN_DEFAULT)
   })

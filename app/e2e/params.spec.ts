@@ -220,7 +220,7 @@ test('find narrows the rows, / goes to it, and the chips filter by the source th
   await page.keyboard.press('/')
   await expect(benchTab(page, 'Parameters')).toHaveAttribute('aria-selected', 'true')
   await expect(find).toBeFocused()
-  await page.keyboard.type('wall')
+  await page.keyboard.type('ribs')
   await expect(section().locator('[data-param]')).toHaveCount(1)
   await expect(page.locator('.params-match')).toContainText('1 of 5')
   await page.keyboard.press('Escape')

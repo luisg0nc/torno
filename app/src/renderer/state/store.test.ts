@@ -1481,17 +1481,17 @@ describe('the session dock', () => {
 
 describe('the route card', () => {
   it('folds a section and unfolds it again; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ folded: ['checks', 'marks', 'scans', 'tracings'], width: 296 })
-    actions.toggleSection('checks')
-    expect(store.getState().column.folded).toEqual(['marks', 'scans', 'tracings'])
+    expect(store.getState().column).toEqual({ folded: ['checks', 'scans', 'tracings'], width: 296 })
+    actions.toggleSection('marks')
+    expect(store.getState().column.folded).toEqual(['checks', 'marks', 'scans', 'tracings'])
     actions.openObject('gear', { layers: {} })
     actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.folded).not.toContain('checks')
-    actions.toggleSection('checks')
-    expect(store.getState().column.folded).toEqual(['checks', 'marks', 'scans', 'tracings'])
+    expect(store.getState().column.folded).toContain('marks')
     actions.toggleSection('marks')
     expect(store.getState().column.folded).toEqual(['checks', 'scans', 'tracings'])
-    actions.toggleSection('marks')
+    actions.toggleSection('checks')
+    expect(store.getState().column.folded).toEqual(['scans', 'tracings'])
+    actions.toggleSection('checks')
   })
 
   it('keeps the open tab of the bench for each project, the window\'s, and none without a project open', () => {

@@ -8,7 +8,7 @@ import type { Hit } from '../src/renderer/viewport/picking'
 import type { DimensionMark, MarksFile } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { openListed } from './objects'
-import { newSession } from './helpers'
+import { newSession, openSection } from './helpers'
 
 // The Measure tool and the dimensions it leaves, on the `measures` fixture: a
 // plate 40 × 30 × 6 with two Ø8 holes 20 apart, a 45° chamfer and a pocket.
@@ -313,6 +313,8 @@ test('with an expected value the hole fails: the row says so, and the chip in th
 
   await expect.poll(() => dimension(root, 'M2')?.verdict).toBe('fail')
   expect(dimension(root, 'M2')).toMatchObject({ expected: 8.5, value: 8 })
+  // Now a check, its row (the active mark's, with its fields) is under Checks.
+  await openSection(page, 'Checks')
   await expect(row('M2', page).locator('.mark-value')).toHaveAttribute('data-verdict', 'fail')
   await expect(fields.locator('.dimension-verdict')).toHaveText('Fails: 0.5 under')
   // Under Checks its row says it fails, with its gauge, and it is the one row that does.

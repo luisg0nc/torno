@@ -30,8 +30,8 @@ export const CARD_NARROW = 264
 /** The window width below which the narrow defaults of the card and the dock apply (`state/dock.ts` says the dock's). */
 export const NARROW_WINDOW = 1360
 
-/** The sections under the bench are all folded to their heads: the bench has the column. */
-export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['checks', 'marks', 'scans', 'tracings'], width: CARD_DEFAULT }
+/** Under the bench Checks, Scans and Tracings are folded to their heads: the bench has the column. Marks is open, so that a mark just left is seen. */
+export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['checks', 'scans', 'tracings'], width: CARD_DEFAULT }
 
 /** The card's default in a window of this width. */
 export function leftDefault(windowWidth: number): number {

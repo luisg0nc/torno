@@ -247,7 +247,7 @@ test('the card is made wider by dragging its edge, within limits, and kept by th
   await dragEdgeBy(100)
   expect(await width()).toBe(396)
   // What is kept is which sections are folded and how wide the card is.
-  expect(await stored()).toEqual({ folded: ['checks', 'marks', 'scans', 'tracings'], width: 396 })
+  expect(await stored()).toEqual({ folded: ['checks', 'scans', 'tracings'], width: 396 })
 
   // Never narrower than the default, and never wider than leaves 420 px of viewport beside the dock.
   await dragEdgeBy(-900)
