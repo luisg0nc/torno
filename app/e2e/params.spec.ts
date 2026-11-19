@@ -150,7 +150,7 @@ test('trying a value builds the model with it, says it differs from the file, an
   await box.fill('3')
   await box.press('Enter')
   await expect(row).toHaveAttribute('data-tried', '', { timeout: 30_000 })
-  await expect(row.locator('.param-differs')).toContainText('differs from the file')
+  await expect(row.locator('.param-differs')).toContainText('not in the model file yet')
   await expect(box).toHaveValue('3')
   // The file's default stays on the row, and the scene says what the build used.
   await expect(row.locator('.param-value')).toHaveText('2')

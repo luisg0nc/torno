@@ -24,7 +24,7 @@ deletes files of the person's model. `workspace-writes` says what it may write (
   entry's number: builds that drew were let go, and an old starred one outlived them), it is not the build before the prompt: the
   build current when it was sent if kept, else a sentence. A gap of failed builds only (they are pruned first) is no gap (the window then offers Undo on the last turn). The window names a prompt, never a file or a build:
   `ipc.ts` `goBackTarget` finds the entry.
-- **Tried Params** (`HistoryEntry.tried`): a build of the cause `params` names the Params whose applied override (`scene.overrides.applied`) is not what the build before was made with (`triedParams` in `history.ts`), so the chat can say "You tried wall". Main's only.
+- **Tried Params** (`HistoryEntry.tried`): a build of the cause `params` names the Params whose applied override (`scene.overrides.applied`) is not what the build before was made with (`triedParams` in `history.ts`), so the chat can say "You set wall to 3 · not in the model yet" (`HistoryEntry.set`: the value each of those was built with; a name of `tried` not in `set` was put back to the file's value; an entry kept before `set` still reads "You tried wall"). Main's only.
 - **The plan** (`planGoBack(obj, to)`, reads only; `history:goBackPlan`): `write` is the files of the copy in the project's own folder
   (`<name>/….py`, no hidden part, no `..`, `ownFile`) whose bytes now differ; `leftAlone` the files of `common/` and of other projects that
   differ (never written); `remove` the own `.py` files that are there, are in no entry up to `to` and in one after it, and are not in the copy (a file torno

@@ -73,6 +73,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   it is let go of (`onPointerUp`, `onKeyUp`): a build runs then, never while it moves. It asks main
   (`object.setParam`, `object.resetParams`; a refusal is said under the title) and the control starts again from
   `Param.value`, the value the last build used (keyed by it), so the window holds no override of its own. A row built
-  with a value other than the default (`tried`) says `differs from the file` with a "Reset"; the default stays on
+  with a value other than the default (`tried`) says `kept by torno, not in the model file yet` with a "Reset"; the default stays on
   the line. `Scene.overrides.dropped` is shown on its row (`param-note`). "Ask the agent to bake it in"
-  (`bakeText`) puts a request in the session's box like a row's click does, never sent; "Reset all" resets every field.
+  (`bakeText`) puts a request in the session's box like a row's click does, never sent; "Reset all" resets every field. There is no
+  "write it into the model" button: the model is written only by Go back (`goback`), which restores copies torno kept, so a
+  new writer of the model's defaults would break that rule; the agent bakes a value in.

@@ -53,10 +53,11 @@ export function keptCause(reason: BuildReason | undefined, wentBackTo: string | 
 const causeFields = (c: KeptCause): Pick<HistoryEntry, 'cause' | 'turn' | 'wentBackTo'> => ({ cause: c.cause, ...(c.turn ? { turn: c.turn } : {}), ...(c.wentBackTo ? { wentBackTo: c.wentBackTo } : {}) })
 
 /** The Params the person tried: the names whose applied override is not what the build before was made with (set, changed or put back), by name. Nothing when there are none to name. */
-function triedParams(before: Scene | null, now: Scene): Pick<HistoryEntry, 'tried'> {
+function triedParams(before: Scene | null, now: Scene): Pick<HistoryEntry, 'tried' | 'set'> {
   const [was, is] = [before?.overrides?.applied ?? {}, now.overrides?.applied ?? {}]
   const tried = [...new Set([...Object.keys(was), ...Object.keys(is)])].filter((name) => was[name] !== is[name]).sort()
-  return tried.length > 0 ? { tried } : {}
+  const set = Object.fromEntries(tried.filter((name) => name in is).map((name) => [name, is[name]]))
+  return tried.length > 0 ? { tried, set } : {}
 }
 
 interface Index {
