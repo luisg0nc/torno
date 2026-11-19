@@ -496,7 +496,7 @@ its own. After the name, a small ring holds the number of open marks on the part
 them is one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
 rest back. That is a view of the list: the agent is told every mark as before. It works the other way too: the pointer on a part
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
-lines drawn to them. Parameters lists the fields of
+lines drawn to them. **`Ctrl+P` opens the picker**, a sheet over the middle of the view, for a model with many parts: every part of the layout, under its group's name, and then every value of the model, in one list. What you type narrows it (a part is found by its name or its group's, a value by its name or its comment; every word must be found), and the count at the foot says `4 of 40`; at most 60 rows are drawn, so a model of hundreds is searched, not scrolled. `Up` and `Down` choose; `Enter` takes the row: a part is selected and brought into view (and switched on if it was hidden), a value opens the Parameters tab with its control in focus. `Alt+Enter` shows only the part and `Alt+H` hides it or shows it again; the pointer on a row lights the part in the view as in the Parts tab. `Esc`, `Ctrl+P` again or a press beside it puts it away. Parameters lists the fields of
 the model's `Params` (a model with none has no Parameters tab). Over the list, a find box (`/` from anywhere outside a field opens the tab and puts the cursor in it; Esc clears it) narrows the rows by what is in a name or a comment, and the chips All, Assumed and Brief keep the sizes whose comment says `assumed:` or `brief:`, each with its count; with either on, a line says `3 of 22 match`. Each
 field's name, its default in the monospace face (four digits at most, the whole value on hover) and
 its comment as the model has it, and, for a default the model works out (an expression, not a
@@ -2419,6 +2419,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Viewport | `H` | Review this build: start a round, to mark what you do not want and what you want, and send it at once |
 | Viewport | `-` | Review: new marks are what you do not want; again, plain |
 | Viewport | `=` `+` | Review: new marks are what you want; again, plain |
+| Viewport | `Ctrl+P` | Find a part or a value: the picker, over the view. Enter takes the one chosen: a part is selected and brought into view, a value is shown in the Parameters tab |
 | Viewport | `Ctrl+G` | Name the selected faces, edges, parts or strokes as a set |
 | Viewport | `Esc` | Compare: back to the live build, before any other step back |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
@@ -2498,6 +2499,10 @@ and it holds the line of what the agent points at. The window remembers what it 
 | In a field, a menu or a sheet | `Up` `Left` | Menu: the one before |
 | In a field, a menu or a sheet | `Home` `End` | Menu: the first or the last |
 | In a field, a menu or a sheet | `Esc` `Tab` | Menu: close it |
+| In a field, a menu or a sheet | `Down` | Picker: the next row |
+| In a field, a menu or a sheet | `Up` | Picker: the row before |
+| In a field, a menu or a sheet | `Alt+Enter` | Picker: show only the part chosen |
+| In a field, a menu or a sheet | `Alt+H` | Picker: hide the part chosen, or show it again |
 | In a field, a menu or a sheet | `Esc` | Sheet or question: put it away |
 | In a field, a menu or a sheet | `Ctrl+Z` | Drawing board (a doodle, or a drawing on the view): undo the last stroke |
 | In a field, a menu or a sheet | `Shift` | Drawing board: hold Shift while drawing for a straight line from where the stroke began |
