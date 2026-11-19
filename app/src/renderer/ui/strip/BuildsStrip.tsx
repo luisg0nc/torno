@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { HistoryEntry } from '../../../shared/history'
+import { Chevron } from '../Chevron'
 import { useThumb } from '../chat/useThumb'
 import { useStruckNodes } from '../../state/goBackAsk'
 import { usePromptsInSight } from '../../state/inSight'
@@ -114,6 +115,7 @@ export function BuildsStrip({ onPick, onCompared }: { onPick?: (node: StripNode,
   const build = useStore((s) => s.build)
   const exporting = useStore((s) => s.exportOf !== null)
   const errorOpen = useStore((s) => s.errorOpen)
+  const comparing = useStore((s) => s.compare !== null)
   const struck = useStruckNodes()
   const { nodes, entries: byId, loaded } = useStripNodes()
   const inSight = usePromptsInSight()
@@ -138,6 +140,14 @@ export function BuildsStrip({ onPick, onCompared }: { onPick?: (node: StripNode,
     failed: setFailedAnchor,
     failedId
   }
+
+  // Shut until it is wanted: opened by a click on its line, by a build that failed, and held open while comparing or asking to go back.
+  const [wanted, setWanted] = useState(false)
+  const failedNow = failedId !== undefined
+  useEffect(() => {
+    if (failedNow) setWanted(true)
+  }, [failedNow, failedId])
+  const open = wanted || comparing || struck.size > 0 || errorOpen
 
   const root = useRef<HTMLElement>(null)
   const track = useRef<HTMLDivElement>(null)
@@ -174,7 +184,7 @@ export function BuildsStrip({ onPick, onCompared }: { onPick?: (node: StripNode,
     }
     el.addEventListener('wheel', wheel, { passive: false })
     return () => el.removeEventListener('wheel', wheel)
-  }, [folded, nodes.length === 0])
+  }, [folded, open, nodes.length === 0])
 
   // The newest build in sight when one lands, and the build on show in sight whatever else is: it wins where both cannot be.
   const onShowId = nodes.find((n) => n.onShow)?.id
@@ -188,28 +198,38 @@ export function BuildsStrip({ onPick, onCompared }: { onPick?: (node: StripNode,
     const [left, right] = [shown.offsetLeft, shown.offsetLeft + shown.offsetWidth]
     if (left < el.scrollLeft + GUTTER) el.scrollLeft = left - GUTTER
     else if (right > el.scrollLeft + el.clientWidth - GUTTER) el.scrollLeft = right - el.clientWidth + GUTTER
-  }, [onShowId, newest, folded, nodes.length === 0])
+  }, [onShowId, newest, folded, open, nodes.length === 0])
 
   if (objectId === null) return null
   const says = stripSays({ nodes, exporting })
   const kept = nodes.filter((n) => n.kind === 'built').length
   return (
-    <section ref={root} className="strip" data-folded={folded ? '' : undefined} aria-label="Builds" data-region="builds">
+    <section ref={root} className="strip" data-open={open ? '' : undefined} data-folded={folded ? '' : undefined} aria-label="Builds" data-region="builds">
       <div className="strip-head">
-        <b>Builds of {name}</b>
-        <span className="num">{kept}</span> kept
+        <button type="button" className="strip-toggle" aria-expanded={open} aria-controls="strip-body" title={open ? 'Fold the builds' : 'Show the builds'} onClick={() => setWanted(!open)}>
+          <span className="strip-chevron" data-open={open ? '' : undefined}>
+            <Chevron />
+          </span>
+          <b>Builds of {name}</b>
+          <span className="num">{kept}</span> kept
+          {!open && onShowId !== undefined && (
+            <span className="strip-shown">
+              <span className="num">{onShowId}</span> on show
+            </span>
+          )}
+        </button>
         <span className="strip-says" aria-live="polite">
-          {says}
+          {open ? says : failedNow ? 'The build failed' : ''}
         </span>
       </div>
-      {folded ? (
-        <div className="strip-ticks" role="group" aria-label="Builds, newest at the right">
+      {!open ? null : folded ? (
+        <div id="strip-body" className="strip-ticks" role="group" aria-label="Builds, newest at the right">
           {ticksOf(nodes, FOLDED_TICKS).map((node) => (
             <Tick key={node.id} node={node} struck={struck.has(node.id)} picks={picks} />
           ))}
         </div>
       ) : (
-        <div ref={track} className="strip-track">
+        <div id="strip-body" ref={track} className="strip-track">
           {nodes.length === 0 ? (
             <p className="strip-empty">No build kept yet</p>
           ) : (

@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { HistoryEntry } from '../src/shared/history'
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
+import { openStrip } from './helpers'
 
 // Two kept builds compared in the view: the bar, the line in the status line, the way back, and a live build that lands
 // meanwhile. The comparing is started by the test hook that does what a turn of the chat does (`actions.compare`).
@@ -184,6 +185,7 @@ test('what a turn changed is written on the parts as tags with leaders, four at 
 })
 
 test('a node of the builds strip compares with the live build from its menu, "Stop comparing" ends it, and a double click compares too', async () => {
+  await openStrip(page)
   const strip = page.locator('[data-region="session"] .strip')
   const nodes = strip.locator('.strip-node[data-kind="built"]')
   await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(3)

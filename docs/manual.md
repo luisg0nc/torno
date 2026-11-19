@@ -400,7 +400,7 @@ prompts with a starred build, **Hide gone back** leaves out the ones you went ba
 The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
 is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
 
-**The builds strip.** On top of the session pane, in the chat, in the terminal and with no session, a strip holds the builds the history keeps, oldest at
+**The builds strip.** On top of the session pane, in the chat, in the terminal and with no session, it is shut until you want it: one line says the build on show and how many are kept, and a click on it opens the strip (a click again shuts it). It opens by itself when a build fails, and stays open while you compare a build or Go back asks. Open, it holds the builds the history keeps, oldest at
 the left and the newest at the right. Its head line says "Builds of *name*", how many are kept, and what a pick does now ("Pick one to compare, star or go
 back", "A build is running", "h40 is still on show", "Your review is of h41", "Exporting the build on show, h41"). A node is the picture kept with the build, its
 id, and a muted line: the prompt it was made for (`prompt 14`), `you saved` in your own colour for a save of yours in your editor, `on show` in the accent for the

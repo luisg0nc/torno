@@ -87,3 +87,11 @@ export async function moreItems(dock: Locator): Promise<string[]> {
   await expect(menu).toHaveCount(0)
   return items
 }
+
+/** The dock's builds strip starts shut, one line; this opens it as a person does, by its line (it stays as it is when it is open already). */
+export async function openStrip(page: Page): Promise<void> {
+  const toggle = page.locator('[data-region="session"] .strip-toggle')
+  await expect(toggle).toBeVisible()
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+}
