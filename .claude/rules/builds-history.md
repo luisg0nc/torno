@@ -62,7 +62,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `show:saveThumbnail` once `keepThumbnail` took it; at most `MOST_THUMB_BYTES`). The folder of a build is written before the index names it,
   so a crash leaves the index whole and at most a folder no index names, which the next change sweeps (only folders named `h<n>`). **An id
   is `h<n>`, counts on across runs and is never given twice** (`next`, and above any folder there: a lost index does not repeat one); a revision
-  is of its run and is told beside it. A build made from the sources the newest entry was made from is not kept again (unless the person's
+  is of its run and is told beside it. A build made from the sources the newest entry was made from is not kept again, and the newest entry takes the run and revision of that build, so the window finds it as the build on show (#234: else no node is on show after a restart and Compare has nothing to draw against) (unless the person's
   `Params` made it: the files are the same and the shape is not). **What caused each build, and its prompt, are main's alone** (`cause`, `turn`,
   `wentBackTo`: never from the window or a tool): `Builds` says what it started a build for (`BuildReason`: `watch`, `params`, `rebuild`,
   `goback`, `open`, on the `build` and `scene` events), `params` and `goback` are the cause as they are, and else `Sessions.causeOf(objectId,

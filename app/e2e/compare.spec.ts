@@ -213,3 +213,33 @@ test('a node of the builds strip compares with the live build from its menu, "St
   await expect(page.getByRole('menu')).toHaveCount(0)
   await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
 })
+
+test('after a restart with the sources as they were, the build on show is a node of the strip, and its menu and a double click compare with it (#234)', async () => {
+  const before = kept().length
+  await app.close()
+  app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
+  page = await app.firstWindow()
+  await page.waitForSelector('[data-region="left"]')
+  await openListed(page, 'hollow')
+  await builtRevision(1)
+
+  // The sources are those of the newest kept build: nothing new is kept, and that build is the one on show.
+  const strip = page.locator('[data-region="session"] .strip')
+  const nodes = strip.locator('.strip-node[data-kind="built"]')
+  await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBe(before)
+  await expect(strip.locator('.strip-node[data-on-show]')).toHaveCount(1)
+  const live = (await strip.locator('.strip-node[data-on-show]').getAttribute('data-build'))!
+  expect(live).toBe(kept().at(-1)!.id)
+
+  const from = (await nodes.first().getAttribute('data-build'))!
+  await nodes.first().click()
+  await page.getByRole('menuitem', { name: 'Compare with live' }).click()
+  await expect.poll(async () => (await state()).compare).toMatchObject({ from, to: live })
+  await expect(bar()).toBeVisible()
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
+
+  const second = (await nodes.nth(1).getAttribute('data-build'))!
+  await nodes.nth(1).dblclick()
+  await expect.poll(async () => (await state()).compare).toMatchObject({ from: second, to: live })
+  await bar().getByRole('button', { name: 'Back to live', exact: true }).click()
+})
