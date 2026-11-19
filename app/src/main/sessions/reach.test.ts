@@ -26,6 +26,17 @@ describe('refusalOf', () => {
     }
     expect(refusalOf(dir, 'NotebookEdit', { notebook_path: join(root, 'b', 'n.ipynb') })).toContain('NotebookEdit')
   })
+  it('refuses a write under .torno/ of the project and names the tool to use, and lets a Read be', () => {
+    const under = (file: string) => refusalOf(dir, 'Write', { file_path: join(dir, '.torno', file) })
+    expect(under('marks.json')).toContain('Use add_mark and resolve_mark instead')
+    expect(under('sets.json')).toContain('add_set')
+    expect(under('tracings.json')).toContain('add_layer')
+    expect(under('board/board.json')).toContain('add_card')
+    expect(under('anything.txt')).toContain('may not write under .torno/')
+    expect(refusalOf(dir, 'Edit', { file_path: join(dir, '.torno', 'marks.json') })).toContain('Edit may not write')
+    expect(refusalOf(dir, 'Read', { file_path: join(dir, '.torno', 'marks.json') })).toBeUndefined()
+    expect(refusalOf(dir, 'Write', { file_path: join(dir, 'torno', 'x.py') })).toBeUndefined()
+  })
   it('leaves other tools and inputs it cannot read to the CLI', () => {
     expect(refusalOf(dir, 'Bash', { command: 'echo > ../b/x' })).toBeUndefined()
     expect(refusalOf(dir, 'Read', { file_path: join(root, 'b', 'part.py') })).toBeUndefined()

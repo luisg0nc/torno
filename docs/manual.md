@@ -729,7 +729,9 @@ the viewport; `F6` and `Shift+F6` go round the parts of the window, and `Ctrl+Sh
 A session writes only in its own project's folder and in the workspace's `common/`. If it tries `Write`, `Edit` or
 `NotebookEdit` on a file anywhere else (another project, the root of the workspace, a new folder), torno refuses
 the edit and tells the agent why, in words it can read, so it can ask you to open the other project. A new project is
-made from the page, never by the agent creating a folder. A shell command (`Bash`) is not judged by path: it keeps
+made from the page, never by the agent creating a folder. The agent does not write under `.torno/` either (marks,
+sets, tracings, params, scans, the board): torno refuses the edit and names the tool to use, and the agent may still read
+those files. A shell command (`Bash`) is not judged by path: it keeps
 Claude Code's own permission card.
 
 ### What goes well, and what does not

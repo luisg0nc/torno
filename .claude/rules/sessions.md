@@ -104,3 +104,5 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   A file the build imports from another project (`uses`) is no longer one the agent may write. `isInsideFolder` takes
   `..notes/x.py` as inside: only a first part that is exactly `..` is outside. The stand-in's `write` and `edit` play a
   refusal: nothing is written and the tool's result is the reason, an error.
+  The same answer refuses a write under `<project>/.torno/` (main alone writes it: ids, atomic writes), the reason naming
+  the tool to use (`add_mark`, `add_set`, `add_tracing`, `add_layer`, `add_card`, …); `Read` of those files stays allowed.

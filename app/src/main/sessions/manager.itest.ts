@@ -3113,7 +3113,8 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
       `edit ../${sibling.id}/part.py "W = 1" "W = 2"`,
       `write ../top-${n}.py x = 1`,
       `write ../newfolder-${n}/model.py x = 1`,
-      'edit ../common/shared.py "W = 1" "W = 2"'
+      'edit ../common/shared.py "W = 1" "W = 2"',
+      'write .torno/marks.json {}'
     ].join('\n')
     made.prompt(sessionId, [{ type: 'text', text: script }])
     await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 10_000 }).toBe(1)
@@ -3125,8 +3126,10 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(existsSync(join(root, `newfolder-${n}`))).toBe(false)
     const results = messages.flatMap((m) => (m.type === 'user' ? (m.message as { content: { content?: string; is_error?: boolean }[] }).content : []))
     const refused = results.filter((r) => r.is_error)
-    expect(refused).toHaveLength(4)
-    for (const r of refused) expect(r.content).toContain(`works on the project in ${obj.dir}`)
+    expect(refused).toHaveLength(5)
+    expect(refused.slice(0, 4).every((r) => String(r.content).includes(`works on the project in ${obj.dir}`))).toBe(true)
+    expect(refused[4].content).toContain('Use add_mark and resolve_mark instead')
+    expect(existsSync(join(obj.dir, '.torno', 'marks.json'))).toBe(false)
   })
 
   it('reads an Edit of the stand-in, and puts the build it started under the edit as data: how long a good one took, the last line of what a failed one said', async () => {
