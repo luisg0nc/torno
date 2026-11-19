@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Stroke } from '../../state/onboard'
-import { BOARD, CASING_PX, PNG_GRID, PNG_GROUND, PNG_INK, doodlePng, fitBackground, paintStroke, paintStrokes, straighten } from './strokes'
+import { BOARD, CASING_PX, PNG_GRID, PNG_GROUND, PNG_INK, OVER_PICTURE, doodlePng, fitBackground, paintStroke, paintStrokes, straighten } from './strokes'
 
 /** A 2D context that writes down what is drawn with it. */
 function recorder(width = 120, height = 80) {
@@ -17,6 +17,14 @@ function recorder(width = 120, height = 80) {
   return { ctx: ctx as unknown as CanvasRenderingContext2D, ops }
 }
 const pen = (points: Array<[number, number]>, width = 3): Stroke => ({ tool: 'pen', width, points })
+
+describe('OVER_PICTURE', () => {
+  it('is dark ink in a light halo, so a stroke shows over a white and over a dark picture', () => {
+    const { ctx, ops } = recorder()
+    paintStroke(ctx, pen([[0, 0], [10, 0]]), OVER_PICTURE)
+    expect(ops.filter((o) => o.startsWith('stroke'))).toEqual([`stroke ${PNG_GROUND} ${3 + 2 * CASING_PX} source-over`, `stroke ${PNG_INK} 3 source-over`])
+  })
+})
 
 describe('paintStroke', () => {
   it('draws a pen in its ink alone when there is no casing', () => {

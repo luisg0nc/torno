@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PhotoDraft, Stroke } from '../../state/onboard'
 import { InkPad } from '../ink/InkPad'
-import { BOARD, PNG_INK, doodlePng } from '../ink/strokes'
+import { BOARD, OVER_PICTURE, doodlePng } from '../ink/strokes'
 
 /** The ink as the theme has it now: the board's strokes are drawn in it; the PNG is made in its own. */
 const inkNow = (): string => getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#20242B'
@@ -10,7 +10,7 @@ const inkNow = (): string => getComputedStyle(document.documentElement).getPrope
  * The doodle board of a new object: 1200 x 800 board pixels on the panel's ground with a light grid, in the theme's ink, or
  * on one of the draft's `photos` ("Draw over"), fitted whole. "Done" gives the strokes back with the PNG made of them
  * (`doodlePng`: dark on white whatever the theme, the photo under the ink) and the `uid` of the photo it is over, if any.
- * Over a photo the ink is the PNG's own on screen too: it is seen as Claude gets it.
+ * Over a photo the ink is the PNG's dark ink with a light halo (`OVER_PICTURE`): it shows on a white photo and a dark one, in both themes.
  */
 export function Doodle({
   initial,
@@ -78,7 +78,7 @@ export function Doodle({
       grid={!photo}
       tools={photos.length > 0 ? choice : undefined}
       foot="Claude gets this as a picture, with your note."
-      look={() => ({ ink: photo ? PNG_INK : inkNow() })}
+      look={() => (photo ? OVER_PICTURE : { ink: inkNow() })}
       initial={initial}
       discard={{ label: 'Discard this doodle?', text: 'Discard this doodle? What was drawn since it was opened is not kept.' }}
       onDone={async (strokes) => {
