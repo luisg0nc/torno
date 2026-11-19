@@ -175,3 +175,12 @@ export async function onBrief<T>(page: Page, read: () => Promise<T>): Promise<T>
     await showModel(page)
   }
 }
+
+/**
+ * Presses and releases the left button where the mouse is, as one click. The view counts a release as a click only within 400 ms of
+ * its press, by the time of the two events; `mouse.down()` returns once the window has handled the press, so a window busy with
+ * a frame (software GL, as on CI) took longer than that and the release came too late. Both are sent at once, and stamped together.
+ */
+export async function clickHere(page: Page): Promise<void> {
+  await Promise.all([page.mouse.down(), page.mouse.up()])
+}

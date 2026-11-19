@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Anchor, Mark, MarksFile, PinMark } from '../src/shared/marks'
-import { onBrief, showBrief, showModel } from './helpers'
+import { clickHere, onBrief, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 
 // Marks across rebuilds (review focus 1): a mark stays at its point; after every
@@ -281,8 +281,7 @@ async function clickOver(point: Vec3): Promise<void> {
   const [fx, fy] = await page.evaluate((at) => window.__tornoTest!.project(at), point)
   const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.move(box.x + fx * box.width, box.y + fy * box.height)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
 }
 
 test('Re-place puts a drifted pin back on the part with one click: the same mark and note, ok again, and the tool that was in hand comes back', async () => {
@@ -331,8 +330,7 @@ test('Escape leaves a mark where it is; an orphaned pin is put on a part that is
   const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.move(box.x + box.width - 12, box.y + box.height - 60)
   await expect(page.locator('.pick-readout')).toHaveText('Click the part where M2 should be. Esc leaves it where it is')
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(tool('Pin')).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.press('Escape')
   await expect(tool('Arrow')).toHaveAttribute('aria-pressed', 'true')
