@@ -5,6 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import type { BoardFile } from '../src/shared/board'
 import type { SizeFact, SizeSource } from '../src/shared/size'
 import type { TornoState } from '../src/renderer/state/store'
+import { newSession } from './helpers'
 import { openListed } from './objects'
 
 // The Brief page in the window: it swaps with the model on Ctrl+Tab, reads the project's board file as an inspection
@@ -42,10 +43,10 @@ const sheet = (): Locator => page.locator('.brief-page')
 const sizeRows = (): Locator => page.locator('.brief-row[data-card]:not(.brief-rule)')
 const size = (what: string, value: string, source: SizeSource = 'measured'): SizeFact => ({ what, value, unit: 'mm', source })
 
-test('a project opens on the model, with the switch Model, Brief at the top left and no brief drawn', async () => {
+test('a project opens on the model, with the switch Model, Brief, Tracing at the top left and no brief drawn', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).scene?.parts.length ?? 0, { timeout: 20_000 }).toBeGreaterThan(0)
-  await expect(page.locator('.pboard-switch button')).toHaveText(['Model', 'Brief'])
+  await expect(page.locator('.pboard-switch button')).toHaveText(['Model', 'Brief', 'Tracing'])
   await expect(switchButton('Model')).toHaveAttribute('aria-pressed', 'true')
   await expect(sheet()).toHaveCount(0)
   expect(await page.evaluate(() => window.__tornoTest!.paused())).toBe(false)
@@ -80,7 +81,7 @@ test('Add a size opens a form that says what is missing, then puts the size in t
   const form = page.locator('.brief-sizeform')
   await expect(form.getByLabel('What it measures')).toBeFocused()
   await form.getByRole('button', { name: 'Add', exact: true }).click()
-  await expect(form).toContainText('a size has')
+  await expect(form).toContainText('A size has what it measures')
   await form.getByLabel('What it measures').fill('tab hole')
   await form.getByLabel('Value').fill('Ø6,6')
   await form.getByLabel('Note').fill('probably 7')
@@ -147,6 +148,7 @@ test('a ref to a card in the chat is a chip, and clicking it shows the brief wit
   const note = (await readBoard()).cards.find((c) => c.kind === 'text' && c.text === 'ask about the screws')!
   await switchButton('Model').click()
   await expect(sheet()).toHaveCount(0)
+  await newSession(page.locator('[data-region="session"]'))
   const composer = page.locator('[data-region="session"] [data-chat-composer]')
   await composer.focus()
   await page.keyboard.type(`say look at ${note.id} and C999`)
@@ -176,7 +178,7 @@ test('"Send with the next prompt" holds the whole brief, and the prompt carries 
   await expect(dock.locator('.chat')).toContainText('Attached from the board by the person', { timeout: 20_000 })
 })
 
-test('an old board (the project `plain`) keeps every card: frames, arrows, mark and build cards are in the file and not on the page, and Claude\'s notes keep their green edge', async () => {
+test('an old board (the project `plain`) keeps every card: frames, arrows, view and build cards are in the file and not on the page, and Claude\'s notes keep their green edge', async () => {
   mkdirSync(join(root, 'plain', '.torno', 'board'), { recursive: true })
   const old: BoardFile = {
     tidied: true,
@@ -185,7 +187,7 @@ test('an old board (the project `plain`) keeps every card: frames, arrows, mark 
       { id: 'C1', kind: 'frame', x: 0, y: 0, w: 400, h: 300, by: 'person', name: 'Latch' },
       { id: 'C2', kind: 'size', x: 10, y: 40, w: 240, h: 120, by: 'person', frame: 'C1', size: size('over the tabs', '327', 'from a manual or datasheet') },
       { id: 'C3', kind: 'size', x: 10, y: 170, w: 240, h: 120, by: 'agent', size: { what: 'cooler depth', value: '50.5', unit: 'mm', source: 'from Claude' } },
-      { id: 'C4', kind: 'mark', x: 500, y: 0, w: 240, h: 120, by: 'torno', source: 'M1' },
+      { id: 'C4', kind: 'view', x: 500, y: 0, w: 240, h: 120, by: 'person', source: 'front' },
       { id: 'C5', kind: 'build', x: 500, y: 200, w: 240, h: 120, by: 'person' },
       { id: 'C6', kind: 'text', x: 0, y: 400, w: 280, h: 160, by: 'agent', text: 'Claude: widen the latch by 2 mm' },
       { id: 'C7', kind: 'frame', x: 0, y: 700, w: 300, h: 200, by: 'person', name: 'Rules' },
@@ -206,7 +208,7 @@ test('an old board (the project `plain`) keeps every card: frames, arrows, mark 
   await expect(sheet().getByRole('region', { name: 'Rules' })).toContainText('Strong: it carries the cooler')
   // A rule is a judgement: no measure says it.
   await expect(sheet().getByRole('region', { name: 'Rules' })).toContainText('a judgement: no measure says it')
-  // The mark, the build, the frames and the arrow are not drawn, and an agent's size has no Edit.
+  // The view, the build, the frames and the arrow are not drawn, and an agent's size has no Edit.
   await expect(sheet()).not.toContainText('Latch')
   await sizeRows().nth(1).hover()
   await expect(sizeRows().nth(1).getByRole('button', { name: /^Edit/ })).toHaveCount(0)
@@ -216,7 +218,7 @@ test('an old board (the project `plain`) keeps every card: frames, arrows, mark 
   await page.keyboard.press('Enter')
   await expect(sheet().getByRole('region', { name: 'Notes' })).toContainText('one more')
   const after = JSON.parse(readFileSync(boardPath('plain'), 'utf8')) as BoardFile
-  expect(after.cards.slice(0, 8)).toEqual(old.cards)
+  expect(after.cards.slice(0, old.cards.length)).toEqual(old.cards)
   expect(after.arrows).toEqual(old.arrows)
 })
 
