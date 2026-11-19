@@ -64,7 +64,6 @@ async function open(name: string): Promise<void> {
 
 test('a model with no checks says so in the head of its section, which does not unfold', async () => {
   await open('plain')
-  await openSection(page, 'Parts')
   await expect(page.locator('.left .layers')).toBeVisible()
   await cardSection(page, 'Checks').scrollIntoViewIfNeeded()
   await expect(cardSection(page, 'Checks')).toContainText('none')

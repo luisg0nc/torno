@@ -7,7 +7,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { SESSION_HEADER } from '../src/main/http'
 import { inTerminal } from './terminal'
-import { foldSection, openSection, showProjects, newSession, keysButton, profileChip } from './helpers'
+import { openSection, showProjects, newSession, keysButton, profileChip } from './helpers'
 import { openListed, projectCard, projectCrumb, projectMenu, shelfOf } from './objects'
 import type { TornoState } from '../src/renderer/state/store'
 import type { ObjectCard } from '../src/shared/show'
@@ -520,12 +520,9 @@ test('the page of projects has a card for every project, the project menu opens 
   await page.keyboard.press('Escape')
   // The window keeps which sections are folded, in its own storage: nothing of it is in the workspace.
   expect(readdirSync(join(root, 'hollow', '.torno'))).not.toContain('column.json')
-  await foldSection(page, 'Parts')
-  await expect(page.locator('[data-region="left"] .layers')).toHaveCount(0)
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!).folded).toContain('parts')
   await openSection(page, 'Parts')
-  await expect(page.locator('[data-region="left"]').getByRole('region', { name: 'Parts' })).toBeVisible()
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.column')))!).folded).not.toContain('parts')
+  await expect(page.locator('[data-region="left"] .layers')).toBeVisible()
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.bench')))!)).toEqual({ hollow: 'parts' })
   await openSection(page, 'Marks')
 })
 

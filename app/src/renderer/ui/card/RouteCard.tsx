@@ -1,11 +1,10 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { actions } from '../../state/store'
-import { Layers } from '../Layers'
 import { LeftEdge } from '../LeftEdge'
 import { MarksPanel } from '../MarksPanel'
 import { numbered } from '../numbered'
-import { ParamsPanel } from '../ParamsPanel'
 import { ImportScan, ScansPanel } from '../ScansPanel'
+import { Bench } from './Bench'
 import { CardSection } from './CardSection'
 import { Checks } from './Checks'
 import { OnBlock } from './OnBlock'
@@ -15,10 +14,6 @@ import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from
 /** The body of each section: today's component for it. The card is these in a column, and each section's task restyles its own. */
 function Body({ id }: { id: SectionId }): ReactNode {
   switch (id) {
-    case 'parts':
-      return <Layers />
-    case 'params':
-      return <ParamsPanel />
     case 'checks':
       return <Checks />
     case 'marks':
@@ -32,8 +27,9 @@ function Body({ id }: { id: SectionId }): ReactNode {
 
 /**
  * The project read from top to bottom: the card docked at the left, as wide as `--card-w` says. Its head slot (`head`: what
- * is in your hand) is pinned above the scroll; below it the six sections of `SECTIONS` follow one another down a route line,
- * each folded to its head or open; over both stands the "On hN" block (`OnBlock`), which says how the build on show stands and what waits. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
+ * is in your hand) is pinned above the bench; the bench (`Bench`: Parameters and Parts as two tabs) fills the column; under it the four sections of `SECTIONS`
+ * (Checks, Marks, Scans, Tracings: they leave when the Brief page and the view's switch take them) follow one another down a route line,
+ * each folded to its head or open, in a scroll of their own; over all stands the "On hN" block (`OnBlock`), which says how the build on show stands and what waits. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
  * `store.sectionHere` has it. Its right edge makes it wider (`LeftEdge`).
  */
 export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<HTMLDivElement | null> }) {
@@ -69,6 +65,7 @@ export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<
     <div className="route-card">
       <OnBlock />
       {head && <div className="route-hand">{head}</div>}
+      <Bench />
       <div className="route-scroll" ref={scroll}>
         {SECTIONS.map(({ id, title }) => {
           const f = facts[id]

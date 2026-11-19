@@ -12,7 +12,7 @@ numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
 The window has three parts. On the left, the
-route card: the project read from top to bottom, in sections you fold, which pushes
+route card: the On block and, filling the column, Parameters and Parts as two tabs, which pushes
 the 3D view over. In the
 middle, the parts in 3D, with the compass at the top right and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
@@ -478,7 +478,7 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. Over the sections stands the **On h18** block (see Marks). At first Parts, Checks and Marks are open; Parameters, Scans and Tracings are folded. Every section is in the card, one scroll down it: scroll to it and click its head to open it. Drag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the **On h18** block (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Under the tabs are Checks, Marks, Scans and Tracings, each a head with its name and a line of what it holds (`3 open`), folded at first; click a head to open it, and an open one scrolls inside its own room. A section with nothing in it says "none" and does not open. (They move to the Brief page and the view's switch in the next steps of the redesign of the left side.) Drag the right edge of the card to make itDrag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
@@ -497,7 +497,7 @@ them is one); a click on it lists only those marks in Marks, under a line `Only 
 rest back. That is a view of the list: the agent is told every mark as before. It works the other way too: the pointer on a part
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
 lines drawn to them. Parameters lists the fields of
-the model's `Params` (a model with none says so): each
+the model's `Params` (a model with none has no Parameters tab). Over the list, a find box (`/` from anywhere outside a field opens the tab and puts the cursor in it; Esc clears it) narrows the rows by what is in a name or a comment, and the chips All, Assumed and Brief keep the sizes whose comment says `assumed:` or `brief:`, each with its count; with either on, a line says `3 of 22 match`. Each
 field's name, its default in the monospace face (four digits at most, the whole value on hover) and
 its comment as the model has it, and, for a default the model works out (an expression, not a
 number written in), that it is worked out in the model. The model's comments should begin with where a size
@@ -2388,6 +2388,9 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Everywhere | `Ctrl+Shift+E` | Export to one HTML file, or to STEP, STL or 3MF: the open project, or from the page of projects any of them |
 | Everywhere | `Ctrl+Shift+B` | Rebuild: build the open project again, as the button in the status line does |
 | Everywhere | `Ctrl+Tab` | The model, the brief and a tracing, in turn |
+| Everywhere | `Right` | On a tab of the bench: the next tab |
+| Everywhere | `Left` | On a tab of the bench: the tab before |
+| Viewport | `/` | Find a value: to the find box of the Parameters tab, opening the tab |
 | Viewport | `V` | Select: click a face or an edge, double-click for its part; Shift-click adds or takes out. The choice by the selection says what a click takes |
 | Viewport | `M` | Measure: two clicks, or a double click on a round thing; nothing is kept unless you keep it |
 | Viewport | `X` | Section: cut the parts by a plane |
@@ -2888,14 +2891,14 @@ On the screen:
 - **The window's own title bar and controls on Linux.** The window has no frame of the window manager's: at the top, a bar 40 px high in the ground's colour. Start torno on Hyprland and on another desktop (KDE, GNOME) and try once: the bar drags the window, and the three buttons at its right (minimise, maximise or restore, close) each do what they say, also after the window was tiled or maximised by a key; Close with a session working asks "Close torno?" as the window manager's close does; the window cannot be made smaller than 1120 × 700; the bar is legible in light and dark. On Windows and macOS the platform's own controls sit over the bar in the same colours: not tried.
 - **Closing.** With a session working, close the window through the window manager: torno asks "Close torno?", "Keep it open" keeps everything as it was, "Close torno" ends torno and the session. With nothing under way it closes at once.
 - **A session that needs you, away from its pane.** In two projects, ask Claude Code in one for something that needs a permission, then open the other (and again with the session pane hidden): the first one's row has a dot and "needs you" in the warning colour, the status line has the button "*name* needs you", which opens it and brings you to the card, and a working session's dot is a quiet grey. In a window that is not in front (another window on top, or a workspace switched away) the frame should flash on Linux, and the dock icon bounce once on a Mac: no test shows a window, so only the rule is tested.
-- **The route card without a rail.** The window has no rail: the card is at the left edge, the `?` button and the print profile chip are at the right of the status line. Scroll the card to each of its seven sections and click a head to fold and open it. Drag the card's edge wider and narrower: it moves without lag. Start torno again: the folded
+- **The route card without a rail.** The window has no rail: the card is at the left edge, the `?` button and the print profile chip are at the right of the status line. Click the Parameters and Parts tabs, then each head under them (Checks, Marks, Scans, Tracings) to open and fold it. Drag the card's edge wider and narrower: it moves without lag. Start torno again: the open tab of each project, the folded
   sections and the card's width are as you left them.
 - **Layers of a model with many parts.** Open a project of ten parts or more: the pointer on a layer row lights that
   part in the view in the accent (and nothing else changes), the target shows it alone, `Show all` at the top of the section brings
   the rest back, and the count of marks on a part lists only its marks. The rows must not crowd: name, count, and on
   hover the opacity, the target and the eye, at the width of the card.
 - **Parameters.** In a project whose model has a `Params` dataclass with comments and one default that is an
-  expression, open the Parameters section: a row for each field in the model's order, the value in the
+  expression, open the Parameters tab: a row for each field in the model's order, the value in the
   monospace face, the comment as written (cut to two lines, whole on hover), "worked out in the model" on the expression's.
   With a real session running, in the chat and then in the terminal view, a click on a row puts `Params.wall` at the
   cursor of the box (or the prompt) and sends nothing, with the dock hidden as well; with no session the rows are

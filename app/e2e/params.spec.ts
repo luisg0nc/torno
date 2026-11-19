@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
-import { cardSection, foldSection, openSection, newSession, openProfile, profileChip } from './helpers'
+import { benchTab, openSection, newSession, openProfile, profileChip } from './helpers'
 import { openListed } from './objects'
 
 // The model's Params in the left column, read only: a row for each field with its default in the monospace face and
@@ -58,23 +58,23 @@ async function open(name: string): Promise<void> {
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
 }
 
-test('a model with no Params says so in the head of its section, which does not unfold, and has no rows', async () => {
+test('a model with no Params has no Parameters tab: the bench is Parts alone, and there are no rows', async () => {
   await open('plain')
-  await openSection(page, 'Parts')
   await expect(page.locator('.left .layers')).toBeVisible()
-  await expect(cardSection(page, 'Parameters')).toContainText('none')
-  await expect(cardSection(page, 'Parameters')).toHaveAttribute('data-empty', '')
+  await expect(benchTab(page, 'Parameters')).toHaveCount(0)
+  await expect(page.locator('.left .bench-tab')).toHaveCount(1)
   await expect(section()).toHaveCount(0)
   await expect(section().locator('[data-param]')).toHaveCount(0)
 })
 
-test('the Parameters section says its count in its head, and has a row for each field', async () => {
+test('the Parameters tab says its count, is the bench\'s first, and has a row for each field', async () => {
   await open('hollow')
   await openSection(page, 'Parameters')
   await expect(section()).toBeVisible()
   const order = await page.locator('.left .route-section').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
-  expect(order).toEqual(['parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
-  await expect(cardSection(page, 'Parameters').locator('.route-said')).toHaveText(/^5\b/)
+  expect(order).toEqual(['checks', 'marks', 'scans', 'tracings'])
+  await expect(benchTab(page, 'Parameters')).toHaveText(/^Parameters\s*5$/)
+  await expect(benchTab(page, 'Parts')).toBeVisible()
   await expect.poll(() => section().locator('[data-param]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-param')))).toEqual(['side', 'wall', 'gap', 'inner', 'ribs'])
 })
 
@@ -200,16 +200,33 @@ test('resting on a field lights the faces it drives on the model, kept until the
   await page.mouse.move(0, 0)
 })
 
-test('the folding is the window\'s: it is kept when another project is opened', async () => {
-  await expect(cardSection(page, 'Parameters')).not.toHaveAttribute('data-folded', '')
-  await open('plain')
-  await expect(cardSection(page, 'Parameters')).toContainText('none')
-  await open('hollow')
-  await expect(cardSection(page, 'Parameters')).not.toHaveAttribute('data-folded', '')
-  await expect(section().locator('[data-param="wall"]')).toBeVisible()
-  // A click on the head folds it to the head; the choice is kept by the window, not the folder.
-  await foldSection(page, 'Parameters')
+test('the open tab is kept for each project, by the window', async () => {
+  await expect(benchTab(page, 'Parameters')).toHaveAttribute('aria-selected', 'true')
+  await openSection(page, 'Parts')
+  await expect(page.locator('.left .layers')).toBeVisible()
   await expect(section()).toHaveCount(0)
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('torno.column') ?? '{}').folded)).toContain('params')
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('torno.bench') ?? '{}'))).toEqual({ hollow: 'parts' })
+  await open('plain')
+  await open('hollow')
+  await expect(benchTab(page, 'Parts')).toHaveAttribute('aria-selected', 'true')
   await openSection(page, 'Parameters')
+  await expect(section().locator('[data-param="wall"]')).toBeVisible()
+})
+
+test('find narrows the rows, / goes to it, and the chips filter by the source the comment names', async () => {
+  const find = page.getByRole('textbox', { name: 'Find a value' })
+  await openSection(page, 'Parts')
+  await page.locator('[data-region="viewport"]').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.press('/')
+  await expect(benchTab(page, 'Parameters')).toHaveAttribute('aria-selected', 'true')
+  await expect(find).toBeFocused()
+  await page.keyboard.type('wall')
+  await expect(section().locator('[data-param]')).toHaveCount(1)
+  await expect(page.locator('.params-match')).toContainText('1 of 5')
+  await page.keyboard.press('Escape')
+  await expect(section().locator('[data-param]')).toHaveCount(5)
+  await page.getByRole('button', { name: /^Assumed/ }).click()
+  await expect(page.getByRole('button', { name: /^Assumed/ })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: /^All/ }).click()
+  await expect(section().locator('[data-param]')).toHaveCount(5)
 })
