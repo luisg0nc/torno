@@ -20,7 +20,7 @@ import type { Scene } from '../../shared/scene'
 import type { ObjectInfo } from '../../shared/workspace'
 import { FOLDER } from '../own'
 import type { PromptContext } from '../context'
-import { hardDefects, partsUnchanged, sanity } from '../sanity'
+import { hardDefects, partsUnchanged, sanity, smallChange } from '../sanity'
 import { type BuildVerdicts, verdictChanges } from '../verdicts'
 import { BodyTooLarge, type HttpRouter, readBody, sendJson } from '../http'
 import { trustQuestion } from '../../shared/agents'
@@ -138,6 +138,8 @@ interface TurnState {
   startedAt: number
   /** The count of builds ended (`Sessions.finished`) when the turn last looked at the model: a build that ended after it was not looked at. */
   lookedAt: number
+  /** The same count at the turn's last `measure`, `check` or `features`: after a small change, a number is a look (`smallChange`). */
+  measuredAt: number
   /** The last successful build of the object when the turn began: what a hard defect is new against. */
   before?: { revision: number; scene: Scene }
   /** What the dimensions said of that build: a dimension that passed there and fails now is the turn's. */
@@ -159,6 +161,9 @@ interface TurnState {
   /** The tool use of the last edit answered: the chat's card its build is put on. */
   lastToolUse?: string
 }
+
+/** The tools whose numbers, after a small change, count as a look. */
+const NUMBER_TOOLS = ['measure', 'check', 'features'] as const
 
 /** Why a `Stop` is held back: a build still running, a build that failed, a part with a hard defect, a dimension the turn broke, a build nobody looked at. */
 type StopReason = 'running' | 'failed' | 'defect' | 'dimension' | 'unlooked'
@@ -623,6 +628,22 @@ export class Sessions {
    * `since` or after), in the words of `buildContextFor`, once it has ended; that it is still running, should it run
    * past `EDIT_ANSWER_MS`; nothing when none begins within `EDIT_GRACE_MS` (the file was saved as it was).
    */
+  /**
+   * The line the answer to an edit ends with when its build, the turn's own, changed the parts and nothing of the turn
+   * has looked at it (#227): said where the agent reads it before it writes a summary, not only at `Stop`.
+   */
+  private notLookedAt(session: Session, told: PromptContext): string {
+    const turn = session.turn
+    const objectId = session.object.id
+    if (!turn || turn.changedAt === undefined || told.buildState !== 'ok' || told.revision === undefined) return ''
+    const last = this.deps.scene?.(objectId)
+    if (!last || last.revision !== told.revision) return ''
+    const defects = hardDefects(sanity(turn.before, last))
+    if (turn.before && partsUnchanged(turn.before.scene, last.scene) && defects.length === 0) return ''
+    const toolName = this.deps.adapter.toolName
+    return `Not yet looked at: r${told.revision} was built in this turn. Call ${toolName('look')} before you write your summary; for a small change that adds or removes no part, ${toolName('measure')}, ${toolName('check')} or ${toolName('features')} on it will do.`
+  }
+
   private async afterEdit(session: Session, since: number): Promise<unknown> {
     const { build, buildContextFor } = this.deps
     if (!build || !buildContextFor) return {}
@@ -658,6 +679,8 @@ export class Sessions {
       return {}
     }
     if (!told.text) return {}
+    const reminder = this.notLookedAt(session, told)
+    if (reminder) told = { ...told, text: `${told.text}\n${reminder}` }
     // How long it took and what it said, as data: the window draws a build line from these and the digest, never from the text.
     const took = told.buildState === 'ok' && at?.status === 'ok' && at.revision === told.revision ? at.seconds : undefined
     const error = told.buildState === 'failed' && at?.status === 'failed' && at.error ? errorLine(at.error) : undefined
@@ -727,7 +750,9 @@ export class Sessions {
     const defects = digest ? hardDefects(digest) : []
     // Nothing in the parts changed since the turn began (a comment, a rename: the same shapes in the same places): there is nothing to look at.
     const nothingChanged = last !== undefined && last.revision === state.revision && turn.before !== undefined && partsUnchanged(turn.before.scene, last.scene) && defects.length === 0
-    const unlooked = this.buildEnds.get(objectId)! > turn.lookedAt && !nothingChanged && !turn.held.has('unlooked')
+    // A small change confirmed by a number (a fit of 0.2 mm, then `measure`) was looked at as far as it needs.
+    const measured = digest !== undefined && smallChange(digest) && this.buildEnds.get(objectId)! <= turn.measuredAt
+    const unlooked = this.buildEnds.get(objectId)! > turn.lookedAt && !nothingChanged && !measured && !turn.held.has('unlooked')
     // A look still lacking is said with a hold for something else, which the cap would leave no room to ask for after.
     const lacking = unlooked ? ` You have not looked at it either: call ${toolName('look')}.` : ''
     const alongside: StopReason[] = unlooked ? ['unlooked'] : []
@@ -1299,6 +1324,11 @@ export class Sessions {
       if (event === 'PostToolUse') turn.lookedAt = this.finished
       return {}
     }
+    // A number the kernel gave of the build counts as a look at a small change: the count of builds ended is kept like a look's.
+    if (event === 'PostToolUse' && NUMBER_TOOLS.some((tool) => name === this.deps.adapter.toolName(tool))) {
+      turn.measuredAt = this.finished
+      return {}
+    }
     if (name === 'Bash') return this.aroundBash(session, turn, event, useId)
     if (!EDIT_TOOLS.has(name) || !this.ofSource(session, body.tool_input)) return {}
     if (event === 'PreToolUse') {
@@ -1342,7 +1372,7 @@ export class Sessions {
     const objectId = session.object.id
     const before = this.deps.scene?.(objectId)
     const beforeVerdicts = before ? this.deps.verdicts?.(objectId, before.revision) : undefined
-    return { since: this.finished, startedAt: Date.now(), lookedAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
+    return { since: this.finished, startedAt: Date.now(), lookedAt: this.finished, measuredAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
   }
 
   /**

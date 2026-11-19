@@ -336,6 +336,36 @@ describe('scene', () => {
     expect(textOf(sceneTool(deps, 'bracket', undefined, undefined, undefined, { layout: 'nope' }))).toBe("no layout 'nope'; layouts: assembly, print")
   })
 
+  it('gives a brief scene: the build, the parts and only the checks that fail, in a few hundred tokens (#219)', () => {
+    const params = Array.from({ length: 20 }, (_, i) => ({ name: `p${i}`, type: 'float', default: i, literal: true, doc: `a long comment about what p${i} is for, where it comes from and why it has this value `.repeat(3), value: i }))
+    const checks = [
+      { name: 'wall', kind: 'min_wall', status: 'pass', value: 2, unit: 'mm', min: 1.2, max: null, exact: true },
+      { name: 'fit', kind: 'clearance', status: 'fail', value: 0.1, unit: 'mm', min: 0.15, max: 0.25, exact: true, declared: { a: 'base' } },
+      { name: 'rim', kind: 'min_wall', status: 'error', reason: 'no such part' }
+    ] as NonNullable<Scene['checks']>
+    const scene: Scene = { ...SCENE, params, checks, output: 'printed\n'.repeat(10) } as Scene
+    const deps = fake({ scene: () => ({ revision: 3, scene }) })
+    const full = textOf(sceneTool(deps, 'bracket'))
+    const text = textOf(sceneTool(deps, 'bracket', undefined, undefined, undefined, { detail: 'brief' }))
+    const told = JSON.parse(text)
+    expect(told.build).toMatchObject({ status: 'ok', revision: 3, stale: false })
+    expect(told.parts.map((p: { name: string }) => p.name)).toEqual(['base', 'post'])
+    expect(told.parts[0]).toMatchObject({ size: [40, 30, 5] })
+    expect(told.parts[0]).toHaveProperty('volume')
+    expect(told.parts[1]).toMatchObject({ valid: false })
+    expect(told.checks.total).toBe(3)
+    expect(told.checks.failing.map((c: { name: string }) => c.name)).toEqual(['fit', 'rim'])
+    expect(told.checks.failing[0]).not.toHaveProperty('declared')
+    for (const left of ['params', 'camera', 'output', 'note', 'section']) expect(told).not.toHaveProperty(left)
+    expect(told.leftOut).toContain('call scene without detail')
+    expect(text.length).toBeLessThan(full.length / 3)
+    expect(text.length).toBeLessThan(1600)
+    // The brief form of a model that is behind says so as the full one does.
+    const behindNow = JSON.parse(textOf(sceneTool(fake({ scene: () => ({ revision: 3, scene }), state: { ...OK, status: 'building', stale: true, startedAt: Date.now() - 4000 } }), 'bracket', undefined, undefined, undefined, { detail: 'brief' })))
+    expect(behindNow.build).toMatchObject({ status: 'building', stale: true })
+    expect(behindNow.build.runningSeconds).toBeGreaterThanOrEqual(4)
+  })
+
   it('says which parts are references (bought), in the list and in a note', () => {
     const scene: Scene = { ...SCENE, parts: [part('assembly', 'base', [0, 0, 0], [1, 1, 1]), { ...part('assembly', '608', [0, 0, 0], [22, 22, 7]), role: 'reference' as const }] }
     const told = JSON.parse(textOf(sceneTool(fake({ scene: () => ({ revision: 3, scene }) }), 'bracket')))

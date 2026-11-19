@@ -53,7 +53,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   one held for a running build does not wait for the build, one after a dimension hold does not wait for the
   measuring. A reason is held once
   (`TurnState.held`) and a turn is held twice at most (`holds`): `stop_hook_active` is no guard of its own, the ledger
-  is. A hold for a defect or a dimension that finds the build unlooked says so, and counts for that reason too. The
+  is. The answer to the edit says it first (`notLookedAt` in `Sessions`, #227): its last line is `Not yet looked at: rN was built in this turn. Call look before you write your summary; …` when the build is the turn's, worked, and changed the parts (`partsUnchanged`) or has a hard defect. A `measure`, `check` or `features` after the build (`TurnState.measuredAt`, `NUMBER_TOOLS`) counts as a look for a small change only (`smallChange` of `sanity.ts`: no part added or removed, no face or edge count changed, no hard defect). A hold for a defect or a dimension that finds the build unlooked says so, and counts for that reason too. The
   reasons say "built during this turn", never "you edited": the person's own edit also ends a build. Never for a
   dimension that failed when the turn began, never for a change of volume alone. A Stop held back moves no status
   and ends no turn.

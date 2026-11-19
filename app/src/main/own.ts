@@ -76,7 +76,21 @@ export async function ownTorno(dir: string, ...inside: string[]): Promise<string
   }
 }
 
-/** Writes `<dir>/.torno/<name>` whole or not at all (`writeFileAtomic`), once the folder is known to be torno's own. */
-export async function writeOwn(dir: string, name: string, data: string | Uint8Array): Promise<void> {
-  await writeFileAtomic(join(await ownTorno(dir), name), data)
+/** The last `writeOwn` of each file: the folder check is awaited before `writeFileAtomic` has the path, so the line is kept here, taken before any await. */
+const saves = new Map<string, Promise<void>>()
+
+/**
+ * Writes `<dir>/.torno/<name>` whole or not at all (`writeFileAtomic`), once the folder is known to be torno's own.
+ * Writes of one file land in the order `writeOwn` was called, however long each folder check takes.
+ */
+export function writeOwn(dir: string, name: string, data: string | Uint8Array): Promise<void> {
+  const key = join(dir, FOLDER, name)
+  const save = (saves.get(key) ?? Promise.resolve())
+    .catch(() => {})
+    .then(async () => writeFileAtomic(join(await ownTorno(dir), name), data))
+    .finally(() => {
+      if (saves.get(key) === save) saves.delete(key)
+    })
+  saves.set(key, save)
+  return save
 }

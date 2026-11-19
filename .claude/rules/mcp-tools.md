@@ -113,7 +113,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   just started, up to `seconds` (1 to 600, default 60; `Freshness.settle` with the call's abort signal) and answers `status`,
   `revision`, `waited`, `limitReached`, `seconds` of the build, `stale` and a `reading`; with the limit up and the build still
   running (or files newer and no build begun) it says so and leaves the build alone, and the agent calls again. A build that ended
-  comes with what an edit's answer tells of it (`buildTold`, `buildContextFor` with the expectation). `scene` gives
+  comes with what an edit's answer tells of it (`buildTold`, `buildContextFor` with the expectation). `scene` with `detail: brief`
+  (`briefScene` in `mcp/viewTools.ts`, #219; default `full`) gives the build as told in full, the parts of one layout with size, volume and only the
+  warnings, the dimension counts, `checks: {total, failing}` (every check that is not `pass`, without its declaration), the expectation's verdict and
+  `leftOut`, which names what the full form adds. `scene` gives
   `build.runningSeconds` while a build runs and `build.recentBuilds` (the last five kept: id, seconds, `failed`) from `deps.history`;
   the stage of a build (loading, meshing) is not told, because the kernel does not report one. `scene` counts the unresolved dimensions held to a value
   (`dimensions: {pass, fail, notMeasured}`).

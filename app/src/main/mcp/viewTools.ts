@@ -5,7 +5,7 @@ import { diagnosisText } from '../../shared/diagnosis'
 import { type ExplodeState, EXPLODED_NOTE, NOT_EXPLODED_AND_CUT, explodeArg, explodeText, isExploded, nothingApart, nothingApartText } from '../../shared/explode'
 import type { ScanInfo } from '../../shared/scans'
 import type { NamedSet } from '../../shared/sets'
-import { noteText } from '../../shared/modelChecks'
+import { type ModelCheck, noteText } from '../../shared/modelChecks'
 import type { Scene } from '../../shared/scene'
 import { type Camera, type LookRequest, type LookResult, type SaveViewRequest, type SaveViewResult, type SectionPlane, type ShowRequest, type ShowResult, type ViewName, axisForm, planeText } from '../../shared/view'
 import { type SavedView, MAX_PROPOSALS, VIEW_NOT_BOTH, cleanViewName, findView, viewGone, viewNameRefusal, viewSummary } from '../../shared/views'
@@ -65,7 +65,7 @@ export const cameraKeys = (view: unknown): string | null => {
  * whose it is and what it holds.
  */
 type ScenePart = Scene['parts'][number]
-export interface SceneArgs { layout?: string }
+export interface SceneArgs { layout?: string; detail?: 'full' | 'brief' }
 /** The named sets of the object, when they could be read, and the build each one's refs are of, by set id (none for a set: not since torno opened the project). */
 export interface NamedSets {
   sets: readonly NamedSet[]
@@ -232,8 +232,42 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
     ...(views && views.length > 0 ? { views: views.map(viewSummary) } : {}),
     ...(notes.length > 0 ? { note: notes.join(' ') } : {})
   }
+  if (args.detail === 'brief') return { content: [{ type: 'text', text: JSON.stringify(briefScene(result, scene.checks ?? [], inLayout)) }] }
   return { content: [{ type: 'text', text: JSON.stringify(result) }] }
 }
+
+/**
+ * `scene` with `detail: brief` (#219): what is asked after an edit, did it build, at what revision, do the checks hold.
+ * The build as told in full (its error too), the parts of the layout with size and volume, the dimension counts and the
+ * checks that do not pass; and `left out`, naming what the full form adds, so that nothing is taken for absent.
+ */
+function briefScene(result: { object: string; model: string; build: object; layouts: string[]; dimensions?: object; expect?: object }, checks: readonly ModelCheck[], inLayout: readonly ScenePart[]): object {
+  const failing = checks.filter((c) => c.status !== 'pass').map(({ declared: _declared, ...c }) => c)
+  return {
+    object: result.object,
+    model: result.model,
+    build: result.build,
+    layouts: result.layouts,
+    parts: inLayout.map((p) => ({
+      name: p.name,
+      layout: p.layout,
+      ...(p.role === 'reference' ? { role: 'reference' } : {}),
+      size: p.bbox.max.map((max, i) => round(max - p.bbox.min[i])),
+      volume: round(p.volume),
+      ...(p.bboxExact === true && p.volumeExact === true ? {} : { exact: false }),
+      ...(p.valid ? {} : { valid: false }),
+      ...(p.reversed && p.reversed.length > 0 ? { reversed: p.reversed } : {}),
+      ...((p.openShells ?? 0) > 0 ? { openShells: p.openShells } : {}),
+      ...(p.meshDisagrees === true ? { meshDisagrees: true } : {})
+    })),
+    ...(result.dimensions ? { dimensions: result.dimensions } : {}),
+    ...(checks.length > 0 ? { checks: { total: checks.length, failing } } : {}),
+    ...(result.expect ? { expect: result.expect } : {}),
+    leftOut: BRIEF_LEFT_OUT
+  }
+}
+
+const BRIEF_LEFT_OUT = 'detail: brief leaves out the model output, params, groups, named sets, views, scans, the camera, the section, the explode, the notes, checksEasier, the passing checks and the other layouts; call scene without detail for them. Sizes and volumes are for orientation (exact: false marks those that are not): call measure for a number to rely on.'
 
 /** A scan as `scene` names it: with how its alignment in a layout stands, in a word, and what that rests on. */
 function scanStanding(scan: ScanInfo, layout: string | undefined, revision: number): object {
