@@ -30,6 +30,15 @@ function history(entries: Array<Pick<HistoryEntry, 'id' | 'at'> & Partial<Histor
 }
 
 describe('listPrompts', () => {
+  it('says the marks and the round a prompt carried, from the context item under it', async () => {
+    const context = (forUser: string, marks: string[], review?: string): ChatItem => ({ kind: 'context', id: `c-${forUser}`, forUser, text: 'x', marks, ...(review ? { review } : {}) })
+    await appendItems(dir, A, [user('a1', 1000), context('a1', ['M1', 'M2'], 'R1'), user('a2', 2000), context('a2', []), user('a3', 3000)])
+    const rows = await listPrompts(dir)
+    expect(rows[0]).toMatchObject({ marks: ['M1', 'M2'], review: 'R1' })
+    expect(rows[1]).not.toHaveProperty('marks')
+    expect(rows[2]).not.toHaveProperty('marks')
+  })
+
   it('numbers the prompts of every conversation from 1, in the order they were said', async () => {
     await appendItems(dir, A, [user('a1', 1000), note('n1'), user('a2', 3000)])
     await appendItems(dir, B, [user('b1', 2000), user('b2', 4000)])

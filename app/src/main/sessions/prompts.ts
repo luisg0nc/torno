@@ -34,7 +34,7 @@ function terminalPrompts(entries: readonly HistoryEntry[]): Array<Omit<PromptRow
  */
 export async function listPrompts(dir: string, opts: { most?: number } = {}): Promise<PromptRow[]> {
   const [names, entries] = await Promise.all([conversations(dir), readHistory(dir).catch(() => [] as HistoryEntry[])])
-  const logged = await Promise.all(names.map(async (conversation) => (await readPrompts(dir, conversation)).map((item) => ({ conversation, id: item.id, text: item.text, at: item.at }))))
+  const logged = await Promise.all(names.map(async (conversation) => (await readPrompts(dir, conversation)).map((item) => ({ conversation, id: item.id, text: item.text, at: item.at, ...(item.carried ? { marks: item.carried.marks, ...(item.carried.review !== undefined ? { review: item.carried.review } : {}) } : {}) }))))
   const rows = [...logged.flat(), ...terminalPrompts(entries)]
   // A stable sort: prompts said in the same millisecond keep the order of their log.
   rows.sort((a, b) => a.at - b.at)

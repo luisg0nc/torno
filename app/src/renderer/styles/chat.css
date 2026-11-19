@@ -1256,10 +1256,22 @@ button.ref-chip {
 
 .prompt-facts {
   display: flex;
-  flex-wrap: wrap;
   gap: 0 var(--space-2);
   color: var(--muted);
   font-size: 11px;
+  white-space: nowrap;
+}
+
+.prompt-facts > * {
+  flex: none;
+}
+
+/* The marks and verdicts give way first: on a narrow dock they are cut, and the row stays one line (the title has all of it). */
+.prompt-facts > .prompt-carried {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .prompt-star {

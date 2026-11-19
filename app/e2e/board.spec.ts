@@ -507,47 +507,31 @@ async function say(prompt: string): Promise<void> {
   await page.keyboard.press('Enter')
 }
 
-// "Pin to board" is in the menu of a node of the builds strip: a click on the node, then the item; the strip shows the star.
-test('a build pinned from the strip is a card with its thumb, and its entry is starred', async () => {
+// The board is the project's brief (#216): builds, the Parameters and the Checks have no "Pin to board". The star keeps a build.
+test('a build is starred from the strip and has no Pin to board; Parameters and Checks have none either', async () => {
   await expect(page.locator('.pboard')).toHaveCount(0)
   await newSession(dock())
   await expect(composer()).toBeEnabled()
   await say('edit bracket.py "width: float = 40" "width: float = 41"')
   await expect(turns()).toHaveCount(1, { timeout: 30_000 })
   await expect.poll(() => kept().filter((e) => e.cause === 'agent' && !e.failed).length, { timeout: 30_000 }).toBeGreaterThan(0)
-  // The build the prompt began from and the one it made are nodes of the strip on top of the dock.
   await openStrip(page)
   const strip = dock().locator('.strip .strip-node[data-kind="built"]')
   await expect.poll(() => strip.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
-  await expect(strip.first().locator('img')).toBeVisible({ timeout: 15_000 })
   const id = (await strip.first().getAttribute('data-build'))!
   await strip.first().click()
-  await page.getByRole('menuitem', { name: 'Pin to board' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Pinned to the board' })).toBeVisible()
-  const build = (await cardsOf('build'))[0]
-  expect(build).toMatchObject({ by: 'person', source: id, copy: { id } })
-  expect(build.picture).toMatch(/^p-[0-9a-f]{12}\.(png|jpg)$/)
-  // The entry is starred, in the history and in the strip.
-  expect(kept().find((e) => e.id === id)?.starred).toBe(true)
+  await expect(page.getByRole('menuitem', { name: 'Star' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Pin to board' })).toHaveCount(0)
+  await page.getByRole('menuitem', { name: 'Star' }).click()
+  await expect.poll(() => kept().find((e) => e.id === id)?.starred, { timeout: 10_000 }).toBe(true)
   await expect(strip.first()).toHaveAttribute('data-starred', '')
-  await expect(strip.first().locator('.strip-star')).toBeVisible()
-  // On the board it is a card with the picture.
-  await switchButton('Board').click()
-  await expect(cardOf('build')).toHaveCount(1)
-  await expect(cardOf('build').locator('img.pboard-picture')).toBeVisible()
-  await expect(cardOf('build')).toContainText(id)
-})
-
-test('pinning the Params twice says they are on the board already, and the board has one card for them', async () => {
+  expect(await cardsOf('build')).toHaveLength(0)
   await openSection(page, 'Parameters')
-  const pin = page.locator('[data-pin="params"]')
-  await expect(pin).toBeVisible()
-  await pin.click()
-  await expect(page.locator('.pin-board-said')).toHaveText('Pinned to the board')
-  await expect(cardOf('params')).toHaveCount(1)
-  await expect(cardOf('params')).toContainText('width')
-  await pin.click()
-  await expect(page.locator('.pin-board-said')).toContainText('already')
+  await expect(page.locator('[data-pin="params"]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Pin to board' })).toHaveCount(0)
+  // Cards of those kinds pinned before are kept, so the later tests have them: main still takes the old pins, the window no longer asks.
+  await page.evaluate(([bid]) => Promise.all([window.torno.board.pin('bracket', { kind: 'build', id: bid }), window.torno.board.pin('bracket', { kind: 'params' })]), [id])
+  expect(await cardsOf('build')).toHaveLength(1)
   expect(await cardsOf('params')).toHaveLength(1)
 })
 

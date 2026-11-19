@@ -6,18 +6,13 @@ import { BuildErrorSheet } from '../BuildErrorSheet'
 import { useGoBack } from '../chat/GoBack'
 import type { JoinedTurn } from '../chat/historyJoin'
 import { ChatIdle, PromptNumbers } from '../chat/turnContext'
-import { numbered } from '../numbered'
-import { pinToBoard } from '../projectBoard/pin'
 import { Popover } from '../Popover'
 import { useMenu } from '../useMenu'
 import { NODE_ACT_WORDS, goBackTarget, nodeMenu, type NodeAct } from './nodeMenu'
 import type { StripNode } from './strip'
 import { useStripNodes } from './useStripNodes'
 
-/** How long what a Pin says stays up. */
-const SAID_MS = 4000
-
-/** The sentence that stands from a node: what came of a Pin, or what Go back could not do. */
+/** The sentence that stands from a node: what Go back could not do. */
 function Said({ anchor, text, onClose }: { anchor: HTMLElement; text: ReactNode; onClose: () => void }) {
   return (
     <Popover anchor={anchor} width={260} className="node-said" role="status" aria-label="Build" onClose={onClose}>
@@ -46,8 +41,7 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
 
   const { shown, setShown, button, menu, onKeyDown } = useMenu(0, true)
   button.current = anchor as HTMLButtonElement
-  const [phase, setPhase] = useState<'menu' | 'goback' | 'said'>('menu')
-  const [said, setSaid] = useState<string | null>(null)
+  const [phase, setPhase] = useState<'menu' | 'goback'>('menu')
   const back = useGoBack({ turnId: '', joined, undoable: false, anchor })
 
   // The menu put away (Escape, a press outside) is the end of it, unless a question or a sentence took its place.
@@ -58,11 +52,6 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
   useEffect(() => {
     if (phase === 'goback' && back.step === 'idle') onClose()
   }, [phase, back.step, onClose])
-  useEffect(() => {
-    if (said === null) return
-    const timer = setTimeout(onClose, SAID_MS)
-    return () => clearTimeout(timer)
-  }, [said, onClose])
 
   const done = (act: NodeAct): void => {
     if (objectId === null) return onClose()
@@ -78,11 +67,6 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
       case 'review':
         void reviewActions.start(store.getState().layout)
         return onClose()
-      case 'pin':
-        setShown(false)
-        setPhase('said')
-        void pinToBoard(objectId, { kind: 'build', id: node.id }).then((how) => setSaid(`${node.id}: ${how.charAt(0).toLowerCase()}${how.slice(1)}`))
-        return
       case 'goback':
         setPhase('goback')
         setShown(false)
@@ -104,8 +88,6 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
         return `Keep ${node.id}: a starred build is never let go`
       case 'unstar':
         return `${node.id} is kept: take the star away`
-      case 'pin':
-        return 'A card for this build on the board, which stars it'
       case 'review':
         return 'Start a round on this build: mark what you don\'t want and what you want'
       case 'goback':
@@ -127,7 +109,6 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
         </Popover>
       )}
       {phase === 'goback' && (back.step === 'said' || back.step === 'unavailable') ? <Said anchor={anchor} text={back.panel} onClose={back.dismiss} /> : phase === 'goback' ? back.panel : null}
-      {phase === 'said' && said !== null && <Said anchor={anchor} text={numbered(said)} onClose={onClose} />}
     </>
   )
 }

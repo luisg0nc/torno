@@ -107,7 +107,10 @@ export async function conversations(dir: string): Promise<string[]> {
   }
 }
 
-type Said = Extract<ChatItem, { kind: 'user' }>
+type Said = Extract<ChatItem, { kind: 'user' }> & {
+  /** The marks (`M3`) torno sent with it and the round (`R2`) it told, from the context item under it. */
+  carried?: { marks: string[]; review?: string }
+}
 
 /**
  * The prompts of a conversation that were sent, in the order they are in its log (from its tail, as `readLog` reads). Only
@@ -123,11 +126,22 @@ export async function readPrompts(dir: string, conversationId: string): Promise<
     return []
   }
   const out: Said[] = []
+  const at = new Map<string, Said>()
   for (const line of text.split('\n')) {
-    if (!line.includes('"kind":"user"')) continue
+    const user = line.includes('"kind":"user"')
+    if (!user && !(line.includes('"kind":"context"') && line.includes('"forUser"'))) continue
     try {
-      const item = JSON.parse(line) as Partial<Said> | null
-      if (item?.kind === 'user' && item.state === 'sent' && typeof item.id === 'string' && typeof item.text === 'string' && typeof item.at === 'number') out.push(item as Said)
+      const item = JSON.parse(line) as ({ kind?: string; id?: string; text?: string; at?: number; state?: string; forUser?: unknown; forTool?: unknown; marks?: unknown; review?: unknown }) | null
+      if (user && item?.kind === 'user' && item.state === 'sent' && typeof item.id === 'string' && typeof item.text === 'string' && typeof item.at === 'number') {
+        out.push(item as Said)
+        at.set(item.id, item as Said)
+      } else if (item?.kind === 'context' && item.forTool === undefined && typeof item.forUser === 'string') {
+        // What was carried with a prompt is the context item under it; a later line of the same prompt replaces an earlier one.
+        const said = at.get(item.forUser)
+        const marks = Array.isArray(item.marks) ? item.marks.filter((m): m is string => typeof m === 'string') : []
+        const review = typeof item.review === 'string' ? item.review : undefined
+        if (said && (marks.length > 0 || review !== undefined)) said.carried = { marks, ...(review !== undefined ? { review } : {}) }
+      }
     } catch {
       // A line cut short by a crash.
     }

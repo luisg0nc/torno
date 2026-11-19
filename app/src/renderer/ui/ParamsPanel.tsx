@@ -7,7 +7,6 @@ import { giveKeysBack } from './typing'
 import { numbered } from './numbered'
 import { sourceCount } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
-import { PinButton } from './projectBoard/PinButton'
 import { Gauge } from './card/Gauge'
 import { driveNote, leave, restOn, useDrives } from '../state/drives'
 
@@ -48,9 +47,6 @@ export function ParamsPanel() {
   const these = changed.length === 1 ? 'it' : 'them'
   return (
     <div className="section params">
-      <div className="route-tools">
-        <PinButton what={{ kind: 'params' }} title="Put the Params, with the values you are trying, on the board as a card that stays up to date" />
-      </div>
       <SourceCount params={params} />
       {changed.length > 0 && (
         <div className="params-tried" role="group" aria-label="Values you are trying">

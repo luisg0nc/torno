@@ -1,4 +1,4 @@
-import { Children, memo, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, memo, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
 import { type ChatItem, pulledFromTorno } from '../../../shared/chat'
 import { drawable } from '../../../shared/history'
 import { actions, useStore } from '../../state/store'
@@ -9,7 +9,6 @@ import { compareBlocked } from './compareBlocked'
 import { useGoBack } from './GoBack'
 import { Popover } from '../Popover'
 import { useMenu } from '../useMenu'
-import { pinToBoard } from '../projectBoard/pin'
 import type { JoinedTurn } from './historyJoin'
 import { UndoableTurn } from './turnContext'
 import { isEmpty, summaryParts, type TurnAccount, type TurnSummary } from './turnSummary'
@@ -91,12 +90,9 @@ const CompareIcon = () => (
   </Icon>
 )
 
-/** How long the sentence of a Pin stays under the turn. */
-const SAID_MS = 4000
-
 /**
  * The turn's "More" menu (the dots): Go back to before this prompt (its question stands from the button, as it did from its
- * own), "Star" or "Unstar" on the turn's last build (a starred build is not let go), and "Pin to board". Nothing in it, no button.
+ * own), "Star" or "Unstar" on the turn's last build (a starred build is not let go). Nothing in it, no button.
  * `open`: shown at first (for the test).
  */
 export function TurnMore({ item, joined, account, open = false }: { item: TurnItem; joined: JoinedTurn | undefined; account: TurnAccount | undefined; open?: boolean }) {
@@ -113,23 +109,12 @@ export function TurnMore({ item, joined, account, open = false }: { item: TurnIt
     [button]
   )
   const back = useGoBack({ turnId: item.id, joined, undoable: account !== undefined && editedModel(account) && undoable === item.id, anchor })
-  // What main said of the Pin, for a few seconds.
-  const [said, setSaid] = useState<string | null>(null)
-  useEffect(() => {
-    if (said === null) return
-    const timer = setTimeout(() => setSaid(null), SAID_MS)
-    return () => clearTimeout(timer)
-  }, [said])
   const last = joined?.entries.findLast(drawable)
   const kept = objectId !== null && last !== undefined
   const starred = last?.starred === true
   const choose = (act: () => void) => (): void => {
     setShown(false)
     act()
-  }
-  const pin = (): void => {
-    if (objectId === null || !last) return
-    void pinToBoard(objectId, { kind: 'build', id: last.id }).then((how) => setSaid(`${last.id}: ${how.charAt(0).toLowerCase()}${how.slice(1)}`))
   }
   const menus = back.offered || kept
   return (
@@ -156,20 +141,10 @@ export function TurnMore({ item, joined, account, open = false }: { item: TurnIt
                 {starred ? 'Unstar' : 'Star'}
               </button>
             )}
-            {kept && (
-              <button type="button" role="menuitem" className="menu-item" title="A card for this build on the board, which stars it" onClick={choose(pin)}>
-                Pin to board
-              </button>
-            )}
           </div>
         </Popover>
       )}
       {back.panel}
-      {said !== null && (
-        <span className="chat-turn-said" role="status">
-          {numbered(said)}
-        </span>
-      )}
     </>
   )
 }

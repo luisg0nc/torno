@@ -1,6 +1,6 @@
 import type { PinWhat } from '../../../shared/board'
 
-// What the "Pin to board" buttons do (the build strip under a prompt, the views, the Params and the checks): ask main to put a
+// What the "Pin to board" button of a saved view does: ask main to put a
 // card for it on the board, and say how that went in a sentence for the place the button is in. Main decides: it stars a
 // build, keeps its picture, and refuses what is on the board already or is not there.
 
