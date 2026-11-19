@@ -6,7 +6,6 @@ import { hoverMark, unhoverMark } from '../markHover'
 import { useMarkRows } from '../markRows'
 import { UNCHECKED_AFTER_MS, useLasting } from '../MarkRow'
 import { numbered } from '../numbered'
-import { PinButton } from '../projectBoard/PinButton'
 import { done, offerUndo, useRowsSaid } from '../rowsSaid'
 import { type CheckRow, litChecks, mergedChecks } from './checksOrder'
 import { Gauge } from './Gauge'
@@ -112,7 +111,7 @@ function CheckRowView({ row, lit, active, from }: { row: CheckRow; lit: boolean;
  * those not run or not measured, then those that pass (`mergedChecks`). A row is two lines and a gauge (`CheckRowView`); the
  * model's rows are read only, a dimension's row goes to its mark, and the one that is the active mark opens out below its row
  * into the mark's own row (its note, what should be and the buttons). After a build each tick that moved slides from where it
- * was and its row lights once. The model's notes (what was made easier to pass) are under the list; Pin to board is above it.
+ * was and its row lights once. The model's notes (what was made easier to pass) are under the list.
  * A model with no checks and no dimension checks has no section body.
  */
 export function Checks() {
@@ -143,9 +142,6 @@ export function Checks() {
   const notes = noteLines(scene?.checkNotes ?? [])
   return (
     <div className="section checks">
-      <div className="route-tools">
-        <PinButton what={{ kind: 'checks' }} title="Put the checks on the board as a card that stays up to date" />
-      </div>
       {refused !== null && (
         <p className="marks-problem selectable" role="alert">
           {refused}

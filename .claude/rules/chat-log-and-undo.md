@@ -91,7 +91,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   "Comparing" while it is on, off while a section or an explode is) and the dots, `TurnMore`, a menu from the button (a
   `Popover`, `useMenu`: arrows, Escape) that holds "Go back to before this prompt" (`useGoBack` in `GoBack.tsx`; `GoBack`
   is the same offer as a button of its own, which Prompts only uses), "Star" or "Unstar" (`history.star` on the last
-  build) and "Pin to board" (`pinToBoard`, its sentence under the turn for a few seconds); with none of them there are no
+  build); there is no "Pin to board" (#256); with neither of them there are no
   dots. Go back's question and its sentences are drawn beside the dots, not inside the menu (the menu is gone by then):
   `Confirm` stands from the dots button (`anchor`). Go back reads `history.goBackPlan` and asks once with `Confirm`, listing
   what is written, deleted, left alone, changed since (a save of the person's among the builds it undoes counts), the Params, the prompts undone and

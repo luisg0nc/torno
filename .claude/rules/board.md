@@ -90,7 +90,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   caption, and a double click shows it in its folder (`board:open`). A text card whose text holds an `http` or `https` address
   shows it as a link (without the sentence's own punctuation at its end, `.,;:!?`, and without a `)` that closes no `(` of the address): `board:openLink(objectId, cardId)` reads the card in main, takes `firstLink` of its text and has the system open
   it (`deps.openExternal`, a stand-in under test); no address comes from the window, and nothing else is opened.
-- Pinning is asked of main by name and checked there: a build must be one the history keeps (it is starred, so never pruned,
+- Pinning is asked of main by name and checked there (the window only asks for a view now, #256): a build must be one the history keeps (it is starred, so never pruned,
   and its thumb is copied into `pictures/`; removing the card leaves the star), a view must be among the saved views (the
   card keeps its layout), the Params and the checks are on a board once each. A local build with the card's id and
   another `sources` hash is not the same build.
@@ -126,8 +126,8 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   stops drawing while the board is shown.
 - What a double click on a card does is `ui/projectBoard/opens.ts`, a table held by its test: the brief opens in the person's
   editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a doodle opens the ink pad on its
-  drawing, a text edits and a frame renames (the person's only). The "Pin to board" buttons ask main (`pinToBoard`), which
-  decides.
+  drawing, a text edits and a frame renames (the person's only). The "Pin to board" button of a saved view asks main (`pinToBoard`), which
+  decides. Builds, the Params and the checks have none (#256: the board is the project's brief, and a card of them is a copy; `PinButton` is gone, and the strip's node menu and the turn's More have only Star): main still takes `{ kind: 'build' | 'params' | 'checks' }` and the cards already pinned stay, shown or hidden, never removed.
 
 ## The third view: Tracing, and its card
 

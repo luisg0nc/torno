@@ -136,7 +136,7 @@
   padding-bottom: 12px;
 }
 
-/* What a section has to do in its own head, until its restyling puts that in the head's line: Show all, Import scan…, Pin to board. */
+/* What a section has to do in its own head, until its restyling puts that in the head's line: Show all, Import scan… */
 .route-tools {
   display: flex;
   align-items: center;

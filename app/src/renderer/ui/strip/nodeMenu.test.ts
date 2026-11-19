@@ -24,25 +24,25 @@ const agent = (id: string, prompt: string, extra: Partial<HistoryEntry> = {}) =>
 describe('nodeMenu', () => {
   const none = { canReview: false, goBackTo: null }
 
-  it('gives a built node compare, star and pin', () => {
-    expect(nodeMenu(node(), none)).toEqual(['compare', 'star', 'pin'])
+  it('gives a built node compare and star', () => {
+    expect(nodeMenu(node(), none)).toEqual(['compare', 'star'])
   })
 
   it('gives the build on show nothing to compare with: no goback with no later prompt either', () => {
-    expect(nodeMenu(node({ onShow: true }), none)).toEqual(['star', 'pin'])
+    expect(nodeMenu(node({ onShow: true }), none)).toEqual(['star'])
   })
 
   it('gives a starred node unstar in the place of star', () => {
-    expect(nodeMenu(node({ starred: true }), none)).toEqual(['compare', 'unstar', 'pin'])
+    expect(nodeMenu(node({ starred: true }), none)).toEqual(['compare', 'unstar'])
   })
 
   it('offers a review only when the caller says one can start', () => {
-    expect(nodeMenu(node({ onShow: true }), { canReview: true, goBackTo: null })).toEqual(['star', 'pin', 'review'])
+    expect(nodeMenu(node({ onShow: true }), { canReview: true, goBackTo: null })).toEqual(['star', 'review'])
   })
 
   it('offers Go back only where the prompt after the build is named, last of all', () => {
-    expect(nodeMenu(node(), { canReview: false, goBackTo: 'u14' })).toEqual(['compare', 'star', 'pin', 'goback'])
-    expect(nodeMenu(node({ onShow: true }), { canReview: true, goBackTo: 'u14' })).toEqual(['star', 'pin', 'review', 'goback'])
+    expect(nodeMenu(node(), { canReview: false, goBackTo: 'u14' })).toEqual(['compare', 'star', 'goback'])
+    expect(nodeMenu(node({ onShow: true }), { canReview: true, goBackTo: 'u14' })).toEqual(['star', 'review', 'goback'])
   })
 
   it('has no menu for a failed node (its menu is its error) or a running one', () => {
@@ -51,7 +51,7 @@ describe('nodeMenu', () => {
   })
 
   it('words each act as the spec does', () => {
-    expect(NODE_ACT_WORDS).toEqual({ compare: 'Compare with live', star: 'Star', unstar: 'Unstar', pin: 'Pin to board', review: 'Review this build', goback: 'Go back to here' })
+    expect(NODE_ACT_WORDS).toEqual({ compare: 'Compare with live', star: 'Star', unstar: 'Unstar', review: 'Review this build', goback: 'Go back to here' })
   })
 })
 

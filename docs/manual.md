@@ -416,7 +416,7 @@ build on show in sight; a build that lands slides in. When the session pane is u
 runs while none has landed, a project with no build kept yet and a history of dozens are drawn the same way.
 
 A click on a node opens its menu, standing from the node: **Compare with live** (draws that build over the one on show, as **Compare** on a turn does; it reads
-**Stop comparing** while it is on, and the build on show has nothing to compare with), **Star** or **Unstar**, **Pin to board**, **Review this build** (on the build
+**Stop comparing** while it is on, and the build on show has nothing to compare with), **Star** or **Unstar**, **Review this build** (on the build
 on show, while no round is open) and **Go back to here**. A double click on a node compares it. **Go back to here** is the same Go back as the one on a turn: it goes
 back to before the prompt that came after that build (so the newest build, and one that your own save follows, do not offer it), asks first with the files it
 would write and delete and the prompts it undoes, and while it asks the builds and the prompts it would undo are drawn struck through and muted, in the strip and in
@@ -844,7 +844,7 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   longer under the turn's account. The turn ends with "Done in 58 s" and what it did, and at its right the buttons of the turn: **See changes**,
   **Compare** (draws the last build over the one the prompt began from, as "Compare" below does; it reads "Comparing" while it is on and puts it
   away again), and the dots, a menu with **Go back to before this prompt**, **Star** (keeps the last build: a starred build is never let go;
-  **Unstar** takes it away) and **Pin to board**.
+  **Unstar** takes it away).
 - **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
   `common/fillets.py` in your editor · `h39`" for a build your own save made, "You set `wall` to `3` · not in the model yet · `h40`" for a
   value you set in Parameters (a value put back reads "You put `wall` back to the file's value"; a build kept before the values were
@@ -1993,14 +1993,11 @@ loaded while the board or a tracing is shown, so nothing is built again on the s
 its note and its state; the card of a view note is made larger, in the shape of its picture, so that the drawing reads), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
 build with its layers; before a build of this run it says "build to see the outline", and a double click opens it in the Tracing view). Removing one of these hides it: the mark, scan, photo or tracing is untouched, and "Hidden cards"
 at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed, a tracing removed) its card goes with it. Claude is told of a tracing's card as `C9 · tracing T1 "Front of the block": XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)`, and it is new to Claude when the name, plane, layers or line-up change. These
-you pin, with "Pin to board":
+you pin, with "Pin to board": a **saved view**, from the menu of its chip among the compass's saved views. (Marks, scans and tracings you put on the board on purpose stay as they were.)
 
-- a **build**, from its node in the builds strip (its menu, "Pin to board"). The card keeps the
-  build's picture, id and line, and the build is starred in the history, so it is never pruned; taking the card away leaves
-  the star. On another computer, or once the history has let it go, the card says "build not on this computer".
-- a **saved view**, from the menu of its chip among the compass's saved views;
-- the **Params**, from their section of the route card, with each value and the ones you are trying marked as tried; and the **checks**, from the
-  Checks section of the card, each passing or failing. Each is on a board once: pinning it again says so.
+The board is the project's brief, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds strip. So a build, the Parameters
+and the Checks have no "Pin to board": the star keeps a build, and the Parameters and Checks sections are the real thing, so a card of them would be a copy that goes out of date.
+Cards of those kinds that you pinned earlier are kept: they show as they were, and "Hidden cards" hides them; nothing removes them.
 
 Each **review round** (see [Reviews](#reviews)) has a frame of torno's own, `Review of h41 · 3 − · 2 +`, made with its first item and holding
 the cards of its items: a mark card says `− M8` or `+ M8`, `in review, not sent` while it waits, and `OK in h42` or `Still wrong` once you

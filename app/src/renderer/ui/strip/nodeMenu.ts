@@ -5,14 +5,13 @@ import type { StripNode } from './strip'
 // and the prompt that Go back would be to before. `NodePopover` draws and does them.
 
 /** One thing the menu of a node does. */
-export type NodeAct = 'compare' | 'star' | 'unstar' | 'pin' | 'review' | 'goback'
+export type NodeAct = 'compare' | 'star' | 'unstar' | 'review' | 'goback'
 
 /** The words of each act in the menu. */
 export const NODE_ACT_WORDS: Record<NodeAct, string> = {
   compare: 'Compare with live',
   star: 'Star',
   unstar: 'Unstar',
-  pin: 'Pin to board',
   review: 'Review this build',
   goback: 'Go back to here'
 }
@@ -26,7 +25,7 @@ export function nodeMenu(node: StripNode, s: { canReview: boolean; goBackTo: str
   if (node.kind !== 'built') return []
   const acts: NodeAct[] = []
   if (!node.onShow) acts.push('compare')
-  acts.push(node.starred ? 'unstar' : 'star', 'pin')
+  acts.push(node.starred ? 'unstar' : 'star')
   if (s.canReview) acts.push('review')
   if (s.goBackTo !== null) acts.push('goback')
   return acts

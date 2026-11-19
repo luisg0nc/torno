@@ -171,13 +171,13 @@ describe('the end of a turn', () => {
     expect(end).not.toContain('Go back to before this prompt')
   })
 
-  it('holds Go back, Star and Pin in the More menu', () => {
+  it('holds Go back and Star in the More menu, and no Pin to board (the board is the brief, #256)', () => {
     const joined = { promptId: 'i1', number: 14, entries: [history.entries[1]], from: history.entries[0] }
     const out = inProject(() => renderToStaticMarkup(createElement(TurnMore, { item: turn, joined, account: undefined, open: true })))
     const text = plainText(out)
     expect(text).toContain('Go back to before this prompt')
     expect(text).toContain('Star')
-    expect(text).toContain('Pin to board')
-    expect(out.match(/role="menuitem"/g)).toHaveLength(3)
+    expect(text).not.toContain('Pin to board')
+    expect(out.match(/role="menuitem"/g)).toHaveLength(2)
   })
 })

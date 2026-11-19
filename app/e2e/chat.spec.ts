@@ -469,7 +469,7 @@ test('a turn ends with what it did to the project, and "See changes" shows the l
 const hollowModel = (): string => join(root, 'hollow', 'hollow.py')
 const kept = (): HistoryEntry[] => JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'history', 'index.json'), 'utf8')).entries
 const GO_BACK = 'Go back to before this prompt'
-/** An item of the turn's More menu (Go back, Star, Pin to board): the menu is opened, and the item is there to press. */
+/** An item of the turn's More menu (Go back, Star): the menu is opened, and the item is there to press. */
 async function moreItem(turn: Locator, name: string): Promise<Locator> {
   await turn.getByRole('button', { name: 'More for this turn', exact: true }).click()
   return turn.getByRole('menuitem', { name, exact: true })
@@ -483,9 +483,10 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   const end = turns().last()
   // The buttons; the builds are the strip's, on top of the dock: the build the prompt began from and the one it made are its last two nodes.
   for (const name of ['Compare', 'See changes', 'More for this turn']) await expect(end.getByRole('button', { name, exact: true })).toBeVisible()
-  // What the dots hold: Go back, Star and Pin.
+  // What the dots hold: Go back and Star, and no Pin to board.
   await moreItem(end, GO_BACK)
-  for (const name of [GO_BACK, 'Star', 'Pin to board']) await expect(end.getByRole('menuitem', { name, exact: true })).toBeVisible()
+  for (const name of [GO_BACK, 'Star']) await expect(end.getByRole('menuitem', { name, exact: true })).toBeVisible()
+  await expect(end.getByRole('menuitem', { name: 'Pin to board', exact: true })).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(end.getByRole('menu')).toHaveCount(0)
   await openStrip(page)

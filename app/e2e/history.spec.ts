@@ -266,7 +266,8 @@ test('"Go back to here" on a node asks from that node, strikes what it would und
 
   await node(before.id).click()
   const menu = page.getByRole('menu', { name: `Build ${before.id}` })
-  for (const name of ['Compare with live', 'Star', 'Pin to board', 'Go back to here']) await expect(menu.getByRole('menuitem', { name })).toBeVisible()
+  for (const name of ['Compare with live', 'Star', 'Go back to here']) await expect(menu.getByRole('menuitem', { name })).toBeVisible()
+  await expect(menu.getByRole('menuitem', { name: 'Pin to board' })).toHaveCount(0)
   // The newest build has no prompt after it to go back from.
   await page.keyboard.press('Escape')
   await node(made.at(-1)!.id).click()
