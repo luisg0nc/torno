@@ -1,4 +1,5 @@
 import { number } from '../../shared/format'
+import { isTried } from '../../shared/params'
 import type { Param, ParamKind, ParamValue } from '../../shared/scene'
 
 /** What the Parameters section draws for one field of the model's `Params`. */
@@ -42,7 +43,7 @@ function show(value: unknown, whole: boolean): string {
 }
 
 /** Whether the last build was made with a value other than the file's default for this field. */
-export const tried = (param: Param): boolean => param.value !== undefined && param.value !== param.default
+export const tried = (param: Param): boolean => isTried(param)
 
 /** The row of a field. No unit is taken from its comment: the comment is shown as it was written. */
 export function paramRow(param: Param, note: string | null = null): ParamRow {
