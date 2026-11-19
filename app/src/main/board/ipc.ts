@@ -15,7 +15,7 @@ import type { Ties } from './ties'
 // The window names a project, never a folder; an id, an author or `hidden` is never taken from it (the store's `person`).
 
 export interface BoardIpcDeps {
-  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem'>
+  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem' | 'aside' | 'useAside' | 'letGoAside'>
   /** Keeps dimensions and the sizes that tie them saying the same thing (`ties.ts`). Absent: nothing is tied. */
   ties?: Pick<Ties, 'tie' | 'untie' | 'reconcile'>
   /** A project of the open workspace. */
@@ -82,6 +82,21 @@ export function boardHandlers(deps: BoardIpcDeps) {
 
     async dismissProblem(objectId: string): Promise<void> {
       return deps.board.dismissProblem(open(objectId).id)
+    },
+
+    /** Whether a copy of the unreadable board file is kept aside and waits for the person. */
+    async aside(objectId: string): Promise<boolean> {
+      return deps.board.aside(open(objectId).id)
+    },
+
+    /** The person puts the copy kept aside back as the board. Rejects with a `Refusal` while it cannot be read whole. */
+    async useAside(objectId: string): Promise<BoardFile> {
+      return deps.board.useAside(open(objectId).id)
+    },
+
+    /** The person lets the copy kept aside go. */
+    async letGoAside(objectId: string): Promise<void> {
+      return deps.board.letGoAside(open(objectId).id)
     },
 
     async picture(objectId: string, name: string): Promise<Uint8Array | null> {

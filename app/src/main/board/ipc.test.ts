@@ -67,6 +67,18 @@ describe('the board handlers', () => {
     await expect(handlers().problem('nope')).rejects.toThrow(/not open/)
   })
 
+  it('lets the window put back or let go the copy of a file that could not be read, and refuses a copy that still cannot be read', async () => {
+    mkdirSync(join(dir, '.torno', 'board'), { recursive: true })
+    writeFileSync(join(dir, '.torno', 'board', 'board.json'), '<<<<<<< HEAD')
+    await handlers().read('bracket')
+    expect(await handlers().aside('bracket')).toBe(true)
+    await expect(handlers().useAside('bracket')).rejects.toThrow(/still cannot be read/)
+    await handlers().letGoAside('bracket')
+    expect(await handlers().aside('bracket')).toBe(false)
+    expect(await handlers().problem('bracket')).toBeNull()
+    await expect(handlers().aside('nope')).rejects.toThrow(/not open/)
+  })
+
   it('makes a card of the person of what the window sends, whoever it says made it', async () => {
     const board = await handlers().change('bracket', text({ by: 'agent', id: 'C99', hidden: true }))
     expect(board.cards).toHaveLength(1)

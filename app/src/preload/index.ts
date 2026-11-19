@@ -164,6 +164,9 @@ const bridge: TornoBridge = {
     onChanged: (cb) => subscribe('board:changed', cb),
     problem: (objectId) => invokePlain('board:problem', objectId),
     dismissProblem: (objectId) => invokePlain('board:dismissProblem', objectId),
+    aside: (objectId) => invokePlain('board:aside', objectId),
+    useAside: (objectId) => invokePlain('board:useAside', objectId),
+    letGoAside: (objectId) => invokePlain('board:letGoAside', objectId),
     onProblem: (cb) => subscribe('board:problem', cb)
   },
   objects: {

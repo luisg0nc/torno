@@ -1,4 +1,4 @@
-import { copyFile, lstat, readFile } from 'node:fs/promises'
+import { copyFile, lstat, readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { type Arrow, type BoardFile, type Card, type CardKind, type SavedCamera, CARD_ID, MAX_NAME_CHARS, MAX_TEXT_CHARS, PICTURE_NAME } from '../../shared/board'
 import { checkSize, checkTie } from '../../shared/size'
@@ -149,7 +149,7 @@ export async function diskText(dir: string): Promise<string | null> {
  * copied aside as `board.json.dropped-<time>` and the others kept. Either way the file is rewritten at once and
  * `problem` says so.
  */
-export async function loadBoardFile(dir: string, now: () => Date = () => new Date()): Promise<{ file: BoardFile; text: string | null; problem?: string }> {
+export async function loadBoardFile(dir: string, now: () => Date = () => new Date()): Promise<{ file: BoardFile; text: string | null; problem?: string; aside?: string }> {
   const path = join(dir, FOLDER, FOLDER_NAME, NAME)
   const exists = await lstat(path).then(
     () => true,
@@ -181,17 +181,43 @@ export async function loadBoardFile(dir: string, now: () => Date = () => new Dat
     await copyFile(path, join(dir, FOLDER, FOLDER_NAME, aside))
     const file: BoardFile = { next: salvagedNext(text), cards: [], arrows: [] }
     await saveBoardFile(dir, file)
-    return { file, text: textOf(file), problem: `The board file of this project could not be read. It was kept as ${FOLDER}/${FOLDER_NAME}/${aside}, and a new board was started.` }
+    return { file, text: textOf(file), problem: `The board file of this project could not be read. It was kept as ${FOLDER}/${FOLDER_NAME}/${aside}, and a new board was started.`, aside }
   }
   const aside = `${NAME}.dropped-${stamp}`
   await copyFile(path, join(dir, FOLDER, FOLDER_NAME, aside))
   await saveBoardFile(dir, read.file)
   const what = read.dropped === 1 ? '1 card or arrow in the board file of this project was' : `${read.dropped} cards or arrows in the board file of this project were`
-  return { file: read.file, text: textOf(read.file), problem: `${what} not whole, and left out. The file as it was is kept as ${FOLDER}/${FOLDER_NAME}/${aside}.` }
+  return { file: read.file, text: textOf(read.file), problem: `${what} not whole, and left out. The file as it was is kept as ${FOLDER}/${FOLDER_NAME}/${aside}.`, aside }
 }
 
 /** Writes `<dir>/.torno/board/board.json` whole or not at all, once the folders are known to be torno's own. */
 export async function saveBoardFile(dir: string, file: BoardFile): Promise<void> {
   await ownTorno(dir, FOLDER_NAME)
   await writeOwn(dir, `${FOLDER_NAME}/${NAME}`, textOf(file))
+}
+
+/** The name of a copy kept aside, as `loadBoardFile` makes it. */
+export const ASIDE_NAME = /^board\.json\.(?:corrupt|dropped)-[0-9TZ-]+$/
+
+/** The text of a copy kept aside: null when it is gone or is no plain file (a link is not followed). */
+export async function asideText(dir: string, aside: string): Promise<string | null> {
+  if (!ASIDE_NAME.test(aside)) return null
+  const path = join(dir, FOLDER, FOLDER_NAME, aside)
+  try {
+    if (!(await lstat(path)).isFile()) return null
+    return await readFile(path, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+/** Deletes a copy kept aside, when it is still a plain file there. Never rejects. */
+export async function removeAside(dir: string, aside: string): Promise<void> {
+  if (!ASIDE_NAME.test(aside)) return
+  const path = join(dir, FOLDER, FOLDER_NAME, aside)
+  try {
+    if ((await lstat(path)).isFile()) await unlink(path)
+  } catch {
+    // gone already
+  }
 }

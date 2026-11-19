@@ -48,6 +48,7 @@ export function BriefPage() {
   const lit = useBoard((s) => s.selected)
   const problem = useBoard((s) => s.problem)
   const fileProblem = useBoard((s) => s.fileProblem)
+  const fileAside = useBoard((s) => s.fileAside)
   const attached = useBoard((s) => s.attached)
   const [adding, setAdding] = useState<Adding>(null)
   const [menu, setMenu] = useState(false)
@@ -165,6 +166,16 @@ export function BriefPage() {
           {fileProblem !== null && (
             <p className="brief-problem selectable" role="status">
               {fileProblem}{' '}
+              {fileAside && (
+                <>
+                  <button type="button" className="link-button" title="Use the copy kept aside as the brief, once it reads whole" onClick={() => void boardActions.useAside()}>
+                    Put the copy back
+                  </button>{' '}
+                  <button type="button" className="link-button" title="Delete the copy kept aside" onClick={() => void boardActions.letGoAside()}>
+                    Let it go
+                  </button>{' '}
+                </>
+              )}
               <button type="button" className="link-button" onClick={() => {
                 boardActions.dismissFileProblem()
                 void window.torno.board.dismissProblem(id).catch(() => {})

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -231,6 +231,124 @@ describe('a board file changed from outside', () => {
     expect(await store.read('bracket')).toEqual({ next: 1, cards: [], arrows: [] })
     expect(await store.problem('bracket')).toMatch(/could not be read/)
     expect(await store.problem('two')).toBeNull()
+  })
+})
+
+describe('a board file read again while the project is open', () => {
+  const file = (): string => join(dirs.bracket, '.torno', 'board', 'board.json')
+  const pulled = (): void => {
+    const board = onDisk()
+    board.cards.push({ id: 'C9', kind: 'text', x: 600, y: 0, w: 100, h: 50, by: 'person', text: 'from the pull' })
+    board.next = 10
+    writeFileSync(file(), `${JSON.stringify(board, null, 2)}\n`)
+  }
+
+  it('takes up a pulled file at once and tells the window, with no change of anyone\'s', async () => {
+    await store.person('bracket', text(0, 0))
+    pulled()
+    changes.length = 0
+    await store.refresh('bracket')
+    expect(changes.map((c) => c.board.cards.map((x) => x.id))).toEqual([['C1', 'C9']])
+    expect((await store.read('bracket')).cards.map((c) => c.id)).toEqual(['C1', 'C9'])
+  })
+
+  it('says nothing when the file is as main left it, which is what main\'s own write looks like to a watcher', async () => {
+    await store.person('bracket', text(0, 0))
+    changes.length = 0
+    await store.refresh('bracket')
+    expect(changes).toEqual([])
+  })
+
+  it('is no change for a project whose file is not there', async () => {
+    await store.refresh('two')
+    expect(changes).toEqual([])
+    expect(await store.read('two')).toEqual({ next: 1, cards: [], arrows: [] })
+  })
+
+  it('is not told after the workspace was left', async () => {
+    await store.person('bracket', text(0, 0))
+    pulled()
+    changes.length = 0
+    const wait = store.refresh('bracket')
+    store.forget()
+    await wait
+    expect(changes).toEqual([])
+  })
+})
+
+describe('a board file kept aside', () => {
+  const dir = (): string => join(dirs.bracket, '.torno', 'board')
+  const file = (): string => join(dir(), 'board.json')
+  const asides = (): string[] => readdirSync(dir()).filter((n) => n.startsWith('board.json.'))
+  /** A board file with a merge conflict in it, read when the project first opens. */
+  const broken = async (): Promise<string[]> => {
+    await store.person('bracket', text(0, 0))
+    writeFileSync(file(), '<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> other\n')
+    const told: Array<{ message: string; aside?: true }> = []
+    store.on('problem', (p) => told.push(p))
+    await store.person('bracket', text(5, 5))
+    expect(told).toHaveLength(1)
+    expect(told[0].aside).toBe(true)
+    return asides()
+  }
+  const goodCopy = (name: string): void =>
+    writeFileSync(join(dir(), name), `${JSON.stringify({ next: 5, cards: [{ id: 'C4', kind: 'text', x: 0, y: 0, w: 100, h: 50, by: 'person', text: 'mended' }], arrows: [] }, null, 2)}\n`)
+
+  it('is offered, for a file that could not be read, and not for a file that is no plain file', async () => {
+    expect(await broken()).toHaveLength(1)
+    expect(await store.aside('bracket')).toBe(true)
+    mkdirSync(join(dirs.two, '.torno', 'board', 'board.json'), { recursive: true })
+    expect(await store.aside('two')).toBe(false)
+    expect(await store.problem('two')).toMatch(/not a plain file/)
+  })
+
+  it('is put back once it reads whole: it becomes the board, the copy goes, the problem is gone and the window is told', async () => {
+    const [name] = await broken()
+    goodCopy(name)
+    changes.length = 0
+    const board = await store.useAside('bracket')
+    expect(board.cards.map((c) => c.id)).toEqual(['C4'])
+    expect(onDisk().cards.map((c) => c.id)).toEqual(['C4'])
+    expect(asides()).toEqual([])
+    expect(await store.problem('bracket')).toBeNull()
+    expect(await store.aside('bracket')).toBe(false)
+    expect(changes.at(-1)?.board.cards.map((c) => c.id)).toEqual(['C4'])
+    // Ids go on above everything either board held.
+    expect((await store.person('bracket', text(0, 0))).cards.map((c) => c.id)).toEqual(['C4', 'C5'])
+  })
+
+  it('is refused while it still cannot be read whole, and nothing changes', async () => {
+    const [name] = await broken()
+    const before = readFileSync(file(), 'utf8')
+    await expect(store.useAside('bracket')).rejects.toThrow(/still/)
+    expect(readFileSync(file(), 'utf8')).toBe(before)
+    expect(asides()).toEqual([name])
+    expect(await store.aside('bracket')).toBe(true)
+  })
+
+  it('is let go: the copy is deleted and the problem is gone, with the board as it is', async () => {
+    await broken()
+    const before = onDisk()
+    await store.letGoAside('bracket')
+    expect(asides()).toEqual([])
+    expect(await store.problem('bracket')).toBeNull()
+    expect(await store.aside('bracket')).toBe(false)
+    expect(onDisk()).toEqual(before)
+  })
+
+  it('has nothing to put back or let go when there is none', async () => {
+    await expect(store.useAside('two')).rejects.toThrow(/no copy/)
+    await store.letGoAside('two')
+  })
+
+  it('is never read through a link: a copy that was swapped for one is refused and the target left', async () => {
+    const [name] = await broken()
+    rmSync(join(dir(), name))
+    writeFileSync(join(root, 'elsewhere.json'), '{"next":1,"cards":[],"arrows":[]}')
+    symlinkSync(join(root, 'elsewhere.json'), join(dir(), name))
+    await expect(store.useAside('bracket')).rejects.toThrow()
+    await store.letGoAside('bracket')
+    expect(readFileSync(join(root, 'elsewhere.json'), 'utf8')).toContain('cards')
   })
 })
 

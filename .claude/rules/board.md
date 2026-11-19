@@ -63,10 +63,17 @@ Paths as in the other rules.
 - Everything of the board is written under `<object>/.torno/board/`, through `ownTorno(dir, 'board')` and
   `writeOwn` first: a link or a file in the place of a folder is refused and nothing is written where it leads. The board
   adds no write exception to `workspace-writes`.
-- **Nothing watches `board.json`.** Before every write main compares the file on disk with the text it last read or wrote; when
-  they differ (a git pull) it takes the disk's board as the base, makes the change on top of it, and tells the window. A pull
-  is seen at the next change, not at once. A file that is not a plain file, cannot be read, or holds cards that are not whole is
-  kept aside or left, and `board:problem` says so to the window (a notice with Dismiss, as `marks:problem`). A card of main's own
+- **While a project is open, `watchBrief` (`board/watch.ts`, started by `onObjectOpened`, stopped by `onWorkspaceClosed`) watches
+  three things and nothing else** (its walk goes into no other folder): `reference/`, `brief.md` and `.torno/board/board.json`, one
+  report per burst (300 ms). A change of the first two runs `followBoard`; a change of `board.json` runs `BoardStore.refresh`
+  first. Before every write, and on every `refresh`, main compares the file on disk with the text it last read or wrote
+  (`takeDisk`); when they differ (a git pull) it takes the disk's board, and the window is told, by a change of nobody's. Main's
+  own write compares equal and says nothing, so the watch does not loop. A file that is not a plain file, cannot be read, or holds cards that are not whole is
+  kept aside or left, and `board:problem` says so to the window (a notice with Dismiss, as `marks:problem`; `aside: true` when a copy
+  is kept). The copy kept aside (`asides`, the name main made, never one from the window) is dealt with by `board:useAside`, which
+  needs it to read whole (`readBoardFile` drops none), replaces the board with it (ids on above both), deletes the copy and tells the
+  window, and `board:letGoAside`, which deletes it (a link is never followed or deleted through): the pictures it named are then
+  no longer kept, and the sweep of a later run takes the ones that are listed. Dismiss leaves the copy. A card of main's own
   whose source is gone goes at the next reconcile; a pinned card never does.
 
 ## Who may change what

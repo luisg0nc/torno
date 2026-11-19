@@ -213,6 +213,20 @@ describe('the board store', () => {
   })
 })
 
+describe('a board file kept aside', () => {
+  it('is offered with the notice of the file, and goes with it', () => {
+    boardActions.open('a', null)
+    boardActions.setFileProblem({ objectId: 'a', message: 'could not be read', aside: true })
+    expect(boardStore.getState()).toMatchObject({ fileProblem: 'could not be read', fileAside: true })
+    boardActions.dismissFileProblem()
+    expect(boardStore.getState()).toMatchObject({ fileProblem: null, fileAside: false })
+    boardActions.setFileProblem({ objectId: 'a', message: 'not a plain file' })
+    expect(boardStore.getState()).toMatchObject({ fileAside: false })
+    boardActions.setFileProblem({ objectId: 'other', message: 'not this one', aside: true })
+    expect(boardStore.getState().fileProblem).toBe('not a plain file')
+  })
+})
+
 describe('what goes with the next prompt', () => {
   beforeEach(() => {
     boardActions.reset()
