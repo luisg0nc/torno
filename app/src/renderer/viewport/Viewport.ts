@@ -1306,6 +1306,11 @@ export class Viewport {
     this.lightStrokes('set', refs)
   }
 
+  /** Lights the faces (`lid/F3`) and parts (`lid`) that a field of the Params drives, in the accent; none for `[]`. Refs are of the layout shown. */
+  setDriven(refs: string[]): void {
+    this.highlight('drives', refs)
+  }
+
   /** Marks what the agent points at, in the colour of its marks. A stroke of a sketch (`M7/k3`) among the refs is lit in its sketch. */
   setAgentHighlight(refs: string[]): void {
     this.highlight('agent', refs.filter((ref) => !STROKE_REF.test(ref)))
@@ -1331,7 +1336,7 @@ export class Viewport {
 
   /** The refs each layer of highlights is drawn for: for the tests, which cannot read the pixels of the hidden window. */
   highlighted(): Record<HighlightLayer, readonly string[]> {
-    return { hover: this.highlights.refsOf('hover'), selection: this.highlights.refsOf('selection'), agent: this.highlights.refsOf('agent'), userMark: this.highlights.refsOf('userMark'), userDont: this.highlights.refsOf('userDont'), agentMark: this.highlights.refsOf('agentMark'), point: this.highlights.refsOf('point'), set: this.highlights.refsOf('set') }
+    return { hover: this.highlights.refsOf('hover'), selection: this.highlights.refsOf('selection'), agent: this.highlights.refsOf('agent'), userMark: this.highlights.refsOf('userMark'), userDont: this.highlights.refsOf('userDont'), agentMark: this.highlights.refsOf('agentMark'), point: this.highlights.refsOf('point'), set: this.highlights.refsOf('set'), drives: this.highlights.refsOf('drives') }
   }
 
   /**

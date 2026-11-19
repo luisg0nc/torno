@@ -503,6 +503,15 @@ never sent) are under the title while any value is tried. What you try is kept i
 always wins: if the model's default for that field changes, your value is let go of and the row says so, and a value
 the model no longer offers is let go of the same way. The agent is told, with every prompt, which values the build
 is made with. The model only sees a tried value where it is given `p`: a helper that makes `Params()` itself does not.
+**What a value drives.** Rest the pointer on the row of a field you can try (or put the keys' focus on it) for half a
+second and the faces that value affects are lit on the model in the accent: the ones that would move or change size if it
+changed. It does not preview the result, nothing is drawn as it would look. torno finds them by building the model once
+more with that one value nudged a little (a tenth of a number, a flag turned over, the next choice), in a worker thrown away
+that keeps and writes nothing, and comparing the two builds face by face; the row says `Working out what this drives…`
+while that runs. The answer is kept until the next build, so the second time is at once, and the build on show is never
+slowed or replaced. A value that adds or takes away faces (a count, a flag, a choice) lights the parts that change whole, not
+faces. A nudge that does not build says so on the row, and so does one that could not be tried just then (a build is running,
+or there is no memory for a second one): rest on the row again later.
 With a session running, a click on a row puts `Params.wall` in its prompt at the
 cursor, never sent, so you can write "make Params.wall 2.4" around it; with no session the rows say
 to start one. Checks lists, as one list, what the model declares in its `checks(p)` (see Projects and builds) and your own

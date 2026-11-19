@@ -86,6 +86,8 @@ import { createObject, readPhoto, sweepStaleNew } from './objects/create'
 import { Offered } from './objects/offered'
 import { scanOrder, scanWorkspace } from './workspace'
 import type { ReadyKeeper } from './readiness'
+import { Drives } from './drives/drives'
+import type { DrivesAnswer } from '../shared/drives'
 
 /**
  * Every channel the window invokes is registered here: a `Refusal` (what the
@@ -143,6 +145,8 @@ interface OpenWorkspace {
   stopChecking?: () => void
   kernel: KernelClient
   builds: Builds
+  /** What each field of the Params drives, found by nudging it in a trial (`main/drives`); made at the first hover. */
+  drives?: Drives
   opened: Set<string> // ids of the objects being watched and built
   shown: string | null // the object the window shows: the last one it opened
   /** By object: when the build that is running, or was last run, was started (ms epoch), and which build its last good scene came of. */
@@ -552,7 +556,10 @@ export async function closeWorkspace(): Promise<void> {
   // Not waited for: an agent that ignores the hangup is killed two seconds later.
   // And the conversations of those that have ended are let go of.
   void sessions?.stopAll().then(() => sessions?.forgetEnded())
-  for (const id of ws.opened) ws.builds.close(id)
+  for (const id of ws.opened) {
+    ws.builds.close(id)
+    ws.drives?.forget(id)
+  }
   await ws.kernel.dispose()
 }
 
@@ -931,6 +938,13 @@ export function registerIpc(
     if (!field.editable) throw new Refusal(`${name} cannot be tried here: only a number, a flag or a choice with a literal default can`)
     await setOverride(obj.dir, name, value, field.default)
     ws.builds.changed(id, [], 'params')
+  })
+
+  handle('object:drives', async (_event, id: string, name: string): Promise<DrivesAnswer> => {
+    const ws = requireWorkspace()
+    if (!ws.info.objects.some((o) => o.id === id)) throw new Refusal(`no project named ${id}`)
+    ws.drives ??= new Drives(ws.builds)
+    return ws.drives.of(id, name)
   })
 
   handle('object:resetParams', async (_event, id: string, name?: string) => {
