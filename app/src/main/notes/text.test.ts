@@ -38,6 +38,14 @@ function note(over: Partial<NoteMark> = {}): NoteMark {
   } as NoteMark
 }
 
+describe('noteText: an arrow across a face', () => {
+  it('tells the ends in mm on the surface, the length and the direction', () => {
+    const arrow: StrokeUnder = { ...BASE_UNDER, vector: { from: [10, 20, 5], to: [35, 20, 5], length: 25, direction: [1, 0, 0], head: 'to' } }
+    const text = noteText(note({ under: [arrow, HEAD_UNDER] }), 3)
+    expect(text).toContain("- stroke 1, x 10–60, y 10–40: lid/F12 (plane, normal +Z, z = 20, 1180 mm²); from (10, 20, 5) to (35, 20, 5) mm on the surface, 25 mm long, direction (1, 0, 0) (an arrow, its head at the second end; read off the view's mesh, not exact)")
+  })
+})
+
 describe('noteText', () => {
   it('words a full note: its line, the picture and the build, the ink, the camera, what the ink lies over, the labels, the comment and the references', () => {
     const text = noteText(note(), 3, { toolName: (tool) => `mcp__torno__${tool}` })
