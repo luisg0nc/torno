@@ -519,6 +519,10 @@ test('a build is starred from the strip and has no Pin to board; Parameters and 
   await openSection(page, 'Parameters')
   await expect(page.locator('[data-pin="params"]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Pin to board' })).toHaveCount(0)
+  // Cards of those kinds pinned before are kept, so the later tests have them: main still takes the old pins, the window no longer asks.
+  await page.evaluate(([bid]) => Promise.all([window.torno.board.pin('bracket', { kind: 'build', id: bid }), window.torno.board.pin('bracket', { kind: 'params' })]), [id])
+  expect(await cardsOf('build')).toHaveLength(1)
+  expect(await cardsOf('params')).toHaveLength(1)
 })
 
 test('a saved view is pinned from its menu in the strip, and a view that is not saved is refused by main', async () => {
