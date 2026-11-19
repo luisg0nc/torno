@@ -173,8 +173,8 @@ for (const [n, frame] of FRAMES.entries()) {
         await check('M1').click()
         await expect(verdict).toHaveText('Passes')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-        // What the agent resolved, opened: M2 with its line, from Needs you.
-        await page.locator('[data-region="left"] .needs-review').getByRole('button', { name: 'Review' }).click()
+        // What the agent resolved waits as a row of the On block: M2 with its line.
+        await page.locator('[data-region="left"] .on-block .on-row[data-kind="review"]').first().hover()
         await page.mouse.move(W / 2, H - 40)
       }
       if (past(frame, 'compose')) await naturalPrompt(page)

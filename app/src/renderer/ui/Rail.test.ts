@@ -42,16 +42,16 @@ describe('the rail', () => {
     expect(empty).not.toContain('profile')
   })
 
-  it('has Projects, a hairline, the eight sections of the card and Keys at the foot, with no word under an icon', () => {
+  it('has Projects, a hairline, the seven sections of the card and Keys at the foot, with no word under an icon', () => {
     store.setState({ objectId: 'o', scene, layout: 'assembly' })
     const out = html()
-    expect([...out.matchAll(/class="rail-button" data-(?:rail|section)="(\w+)"/g)].map((m) => m[1])).toEqual(['projects', 'needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile', 'keys'])
+    expect([...out.matchAll(/class="rail-button" data-(?:rail|section)="(\w+)"/g)].map((m) => m[1])).toEqual(['projects', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile', 'keys'])
     // Icons only: the names are the buttons' accessible names and, on hover and focus, the tips'.
     expect(out).not.toContain('rail-label')
     expect(plainText(out)).toBe('')
-    expect(names(out)).toEqual(['Projects', 'Needs you', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile', 'Keys'])
+    expect(names(out)).toEqual(['Projects', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile', 'Keys'])
     // The hairline between Projects and the index, and Keys last, after the space that pushes it to the foot.
-    expect(out).toMatch(/aria-label="Projects"[\s\S]*class="rail-sep"[\s\S]*aria-label="Needs you"/)
+    expect(out).toMatch(/aria-label="Projects"[\s\S]*class="rail-sep"[\s\S]*aria-label="Parts"/)
     expect(out).toMatch(/aria-label="Print profile"[\s\S]*class="rail-grow"[\s\S]*data-rail="keys"[^>]*aria-label="Keys"/)
     // No section is pressed: the one in sight is `aria-current`.
     expect(out).not.toContain('aria-current')
@@ -87,6 +87,5 @@ describe('the rail', () => {
     // Nothing to say, no badge.
     expect(out).not.toContain('data-section="scans" aria-hidden')
     expect(out).not.toContain('data-section="marks" aria-hidden')
-    expect(out).not.toContain('data-section="needs" aria-hidden')
   })
 })

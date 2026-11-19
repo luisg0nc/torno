@@ -2,8 +2,6 @@ import type { SectionId } from '../state/column'
 
 /** What the window knows that a badge of the rail counts. */
 export interface BadgeData {
-  /** What waits on the person: the marks to review, those the agent left, and the checks that fail. */
-  waiting: number
   /** The parts switched off in the layout shown. */
   hidden: number
   /** The model's own checks that fail. */
@@ -16,13 +14,11 @@ export interface BadgeData {
   toReview: number
 }
 
-export const NO_BADGES: BadgeData = { waiting: 0, hidden: 0, modelFailing: 0, dimensionsFailing: 0, unaligned: 0, toReview: 0 }
+export const NO_BADGES: BadgeData = { hidden: 0, modelFailing: 0, dimensionsFailing: 0, unaligned: 0, toReview: 0 }
 
 /** What a section's badge counts: Parameters, Tracings and Print profile have none. */
 export function badgeCount(section: SectionId, data: BadgeData): number {
   switch (section) {
-    case 'needs':
-      return data.waiting
     case 'parts':
       return data.hidden
     case 'checks':
@@ -51,8 +47,6 @@ export function badgeSaid(section: SectionId, data: BadgeData): string | undefin
   const count = badgeCount(section, data)
   if (count <= 0) return undefined
   switch (section) {
-    case 'needs':
-      return `${count} waiting for you`
     case 'parts':
       return `${count} hidden`
     case 'checks':

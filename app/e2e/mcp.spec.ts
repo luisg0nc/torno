@@ -484,7 +484,7 @@ test("add_mark places the agent's own marks, by ref and by point, which the user
 
   const row = page.locator('.mark-row[data-mark="M2"]')
   await expect(row).toHaveAttribute('data-author', 'agent')
-  // In Needs you, for the person to read or answer; the person's sent M1 stays with the agent, in Marks.
+  // Under From the agent in Marks, for the person to read or answer, and a row of the On block; the person's sent M1 stays with the agent, in Marks.
   await expect(page.getByRole('list', { name: 'From the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
   await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(0)
@@ -641,16 +641,11 @@ test('resolve_mark resolves a mark, which the user sees as resolved by the agent
   const result = await call(bracket, 'resolve_mark', { id: 'M1', note: 'made the corner 2 mm thicker' })
   expect(result).toMatchObject({ isError: false, text: `resolved: ${describeMark(pin)}\nnote: made the corner 2 mm thicker` })
   const marks = page.getByRole('region', { name: 'Marks' })
-  const needs = page.getByRole('region', { name: 'Needs you' })
-  // In Needs you, saying who resolved it and what was done, in words on the row.
-  await expect(needs.locator('.needs-review')).toContainText('The agent resolved 1 mark.')
-  await needs.locator('.needs-review').getByRole('button', { name: 'Review' }).click()
-  const awaiting = needs.getByRole('list', { name: 'To review' }).locator('[data-mark="M1"]')
-  await expect(page.locator('.mark-row[data-mark]')).toHaveCount(4)
-  await expect(awaiting).toHaveAttribute('data-awaiting', '')
-  await expect(awaiting.locator('.mark-resolution-note')).toHaveText('Resolved by Claude: made the corner 2 mm thicker')
+  const awaiting = page.locator('[data-region="left"] .on-block .on-row[data-kind="review"]').filter({ hasText: 'M1' })
+  // In the On block, saying what was done, in words on the row.
+  await expect(awaiting).toContainText('made the corner 2 mm thicker')
   await awaiting.getByRole('button', { name: 'OK', exact: true }).click()
-  await expect(needs.locator('.needs-review')).toContainText('Reviewed 1: 1 OK')
+  await expect(awaiting).toHaveCount(0)
   await expect(page.locator('.mark-row[data-mark]')).toHaveCount(3)
   await marks.getByRole('button', { name: /Resolved/ }).click()
   const resolved = marks.getByRole('list', { name: 'Resolved marks' }).locator('[data-mark="M1"]')

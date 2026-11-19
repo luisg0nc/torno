@@ -452,7 +452,7 @@ test('the rail holds Projects and Keys alone while the page is up, and Escape cl
   expect((await state()).page).toBe('objects')
   // The sections of the card act on a view that is not on screen while the page is up: the card is away and the rail
   // has no icon for them (final fix wave). Projects, pressed, and Keys remain.
-  for (const name of ['Needs you', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile'] as const) await expect(railButton(page, name)).toHaveCount(0)
+  for (const name of ['Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile'] as const) await expect(railButton(page, name)).toHaveCount(0)
   for (const name of ['Projects', 'Keys'] as const) await expect(railButton(page, name)).toBeVisible()
   await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)

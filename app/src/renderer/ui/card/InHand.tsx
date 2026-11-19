@@ -135,6 +135,8 @@ export function InHand() {
   const sketchOpen = drawing && sketching
   const roundOpen = useReview((s) => s.panel !== null && s.rounds.some((round) => round.id === s.panel))
   const kind = headKind({ refs: hand.refs.length, sketchOpen, roundOpen, makingSet: making })
+  // With nothing in hand the head is not drawn: an empty "In hand" says only what to click.
+  if (kind === 'empty') return null
   return (
     <HandView kind={kind} refs={hand.refs} canInsert={hand.canInsert} stale={hand.stale} exploded={hand.exploded} noting={hand.noting} naming={<MakeSet />} onInsert={hand.insert} onNote={hand.note} onName={() => setActions.startMake()} onClear={hand.clear}>
       <HeadPanels kind={kind} roundOpen={roundOpen} />

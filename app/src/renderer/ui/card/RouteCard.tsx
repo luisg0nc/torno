@@ -9,15 +9,13 @@ import { PrintProfile } from '../PrintProfile'
 import { ImportScan, ScansPanel } from '../ScansPanel'
 import { CardSection } from './CardSection'
 import { Checks } from './Checks'
-import { NeedsYou } from './NeedsYou'
+import { OnBlock } from './OnBlock'
 import { NewTracingAction, TracingsBody } from './Tracings'
 import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from './sections'
 
 /** The body of each section: today's component for it. The card is these in a column, and each section's task restyles its own. */
 function Body({ id }: { id: SectionId }): ReactNode {
   switch (id) {
-    case 'needs':
-      return <NeedsYou />
     case 'parts':
       return <Layers />
     case 'params':
@@ -37,8 +35,8 @@ function Body({ id }: { id: SectionId }): ReactNode {
 
 /**
  * The project read from top to bottom: the card docked beside the rail, as wide as `--card-w` says. Its head slot (`head`: what
- * is in your hand) is pinned above the scroll; below it the eight sections of `SECTIONS` follow one another down a route line,
- * each folded to its head or open. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
+ * is in your hand) is pinned above the scroll; below it the seven sections of `SECTIONS` follow one another down a route line,
+ * each folded to its head or open; over both, the "On hN" block (`OnBlock`) says how the build on show stands and what waits. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
  * the rail's index shows it. Its right edge makes it wider (`LeftEdge`).
  */
 export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<HTMLDivElement | null> }) {
@@ -72,6 +70,7 @@ export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<
 
   return (
     <div className="route-card">
+      <OnBlock />
       {head && <div className="route-hand">{head}</div>}
       <div className="route-scroll" ref={scroll}>
         {SECTIONS.map(({ id, title }) => {

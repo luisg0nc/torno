@@ -6,9 +6,9 @@
  */
 
 /** The sections of the route card, in the order they are read, and the order of the rail's index. */
-export type SectionId = 'needs' | 'parts' | 'params' | 'checks' | 'marks' | 'scans' | 'tracings' | 'profile'
+export type SectionId = 'parts' | 'params' | 'checks' | 'marks' | 'scans' | 'tracings' | 'profile'
 
-export const SECTION_IDS: readonly SectionId[] = ['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile']
+export const SECTION_IDS: readonly SectionId[] = ['parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile']
 
 export interface ColumnPrefs {
   /** The sections that are folded to their heads. Every other is open. */

@@ -2,7 +2,6 @@ import { expect, type Locator, type Page } from '@playwright/test'
 
 /** The sections of the route card, by the name of their rail buttons (a tip on hover, no word under the icon), and the id the card keeps each under (`data-section`). */
 const SECTION = {
-  'Needs you': 'needs',
   Parts: 'parts',
   Parameters: 'params',
   Checks: 'checks',

@@ -106,9 +106,10 @@ export function MarksPanel() {
             <p>A mark goes with your next prompt, and stays here until the agent resolves it.</p>
           </div>
         )}
-        {listed.length > 0 && groups.checks.length + toSend.length + withAgent.length === 0 && (
-          <p className="section-note">{needs.toReview.length + needs.fromAgent.length > 0 ? 'What is left waits for you under Needs you.' : 'Every mark is resolved.'}</p>
+        {listed.length > 0 && groups.checks.length + needs.fromAgent.length + toSend.length + withAgent.length === 0 && (
+          <p className="section-note">{needs.toReview.length > 0 ? 'What is left waits for you at the top of the card.' : 'Every mark is resolved.'}</p>
         )}
+        {group('From the agent', needs.fromAgent, 'read or answer')}
         {group('To send', toSend, 'with your next prompt')}
         {group('With the agent', withAgent)}
         <AskToCommit />

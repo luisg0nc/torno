@@ -21,7 +21,6 @@ const PROJECTS_ICON = (
 
 /** One icon each for the sections of the card, at 19 px, stroked 1.35 as the rest of the window's, in the colour of the quiet text. */
 const ICON: Record<SectionId, ReactNode> = {
-  needs: <path d="M2.25 10.25h3.5l1.25 2h4l1.25-2h3.5M2.25 10.25 4.5 3.25h9l2.25 7v5.5H2.25Z" />,
   parts: <path d="M9 2.25 15.75 6 9 9.75 2.25 6ZM2.25 9.5 9 13.25 15.75 9.5M2.25 13 9 16.75 15.75 13" />,
   params: (
     <>

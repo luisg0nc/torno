@@ -84,11 +84,12 @@ test('a check that fails does not fail the build, and is told in the head and on
   expect(order.indexOf('checks')).toBe(order.indexOf('params') + 1)
   expect(order.indexOf('marks')).toBe(order.indexOf('checks') + 1)
   await expect(said()).toHaveText('2, 1 fails')
-  // The icon says one check fails, the head's ring says it waits, and what waits on the person is on Needs you's icon.
+  // The icon says one check fails, the head's ring says it waits, and what waits on the person is a row of the On block.
   await expect(railButton(page, 'Checks')).toHaveAttribute('aria-description', '1 check fails')
   await expect(railButton(page, 'Checks').locator('.rail-badge')).toHaveText('1')
   await expect(cardSection(page, 'Checks')).toHaveAttribute('data-needs', '')
-  await expect(railButton(page, 'Needs you')).toHaveAttribute('aria-description', '1 waiting for you')
+  await expect(page.locator('[data-region="left"] .on-block .on-head .on-said')).toHaveText('1 fails, 1 pass')
+  await expect(page.locator('[data-region="left"] .on-block .on-row[data-kind="check"]')).toHaveCount(1)
 })
 
 test('it has a row for each check: how it stands in a word, what was measured and what was wanted', async () => {
