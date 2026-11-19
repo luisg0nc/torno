@@ -51,7 +51,9 @@ const basename = (path: string): string => path.split(/[\\/]/).pop() || path
 const LAYER = '[role="dialog"], [role="alertdialog"], [role="menu"]'
 
 interface Source {
+  /** Empty for a picture pasted from the clipboard, which has no file: `pasted` is then set and its bytes are what is kept. */
   path: string
+  pasted?: true
   name: string
   bytes: () => Promise<Uint8Array>
 }
@@ -182,11 +184,13 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
     for (const source of sources) {
       try {
         const prepared = await prepareImage(await source.bytes(), source.name)
+        // A pasted picture is written by main as a PNG: one too heavy to stay a PNG is asked for as a file.
+        if (source.pasted && prepared.type !== 'image/png') throw new Error(`${source.name} is too large to be pasted: save it as a file and add that.`)
         const detail =
           prepared.from.width === prepared.width && prepared.from.height === prepared.height
             ? `${prepared.from.width} × ${prepared.from.height}`
             : `${prepared.from.width} × ${prepared.from.height}, sent at ${prepared.width} × ${prepared.height}`
-        ready.push({ path: source.path, file: source.name, image: prepared.image, url: URL.createObjectURL(new Blob([prepared.image as BlobPart], { type: prepared.type })), detail })
+        ready.push({ path: source.path, ...(source.pasted ? { pasted: true as const } : {}), file: source.name, image: prepared.image, url: URL.createObjectURL(new Blob([prepared.image as BlobPart], { type: prepared.type })), detail })
       } catch (e) {
         problems.push(reason(e))
       }
@@ -227,7 +231,7 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
   const scanRefused = (path: string): string => (onboard.getState().draft.scans.some((s) => s.path === path) ? `${basename(path)} is there already.` : `At most ${MOST_REFERENCES.scans} scans.`)
 
   /** Files taken in, by what they are: pictures are photos, `.step` and `.stp` bought parts, `.pdf` PDFs, the formats of a scan scans. */
-  function taking(list: readonly File[]): void {
+  function taking(list: readonly File[], pasted = false): void {
     const pictures: Source[] = []
     const problems: string[] = []
     for (const file of list) {
@@ -250,8 +254,8 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
       } else if (isImage(file.name)) {
         // The size first: a file over the cap is never read, whatever else is said of it.
         if (file.size > MAX_PHOTO_BYTES) problems.push(`${file.name} is over ${MAX_PHOTO_BYTES / (1024 * 1024)} MB.`)
-        else if (!path) problems.push(`${file.name}: ${NO_PATH}`)
-        else pictures.push({ path, name: file.name, bytes: async () => new Uint8Array(await file.arrayBuffer()) })
+        else if (!path && !pasted) problems.push(`${file.name}: ${NO_PATH}`)
+        else pictures.push({ path, ...(path ? {} : { pasted: true as const }), name: file.name, bytes: async () => new Uint8Array(await file.arrayBuffer()) })
       } else if (/\.(heic|heif)$/i.test(file.name)) problems.push(`${file.name}: ${HEIC_REASON}`)
       else problems.push(`${file.name} is neither a picture, a STEP file, a PDF nor a scan.`)
     }
@@ -261,14 +265,14 @@ export function NewObject({ onOpen }: { onOpen: (id: string) => Promise<void> })
   const dropped = (list: FileList): void => taking([...list])
   const carriesFiles = (e: DragEvent): boolean => [...e.dataTransfer.types].includes('Files')
 
-  // An image pasted anywhere on the page is taken as a dropped one is: a picture has to be a file on the disk (a copied file is; a screenshot is not).
+  // An image pasted anywhere on the page is taken as a dropped one is; one with no file on the disk (a screenshot) is kept as the bytes the window scaled.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent): void => {
       const pasted = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/') || isImage(f.name))
       if (pasted.length === 0 || boardOpen.current || asked.current || busyNow.current) return
       e.preventDefault()
       // A picture with no name (and no path) is one the system made on the spot: it is named by its kind. A copied file keeps its own.
-      taking(pastedFiles(pasted, (f) => window.torno.objects.pathOf(f)))
+      taking(pastedFiles(pasted, (f) => window.torno.objects.pathOf(f)), true)
     }
     window.addEventListener('paste', onPaste, true)
     return () => window.removeEventListener('paste', onPaste, true)

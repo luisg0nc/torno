@@ -29,8 +29,11 @@ import type { Material, Printer, Profile, Profiles } from './profile'
 export interface CreateRequest {
   name: string
   description: string
-  /** Files on the disk (from a drop or main's dialog): copied into `reference/` as `photo-<n>.<ext>`. */
-  photos: Array<{ path: string; note: string }>
+  /**
+   * Files on the disk (from a drop or main's dialog): copied into `reference/` as `photo-<n>.<ext>`. Or, for a picture that has no
+   * file (a screenshot pasted from the clipboard), the bytes of the PNG the window scaled: written as `photo-<n>.png`, checked as a doodle's PNG is.
+   */
+  photos: Array<{ path: string; note: string } | { png: Uint8Array; note: string }>
   /** PNG bytes of a drawing: `reference/doodle-<n>.png`. `over` is the index into `photos` of the photo it is drawn over. */
   doodles: Array<{ png: Uint8Array; note: string; over?: number; /** The photo it was drawn over is no longer among the photos: the picture still has it under the ink, and the card says "drawn over a photo". */ onPhoto?: true }>
   /** Vendor STEP files of bought parts (`.step`, `.stp`, at most 50 MB): copied into `reference/` under their own names (`stepFiles`). */

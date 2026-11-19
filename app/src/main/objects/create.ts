@@ -232,7 +232,8 @@ async function checked(req: CreateRequest, deps: CreateDeps, existing: readonly 
     oneLine(step.note, 'bought part')
   }
   for (const photo of req.photos) {
-    if (typeof photo?.path !== 'string') throw new Error('A photo is given by the path of a file; this is not one.')
+    if (photo !== null && typeof photo === 'object' && 'png' in photo && !('path' in photo)) checkedPng(photo.png, 'photo')
+    else if (typeof (photo as { path?: unknown })?.path !== 'string' || 'png' in photo) throw new Error('A photo is given by the path of a file, or as the bytes of a PNG; this is neither.')
     oneLine(photo.note, 'photo')
   }
   for (const doodle of req.doodles) {
@@ -247,7 +248,7 @@ async function checked(req: CreateRequest, deps: CreateDeps, existing: readonly 
     }
     oneLine(pdf.note, 'PDF')
   }
-  for (const [kind, keys] of [['photo', req.photos.map((p) => p.path)], ['bought part', req.steps.map((s) => s.path)], ['PDF', req.pdfs.map((p) => p.path)], ['scan', req.scans.map((s) => s.path)], ['project', req.objects.map((o) => o?.id)]] as const) {
+  for (const [kind, keys] of [['photo', req.photos.flatMap((p) => ('path' in p ? [p.path] : []))], ['bought part', req.steps.map((s) => s.path)], ['PDF', req.pdfs.map((p) => p.path)], ['scan', req.scans.map((s) => s.path)], ['project', req.objects.map((o) => o?.id)]] as const) {
     if (new Set(keys).size !== keys.length) throw new Error(`The same ${kind} is given twice.`)
   }
   for (const other of req.objects) {
@@ -270,6 +271,18 @@ async function checked(req: CreateRequest, deps: CreateDeps, existing: readonly 
   for (const pdf of req.pdfs) await checkPdf(pdf.path)
   return { sizes, rules: req.rules, links }
 }
+
+/** The bytes of a PNG that main writes (a doodle, or a picture pasted as a photo); rejects with what is wrong. */
+function checkedPng(png: unknown, what: 'doodle' | 'photo'): Uint8Array {
+  const article = what === 'doodle' ? 'A doodle' : 'A pasted photo'
+  if (!(png instanceof Uint8Array)) throw new Error(`${article} is the bytes of a PNG.`)
+  if (png.length > MAX_DOODLE) throw new Error(`${article} is at most 8 MB.`)
+  if (png.length < PNG_SIGNATURE.length || PNG_SIGNATURE.some((b, i) => png[i] !== b)) throw new Error(`${article} is a PNG; this is not one.`)
+  return png
+}
+
+/** The extension `reference/photo-<n>` has: that of the file it is copied from, or `.png` for a pasted picture. */
+const photoExt = (photo: CreateRequest['photos'][number]): string => ('path' in photo ? extname(photo.path).toLowerCase() : '.png')
 
 /**
  * Makes `<root>/<name>/` and answers with the object's id. Rejects, with the reason, when it could not, and
@@ -299,21 +312,18 @@ export async function createObject(req: CreateRequest, deps: CreateDeps): Promis
     await writeFileAtomic(join(temp, `${moduleName(name)}.py`), template)
     let n = 0
     for (const photo of req.photos) {
-      const { bytes, ext } = await readRegular(photo?.path, MAX_PHOTO, 'photo')
+      const { bytes, ext } = 'path' in photo ? await readRegular(photo.path, MAX_PHOTO, 'photo') : { bytes: photo.png, ext: '.png' }
       const file = `reference/photo-${++n}${ext}`
       await writeFileAtomic(join(temp, file), bytes)
       reference(file, oneLine(photo.note, 'photo'))
     }
     n = 0
     for (const doodle of req.doodles) {
-      const png = doodle?.png
-      if (!(png instanceof Uint8Array)) throw new Error('A doodle is the bytes of a PNG.')
-      if (png.length > MAX_DOODLE) throw new Error('A doodle is at most 8 MB.')
-      if (png.length < PNG_SIGNATURE.length || PNG_SIGNATURE.some((b, i) => png[i] !== b)) throw new Error('A doodle is a PNG; this is not one.')
+      const png = checkedPng(doodle?.png, 'doodle')
       const file = `reference/doodle-${++n}.png`
       await writeFileAtomic(join(temp, file), png)
       const note = oneLine(doodle.note, 'doodle')
-      const over = doodle.over !== undefined ? `drawn over reference/photo-${doodle.over + 1}${extname(req.photos[doodle.over].path).toLowerCase()}` : doodle.onPhoto ? 'drawn over a photo' : ''
+      const over = doodle.over !== undefined ? `drawn over reference/photo-${doodle.over + 1}${photoExt(req.photos[doodle.over])}` : doodle.onPhoto ? 'drawn over a photo' : ''
       reference(file, over === '' ? note : note === '' ? over : `${note} (${over})`)
     }
     const stepNames = referenceFiles(req.steps.map((step) => step.path), STEP_FORMATS)

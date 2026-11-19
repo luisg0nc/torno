@@ -38,7 +38,7 @@ export type Outcome =
 
 /** What `create` will name the photos and the doodles of the draft: photo-<n> with the extension of the file, doodle-<n>.png. */
 export function referenceFiles(draft: Draft): OnboardDraft['items'] {
-  const photoFile = (n: number): string => `reference/photo-${n + 1}${extensionOf(draft.photos[n].path)}`
+  const photoFile = (n: number): string => `reference/photo-${n + 1}${draft.photos[n].pasted ? '.png' : extensionOf(draft.photos[n].path)}`
   return [
     ...draft.photos.map((p, n) => ({ file: photoFile(n), note: p.note, image: p.image })),
     ...draft.doodles.map((d, n) => {
@@ -117,7 +117,7 @@ export async function makeObject(draft: Draft, deps: MakeDeps, choice: AgentChoi
     const request: CreateRequest = {
       name: draft.name,
       description,
-      photos: draft.photos.map((p) => ({ path: p.path, note: p.note })),
+      photos: draft.photos.map((p) => (p.pasted ? { png: p.image, note: p.note } : { path: p.path, note: p.note })),
       doodles: draft.doodles.map((d) => {
         const over = overIndex(draft, d)
         return { png: d.png, note: d.note, ...(over !== undefined ? { over } : d.onPhoto ? { onPhoto: true as const } : {}) }
