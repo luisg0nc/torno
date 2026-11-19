@@ -243,6 +243,8 @@ export function connectBoard(): () => void {
       if (s.objectId === null) boardActions.open(null)
       else void boardActions.load(s.objectId)
     }
+    // Why a scan was refused (an import, a drop) is said in the Scans panel, and a project with no scan has no other place for it: a person looking at the model is taken there.
+    if (s.scansRefused !== null && prev.scansRefused === null && boardStore.getState().shown === 'model') boardActions.show('scans')
     // The last scan is removed (or the file came from another branch): the view of scans has nothing to show.
     if (s.scans !== prev.scans && s.scansKnown && s.scans.length === 0) boardActions.leaveScans()
   })

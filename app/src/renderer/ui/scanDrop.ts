@@ -58,11 +58,7 @@ function reading<T>(objectId: string, name: string, start: () => Promise<T>): Pr
     },
     (e: unknown) => {
       actions.endImporting(name)
-      if (store.getState().objectId === objectId) {
-        actions.setScansRefused(said(e))
-        // Why it came to nothing is said in the Scans panel: a person looking at the model is taken there (a project with no scan has no other place for it).
-        if (boardStore.getState().shown === 'model') boardActions.show('scans')
-      }
+      if (store.getState().objectId === objectId) actions.setScansRefused(said(e))
       return undefined
     }
   )
