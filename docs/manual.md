@@ -1423,8 +1423,8 @@ the camera stays still).
   (**Brief** opens the Brief page), the marks Claude resolved and you have not judged (**OK** says you have seen it, **Reopen**
   makes it a draft again), the marks it left for you (a click goes to its row in Marks, under **From the agent**, with **Answer in chat** and **Resolve**; the marks Claude resolved are there too, with Review, OK all and Reopen…) and the values you tried, in one row
   (**Ask Claude to keep** puts the request in the box of the chat, never sent). It lists four rows at most; **N more** opens the
-  rest and **Fewer** shuts them. When nothing waits it is the verdict alone. With nothing in hand there is no "In hand" head
-  under it.
+  rest and **Fewer** shuts them. When nothing waits it is the verdict alone. Under it the "In hand" head says what to click
+  while nothing is in hand, so that the rows below do not move when you select something.
 - Your dimension checks (every dimension that has an expected value and is not resolved, sent or not) are under **Checks**, in
   one list with the model's own (see Parameters). The Marks list is grouped by who acts next: **To send** (yours, "with your
   next prompt"), **With the agent** (your sent marks), then **Resolved**, folded. A row is two lines: the chip and the note, then the kind of mark and what is the matter with it in
