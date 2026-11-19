@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ObjectCard } from '../../shared/show'
 import { BENCH_MM_PER_PX } from '../../shared/thumbnail'
-import { benchScale, cellWidth, figureOf, GHOST, lookOf, packRows, pageScale, shelvesOf, stepAcross, TILE, widthOf } from './bench'
+import { benchScale, cellWidth, figureOf, GHOST, lookOf, packRows, pageScale, shelvesOf, stepAcross, TILE, widthOf, GAP, PAD } from './bench'
 
 const card = (id: string, over: Partial<ObjectCard> = {}): ObjectCard => ({ id, name: id, opened: false, thumb: null, marks: { open: 0, drafts: 0 }, dimensions: null, session: null, ...over })
 const pictured = (id: string, x: number, y: number, z: number, over: Partial<ObjectCard> = {}): ObjectCard =>
@@ -107,6 +107,11 @@ describe('one scale for the page', () => {
   it('is 1 where there is room, and for nothing to draw', () => {
     expect(benchScale(row, 5000)).toBe(1)
     expect(benchScale([], 100)).toBe(1)
+  })
+
+  it('counts the ends, the gaps and the cells of a shelf, no scale bar', () => {
+    const cells = row.reduce((sum, c) => sum + cellWidth(figureOf(c, 'scale', 0.5)) + GAP, 0)
+    expect(widthOf(row, 0.5)).toBe(2 * PAD + cells)
   })
 
   it('makes the widest shelf fit, and not a little less than it could', () => {

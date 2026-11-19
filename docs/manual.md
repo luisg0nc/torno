@@ -2198,7 +2198,7 @@ on a bench; a workspace of several projects starts there. `/` or a letter
 filters by name, the arrows move (left and right along a shelf, up and down to the shelf above or below), `Enter` opens, `Esc` goes back. The head (the folder's name,
 how many projects and where, the filter, **True scale / Grid**, **By name / Recently changed**, **Export…** and **New project**) stays at the top as the shelves scroll.
 
-The projects stand on **shelves**, a 2 px line of ink, who needs you first:
+The projects stand on **shelves**, rows with no line under them, who needs you first:
 
 - **Needs you** is every project whose session waits on you. Under its shelf each says what it waits on: `Claude asks:` and
   the question (its first 140 characters) in a warning card, **Answer**, which opens the project and brings the question up
@@ -2208,7 +2208,7 @@ The projects stand on **shelves**, a 2 px line of ink, who needs you first:
   choice is kept for the folder. Needs you and Working stand ahead of either.
 
 The pictures stand side by side, 40 px apart, **at one scale for the whole page** (**True scale**): a part twice as big is
-drawn twice as big, and the bar at the right end of each shelf is 50 mm. The scale is as large as the widest shelf allows, never
+drawn twice as big. There is no scale bar and no line under a shelf. The scale is as large as the widest shelf allows, never
 larger than the picture's own pixels; a shelf that would need it smaller than a quarter goes on to a second line. **Grid**
 fits every picture to a box of the same size instead, for when the sizes differ too much to read; the choice is kept for the
 folder. In a window 800 px tall or less the bench is drawn at 86 %.
@@ -3030,7 +3030,7 @@ On the screen:
 - **The compass and its cube.** At the top right of the view, drag the cube to turn the camera and click a face to take that view: the cube turns as the camera does, the face you are looking along is in the accent's wash, and the saved views fold under it while Section is in hand. Check it at 1280 × 800 and in both themes.
 - **A build landing.** Make Claude Code build while the session is in view: the new build's node slides into the builds strip (about 0.7 s), the table's new numbers count up from the old ones, and each gauge tick that moved slides to its place. Nothing keeps moving afterwards, and with reduced motion the numbers show their new value at once.
 - **The dyed plate and its vise.** The first screen, an empty folder and the prompt side of a new project are the layout-blue field with the vise scribed on it: its outline draws itself in about a second and a half, then the dimensions and the part come in. Check the lines stay fine at 1x and 2x scale, and that the blue is used nowhere else as a field.
-- **The bench at true scale.** On the page of projects, **True scale**: the pictures stand side by side at one scale, a part twice as big drawn twice as big, the scale bar of a shelf at its right end is 50 mm on a ruler held to the screen, and thumbnails sit where they should in light and dark.
+- **The bench at true scale.** On the page of projects, **True scale**: the pictures stand side by side at one scale, a part twice as big drawn twice as big, the same part is the same size on every shelf (measure two pictures of one part), and thumbnails sit where they should in light and dark.
 - **The keyboard rising.** Press `?`: the keys rise from the foot of the window (about a third of a second), key caps in the monospace face, each key lit as you press it; `Esc` puts it away. While a sketch is open its own keys take over.
 - **A review, by eye.** Make a round with a pick and a shape you do not want and a 3D sketch you want, on a high-resolution screen and on an ordinary one, in both themes: the hatch of what you do not want reads as stripes in your colour and not as noise, the dashes of a stroke are clear, `−` and `+` are legible in the chips, the band at the top left and the round's panel in the card's head sit well with Compare drawn beside them, and the panel does not cover what it is about. The panel does not close with `Esc`. The real Claude Code is yet to be seen answering a review item by item.
 - **The edges of a field and F6.** A focused field shows its edge in both themes, and F6 moves the focus between the regions in a sensible order.

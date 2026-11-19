@@ -2,7 +2,7 @@ import { ARROWS_CAP, domKey, hint, keyName, pressed, which } from '../../shared/
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { ObjectCard } from '../../shared/show'
 import { actions, store, useStore } from '../state/store'
-import { BAR_MM, SHELVES_GAP, barWidth, cellWidth, figureOf, packRows, pageScale, shelvesOf, stepAcross, type BenchMode, type Figure, type Order } from './bench'
+import { SHELVES_GAP, cellWidth, figureOf, packRows, pageScale, shelvesOf, stepAcross, type BenchMode, type Figure, type Order } from './bench'
 import { BEHIND, buildLine, cardChips, matching, pictureLine, sizeLine, stepCard, waitedFor, workLine } from './cards'
 import { focusAsk } from './sessionSign'
 import { EmptyWorkspace } from './EmptyWorkspace'
@@ -411,7 +411,7 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
             <Group
               tone="rest"
               title="The rest"
-              note={`${order === 'recent' ? 'most recently changed first' : 'by name'}, ${mode === 'scale' ? `all at the same scale, the bar is ${BAR_MM} mm` : 'each in a box of the same size'}`}
+              note={`${order === 'recent' ? 'most recently changed first' : 'by name'}, ${mode === 'scale' ? 'all at the same scale' : 'each in a box of the same size'}`}
               count={shelves.rest.length}
               rows={restRows}
               first={top}
@@ -471,14 +471,6 @@ function Group({ tone, title, note, count, rows, first, mode, scale, openId, now
             {row.map((card, i) => (
               <Card key={card.id} card={card} figure={figures[i]} mode={mode} scale={scale} line={first + r} open={card.id === openId} onOpen={onOpen} />
             ))}
-            {mode === 'scale' && (
-              <div className="sbar" aria-hidden="true">
-                <span>
-                  <span className="num">{BAR_MM}</span> mm
-                </span>
-                <i style={{ width: barWidth(scale) }} />
-              </div>
-            )}
           </div>
         )
       })}

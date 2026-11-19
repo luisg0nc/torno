@@ -149,12 +149,13 @@ test('a card says when its picture is older than the model, and a second object 
 
 test('the page is a bench: pictures side by side at one scale on a shelf, a size only where the kernel gave one, and True scale or Grid', async () => {
   expect((await state()).page).toBe('objects')
-  // Nobody needs you and nothing works: the rest alone, on one shelf, with its bar.
-  await expect(shelfOf(page, 'The rest').getByRole('heading', { level: 3 })).toContainText('most recently changed first, all at the same scale, the bar is 50 mm')
+  // Nobody needs you and nothing works: the rest alone, on one shelf, with no bar.
+  await expect(shelfOf(page, 'The rest').getByRole('heading', { level: 3 })).toContainText('most recently changed first, all at the same scale')
   await expect(shelfOf(page, 'Needs you')).toHaveCount(0)
   await expect(shelfOf(page, 'Working')).toHaveCount(0)
   await expect(page.locator('.shelf').first()).toHaveCSS('padding-left', '20px')
-  await expect(page.locator('.shelf .sbar').first()).toContainText('50 mm')
+  await expect(page.locator('.sbar')).toHaveCount(0)
+  expect(await page.locator('.shelf').first().evaluate((el) => getComputedStyle(el, '::after').content)).toBe('none')
   await expect(page.locator('.show-head h2')).toHaveText(root.split('/').pop()!)
   // Their sizes are the kernel's, in the monospace face, and said only for a project with a picture at scale.
   const kept = (id: string) => meta(id) as { box: { x: number; y: number; z: number; exact: boolean } }
@@ -196,7 +197,6 @@ test('the page is a bench: pictures side by side at one scale on a shelf, a size
   // Grid: the same projects, every picture in a box of one size.
   await page.getByRole('group', { name: 'How the projects are drawn' }).getByRole('button', { name: 'Grid' }).click()
   await expect(page.locator('.bench')).toHaveAttribute('data-mode', 'grid')
-  await expect(page.locator('.shelf .sbar')).toHaveCount(0)
   for (const id of ['hollow', 'plain']) {
     const box = (await card(id).locator('.bench-fig').boundingBox())!
     expect(box.width).toBeLessThanOrEqual(160.5)
@@ -205,7 +205,7 @@ test('the page is a bench: pictures side by side at one scale on a shelf, a size
   expect(await page.evaluate(() => localStorage.getItem(`torno.show.mode:${window.__tornoTest!.state().workspace!.root}`))).toBe('grid')
   await page.getByRole('group', { name: 'How the projects are drawn' }).getByRole('button', { name: 'True scale' }).click()
   await expect(page.locator('.bench')).toHaveAttribute('data-mode', 'scale')
-  await expect(page.locator('.shelf .sbar').first()).toBeVisible()
+  await expect(page.locator('.sbar')).toHaveCount(0)
   // The one that is open stands with Open and a bar of the accent under its picture.
   await expect(card('plain')).toHaveAttribute('aria-current', 'true')
   await expect(card('plain').locator('.card-open')).toHaveText('Open')
