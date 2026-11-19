@@ -224,6 +224,7 @@ test('after a restart with the sources as they were, the build on show is a node
   await page.waitForSelector('[data-region="left"]')
   await openListed(page, 'hollow')
   await builtRevision(1)
+  await openStrip(page)
 
   // The sources are those of the newest kept build: nothing new is kept, and that build is the one on show.
   const strip = page.locator('[data-region="session"] .strip')
