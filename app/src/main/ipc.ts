@@ -105,7 +105,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           history:list, history:thumbnail, history:source, history:ghost, history:star, history:goBackPlan, history:goBack,
 //           board:read, board:change, board:tie, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open, board:openLink,
 //           board:problem, board:dismissProblem,
-//           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
+//           workspace:refresh, workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
@@ -860,6 +860,16 @@ export function registerIpc(
 
   handle('workspace:open', async (_event, root: string) => chosen(await openWorkspace(root)))
 
+  // "Refresh folder" of the folder menu: look at the disk again. The list of projects is scanned afresh (a folder another tool made,
+  // one that went) and the project on screen is built again from what its files hold now. Nothing is written.
+  handle('workspace:refresh', async (): Promise<WorkspaceInfo> => {
+    const ws = requireWorkspace()
+    await rescan(ws)
+    if (current !== ws) throw new Error('The folder was left before it could be read again.')
+    const shown = ws.shown === null ? undefined : ws.info.objects.find((o) => o.id === ws.shown)
+    if (shown && !ws.builds.update(shown)) ws.builds.rebuild(shown.id)
+    return ws.info
+  })
   handle('workspace:recent', async () => (await opts.recent?.()) ?? [])
   handle('workspace:forget', async (_event, root: string) => (await opts.forget?.(String(root))) ?? [])
   handle('workspace:hasExample', () => opts.example !== undefined)

@@ -224,6 +224,8 @@ export interface TornoBridge {
     pick(): Promise<WorkspaceInfo | null>            // folder dialog
     open(root: string): Promise<WorkspaceInfo>
     versions(): Promise<Record<string, string>>     // of the kernel, once it is ready: build123d, python
+    /** "Refresh folder": reads the open folder again, answers with its list of projects as it is on disk now, and builds the project on screen again. Writes nothing. */
+    refresh(): Promise<WorkspaceInfo>
     /** The folders opened lately, the newest first, eight at most: kept in torno's own config file, never in a workspace. */
     recent(): Promise<RecentFolder[]>
     /** Takes one off that list; answers with the list. */

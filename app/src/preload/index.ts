@@ -32,6 +32,7 @@ const bridge: TornoBridge = {
     pick: () => invoke('workspace:pick'),
     open: (root) => invoke('workspace:open', root),
     versions: () => invoke('workspace:versions'),
+    refresh: () => invoke('workspace:refresh'),
     recent: () => invoke('workspace:recent'),
     forget: (root) => invoke('workspace:forget', root),
     hasExample: () => invoke('workspace:hasExample'),

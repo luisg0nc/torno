@@ -434,6 +434,8 @@ export function App() {
   const [openFailed, setOpenFailed] = useState<string | null>(null)
   // The sheet that says what torno needs, from the folder menu.
   const [checking, setChecking] = useState(false)
+  /** "Refresh folder": main reads the disk again; the list it answers with replaces the one on screen. */
+  const refreshFolder = useCallback((): void => void window.torno.workspace.refresh().then(actions.refreshWorkspace, () => {}), [])
   const go = useCallback((to: string) => {
     setOpenFailed(null)
     void goTo(to).then((problem) => {
@@ -534,7 +536,7 @@ export function App() {
       data-left={cardOpen ? 'open' : 'away'}
       style={kept === null ? undefined : ({ '--dock-w': `${kept}px` } as CSSProperties)}
     >
-      <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
+      <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : choice === 'refresh' ? refreshFolder() : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
       <aside className="left" data-region="left" aria-label="Panels" hidden={cardHere && !leftOpen}>
         {cardOpen && <RouteCard head={<Head />} shell={shell} />}
       </aside>
