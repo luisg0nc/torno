@@ -1225,6 +1225,11 @@ for the dimensions to be measured. Then, by the first that applies:
    kernel's hash of it, in the same place), there is nothing to look at and it
    does not hold. A volume, size and count that stayed as they were do not
    say so: a hole moved is another shape.
+   The same reminder is in the answer to the edit itself, where the agent reads it before it
+   writes a summary: `Not yet looked at: r9 was built in this turn. Call look before you write
+   your summary; ...`. For a small change (no part came or went, no face or edge count changed,
+   no new defect) a `measure`, `check` or `features` after the build counts as a look, so a last
+   0.2 mm fit confirmed by a number ends the turn without a second summary.
 
 A reason already held is not waited for again: a `Stop` after one that was held for a running build
 does not wait again.

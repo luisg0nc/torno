@@ -163,6 +163,14 @@ export function partsUnchanged(before: Scene, now: Scene): boolean {
   })
 }
 
+/**
+ * A change small enough that a number confirms it (#227): no part came or went, no face or edge count changed (refs
+ * may name others) and no hard defect appeared. A `measure`, `check` or `features` after such a build counts as a look.
+ */
+export function smallChange(digest: BuildDigest): boolean {
+  return digest.flags.every((f) => !f.hard && f.kind !== 'added' && f.kind !== 'removed' && f.kind !== 'refs')
+}
+
 /** The hard defects of a digest: those that hold a Stop back. */
 export function hardDefects(digest: BuildDigest): DigestFlag[] {
   return digest.flags.filter((f) => f.hard)

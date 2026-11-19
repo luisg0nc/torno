@@ -3231,7 +3231,46 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
       kept = keptAs(9)
       land(ok(obj.id, 9))
     }, 200)
-    expect(await second).toEqual(context('r9 ok'))
+    const again = ((await second) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext
+    expect(again).toMatch(/^r9 ok\nNot yet looked at/)
+    expect(again).not.toContain('expected')
+  })
+
+  it('says in the answer to an edit that its build is not yet looked at, and a number after a small change is a look (#227)', async () => {
+    let kept: { revision: number; scene: Scene } = { revision: 7, scene: sceneOf() }
+    const { obj, post, edit } = await begun({ scene: () => kept })
+    await post('UserPromptSubmit', { prompt: 'make the fit 0.2 mm' })
+    const answer = async (revision: number, scene: Scene): Promise<string> => {
+      const told = edit()
+      setTimeout(() => land(building(obj.id, revision - 1)), 50)
+      setTimeout(() => {
+        kept = { revision, scene }
+        land(ok(obj.id, revision))
+      }, 100)
+      return ((await told) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext
+    }
+    // Where the agent reads it before it writes a summary, not only at Stop.
+    expect(await answer(8, sceneOf({ volume: 790 }))).toBe(`r8 ok\nNot yet looked at: r8 was built in this turn. Call mcp__torno__look before you write your summary; for a small change that adds or removes no part, mcp__torno__measure, mcp__torno__check or mcp__torno__features on it will do.`)
+    // The change is small (no part came or went, no count changed) and a measure confirmed it: nothing is held back.
+    await post('PostToolUse', { tool_name: 'mcp__torno__measure', tool_input: {} })
+    expect(await post('Stop', {})).toEqual({})
+    // A new build after the measure is not confirmed by it.
+    await post('UserPromptSubmit', { prompt: 'again' })
+    await answer(9, sceneOf({ volume: 780 }))
+    await post('PostToolUse', { tool_name: 'mcp__torno__measure', tool_input: {} })
+    await answer(10, sceneOf({ volume: 770 }))
+    expect(await post('Stop', {})).toEqual(UNLOOKED(10))
+  })
+
+  it('does not take a measure for a look when a part came or a face count changed (#227)', async () => {
+    let kept: { revision: number; scene: Scene } = { revision: 7, scene: sceneOf() }
+    const { obj, post, changes } = await begun({ scene: () => kept })
+    await post('UserPromptSubmit', { prompt: 'add a hole' })
+    await changes()
+    kept = { revision: 8, scene: sceneOf({ faceCount: 9 }) }
+    builds(obj.id, 7, 8)
+    await post('PostToolUse', { tool_name: 'mcp__torno__measure', tool_input: {} })
+    expect(await post('Stop', {})).toEqual(UNLOOKED(8))
   })
 
   it('holds no Stop back for a defect of the first build of an object, in a turn that edited nothing', async () => {
