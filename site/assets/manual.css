@@ -1,0 +1,88 @@
+/* The manual page (torno.luisg.me/manual/, built by app/scripts/build-manual.mjs). The palette and faces are the window's
+   and the landing page's (site.css, app/src/renderer/styles/tokens.css); app/src/site.test.ts holds the values. The
+   faces are copied into assets/fonts/ by app/scripts/build-site.mjs. */
+@font-face { font-family: 'Instrument Sans'; font-weight: 400; font-display: swap; src: url(fonts/instrument-sans-400.woff2) format('woff2'); }
+@font-face { font-family: 'Instrument Sans'; font-weight: 500; font-display: swap; src: url(fonts/instrument-sans-500.woff2) format('woff2'); }
+@font-face { font-family: 'Instrument Sans'; font-weight: 600; font-display: swap; src: url(fonts/instrument-sans-600.woff2) format('woff2'); }
+@font-face { font-family: 'Martian Mono'; font-weight: 400; font-display: swap; src: url(fonts/martian-mono-400.woff2) format('woff2'); }
+
+:root {
+  --surface: #F1EFEA;
+  --panel: #FAF9F6;
+  --ink: #20242B;
+  --muted: #62666D;
+  --hairline: #DAD6CE;
+  --accent: #1D46B8;
+  --accent-wash: #E3E9F8;
+  --dye: #1D46B8;
+  --scribe: #829EEB;
+  --on-dye: #F3F6FE;
+  --on-dye-muted: #C3D0F5;
+  --font-ui: 'Instrument Sans', system-ui, sans-serif;
+  --font-mono: 'Martian Mono', ui-monospace, monospace;
+  --measure: 66ch;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #1A1C1F; --panel: #222529; --ink: #E9E7E2; --muted: #9EA3AA; --hairline: #33373C;
+    --accent: #7C9BF7; --accent-wash: #252F4A; --dye: #16275A; --scribe: #5577DA; --on-dye: #E8EDFC; --on-dye-muted: #A9BAEC;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --surface: #1A1C1F; --panel: #222529; --ink: #E9E7E2; --muted: #9EA3AA; --hairline: #33373C;
+  --accent: #7C9BF7; --accent-wash: #252F4A; --dye: #16275A; --scribe: #5577DA; --on-dye: #E8EDFC; --on-dye-muted: #A9BAEC;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; background: var(--surface); color: var(--ink); font: 400 17px/1.6 var(--font-ui); overflow-x: hidden; }
+a { color: var(--accent); text-underline-offset: 0.18em; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+img { max-width: 100%; height: auto; }
+
+/* The head is on the dye, as the landing page's is. */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px max(16px, calc((100vw - 1160px) / 2)); background: var(--dye); color: var(--on-dye); }
+.top a { color: var(--on-dye); text-decoration: none; }
+.top a:hover { color: var(--on-dye-muted); }
+.top a:focus-visible { outline-color: var(--on-dye); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 20px; }
+.top nav { display: flex; gap: clamp(12px, 3vw, 28px); font-size: 15px; }
+
+.layout { display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: clamp(24px, 4vw, 56px); max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+.contents { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 28px 0; font-size: 15px; }
+.contents h2 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.contents ul { list-style: none; margin: 0; padding: 0; }
+.contents li.d3 { padding-left: 14px; font-size: 14px; }
+.contents a { display: block; padding: 3px 0 3px 10px; border-left: 2px solid var(--hairline); color: var(--muted); text-decoration: none; }
+.contents a:hover { color: var(--accent); border-left-color: var(--accent); }
+
+main { min-width: 0; padding: 32px 0 96px; }
+main > * { max-width: var(--measure); }
+main > table, main > pre, main > p:has(> img:only-child), main > .wide { max-width: none; }
+h1, h2, h3, h4 { font-weight: 600; line-height: 1.2; scroll-margin-top: 16px; }
+h1 { font-size: clamp(32px, 4.4vw, 48px); letter-spacing: -0.02em; margin: 0 0 0.6em; }
+h2 { font-size: clamp(24px, 3vw, 30px); letter-spacing: -0.015em; margin: 2.2em 0 0.6em; padding-top: 1.2em; border-top: 1px solid var(--hairline); }
+h3 { font-size: 19px; font-weight: 500; margin: 1.8em 0 0.5em; }
+h4 { font-size: 17px; font-weight: 500; }
+.anchor { margin-left: -1.1em; padding-right: 0.3em; color: var(--muted); text-decoration: none; font-family: var(--font-mono); font-size: 0.8em; opacity: 0; }
+:is(h2, h3, h4):hover .anchor, .anchor:focus { opacity: 1; }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.82em; }
+code { background: var(--panel); border: 1px solid var(--hairline); padding: 0.08em 0.35em; border-radius: 4px; }
+pre { background: var(--panel); border: 1px solid var(--hairline); padding: 14px 16px; overflow-x: auto; border-radius: 8px; }
+pre code { background: none; border: 0; padding: 0; }
+kbd { background: var(--panel); border: 1px solid var(--hairline); border-bottom-width: 2px; padding: 0.05em 0.4em; border-radius: 4px; }
+table { border-collapse: collapse; display: block; overflow-x: auto; font-size: 15px; }
+th, td { border-bottom: 1px solid var(--hairline); padding: 6px 12px 6px 0; text-align: left; vertical-align: top; }
+th { font-weight: 600; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 3px solid var(--accent-wash); color: var(--muted); }
+main > p > img, main > img { border: 1px solid var(--hairline); border-radius: 8px; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .contents { position: static; max-height: none; padding-bottom: 0; }
+}
+@media (max-width: 480px) { body { font-size: 16px; } .brand span { display: none; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
