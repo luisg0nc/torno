@@ -27,11 +27,21 @@ const bar = () => page.locator('[data-band="compare"]')
 
 async function builtRevision(revision: number): Promise<void> {
   const t0 = Date.now()
+  await page.evaluate(() => {
+    const w = window as unknown as { __diag?: { ev: string[]; gap: number; t0: number } }
+    if (w.__diag) { w.__diag.ev.push(`@${Math.round(performance.now() - w.__diag.t0)} mark`); return }
+    const d = (w.__diag = { ev: [] as string[], gap: 0, t0: performance.now() })
+    let last = performance.now()
+    setInterval(() => { const n = performance.now(); d.gap = Math.max(d.gap, n - last); last = n }, 50)
+    window.torno.object.onBuild((b) => d.ev.push(`@${Math.round(performance.now() - d.t0)} ${b.status} r${b.revision}${b.waiting ? ' waiting' : ''}`))
+    window.torno.object.onScene((m) => d.ev.push(`@${Math.round(performance.now() - d.t0)} scene r${m.revision}`))
+  })
   try {
   await expect.poll(async () => { const s = await state(); return s.build?.status === 'ok' && s.build.revision }, { timeout: 30_000 }).toBe(revision)
   } catch (e) {
     const s = await state().catch(() => null)
-    throw new Error(`DIAG build=${JSON.stringify(s?.build)} compare=${JSON.stringify(s?.compare)} sceneRev=${s?.revision} after ${Date.now() - t0} ms; ${String(e).slice(0, 80)}`)
+    const d = await page.evaluate(() => JSON.stringify((window as unknown as { __diag?: unknown }).__diag)).catch(() => 'n/a')
+    throw new Error(`DIAG ${d} build=${JSON.stringify(s?.build)} compare=${JSON.stringify(s?.compare)} sceneRev=${s?.revision} after ${Date.now() - t0} ms; ${String(e).slice(0, 80)}`)
   }
 }
 
