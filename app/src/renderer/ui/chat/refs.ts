@@ -85,7 +85,7 @@ export function refInfo(s: RefState, value: string): RefInfo {
   if (/^C\d+$/.test(value)) {
     const card = s.board?.cards.find((c) => c.id === value)
     if (!card) return { kind: 'card', live: false, lights: [], plain: true, title: `${value} is not on the board of this project` }
-    if (card.hidden) return { kind: 'card', live: false, lights: [], plain: false, title: `${value} is hidden on the board: show it again from "Hidden cards"` }
+    if (card.hidden) return { kind: 'card', live: false, lights: [], plain: false, title: `${value} is hidden in the brief: show it again from "Put away"` }
     return { kind: 'card', live: true, lights: [], plain: false, act: 'card', title: `${value}: ${cardSaid(card)}` }
   }
   if (/^T[1-9]\d*$/.test(value)) {

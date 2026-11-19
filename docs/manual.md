@@ -429,7 +429,7 @@ What a kept build had then (checks that failed, parts with a defect, how your di
 **Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
 the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
-have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Board and Model steps aside. What the turn changed is written on the parts and the marks that changed, as
+have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Model, Brief and Tracing steps aside. What the turn changed is written on the parts and the marks that changed, as
 tags tied to them by a leader (`tub volume 28400 → 26000 mm³`, `M3 now passes`, from the numbers of the builds of the turn; `≈` where a volume is not exact): four at most,
 a dimension that changed its verdict first, then the parts whose volume moved most. The rest are in the band's **and N more** (or **What changed**, when there is nothing
 left out), a list that also says what the later build changed (its line) and how the checks and your dimensions moved between the two builds. A tag stands only on
@@ -1389,7 +1389,7 @@ on the row and the reticle go to the camera the note was made from (a click only
 when the note's number is out of view, as for any mark). A note whose picture is
 not on this computer (pictures are not in git) has an empty frame in the place of
 the picture and still goes with the prompt in words. The note is also a card on the
-board, with the picture and the comment (see [The board](#the-board)).
+board, with the picture and the comment (see [The brief](#the-brief)).
 
 The chips in the view answer the pointer too. On a chip the pointer is a hand,
 the mark's row lights, and its note is read out beside the pointer on one line
@@ -1548,7 +1548,7 @@ and after the next build you say OK or Still wrong to each answer.
   next round, which torno makes on the build on show (`R2`, held, so that it goes with no prompt of its own). **Start round 2**
   in the panel of a sent round opens that round's band. Items you said OK to stay in the round they were in.
 - **On the board.** A round has no frame and its marks no cards on the board: the round's panel is where a round is read. (A
-  board made before this may still hold the hidden frames of earlier rounds; see [The board](#the-board).)
+  board made before this may still hold the hidden frames of earlier rounds; see [The brief](#the-brief).)
 - **What Claude reads.** `marks` lists each mark's intent and round, and with `review` (`R1`, or `all`) the rounds of your
   reviews: the build each reviewed, its items, what the agent answered and what you judged. An item you did not want and accepted says
   `removed on purpose; keep it out`.
@@ -1986,107 +1986,39 @@ proposes its own with `save_view`: a dashed pill that says "proposed", with
 "Keep" and "Discard". A proposal is the agent's until you keep it; it can
 replace its own proposals (12 at most) and never a view of yours.
 
-## The board
+## The brief
 
-Each project has a board: a canvas of cards where what the project knows is laid out, framed and put in order, so that
-you can point Claude at a frame ("work through Latch") instead of explaining it again. **Board**, **Model** and **Tracing** (below) take the main
+Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief** and **Tracing** (below) take the main
 area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); a project with no tracing goes round
-the board and the model only. The window remembers the last choice
-for each project; a project opens on the model until its board has a card of yours or Claude's. The model stays
-loaded while the board or a tracing is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
+the model and the brief only. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
+The model stays loaded while the brief or a tracing is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
 
-**What is on it.** Only two things appear by themselves, each in a free spot the first time the board is read after it appears:
-`brief.md` (its text, read only, scrolling) and each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it). Removing one of these hides it: the file is untouched, and "Hidden cards"
-at the top right shows it again. When the thing itself goes (a photo removed) its card goes with it.
+The page reads like an inspection sheet, from the top:
 
-Marks, scans, tracings and review rounds get no card: they have their own places (the Marks list, the Scans and Tracings sections, the Tracing view, the round's panel), and the board is the project's brief, not a copy of them. Placing a mark, importing a scan, making a tracing or starting a review adds nothing to the board, and the board line of a prompt does not change with them. A board made before this still holds some of those cards. The first time such a board is read, the mark, scan and tracing cards that you never put in a frame of your own are hidden, and so are the frames of review rounds; nothing is lost, and "Hidden cards" brings any of them back. A card you put in a frame of your own stays where it is, and goes when its mark, scan or tracing does.
+- **What we are making**: the text of `brief.md`, read only ("Your words, from brief.md" opens it in your editor), with the photos and doodles of `reference/` beside it as small pictures (a click opens one large, `Esc` puts it away) and a line for each STEP file and PDF with "Show in folder".
+- **Sizes**: a ledger. Each row has the value large, in the face of numbers (`186 × 128`, `Ø 62`, or as you typed it when it holds no numbers), then what it measures, where it came from (`measured`, `from a datasheet`, `a guess`, or `from Claude`) and a note, then a column "Against the build on show". Nothing checks a size yet, so each reads **nothing checks this**, drawn on a dashed ground with an empty gauge: a gap to fill, not a failure. The head says `7 sizes, 7 not checked`.
+- **Rules**: the same way, one row each. A rule is a judgement no measure can make, so it reads "a judgement: no measure says it".
+- **Notes**: text you or Claude left, a web address in one shows as a link that opens in your browser.
 
-You pin, with "Pin to board", a **saved view**, from the menu of its chip among the compass's saved views. A mark, scan or tracing you put on the board on purpose stays as it was.
+Claude's rows and notes have a green edge; yours do not. Claude makes notes, sizes and rules (see "Tools") and never edits or removes one of yours or one torno made.
 
-The board is the project's brief, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds strip. So a build, the Parameters
-and the Checks have no "Pin to board": the star keeps a build, and the Parameters and Checks sections are the real thing, so a card of them would be a copy that goes out of date.
-Cards of those kinds that you pinned earlier are kept: they show as they were, and "Hidden cards" hides them; nothing removes them.
+**Changing it.** "Add" at the top makes a size, a rule, a note or a picture (a picture is chosen from a file or dropped on the page; a photo larger than Claude is sent is scaled down by the window first); "Add a size", "Add a rule" and "Add a note" are over each section. A row shows **Edit** and **Remove** when it is pointed at or has the keyboard. You edit only your own. A size has a form: what it measures, the value as typed (at most 60 characters, never changed to numbers in the file), the unit (`mm` or `°`), where it came from and a note of a line; Enter or "Add" keeps it, and when something is missing the form says what and stays; `Esc` leaves it as it was. A note or a rule is a field: `Enter` keeps it, `Shift+Enter` is a new line, `Esc` leaves it. A removal says "Removed … Undo" for ten seconds. What torno made for you (the brief, a photo) is not lost when removed from the page: it is listed under "Put away" with "Show". A text card holds 4000 characters, a brief 2000 cards.
 
-You make **text** cards (a web address in one shows as a link, and a click on it opens it in your browser), **size** cards (below), **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
-Claude is sent is scaled down by the window first), **doodle** cards (drawn with the Doodle tool on the same ink pad as a new project's doodles), named
-**frames** and **arrows** between cards, with an optional word on them. A card dropped inside a frame belongs to it, and a frame
-dragged takes its cards along. Claude's cards have a green edge; Claude makes text and pictures of the view (below) and
-never moves, edits or removes one of yours or one torno made.
+**What is not on it.** Marks, scans, tracings and review rounds have their own places (the Marks list, the Scans and Tracings sections, the Tracing view, the round's panel): the brief is not a copy of them, and placing a mark, importing a scan, making a tracing or starting a review adds nothing to it. The brief is the project's requirements, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds strip. A project made before the brief page may still hold cards of those kinds, builds, views, the Parameters and the Checks, frames and arrows in its file. They are kept in the file and not drawn: nothing is lost. A saved view has no "Pin to board" any more.
 
-**Moving around.** The wheel or two fingers pan; `Ctrl` and the wheel, or a pinch, zoom about the pointer (10 % to 400 %); a
-middle or right drag, or `Space` and a drag, pan; `Shift+1` fits every card. A small map in the corner shows the board and
-what is on screen: click or drag in it to go there. The tools are in a palette at the foot: Select `V`, Text `N`, Frame `F`,
-Arrow `A`, Size `M`, Picture `I`, Doodle `S`. With Select a drag on empty ground draws a box, a click selects a card and `Shift` adds
-one. `Delete` removes what is selected (the cards that came by themselves are hidden), and `Ctrl+Z` takes back the last changes
-you made here, up to 50. A board holds 2000 cards and a text card 4000 characters.
+**What Claude is told.** Every prompt carries one line: how many cards the brief has, how many are new and what they are, and that `board` reads it. It never carries the brief. A card is new when it was added or what it says changed (a text, a caption, a name), not when it was moved. The line under each prompt in the chat says it: `brief: 12 cards, 2 new`.
 
-**Sizes.** A size card holds one size you know: what it measures ("battery tray"), its value as you typed it (`186 × 128`, `Ø62`, `about 60`;
-at most 60 characters, never changed to numbers in the file), its unit (`mm` or `°`), where it came from (`measured`, `from a manual or
-datasheet`, or `a guess`) and a note of a line. The tool `M` and a click on empty ground open its form; Enter or "Done" keeps it, and when
-something is missing the form says what and stays; `Esc`, or leaving the form, keeps a whole size and makes nothing of a half-written one.
-The card shows the value and unit large, in the face of numbers, then what it measures and the source. A double click on one of yours opens the form again, and
-`Ctrl+Z` takes the change back. Claude's own sizes say "from Claude" and are never yours to change; Claude reads all of them with `board`, as
-`battery tray 186 × 128 mm (measured)`, and asks only for the sizes the board does not have. A new project's "Sizes I know" become these cards.
+**The brief goes to every new conversation.** The sizes (every size card) and the rules (the text cards of the frame named Rules, which "Add a rule" makes when there is none) are carried by the first prompt of every new conversation, after that line: with a new session, after `/clear` and after a compaction, not only the first prompt of a new project. It says each size as the page does (`tray 186 × 128 mm (measured)`) and the rules as you wrote them, in at most 1,000 characters (a long list of sizes ends with how many more there are), and that `board` has the rest. A size or rule you change, add or take away is said again at the next prompt, once.
 
-**A double click** does what the card is for:
+**Sending the brief.** "Send with the next prompt", at the top of the page, puts the whole brief with your next prompt. A chip appears above the box of the chat, "12 cards", which "Remove" takes off. When you send the prompt, torno reads the cards as they are then and puts them in the prompt, after your words, each by its id with what it says. The pictures go as pictures after the text, at most 6 and each at most 1280 px on the long edge; past 6 they are named and left for `board` with `pictures: true`. The text is at most 12 000 characters, and past that it ends with a sentence that says so. The line under your prompt says what went: `brief: 12 cards`.
 
-| Card | Double click |
-|---|---|
-| Brief | opens `brief.md` in your editor |
-| Photo of `reference/` | opens it large (`Esc` puts it away); any other file is shown in its folder |
-| Mark | shows the model with the mark selected; the card of a view note opens its sheet over the note (to change it), and shows the model first; the card of one of your 3D sketches opens it again in Draw, from its camera |
-| Scan | shows the model with the scan on |
-| Build | shows the model and opens Compare with the live build (nothing for a build this computer does not have) |
-| View | shows the model with that view on |
-| Params, Checks | opens the Params section of the route card |
-| Text | edits it (yours only); a click on a web address in it opens the address in your browser |
-| Size | opens its form (yours only) |
-| STEP file, PDF | shows the file in its folder |
-| Picture | opens it large; one Claude drew of the view goes to the model with its camera |
-| Doodle | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
-| Frame | renames it (yours only; an old round's frame is torno's, and its **Open** shows the round's panel) |
-| Arrow | edits its word |
+**Refs.** A card is `C7`, as a mark is `M3`. You and Claude can write it in a message; in the chat it is a chip, and a click on one the brief has shows the brief with that card lit. A card that is hidden or not there is only text.
 
-**What Claude is told.** Every prompt carries one line: how many cards the board has, how many are new and what they are, the
-names of the frames, and that `board` reads it. It never carries the board. A card is new when it was added or what it says
-changed (a text, a caption, a name, a word on an arrow, the values of the Params, the results of the checks), not when it was moved,
-resized or put in a frame. The line under each prompt in the chat says it: `board: 12 cards, 2 new`.
+**Claude's tools** (see "Tools"): `board` reads the brief as text, and `add_card` leaves a card of Claude's own, for example a note, a size, a rule in the frame named Rules, or a picture of the view.
 
-**The brief.** The sizes on the board (every size card) and its rules (the text cards of the frame named Rules) are the project's
-brief. The first prompt of every new conversation carries them, after the board line: with a new session, after `/clear` and after
-a compaction, not only the first prompt of a new project. It says each size as the board does (`tray 186 × 128 mm (measured)`) and
-the rules as you wrote them, in at most 1,000 characters (a long list of sizes ends with how many more there are), and that the board
-has the rest. A size or rule you change, add or take away is said again at the next prompt, once; a card you only move says nothing.
+The brief is stored in `<project>/.torno/board/board.json`, which goes with the project in git (it is the file of the board it came from). The pictures stay on the computer (`board/pictures/`, ignored), and what Claude was last told stays too (`board/told.json`); a project cloned without its pictures shows "picture not on this computer" in their place. Only torno writes it, and it writes nothing outside `.torno/`.
 
-**Sending part of the board.** Select cards or frames and press "Send with the next prompt" (or `Ctrl+Enter`), or press "Send the
-whole board". A chip appears above the box of the chat, "Latch · 3 cards · 1 arrow", which "Remove" takes off. When you send the
-prompt, torno reads those cards as they are then (an edit made after attaching goes too; a card removed meanwhile is left out and the
-chip says so) and puts them in the prompt, after your words: the frames by name, then their cards in reading order (left to
-right, top to bottom) each by its id with what it says, then the arrows ("C3 → C7: like this"). The pictures go as pictures after
-the text, at most 6 and each at most 1280 px on the long edge; past 6 they are named and left for `board` with `pictures: true`.
-The text is at most 12 000 characters, and past that it ends with a sentence that says so. The line under your prompt says what
-went: `board: Latch, 3 cards, 1 arrow`. An arrow alone is no attachment.
-
-**Refs.** A board card is `C7`, as a mark is `M3`. You and Claude can write it in a message; in the chat it is a chip, and a click on
-one the board has shows the board with that card selected. A card that is hidden or not there is only text.
-
-**Claude's tools** (see "Tools"): `board` reads the board as text, and `add_card` leaves a card of Claude's own, optionally in a
-frame and with an arrow, for example a plan or a picture of the view.
-
-The board is stored in `<project>/.torno/board/board.json`, which goes with the project in git: the places, frames, arrows and
-text. The pictures stay on the computer (`board/pictures/`, ignored), and what Claude was last told stays too (`board/told.json`);
-a board cloned without its pictures shows "picture not on this computer" in their place. Only torno writes it, and it writes
-nothing outside `.torno/`.
-
-torno does not watch `board.json`. If it was changed outside torno (a `git pull`), torno notices at the next change you or Claude
-make to the board: before writing it compares the file with what it last wrote, takes the file as it is then, makes your change
-on top of it, and shows you the result. A pull is therefore seen at the next change, not at once. A file torno cannot read, or
-with cards that are not whole, is kept beside it (`board.json.corrupt-…`, `board.json.dropped-…`) and the board says so, with
-"Dismiss". Undo (`Ctrl+Z`) goes back up to 50 changes made in this window, and brings back what torno took off in this run. The
-pictures torno let go of (a removed card's, a doodle drawn on again) are listed in `dropped.json` beside them and deleted when
-the project is first opened in a later run, unless a card has them again or a file kept aside names them
-(`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on
-that list is never deleted, whatever the board names: switching branch never takes one.
+torno does not watch `board.json`. If it was changed outside torno (a `git pull`), torno notices at the next change you or Claude make to the brief: before writing it compares the file with what it last wrote, takes the file as it is then, makes your change on top of it, and shows you the result. A pull is therefore seen at the next change, not at once. A file torno cannot read, or with cards that are not whole, is kept beside it (`board.json.corrupt-…`, `board.json.dropped-…`) and the page says so, with "Dismiss". "Undo" on a removal brings back what torno took off in this run. The pictures torno let go of (a removed card's) are listed in `dropped.json` beside them and deleted when the project is first opened in a later run, unless a card has them again or a file kept aside names them (`board.json.corrupt-…`, `board.json.dropped-…`): delete those files when you no longer need them. A picture that is not on that list is never deleted, whatever the brief names: switching branch never takes one.
 
 ### The tracing view
 
@@ -2401,7 +2333,7 @@ the ending gets it).
 
 `?`, or Keys on the rail, raises a keyboard from the foot of the window, over the view and the card; the rail and the status
 line stay, and it comes up in a third of a second (at once with reduced motion). Press `?` or `Esc` again, or press beside it, to put it away.
-Along its top are the places keys are heard in, as chips: Everywhere, In the view, With a tool in hand, Sketching, Board, Tracing, Projects
+Along its top are the places keys are heard in, as chips: Everywhere, In the view, With a tool in hand, Sketching, Tracing, Projects
 and Session. The keyboard is the US layout, and in the place you chose each key says in a word what it does there. The keys that
 pick a tool are on the accent wash with their letter in the accent, and those heard in the view are outlined. Keys with `Ctrl` or
 `Shift` held are listed under the keyboard, with the pointer's gestures in the view. Point at a key, or click it, and it is asked about.
@@ -2421,7 +2353,7 @@ counts the keys; a search that finds nothing says "No key says ...". The pointer
 <!-- pointer: end -->
 
 Point at a tool of the reed and a tip beside it says, at once, what the tool does and its key. With a
-tool in hand (not Select) a small dark caption by the pointer, a little below and to its right (and below the Model/Board switch or a band when the pointer is by them), says what the tool waits for next, and
+tool in hand (not Select) a small dark caption by the pointer, a little below and to its right (and below the Model/Brief switch or a band when the pointer is by them), says what the tool waits for next, and
 `Esc`: for Measure `click the first end`, then `click the second end`; for Arrow `press on the part and drag to where it should go`.
 For the first ten times you take a tool the caption shows as soon as the pointer is in the view; after that it shows where the pointer
 rests for half a second and goes when it moves again (a screen reader is told the words either way). Region of a scan and Align scan,
@@ -2440,6 +2372,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Everywhere | `Ctrl+Shift+D` | Show or hide the session pane |
 | Everywhere | `Ctrl+Shift+E` | Export to one HTML file, or to STEP, STL or 3MF: the open project, or from the page of projects any of them |
 | Everywhere | `Ctrl+Shift+B` | Rebuild: build the open project again, as the button in the status line does |
+| Everywhere | `Ctrl+Tab` | The model, the brief and a tracing, in turn |
 | Viewport | `V` | Select: click a face or an edge, double-click for its part; Shift-click adds or takes out. The choice by the selection says what a click takes |
 | Viewport | `M` | Measure: two clicks, or a double click on a round thing; nothing is kept unless you keep it |
 | Viewport | `X` | Section: cut the parts by a plane |
@@ -2489,20 +2422,6 @@ and it holds the line of what the agent points at. The window remembers what it 
 | With a tool in hand | `Ctrl` | Sketch: hold it while drawing to turn snapping off |
 | With a tool in hand | `Esc` | Sketch: give up the stroke under way, then leave the sketch (it is kept) |
 | With a shape in hand | `G` `R` `T` | Move, rotate or size the shape with its handles |
-| Board | `Ctrl+Tab` | The board, the model and a tracing, in turn |
-| Board | `Shift+1` | Board: fit all the cards |
-| Board | `V` | Board, Select: click a card, drag on empty space for a box; Shift adds |
-| Board | `N` | Board, Text: a card for a note |
-| Board | `F` | Board, Frame: a named outline round cards |
-| Board | `A` | Board, Arrow: draw from one card to another |
-| Board | `M` | Board, Size: a card for a size you know |
-| Board | `I` | Board, Picture: add a photo from a file |
-| Board | `S` | Board, Doodle: draw on a card |
-| Board | `Space` | Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms) |
-| Board | `Ctrl+Enter` | Board: send the selected cards with the next prompt |
-| Board | `Delete` `Backspace` | Board: remove the selected cards and arrows (those that came by themselves are hidden) |
-| Board | `Ctrl+Z` | Board: undo the last change you made to cards (up to 50) |
-| Board | `Esc` | Board: end what is being written, then put the tool back to Select, then let go of the selection |
 | Tracing | `Shift+1` | Tracing: fit the outline |
 | Tracing | `Shift+0` | Tracing: show it at true size, 1:1 |
 | Tracing | `V` | Tracing, Select: move around the sheet by dragging |

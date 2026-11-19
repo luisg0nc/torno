@@ -301,11 +301,10 @@ test('after a rebuild the panel of R1 says OK to one item and Still wrong to the
   await expect(roundPanel()).toHaveCount(0)
 })
 
-test('the board holds no frame for a round and no card for its marks', async () => {
+test('the brief holds no frame for a round and no card for its marks', async () => {
   await page.keyboard.press('Control+Tab')
-  await expect(page.locator('.pboard')).toBeVisible({ timeout: 20_000 })
-  await expect(page.locator('.pboard-card[data-kind="frame"]')).toHaveCount(0)
-  await expect(page.locator('.pboard-card[data-kind="mark"]')).toHaveCount(0)
+  await expect(page.locator('.brief-page')).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('.brief-page [data-card]')).toHaveCount(0)
   const board = boardFile()
   expect(board?.cards.filter((c) => c.kind === 'frame' || c.kind === 'mark') ?? []).toEqual([])
   await page.keyboard.press('Control+Tab')
