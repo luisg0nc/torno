@@ -1423,7 +1423,7 @@ the camera stays still).
   are rows of one line each, in the order they block, that act where they stand: Claude's open question (**in the chat** opens the
   dock), each check that fails with the value read (a click goes to its row), the brief's sizes that nothing checks, in one row
   (**Brief** opens the Brief page), the marks Claude resolved and you have not judged (**OK** says you have seen it, **Reopen**
-  makes it a draft again), the marks it left for you (a click goes to its row in Marks, under **From the agent**, with **Answer in chat** and **Resolve**) and the values you tried, in one row
+  makes it a draft again), the marks it left for you (a click goes to its row in Marks, under **From the agent**, with **Answer in chat** and **Resolve**; the marks Claude resolved are there too, with Review, OK all and Reopen…) and the values you tried, in one row
   (**Ask Claude to keep** puts the request in the box of the chat, never sent). It lists four rows at most; **N more** opens the
   rest and **Fewer** shuts them. When nothing waits it is the verdict alone. With nothing in hand there is no "In hand" head
   under it.
@@ -1433,8 +1433,16 @@ the camera stays still).
   muted words (`moved: check it`, `its part is hidden`). The active row shows its note whole and what can be done with
   the mark as words under it (**Go to view**, **Re-place**, **Edit**, **Answer in chat**, **Resolve**, **Reopen**,
   **Delete**); the other rows show them as icons while the pointer is on them.
-- A mark the agent resolves does not vanish: the On block has a row for it with the agent's line, **OK**, which moves it under
-  "Resolved" in Marks, and **Reopen**, which makes it a draft again.
+- A mark the agent resolves does not vanish: under **From the agent** in Marks has a row for it, and over the rows says "The agent
+  resolved 2 marks." Each row says "Resolved by Claude" with the agent's line, and has **OK**, which
+  moves it under "Resolved" in Marks, and **Reopen…**, which opens its note with the cursor at the
+  end, so that you can say why, and it is a draft again, with the note, when you
+  leave the field (Esc leaves it as it was). **Review** walks them one at a time: the mark becomes the
+  active one and the camera goes to its view, the line reads "Reviewing 1 of 2
+  · M5", and its row also has **Skip**, which leaves it to review. When
+  the last is done the line says how it went ("Reviewed 5: 4 OK, 1 reopened").
+  **OK all** says you have seen them all at once.
+  The On block has the same marks as one-line rows with a quick **OK** and **Reopen** (no reason, no walk).
 - The tick on a row resolves the mark (**Resolve: done with it**); on a check
   with an expected value it first asks "Stop checking M3? It is no longer
   measured." (**Resolve** or **Keep checking**). **Delete** takes the mark at

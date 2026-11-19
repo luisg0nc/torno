@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ON_ROWS_SHOWN, onBlock, verdictSaid, type OnInput } from './onBlock'
+import { ON_ROWS_SHOWN, onBlock, verdictSaid, type OnInput } from './onRows'
 
 const base: OnInput = { ask: null, failing: [], pass: 0, unchecked: 0, review: [], fromAgent: [], tried: [] }
 const fail = (id: string) => ({ id, chip: id, words: `${id} fails`, reading: '6.2' })

@@ -124,3 +124,21 @@
 .on-more {
   margin-top: 2px;
 }
+
+/* The line over the marks the agent resolved: how many, and the two ways through them. */
+.marks .needs-review > p {
+  margin: 0;
+  padding: 2px var(--space-2) 6px var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.marks .needs-review .button {
+  height: 22px;
+  padding: 0 9px;
+}
+
+.marks .needs-review-done {
+  color: var(--muted);
+}

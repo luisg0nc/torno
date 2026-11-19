@@ -5,6 +5,7 @@ import { AskToCommit } from './AskToCommit'
 import { groupMarks, splitMarkGroups } from './markGroups'
 import { useMarkRows } from './markRows'
 import { done, offerUndo, useRowsSaid } from './rowsSaid'
+import { ResolvedSummary } from './ResolvedSummary'
 import { ReviewSummary } from './ReviewSummary'
 
 /**
@@ -106,9 +107,10 @@ export function MarksPanel() {
             <p>A mark goes with your next prompt, and stays here until the agent resolves it.</p>
           </div>
         )}
-        {listed.length > 0 && groups.checks.length + needs.fromAgent.length + toSend.length + withAgent.length === 0 && (
-          <p className="section-note">{needs.toReview.length > 0 ? 'What is left waits for you at the top of the card.' : 'Every mark is resolved.'}</p>
+        {listed.length > 0 && groups.checks.length + needs.toReview.length + needs.fromAgent.length + toSend.length + withAgent.length === 0 && (
+          <p className="section-note">{needs.toReview.length + needs.fromAgent.length > 0 ? 'What is left waits for you above.' : 'Every mark is resolved.'}</p>
         )}
+        <ResolvedSummary key={objectId} marks={needs.toReview} row={row} acknowledgeAll={() => done('marks', window.torno.marks.acknowledge(objectId, needs.toReview.map((m) => m.id)))} />
         {group('From the agent', needs.fromAgent, 'read or answer')}
         {group('To send', toSend, 'with your next prompt')}
         {group('With the agent', withAgent)}

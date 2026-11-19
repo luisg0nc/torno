@@ -12,7 +12,7 @@ import { groupMarks, splitMarkGroups } from '../markGroups'
 import { numbered } from '../numbered'
 import { bakeText, paramRow, tried } from '../paramRows'
 import { useStripNodes } from '../strip/useStripNodes'
-import { onBlock, type OnInput, type OnRow } from './onBlock'
+import { onBlock, type OnInput, type OnRow } from './onRows'
 
 /** Brings a model check's row under Checks into sight: its section is unfolded first, and the row once it is drawn. */
 function showModelCheck(name: string): void {

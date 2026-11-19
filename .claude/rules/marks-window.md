@@ -4,12 +4,13 @@ paths:
   - "app/src/renderer/ui/markGroups.ts"
   - "app/src/renderer/ui/markRows.tsx"
   - "app/src/renderer/ui/card/OnBlock.tsx"
-  - "app/src/renderer/ui/card/onBlock.ts"
-  - "app/src/renderer/ui/card/onBlock.test.ts"
+  - "app/src/renderer/ui/card/onRows.ts"
+  - "app/src/renderer/ui/card/onRows.test.ts"
   - "app/src/renderer/ui/markGroups.test.ts"
   - "app/src/renderer/ui/markHover.ts"
   - "app/src/renderer/ui/markHover.test.ts"
   - "app/src/renderer/ui/reviewStep.ts"
+  - "app/src/renderer/ui/ResolvedSummary.tsx"
   - "app/src/renderer/ui/NotePopover.tsx"
   - "app/src/renderer/ui/NotePopover.test.ts"
   - "app/src/renderer/ui/notePlacement.ts"
@@ -93,7 +94,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `splitMarkGroups(groups)` says where each group goes: `needs` (`toReview`, `fromAgent`, `failingChecks`) to the On block, `marks`
   (`toSend`, `withAgent`, `resolved`) to Marks. The other checks (`groups.checks`) are the Checks section's. A heading only for a
   group that has marks, in Marks; a row has no status word but a pinned dimension's `pinned`, which is never cut.
-- **The On block** (`ui/card/OnBlock.tsx`, drawn by `RouteCard` over the head and the sections; the rule is the pure `ui/card/onBlock.ts`,
+- **The On block** (`ui/card/OnBlock.tsx`, drawn by `RouteCard` over the head and the sections; the rule is the pure `ui/card/onRows.ts`,
   `onBlock(input, opened)`): the head is `On h18` (the build on show's id from `useStripNodes`, `r<n>` while the history has none) and the
   verdict in a line (`verdictSaid`: `2 fail, 5 pass`, `nothing checked yet`; the model's checks and the dimensions together, `--fail`
   while one fails). The rows are one line each, in this order, at most `ON_ROWS_SHOWN` (4) unless opened: Claude's open question (`useOpenAsk`;
@@ -102,9 +103,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   checked until #262 ties them, so `Brief` opens the Brief page where that row will say Tie), a mark Claude resolved and the person has not judged
   (`source` is gone: the agent's line, `OK` = `marks.acknowledge`, `Reopen` = `update {status: 'draft'}`, no note asked), a mark Claude left
   (a click is `goToRow`: Marks lists them under `From the agent`, with the rows' Answer in chat and Resolve), and one row for the values tried (`Ask Claude to keep` puts `bakeText` in the box, never sent). More than four: `N more`
-  opens the rest, `Fewer` shuts them. `needs` of `splitMarkGroups` feeds it; the walk through the marks to review (Review, OK all) is gone, and the
-  note a Reopen asked for with it. The rows of Marks and Checks still draw with `useMarkRows(where)` (`ui/markRows.tsx`), which holds what main
+  opens the rest, `Fewer` shuts them. `needs` of `splitMarkGroups` feeds it; the block's `review` row is the quick way (no reason, no walk); the walk is in Marks. The rows of Marks and Checks still draw with `useMarkRows(where)` (`ui/markRows.tsx`), which holds what main
   refused and the undo line.
+- **From the agent, in Marks** (`ui/MarksPanel.tsx`, above `To send`): `ResolvedSummary` (`ui/ResolvedSummary.tsx`; the marks to review, a row each, `source`
+  `to review`; the line over them says `The agent resolved N marks.` with Review (the walk: an index held in the component over the
+  ids as they were, `Reviewing 1 of 5 · M5`, the mark active and `focusMark`ed, its row also with Skip) and OK all
+  (`marks.acknowledge`, no key); the end says `Reviewed 5: 4 OK, 1 reopened` for 10 s), then the marks the agent left (`source` `from Claude`, the list is
+  named `From the agent`). A row's resolution reads `Resolved by Claude` (in `--agent-mark`, 500) with the agent's line, then OK and `Reopen…`; Reopen opens the
+  note at its end and writes note and `status: 'draft'` in one `update` when the field is left. `ReviewStep` is in `ui/reviewStep.ts`.
 - A row's resolve is a tick in a box (`ResolveIcon`), never the bare tick of a passing check; on a dimension with an
   expected value it asks in the row first (`Confirm`). Delete is immediate and the panel offers `Deleted M3 · Undo` for
   10 s (`marks.restore`), no key.
