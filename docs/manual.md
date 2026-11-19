@@ -1172,6 +1172,8 @@ Open marks: M2 (moved), M6 (unchecked)
   `Review of h41 (R1): 3 don't want, 2 want. Answer each item by its id.`, with `Also in it: M4.` for items sent before.
   The system prompt says a review lists what you do not want and want on one build, to answer each item with `resolve_mark`,
   and not to bring back what an earlier review removed (read with `marks` and `review: "all"`).
+  It also says that the folder it works in is the project, that it edits only that folder and `common/`, that other
+  projects and the workspace are yours to open or make, and that a new project is made from the page, not by creating a folder.
 - `Open marks` are the numbers of the marks still open, each with what the
   last build did to it. After `/clear`, or after the conversation was
   compacted, the first prompt that follows lists your open marks once more.
