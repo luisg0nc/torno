@@ -374,7 +374,14 @@ library's compound of many solids is taken as the solids it holds, in one shape.
 **Builds.** Saving a file in the project's folder (dotfiles, `out/`, `cache/`,
 `.torno/` and `__pycache__/` are ignored, as are `build/`, `dist/`,
 `node_modules/`, `.venv/` and `.git/`) or in the workspace's `common/` starts
-a build 300 ms later. So does saving a file that the model imported from another
+a build 300 ms later, for the project on screen and for each project a Claude Code
+session works in. Any other project opened during the run is not built on a save: it
+is marked behind (its card says `behind`) and is built when you open it, when a session
+starts in it, or when a tool asks about it; Rebuild and a change of a parameter always
+build. The kernel builds one project at a time, and a build that waits for another says
+`Waiting for another build`; if you open another project meanwhile, a waiting build
+of a project that is not wanted is dropped and the project is built when you open it.
+So does saving a file that the model imported from another
 project (`uses` in `scene` and `state.md`: `box/box.py` for a lid that imports the
 box's maker), as far as the last good build found it; torno reads this from what
 the model imported and never asks you to declare it. A project that imports one

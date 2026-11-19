@@ -100,7 +100,7 @@ const gear: ObjectInfo = { id: 'gear', name: 'gear', dir: '/ws/gear', model: 'ge
 
 const widget: ObjectInfo = { id: 'widget', name: 'widget', dir: '/ws/widget', model: 'widget.py' }
 
-function setup(over: { timeout?: number; exists?: (path: string) => boolean; overrides?: OverridesPort } = {}) {
+function setup(over: { timeout?: number; exists?: (path: string) => boolean; overrides?: OverridesPort; working?: (id: string) => boolean } = {}) {
   const kernel = new FakeKernel()
   const watched = new Map<string, (paths?: string[]) => void>()
   let clock = 1000
@@ -1046,7 +1046,8 @@ describe('Builds', () => {
   })
 
   it('builds the object shown in the window first when several wait for the kernel', async () => {
-    const { kernel, builds } = setup()
+    // A session works in each, so each is wanted.
+    const { kernel, builds } = setup({ working: () => true })
     builds.show('bracket')
     builds.open(bracket)
     builds.show('gear')
@@ -1368,5 +1369,123 @@ describe("the person's overrides of Params", () => {
     expect(kernel.calls).toHaveLength(1)
     expect(builds.scenes('bracket')).toHaveLength(scenes)
     await expect(builds.trial('never-opened', {}, [])).rejects.toMatchObject({ kind: 'no_build' })
+  })
+})
+
+describe('Builds: only what is wanted is built on a save', () => {
+  /** Two projects open; gear on screen, bracket in the background, both built. */
+  async function twoOpen(over: Parameters<typeof setup>[0] = {}) {
+    const t = setup(over)
+    t.builds.show('bracket')
+    t.builds.open(bracket)
+    t.kernel.succeed(0)
+    await flush()
+    t.builds.show('gear')
+    t.builds.open(gear)
+    t.kernel.succeed(1)
+    await flush()
+    return t
+  }
+
+  it('builds the project on screen on a save, and not the others', async () => {
+    const { kernel, builds, watched } = await twoOpen()
+    watched.get('/ws/gear')?.(['/ws/gear/gear.py'])
+    watched.get('/ws/bracket')?.(['/ws/bracket/bracket.py'])
+    await flush()
+    expect(kernel.calls.map((c) => c.model)).toEqual(['bracket.py', 'gear.py', 'gear.py'])
+    expect(builds.state('bracket')).toMatchObject({ status: 'ok', revision: 1, stale: true })
+  })
+
+  it('builds none of the others when common/ changes, and builds each when it is shown', async () => {
+    const { kernel, builds } = await twoOpen()
+    // Every open project watches common/ and is told of its change.
+    for (const id of ['bracket', 'gear']) builds.changed(id, ['/ws/common/shared.py'])
+    await flush()
+    expect(kernel.calls.map((c) => c.model)).toEqual(['bracket.py', 'gear.py', 'gear.py'])
+    expect(builds.state('bracket')).toMatchObject({ status: 'ok', stale: true })
+    kernel.succeed(2)
+    await flush()
+    builds.show('bracket')
+    expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
+    expect(builds.state('bracket')).toMatchObject({ status: 'building', stale: true })
+    kernel.succeed(3)
+    await flush()
+    expect(builds.state('bracket')).toMatchObject({ status: 'ok', revision: 2, stale: false })
+  })
+
+  it('does not build a project again when it is shown and nothing changed', async () => {
+    const { kernel, builds } = await twoOpen()
+    builds.show('bracket')
+    expect(kernel.calls).toHaveLength(2)
+  })
+
+  it('builds on a save the project a session works in, shown or not', async () => {
+    const { kernel, watched } = await twoOpen({ working: (id) => id === 'bracket' })
+    watched.get('/ws/bracket')?.(['/ws/bracket/bracket.py'])
+    await flush()
+    expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
+  })
+
+  it('catches a project up when a session starts in it', async () => {
+    const { kernel, builds, watched } = await twoOpen()
+    watched.get('/ws/bracket')?.(['/ws/bracket/bracket.py'])
+    builds.catchUp('bracket')
+    expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
+    builds.catchUp('bracket') // already building: no second build
+    expect(kernel.calls).toHaveLength(3)
+  })
+
+  it('answers a tool about a project that is behind from a build of its sources', async () => {
+    const { kernel, builds, watched } = await twoOpen()
+    watched.get('/ws/bracket')?.(['/ws/bracket/bracket.py'])
+    const answer = builds.query('bracket', 'describe', { ref: 'assembly:base' })
+    await flush()
+    expect(kernel.queries).toEqual([])
+    expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
+    kernel.succeed(2)
+    await expect(answer).resolves.toMatchObject({ dir: '/ws/bracket' })
+    // A hover asks for no build.
+    watched.get('/ws/bracket')?.(['/ws/bracket/bracket.py'])
+    await expect(builds.describe('bracket', 'assembly', 'base')).resolves.toMatchObject({ dir: '/ws/bracket' })
+    expect(kernel.calls).toHaveLength(3)
+  })
+
+  it('still builds what the person asks for in the background: Rebuild and Params', async () => {
+    const { kernel, builds } = await twoOpen()
+    builds.rebuild('bracket')
+    expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
+  })
+
+  it('says a build waits its turn, and lets go of a displaced one that is no longer wanted', async () => {
+    const { kernel, builds, states } = setup()
+    builds.show('bracket')
+    builds.open(bracket)
+    builds.show('gear')
+    builds.open(gear) // bracket's build is displaced by the one on screen
+    expect(builds.state('bracket')).toMatchObject({ status: 'building', waiting: true })
+    expect(states.some((s) => s.objectId === 'bracket' && s.waiting)).toBe(true)
+    kernel.succeed(1)
+    await flush()
+    // Nobody waits for bracket now: it is not built in the background, it is behind until it is shown.
+    expect(kernel.calls.map((c) => c.model)).toEqual(['bracket.py', 'gear.py'])
+    expect(builds.state('bracket')).toMatchObject({ status: 'idle', revision: 0 })
+    builds.show('bracket')
+    expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
+  })
+
+  it('marks a build that was running when a save came as behind once it lands', async () => {
+    const { kernel, builds, watched } = setup()
+    builds.show('bracket')
+    builds.open(bracket)
+    kernel.succeed(0)
+    await flush()
+    builds.rebuild('bracket')
+    builds.show('gear')
+    watched.get('/ws/bracket')?.(['/ws/bracket/bracket.py'])
+    kernel.succeed(1)
+    await flush()
+    expect(builds.state('bracket')).toMatchObject({ status: 'ok', revision: 2, stale: true })
+    builds.show('bracket')
+    expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
   })
 })

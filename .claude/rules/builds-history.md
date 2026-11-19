@@ -3,6 +3,8 @@ paths:
   - "app/src/renderer/ui/AskToCommit.tsx"
   - "app/src/renderer/ui/AskToCommit.test.ts"
   - "app/src/main/history.ts"
+  - "app/src/main/builds.ts"
+  - "app/src/main/builds.test.ts"
   - "app/src/renderer/ui/strip/*.ts"
   - "app/src/renderer/ui/strip/*.tsx"
   - "app/src/main/history.test.ts"
@@ -167,3 +169,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   prompt's, only while a session works. The bracket follows the chat: `ChatPane` measures each prompt's stretch of the transcript (`.chat-group[data-id]` with a `user`
   item, then the groups up to the next prompt) on scroll and resize, and tells `state/inSight`. Nothing draws per frame in React: a rAF measures, the store takes a changed list only.
 - The status line's ticks (`BuildStatus`, `.status-ticks`) are `ticksOf` of the same nodes; they replace the History button, and "h41 built in 51 s" names the build on show.
+
+## What a save builds (`app/src/main`)
+
+- **Only what is wanted is built on a save** (#175). `Builds.changed` (reason `watch`) and `Builds.update` start a build only
+  for the project on screen (`Builds.show`), one a session works in (`deps.working`: `Sessions.current` or `isStarting`),
+  and every project while none is shown. Any other open project gets `Entry.outdated` and its state `stale: true`; it is
+  built by `catchUp` when it is shown (`show`), when `session:start` runs, or when `Builds.query` is asked of it
+  (a tool; `restore: false`, a hover or a timer, answers from the build it has). `rebuild`, `params` and `goback` build whatever
+  the project. A build displaced by another's is not started again by `startDisplaced` when its project is no longer wanted
+  (`outdated`, status back to `ok` or `idle`); a build that waits for the kernel has `BuildState.waiting`, which the status line says.

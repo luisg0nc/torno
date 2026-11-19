@@ -21,6 +21,8 @@ export interface BuildState {
   seconds?: number            // duration of the last finished build
   error?: BuildError          // when failed
   stale: boolean              // true when the parts on screen are older than the latest attempt
+  /** Building, but the kernel is on another project's build: this one starts when that ends (`Builds`). */
+  waiting?: true
   /** The kernel let the last build of this object go to make room for the one running (memory): nothing answers of it until a build lands. */
   letGo?: 'memory'
   /** What the build was started for (`Builds`); main's, so it is not taken from the window. */
