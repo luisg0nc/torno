@@ -99,9 +99,15 @@ describe('the system prompt', () => {
     expect(TOOLS.add_set.description).toContain('Only the person accepts a proposal')
   })
 
+  it('says the working folder is the project, that common/ is the one place outside it to edit, and that a new project is made from the page', () => {
+    const sentence = 'The folder you work in is this project. Edit only it and common/, which the workspace’s projects share; other projects and the workspace are the person’s, and a new project is made from torno’s page, not by creating a folder.'
+    expect(FULL_PROMPT).toContain(sentence)
+    expect(SYSTEM_PROMPT).toContain(sentence)
+  })
+
   it('stays short', () => {
-    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews; to 8,900 for tracings; back to 8,800 once the board's sizes and rules came with the first prompt (#190, #249).
-    expect(FULL_PROMPT.length).toBeLessThan(8800)
+    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews; to 8,900 for tracings; back to 8,800 once the board's sizes and rules came with the first prompt (#190, #249); to 9,100 for the project folder (#289).
+    expect(FULL_PROMPT.length).toBeLessThan(9100)
   })
 
   it('says what a tracing is and how to trace a photo, and that a photo\'s numbers are never exact', () => {
@@ -178,7 +184,7 @@ describe("Claude Code's prompt, with the skills", () => {
 
   it('is the whole text without the scans and the dimensions, noticeably shorter', () => {
     expect(systemPrompt((tool) => `mcp__torno__${tool}`, true)).toBe(SYSTEM_PROMPT)
-    expect(SYSTEM_PROMPT.length).toBeLessThan(7800)
+    expect(SYSTEM_PROMPT.length).toBeLessThan(8100)
     expect(FULL_PROMPT.length - SYSTEM_PROMPT.length).toBeGreaterThan(1000)
     for (const sentence of [...SCANS_TEXT, ...DIMENSIONS_TEXT]) {
       expect(FULL_PROMPT).toContain(sentence)

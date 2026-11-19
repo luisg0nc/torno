@@ -108,10 +108,11 @@ test('D opens a sketch: the panel is the head of the card, the pens are over the
   await expect(page.locator('.route-hand').getByRole('complementary', { name: 'Sketch' })).toBeVisible()
   await expect(page.locator('.route-hand .hand')).toHaveAttribute('data-kind', 'sketch')
   await expect(page.locator('[data-region="viewport"] .sketchpanel')).toHaveCount(0)
-  // The head caps at 60 % of the card and the sections stay reachable under it.
+  // The head caps at 60 % of the card and the bench stays reachable under it.
   const heights = await page.locator('.route-hand').evaluate((el) => ({ head: el.getBoundingClientRect().height, card: el.parentElement!.getBoundingClientRect().height, scroll: el.nextElementSibling!.getBoundingClientRect().height }))
+  // The bench follows the head, and keeps its room (its least height).
   expect(heights.head).toBeLessThanOrEqual(heights.card * 0.6 + 1)
-  expect(heights.scroll).toBeGreaterThan(heights.card * 0.3)
+  expect(heights.scroll).toBeGreaterThanOrEqual(150)
   await expect(panel().getByRole('switch', { name: /^Snap/ })).toHaveAttribute('aria-checked', 'true')
   await expect(panel().getByRole('switch', { name: /^X-ray/ })).toHaveAttribute('aria-checked', 'false')
   // The hint at the foot of the view holds the sketch's standing line: whether it snaps, and where x-ray is.
@@ -208,17 +209,17 @@ test('flow with a diameter of 19 and Done: the sketch is kept, with its card of 
   // The picture of its card is drawn from its camera and kept.
   await expect.poll(() => sketches()[0].picture, { timeout: 20_000 }).toMatch(/\.png$/)
 
-  // The marks list has its row, in the words of the window.
+  // The marks list has its row, in the words of the window; it is on the Brief page.
   const id = sketches()[0].id
   const row = page.locator(`.mark-row[data-mark="${id}"]`)
+  await page.keyboard.press('Control+Tab')
+  await expect(page.locator('.brief-page')).toBeVisible()
   await expect(row).toBeVisible()
   await expect(row).toContainText('Hose route')
   await expect(row).toContainText('flow ⌀19 mm')
   await expect(row).toContainText('2 strokes')
 
   // The brief makes no card of it (#248).
-  await page.keyboard.press('Control+Tab')
-  await expect(page.locator('.brief-page')).toBeVisible()
   await expect(page.locator('.brief-page [data-card]')).toHaveCount(0)
   await page.keyboard.press('Control+Tab')
   await expect(page.locator('.brief-page')).toHaveCount(0)

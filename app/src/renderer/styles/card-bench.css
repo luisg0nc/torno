@@ -1,0 +1,188 @@
+/* ---- The bench (ui/card/Bench.tsx): Parameters and Parts as two folder tabs that fill the column under the On block ----
+   The open tab runs into its list: one ground (--raise), the tab's hairline broken under it. */
+
+.bench {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 160px;
+}
+
+.bench-tabs {
+  position: relative;
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: var(--space-3) var(--space-3) 0;
+}
+
+.bench-tabs::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.bench-tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-float) var(--radius-float) 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bench-tab .num {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.bench-tab[aria-selected='true'] {
+  background: var(--raise);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--ink);
+}
+
+/* The accent bar over the open tab, and its foot, which rubs out the hairline under it. */
+.bench-tab[aria-selected='true']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 10px;
+  left: 10px;
+  height: 2.5px;
+  border-radius: 0 0 var(--radius-inline) var(--radius-inline);
+  background: var(--accent);
+}
+
+.bench-tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  bottom: -1px;
+  left: 1px;
+  height: 2px;
+  background: var(--raise);
+}
+
+.bench-tab:not([aria-selected='true']):hover {
+  color: var(--ink);
+}
+
+.bench-tab:focus-visible {
+  outline-offset: -2px;
+}
+
+/* A value is being tried: a dot by the count. */
+.bench-tried {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: -2px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+/* The open list: the card's room is its own, and it scrolls inside itself. */
+.bench-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--raise);
+}
+
+/* Find, and its chips, at the head of the Parameters list. */
+.params-find {
+  position: relative;
+  margin: var(--space-1) var(--space-4) var(--space-2) var(--space-4);
+}
+
+.params-find-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 34px 0 var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-row);
+}
+
+.params-find-input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.params-find-key {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  transform: translateY(-50%);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-inline);
+  color: var(--muted);
+  font: 400 11px/1 var(--font-mono);
+  pointer-events: none;
+}
+
+.params-find-input:focus-visible ~ .params-find-key {
+  display: none;
+}
+
+.params-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 var(--space-4) var(--space-2);
+}
+
+.params-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.params-filter .num {
+  margin: 0;
+}
+
+.params-filter[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.params-match {
+  margin: var(--space-2) var(--space-4) 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}

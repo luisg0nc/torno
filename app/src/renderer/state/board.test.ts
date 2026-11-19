@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { emptyBoard, type BoardFile, type Card } from '../../shared/board'
-import { boardActions, boardStore, defaultShown, forgetMemories, memoryEpoch, onBoardForgotten, sharing, SHOWN_KEY, shownRead, shownWrite, swapped } from './board'
+import { boardActions, boardStore, defaultShown, forgetMemories, memoryEpoch, onBoardForgotten, inModel, sharing, SHOWN_KEY, shownRead, shownWrite, swapped } from './board'
 import { actions, onWorkspaceSet } from './store'
 
 const card = (id: string, by: Card['by'], kind: Card['kind'] = 'text'): Card => ({ id, kind, x: 0, y: 0, w: 10, h: 10, by })
@@ -58,42 +58,67 @@ describe('what the window remembers', () => {
 })
 
 describe('the swap of the main area', () => {
-  it('goes model, brief, tracing, model, and passes over Tracing in a project with none', () => {
-    expect(swapped('model', true)).toBe('brief')
-    expect(swapped('brief', true)).toBe('tracing')
-    expect(swapped('tracing', true)).toBe('model')
-    expect(swapped('model', false)).toBe('brief')
-    expect(swapped('brief', false)).toBe('model')
-    // Left on a tracing that is gone: on to the model.
-    expect(swapped('tracing', false)).toBe('model')
+  const both = { scans: true, tracing: true }
+  const none = { scans: false, tracing: false }
+
+  it('goes model, brief, scans, tracing, model, and passes over what the project has none of', () => {
+    expect(swapped('model', both)).toBe('brief')
+    expect(swapped('brief', both)).toBe('scans')
+    expect(swapped('scans', both)).toBe('tracing')
+    expect(swapped('tracing', both)).toBe('model')
+    expect(swapped('brief', { scans: false, tracing: true })).toBe('tracing')
+    expect(swapped('brief', { scans: true, tracing: false })).toBe('scans')
+    expect(swapped('scans', { scans: true, tracing: false })).toBe('model')
+    expect(swapped('model', none)).toBe('brief')
+    expect(swapped('brief', none)).toBe('model')
+    // Left on a view that is gone: on to the model.
+    expect(swapped('tracing', none)).toBe('model')
+    expect(swapped('scans', none)).toBe('model')
   })
 
-  it('shows the tracing in turn, and keeps the choice of it for the project', () => {
+  it('shows each in turn, and keeps the choice of it for the project', () => {
     boardActions.reset()
     boardActions.open('a', null)
-    boardActions.swap(true)
+    boardActions.swap(both)
     expect(boardStore.getState().shown).toBe('brief')
-    boardActions.swap(true)
+    boardActions.swap(both)
+    expect(boardStore.getState().shown).toBe('scans')
+    boardActions.swap(both)
     expect(boardStore.getState().shown).toBe('tracing')
-    boardActions.swap(true)
+    boardActions.swap(both)
     expect(boardStore.getState().shown).toBe('model')
   })
 
-  it('leaves a tracing that is not there for the model, without taking the choice back', () => {
+  it('leaves a tracing or scans that are not there for the model, without taking the choice back', () => {
     boardActions.reset()
     boardActions.open('a', null)
     boardActions.show('tracing')
     boardActions.leaveTracing()
     expect(boardStore.getState()).toMatchObject({ shown: 'model', chosen: true })
+    boardActions.show('scans')
+    boardActions.leaveTracing()
+    expect(boardStore.getState().shown).toBe('scans')
+    boardActions.leaveScans()
+    expect(boardStore.getState()).toMatchObject({ shown: 'model', chosen: true })
     boardActions.show('brief')
     boardActions.leaveTracing()
+    boardActions.leaveScans()
     expect(boardStore.getState().shown).toBe('brief')
   })
 
-  it('remembers a tracing as it does the board and the model', () => {
+  it('says which views have the 3D view under them: the model and the scans', () => {
+    expect(inModel('model')).toBe(true)
+    expect(inModel('scans')).toBe(true)
+    expect(inModel('brief')).toBe(false)
+    expect(inModel('tracing')).toBe(false)
+  })
+
+  it('remembers a tracing or scans as it does the board and the model', () => {
     const storage = memory()
     shownWrite(storage, 'a', 'tracing')
     expect(shownRead(storage, 'a')).toBe('tracing')
+    shownWrite(storage, 'b', 'scans')
+    expect(shownRead(storage, 'b')).toBe('scans')
   })
 })
 
@@ -105,9 +130,9 @@ describe('the board store', () => {
   it('swaps with swap and shows what it is told', () => {
     boardActions.open('a', null)
     expect(boardStore.getState().shown).toBe('model')
-    boardActions.swap(false)
+    boardActions.swap({ scans: false, tracing: false })
     expect(boardStore.getState().shown).toBe('brief')
-    boardActions.swap(false)
+    boardActions.swap({ scans: false, tracing: false })
     expect(boardStore.getState().shown).toBe('model')
     boardActions.show('brief')
     expect(boardStore.getState().shown).toBe('brief')

@@ -54,34 +54,32 @@ test.afterAll(async () => {
 })
 
 const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
-const section = () => page.locator('.left .checks')
-const said = () => cardSection(page, 'Checks').locator('.route-said')
+const section = () => page.locator('.brief-page .section.checks')
+const said = () => cardSection(page, 'Checks').locator('.brief-said')
 
 async function open(name: string): Promise<void> {
   await openListed(page, name)
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
 }
 
-test('a model with no checks says so in the head of its section, which does not unfold', async () => {
+test('a model with no checks says so in the head of its block on the Brief page, and the block has no rows', async () => {
   await open('plain')
-  await openSection(page, 'Parts')
   await expect(page.locator('.left .layers')).toBeVisible()
-  await cardSection(page, 'Checks').scrollIntoViewIfNeeded()
+  await openSection(page, 'Checks')
   await expect(cardSection(page, 'Checks')).toContainText('none')
-  await expect(cardSection(page, 'Checks')).toHaveAttribute('data-empty', '')
   await expect(section()).toHaveCount(0)
 })
 
-test('a check that fails does not fail the build, and is told in the head of its section', async () => {
+test('a check that fails does not fail the build, and is told in the head of its block on the Brief page', async () => {
   await open('lidded')
   await openSection(page, 'Checks')
   await expect(section()).toBeVisible()
-  // The checks are a section of their own, after the Parameters and before the Marks.
-  const order = await page.locator('.left .route-section').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
-  expect(order.indexOf('checks')).toBe(order.indexOf('params') + 1)
+  // The checks are a block of the Brief page, after the sizes and before the marks; the left column holds the bench alone.
+  const order = await page.locator('.brief-page [data-section]').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
   expect(order.indexOf('marks')).toBe(order.indexOf('checks') + 1)
-  await expect(said()).toHaveText('2, 1 fails')
-  // The head's ring says it waits, and what waits on the person is a row of the On block.
+  await expect(page.locator('.left .route-section')).toHaveCount(0)
+  await expect(said()).toHaveText('2 checks, 1 fails')
+  // The block says it waits, and what waits on the person is a row of the On block.
   await expect(cardSection(page, 'Checks')).toHaveAttribute('data-needs', '')
   await expect(page.locator('[data-region="left"] .on-block .on-head .on-said')).toHaveText('1 fails, 1 pass')
   await expect(page.locator('[data-region="left"] .on-block .on-row[data-kind="check"]')).toHaveCount(1)

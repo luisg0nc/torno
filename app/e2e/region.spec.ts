@@ -13,7 +13,7 @@ import { usualRadius } from '../src/renderer/state/region'
 import type { LookRequest } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openSection, newSession } from './helpers'
+import { cardSection, newSession, onBrief, openSection, showBrief, showModel, clickImportScan } from './helpers'
 import { openListed } from './objects'
 
 // Regions: a part of a scan is painted with the brush, kept as a mark whose triangles are a file beside the
@@ -127,7 +127,7 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   writeFileSync(file, stl(grid(30, 1, () => 39)))
   await pickFile(file)
   await openSection(page, 'Scans')
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
@@ -157,7 +157,6 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   // The lid is switched off to paint.
   await openSection(page, 'Parts')
   await page.locator('.layer-row[data-layer="lid"]').getByRole('button', { name: 'Show lid' }).click()
-  await openSection(page, 'Marks')
   // One stroke along the sheet's left side, from front to back.
   await page.mouse.move(...(await at([-10, -4, 39])))
   await page.mouse.down()
@@ -242,9 +241,11 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await expect(listed).toContainText('wiring loom')
   await expect(listed.getByRole('button')).toHaveCount(1)
   await row('S1').getByRole('button', { name: 'Details of S1' }).evaluate((b: HTMLElement) => b.click())
-  await openSection(page, 'Marks')
-  await expect(markRow.locator('.mark-kind')).toHaveAttribute('aria-label', `Region · S1 · ${region.triangles.toLocaleString('en-US')} triangles`)
-  await expect(markRow.locator('.mark-value')).toHaveText('S1')
+  // Its row is on the Brief page.
+  await onBrief(page, async () => {
+    await expect(markRow.locator('.mark-kind')).toHaveAttribute('aria-label', `Region · S1 · ${region.triangles.toLocaleString('en-US')} triangles`)
+    await expect(markRow.locator('.mark-value')).toHaveText('S1')
+  })
   // In a picture for the agent it is tinted and numbered like any mark, and not in one without the marks, or without its scan.
   // (The lid is off on screen, and so in these pictures: the sheet is seen from above.)
   expect(await differing({ view: 'top', size: 400 }, { view: 'top', size: 400, marks: false })).toBeGreaterThan(300)
@@ -253,11 +254,9 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   await openSection(page, 'Scans')
   await row('S1').getByRole('button', { name: 'Show S1' }).click()
   await expect.poll(() => page.evaluate(() => window.__tornoTest!.markScreen('M1'))).toBeNull()
-  await openSection(page, 'Marks')
-  await expect(markRow).toContainText('its scan is hidden')
+  await onBrief(page, () => expect(markRow).toContainText('its scan is hidden'))
   await openSection(page, 'Scans')
   await row('S1').getByRole('button', { name: 'Show S1' }).click()
-  await openSection(page, 'Marks')
   await expect.poll(() => page.evaluate(() => window.__tornoTest!.markScreen('M1'))).not.toBeNull()
 
   // Not aligned: the agent is told the region with no place, and a clash is refused.
@@ -294,8 +293,10 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
 test('a kept region is painted again from its row: a new mask, the same mark, and the agent is told it changed', async () => {
   const before = (await state()).marks[0] as RegionMark
   expect(before.status).toBe('sent')
+  await showBrief(page)
   await page.locator('.mark-row[data-mark="M1"]').hover()
   await page.getByRole('button', { name: 'Edit M1', exact: true }).click()
+  await showModel(page)
   await expect(bar()).toContainText('Painting M1 again')
   await expect.poll(painted).toBe(before.triangles)
   // While it is in hand it is drawn as the painting, not as it was kept.
@@ -335,8 +336,7 @@ test('a region goes on as a mark when its scan is removed, and says so', async (
   await expect(row('S1')).toContainText('It has 1 region painted on it')
   await page.getByRole('button', { name: 'Remove', exact: true }).last().click()
   await expect.poll(async () => (await state()).marks[0].anchorState).toBe('orphaned')
-  await openSection(page, 'Marks')
-  await expect(page.locator('.left .marks')).toContainText('its scan is gone')
+  await onBrief(page, () => expect(cardSection(page, 'Marks')).toContainText('its scan is gone'))
   expect(existsSync(join(root, 'hollow', '.torno', 'scans', 'S1'))).toBe(false)
   // Nothing is tinted or numbered where there is no scan, and the agent is told what became of it.
   expect((await tints()).regions).toEqual([])
@@ -344,9 +344,11 @@ test('a region goes on as a mark when its scan is removed, and says so', async (
   const client = await connect('hollow')
   expect(JSON.parse((await call(client, 'marks')).text).marks[0].line).toBe('M1 region on scan S1 [its scan is gone]: "wiring loom, can be pushed aside"')
   // Deleting the mark leaves nothing of it.
-  await page.locator('.mark-row[data-mark="M1"]').hover()
-  await page.getByRole('button', { name: 'Delete M1', exact: true }).click()
-  await expect.poll(async () => (await state()).marks).toEqual([])
+  await onBrief(page, async () => {
+    await page.locator('.mark-row[data-mark="M1"]').hover()
+    await page.getByRole('button', { name: 'Delete M1', exact: true }).click()
+    await expect.poll(async () => (await state()).marks).toEqual([])
+  })
 })
 
 // Milestone 5 (R1): the brush is a ball round the point under the pointer. Beside a part it reaches under it, and takes nothing there.
@@ -358,7 +360,7 @@ test('a stamp beside a part takes nothing the part hides', async () => {
   writeFileSync(file, stl(sheet))
   await pickFile(file)
   await openSection(page, 'Scans')
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()

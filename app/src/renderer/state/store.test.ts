@@ -1466,6 +1466,31 @@ describe('the sheet of the failed build', () => {
   })
 })
 
+describe('the left column', () => {
+  it('is shown to begin with, and shown or hidden as it is asked; another object leaves it as it is', () => {
+    expect(store.getState().leftOpen).toBe(true)
+    actions.setLeftOpen(false)
+    expect(store.getState().leftOpen).toBe(false)
+    actions.openObject('gear', { layers: {} })
+    expect(store.getState().leftOpen).toBe(false)
+    actions.setLeftOpen(true)
+    expect(store.getState().leftOpen).toBe(true)
+  })
+})
+
+describe('the left column and the bench', () => {
+  it('opening a tab of the bench shows the column if it was hidden', () => {
+    actions.openObject('gear', { layers: {} })
+    actions.setBenchTab('params')
+    actions.setLeftOpen(false)
+    actions.setBenchTab('params')
+    expect(store.getState().leftOpen).toBe(true)
+    actions.setLeftOpen(false)
+    actions.setBenchTab('parts')
+    expect(store.getState().leftOpen).toBe(true)
+  })
+})
+
 describe('the session dock', () => {
   it('is shown to begin with, and shown or hidden as it is asked; another object or workspace leaves it as it is', () => {
     expect(store.getState().dockOpen).toBe(true)
@@ -1480,27 +1505,17 @@ describe('the session dock', () => {
 })
 
 describe('the route card', () => {
-  it('folds a section and unfolds it again; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ folded: ['params', 'scans', 'tracings'], width: 296 })
-    actions.toggleSection('parts')
-    expect(store.getState().column.folded).toEqual(['parts', 'params', 'scans', 'tracings'])
+  it('keeps the open tab of the bench for each project, the window\'s, and none without a project open', () => {
+    store.setState({ objectId: null, benchTab: {} })
+    actions.setBenchTab('parts')
+    expect(store.getState().benchTab).toEqual({})
     actions.openObject('gear', { layers: {} })
-    actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.folded).toContain('parts')
-    actions.toggleSection('parts')
-    expect(store.getState().column.folded).toEqual(['params', 'scans', 'tracings'])
-    actions.toggleSection('params')
-    expect(store.getState().column.folded).toEqual(['scans', 'tracings'])
-  })
-
-  it('shows a section: unfolds it, and leaves an open one as it is', () => {
-    store.setState({ column: { folded: ['params', 'scans', 'tracings'], width: 296 } })
-    actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
-    actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
-    actions.showSection('marks')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
+    actions.setBenchTab('parts')
+    expect(store.getState().benchTab.gear).toBe('parts')
+    actions.openObject('hollow', { layers: {} })
+    expect(store.getState().benchTab.hollow).toBeUndefined()
+    expect(store.getState().benchTab.gear).toBe('parts')
+    store.setState({ benchTab: {} })
   })
 
   it('keeps the width the person gave the card', () => {

@@ -207,19 +207,15 @@ test('Shift adds to the selection, and takes out; Escape and a click on nothing 
   await expect.poll(async () => (await state()).selection).toEqual([base.ref, post.ref])
   await expect(chips().locator('.hand-ref-name')).toHaveText([base.ref, post.ref])
   await expect(chips().nth(1).locator('.hand-ref-descriptor')).toContainText('plane, normal +Z, z = 22.5')
-  // The head holds them and says how many. Made taller than the card, it stops at 60 % of the card and scrolls inside itself.
+  // The tag by the part holds them and says how many; it stands inside the view and leaves the column alone.
   await expect(page.locator('.hand-said')).toHaveText('2 picked, shift-click adds')
-  const cap = await page.evaluate(() => {
-    const hand = document.querySelector<HTMLElement>('.route-hand')!
-    const tall = document.createElement('div')
-    tall.style.height = '4000px'
-    hand.querySelector('.hand')!.append(tall)
-    const out = { height: hand.getBoundingClientRect().height, card: document.querySelector('.route-card')!.getBoundingClientRect().height, scrolls: hand.scrollHeight > hand.clientHeight }
-    tall.remove()
-    return out
+  await expect(page.locator('.route-hand')).toHaveCount(0)
+  const inside = await page.evaluate(() => {
+    const tag = document.querySelector('[data-tag="hand"]')!.getBoundingClientRect()
+    const view = document.querySelector('.viewport-canvas')!.getBoundingClientRect()
+    return tag.left >= view.left && tag.right <= view.right && tag.top >= view.top && tag.bottom <= view.bottom
   })
-  expect(cap.height).toBeCloseTo(cap.card * 0.6, 0)
-  expect(cap.scrolls).toBe(true)
+  expect(inside).toBe(true)
   await clickOver(ON_POST, { shift: true })
   await expect.poll(async () => (await state()).selection).toEqual([base.ref])
 

@@ -91,9 +91,9 @@ test('a tracing on a flat face of the part is T1, with the outline the kernel cu
   await switchTo('Tracing')
   await expect(panel()).toBeVisible()
   await expect(panel()).toHaveAttribute('data-tracing', 'T1')
-  // The panel is in the card: the Tracings section opened by itself when the view came, with the tracing's row above the panel.
-  await expect(page.locator('[data-section="tracings"] .tracing-row[data-tracing="T1"] .tr-panel')).toBeVisible()
-  await expect(page.locator('[data-section="tracings"] .tracing-row[data-open]')).toHaveCount(1)
+  // The panel is beside the sheet: the tracing's row above its panel, in the Tracing view's panel.
+  await expect(page.locator('[data-view-panel="tracings"] .tracing-row[data-tracing="T1"] .tr-panel')).toBeVisible()
+  await expect(page.locator('[data-view-panel="tracings"] .tracing-row[data-open]')).toHaveCount(1)
   await expect(panel().locator('.tr-id')).toHaveText('T1')
   await expect.poll(() => page.evaluate(async () => (await window.torno.tracings.outline('bracket', 'T1')) !== null), { timeout: 20_000 }).toBe(true)
   // The outline is drawn: the kernel's cut of the plane, the base and not the post that stands on it.

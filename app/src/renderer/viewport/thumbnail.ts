@@ -24,6 +24,29 @@ export { THUMB_HEIGHT, THUMB_WIDTH, thumbnailLayout, thumbnailPlan, type Thumbna
 /** How much of the picture's half width or height the parts reach, from its middle. */
 const FILL = 0.86
 
+/**
+ * One pair of the materials of the last picture, kept alive. three.js drops a program when the last material that used it
+ * is disposed, and each picture makes its parts' materials anew and disposes them: with none kept, every picture compiled
+ * its programs again. Free on a GPU, seconds of the window's time with none (software GL), where the window waits for the compile.
+ */
+export class WarmMaterials {
+  private held: { mesh: THREE.Material; edges: THREE.Material } | null = null
+
+  /** Holds these, and lets go of the pair held before (after, so that the program they share is never without one). */
+  keep(next: { mesh: THREE.Material; edges: THREE.Material }): void {
+    const before = this.held
+    this.held = next
+    before?.mesh.dispose()
+    before?.edges.dispose()
+  }
+
+  dispose(): void {
+    this.held?.mesh.dispose()
+    this.held?.edges.dispose()
+    this.held = null
+  }
+}
+
 export class ThumbnailMaker {
   private readonly stage = new THREE.Scene()
   private readonly lights = makeLights()
@@ -31,6 +54,7 @@ export class ThumbnailMaker {
   // As a picture for the agent is drawn: linear light in half floats, with a stencil for the cut faces of a section.
   private readonly drawn = new THREE.WebGLRenderTarget(THUMB_WIDTH, THUMB_HEIGHT, { samples: 4, type: THREE.HalfFloatType, stencilBuffer: true })
   private readonly encoded = new THREE.WebGLRenderTarget(THUMB_WIDTH, THUMB_HEIGHT, { depthBuffer: false })
+  private readonly warm = new WarmMaterials()
 
   constructor(private readonly renderer: THREE.WebGLRenderer) {
     this.stage.add(this.lights.sky, this.lights.key, this.lights.key.target)
@@ -85,17 +109,23 @@ export class ThumbnailMaker {
       renderer.setClearColor(0x000000, 0)
       renderer.clippingPlanes = []
       renderer.render(this.stage, camera)
-      // The pixels are read before this returns; only the writing of the PNG is waited for.
+      // The read is asked for here, while the target holds the picture; the pixels come when the GPU has them (nothing waits on it), and then the PNG is written.
       encoding = pngOf(renderer, this.encoder, this.drawn, this.encoded, { alpha: true })
     } finally {
       renderer.setRenderTarget(was.target)
       renderer.setClearColor(was.colour, was.alpha)
       renderer.clippingPlanes = was.planes
       cut?.dispose()
-      for (const one of built) {
-        this.stage.remove(one.group)
-        disposePart(one)
+      // The first part's materials are kept for the next picture (`WarmMaterials`); the rest are let go as before.
+      const [first, ...rest] = built
+      for (const one of built) this.stage.remove(one.group)
+      if (first) {
+        first.mesh.geometry.boundsTree = undefined
+        first.mesh.geometry.dispose()
+        first.edges.geometry.dispose()
+        this.warm.keep({ mesh: first.mesh.material, edges: first.edges.material })
       }
+      for (const one of rest) disposePart(one)
     }
     const of: ThumbnailOf = { layout: plan.layout, parts: plan.parts.length }
     if (plan.section) of.cut = true
@@ -106,6 +136,7 @@ export class ThumbnailMaker {
   }
 
   dispose(): void {
+    this.warm.dispose()
     this.drawn.dispose()
     this.encoded.dispose()
     this.encoder.dispose()

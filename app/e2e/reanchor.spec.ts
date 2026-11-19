@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Anchor, Mark, MarksFile, PinMark } from '../src/shared/marks'
+import { clickHere, onBrief, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 
 // Marks across rebuilds (review focus 1): a mark stays at its point; after every
@@ -134,8 +135,11 @@ test('pins on the top of the plate and on the post are on those faces', async ()
   expect(now.map((m) => m.anchor.ref)).toEqual([top.anchor.ref, post.anchor.ref, 'plate/E1', 'plate/E2'])
   expect(now.map((m) => m.anchor.point)).toEqual([top.anchor.point, post.anchor.point, now[2].anchor.point, now[3].anchor.point])
   placed = { top: now[0].anchor, post: now[1].anchor }
-  await expect(page.locator('.mark-row .mark-chip')).toHaveText(['M1', 'M2', 'M3', 'M4'])
-  await expect(page.locator('.mark-anchor')).toHaveCount(0)
+  // The rows are on the Brief page since #277, and the view is covered while it is up: each read of them is made there.
+  await onBrief(page, async () => {
+    await expect(page.locator('.mark-row .mark-chip')).toHaveText(['M1', 'M2', 'M3', 'M4'])
+    await expect(page.locator('.mark-anchor')).toHaveCount(0)
+  })
 })
 
 test('rebuilt thicker and without its post: the first pin has drifted onto the face now there, the second is orphaned, and both rows say so', async () => {
@@ -158,6 +162,7 @@ test('rebuilt thicker and without its post: the first pin has drifted onto the f
   expect(post.anchor).toEqual(placed.post)
   expect((await state()).scene?.parts.map((p) => p.name)).toEqual(['plate'])
 
+  await showBrief(page)
   await expect(row('M1').locator('.mark-chip')).toHaveText('M1')
   await expect(row('M1').locator('.mark-anchor')).toHaveText('moved: check it')
   await expect(row('M2').locator('.mark-chip')).toHaveText('M2')
@@ -221,6 +226,7 @@ test('rebuilt thicker and without its post: the first pin has drifted onto the f
     expect(mark.anchor.descriptor).toMatch(/^plane, /)
     await expect(row(mark.id).locator('.mark-anchor')).toHaveText('moved: check it')
   }
+  await showModel(page)
 
   expect(marksOnDisk().marks).toEqual([top, post, first, second])
 })
@@ -232,12 +238,15 @@ test('rebuilt as it was: both pins are ok again, on the faces they were put on',
   expect(post.anchor).toMatchObject({ point: placed.post.point, part: 'post', ref: placed.post.ref, descriptor: 'plane, normal +Z, z = 22.5, 50.27 mm²' })
   expect(first.anchor).toMatchObject({ ref: 'plate/E1', descriptor: edges.e1 })
   expect(second.anchor).toMatchObject({ ref: 'plate/E2', descriptor: edges.e2 })
-  await expect(page.locator('.mark-row .mark-chip')).toHaveText(['M1', 'M2', 'M3', 'M4'])
-  await expect(page.locator('.mark-anchor')).toHaveCount(0)
+  await onBrief(page, async () => {
+    await expect(page.locator('.mark-row .mark-chip')).toHaveText(['M1', 'M2', 'M3', 'M4'])
+    await expect(page.locator('.mark-anchor')).toHaveCount(0)
+  })
   expect(marksOnDisk().marks).toEqual([top, post, first, second])
 })
 
 test('a resolved mark is left alone by the builds that follow', async () => {
+  await showBrief(page)
   await row('M2').hover()
   await row('M2').getByRole('button', { name: 'Resolve M2' }).click()
   // Resolved marks are folded away in the panel.
@@ -247,6 +256,7 @@ test('a resolved mark is left alone by the builds that follow', async () => {
   await switchTo('b', 4, ['drifted', 'ok', 'drifted', 'drifted'])
   expect((await marks())[1]).toEqual(before)
   await expect(page.locator('.mark-anchor')).toHaveText(['moved: check it', 'moved: check it', 'moved: check it'])
+  await showModel(page)
 })
 
 test('reopened, it is checked against the build there is: its part is gone, and it says so without another build', async () => {
@@ -258,8 +268,10 @@ test('reopened, it is checked against the build there is: its part is gone, and 
     ['draft', 'drifted']
   ])
   expect((await state()).build).toMatchObject({ status: 'ok', revision: 4 })
-  await expect(row('M2').locator('.mark-chip')).toHaveText('M2')
-  await expect(row('M2').locator('.mark-anchor')).toHaveText('its part is gone')
+  await onBrief(page, async () => {
+    await expect(row('M2').locator('.mark-chip')).toHaveText('M2')
+    await expect(row('M2').locator('.mark-anchor')).toHaveText('its part is gone')
+  })
 })
 
 const tool = (name: string) => page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name, exact: true })
@@ -269,8 +281,7 @@ async function clickOver(point: Vec3): Promise<void> {
   const [fx, fy] = await page.evaluate((at) => window.__tornoTest!.project(at), point)
   const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.move(box.x + fx * box.width, box.y + fy * box.height)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
 }
 
 test('Re-place puts a drifted pin back on the part with one click: the same mark and note, ok again, and the tool that was in hand comes back', async () => {
@@ -278,10 +289,13 @@ test('Re-place puts a drifted pin back on the part with one click: the same mark
   expect(before[0]).toMatchObject({ id: 'M1', anchorState: 'drifted', note: 'too thin here' })
   await page.keyboard.press('a') // the arrow tool is in hand
   await expect(tool('Arrow')).toHaveAttribute('aria-pressed', 'true')
+  // Re-place is on the row, on the Brief page; the click that puts the pin is on the view.
+  await showBrief(page)
   await row('M1').hover()
   const replace = row('M1').getByRole('button', { name: 'Re-place M1' })
   await replace.click()
   await expect(replace).toHaveAttribute('aria-pressed', 'true')
+  await showModel(page)
   await expect(tool('Pin')).toHaveAttribute('aria-pressed', 'true')
   expect((await state()).activeMark).toBe('M1')
 
@@ -298,33 +312,38 @@ test('Re-place puts a drifted pin back on the part with one click: the same mark
   expect(rest).toEqual(before.slice(1))
   expect(marksOnDisk().next).toBe(5)
   await expect(page.locator('.note-card')).toHaveCount(0)
-  await expect(row('M1').locator('.mark-anchor')).toHaveCount(0)
-  await expect(row('M1').getByRole('button', { name: 'Re-place M1' })).toHaveCount(0)
+  await onBrief(page, async () => {
+    await expect(row('M1').locator('.mark-anchor')).toHaveCount(0)
+    await expect(row('M1').getByRole('button', { name: 'Re-place M1' })).toHaveCount(0)
+  })
   await expect(tool('Arrow')).toHaveAttribute('aria-pressed', 'true')
   expect(marksOnDisk().marks[0]).toEqual(moved)
 })
 
 test('Escape leaves a mark where it is; an orphaned pin is put on a part that is there', async () => {
+  await showBrief(page)
   await row('M2').hover()
   await row('M2').getByRole('button', { name: 'Re-place M2' }).click()
+  await showModel(page)
   await expect(tool('Pin')).toHaveAttribute('aria-pressed', 'true')
   // Beside the part: nothing to put it on, and the tool stays in hand for it.
   const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.move(box.x + box.width - 12, box.y + box.height - 60)
   await expect(page.locator('.pick-readout')).toHaveText('Click the part where M2 should be. Esc leaves it where it is')
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(tool('Pin')).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.press('Escape')
   await expect(tool('Arrow')).toHaveAttribute('aria-pressed', 'true')
   expect((await marks())[1]).toMatchObject({ id: 'M2', anchorState: 'orphaned', anchor: placed.post })
 
+  await showBrief(page)
   await row('M2').hover()
   await row('M2').getByRole('button', { name: 'Re-place M2' }).click()
+  await showModel(page)
   await clickOver([10, 6, 5.5])
   await expect.poll(async () => (await marks())[1].anchorState).toBe('ok')
   expect((await marks())[1]).toMatchObject({ id: 'M2', note: 'shorten the post', anchor: { part: 'plate' } })
-  await expect(row('M2').locator('.mark-chip')).toHaveText('M2')
+  await onBrief(page, () => expect(row('M2').locator('.mark-chip')).toHaveText('M2'))
   await page.keyboard.press('v')
 })
 
@@ -335,6 +354,7 @@ test('a mark whose layout the build no longer has says so, and going to it does 
     return window.torno.marks.add('morph', { kind: 'pin', author: 'user', note: 'on the bed', layout: 'print', revision: 1, camera: hooks.camera(), anchor: { point: [0, 0, 0], part: 'plate', ref: 'plate/F0' } })
   })
   await expect.poll(async () => (await marks()).find((m) => m.id === lost.id)?.anchorState).toBe('orphaned')
+  await showBrief(page)
   await expect(row(lost.id).locator('.mark-anchor')).toHaveText('its layout is gone')
   await expect(row(lost.id).getByRole('button', { name: `Re-place ${lost.id}` })).toHaveCount(0)
   const before = { camera: await page.evaluate(() => window.__tornoTest!.camera()), active: (await state()).activeMark }
@@ -345,6 +365,7 @@ test('a mark whose layout the build no longer has says so, and going to it does 
   expect(await page.evaluate(() => window.__tornoTest!.camera())).toEqual(before.camera)
   await row(lost.id).hover()
   await expect(row(lost.id).getByRole('button', { name: `Go to ${lost.id}` })).toBeDisabled()
+  await showModel(page)
 })
 
 test("a mark of the agent's that lost its part is not offered Re-place, and main refuses to put it somewhere else", async () => {
@@ -354,11 +375,13 @@ test("a mark of the agent's that lost its part is not offered Re-place, and main
     return marks.add('morph', { kind: 'pin', author: 'agent', note: 'shorter?', layout: 'main', revision: 1, camera, anchor: { point: [0, 0, 22.5], part: 'post' } }, 'sent')
   }, await page.evaluate(() => window.__tornoTest!.camera()))
   await expect.poll(async () => (await marks()).find((m) => m.id === theirs.id)?.anchorState).toBe('orphaned')
-  await expect(row(theirs.id)).toHaveAttribute('data-author', 'agent')
-  await expect(row(theirs.id).locator('.mark-anchor')).toHaveText('its part is gone')
-  await row(theirs.id).hover()
-  await expect(row(theirs.id).getByRole('button', { name: `Go to ${theirs.id}` })).toBeVisible()
-  await expect(row(theirs.id).getByRole('button', { name: `Re-place ${theirs.id}` })).toHaveCount(0)
+  await onBrief(page, async () => {
+    await expect(row(theirs.id)).toHaveAttribute('data-author', 'agent')
+    await expect(row(theirs.id).locator('.mark-anchor')).toHaveText('its part is gone')
+    await row(theirs.id).hover()
+    await expect(row(theirs.id).getByRole('button', { name: `Go to ${theirs.id}` })).toBeVisible()
+    await expect(row(theirs.id).getByRole('button', { name: `Re-place ${theirs.id}` })).toHaveCount(0)
+  })
   const refused = await page.evaluate(
     ([id, camera]) => window.torno.marks.replace('morph', id, { anchor: { point: [10, 6, 5.5], part: 'plate' }, revision: 4, camera }).then(() => 'moved', (e: Error) => e.message),
     [theirs.id, await page.evaluate(() => window.__tornoTest!.camera())] as const
@@ -391,5 +414,5 @@ test('a pin made while the next build runs is made on the build on show, and the
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: shown + 1, stale: false })
   // Checked against the build that landed, and flagged: the face it was put on is not where it was.
   await expect.poll(async () => (await marks()).find((m) => m.id === made.id)?.anchorState, { timeout: 15_000 }).toBe('drifted')
-  await expect(row(made.id).locator('.mark-anchor')).toHaveText('moved: check it')
+  await onBrief(page, () => expect(row(made.id).locator('.mark-anchor')).toHaveText('moved: check it'))
 })

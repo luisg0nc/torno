@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { box, stl } from '../src/test/scanFixtures'
-import { cardSection, openSection, showProjects } from './helpers'
+import { openSection, showBrief, showModel, showProjects, clickImportScan } from './helpers'
 import { openListed, projectCard } from './objects'
 
 // The app is driven by single letters. After a click or an action, wherever it was, the next letter is the
@@ -112,9 +112,10 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await pinIsInHand('the session pane resized')
   // Two scans: a unit chosen on a row, and in the align bar which scan to align.
   await openSection(page, 'Scans')
-  for (const name of ['plate.stl', 'floor.stl']) {
+  for (const [at, name] of ['plate.stl', 'floor.stl'].entries()) {
     await pickFile(join(root, name))
-    await page.getByRole('button', { name: 'Import scan…' }).click()
+    await clickImportScan(page)
+    await expect(page.locator('.scan-row')).toHaveCount(at + 1)
   }
   await expect(page.locator('.scan-row')).toHaveCount(2)
   await page.getByRole('button', { name: 'Details of S1' }).click()
@@ -131,15 +132,12 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.getByRole('button', { name: 'Show post' }).click()
   await page.getByRole('button', { name: 'Show post' }).click()
   await pinIsInHand('a part switched off and on')
-  // Each section of the card's head pressed with the pointer: folded, then open.
-  for (const name of ['Parts', 'Scans', 'Marks'] as const) {
-    await cardSection(page, name).locator('.route-head-button').click()
-    await pinIsInHand(`${name} head pressed`)
-    await cardSection(page, name).locator('.route-head-button').click()
-    await pinIsInHand(`${name} again`)
-  }
+  // The view's switch pressed with the pointer: Scans away to the model, and back.
+  await showModel(page)
+  await pinIsInHand('the model tab pressed')
+  await openSection(page, 'Scans')
+  await pinIsInHand('the scans tab pressed')
   // The panel made wider by its edge, and the default put back with a double click.
-  await openSection(page, 'Marks')
   const line = page.getByRole('separator', { name: 'Resize panel' })
   const from = (await line.boundingBox())!
   await page.mouse.move(from.x + from.width / 2, from.y + 300)
@@ -157,9 +155,12 @@ test('after each step of a session of work, P takes the pin tool', async () => {
     )
   }
   for (const id of ['M1', 'M2']) await page.evaluate((mark) => window.torno.marks.update('bracket', mark, { status: 'sent' }), id)
+  // The rows are on the Brief page, which covers the view and hears no tool key: the row is clicked there, and the model is shown for P.
+  await showBrief(page)
   await expect(page.locator('.mark-row[data-status="sent"]')).toHaveCount(2)
   await page.locator('.mark-row[data-mark="M1"] .mark-chip').click()
   await expect.poll(async () => (await state()).activeMark).toBe('M1')
+  await showModel(page)
   await pinIsInHand('a mark\'s row clicked')
   const chip = await page.evaluate(() => window.__tornoTest!.markScreen('M2'))
   expect(chip?.visible).toBe(true)
@@ -185,6 +186,13 @@ test('a choice made with the keys keeps them: the next arrow is the list\'s', as
   await unit.selectOption('cm')
   await expect(unit).toBeFocused()
   await unit.selectOption('mm')
+  const column = (await state()).leftOpen
+  await page.keyboard.press('Control+Shift+L')
+  expect((await state()).leftOpen).toBe(!column)
+  await expect(page.locator('.left')).toBeHidden()
+  await page.keyboard.press('Control+Shift+L')
+  expect((await state()).leftOpen).toBe(column)
+  await expect(page.locator('.left')).toBeVisible()
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
 })
 

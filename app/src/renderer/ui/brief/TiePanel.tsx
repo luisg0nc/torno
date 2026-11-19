@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Card } from '../../../shared/board'
 import { valueText } from '../../../shared/dimension'
 import type { DimensionMark, Mark } from '../../../shared/marks'
-import { tieRefusal, tieToleranceFor, wouldSay } from '../../../shared/ties'
+import { tieNumber, tieRefusal, tieToleranceFor, wouldSay } from '../../../shared/ties'
 import { insertIntoSession } from '../insertIntoSession'
 import { actions } from '../../state/store'
 
@@ -20,7 +20,7 @@ export function askClaudeToTie(card: Card): string {
   return `Place a dimension of the ${size.what} that checks it against the brief's size ${card.id} (${size.value} ${size.unit}), then tie ${card.id} to it.`
 }
 
-export function TiePanel({ card, marks, sizes, revision, onTie, onUntie, onClose }: { card: Card; marks: readonly Mark[]; sizes: readonly Card[]; revision: number | undefined; onTie: (mark: string, tolerance: number | undefined) => void; onUntie: () => void; onClose: () => void }) {
+export function TiePanel({ card, marks, sizes, revision, onMeasure, onTie, onUntie, onClose }: { card: Card; marks: readonly Mark[]; sizes: readonly Card[]; revision: number | undefined; onMeasure: (() => void) | null; onTie: (mark: string, tolerance: number | undefined) => void; onUntie: () => void; onClose: () => void }) {
   const size = card.size!
   const tied = size.tie
   const [tolerance, setTolerance] = useState(String(tied?.tolerance ?? tieToleranceFor(size)))
@@ -56,6 +56,15 @@ export function TiePanel({ card, marks, sizes, revision, onTie, onUntie, onClose
         </ul>
       )}
       <div className="brief-tie-actions">
+        <button
+          type="button"
+          className="link-button"
+          disabled={onMeasure === null || typeof tieNumber(size) === 'string'}
+          title={typeof tieNumber(size) === 'string' ? (tieNumber(size) as string) : onMeasure === null ? 'The model has not built yet: there is nothing to measure' : 'Shows the part with Measure in hand: the dimension you keep is tied to this size'}
+          onClick={() => onMeasure?.()}
+        >
+          Measure it on the part
+        </button>
         <button
           type="button"
           className="link-button"

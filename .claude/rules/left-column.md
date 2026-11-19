@@ -10,8 +10,13 @@ paths:
   - "app/src/renderer/ui/layerMarks.test.ts"
   - "app/src/renderer/ui/card/*.ts"
   - "app/src/renderer/ui/card/*.tsx"
+  - "app/src/renderer/state/paramFind.ts"
+  - "app/src/renderer/state/paramFind.test.ts"
   - "app/src/renderer/state/pointed.ts"
   - "app/src/renderer/ui/LeftEdge.tsx"
+  - "app/src/renderer/ui/PartPicker.tsx"
+  - "app/src/renderer/ui/pickerRows.ts"
+  - "app/src/renderer/ui/pickerRows.test.ts"
   - "app/src/renderer/state/column.ts"
   - "app/src/renderer/state/column.test.ts"
   - "app/src/renderer/styles/panels.css"
@@ -78,7 +83,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`actions.framePart`, `Viewport.framePart`: where it is drawn, the camera not turned), the target is "Show only"
   (`soloLayers(layout, [name])`) and the title says `N hidden · Show all` while a part of the layout is off. A part the person switched off is remembered by its name through builds (`applyScene` drops the settings of names the build no longer has); when none of the parts that were shown is left and the ones that are all stand switched off, `applyScene` shows them, so a build never leaves the view empty (#220). The build line (`context.ts`) names no part hidden when the view it was told of (`ViewState.visible`) holds none of the build's parts: that view is of the build before. After the
   name, the count of the open marks on the part in the layout shown, in a 16 px pill (`ui/layerMarks.ts` `marksByPart`; `--fail` when
-  one is a check that fails on the build); a click lists only the marks on that part in the Marks section
+  one is a check that fails on the build); a click shows the Brief page and lists only the marks on that part in its Marks block
   (`store.marksOnPart`, the window's alone and dropped with the object; a chip `Only marks on lid` with a cross
   above the list; `goToRow` clears it). It filters what the list shows and nothing else: the agent is told every mark.
 - **Rows lit from the view** (Parts, `ui/card/lit.ts`, `useLit.ts`, `state/pointed.ts`; leader rule 4: marks and checks have no leader).
@@ -107,17 +112,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## The page of objects (`app/src/renderer`)
 
-- **The route card** (`ui/card/RouteCard.tsx`, `ui/card/CardSection.tsx`, `ui/card/sections.ts`, `styles/card.css` and the `card-*.css` of each section, `state/column.ts`).
-  There is no rail (it went with #273). The left of the window is `aside[data-region="left"]` (`aria-label="Panels"`), the F6 region `left`, holding the route card (`.card`, `--card-w`) while a project is open (`sectionsFor`: the card is away, and
+- **The route card** (`ui/card/RouteCard.tsx`, `styles/card.css` and the `card-*.css` of each section, `state/column.ts`).
+  There is no rail (it went with #273). The left of the window is `aside[data-region="left"]` (`aria-label="Panels"`), the F6 region `left`, holding the route card (`.card`, `--card-w`) while a project is open (`cardFor`: the card is away, and
   `--card-space` is `0px`, on the page of projects, with a new project and with none open: `data-left="away"` on the shell, `open` otherwise; the region is then empty and F6 passes over it). What the rail held is elsewhere:
-  Projects is the title bar's crumb (All projects `W` in its menu; on the page of a new project the title bar has an "All projects" button, which keeps the draft), and another project's session is a pill in the title bar (`titleSigns`); Keys is the `?` button of the status line (`data-keys-button`, `showKeys`); the print profile is the chip of the status line (`ui/ProfileChip.tsx`, see `checks-and-profile`). Every section is in the card: it is reached by scrolling and by a click on its head (`actions.showSection` unfolds and scrolls to a section, for what goes to one: `goToRow`). `store.sectionHere` (found by the card's `IntersectionObserver` on the heads, `inSight` and `READING_LINE`) is kept for it; nothing draws it now. Tab and Ctrl+Tab are not bound. The badges the rail had are gone with it (the sections' heads say what they hold).
-  The card: `ui/card/RouteCard.tsx` is the head slot (`head`, pinned above the scroll, up to 60 % of the card, `.route-hand` in `card.css`, scrolling inside itself; `App` fills it with `InHand`, which draws nothing while nothing is in hand, see `marks-window`) and `.route-scroll`; over both stands the `OnBlock` (`ui/card/OnBlock.tsx`, `onRows.ts`, `card-on.css`: see `marks-window`), in it a `CardSection` for each of the seven `SECTIONS`. A section
-  (`section.route-section`, `data-section`, `data-folded`, `data-here`, `data-needs`, `data-empty`, `aria-labelledby` its head) has a dot on the route (9 px, 1 px `--route` at 17.5 px) and a head that is a button (`.route-head-button`, `aria-expanded`):
-  the name at 16 px, 600, and `said`, one line in the monospace face at 10.5 px (`useSectionFacts`: the words and the failing part in `--fail`). A click on the head folds the section (a folded section draws no body); one with nothing in it
-  says "none" and does not unfold (`empty`; Marks and Scans are never empty, their body holds Review this build and Import scan…). The bodies are today's components: Parts is `Layers`, Parameters `ParamsPanel` (the Parameters alone), Checks `card/Checks.tsx` (`checks-and-profile`),
-  Marks `MarksPanel`, Scans `ScansPanel`, Tracings `TracingRows` (the tracings shown in 3D); what was a `SectionTitle`'s one thing to do is a `.route-tools` row at the top of the body, or, where a section's restyling has moved it, the `action` of its `CardSection` at the right of the head's line (Import scan…).
-  The card scrolls as a whole. Which sections are folded and the card's width are the window's (`store.column`: `{ folded: SectionId[], width }`, in `localStorage` under `torno.column`, read with `readColumn(storedColumn(…))` and written in try/catch; an old value `{ open, width }`
-  reads as the default folding, `COLUMN_DEFAULT`, at its width), never the workspace's. The card's right edge (`ui/LeftEdge.tsx`,
+  Projects is the title bar's crumb (All projects `W` in its menu; on the page of a new project the title bar has an "All projects" button, which keeps the draft), and another project's session is a pill in the title bar (`titleSigns`); Keys is the `?` button of the status line (`data-keys-button`, `showKeys`); the print profile is the chip of the status line (`ui/ProfileChip.tsx`, see `checks-and-profile`). The card has no sections any more: Checks and Marks are blocks of the Brief page (#277), Scans and Tracings are tabs of the view's switch, and while one is shown its panel takes the bench's place in the column (#278, `ui/view/ViewPanel.tsx`, `styles/view-panel.css`; see `board`, `scans-window`, `tracings`); `goToRow` shows the Brief page. Tab and Ctrl+Tab are not bound. The badges the rail had are gone with it.
+  **The bench** (`ui/card/Bench.tsx`, `styles/card-bench.css`, #275): Parameters and Parts are two folder tabs (`role="tablist"`, `.bench-tab`, `data-tab` `params` or `parts`) that fill the card under the On block and the head slot; the open one is `role="tabpanel"` (`.bench-panel`, scrolling inside itself) holding `ParamsPanel` or `Layers`. Checks and Marks left the column for the Brief page with #277 (`ui/brief/Held.tsx` `ChecksBlock` and `MarksBlock`, see `board`), Scans and Tracings for the view's switch with #278 (their panels take the bench's place while shown). `benchTabs(parts, params)` (`state/column.ts`) says which tabs a project has (a one-part model: Parameters alone; no Params: Parts alone; else both), `tabShown` the one drawn (the kept one if the project has it, else Parameters). The open tab is kept for each project by the window: `store.benchTab` (`{ [objectId]: 'params' | 'parts' }`), `actions.setBenchTab`, `localStorage` `torno.bench` (`readBench`, `writeBench`, try/catch), never the workspace's. A tab says its count, and a dot (`.bench-tried`) on Parameters says a value is tried. Left and Right (`bench.next`, `bench.previous`, scope `bench`) move between tabs. `/` (`params.find`, scope `viewport`) opens Parameters and focuses its find box. Find and the chips All / Assumed / Brief (`state/paramFind.ts`: `findParams`, `filterCounts`, `inFilter`, the window's `paramFindStore`) are in `ParamsPanel`; a source is the comment's first word (`sourceOf`), only a size is assumed or from the brief, and a find matches every word in a name or comment. A stored `folded` (the sections' folding of an earlier card) is ignored on reading.
+  The card: `ui/card/RouteCard.tsx` is the head slot (`head`, up to 60 % of the card, `.route-hand` in `card.css`, scrolling inside itself; `App` fills it with `Head`, and it is drawn in place of the `OnBlock` while the sketch, a review round or a size being tied is in hand, see `marks-window`; a selection is a tag in the view), or, when the head is not there, the `OnBlock` (`ui/card/OnBlock.tsx`, `onRows.ts`, `card-on.css`: see `marks-window`), and under it the bench, which fills the rest (or, while the Scans or the Tracing view is shown and the project has one, that view's `ViewPanel`: `ScansSide`, `TracingsSide`). The bodies are today's components: Parts is `Layers`, Parameters `ParamsPanel`; what was a `SectionTitle`'s one thing to do is a `.route-tools` row at the top of the body.
+  The card's width is the window's (`store.column`: `{ width }`, in `localStorage` under `torno.column`, read with `readColumn(storedColumn(…))` and written in try/catch; an old value `{ open, width }` or one with `folded` reads for its width), never the workspace's. The card's right edge (`ui/LeftEdge.tsx`,
   `role="separator"`, `left.resize` Left/Right) makes it wider than its default, 296 px (`CARD_DEFAULT`; 264, `leftDefault(window.innerWidth)`, in a window narrower
   than 1360 px, `NARROW_WINDOW`), up to `CARD_MAX` and what leaves the viewport `VIEWPORT_MIN` (420 px) beside the dock
   (`clampLeft`); what is kept never goes below `CARD_NARROW` (264, which is also what a double click keeps): the width `CARD_DEFAULT` stands for the default of whichever window shows it (`clampLeft`). Its drag writes
@@ -129,3 +130,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **The projects of the folder** are the page of projects (`ShowPage`), and the project crumb's menu of the title bar (All projects at its head, a project that cannot be built muted, its reason the title). The example's note
   ("A temporary copy…", with Keep this as a folder…) and a folder that would not open (`role="alert"`, which brings the page up to be read) are said at the top of the page of projects (`ShowPage`'s `notes`, the spec being silent on where). There
   is no switcher: the title bar's pills say that a session of another project works or waits.
+
+- **Hiding the column** is `column.toggle` (`Ctrl+Shift+L`; see `keys`): `store.leftOpen`, the grid's `data-left='away'`, the `aside.left` `hidden`. The status line keeps the failing dimensions and a `N values tried` button (`BuildStatus`).
+
+## The picker (`Ctrl+P`)
+
+- `ui/PartPicker.tsx` is one sheet over the view (`picker.open`, scope `window`: not in a field or the terminal), with the parts of the
+  layout (a group's first, as the Parts tab has them) and the model's Params in one list, found by `pickerRows` (pure, `ui/pickerRows.ts`:
+  every word typed in a part's name or its group's, in a Param's name or its comment, at most `PICKER_LIMIT` rows drawn and the
+  count of those found). It is no second list of parts: the rows are the scene's and the layers' own. Enter on a part selects it, switches it on
+  and frames it (`framePart`); on a Param it opens the Parameters tab with the find cleared, scrolls to the row and focuses its control
+  (the focus lights what it drives, `drives`). Alt+Enter is `soloLayers`, Alt+H the part's eye. The pointer on a part row is `peek`, as in
+  Layers. It writes nothing but what those actions do.
