@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { png } from '../src/test/pngFixtures'
 import { box, stl } from '../src/test/scanFixtures'
-import { closeModelMenu, inModelMenu, openSection, showProjects, newSession } from './helpers'
+import { cardSection, closeModelMenu, inModelMenu, openSection, showModel, showProjects, newSession } from './helpers'
 import { newFromList, openListed, projectCrumb } from './objects'
 
 // Making a new object, from the window: the page, its draft, the doodle board, a photo of 3000 px arriving scaled
@@ -690,7 +690,7 @@ test.describe('the window while a new object is made', () => {
   const newPage = () => page.getByRole('region', { name: 'New project' })
   const dropAnything = () => newPage().getByRole('button', { name: /^Drop anything/ })
   const also = (name: string) => newPage().getByRole('button', { name, exact: true })
-  const marks = () => page.locator('[data-region="left"] .route-section[data-section="marks"]')
+  const marks = () => cardSection(page, 'Marks')
   const status = () => page.locator('[data-region="status"]')
 
   test.beforeAll(async () => {
@@ -750,6 +750,7 @@ test.describe('the window while a new object is made', () => {
     await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project bracket')
     await openSection(page, 'Marks')
     await expect(marks()).toHaveCount(1)
+    await showModel(page)
     await expect(status().getByRole('button', { name: 'Rebuild' })).toBeVisible()
     await expect(dock().getByRole('button', { name: 'New session' })).toBeVisible()
   })

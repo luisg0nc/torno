@@ -14,7 +14,7 @@ import { type SavedView, MAX_VIEWS, TOO_MANY_VIEWS, cleanViewName, findView, own
 import { sameCamera, viewOnScreen } from './savedViews'
 import type { LayerSettings, SceneFile } from '../../shared/scenefile'
 import type { WorkspaceInfo } from '../../shared/workspace'
-import { type ColumnPrefs, type SectionId, SECTION_IDS as SECTION_ORDER, keptWidth, readColumn, storedColumn, windowStorage, writeColumn } from './column'
+import { type BenchKept, type BenchTab, type ColumnPrefs, readBench, storedBench, writeBench, keptWidth, readColumn, storedColumn, windowStorage, writeColumn } from './column'
 import type { CompareMode, CompareState } from './compare'
 
 /** The agent session of an object. Its output is not here: it goes straight into the terminal. */
@@ -57,10 +57,12 @@ export interface TornoState {
   promptsOpen: boolean
   /** Whether the session dock is shown. The window's, not an object's: another object or workspace leaves it as it is. */
   dockOpen: boolean
-  /** Which sections of the route card are folded and how wide it is (`state/column.ts`). The window's, kept in its own storage. */
+  /** The left column is shown (the window's, as `dockOpen` is; not kept). */
+  leftOpen: boolean
+  /** How wide the route card is (`state/column.ts`). The window's, kept in its own storage. */
   column: ColumnPrefs
-  /** The section of the route card in sight (found by the card's observer on the heads), which the card's own reading shows. Null while there is no card. */
-  sectionHere: SectionId | null
+  /** The open tab of the bench, for each project (`torno.bench`). */
+  benchTab: BenchKept
   /** The last good scene of the open object, and the revision it is. */
   scene: Scene | null
   /** The scene that was on show before `scene` landed, of the same object; null for the first build of an object. What the status line says a build changed is held against it. */
@@ -209,8 +211,9 @@ export const store = createStore<TornoState>(() => ({
   edits: 0,
   sessions: {},
   dockOpen: true,
+  leftOpen: true,
   column: readColumn(storedColumn(windowStorage())),
-  sectionHere: null,
+  benchTab: readBench(storedBench(windowStorage())),
   page: 'object',
   exportOf: null,
   exportTracing: null
@@ -747,30 +750,15 @@ export const actions = {
     if (store.getState().noting !== null) store.setState({ noting: null })
   },
 
-  /** Folds a section of the route card to its head, or unfolds it. The window keeps it for the next time. */
-  toggleSection(id: SectionId): void {
-    const { column } = store.getState()
-    const folded = column.folded.includes(id) ? column.folded.filter((one) => one !== id) : [...column.folded, id]
-    setColumn({ ...column, folded: SECTION_ORDER.filter((one) => folded.includes(one)) })
-  },
-
-  /** Brings a section into sight: unfolded if it was folded, and the card scrolled to its head once it is drawn. */
-  showSection(id: SectionId): void {
-    const { column } = store.getState()
-    if (column.folded.includes(id)) setColumn({ ...column, folded: column.folded.filter((one) => one !== id) })
-    if (typeof document === 'undefined') return
-    const scroll = (): void => {
-      const reduced = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      document.querySelector(`[data-section="${id}"]`)?.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' })
-    }
-    // After the render that unfolds it: the section is as tall as it will be.
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(scroll)
-    else scroll()
-  },
-
-  /** Which section of the card is in sight. */
-  setSectionHere(id: SectionId | null): void {
-    if (store.getState().sectionHere !== id) store.setState({ sectionHere: id })
+  /** Opens a tab of the bench for the open project, showing the left column if it was hidden; the window keeps the tab for the next time. */
+  setBenchTab(tab: BenchTab): void {
+    const { objectId, benchTab } = store.getState()
+    if (objectId === null) return
+    if (!store.getState().leftOpen) store.setState({ leftOpen: true })
+    if (benchTab[objectId] === tab) return
+    const next = { ...benchTab, [objectId]: tab }
+    store.setState({ benchTab: next })
+    writeBench(windowStorage(), next)
   },
 
   /** The width the person gave the card, once it is let go (at least the narrow default); the window keeps it. */
@@ -778,6 +766,11 @@ export const actions = {
     const { column } = store.getState()
     const width = keptWidth(px)
     if (column.width !== width) setColumn({ ...column, width })
+  },
+
+  /** The left column is shown or hidden. */
+  setLeftOpen(open: boolean): void {
+    if (store.getState().leftOpen !== open) store.setState({ leftOpen: open })
   },
 
   /** The session dock is shown or hidden. */

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { peek } from '../state/agent'
+import { boardActions } from '../state/board'
 import { actions, layerOf, useStore } from '../state/store'
 import { colorFor, colorsOfParts } from '../../shared/palette'
 import { groupsIn, groupVisibility } from '../../shared/groups'
@@ -204,6 +205,8 @@ function LayerRow({ part, layout, layer, color, inGroup, marks, listed, lit: poi
           title={listed ? 'Show the marks on every part' : `${marks.failing ? 'A check that fails is among them. ' : ''}List only the marks on ${name}`}
           onClick={(e) => {
             actions.listMarksOnPart(listed ? null : name)
+            // The list is a block of the Brief page: listing the marks of a part shows it.
+            if (!listed) boardActions.show('brief')
             if (e.detail > 0) giveKeysBack(e.currentTarget)
           }}
         >

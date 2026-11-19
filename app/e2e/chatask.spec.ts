@@ -9,7 +9,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { NoteMark } from '../src/shared/marks'
 import { SESSION_HEADER } from '../src/main/http'
 import { openListed, projectCrumb, projectMenu, switcher } from './objects'
-import { closeModelMenu, fromMore, inModelMenu, newSession as fromDock } from './helpers'
+import { closeModelMenu, fromMore, inModelMenu, newSession as fromDock, onBrief, showBrief, showModel } from './helpers'
 
 // What the chat asks of the person and what it offers: a permission request, the questions of `AskUserQuestion`
 // and a plan, each a card that is answered; "Attach view" and "Draw on view"; the `/` commands the CLI named; the model of the session;
@@ -458,6 +458,8 @@ const drawingBoard = () => page.getByRole('dialog', { name: 'Drawing on the view
 const drawButton = () => dock().getByRole('button', { name: 'Draw on view' })
 /** The view notes that are drafts: made by Done on the board, they wait in the list of marks until the next prompt carries them. */
 const draftNotes = () => page.locator('.mark-row[data-status="draft"]').filter({ has: page.getByRole('img', { name: 'View note' }) })
+/** That many draft notes are in the list of marks, which is on the Brief page (it is shown for the look, and the view is back after). */
+const draftsAre = (count: number): Promise<void> => onBrief(page, () => expect(draftNotes()).toHaveCount(count))
 /** What the ink of a note lies over, under the prompt it went with. */
 const notesOf = (user: Locator) => user.locator('.chat-user-drawing[data-part="note"]')
 
@@ -487,16 +489,18 @@ test('Draw on view: a board over the agent\'s picture of the view; Done keeps a 
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Keep drawing' }).click()
   await expect(drawingBoard()).toBeVisible()
-  await expect(draftNotes()).toHaveCount(0)
+  // The board is over the view: the Brief page cannot be shown meanwhile, so the store says there is no draft note.
+  expect((await page.evaluate(() => window.__tornoTest!.state().marks)).filter((m) => m.kind === 'note' && m.status === 'draft')).toHaveLength(0)
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
   await expect(drawingBoard()).toHaveCount(0)
   // The drawing is a note now, a draft among the marks, and it waits above the box.
-  await expect(draftNotes()).toHaveCount(1)
   await expect(waitingNotes()).toHaveCount(1)
   // The keys are the box's again: what is typed next is the prompt, not a key of the view.
   await page.keyboard.type('thicker')
   await expect(composer()).toHaveValue('thicker')
   await composer().fill('')
+  // (After the typing: the click on the Brief's switch takes the focus.)
+  await draftsAre(1)
 
   await say('images')
   const user = chat().locator('.chat-user').last()
@@ -514,7 +518,7 @@ test('Draw on view: a board over the agent\'s picture of the view; Done keeps a 
   await expect(chat()).toContainText(new RegExp(`stroke 1, x \\d+–\\d+, y \\d+–\\d+: ${part}/F\\d+`))
   await finished()
   // Sent with that prompt: no draft is left.
-  await expect(draftNotes()).toHaveCount(0)
+  await draftsAre(0)
 
   // The next prompt carries none.
   await say('images')
@@ -534,7 +538,7 @@ test('a stroke across a part and bare ground says it is partly over no part, und
   // From the edge of the picture, where nothing is, across the part.
   await line(drawingBoard(), [0.01, fy!], [0.5, fy!])
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
-  await expect(draftNotes()).toHaveCount(1)
+  await draftsAre(1)
   await say('images')
   await expect(notesOf(chat().locator('.chat-user').last())).toContainText('stroke 1 partly over no part', { timeout: 20_000 })
   await finished()
@@ -550,7 +554,7 @@ test('a drawing made while the camera moved says that what its ink lies over was
   await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.camera())).position[2]).toBeGreaterThan(0)
   await line(drawingBoard(), [0.45, 0.5], [0.55, 0.5])
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
-  await expect(draftNotes()).toHaveCount(1)
+  await draftsAre(1)
   await say('images')
   const note = notesOf(chat().locator('.chat-user').last())
   const warn = note.locator('.over-warn')
@@ -578,11 +582,12 @@ test('a board discarded keeps no note, and gives the keys back to the box', asyn
   await drawingBoard().getByRole('button', { name: 'Cancel' }).click()
   await page.getByRole('button', { name: 'Discard', exact: true }).click()
   await expect(drawingBoard()).toHaveCount(0)
-  await expect(draftNotes()).toHaveCount(0)
   // Put away too, the board gives the keys back to the box.
   await page.keyboard.type('never mind')
   await expect(composer()).toHaveValue('never mind')
   await composer().fill('')
+  // (After the typing: the click on the Brief's switch takes the focus.)
+  await draftsAre(0)
 })
 
 /** A small picture of one colour as a PNG file, made here: nothing of the person's. */
@@ -670,7 +675,7 @@ test('a view note: two strokes, a label with an arrow, a comment and a reference
   await board.getByRole('button', { name: 'Done' }).click()
   await expect(board).toHaveCount(0)
 
-  await expect(draftNotes()).toHaveCount(1)
+  await draftsAre(1)
   const note = (await notesNow()).at(-1)!
   expect(note).toMatchObject({ status: 'draft', author: 'user', note: 'make the lid thicker' })
   expect(note.strokes).toHaveLength(2)
@@ -704,12 +709,14 @@ test('a view note: two strokes, a label with an arrow, a comment and a reference
   expect((await noteNow(id)).note).toBe('make the lid thicker')
 
   // The marks list has an Edit for it too: the same sheet, on the same note.
+  await showBrief(page)
   await page.locator(`.mark-row[data-mark="${id}"]`).hover()
   await page.getByRole('button', { name: `Edit ${id}`, exact: true }).click()
   await expect(board).toBeVisible()
   await expect(board.getByRole('textbox', { name: 'Comment' })).toHaveValue('make the lid thicker')
   await board.getByRole('button', { name: 'Cancel' }).click()
   await expect(board).toHaveCount(0)
+  await showModel(page)
 
   // It goes with a prompt: then it is sent.
   await say('images')
@@ -937,7 +944,7 @@ test('ink over the face a section cuts is told as the cut face of its part, not 
   await drawButton().click()
   await line(drawingBoard(), [fx - 0.005, fy], [fx + 0.005, fy])
   await drawingBoard().getByRole('button', { name: 'Done' }).click()
-  await expect(draftNotes()).toHaveCount(1)
+  await draftsAre(1)
   await say('images')
   await expect(notesOf(chat().locator('.chat-user').last()).locator('.over')).toContainText(`the cut face of ${part}`, { timeout: 20_000 })
   await expect(chat()).toContainText(new RegExp(`stroke 1, x \\d+–\\d+, y \\d+–\\d+: (.*, )?the cut face of ${part}`), { timeout: 20_000 })

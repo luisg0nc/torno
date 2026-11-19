@@ -1,6 +1,7 @@
 import { hint } from '../../../shared/keys'
 import { valueParts } from '../../../shared/dimension'
-import { componentsOf, keepHeld, useHeld } from '../../state/measured'
+import { componentsOf, useHeld } from '../../state/measured'
+import { heldRefusal, keepHeldAndTie, tyingCard, useTying } from '../../state/tying'
 import { useStore } from '../../state/store'
 import { commitMark } from '../../tools/pickMarks'
 import { readingAt } from '../../viewport/heldValue'
@@ -19,6 +20,10 @@ export function MeasureTag() {
   const refused = useHeld((s) => s.refused)
   const objectId = useStore((s) => s.objectId)
   const revision = useStore((s) => s.revision)
+  // While a size is being tied the button keeps the measurement and ties it to the size (state/tying.ts).
+  const tying = useTying((s) => s.tying)
+  const card = tying?.objectId === held?.objectId ? tyingCard() : null
+  const cannot = card && held ? heldRefusal(card, held) : null
   if (!held || held.objectId !== objectId || held.revision !== revision) return null
   const parts = valueParts(held.measure, held.value)
   const at = readingAt(held)
@@ -47,12 +52,12 @@ export function MeasureTag() {
             type="button"
             className="tag-control measure-keep"
             data-primary=""
-            disabled={keeping}
+            disabled={keeping || cannot !== null}
             aria-keyshortcuts={hint('measure.keep')}
-            title={`Keep it as a dimension (${hint('measure.keep')}): a mark, measured again on every build, sent with the next prompt`}
-            onClick={() => void keepHeld(commitMark).catch(() => {})}
+            title={cannot ?? (card ? `Keep it as a dimension and tie it to the size (${hint('measure.keep')})` : `Keep it as a dimension (${hint('measure.keep')}): a mark, measured again on every build, sent with the next prompt`)}
+            onClick={() => void keepHeldAndTie(commitMark).catch(() => {})}
           >
-            Keep as a dimension
+            {card ? 'Keep and tie to the size' : 'Keep as a dimension'}
             <kbd aria-hidden="true">{hint('measure.keep')}</kbd>
           </button>
         )}

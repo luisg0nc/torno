@@ -1,21 +1,12 @@
 /* ---- The bodies of the route card's sections: today's lists, rows and forms, until each section is restyled in its own card-*.css ---- */
 
-/*
- * The card is as tall as the window and scrolls as a whole (`.route-scroll`, `card.css`). A section's body is the component
- * that was a panel's section: it brings the padding of a panel's edge, which `.route-body` takes back (`card.css`).
- */
+/* The bodies of the Scans and Tracing views' panels (`.view-panel`): the components that were a panel's section, which bring the padding of a panel's edge. */
 .section {
   display: flex;
   flex: none;
   flex-direction: column;
   min-height: 0;
   padding: var(--space-1) 0 var(--space-2);
-}
-
-/* The rows are the card's to scroll, not a section's own. */
-.route-body .rows {
-  flex: none;
-  overflow: visible;
 }
 
 .marks {

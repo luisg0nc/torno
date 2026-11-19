@@ -578,6 +578,19 @@ export function pixelsOf(renderer: THREE.WebGLRenderer, encoder: Encoder, drawn:
   return pixels
 }
 
+/**
+ * `pixelsOf` without the wait: the read is a pixel buffer filled by the GPU, and the window goes on while it is (three's
+ * `readRenderTargetPixelsAsync`), where `readRenderTargetPixels` stops the window until everything drawn before it has been. The
+ * card's picture is read this way: with no GPU (software GL) that wait was seconds, and nothing answered meanwhile.
+ * Leaves `encoded` as the renderer's current target, as `pixelsOf` does.
+ */
+export async function pixelsOfAsync(renderer: THREE.WebGLRenderer, encoder: Encoder, drawn: THREE.WebGLRenderTarget, encoded: THREE.WebGLRenderTarget, opts: { alpha?: boolean } = {}): Promise<Uint8ClampedArray<ArrayBuffer>> {
+  encoder.render(renderer, drawn.texture, encoded, opts.alpha === true)
+  const pixels = new Uint8ClampedArray(encoded.width * encoded.height * 4)
+  await renderer.readRenderTargetPixelsAsync(encoded, 0, 0, encoded.width, encoded.height, pixels)
+  return pixels
+}
+
 /** A canvas to compose a picture on, off the page: one whose PNG can be written at once (`pngBytes`). */
 export function pictureCanvas(width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
@@ -599,9 +612,9 @@ export function pngBytes(canvas: HTMLCanvasElement): Uint8Array {
   return bytes
 }
 
-/** A drawn target as PNG bytes: `pixelsOf`, written through a canvas. `alpha` keeps the alpha the target has. */
+/** A drawn target as PNG bytes: `pixelsOfAsync`, written through a canvas. `alpha` keeps the alpha the target has. */
 export async function pngOf(renderer: THREE.WebGLRenderer, encoder: Encoder, drawn: THREE.WebGLRenderTarget, encoded: THREE.WebGLRenderTarget, opts: { alpha?: boolean } = {}): Promise<Uint8Array> {
-  const pixels = pixelsOf(renderer, encoder, drawn, encoded, opts)
+  const pixels = await pixelsOfAsync(renderer, encoder, drawn, encoded, opts)
   const picture = pictureCanvas(encoded.width, encoded.height)
   const ctx = picture.getContext('2d')
   if (!ctx) throw new Error('Could not get a 2D canvas to compose the picture')

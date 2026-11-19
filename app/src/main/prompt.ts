@@ -72,6 +72,7 @@ const text = (skills: boolean): string => [
   'In a print layout whose parts torno spread apart for display, distances, clearances and overlaps between two parts are refused: ask in a layout that places them as assembled, and if the model has none, add one (def assembly(p)).',
   ...(skills ? WITH_SKILLS : [...SCANS_TEXT, ...DIMENSIONS_TEXT]),
   'Coordinates are millimetres, Z up.',
+  'The folder you work in is this project. Edit only it and common/, which the workspace’s projects share; other projects and the workspace are the person’s, and a new project is made from torno’s page, not by creating a folder.',
   'Do not write to the .torno/ folder: it is torno’s own.',
   'Keep scratch scripts outside the project folder or in tools/, so it keeps one model file.'
 ].join(' ')

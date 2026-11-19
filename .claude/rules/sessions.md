@@ -95,3 +95,14 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the workspace lets go of the transcripts of sessions that have ended (`forgetEnded`); `endedChat` names the one an
   object still has, for a window loaded since. `Sessions` events `stream`, `ask`, `asked` and `context` have no
   listener in the app: they are the probe the integration tests watch the stand-in through.
+- **The agent's writes** (`sessions/reach.ts`, `refusalOf`, answered in `Sessions.hook`). A `PreToolUse` of `Write`, `Edit`,
+  `MultiEdit` or `NotebookEdit` whose path is outside the session's project folder and the workspace's `common/` (by real
+  paths, `isInsideFolder`) is answered `permissionDecision: deny` with a reason naming the project, so a session cannot
+  edit another project, the workspace's root or make a folder. The answer is given before the build tracking and also
+  where there is no build state (the hook body is read for a `PreToolUse` always). `Bash` is never judged: no path can be
+  read from a command, so the CLI's own card stays; the prompt says which folder is the project (`agent-prompt`).
+  A file the build imports from another project (`uses`) is no longer one the agent may write. `isInsideFolder` takes
+  `..notes/x.py` as inside: only a first part that is exactly `..` is outside. The stand-in's `write` and `edit` play a
+  refusal: nothing is written and the tool's result is the reason, an error.
+  The same answer refuses a write under `<project>/.torno/` (main alone writes it: ids, atomic writes), the reason naming
+  the tool to use (`add_mark`, `add_set`, `add_tracing`, `add_layer`, `add_card`, …); `Read` of those files stays allowed.

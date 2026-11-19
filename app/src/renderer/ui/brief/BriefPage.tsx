@@ -6,6 +6,8 @@ import { sizesTold, tallyReadings, tieReading } from '../../../shared/ties'
 import type { SizeFact } from '../../../shared/size'
 import { boardActions, useBoard } from '../../state/board'
 import { actions, useStore } from '../../state/store'
+import { tyingActions } from '../../state/tying'
+import { ChecksBlock, MarksBlock } from './Held'
 import { HEIC_REASON, isHeic, prepareImage } from '../onboard/images'
 import { addNote, addPicture, addRule, addSize, editSize, editText, removeCard, restoreCard, tieSize, unhideCard } from './ops'
 import { TiePanel } from './TiePanel'
@@ -253,6 +255,7 @@ export function BriefPage() {
                       marks={marks}
                       sizes={sections.sizes}
                       revision={build}
+                      onMeasure={build === undefined ? null : () => tyingActions.begin(id, c)}
                       onClose={() => setTying(null)}
                       onTie={(mark, tolerance) => void tieSize(id, c.id, mark, tolerance).then((ok) => ok && setTying(null))}
                       onUntie={() => void tieSize(id, c.id, null).then((ok) => ok && setTying(null))}
@@ -265,6 +268,8 @@ export function BriefPage() {
           </div>
         )}
       </section>
+
+      <ChecksBlock />
 
       <section className="brief-block" aria-label="Rules">
         <div className="brief-block-head">
@@ -294,6 +299,8 @@ export function BriefPage() {
           {adding === 'note' && <TextForm label="New note" onKeep={keepText(null, false)} onCancel={done} />}
         </div>
       </section>
+
+      <MarksBlock />
 
       <input ref={files} type="file" accept="image/png,image/jpeg" multiple hidden data-board-files="" onChange={(e) => {
         void take([...(e.currentTarget.files ?? [])])

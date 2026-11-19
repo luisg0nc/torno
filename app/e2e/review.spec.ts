@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { BoardFile } from '../src/shared/board'
 import type { Mark, MarksFile } from '../src/shared/marks'
 import type { TornoState } from '../src/renderer/state/store'
-import { openSection, newSession } from './helpers'
+import { briefPage, newSession, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 
 // A round of a review made in the hidden window, on the `gauge` fixture (a 40 × 30 × 6 plate with one Ø8 hole): "Review this
@@ -123,14 +123,30 @@ async function added(n: number): Promise<string> {
   return (await item.locator('.chat-added-text').textContent()) ?? ''
 }
 
+/** Reads the Brief page, where the rows of marks are, with the key that goes round the model and the brief: the band of a round holds the place of the switch, and the key is what is left. The model is back after. */
+async function onBriefKeyed<T>(read: () => Promise<T>): Promise<T> {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await page.keyboard.press('Control+Tab')
+  await expect(briefPage(page)).toBeVisible()
+  try {
+    return await read()
+  } finally {
+    await page.keyboard.press('Control+Tab')
+    await expect(briefPage(page)).toHaveCount(0)
+  }
+}
+
 test('Review this build starts R1 on the build on show, and the keys choose what the next marks are', async () => {
   await openListed(page, 'gauge')
-  await openSection(page, 'Marks')
   await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok' })
   await page.keyboard.press('1')
   await atRest()
   await expect(bar()).toHaveCount(0)
+  // The button is in the Marks block of the Brief page.
+  await showBrief(page)
   await page.getByRole('button', { name: 'Review this build' }).click()
+  // The band is drawn over the model: the Brief that started the round is put away, and the band takes the switch's place.
+  await showModel(page)
   await expect(bar()).toBeVisible()
   await expect(bar()).toContainText('Reviewing h1')
   await expect(page.locator('[data-band="review"]')).toHaveCount(1)
@@ -166,12 +182,15 @@ test('a face picked while "don\'t want" is chosen is a mark of the round, with i
   await expect(bar()).toContainText('1 − · 0 +')
   // Its row says what it is, and that it waits.
   const row = page.locator('.mark-row[data-mark="M1"]')
-  await expect(row).toContainText('− M1')
-  // The sign is a round disc before the square chip: the minus hatched in the person's colour.
-  await expect(row.locator('.mark-line > .sign-disc[data-sign="-"]')).toHaveText('−')
-  await expect(row.locator('.sign-disc + .mark-chip')).toHaveText('M1')
-  await expect(row.locator('.mark-chip')).not.toContainText('−')
-  expect(await row.locator('.mark-line > .sign-disc').evaluate((el) => [getComputedStyle(el).borderRadius, getComputedStyle(el).width, getComputedStyle(el).backgroundImage.includes('repeating-linear-gradient')])).toEqual(['50%', '18px', true])
+  await onBriefKeyed(async () => {
+    await expect(row).toContainText('− M1')
+    // The sign is a round disc before the square chip: the minus hatched in the person's colour.
+    await expect(row.locator('.mark-line > .sign-disc[data-sign="-"]')).toHaveText('−')
+    await expect(row.locator('.sign-disc + .mark-chip')).toHaveText('M1')
+    await expect(row.locator('.mark-chip')).not.toContainText('−')
+    expect(await row.locator('.mark-line > .sign-disc').evaluate((el) => [getComputedStyle(el).borderRadius, getComputedStyle(el).width, getComputedStyle(el).backgroundImage.includes('repeating-linear-gradient')])).toEqual(['50%', '18px', true])
+    await expect(row).toContainText('in review, not sent')
+  })
   // While the round is open the item is told in the view too: a tag at its point with the disc and the note, and no leader (a mark has none).
   const told = page.locator('.viewport-pane [data-tag="round-note-M1"]')
   await expect(told).toBeVisible()
@@ -180,7 +199,6 @@ test('a face picked while "don\'t want" is chosen is a mark of the round, with i
   await expect(page.locator('svg.leader-layer [data-leader="round-note-M1"]')).toHaveCount(0)
   // The pens of the band carry the same discs.
   await expect(bar().locator('.sign-disc')).toHaveCount(2)
-  await expect(row).toContainText('in review, not sent')
 })
 
 test('a sketch drawn while "want" is chosen is the round\'s second item', async () => {
@@ -195,8 +213,10 @@ test('a sketch drawn while "want" is chosen is the round\'s second item', async 
   await sketchPanel().getByRole('button', { name: 'Done' }).click()
   await expect(sketchPanel()).toHaveCount(0)
   await expect(bar()).toContainText('1 − · 1 +')
-  await expect(page.locator('.mark-row[data-mark="M2"]')).toContainText('+ M2')
-  await expect(page.locator('.mark-row[data-mark="M2"] .mark-line > .sign-disc[data-sign="+"]')).toHaveText('+')
+  await onBriefKeyed(async () => {
+    await expect(page.locator('.mark-row[data-mark="M2"]')).toContainText('+ M2')
+    await expect(page.locator('.mark-row[data-mark="M2"] .mark-line > .sign-disc[data-sign="+"]')).toHaveText('+')
+  })
 })
 
 test('a view note drawn in the round is its plain third item, and no prompt carries it', async () => {
@@ -226,7 +246,7 @@ test('a view note drawn in the round is its plain third item, and no prompt carr
   await expect.poll(() => mark('M3')).toMatchObject({ kind: 'note', author: 'user', status: 'draft', round: 'R1' })
   expect((mark('M3') as { intent?: unknown } | undefined)?.intent).toBeUndefined()
   // It is held with the round: it is no "goes with your next prompt" waiting above the box.
-  await expect(page.locator('.mark-row[data-mark="M3"]')).toContainText('in review, not sent')
+  await onBriefKeyed(() => expect(page.locator('.mark-row[data-mark="M3"]')).toContainText('in review, not sent'))
   await expect(dock().locator('.chat-note-wait')).toHaveCount(0)
 })
 
@@ -274,7 +294,8 @@ test('after a rebuild the panel of R1 says OK to one item and Still wrong to the
   const model = join(root, 'gauge', 'gauge.py')
   writeFileSync(model, `${readFileSync(model, 'utf8')}\n# a second look\n`)
   await expect.poll(async () => (await state()).build, { timeout: 60_000 }).toMatchObject({ status: 'ok', revision: 2, stale: false })
-  await page.getByRole('button', { name: 'Open the panel of R1' }).click()
+  // The button is on the round's row in the Marks block of the Brief page; the panel opens in the head of the card.
+  await onBriefKeyed(() => page.getByRole('button', { name: 'Open the panel of R1' }).click())
   await expect(roundPanel()).toBeVisible()
   await expect(page.locator('.route-hand .hand')).toHaveAttribute('data-kind', 'review')
   await expect(roundPanel()).toContainText('Review of h1 · 1 − · 1 +')

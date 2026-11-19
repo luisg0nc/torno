@@ -12,7 +12,7 @@ numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
 The window has three parts. On the left, the
-route card: the project read from top to bottom, in sections you fold, which pushes
+route card: the On block and, filling the column, Parameters and Parts as two tabs, which pushes
 the 3D view over. In the
 middle, the parts in 3D, with the compass at the top right and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
@@ -331,7 +331,7 @@ never fails the build, and never holds the agent back when it would stop; it is 
 (What the agent is told) and listed in the window under Checks. torno never writes `checks(p)`.
 A check that names a reference built from sizes the model's comments call `assumed:` (the reference's own `references(p)` read
 them) says so: "pass, against an assumed reference: radiator". It is only as good as that guess, and the build result, `scene`
-and the Checks section all say it.
+and the Checks block of the Brief page all say it.
 
 **Names for faces and edges.** A face number (`lid/F12`) changes whenever the topology does. A model with `Params()`
 may also define `tags(p, parts)`, which names faces and edges, and a name holds across builds:
@@ -437,7 +437,7 @@ What a kept build had then (checks that failed, parts with a defect, how your di
 **Compare.** A kept build is drawn against the one on show, with a quiet band at the top left of the view, `Comparing h40 with live h41`: **Before** (the earlier build alone), **Overlay**
 (the earlier build translucent, in grey, over the later one), **After** (the later build alone) and **Side by side** (the earlier build in the left half, the later one in
 the right, one camera for both); each build alone is drawn solid, in its part colours. The later build is the live one, or, when you compare an older turn while newer builds
-have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the switch of Model, Brief and Tracing steps aside. What the turn changed is written on the parts and the marks that changed, as
+have landed, that older build, which stands in for the live one until you go back, and **Back to live**, which `Esc` also does. While a band is on, the view's switch steps aside. What the turn changed is written on the parts and the marks that changed, as
 tags tied to them by a leader (`tub volume 28400 → 26000 mm³`, `M3 now passes`, from the numbers of the builds of the turn; `≈` where a volume is not exact): four at most,
 a dimension that changed its verdict first, then the parts whose volume moved most. The rest are in the band's **and N more** (or **What changed**, when there is nothing
 left out), a list that also says what the later build changed (its line) and how the checks and your dimensions moved between the two builds. A tag stands only on
@@ -478,11 +478,10 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. Over the sections stands the **On h18** block (see Marks). At first Parts, Checks and Marks are open; Parameters, Scans and Tracings are folded. Every section is in the card, one scroll down it: scroll to it and click its head to open it. Drag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the **On h18** block (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels in the column in place of the two tabs while the view is shown (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
-the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
-sections are folded and how wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
+the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. How wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
 project is made and with no project open, there is no card (the page of a new project has an "All projects" button in the title bar, which keeps its draft). The folder's name and its menu are in the title bar.
 **The print profile chip.** While a project is open, the status line has a chip with the printer and the material the project is made for (`Bambu X1C, PETG`; "Print profile" while it has none). Press it to choose them in a card above it; Esc, or a press elsewhere, puts it away.
 The
@@ -496,8 +495,8 @@ its own. After the name, a small ring holds the number of open marks on the part
 them is one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
 rest back. That is a view of the list: the agent is told every mark as before. It works the other way too: the pointer on a part
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
-lines drawn to them. Parameters lists the fields of
-the model's `Params` (a model with none says so): each
+lines drawn to them. **`Ctrl+P` opens the picker**, a sheet over the middle of the view, for a model with many parts: every part of the layout, under its group's name, and then every value of the model, in one list. What you type narrows it (a part is found by its name or its group's, a value by its name or its comment; every word must be found), and the count at the foot says `4 of 40`; at most 60 rows are drawn, so a model of hundreds is searched, not scrolled. `Up` and `Down` choose; `Enter` takes the row: a part is selected and brought into view (and switched on if it was hidden), a value opens the Parameters tab with its control in focus. `Alt+Enter` shows only the part and `Alt+H` hides it or shows it again; the pointer on a row lights the part in the view as in the Parts tab. `Esc`, `Ctrl+P` again or a press beside it puts it away. Parameters lists the fields of
+the model's `Params` (a model with none has no Parameters tab). Over the list, a find box (`/` from anywhere outside a field opens the tab and puts the cursor in it; Esc clears it) narrows the rows by what is in a name or a comment, and the chips All, Assumed and Brief keep the sizes whose comment says `assumed:` or `brief:`, each with its count; with either on, a line says `3 of 22 match`. Each
 field's name, its default in the monospace face (four digits at most, the whole value on hover) and
 its comment as the model has it, and, for a default the model works out (an expression, not a
 number written in), that it is worked out in the model. The model's comments should begin with where a size
@@ -526,7 +525,7 @@ With a session running, a click on a row puts `Params.wall` in its prompt at the
 cursor, never sent, so you can write "make Params.wall 2.4" around it; with no session the rows say
 to start one. Checks lists, as one list, what the model declares in its `checks(p)` (see Projects and builds) and your own
 dimension checks (a dimension with an expected value), failing first, then those not run or not measured, then those that
-pass; a model with neither has no section, and the head says how many there are and how many fail (`3, 1 fails`). A row has
+pass; a model with neither has no rows, and the head of the block says how many there are and how many fail (`3 checks, 1 fails`). The block is on the Brief page, after the sizes; a click on a failing check's row in the **On** block, on a mark's chip in the status line or on a row that waits shows the page at that row, and a click on a chip in the view only makes its mark the active one and leaves the view as it is. A row has
 two lines and a gauge: for a dimension its chip (`M3`) and for the model's check a bar in the agent's colour; the name and, at
 its right, a word for how it stands (passes, fails, not measured, not run); under it what was measured and what was wanted
 (`2.8 mm, wanted 3 ± 0.05`) and, for a thin wall, that it was found by sampling. The gauge, 64 px wide, draws the wanted band
@@ -596,7 +595,7 @@ layers, with every defect it has in its tooltip, and the line at the bottom
 counts such parts ("1 part has a defect"). The agent is told the same after its
 edit (What the agent is told).
 
-When the project is in a git work tree, the status line and the card say what has changed since the last commit: "3 files changed since `a1b2c3d`", with the files in the tooltip (the `.py` files and the others of the project's folder, and `common/`; not `.torno/`), or "No changes since `a1b2c3d`". It is read when the project is opened, when a build ends, and when the window is focused again. torno only reads: it runs `git status` with `--no-optional-locks`, which leaves the index as it is, gives it five seconds, and never commits, adds or changes anything. Without git, or outside a repository, nothing is said. Commits are the agent's: ask for one in the chat (the Marks section of the route card offers a request, see Marks).
+When the project is in a git work tree, the status line and the card say what has changed since the last commit: "3 files changed since `a1b2c3d`", with the files in the tooltip (the `.py` files and the others of the project's folder, and `common/`; not `.torno/`), or "No changes since `a1b2c3d`". It is read when the project is opened, when a build ends, and when the window is focused again. torno only reads: it runs `git status` with `--no-optional-locks`, which leaves the index as it is, gives it five seconds, and never commits, adds or changes anything. Without git, or outside a repository, nothing is said. Commits are the agent's: ask for one in the chat (the Marks block of the Brief page offers a request, see Marks).
 
 The pointer is told what it is on: a face (`lid/F12`), or an edge within reach
 of it (`lid/E3`), with a line from the kernel on what that is, such as
@@ -723,8 +722,16 @@ under "Last conversation, 2 days ago", with "Continue" (the default) and "New co
 buttons "New session" and "Resume" start one with no prompt and leave what you wrote in its box, unsent. If
 the folder has Claude Code settings of its own, the question is asked first and your prompt waits in the box. The empty
 pane has no "Attach view" or "Draw on view": those are of a session. ``Ctrl+` `` moves between the session and
-the viewport; `F6` and `Shift+F6` go round the parts of the window, and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
+the viewport; `F6` and `Shift+F6` go round the parts of the window, `Ctrl+Shift+L` shows or hides the left column (the bench; while it is hidden the status line keeps the dimensions that fail and says how many values are tried, and a click on that brings the column back), and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
 `Ctrl+Shift+V` copy and paste.
+
+A session writes only in its own project's folder and in the workspace's `common/`. If it tries `Write`, `Edit` or
+`NotebookEdit` on a file anywhere else (another project, the root of the workspace, a new folder), torno refuses
+the edit and tells the agent why, in words it can read, so it can ask you to open the other project. A new project is
+made from the page, never by the agent creating a folder. The agent does not write under `.torno/` either (marks,
+sets, tracings, params, scans, the board): torno refuses the edit and names the tool to use, and the agent may still read
+those files. A shell command (`Bash`) is not judged by path: it keeps
+Claude Code's own permission card.
 
 ### What goes well, and what does not
 
@@ -1172,6 +1179,8 @@ Open marks: M2 (moved), M6 (unchecked)
   `Review of h41 (R1): 3 don't want, 2 want. Answer each item by its id.`, with `Also in it: M4.` for items sent before.
   The system prompt says a review lists what you do not want and want on one build, to answer each item with `resolve_mark`,
   and not to bring back what an earlier review removed (read with `marks` and `review: "all"`).
+  It also says that the folder it works in is the project, that it edits only that folder and `common/`, that other
+  projects and the workspace are yours to open or make, and that a new project is made from the page, not by creating a folder.
 - `Open marks` are the numbers of the marks still open, each with what the
   last build did to it. After `/clear`, or after the conversation was
   compacted, the first prompt that follows lists your open marks once more.
@@ -1352,7 +1361,7 @@ The tools, each with its key (all keys are under [Keys](#keys)). They are the **
 
 | Key | Tool | What it does |
 |---|---|---|
-| `V` | Select | Click selects a face or an edge, and a double click its part; the scope that grows out of its button (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held at the head of the card, under "In hand": each ref with what the kernel says of it (the first four, then "and 2 more"), and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Name a set** (`Ctrl+G`) and **Clear**. With nothing selected the head says "Click a face, an edge or a part to hold it here." |
+| `V` | Select | Click selects a face or an edge, and a double click its part; the scope that grows out of its button (Any, Face, Edge, Part, Set) says what a click takes; Set takes a whole [named set](#named-sets) at once. Shift-click adds or takes out, `Esc` clears. What is selected is held in a **tag by the part**, under "In hand", tied by a leader to the first ref: each ref with what the kernel says of it (the first four, then "and 2 more"), a line **On it** with the checks that have an end on the parts (`M9 fails, M7 M8 hold`) and the open marks left on them, and **Insert in prompt**, which puts the refs in the session's prompt without sending it, **Note each**, which leaves a mark on each, **Hide** and **Only this**, which switch the parts off or show only them, **Name a set** (`Ctrl+G`) and **Clear**. The tag stands while Select is the tool and something is selected; with nothing selected there is no tag. |
 | `P` | Pin | Click a part: a pin there, and its note opens beside it. A pin on an edge is a pin on that edge: the pointer snaps to an edge within reach, and the agent is told which edge it is and the two faces that meet there. |
 | `A` | Arrow | Drag from a part: an arrow of that length. With Shift it runs along the surface normal or a principal axis. |
 | `D` | Draw | A sketch in 3D: the strokes lie on a plane, or on the surface of the parts, and one sketch holds as many as you want. Press `D` and draw; nothing is written until the first stroke, and then every stroke and every change is kept at once. See [3D sketches](#3d-sketches) below for the planes, the pens, snapping, x-ray, how to take a sketch and its keys. Alt-drag turns the camera with this tool in hand. |
@@ -1413,7 +1422,7 @@ the camera stays still).
 
 - A mark you change after it was sent (its note, or a shape's place, size,
   kind or intent) is a draft again, and is told once more as `(changed)`.
-- At the head of the Marks list, outside its scroll, are **Review this build** and a row for each review round (see
+- At the head of the Marks block of the Brief page, outside its scroll, are **Review this build** and a row for each review round (see
   [Reviews](#reviews)). A draft of a round that has not gone says `in review, not sent`, and its row offers
   **Take out of R1**. Your own rows have a small menu (`±`, `−` or `+`) to say plain, do not want or want of that mark at any time.
 - What waits on you is in the **On h18** block, at the top of the card, named for the build on show (the build's number, as the strip
@@ -1421,12 +1430,13 @@ the camera stays still).
   are rows of one line each, in the order they block, that act where they stand: Claude's open question (**in the chat** opens the
   dock), each check that fails with the value read (a click goes to its row), the brief's sizes that nothing checks, in one row
   (**Brief** opens the Brief page), the marks Claude resolved and you have not judged (**OK** says you have seen it, **Reopen**
-  makes it a draft again), the marks it left for you (a click goes to its row in Marks, under **From the agent**, with **Answer in chat** and **Resolve**; the marks Claude resolved are there too, with Review, OK all and Reopen…) and the values you tried, in one row
+  makes it a draft again), the marks it left for you (a click shows the Brief page at its row in Marks, under **From the agent**, with **Answer in chat** and **Resolve**; the marks Claude resolved are there too, with Review, OK all and Reopen…) and the values you tried, in one row
   (**Ask Claude to keep** puts the request in the box of the chat, never sent). It lists four rows at most; **N more** opens the
-  rest and **Fewer** shuts them. When nothing waits it is the verdict alone. With nothing in hand there is no "In hand" head
-  under it.
-- Your dimension checks (every dimension that has an expected value and is not resolved, sent or not) are under **Checks**, in
-  one list with the model's own (see Parameters). The Marks list is grouped by who acts next: **To send** (yours, "with your
+  rest and **Fewer** shuts them. When nothing waits it is the verdict alone. While a sketch is open, a review round's panel is
+  up or a size is being tied, that panel takes the block's place at the top of the card until it is done. What you select is
+  not in the card at all: it is a tag by the part (see Select), so selecting moves no row of the column.
+- Your dimension checks (every dimension that has an expected value and is not resolved, sent or not) are in the **Checks** block of the Brief page, in
+  one list with the model's own (see Parameters). The Marks list, a block of the same page, is grouped by who acts next: **To send** (yours, "with your
   next prompt"), **With the agent** (your sent marks), then **Resolved**, folded. A row is two lines: the chip and the note, then the kind of mark and what is the matter with it in
   muted words (`moved: check it`, `its part is hidden`). The active row shows its note whole and what can be done with
   the mark as words under it (**Go to view**, **Re-place**, **Edit**, **Answer in chat**, **Resolve**, **Reopen**,
@@ -1674,8 +1684,8 @@ is ringed on the part and in the agent's pictures, its chip saying by how much
 it misses after the cross (`40 mm ✗ 2 under`), and the line at the bottom
 counts those that fail and those with no value.
 
-When the project has checks, they are under Checks, with the model's own, in one list: failing first, then those not measured,
-then those that pass, and the head of the section counts them (`3, 1 fails`). A dimension with no expected value is not a
+When the project has checks, they are in the Checks block of the Brief page, with the model's own, in one list: failing first, then those not measured,
+then those that pass, and the head of the block counts them (`3 checks, 1 fails`). A dimension with no expected value is not a
 check: it was kept to be read, and stays in the group its status puts it in under Marks.
 
 - Once sent, its row says **pinned**: it is one of the checks the agent is
@@ -1804,7 +1814,7 @@ parts, so that you and the agent can check the model against it. It is good to
 a few millimetres at best and shows only what the camera saw. **Nothing taken
 from a scan is exact**, and torno never says that it is.
 
-**Importing.** "Import scan…", at the right of the head of the Scans section, or a file dropped on the
+**Importing.** "Import scan…", in the `+` menu at the end of the view's switch (or at the head of the Scans panel in the column once the project has a scan), or a file dropped on the
 view: GLB, glTF, OBJ, PLY or STL, with faces (a point cloud is refused). The
 file is only read. Torno keeps its path, size, date and hash, and makes one
 mesh of it in millimetres and Z up under `.torno/scans/`, baking a texture
@@ -1836,7 +1846,7 @@ what was assumed (`120 × 120 × 0 mm, from m, Z up (assumed)`) and asks
 while the card is up: the row then says "Asked in the view").
 Changing either drops the scan's alignments, which torno says before it does it.
 
-**The Scans section.** Each scan (`S1`, `S2`, never reused) has a row of one
+**The Scans tab.** A project with a scan has a **Scans** tab in the switch at the top left of the view (importing the first scan opens it). The model stays in view, and the Scans panel takes the column in place of Parameters and Parts while the tab is shown, with Import scan… at its head and the rows under it. Each scan (`S1`, `S2`, never reused) has a row of one
 line, built like a layer's: its id, its name (whole, with the path of its source,
 in the tooltip), how it stands in the layout on screen in one word (its sentence
 in the tooltip), an opacity slider when pointed at, and a switch. The arrow at
@@ -2003,15 +2013,14 @@ replace its own proposals (12 at most) and never a view of yours.
 
 ## The brief
 
-Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief** and **Tracing** (below) take the main
-area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); a project with no tracing goes round
-the model and the brief only. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
+Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief**, **Scans** and **Tracing** (below) take the main
+area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); Scans and Tracing are in the switch only while the project has a scan or a tracing (or while that view is the one shown), and `Ctrl+Tab` passes over what is not there. A `+` at the end of the switch makes the first of either: **Import scan…** and **New tracing…**. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
 The model stays loaded while the brief or a tracing is shown, so nothing is built again on the swap, and the card, the chat and the status line stay as they are.
 
 The page reads like an inspection sheet, from the top:
 
 - **What we are making**: the text of `brief.md`, read only ("Your words, from brief.md" opens it in your editor), with the photos and doodles of `reference/` beside it as small pictures (a click opens one large, `Esc` puts it away) and a line for each STEP file and PDF with "Show in folder".
-- **Sizes**: a ledger. Each row has the value large, in the face of numbers (`186 × 128`, `Ø 62`, or as you typed it when it holds no numbers), then what it measures, where it came from (`measured`, `from a datasheet`, `a guess`, or `from Claude`) and a note, then a column "Against the build on show". A size nothing checks reads **nothing checks this**, drawn on a dashed ground with an empty gauge: a gap to fill, not a failure. **Tie…** at the row opens, under it, the dimensions you kept that could check the size (an open one, in the same unit, one number, and not the dimension of another size), each with what it would say on the build on show (`would hold`, `would fail`, or not measured on it), a field for the tolerance, and **Ask Claude**, which puts a request in the chat's box and sends nothing. **Tie to M9** sets the dimension's "Should be" from the size, and its tolerance from where the size came from: ±0.5 for a measured size, ±0.2 from a datasheet, ±2 for a guess (change it in the field while tying, or later with the row's button). There is no new kind of check: the dimension is the check, its row says "from the brief" and its numbers can be changed only on the size, so changing the size changes the dimension's expected value. The row then reads the dimension's verdict on the build on show (`holds`, `fails` or `not measured`, `on r12`), what it reads and the same gauge the Checks section draws; a size whose dimension is gone says so. A tied dimension's chip in the view says `brief 96.5` after its tick or cross. Removing the size, untying it, or editing it into something no dimension can hold to (two numbers, another unit) lets the dimension go back to having no expectation; undoing the removal ties it again. The head says `7 sizes, 4 hold, 1 fails, 2 not checked`. Claude is told which size a dimension checks (`from the brief C7`) and which dimension checks a size, and can tie a size to a dimension of its own with `add_card` (`tie`, `untie`); the dimensions you placed are yours to tie.
+- **Sizes**: a ledger. Each row has the value large, in the face of numbers (`186 × 128`, `Ø 62`, or as you typed it when it holds no numbers), then what it measures, where it came from (`measured`, `from a datasheet`, `a guess`, or `from Claude`) and a note, then a column "Against the build on show". A size nothing checks reads **nothing checks this**, drawn on a dashed ground with an empty gauge: a gap to fill, not a failure. **Tie…** at the row opens, under it, the dimensions you kept that could check the size (an open one, in the same unit, one number, and not the dimension of another size), each with what it would say on the build on show (`would hold`, `would fail`, or not measured on it), a field for the tolerance, **Measure it on the part**, and **Ask Claude**, which puts a request in the chat's box and sends nothing. **Measure it on the part** shows the model with Measure in hand, and the head of the route card becomes **Tying 28.6 mm**: the size, what it measures and the tolerance it will be held to (a field). Measure as you always do; **Keep and tie to the size** (or Enter) keeps the measurement as a dimension and ties it to the size, and the brief comes back with the size's verdict. Or click the chip of a dimension you already kept to tie the size to it. **Esc** (first it lets go of a measurement, then it leaves), **Cancel**, or going to the brief or another project leaves with no change; a measurement that could not check the size (a distance for a diameter) is not kept, and says why. **Tie to M9** sets the dimension's "Should be" from the size, and its tolerance from where the size came from: ±0.5 for a measured size, ±0.2 from a datasheet, ±2 for a guess (change it in the field while tying, or later with the row's button). There is no new kind of check: the dimension is the check, its row says "from the brief" and its numbers can be changed only on the size, so changing the size changes the dimension's expected value. The row then reads the dimension's verdict on the build on show (`holds`, `fails` or `not measured`, `on r12`), what it reads and the same gauge the Checks section draws; a size whose dimension is gone says so. A tied dimension's chip in the view says `brief 96.5` after its tick or cross. Removing the size, untying it, or editing it into something no dimension can hold to (two numbers, another unit) lets the dimension go back to having no expectation; undoing the removal ties it again. The head says `7 sizes, 4 hold, 1 fails, 2 not checked`. Claude is told which size a dimension checks (`from the brief C7`) and which dimension checks a size, and can tie a size to a dimension of its own with `add_card` (`tie`, `untie`); the dimensions you placed are yours to tie.
 - **Rules**: the same way, one row each. A rule is a judgement no measure can make, so it reads "a judgement: no measure says it".
 - **Notes**: text you or Claude left, a web address in one shows as a link that opens in your browser.
 
@@ -2019,7 +2028,7 @@ Claude's rows and notes have a green edge; yours do not. Claude makes notes, siz
 
 **Changing it.** "Add" at the top makes a size, a rule, a note or a picture (a picture is chosen from a file or dropped on the page; a photo larger than Claude is sent is scaled down by the window first); "Add a size", "Add a rule" and "Add a note" are over each section. A row shows **Edit** and **Remove** when it is pointed at or has the keyboard. You edit only your own. A size has a form: what it measures, the value as typed (at most 60 characters, never changed to numbers in the file), the unit (`mm` or `°`), where it came from and a note of a line; Enter or "Add" keeps it, and when something is missing the form says what and stays; `Esc` leaves it as it was. A note or a rule is a field: `Enter` keeps it, `Shift+Enter` is a new line, `Esc` leaves it. A removal says "Removed … Undo" for ten seconds. What torno made for you (the brief, a photo) is not lost when removed from the page: it is listed under "Put away" with "Show". A text card holds 4000 characters, a brief 2000 cards.
 
-**What is not on it.** Marks, scans, tracings and review rounds have their own places (the Marks list, the Scans and Tracings sections, the Tracing view, the round's panel): the brief is not a copy of them, and placing a mark, importing a scan, making a tracing or starting a review adds nothing to it. The brief is the project's requirements, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds strip. A project made before the brief page may still hold cards of those kinds, builds, views, the Parameters and the Checks, frames and arrows in its file. They are kept in the file and not drawn: nothing is lost. A saved view has no "Pin to board" any more.
+**What holds, and what is not on it.** The page also holds what must hold: a **Checks** block after the sizes (the model's own checks and your dimension checks, one list with gauges, with the head `5 checks, 1 fails`) and the **Marks** list after the notes (Review this build, to send, with the agent, from the agent, resolved; its head says `4 open, 1 to send`). They are the same rows the left column held, shown on the page; the page is a view, so a mark you place in the model is in the Marks block the next time you switch to the Brief. Marks, scans, tracings and review rounds are not copied into the brief's own cards (the Marks block, the Scans and Tracings sections, the Tracing view, the round's panel): the brief is not a copy of them, and placing a mark, importing a scan, making a tracing or starting a review adds nothing to it. The brief is the project's requirements, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds strip. A project made before the brief page may still hold cards of those kinds, builds, views, the Parameters and the Checks, frames and arrows in its file. They are kept in the file and not drawn: nothing is lost. A saved view has no "Pin to board" any more.
 
 **What Claude is told.** Every prompt carries one line: how many cards the brief has, how many are new and what they are, and that `board` reads it. It never carries the brief. A card is new when it was added or what it says changed (a text, a caption, a name), not when it was moved. The line under each prompt in the chat says it: `brief: 12 cards, 2 new`.
 
@@ -2049,7 +2058,7 @@ outline and what is drawn on it, not a photo that is much larger than they are, 
 The picker at the top right chooses which tracing is shown (`T1 Front of the block`, then the others) and ends with **New
 tracing**, which lays one on a main plane (Front, Top or Right, with how far along its normal, typed), on the section on screen
 (the Section tag's `···` menu has **Make a tracing** too, which lays the cut flat), or on a face: the view goes to the model, and the next flat face you
-select is the tracing's (a face that is not flat is refused, in words). **New tracing** is also in the head of the **Tracings** section of the route card, which opens the same choices (and the first tracing of a project is made there, or from the Section tag). Each tracing has a row in that section (`T1`, its name, and at the right its photo's file), and a click on it opens the tracing in this view; under the open or shown one the section says `Photo lined up by 4 points, 0.42 mm a pixel. Redrawn at each build.` The tracing's panel is in that section, under its row, while this view shows: the section opens and the card scrolls to it when you come to the view, and you may fold it after. The panel says its name (**Rename** and
+select is the tracing's (a face that is not flat is refused, in words). **New tracing** is also in the head of the panel that takes the column while this view shows, which opens the same choices (and the first tracing of a project is made from the `+` of the switch, or from the Section tag). Each tracing has a row in that panel (`T1`, its name, and at the right its photo's file), and a click on it opens the tracing in this view; under the open or shown one the panel says `Photo lined up by 4 points, 0.42 mm a pixel. Redrawn at each build.` The tracing's own panel is in it, under its row. The panel says its name (**Rename** and
 **Remove** are at its foot; a removed tracing can be put back for a few seconds), its plane, and `redrawn for h57`, the build the
 outline was cut on (`of build h57; building…` while a new one runs). "Model outline" is `exact` where the kernel cut the B-rep and
 holds each part's area; its parts are ticked, and a tracing draws at least one. Where the layout is shown with its parts spread apart, the panel says so: the
@@ -2107,7 +2116,7 @@ by eye. Claude is told it as `M12 · offset · head bolt 3: 1.8 mm left, 0.6 mm 
 ### A photo under a tracing
 
 A tracing keeps one **photo**, under the outline, lined up with it so that what is on the photo can be traced in millimetres. **Add photo** in the
-panel (in the Tracings section of the card) takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
+panel (in the Tracing view's panel) takes a picture from the photo dialog, or from the photos in the project's `reference/` (listed under it); dropping a picture on the sheet does
 the same. torno turns the picture the way the camera held it, scales it to at most 4000 pixels on its long edge and keeps its own copy in
 `.torno/tracings/photos/`, a folder git ignores: a photo stays on this computer, and a tracing opened on another one says `photo not on this
 computer`, with its line-up still told. HEIC is not read (set the phone to Most compatible, or export as JPEG).
@@ -2137,7 +2146,7 @@ photo's fade times 0.6, the outline of the last build in the ink colour, each la
 its place), and a faint sheet, with its edge, a margin past all of it. It is for reading the tracing against the parts, not a surface: nothing of it is
 written into the depth of the view, so the parts show through it, and it shows through the parts the plane cuts. It is never cut by a section, as marks are
 not, and it is never picked: a click goes through to the parts. The switch is a button in the tracing's panel and one under its tools, pressed while the
-tracing is shown. A tracing is drawn in the layout it was made in. Each tracing has a row in the **Tracings** section of the route card, with the eye that shows it
+tracing is shown. A tracing is drawn in the layout it was made in. Each tracing has a row in the Tracing view's panel, with the eye that shows it
 in 3D or puts it away (the eye is lit while it is shown). Its marks are drawn with the marks, whatever is done to the tracing.
 
 Which tracings are shown is how you last looked at the project, and is kept in `scene.json` as `tracingsShown`, with the layers and the section. It is a view, not
@@ -2385,9 +2394,13 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Everywhere | `F6` | To the next part of the window: projects, view, session, status line |
 | Everywhere | `Shift+F6` | To the part before |
 | Everywhere | `Ctrl+Shift+D` | Show or hide the session pane |
+| Everywhere | `Ctrl+Shift+L` | Show or hide the left column: the Parameters and Parts bench |
 | Everywhere | `Ctrl+Shift+E` | Export to one HTML file, or to STEP, STL or 3MF: the open project, or from the page of projects any of them |
 | Everywhere | `Ctrl+Shift+B` | Rebuild: build the open project again, as the button in the status line does |
 | Everywhere | `Ctrl+Tab` | The model, the brief and a tracing, in turn |
+| Everywhere | `Right` | On a tab of the bench: the next tab |
+| Everywhere | `Left` | On a tab of the bench: the tab before |
+| Viewport | `/` | Find a value: to the find box of the Parameters tab, opening the tab |
 | Viewport | `V` | Select: click a face or an edge, double-click for its part; Shift-click adds or takes out. The choice by the selection says what a click takes |
 | Viewport | `M` | Measure: two clicks, or a double click on a round thing; nothing is kept unless you keep it |
 | Viewport | `X` | Section: cut the parts by a plane |
@@ -2405,6 +2418,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Viewport | `H` | Review this build: start a round, to mark what you do not want and what you want, and send it at once |
 | Viewport | `-` | Review: new marks are what you do not want; again, plain |
 | Viewport | `=` `+` | Review: new marks are what you want; again, plain |
+| Viewport | `Ctrl+P` | Find a part or a value: the picker, over the view. Enter takes the one chosen: a part is selected and brought into view, a value is shown in the Parameters tab |
 | Viewport | `Ctrl+G` | Name the selected faces, edges, parts or strokes as a set |
 | Viewport | `Esc` | Compare: back to the live build, before any other step back |
 | Viewport | `Esc` | Step back: what is under way, then the tool in hand, then the selection |
@@ -2484,6 +2498,10 @@ and it holds the line of what the agent points at. The window remembers what it 
 | In a field, a menu or a sheet | `Up` `Left` | Menu: the one before |
 | In a field, a menu or a sheet | `Home` `End` | Menu: the first or the last |
 | In a field, a menu or a sheet | `Esc` `Tab` | Menu: close it |
+| In a field, a menu or a sheet | `Down` | Picker: the next row |
+| In a field, a menu or a sheet | `Up` | Picker: the row before |
+| In a field, a menu or a sheet | `Alt+Enter` | Picker: show only the part chosen |
+| In a field, a menu or a sheet | `Alt+H` | Picker: hide the part chosen, or show it again |
 | In a field, a menu or a sheet | `Esc` | Sheet or question: put it away |
 | In a field, a menu or a sheet | `Ctrl+Z` | Drawing board (a doodle, or a drawing on the view): undo the last stroke |
 | In a field, a menu or a sheet | `Shift` | Drawing board: hold Shift while drawing for a straight line from where the stroke began |
@@ -2504,7 +2522,7 @@ Those are the project's own, in git like its model, and torno never writes into 
 whole or not at all; it never writes `common/` or another project's folder. It writes under `.torno/` only when
 that is a real folder inside the project: where a link or a file is in its
 place (a workspace copied from elsewhere may hold one) torno writes nothing
-there, and says so once in the Marks section of the card, until a real folder is put in its
+there, and says so once in the Marks block of the Brief page, until a real folder is put in its
 place.
 
 | File | What | In git |
@@ -2720,7 +2738,7 @@ build is not built again until a source changes.
   failed). "Rebuild" is in the line at the bottom, beside how the build
   stands; `Ctrl+Shift+B` does the same from anywhere.
 - **Nothing is kept of a project: no mark, no view, no picture.** Its `.torno`
-  is a link or a file; the Marks section of the card says so. Put a real folder in its place.
+  is a link or a file; the Marks block of the Brief page says so. Put a real folder in its place.
   A link in the place of `.torno/views`, `.torno/exports`, `.torno/scans` or
   `.torno/chat` stops only what goes there (the agent's pictures, an export,
   the scans, the log of a chat): torno writes nothing through it and deletes
@@ -2888,14 +2906,14 @@ On the screen:
 - **The window's own title bar and controls on Linux.** The window has no frame of the window manager's: at the top, a bar 40 px high in the ground's colour. Start torno on Hyprland and on another desktop (KDE, GNOME) and try once: the bar drags the window, and the three buttons at its right (minimise, maximise or restore, close) each do what they say, also after the window was tiled or maximised by a key; Close with a session working asks "Close torno?" as the window manager's close does; the window cannot be made smaller than 1120 × 700; the bar is legible in light and dark. On Windows and macOS the platform's own controls sit over the bar in the same colours: not tried.
 - **Closing.** With a session working, close the window through the window manager: torno asks "Close torno?", "Keep it open" keeps everything as it was, "Close torno" ends torno and the session. With nothing under way it closes at once.
 - **A session that needs you, away from its pane.** In two projects, ask Claude Code in one for something that needs a permission, then open the other (and again with the session pane hidden): the first one's row has a dot and "needs you" in the warning colour, the status line has the button "*name* needs you", which opens it and brings you to the card, and a working session's dot is a quiet grey. In a window that is not in front (another window on top, or a workspace switched away) the frame should flash on Linux, and the dock icon bounce once on a Mac: no test shows a window, so only the rule is tested.
-- **The route card without a rail.** The window has no rail: the card is at the left edge, the `?` button and the print profile chip are at the right of the status line. Scroll the card to each of its seven sections and click a head to fold and open it. Drag the card's edge wider and narrower: it moves without lag. Start torno again: the folded
+- **The route card without a rail.** The window has no rail: the card is at the left edge, the `?` button and the print profile chip are at the right of the status line. Click the Parameters and Parts tabs, then each head under them (Scans, Tracings) to open and fold it; open the Brief page to see Checks and Marks. Drag the card's edge wider and narrower: it moves without lag. Start torno again: the open tab of each project, the folded
   sections and the card's width are as you left them.
 - **Layers of a model with many parts.** Open a project of ten parts or more: the pointer on a layer row lights that
   part in the view in the accent (and nothing else changes), the target shows it alone, `Show all` at the top of the section brings
   the rest back, and the count of marks on a part lists only its marks. The rows must not crowd: name, count, and on
   hover the opacity, the target and the eye, at the width of the card.
 - **Parameters.** In a project whose model has a `Params` dataclass with comments and one default that is an
-  expression, open the Parameters section: a row for each field in the model's order, the value in the
+  expression, open the Parameters tab: a row for each field in the model's order, the value in the
   monospace face, the comment as written (cut to two lines, whole on hover), "worked out in the model" on the expression's.
   With a real session running, in the chat and then in the terminal view, a click on a row puts `Params.wall` at the
   cursor of the box (or the prompt) and sends nothing, with the dock hidden as well; with no session the rows are
@@ -2955,8 +2973,8 @@ On the screen:
 - **The desktop entry.** `scripts/torno --install-desktop`, then start torno from your launcher: it is listed with its icon, the window comes up and is grouped under the entry (`StartupWMClass=torno`) with torno's icon. Given a folder (`gtk-launch torno ~/objects`) it opens that folder; given two, it refuses. With `claude` only on the `PATH` of a login shell, "New session" says it was not found there: start torno from a terminal, or put the command on the launcher's `PATH`.
 - **Build ghosts.** After an edit, the part as it was is drawn faint beside the new one: legible in light and dark, and gone when the next build lands.
 - **The section's hatch and plane label.** Cut a part: the cut face is hatched and the plane is named at its edge; both legible in light and dark, and the label clear of the tags and the band.
-- **The Marks section's resolve glyph, review walk and undo line.** The glyph on a row, "To review" stepped through one mark at a time, and the line that undoes a delete: each in its place, legible in both themes.
-- **The Checks section and its gauges.** One list of the model's checks and your dimension checks: the rows (chip or bar, name, the word of how it stands, value and wanted) and the 64 px gauge read at a glance in both themes, the failing row's wash and a row lit from the view are told apart, and a tick that moved slides once.
+- **The Marks block's resolve glyph, review walk and undo line.** The glyph on a row, "To review" stepped through one mark at a time, and the line that undoes a delete: each in its place, legible in both themes.
+- **The Checks block and its gauges.** One list of the model's checks and your dimension checks: the rows (chip or bar, name, the word of how it stands, value and wanted) and the 64 px gauge read at a glance in both themes, the failing row's wash and a row lit from the view are told apart, and a tick that moved slides once.
 - **The empty chat pane and its chips.** With no conversation, the pane's words and the chips under them fit the pane and are legible in both themes.
 - **The turn summary and its buttons.** After a turn, the summary line, the buttons "Compare", "See changes", "Go back to before this prompt" and "Star", the sheet of the diff, and the quiet lines for your own saves ("You saved `common/fillets.py` in your editor · `h39`", and several in a row as one) sit well in the chat, in a narrow dock and in both themes.
 - **The page of projects.** Its head and the order buttons are legible, and the cards keep their order when the window is narrow.

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { MarksFile, PinMark } from '../src/shared/marks'
+import { onBrief } from './helpers'
 import { openListed } from './objects'
 
 // Marks in a print layout whose parts the kernel sets side by side: a mark on
@@ -105,8 +106,10 @@ test('when the tray grows by 10 mm the lid is set 5 mm further along, and the pi
   // On the lid, where it is drawn now; where the pin was is on the lid still, 5 mm from the pin.
   expect(await under(moved.anchor.point)).toMatchObject({ part: 'lid', ref: placed.anchor.ref })
   // Its row says nothing of having moved or of not being checked.
-  await expect(row('M1').locator('.mark-anchor')).toHaveCount(0)
-  await expect(row('M1').locator('.mark-note')).toHaveText('a vent here')
+  await onBrief(page, async () => {
+    await expect(row('M1').locator('.mark-anchor')).toHaveCount(0)
+    await expect(row('M1').locator('.mark-note')).toHaveText('a vent here')
+  })
   // The window draws it there: its label is on the canvas.
   expect(await page.evaluate(() => window.__tornoTest!.markScreen('M1'))).toMatchObject({ visible: true })
 })

@@ -1,0 +1,65 @@
+/* ---- The panel of the Scans view and of the Tracing view (ui/view/ViewPanel.tsx): in the column, where the bench was ---- */
+
+.view-panel {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 160px;
+  box-sizing: border-box;
+  background: var(--raise);
+}
+
+.view-panel-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: var(--divider);
+}
+
+.view-panel-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.view-panel-head .button {
+  flex: none;
+  height: 24px;
+  padding: 0 var(--space-2);
+  font-size: 12px;
+}
+
+.view-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--space-4);
+}
+
+/* The bodies are the components that were the column's sections: they bring the padding of a panel's edge themselves, and the panel scrolls them. */
+.view-panel-body .rows {
+  flex: none;
+  overflow: visible;
+}
+
+/* The add menu of the switch: under it, from its left. */
+.menu.pboard-add-menu {
+  top: calc(100% + 7px);
+  right: auto;
+  left: 0;
+  z-index: 5;
+  background: var(--raise);
+  white-space: nowrap;
+}
+
+.pboard-add-box {
+  position: relative;
+}
+
+.pboard-add {
+  width: 26px;
+  padding: 0;
+}

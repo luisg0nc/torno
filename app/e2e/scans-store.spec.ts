@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { ScanInfo, ScansFile } from '../src/shared/scans'
 import { box, stl } from '../src/test/scanFixtures'
-import { openSection } from './helpers'
+import { openSection, switchTab } from './helpers'
 import { openListed } from './objects'
 
 // Scans from the window to the files and back: the bridge, the store in main
@@ -219,6 +219,8 @@ test('a scans file that cannot be read is said to the window, until it is dismis
   mkdirSync(join(root, 'hollow', '.torno'), { recursive: true })
   writeFileSync(join(root, 'hollow', '.torno', 'scans.json'), '{"next": 4, "scans": [')
   await openListed(page, 'hollow')
+  // The unreadable file has its word in the Scans panel, so the tab is there for it.
+  await expect(switchTab(page, 'Scans')).toBeVisible()
   await openSection(page, 'Scans')
   const problem = page.locator('[data-part="problem"]')
   await expect(problem).toContainText('The scans file of this project could not be read')

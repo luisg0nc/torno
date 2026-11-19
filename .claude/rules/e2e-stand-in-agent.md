@@ -35,7 +35,7 @@ denial in the turn's `result`) and `argv` play the rest. `write <file> <content>
 between them (`file` from the folder it runs in, a `\n` in the content a new line), and the answer of the `PostToolUse`
 is said as a `system`/`hook_response`; `edit <file> <old> <new>` plays an `Edit` the same way (`old_string`,
 `new_string`; the words are bare or JSON strings, `edit part.py "W = 2" "W = 3"`), replacing `old` by `new` in the
-file between the hooks. A `Stop` torno answers with `decision: block` is not the end of the turn: the
+file between the hooks. A `PreToolUse` that torno answers with `permissionDecision: deny` writes nothing: the tool's result is the reason, an error. A `Stop` torno answers with `decision: block` is not the end of the turn: the
 stand-in says the reason as a `hook_response` of the `Stop` and posts it again with `stop_hook_active`, as the CLI does. `FAKE_AGENT_FAIL=<text>` makes it write that to stderr and exit 1
 at once; `FAKE_AGENT_INIT_ERROR=<text>` makes it answer `initialize` with that error; `FAKE_AGENT_AUTH_ERROR=<text>` makes its first
 turn one that could not authenticate (after the hook and the `init`, an assistant message of `<synthetic>` whose text is
@@ -87,8 +87,7 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
   `window.__tornoTest.timeThumbnail(count, given?)`. `TORNO_SHOTS=<dir>` has `e2e/show.spec.ts` write
   captures of the page, one launch each.
 - A spec reaches a section of the route card as a person does, with no rail: `openSection(page, 'Parts')` of
-  `e2e/helpers.ts` (Parts, Parameters, Checks, Marks, Scans, Tracings; it scrolls the card to the section and unfolds
-  it with a click on its head), `foldSection`, `cardSection`; the page of projects through `showProjects` (the key `W`, `Escape` goes back);
+  `e2e/helpers.ts` (Parts and Parameters are the bench's tabs, Checks and Marks blocks of the Brief page, Scans and Tracings tabs of the view's switch, pressed when the project has one), `cardSection` (the panel or block), `clickImportScan` (Import scan… in the Scans panel, or in the `+` menu of the switch while the project has no scan); the page of projects through `showProjects` (the key `W`, `Escape` goes back);
   the print profile through `profileChip(page)` and `openProfile`, the keyboard through `keysButton(page)`. What a spec reads in a
   section (a layer row, a scan row, Parameters, Checks) is read after opening it. A spec opens a project through
   `openListed(page, name)` of `e2e/objects.ts`: the menu of the title bar's project crumb while a project is open, else its card

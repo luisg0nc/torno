@@ -65,9 +65,9 @@ test('a picture for Claude draws the tracing shown and says so; it is back in th
   expect(caption).toContain(' · tracing T1 shown in its plane')
 })
 
-test('the Tracings section has a row for it, and its eye puts the tracing away and shows it again', async () => {
+test('the Tracing view\'s panel has a row for it, and its eye puts the tracing away and shows it again', async () => {
   await openSection(page, 'Tracings')
-  const row = page.locator('[data-section="tracings"] .tracing-rows [data-tracing="T1"]')
+  const row = page.locator('[data-view-panel="tracings"] .tracing-rows li[data-tracing="T1"]')
   await expect(row).toBeVisible()
   await expect(row).toContainText('Front')
   await row.getByRole('button', { name: 'Hide T1 in 3D' }).click()
@@ -75,8 +75,11 @@ test('the Tracings section has a row for it, and its eye puts the tracing away a
   await expect(row.getByRole('button', { name: 'Show T1 in 3D' })).toHaveAttribute('aria-pressed', 'false')
   await expect.poll(drawn).toEqual([])
   await expect.poll(() => sceneFile().tracingsShown).toBeUndefined()
+  // The model is looked at from its own tab: the picture is of the view that shows it.
+  await page.locator('.pboard-switch').getByRole('button', { name: 'Model', exact: true }).click()
   const caption = await page.evaluate(async () => (await window.__tornoTest!.look({ view: 'front', size: 128 })).caption)
   expect(caption).not.toContain('tracing T1')
+  await openSection(page, 'Tracings')
   await row.getByRole('button', { name: 'Show T1 in 3D' }).click()
   await expect.poll(() => sceneFile().tracingsShown).toEqual(['T1'])
 })

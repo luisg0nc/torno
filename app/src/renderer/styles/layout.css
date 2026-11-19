@@ -210,6 +210,10 @@ button {
   flex-direction: row;
 }
 
+.left[hidden] {
+  display: none;
+}
+
 .dock {
   grid-area: 2 / 3 / 3 / 4;
   border-left: var(--divider);

@@ -6,7 +6,7 @@ import { inTerminal } from './terminal'
 import type { MarkStore } from '../src/main/marks/store'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark } from '../src/shared/marks'
-import { openSection, newSession } from './helpers'
+import { newSession, onBrief, openSection, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is told of the marks, and what the person is shown of what
@@ -53,6 +53,12 @@ const row = (id: string) => page.locator(`.mark-row[data-mark="${id}"]`)
 const panel = () => page.getByRole('region', { name: 'Marks' })
 // What the agent resolved, for the person to judge, is under From the agent in Marks.
 const needs = () => page.getByRole('region', { name: 'Marks' })
+/** The Resolved list of the Marks block, with its fold open: the fold is closed each time the Brief page is shown anew (it is the block's own state). */
+async function resolvedList() {
+  const fold = panel().getByRole('button', { name: /Resolved/ })
+  if ((await fold.getAttribute('aria-expanded')) === 'false') await fold.click()
+  return panel().getByRole('list', { name: 'Resolved marks' })
+}
 const tool = (name: string) => page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name, exact: true })
 const onDisk = (object: string): Mark[] => JSON.parse(readFileSync(join(root, object, '.torno', 'marks.json'), 'utf8')).marks
 
@@ -126,7 +132,7 @@ test('a mark changed after it was sent is sent again, and said to have changed',
   await page.keyboard.press('Enter')
   await expect(page.locator('.note-card')).toHaveCount(0)
   await expect.poll(async () => (await state()).marks[0]).toMatchObject({ note: 'make this corner thicker, by 2 mm', status: 'draft' })
-  await expect(page.getByRole('list', { name: 'To send' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
+  await onBrief(page, () => expect(page.getByRole('list', { name: 'To send' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1))
 
   await prompt()
   await expect.poll(lastContext).toContain(squeezed('(changed) M1 pin on base/F'))
@@ -191,6 +197,8 @@ test('on a failed build the selection can still be put in the prompt: its refs a
 
 test('a mark the agent resolved is told in a summary to review, saying what the agent did, until the person says OK', async () => {
   await asAgent('bracket', 'M1', { status: 'resolved', resolvedNote: 'made the corner 2 mm thicker' })
+  // The marks, their summary to review and their rows are on the Brief page; the view is back at the end.
+  await showBrief(page)
   const review = needs().locator('.needs-review')
   await expect(review).toContainText('The agent resolved 1 mark.')
   // Its row is in Marks at once, saying what the agent did; and no other group lists it.
@@ -200,8 +208,6 @@ test('a mark the agent resolved is told in a summary to review, saying what the 
   await expect(row('M1').locator('.mark-resolution-note')).toHaveText('Resolved by Claude: made the corner 2 mm thicker')
   await review.getByRole('button', { name: 'Review' }).click()
   await expect(review).toContainText('Reviewing 1 of 1 · M1')
-  // Not drawn any more, like any resolved mark.
-  expect(await page.evaluate(() => window.__tornoTest!.markScreen('M1'))).toBeNull()
   expect(onDisk('bracket')[0]).toMatchObject({ status: 'resolved', resolvedBy: 'agent' })
   expect(onDisk('bracket')[0]).not.toHaveProperty('acknowledged')
 
@@ -210,6 +216,9 @@ test('a mark the agent resolved is told in a summary to review, saying what the 
   await panel().getByRole('button', { name: /Resolved/ }).click()
   await expect(panel().getByRole('list', { name: 'Resolved marks' }).locator('[data-mark="M1"]')).toHaveCount(1)
   expect(onDisk('bracket')[0]).toMatchObject({ status: 'resolved', resolvedBy: 'agent', acknowledged: true })
+  await showModel(page)
+  // Not drawn any more, like any resolved mark.
+  expect(await page.evaluate(() => window.__tornoTest!.markScreen('M1'))).toBeNull()
 })
 
 test('Reopen makes a mark the agent resolved a draft again; one the person resolves goes straight under Resolved', async () => {
@@ -222,6 +231,7 @@ test('Reopen makes a mark the agent resolved a draft again; one the person resol
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).marks.map((m) => m.id)).toEqual(['M1', 'M2'])
   await asAgent('bracket', 'M2', { status: 'resolved' })
+  await showBrief(page)
   await needs().locator('.needs-review').getByRole('button', { name: 'Review' }).click()
   await expect(row('M2').locator('.mark-resolution-note')).toHaveText('Resolved by Claude')
   await row('M2').getByRole('button', { name: 'Reopen…', exact: true }).click()
@@ -245,16 +255,18 @@ test('Reopen makes a mark the agent resolved a draft again; one the person resol
 
   await row('M2').hover()
   await row('M2').getByRole('button', { name: 'Resolve M2' }).click()
-  await expect(panel().getByRole('list', { name: 'Resolved marks' }).locator('[data-mark="M2"]')).toHaveCount(1)
+  await expect((await resolvedList()).locator('[data-mark="M2"]')).toHaveCount(1)
   expect(onDisk('bracket')[1]).toMatchObject({ status: 'resolved', resolvedBy: 'user' })
   // Back among the open ones for what follows.
   await page.evaluate(() => window.torno.marks.update('bracket', 'M2', { status: 'draft' }))
+  await showModel(page)
 })
 
 test('OK all acknowledges every mark the agent resolved, in one write', async () => {
   await page.evaluate(() => window.torno.marks.update('bracket', 'M1', { status: 'draft' }))
   await asAgent('bracket', 'M1', { status: 'resolved', resolvedNote: 'made the corner 2 mm thicker' })
   await asAgent('bracket', 'M2', { status: 'resolved', resolvedNote: 'and this one too' })
+  await showBrief(page)
   const review = needs().locator('.needs-review')
   await expect(review).toContainText('The agent resolved 2 marks.')
   await expect(row('M1').locator('.mark-resolution')).toHaveCount(1)
@@ -262,9 +274,10 @@ test('OK all acknowledges every mark the agent resolved, in one write', async ()
   // (The line that closed the last walk may still be up.)
   await expect(review).not.toContainText('The agent resolved')
   await expect.poll(() => onDisk('bracket').filter((m) => m.acknowledged).map((m) => m.id)).toEqual(['M1', 'M2'])
-  await expect(panel().getByRole('list', { name: 'Resolved marks' }).locator('[data-mark]')).toHaveCount(2)
+  await expect((await resolvedList()).locator('[data-mark]')).toHaveCount(2)
   // M2 back among the open ones for what follows, as before.
   await page.evaluate(() => window.torno.marks.update('bracket', 'M2', { status: 'draft' }))
+  await showModel(page)
 })
 
 test('a mark on a part that is switched off is not drawn, in the window or in a picture; its row stays, and says why', async () => {
@@ -288,12 +301,13 @@ test('a mark on a part that is switched off is not drawn, in the window or in a 
 
   await page.getByRole('button', { name: 'Show post' }).click()
 
-  await openSection(page, 'Marks')
   await expect.poll(() => drawn('M3')).toBe(false)
   expect(await drawn('M2')).toBe(true)
-  await expect(row('M3')).toHaveAttribute('data-hidden', '')
-  await expect(row('M3').locator('.mark-layout')).toHaveText('its part is hidden')
-  await expect(row('M2')).not.toHaveAttribute('data-hidden', '')
+  await onBrief(page, async () => {
+    await expect(row('M3')).toHaveAttribute('data-hidden', '')
+    await expect(row('M3').locator('.mark-layout')).toHaveText('its part is hidden')
+    await expect(row('M2')).not.toHaveAttribute('data-hidden', '')
+  })
   // A picture of the base alone has no M3; one that names the post draws the post and its mark.
   const withoutPost = await picture()
   expect(withoutPost).not.toBe(withBoth)
@@ -306,9 +320,8 @@ test('a mark on a part that is switched off is not drawn, in the window or in a 
 
   await page.getByRole('button', { name: 'Show post' }).click()
 
-  await openSection(page, 'Marks')
   await expect.poll(() => drawn('M3')).toBe(true)
-  await expect(row('M3')).not.toHaveAttribute('data-hidden', '')
+  await onBrief(page, () => expect(row('M3')).not.toHaveAttribute('data-hidden', ''))
 })
 
 test('a pin on an edge is a pin on that edge: the agent is told which, and the two faces that meet there', async () => {
@@ -345,6 +358,7 @@ test('Review walks the marks the agent resolved: OK, Reopen with a reason, Skip;
   expect(ids).toHaveLength(3)
   const [ok, again, skip] = ids
   for (const id of ids) await asAgent('bracket', id, { status: 'resolved', resolvedNote: `done ${id}` })
+  await showBrief(page)
   const review = needs().locator('.needs-review')
   await expect(review).toContainText('The agent resolved 3 marks.')
   const goneTo: string[] = []
@@ -381,6 +395,7 @@ test('Review walks the marks the agent resolved: OK, Reopen with a reason, Skip;
   await expect(needs().getByRole('list', { name: 'To review' })).toBeVisible()
   // Put things back for what follows.
   await page.evaluate((id) => window.torno.marks.update('bracket', id, { status: 'draft' }), skip)
+  await showModel(page)
 })
 
 test('a session goes on being typed into when its object leaves the list: its last model file was deleted', async () => {

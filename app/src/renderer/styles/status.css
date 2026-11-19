@@ -106,6 +106,10 @@
   color: var(--warn);
 }
 
+.status-dimensions[data-state='tried'] {
+  color: var(--accent);
+}
+
 .status-asking {
   display: contents;
 }
