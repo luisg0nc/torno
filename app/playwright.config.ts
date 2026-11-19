@@ -10,7 +10,10 @@ export default defineConfig({
   // The evals run the real Claude Code: never a test (`src/evals.test.ts`).
   testIgnore: ['**/evals/**'],
   workers: 1,
-  timeout: 30_000,
+  // A runner is slower than the desktop the timings were set on (the kernel's first build most of all): CI gets twice
+  // the test timeout and three times the wait for an expectation.
+  timeout: process.env.CI ? 60_000 : 30_000,
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   reporter: 'list',
   outputDir: './e2e/.results'
 })
