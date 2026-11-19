@@ -1270,8 +1270,8 @@ naming the keys it takes.
 The tools that only read (`scene`, `look`, `marks`, `describe`, `measure`, `section`, `check`, `diff`, `history`,
 `wait_build`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`) say so, and Claude Code may call several at once. The server also tells Claude
 Code at the start, in a few lines, what each tool is for. Claude Code's tool search keeps an MCP server's tools out
-of the model's sight until it searches for them; five are loaded from the start because nearly every turn uses
-them: `scene`, `look`, `marks`, `describe` and `measure`. The others are found by that search.
+of the model's sight until it searches for them; eight are loaded from the start because nearly every turn, or the
+prompt, uses them: `scene`, `look`, `marks`, `describe`, `measure`, `show`, `resolve_mark` and `features`. The others are found by that search.
 
 | Tool | What it gives |
 |---|---|

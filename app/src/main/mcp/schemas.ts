@@ -532,7 +532,7 @@ const READ_ONLY = { readOnlyHint: true, openWorldHint: false }
 const CHANGES_VIEW_OR_MARKS = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 /**
  * The tools Claude Code loads at the start of a session (`_meta`), where its tool search would otherwise leave
- * every one of them to be searched for first: those an agent needs on nearly every turn. Each one costs context in
+ * every one of them to be searched for first: those an agent needs on nearly every turn, and those the session prompt tells it to use in almost every session (`show`, `resolve_mark`, `features`). Each one costs context in
  * every turn and is part of the prompt cache's prefix, so the list is short; changing it is a cache miss for
  * running sessions only.
  */
@@ -588,6 +588,7 @@ export const TOOLS = {
   show: {
     title: 'Change the view',
     annotations: CHANGES_VIEW_OR_MARKS,
+    meta: ALWAYS_LOADED,
     description:
       "Returns a caption of what the user's viewport shows after it was changed to the view, layout, parts, section, explode or scans you gave. It moves the user's own camera, hides the parts and the scans you leave out and cuts their view or draws its parts apart, so use it only to show them something, and say that you did; to see for yourself, call look. Give focus to put their camera on a ref, a mark or a box.",
     inputSchema: showInput
@@ -623,6 +624,7 @@ export const TOOLS = {
   resolve_mark: {
     title: 'Resolve a mark',
     annotations: CHANGES_VIEW_OR_MARKS,
+    meta: ALWAYS_LOADED,
     description:
       "Returns the mark, now resolved: the user sees it in their list as resolved by you, with your note, until they confirm or reopen it. Call it for each mark of the user's once you have acted on it and checked the result. A dimension of the user’s with an expected value is not yours to resolve, since it is their check of the part and passes by itself, and any other dimension you resolve is no longer measured on later builds.",
     inputSchema: resolveMarkInput
@@ -729,6 +731,7 @@ export const TOOLS = {
   features: {
     title: 'List features of a part',
     annotations: READ_ONLY,
+    meta: ALWAYS_LOADED,
     description:
       "Returns JSON and a reading of the holes, bosses, fillets, chamfers and patterns of a part of the last build that worked, found on its B-rep: for each hole its diameter, axis (pointing into the part), entry point, the face it opens in, depth, whether it is through or blind (and its bottom), and any counterbore, countersink or rounded mouth; for each boss its diameter, height and base; for each fillet its radius, sweep and length, whether it rounds an outside edge or an inside corner, and the faces and edges it joins; for each chamfer its setback (or setbacks, when uneven) in the same way; for each pattern of holes or bosses alike how many there are and whether they lie in a row, a grid or on a circle, with the step; with the faces each is made of, as refs that describe and highlight take. Diameters, radii, angles, axes and depths between planes and round faces are exact, a depth taken between freeform faces says it is not (exact false, ≈ in the reading), and only analytic faces count: cylinders, cones and tori that go all the way round for holes and bosses, blends tangent to both faces for fillets, so slot ends are counted as arcs and told as neither (at most 100 of a kind are listed, the rest counted). Use it to answer how many holes there are, of what size and how deep, what the fillets are, and before you edit any of them, instead of describing faces one by one.",
     inputSchema: featuresInput
