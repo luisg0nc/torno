@@ -32,7 +32,7 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -119,7 +119,7 @@ test('a file that names an agent torno does not know is said, and choosing a vie
   await expect(note()).toHaveCount(0)
 })
 
-test('a session at work or waiting for the answer shows on the rail\'s Projects icon, on its object\'s row of the list and in the status line while another object is open, with the dock shown or hidden; ended, it shows nothing', async () => {
+test('a session at work or waiting for the answer shows on the title bar\'s pill, on its object\'s row of the list and in the status line while another object is open, with the dock shown or hidden; ended, it shows nothing', async () => {
   // The project crumb's menu has a row for each object.
   const item = (name: string) => projectMenu(page).getByRole('menuitem', { name, exact: true })
   /** The menu opened, what is said of an object's row looked at, and the menu put away. */
@@ -146,9 +146,9 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   await typeLine('hook')
   await expect(status()).toHaveText('Working')
   await open('bracket')
-  await expect(switcher(page)).toHaveAttribute('data-session', 'working')
-  await expect(switcher(page)).toHaveAttribute('aria-description', 'measures is working')
-  await expect(switcher(page).locator('.session-sign-word')).toHaveCount(0)
+  await expect(switcher(page)).toHaveAttribute('data-sign', 'working')
+  await expect(switcher(page)).toHaveAttribute('aria-description', 'session is working')
+  await expect(switcher(page)).toHaveAccessibleName('measures')
   await inMenu(async () => {
     await expect(item('measures')).toHaveAttribute('data-session', 'working')
     await expect(item('measures')).toHaveAttribute('aria-description', 'session is working')
@@ -162,10 +162,8 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   await typeLine('hook Notification')
   await expect(status()).toHaveText('Needs you')
   await open('bracket')
-  await expect(switcher(page)).toHaveAttribute('data-session', 'needs_input')
-  await expect(switcher(page)).toHaveAttribute('aria-description', 'measures needs you')
-  // The icon is named Projects, whatever the sessions do; its description names the object whose session waits.
-  await expect(page.getByRole('button', { name: 'Projects', exact: true, description: 'measures needs you' })).toHaveCount(1)
+  await expect(switcher(page)).toHaveAttribute('data-sign', 'needs_input')
+  await expect(switcher(page)).toHaveAttribute('aria-description', 'session needs you')
   await inMenu(async () => {
     await expect(item('measures')).toHaveAttribute('data-session', 'needs_input')
     // Still found by its name alone: the state is the row's description, not part of its name.
@@ -192,14 +190,14 @@ test('a session at work or waiting for the answer shows on the rail\'s Projects 
   await typeLine('hook Stop')
   await expect(status()).toHaveText('Idle')
   await expect(needs()).toHaveCount(0)
-  await expect(switcher(page)).not.toHaveAttribute('data-session', /./)
+  await expect(switcher(page)).toHaveCount(0)
   // An ended session shows nothing either.
   await typeLine('hook Notification')
   await expect(status()).toHaveText('Needs you')
   await page.evaluate(() => window.torno.session.stop(window.__tornoTest!.state().sessions.measures.sessionId))
   await expect(status()).toHaveText('Ended')
   await expect(needs()).toHaveCount(0)
-  await expect(switcher(page)).not.toHaveAttribute('data-session', /./)
+  await expect(switcher(page)).toHaveCount(0)
   await inMenu(() => expect(item('measures')).not.toHaveAttribute('data-session', /./))
 })
 

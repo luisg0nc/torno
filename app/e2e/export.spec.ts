@@ -70,7 +70,7 @@ test.beforeAll(async () => {
   outDir = mkdtempSync(join(realpathSync(tmpdir()), 'torno-export-out-'))
   app = await launch(root)
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -873,7 +873,7 @@ for (const shot of ['light', 'dark', 'narrow', 'cut', 'sheet', 'sheet-3mf'] as c
     const shotApp = await launch(shotRoot)
     try {
       const shotPage = await shotApp.firstWindow()
-      await shotPage.waitForSelector('[data-region="left"]')
+      await shotPage.waitForSelector('[data-region="viewport"]')
       await shotPage.emulateMedia({ colorScheme: 'light' })
       await open('hollow', shotPage)
       await expect.poll(async () => ((await shotPage.evaluate(() => window.torno.marks.list('hollow'))) as Mark[]).find((m) => m.id === 'M2')).toMatchObject({ measuredRevision: 1 })

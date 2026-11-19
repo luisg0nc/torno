@@ -38,9 +38,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   in a `role="status"` that is always there) names the first object of the list whose session waits, with "and N
   more"; it opens that object, shows the dock (`dockOpen` and `actions.setDockOpen` are in the store, not in
   `App.tsx`) and `focusAsk` takes the focus to the open card or the terminal once the pane is of that object. The
-  toggle's dot is of the open object's session and only while the dock is hidden. The rail's Projects icon
-  carries the dot of any object of the list whose session works or waits (`switcherSign`: a waiting one first); its
-  description says each (`session is working; bracket needs you`), "needs you" alone for the open object's; the rows of the
+  toggle's dot is of the open object's session and only while the dock is hidden. The title bar has a pill for each other project whose
+  session works or waits (`titleSigns`: a waiting one first, two at most, then `+N`); the rows of the
   project menu have their own dots.
 - **The title bar** (`ui/TitleBar.tsx`, `styles/titlebar.css`) is the row above the columns, a drag region (`-webkit-app-region`;
   every crumb, pill and button in it is `no-drag`): the vise, the folder crumb (`Folder <name>`, `FolderMenu`), `/`, the

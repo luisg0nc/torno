@@ -32,7 +32,7 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, HOME: home, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -206,14 +206,14 @@ test('what was wrong with a sets file is said in Layers with where it was kept, 
   await expect(line).toContainText(sentence)
   // Still there after the window is loaded anew.
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openListed(page, 'plain')
   await expect(line).toContainText(sentence)
 
   await line.getByRole('button', { name: 'Dismiss' }).click()
   await expect(line).toHaveCount(0)
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openListed(page, 'plain')
   await expect(line).toHaveCount(0)
 })

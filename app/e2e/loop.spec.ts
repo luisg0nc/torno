@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { letGoText } from '../src/shared/build'
 import type { Camera, LookRequest, LookResult, ViewState } from '../src/shared/view'
-import { openSection, railButton } from './helpers'
+import { cardSection, openSection } from './helpers'
 import { openListed, projectCard, projectCrumb } from './objects'
 
 // The whole loop through the window: choose an object, see its parts, change
@@ -40,7 +40,7 @@ test.beforeAll(async () => {
   // The stand-in agent, for the one test that starts a session: no test here runs `claude`.
   app = await launch({ TORNO_WORKSPACE: root, TORNO_AGENT_CMD: `node ${fakeAgent}` })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -50,10 +50,11 @@ test.afterAll(async () => {
 
 const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window.__tornoTest!.state())
 const camera = (): Promise<Camera> => page.evaluate(() => window.__tornoTest!.camera())
-/** The layers listed in the Layers panel, which is opened first where the rail offers it (a project is open). */
+/** The layers listed in the Layers panel, which is opened first (a project is open). */
 async function layerNames(p: Page = page): Promise<(string | null)[]> {
   // A project with no parts has the section's head say so and not open: nothing to list.
-  if ((await railButton(p, 'Parts').count()) > 0) await railButton(p, 'Parts').click()
+  const parts = cardSection(p, 'Parts')
+  if ((await parts.count()) > 0 && (await parts.getAttribute('data-empty')) === null) await openSection(p, 'Parts')
   return p.locator('[data-layer]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer')))
 }
 const status = (p: Page) => p.locator('[data-region="status"]')
@@ -461,7 +462,7 @@ test('hiding a layer changes the picture and is recorded in .torno/scene.json', 
 
 test('the layers come back as they were left when the object is opened again', async () => {
   await Promise.all([page.waitForEvent('load'), page.evaluate(() => window.location.reload())])
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   expect((await state()).objectId).toBeNull()
   await openListed(page, 'bracket')
   // Built already: main sends the last scene again.

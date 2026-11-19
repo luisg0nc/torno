@@ -49,9 +49,8 @@ the stylesheets by area in the order of the cascade; `styles.test.ts` holds it t
   12px 3px for the person's words, which the spec states; the export tiles take `--radius-control` and the frame round the
   view it previews `--radius-float`; a tracing's title block is drawn in SVG), and the one shadow is `--float-shadow`: no other `box-shadow` has a blur over 4px (insets and rings are free);
   `styles.test.ts` holds both, and that `--palette-shadow` and `--radius-palette` are gone (also in `export/page.css`). The
-  window's sizes are tokens: `--title-h` 40px, `--card-w` 296px, `--rail-w` 52px, `--dock-w` 420px, `--status-h` 28px and `--panel-w`
-  (an alias of `--card-w`); a window under 1360px takes `--card-w` 264px and `--dock-w` 384px (a media query in `tokens.css`). `RAIL_W`,
-  `LEFT_DEFAULT`, `LEFT_MIN` in `state/column.ts` and `DOCK_DEFAULT`, `DOCK_NARROW` in `state/dock.ts` are held to the tokens. The new text pairs are held in
+  window's sizes are tokens: `--title-h` 40px, `--card-w` 296px, `--dock-w` 420px, `--status-h` 28px and `--panel-w`
+  (an alias of `--card-w`); a window under 1360px takes `--card-w` 264px and `--dock-w` 384px (a media query in `tokens.css`). `LEFT_DEFAULT`, `LEFT_MIN` in `state/column.ts` and `DOCK_DEFAULT`, `DOCK_NARROW` in `state/dock.ts` are held to the tokens. The new text pairs are held in
   `contrast.test.ts` in both themes: `--ink` 7:1 and `--muted`, `--accent` and the verdicts 4.5:1 on `--raise`, `--warn-wash`
   and `--fail-wash`; `--on-accent` on `--accent`, `--on-dye` and `--on-dye-muted` on `--dye`, `--on-mark` on both marks 4.5:1;
   `--scribe` on `--dye` and `--field-edge` on `--raise` 3:1 (the dark `--field-edge` is `#747A82` for that); `--route` on

@@ -7,7 +7,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { SESSION_HEADER } from '../src/main/http'
 import { inTerminal } from './terminal'
-import { foldSection, openSection, railButton, showProjects, newSession } from './helpers'
+import { foldSection, openSection, showProjects, newSession, keysButton, profileChip } from './helpers'
 import { openListed, projectCard, projectCrumb, projectMenu, shelfOf } from './objects'
 import type { TornoState } from '../src/renderer/state/store'
 import type { ObjectCard } from '../src/shared/show'
@@ -42,7 +42,7 @@ test.beforeAll(async () => {
   writeFileSync(join(root, 'bracket', '.torno', 'scene.json'), JSON.stringify({ layout: 'assembly', layers: { post: { visible: false } }, section: { origin: [0, 0, 0], normal: [0, 1, 0] } }))
   app = await launch(root)
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await page.emulateMedia({ colorScheme: 'light' })
 })
 
@@ -446,15 +446,14 @@ test('a build that fails wins over the picture, which stays and is dimmed', asyn
   await page.keyboard.press('Escape')
 })
 
-test('the rail holds Projects and Keys alone while the page is up, and Escape closes what is on top first', async () => {
+test('no section of the card is up while the page of projects is, and and Escape closes what is on top first', async () => {
   // plain is open, and failed: the page comes up over it.
   await page.keyboard.press('w')
   expect((await state()).page).toBe('objects')
-  // The sections of the card act on a view that is not on screen while the page is up: the card is away and the rail
-  // has no icon for them (final fix wave). Projects, pressed, and Keys remain.
-  for (const name of ['Needs you', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile'] as const) await expect(railButton(page, name)).toHaveCount(0)
-  for (const name of ['Projects', 'Keys'] as const) await expect(railButton(page, name)).toBeVisible()
-  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'true')
+  // The sections of the card act on a view that is not on screen while the page is up: the card is away. Keys stays in the
+  // status line; the print profile chip, which is of a project, is not drawn.
+  await expect(keysButton(page)).toBeVisible()
+  await expect(profileChip(page)).toHaveCount(0)
   await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   await expect(page.locator('[data-region="left"]').getByRole('slider')).toHaveCount(0)
   // The build's error, opened from the status line, is over the page: Escape closes it, and the page stays.
@@ -485,14 +484,14 @@ test('the rail holds Projects and Keys alone while the page is up, and Escape cl
   await page.keyboard.press('Escape')
   expect(await state()).toMatchObject({ page: 'object', objectId: 'plain' })
   // What had the focus when the page came up has it again when the page goes.
-  const all = railButton(page, 'Projects')
-  await all.focus()
+  const crumb = projectCrumb(page)
+  await crumb.focus()
   await page.keyboard.press('Enter')
+  await page.getByRole('menuitem', { name: /^All projects/ }).click()
   expect((await state()).page).toBe('objects')
   await expect.poll(() => focusedCard()).toBe('plain')
   await page.keyboard.press('Escape')
   expect((await state()).page).toBe('object')
-  await expect(all).toBeFocused()
 })
 
 test('the page of projects has a card for every project, the project menu opens another, and what is folded in the card is the window\'s', async () => {
@@ -508,11 +507,10 @@ test('the page of projects has a card for every project, the project menu opens 
   await expect(projectCard(page, 'hollow')).toHaveAttribute('aria-current', 'true')
   // One that cannot be built is marked.
   await expect(projectCard(page, 'two')).toHaveAttribute('data-problem', '')
-  // Another project, opened by its card; the card is back beside the rail.
+  // Another project, opened by its card; the route card is back.
   await projectCard(page, 'bracket').click()
   await expect.poll(async () => (await state()).objectId).toBe('bracket')
   await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(1)
-  await expect(railButton(page, 'Projects')).toHaveAttribute('aria-pressed', 'false')
   // The project crumb's menu has All projects at its head, then every project; the open one is current.
   await projectCrumb(page).click()
   const menu = projectMenu(page)
@@ -540,7 +538,7 @@ test('who needs you stands first: Claude\'s question with Answer, who works besi
   const ownApp = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, HOME: home, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: own } })
   try {
     const p = await ownApp.firstWindow()
-    await p.waitForSelector('[data-region="left"]')
+    await p.waitForSelector('[data-region="viewport"]')
     await p.emulateMedia({ colorScheme: 'light' })
     const dock = p.locator('[data-region="session"]')
     // measures: a session at work in its terminal, the stand-in posting the hooks the CLI would.
@@ -703,7 +701,7 @@ for (const shot of ['light', 'dark', 'empty-light', 'empty-dark'] as const) {
     const shotApp = await launch(shotRoot)
     try {
       const shotPage = await shotApp.firstWindow()
-      await shotPage.waitForSelector('[data-region="left"]')
+      await shotPage.waitForSelector('[data-region="viewport"]')
       await shotPage.emulateMedia({ colorScheme: shot.endsWith('dark') ? 'dark' : 'light' })
       // A hidden window is not the one in use, and draws no focus: the page is told it is, so that the card in focus shows as it would.
       const devtools = await shotPage.context().newCDPSession(shotPage)

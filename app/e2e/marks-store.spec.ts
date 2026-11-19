@@ -33,7 +33,7 @@ test.beforeAll(async () => {
     env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root }
   })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -156,7 +156,7 @@ test('what the bridge declares for later tasks is there, and does nothing yet', 
 test('the mark is still there after the window is reloaded', async () => {
   const kept = marksOnDisk().marks
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   expect((await state()).objectId).toBeNull()
   await openBracket()
   await expect.poll(async () => (await state()).marks).toEqual(kept)

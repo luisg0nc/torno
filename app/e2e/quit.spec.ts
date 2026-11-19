@@ -109,7 +109,7 @@ test('a note still being typed when the window closes is kept: nothing ended it,
   const app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_WORKSPACE: root } })
   try {
     const page = await app.firstWindow()
-    await page.waitForSelector('[data-region="left"]')
+    await page.waitForSelector('[data-region="viewport"]')
     await openListed(page, 'bracket')
     await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
 
@@ -145,7 +145,7 @@ test('a layer hidden just before the window closes is in .torno/scene.json: the 
   const sceneFile = (): { layers?: Record<string, { visible?: boolean }> } => readOr(() => JSON.parse(readFileSync(join(root, 'bracket', '.torno', 'scene.json'), 'utf8')), {})
   try {
     const page = await app.firstWindow()
-    await page.waitForSelector('[data-region="left"]')
+    await page.waitForSelector('[data-region="viewport"]')
     await openListed(page, 'bracket')
     await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 1 })
     // Past the save that opening the object may have asked for.

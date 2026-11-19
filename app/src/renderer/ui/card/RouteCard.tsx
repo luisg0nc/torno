@@ -5,7 +5,6 @@ import { LeftEdge } from '../LeftEdge'
 import { MarksPanel } from '../MarksPanel'
 import { numbered } from '../numbered'
 import { ParamsPanel } from '../ParamsPanel'
-import { PrintProfile } from '../PrintProfile'
 import { ImportScan, ScansPanel } from '../ScansPanel'
 import { CardSection } from './CardSection'
 import { Checks } from './Checks'
@@ -30,16 +29,14 @@ function Body({ id }: { id: SectionId }): ReactNode {
       return <ScansPanel />
     case 'tracings':
       return <TracingsBody />
-    case 'profile':
-      return <PrintProfile />
   }
 }
 
 /**
- * The project read from top to bottom: the card docked beside the rail, as wide as `--card-w` says. Its head slot (`head`: what
- * is in your hand) is pinned above the scroll; below it the eight sections of `SECTIONS` follow one another down a route line,
+ * The project read from top to bottom: the card docked at the left, as wide as `--card-w` says. Its head slot (`head`: what
+ * is in your hand) is pinned above the scroll; below it the seven sections of `SECTIONS` follow one another down a route line,
  * each folded to its head or open. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
- * the rail's index shows it. Its right edge makes it wider (`LeftEdge`).
+ * `store.sectionHere` has it. Its right edge makes it wider (`LeftEdge`).
  */
 export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<HTMLDivElement | null> }) {
   const facts = useSectionFacts()

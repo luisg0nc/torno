@@ -42,7 +42,7 @@ test.beforeAll(async () => {
   root = copyFixtures()
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -278,7 +278,7 @@ test('a session that ends keeps what it said, and its conversation can be resume
 
 test('a window loaded again finds the session still running', async () => {
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openObject('bracket')
   await expect(sessionStatus()).toHaveText('Idle')
   await typeLine('back')
@@ -326,7 +326,7 @@ test('the dock\'s header is one row, and "More" holds End, Resume, New session, 
   const one = await launch({ TORNO_WORKSPACE: folder })
   try {
     const window = await one.firstWindow()
-    await window.waitForSelector('[data-region="left"]')
+    await window.waitForSelector('[data-region="viewport"]')
     await openObject('bracket', window)
     await newSession(dock(window))
     const header = dock(window).locator('.session-head')
@@ -388,7 +388,7 @@ test('closing the window asks first while a session is in the middle of somethin
   const busy = await launch({ TORNO_WORKSPACE: folder })
   try {
     const window = await busy.firstWindow()
-    await window.waitForSelector('[data-region="left"]')
+    await window.waitForSelector('[data-region="viewport"]')
     await openObject('bracket', window)
     await newSession(dock(window))
     await expect(sessionStatus(window)).toHaveText('Idle')
@@ -428,7 +428,7 @@ test('closing the window asks first while a session is in the middle of somethin
   const quiet = await launch({ TORNO_WORKSPACE: folder })
   try {
     const window = await quiet.firstWindow()
-    await window.waitForSelector('[data-region="left"]')
+    await window.waitForSelector('[data-region="viewport"]')
     await openObject('bracket', window)
     await newSession(dock(window))
     await expect(sessionStatus(window)).toHaveText('Idle')
@@ -453,7 +453,7 @@ test('an agent that is not installed is named, and the buttons stay', async () =
   const other = await launch({ TORNO_WORKSPACE: root, TORNO_AGENT_CMD: 'torno-no-such-agent' })
   try {
     const otherPage = await other.firstWindow()
-    await otherPage.waitForSelector('[data-region="left"]')
+    await otherPage.waitForSelector('[data-region="viewport"]')
     await openObject('plain', otherPage)
     await newSession(dock(otherPage))
     await expect(dock(otherPage).getByRole('alert')).toHaveText("cannot start the agent: 'torno-no-such-agent' was not found on PATH")

@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import { box, stl } from '../src/test/scanFixtures'
-import { openSection, railButton, showProjects } from './helpers'
+import { cardSection, openSection, showProjects } from './helpers'
 import { openListed, projectCard } from './objects'
 
 // The app is driven by single letters. After a click or an action, wherever it was, the next letter is the
@@ -29,7 +29,7 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).build?.status, { timeout: 30_000 }).toBe('ok')
 })
@@ -131,11 +131,11 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.getByRole('button', { name: 'Show post' }).click()
   await page.getByRole('button', { name: 'Show post' }).click()
   await pinIsInHand('a part switched off and on')
-  // Each section of the card brought into sight by its icon in the rail, with the pointer.
+  // Each section of the card's head pressed with the pointer: folded, then open.
   for (const name of ['Parts', 'Scans', 'Marks'] as const) {
-    await railButton(page, name).click()
-    await pinIsInHand(`${name} brought into sight`)
-    await railButton(page, name).click()
+    await cardSection(page, name).locator('.route-head-button').click()
+    await pinIsInHand(`${name} head pressed`)
+    await cardSection(page, name).locator('.route-head-button').click()
     await pinIsInHand(`${name} again`)
   }
   // The panel made wider by its edge, and the default put back with a double click.

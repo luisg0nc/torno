@@ -2,13 +2,13 @@
  * How the person likes the left of the window: which sections of the route card are folded and how wide the card is.
  * It is the window's, kept in its own storage (`localStorage`), never in the workspace: it is not part of an object. A
  * storage that is not there or refuses leaves the defaults, and a write that fails is let go. A value of the old shape
- * (`{ open, width }`: the one panel of the rail that was open) is read as the default folding, at the width it had.
+ * (`{ open, width }`) is read as the default folding, at the width it had.
  */
 
-/** The sections of the route card, in the order they are read, and the order of the rail's index. */
-export type SectionId = 'needs' | 'parts' | 'params' | 'checks' | 'marks' | 'scans' | 'tracings' | 'profile'
+/** The sections of the route card, in the order they are read. */
+export type SectionId = 'needs' | 'parts' | 'params' | 'checks' | 'marks' | 'scans' | 'tracings'
 
-export const SECTION_IDS: readonly SectionId[] = ['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile']
+export const SECTION_IDS: readonly SectionId[] = ['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings']
 
 export interface ColumnPrefs {
   /** The sections that are folded to their heads. Every other is open. */
@@ -30,8 +30,8 @@ export const CARD_NARROW = 264
 /** The window width below which the narrow defaults of the card and the dock apply (`state/dock.ts` says the dock's). */
 export const NARROW_WINDOW = 1360
 
-/** Needs you, Parts, Checks and Marks open; Parameters, Scans, Tracings and Print profile folded. */
-export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['params', 'scans', 'tracings', 'profile'], width: CARD_DEFAULT }
+/** Needs you, Parts, Checks and Marks open; Parameters, Scans and Tracings folded. */
+export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['params', 'scans', 'tracings'], width: CARD_DEFAULT }
 
 /** The card's default in a window of this width. */
 export function leftDefault(windowWidth: number): number {
@@ -41,20 +41,16 @@ export function leftDefault(windowWidth: number): number {
 /** The most a card is kept at: what a window wider than any in use could still give. */
 export const CARD_MAX = 800
 
-/** The width of the rail. The same as `--rail-w` in `styles/tokens.css`. */
-export const RAIL_W = 52
-
-/** The free viewport width the rail, the card and the dock always leave between them. */
+/** The free viewport width the card and the dock always leave between them. */
 export const VIEWPORT_MIN = 420
 
 /**
- * The width the card may be given: from the default of this window up to what leaves the viewport its room beside the rail
- * and the dock. The default width itself (`CARD_DEFAULT`, which is what is kept for "no wish") stands for the default of
+ * The width the card may be given: from the default of this window up to what leaves the viewport its room beside the dock. The default width itself (`CARD_DEFAULT`, which is what is kept for "no wish") stands for the default of
  * the window, so a narrow window shows its own, 264.
  */
 export function clampLeft(width: number, inner: number, dock: number): number {
   const floor = leftDefault(inner)
-  const max = Math.max(floor, inner - dock - RAIL_W - VIEWPORT_MIN)
+  const max = Math.max(floor, inner - dock - VIEWPORT_MIN)
   const wished = width === CARD_DEFAULT ? floor : width
   return Math.round(Math.min(Math.max(wished, floor), max))
 }
@@ -110,7 +106,7 @@ export function writeColumn(storage: Pick<Storage, 'setItem'> | null, prefs: Col
 }
 
 /**
- * The sections the rail's index offers: all eight for an open project; none on the page of projects (the sections act on a
+ * The sections of the card: all seven for an open project; none on the page of projects (the sections act on a
  * view that is not on screen), with a new project being made (no tool works there) or with none open.
  */
 export function sectionsFor(s: { page: 'object' | 'objects' | 'new'; objectId: string | null }): readonly SectionId[] {

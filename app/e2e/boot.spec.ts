@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { keysButton, profileChip } from './helpers'
 import { openListed } from './objects'
 
 const appDir = resolve(__dirname, '..')
@@ -22,10 +23,10 @@ test.beforeAll(async () => {
   root = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-boot-'))
   app = await launch(root)
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
-// The route card stands beside the rail only while a project is open: a window of its own for the tests of the card's width.
+// The route card stands at the left only while a project is open: a window of its own for the tests of the card's width.
 let cardApp: ElectronApplication | undefined
 let cardRoot: string | undefined
 async function cardWindow(): Promise<Page> {
@@ -36,7 +37,7 @@ async function cardWindow(): Promise<Page> {
     cardApp = await launch(cardRoot)
   }
   const window = await cardApp.firstWindow()
-  await window.waitForSelector('[data-region="left"]')
+  await window.waitForSelector('[data-region="viewport"]')
   await openListed(window, 'part')
   await window.waitForSelector('[data-region="left"] .route-card')
   return window
@@ -132,8 +133,8 @@ test('the shell is one grid: a title row, the left column, the view, the dock an
   const left = await box('[data-region="left"]')
   expect(left.x).toBe(0)
   expect(left.y).toBe(40)
-  // The rail (52) and the card docked beside it (296).
-  expect(left.width).toBe(348)
+  // The card (296): no rail.
+  expect(left.width).toBe(296)
   const session = await box('[data-region="session"]')
   expect(session.width).toBe(420)
   expect(session.x + session.width).toBe(win.w)
@@ -142,44 +143,20 @@ test('the shell is one grid: a title row, the left column, the view, the dock an
   expect(status.height).toBe(28)
   expect(status.y + status.height).toBe(win.h)
   expect(status.width).toBe(win.w)
-  // The view is what is left, between the rail and card, the dock, the title row and the status line.
-  expect(await box('[data-region="viewport"]')).toEqual({ x: 348, y: 40, width: win.w - 348 - 420, height: win.h - 40 - 28 })
+  // The view is what is left, beside the card, the dock, the title row and the status line.
+  expect(await box('[data-region="viewport"]')).toEqual({ x: 296, y: 40, width: win.w - 296 - 420, height: win.h - 40 - 28 })
   expect(left.height).toBe(win.h - 40 - 28)
   expect(session.height).toBe(win.h - 40 - 28)
 })
 
-test('the rail is icons only: each name is a tip on hover and on keyboard focus, and Keys is at the foot', async () => {
-  const rail = page.locator('[data-region="left"] .rail')
-  await expect(rail.locator('.rail-label')).toHaveCount(0)
-  const buttons = rail.getByRole('button')
-  const projects = buttons.first()
-  const keys = buttons.last()
-  // An empty folder: Projects and Keys alone, the rail of no project.
-  await expect(buttons).toHaveCount(2)
+test('there is no rail: Keys is a button of the status line, and the left is empty with no project open', async () => {
+  await expect(page.locator('.rail')).toHaveCount(0)
+  await expect(page.locator('[data-region="left"]').getByRole('button')).toHaveCount(0)
+  const keys = keysButton(page)
   await expect(keys).toHaveAccessibleName('Keys')
-  expect((await projects.boundingBox())!.width).toBe(36)
-  expect((await keys.boundingBox())!.y).toBeGreaterThan((await projects.boundingBox())!.y + 300)
-  // No tip until asked for; then an ink pill 6 px to the right of the button, aria-hidden, there at once.
-  await expect(page.locator('.rail-tip')).toHaveCount(0)
-  await projects.hover()
-  const tip = page.locator('.rail-tip')
-  await expect(tip).toHaveText('Projects')
-  await expect(tip).toHaveAttribute('aria-hidden', 'true')
-  const at = (await projects.boundingBox())!
-  const pill = (await tip.boundingBox())!
-  expect(pill.x).toBe(at.x + at.width + 6)
-  await page.mouse.move(700, 400)
-  await expect(tip).toHaveCount(0)
-  // The keyboard's focus shows it too, and leaving the button puts it away.
-  await projects.focus()
-  await page.keyboard.press('Tab')
-  await expect(keys).toBeFocused()
-  await expect(tip).toHaveText('Keys')
-  await expect(tip).toHaveCount(1)
-  await page.keyboard.press('Shift+Tab')
-  await expect(projects).toBeFocused()
-  await expect(tip).toHaveText('Projects')
-  await expect(tip).toHaveCount(1)
+  await expect(keys).toHaveAttribute('aria-keyshortcuts', '?')
+  // With no project open there is no print profile to choose.
+  await expect(profileChip(page)).toHaveCount(0)
 })
 
 test('the renderer is isolated and the bridge is exposed', async () => {
@@ -230,9 +207,9 @@ test('the session dock is resized by dragging its edge, within limits', async ()
   // It stops at a minimum width rather than vanishing...
   await dragEdgeBy(900)
   expect(await width()).toBe(320)
-  // ...and at a maximum that keeps 420 px of viewport free beside the rail and the card.
+  // ...and at a maximum that keeps 420 px of viewport free beside the card.
   await dragEdgeBy(-1400)
-  expect((await dock.boundingBox())!.x).toBe(348 + 420)
+  expect((await dock.boundingBox())!.x).toBe(296 + 420)
 
   // The edge also answers to the arrow keys, 16 px a press.
   await handle.focus()
@@ -262,17 +239,17 @@ test('the card is made wider by dragging its edge, within limits, and kept by th
     await page.mouse.move(x + dx, y, { steps: 4 })
     await page.mouse.up()
   }
-  // The rail and the card.
-  expect(await width()).toBe(52 + 296)
+  // The card.
+  expect(await width()).toBe(296)
 
   await dragEdgeBy(100)
-  expect(await width()).toBe(52 + 396)
+  expect(await width()).toBe(396)
   // What is kept is which sections are folded and how wide the card is.
-  expect(await stored()).toEqual({ folded: ['params', 'scans', 'tracings', 'profile'], width: 396 })
+  expect(await stored()).toEqual({ folded: ['params', 'scans', 'tracings'], width: 396 })
 
   // Never narrower than the default, and never wider than leaves 420 px of viewport beside the dock.
   await dragEdgeBy(-900)
-  expect(await width()).toBe(52 + 296)
+  expect(await width()).toBe(296)
   await dragEdgeBy(3000)
   const dockWidth = (await page.locator('[data-region="session"]').boundingBox())!.width
   expect(await width()).toBe((await page.evaluate(() => window.innerWidth)) - dockWidth - 420)
@@ -281,12 +258,12 @@ test('the card is made wider by dragging its edge, within limits, and kept by th
   await dragEdgeBy(-3000)
   await handle.focus()
   await page.keyboard.press('ArrowRight')
-  await expect.poll(width).toBe(52 + 312)
+  await expect.poll(width).toBe(312)
   await page.keyboard.press('ArrowLeft')
-  await expect.poll(width).toBe(52 + 296)
+  await expect.poll(width).toBe(296)
   await dragEdgeBy(60)
   await handle.dblclick()
-  await expect.poll(width).toBe(52 + 296)
+  await expect.poll(width).toBe(296)
   // The default is kept as the narrowest the window keeps (264): a window of 1440 shows 296.
   expect((await stored()).width).toBe(264)
 })
@@ -336,7 +313,7 @@ for (const scheme of ['light', 'dark'] as const) {
     try {
       const shotPage = await shotApp.firstWindow()
       await shotPage.emulateMedia({ colorScheme: scheme })
-      await shotPage.waitForSelector('[data-region="left"]')
+      await shotPage.waitForSelector('[data-region="viewport"]')
       await shotPage.evaluate(async () => {
         await document.fonts.ready
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))

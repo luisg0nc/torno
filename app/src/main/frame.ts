@@ -7,8 +7,8 @@ export const SURFACE = { light: '#F1EFEA', dark: '#1A1C1F' }
 const MUTED = { light: '#62666D', dark: '#9EA3AA' }
 
 /**
- * The least the window may be: the rail, the card and the dock at their defaults for a narrow window leave the view its
- * minimum (`VIEWPORT_MIN`, `state/column.ts`: 52 + 264 + 384 + 420). `window.test.ts` holds the sum.
+ * The least the window may be: the card and the dock at their defaults for a narrow window leave the view its
+ * minimum (`VIEWPORT_MIN`, `state/column.ts`: 264 + 384 + 420). `window.test.ts` holds the sum.
  */
 export const MIN_WINDOW = { width: 1120, height: 700 }
 

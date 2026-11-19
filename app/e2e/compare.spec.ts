@@ -34,7 +34,7 @@ test.beforeAll(async () => {
   cpSync(fixtures, root, { recursive: true, filter: (source) => !source.endsWith('__pycache__') })
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -221,7 +221,7 @@ test('after a restart with the sources as they were, the build on show is a node
   await app.close()
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openListed(page, 'hollow')
   await builtRevision(1)
   await openStrip(page)

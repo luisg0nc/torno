@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
 import { EXAMPLE_NOTE } from '../src/shared/workspace'
-import { openSection, railButton } from './helpers'
+import { openSection } from './helpers'
 import { openListed } from './objects'
 
 // The final fix wave of Milestone 5, through the hidden window: what was made easier to use (a real Rebuild,
@@ -30,7 +30,7 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it. The config is the test's own.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_WORKSPACE: root, TORNO_CONFIG: join(home, 'config.json'), TORNO_AGENT_CMD: `node ${fakeAgent}` } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -172,11 +172,11 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   await page.keyboard.press('w')
   await expect.poll(async () => (await state()).page).toBe('objects')
   await expect(page.getByRole('region', { name: 'Parts' })).toHaveCount(0)
-  await expect(railButton(page, 'Parts')).toHaveCount(0)
+  await expect(page.locator('[data-region="left"] .rail')).toHaveCount(0)
   await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).page).toBe('object')
-  await expect(railButton(page, 'Parts')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Parts' })).toBeVisible()
 })
 
 test('the sheet of keys is a dialog: a click inside it keeps the keys in it, and it is counted aloud, not read out', async () => {
@@ -200,8 +200,8 @@ test('the sheet of keys is a dialog: a click inside it keeps the keys in it, and
   expect(box.height).toBe(400)
   expect(Math.round(box.y + box.height)).toBe(win[1] - 28)
   expect(await page.locator('.keys-layer').evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('linear-gradient')
-  // The rail and the status line stay: the keyboard does not cover them.
-  expect(Math.round(box.x)).toBe(52)
+  // The status line stays: the keyboard does not cover it. It starts at the window's left edge.
+  expect(Math.round(box.x)).toBe(0)
   // What is not in a chip is found by a search: the keys for working on torno, in a sentence.
   await sheet.getByRole('textbox').fill('developer')
   await expect(sheet.locator('.keys-said').last()).toContainText('are developer tools.')

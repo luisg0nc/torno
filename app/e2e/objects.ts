@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test'
-import { railButton, showProjects } from './helpers'
+import { showProjects } from './helpers'
 
 // The projects of the folder as a person uses them: the page of projects (its cards, its New project), and, while one is open, the
 // project crumb of the title bar with the menu of the folder's projects.
@@ -10,8 +10,8 @@ export const projectMenu = (page: Page): Locator => page.getByRole('menu', { nam
 /** The project crumb of the title bar: the open project, and the menu of the others. */
 export const projectCrumb = (page: Page): Locator => page.locator('.title-row').getByRole('button', { name: /^Project / })
 
-/** The rail's Projects button: it says (`data-session`, its description) that a session of any project works or waits. */
-export const switcher = (page: Page) => railButton(page, 'Projects')
+/** The title bar's pill for another project whose session works or waits (`data-sign`, its description): none while no session does. */
+export const switcher = (page: Page) => page.locator('.title-row .title-sign')
 
 /** The card of a project on the page of projects. */
 export const projectCard = (page: Page, name: string): Locator => page.locator(`.show .card[data-object="${name}"]`)
@@ -24,7 +24,7 @@ export const projectsPage = (page: Page): Locator => page.locator('section.show'
 
 /**
  * Opens a project by its name, as a person does: from the menu of the project crumb while one is open, else from its card on the
- * page of projects (reached through the rail's Projects). The one open already stays as it is.
+ * page of projects (reached through `showProjects`). The one open already stays as it is.
  */
 export async function openListed(page: Page, name: string): Promise<void> {
   const crumb = projectCrumb(page)

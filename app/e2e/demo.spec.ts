@@ -117,7 +117,7 @@ for (const [n, frame] of FRAMES.entries()) {
     const check = (id: string) => page.locator(`[data-region="left"] .check-row[data-check-mark="${id}"]`)
     const verdict = page.locator('[data-region="left"] .dimension-verdict').first()
     try {
-      await page.waitForSelector('[data-region="left"]')
+      await page.waitForSelector('[data-region="viewport"]')
       await openListed(page, 'intake')
       await expect.poll(async () => ((await state(page)).objectId === 'intake' ? (await state(page)).build?.status : null), { timeout: 240_000 }).toBe('ok')
       await expect.poll(async () => (await state(page)).scene !== null).toBe(true)

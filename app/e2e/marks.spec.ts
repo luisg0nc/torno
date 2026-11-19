@@ -46,7 +46,7 @@ test.beforeAll(async () => {
   writeFileSync(join(root, 'plain', '.torno', 'marks.json'), CORRUPT)
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -462,7 +462,7 @@ test('what was wrong with a marks file is said in the panel in full, to a window
   await expect(line).toContainText(sentence)
   // Still there after the window is loaded anew.
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openObject('plain')
   await expect(line).toContainText(sentence)
   // The ids the lost file gave out are not given out again.
@@ -471,7 +471,7 @@ test('what was wrong with a marks file is said in the panel in full, to a window
   await line.getByRole('button', { name: 'Dismiss' }).click()
   await expect(line).toHaveCount(0)
   await page.reload()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openObject('plain')
   await expect(rows()).toHaveCount(1)
   await expect(line).toHaveCount(0)
@@ -490,7 +490,7 @@ test('with a scan imported, five mark rows and more are in view in the Marks pan
   const ownApp = await launch({ TORNO_WORKSPACE: own })
   try {
     const p = await ownApp.firstWindow()
-    await p.waitForSelector('[data-region="left"]')
+    await p.waitForSelector('[data-region="viewport"]')
     expect(await p.evaluate(() => [innerWidth, innerHeight])).toEqual([1440, 900])
     await openListed(p, 'hollow')
     await expect.poll(async () => (await state(p)).build?.status, { timeout: 30_000 }).toBe('ok')
@@ -539,7 +539,7 @@ test('a mark\'s chip in the view answers the pointer: its line at the pointer, i
   const ownApp = await launch({ TORNO_WORKSPACE: own })
   try {
     const p = await ownApp.firstWindow()
-    await p.waitForSelector('[data-region="left"]')
+    await p.waitForSelector('[data-region="viewport"]')
     await openListed(p, 'hollow')
     await expect.poll(async () => (await state(p)).build?.status, { timeout: 30_000 }).toBe('ok')
     await expect.poll(async () => (await state(p)).marks.find((m): m is Extract<Mark, { kind: 'dimension' }> => m.id === 'M3' && m.kind === 'dimension')?.verdict, { timeout: 30_000 }).toBe('fail')
@@ -624,7 +624,7 @@ test('a view note in the list has its picture and its comment; the pointer on it
   const ownApp = await launch({ TORNO_WORKSPACE: own })
   try {
     const p = await ownApp.firstWindow()
-    await p.waitForSelector('[data-region="left"]')
+    await p.waitForSelector('[data-region="viewport"]')
     await openObject('bracket', p)
     const now = await state(p)
     const face = now.scene!.parts.find((part) => part.name === 'base')!
