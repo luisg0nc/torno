@@ -383,7 +383,8 @@ whether that works. Saving a `.py` file during a build cancels that build
 and starts another. Any other file changing during a build may be the model's
 own doing, so the build is left to finish and one more follows it. A build
 that runs longer than 600 s is stopped; `TORNO_BUILD_TIMEOUT` sets another
-limit. The line at the bottom says building with the seconds elapsed, built
+limit. The line at the bottom says, while a build runs, which build it makes, how long it has run and which one you are on
+(`Building r13 · 1:40 · you are on r12`), then built
 with the time it took and the revision (`r3`), or failed. A failed build keeps
 the last good parts on screen, a quiet band at the top left of the view says `On show: h40. The build after it failed.`, and its status opens the error with the
 traceback.
@@ -552,9 +553,12 @@ reason outside the model (the build took too long, stopped, or was cancelled) or
 was let go to make room: building the same sources again may work. After an error
 in the model it stays quiet, since the same sources give the same error. While a
 build runs it reads "Building…" and takes no press: that build is of the sources
-as they are. The parts on screen are older than that build, so a click cannot pick
-them from the first moment; they fade only when it has run for 0.6 s, so a quick
-save does not make them blink. A build that fails fades them at once.
+as they are. The parts on screen are the last good build, and they stay as they are
+while the next one builds and after one fails: not faded, and every tool (Select, Pin,
+Arrow, Draw, Measure, Note) works on them. A mark made meanwhile is made on that build
+and, like every mark, is checked against the build that lands; one whose face moved
+is flagged (`moved: check it`) before it is sent. Only when the kernel let the build go
+to make room (see above) do picks wait, since nothing can then be asked of it.
 
 When a build lands after another of the same project, the status line says which parts it changed:
 "tub changed, lid same", or "no part changed" when a save made no difference to what is drawn. A part counts as
@@ -2743,8 +2747,8 @@ build is not built again until a source changes.
 - **Every build fails saying to run `uv sync`.** The workspace has a
   `pyproject.toml` and no `.venv`. Torno never makes one: run `uv sync` in the
   workspace once, then open it again.
-- **A build fails.** The last good parts stay on screen, the pointer says
-  that picks wait for a build that works, and "Build failed" at the bottom
+- **A build fails.** The last good parts stay on screen as they were, and the tools
+  keep working on them, and "Build failed" at the bottom
   opens the error with the traceback. The agent is told the same, after its own
   edit and with your next prompt, and its tools answer from the last build that
   worked, saying so. "Ask Claude Code to fix it" in that sheet puts the request in

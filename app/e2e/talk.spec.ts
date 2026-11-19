@@ -166,7 +166,7 @@ test('what is selected goes with the prompt, each ref with what the kernel says 
   await expect.poll(async () => squeezed(await lastContext())).toMatch(/base,post\.Openmarks:M1$/)
 })
 
-test('on a stale build the selection cannot be put in the prompt: its refs would name other geometry', async () => {
+test('on a failed build the selection can still be put in the prompt: its refs are of the build on show, which the agent is told of', async () => {
   await tool('Select').click()
   await clickOver(ON_POST)
   await expect.poll(async () => (await state()).selection.length).toBe(1)
@@ -177,9 +177,8 @@ test('on a stale build the selection cannot be put in the prompt: its refs would
   const source = readFileSync(model, 'utf8')
   writeFileSync(model, `${source}\nraise RuntimeError("not today")\n`)
   await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'failed', stale: true })
-  await expect(insert).toBeDisabled()
-  await expect(insert).toHaveAttribute('title', 'The last build failed: picks wait for a build that works')
-  // Nor is it told to the agent with a prompt.
+  await expect(insert).toBeEnabled()
+  // It is not told to the agent as a selection with a prompt: the build it names is not the one just edited.
   await prompt()
   await expect.poll(lastContext).toContain('BUILDFAILED')
   expect(await lastContext()).not.toContain('Selected:')

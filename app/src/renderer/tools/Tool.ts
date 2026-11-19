@@ -1,4 +1,3 @@
-import type { BuildState } from '../../shared/build'
 import type { Described, MeasureProbe, MeasuredOnce } from '../../shared/geometry'
 import type { Anchor, Mark, NewMark, Replacement, Vec3 } from '../../shared/marks'
 import type { Camera } from '../../shared/view'
@@ -10,7 +9,7 @@ import type { Viewport, ViewportPointer } from '../viewport/Viewport'
  * What the pointer does in the viewport: select, pin, arrow, and the tools
  * that follow. The viewport pane owns the one pointer subscription and hands
  * each event to the tool in use through `routePointer`, which hands on none
- * while the parts on screen are stale. A tool keeps what it has under way (a
+ * while the kernel holds no build to answer for the parts on screen (`picksWait`). A tool keeps what it has under way (a
  * drag, a hover) to itself, and nothing of a pointer move leaves the viewport.
  */
 export interface Tool {
@@ -42,7 +41,7 @@ export interface ToolContext {
   layout: string
   revision: number
   camera: Camera
-  /** Why nothing can be pointed at, as a sentence, while the parts on screen are older than the model; null otherwise. */
+  /** Why nothing can be pointed at, as a sentence,  while the kernel has let the build on screen go (`picksWait`); null otherwise, a build under way or a failed one included. */
   stale: string | null
   /**
    * Why nothing is marked, measured or cut, as a sentence (`EXPLODED_TOOLS`), while the parts of the layout shown
@@ -71,15 +70,6 @@ export interface ToolContext {
    * the mark that was put, only if that is still the one being moved.
    */
   endReplace?(id?: string): void
-}
-
-/**
- * Said at the pointer while the parts on screen are older than the model:
- * their refs would name the wrong geometry. Which sentence depends on whether
- * a build is on its way or the last one failed and nothing is.
- */
-export function staleMessage(status: BuildState['status'] | undefined): string {
-  return status === 'failed' ? 'The last build failed: picks wait for a build that works' : 'Rebuilding: picks wait for the new build'
 }
 
 /** How long the kernel has to say what a mark is on before the mark is kept without. */
