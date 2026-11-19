@@ -417,7 +417,10 @@ test('closing the window asks first while a session is in the middle of somethin
 
     const closed = busy.waitForEvent('close')
     await closeWindow(busy)
-    await asked.getByRole('button', { name: 'Close torno' }).click()
+    // The click closes the window it is made in, so Playwright may say the page was closed before the click returned.
+    await asked.getByRole('button', { name: 'Close torno' }).click().catch((e: Error) => {
+      if (!/has been closed/.test(e.message)) throw e
+    })
     await closed
     await expect.poll(() => agentsIn(join(folder, 'bracket')), { timeout: 10_000 }).toEqual([])
   } finally {
