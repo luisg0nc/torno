@@ -23,7 +23,7 @@ describe('what the tools tell a client', () => {
   })
 
   it('loads upfront the eight tools the prompt relies on, and no other', () => {
-    expect(entries.filter(([, tool]) => tool.meta?.['anthropic/alwaysLoad'] === true).map(([name]) => name).sort()).toEqual(['describe', 'features', 'look', 'marks', 'measure', 'resolve_mark', 'scene', 'show'])
+    expect(entries.filter(([, tool]) => tool.meta?.['anthropic/alwaysLoad'] === true).map(([name]) => name).sort()).toEqual(['check', 'describe', 'features', 'look', 'marks', 'measure', 'resolve_mark', 'scene', 'show'])
     for (const [name, tool] of entries) {
       expect(Object.keys(tool.meta ?? {}).filter((key) => key !== 'anthropic/alwaysLoad'), name).toEqual([])
       // Claude Code cuts a description loaded upfront at this many characters.
