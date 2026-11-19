@@ -69,7 +69,8 @@ async function resultOf(tool: Locator): Promise<string> {
 let ended = 0
 async function finished(): Promise<void> {
   ended += 1
-  await expect(turns()).toHaveCount(ended)
+  // The stand-in says the whole prompt back a word at a time: a note with its vectors takes a few seconds.
+  await expect(turns()).toHaveCount(ended, { timeout: 20_000 })
 }
 
 async function newSession(): Promise<void> {

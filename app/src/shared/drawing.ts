@@ -1,4 +1,4 @@
-import { type NoteMark, penStrokes } from './marks'
+import { type NoteMark, type Vec3, penStrokes } from './marks'
 
 // What the ink of a drawing on the view lies over (the chat's "Draw on view" makes a view note of it): per stroke, as the
 // window works it out and main checks it (`main/sessions/drawing.ts`, `main/notes/check.ts`), and as the person is
@@ -10,6 +10,20 @@ export const MOST_REFS_TOLD = 6
 export const MOST_SCANS_TOLD = 4
 /** The most parts whose cut face (a section's) one stroke is told to lie over. */
 export const MOST_CUTS_TOLD = 4
+
+/**
+ * A stroke as a vector, where both its ends lie over a face: the two points of the surface under them (the object
+ * frame, mm), read off the mesh the view draws, so they are close and not exact; the straight distance between them
+ * and the way it points (a unit vector). `head` is `to` when the stroke turns back on itself at its last end (an arrow's
+ * head), and `unknown` when it does not, the ends then being as drawn.
+ */
+export interface StrokeVector {
+  from: Vec3
+  to: Vec3
+  length: number
+  direction: Vec3
+  head: 'to' | 'unknown'
+}
 
 /** What one stroke of ink lies over in the picture, where ink is still left of it. */
 export interface StrokeUnder {
@@ -25,6 +39,8 @@ export interface StrokeUnder {
   scans: string[]
   /** Some of it lies over no part (nor a scan). */
   bare: boolean
+  /** The stroke as a vector, when both its ends lie over a face. */
+  vector?: StrokeVector
 }
 
 /** The most faces the line a drawing is shown by lists; the rest are counted. */

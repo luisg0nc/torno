@@ -927,7 +927,10 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   Claude Code can `look` from there again), and stroke by stroke the faces of the
   parts, the cut faces of a section ("the cut face of lid") and the scans your
   ink lies over, by ref with the kernel's line for each face (`lid/F12 (plane,
-  normal +Z, z = 20, 1180 mm²)`). No coordinate is taken from the drawing. If the
+  normal +Z, z = 20, 1180 mm²)`). Where both ends of a stroke lie over a face, the words also give the stroke as a vector: its ends in
+  mm on the surface, how long it is and which way it points, with a guess at the end that has the head (the end where the
+  stroke turns back on itself, as an arrow's does; else the ends are as drawn). Those numbers are read off the mesh the view draws, so they are close and
+  not exact, and a line above the strokes says so. No other coordinate is taken from the drawing. If the
   view moved while you drew (the agent's `show`, a build), they say what lies
   under the ink was not worked out; if the model was built again before you sent
   it, that the refs are of the build you drew on. A note whose pictures are not on

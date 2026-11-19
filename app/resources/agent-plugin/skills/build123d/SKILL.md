@@ -138,6 +138,19 @@ depth provided`): there, subtract a `Cylinder` that overshoots both faces.
   top_radius, height)`, `Sphere(radius)`, `Torus(major_radius, minor_radius)`, `Circle(radius)`.
 - `Plane.XY`, `Plane.XZ`, `Plane.YZ`, `Plane.XY.offset(z)`, `Plane(face)`: `plane * Circle(4)` puts a sketch on
   it; `extrude(sketch, amount=...)` extrudes along its normal.
+- When the side of a plane matters, extrude around the middle plane, `both=True` (`amount` is then each way), and assert
+  the bounding box's position, not only its size. A sketch that was made by a subtraction, put on a plane and extruded
+  once went to the wrong side of it: the solid was valid and the size right, and only the overlap check noticed. The
+  cause was not found; `both=True` avoided it.
+
+```python
+# A web 5 mm thick that sits on both sides of z = 10.
+profile = Rectangle(30, 20) - Pos(5, 0, 0) * Circle(4)
+web = extrude(Plane.XY.offset(10) * profile, amount=2.5, both=True)
+box = web.bounding_box()
+assert abs(box.size.Z - 5) < 1e-6                                      # the size alone passes on the wrong side too
+assert abs(box.min.Z - 7.5) < 1e-6 and abs(box.max.Z - 12.5) < 1e-6   # where it is
+```
 - `GridLocations(dx, dy, nx, ny)`, `PolarLocations(r, n)`, `Locations(...)`: in algebra mode
   `[loc * Cylinder(1, 10) for loc in GridLocations(10, 10, 2, 2)]`.
 - Sizes are `shape.volume`, `shape.area` (properties, no parentheses), `shape.bounding_box().size`, `shape.center()`.

@@ -592,7 +592,11 @@ describe('a session', () => {
       CLAUDE_CONFIG_DIR: '/kept',
       ANTHROPIC_KEPT_FOR_TEST: 'kept'
     }
-    const before = Object.fromEntries(Object.keys(mine).map((name) => [name, process.env[name]]))
+    // The suite may itself run inside a Claude Code session, whose own CLAUDE* and TORNO* variables would be among
+    // what the agent is given: the launch gets this environment alone, whatever the shell it runs in has.
+    const own = Object.keys(process.env).filter((name) => /^(CLAUDE|TORNO)/.test(name) && !(name in mine))
+    const before = Object.fromEntries([...Object.keys(mine), ...own].map((name) => [name, process.env[name]]))
+    for (const name of own) delete process.env[name]
     Object.assign(process.env, mine)
     try {
       const { sessionId } = await sessions.start(object('bracket'), {})
