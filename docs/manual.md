@@ -1074,10 +1074,11 @@ the model file in short, and name the skills.
 Claude Code is also given a subagent, `torno-reviewer`, on its command line
 (`--agents`; nothing is written to `.claude/agents/`). It has only the tools
 that read (`scene`, `look`, `marks`, `measure`, `check`, `section`,
-`describe`, `diff`, the scan tools, and `Read`). It runs on Sonnet, whatever
+`describe`, `diff`, the scan tools, `board`, and `Read`). It runs on Sonnet, whatever
 model the session uses (`TORNO_REVIEWER_MODEL=inherit` gives it the session's,
-or a model name another), and stops after 20 turns. It reads `brief.md`, checks
-the current build against what you asked, every open mark and every dimension,
+or a model name another), and stops after 20 turns. It reads `brief.md` and the
+board (your sizes and rules, as they are when it runs), checks
+the current build against what you asked, every size and rule, every open mark and every dimension,
 numbers first and at most two pictures, and ends with one line each that begins
 HOLDS, FAILS or UNCHECKED, with the number and the ref. It changes nothing. Claude Code is told to call
 it after a change of several steps, before saying it is done.
@@ -2043,6 +2044,12 @@ The card shows the value and unit large, in the face of numbers, then what it me
 names of the frames, and that `board` reads it. It never carries the board. A card is new when it was added or what it says
 changed (a text, a caption, a name, a word on an arrow, the values of the Params, the results of the checks), not when it was moved,
 resized or put in a frame. The line under each prompt in the chat says it: `board: 12 cards, 2 new`.
+
+**The brief.** The sizes on the board (every size card) and its rules (the text cards of the frame named Rules) are the project's
+brief. The first prompt of every new conversation carries them, after the board line: with a new session, after `/clear` and after
+a compaction, not only the first prompt of a new project. It says each size as the board does (`tray 186 × 128 mm (measured)`) and
+the rules as you wrote them, in at most 1,000 characters (a long list of sizes ends with how many more there are), and that the board
+has the rest. A size or rule you change, add or take away is said again at the next prompt, once; a card you only move says nothing.
 
 **Sending part of the board.** Select cards or frames and press "Send with the next prompt" (or `Ctrl+Enter`), or press "Send the
 whole board". A chip appears above the box of the chat, "Latch · 3 cards · 1 arrow", which "Remove" takes off. When you send the

@@ -26,9 +26,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   or dimensions is a change to the skill too (`prompt.test.ts` holds them together); the template of
   `torno-model` is built by the kernel's `tests/test_skill_template.py`. The `build123d` skill carries files beside its `SKILL.md`, which `electron-builder.yml` ships with the plugin folder: an API reference of the pinned build123d, generated (`kernel/scripts/build123d_api.py`) and held to it by `tests/test_skill_api.py`, which also runs the skill's examples, and `reference/fasteners.md`. The skill sends the agent to grep the reference (`${CLAUDE_SKILL_DIR}`), never to run Python for it, and says `bd_warehouse` is in torno's kernel, with the sizes for a model that should not depend on it; the `torno-model` skill has the section on `references(p)`. Claude Code is also given a subagent on
   its command line, `--agents` with `torno-reviewer` (`claude.ts` `reviewerAgents`): tools `scene`, `look`,
-  `marks`, `measure`, `check`, `section`, `describe`, `diff`, the scan tools and `Read`, never one that edits,
+  `marks`, `measure`, `check`, `section`, `describe`, `diff`, the scan tools, `board` and `Read`, never one that edits,
   resolves, adds a mark or changes the view; `model: sonnet` (`TORNO_REVIEWER_MODEL` names another, or `inherit`
-  passes none) and `maxTurns: 20`; its prompt reads `brief.md`, then checks the build against what was asked, every
+  passes none) and `maxTurns: 20`; its prompt reads `brief.md`, then the board with `board` (read live, never baked into the launch, since the person edits sizes and rules while the session runs), then checks the build against what was asked, every size and rule, every
   open mark and every dimension, numbers first and at most two looks, and ends with lines of `HOLDS`, `FAILS` or
   `UNCHECKED` (never left out). Claude Code's prompt says to use it after a change of several steps, before saying it
   is done. The prompt states the verify loop in one paragraph: after an edit, numbers first (`measure`, `check`,
@@ -49,6 +49,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `listReferences`: plain files of create's names, photos then doodles, twelve named at most). It is no mark, and is
   left out when it does not fit in the context's limit. The onboarding prompt names them too; the repetition is
   accepted.
+- **The brief** (#249): the same conversations are told, after the board's line, the person's sizes and rules (`briefOf` in `board/text.ts`: every
+  visible `size` card by `saySize`, then the text cards of the frame named Rules, one line, in at most `BRIEF_LIMIT` 1,000 characters, the rules at most
+  400 of them, sizes cut by whole sizes and counted; `contextFor` `opts.brief`, room kept like the board's line, never in an edit's answer). `boardLine(…, { again })`
+  returns it (`brief`) when `again` (`fresh || newConversation`, from `index.ts`) or when its hash (`told.brief`, kept in `board/told.json` with the cards', once the answer
+  has left) is not the one told: so a size changed between two prompts is told once, and a move or a resize is not. `markAllTold` keeps the hash, so the first prompt of a new project (which names its sizes itself) does not tell it twice.
+  The prompt's board sentence says the brief comes with a conversation's first prompt, so the caps did not rise.
 - **Named sets** (`prompt.ts`, in both prompts, after the review sentence): one fixed sentence says named sets are the person's names for faces, edges,
   parts and strokes (`scene` lists them), to write `#deck`, or `block/#deck` for one part's, in any ref, and to propose one with
   `mcp__torno__add_set` when a name would help, and that only the person accepts it. It fit under the same limits by shortening other lines, not by
@@ -66,7 +72,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   "What the agent is told" and to `marks-store`.
 - **Tracings** (`prompt.ts`, in both prompts, after the named sets sentence): one fixed sentence says a tracing is the model laid flat in a plane at true scale over a photo, to trace the photo by looking at it with
   `mcp__torno__tracings` and `picture: true` and adding layers in mm with `mcp__torno__add_layer`, and that a photo's numbers are never exact. It did not fit in 7,600 and 8,600 with the reviews and sets sentences, so the
-  limits of `prompt.test.ts` are 7,900 and 8,900. Every prompt of a project with tracings also carries one line after the board's (`contextFor` `opts.tracingsLine`, `main/tracings/told.ts` `tracingsLine`, at most
+  limits of `prompt.test.ts` were 7,900 and 8,900, and are 7,800 and 8,800 since the board's sentence was shortened (#190). Every prompt of a project with tracings also carries one line after the board's (`contextFor` `opts.tracingsLine`, `main/tracings/told.ts` `tracingsLine`, at most
   `TRACINGS_LIMIT`, 500 characters, and counted in `CONTEXT_LIMIT` like the board's): `tracings: T1, T2 (1 changed since you were told: T1's photo was lined up again). Read them with tracings.` It names eight tracings
   at most and counts the rest. A project whose last tracing was removed since the agent was told says `tracings: none (T1 was removed)` once, and an empty record is kept. A tracing's kept hash is five parts (name, plane without the origin of a face that follows its face, `lost`, layers by id, name, colour and revision, and the photo's line-up: its file's hash,
   method, points and what they gave; never the fade or `hidden`), so the line can say which changed. What it told (`PromptContext.tracingsTold`) is kept in `.torno/tracings/told.json` (`ensureIgnored`) by `onDelivered`
