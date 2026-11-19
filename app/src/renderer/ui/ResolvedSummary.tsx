@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Mark } from '../../shared/marks'
 import { actions } from '../state/store'
+import type { ReviewOutcome, ReviewStep } from './reviewStep'
 import { sayReviewed, useRowsSaid } from './rowsSaid'
-
-/** How a mark of the walk was left. */
-export type ReviewOutcome = 'ok' | 'reopened' | 'skipped'
-/** What a row in the walk tells it: it has been dealt with, and how. */
-export interface ReviewStep {
-  step(outcome: ReviewOutcome): void
-}
 
 interface Walk {
   /** The marks to review, as they were when "Review" was pressed. */
@@ -23,7 +17,7 @@ const said = ({ order, ok, reopened, skipped }: Walk): string =>
   `Reviewed ${order.length}: ${ok} OK${reopened > 0 ? `, ${reopened} reopened` : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}`
 
 /**
- * The marks the agent resolved and the person has not yet said they have seen, in Needs you: a row for each (what the agent
+ * The marks the agent resolved and the person has not yet said they have seen, in Marks, under From the agent: a row for each (what the agent
  * did, and OK and Reopen… on it), and over them one line: how many, "Review" to walk them one at a time (the mark is made the
  * active one and the camera goes to its view, its row has Skip too), and "OK all" to acknowledge them all at once. When the
  * walk is done the line says how it went, for a few seconds. It has no key: a key that acknowledged many marks

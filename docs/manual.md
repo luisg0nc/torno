@@ -478,7 +478,7 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Needs you, Parts, Checks and Marks are open; Parameters, Scans and Tracings are folded. Every section is in the card, one scroll down it: scroll to it and click its head to open it. Drag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. Over the sections stands the **On h18** block (see Marks). At first Parts, Checks and Marks are open; Parameters, Scans and Tracings are folded. Every section is in the card, one scroll down it: scroll to it and click its head to open it. Drag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
@@ -1416,17 +1416,22 @@ the camera stays still).
 - At the head of the Marks list, outside its scroll, are **Review this build** and a row for each review round (see
   [Reviews](#reviews)). A draft of a round that has not gone says `in review, not sent`, and its row offers
   **Take out of R1**. Your own rows have a small menu (`±`, `−` or `+`) to say plain, do not want or want of that mark at any time.
-- What waits on you is in **Needs you**, at the top of the card, from three sources in this order: the marks the agent
-  resolved and you have not judged (each says "to review" at its right), the marks it left for you to read or answer
-  (**from Claude**; **Answer in chat** puts the mark's id in the prompt, and **Resolve** says you have seen it), and the
-  checks that fail, the model's and your dimensions both, each a line that goes to its row under Checks.
+- What waits on you is in the **On h18** block, at the top of the card, named for the build on show (the build's number, as the strip
+  names it). Its first line is the build's verdict (`2 fail, 5 pass`: the model's checks and your dimensions together). Under it
+  are rows of one line each, in the order they block, that act where they stand: Claude's open question (**in the chat** opens the
+  dock), each check that fails with the value read (a click goes to its row), the brief's sizes that nothing checks, in one row
+  (**Brief** opens the Brief page), the marks Claude resolved and you have not judged (**OK** says you have seen it, **Reopen**
+  makes it a draft again), the marks it left for you (a click goes to its row in Marks, under **From the agent**, with **Answer in chat** and **Resolve**; the marks Claude resolved are there too, with Review, OK all and Reopen…) and the values you tried, in one row
+  (**Ask Claude to keep** puts the request in the box of the chat, never sent). It lists four rows at most; **N more** opens the
+  rest and **Fewer** shuts them. When nothing waits it is the verdict alone. With nothing in hand there is no "In hand" head
+  under it.
 - Your dimension checks (every dimension that has an expected value and is not resolved, sent or not) are under **Checks**, in
   one list with the model's own (see Parameters). The Marks list is grouped by who acts next: **To send** (yours, "with your
   next prompt"), **With the agent** (your sent marks), then **Resolved**, folded. A row is two lines: the chip and the note, then the kind of mark and what is the matter with it in
   muted words (`moved: check it`, `its part is hidden`). The active row shows its note whole and what can be done with
   the mark as words under it (**Go to view**, **Re-place**, **Edit**, **Answer in chat**, **Resolve**, **Reopen**,
   **Delete**); the other rows show them as icons while the pointer is on them.
-- A mark the agent resolves does not vanish: Needs you has a row for it, and over the rows says "The agent
+- A mark the agent resolves does not vanish: under **From the agent** in Marks has a row for it, and over the rows says "The agent
   resolved 2 marks." Each row says "Resolved by Claude" with the agent's line, and has **OK**, which
   moves it under "Resolved" in Marks, and **Reopen…**, which opens its note with the cursor at the
   end, so that you can say why, and it is a draft again, with the note, when you
@@ -1435,6 +1440,7 @@ the camera stays still).
   · M5", and its row also has **Skip**, which leaves it to review. When
   the last is done the line says how it went ("Reviewed 5: 4 OK, 1 reopened").
   **OK all** says you have seen them all at once.
+  The On block has the same marks as one-line rows with a quick **OK** and **Reopen** (no reason, no walk).
 - The tick on a row resolves the mark (**Resolve: done with it**); on a check
   with an expected value it first asks "Stop checking M3? It is no longer
   measured." (**Resolve** or **Keep checking**). **Delete** takes the mark at

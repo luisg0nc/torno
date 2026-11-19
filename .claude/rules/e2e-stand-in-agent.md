@@ -87,7 +87,7 @@ Two fixtures were recorded from the real CLI and scrubbed: `app/test/fixtures/cl
   `window.__tornoTest.timeThumbnail(count, given?)`. `TORNO_SHOTS=<dir>` has `e2e/show.spec.ts` write
   captures of the page, one launch each.
 - A spec reaches a section of the route card as a person does, with no rail: `openSection(page, 'Parts')` of
-  `e2e/helpers.ts` (Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings; it scrolls the card to the section and unfolds
+  `e2e/helpers.ts` (Parts, Parameters, Checks, Marks, Scans, Tracings; it scrolls the card to the section and unfolds
   it with a click on its head), `foldSection`, `cardSection`; the page of projects through `showProjects` (the key `W`, `Escape` goes back);
   the print profile through `profileChip(page)` and `openProfile`, the keyboard through `keysButton(page)`. What a spec reads in a
   section (a layer row, a scan row, Parameters, Checks) is read after opening it. A spec opens a project through

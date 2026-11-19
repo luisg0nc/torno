@@ -87,5 +87,8 @@ window on it.
   is never run, so there is no version and no account to see (`welcome.spec.ts`). A test that points `TORNO_AGENT_CMD` at a
   file that is not there sees "Not found on PATH"; one that takes `uv` off the `PATH` gives the app a folder of links to every
   other command (`pathWithout`), never a `PATH` of `node` alone: Electron does not start on that.
+- CI runs the whole suite in eight shards under `xvfb-run` (`.github/workflows/ci.yml`, job `e2e`). A runner has no GPU: with
+  `TORNO_E2E_SOFTWARE_GL=1` (and `TORNO_TEST=1`) main sets Chromium's software GL switches itself (`main/index.ts`), so a spec
+  needs no flag of its own. A desktop leaves it unset.
 - `TORNO_TEST=1` also skips the single-instance lock, so test launches can run
   side by side.

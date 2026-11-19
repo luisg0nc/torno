@@ -3,7 +3,7 @@ import { type Mark, type MarkPatch, markAnchors } from '../../shared/marks'
 import { layerOf, useStore } from '../state/store'
 import { MarkRow } from './MarkRow'
 import { type RowsWhere, done, forgetRows, offerUndo } from './rowsSaid'
-import type { ReviewStep } from './ResolvedSummary'
+import type { ReviewStep } from './reviewStep'
 import { useLitRows } from './card/useLit'
 
 /** The project the rows last said something of. */

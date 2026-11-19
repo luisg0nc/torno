@@ -51,8 +51,8 @@ const squeezed = (text: string): string => text.replace(/\s+/g, '')
 const canvas = () => page.locator('.viewport-canvas canvas').first()
 const row = (id: string) => page.locator(`.mark-row[data-mark="${id}"]`)
 const panel = () => page.getByRole('region', { name: 'Marks' })
-// What the agent resolved, for the person to judge, is in Needs you.
-const needs = () => page.getByRole('region', { name: 'Needs you' })
+// What the agent resolved, for the person to judge, is under From the agent in Marks.
+const needs = () => page.getByRole('region', { name: 'Marks' })
 const tool = (name: string) => page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name, exact: true })
 const onDisk = (object: string): Mark[] => JSON.parse(readFileSync(join(root, object, '.torno', 'marks.json'), 'utf8')).marks
 
@@ -193,10 +193,9 @@ test('a mark the agent resolved is told in a summary to review, saying what the 
   await asAgent('bracket', 'M1', { status: 'resolved', resolvedNote: 'made the corner 2 mm thicker' })
   const review = needs().locator('.needs-review')
   await expect(review).toContainText('The agent resolved 1 mark.')
-  // Its row is in Needs you at once, saying what the agent did; Marks no longer lists it.
+  // Its row is in Marks at once, saying what the agent did; and no other group lists it.
   const open = needs().getByRole('list', { name: 'To review' })
   await expect(open.locator('[data-mark="M1"]')).toHaveAttribute('data-awaiting', '')
-  await expect(panel().locator('.mark-row[data-mark="M1"]')).toHaveCount(0)
   await expect(row('M1').locator('.mark-source')).toHaveText('to review')
   await expect(row('M1').locator('.mark-resolution-note')).toHaveText('Resolved by Claude: made the corner 2 mm thicker')
   await review.getByRole('button', { name: 'Review' }).click()

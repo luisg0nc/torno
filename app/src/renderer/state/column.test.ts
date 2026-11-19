@@ -51,7 +51,7 @@ describe('the route card as the person keeps it', () => {
   })
 
   it('keeps the known sections of a folded list, once each and in the card\'s order', () => {
-    expect(readColumn('{"folded":["marks","history","marks","needs"],"width":300}')).toEqual({ folded: ['needs', 'marks'], width: 300 })
+    expect(readColumn('{"folded":["marks","history","marks","needs"],"width":300}')).toEqual({ folded: ['marks'], width: 300 })
   })
 
   it('takes what it can of a value that is not its own, and the default for the rest', () => {
@@ -69,8 +69,8 @@ describe('the route card as the person keeps it', () => {
 })
 
 describe('which sections the card has', () => {
-  it('has all seven for an open project and none on a page, with a new project or with none open', () => {
-    expect(SECTION_IDS).toEqual(['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
+  it('has all six for an open project and none on a page, with a new project or with none open', () => {
+    expect(SECTION_IDS).toEqual(['parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
     expect(sectionsFor({ page: 'object', objectId: 'hollow' })).toEqual(SECTION_IDS)
     expect(sectionsFor({ page: 'objects', objectId: 'hollow' })).toEqual([])
     expect(sectionsFor({ page: 'new', objectId: 'hollow' })).toEqual([])

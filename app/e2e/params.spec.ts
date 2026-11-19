@@ -73,7 +73,7 @@ test('the Parameters section says its count in its head, and has a row for each 
   await openSection(page, 'Parameters')
   await expect(section()).toBeVisible()
   const order = await page.locator('.left .route-section').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
-  expect(order).toEqual(['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
+  expect(order).toEqual(['parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
   await expect(cardSection(page, 'Parameters').locator('.route-said')).toHaveText(/^5\b/)
   await expect.poll(() => section().locator('[data-param]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-param')))).toEqual(['side', 'wall', 'gap', 'inner', 'ribs'])
 })

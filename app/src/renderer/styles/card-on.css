@@ -1,0 +1,144 @@
+/* ---- The "On hN" block (ui/card/OnBlock.tsx): the build on show's verdict and what waits, over the sections ----
+   Its ground is the panel. A head with the build and the verdict in a line, then one-line rows that act where they stand, four at most. */
+
+.on-block {
+  flex: none;
+  padding: 10px 14px 8px var(--space-4);
+  border-bottom: var(--divider);
+}
+
+.on-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.on-said {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 400;
+  font-family: var(--font-mono);
+}
+
+.on-said[data-fail] {
+  color: var(--fail);
+}
+
+.on-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.on-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  font-size: var(--text-row);
+  line-height: 1.3;
+}
+
+.on-row .button {
+  height: 22px;
+  padding: 0 9px;
+  flex: none;
+}
+
+.on-row .link-button {
+  flex: none;
+  white-space: nowrap;
+}
+
+.on-words {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.on-reading {
+  flex: none;
+  color: var(--fail);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.on-row[data-kind='fromAgent'] .on-reading,
+.on-row[data-kind='ask'] .link-button {
+  color: var(--muted);
+}
+
+.on-dot {
+  flex: none;
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+.on-dot[data-empty] {
+  border: 1px dashed var(--field-edge);
+  background: transparent;
+}
+
+.on-dot[data-tried] {
+  background: var(--accent);
+}
+
+/* A check that fails is one button: the chip (the model's has a bar in the agent's colour), the words and the reading. */
+.on-go {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.on-go:hover .on-words,
+.on-go:focus-visible .on-words {
+  text-decoration: underline;
+}
+
+.needs-check-bar {
+  flex: none;
+  width: 3px;
+  height: 17px;
+  border-radius: var(--radius-inline);
+  background: var(--agent-mark);
+}
+
+.on-more {
+  margin-top: 2px;
+}
+
+/* The line over the marks the agent resolved: how many, and the two ways through them. */
+.marks .needs-review > p {
+  margin: 0;
+  padding: 2px var(--space-2) 6px var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.marks .needs-review .button {
+  height: 22px;
+  padding: 0 9px;
+}
+
+.marks .needs-review-done {
+  color: var(--muted);
+}
