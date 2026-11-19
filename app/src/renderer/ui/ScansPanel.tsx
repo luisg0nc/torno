@@ -6,9 +6,10 @@ import { actions, store, useStore } from '../state/store'
 import { Confirm } from './Confirm'
 import { EyeIcon } from './Layers'
 import { capital, numbered } from './numbered'
-import { alignScan, importScan, reimportScan } from './scanDrop'
+import { alignScan, pickScan, reimportScan } from './scanDrop'
 import { guessOf, scanState } from './scanState'
 import { chosen, pointerChoice } from './typing'
+import { ViewPanel } from './view/ViewPanel'
 
 /** What the import process says it is doing, in the panel's words; a stage with no entry is said as it is. */
 const STAGE: Record<string, string> = { hashing: 'checking the file' }
@@ -30,7 +31,7 @@ export function convertScan(objectId: string, id: string, as: { unit: ScanUnit; 
   return asked(objectId, window.torno.scans.convert(objectId, id, as))
 }
 
-/** **Import scan…**, in the head of the Scans section: it asks for the file, and is off while one is still being read. */
+/** **Import scan…**, in the head of the Scans view's panel: it asks for the file, and is off while one is still being read. */
 export function ImportScan() {
   const objectId = useStore((s) => s.objectId)
   const importing = useStore((s) => s.importing)
@@ -38,23 +39,29 @@ export function ImportScan() {
   return (
     <button
       type="button"
-      className="button button-quiet route-head-action"
+      className="button button-quiet"
       title={importing ? `${importing.name} is still being read` : 'Import a scan: GLB, glTF, OBJ, PLY or STL'}
       disabled={importing !== null}
-      onClick={() => {
-        void window.torno.scans.pick().then(
-          (path) => path !== null && importScan(objectId, path),
-          () => {}
-        )
-      }}
+      onClick={() => pickScan(objectId)}
     >
       Import scan…
     </button>
   )
 }
 
+/** The panel of the Scans view, beside the 3D view: Import scan… in its head and the scans' rows under it. */
+export function ScansSide() {
+  const objectId = useStore((s) => s.objectId)
+  if (!objectId) return null
+  return (
+    <ViewPanel name="scans" title="Scans" action={<ImportScan />}>
+      <ScansPanel />
+    </ViewPanel>
+  )
+}
+
 /**
- * The scans of the open object, below the layers: surroundings the parts are
+ * The scans of the open object, in the panel of the Scans view: surroundings the parts are
  * looked at in. A row is one line, as a layer's: which scan, whether it is
  * shown, and how far where it stands can be trusted, in a word; the rest opens
  * beneath it, one scan at a time. How a scan just imported is read, when that

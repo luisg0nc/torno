@@ -1505,17 +1505,6 @@ describe('the session dock', () => {
 })
 
 describe('the route card', () => {
-  it('folds a section and unfolds it again; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ folded: ['scans', 'tracings'], width: 296 })
-    actions.toggleSection('scans')
-    expect(store.getState().column.folded).toEqual(['tracings'])
-    actions.openObject('gear', { layers: {} })
-    actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.folded).toEqual(['tracings'])
-    actions.toggleSection('scans')
-    expect(store.getState().column.folded).toEqual(['scans', 'tracings'])
-  })
-
   it('keeps the open tab of the bench for each project, the window\'s, and none without a project open', () => {
     store.setState({ objectId: null, benchTab: {} })
     actions.setBenchTab('parts')
@@ -1527,14 +1516,6 @@ describe('the route card', () => {
     expect(store.getState().benchTab.hollow).toBeUndefined()
     expect(store.getState().benchTab.gear).toBe('parts')
     store.setState({ benchTab: {} })
-  })
-
-  it('shows a section: unfolds it, and leaves an open one as it is', () => {
-    store.setState({ column: { folded: ['scans', 'tracings'], width: 296 } })
-    actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['tracings'])
-    actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['tracings'])
   })
 
   it('keeps the width the person gave the card', () => {

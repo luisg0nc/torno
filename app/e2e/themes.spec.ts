@@ -9,7 +9,7 @@ import { contrast } from '../src/shared/contrast'
 import { png } from '../src/test/pngFixtures'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { cardSection, openSection, showProjects, newSession } from './helpers'
+import { cardSection, openSection, showProjects, newSession, clickImportScan } from './helpers'
 import { newFromList, openListed, projectCard, switcher } from './objects'
 import { stableBox } from './stable'
 
@@ -150,7 +150,7 @@ for (const theme of ['light', 'dark'] as const) {
       for (const name of ['--axis-x', '--axis-y', '--axis-z']) expect([name, (await cornerPixels(page, 'left', tokens[name])) > 2]).toEqual([name, true])
       expect(await cornerPixels(page, 'right', tokens['--muted'])).toBeGreaterThan(2)
       // What is drawn has them: muted text is the muted token, and the window's own ground is the surface.
-      const drawn = await page.evaluate(() => ({ muted: getComputedStyle(document.querySelector('.route-said')!).color, ground: getComputedStyle(document.body).backgroundColor }))
+      const drawn = await page.evaluate(() => ({ muted: getComputedStyle(document.querySelector('.pboard-switch-key')!).color, ground: getComputedStyle(document.body).backgroundColor }))
       const rgb = (hex: string): string => `rgb(${[1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(', ')})`
       expect(drawn).toEqual({ muted: rgb(tokens['--muted']), ground: rgb(tokens['--surface']) })
       await openSection(page, 'Parts')
@@ -282,7 +282,7 @@ for (const theme of ['light', 'dark'] as const) {
         writeFileSync(file, stl(grid(30, 1, (x, y) => 41 + 0.4 * Math.sin(x / 3) * Math.cos(y / 4))))
         await app.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: Main }).__tornoMain.pickFile = path), file)
         await openSection(page, 'Scans')
-        await page.getByRole('button', { name: 'Import scan…' }).click()
+        await clickImportScan(page)
         await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.scans()))[0]?.ready, { timeout: 60_000 }).toBe(true)
       }
       try {
@@ -435,8 +435,8 @@ for (const theme of ['light', 'dark'] as const) {
           // A scan in, and a part switched off, the panels shut: the rail's icons say what matters of what they hold.
           await scan()
           await page.getByRole('dialog', { name: 'How is S1 read?' }).getByRole('button', { name: 'Later' }).click()
+          await expect(cardSection(page, 'Scans').locator('.scan-row .chip[data-state="unaligned"]')).toHaveText('unaligned')
           await openSection(page, 'Marks')
-          await expect(cardSection(page, 'Scans').locator('.route-said')).toContainText('1 unaligned')
         } else if (shot === 'params') {
           // The Params panel, a session running so that the rows are buttons.
           await newSession(page.locator('[data-region="session"]'))

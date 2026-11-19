@@ -1,6 +1,5 @@
 /* ---- The bench (ui/card/Bench.tsx): Parameters and Parts as two folder tabs that fill the column under the On block ----
-   The open tab runs into its list: one ground (--raise), the tab's hairline broken under it. Under the bench stand Checks, Marks,
-   Scans and Tracings, in a scroll of their own, until they have somewhere else to be. */
+   The open tab runs into its list: one ground (--raise), the tab's hairline broken under it. */
 
 .bench {
   display: flex;
@@ -105,13 +104,6 @@
   overflow-x: hidden;
   overflow-y: auto;
   background: var(--raise);
-}
-
-/* The sections under the bench: heads, and what is open scrolls inside the room they have. */
-.bench ~ .route-scroll {
-  flex: none;
-  max-height: 38%;
-  border-top: var(--divider);
 }
 
 /* Find, and its chips, at the head of the Parameters list. */

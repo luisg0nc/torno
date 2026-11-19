@@ -74,10 +74,10 @@ test('a check that fails does not fail the build, and is told in the head of its
   await open('lidded')
   await openSection(page, 'Checks')
   await expect(section()).toBeVisible()
-  // The checks are a block of the Brief page, after the sizes and before the marks; the left column holds only Scans and Tracings under the bench.
+  // The checks are a block of the Brief page, after the sizes and before the marks; the left column holds the bench alone.
   const order = await page.locator('.brief-page [data-section]').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))
   expect(order.indexOf('marks')).toBe(order.indexOf('checks') + 1)
-  expect(await page.locator('.left .route-section').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')))).toEqual(['scans', 'tracings'])
+  await expect(page.locator('.left .route-section')).toHaveCount(0)
   await expect(said()).toHaveText('2 checks, 1 fails')
   // The block says it waits, and what waits on the person is a row of the On block.
   await expect(cardSection(page, 'Checks')).toHaveAttribute('data-needs', '')

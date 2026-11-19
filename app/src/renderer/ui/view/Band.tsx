@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react'
-import { useBoard } from '../../state/board'
+import { inModel, useBoard } from '../../state/board'
 import { openRoundNow, useReview } from '../../state/review'
 import { activePlane, useSketching } from '../../state/sketching'
 import { isLive } from '../../state/compare'
@@ -30,7 +30,7 @@ export function BandButton({ primary = false, ...rest }: ComponentProps<'button'
 }
 
 /**
- * Which band the view wears now, or none. The modes of the model's view count while the model is shown, the line-up while a
+ * Which band the view wears now, or none. The modes of the model's view count while the model (or the scans, looked at in it) is shown, the line-up while a
  * tracing is; the board and the pages over the view have none. An export open in the dock puts its band over either view.
  */
 export function useBand(): BandKind | null {
@@ -45,7 +45,7 @@ export function useBand(): BandKind | null {
   const lining = useTracings((s) => s.lining !== null)
   if (!onPage) return null
   if (shown === 'tracing') return bandOf({ exportOpen, roundOpen: false, lineup: lining, facePick: false, comparing: false, sketching: false, failedOnShow: false })
-  if (shown !== 'model') return null
+  if (!inModel(shown)) return null
   return bandOf({ exportOpen, roundOpen, lineup: false, facePick, comparing, sketching, failedOnShow })
 }
 
