@@ -1583,6 +1583,14 @@ describe('resolve_mark', () => {
     expect(textOf(result)).toBe('resolved: M1 pin on base/F5 (plane, normal +Z, z = 2.5, 1200 mm²) at (1, 2, 2.5): "here"\nnote: filleted at 2 mm')
   })
 
+  it('does not tell the agent to check a mark that moved because of the edit it asked for', async () => {
+    const deps = fake()
+    deps.w.list[0] = { ...deps.w.list[0], anchorState: 'drifted' } as Mark
+    const text = textOf(await resolveMarkTool(deps, 'bracket', { id: 'M1' }))
+    expect(text).toContain('[moved since it was placed, as expected after an edit]')
+    expect(text).not.toContain('check it')
+  })
+
   it('needs no note, and cuts one at 2000 characters', async () => {
     const deps = fake()
     expect(textOf(await resolveMarkTool(deps, 'bracket', { id: 'M4' }))).toBe('resolved: (yours) M4 pin at (9, 9, 9)')
