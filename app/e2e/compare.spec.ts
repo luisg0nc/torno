@@ -26,7 +26,14 @@ const earlier = () => page.evaluate(() => window.__tornoTest!.earlier())
 const bar = () => page.locator('[data-band="compare"]')
 
 async function builtRevision(revision: number): Promise<void> {
+  const seen: string[] = []
+  const t0 = Date.now()
+  try {
   await expect.poll(async () => { const s = await state(); return s.build?.status === 'ok' && s.build.revision }, { timeout: 30_000 }).toBe(revision)
+  } catch (e) {
+    const s = await state().catch(() => null)
+    throw new Error(`DIAG build=${JSON.stringify(s?.build)} compare=${JSON.stringify(s?.compare)} sceneRev=${s?.revision} after ${Date.now() - t0} ms; ${String(e).slice(0, 80)}`)
+  }
 }
 
 test.beforeAll(async () => {
