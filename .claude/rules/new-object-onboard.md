@@ -57,7 +57,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `held`. The prompt names the scan tools by the adapter's tool names (`scans`, `section` with `scan`, `scan_clash`,
   `scan_deviation`) and says the person aligns a scan in torno; every tool it names is a key of `TOOLS` (`onboard.test.ts`).
 - After the prompt is sent `Sessions.began` is awaited (the CLI said anything, or ended: then its exit note is the
-  `problem`, and `held` is held again; a CLI silent for 10 s is taken to have begun). Tested with `FAKE_AGENT_FAIL`.
+  `problem`, and `held` is held again; a CLI silent for 10 s is taken to have begun). A CLI that left before `began` was
+  asked has its exit note too: `Sessions` keeps the note of the last 20 sessions that ended before saying anything
+  (`leftSilent`), so the order of the exit and the call does not decide the note. Tested with `FAKE_AGENT_FAIL`, with `began` asked at once and late.
 - A session that cannot be started (the command is not on PATH, the trust question) is not a rejection: the answer is
   `sessionId: null`, the prompt text, `held` and the reason, for the composer to hold. An agent whose view is not the chat
   gets `sessionId` and a `problem`, and nothing is sent.

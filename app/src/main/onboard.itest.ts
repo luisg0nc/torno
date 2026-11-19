@@ -208,6 +208,25 @@ describe('onboarding a new object', () => {
     }
   })
 
+  it('gives the same exit note when the CLI has gone before began is asked (the other order of the same race)', async () => {
+    process.env.FAKE_AGENT_FAIL = 'error: not logged in'
+    try {
+      const { objectId, draft } = await made('signed-out-late')
+      const late: OnboardDeps = {
+        ...depsOf(sessions),
+        // Asked only once the CLI has left and its session is gone.
+        began: async (id) => {
+          await new Promise((r) => setTimeout(r, 1500))
+          return sessions.began(id)
+        }
+      }
+      const out = await onboardObject(late, objectId, draft)
+      expect(out.problem).toMatch(/Claude Code stopped \(exit code 1\): error: not logged in/)
+    } finally {
+      delete process.env.FAKE_AGENT_FAIL
+    }
+  })
+
   it('answers with no session, the prompt and the reason when the agent\'s command is missing; the object stays whole', async () => {
     const lost = make('torno-no-such-agent-command')
     try {
