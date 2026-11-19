@@ -2039,6 +2039,37 @@ describe('the transcript of a chat session', () => {
     }
   })
 
+  it('says that Claude Code runs bare when no hook arrives and the init names an API key source', async () => {
+    process.env.FAKE_AGENT_NO_HOOKS = '1'
+    process.env.FAKE_AGENT_INIT = JSON.stringify({ apiKeySource: 'ANTHROPIC_API_KEY' })
+    try {
+      const c = await start()
+      await c.send('say one')
+      await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+      await c.send('say two')
+      await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(2)
+      const notes = c.items().filter((i) => i.kind === 'note' && i.text.startsWith('Claude Code is running bare'))
+      expect(notes).toHaveLength(1)
+      expect(notes[0]).toMatchObject({ tone: 'warn' })
+      expect(c.items().some((i) => i.kind === 'note' && i.text.startsWith("Claude Code's hooks did not reach"))).toBe(false)
+    } finally {
+      delete process.env.FAKE_AGENT_NO_HOOKS
+      delete process.env.FAKE_AGENT_INIT
+    }
+  })
+
+  it('keeps the ordinary session unchanged: an API key with hooks arriving says nothing of bare', async () => {
+    process.env.FAKE_AGENT_INIT = JSON.stringify({ apiKeySource: 'ANTHROPIC_API_KEY' })
+    try {
+      const c = await start()
+      await c.send('say one')
+      await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+      expect(c.items().some((i) => i.kind === 'note' && (i.text.includes('running bare') || i.text.includes('hooks did not reach')))).toBe(false)
+    } finally {
+      delete process.env.FAKE_AGENT_INIT
+    }
+  })
+
   it('says nothing of hooks when they arrive', async () => {
     const c = await start()
     await c.send('say one')

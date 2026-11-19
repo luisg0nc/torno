@@ -40,6 +40,11 @@
   color: var(--muted);
 }
 
+/* A section that says "none" (its head does not unfold): the icon is fainter, the badge and the press are as ever. Before hover and the section in sight, which win. */
+.rail-button[data-empty='true'] {
+  color: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+
 .rail-button:hover {
   color: var(--ink);
 }

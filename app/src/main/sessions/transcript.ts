@@ -41,6 +41,13 @@ const MAX_INSIDE = 50
  */
 export const NO_HOOKS = "Claude Code's hooks did not reach torno: marks are not sent and the Stop is not checked. A setting that limits what hooks may read (httpHookAllowedEnvVars) must list TORNO_SESSION."
 
+/**
+ * The same silence of hooks when the `init` names a key as the source of the credentials (not `none`, not `oauth`): the
+ * mark of `-p` under `--bare` (#260, #117), which loads no hook given by `--settings` and reads no login. Said plainly, with
+ * what it breaks and what to do; the CLI has no flag yet that turns bare off.
+ */
+export const RUNNING_BARE = "Claude Code is running bare: its hooks did not reach torno and it is using an API key, not your login. Marks are not sent, the Stop is not checked and the status does not move. Use the terminal view, or an older Claude Code that does not default to --bare; when Claude Code has a flag to turn bare off, use it."
+
 /** How long a prompt the CLI has started may go without its `UserPromptSubmit` before the hooks are said not to arrive. */
 const HOOK_WAIT_MS = 8000
 
@@ -372,7 +379,13 @@ export class Transcript {
     this.stopWaiting()
     if (!waiting || this.hookSeen || this.hooksNoted || this.closed) return
     this.hooksNoted = true
-    this.put({ kind: 'note', id: this.newId('i'), text: NO_HOOKS, tone: 'warn' })
+    this.put({ kind: 'note', id: this.newId('i'), text: this.bareSource() ? RUNNING_BARE : NO_HOOKS, tone: 'warn' })
+  }
+
+  /** Whether the `init` named a key as the source of the credentials: not known, `none` and `oauth` are not. */
+  private bareSource(): boolean {
+    const source = this.info.apiKeySource
+    return source !== undefined && source !== 'none' && source !== 'oauth'
   }
 
   private isCommand(id: string): boolean {
