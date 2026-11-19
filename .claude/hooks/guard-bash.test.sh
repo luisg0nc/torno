@@ -59,6 +59,13 @@ check 0 'git commit -m "Say why uv sync and claude -p are refused" -- CLAUDE.md'
 check 0 $'cat > notes.md <<EOF\nuv sync\nclaude -p hi\npkill electron\nkillall node\nEOF'
 check 0 $'cat > a.md <<\'X\'\n- `pnpm -C app eval` spends the subscription\nX\ngit status'
 check 0 'grep -rn "claude" app/src'
+# a | inside a quoted pattern is data, not a pipe into claude
+check 0 "grep -niE 'luisgonc|/home/|/tmp/claude|gmail' diff.txt"
+check 0 'grep -E "a|claude|b" notes.md'
+check 0 "rg -n 'x; claude -p' docs"
+check 0 'ls /tmp/claude-1000/scratchpad'
+check 2 'out="$(claude -p hi)"'
+check 2 "echo 'a|b' | claude -p"
 check 0 'git log --oneline | grep claude'
 check 0 'claude --version'
 check 0 'ls ~/.claude && cat CLAUDE.md'
