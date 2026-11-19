@@ -115,7 +115,7 @@ export function readBoardFile(value: unknown): { file: BoardFile; dropped: numbe
     arrows.push(arrow)
   }
   const next = finite(value.next) && Number.isInteger(value.next) ? value.next : 1
-  return { file: { next: nextAbove(next, cards, arrows), cards, arrows }, dropped }
+  return { file: { ...(value.tidied === true ? { tidied: true as const } : {}), next: nextAbove(next, cards, arrows), cards, arrows }, dropped }
 }
 
 /** The highest `C<n>` a file's text shows anywhere, plus one: where ids go on from when the file cannot be read. */

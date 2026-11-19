@@ -216,11 +216,10 @@ test('flow with a diameter of 19 and Done: the sketch is kept, with its card of 
   await expect(row).toContainText('flow ⌀19 mm')
   await expect(row).toContainText('2 strokes')
 
-  // The board has its card.
+  // The board makes no card of it (#248).
   await page.keyboard.press('Control+Tab')
-  const card = page.locator('.pboard-card[data-kind="mark"]', { hasText: id })
-  await expect(card).toBeVisible()
-  await expect(card).toContainText('Hose route')
+  await expect(page.locator('.pboard')).toBeVisible()
+  await expect(page.locator('.pboard-card[data-kind="mark"]')).toHaveCount(0)
   await page.keyboard.press('Control+Tab')
   await expect(page.locator('.pboard')).toHaveCount(0)
 })

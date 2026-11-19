@@ -9,8 +9,12 @@ export type { SavedCamera }
 
 export type CardKind = 'brief' | 'reference' | 'mark' | 'scan' | 'build' | 'view' | 'params' | 'checks' | 'text' | 'picture' | 'sketch' | 'frame' | 'size' | 'tracing'
 
-/** Cards that appear by themselves, from what the project has. */
+/** Cards of main's own: the brief and the files of `reference/` appear by themselves, and the cards of the other kinds here are old copies that boards made before #248 still hold (they go when the thing itself goes). */
 export const AUTO_KINDS: readonly CardKind[] = ['brief', 'reference', 'mark', 'scan', 'tracing']
+/** The copies #248 stopped making: a mark, a scan and a tracing already have their own places. */
+export const COPY_KINDS: readonly CardKind[] = ['mark', 'scan', 'tracing']
+/** The source of the frame an old review round had on a board (`R1`). */
+export const ROUND_SOURCE = /^R[1-9]\d*$/
 /** Cards the person pins from the build strip, the views, the Params and the checks. */
 export const PINNED_KINDS: readonly CardKind[] = ['build', 'view', 'params', 'checks']
 /** Cards the person makes on the board, and the agent may too (a text, a picture, a frame, a size). */
@@ -63,6 +67,8 @@ export interface Arrow {
 }
 
 export interface BoardFile {
+  /** Only ever true: the old copies of marks, scans, tracings and review rounds were looked at once (hidden unless placed), so main does not do it again. */
+  tidied?: true
   next: number
   cards: Card[]
   arrows: Arrow[]

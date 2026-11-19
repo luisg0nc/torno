@@ -552,7 +552,7 @@ async function scalePicture(bytes: Uint8Array, edge: number): Promise<Uint8Array
   const png = bytes[0] === 0x89 && bytes[1] === 0x50
   return new Uint8Array(png ? scaled.toPNG() : scaled.toJPEG(85))
 }
-// The cards of what a project has appear on its board by themselves, and go with it.
+// The brief and the files of `reference/` appear on a project's board by themselves, and go with it (#248: no more cards for marks, scans, tracings or rounds).
 /** The tracings of the objects of the open workspace, in `.torno/tracings.json`. */
 const tracings = new TracingStore({ dirOf: (id) => findObject(id)?.dir })
 /** The tracings of a project for what a card of the board says of one; none when they cannot be read. */
@@ -579,7 +579,7 @@ async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName
   const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })])
   return boardLine(file, told, live, toolName)
 }
-const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id), tracings: async (id) => (await tracings.list(id)).tracings }, objectId)
+const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), scans: async (id) => (await scans.list(id)).map((s) => s.id), tracings: async (id) => (await tracings.list(id)).tracings }, objectId)
 marks.on('changed', ({ objectId }) => void followBoard(objectId))
 scans.on('changed', ({ objectId }) => void followBoard(objectId))
 // A tracing made or removed brings its card or takes it away; a change of it changes what its card says, and the board line tells the agent.
