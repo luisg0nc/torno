@@ -217,7 +217,7 @@ describe('the MCP server', () => {
       expect(tool.annotations?.openWorldHint, tool.name).toBe(false)
       if (!readOnly.includes(tool.name)) expect(tool.annotations, tool.name).toEqual(expect.objectContaining({ readOnlyHint: false, destructiveHint: false }))
     }
-    expect(tools.filter((t) => t._meta?.['anthropic/alwaysLoad'] === true).map((t) => t.name).sort()).toEqual(['describe', 'features', 'look', 'marks', 'measure', 'resolve_mark', 'scene', 'show'])
+    expect(tools.filter((t) => t._meta?.['anthropic/alwaysLoad'] === true).map((t) => t.name).sort()).toEqual(['check', 'describe', 'features', 'look', 'marks', 'measure', 'resolve_mark', 'scene', 'show'])
   })
 
   it('lists the tools that ask about a scan, each with a description and a schema that requires nothing and names every argument', async () => {

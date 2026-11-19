@@ -122,7 +122,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     ones that only read have `readOnlyHint: true` (`scene`, `look`, `marks`, `describe`, `measure`, `section`,
     `check`, `diff`, `history`, `wait_build`, `board`, `tracings`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
     `look` reads, the picture it writes under `.torno/views/` being torno's own), the rest `readOnlyHint: false,
-    destructiveHint: false`. `scene`, `look`, `marks`, `describe`, `measure`, `show`, `resolve_mark` and `features` have
+    destructiveHint: false`. `scene`, `look`, `marks`, `describe`, `measure`, `check`, `show`, `resolve_mark` and `features` have
     `_meta["anthropic/alwaysLoad"]` (Claude Code's tool search defers every other MCP tool until it is searched for,
     and each upfront tool costs context in every turn and sits in the prompt cache's prefix: the list stays short).
     The server gives `instructions` at `initialize` (`SERVER_INSTRUCTIONS`: a paragraph on what the server is for,
