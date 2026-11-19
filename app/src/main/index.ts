@@ -108,6 +108,14 @@ if (isTest) {
 // keeps drawing at 60 Hz. Never set for a visible window.
 if (isTest) app.commandLine.appendSwitch('disable-frame-rate-limit')
 
+// A runner with no GPU (CI, under xvfb) has no WebGL unless Chromium draws in software. Every spec launches the app
+// itself, so the switch is made here, once, and only when `TORNO_E2E_SOFTWARE_GL=1` is set; a desktop leaves it unset.
+if (isTest && process.env.TORNO_E2E_SOFTWARE_GL === '1') {
+  app.commandLine.appendSwitch('use-gl', 'angle')
+  app.commandLine.appendSwitch('use-angle', 'swiftshader')
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader')
+}
+
 // One torno at a time: two would each run an agent in the same folders and
 // write the same .torno/ files. A second launch hands the first the folder it
 // was given, if any, and exits. Not under test: test runs launch side by side.

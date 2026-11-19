@@ -1,8 +1,8 @@
 name: CI
 
 # The suites that need no display: the app's unit tests, its typecheck, the kernel's own tests, and the app
-# against the real kernel with the stand-in agent. The Playwright suite drives Electron in a hidden window on a
-# desktop (.claude/rules/e2e-hidden-window.md) and is run by hand before a release. The Linux package is built and started in a hidden
+# against the real kernel with the stand-in agent. The Playwright suite (e2e) drives Electron in a hidden
+# window (.claude/rules/e2e-hidden-window.md) under xvfb, in shards. The Linux package is built and started in a hidden
 # window at the end (`TORNO_TEST=1`, under xvfb). macOS is apart, in macos.yml. A change of only the site or the docs
 # runs none of the suites: `changes` says so, and the jobs it gates are skipped (which a required check accepts).
 
@@ -113,6 +113,48 @@ jobs:
       - run: uv sync --frozen
         working-directory: kernel
       - run: pnpm test:kernel
+
+  # The whole Playwright suite, app/e2e/*.spec.ts, in shards of the files. Every launch sets TORNO_TEST=1 (hidden
+  # window) and the specs use the stand-in agent: the real claude is never run. packaged.spec.ts skips itself
+  # without TORNO_PACKAGED; the Linux package job runs it.
+  e2e:
+    name: E2E (${{ matrix.shard }}/6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [changes, app, kernel]
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: kernel/uv.lock
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen
+        working-directory: kernel
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm -C app exec electron-vite build && node app/scripts/build-viewer.mjs
+      - run: xvfb-run -a pnpm -C app exec playwright test --shard=${{ matrix.shard }}/6
+        env:
+          TORNO_TEST: '1'
+          # No GPU on the runner: WebGL is drawn in software, or the window says the 3D view could not start.
+          TORNO_E2E_SOFTWARE_GL: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: torno-e2e-results-${{ matrix.shard }}
+          path: app/e2e/.results
+          retention-days: 7
+          if-no-files-found: ignore
 
   # The Linux package: the AppImage and the tar.gz of `pnpm dist:linux`, and the packaged app started from the
   # folder `pack` makes, in a hidden window (TORNO_TEST=1) on a virtual display.
