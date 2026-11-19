@@ -512,6 +512,8 @@ export async function showTool(deps: ToolDeps, objectId: string, given: ShowArgs
     return failure(messageOf(e))
   }
   if (shown.objectId !== objectId) return failure(`${notOpen(obj, shown.objectId)}. Ask the user to open it.`)
+  // Kept until the person lets go of the button: said so, and nothing says it is on their screen yet.
+  if (shown.queued) return { content: [{ type: 'text', text: `${shown.caption}\nrevision r${shown.revision}${staleNote(deps, objectId, shown)}\nThe change is queued, not yet made: you do not need to call show again.` }] }
   return { content: [{ type: 'text', text: `${shown.caption}${named ? passedOver(named, given) : ''}${spreadBesideScans(scene, shown)}${await undrawnScans(deps, objectId, args.scans)}${focused ? focusSaid(focused) : ''}\nrevision r${shown.revision}${staleNote(deps, objectId, shown)}\nThe user's viewport now shows this.` }] }
 }
 

@@ -1766,6 +1766,16 @@ describe('scans in scene, look and show', () => {
   })
 })
 
+describe('show while the person has a button down', () => {
+  it('says the change is queued, and not that it is on their screen', async () => {
+    const d = fake({ show: async () => ({ caption: 'queued: the user has a button down', objectId: 'bracket', revision: 3, stale: false, queued: true }) })
+    const text = textOf(await showTool(d, 'bracket', { view: 'top' }))
+    expect(text).toContain('queued')
+    expect(text).toContain('you do not need to call show again')
+    expect(text).not.toContain('now shows this')
+  })
+})
+
 describe('explode', () => {
   const NOT_BOTH = 'a section is not drawn exploded: give explode or section, not both (explode: null draws the parts together, section: null draws them whole)'
   const exploded = (over: Partial<ViewState> = {}): Fake => fake({ view: () => ({ ...VIEW, ...over }) })
