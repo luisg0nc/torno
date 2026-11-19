@@ -36,6 +36,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   asks the same (one or two looks at all the open marks, a look at one mark alone only where numbers cannot settle
   it). It is appended with `--append-system-prompt`, not an agent definition or an output style. `contextFor`
   names tools through `opts.toolName` likewise.
+- The prompt says which folder the agent works in and where it may edit: the folder is the project, `common/` is the one
+  place outside it, other projects and the workspace are the person's, and a new project is made from torno's page
+  (`prompt.test.ts`; the refusal behind it is `sessions`, "The agent's writes").
 - **Ablations of an eval run** (`main/ablations.ts`, `ablations()`, read once in `index.ts`): `TORNO_EVAL_ABLATE`
   (`skills`, `reviewer`, `stop`, `look`, `digest`), and `evalTuning()` of `TORNO_EVAL_LOOK_SIZE` (`ToolDeps.lookSize`,
   the fallback of `clampSize`) and `TORNO_EVAL_HOLDS` (`Sessions`' `mostHolds`, 1 or 2), are read only when both

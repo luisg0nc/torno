@@ -726,6 +726,14 @@ pane has no "Attach view" or "Draw on view": those are of a session. ``Ctrl+` ``
 the viewport; `F6` and `Shift+F6` go round the parts of the window, and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
 `Ctrl+Shift+V` copy and paste.
 
+A session writes only in its own project's folder and in the workspace's `common/`. If it tries `Write`, `Edit` or
+`NotebookEdit` on a file anywhere else (another project, the root of the workspace, a new folder), torno refuses
+the edit and tells the agent why, in words it can read, so it can ask you to open the other project. A new project is
+made from the page, never by the agent creating a folder. The agent does not write under `.torno/` either (marks,
+sets, tracings, params, scans, the board): torno refuses the edit and names the tool to use, and the agent may still read
+those files. A shell command (`Bash`) is not judged by path: it keeps
+Claude Code's own permission card.
+
 ### What goes well, and what does not
 
 What torno and the agent do well, and where you have to help. This comes from how the loop has gone on real
@@ -1172,6 +1180,8 @@ Open marks: M2 (moved), M6 (unchecked)
   `Review of h41 (R1): 3 don't want, 2 want. Answer each item by its id.`, with `Also in it: M4.` for items sent before.
   The system prompt says a review lists what you do not want and want on one build, to answer each item with `resolve_mark`,
   and not to bring back what an earlier review removed (read with `marks` and `review: "all"`).
+  It also says that the folder it works in is the project, that it edits only that folder and `common/`, that other
+  projects and the workspace are yours to open or make, and that a new project is made from the page, not by creating a folder.
 - `Open marks` are the numbers of the marks still open, each with what the
   last build did to it. After `/clear`, or after the conversation was
   compacted, the first prompt that follows lists your open marks once more.

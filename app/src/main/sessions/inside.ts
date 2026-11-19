@@ -1,5 +1,5 @@
 import { realpathSync } from 'node:fs'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 /** The real path of `path`, or of its nearest folder that exists with the rest put back (a file not written yet). */
 export function realPathOrNearest(path: string): string {
@@ -23,5 +23,5 @@ export function realPathOrNearest(path: string): string {
  */
 export function isInsideFolder(dir: string, file: string): boolean {
   const inside = relative(realPathOrNearest(dir), realPathOrNearest(resolve(dir, file)))
-  return inside !== '' && !inside.startsWith('..') && !isAbsolute(inside)
+  return inside !== '' && inside !== '..' && !inside.startsWith('..' + sep) && !isAbsolute(inside)
 }
