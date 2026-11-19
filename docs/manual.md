@@ -988,7 +988,7 @@ no mark `M3`, a build `r9` that has not been made, a part the build does not hav
   those the model takes. It too is for this session only, and a note in the chat
   says each change. **The edits menu** under them sets how Claude Code asks
   before it changes something: "Ask before edits", "Accept edits" (edits go
-  through without a question; other asks still come to you) or "Plan only". It is
+  through without a question; other asks still come to you) or "Plan first" (Claude Code plans and does not edit until you agree). It is
   for this session only too, and your settings are not written. A mode your own
   settings start the session in stands as it is until you choose one. A line under the box shows the rate limit once more than half of
   it is used.
@@ -3069,7 +3069,7 @@ With a real agent:
 - **Asking for the missing sizes, with the real Claude Code.** Make a project whose description gives one size and leaves out the rest (a lid for a box of an unnamed size, screws not named): before the first write of the model, Claude Code asks once, in a card with at most four questions, each with a typical value among its options and "Other" taking "build with assumptions"; it asks nothing about a fillet radius; after the answers it builds, and a size you did not give is a field of `Params` commented "assumed" and listed in its reply. Then ask for a new feature with no key size (a hole for "a screw"): it asks once, not again. The stand-in agent only plays the card; the real model's choice to ask has not been seen, and the eval harness (#121) does not yet measure it.
 - **The edits menu with the real Claude Code.** In a chat, choose "Accept edits" and ask for a change: the CLI
   should take the edit without asking, and the menu should show the mode again after the next prompt; then "Plan
-  only", then "Ask before edits". torno sends the control request `set_permission_mode` (`mode`), the one the
+  first" (the CLI should plan and not edit), then "Ask before edits". torno sends the control request `set_permission_mode` (`mode`), the one the
   Agent SDK documents, answered here only by the stand-in: check that the real CLI answers it in `-p` stream-json,
   that its `init` and `status` report `permissionMode` after it, and that the "Allow for this session" of an Edit
   ask still writes nothing in `.claude/`.
