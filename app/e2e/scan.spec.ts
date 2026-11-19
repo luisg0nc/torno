@@ -246,7 +246,7 @@ test('a file that is no scan is said to be none, and a scan is removed with its 
   writeFileSync(other, '')
   await pickFile(other)
   await clickImportScan(page)
-  await expect(page.getByRole('region', { name: 'Scans' })).toContainText('part.3mf is not a scan torno reads: .glb, .gltf, .obj, .ply or .stl')
+  await expect(cardSection(page, 'Scans')).toContainText('part.3mf is not a scan torno reads: .glb, .gltf, .obj, .ply or .stl')
   await (await detail('S1')).getByRole('button', { name: 'Remove' }).click()
   await page.getByRole('button', { name: 'Remove', exact: true }).last().click()
   await expect(row('S1')).toHaveCount(0)
@@ -272,7 +272,7 @@ const drop = (name: string, p: Page = page) =>
 
 test('what is dropped on the view that is no scan, or has no file behind it, is said in the panel until it is put away', async () => {
   // Changed in fix round 1 (I3): said in the panel, where it stays until it is put away, not at the pointer.
-  const panel = page.getByRole('region', { name: 'Scans' })
+  const panel = cardSection(page, 'Scans')
   expect(await drop('notes.txt')).toMatchObject({ taken: true })
   await expect(panel.getByRole('alert')).toContainText('notes.txt is not a scan: torno reads .glb, .gltf, .obj, .ply and .stl scans')
   await page.mouse.move(400, 300)
@@ -489,7 +489,7 @@ test('a scan is renamed from its detail; an empty name is refused, and Escape le
   await row('S3').getByRole('button', { name: 'Rename S3' }).click()
   await row('S3').getByRole('textbox', { name: 'Name of S3' }).fill('')
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('region', { name: 'Scans' }).getByRole('alert')).toContainText('a scan needs a name')
+  await expect(cardSection(page, 'Scans').getByRole('alert')).toContainText('a scan needs a name')
   await expect(name()).toHaveText('hatch')
   await row('S3').getByRole('button', { name: 'Rename S3' }).click()
   await row('S3').getByRole('textbox', { name: 'Name of S3' }).fill('other')

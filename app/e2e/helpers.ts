@@ -21,6 +21,8 @@ export const benchTab = (page: Page, name: TabName): Locator => page.locator(`[d
 /** Opens a tab of the bench with a click, as a person does. A tab the project does not have (a one-part model has Parameters alone) is no tab: the spec fails there. */
 export async function openTab(page: Page, name: TabName): Promise<void> {
   const tab = benchTab(page, name)
+  // The Scans and Tracing views' panels take the bench's place in the column: the model's tab brings it back.
+  if ((await tab.count()) === 0) await switchTab(page, 'Model').click()
   await expect(tab).toBeVisible()
   if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click()
   await expect(tab).toHaveAttribute('aria-selected', 'true')

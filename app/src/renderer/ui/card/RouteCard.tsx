@@ -19,7 +19,7 @@ import { TracingsSide } from './Tracings'
 export function RouteCard({ head, shell }: { head?: ReactNode; shell: RefObject<HTMLDivElement | null> }) {
   const held = useColumnHead()
   const shown = useBoard((s) => s.shown)
-  const hasScans = useStore((s) => s.scans.length > 0 || s.scansProblem !== null)
+  const hasScans = useStore((s) => s.scans.length > 0 || s.scansProblem !== null || s.scansRefused !== null)
   const hasTracings = useTracings((s) => (s.file?.tracings.length ?? 0) > 0)
   return (
     <div className="route-card">
