@@ -16,7 +16,6 @@ import { WorkspaceQuestion } from './ui/WorkspaceQuestion'
 import { openProblem } from './ui/openFolder'
 import { InHand } from './ui/card/InHand'
 import { RouteCard } from './ui/card/RouteCard'
-import { Rail } from './ui/Rail'
 import { SessionPane } from './ui/SessionPane'
 import { ViewBoard } from './ui/drawing/ViewBoard'
 import { BareControls, TitleBar } from './ui/TitleBar'
@@ -335,7 +334,7 @@ export function App() {
   const page = useStore((s) => s.page)
   const workspaceKnown = useStore((s) => s.workspaceKnown)
   const shell = useRef<HTMLDivElement>(null)
-  // The route card stands beside the rail while a project is open, and is away on the pages (`sectionsFor`).
+  // The route card stands at the left while a project is open, and is away on the pages (`sectionsFor`).
   const objectId = useStore((s) => s.objectId)
   const cardOpen = sectionsFor({ page, objectId }).length > 0
   // The width the person gave the dock, kept by the window; none until they do, and then the CSS default (`--dock-w`) stands.
@@ -514,7 +513,6 @@ export function App() {
     >
       <TitleBar folder={workspace.root} disabled={leaving !== null} onChoose={(choice) => (choice === 'ready' ? setChecking(true) : leave(choice === 'pick' ? PICK : choice === 'example' ? EXAMPLE : choice.root))} onOpen={(id) => void openObject(id)} />
       <aside className="left" data-region="left" aria-label="Panels">
-        <Rail />
         {cardOpen && <RouteCard head={<InHand />} shell={shell} />}
       </aside>
 

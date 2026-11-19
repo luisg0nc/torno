@@ -15,9 +15,9 @@ function dockSpace(shell: HTMLElement): number {
 
 /**
  * The right edge of the docked panel (`role="separator"`): dragged, or moved with Left and Right, the panel is
- * wider, up to what leaves the viewport its room beside the rail and the session dock, and never narrower than its
+ * wider, up to what leaves the viewport its room beside the session dock, and never narrower than its
  * default (296 px, 264 in a window narrower than 1360 px). A double click puts the default back. While it is dragged the width goes straight to `--card-w` on the
- * shell (the grid's second column, and the view's offset from the left, `--left-w`, with the rail); the store, and the window's storage
+ * shell (the grid's second column, and the view's offset from the left, `--left-w`); the store, and the window's storage
  * with it, has it once the edge is let go. The shell has what is kept as far as the window has room for it now, and
  * what is kept is not touched.
  */

@@ -64,7 +64,7 @@ describe('the merged list of checks', () => {
     expect(row.line).toBe('not measured on r12')
   })
 
-  it('counts, as the head of the section and the rail do, what fails', () => {
+  it('counts, as the head of the section does, what fails', () => {
     const rows = mergedChecks([fits, walls], [dim('M2', { value: 2.8, verdict: 'fail' })], 12)
     expect(rows.filter((r) => r.verdict === 'fails')).toHaveLength(2)
     expect(rows).toHaveLength(3)

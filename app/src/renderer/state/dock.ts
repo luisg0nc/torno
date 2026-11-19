@@ -42,7 +42,7 @@ export function writeDock(storage: Pick<Storage, 'setItem'> | null, width: numbe
   }
 }
 
-/** The width the dock may be given: from its minimum up to what leaves the view `VIEWPORT_MIN` beside the left (the rail and the card). */
+/** The width the dock may be given: from its minimum up to what leaves the view `VIEWPORT_MIN` beside the left (the card). */
 export function clampDock(width: number, windowWidth: number, leftWidth: number): number {
   const max = Math.max(DOCK_MIN, windowWidth - leftWidth - VIEWPORT_MIN)
   return Math.round(Math.min(Math.max(width, DOCK_MIN), max))

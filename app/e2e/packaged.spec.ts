@@ -56,7 +56,7 @@ test('builds an object with the kernel it carries, in an environment outside the
   const app = await launch({ TORNO_WORKSPACE: root })
   try {
     const page = await app.firstWindow()
-    await page.waitForSelector('[data-region="left"]')
+    await page.waitForSelector('[data-region="viewport"]')
     expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true)
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(false)
 
@@ -96,7 +96,7 @@ test('offers the example it carries, with its project, marks and views', async (
     // The first screen's two ways in (its readiness line and the drawn window controls are not what is checked here).
     await expect(page.locator('.welcome-ways').getByRole('button')).toHaveText(['Open folder', 'Open the example'])
     await page.getByRole('button', { name: 'Open the example' }).click()
-    await page.waitForSelector('[data-region="left"]')
+    await page.waitForSelector('[data-region="viewport"]')
     // The hooks are installed when the viewport mounts, a moment after the left column.
     await expect.poll(() => page.evaluate(() => window.__tornoTest !== undefined)).toBe(true)
     copy = (await page.evaluate(() => window.__tornoTest!.state())).workspace!.root

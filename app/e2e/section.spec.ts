@@ -46,7 +46,7 @@ test.beforeAll(async () => {
   root = copyFixtures()
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {

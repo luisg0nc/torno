@@ -231,7 +231,7 @@ const ROWS = [
   row('chat.close', ['Esc'], 'Chat: put away a picture shown large', 'Session', 'picture'),
   row('dock.resize', ['Left', 'Right'], 'On the edge of the session pane: wider or narrower', 'Session', 'separator'),
 
-  row('left.resize', ['Left', 'Right'], 'On the edge of the card by the rail: narrower or wider', 'Session', 'leftedge'),
+  row('left.resize', ['Left', 'Right'], 'On the edge of the card: narrower or wider', 'Session', 'leftedge'),
 
   row('field.keep', ['Enter'], 'Field: keep what was typed', 'In a field, a menu or a sheet', 'field'),
   row('field.leave', ['Esc'], 'Field: leave it as it was', 'In a field, a menu or a sheet', 'field'),

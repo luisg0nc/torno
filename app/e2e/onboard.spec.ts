@@ -27,7 +27,7 @@ async function start(root: string, command: string): Promise<{ app: ElectronAppl
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   const app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: command, TORNO_WORKSPACE: root } })
   const page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   return { app, page }
 }
 
@@ -726,7 +726,7 @@ test.describe('the window while a new object is made', () => {
     await also('Bought part').click()
     await expect(newPage().locator('.draft-pane-text')).toContainText('reference/608ZZ.step')
     await expect(newPage().locator('.draft-pane-text')).toContainText('import_step(')
-    // The title bar's crumb reads "New project", and the rail has no index of sections: there is no project open to read.
+    // The title bar's crumb reads "New project", and there is no card of sections: no project is open to read.
     await expect(page.locator('.title-row .crumb-project')).toHaveText('New project')
     await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
     await expect(marks()).toHaveCount(0)

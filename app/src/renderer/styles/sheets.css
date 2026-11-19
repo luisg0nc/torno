@@ -1,5 +1,26 @@
 /* ---- Export: what goes into the file, asked over the view or over the page of objects ---- */
 
+/* The print profile chip and the keys button of the status line: buttons among read-outs, as Export is. */
+.status-profile,
+.status-keys {
+  height: 20px;
+  padding: 0 var(--space-2);
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.status-keys {
+  min-width: 20px;
+  padding: 0;
+}
+
+.profile-pop {
+  padding: var(--space-3) 0;
+}
+
 /* In the status line it is the one thing to press among read-outs: it has a button's frame. */
 .status-export {
   height: 20px;
@@ -12,6 +33,8 @@
 }
 
 .status-export:hover,
+.status-profile:hover,
+.status-keys:hover,
 .status-rebuild:hover {
   border-color: var(--accent);
   color: var(--accent);

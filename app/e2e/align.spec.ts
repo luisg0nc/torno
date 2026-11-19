@@ -33,7 +33,7 @@ test.beforeAll(async () => {
   cpSync(fixtures, root, { recursive: true, filter: (source) => !source.endsWith('__pycache__') })
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {

@@ -42,7 +42,7 @@ test.beforeAll(async () => {
   root = copyFixtures()
   app = await launch({ TORNO_WORKSPACE: root })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -101,7 +101,7 @@ const model = () => join(root, 'bracket', 'bracket.py')
 test('the palette shows the tools, each with its key', async () => {
   await openFromAbove()
   const tools = page.getByRole('toolbar', { name: 'Tools' }).locator('button[data-tool]')
-  // One button for every tool there is; the sheet of keys is at the foot of the rail.
+  // One button for every tool there is; the sheet of keys is the status line's button.
   await expect(tools).toHaveCount(TOOLS.length)
   await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button')).toHaveCount(TOOLS.length)
   // The key is on no button: it is in its own words for a reader of the screen, in the tip beside it (e2e/tools.spec.ts) and in the name of the tool in hand.

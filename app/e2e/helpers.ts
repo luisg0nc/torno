@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-/** The sections of the route card, by the name of their rail buttons (a tip on hover, no word under the icon), and the id the card keeps each under (`data-section`). */
+/** The sections of the route card, by the name of their heads, and the id the card keeps each under (`data-section`). */
 const SECTION = {
   'Needs you': 'needs',
   Parts: 'parts',
@@ -8,27 +8,27 @@ const SECTION = {
   Checks: 'checks',
   Marks: 'marks',
   Scans: 'scans',
-  Tracings: 'tracings',
-  'Print profile': 'profile'
+  Tracings: 'tracings'
 } as const
 
 export type SectionName = keyof typeof SECTION
 
-/** The rail's buttons: Projects and Keys, and the index of the card's sections. */
-export type RailName = 'Projects' | 'Keys' | SectionName
-
-/** The rail's button for a section, or Projects or Keys, as a person finds it: by its name. */
-export const railButton = (page: Page, name: RailName): Locator => page.locator('[data-region="left"] .rail').getByRole('button', { name, exact: true })
-
 /** A section of the route card, whole: its head and its body. */
 export const cardSection = (page: Page, name: SectionName): Locator => page.locator(`[data-region="left"] [data-section="${SECTION[name]}"].route-section`)
 
-/** Brings a section into sight through the rail's index, as a person does: pressing its icon. It is unfolded afterwards (a press on the icon unfolds a folded one). */
+/** Brings a section into sight as a person does with no rail: the card is scrolled to it and its head is pressed if it is folded. It is unfolded afterwards. */
 export async function openSection(page: Page, name: SectionName): Promise<void> {
-  const button = railButton(page, name)
-  await expect(button).toBeVisible()
-  await button.click()
-  await expect(cardSection(page, name)).not.toHaveAttribute('data-folded', '')
+  const section = cardSection(page, name)
+  await expect(section).toBeVisible()
+  await section.scrollIntoViewIfNeeded()
+  // A head that says "none" does not unfold: it is pressed once there is something in it (a build that has not landed yet).
+  await expect
+    .poll(async () => {
+      if ((await section.getAttribute('data-folded')) === null) return true
+      if ((await section.getAttribute('data-empty')) === null) await section.locator('.route-head-button').click()
+      return (await section.getAttribute('data-folded')) === null
+    })
+    .toBe(true)
 }
 
 /** Folds a section of the card to its head, as a person does: a click on the head. One that is folded stays as it is. */
@@ -38,12 +38,39 @@ export async function foldSection(page: Page, name: SectionName): Promise<void> 
   await expect(section).toHaveAttribute('data-folded', '')
 }
 
-/** Shows the page of projects through the rail's Projects button, as a person does. One that is up stays as it is. */
+/**
+ * Shows the page of projects as a person does: "All projects" in the menu of the title bar's project crumb while a project is
+ * open, else the key `W`. One that is up stays as it is.
+ */
 export async function showProjects(page: Page): Promise<void> {
-  const button = railButton(page, 'Projects')
-  await expect(button).toBeVisible()
-  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click()
-  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  const shown = page.locator('section.show')
+  if ((await page.evaluate(() => window.__tornoTest!.state().page)) !== 'objects') {
+    // The page of a new project has its own way, which keeps the draft.
+    const all = page.locator('.title-row').getByRole('button', { name: 'All projects', exact: true })
+    if ((await all.count()) > 0) await all.click()
+    else {
+    const crumb = page.locator('.title-row').getByRole('button', { name: /^Project / })
+    if ((await crumb.count()) > 0) {
+      await crumb.click()
+      await page.getByRole('menu', { name: 'Projects' }).getByRole('menuitem', { name: /^All projects/ }).click()
+    } else await page.keyboard.press('w')
+    }
+  }
+  await expect(shown).toBeVisible()
+}
+
+/** The keyboard's button at the right of the status line. */
+export const keysButton = (page: Page): Locator => page.locator('.status [data-keys-button]')
+
+/** The print profile chip of the status line. */
+export const profileChip = (page: Page): Locator => page.locator('.status .status-profile')
+
+/** The print profile's card, opened from its chip if it is not up. */
+export async function openProfile(page: Page): Promise<Locator> {
+  const card = page.getByRole('dialog', { name: 'Print profile' })
+  if (!(await card.isVisible())) await profileChip(page).click()
+  await expect(card).toBeVisible()
+  return card
 }
 
 /** A choice of the dock's "More" menu, as a person makes it: the menu is opened from its button, then the item is pressed. */

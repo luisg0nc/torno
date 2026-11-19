@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CARD_DEFAULT, CARD_MAX, CARD_NARROW, clampLeft, COLUMN_DEFAULT, COLUMN_KEY, leftDefault, RAIL_W, SECTION_IDS, VIEWPORT_MIN, readColumn, sectionsFor, storedColumn, writeColumn } from './column'
+import { CARD_DEFAULT, CARD_MAX, CARD_NARROW, clampLeft, COLUMN_DEFAULT, COLUMN_KEY, leftDefault, SECTION_IDS, VIEWPORT_MIN, readColumn, sectionsFor, storedColumn, writeColumn } from './column'
 
 /** A storage of the window, as the tests need it: what was written, and one that refuses. */
 function memory(start: Record<string, string> = {}): Storage & { data: Record<string, string> } {
@@ -28,7 +28,7 @@ const refusing = {
 
 describe('the route card as the person keeps it', () => {
   it('starts with Needs you, Parts, Checks and Marks open and the rest folded, at the default width', () => {
-    expect(COLUMN_DEFAULT).toEqual({ folded: ['params', 'scans', 'tracings', 'profile'], width: 296 })
+    expect(COLUMN_DEFAULT).toEqual({ folded: ['params', 'scans', 'tracings'], width: 296 })
     expect(readColumn(null)).toEqual(COLUMN_DEFAULT)
     expect(readColumn('nope')).toEqual(COLUMN_DEFAULT)
   })
@@ -68,9 +68,9 @@ describe('the route card as the person keeps it', () => {
   })
 })
 
-describe('which sections the index offers', () => {
-  it('has all eight for an open project and none on a page, with a new project or with none open', () => {
-    expect(SECTION_IDS).toEqual(['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings', 'profile'])
+describe('which sections the card has', () => {
+  it('has all seven for an open project and none on a page, with a new project or with none open', () => {
+    expect(SECTION_IDS).toEqual(['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
     expect(sectionsFor({ page: 'object', objectId: 'hollow' })).toEqual(SECTION_IDS)
     expect(sectionsFor({ page: 'objects', objectId: 'hollow' })).toEqual([])
     expect(sectionsFor({ page: 'new', objectId: 'hollow' })).toEqual([])
@@ -87,13 +87,13 @@ describe('the width of the card', () => {
   })
 
   it('is 296, and 264 in a window narrower than 1360; what is kept never goes below the narrow one', () => {
-    expect([CARD_DEFAULT, CARD_NARROW, RAIL_W, VIEWPORT_MIN]).toEqual([296, 264, 52, 420])
+    expect([CARD_DEFAULT, CARD_NARROW, VIEWPORT_MIN]).toEqual([296, 264, 420])
     expect(leftDefault(1440)).toBe(296)
     expect(leftDefault(1359)).toBe(264)
     expect(leftDefault(1280)).toBe(264)
   })
 
-  it('is bounded below by the default of the window and above by the room the viewport keeps beside the rail and the dock', () => {
+  it('is bounded below by the default of the window and above by the room the viewport keeps beside the dock', () => {
     expect(clampLeft(100, 1600, 420)).toBe(CARD_DEFAULT)
     expect(clampLeft(CARD_NARROW, 1600, 420)).toBe(CARD_DEFAULT)
     expect(clampLeft(100, 1280, 384)).toBe(264)
@@ -101,8 +101,8 @@ describe('the width of the card', () => {
     expect(clampLeft(CARD_DEFAULT, 1280, 384)).toBe(264)
     expect(clampLeft(280, 1280, 384)).toBe(280)
     expect(clampLeft(400, 1600, 420)).toBe(400)
-    expect(clampLeft(5000, 1600, 420)).toBe(1600 - 420 - VIEWPORT_MIN - RAIL_W)
-    expect(clampLeft(5000, 1600, 0)).toBe(1600 - VIEWPORT_MIN - RAIL_W)
+    expect(clampLeft(5000, 1600, 420)).toBe(1600 - 420 - VIEWPORT_MIN)
+    expect(clampLeft(5000, 1600, 0)).toBe(1600 - VIEWPORT_MIN)
     expect(clampLeft(5000, 600, 420)).toBe(264)
     expect(clampLeft(5000, 1000, 420)).toBe(CARD_NARROW)
   })

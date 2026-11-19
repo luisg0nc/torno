@@ -1481,26 +1481,26 @@ describe('the session dock', () => {
 
 describe('the route card', () => {
   it('folds a section and unfolds it again; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ folded: ['params', 'scans', 'tracings', 'profile'], width: 296 })
+    expect(store.getState().column).toEqual({ folded: ['params', 'scans', 'tracings'], width: 296 })
     actions.toggleSection('parts')
-    expect(store.getState().column.folded).toEqual(['parts', 'params', 'scans', 'tracings', 'profile'])
+    expect(store.getState().column.folded).toEqual(['parts', 'params', 'scans', 'tracings'])
     actions.openObject('gear', { layers: {} })
     actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
     expect(store.getState().column.folded).toContain('parts')
     actions.toggleSection('parts')
-    expect(store.getState().column.folded).toEqual(['params', 'scans', 'tracings', 'profile'])
+    expect(store.getState().column.folded).toEqual(['params', 'scans', 'tracings'])
     actions.toggleSection('params')
-    expect(store.getState().column.folded).toEqual(['scans', 'tracings', 'profile'])
+    expect(store.getState().column.folded).toEqual(['scans', 'tracings'])
   })
 
   it('shows a section: unfolds it, and leaves an open one as it is', () => {
-    store.setState({ column: { folded: ['params', 'scans', 'tracings', 'profile'], width: 296 } })
+    store.setState({ column: { folded: ['params', 'scans', 'tracings'], width: 296 } })
     actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
     actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
     actions.showSection('marks')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings', 'profile'])
+    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
   })
 
   it('keeps the width the person gave the card', () => {

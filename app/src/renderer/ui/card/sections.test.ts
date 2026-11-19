@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { inSight, SECTIONS } from './sections'
 
 describe('the sections of the route card', () => {
-  it('are the eight, in the order they are read, with their names', () => {
-    expect(SECTIONS.map((s) => s.title)).toEqual(['Needs you', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings', 'Print profile'])
-    expect(SECTIONS.map((s) => s.id)).toEqual(SECTIONS.map((s) => s.icon))
+  it('are the seven, in the order they are read, with their names', () => {
+    expect(SECTIONS.map((s) => s.title)).toEqual(['Needs you', 'Parts', 'Parameters', 'Checks', 'Marks', 'Scans', 'Tracings'])
+    expect(SECTIONS.map((s) => s.id)).toEqual(['needs', 'parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dockToggleName, dockToggleSaid, rowSaid, signOf, switcherSign, waitingObjects } from './sessionSign'
+import { dockToggleName, dockToggleSaid, rowSaid, signOf, waitingObjects } from './sessionSign'
 
 const objects = [
   { id: 'bracket', name: 'bracket' },
@@ -50,26 +50,5 @@ describe('what is said, for a screen reader and for a title', () => {
     expect(dockToggleSaid(false, null)).toBeUndefined()
     expect(dockToggleSaid(false, 'needs_input')).toBe('Claude Code needs you')
     expect(dockToggleSaid(false, 'working')).toBe('Claude Code is working')
-  })
-})
-
-describe('switcherSign', () => {
-  const at = (statuses: Record<string, 'needs_input' | 'working' | 'idle' | 'exited'>) =>
-    Object.fromEntries(Object.entries(statuses).map(([id, status]) => [id, { sessionId: id, view: 'chat' as const, status }]))
-
-  it('carries the sign of any object of the list: one that needs the person before one at work', () => {
-    expect(switcherSign('hollow', objects, at({ hollow: 'working' }))).toEqual({ sign: 'working', said: 'session is working', word: undefined })
-    expect(switcherSign('hollow', objects, at({ hollow: 'working', plain: 'needs_input' }))).toEqual({ sign: 'needs_input', said: 'session is working; plain needs you', word: 'plain needs you' })
-    expect(switcherSign('hollow', objects, at({ plain: 'working', bracket: 'needs_input' }))).toEqual({ sign: 'needs_input', said: 'bracket needs you; plain is working', word: 'bracket needs you' })
-  })
-
-  it('says "needs you" beside the dot of the open object\'s session that waits, and names another\'s', () => {
-    expect(switcherSign('hollow', objects, at({ hollow: 'needs_input', plain: 'needs_input' }))).toEqual({ sign: 'needs_input', said: 'session needs you; plain needs you', word: 'needs you' })
-    expect(switcherSign('plain', objects, at({ bracket: 'needs_input', hollow: 'needs_input' })).word).toBe('bracket needs you')
-  })
-
-  it('has none while no session works or waits, and none for an object not in the list', () => {
-    expect(switcherSign('hollow', objects, at({ hollow: 'idle', bracket: 'exited', ghost: 'needs_input' }))).toEqual({ sign: null, said: undefined, word: undefined })
-    expect(switcherSign(null, objects, {})).toEqual({ sign: null, said: undefined, word: undefined })
   })
 })

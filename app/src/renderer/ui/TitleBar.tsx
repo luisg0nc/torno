@@ -37,6 +37,10 @@ export function TitleBar({ folder, disabled, onChoose, onOpen }: { folder: strin
           <span className="crumb crumb-project" aria-current="page">
             New project
           </span>
+          {/* The way to the projects from here, with the draft kept (the rail's Projects went with the rail). */}
+          <button type="button" className="crumb" onClick={() => actions.showPage('objects')}>
+            All projects
+          </button>
         </>
       ) : (
         page === 'object' &&

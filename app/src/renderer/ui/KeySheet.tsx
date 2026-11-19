@@ -112,7 +112,7 @@ function Sheet() {
           // Not when the window itself lost the focus: it is still what is up when the person comes back. Nor for the button that asked for it:
           // that press puts it away itself.
           const to = e.relatedTarget
-          if (to instanceof Element && to.closest('[data-rail="keys"]')) return
+          if (to instanceof Element && to.closest('[data-keys-button]')) return
           if (to instanceof Node ? !e.currentTarget.contains(to) : document.hasFocus() && document.activeElement !== null && !e.currentTarget.contains(document.activeElement)) showKeys(false)
         }}
         onKeyDown={(e) => {

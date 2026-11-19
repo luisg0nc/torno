@@ -1,6 +1,6 @@
 /* ---- The first screen (ui/Welcome.tsx): the dyed plate at the left and the ways in at the right ---- */
 
-/* The plate is 780 of 1440, the side the rest. The page is the whole window: no title row, no rail, no dock. */
+/* The plate is 780 of 1440, the side the rest. The page is the whole window: no title row, no dock. */
 .welcome-page {
   position: relative;
   display: grid;

@@ -1,9 +1,9 @@
-/* ---- The keyboard (ui/KeySheet.tsx): raised from the foot of the window, over the view and the card. The rail and the status line stay. ---- */
+/* ---- The keyboard (ui/KeySheet.tsx): raised from the foot of the window, over the view and the card. The status line stays. ---- */
 
 .keys-layer {
   /* Over the view and the card: a press on what is left of them puts it away, and nothing behind takes it. */
   position: fixed;
-  inset: var(--title-h) 0 var(--status-h) var(--rail-w);
+  inset: var(--title-h) 0 var(--status-h) 0;
   z-index: 40;
   display: flex;
   align-items: flex-end;

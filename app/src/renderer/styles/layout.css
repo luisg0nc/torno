@@ -1,4 +1,4 @@
-/* Shell layout: one grid. A title row on top, the rail and the card at the left (the left column spans both), the view,
+/* Shell layout: one grid. A title row on top, the card at the left, the view,
    the session dock at the right, and the status line along the foot. A card or a dock that is away is a zero column.
    Colours and sizes come from tokens.css. */
 
@@ -72,16 +72,16 @@ button {
 .shell {
   position: relative;
   display: grid;
-  grid-template-columns: var(--rail-w) var(--card-space) minmax(0, 1fr) var(--dock-space);
+  grid-template-columns: var(--card-space) minmax(0, 1fr) var(--dock-space);
   grid-template-rows: var(--title-h) minmax(0, 1fr) var(--status-h);
   height: 100%;
   overflow: hidden;
   /* The columns: the card's and the dock's, or nothing while one is away. */
   --card-space: var(--card-w);
   --dock-space: var(--dock-w);
-  /* How far in from the window's left the view starts: the rail, and the card docked beside it when one is open. The sheet that rises
+  /* How far in from the window's left the view starts: the card docked at the left when one is open. The sheet that rises
      from the status line keeps clear of the left column by it. */
-  --left-w: calc(var(--rail-w) + var(--card-space));
+  --left-w: var(--card-space);
   /* How tall the switch of Board and Model is, at the top left of the main area (`pboard-switch`): the bars of the view stand below it, never under it. */
   --switch-h: 34px;
 }
@@ -103,13 +103,13 @@ button {
 
 .viewport {
   position: relative;
-  grid-area: 2 / 3 / 3 / 4;
+  grid-area: 2 / 2 / 3 / 3;
   min-width: 0;
   min-height: 0;
   background: var(--surface);
 }
 
-/* With no folder open the prompt is the whole window: no title row, no rail, no dock. */
+/* With no folder open the prompt is the whole window: no title row, no dock. */
 .viewport.welcome {
   grid-area: 1 / 1 / -1 / -1;
 }
@@ -204,14 +204,14 @@ button {
   background: var(--panel);
 }
 
-/* The rail, then the route card beside it: the whole is the region the focus goes round as "left". It spans the rail's column and the card's. */
+/* The route card: the region the focus goes round as "left". */
 .left {
-  grid-area: 2 / 1 / 3 / 3;
+  grid-area: 2 / 1 / 3 / 2;
   flex-direction: row;
 }
 
 .dock {
-  grid-area: 2 / 4 / 3 / 5;
+  grid-area: 2 / 3 / 3 / 4;
   border-left: var(--divider);
 }
 

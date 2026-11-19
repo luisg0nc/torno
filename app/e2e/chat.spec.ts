@@ -42,7 +42,7 @@ test.beforeAll(async () => {
   // TORNO_TEST=1 makes main create the window with show: false. Never launch without it.
   app = await electron.launch({ args: ['.'], cwd: appDir, env: { ...process.env, TORNO_TEST: '1', TORNO_AGENT_CMD: `node ${fakeAgent}`, TORNO_WORKSPACE: root } })
   page = await app.firstWindow()
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
 })
 
 test.afterAll(async () => {
@@ -321,7 +321,7 @@ test('an ended session can still be read, and nothing more can be written to it'
   await expect(chat().locator('.chat-note').last()).toContainText('The session ended')
   // And after the window is loaded again: main still holds what it said.
   await Promise.all([page.waitForEvent('load'), page.evaluate(() => window.location.reload())])
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openListed(page, 'bracket')
   await expect(chat()).toBeVisible({ timeout: 15_000 })
   await expect(chat().locator('.chat-note').last()).toContainText('The session ended')
@@ -337,7 +337,7 @@ test('the window reloaded in the middle of a stream shows every item once and go
   await say('slow 3')
   await expect(chat().locator('.chat-text').last().locator('.chat-dot')).toBeVisible()
   await Promise.all([page.waitForEvent('load'), page.evaluate(() => window.location.reload())])
-  await page.waitForSelector('[data-region="left"]')
+  await page.waitForSelector('[data-region="viewport"]')
   await openListed(page, 'bracket')
   await expect(chat()).toBeVisible({ timeout: 15_000 })
   await expect(chat().locator('.chat-user', { hasText: 'slow 3' })).toHaveCount(1)

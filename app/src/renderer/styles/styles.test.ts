@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, it } from 'vitest'
-import { CARD_DEFAULT, CARD_NARROW, RAIL_W } from '../state/column'
+import { CARD_DEFAULT, CARD_NARROW } from '../state/column'
 import { DOCK_DEFAULT, DOCK_NARROW, NARROW_WINDOW } from '../state/dock'
 
 // What the stylesheets are held to beyond their tokens' contrasts (`shared/contrast.test.ts`): nothing in the
@@ -176,9 +176,9 @@ it('has no --palette-shadow or --radius-palette left: they became --float-shadow
   for (const token of ['--radius-inline: 4px', '--radius-control: 6px', '--radius-float: 10px', '--radius-sheet: 14px', '--radius-full: 999px', '--title-h: 40px', '--card-w: 296px', '--status-h: 28px']) expect(tokens).toContain(`${token};`)
 })
 
-it('keeps the sizes the code repeats in step with the tokens: the rail, the card, the dock, and their narrow defaults', () => {
+it('keeps the sizes the code repeats in step with the tokens: the card, the dock, and their narrow defaults', () => {
   const tokens = readFileSync(SHEETS['tokens.css'], 'utf8')
-  expect(tokens).toContain(`--rail-w: ${RAIL_W}px;`)
+  expect(tokens).not.toContain('--rail-w')
   expect(tokens).toContain(`--card-w: ${CARD_DEFAULT}px;`)
   expect(tokens).toContain('--panel-w: var(--card-w);')
   expect(tokens).toContain(`--dock-w: ${DOCK_DEFAULT}px;`)
