@@ -1,49 +1,21 @@
-import { type BoardFile, type BuildCopy, type Card, type CardKind, AUTO_KINDS, MAX_CARDS, MAX_NAME_CHARS, PICTURE_NAME } from '../../shared/board'
+import { type BoardFile, type BuildCopy, type Card, type CardKind, AUTO_KINDS, COPY_KINDS, MAX_CARDS, MAX_NAME_CHARS, PICTURE_NAME, ROUND_SOURCE } from '../../shared/board'
 import { HISTORY_ID } from '../../shared/history'
-import { FRAME_HEADER, GAP, MADE_SIZE, crowds, freeSpot } from './place'
+import { MADE_SIZE, freeSpot } from './place'
 
 // What is on a board that the project already has: the cards that appear by themselves (reconcile) and the ones the
 // person pins (pin). Both are pure: they are given a board and give the board it should be, which `BoardStore.torno`
 // writes. Main chooses the place of every card; the window and the agent never do.
 
 /** The size a card of each kind first has, in board units. */
-export const CARD_SIZE: Record<'brief' | 'reference' | 'mark' | 'scan' | 'tracing' | 'build' | 'view' | 'params' | 'checks' | 'size' | 'round', { w: number; h: number }> = {
+export const CARD_SIZE: Record<'brief' | 'reference' | 'build' | 'view' | 'params' | 'checks' | 'size', { w: number; h: number }> = {
   brief: { w: 320, h: 240 },
   reference: { w: 240, h: 180 },
-  mark: { w: 240, h: 120 },
-  scan: { w: 240, h: 120 },
-  tracing: { w: 240, h: 200 },
   build: { w: 240, h: 200 },
   view: { w: 240, h: 120 },
   params: { w: 280, h: 240 },
   checks: { w: 280, h: 240 },
   /** A size the person or Claude added: the same on every board (`MADE_SIZE`). */
-  size: MADE_SIZE.size,
-  /** The frame of a round, first: three mark cards across and two down, the room a frame keeps for its name above them. */
-  round: { w: 2 * GAP + 3 * 240 + 2 * GAP, h: FRAME_HEADER + 2 * 120 + GAP + GAP }
-}
-
-/** The width of a view note's card, and what its head and lines take of its height besides the picture, and the room at its sides: the picture is what is left (#214). */
-export const NOTE_CARD_WIDTH = 320
-const NOTE_CHROME = { w: 24, h: 110 }
-const NOTE_CARD_HEIGHT = { least: 160, most: 520 }
-
-/** The size of the card of a view note whose picture is `picture` pixels: wide enough for it to read, in the picture's own shape. */
-export function noteCardSize(picture: { w: number; h: number }): { w: number; h: number } {
-  const shown = (NOTE_CARD_WIDTH - NOTE_CHROME.w) * (picture.h / picture.w)
-  const h = Math.round(shown + NOTE_CHROME.h)
-  return { w: NOTE_CARD_WIDTH, h: Math.min(NOTE_CARD_HEIGHT.most, Math.max(NOTE_CARD_HEIGHT.least, Number.isFinite(h) ? h : CARD_SIZE.mark.h)) }
-}
-
-/** How many mark cards stand across a round's frame. */
-const ROUND_COLUMNS = 3
-/** What one more row of mark cards takes of a round's frame. */
-const ROUND_ROW = CARD_SIZE.mark.h + GAP
-
-/** The size of the frame of a round made with `items` items: `CARD_SIZE.round`, and a row more for each three past six. */
-function roundFrameSize(items: number): { w: number; h: number } {
-  const rows = Math.max(2, Math.ceil(items / ROUND_COLUMNS))
-  return { w: CARD_SIZE.round.w, h: CARD_SIZE.round.h + (rows - 2) * ROUND_ROW }
+  size: MADE_SIZE.size
 }
 
 /** What the project has that a card may show. */
@@ -51,110 +23,62 @@ export interface Found {
   brief: boolean
   /** The `reference/` paths of its files, as a card names them (`reference/photo-1.jpg`). */
   references: string[]
-  /** `round` is the round a mark is an item of (`R1`). */
-  marks: Array<{ id: string; layout: string; round?: string; /** The size of a view note's picture. */ picture?: { w: number; h: number } }>
+  /** The ids of the marks, scans and tracings (`M1`, `S1`, `T1`): no card is made for them, but an old one goes when its thing does. */
+  marks: string[]
   scans: string[]
-  /** The tracings, by id (`T1`). */
-  tracings: Array<{ id: string }>
-  /** The rounds, by the name their frame has (`reviewName`) and the marks they hold, in the order of the rounds. `from` is the round a carried item came from. */
-  rounds: Array<{ id: string; name: string; items: string[]; from?: string }>
+  tracings: string[]
 }
 
 /** A card of main's own, with no place yet (`place` gives it one). */
-type Wanted = Pick<Card, 'kind' | 'source'> & { layout?: string; round?: string; picture?: { w: number; h: number } }
+type Wanted = Pick<Card, 'kind' | 'source'>
 
+/** The cards main makes by itself: the brief and the files of `reference/`. Nothing else (#248). */
 function wanted(found: Found): Wanted[] {
-  return [
-    ...(found.brief ? [{ kind: 'brief' as const, source: 'brief' }] : []),
-    ...found.references.map((source) => ({ kind: 'reference' as const, source })),
-    ...found.marks.map((m) => ({ kind: 'mark' as const, source: m.id, layout: m.layout, ...(m.round !== undefined ? { round: m.round } : {}), ...(m.picture !== undefined ? { picture: m.picture } : {}) })),
-    ...found.scans.map((source) => ({ kind: 'scan' as const, source })),
-    ...found.tracings.map((t) => ({ kind: 'tracing' as const, source: t.id }))
-  ]
+  return [...(found.brief ? [{ kind: 'brief' as const, source: 'brief' }] : []), ...found.references.map((source) => ({ kind: 'reference' as const, source }))]
 }
 
 /** Gives `card` a free spot and the next id, and puts it on `board` (which is a copy). */
-function place(board: BoardFile, card: Omit<Card, 'id' | 'x' | 'y' | 'w' | 'h'> & { kind: Exclude<keyof typeof CARD_SIZE, 'round'> }, spot?: { x: number; y: number }, made?: { w: number; h: number }): void {
+function place(board: BoardFile, card: Omit<Card, 'id' | 'x' | 'y' | 'w' | 'h'> & { kind: keyof typeof CARD_SIZE }, spot?: { x: number; y: number }, made?: { w: number; h: number }): void {
   const size = made ?? CARD_SIZE[card.kind]
   board.cards.push({ id: `C${board.next++}`, ...(spot ?? freeSpot(board.cards, size) ?? { x: 0, y: 0 }), ...size, ...card })
 }
 
-/** The frame main keeps for a round: a card of its own, a frame, whose source is the round. */
-const frameOf = (board: BoardFile, round: string): Card | undefined => board.cards.find((c) => c.by === 'torno' && c.kind === 'frame' && c.source === round)
-
 /**
- * A spot inside a round's frame for a card of `size` (`skip`: the card that is being moved there, which is in the way of
- * no one). When the frame is full its bottom edge goes down a row, if nothing is in the way there. Null when it has no room.
- */
-function roomIn(board: BoardFile, frame: Card, size: { w: number; h: number }, skip?: string): { x: number; y: number } | null {
-  const cards = board.cards.filter((c) => c.id !== skip)
-  const spot = freeSpot(cards, size, frame)
-  if (spot) return spot
-  // The strip the frame would take: nothing may be in it but the cards the frame holds.
-  const strip = { x: frame.x, y: frame.y + frame.h, w: frame.w, h: ROUND_ROW }
-  if (cards.some((c) => c.id !== frame.id && c.frame !== frame.id && crowds(strip, c))) return null
-  const grown = { ...frame, h: frame.h + ROUND_ROW }
-  const spotInGrown = freeSpot(cards, size, grown)
-  if (!spotInGrown) return null
-  frame.h = grown.h
-  return spotInGrown
-}
-
-/**
- * The board once the cards of what the project has are on it: a placed card of main's own (`by: 'torno'`) for each
- * source that has none (a hidden one counts: it stays hidden), and no card of main's own whose source is gone, nor
- * an arrow touching one. Pinned cards, made cards and the agent's are never touched. Null when nothing changed.
+ * The board once the cards of what the project has are on it: a placed card of main's own (`by: 'torno'`) for the brief
+ * and each file of `reference/` that has none (a hidden one counts: it stays hidden), and no card of main's own whose
+ * source is gone, nor an arrow touching one. Pinned cards, made cards and the agent's are never touched. Null when
+ * nothing changed.
  *
- * A round has a frame, made when it gets its first item, of main's own (`kind: 'frame'`, `source: 'R1'`), named for its counts, in a free
- * spot. A mark card is put in its round's frame when it is placed for the first time, or when it is in the frame of the
- * round its item was carried from; a card the person put anywhere else stays where it is. A frame the person removed
- * stays hidden, and takes no new card. A frame goes when its round is gone, not when it is left with no item.
+ * Marks, scans, tracings and review rounds get no card (#248). A board made before that still holds some, and the first
+ * time it is read they are looked at once, never again: a copy that is not in a frame of the person's (it was never
+ * placed) is hidden, a round's frame is hidden, and one the person put in a frame of their own stays. Nothing is
+ * removed: "Hidden cards" brings back what was hidden. `tidied` says it was done.
  */
 export function reconcile(board: BoardFile, found: Found): BoardFile | null {
   const wants = wanted(found)
-  const there = (kind: CardKind, source: string | undefined): boolean => wants.some((w) => w.kind === kind && w.source === source)
-  const rounds = found.rounds
-  const roundIds = new Set(rounds.map((r) => r.id))
-  const gone = new Set(
-    board.cards
-      .filter((c) => c.by === 'torno' && ((AUTO_KINDS.includes(c.kind) && !there(c.kind, c.source)) || (c.kind === 'frame' && !roundIds.has(c.source ?? ''))))
-      .map((c) => c.id)
-  )
+  const alive = { mark: new Set(found.marks), scan: new Set(found.scans), tracing: new Set(found.tracings) }
+  const there = (kind: CardKind, source: string | undefined): boolean => {
+    if (kind === 'mark' || kind === 'scan' || kind === 'tracing') return source !== undefined && alive[kind].has(source)
+    return wants.some((w) => w.kind === kind && w.source === source)
+  }
+  const gone = new Set(board.cards.filter((c) => c.by === 'torno' && AUTO_KINDS.includes(c.kind) && !there(c.kind, c.source)).map((c) => c.id))
   const have = (w: Wanted): boolean => board.cards.some((c) => c.by === 'torno' && c.kind === w.kind && c.source === w.source)
   const missing = wants.filter((w) => !have(w))
 
   const next: BoardFile = structuredClone(board)
   let changed = gone.size > 0 || missing.length > 0
-  // The items that came from an earlier round.
-  const carried = found.marks.filter((m) => m.round !== undefined && rounds.some((r) => r.id === m.round && r.from !== undefined))
 
-  // The frames of the rounds: made with their first item, named for their counts as they change.
-  for (const round of rounds) {
-    const frame = frameOf(next, round.id)
-    if (frame) {
-      if (frame.name !== round.name) {
-        frame.name = round.name
-        changed = true
+  if (next.tidied !== true) {
+    const ofTorno = new Set(next.cards.filter((c) => c.by === 'torno' && c.kind === 'frame').map((c) => c.id))
+    const old = next.cards.filter((c) => c.by === 'torno' && (COPY_KINDS.includes(c.kind) || (c.kind === 'frame' && ROUND_SOURCE.test(c.source ?? ''))))
+    // A board with no old copy has nothing to look at, and is left as it is (no file is written for it).
+    if (old.length > 0) {
+      for (const c of old) {
+        if (c.kind === 'frame' || c.frame === undefined || ofTorno.has(c.frame)) c.hidden = true
       }
-    } else if (round.items.length > 0 && next.cards.length - gone.size < MAX_CARDS) {
-      const size = roundFrameSize(round.items.length)
-      const spot = freeSpot(next.cards, size) ?? { x: 0, y: 0 }
-      next.cards.push({ id: `C${next.next++}`, kind: 'frame', ...spot, ...size, by: 'torno', source: round.id, name: round.name })
+      next.tidied = true
       changed = true
     }
-  }
-
-  // A carried item: its card goes from the frame of the round it came from into its new round's.
-  for (const m of carried) {
-    const round = rounds.find((r) => r.id === m.round)
-    const card = next.cards.find((c) => c.by === 'torno' && c.kind === 'mark' && c.source === m.id)
-    const from = round?.from === undefined ? undefined : frameOf(next, round.from)
-    const into = round === undefined ? undefined : frameOf(next, round.id)
-    if (!card || card.hidden || !from || !into || into.hidden || card.frame !== from.id) continue
-    const spot = roomIn(next, into, CARD_SIZE.mark, card.id)
-    if (!spot) continue
-    Object.assign(card, spot, { frame: into.id })
-    changed = true
   }
 
   next.cards = next.cards.filter((c) => !gone.has(c.id))
@@ -163,10 +87,7 @@ export function reconcile(board: BoardFile, found: Found): BoardFile | null {
 
   for (const w of missing) {
     if (next.cards.length >= MAX_CARDS) break
-    const frame = w.round === undefined ? undefined : frameOf(next, w.round)
-    const size = w.picture ? noteCardSize(w.picture) : CARD_SIZE.mark
-    const spot = frame && !frame.hidden && w.kind === 'mark' ? roomIn(next, frame, size) : null
-    place(next, { kind: w.kind as Exclude<keyof typeof CARD_SIZE, 'round'>, by: 'torno', source: w.source, ...(w.layout !== undefined ? { layout: w.layout } : {}), ...(spot && frame ? { frame: frame.id } : {}) }, spot ?? undefined, w.kind === 'mark' && w.picture ? size : undefined)
+    place(next, { kind: w.kind as 'brief' | 'reference', by: 'torno', source: w.source })
   }
   return changed ? next : null
 }

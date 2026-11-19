@@ -8,6 +8,7 @@ import { numbered } from './numbered'
 import { sourceCount } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
 import { Gauge } from './card/Gauge'
+import { driveNote, leave, restOn, useDrives } from '../state/drives'
 
 /**
  * The model's `Params`, as the kernel read them at the last build: a row for each field, in the model's order, with
@@ -80,6 +81,7 @@ export function ParamsPanel() {
             key={param.name}
             row={paramRow(param, dropped?.find((d) => d.name === param.name)?.reason ?? null)}
             canInsert={canInsert}
+            rest={objectId === null ? undefined : () => restOn(objectId, param.name)}
             set={(value) => objectId !== null && say(window.torno.object.setParam(objectId, param.name, value))}
             reset={() => objectId !== null && say(window.torno.object.resetParams(objectId, param.name))}
           />
@@ -108,7 +110,10 @@ function SourceCount({ params }: { params: Param[] }) {
   )
 }
 
-function ParamItem({ row, canInsert, set, reset }: { row: ParamRow; canInsert: boolean; set: (value: ParamValue) => void; reset: () => void }) {
+function ParamItem({ row, canInsert, rest, set, reset }: { row: ParamRow; canInsert: boolean; rest?: () => void; set: (value: ParamValue) => void; reset: () => void }) {
+  // What a field drives is shown on the model while the pointer or the keys' focus rests on its row (`state/drives.ts`): only a field that can be tried has a nudge.
+  const note = useDrives((s) => driveNote(s, row.name))
+  const hover = row.editable !== null && rest !== undefined
   const current = row.editable !== null ? row.current : null
   // The default as the file has it stays on the line; what the build used is in the control beneath.
   const body = (
@@ -126,7 +131,16 @@ function ParamItem({ row, canInsert, set, reset }: { row: ParamRow; canInsert: b
     </>
   )
   return (
-    <li className="param-row" data-param={row.name} data-worked={row.worked ? '' : undefined} data-tried={row.file !== null ? '' : undefined}>
+    <li
+      className="param-row"
+      data-param={row.name}
+      data-worked={row.worked ? '' : undefined}
+      data-tried={row.file !== null ? '' : undefined}
+      onPointerEnter={hover ? rest : undefined}
+      onPointerLeave={hover ? leave : undefined}
+      onFocus={hover ? rest : undefined}
+      onBlur={hover ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) leave() } : undefined}
+    >
       {canInsert ? (
         <button
           type="button"
@@ -170,6 +184,11 @@ function ParamItem({ row, canInsert, set, reset }: { row: ParamRow; canInsert: b
         </div>
       )}
       {row.note && <p className="param-note">{row.note}</p>}
+      {note && (
+        <p className="param-note param-drives" role="status">
+          {numbered(note)}
+        </p>
+      )}
     </li>
   )
 }

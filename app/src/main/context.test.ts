@@ -1574,6 +1574,41 @@ describe('the board line', () => {
   })
 })
 
+describe('the brief in a prompt', () => {
+  const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
+  const tool = (t: string): string => `mcp__torno__${t}`
+  const frame = { id: 'C1', kind: 'frame', x: 0, y: 0, w: 400, h: 400, by: 'person', name: 'Rules' } as const
+  const size = (value: string) => ({ id: 'C2', kind: 'size', x: 0, y: 0, w: 200, h: 100, by: 'person', size: { what: 'tray', value, unit: 'mm', source: 'measured' } }) as const
+  const boardOf = (value: string): BoardFile => ({ next: 4, cards: [frame, size(value), { id: 'C3', kind: 'text', x: 0, y: 0, w: 200, h: 100, by: 'person', frame: 'C1', text: 'PETG only' }], arrows: [] })
+  const prompt = (file: BoardFile, told: Record<string, string>, again: boolean) => {
+    const line = boardLine(file, told, { marks: new Map() }, tool, { again })
+    return contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { board: line.line, boardTold: line.told, ...(line.brief ? { brief: line.brief } : {}), newConversation: again, toolName: tool })
+  }
+
+  it('is in the first prompt of a new conversation, sizes and rules, after the board line', () => {
+    const lines = prompt(boardOf('186'), {}, true).text.split('\n')
+    const at = lines.findIndex((l) => l.startsWith("The person's brief:"))
+    expect(at).toBeGreaterThan(0)
+    expect(lines[at]).toBe("The person's brief: sizes: tray 186 mm (measured). Rules: PETG only. The board has the rest: read it with mcp__torno__board.")
+    expect(lines[at - 1]).toMatch(/^Board:/)
+  })
+  it('is left out of the next prompt of the conversation, and told again when a size changed', async () => {
+    const first = prompt(boardOf('186'), {}, true)
+    expect(prompt(boardOf('186'), first.boardTold!, false).text).not.toContain("The person's brief:")
+    expect(prompt(boardOf('190'), first.boardTold!, false).text).toContain('tray 190 mm (measured)')
+  })
+  it('is told again to a conversation after /clear or a compaction, and keeps the prompt inside its limit', () => {
+    const first = prompt(boardOf('186'), {}, true)
+    const again = prompt(boardOf('186'), first.boardTold!, true)
+    expect(again.text).toContain("The person's brief:")
+    expect(again.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+  })
+  it('hands nothing back for an edit being answered', () => {
+    const line = boardLine(boardOf('186'), {}, { marks: new Map() }, tool, { again: true })
+    expect(buildContextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { brief: line.brief } as never).text).not.toContain("The person's brief:")
+  })
+})
+
 describe('the tracings line', () => {
   const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
   const T = (id: string, over: Partial<Tracing> = {}): Tracing => ({ id, by: 'person', name: '', layout: 'assembly', createdAt: '', plane: { ...mainPlaneFrame('XZ', 0), from: { kind: 'main', axis: 'XZ', offset: 0 } }, layers: [], nextLayer: 1, ...over })

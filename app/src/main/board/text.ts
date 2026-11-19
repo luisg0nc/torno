@@ -282,13 +282,50 @@ export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: stri
   return { text, pictures: pictures.filter((p) => told.has(p.card)), leftOut: [...leftOut, ...cut.map((p) => p.card)], counts: countsOf(cards.slice(0, Math.min(kept.length, cards.length)), tellsArrows ? arrows.length : 0) }
 }
 
+/** The most the brief takes of a prompt, in characters (`briefOf`). */
+export const BRIEF_LIMIT = 1000
+/** The most of it the rules may take; the sizes have the rest. */
+const RULES_ROOM = 400
+/** The name of the frame whose text cards are the person's rules (`startBoard` makes it). */
+const RULES_FRAME = 'rules'
+
+/**
+ * The brief of the board: the person's sizes (every visible `size` card) and their rules (the text cards of the frame named
+ * Rules), in at most BRIEF_LIMIT characters, by whole sizes with the rest counted. `hash` changes with what they say, never
+ * with a move or a resize, so that a change is told again once. Nothing for a board with neither.
+ */
+export function briefOf(board: BoardFile, toolName: (tool: string) => string = (t) => t): { text: string; hash: string } | undefined {
+  const cards = readingOrder(board.cards)
+  const sizes = cards.flatMap((c) => (c.kind === 'size' && c.size ? [saySize(c.size)] : []))
+  const frames = new Set(cards.filter((c) => c.kind === 'frame' && (c.name ?? '').trim().toLowerCase() === RULES_FRAME).map((c) => c.id))
+  const said = cards.flatMap((c) => (c.kind === 'text' && c.frame !== undefined && frames.has(c.frame) && oneLine(c.text ?? '') !== '' ? [oneLine(c.text ?? '')] : []))
+  if (sizes.length === 0 && said.length === 0) return undefined
+  const joined = said.join(' / ')
+  const rules = joined.length > RULES_ROOM ? `${joined.slice(0, RULES_ROOM - 1).trimEnd()}…` : joined
+  const head = "The person's brief:"
+  const tail = `The board has the rest: read it with ${toolName('board')}.`
+  const rulesPart = rules === '' ? '' : ` Rules: ${rules}.`
+  const room = BRIEF_LIMIT - head.length - ' sizes: '.length - rulesPart.length - 1 - tail.length - ' and 99 more'.length - 1
+  let kept = 0
+  let used = 0
+  for (const size of sizes) {
+    const next = used + (kept > 0 ? 2 : 0) + size.length
+    if (next > room) break
+    used = next
+    kept++
+  }
+  const more = sizes.length > kept ? ` and ${sizes.length - kept} more` : ''
+  const sizesPart = sizes.length === 0 ? '' : kept === 0 ? ` sizes: ${sizes.length} (read them with ${toolName('board')}).` : ` sizes: ${sizes.slice(0, kept).join('; ')}${more}.`
+  return { text: `${head}${sizesPart}${rulesPart} ${tail}`.slice(0, BRIEF_LIMIT), hash: hash([sizes, said]) }
+}
+
 /**
  * The one line every prompt carries: how many cards there are, which are new to the agent since it was last told,
  * and the frames by name. A card is new when it is not in `told` or what it says has changed (`saysHash`); a mark
  * card follows the marks' own news and the agent's own cards are never news to it. Nothing for a board with nothing
  * on it. `told` in the answer is what the agent will have been told once the prompt is delivered: kept by whoever delivers.
  */
-export function boardLine(board: BoardFile, told: Record<string, string>, live: LiveFacts, toolName: (tool: string) => string = (t) => t): { line: string; told: Record<string, string>; counts?: BoardCounts } {
+export function boardLine(board: BoardFile, told: Record<string, string>, live: LiveFacts, toolName: (tool: string) => string = (t) => t, opts: { again?: boolean } = {}): { line: string; told: Record<string, string>; counts?: BoardCounts; brief?: string } {
   const cards = readingOrder(board.cards)
   if (cards.length === 0 && board.arrows.length === 0) return { line: '', told: {} }
   const known: Record<string, string> = {}
@@ -300,6 +337,10 @@ export function boardLine(board: BoardFile, told: Record<string, string>, live: 
   for (const card of cards) check(card.id, saysHash(card, live), card.kind !== 'mark' && card.by !== 'agent', NEW_AS[card.kind])
   const there = new Set(cards.map((c) => c.id))
   for (const arrow of board.arrows) if (there.has(arrow.from) && there.has(arrow.to)) check(arrow.id, arrowHash(arrow), arrow.by !== 'agent', 'an arrow')
+  // The brief (sizes and rules) is said to a conversation that begins (`again`) and whenever what it says has changed since it was told.
+  const brief = briefOf(board, toolName)
+  if (brief) known.brief = brief.hash
+  const briefed = brief && (opts.again === true || told.brief !== brief.hash) ? brief.text : undefined
   const named = news.slice(0, MOST_NAMED).join(', ')
   const more = news.length > MOST_NAMED ? ` and ${news.length - MOST_NAMED} more` : ''
   const frames = cards.filter((c) => c.kind === 'frame' && c.name).map((c) => oneLine(c.name as string).slice(0, FRAME_NAME))
@@ -307,5 +348,5 @@ export function boardLine(board: BoardFile, told: Record<string, string>, live: 
   // As an attachment tells them: the frames by name, and the cards not counting them.
   const total = cards.filter((c) => c.kind !== 'frame').length
   const count = `${total} card${total === 1 ? '' : 's'}`
-  return { line: `Board: ${count} (${news.length} new${news.length > 0 ? `: ${named}${more}` : ''})${framed}. Read it with ${toolName('board')}.`, told: known, counts: { total, new: news.length } }
+  return { line: `Board: ${count} (${news.length} new${news.length > 0 ? `: ${named}${more}` : ''})${framed}. Read it with ${toolName('board')}.`, told: known, counts: { total, new: news.length }, ...(briefed ? { brief: briefed } : {}) }
 }

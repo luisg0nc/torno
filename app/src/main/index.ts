@@ -552,7 +552,7 @@ async function scalePicture(bytes: Uint8Array, edge: number): Promise<Uint8Array
   const png = bytes[0] === 0x89 && bytes[1] === 0x50
   return new Uint8Array(png ? scaled.toPNG() : scaled.toJPEG(85))
 }
-// The cards of what a project has appear on its board by themselves, and go with it.
+// The brief and the files of `reference/` appear on a project's board by themselves, and go with it (#248: no more cards for marks, scans, tracings or rounds).
 /** The tracings of the objects of the open workspace, in `.torno/tracings.json`. */
 const tracings = new TracingStore({ dirOf: (id) => findObject(id)?.dir })
 /** The tracings of a project for what a card of the board says of one; none when they cannot be read. */
@@ -572,14 +572,14 @@ const pictureSweep = new PictureSweep(board)
 const noteSweep = new NoteSweep(marks)
 /** And the photos of the tracings no tracing names, in the same run, in the turn of the tracings. */
 const photoSweep = new PhotoSweep(tracings)
-/** The one line every prompt carries of the board of a project (`boardLine`), with what it will have told: undefined when there is no such project. */
-async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts } | undefined> {
+/** The one line every prompt carries of the board of a project (`boardLine`), and the brief a new conversation or a changed one adds, with what it will have told: undefined when there is no such project. */
+async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string, again: boolean): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts; brief?: string } | undefined> {
   const dir = findObject(objectId)?.dir
   if (dir === undefined) return undefined
   const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })])
-  return boardLine(file, told, live, toolName)
+  return boardLine(file, told, live, toolName, { again })
 }
-const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), rounds: async (id) => (await marks.rounds(id)).rounds, scans: async (id) => (await scans.list(id)).map((s) => s.id), tracings: async (id) => (await tracings.list(id)).tracings }, objectId)
+const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), scans: async (id) => (await scans.list(id)).map((s) => s.id), tracings: async (id) => (await tracings.list(id)).tracings }, objectId)
 marks.on('changed', ({ objectId }) => void followBoard(objectId))
 scans.on('changed', ({ objectId }) => void followBoard(objectId))
 // A tracing made or removed brings its card or takes it away; a change of it changes what its card says, and the board line tells the agent.
@@ -688,7 +688,7 @@ void app.whenReady().then(async () => {
       const notice = dir === undefined ? null : await takeGoBackNotice(dir).catch(() => null)
       // What is on the board, and what of it is new to the agent: one line. A board that cannot be read is no reason to tell nothing of the build.
       const all = await marks.list(id).catch(() => [])
-      const boarded = await boardLineFor(id, all, opts.toolName).catch(() => undefined)
+      const boarded = await boardLineFor(id, all, opts.toolName, opts.fresh || opts.newConversation).catch(() => undefined)
       // The rounds of the review: a round that is not sent holds its drafts back, one being sent has its prompt now, and is sent once the answer has left (`delivered`).
       const rounds = await marks.rounds(id).catch(() => undefined)
       // The names of the named sets, so that a mark labelled with one that is gone says so. Unreadable: not known, and the label is told as it is.
@@ -697,7 +697,7 @@ void app.whenReady().then(async () => {
       const tracingFile = await tracings.list(id).then((file) => file, () => undefined)
       // And what of them the agent was last told: the line says what has changed since (kept once the prompt is delivered).
       const tracingsLine = tracingFile && dir !== undefined ? tracingsLineOf(tracingFile, await readTracingsTold(dir), opts.toolName) : undefined
-      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.brief ? { brief: boarded.brief } : {}), ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {

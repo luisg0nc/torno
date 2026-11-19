@@ -12,7 +12,7 @@ import { parseRef } from './picking'
  * on, and what a ref or a mark the pointer is on elsewhere (a chip of the chat, a mark's row or its chip in the view)
  * is on (`point`).
  */
-export type HighlightLayer = 'hover' | 'selection' | 'agent' | 'userMark' | 'userDont' | 'agentMark' | 'point' | 'set'
+export type HighlightLayer = 'hover' | 'selection' | 'agent' | 'userMark' | 'userDont' | 'agentMark' | 'point' | 'set' | 'drives'
 
 /** The layers that belong to marks: they are in a picture when the marks are. */
 export const MARK_LAYERS: HighlightLayer[] = ['userMark', 'userDont', 'agentMark']
@@ -29,6 +29,8 @@ const LAYERS: Record<HighlightLayer, { color: 'accent' | 'agent' | 'user' | 'set
   selection: { color: 'accent', tint: 0.42, line: 3.5, order: 4 },
   agent: { color: 'agent', tint: 0.45, line: 3.5, order: 3 },
   set: { color: 'set', tint: 0.42, line: 3.5, order: 3 },
+  // The faces a field of the Params would move or change (`drives`), lit in the accent while the pointer rests on its row.
+  drives: { color: 'accent', tint: 0.4, line: 3, order: 3 },
   userMark: { color: 'user', tint: 0.4, line: 3.5, order: 2 },
   // What the person does not want, in their colour and hatched: the tint is cut into stripes (`marks/hatch.ts`), a little stronger to read as one.
   userDont: { color: 'user', tint: 0.55, line: 3.5, order: 2 },

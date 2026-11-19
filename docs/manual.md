@@ -505,6 +505,15 @@ never sent) are under the title while any value is tried. What you try is kept i
 always wins: if the model's default for that field changes, your value is let go of and the row says so, and a value
 the model no longer offers is let go of the same way. The agent is told, with every prompt, which values the build
 is made with. The model only sees a tried value where it is given `p`: a helper that makes `Params()` itself does not.
+**What a value drives.** Rest the pointer on the row of a field you can try (or put the keys' focus on it) for half a
+second and the faces that value affects are lit on the model in the accent: the ones that would move or change size if it
+changed. It does not preview the result, nothing is drawn as it would look. torno finds them by building the model once
+more with that one value nudged a little (a tenth of a number, a flag turned over, the next choice), in a worker thrown away
+that keeps and writes nothing, and comparing the two builds face by face; the row says `Working out what this drives…`
+while that runs. The answer is kept until the next build, so the second time is at once, and the build on show is never
+slowed or replaced. A value that adds or takes away faces (a count, a flag, a choice) lights the parts that change whole, not
+faces. A nudge that does not build says so on the row, and so does one that could not be tried just then (a build is running,
+or there is no memory for a second one): rest on the row again later.
 With a session running, a click on a row puts `Params.wall` in its prompt at the
 cursor, never sent, so you can write "make Params.wall 2.4" around it; with no session the rows say
 to start one. Checks lists, as one list, what the model declares in its `checks(p)` (see Projects and builds) and your own
@@ -1076,10 +1085,11 @@ the model file in short, and name the skills.
 Claude Code is also given a subagent, `torno-reviewer`, on its command line
 (`--agents`; nothing is written to `.claude/agents/`). It has only the tools
 that read (`scene`, `look`, `marks`, `measure`, `check`, `section`,
-`describe`, `diff`, the scan tools, and `Read`). It runs on Sonnet, whatever
+`describe`, `diff`, the scan tools, `board`, and `Read`). It runs on Sonnet, whatever
 model the session uses (`TORNO_REVIEWER_MODEL=inherit` gives it the session's,
-or a model name another), and stops after 20 turns. It reads `brief.md`, checks
-the current build against what you asked, every open mark and every dimension,
+or a model name another), and stops after 20 turns. It reads `brief.md` and the
+board (your sizes and rules, as they are when it runs), checks
+the current build against what you asked, every size and rule, every open mark and every dimension,
 numbers first and at most two pictures, and ends with one line each that begins
 HOLDS, FAILS or UNCHECKED, with the number and the ref. It changes nothing. Claude Code is told to call
 it after a change of several steps, before saying it is done.
@@ -1528,7 +1538,7 @@ and after the next build you say OK or Still wrong to each answer.
   (`M8 · don't want · pick on lid/F12 …`). The line under the prompt says `review R1 sent`. In a terminal session the line goes
   in the same way, with the next prompt. Claude is asked to answer each item by its number with `resolve_mark`, and not
   to bring back what an earlier review took out.
-- **After the next build.** **Open** on a round's row (or on the head of its frame on the board, or **Items** in the band) opens
+- **After the next build.** **Open** on a round's row (or **Items** in the band) opens
   the round's panel in the head of the route card (the selection is not shown there while it is up; a sketch you open meanwhile takes the head, and the panel is there again at **Done**): `Review of h41`, `goes as one prompt` while the round has not gone, then each item, with its sign (`−` or `+`, none for a plain one) in a column of its own, its chip, its note, what it is on (a face, a part, or the strokes of a sketch) in mono, what Claude said when it resolved it, and, for
   an item Claude resolved, **OK** (you accept it, and the row says `OK in h42`) and **Still wrong** (a field for an
   optional note, then **Send back**). An item Claude has not resolved says `Not answered yet`. One you accepted with "OK all" or in
@@ -1538,10 +1548,8 @@ and after the next build you say OK or Still wrong to each answer.
 - **Still wrong** opens the item again, with your note added to its note as `Still wrong in h42: …`, and puts it in the
   next round, which torno makes on the build on show (`R2`, held, so that it goes with no prompt of its own). **Start round 2**
   in the panel of a sent round opens that round's band. Items you said OK to stay in the round they were in.
-- **On the board.** Each round has a frame of torno's own, `Review of h41 · 3 − · 2 +`, made with its first item, holding the
-  cards of its items. A card says its sign, `in review, not sent` while it is held, and `OK in h42` or `Still wrong` once you have
-  judged it; a Still wrong card moves into the frame of the next round. You may move or resize a frame or put
-  a card elsewhere, and what you did stays; removing a frame hides it (see [The board](#the-board)).
+- **On the board.** A round has no frame and its marks no cards on the board: the round's panel is where a round is read. (A
+  board made before this may still hold the hidden frames of earlier rounds; see [The board](#the-board).)
 - **What Claude reads.** `marks` lists each mark's intent and round, and with `review` (`R1`, or `all`) the rounds of your
   reviews: the build each reviewed, its items, what the agent answered and what you judged. An item you did not want and accepted says
   `removed on purpose; keep it out`.
@@ -1988,23 +1996,17 @@ the board and the model only. The window remembers the last choice
 for each project; a project opens on the model until its board has a card of yours or Claude's. The model stays
 loaded while the board or a tracing is shown, so nothing is built again on the swap, and the rail, the chat and the status line stay as they are.
 
-**What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
-`brief.md` (its text, read only, scrolling), each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
-its note and its state; the card of a view note is made larger, in the shape of its picture, so that the drawing reads), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
-build with its layers; before a build of this run it says "build to see the outline", and a double click opens it in the Tracing view). Removing one of these hides it: the mark, scan, photo or tracing is untouched, and "Hidden cards"
-at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed, a tracing removed) its card goes with it. Claude is told of a tracing's card as `C9 · tracing T1 "Front of the block": XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)`, and it is new to Claude when the name, plane, layers or line-up change. These
-you pin, with "Pin to board": a **saved view**, from the menu of its chip among the compass's saved views. (Marks, scans and tracings you put on the board on purpose stay as they were.)
+**What is on it.** Only two things appear by themselves, each in a free spot the first time the board is read after it appears:
+`brief.md` (its text, read only, scrolling) and each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it). Removing one of these hides it: the file is untouched, and "Hidden cards"
+at the top right shows it again. When the thing itself goes (a photo removed) its card goes with it.
+
+Marks, scans, tracings and review rounds get no card: they have their own places (the Marks list, the Scans and Tracings sections, the Tracing view, the round's panel), and the board is the project's brief, not a copy of them. Placing a mark, importing a scan, making a tracing or starting a review adds nothing to the board, and the board line of a prompt does not change with them. A board made before this still holds some of those cards. The first time such a board is read, the mark, scan and tracing cards that you never put in a frame of your own are hidden, and so are the frames of review rounds; nothing is lost, and "Hidden cards" brings any of them back. A card you put in a frame of your own stays where it is, and goes when its mark, scan or tracing does.
+
+You pin, with "Pin to board", a **saved view**, from the menu of its chip among the compass's saved views. A mark, scan or tracing you put on the board on purpose stays as it was.
 
 The board is the project's brief, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds strip. So a build, the Parameters
 and the Checks have no "Pin to board": the star keeps a build, and the Parameters and Checks sections are the real thing, so a card of them would be a copy that goes out of date.
 Cards of those kinds that you pinned earlier are kept: they show as they were, and "Hidden cards" hides them; nothing removes them.
-
-Each **review round** (see [Reviews](#reviews)) has a frame of torno's own, `Review of h41 · 3 − · 2 +`, made with its first item and holding
-the cards of its items: a mark card says `− M8` or `+ M8`, `in review, not sent` while it waits, and `OK in h42` or `Still wrong` once you
-judged it. The head of the frame has **Open**, which opens the round's panel. The name is torno's: the frame follows the round's counts, and neither you
-nor Claude can rename it. A card goes into its round's frame when it is first placed, and a Still wrong card goes into the
-frame of the next round; a card you put in another frame, or took out, stays where you left it. Remove a round's frame and it is hidden
-(it is not made again while the round has items). Claude may add a card into it.
 
 You make **text** cards (a web address in one shows as a link, and a click on it opens it in your browser), **size** cards (below), **picture** cards (dropped on the board, pasted, or chosen with the Picture tool; a photo larger than
 Claude is sent is scaled down by the window first), **doodle** cards (drawn with the Doodle tool on the same ink pad as a new project's doodles), named
@@ -2043,13 +2045,19 @@ The card shows the value and unit large, in the face of numbers, then what it me
 | STEP file, PDF | shows the file in its folder |
 | Picture | opens it large; one Claude drew of the view goes to the model with its camera |
 | Doodle | opens the ink pad on its drawing, to draw over it; `Ctrl+Z` takes the new drawing back |
-| Frame | renames it (yours only; a round's frame is torno's, and its **Open** shows the round's panel) |
+| Frame | renames it (yours only; an old round's frame is torno's, and its **Open** shows the round's panel) |
 | Arrow | edits its word |
 
 **What Claude is told.** Every prompt carries one line: how many cards the board has, how many are new and what they are, the
 names of the frames, and that `board` reads it. It never carries the board. A card is new when it was added or what it says
 changed (a text, a caption, a name, a word on an arrow, the values of the Params, the results of the checks), not when it was moved,
 resized or put in a frame. The line under each prompt in the chat says it: `board: 12 cards, 2 new`.
+
+**The brief.** The sizes on the board (every size card) and its rules (the text cards of the frame named Rules) are the project's
+brief. The first prompt of every new conversation carries them, after the board line: with a new session, after `/clear` and after
+a compaction, not only the first prompt of a new project. It says each size as the board does (`tray 186 × 128 mm (measured)`) and
+the rules as you wrote them, in at most 1,000 characters (a long list of sizes ends with how many more there are), and that the board
+has the rest. A size or rule you change, add or take away is said again at the next prompt, once; a card you only move says nothing.
 
 **Sending part of the board.** Select cards or frames and press "Send with the next prompt" (or `Ctrl+Enter`), or press "Send the
 whole board". A chip appears above the box of the chat, "Latch · 3 cards · 1 arrow", which "Remove" takes off. When you send the

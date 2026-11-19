@@ -97,20 +97,30 @@ test('Ctrl+Tab shows the board and stops the view drawing; Ctrl+Tab again brings
   await expect(page.locator('.pboard')).toHaveCount(0)
 })
 
-test('a project with 3 marks shows 3 mark cards and a brief card, each with what it says', async () => {
+test('a project with 3 marks has a brief card and none for its marks; an old board\'s mark cards still show, each with what it says', async () => {
   for (const text of ['too thin here', 'round this edge', 'is this tall enough']) await page.evaluate((m) => window.torno.marks.add('bracket', m as never), note(text))
   await expect.poll(async () => (await state()).marks.length).toBe(3)
   await page.keyboard.press('Control+Tab')
+  await expect(page.locator('.pboard-card[data-kind="brief"]')).toHaveCount(1)
+  await expect(page.locator('.pboard-card[data-kind="mark"]')).toHaveCount(0)
+  await expect(page.locator('.pboard-card')).toHaveCount(1)
+  expect((await readBoard()).cards.filter((c) => c.kind === 'mark')).toHaveLength(0)
+  // A board written before #248: cards of main's own for the marks, already looked at (`tidied`). The next change main makes reads the file and tells the window.
+  const file = join(root, 'bracket', '.torno', 'board', 'board.json')
+  const old = JSON.parse(readFileSync(file, 'utf8')) as BoardFile
+  for (const [i, source] of ['M1', 'M2', 'M3'].entries()) old.cards.push({ id: `C${old.next + i}`, kind: 'mark', x: 400 + i * 260, y: 0, w: 240, h: 120, by: 'torno', source, layout: 'assembly' })
+  old.next += 3
+  old.tidied = true
+  writeFileSync(file, JSON.stringify(old, null, 2))
+  await page.evaluate(() => window.torno.board.change('bracket', { op: 'unhide', id: 'C999' }))
   const cards = page.locator('.pboard-card')
   await expect(page.locator('.pboard-card[data-kind="mark"]')).toHaveCount(3)
-  await expect(page.locator('.pboard-card[data-kind="brief"]')).toHaveCount(1)
   await expect(cards).toHaveCount(4)
   // What a mark card says is the mark's own, read live: its chip, its note and its status.
   const first = page.locator('.pboard-card[data-kind="mark"]', { hasText: 'M1' })
   await expect(first).toContainText('too thin here')
   await expect(first.locator('.mark-chip')).toHaveText('M1')
   await expect(page.locator('.pboard-card[data-kind="brief"]')).toContainText('Holds the lid shut')
-  // The marks were not made by the person on the board: main's own cards have no green edge.
   await expect(page.locator('.pboard-card[data-by="torno"]')).toHaveCount(4)
 })
 
@@ -796,6 +806,13 @@ test('the card of a view note shows its picture with the ink and its comment, an
     } as never)
   }, note('').camera)
   await switchButton('Board').click()
+  // A card of an old board (no new one is made, #248): put on the file, then main reads it with its next change.
+  const file = join(root, 'bracket', '.torno', 'board', 'board.json')
+  const old = JSON.parse(readFileSync(file, 'utf8')) as BoardFile
+  old.cards.push({ id: `C${old.next}`, kind: 'mark', x: 0, y: 1400, w: 320, h: 220, by: 'torno', source: made.id, layout: 'assembly' })
+  old.next += 1
+  writeFileSync(file, JSON.stringify(old, null, 2))
+  await page.evaluate(() => window.torno.board.change('bracket', { op: 'unhide', id: 'C999' }))
   const card = page.locator('.pboard-card[data-kind="mark"]', { hasText: made.id })
   await expect(card).toContainText('make the base thicker here')
   await expect(card.locator('img.pboard-picture')).toBeVisible()

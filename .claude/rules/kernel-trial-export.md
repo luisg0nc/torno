@@ -4,6 +4,8 @@ paths:
   - "kernel/src/torno_kernel/worker.py"
   - "kernel/src/torno_kernel/supervisor.py"
   - "kernel/src/torno_kernel/queries.py"
+  - "kernel/src/torno_kernel/faceprints.py"
+  - "kernel/tests/test_faceprints.py"
   - "kernel/tests/test_export.py"
   - "kernel/tests/test_supervisor.py"
   - "app/src/main/export/model.ts"
@@ -31,6 +33,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the copy of an older kept build (`main/oldbuild.ts`), which lies in a workspace of its own under `<userData>/compare/`,
   so that `common/` and another project's module are the copy's, not those of the workspace the kernel runs in (its cwd,
   which is on the path of every build).
+- **`face_prints` tells what each face is, and compares nothing** (`faceprints.py`; args `layout`). For each part of the layout, in the kernel's order of
+  faces (`topo.faces`), a print of each face: `type`, `area`, `center`, `normal` there (None where it has none) and `box`, in the object frame. It is
+  asked of the build on show (a query) and of a trial (the nudged build, `queries` of the trial request) and main holds the two
+  answers against each other (`main/drives/compare.ts`; `params.md`, "What a value drives"): the kernel holds one build per worker and
+  never two.
 - **Files of a build are made by its worker and never written by the kernel** (`export.py`). `export` (`format`
   `step`, `stl` or `3mf`, `layout`, `parts`, `tolerance` mm and `angle` degrees for a mesh, `colors`, `name`)
   answers with the file's bytes as the reply's blob (`queries.WithBlob`, sent by `worker._serve`; every other

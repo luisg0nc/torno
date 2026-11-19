@@ -186,10 +186,10 @@ describe('the Claude Code adapter', () => {
       expect(Object.keys(reviewer).sort()).toEqual(['description', 'maxTurns', 'model', 'prompt', 'tools'])
       expect(reviewer.model).toBe('sonnet')
       expect(reviewer.maxTurns).toBe(20)
-      expect(reviewer.tools).toEqual(['mcp__torno__scene', 'mcp__torno__look', 'mcp__torno__marks', 'mcp__torno__measure', 'mcp__torno__check', 'mcp__torno__section', 'mcp__torno__describe', 'mcp__torno__diff', 'mcp__torno__scans', 'mcp__torno__scan_clash', 'mcp__torno__scan_deviation', 'Read'])
-      for (const never of ['Edit', 'Write', 'Bash', 'mcp__torno__resolve_mark', 'mcp__torno__show', 'mcp__torno__add_mark']) expect(reviewer.tools).not.toContain(never)
+      expect(reviewer.tools).toEqual(['mcp__torno__scene', 'mcp__torno__look', 'mcp__torno__marks', 'mcp__torno__measure', 'mcp__torno__check', 'mcp__torno__section', 'mcp__torno__describe', 'mcp__torno__diff', 'mcp__torno__scans', 'mcp__torno__scan_clash', 'mcp__torno__scan_deviation', 'mcp__torno__board', 'Read'])
+      for (const never of ['Edit', 'Write', 'Bash', 'mcp__torno__resolve_mark', 'mcp__torno__show', 'mcp__torno__add_mark', 'mcp__torno__add_card']) expect(reviewer.tools).not.toContain(never)
       expect(reviewer.description).toMatch(/after a change of several steps/i)
-      for (const said of ['what the user asked', 'every open mark', 'every dimension', 'mcp__torno__measure', 'never from the mesh', 'Change nothing', 'Read brief.md', 'at most twice', 'HOLDS, FAILS or UNCHECKED', 'UNCHECKED is never left out']) expect(reviewer.prompt).toContain(said)
+      for (const said of ['what the user asked', 'every open mark', 'every dimension', 'mcp__torno__measure', 'never from the mesh', 'Change nothing', 'Read brief.md', 'at most twice', 'HOLDS, FAILS or UNCHECKED', 'UNCHECKED is never left out', 'mcp__torno__board', 'every size', 'every rule']) expect(reviewer.prompt).toContain(said)
     }
   })
 

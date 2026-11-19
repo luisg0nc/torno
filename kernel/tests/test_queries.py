@@ -629,7 +629,7 @@ def test_unknown_query_names_the_queries(shapes):
     with pytest.raises(queries.QueryError) as e:
         queries.run(shapes, "nope", {})
     assert e.value.kind == "bad_request"
-    assert e.value.message == "unknown query 'nope'; the queries are describe, nearest, measure, section, check, scan_clash, scan_deviation, scan_section, export, export_check, features, try_fillet, match_edges, selectors and refind"
+    assert e.value.message == "unknown query 'nope'; the queries are describe, nearest, measure, section, check, scan_clash, scan_deviation, scan_section, export, export_check, features, try_fillet, match_edges, selectors, refind and face_prints"
 
 
 def test_nearest_after_a_rebuild_with_other_topology_names_the_face_now_there():

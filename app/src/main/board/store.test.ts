@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type BoardFile, type Card, MAX_TEXT_CHARS } from '../../shared/board'
+import { textOf } from './file'
 import { BoardStore } from './store'
+import { startBoard } from './start'
 import { ensureIgnored } from '../ignored'
 import { boardLine } from './text'
 
@@ -293,6 +295,30 @@ describe('moving', () => {
     expect(byId(board, 'C1')).toMatchObject({ x: 150, y: 90 })
     expect(byId(board, 'C2')).toMatchObject({ x: 170, y: 120 })
     expect(byId(board, 'C3')).toMatchObject({ x: 900, y: 900 })
+  })
+
+  it('moves the cards of every frame a new project makes (Photos, Rules, ...), main\'s own reference cards among them (#209)', async () => {
+    const size = { what: 'tray', value: '186', unit: 'mm' as const, source: 'measured' as const }
+    const start = startBoard({
+      description: 'A clip.',
+      references: [{ file: 'reference/photo-1.jpg', note: '' }, { file: 'reference/photo-2.jpg', note: '' }, { file: 'reference/doodle-1.png', note: '' }, { file: 'reference/a.step', note: '' }, { file: 'reference/a.pdf', note: '' }],
+      sizes: [size, size],
+      rules: 'No supports.',
+      links: [{ url: 'https://example.com/a', note: '' }]
+    })
+    mkdirSync(join(dirs.bracket, '.torno', 'board'), { recursive: true })
+    writeFileSync(join(dirs.bracket, '.torno', 'board', 'board.json'), textOf(start))
+    const frames = start.cards.filter((c) => c.kind === 'frame')
+    expect(frames.map((f) => f.name)).toEqual(['Brief', 'Photos', 'Doodles', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
+    for (const f of frames) {
+      const before = await store.read('bracket')
+      const held = before.cards.filter((c) => c.frame === f.id)
+      expect(held.length).toBeGreaterThan(0)
+      // What the window sends for a dragged frame: the frame alone.
+      const after = await store.person('bracket', { op: 'move', moves: [{ id: f.id, x: f.x + 70, y: f.y - 30 }] })
+      for (const c of held) expect(byId(after, c.id), `${f.name}: ${c.id}`).toMatchObject({ x: c.x + 70, y: c.y - 30, frame: f.id })
+      for (const c of before.cards.filter((c) => c.frame !== f.id && c.id !== f.id)) expect(byId(after, c.id)).toMatchObject({ x: c.x, y: c.y })
+    }
   })
 
   it('does not move the cards of a frame that is only resized, nor those moved in the same change twice', async () => {

@@ -16,6 +16,7 @@ import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
 import { isLive } from '../state/compare'
 import { useBoard } from '../state/board'
+import { drivenRefs, drivesStore } from '../state/drives'
 import { isStrokeRef, litSet, setsStore } from '../state/sets'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
@@ -540,6 +541,12 @@ function connect(viewport: Viewport, readout: Readout): () => void {
   const offSetsOfStore = store.subscribe((s, prev) => {
     if (s.layout !== prev.layout || s.marks !== prev.marks || s.scene !== prev.scene) lightSet()
   })
+  // The faces a field of the Params drives, while the pointer rests on its row: lit in the accent, in the layout shown.
+  const lightDriven = (): void => viewport.setDriven(drivenRefs(drivesStore.getState(), store.getState().layout))
+  const offDrives = drivesStore.subscribe(lightDriven)
+  const offDrivesOfStore = store.subscribe((s, prev) => {
+    if (s.layout !== prev.layout || s.scene !== prev.scene) lightDriven()
+  })
   const offAlign = connectAlign(viewport)
   // The regions kept are tinted on their scans, and what is being painted is the tool's.
   const offRegion = connectRegion(viewport)
@@ -705,6 +712,9 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     offSets()
     offSetsOfStore()
     viewport.setLitSet(null)
+    offDrives()
+    offDrivesOfStore()
+    viewport.setDriven([])
     offAlign()
     offRegion()
     setPictures(null)
