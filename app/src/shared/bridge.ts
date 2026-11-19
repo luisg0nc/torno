@@ -483,6 +483,8 @@ export interface TornoBridge {
     read(objectId: string): Promise<BoardFile>
     /** A change the person made. Answers with the board as it now is; rejects, changing nothing, with why not. A card the window adds is the person's whatever it says. */
     change(objectId: string, change: PersonChange): Promise<BoardFile>
+    /** Ties a size card to a dimension (`M9`) with a tolerance (the size's source gives one when none is given), or takes the tie off with a null mark. Answers with the board; rejects with why not. */
+    tie(objectId: string, cardId: string, markId: string | null, tolerance?: number): Promise<BoardFile>
     /** The bytes of a picture or sketch of the board; null when there is none of that name. */
     picture(objectId: string, name: string): Promise<Uint8Array | null>
     /** The text of the project's `brief.md`, as far as a card shows it; null when there is none. */

@@ -27,7 +27,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `measure`, `section`, `check`, `diff`, `history`, `wait_build`, `board`, `add_card`, `tracings`, `add_tracing`, `add_layer`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
   `board` and `add_card` (`mcp/boardTools.ts`; `ToolDeps.board`, `ToolDeps.scale`, wired in `index.ts`) are the agent's door to the
   board: `board` reads it as `boardText` does (a frame by name or id; `pictures: true` sends up to 6, each scaled to 1280 by
-  `deps.scale`); `add_card` makes cards and arrows of the agent's own through `BoardStore.agent` and changes or removes only those (a
+  `deps.scale`); `add_card` makes cards and arrows of the agent's own through `BoardStore.agent` and changes or removes only those, and with `tie` / `untie` (alone; `Ties`, `ToolDeps.ties`) ties a size card of any owner to a dimension of the agent's own (a
   card of the person's or of torno's own is refused by name of its owner, the file untouched). A picture is drawn by `lookTool` (its
   `capture`: not kept as a view) at 1280 px and kept by `savePicture`, with the camera when it is known. `by`, `id`, a place and `hidden`
   are never an argument.

@@ -540,3 +540,91 @@
 .pboard-view:focus {
   outline: none;
 }
+
+/* Tied: the column takes the dimension's verdict, the way the Checks section says it. */
+.brief-row[data-state='holds'] .brief-verdict {
+  color: var(--ok);
+}
+
+.brief-row[data-state='fails'] .brief-verdict {
+  color: var(--fail);
+}
+
+.brief-row[data-state='fails'] .brief-against {
+  background: var(--fail-wash);
+}
+
+.brief-gauge-slot {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: block;
+}
+
+.brief-tie-button {
+  margin-left: var(--space-2);
+}
+
+/* Tying opens under the row: the dimensions that could check the size, each with what it would say. */
+.brief-tie {
+  display: grid;
+  gap: var(--space-2);
+  padding: 10px 12px 10px 100px;
+  border-top: 1px solid var(--hairline);
+  background: var(--surface);
+}
+
+.brief-tie-tolerance {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.brief-tie-tolerance input {
+  width: 64px;
+}
+
+.brief-tie-tolerance small,
+.brief-tie-none {
+  color: var(--muted);
+  font-size: var(--text-small);
+  margin: 0;
+}
+
+.brief-tie-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brief-tie-list li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 150px auto;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.brief-tie-says {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-tie-list li[data-says='would-hold'] .brief-tie-says {
+  color: var(--ok);
+}
+
+.brief-tie-list li[data-says='would-fail'] .brief-tie-says {
+  color: var(--fail);
+}
+
+.brief-tie-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.brief-row + .brief-tie,
+.brief-tie + .brief-row {
+  border-top: 1px solid var(--hairline);
+}

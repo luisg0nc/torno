@@ -172,7 +172,7 @@ function dimension(mark: DimensionMark, revision: number | undefined): string {
   const standing = standingOf(mark, revision)
   const end = (anchor: Anchor): string => anchor.ref ?? vector(anchor.point)
   const ends = mark.measure === 'thickness' ? `${end(mark.a)}${mark.a.ref ? ` at ${vector(mark.a.point)}` : ''}` : mark.b ? `${end(mark.a)} to ${end(mark.b)}` : end(mark.a)
-  const expected = mark.expected === undefined ? '' : ` (expected ${expectedText(mark)}`
+  const expected = mark.expected === undefined ? '' : ` (expected ${expectedText(mark)}${mark.expectedFrom ? `, from the brief ${mark.expectedFrom}` : ''}`
   const shown = (value: number): string => valueText(mark.measure, value).replace(/^(⌀|R) /, '')
   if (standing === 'unmeasured') {
     const last = lastValue(mark)

@@ -2410,6 +2410,21 @@ describe('board and add_card', () => {
   const person = (change: Parameters<BoardStore['person']>[1]) => store.person('bracket', change)
   const words = (x: number, y: number, extra: Record<string, unknown> = {}) => ({ op: 'add' as const, card: { kind: 'text' as const, x, y, w: 200, h: 100, text: 'hello', ...extra } })
 
+  it('ties a size to a dimension of its own through the ties, alone, and lets it go', async () => {
+    const calls: unknown[][] = []
+    const ties = { tie: async (...a: unknown[]) => void calls.push(['tie', ...a]), untie: async (...a: unknown[]) => void calls.push(['untie', ...a]), reconcile: async () => {} }
+    const deps = rig({ ties })
+    expect(textOf(await addCardTool(deps, 'bracket', { tie: { size: 'C7', mark: 'M9', tolerance: 0.2 } }))).toContain('M9 now checks C7')
+    expect(textOf(await addCardTool(deps, 'bracket', { untie: 'C7' }))).toContain('C7 is no longer tied')
+    expect(calls).toEqual([['tie', 'bracket', 'C7', 'M9', 'agent', 0.2], ['untie', 'bracket', 'C7', 'agent']])
+    for (const bad of [{ tie: { size: 'C7', mark: 'M9' }, text: 'x' }, { tie: { size: 'C7', mark: 'M9' }, untie: 'C7' }, { tie: { size: 'seven', mark: 'M9' } }, { tie: { size: 'C7', mark: 'M9', tolerance: -1 } }]) {
+      const out = await addCardTool(deps, 'bracket', bad as never)
+      expect(out.isError, JSON.stringify(bad)).toBe(true)
+    }
+    expect(calls).toHaveLength(2)
+    expect(refusedKeys('add_card', { tie: { size: 'C7', mark: 'M9' } })).toBeNull()
+  })
+
   it('says an empty board is empty', async () => {
     expect(textOf(await boardTool(rig(), 'bracket', {}))).toBe('The board has nothing on it.')
   })

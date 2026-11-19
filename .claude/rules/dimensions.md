@@ -43,6 +43,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the mark (`(changed)`); a value measured again is not. Its ends are judged
   like pins. Numbers shown are written by `shared/format.ts` `number`, on
   both sides.
+  - A dimension a size of the brief checks has `expectedFrom` (`C7`) and its `expected` and `tolerance` are the size's (`board.md`, "Ties"): nothing else changes them, and its row says "from the brief".
   - Dimensions are the person's checks of the part. After every successful
     build, once the marks are checked against it, every unresolved dimension
     is measured on it, in the same pass (`checkMarks`: `reanchorAll`, then

@@ -187,6 +187,8 @@ export interface ToolDeps {
     agent(objectId: string, change: AgentChange): Promise<AgentResult>
     live(objectId: string): Promise<LiveFacts>
   }
+  /** Keeps a size of the brief and the dimension that checks it saying the same thing (`main/board/ties.ts`). Without it `add_card` cannot tie. */
+  ties?: { tie(objectId: string, cardId: string, markId: string, by: 'agent', tolerance?: number): Promise<unknown>; untie(objectId: string, cardId: string, by: 'agent'): Promise<unknown>; reconcile(objectId: string): Promise<void> }
   /**
    * The tracings of a project (`.torno/tracings.json`), as Claude reads and changes them: the handlers of the window's own doors
    * (`main/tracings/ipc.ts`), whose `agent*` ones make the planes and keep Claude to its own tracings and layers. Without it the tools say tracings are not available.

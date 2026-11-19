@@ -1,6 +1,6 @@
 import { pressed } from '../../shared/keys'
 import { useState, useRef } from 'react'
-import { NOT_MEASURABLE, type ShownDimension, defaultTolerance, exactText, isOffEdge, offBy, samplesOf, shownDimension, since, sinceText, standingOf, unitOf } from '../../shared/dimension'
+import { NOT_MEASURABLE, type ShownDimension, defaultTolerance, exactText, expectedText, isOffEdge, offBy, samplesOf, shownDimension, since, sinceText, standingOf, unitOf } from '../../shared/dimension'
 import { namedPieces, number } from '../../shared/format'
 import { giveKeysBack } from './typing'
 import type { DimensionMark, MarkPatch } from '../../shared/marks'
@@ -101,8 +101,17 @@ export function DimensionFields({ mark, revision, change }: { mark: DimensionMar
         <legend>
           Should be <span className="num">{unit}</span>
         </legend>
-        <OptionalNumber name="Expected" sign="=" value={mark.expected} placeholder="any" commit={(expected) => send({ expected })} />
-        <OptionalNumber name="Tolerance" sign="±" value={mark.tolerance} placeholder={String(defaultTolerance(mark.measure))} least={0} commit={(tolerance) => send({ tolerance })} />
+        {mark.expectedFrom !== undefined && mark.expected !== undefined ? (
+          // A size of the brief sets both numbers: change them there, on the Brief page.
+          <p className="dimension-brief">
+            <span className="num">{expectedText(mark)}</span> {unit} from the brief, <span className="num">{mark.expectedFrom}</span>
+          </p>
+        ) : (
+          <>
+            <OptionalNumber name="Expected" sign="=" value={mark.expected} placeholder="any" commit={(expected) => send({ expected })} />
+            <OptionalNumber name="Tolerance" sign="±" value={mark.tolerance} placeholder={String(defaultTolerance(mark.measure))} least={0} commit={(tolerance) => send({ tolerance })} />
+          </>
+        )}
       </fieldset>
 
       {judged && (

@@ -13,6 +13,25 @@ export interface SizeFact {
   source: SizeSource
   /** A few words more, on one line. */
   note?: string
+  /** The dimension that checks it (`shared/ties.ts`): set and kept by main alone, never taken from the window or from a tool's `size`. */
+  tie?: SizeTie
+}
+
+/** What ties a size to a dimension: its mark, and how far off the size the dimension may be (the dimension's own tolerance is set from it). */
+export interface SizeTie {
+  /** `M<n>`, a dimension. */
+  mark: string
+  /** In the unit of the size, zero or more. */
+  tolerance: number
+}
+
+/** The tie `raw` says, when it is a whole one: a mark id and a tolerance of zero or more. Anything else is no tie. */
+export function checkTie(raw: unknown): SizeTie | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const { mark, tolerance } = raw as { mark?: unknown; tolerance?: unknown }
+  if (typeof mark !== 'string' || !/^M[1-9]\d*$/.test(mark)) return undefined
+  if (typeof tolerance !== 'number' || !Number.isFinite(tolerance) || tolerance < 0) return undefined
+  return { mark, tolerance }
 }
 
 export const MAX_SIZES = 40
@@ -53,7 +72,8 @@ export function parseSize(value: string, unit?: SizeUnit): { mark?: 'Ø' | 'R'; 
 /** A size in words, the one form the prompt and the `board` tool tell: `battery tray 186 × 128 mm (measured)`. */
 export function saySize(s: SizeFact): string {
   const parsed = parseSize(s.value, s.unit)
-  const from = (as: string): string => ` (${as}${s.note ? `: ${s.note}` : ''})`
+  const tied = s.tie ? `; ${s.tie.mark} checks it, ± ${s.tie.tolerance}` : ''
+  const from = (as: string): string => ` (${as}${s.note ? `: ${s.note}` : ''}${tied})`
   const unit = s.unit === '°' ? '°' : ` ${s.unit}`
   if (!parsed) return `${s.what} ${withoutUnit(s.value, s.unit)}${unit}${from(`as typed, ${s.source}`)}`
   return `${s.what} ${parsed.mark ? `${parsed.mark} ` : ''}${parsed.numbers.join(' × ')}${unit}${from(s.source)}`

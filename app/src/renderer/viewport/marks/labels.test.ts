@@ -42,6 +42,12 @@ describe('the value on a failing dimension\'s chip', () => {
     expect(labelValue({ ...height, value: 42.25 }, 2)).toEqual({ text: '42.25 mm', verdict: 'fail', off: '0.25 over' })
   })
 
+  it("says whose number a dimension holds when a size of the brief checks it, whether it fails or passes", () => {
+    expect(labelValue({ ...height, expected: 42, expectedFrom: 'C7' }, 2)).toEqual({ text: '40 mm', verdict: 'fail', off: 'brief 42' })
+    expect(labelValue({ ...height, value: 42, verdict: 'pass', expectedFrom: 'C7' }, 2)).toEqual({ text: '42 mm', verdict: 'pass', off: 'brief 42' })
+    expect(labelValue({ ...height, expectedFrom: 'C7' }, 3)).toEqual({ text: '40 mm (r2)', stale: true })
+  })
+
   it('says nothing more of one that passes, or of a value of another build', () => {
     expect(labelValue({ ...height, value: 42, verdict: 'pass' }, 2)).toEqual({ text: '42 mm', verdict: 'pass' })
     expect(labelValue(height, 3)).toEqual({ text: '40 mm (r2)', stale: true })

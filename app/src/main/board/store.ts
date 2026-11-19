@@ -133,7 +133,8 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
       }
       if (change.size !== undefined) {
         if (card.kind !== 'size') throw new Refusal(`${card.id} is not a size card, and has no size to change.`)
-        card.size = checkedSize(change.size)
+        // What the person edits is the size; the tie to a dimension is main's (`ties.ts`) and stays.
+        card.size = { ...checkedSize(change.size), ...(card.size?.tie ? { tie: card.size.tie } : {}) }
       }
       if (change.text !== undefined) card.text = checkedText(change.text, MAX_TEXT_CHARS, 'text')
       if (change.name !== undefined) card.name = checkedText(change.name, MAX_NAME_CHARS, 'name')
