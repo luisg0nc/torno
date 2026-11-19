@@ -195,6 +195,8 @@ test('the renderer is isolated and the bridge is exposed', async () => {
 })
 
 test('WebGL2 runs on the GPU, not a software rasteriser', async () => {
+  // CI has no GPU and draws in software on purpose (TORNO_E2E_SOFTWARE_GL=1); this check is for a desktop.
+  test.skip(process.env.TORNO_E2E_SOFTWARE_GL === '1', 'a runner without a GPU draws WebGL in software')
   const renderer = await page.evaluate(() => {
     const gl = document.createElement('canvas').getContext('webgl2')
     if (!gl) return null

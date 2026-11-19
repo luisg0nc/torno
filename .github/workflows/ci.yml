@@ -143,7 +143,8 @@ jobs:
         working-directory: kernel
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: pnpm -C app exec electron-vite build && node app/scripts/build-viewer.mjs
-      - run: xvfb-run -a pnpm -C app exec playwright test --shard=${{ matrix.shard }}/6
+      # 1920 × 1080: the default screen is 1280 wide, and a window never opens larger than its screen (boot.spec wants 1440 × 900).
+      - run: xvfb-run -a -s '-screen 0 1920x1080x24' pnpm -C app exec playwright test --shard=${{ matrix.shard }}/6
         env:
           TORNO_TEST: '1'
           # No GPU on the runner: WebGL is drawn in software, or the window says the 3D view could not start.
@@ -155,6 +156,7 @@ jobs:
           path: app/e2e/.results
           retention-days: 7
           if-no-files-found: ignore
+          include-hidden-files: true
 
   # The Linux package: the AppImage and the tar.gz of `pnpm dist:linux`, and the packaged app started from the
   # folder `pack` makes, in a hidden window (TORNO_TEST=1) on a virtual display.
@@ -190,6 +192,7 @@ jobs:
           path: app/e2e/.results
           retention-days: 7
           if-no-files-found: ignore
+          include-hidden-files: true
       - uses: actions/upload-artifact@v4
         with:
           name: torno-linux
