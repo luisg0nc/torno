@@ -56,7 +56,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`site/index.html`, `site/assets/`; its fonts and pictures copied in by `app/scripts/build-site.mjs`, never kept in
   `site/`; Instrument Sans 400, 500, 600 and Martian Mono 400 as woff2 from the packages, `font-display: swap`, the body's face
   preloaded; its tokens have the window's values; nothing loaded from another host, `src/site.test.ts`) and the manual at
-  `/manual/` (`app/scripts/build-manual.mjs`).
+  `/manual/` (`app/scripts/build-manual.mjs`, the page by `app/scripts/manual-page.mjs`: a head on the dye, a table of
+  contents at the side from the headings, and the look of `site/assets/manual.css`, which has the window's token values and the
+  site's four faces, held by `src/site.test.ts`; no style of its own in the page).
 
 ## Tests (root `CLAUDE.md`)
 

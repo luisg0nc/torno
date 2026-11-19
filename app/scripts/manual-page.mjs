@@ -68,35 +68,6 @@ export function renderManual(markdown) {
   return { html: marked.parse(markdown), headings }
 }
 
-const STYLE = `
-:root { --bg: #FAF9F6; --panel: #F1EFE9; --ink: #20242B; --muted: #62666D; --hairline: #DAD6CE; --accent: #1D46B8; }
-@media (prefers-color-scheme: dark) { :root { --bg: #1B1D20; --panel: #222529; --ink: #E9E7E2; --muted: #9EA3AA; --hairline: #3E434A; --accent: #7C9BF7; } }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-a { color: var(--accent); }
-code, pre, kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
-code { background: var(--panel); padding: 0.1em 0.3em; border-radius: 3px; }
-pre { background: var(--panel); border: 1px solid var(--hairline); padding: 0.8em 1em; overflow-x: auto; border-radius: 4px; }
-pre code { background: none; padding: 0; }
-.layout { display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: 2rem; max-width: 76rem; margin: 0 auto; padding: 0 1rem; }
-nav { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 1.5rem 0; font-size: 0.9rem; }
-nav .site { display: block; font-weight: 600; margin-bottom: 0.8rem; }
-nav ul { list-style: none; margin: 0; padding: 0; }
-nav li.d3 { padding-left: 1rem; }
-nav a { display: block; padding: 0.1rem 0; color: var(--muted); text-decoration: none; }
-nav a:hover { color: var(--accent); }
-main { padding: 1.5rem 0 4rem; min-width: 0; max-width: 50rem; }
-h1, h2, h3, h4 { line-height: 1.25; scroll-margin-top: 1rem; }
-h2 { margin-top: 2.4em; padding-top: 0.6em; border-top: 1px solid var(--hairline); }
-.anchor { margin-left: -1.1em; padding-right: 0.3em; color: var(--muted); text-decoration: none; opacity: 0; }
-:is(h2, h3, h4):hover .anchor, .anchor:focus { opacity: 1; }
-table { border-collapse: collapse; display: block; overflow-x: auto; }
-th, td { border: 1px solid var(--hairline); padding: 0.3em 0.6em; text-align: left; vertical-align: top; }
-img { max-width: 100%; }
-blockquote { margin-left: 0; padding-left: 1em; border-left: 3px solid var(--hairline); color: var(--muted); }
-@media (max-width: 52rem) { .layout { grid-template-columns: 1fr; } nav { position: static; max-height: none; } }
-`
-
 /** The whole page. */
 export function renderPage(markdown) {
   const { html, headings } = renderManual(markdown)
@@ -107,11 +78,18 @@ export function renderPage(markdown) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The torno manual</title>
-<style>${STYLE}</style>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/torno.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/fonts/instrument-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/manual.css">
 </head>
 <body>
+<header class="top">
+  <a class="brand" href="../" aria-label="torno, home"><img src="../assets/torno.svg" alt="" width="32" height="32"><span>torno</span></a>
+  <nav aria-label="Site"><a href="../">Home</a><a href="https://github.com/luisg0nc/torno">GitHub</a></nav>
+</header>
 <div class="layout">
-<nav aria-label="Contents"><a class="site" href="../">torno</a><ul>
+<nav class="contents" aria-label="Contents"><h2>Contents</h2><ul>
 ${items}
 </ul></nav>
 <main>
