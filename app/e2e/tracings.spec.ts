@@ -180,7 +180,8 @@ test('Should be here drags Claude\'s shape to where it belongs, and the next pro
   expect(offset).not.toHaveProperty('intent')
 
   await say('say received')
-  const added = chat().locator('.chat-added').last()
+  // The line of this prompt, not the one before it that is last until this one lands: it names the mark.
+  const added = chat().locator('.chat-added').filter({ hasText: 'M1' }).last()
   await expect(added.locator('.chat-added-label')).toHaveText('with', { timeout: 30_000 })
   await added.getByRole('button', { name: 'Show text' }).click()
   const text = added.locator('.chat-added-text')
