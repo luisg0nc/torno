@@ -8,16 +8,20 @@ paths:
   - "app/src/renderer/state/board.test.ts"
   - "app/src/renderer/state/boardPictures.ts"
   - "app/src/renderer/state/boardPictures.test.ts"
-  - "app/src/renderer/ui/projectBoard/**"
+  - "app/src/shared/brief.ts"
+  - "app/src/shared/brief.test.ts"
+  - "app/src/renderer/ui/brief/**"
   - "app/src/renderer/ui/chat/boardLine.ts"
   - "app/src/renderer/ui/chat/boardLine.test.ts"
-  - "app/src/renderer/styles/board.css"
-  - "app/e2e/board.spec.ts"
+  - "app/src/renderer/styles/brief.css"
+  - "app/e2e/brief.spec.ts"
 ---
 
-# The board: storage, who owns what, and the text form
+# The brief: the board file, who owns what, the text form and the page
 
-Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/2026-11-16-board-design.md`). Paths as in the other rules.
+Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/2026-11-16-board-design.md`) and changed by #261: the canvas became the **Brief page**
+(direction A of #250). The file is still the board's, `board.json`, and `board` and `add_card` still read and change it; a person reads it as the brief.
+Paths as in the other rules.
 
 ## Storage
 
@@ -34,8 +38,8 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
   `a guess` for the person or `from Claude` for the agent alone (`checkSize`, which every door goes through, the file's
   `sanitiseCard` too: a size card without a whole size is dropped). Caps: `what` 200, `value` 60, `note` 300 on one line,
   40 sizes in a draft. Said as `C7 · size · by the person: battery tray 186 × 128 mm (measured)` and the numbers in full on the next line.
-- The window makes and edits sizes: the palette's Size tool (`M`, `board.size`, in hand until one card is made) and a click on the ground open the form of `SizeEditor.tsx` (what it measures, the value as typed in the monospace face, `mm` or `°`, one of the person's three sources, a note: `maxLength` from the caps); Enter or Done keeps it when `checkSize` takes it and otherwise says what is missing, Esc and leaving the form keep a whole size and make nothing of a half-written one. A double click edits a size card of the person's (`opens.ts`; the agent's is left alone), and Ctrl+Z takes each back (`undo.ts` sends the size before as an `edit` with `size`). The card shows value and unit large, then what it measures, then the source and note.
-- The card of a 3D sketch (a mark card whose mark is a sketch) shows its name, take (`shared/sketchText.ts`), comment, status and the picture of the sketch's own `picture` (`k-<12 hex>.png` in `.torno/notes/`, read through `notes.picture` as a view note's is, never `board/pictures/`); a sketch with no picture, or whose file is not on this computer, shows "picture not on this computer". A double click on the person's sketch card opens it in Draw (`{ does: 'sketching' }`); on Claude's it goes to the model. The board text of it is `describeMark`'s line, as a note's is.
+- The page makes and edits sizes in the ledger (`ui/brief/SizeForm.tsx`: what it measures, the value as typed in the monospace face, `mm` or `°`, one of the person's three sources, a note, `maxLength` from the caps). Enter or Add keeps it when `checkSize` takes it and otherwise says what is missing; Esc and Cancel leave it as it was. A size of the person's has Edit and Remove; Claude's is never editable by the person, only removable.
+- The cards of a mark, a scan, a tracing, a build, a view, the Params and the checks, a frame's outline and an arrow are still in the file (the old copies of #248, and what was pinned before #256), and **the page draws none of them**: nothing is lost from an existing board, and nothing is told of them to the person. `board` still tells Claude the cards that are visible, arrows included.
 - `<object>/.torno/board/pictures/` holds the picture and doodle files (`p-<12 hex>.png|jpg`) with a `.gitignore` of `*` of
   its own, written by whoever makes the folder (`pictures.ts`, as `views/` and `scans/` do). A picture may show the real
   world, so **pictures do not travel**: a board cloned without them shows a "picture not on this computer" placeholder
@@ -72,16 +76,15 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 - `restore` (the window's undo of a removal) takes ids only: main keeps the cards and arrows it took off in this run, the last
   200 per project, as they were, and puts back what the ids name. Nothing of a card comes from the window.
 - `id`, `by` and `hidden` are main's. They are never taken from the window or from a tool's arguments: a card the window adds is
-  the person's whatever it says, and the agent's is the agent's. The window may send positions, sizes, text, names, frames and
-  arrows of the person's cards, pictures (checked as images, at most 2000 px and 3.75 MB, as `checkedImage` does; the window
-  scales a larger one down first, `prepareImage`), and the name of a new drawing for a doodle of its own.
+  the person's whatever it says, and the agent's is the agent's. The page sends the text of notes and rules, sizes, and pictures (checked as images, at most 2000 px and 3.75 MB, as `checkedImage` does; the window
+  scales a larger one down first, `prepareImage`). It sends no place, size, frame or arrow: a new card goes below the lowest card (`placeBelow`), and a rule goes in the frame named Rules, which `addRule` makes when there is none.
 - A card is the person's, the agent's or torno's (`by`). **The agent never moves, edits, hides or removes a card of the
   person's or of torno's own**, whatever `add_card` is given; the answer names the owner and the file is untouched. It may
   put a card in a frame of the person's (that changes the new card, not the frame), and when the frame has no free spot the
   card goes just below it, outside: a frame of the person's is never grown or moved. Claude's cards are never new to Claude.
 - **Only the brief and the files of `reference/` appear by themselves** (`AUTO_KINDS` still names `mark`, `scan` and `tracing` for the old cards below, #248): `reconcile` (`board/sources.ts`, `Found`: `brief`,
   `references`, and the ids of marks, scans and tracings) gives each a place when main gives it one (a free spot, the first time the board is
-  read after it appears), and removing it only hides it (`hidden: true`): the photo is untouched, and "Hidden cards" brings it back. When the
+  read after it appears), and removing it only hides it (`hidden: true`): the photo is untouched, and the page lists it under "Put away" with Show (`unhide`). When the
   thing itself is gone, so is its card. **A mark, a scan, a tracing and a review round get no card and no frame, ever**: placing a mark,
   importing a scan, making a tracing or starting a review adds nothing, and the board line does not change with them. Pinned cards are the
   person's choice and stay when their source is missing (a build card says "build not on this computer").
@@ -115,7 +118,7 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 - **Every prompt** carries one line (`boardLine`, in `contextFor`, inside `CONTEXT_LIMIT`): how many cards there are, how many are
   new, frames by name, and "Read it with `board`". It never carries the board. A card is new when it was added or what it
   says changed (a text, a caption, a name, an arrow's word, the content of a pinned card's source), not when it was moved,
-  resized or put in a frame (`saysHash`). A reference card is told with its caption after its file name, a photo or doodle as a STEP or a PDF (`referenceText`), and the card shows it. The window shows it under the prompt as "board: 12 cards, 2 new".
+  resized or put in a frame (`saysHash`). A reference card is told with its caption after its file name, a photo or doodle as a STEP or a PDF (`referenceText`), and the card shows it. The window shows it under the prompt as "brief: 12 cards, 2 new".
 - **The brief** is a part of the board's text form that goes to every new conversation (`briefOf`, `agent-prompt`): the size cards and the text
   cards of the frame named Rules, in a line after the board's. Its hash is kept in `told.json` under `brief`, as the cards' are.
 - **An attachment** goes with the prompt the person sends, not in the context (`attach.ts`, read at the moment of sending, so an
@@ -130,23 +133,15 @@ Written with the board (piece 2 of #173; the spec is `docs/superpowers/specs/202
 - `C<n>` is a ref like `M<n>` (`refsIn`): the chat shows it as a chip (`RefChip`), and a click shows the board with that card
   selected. One the board does not have, or has hidden, is only text.
 
-## The window
+## The page
 
-- The board is page elements in a layer moved by a CSS transform set directly on the element; **no per-frame state in React**:
-  panning and zooming never draw the cards again (`__tornoBoardRenders` counts it under test). The 3D view stays mounted and
-  stops drawing while the board is shown.
-- What a double click on a card does is `ui/projectBoard/opens.ts`, a table held by its test: the brief opens in the person's
-  editor, a photo opens large, a mark, scan, build, view and the Params go to the model (a view note's card opens its sheet instead: `doubleClickOf(card, mark)`, `carryOut`'s `note`, which shows the model first), a doodle opens the ink pad on its
-  drawing, a text edits and a frame renames (the person's only). The "Pin to board" button of a saved view asks main (`pinToBoard`), which
-  decides. Builds, the Params and the checks have none (#256: the board is the project's brief, and a card of them is a copy; `PinButton` is gone, and the strip's node menu and the turn's More have only Star): main still takes `{ kind: 'build' | 'params' | 'checks' }` and the cards already pinned stay, shown or hidden, never removed.
+- **Sections** (`shared/brief.ts` `briefSections`, from the visible cards in reading order): *what we are making* (the `brief` card: `brief.md` read through `board:brief`, shown read only, with "brief.md" opening it in the person's editor through `board:open`), the *pictures* (photos of `reference/`, picture cards, doodles) as tiles beside it, the *references* (STEP and PDF) as lines with "Show in folder", the *sizes* ledger, the *rules* (text cards in the frame named Rules, any case, the one `briefOf` reads) and the *notes* (the other text cards, a link in one opens in the browser as before). What main made and the person put away (the brief, a photo) is listed under "Put away" with Show.
+- **The ledger row** is the value large in the monospace face (`sizeValue`: the numbers read from it, as typed when it has none), what it measures, where it came from (`sizeSource`: "from a datasheet", the note after) and a column "Against the build on show". Until something checks a size (#262 ties it to a dimension or a check) every size and rule reads **"nothing checks this"** on a dashed ground with an empty gauge: a gap, not a failure. A rule reads "a judgement: no measure says it". The head says `7 sizes, 7 not checked`.
+- **Who may change what on it:** Edit and Remove show when a row is pointed at or has the keyboard; the person edits only their own cards (a size in its form, a note or rule in a field: Enter keeps, Shift+Enter is a new line, Esc leaves), Claude's keep the green edge and are only removable. A removal says "Removed … Undo" for ten seconds (`restore`). "Add" makes a size, rule, note or picture; a picture is chosen or dropped on the page, scaled by the window first. There is no doodle tool, no frame, no arrow, no selection, no drag, no zoom and no undo of edits any more.
+- **Send with the next prompt** puts the whole brief with it (`attachAll`); a chosen set is gone with the selection. `Ctrl+Z` and the tool keys went with the canvas.
+- A ref `C7` in the chat shows the brief with that card lit and scrolled to (`boardActions.reveal`).
+- What a card's double click did is gone (`opens.ts`): the brief and a STEP or PDF have their own buttons.
 
-## The third view: Tracing, and its card
+## The switch: Model | Brief | Tracing
 
-The Tracing view, its sheet, layers, photo line-up and tools are in `tracings.md`. What the board holds of it is here.
-
-- The main area's switch is **Board | Model | Tracing**: `Shown` is `'board' | 'model' | 'tracing'`, remembered per project as the
-  other two are. `board.swap` (`Ctrl+Tab`) goes board, model, tracing, board (`swapped`), and passes over Tracing in a project with
-  none (`hasTracing`); a project left on a tracing that its first read finds gone opens on the model, the choice kept. Whatever is
-  not the model covers it: the 3D view stays mounted, stops drawing (`boardShown` is "not the model") and the review and set keys
-  are not heard. `viewKey` stops the view's keys in the tracing as in the board.
-- **A tracing's card is an old copy** (`kind: 'tracing'`, `source: 'T1'`, `by: 'torno'`, #248): none is made now (`Found.tracings` only says which are alive, so that an old card goes with its tracing; an unreadable tracings file leaves the board as it is), and a board that holds one shows it only if the person put it in a frame of their own. `shownIds(shown, open, board)` tells main the tracings of the visible cards while the board is shown, so each build cuts them again. The face (`faces.ts` `tracingFace`) is the name, the plane without its axes, `3 layers` (`· 5 marks` once marks on a tracing are told) and "build to see the outline" while the window has no outline; the drawing is `TracingPicture.tsx`, from `tracingSvg` (`forScreen`, layers, no grid, no marks, no file written), asking main for the outline once per card and again when the plane or the parts change (`cutKey`). `shownIds(shown, open, board)` tells main the tracings of the visible cards while the board is shown, so each build cuts them again. A double click opens `{ does: 'tracing', id }`: `tracingActions.open` and the Tracing view. The board text is `C9 · tracing T1 "Front of the block"[ · in Frame]: XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)` (`tracingSaid`, with `LiveFacts.tracings`), and `saysHash` is that line, so a name, plane, layer count or line-up is news to Claude and a fade, a move or a resize is not.
+`Shown` is `'model' | 'brief' | 'tracing'`, remembered per project (a stored `'board'` reads as `'brief'`). `board.swap` (`Ctrl+Tab`) goes model, brief, tracing, model (`swapped`), and passes over Tracing in a project with none (`hasTracing`). A project opens on the model until its board has a card of the person's or the agent's, then on the brief. Whatever is not the model covers it: the 3D view stays mounted, stops drawing (`boardShown` is "not the model") and the review and set keys are not heard. The Tracing view is in `tracings.md`; the brief draws no tracing, so `shownIds` tells main only the open tracing while Tracing is shown and those shown in 3D. A saved view has no "Pin to board" any more (the brief draws no view); main still takes the pin, and cards already pinned stay in the file.

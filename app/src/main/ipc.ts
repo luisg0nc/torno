@@ -318,6 +318,8 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
     kernel,
     timeout: buildTimeout(process.env),
     overrides: { values: overrideValues, reconcile },
+    // A save is built at once in the project on screen and in those an agent works in; the others are built when wanted.
+    working: (id) => sessions?.current(id) != null || sessions?.isStarting(id) === true,
     // Which file is an object's model can change with its folder's contents (a
     // first candidate added, the model renamed), so a change there is a reason
     // to choose again before building. The choice is `builds.choice`: an open
@@ -985,6 +987,8 @@ export function registerIpc(
   handle('session:start', async (_event, objectId: string, opts?: { resume?: boolean; cols?: number; rows?: number; skills?: false }) => {
     const obj = findObject(objectId)
     if (!obj) throw new Error(`no project named ${objectId} in the open workspace`)
+    // The agent reads the build: one that is behind its sources is made now.
+    current?.builds.catchUp(objectId)
     return requireSessions().start(obj, { resume: opts?.resume === true, cols: opts?.cols, rows: opts?.rows, ...(opts?.skills === false ? { skills: false as const } : {}) })
   })
 

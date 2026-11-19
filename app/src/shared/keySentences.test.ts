@@ -35,7 +35,7 @@ it('says where a key is not heard only where it is not heard everywhere, and tha
 })
 
 it('takes the verb as it is for several keys, and the four arrows as one cap', () => {
-  expect(sentencesFor('Delete').find((one) => one.context === 'Board')!.sentence).toBe('On the board, Delete and Backspace remove the selected cards and arrows (those that came by themselves are hidden).')
+  expect(sentencesFor('Backspace').find((one) => one.context === 'Sketch')!.sentence).toContain('Backspace')
   expect(sentencesFor('Left').find((one) => one.context === 'Section')!.sentence).toBe('With Section in hand, Arrows move the plane by 1 mm.')
   expect(sentencesFor('Esc').find((one) => one.context === 'Viewport')!.sentence).toContain('Esc steps back: what is under way')
 })

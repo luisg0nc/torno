@@ -216,12 +216,12 @@ test('flow with a diameter of 19 and Done: the sketch is kept, with its card of 
   await expect(row).toContainText('flow ⌀19 mm')
   await expect(row).toContainText('2 strokes')
 
-  // The board makes no card of it (#248).
+  // The brief makes no card of it (#248).
   await page.keyboard.press('Control+Tab')
-  await expect(page.locator('.pboard')).toBeVisible()
-  await expect(page.locator('.pboard-card[data-kind="mark"]')).toHaveCount(0)
+  await expect(page.locator('.brief-page')).toBeVisible()
+  await expect(page.locator('.brief-page [data-card]')).toHaveCount(0)
   await page.keyboard.press('Control+Tab')
-  await expect(page.locator('.pboard')).toHaveCount(0)
+  await expect(page.locator('.brief-page')).toHaveCount(0)
 })
 
 test('a click on the chip of a draft sketch opens it again for editing, not a note', async () => {

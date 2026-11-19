@@ -678,17 +678,17 @@ export const TOOLS = {
     inputSchema: waitBuildInput
   },
   board: {
-    title: 'Read the board',
+    title: 'Read the brief',
     annotations: READ_ONLY,
     description:
-      'Returns the board of this project as text: each card by its id, its kind (a doodle is one the person drew on the ink pad of the board) and who made it with what it says, frames first with their cards in reading order, then the arrows between them, and the pictures named, or sent with pictures: true. The board is the person\'s brief, where they lay out what they want, so read it when they point at a frame or a card, and before you plan. {"frame": "Latch"} gives only that frame and its cards.',
+      'Returns the brief of this project (its board, which the person reads as the Brief page: what we are making, the sizes, the rules, the notes) as text: each card by its id, its kind (a doodle is one the person drew on the ink pad of the board) and who made it with what it says, frames first with their cards in reading order, then the arrows between them, and the pictures named, or sent with pictures: true. The sizes and rules are what the person wants held, so read it when they point at a card, and before you plan. {"frame": "Latch"} gives only that frame and its cards.',
     inputSchema: boardInput
   },
   add_card: {
-    title: 'Add a card to the board',
+    title: 'Add a card to the brief',
     annotations: CHANGES_VIEW_OR_MARKS,
     description:
-      'Returns the id of the card you added to the person\'s board, and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own.',
+      'Returns the id of the card you added to the person\'s brief (a note, or a size, with the green edge of yours), and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own.',
     inputSchema: addCardInput
   },
   tracings: {
@@ -783,8 +783,8 @@ export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD pa
 - diff: what changed between two successful builds (the last two, or kept ones): parts added or removed, volume, size and face counts.
 - history: the builds kept (h41), and what changed in each.
 - wait_build: wait for the running or next build, up to your limit, and get its result.
-- board: the person's board: text, pictures, doodles, frames, arrows, cards; read a frame by name.
-- add_card: leave a card of yours on the board (a plan, note, size or view), in a frame or with an arrow; change or remove only your own.
+- board: the person's brief: sizes, rules, notes, pictures; read a frame by name.
+- add_card: leave a card of yours in the brief (a plan, note, size or view), in a frame (the one named Rules holds rules); change or remove only your own.
 - expect: say before an edit what it should change (volume, faces, size, a measurement, parts unchanged); the next build is checked against it.
 - try_fillet: try a fillet or chamfer of edges on the last build, thrown away after: whether it works, the largest radius that does, which edges or pairs fail.
 - try_params: build with other Params values in a throwaway worker and measure or check there, to search a value without editing the model.

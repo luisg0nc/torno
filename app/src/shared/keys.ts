@@ -8,7 +8,7 @@
  */
 
 /** Where the sheet lists a row. */
-export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'With a shape in hand' | 'Board' | 'Tracing' | 'Page of projects' | 'New project' | 'Session' | 'In a field, a menu or a sheet' | 'For working on torno'
+export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'With a shape in hand' | 'Tracing' | 'Page of projects' | 'New project' | 'Session' | 'In a field, a menu or a sheet' | 'For working on torno'
 
 /**
  * Where a key is listened to. Two rows of one scope would answer the same press.
@@ -29,7 +29,7 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `field`, `menu`, `sheet`: in a field, an open menu, a sheet or a question.
  * - `dev`: under the dev server only.
  */
-export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'sketch' | 'shape' | 'compare' | 'board' | 'tracing' | 'lineup' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
+export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'sketch' | 'shape' | 'compare' | 'tracing' | 'lineup' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
 
 /**
  * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
@@ -172,20 +172,7 @@ const ROWS = [
 
   row('gizmo', GIZMO_KEYS.map((g) => g.key), 'Move, rotate or size the shape with its handles', 'With a shape in hand', 'shape'),
 
-  row('board.swap', ['Ctrl+Tab'], 'The board, the model and a tracing, in turn', 'Board', 'window'),
-  row('board.fit', ['Shift+1'], 'Board: fit all the cards', 'Board', 'board'),
-  row('board.select', ['V'], 'Board, Select: click a card, drag on empty space for a box; Shift adds', 'Board', 'board'),
-  row('board.text', ['N'], 'Board, Text: a card for a note', 'Board', 'board'),
-  row('board.frame', ['F'], 'Board, Frame: a named outline round cards', 'Board', 'board'),
-  row('board.arrow', ['A'], 'Board, Arrow: draw from one card to another', 'Board', 'board'),
-  row('board.size', ['M'], 'Board, Size: a card for a size you know', 'Board', 'board'),
-  row('board.picture', ['I'], 'Board, Picture: add a photo from a file', 'Board', 'board'),
-  row('board.sketch', ['S'], 'Board, Doodle: draw on a card', 'Board', 'board'),
-  row('board.pan', ['Space'], 'Board: hold it and drag to move around (the wheel moves, Ctrl and the wheel zooms)', 'Board', 'board'),
-  row('board.attach', ['Ctrl+Enter'], 'Board: send the selected cards with the next prompt', 'Board', 'board'),
-  row('board.remove', ['Delete', 'Backspace'], 'Board: remove the selected cards and arrows (those that came by themselves are hidden)', 'Board', 'board'),
-  row('board.undoChange', ['Ctrl+Z'], 'Board: undo the last change you made to cards (up to 50)', 'Board', 'board'),
-  row('board.step', ['Esc'], 'Board: end what is being written, then put the tool back to Select, then let go of the selection', 'Board', 'board'),
+  row('board.swap', ['Ctrl+Tab'], 'The model, the brief and a tracing, in turn', 'Everywhere', 'window'),
 
   row('tracing.fit', ['Shift+1'], 'Tracing: fit the outline', 'Tracing', 'tracing'),
   row('tracing.actual', ['Shift+0'], 'Tracing: show it at true size, 1:1', 'Tracing', 'tracing'),
@@ -261,7 +248,6 @@ export const CONTEXTS: ReadonlyArray<{ name: KeyContext; when: string }> = [
   { name: 'Viewport', when: 'Outside a field and the terminal' },
   { name: 'With a tool in hand', when: 'The tool has the key before the viewport' },
   { name: 'With a shape in hand', when: 'While a shape of yours is the active mark, after the tool in hand' },
-  { name: 'Board', when: 'Ctrl+Tab anywhere outside a field; the rest while the board is shown' },
   { name: 'Tracing', when: 'While a tracing is shown (Ctrl+Tab, above, swaps to it)' },
   { name: 'Page of projects', when: 'While the cards are up' },
   { name: 'New project', when: 'While the page of a new project is up' },

@@ -29,6 +29,10 @@ P='(^|[;&|(]|\$\()\s*((then|do|else|!)\s+)*(sudo\s+)?(env\s+)?(\w+=("[^"]*"|'"'"
 E='(?=[\s;&|)]|$)'
 has() { printf '%s\n' "$cmd" | grep -Pq "$1"; }
 line() { printf '%s\n' "$cmd" | grep -P "$1"; }
+# The command with what is inside quotes blanked (a double-quoted string that runs $( ) is kept): a | or ; in a
+# grep pattern or a message is data, not a pipe or a new command. Used where a word is common in data (claude).
+bare=$(printf '%s\n' "$cmd" | perl -pe "s/'[^']*'/''/g; s/\"((?:[^\"\\\\]|\\\\.)*)\"/index(\$1, '\$(') >= 0 ? \"\\\"\$1\\\"\" : '\"\"'/ge")
+bareline() { printf '%s\n' "$bare" | grep -P "$1"; }
 
 # 1. uv sync. The rule (root CLAUDE.md, rule workspace-writes) is `uv run --no-sync`: in a workspace uv would make
 #    a .venv of its own, and torno's own kernel environment is made by the app ("Make it now"), not by hand.
@@ -38,7 +42,7 @@ fi
 
 # 2. The real claude CLI. No test runs it, and no agent runs it for a test or a check: it spends the person's
 #    subscription and depends on their login and settings. `claude --version` alone is harmless.
-if line "${P}(\S*/)?claude(-code)?${E}" | grep -Pvq "claude\s+(--version|-v)\s*($|[;&|)])"; then
+if bareline "${P}(\S*/)?claude(-code)?${E}" | grep -Pvq "claude\s+(--version|-v)\s*($|[;&|)])"; then
   deny "Never run the real claude CLI from here: tests and checks use the stand-in, TORNO_AGENT_CMD=\"node app/test/fake-agent.mjs\" (root CLAUDE.md, Never run a real agent CLI from tests). A check against the real CLI is done by hand by the person."
 fi
 if has "\bTORNO_(AGENT_CMD|EVAL_AGENT)=[\"']?(\S*/)?claude\b"; then

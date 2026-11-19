@@ -6,7 +6,6 @@ import { viewMatches } from '../../state/savedViews'
 import { actions, store, useStore } from '../../state/store'
 import type { Viewport } from '../../viewport/Viewport'
 import { numbered } from '../numbered'
-import { pinToBoard } from '../projectBoard/pin'
 import { type Fold, compassViews } from './compassFold'
 import { PopMenu } from './PopMenu'
 
@@ -145,20 +144,6 @@ export function SavedViews({ viewport, fold }: { viewport: Viewport; fold: Fold 
                 }}
               >
                 Update to what is on screen
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="menu-item"
-                data-pin="view"
-                title="Put this view on the board as a card, to go back to it from there"
-                onClick={() => {
-                  const id = store.getState().objectId
-                  if (id !== null) void pinToBoard(id, { kind: 'view', name: view.name }).then(setSaid)
-                  shut(actionsOf(view.name))
-                }}
-              >
-                Pin to board
               </button>
               <button type="button" role="menuitem" className="menu-item" onClick={() => setOpen({ ...menu, deleting: true })}>
                 Delete

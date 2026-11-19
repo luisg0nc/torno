@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { pressed } from '../../../shared/keys'
 import { MAX_SIZE_NOTE, MAX_SIZE_VALUE, MAX_SIZE_WHAT, PERSON_SOURCES, SIZE_UNITS, checkSize, type SizeFact, type SizeSource, type SizeUnit } from '../../../shared/size'
-import { boardActions, type Editing, useBoard } from '../../state/board'
 import { chosen, pointerChoice } from '../typing'
-import { addCard, editSize } from './ops'
 
-// The form of a size card, over the card's place and in the board's own space: what it measures, the value as typed,
-// the unit, where it came from and a note. Enter or Done keeps it when it is whole (and says what is missing when it is
-// not); Esc and leaving the form keep it when it is whole and make nothing when it is not, as an empty text does.
+// The form of a size, in the ledger: what it measures, the value as typed, the unit, where it came from and a note.
+// Enter or Done keeps it when it is whole (and says what is missing when it is not); Esc and Cancel leave it as it was.
 
 interface Fields {
   what: string
@@ -24,70 +21,42 @@ export function sizeOf(f: Fields): SizeFact | string {
   return checkSize({ what: f.what, value: f.value, unit: f.unit, source: f.source, ...(f.note === '' ? {} : { note: f.note }) }, 'person')
 }
 
-export function SizeEditor({ objectId, editing }: { objectId: string; editing: Extract<Editing, { kind: 'size' }> }) {
-  const board = useBoard((s) => s.board)
-  const card = editing.id === undefined ? undefined : board?.cards.find((c) => c.id === editing.id)
-  const was = card?.size
+export function SizeForm({ was, onKeep, onCancel }: { was?: SizeFact; onKeep: (size: SizeFact) => void; onCancel: () => void }) {
   const [fields, setFields] = useState<Fields>(() => (was ? { what: was.what, value: was.value, unit: was.unit, source: was.source, note: was.note ?? '' } : FRESH))
   const [help, setHelp] = useState<string | null>(null)
-  const done = useRef(false)
   const first = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    done.current = false
-    first.current?.focus({ preventScroll: true })
-  }, [editing])
-
-  if (editing.id !== undefined && !card) return null
+  useEffect(() => first.current?.focus({ preventScroll: true }), [])
 
   const set = (patch: Partial<Fields>): void => {
     setFields((f) => ({ ...f, ...patch }))
     setHelp(null)
   }
 
-  /** Ends the form, once. `keep`: the size is kept if it is whole; `said`: when it is not, say what is missing instead of closing. */
-  function end(keep: boolean, said: boolean): void {
-    if (done.current) return
+  function keep(): void {
     const size = sizeOf(fields)
-    if (keep && typeof size === 'string') {
-      if (said) return setHelp(size)
-      // Left half-written: nothing is made, and a size that was there stays as it was.
-    }
-    done.current = true
-    boardActions.edit(null)
-    if (editing.id === undefined) boardActions.setTool('select')
-    if (!keep || typeof size === 'string') return
-    if (editing.id === undefined) void addCard(objectId, { kind: 'size', size }, { x: editing.x, y: editing.y, w: editing.w, h: editing.h })
-    else if (JSON.stringify(size) !== JSON.stringify(was)) void editSize(objectId, editing.id, size)
+    if (typeof size === 'string') return setHelp(size)
+    onKeep(size)
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLElement>): void {
     e.stopPropagation()
-    if (pressed(e.nativeEvent, 'board.step')) {
+    if (pressed(e.nativeEvent, 'field.leave')) {
       e.preventDefault()
-      end(true, false)
+      onCancel()
     } else if (pressed(e.nativeEvent, 'field.keep') && e.target instanceof HTMLInputElement) {
       e.preventDefault()
-      end(true, true)
+      keep()
     }
   }
 
   function onBlur(e: FocusEvent<HTMLElement>): void {
-    // Moving from one field to another is not leaving.
+    // Moving from one field to another is not leaving; leaving with nothing written is.
     if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
-    end(true, false)
+    if (e.relatedTarget === null && fields.what === '' && fields.value === '' && fields.note === '' && !was) onCancel()
   }
 
   return (
-    <div
-      className="pboard-sizeform"
-      role="group"
-      aria-label="Size"
-      style={{ left: editing.x, top: editing.y }}
-      onPointerDown={(e) => e.stopPropagation()}
-      onKeyDown={onKeyDown}
-      onBlur={onBlur}
-    >
+    <div className="brief-form brief-sizeform" role="group" aria-label="Size" onKeyDown={onKeyDown} onBlur={onBlur}>
       <label data-wide="">
         What it measures
         <input ref={first} type="text" value={fields.what} maxLength={MAX_SIZE_WHAT} spellCheck autoComplete="off" aria-label="What it measures" onChange={(e) => set({ what: e.target.value })} />
@@ -138,16 +107,16 @@ export function SizeEditor({ objectId, editing }: { objectId: string; editing: E
         <input type="text" value={fields.note} maxLength={MAX_SIZE_NOTE} placeholder="A few words more" spellCheck autoComplete="off" aria-label="Note" onChange={(e) => set({ note: e.target.value.replace(/[\r\n]+/g, ' ') })} />
       </label>
       {help !== null && (
-        <p className="pboard-sizeform-help" role="status">
+        <p className="brief-form-help" role="status">
           {help}
         </p>
       )}
-      <div className="pboard-sizeform-actions">
-        <button type="button" className="button button-quiet" onClick={() => end(false, false)}>
+      <div className="brief-form-actions">
+        <button type="button" className="button button-quiet" onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" className="button" onClick={() => end(true, true)}>
-          Done
+        <button type="button" className="button" onClick={keep}>
+          {was ? 'Done' : 'Add'}
         </button>
       </div>
     </div>

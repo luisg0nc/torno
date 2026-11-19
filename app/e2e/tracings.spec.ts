@@ -58,7 +58,7 @@ const chat = () => dock().locator('.chat')
 const composer = () => dock().locator('[data-chat-composer]')
 const panel = () => page.locator('.tr-panel')
 const lineup = () => page.locator('.lineup')
-const switchTo = (view: 'Board' | 'Model' | 'Tracing') => page.locator('.pboard-switch').getByRole('button', { name: view, exact: true }).click()
+const switchTo = (view: 'Brief' | 'Model' | 'Tracing') => page.locator('.pboard-switch').getByRole('button', { name: view, exact: true }).click()
 
 /** Where a point of the plane is on the page now: the sheet's corner and zoom, the stage's place, and v running up the screen (the plane of the top face has +Y for v). */
 async function client(uv: readonly [number, number]): Promise<[number, number]> {

@@ -127,11 +127,18 @@ test('a card says when its picture is older than the model, and a second object 
   await card('plain').click()
   await expect.poll(async () => (await state()).build?.status).toBe('ok')
   await expect.poll(() => existsSync(thumb('plain'))).toBe(true)
-  // hollow is still watched: saved again, it is built and pictured while plain is on screen.
+  // hollow is still watched, but plain is on screen: saved again, it is not built (#175). Its card says it is behind.
   const before = statSync(thumb('hollow')).mtimeMs
+  await new Promise((r) => setTimeout(r, 1100)) // so that its save is newer than its picture, whatever the clock's grain
   appendFileSync(join(root, 'hollow', 'hollow.py'), '\n# touched\n')
-  await expect.poll(() => statSync(thumb('hollow')).mtimeMs, { timeout: 20_000 }).toBeGreaterThan(before)
-  expect((await state()).objectId).toBe('plain')
+  await new Promise((r) => setTimeout(r, 1500)) // past the watcher's wait: a build would have started
+  await showProjects(page)
+  await expect(card('hollow')).toContainText('A source has changed since')
+  expect(statSync(thumb('hollow')).mtimeMs).toBe(before)
+  // Opened, it is built and pictured.
+  await card('hollow').click()
+  await expect.poll(() => statSync(thumb('hollow')).mtimeMs, { timeout: 30_000 }).toBeGreaterThan(before)
+  expect((await state()).objectId).toBe('hollow')
   // The picture's facts keep the kernel's size of what it is of, and say it is at the bench's scale.
   const kept = meta('hollow') as { box?: { x: number; y: number; z: number; exact: boolean }; bench?: boolean }
   expect(kept.bench).toBe(true)
@@ -145,6 +152,10 @@ test('a card says when its picture is older than the model, and a second object 
   await showProjects(page)
   await expect(card('hollow')).toContainText('A source has changed since')
   await expect(card('plain')).not.toContainText('A source has changed since')
+  // The next test has plain on screen, as this one began.
+  await card('plain').click()
+  await expect.poll(async () => (await state()).objectId).toBe('plain')
+  await showProjects(page)
 })
 
 test('the page is a bench: pictures side by side at one scale on a shelf, a size only where the kernel gave one, and True scale or Grid', async () => {

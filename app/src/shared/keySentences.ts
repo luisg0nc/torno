@@ -21,7 +21,6 @@ export const HEADS: Record<Context, string> = {
   Region: 'With Region of a scan in hand',
   Sketch: 'Sketching',
   Shape: 'With a shape in hand',
-  Board: 'On the board',
   Tracing: 'On a tracing',
   Lineup: 'Lining up a photo',
   Projects: 'On the page of projects',
@@ -38,7 +37,6 @@ const ALIASES: Partial<Record<Context, string[]>> = {
   Align: ['align'],
   Region: ['region'],
   Sketch: ['sketch'],
-  Board: ['board'],
   Tracing: ['tracing'],
   Lineup: ['line-up']
 }
@@ -132,7 +130,7 @@ function clause(keys: readonly string[], said: string, context: Context, tool = 
 }
 
 /** Where a key is not heard: while a field or the terminal has the keys, for most of them. `global` keys are, and those in the terminal or a field are heard only there. */
-const NOT_WHILE_TYPING = new Set(['window', 'viewport', 'measure', 'section', 'align', 'region', 'sketch', 'shape', 'compare', 'board', 'tracing', 'lineup', 'page', 'newobject'])
+const NOT_WHILE_TYPING = new Set(['window', 'viewport', 'measure', 'section', 'align', 'region', 'sketch', 'shape', 'compare', 'tracing', 'lineup', 'page', 'newobject'])
 const TOOLS = new Set(['measure', 'section', 'align', 'region', 'sketch'])
 
 function notHeard(rows: readonly KeyRow[]): string | undefined {

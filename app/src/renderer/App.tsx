@@ -23,8 +23,8 @@ import { ShowPage, usePageKey } from './ui/ShowPage'
 import { NewObject, openNewObject } from './ui/onboard/NewObject'
 import { draftHas, onboard, onboarding } from './state/onboard'
 import { ViewportPane } from './ui/ViewportPane'
-import { BoardSwitch, useBoardSwapKey } from './ui/projectBoard/BoardSwitch'
-import { BoardView } from './ui/projectBoard/BoardView'
+import { BoardSwitch, useBoardSwapKey } from './ui/brief/BoardSwitch'
+import { BriefPage } from './ui/brief/BriefPage'
 import { FacePickBar } from './ui/tracings/NewTracing'
 import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
@@ -342,8 +342,8 @@ export function App() {
   const dockWidth = kept ?? dockDefault(window.innerWidth)
   // The page of a new project is the preview of the prompt itself: the dock is hidden while it is up, and comes back as it was.
   const dockOpen = useStore((s) => s.dockOpen && s.page !== 'new')
-  // The board takes the main area's place from the model, on the project's own page.
-  const boardOf = useBoard((s) => (s.shown === 'board' ? s.objectId : null))
+  // The brief takes the main area's place from the model, on the project's own page.
+  const briefOf = useBoard((s) => (s.shown === 'brief' ? s.objectId : null))
   // So does a tracing, on the same page.
   const tracingOf = useBoard((s) => (s.shown === 'tracing' ? s.objectId : null))
   // While the edge is dragged the width goes straight to the CSS variable, so
@@ -520,7 +520,7 @@ export function App() {
         {/* First in the region, so that the focus a region key gives lands on it. */}
         <BoardSwitch />
         <ViewportPane />
-        {page === 'object' && boardOf !== null && <BoardView key={boardOf} />}
+        {page === 'object' && briefOf !== null && <BriefPage key={briefOf} />}
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
         {/* Over the model: a tracing on a face waits for the face. */}
         <FacePickBar />

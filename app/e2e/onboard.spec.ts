@@ -470,11 +470,13 @@ test.describe('a new object', () => {
     await expect(projectCrumb(page)).toHaveAttribute('aria-label', 'Project cable-clip')
     await expect(newPage()).toHaveCount(0)
 
-    // The project opens on its board, with a frame for each kind of what was given.
-    const frames = page.locator('.pboard-card[data-kind="frame"]')
-    await expect(frames).toHaveCount(8, { timeout: 30_000 })
-    await expect(frames).toContainText(['Brief', 'Photos', 'Doodles', 'Sizes', 'Rules', 'Links', 'Bought parts', 'PDFs'])
-    await expect(page.locator('.pboard-card[data-kind="size"]')).toContainText('battery tray')
+    // The project opens on its brief: the sizes, the rules and the links (notes) the person gave, and the photos beside the words.
+    const sheet = page.locator('.brief-page')
+    await expect(sheet).toBeVisible({ timeout: 30_000 })
+    await expect(sheet.getByRole('region', { name: 'Sizes' })).toContainText('battery tray')
+    await expect(sheet.getByRole('region', { name: 'Rules' }).locator('[data-card]')).not.toHaveCount(0)
+    await expect(sheet.locator('.brief-tile')).not.toHaveCount(0)
+    await expect(sheet.locator('.brief-ref')).toHaveCount(2)
 
     // The folder: the template, the brief with every note, the originals copied as they were, and nothing else.
     const dir = join(root, 'cable-clip')
@@ -789,8 +791,7 @@ test.describe('a new project made without starting Claude', () => {
       await here.getByRole('button', { name: 'Or make it without starting Claude' }).click()
       await expect.poll(async () => (await page.evaluate(() => window.__tornoTest!.state())).objectId, { timeout: 30_000 }).toBe('latch')
       await expect(here).toHaveCount(0)
-      const frames = page.locator('.pboard-card[data-kind="frame"]')
-      await expect(frames).toContainText(['Brief', 'Sizes'], { timeout: 30_000 })
+      await expect(page.locator('.brief-page').getByRole('region', { name: 'Sizes' })).toBeVisible({ timeout: 30_000 })
       expect(existsSync(join(root, 'latch', 'latch.py'))).toBe(true)
       // No session was started and nothing was sent: it waits for a click.
       const dock = page.locator('[data-region="session"]')

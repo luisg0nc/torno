@@ -25,7 +25,7 @@ it('puts every tool in a group, and the rows in the order of the groups: those t
 
 it('lists every tool, every view key and the gizmo in the sheet, each key once where it is listened to', () => {
   const sheet = cheatSheet()
-  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Board', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
+  expect(sheet.map((g) => g.context)).toEqual(['Everywhere', 'Viewport', 'With a tool in hand', 'With a shape in hand', 'Tracing', 'Page of projects', 'New project', 'Session', 'In a field, a menu or a sheet', 'For working on torno'])
   expect(sheet.map((g) => g.context)).toEqual(CONTEXTS.map((c) => c.name))
   for (const group of sheet) expect([group.context, group.rows.length > 0, group.when.length > 0]).toEqual([group.context, true, true])
   const viewport = KEYS.filter((row) => row.scope === 'viewport').flatMap((row) => row.keys)
@@ -87,25 +87,14 @@ it('knows a key of the view, for the board that covers it', () => {
   expect(viewKey({ key: 'v', ctrlKey: true, code: 'KeyV' })).toBe(false)
 })
 
-it('has the keys of the board, and Ctrl+Tab for the swap alone in the window', () => {
+it('has Ctrl+Tab for the swap alone in the window', () => {
   expect(hint('board.swap')).toBe('Ctrl+Tab')
   expect(pressed({ key: 'Tab', code: 'Tab', ctrlKey: true }, 'board.swap')).toBe(true)
   expect(pressed({ key: 'Tab', code: 'Tab' }, 'board.swap')).toBe(false)
-  expect(pressed({ key: '!', code: 'Digit1', shiftKey: true }, 'board.fit')).toBe(true)
-  expect(pressed({ key: '1', code: 'Digit1' }, 'board.fit')).toBe(false)
-  // Shift on the figure key, whatever the layout makes of it (`1` on a French one), and only that key.
-  expect(pressed({ key: '1', code: 'Digit1', shiftKey: true }, 'board.fit')).toBe(true)
-  expect(pressed({ key: '/', code: 'Digit7', shiftKey: true }, 'board.fit')).toBe(false)
-  expect(pressed({ key: '!', code: 'Digit1', shiftKey: true, ctrlKey: true }, 'board.fit')).toBe(false)
   // The key of the page's filter stays the filter's where Shift makes the slash.
   expect(pressed({ key: '/', code: 'Digit7', shiftKey: true }, 'page.filter')).toBe(true)
-  for (const [id, key] of [['select', 'V'], ['text', 'N'], ['frame', 'F'], ['arrow', 'A'], ['picture', 'I'], ['sketch', 'S']] as const) expect(hint(`board.${id}`)).toBe(key)
-  expect(KEYS.some((r) => r.id === 'board.attach' && r.scope === 'board')).toBe(true)
-})
-
-it('calls the board\'s ink-pad tool a Doodle, with the S key kept', () => {
-  expect(KEYS.find((r) => r.id === 'board.sketch')?.does).toBe('Board, Doodle: draw on a card')
-  expect(hint('board.sketch')).toBe('S')
+  // The brief has no keys of a canvas: the tools, the pan and the selection went with the board.
+  expect(KEYS.filter((r) => r.id.startsWith('board.')).map((r) => r.id)).toEqual(['board.swap', 'board.undo', 'board.straight', 'board.label'])
 })
 
 it('says which key of a row was pressed', () => {
@@ -436,7 +425,7 @@ it('has the keys of a tracing in a scope of their own: fit, true size and the to
   expect(pressed({ key: 't', ctrlKey: true, code: 'KeyT' }, 'tracing.trace')).toBe(false)
   expect(hint('tracing.nosnap')).toBe('Ctrl')
   expect(CONTEXTS.map((c) => c.name)).toContain('Tracing')
-  expect(KEYS.find((r) => r.id === 'board.swap')?.does).toBe('The board, the model and a tracing, in turn')
+  expect(KEYS.find((r) => r.id === 'board.swap')?.does).toBe('The model, the brief and a tracing, in turn')
   // The view hears nothing while a tracing is shown, as with the board: its own keys are no key of the view.
   expect(viewKey({ key: '0', code: 'Digit0', shiftKey: true })).toBe(false)
 })
