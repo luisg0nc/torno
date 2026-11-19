@@ -4,7 +4,7 @@ import { _electron as electron, chromium, expect, test, type ElectronApplication
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace, showScans } from './readme-workspace'
-import { newSession, openSection } from './helpers'
+import { newSession, onBrief, openSection, showModel } from './helpers'
 
 // The pictures of the README (docs/images/README.md): the window in the states it describes, one hidden launch
 // each, written to <TORNO_README_SHOTS>/<shot>.png with a <shot>.json beside it holding the boxes of the regions
@@ -233,6 +233,8 @@ async function sketching(page: Page): Promise<void> {
 async function reviewing(page: Page): Promise<void> {
   await openSection(page, 'Marks')
   await page.getByRole('button', { name: 'Review this build' }).click()
+  // The band is drawn over the model: the Brief that started the round is put away.
+  await showModel(page)
   const band = page.getByRole('toolbar', { name: 'Review' })
   await expect(band).toBeVisible()
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
@@ -310,21 +312,19 @@ for (const shot of SHOTS) {
         await expect(page.locator('.chat-item[data-kind="user"]').last()).toHaveAttribute('data-state', 'sent', { timeout: 60_000 })
         await expect.poll(async () => page.locator('.chat-text').count(), { timeout: 60_000 }).toBeGreaterThan(1)
         await wording(page, 'Is the tub wall thick enough to print? And is there room for a latch at M1?')
-        // The dimension's check row in the card, where its verdict is: a click on it shows the wall in the view.
-        await openSection(page, 'Marks')
-        await openSection(page, 'Checks')
-        await page.locator('[data-region="left"] .check-row[data-check-mark="M3"]').click()
+        // The On block of the left column says the build's verdict: the tub wall fails, and its row is there to go to.
+        await expect(page.locator('[data-region="left"] .on-block .on-row[data-kind="check"]').first()).toContainText('M3')
+        // The bench open on its Parts tab: the nine parts of the airbox, not a hundred values.
+        await openSection(page, 'Parts')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
       } else if (shot === 'marks') {
-        // The stand and its Marks list, the session pane away: the pin with its note, dimensions that pass, one that fails.
+        // The stand's Brief page, the session pane away: its Checks (dimensions that pass, one that fails) and its Marks, with the bench beside it.
         await page.getByRole('button', { name: 'Hide session', exact: true }).click()
         await openSection(page, 'Checks')
-        await openSection(page, 'Marks')
+        await expect(page.locator('.brief-page .check-row[data-check-mark="M4"]')).toHaveAttribute('data-verdict', 'fails')
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+        await page.mouse.move(40, 960)
         await page.waitForTimeout(400)
-        const at = (await page.evaluate(() => window.__tornoTest!.markScreen('M4')))!
-        const view = (await page.locator('[data-region="viewport"] canvas').first().boundingBox())!
-        await page.mouse.move(view.x + at.x * view.width, view.y + at.y * view.height)
-        await expect(page.locator('.pick-readout')).toContainText('under')
       } else if (shot === 'chat') {
         // The agent's turn: the prompt with the marks torno added opened to its text, look with its picture, an edit and its build.
         await newSession(page.locator('[data-region="session"]'))
@@ -341,7 +341,8 @@ for (const shot of SHOTS) {
         ])
         await expect.poll(async () => (await state(page)).build?.revision, { timeout: 240_000 }).toBe(2)
         await expect(page.locator('.chat-turn')).toContainText('Pulled from torno: look, 1 picture', { timeout: 240_000 })
-        await expect(page.locator('.check-row[data-check-mark="M3"]').first()).toHaveAttribute('data-verdict', 'passes', { timeout: 60_000 })
+        // The check rows are on the Brief page: it is shown to read M3, and the model comes back for the picture.
+        await expect.poll(() => onBrief(page, () => page.locator('.brief-page .check-row[data-check-mark="M3"]').first().getAttribute('data-verdict')), { timeout: 60_000 }).toBe('passes')
         await expect.poll(async () => page.locator('.chat-text').count(), { timeout: 120_000 }).toBe(3)
         await expect(page.locator('.chat-item[data-kind="user"]').last()).toHaveAttribute('data-state', 'sent', { timeout: 60_000 })
         await wording(page, 'The tub wall at M3 is too thin. Make it 3 mm.')

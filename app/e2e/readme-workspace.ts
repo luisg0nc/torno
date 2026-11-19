@@ -11,8 +11,8 @@ import { join, resolve } from 'node:path'
 //                          the source is copied beside the project, under `scans/<file name>`, and the scan renamed
 //                          to it; `<name>:<id>=` drops the scan. A scan not named keeps its source where it is.
 //
-// The workspace is made as `<tmp>/workshop/parts`, a plain name, because the page of projects prints its path; a `sign` parameter of a
-// copied project (the name a part is engraved with) is emptied in the copy.
+// The workspace is made as `<tmp>/workshop/parts`, a plain name, because the page of projects prints its path; a `sign` or `logo` parameter of a
+// copied project (the name or wordmark a part is engraved with) is emptied in the copy.
 //
 // The copy takes each project's files but its `out/`, caches and what torno keeps of a session (`.torno/chat`,
 // `.torno/agent`, `session.json`, `prompt.md`, `state.md`), so that nothing of the person's conversations is in it.
@@ -39,12 +39,13 @@ function top(): string {
   return dir
 }
 
-/** What a project of the author's engraves on itself (a `sign: str = "..."` parameter) is left out of the copy: no name of a person is on a part in a picture. */
+/** What a project of the author's engraves on itself (a `sign: str = "..."` or `logo: str = "..."` parameter) is left out of the copy: no name of a person is on a part in a picture. */
 function unsigned(folder: string): void {
   for (const file of readdirSync(folder).filter((f) => f.endsWith('.py'))) {
     const path = join(folder, file)
     const source = readFileSync(path, 'utf8')
-    const bare = source.replace(/^(\s*sign: str = )"[^"\n]*"/m, '$1""')
+    // A logo is emptied only where the model says it may be left empty (`# ... empty for none`): another project is made of its logo.
+    const bare = source.replace(/^(\s*sign: str = )"[^"\n]*"/m, '$1""').replace(/^(\s*logo: str = )"[^"\n]*"(\s*#.*empty for none)/m, '$1""$2')
     if (bare !== source) writeFileSync(path, bare)
   }
 }
