@@ -511,7 +511,7 @@ describe('look', () => {
     await lookTool(deps, 'bracket', { view: 'top', layout: 'print', parts: ['post'], size: 800 })
     expect(deps.looks).toEqual([
       { objectId: 'bracket', req: { view: 'current', size: 1280, explode: 'current' } },
-      { objectId: 'bracket', req: { view: 'top', layout: 'print', parts: ['post'], size: 800, explode: 'current' } }
+      { objectId: 'bracket', req: { view: 'top', layout: 'print', parts: ['post'], size: 800, explode: null } }
     ])
   })
 
@@ -1583,6 +1583,14 @@ describe('resolve_mark', () => {
     expect(textOf(result)).toBe('resolved: M1 pin on base/F5 (plane, normal +Z, z = 2.5, 1200 mm²) at (1, 2, 2.5): "here"\nnote: filleted at 2 mm')
   })
 
+  it('does not tell the agent to check a mark that moved because of the edit it asked for', async () => {
+    const deps = fake()
+    deps.w.list[0] = { ...deps.w.list[0], anchorState: 'drifted' } as Mark
+    const text = textOf(await resolveMarkTool(deps, 'bracket', { id: 'M1' }))
+    expect(text).toContain('[moved since it was placed, as expected after an edit]')
+    expect(text).not.toContain('check it')
+  })
+
   it('needs no note, and cuts one at 2000 characters', async () => {
     const deps = fake()
     expect(textOf(await resolveMarkTool(deps, 'bracket', { id: 'M4' }))).toBe('resolved: (yours) M4 pin at (9, 9, 9)')
@@ -1766,6 +1774,16 @@ describe('scans in scene, look and show', () => {
   })
 })
 
+describe('show while the person has a button down', () => {
+  it('says the change is queued, and not that it is on their screen', async () => {
+    const d = fake({ show: async () => ({ caption: 'queued: the user has a button down', objectId: 'bracket', revision: 3, stale: false, queued: true }) })
+    const text = textOf(await showTool(d, 'bracket', { view: 'top' }))
+    expect(text).toContain('queued')
+    expect(text).toContain('you do not need to call show again')
+    expect(text).not.toContain('now shows this')
+  })
+})
+
 describe('explode', () => {
   const NOT_BOTH = 'a section is not drawn exploded: give explode or section, not both (explode: null draws the parts together, section: null draws them whole)'
   const exploded = (over: Partial<ViewState> = {}): Fake => fake({ view: () => ({ ...VIEW, ...over }) })
@@ -1776,6 +1794,15 @@ describe('explode', () => {
     expect(d.looks.at(-1)!.req).toMatchObject({ explode: { amount: 0.5, scale: 1, axis: 'centre' } })
     await lookTool(d, 'bracket', {})
     expect(d.looks.at(-1)!.req.explode).toBe('current')
+    await lookTool(d, 'bracket', { view: 'current' })
+    expect(d.looks.at(-1)!.req.explode).toBe('current')
+    // The agent's own checks draw the parts together, whatever the person has.
+    await lookTool(d, 'bracket', { view: 'iso' })
+    expect(d.looks.at(-1)!.req.explode).toBeNull()
+    await lookTool(d, 'bracket', { view: { position: [0, -50, 20], target: [0, 0, 0] } })
+    expect(d.looks.at(-1)!.req.explode).toBeNull()
+    await lookTool(d, 'bracket', { view: 'iso', explode: 0.5 })
+    expect(d.looks.at(-1)!.req.explode).toMatchObject({ amount: 0.5 })
     await lookTool(d, 'bracket', { explode: 0 })
     expect(d.looks.at(-1)!.req.explode).toBeNull()
     await lookTool(d, 'bracket', { explode: null })
@@ -1906,7 +1933,7 @@ describe('saved views', () => {
     // The standard views and the user's own camera are what they were.
     await lookTool(d, 'bracket', { view: 'top' })
     await lookTool(d, 'bracket', { view: 'current' })
-    expect(d.looks.slice(-2).map((look) => look.req)).toEqual([{ view: 'top', size: 1280, explode: 'current' }, { view: 'current', size: 1280, explode: 'current' }])
+    expect(d.looks.slice(-2).map((look) => look.req)).toEqual([{ view: 'top', size: 1280, explode: null }, { view: 'current', size: 1280, explode: 'current' }])
   })
 
   it('refuses a name that is no view with the names there are, and a view whose layout is gone', async () => {

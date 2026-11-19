@@ -307,10 +307,10 @@ export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs
     if ('content' in colouring) return colouring
     request.scanColour = colouring
   }
-  // As on screen unless the picture says how far apart it draws the parts; never apart and cut.
+  // Together unless the picture says how far apart it draws the parts, or is of the user's own camera, which draws them as they have them; never apart and cut.
   const explode = explodeAsked(args.explode)
   if (typeof explode === 'string') return failure(explode)
-  request.explode = explode === undefined ? 'current' : explode
+  request.explode = explode === undefined ? (view === 'current' ? 'current' : null) : explode
   if (isExploded(explode) && (args.section === undefined || args.section === 'current' ? deps.view(objectId)?.section : args.section)) return failure(NOT_EXPLODED_AND_CUT)
   // Asked apart where nothing can be: said, not passed over with a picture of the parts together.
   const nothing = drawsNothingApart(scene, args.layout ?? deps.view(objectId)?.layout, explode)
@@ -521,6 +521,8 @@ export async function showTool(deps: ToolDeps, objectId: string, given: ShowArgs
     return failure(messageOf(e))
   }
   if (shown.objectId !== objectId) return failure(`${notOpen(obj, shown.objectId)}. Ask the user to open it.`)
+  // Kept until the person lets go of the button: said so, and nothing says it is on their screen yet.
+  if (shown.queued) return { content: [{ type: 'text', text: `${shown.caption}\nrevision r${shown.revision}${staleNote(deps, objectId, shown)}\nThe change is queued, not yet made: you do not need to call show again.` }] }
   return { content: [{ type: 'text', text: `${shown.caption}${named ? passedOver(named, given) : ''}${spreadBesideScans(scene, shown)}${await undrawnScans(deps, objectId, args.scans)}${focused ? focusSaid(focused) : ''}\nrevision r${shown.revision}${staleNote(deps, objectId, shown)}\nThe user's viewport now shows this.` }] }
 }
 

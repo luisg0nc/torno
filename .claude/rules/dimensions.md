@@ -69,7 +69,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     (`shownDimension`; `[as measured on rN]` and `resolvedValue` in main).
     So `resolve_mark` refuses a dimension of the person's that has an
     `expected` (`resolveMarkTool`), saying how the check stands, and says of
-    any other dimension it resolves that it is no longer measured.
+    any other dimension it resolves that it is no longer measured. Its answer says a mark that moved
+    `[moved since it was placed, as expected after an edit]` (`describeMark` with `resolving`), not `check it`:
+    the move is the edit the mark asked for.
   - An end the build moved (`drifted`) is measured from the face its
     refreshed ref names, and the mark says `[moved since it was placed: check
     it]`. Nothing is ever measured through a ref the check did not confirm or

@@ -54,6 +54,18 @@ describe('what the checks have become since a build', () => {
     expect(later.map(noteText)).toEqual(['walls: min 1.2 → 0.8 mm (since r7)'])
     expect(keepNotes(later, [walls(0.8)], [walls(1.2)], 9)).toEqual([])
   })
+  it('does not call a check removed when the parts were renamed and it was rewritten: it is the same check', () => {
+    const overlap = (name: string, a: string, b: string, min = 0): ModelCheck => check({ name, kind: 'overlap', min, max: null, declared: { name, kind: 'overlap', a, b } })
+    expect(keepNotes([], [overlap('arm / plate', 'arm', 'plate')], [overlap('bracket / plate', 'bracket', 'plate')], 4)).toEqual([])
+    // Still nothing on the builds after, when it is the model's own check under the new name.
+    expect(keepNotes([], [overlap('bracket / plate', 'bracket', 'plate')], [overlap('bracket / plate', 'bracket', 'plate')], 5)).toEqual([])
+    // A check of another kind is not its replacement.
+    expect(keepNotes([], [overlap('arm / plate', 'arm', 'plate')], [walls(1)], 4).map((n) => n.what)).toEqual(['removed'])
+    // A rewritten check that asks for less is noted once, and kept while it is weaker, by its new name.
+    const first = keepNotes([], [overlap('arm / plate', 'arm', 'plate', 1)], [overlap('bracket / plate', 'bracket', 'plate', 0.2)], 4)
+    expect(first.map(noteText)).toEqual(['bracket / plate: min 1 → 0.2 mm (since r4)'])
+    expect(keepNotes(first, [overlap('bracket / plate', 'bracket', 'plate', 0.2)], [overlap('bracket / plate', 'bracket', 'plate', 0.2)], 5).map(noteText)).toEqual(['bracket / plate: min 1 → 0.2 mm (since r4)'])
+  })
   it('notes a check that now asks about other parts', () => {
     const other = check({ declared: { name: 'lid fits', kind: 'clearance', a: 'cap', b: 'tub' } })
     expect(keepNotes([], [check()], [other], 4).map((n) => n.what)).toEqual(['changed'])

@@ -90,9 +90,27 @@ export function dismissHighlight(): void {
  * the caption of a picture would.
  */
 export function show(viewport: Pick<Viewport, 'setView' | 'getCamera' | 'pointerBusy'> & Partial<Pick<Viewport, 'scanState' | 'cameraGoal' | 'canvas'>>, req: ShowRequest): ShowResult {
+  return showing(viewport, req, false) as ShowResult
+}
+
+/** Said of a `show` that waits for the person to let go of the button: the caption, and what main tells the agent. */
+export const SHOW_QUEUED = 'queued: the user has a button down in the viewport, so the view is not changed under them; it is changed as soon as they let go'
+
+/**
+ * `show` for a request: checked at once, and either done or, while the person has a button down in the viewport
+ * (turning the camera, a stroke, a drag), kept (`queued`) to be done when they let go. A request that is wrong is
+ * refused now, busy or not.
+ */
+function showing(viewport: Pick<Viewport, 'setView' | 'getCamera' | 'pointerBusy'> & Partial<Pick<Viewport, 'scanState' | 'cameraGoal' | 'canvas'>>, req: ShowRequest, checkOnly: boolean): ShowResult | null {
   const s = openObject(req.objectId)
   // The view is the person's while they are doing something in it: it is not pulled from under a stroke or a drag.
-  if (viewport.pointerBusy()) throw new Error('the user is in the middle of a stroke or drag; try again')
+  // What is asked is checked now and done when they let go.
+  if (!checkOnly && viewport.pointerBusy()) {
+    showing(viewport, req, true)
+    queued.push({ viewport, req })
+    waitForRelease()
+    return { caption: SHOW_QUEUED, objectId: req.objectId, revision: s.revision, stale: s.build?.stale ?? false, queued: true }
+  }
   const layout = req.layout ?? s.layout
   if (!s.scene.layouts.includes(layout)) throw new Error(`no layout '${layout}'; layouts: ${s.scene.layouts.join(', ')}`)
   const parts = partsInLayout(s, layout)
@@ -133,6 +151,7 @@ export function show(viewport: Pick<Viewport, 'setView' | 'getCamera' | 'pointer
   // A focus is where the parts are built: not where they are drawn apart, by this or as they are on screen.
   if (req.focus && (explode === undefined ? explodeNow(s, layout) : explode)) throw new Error(FOCUS_NOT_EXPLODED)
 
+  if (checkOnly) return null
   // The viewport follows the store as this is set, so the camera below is fitted to what it leaves on.
   // For now only: what the person had chosen stays what their scene file says.
   actions.showForAgent(layout, shownParts ? Object.fromEntries(parts.map((part) => [part.name, shownParts.includes(part.name)])) : {}, section, scans, explode)
@@ -172,6 +191,34 @@ export function show(viewport: Pick<Viewport, 'setView' | 'getCamera' | 'pointer
     scans: shown.map((scan) => scan.id),
     ...(apart ? { exploded: true } : {})
   }
+}
+
+/** The `show`s that came while the person had a button down, in the order they came. */
+const queued: Array<{ viewport: Parameters<typeof show>[0]; req: ShowRequest }> = []
+let waiting: ReturnType<typeof setInterval> | undefined
+
+/** Do the queued `show`s once the button is up; one that no longer holds (the object was closed, a part is gone) is dropped. */
+function waitForRelease(): void {
+  if (waiting !== undefined) return
+  waiting = setInterval(() => {
+    if (queued.length === 0 || queued[0].viewport.pointerBusy()) {
+      if (queued.length === 0) forgetQueued()
+      return
+    }
+    for (const { viewport, req } of queued.splice(0)) {
+      try {
+        show(viewport, req)
+      } catch {
+        // The window moved on while the person had the button down: there is nothing left to show.
+      }
+    }
+    forgetQueued()
+  }, 100)
+}
+
+function forgetQueued(): void {
+  clearInterval(waiting)
+  waiting = undefined
 }
 
 /**
@@ -343,6 +390,8 @@ export function connectAgent(viewport: Pick<Viewport, 'setView' | 'getCamera' | 
       throw new Error('the 3D view is not there')
     }
     seeing = null
+    queued.length = 0
+    forgetQueued()
     offShow()
     offHighlight()
     offSaveView()

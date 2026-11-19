@@ -62,8 +62,9 @@ exported page carries no groups yet, so it draws apart part by part.
 ## Explode (`app/src/main`)
 
 - **The agent.** `look` takes `explode` (a number, or `{amount, axis,
-  scale}`; absent is as on screen for the layout on screen, `null` or `0`
-  together); `show` sets it for now. What is nearly an explode is refused
+  scale}`; absent is together, but in a picture of the person's own camera
+  (`view` absent or `current`), where it is as on screen for the layout on
+  screen; `null` or `0` together); `show` sets it for now. What is nearly an explode is refused
   with what one is (`explodeAsked`, exported for `save_view`): an amount
   outside 0 to 1 (a percentage), a scale outside its range, an axis that is
   none, a key it does not take. Only a file and the window's own report are

@@ -8,6 +8,8 @@ import { type ScanInfo, alignmentOf } from '../../shared/scans'
 import { alignmentSaid } from '../scans/said'
 
 /** Marks the note of a mark the last build moved off its surface, or left without its part. */
+/** What a resolved mark says of the move of what it was on: the edit it asked for, as expected. */
+const MOVED_AS_ASKED = ' [moved since it was placed, as expected after an edit]'
 const ANCHOR_SUFFIX = { ok: '', drifted: ' [moved since it was placed: check it]', orphaned: ' [its part is gone]' } as const
 
 export { number }
@@ -67,13 +69,13 @@ export function sizes(v: readonly number[]): string {
  * on show, or the one a tool was asked in) puts it (`region`): that takes the
  * `scans` of the object, and without them it has no place.
  */
-export function describeMark(mark: Mark, opts: { tag?: string; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene; /** The slugs of the project's named sets: with them, a label of a set that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is not there says it was removed. */ tracings?: readonly string[]; /** The revision of each layer of the project's tracings, by `T1/2` (`layerRevisions`): an offset on a layer that has changed since says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up, by id (`lineupsOf`): a mark put on the photo says it, and an offset is `from the photo` only where there is one. */ lineups?: Readonly<Record<string, string>> } = {}): string {
+export function describeMark(mark: Mark, opts: { tag?: string; /** Said as the mark is resolved: a move since it was placed is information, the edit it asked for, not a doubt to check. */ resolving?: boolean; revision?: number; layout?: string; scans?: readonly ScanInfo[]; /** The last build's scene: with it, what is nothing within the part the mark is on is told as 0. */ scene?: Scene; /** The slugs of the project's named sets: with them, a label of a set that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is not there says it was removed. */ tracings?: readonly string[]; /** The revision of each layer of the project's tracings, by `T1/2` (`layerRevisions`): an offset on a layer that has changed since says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up, by id (`lineupsOf`): a mark put on the photo says it, and an offset is `from the photo` only where there is one. */ lineups?: Readonly<Record<string, string>> } = {}): string {
   const tags = [mark.author === 'agent' ? 'yours' : '', opts.tag ?? ''].filter(Boolean).join(', ')
   const note = mark.note.replace(/\s+/g, ' ').trim()
   const unchecked = isUnchecked(mark, opts.revision) ? ` [not checked against r${opts.revision}]` : ''
   // A dimension that lost its part says so in place of its value, not after its note.
   // So does a region that lost its scan: it is on no part.
-  const suffix = mark.kind === 'region' ? regionDoubt(mark, opts) : mark.kind === 'dimension' && mark.anchorState === 'orphaned' ? '' : ANCHOR_SUFFIX[mark.anchorState]
+  const suffix = mark.kind === 'region' ? regionDoubt(mark, opts) : mark.kind === 'dimension' && mark.anchorState === 'orphaned' ? '' : mark.anchorState === 'drifted' && opts.resolving ? MOVED_AS_ASKED : ANCHOR_SUFFIX[mark.anchorState]
   across = extentOf(mark, opts.scene)
   try {
     // A note is said as the person made it: what it holds, then the build it was drawn on.

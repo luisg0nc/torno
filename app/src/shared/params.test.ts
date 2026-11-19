@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assumedKey, assumedLine, sourceCount, sourceOf } from './params'
+import { assumedKey, assumedLine, sourceCount, sourceOf, whyUnsaid } from './params'
 import type { Param } from './scene'
 
 const p = (name: string, def: unknown, doc: string | null): Param => ({ name, type: 'float', default: def, literal: true, doc })
@@ -25,14 +25,29 @@ describe('sourceOf', () => {
   })
 })
 
+describe('whyUnsaid', () => {
+  it.each([
+    [null, 'no comment'],
+    ['  ', 'no comment'],
+    ['wall of the tub', 'its comment does not begin with a source word and a colon (brief: …)'],
+    ['guess: maybe', '"guess" is not a source word (brief, mark, scan, ref, object, datasheet, person, derived, assumed)'],
+    ['brief: 60 mm', '']
+  ])('%s: %s', (doc, why) => expect(whyUnsaid(doc)).toBe(why))
+  it('names each field in the line, with its reason, and cuts a long list', () => {
+    const many = Array.from({ length: 10 }, (_, n) => p(`f${n}`, n, 'guess: x'))
+    expect(assumedLine([p('wall', 2, 'assumed: x'), p('fit', 0.2, 'maybe: y'), ...many.slice(0, 1)])).toContain('no source: 2 (fit: "maybe" is not a source word')
+    expect(assumedLine([p('wall', 2, 'assumed: x'), ...many])).toMatch(/no source: 10 \(f0: .*; f7: .*; and 2 more\)$/)
+  })
+})
+
 describe('assumedLine', () => {
   const params = [p('wall', 2, 'assumed: x'), p('lip', 3, 'assumed: y'), p('w', 60, 'brief: z'), p('a', 1, null), p('name', 'x', null), p('flag', true, null)]
   it('counts only sizes', () => {
     expect(sourceCount(params).sizes).toBe(4)
-    expect(assumedLine(params)).toBe('Assumed: wall 2, lip 3 (2 of 4 sizes); no source: 1')
+    expect(assumedLine(params)).toBe('Assumed: wall 2, lip 3 (2 of 4 sizes); no source: 1 (a: no comment)')
   })
   it('says nothing when all have a source', () => expect(assumedLine([p('w', 60, 'brief: z')])).toBe(''))
-  it('says only the unsaid when none is assumed', () => expect(assumedLine([p('w', 60, 'brief: z'), p('a', 1, null)])).toBe('No source: 1 of 2 sizes'))
+  it('says only the unsaid when none is assumed', () => expect(assumedLine([p('w', 60, 'brief: z'), p('a', 1, null)])).toBe('No source: 1 of 2 sizes (a: no comment)'))
   it('keys change with the set', () => {
     expect(assumedKey(params)).toBe(assumedKey([...params]))
     expect(assumedKey(params)).not.toBe(assumedKey(params.slice(1)))

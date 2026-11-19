@@ -81,7 +81,7 @@ const lookInput = {
   explode: explodeInput
     .nullable()
     .optional()
-    .describe(`How far apart the parts are drawn in the picture: ${explodeHelp} The caption says when a picture is exploded. null or 0 draws them together. Default: as on the user's screen. Not with a section.`),
+    .describe(`How far apart the parts are drawn in the picture: ${explodeHelp} The caption says when a picture is exploded. null or 0 draws them together. Default: together, except in a picture of the user's own camera (view 'current', or none), which draws them as they have them. Not with a section.`),
   focus: focusInput.optional().describe(`${focusHelp} The camera looks at it from the side that view names (front, iso, …, or a camera's direction; default: the way the user's camera looks) and stands where it takes in the box and its margin: a detail with the picture's whole resolution. The caption says what was framed, and when the middle of it is hidden behind other parts. The parts are drawn together. Not with the name of a saved view.`),
   margin: marginInput.optional().describe(marginHelp)
 }

@@ -398,7 +398,7 @@ test('a dimension between two parts drawn apart is drawn dashed between them, sa
   // Its value is the kernel's, of the parts as built: the same as before, in the store and to the agent.
   expect(((await state()).marks.find((mark) => mark.id === id) as Extract<Mark, { kind: 'dimension' }>).value).toBe(value)
   // And a picture of the view says which mark is drawn so, as what the agent is shown does.
-  const look = await call('look', { view: 'iso' })
+  const look = await call('look', { view: 'current' })
   expect(caption(look)).toContain(`${id} spans parts drawn apart: it is drawn dashed between them, as long as they are apart, which measures nothing`)
   if (pictures) writeFileSync(join(pictures, 'exploded-spanning.png'), Buffer.from(look.content.find((block) => block.type === 'image')!.data!, 'base64'))
   expect((await call('show', { view: 'iso' })).text).toContain(`${id} spans parts drawn apart`)
