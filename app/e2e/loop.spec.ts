@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { letGoText } from '../src/shared/build'
 import type { Camera, LookRequest, LookResult, ViewState } from '../src/shared/view'
-import { cardSection, openSection } from './helpers'
+import { benchTab, openSection } from './helpers'
 import { openListed, projectCard, projectCrumb } from './objects'
 
 // The whole loop through the window: choose an object, see its parts, change
@@ -52,9 +52,8 @@ const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window._
 const camera = (): Promise<Camera> => page.evaluate(() => window.__tornoTest!.camera())
 /** The layers listed in the Layers panel, which is opened first (a project is open). */
 async function layerNames(p: Page = page): Promise<(string | null)[]> {
-  // A project with no parts has the section's head say so and not open: nothing to list.
-  const parts = cardSection(p, 'Parts')
-  if ((await parts.count()) > 0 && (await parts.getAttribute('data-empty')) === null) await openSection(p, 'Parts')
+  // A model with one part and Params shows Parameters alone: no list of parts to read.
+  if ((await benchTab(p, 'Parts').count()) > 0) await openSection(p, 'Parts')
   return p.locator('[data-layer]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer')))
 }
 const status = (p: Page) => p.locator('[data-region="status"]')

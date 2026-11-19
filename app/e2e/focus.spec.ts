@@ -132,7 +132,7 @@ test('after each step of a session of work, P takes the pin tool', async () => {
   await page.getByRole('button', { name: 'Show post' }).click()
   await pinIsInHand('a part switched off and on')
   // Each section of the card's head pressed with the pointer: folded, then open.
-  for (const name of ['Parts', 'Scans', 'Marks'] as const) {
+  for (const name of ['Scans', 'Marks'] as const) {
     await cardSection(page, name).locator('.route-head-button').click()
     await pinIsInHand(`${name} head pressed`)
     await cardSection(page, name).locator('.route-head-button').click()

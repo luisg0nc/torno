@@ -1008,6 +1008,7 @@ test("add_mark with a dimension leaves a check of the agent's that the user sees
   expect(marks[0]).toMatchObject({ id: 'M1', kind: 'dimension', author: 'agent', status: 'sent', anchorState: 'ok', measure: 'diameter', value: 8, expected: 8.4, tolerance: 0.1, verdict: 'fail', measuredRevision: 1, a: { ref: hole.ref } })
   expect(marks[1]).toMatchObject({ id: 'M2', author: 'agent', status: 'sent', anchorState: 'ok', value: 6, verdict: 'pass', a: { ref: top.ref }, b: { ref: bottom.ref } })
   // Under Checks: M1 shows as the agent's (its row and its chip say so) and fails; M2 passes.
+  await openSection(page, 'Checks')
   const row = page.locator('.check-row[data-check-mark="M1"]')
   await expect(row).toHaveAttribute('data-author', 'agent')
   await expect(row.locator('.mark-chip')).toHaveAttribute('data-author', 'agent')

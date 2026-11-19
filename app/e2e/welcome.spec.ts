@@ -416,9 +416,10 @@ async function readyLine(window: Page, id: string) {
   return window.locator(`.ready-line[data-line="${id}"]`)
 }
 
+// One launch at a time, each closed before the next: three Electron instances at once (the file's own and two more) is
+// more than a CI runner with software GL closes in time, and the test timed out in `close()`, not in a check.
 test('the first screen says Claude Code is found, or that it is not on the PATH, before anything is tried', async () => {
   const found = await launch()
-  const lost = await launch({ TORNO_AGENT_CMD: join(tmpdir(), 'torno-no-such-claude') })
   try {
     const here = await found.firstWindow()
     await expect(here.locator('.ready')).toBeVisible()
@@ -428,7 +429,12 @@ test('the first screen says Claude Code is found, or that it is not on the PATH,
     // The CLI was not run: nothing of its version or its account.
     await expect(claude).not.toContainText('version')
     await expect(claude).not.toContainText('signed in')
+  } finally {
+    await found.close()
+  }
 
+  const lost = await launch({ TORNO_AGENT_CMD: join(tmpdir(), 'torno-no-such-claude') })
+  try {
     const gone = await lost.firstWindow()
     const missing = await readyLine(gone, 'claude')
     await expect(missing).toHaveAttribute('data-tone', 'fail')
@@ -440,7 +446,6 @@ test('the first screen says Claude Code is found, or that it is not on the PATH,
     // The ways in are there all the same.
     await expect(gone.getByRole('button', { name: 'Open folder' })).toBeEnabled()
   } finally {
-    await found.close()
     await lost.close()
   }
 })

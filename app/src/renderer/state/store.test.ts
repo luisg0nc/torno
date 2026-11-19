@@ -1481,26 +1481,40 @@ describe('the session dock', () => {
 
 describe('the route card', () => {
   it('folds a section and unfolds it again; the window\'s, not an object\'s: another object or workspace leaves it as it is', () => {
-    expect(store.getState().column).toEqual({ folded: ['params', 'scans', 'tracings'], width: 296 })
-    actions.toggleSection('parts')
-    expect(store.getState().column.folded).toEqual(['parts', 'params', 'scans', 'tracings'])
+    expect(store.getState().column).toEqual({ folded: ['checks', 'scans', 'tracings'], width: 296 })
+    actions.toggleSection('marks')
+    expect(store.getState().column.folded).toEqual(['checks', 'marks', 'scans', 'tracings'])
     actions.openObject('gear', { layers: {} })
     actions.setWorkspace({ root: '/ws', hasProject: true, objects: [] })
-    expect(store.getState().column.folded).toContain('parts')
-    actions.toggleSection('parts')
-    expect(store.getState().column.folded).toEqual(['params', 'scans', 'tracings'])
-    actions.toggleSection('params')
+    expect(store.getState().column.folded).toContain('marks')
+    actions.toggleSection('marks')
+    expect(store.getState().column.folded).toEqual(['checks', 'scans', 'tracings'])
+    actions.toggleSection('checks')
     expect(store.getState().column.folded).toEqual(['scans', 'tracings'])
+    actions.toggleSection('checks')
+  })
+
+  it('keeps the open tab of the bench for each project, the window\'s, and none without a project open', () => {
+    store.setState({ objectId: null, benchTab: {} })
+    actions.setBenchTab('parts')
+    expect(store.getState().benchTab).toEqual({})
+    actions.openObject('gear', { layers: {} })
+    actions.setBenchTab('parts')
+    expect(store.getState().benchTab.gear).toBe('parts')
+    actions.openObject('hollow', { layers: {} })
+    expect(store.getState().benchTab.hollow).toBeUndefined()
+    expect(store.getState().benchTab.gear).toBe('parts')
+    store.setState({ benchTab: {} })
   })
 
   it('shows a section: unfolds it, and leaves an open one as it is', () => {
-    store.setState({ column: { folded: ['params', 'scans', 'tracings'], width: 296 } })
+    store.setState({ column: { folded: ['checks', 'scans', 'tracings'], width: 296 } })
     actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
+    expect(store.getState().column.folded).toEqual(['checks', 'tracings'])
     actions.showSection('scans')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
+    expect(store.getState().column.folded).toEqual(['checks', 'tracings'])
     actions.showSection('marks')
-    expect(store.getState().column.folded).toEqual(['params', 'tracings'])
+    expect(store.getState().column.folded).toEqual(['checks', 'tracings'])
   })
 
   it('keeps the width the person gave the card', () => {

@@ -14,7 +14,7 @@ import { type SavedView, MAX_VIEWS, TOO_MANY_VIEWS, cleanViewName, findView, own
 import { sameCamera, viewOnScreen } from './savedViews'
 import type { LayerSettings, SceneFile } from '../../shared/scenefile'
 import type { WorkspaceInfo } from '../../shared/workspace'
-import { type ColumnPrefs, type SectionId, SECTION_IDS as SECTION_ORDER, keptWidth, readColumn, storedColumn, windowStorage, writeColumn } from './column'
+import { type BenchKept, type BenchTab, type ColumnPrefs, type SectionId, readBench, storedBench, writeBench, SECTION_IDS as SECTION_ORDER, keptWidth, readColumn, storedColumn, windowStorage, writeColumn } from './column'
 import type { CompareMode, CompareState } from './compare'
 
 /** The agent session of an object. Its output is not here: it goes straight into the terminal. */
@@ -59,6 +59,8 @@ export interface TornoState {
   dockOpen: boolean
   /** Which sections of the route card are folded and how wide it is (`state/column.ts`). The window's, kept in its own storage. */
   column: ColumnPrefs
+  /** The open tab of the bench, for each project (`torno.bench`). */
+  benchTab: BenchKept
   /** The section of the route card in sight (found by the card's observer on the heads), which the card's own reading shows. Null while there is no card. */
   sectionHere: SectionId | null
   /** The last good scene of the open object, and the revision it is. */
@@ -210,6 +212,7 @@ export const store = createStore<TornoState>(() => ({
   sessions: {},
   dockOpen: true,
   column: readColumn(storedColumn(windowStorage())),
+  benchTab: readBench(storedBench(windowStorage())),
   sectionHere: null,
   page: 'object',
   exportOf: null,
@@ -745,6 +748,15 @@ export const actions = {
   /** Close the note that is open; its mark stays the active one. */
   closeNote(): void {
     if (store.getState().noting !== null) store.setState({ noting: null })
+  },
+
+  /** Opens a tab of the bench for the open project; the window keeps it for the next time. */
+  setBenchTab(tab: BenchTab): void {
+    const { objectId, benchTab } = store.getState()
+    if (objectId === null || benchTab[objectId] === tab) return
+    const next = { ...benchTab, [objectId]: tab }
+    store.setState({ benchTab: next })
+    writeBench(windowStorage(), next)
   },
 
   /** Folds a section of the route card to its head, or unfolds it. The window keeps it for the next time. */

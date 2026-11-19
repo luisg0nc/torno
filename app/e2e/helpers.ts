@@ -2,8 +2,6 @@ import { expect, type Locator, type Page } from '@playwright/test'
 
 /** The sections of the route card, by the name of their heads, and the id the card keeps each under (`data-section`). */
 const SECTION = {
-  Parts: 'parts',
-  Parameters: 'params',
   Checks: 'checks',
   Marks: 'marks',
   Scans: 'scans',
@@ -12,11 +10,27 @@ const SECTION = {
 
 export type SectionName = keyof typeof SECTION
 
+/** The bench's two tabs, which are no sections: Parameters and Parts. */
+const TABS = { Parts: 'parts', Parameters: 'params' } as const
+export type TabName = keyof typeof TABS
+
+/** A tab of the bench, by the name on it. */
+export const benchTab = (page: Page, name: TabName): Locator => page.locator(`[data-region="left"] .bench-tab[data-tab="${TABS[name]}"]`)
+
+/** Opens a tab of the bench with a click, as a person does. A tab the project does not have (a one-part model has Parameters alone) is no tab: the spec fails there. */
+export async function openTab(page: Page, name: TabName): Promise<void> {
+  const tab = benchTab(page, name)
+  await expect(tab).toBeVisible()
+  if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click()
+  await expect(tab).toHaveAttribute('aria-selected', 'true')
+}
+
 /** A section of the route card, whole: its head and its body. */
 export const cardSection = (page: Page, name: SectionName): Locator => page.locator(`[data-region="left"] [data-section="${SECTION[name]}"].route-section`)
 
 /** Brings a section into sight as a person does with no rail: the card is scrolled to it and its head is pressed if it is folded. It is unfolded afterwards. */
-export async function openSection(page: Page, name: SectionName): Promise<void> {
+export async function openSection(page: Page, name: SectionName | TabName): Promise<void> {
+  if (name === 'Parts' || name === 'Parameters') return openTab(page, name)
   const section = cardSection(page, name)
   await expect(section).toBeVisible()
   await section.scrollIntoViewIfNeeded()
