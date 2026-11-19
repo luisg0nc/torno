@@ -26,10 +26,11 @@ export type KeyContext = 'Everywhere' | 'Viewport' | 'With a tool in hand' | 'Wi
  * - `page`: on the page of objects; `filter`: in its field. `newobject`: on the page of a new object.
  * - `session`: in the terminal. `composer`: in the box a chat prompt is written in. `ask`: on a card of the chat that asks the person. `picture`: while a picture of the
  *   chat is shown large. `separator`: on the edge of the session pane, or the line above the marks.
+ * - `bench`: on a tab of the bench (Parameters, Parts).
  * - `field`, `menu`, `sheet`: in a field, an open menu, a sheet or a question.
  * - `dev`: under the dev server only.
  */
-export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'sketch' | 'shape' | 'compare' | 'tracing' | 'lineup' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'field' | 'menu' | 'sheet' | 'dev'
+export type KeyScope = 'global' | 'window' | 'viewport' | 'measure' | 'section' | 'align' | 'region' | 'sketch' | 'shape' | 'compare' | 'tracing' | 'lineup' | 'page' | 'filter' | 'newobject' | 'session' | 'composer' | 'ask' | 'picture' | 'separator' | 'leftedge' | 'bench' | 'field' | 'menu' | 'sheet' | 'dev'
 
 /**
  * The palette's tools, in the order of their groups (`TOOL_GROUPS` in `renderer/state/tools.ts`): those that inspect
@@ -118,10 +119,12 @@ export function capsOf(keys: readonly string[]): string[] {
 
 const ROWS = [
   row('keys', ['?'], 'This sheet of keys, outside a field and the terminal', 'Everywhere', 'window'),
+  row('params.find', ['/'], 'Find a value: to the find box of the Parameters tab, opening the tab', 'Viewport', 'viewport'),
   row('session.focus', ['Ctrl+`'], 'To the session, and from it back to the view', 'Everywhere', 'global'),
   row('region.next', ['F6'], 'To the next part of the window: projects, view, session, status line', 'Everywhere', 'global'),
   row('region.previous', ['Shift+F6'], 'To the part before', 'Everywhere', 'global'),
   row('dock.toggle', ['Ctrl+Shift+D'], 'Show or hide the session pane', 'Everywhere', 'global'),
+  row('column.toggle', ['Ctrl+Shift+L'], 'Show or hide the left column: the Parameters and Parts bench', 'Everywhere', 'global'),
   row('export', ['Ctrl+Shift+E'], 'Export to one HTML file, or to STEP, STL or 3MF: the open project, or from the page of projects any of them', 'Everywhere', 'global'),
   row('rebuild', ['Ctrl+Shift+B'], 'Rebuild: build the open project again, as the button in the status line does', 'Everywhere', 'global'),
   row('reload', ['F5', 'Ctrl+R'], 'Reload the window, under the dev server only', 'Everywhere', 'dev', true),
@@ -135,6 +138,7 @@ const ROWS = [
   row('marks.review', ['H'], 'Review this build: start a round, to mark what you do not want and what you want, and send it at once', 'Viewport', 'window'),
   row('review.dont', ['-'], 'Review: new marks are what you do not want; again, plain', 'Viewport', 'window'),
   row('review.want', ['=', '+'], 'Review: new marks are what you want; again, plain', 'Viewport', 'window'),
+  row('picker.open', ['Ctrl+P'], 'Find a part or a value: the picker, over the view. Enter takes the one chosen: a part is selected and brought into view, a value is shown in the Parameters tab', 'Viewport', 'window'),
   row('set.make', ['Ctrl+G'], 'Name the selected faces, edges, parts or strokes as a set', 'Viewport', 'window'),
   row('compare.end', ['Esc'], 'Compare: back to the live build, before any other step back', 'Viewport', 'compare'),
   row('escape', ['Esc'], 'Step back: what is under way, then the tool in hand, then the selection', 'Viewport', 'viewport'),
@@ -218,6 +222,8 @@ const ROWS = [
   row('chat.close', ['Esc'], 'Chat: put away a picture shown large', 'Session', 'picture'),
   row('dock.resize', ['Left', 'Right'], 'On the edge of the session pane: wider or narrower', 'Session', 'separator'),
 
+  row('bench.next', ['Right'], 'On a tab of the bench: the next tab', 'Everywhere', 'bench'),
+  row('bench.previous', ['Left'], 'On a tab of the bench: the tab before', 'Everywhere', 'bench'),
   row('left.resize', ['Left', 'Right'], 'On the edge of the card: narrower or wider', 'Session', 'leftedge'),
 
   row('field.keep', ['Enter'], 'Field: keep what was typed', 'In a field, a menu or a sheet', 'field'),
@@ -227,6 +233,10 @@ const ROWS = [
   row('menu.previous', ['Up', 'Left'], 'Menu: the one before', 'In a field, a menu or a sheet', 'menu'),
   row('menu.ends', ['Home', 'End'], 'Menu: the first or the last', 'In a field, a menu or a sheet', 'menu'),
   row('menu.close', ['Esc', 'Tab'], 'Menu: close it', 'In a field, a menu or a sheet', 'menu'),
+  row('picker.next', ['Down'], 'Picker: the next row', 'In a field, a menu or a sheet', 'sheet'),
+  row('picker.previous', ['Up'], 'Picker: the row before', 'In a field, a menu or a sheet', 'sheet'),
+  row('picker.only', ['Alt+Enter'], 'Picker: show only the part chosen', 'In a field, a menu or a sheet', 'sheet'),
+  row('picker.hide', ['Alt+H'], 'Picker: hide the part chosen, or show it again', 'In a field, a menu or a sheet', 'sheet'),
   row('sheet.close', ['Esc'], 'Sheet or question: put it away', 'In a field, a menu or a sheet', 'sheet'),
   row('board.undo', ['Ctrl+Z'], 'Drawing board (a doodle, or a drawing on the view): undo the last stroke', 'In a field, a menu or a sheet', 'sheet'),
   row('board.straight', ['Shift'], 'Drawing board: hold Shift while drawing for a straight line from where the stroke began', 'In a field, a menu or a sheet', 'sheet'),

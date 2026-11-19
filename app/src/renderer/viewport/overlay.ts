@@ -65,6 +65,11 @@ export function projectToPane(p: Vec3): Pt | null {
   return pane ? pane.project(p) : null
 }
 
+/** A point of the object frame on what a ref names (`refPoint`), whether or not it is seen; null where nothing is drawn for it or with no view. */
+export function refAt(ref: string): Vec3 | null {
+  return pane?.refPoint?.(ref) ?? null
+}
+
 /** Where what a ref names is drawn, in pixels from the top left of the view; null when it is not drawn, is behind a part or is off the view. */
 export function refInPane(ref: string): Pt | null {
   if (!pane?.refPoint) return null

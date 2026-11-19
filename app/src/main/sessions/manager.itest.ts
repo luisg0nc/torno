@@ -2812,14 +2812,15 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(await post('Stop', {})).toEqual({ decision: 'block', reason: 'The build after r2 failed: NameError: x. Fix it, or say it is still broken.' })
   })
 
-  it('answers an edit of common/ and of a file the build imports, as one of the project\'s own, and an edit of any other file with nothing', async () => {
+  it('answers an edit of common/ as one of the project\'s own, an edit of any other file with nothing, and refuses a write of a file of another project even when the build imports it', async () => {
     const { obj, edit, post } = await begun({ grace: 200, uses: ['other/helper.py'] })
     const root = dirname(obj.dir)
-    for (const file of [join(root, 'common', 'shared.py'), join(root, 'other', 'helper.py')]) {
-      await post('PreToolUse', { tool_name: 'Write', tool_use_id: 'toolu_1', tool_input: { file_path: file } })
-      builds(obj.id, 1, 2)
-      expect(await edit(file, 'Write')).toEqual(context('r2 ok'))
-    }
+    const file = join(root, 'common', 'shared.py')
+    expect(await post('PreToolUse', { tool_name: 'Write', tool_use_id: 'toolu_1', tool_input: { file_path: file } })).toEqual({})
+    builds(obj.id, 1, 2)
+    expect(await edit(file, 'Write')).toEqual(context('r2 ok'))
+    const denied = await post('PreToolUse', { tool_name: 'Write', tool_use_id: 'toolu_2', tool_input: { file_path: join(root, 'other', 'helper.py') } })
+    expect(denied.hookSpecificOutput).toMatchObject({ hookEventName: 'PreToolUse', permissionDecision: 'deny' })
     expect(await edit(join(root, 'other', 'unrelated.py'), 'Write')).toEqual({})
   })
 
@@ -3081,6 +3082,54 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(readFileSync(join(obj.dir, 'part.py'), 'utf8')).toBe('x = 1\ny = 2')
     const hooked = messages.filter((m) => m.type === 'system' && m.subtype === 'hook_response' && m.hook_event !== 'UserPromptSubmit').map((m) => `${m.hook_event}: ${m.output}`)
     expect(hooked).toEqual(['PostToolUse: r3 ok', `Stop: ${UNLOOKED(3).reason}`])
+  })
+
+  it('refuses a Write or Edit of the stand-in outside the project and the workspace\'s common/, with a reason it reads, and lets the project\'s own files and common/ through', async () => {
+    states = new Map()
+    own = recording(await startHttp())
+    const server = own
+    made = new Sessions({
+      configDir,
+      http: server,
+      adapter: claudeAdapter(`node ${FAKE}`),
+      viewFor: () => 'chat',
+      contextFor: () => ({ text: '', sentMarkIds: [] }),
+      systemPromptFor: () => '',
+      mcpUrlFor: (id) => server.url(`/mcp/${id}`)
+    })
+    others.push(made)
+    n += 1
+    const obj = object(`reach-a-${n}`)
+    const sibling = object(`reach-b-${n}`)
+    mkdirSync(join(root, 'common'), { recursive: true })
+    writeFileSync(join(sibling.dir, 'part.py'), 'W = 1\n')
+    writeFileSync(join(root, 'common', 'shared.py'), 'W = 1\n')
+    const messages: StreamMessage[] = []
+    made.on('stream', (m) => messages.push(m.message))
+    const { sessionId } = await made.start(obj, {})
+    const script = [
+      'write own.py x = 1',
+      `write ../${sibling.id}/new.py x = 1`,
+      `edit ../${sibling.id}/part.py "W = 1" "W = 2"`,
+      `write ../top-${n}.py x = 1`,
+      `write ../newfolder-${n}/model.py x = 1`,
+      'edit ../common/shared.py "W = 1" "W = 2"',
+      'write .torno/marks.json {}'
+    ].join('\n')
+    made.prompt(sessionId, [{ type: 'text', text: script }])
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 10_000 }).toBe(1)
+    expect(readFileSync(join(obj.dir, 'own.py'), 'utf8')).toBe('x = 1')
+    expect(readFileSync(join(root, 'common', 'shared.py'), 'utf8')).toBe('W = 2\n')
+    expect(existsSync(join(sibling.dir, 'new.py'))).toBe(false)
+    expect(readFileSync(join(sibling.dir, 'part.py'), 'utf8')).toBe('W = 1\n')
+    expect(existsSync(join(root, `top-${n}.py`))).toBe(false)
+    expect(existsSync(join(root, `newfolder-${n}`))).toBe(false)
+    const results = messages.flatMap((m) => (m.type === 'user' ? (m.message as { content: { content?: string; is_error?: boolean }[] }).content : []))
+    const refused = results.filter((r) => r.is_error)
+    expect(refused).toHaveLength(5)
+    expect(refused.slice(0, 4).every((r) => String(r.content).includes(`works on the project in ${obj.dir}`))).toBe(true)
+    expect(refused[4].content).toContain('Use add_mark and resolve_mark instead')
+    expect(existsSync(join(obj.dir, '.torno', 'marks.json'))).toBe(false)
   })
 
   it('reads an Edit of the stand-in, and puts the build it started under the edit as data: how long a good one took, the last line of what a failed one said', async () => {

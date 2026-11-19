@@ -62,6 +62,8 @@
 //       edit <file> <old> <new>   an `Edit` tool, the same way: `tool_input` has `file_path` (absolute), `old_string` and
 //                                 `new_string`, and between the hooks `old` is replaced by `new` in the file, once (the
 //                                 words are bare, or JSON strings when they hold a space: `edit part.py "W = 2" "W = 3"`)
+//                                 (a `PreToolUse` answered with `permissionDecision: deny` writes nothing: the tool's result
+//                                 is the reason, an error, as the CLI says it)
 //       retry <attempt> [<s>]     a `system`/`api_retry` at that attempt, as the CLI says while the API is retried, then
 //                                 nothing for that many seconds (the next thing it says is the API's answer)
 //       deny <name> <json input>  a permission the CLI denied by itself (no ask): it is in the `permission_denials` of the
@@ -310,7 +312,14 @@ async function streamMode() {
     const id = next('toolu')
     out(message([{ type: 'tool_use', id, name, input }]))
     const hooked = { tool_name: name, tool_use_id: id, tool_input: input }
-    await post('PreToolUse', hooked)
+    const asked = await post('PreToolUse', hooked)
+    if (asked?.hookSpecificOutput?.permissionDecision === 'deny') {
+      // Refused by the hook: the file is not changed, and the tool's result is the reason, as the CLI says it.
+      out({ type: 'user', message: { role: 'user', content: [{ tool_use_id: id, type: 'tool_result', content: asked.hookSpecificOutput.permissionDecisionReason ?? 'denied', is_error: true }] }, ...base, uuid: next('uuid') })
+      turn.foldable = false
+      await takeFolded()
+      return
+    }
     const { response, result, isError } = change(input.file_path)
     const answered = await post('PostToolUse', { ...hooked, tool_response: response })
     const context = answered?.hookSpecificOutput?.additionalContext

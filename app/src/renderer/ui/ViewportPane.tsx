@@ -15,13 +15,14 @@ import { newCut } from '../../shared/cut'
 import { partsNamed } from '../../shared/groups'
 import { actions, layerOf, explodeNow, partsInLayout, store, useStore, visibleKeys, type TornoState } from '../state/store'
 import { isLive } from '../state/compare'
-import { useBoard } from '../state/board'
+import { inModel, useBoard } from '../state/board'
 import { drivenRefs, drivesStore } from '../state/drives'
 import { isStrokeRef, litSet, setsStore } from '../state/sets'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
 import { pointerMoved } from '../state/step'
 import { endReplace, setTool, toolStore, type ToolName } from '../state/tools'
+import { tyingActions, tyingStore } from '../state/tying'
 import { alignTool, connectAlign } from '../tools/alignTool'
 import { arrowTool } from '../tools/arrowTool'
 import { connectSketching, sayRefusal, sketchTool } from '../tools/sketchTool'
@@ -49,6 +50,7 @@ import { ScanReadSheet } from './ScanReadSheet'
 import { NotePopover } from './NotePopover'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionTag } from './SectionTag'
+import { HandTag } from './view/HandTag'
 import { inkPicture } from './tracings/inkPicture'
 import { connectTracings3D } from '../state/tracingsIn3d'
 import { ToolHint } from './ToolHint'
@@ -284,8 +286,10 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       const s = store.getState()
       const mark = s.marks.find((m) => m.id === id)
       if (!mark || !s.objectId) return
-      // Its row opens, in view; the camera stays: the person is looking at it.
-      goToRow(id)
+      // While a size is being tied a dimension's chip is the one to tie it to (main says why when it cannot).
+      if (mark.kind === 'dimension' && tyingStore.getState().tying?.objectId === s.objectId) return void tyingActions.tieTo(id)
+      // It becomes the active mark; the camera stays and so does the view: the person is looking at it (its row is on the Brief page).
+      goToRow(id, false)
       // A mark of the person's not yet sent: its note opens beside it, to be written; a 3D sketch of theirs opens in Draw instead, where its comment is.
       if (mark.author === 'user' && mark.status === 'draft') {
         if (mark.kind === 'sketch') void editSketch(mark)
@@ -348,6 +352,11 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     // No tool but Select is handed a key either while the parts are drawn apart: a key measures and keeps as a press does.
     const handed = tool && (tool.id === 'select' || (explodeNow(store.getState()) === null && !viewport.exploded())) ? tool : undefined
     if (handed?.onKey?.(e, context())) return e.preventDefault()
+    // A size being tied is let go of with the tool (Esc with a measurement held was the tool's, above): the brief it came from is shown.
+    if (pressed(e, 'escape') && tyingStore.getState().tying) {
+      tyingActions.end()
+      return e.preventDefault()
+    }
     if (!pressed(e, 'escape') || toolStore.getState().tool === 'select') return
     setTool('select')
     e.preventDefault()
@@ -761,7 +770,7 @@ export function ViewportPane() {
   // Under the page of objects or of a new object the view stays as it is, and takes neither the pointer nor the keys.
   const covered = useStore((s) => s.page !== 'object')
   // The board or a tracing shown in its place: the view stays mounted, so nothing is built again on the swap, but it draws nothing meanwhile.
-  const boardShown = useBoard((s) => s.shown !== 'model')
+  const boardShown = useBoard((s) => !inModel(s.shown))
   useEffect(() => {
     if (viewport) viewport.paused = boardShown
   }, [viewport, boardShown])
@@ -829,6 +838,7 @@ export function ViewportPane() {
           <LeftOutTags />
           <ToolPalette />
           <SectionTag viewport={viewport} />
+          <HandTag />
           <SketchPlaneTag viewport={viewport} />
           {/* The tags of Measure's last reading and of Explode, tied to the line and the track. */}
           <MeasureTag />

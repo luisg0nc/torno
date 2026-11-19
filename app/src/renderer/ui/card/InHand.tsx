@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react'
 import { hint } from '../../../shared/keys'
 import { useReview } from '../../state/review'
+import { useStore } from '../../state/store'
+import { useTying } from '../../state/tying'
 import { useSketching } from '../../state/sketching'
 import { useTool } from '../../state/tools'
-import { setActions, useSets } from '../../state/sets'
+import { useSets } from '../../state/sets'
 import { numbered } from '../numbered'
 import { MakeSet, useSetKeys } from '../sets/MakeSet'
 import { RoundPanel } from '../review/RoundPanel'
-import { type HandRef, useSelection } from '../Selection'
+import type { HandRef } from '../Selection'
 import { SketchPanel } from '../sketch/SketchPanel'
 import { headKind, moreRefs, pickedSaid, SHOWN_REFS, type HeadKind } from './headKind'
 
@@ -24,20 +26,28 @@ export interface HandViewProps {
   noting: boolean
   /** The box that names a set, under the refs, while one is being named. */
   naming?: ReactNode
+  /** What is on the part in hand (`onItSaid`): `M9 fails, M7 M8 hold`; empty or absent when nothing is. */
+  onIt?: string
+  /** The selection has parts to hide or show alone. */
+  canHide?: boolean
   /** What fills the head while it holds the sketch or the review round: their panels. The selection is not shown meanwhile. */
   children?: ReactNode
   onInsert?(): void
   onNote?(): void
   onName?(): void
   onClear?(): void
+  onHide?(): void
+  onOnly?(): void
 }
 
 /**
- * The pure drawing of the head, so that it is the same from any state: "In hand", and under it what is in hand: nothing (what to
- * click), the picked refs and what can be done with them (with a set being named, its box under them). A sketch or a review round
- * in hand is the panel it is given (`children`), which has its own title: the selection is not drawn beside it.
+ * The pure drawing of what is in hand, so that it is the same from any state: "In hand", and under it the picked refs, what is on
+ * them (`onIt`) and what can be done with them (with a set being named, its box under them). Nothing in hand draws nothing: the
+ * selection is a tag by the part (`view/HandTag.tsx`), which stands only while something is picked. A sketch or a review round in
+ * hand is the panel it is given (`children`), which has its own title and takes the "On" block's place in the column: the
+ * selection is not drawn beside it.
  */
-export function HandView({ kind, refs, canInsert, stale, exploded, noting, naming, children, onInsert, onNote, onName, onClear }: HandViewProps) {
+export function HandView({ kind, refs, canInsert, stale, exploded, noting, naming, onIt, canHide, children, onInsert, onNote, onName, onClear, onHide, onOnly }: HandViewProps) {
   if (kind === 'sketch' || kind === 'review') {
     return (
       <section className="hand" data-kind={kind}>
@@ -47,6 +57,7 @@ export function HandView({ kind, refs, canInsert, stale, exploded, noting, namin
       </section>
     )
   }
+  if (kind === 'empty') return null
   const shown = refs.slice(0, SHOWN_REFS)
   const more = moreRefs(refs.length)
   const picking = (kind === 'selection' || kind === 'makeSet') && refs.length > 0
@@ -56,7 +67,6 @@ export function HandView({ kind, refs, canInsert, stale, exploded, noting, namin
         In hand
         {picking && <span className="hand-said">{numbered(pickedSaid(refs.length))}</span>}
       </h3>
-      {kind === 'empty' && <p className="hand-empty">Click a face, an edge or a part to hold it here.</p>}
       {picking && (
         <>
           <ul className="hand-refs">
@@ -68,6 +78,11 @@ export function HandView({ kind, refs, canInsert, stale, exploded, noting, namin
             ))}
             {more > 0 && <li className="hand-more">{numbered(`and ${more} more`)}</li>}
           </ul>
+          {onIt && (
+            <p className="hand-on">
+              On it: <span className="num">{numbered(onIt)}</span>
+            </p>
+          )}
           <div className="hand-acts">
             <button
               type="button"
@@ -88,6 +103,16 @@ export function HandView({ kind, refs, canInsert, stale, exploded, noting, namin
             >
               {refs.length === 1 ? 'Note' : 'Note each'}
             </button>
+            {canHide && (
+              <>
+                <button type="button" className="hand-act" title="Switch the part off in the view" onClick={() => onHide?.()}>
+                  Hide
+                </button>
+                <button type="button" className="hand-act" title="Show only the part" onClick={() => onOnly?.()}>
+                  Only this
+                </button>
+              </>
+            )}
             <button type="button" className="hand-act" aria-expanded={kind === 'makeSet'} title={`Name these as a set (${hint('set.make')})`} onClick={() => onName?.()}>
               Name a set <kbd className="num">{hint('set.make')}</kbd>
             </button>
@@ -120,25 +145,36 @@ export function HeadPanels({ kind, roundOpen }: { kind: HeadKind; roundOpen: boo
   )
 }
 
-/**
- * The head of the route card, pinned above its scroll: what is in your hand. What it holds is `headKind`'s: the sketch being drawn,
- * the review round whose panel is up, the selection with a set being named under it, or nothing. The Ctrl+G key of a set is heard
- * here, as long as the card is.
- */
-export function InHand() {
-  useSetKeys()
-  const hand = useSelection()
+/** What the head holds, from the window's state: a sketch being drawn, a round whose panel is up, a set being named, a selection, or nothing. */
+export function useHeadKind(): { kind: HeadKind; roundOpen: boolean } {
+  const refs = useStore((s) => s.selection.length)
   const making = useSets((s) => s.making)
   // A sketch is in hand while Draw is the tool and has one open (the panel says as much of itself); the round, while its panel is up.
   const drawing = useTool() === 'draw'
   const sketching = useSketching((s) => s.open !== null)
   const sketchOpen = drawing && sketching
   const roundOpen = useReview((s) => s.panel !== null && s.rounds.some((round) => round.id === s.panel))
-  const kind = headKind({ refs: hand.refs.length, sketchOpen, roundOpen, makingSet: making })
-  // With nothing in hand the head is not drawn: an empty "In hand" says only what to click.
-  if (kind === 'empty') return null
+  return { kind: headKind({ refs, sketchOpen, roundOpen, makingSet: making }), roundOpen }
+}
+
+/** Whether the column's head is something (the sketch, the round, a size being tied) and takes the "On" block's place. */
+export function useColumnHead(): boolean {
+  useSetKeys()
+  const { kind } = useHeadKind()
+  const tying = useTying((s) => s.tying)
+  return !!tying || kind === 'sketch' || kind === 'review'
+}
+
+/**
+ * What takes the "On hN" block's place at the top of the route card while it is there: the sketch being drawn or the review round
+ * whose panel is up (`headKind`). A selection is not here: it is a tag by the part (`view/HandTag.tsx`), so that picking something
+ * moves no row of the column. The Ctrl+G key of a set is heard here, as long as the card is.
+ */
+export function InHand() {
+  const { kind, roundOpen } = useHeadKind()
+  if (kind !== 'sketch' && kind !== 'review') return null
   return (
-    <HandView kind={kind} refs={hand.refs} canInsert={hand.canInsert} stale={hand.stale} exploded={hand.exploded} noting={hand.noting} naming={<MakeSet />} onInsert={hand.insert} onNote={hand.note} onName={() => setActions.startMake()} onClear={hand.clear}>
+    <HandView kind={kind} refs={[]} canInsert={false} stale={null} exploded={null} noting={false} naming={<MakeSet />}>
       <HeadPanels kind={kind} roundOpen={roundOpen} />
     </HandView>
   )

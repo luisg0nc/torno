@@ -23,6 +23,12 @@ describe('isInsideFolder', () => {
     expect(isInsideFolder(real, join(link, 'model.py'))).toBe(true)
     expect(isInsideFolder(link, join(real, 'sub', 'not-yet', 'new.py'))).toBe(true)
   })
+  it('takes a file or folder named with leading dots inside', () => {
+    expect(isInsideFolder(real, '..notes/model.py')).toBe(true)
+    expect(isInsideFolder(real, '...x.py')).toBe(true)
+    expect(isInsideFolder(real, '..')).toBe(false)
+    expect(isInsideFolder(real, '../x')).toBe(false)
+  })
   it('keeps a file outside outside', () => {
     expect(isInsideFolder(link, join(base, 'outside.py'))).toBe(false)
     expect(isInsideFolder(real, '../outside.py')).toBe(false)

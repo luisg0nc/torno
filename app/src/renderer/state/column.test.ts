@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CARD_DEFAULT, CARD_MAX, CARD_NARROW, clampLeft, COLUMN_DEFAULT, COLUMN_KEY, leftDefault, SECTION_IDS, VIEWPORT_MIN, readColumn, sectionsFor, storedColumn, writeColumn } from './column'
+import { benchTabs, readBench, tabShown, CARD_DEFAULT, CARD_MAX, CARD_NARROW, clampLeft, COLUMN_DEFAULT, COLUMN_KEY, leftDefault, VIEWPORT_MIN, readColumn, cardFor, storedColumn, writeColumn } from './column'
 
 /** A storage of the window, as the tests need it: what was written, and one that refuses. */
 function memory(start: Record<string, string> = {}): Storage & { data: Record<string, string> } {
@@ -27,13 +27,13 @@ const refusing = {
 } as unknown as Storage
 
 describe('the route card as the person keeps it', () => {
-  it('starts with Needs you, Parts, Checks and Marks open and the rest folded, at the default width', () => {
-    expect(COLUMN_DEFAULT).toEqual({ folded: ['params', 'scans', 'tracings'], width: 296 })
+  it('starts at the default width', () => {
+    expect(COLUMN_DEFAULT).toEqual({ width: 296 })
     expect(readColumn(null)).toEqual(COLUMN_DEFAULT)
     expect(readColumn('nope')).toEqual(COLUMN_DEFAULT)
   })
 
-  it('reads an old value ({ open, width }) as the default folding at its width', () => {
+  it('reads an old value ({ open, width }) for its width', () => {
     expect(readColumn('{"open":"marks","width":300}')).toEqual({ ...COLUMN_DEFAULT, width: 300 })
     expect(readColumn('{"open":null,"width":400}')).toEqual({ ...COLUMN_DEFAULT, width: 400 })
     // The older shape still: folded sections as an object, a marks height.
@@ -43,21 +43,21 @@ describe('the route card as the person keeps it', () => {
 
   it('reads back what was written, and nothing but the window keeps it', () => {
     const storage = memory()
-    writeColumn(storage, { folded: ['parts', 'marks'], width: 400 })
+    writeColumn(storage, { width: 400 })
     expect(Object.keys(storage.data)).toEqual([COLUMN_KEY])
-    expect(readColumn(storedColumn(storage))).toEqual({ folded: ['parts', 'marks'], width: 400 })
-    writeColumn(storage, { folded: [], width: 300 })
-    expect(readColumn(storedColumn(storage))).toEqual({ folded: [], width: 300 })
+    expect(readColumn(storedColumn(storage))).toEqual({ width: 400 })
+    writeColumn(storage, { width: 300 })
+    expect(readColumn(storedColumn(storage))).toEqual({ width: 300 })
   })
 
-  it('keeps the known sections of a folded list, once each and in the card\'s order', () => {
-    expect(readColumn('{"folded":["marks","history","marks","needs"],"width":300}')).toEqual({ folded: ['marks'], width: 300 })
+  it('leaves the folded sections of an earlier card out: there are none now', () => {
+    expect(readColumn('{"folded":["tracings","history","scans"],"width":300}')).toEqual({ width: 300 })
   })
 
   it('takes what it can of a value that is not its own, and the default for the rest', () => {
     expect(readColumn('[1, 2]')).toEqual(COLUMN_DEFAULT)
     expect(readColumn('{"folded":"all","width":"wide"}')).toEqual(COLUMN_DEFAULT)
-    expect(readColumn('{"folded":["scans"]}')).toEqual({ folded: ['scans'], width: CARD_DEFAULT })
+    expect(readColumn('{"folded":["scans"]}')).toEqual({ width: CARD_DEFAULT })
   })
 
   it('never throws for a storage that refuses: the window works without it', () => {
@@ -68,13 +68,12 @@ describe('the route card as the person keeps it', () => {
   })
 })
 
-describe('which sections the card has', () => {
-  it('has all six for an open project and none on a page, with a new project or with none open', () => {
-    expect(SECTION_IDS).toEqual(['parts', 'params', 'checks', 'marks', 'scans', 'tracings'])
-    expect(sectionsFor({ page: 'object', objectId: 'hollow' })).toEqual(SECTION_IDS)
-    expect(sectionsFor({ page: 'objects', objectId: 'hollow' })).toEqual([])
-    expect(sectionsFor({ page: 'new', objectId: 'hollow' })).toEqual([])
-    expect(sectionsFor({ page: 'object', objectId: null })).toEqual([])
+describe('whether the card is there', () => {
+  it('is for an open project, and away on a page, with a new project or with none open', () => {
+    expect(cardFor({ page: 'object', objectId: 'hollow' })).toBe(true)
+    expect(cardFor({ page: 'objects', objectId: 'hollow' })).toBe(false)
+    expect(cardFor({ page: 'new', objectId: 'hollow' })).toBe(false)
+    expect(cardFor({ page: 'object', objectId: null })).toBe(false)
   })
 })
 
@@ -105,5 +104,26 @@ describe('the width of the card', () => {
     expect(clampLeft(5000, 1600, 0)).toBe(1600 - VIEWPORT_MIN)
     expect(clampLeft(5000, 600, 420)).toBe(264)
     expect(clampLeft(5000, 1000, 420)).toBe(CARD_NARROW)
+  })
+})
+
+describe('the tabs of the bench', () => {
+  it('shows Parameters alone for a one-part model, Parts alone with no Params, both otherwise', () => {
+    expect(benchTabs(1, 22)).toEqual(['params'])
+    expect(benchTabs(4, 0)).toEqual(['parts'])
+    expect(benchTabs(1, 0)).toEqual(['parts'])
+    expect(benchTabs(4, 22)).toEqual(['params', 'parts'])
+  })
+  it('draws the tab kept if the project has it, else Parameters', () => {
+    expect(tabShown('parts', ['params', 'parts'])).toBe('parts')
+    expect(tabShown('parts', ['params'])).toBe('params')
+    expect(tabShown(undefined, ['params', 'parts'])).toBe('params')
+    expect(tabShown('params', ['parts'])).toBe('parts')
+  })
+  it('reads what was kept for each project and nothing else', () => {
+    expect(readBench(JSON.stringify({ hollow: 'parts', gear: 'params', odd: 'marks' }))).toEqual({ hollow: 'parts', gear: 'params' })
+    expect(readBench('nonsense')).toEqual({})
+    expect(readBench(null)).toEqual({})
+    expect(readBench('[1]')).toEqual({})
   })
 })

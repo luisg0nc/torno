@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { actions, runningSession, useStore } from '../state/store'
 import type { Param, ParamValue } from '../../shared/scene'
 import { insertIntoSession } from './insertIntoSession'
-import { pressed } from '../../shared/keys'
 import { giveKeysBack } from './typing'
 import { numbered } from './numbered'
 import { sourceCount } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
 import { Gauge } from './card/Gauge'
 import { driveNote, leave, restOn, useDrives } from '../state/drives'
+import { filterCounts, findParams, paramFind, PARAM_FILTERS, useParamFind } from '../state/paramFind'
+import { hint, pressed } from '../../shared/keys'
 
 /**
  * The model's `Params`, as the kernel read them at the last build: a row for each field, in the model's order, with
@@ -32,6 +33,8 @@ export function ParamsPanel() {
   const objectId = useStore((s) => s.objectId)
   const canInsert = useStore((s) => runningSession(s) !== undefined)
   const [problem, setProblem] = useState<string | null>(null)
+  const query = useParamFind((s) => s.query)
+  const filter = useParamFind((s) => s.filter)
   if (!params || params.length === 0) {
     return (
       <div className="section params">
@@ -45,8 +48,40 @@ export function ParamsPanel() {
     work.catch((e: unknown) => setProblem(e instanceof Error ? e.message : String(e)))
   }
   const these = changed.length === 1 ? 'it' : 'them'
+  const shown = findParams(params, query, filter)
+  const counts = filterCounts(params)
+  const searching = query.trim() !== '' || filter !== 'all'
   return (
     <div className="section params">
+      <div className="params-find">
+        <input
+          type="text"
+          className="params-find-input"
+          data-param-find=""
+          placeholder="Find a value"
+          aria-label="Find a value"
+          aria-keyshortcuts={hint('params.find')}
+          spellCheck={false}
+          autoComplete="off"
+          value={query}
+          onChange={(e) => paramFind.setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (pressed(e, 'field.leave')) {
+              if (query !== '') paramFind.setQuery('')
+              giveKeysBack(e.currentTarget)
+              e.stopPropagation()
+            } else if (pressed(e, 'field.keep')) giveKeysBack(e.currentTarget)
+          }}
+        />
+        <kbd className="params-find-key">{hint('params.find')}</kbd>
+      </div>
+      <div className="params-filters" role="group" aria-label="Show">
+        {PARAM_FILTERS.map(({ id, label }) => (
+          <button key={id} type="button" className="params-filter" aria-pressed={filter === id} onClick={(e) => { paramFind.setFilter(id); if (e.detail > 0) giveKeysBack(e.currentTarget) }}>
+            {label} <span className="num">{counts[id]}</span>
+          </button>
+        ))}
+      </div>
       <SourceCount params={params} />
       {changed.length > 0 && (
         <div className="params-tried" role="group" aria-label="Values you are trying">
@@ -76,7 +111,7 @@ export function ParamsPanel() {
         </p>
       )}
       <ul className="rows">
-        {params.map((param) => (
+        {shown.map((param) => (
           <ParamItem
             key={param.name}
             row={paramRow(param, dropped?.find((d) => d.name === param.name)?.reason ?? null)}
@@ -87,6 +122,11 @@ export function ParamsPanel() {
           />
         ))}
       </ul>
+      {searching && (
+        <p className="params-match" role="status">
+          {shown.length === 0 ? 'No field matches.' : numbered(`${shown.length} of ${params.length} match`)}
+        </p>
+      )}
     </div>
   )
 }

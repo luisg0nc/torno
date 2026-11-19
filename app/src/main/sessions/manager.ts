@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { dirname, join, resolve } from 'node:path'
 import { isInsideFolder, realPathOrNearest } from './inside'
+import { deniedAnswer, refusalOf } from './reach'
 import * as pty from 'node-pty'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import { type AgentChoice, agentChoiceOf, type ChatAnswer, type ChatCommand, type ChatHistory, type ChatItem, type ChatMeta, type ChatModel, type Effort, isEffort, type Mode } from '../../shared/chat'
@@ -1411,7 +1412,7 @@ export class Sessions {
     if (TOOL_EVENTS.has(event)) {
       this.advance(session, event)
       if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}`)
-      if (!this.deps.build) {
+      if (!this.deps.build && event !== 'PreToolUse') {
         req.resume()
         return sendJson(res, 200, {})
       }
@@ -1422,6 +1423,11 @@ export class Sessions {
         if (typeof parsed === 'object' && parsed !== null) tool = parsed as Record<string, unknown>
       } catch {
         return sendJson(res, 200, {})
+      }
+      if (event === 'PreToolUse') {
+        const reason = refusalOf(session.object.dir, typeof tool.tool_name === 'string' ? tool.tool_name : '', tool.tool_input)
+        if (reason) return sendJson(res, 200, deniedAnswer(reason))
+        if (!this.deps.build) return sendJson(res, 200, {})
       }
       return sendJson(res, 200, await this.toolHook(session, event, tool))
     }

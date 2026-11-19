@@ -167,16 +167,16 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
 
   // While the page of objects is up the sections of the card act on a view that is not there: the card is away.
   await openSection(page, 'Parts')
-  await expect(page.getByRole('region', { name: 'Parts' })).toBeVisible()
+  await expect(page.getByRole('tabpanel', { name: /Parts/ })).toBeVisible()
   await canvas().click({ position: { x: 5, y: 5 } })
   await page.keyboard.press('w')
   await expect.poll(async () => (await state()).page).toBe('objects')
-  await expect(page.getByRole('region', { name: 'Parts' })).toHaveCount(0)
+  await expect(page.getByRole('tabpanel', { name: /Parts/ })).toHaveCount(0)
   await expect(page.locator('[data-region="left"] .rail')).toHaveCount(0)
   await expect(page.locator('[data-region="left"] .route-card')).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).page).toBe('object')
-  await expect(page.getByRole('region', { name: 'Parts' })).toBeVisible()
+  await expect(page.getByRole('tabpanel', { name: /Parts/ })).toBeVisible()
 })
 
 test('the sheet of keys is a dialog: a click inside it keeps the keys in it, and it is counted aloud, not read out', async () => {
