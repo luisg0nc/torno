@@ -6,7 +6,7 @@ import { type Arrow, type BoardFile, type Card, MAX_BOARD_PICTURES, readingOrder
 import type { Mark } from '../../shared/marks'
 import type { Tracing } from '../../shared/tracings'
 import { BoardStore } from './store'
-import { type LiveFacts, boardLine, boardText, saysHash } from './text'
+import { BRIEF_LIMIT, type LiveFacts, boardLine, boardText, briefOf, saysHash } from './text'
 
 let n = 0
 const card = (over: Partial<Card> & Pick<Card, 'kind'>): Card => ({ id: `C${++n}`, x: 0, y: 0, w: 200, h: 100, by: 'person', ...over })
@@ -374,5 +374,53 @@ describe('the card of a tracing', () => {
     expect(same({ layers: [...t.layers, { id: 4, name: 'L4', colour: 'teal', by: 'agent', shapes: [], revision: 1 }] })).toContain('1 new')
     expect(same({ photo: { ...lined, scale: 5 } })).toContain('1 new')
     expect(same({ plane: { ...t.plane, label: 'XZ at y = 5.0 (u = +X, v = +Z)' } })).toContain('1 new')
+  })
+})
+
+describe('the brief: the sizes and the rules of the board', () => {
+  const size = (what: string, value: string, over: Partial<Card> = {}): Card => card({ kind: 'size', size: { what, value, unit: 'mm', source: 'measured' }, ...over })
+  const rules = card({ kind: 'frame', name: 'Rules' })
+  const rule = (text: string, over: Partial<Card> = {}): Card => card({ kind: 'text', text, frame: rules.id, ...over })
+
+  it('says each visible size and each text card of the Rules frame, and nothing of other cards', () => {
+    const b = board([size('battery tray', '186 x 128'), size('lid', '3', { hidden: true }), rules, rule('PETG, 0.4 mm nozzle\nno supports'), card({ kind: 'text', text: 'a loose note' })])
+    const brief = briefOf(b, (t) => `mcp__torno__${t}`)
+    expect(brief?.text).toBe("The person's brief: sizes: battery tray 186 × 128 mm (measured). Rules: PETG, 0.4 mm nozzle no supports. The board has the rest: read it with mcp__torno__board.")
+  })
+  it('is nothing for a board with no size and no rule', () => {
+    expect(briefOf(board([card({ kind: 'text', text: 'a note' })]))).toBeUndefined()
+    expect(briefOf(board([size('lid', '3', { hidden: true })]))).toBeUndefined()
+  })
+  it('keeps to its limit, by whole sizes and with the rest counted', () => {
+    const many = Array.from({ length: 40 }, (_, i) => size(`part number ${i} of the housing`, `${10 + i}`))
+    const brief = briefOf(board([...many, rules, rule('x'.repeat(2000))]))
+    expect(brief?.text.length).toBeLessThanOrEqual(BRIEF_LIMIT)
+    expect(brief?.text).toMatch(/and \d+ more/)
+    expect(brief?.text).toContain('part number 0 of the housing 10 mm (measured)')
+  })
+  it('changes its hash with a size, a rule or a unit, and not with a move or a resize', () => {
+    const s = size('lid', '3')
+    const base = briefOf(board([s, rules, rule('PLA')]))
+    expect(briefOf(board([{ ...s, x: 400, w: 90 }, rules, rule('PLA')]))?.hash).toBe(base?.hash)
+    expect(briefOf(board([{ ...s, size: { ...s.size!, value: '4' } }, rules, rule('PLA')]))?.hash).not.toBe(base?.hash)
+    expect(briefOf(board([s, rules, rule('PETG')]))?.hash).not.toBe(base?.hash)
+  })
+  it('is carried by the board line to a new conversation, and again only once it has changed', () => {
+    const s = size('lid', '3')
+    const b = board([s, rules, rule('PLA')])
+    const first = boardLine(b, {}, LIVE)
+    expect(first.brief).toContain('lid 3 mm (measured)')
+    expect(first.told.brief).toBeDefined()
+    // Told, and the next prompt of the same conversation does not say it again ...
+    expect(boardLine(b, first.told, LIVE).brief).toBeUndefined()
+    // ... but a new conversation or one after /clear does, whatever was told ...
+    expect(boardLine(b, first.told, LIVE, undefined, { again: true }).brief).toContain('lid 3 mm (measured)')
+    // ... and a size changed on the board is told at the next prompt.
+    const changed = boardLine(board([{ ...s, size: { ...s.size!, value: '4' } }, rules, rule('PLA')]), first.told, LIVE)
+    expect(changed.brief).toContain('lid 4 mm (measured)')
+    expect(changed.line).toContain('new: ')
+  })
+  it('is kept as told by a project that starts from it, so that its first prompt does not say it twice', () => {
+    expect(boardLine(board([size('lid', '3')]), {}, LIVE).told.brief).toBeDefined()
   })
 })

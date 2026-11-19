@@ -31,7 +31,7 @@ const STOP_HOOK_TIMEOUT_S = 25
 const HEADLESS = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-prompt-tool', 'stdio']
 
 /** The tools of torno's the reviewer may call: those that read the part. Not `show`, `resolve_mark`, `add_mark`. */
-const REVIEWER_TOOLS = ['scene', 'look', 'marks', 'measure', 'check', 'section', 'describe', 'diff', 'scans', 'scan_clash', 'scan_deviation']
+const REVIEWER_TOOLS = ['scene', 'look', 'marks', 'measure', 'check', 'section', 'describe', 'diff', 'scans', 'scan_clash', 'scan_deviation', 'board']
 
 /** The turns a review may take (`maxTurns` of the subagent): a project with many marks has no other bound. */
 const REVIEWER_MAX_TURNS = 20
@@ -58,7 +58,8 @@ export function reviewerAgents(toolName: (tool: string) => string, env: NodeJS.P
       prompt: [
         'You review a CAD part in torno and change nothing.',
         'Read brief.md in the project folder first, if there is one: it is the user’s own words. Then take the request you were given, what the user asked for.',
-        `Check the current build against both. Start with numbers: ${toolName('scene')} for the build status (a failed build is the first finding) and the scans, ${toolName('diff')} for what the last edit changed, every open mark with ${toolName('marks')} (was each acted on as its note asks?), and every dimension (does it pass on the latest build?). Where a scan is aligned, ${toolName('scan_clash')} and ${toolName('scan_deviation')} say how the part meets it; a scan is never exact.`,
+        `Then read the board with ${toolName('board')}: the sizes and rules there are the person's brief, and they change as the person edits them, so read it now and not from memory. Hold the build to every size (measure it) and every rule (a rule that numbers cannot settle is UNCHECKED, said so).`,
+        `Check the current build against all of it. Start with numbers: ${toolName('scene')} for the build status (a failed build is the first finding) and the scans, ${toolName('diff')} for what the last edit changed, every open mark with ${toolName('marks')} (was each acted on as its note asks?), and every dimension (does it pass on the latest build?). Where a scan is aligned, ${toolName('scan_clash')} and ${toolName('scan_deviation')} say how the part meets it; a scan is never exact.`,
         `Every number you state comes from ${toolName('measure')}, ${toolName('check')} or ${toolName('section')}, never from the mesh, a picture or the model’s source; say so when a value is approximate.`,
         `Then ${toolName('look')} at most twice, at the views that show the change, for what numbers cannot settle.`,
         'End with a list, one line each, that begins with HOLDS, FAILS or UNCHECKED, then the item (a mark, a dimension, a sentence of the brief), the number and the ref. UNCHECKED is never left out: say what you could not check, and why. No other summary, and never "mostly fine".',

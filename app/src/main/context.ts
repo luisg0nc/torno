@@ -19,6 +19,7 @@ import { assumedKey, assumedLine, triedLine } from '../shared/params'
 import { digestText, sanity } from './sanity'
 import { alignmentSaid, shownText } from './scans/said'
 import { type BuildVerdicts, verdictChanges } from './verdicts'
+import { BRIEF_LIMIT } from './board/text'
 import { TRACINGS_LIMIT, type TracingsLine } from './tracings/told'
 
 /** The most the agent is given with a prompt, in characters. */
@@ -223,7 +224,7 @@ export interface PromptContext {
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; /** The slugs of the project's named sets: a mark labelled with one that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is gone says so. */ tracings?: readonly string[]; /** The revision of each layer of the tracings (`layerRevisions`): an offset on a layer that has changed says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up (`lineupsOf`): a mark on the photo is told with it. */ lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; /** The one line of the project's tracings and what it will have told (`tracingsLine`), after the board's: at most TRACINGS_LIMIT characters. */ tracingsLine?: TracingsLine; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; /** The slugs of the project's named sets: a mark labelled with one that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is gone says so. */ tracings?: readonly string[]; /** The revision of each layer of the tracings (`layerRevisions`): an offset on a layer that has changed says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up (`lineupsOf`): a mark on the photo is told with it. */ lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; /** The brief of the board (`briefOf`), at most BRIEF_LIMIT characters, after the board's line: told to a new conversation and when it changed. */ brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; /** The one line of the project's tracings and what it will have told (`tracingsLine`), after the board's: at most TRACINGS_LIMIT characters. */ tracingsLine?: TracingsLine; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
   const { notice, ...rest } = opts
   const told = withBuild(deps, objectId, contextText(deps, objectId, marks, rest))
   return notice ? { ...told, text: told.text === '' ? notice : `${notice}\n${told.text}` } : told
@@ -258,7 +259,7 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; sets?: readonly string[]; tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; tracingsLine?: TracingsLine; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; sets?: readonly string[]; tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; tracingsLine?: TracingsLine; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
@@ -302,8 +303,10 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // The board's line, after the scans: one line of main's own, which keeps to its limit.
   const boarded = opts.buildOnly ? '' : cutEnd(opts.board ?? '', BOARD_LIMIT)
   // The tracings' line, after the board's: one line of main's own, which keeps to its limit.
+  // The brief, after the board's line: the person's sizes and rules, main's own line, which keeps to its limit.
+  const briefed = opts.buildOnly || !boarded ? '' : cutEnd(opts.brief ?? '', BRIEF_LIMIT)
   const tracked = opts.buildOnly ? '' : cutEnd(opts.tracingsLine?.line ?? '', TRACINGS_LIMIT)
-  const limit = told ? STATUS_LIMIT : CONTEXT_LIMIT - room(instructed) - room(selected) - room(scanned) - room(boarded) - room(tracked) - room(tried)
+  const limit = told ? STATUS_LIMIT : CONTEXT_LIMIT - room(instructed) - room(selected) - room(scanned) - room(boarded) - room(briefed) - room(tracked) - room(tried)
   // Every part of it is fitted to the limit by what it can spare; the cut holds for what none of them
   // foresaw, such as a very long name.
   const lines = [cutEnd(status(deps, objectId, limit), limit)]
@@ -312,6 +315,7 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   if (selected) lines.push(selected)
   if (scanned) lines.push(scanned)
   if (boarded) lines.push(boarded)
+  if (briefed) lines.push(briefed)
   if (tracked) lines.push(tracked)
   const openLine = open.length > 0 && !opts.buildOnly ? `Open marks: ${openMarks(open, revision, toolName)}` : ''
   const named = layoutNamed(deps, objectId)

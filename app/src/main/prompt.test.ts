@@ -26,8 +26,8 @@ describe('the system prompt', () => {
     expect(TOOLS.add_mark.description).toContain('it is told to you again with every prompt for as long as it fails')
   })
 
-  it('says the board is the person\'s brief, that an attached frame says what to work on, and that cards are added with add_card and never rearranged', () => {
-    const sentence = "The board is the person's brief. A frame they attach says what to work on. Add a plan or a picture to it with mcp__torno__add_card when it helps them follow; never rearrange their cards."
+  it('says the board is the person\'s brief, that its sizes and rules come with the first prompt, and that cards are added with add_card and never rearranged', () => {
+    const sentence = "The board is the person's brief; its sizes and rules come with a conversation's first prompt. Add a plan or picture with mcp__torno__add_card; never rearrange their cards."
     expect(FULL_PROMPT).toContain(sentence)
     expect(SYSTEM_PROMPT).toContain(sentence)
   })
@@ -100,8 +100,8 @@ describe('the system prompt', () => {
   })
 
   it('stays short', () => {
-    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews; to 8,900 for tracings.
-    expect(FULL_PROMPT.length).toBeLessThan(8900)
+    // Raised from 6,250 in Milestone 5 (D12), for explode and the saved views; to 7,400 for the model file contract (#3); to 8,000 for the digest of a build (#108); to 8,300 for the board; to 8,400 for sketches; to 8,600 for reviews; to 8,900 for tracings; back to 8,800 once the board's sizes and rules came with the first prompt (#190, #249).
+    expect(FULL_PROMPT.length).toBeLessThan(8800)
   })
 
   it('says what a tracing is and how to trace a photo, and that a photo\'s numbers are never exact', () => {
@@ -178,7 +178,7 @@ describe("Claude Code's prompt, with the skills", () => {
 
   it('is the whole text without the scans and the dimensions, noticeably shorter', () => {
     expect(systemPrompt((tool) => `mcp__torno__${tool}`, true)).toBe(SYSTEM_PROMPT)
-    expect(SYSTEM_PROMPT.length).toBeLessThan(7900)
+    expect(SYSTEM_PROMPT.length).toBeLessThan(7800)
     expect(FULL_PROMPT.length - SYSTEM_PROMPT.length).toBeGreaterThan(1000)
     for (const sentence of [...SCANS_TEXT, ...DIMENSIONS_TEXT]) {
       expect(FULL_PROMPT).toContain(sentence)
