@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DimensionMark, Mark } from '../../shared/marks'
 import type { Scene } from '../../shared/scene'
 import { letGoText } from '../../shared/build'
+import { boardStore } from '../state/board'
 import { setsStore } from '../state/sets'
 import { store } from '../state/store'
 import { BuildStatus, BuildingSaid, defectsSaid, dimensionCount, goToRow } from './BuildStatus'
@@ -29,6 +30,7 @@ describe('the click on the count of failing dimensions', () => {
   })
 
   it('goes to the mark as its row does: its layout is shown when it is of another, it is the active one, and its row is brought into view', () => {
+    boardStore.setState({ objectId: 'bracket', shown: 'brief' })
     goToRow('M2')
     const s = store.getState()
     expect(s.layout).toBe('print')
@@ -39,31 +41,27 @@ describe('the click on the count of failing dimensions', () => {
     expect(scrolled).toEqual(['.check-row[data-check-mark="M2"]'])
   })
 
-  it('unfolds the Checks section when it is folded, and scrolls to the row once it is drawn', () => {
+  it('shows the Brief page when it is not up, and scrolls to the row once it is drawn', () => {
     const row = '.check-row[data-check-mark="M2"]'
     let drawn = false
-    const asked: string[] = []
-    vi.stubGlobal('document', {
-      querySelector: (selector: string) => {
-        asked.push(selector)
-        return selector === row && drawn ? { scrollIntoView: () => void scrolled.push(selector) } : selector.startsWith('[data-section') ? { scrollIntoView: () => void scrolled.push(selector) } : null
-      }
-    })
+    vi.stubGlobal('document', { querySelector: (selector: string) => (selector === row && drawn ? { scrollIntoView: () => void scrolled.push(selector) } : null) })
     vi.stubGlobal('requestAnimationFrame', (cb: () => void) => cb())
-    store.setState({ column: { folded: ['checks', 'scans'], width: 296 } })
-    // The section is drawn once it is unfolded.
-    const off = store.subscribe((s) => void (drawn = !s.column.folded.includes('checks')))
+    boardStore.setState({ objectId: 'bracket', shown: 'model' })
+    // The row is drawn once the Brief is shown.
+    const off = boardStore.subscribe((s) => void (drawn = s.shown === 'brief'))
     goToRow('M2')
     off()
-    expect(store.getState().column.folded).toEqual(['scans'])
-    expect(scrolled).toEqual(['[data-section="checks"]', row])
+    expect(boardStore.getState().shown).toBe('brief')
+    expect(scrolled).toEqual([row])
     expect(store.getState().activeMark).toBe('M2')
   })
 
-  it('leaves the folding alone when the row is already drawn', () => {
-    store.setState({ column: { folded: ['scans'], width: 296 } })
-    goToRow('M5')
-    expect(store.getState().column.folded).toEqual(['scans'])
+  it('leaves the view where it is for a click on a chip (show: false): the mark is active and nothing is shown', () => {
+    boardStore.setState({ objectId: 'bracket', shown: 'model' })
+    goToRow('M5', false)
+    expect(boardStore.getState().shown).toBe('model')
+    expect(store.getState().activeMark).toBe('M5')
+    expect(scrolled).toEqual([])
   })
 
   it('stays in the layout shown for a mark of that one', () => {
@@ -73,18 +71,21 @@ describe('the click on the count of failing dimensions', () => {
 
   it('makes a mark of a layout the build no longer has the active one, and shows no other layout for it', () => {
     store.setState({ marks: [dim('M2', { layout: 'gone' }), dim('M5')] as Mark[] })
+    boardStore.setState({ objectId: 'bracket', shown: 'brief' })
     goToRow('M2')
     expect(store.getState()).toMatchObject({ layout: 'assembly', activeMark: 'M2', markFocus: 0, markReveal: 0 })
     expect(scrolled).toEqual(['.check-row[data-check-mark="M2"]'])
   })
 
-  it('goes to the row under Marks for a mark that is no check: a dimension with nothing expected of it', () => {
-    store.setState({ marks: [dim('M2', { expected: undefined, verdict: undefined })] as Mark[], column: { folded: ['marks'], width: 296 } })
-    vi.stubGlobal('document', { querySelector: (selector: string) => (selector.startsWith('[data-section') ? { scrollIntoView: () => void scrolled.push(selector) } : null) })
+  it('goes to the row under Marks on the Brief page for a mark that is no check: a dimension with nothing expected of it', () => {
+    store.setState({ marks: [dim('M2', { expected: undefined, verdict: undefined })] as Mark[] })
+    const row = '.mark-row[data-mark="M2"]'
+    vi.stubGlobal('document', { querySelector: (selector: string) => (selector === row ? { scrollIntoView: () => void scrolled.push(selector) } : null) })
     vi.stubGlobal('requestAnimationFrame', (cb: () => void) => cb())
+    boardStore.setState({ objectId: 'bracket', shown: 'brief' })
     goToRow('M2')
-    expect(store.getState().column.folded).toEqual([])
-    expect(scrolled).toEqual(['[data-section="marks"]'])
+    expect(boardStore.getState().shown).toBe('brief')
+    expect(scrolled).toEqual([row])
   })
 })
 

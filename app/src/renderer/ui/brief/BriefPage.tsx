@@ -7,6 +7,7 @@ import type { SizeFact } from '../../../shared/size'
 import { boardActions, useBoard } from '../../state/board'
 import { actions, useStore } from '../../state/store'
 import { tyingActions } from '../../state/tying'
+import { ChecksBlock, MarksBlock } from './Held'
 import { HEIC_REASON, isHeic, prepareImage } from '../onboard/images'
 import { addNote, addPicture, addRule, addSize, editSize, editText, removeCard, restoreCard, tieSize, unhideCard } from './ops'
 import { TiePanel } from './TiePanel'
@@ -268,6 +269,8 @@ export function BriefPage() {
         )}
       </section>
 
+      <ChecksBlock />
+
       <section className="brief-block" aria-label="Rules">
         <div className="brief-block-head">
           <h2>Rules</h2>
@@ -296,6 +299,8 @@ export function BriefPage() {
           {adding === 'note' && <TextForm label="New note" onKeep={keepText(null, false)} onCancel={done} />}
         </div>
       </section>
+
+      <MarksBlock />
 
       <input ref={files} type="file" accept="image/png,image/jpeg" multiple hidden data-board-files="" onChange={(e) => {
         void take([...(e.currentTarget.files ?? [])])

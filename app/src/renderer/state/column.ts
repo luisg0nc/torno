@@ -6,9 +6,9 @@
  */
 
 /** The sections that stand under the bench, in the order they are read. Parameters and Parts are the bench's two tabs, not sections. */
-export type SectionId = 'checks' | 'marks' | 'scans' | 'tracings'
+export type SectionId = 'scans' | 'tracings'
 
-export const SECTION_IDS: readonly SectionId[] = ['checks', 'marks', 'scans', 'tracings']
+export const SECTION_IDS: readonly SectionId[] = ['scans', 'tracings']
 
 export interface ColumnPrefs {
   /** The sections that are folded to their heads. Every other is open. */
@@ -30,8 +30,8 @@ export const CARD_NARROW = 264
 /** The window width below which the narrow defaults of the card and the dock apply (`state/dock.ts` says the dock's). */
 export const NARROW_WINDOW = 1360
 
-/** Under the bench Checks, Scans and Tracings are folded to their heads: the bench has the column. Marks is open, so that a mark just left is seen. */
-export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['checks', 'scans', 'tracings'], width: CARD_DEFAULT }
+/** Under the bench Scans and Tracings are folded to their heads: the bench has the column. (Checks and Marks moved to the Brief page with #277.) */
+export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['scans', 'tracings'], width: CARD_DEFAULT }
 
 /** The card's default in a window of this width. */
 export function leftDefault(windowWidth: number): number {

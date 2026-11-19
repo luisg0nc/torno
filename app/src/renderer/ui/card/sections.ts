@@ -1,18 +1,13 @@
 import { useMemo } from 'react'
-import { checksOf } from '../../../shared/dimension'
-import { checksCount } from '../../../shared/modelChecks'
 import type { SectionId } from '../../state/column'
 import { useStore } from '../../state/store'
 import { useTracings } from '../../state/tracings'
-import { groupMarks } from '../markGroups'
 import { scanState } from '../scanState'
 
 export type { SectionId }
 
 /** The sections under the bench in the order they are read, with the name each has in its head. */
 export const SECTIONS: Array<{ id: SectionId; title: string }> = [
-  { id: 'checks', title: 'Checks' },
-  { id: 'marks', title: 'Marks' },
   { id: 'scans', title: 'Scans' },
   { id: 'tracings', title: 'Tracings' }
 ]
@@ -31,7 +26,6 @@ export interface SectionFacts {
   plain?: boolean
 }
 
-const NONE: SectionFacts = { said: 'none', bad: null, needs: false, empty: true }
 
 /** The head of every section, as the window's state says it now. */
 export function useSectionFacts(): Record<SectionId, SectionFacts> {
@@ -39,38 +33,21 @@ export function useSectionFacts(): Record<SectionId, SectionFacts> {
 }
 
 function useFacts(): Record<SectionId, SectionFacts> {
-  const scene = useStore((s) => s.scene)
   const layout = useStore((s) => s.layout)
-  const marks = useStore((s) => s.marks)
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const scans = useStore((s) => s.scans)
   const tracings = useTracings((s) => s.file?.tracings)
   const openTracing = useTracings((s) => (s.open === null ? undefined : s.file?.tracings.find((t) => t.id === s.open)))
   return useMemo(() => {
-    const model = scene?.checks ?? []
-    const modelFailing = checksCount(model).fail
-    const dims = checksOf(marks, revision)
-    const dimensionsFailing = dims.failing.length
-    const dimensions = dims.failing.length + dims.unmeasured.length + dims.passing.length
-    const grouped = groupMarks(marks, revision)
     const unaligned = scans.filter((scan) => scanState(scan, layout, revision).word === 'unaligned').length
-    const open = marks.filter((m) => m.status !== 'resolved').length
-    const sketches = marks.filter((m) => m.kind === 'sketch' && m.status !== 'resolved').length
-    const failing = modelFailing + dimensionsFailing
-
-    const checksTotal = model.length + dimensions
     const said = (...pieces: Array<string | false>): string => pieces.filter((p): p is string => p !== false).join(', ')
-
     const sections: Record<SectionId, SectionFacts> = {
-      checks: checksTotal === 0 ? NONE : { said: `${checksTotal}`, bad: failing > 0 ? `${failing} fail${failing === 1 ? 's' : ''}` : null, needs: failing > 0, empty: false },
-      // Review this build is in its body, so it is never shut for being empty.
-      marks: marks.length === 0 ? { ...NONE, empty: false } : { said: said(`${open} open`, sketches > 0 && `${sketches} sketch${sketches === 1 ? '' : 'es'}`, grouped.toSend.length > 0 && `${grouped.toSend.length} to send`), bad: null, needs: false, empty: false },
       // Import and the first tracing are made in the section's body: a scan or a tracing's section is never shut for being empty.
       scans: { said: scans.length === 0 ? 'none' : said(`${scans.length}`, unaligned > 0 && `${unaligned} unaligned`), bad: null, needs: false, empty: false },
       tracings: { said: (tracings?.length ?? 0) === 0 ? 'none' : said(`${tracings!.length}`, openTracing !== undefined && `${openTracing.id}${openTracing.name === '' ? '' : ` ${openTracing.name}`}`), bad: null, needs: false, empty: false }
     }
     return sections
-  }, [scene, layout, marks, revision, scans, tracings, openTracing])
+  }, [layout, revision, scans, tracings, openTracing])
 }
 
 /** Where the card's reading line stands, as a share of the scroll's height from its top: the section whose head has passed it is in sight. */
