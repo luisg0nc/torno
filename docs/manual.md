@@ -1242,7 +1242,7 @@ the model itself; `scene` gives the same as `output`. `state.md` does not
 carry what the model printed.
 
 After a build, the agent is also told which sizes the model's comments say are assumed or have no source
-(`Assumed: wall 2, lip 3 (2 of 14 sizes); no source: 4`), only when that set is other than after the build before.
+(`Assumed: wall 2, lip 3 (2 of 14 sizes); no source: 1 (fit: no comment)`: each field without a source is named, with why its comment did not count: no comment, no `word:` at its start, or a word that is not a source), only when that set is other than after the build before.
 
 `.torno/state.md` says the same as text, for an agent without torno's tools:
 the build, the layouts and parts, where each size of `Params` comes from, the saved views, the scans and every open
