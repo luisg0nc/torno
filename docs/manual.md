@@ -469,7 +469,7 @@ distance is OpenCascade's and is told with `≈`; a count of points of one lying
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
 **The window.** On the left, a rail of icons, no word under them (the name shows in a small tip beside the icon when the pointer is over it or the keyboard is on it): Projects at the top, which shows the page of projects (it is a dark blue tile while that page is up; press it again to go back), a hairline, and then, while a project is open, one icon for each section of the route card: Needs you, Parts, Parameters, Checks, Marks, Scans, Tracings and Print profile. Keys is at the foot, and raises the keyboard.
-Beside the rail is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Needs you, Parts, Checks and Marks are open; Parameters, Scans, Tracings and Print profile are folded. A press on an icon of the rail brings its section into sight, and opens it if it was folded; the section in sight is the one the rail shows in the accent's wash. What a folded title used to say shows as a small badge on the icon: what waits for you on Needs you, the parts switched off on Parts, the model's checks that fail plus the dimensions that fail on Checks, the scans not aligned on Scans, the marks to review on Marks. Drag the right edge of the card to make it
+Beside the rail is the route card, 296 px wide: the project read from top to bottom, a section after another down a line, each with a dot on it. A section's head is its name and one line of what it holds (`10, 2 hidden`); click the head to fold the section to that head, or to open it. A section with nothing in it says "none" and does not open. At first Needs you, Parts, Checks and Marks are open; Parameters, Scans, Tracings and Print profile are folded. A press on an icon of the rail brings its section into sight, and opens it if it was folded; the section in sight is the one the rail shows in the accent's wash. What a folded title used to say shows as a small badge on the icon: what waits for you on Needs you, the parts switched off on Parts, the model's checks that fail plus the dimensions that fail on Checks, the scans not aligned on Scans, the marks to review on Marks. The icon of a section that says "none" is dimmed. Drag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside the rail and
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. Which
@@ -2774,6 +2774,13 @@ build is not built again until a source changes.
   `TORNO_SESSION`. Add it there, or take the limit off, and start the session
   again. The note changes nothing else; in the terminal view the same fault
   shows only as a status that never moves.
+- **The chat says "Claude Code is running bare".** No hook came for a prompt, and
+  the CLI named an API key as the source of its credentials. That is what
+  `claude -p --bare` looks like, and Claude Code says `--bare` will become the
+  default for `-p`: it loads no hook that torno passes, so marks are not sent,
+  the Stop is not checked and the status does not move, and it reads no login.
+  Use the terminal view, or an older Claude Code. Torno cannot tell bare from a
+  key in the environment with hooks blocked; the note says the same of both.
 - **A build takes minutes.** It is the model that takes them: see "What it
   costs" above. `TORNO_BUILD_TIMEOUT` raises the limit of 600 s.
 - **The agent says to press Rebuild, or a build failed for no reason of the

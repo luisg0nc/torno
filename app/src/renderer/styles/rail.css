@@ -50,6 +50,11 @@
   color: var(--accent);
 }
 
+/* A section that says "none" (its head does not unfold): the icon is dimmed, the badge and the press are as ever. */
+.rail-button[data-empty='true'] svg {
+  opacity: 0.45;
+}
+
 /* Projects pressed on the page of projects: the dyed tile, white on the dye, and in the dark the accent. */
 .rail-button[data-dyed='true'] {
   background: var(--dye);
