@@ -102,3 +102,16 @@ export async function restoreCard(objectId: string, id: string): Promise<boolean
 export async function unhideCard(objectId: string, id: string): Promise<boolean> {
   return (await ask(objectId, { op: 'unhide', id })) !== null
 }
+
+/** Ties a size to a dimension with a tolerance, or (a null mark) takes the tie off: main sets the dimension's expected value and says why not when it cannot. Whether it did. */
+export async function tieSize(objectId: string, id: string, mark: string | null, tolerance?: number): Promise<boolean> {
+  try {
+    const next = await window.torno.board.tie(objectId, id, mark, tolerance)
+    boardActions.say(null)
+    boardActions.setBoard(objectId, next)
+    return true
+  } catch (error) {
+    boardActions.say(wordsOf(error))
+    return false
+  }
+}

@@ -9,12 +9,15 @@ import { readBrief } from './live'
 import { readPicture, savePicture } from './pictures'
 import { pin } from './sources'
 import type { BoardStore } from './store'
+import type { Ties } from './ties'
 
 // What the window may ask of the board, as handlers that do not need Electron (`main/ipc.ts` registers them).
 // The window names a project, never a folder; an id, an author or `hidden` is never taken from it (the store's `person`).
 
 export interface BoardIpcDeps {
   board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem'>
+  /** Keeps dimensions and the sizes that tie them saying the same thing (`ties.ts`). Absent: nothing is tied. */
+  ties?: Pick<Ties, 'tie' | 'untie' | 'reconcile'>
   /** A project of the open workspace. */
   object(objectId: string): ObjectInfo | undefined
   /** Pins a build of the history (`pinBuild`): main stars it and keeps its picture. */
@@ -46,13 +49,30 @@ export function boardHandlers(deps: BoardIpcDeps) {
 
   return {
     async read(objectId: string): Promise<BoardFile> {
-      return deps.board.read(open(objectId).id)
+      const { id } = open(objectId)
+      // A pull may have brought a board or marks that no longer agree: seen when the project is read.
+      await deps.ties?.reconcile(id).catch(() => {})
+      return deps.board.read(id)
     },
 
     async change(objectId: string, change: PersonChange): Promise<BoardFile> {
       const { id } = open(objectId)
       if (typeof change !== 'object' || change === null || typeof (change as { op?: unknown }).op !== 'string') throw new Refusal('That is not a change the board takes.')
-      return deps.board.person(id, change)
+      const board = await deps.board.person(id, change)
+      // A size changed or taken off, or put back: the dimension it ties follows.
+      if (change.op === 'edit' || change.op === 'remove' || change.op === 'restore') await deps.ties?.reconcile(id).catch(() => {})
+      return deps.ties ? deps.board.read(id) : board
+    },
+
+    /** Ties a size to a dimension (`markId`, with a `tolerance` of the person's choosing), or takes the tie off (`markId` null). Rejects with why not. */
+    async tie(objectId: string, cardId: string, markId: string | null, tolerance?: number): Promise<BoardFile> {
+      const { id } = open(objectId)
+      if (!deps.ties) throw new Refusal('Sizes cannot be tied here.')
+      if (typeof cardId !== 'string' || !CARD_ID.test(cardId)) throw new Refusal('That is not a card of the board.')
+      if (markId === null) return deps.ties.untie(id, cardId, 'person')
+      if (typeof markId !== 'string' || !/^M[1-9]\d*$/.test(markId)) throw new Refusal('That is not a mark of the project.')
+      if (tolerance !== undefined && (typeof tolerance !== 'number' || !Number.isFinite(tolerance))) throw new Refusal('The tolerance is a number.')
+      return deps.ties.tie(id, cardId, markId, 'person', tolerance)
     },
 
     /** What was wrong with the board file of the project when it was read, as a sentence, or null. Answers the same until it is dismissed. */

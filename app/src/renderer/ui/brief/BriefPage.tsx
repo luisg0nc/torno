@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { type Card } from '../../../shared/board'
-import { briefSections, rulesSaid, sizesSaid } from '../../../shared/brief'
+import { briefSections, rulesSaid } from '../../../shared/brief'
+import type { DimensionMark } from '../../../shared/marks'
+import { sizesTold, tallyReadings, tieReading } from '../../../shared/ties'
 import type { SizeFact } from '../../../shared/size'
 import { boardActions, useBoard } from '../../state/board'
-import { actions } from '../../state/store'
+import { actions, useStore } from '../../state/store'
 import { HEIC_REASON, isHeic, prepareImage } from '../onboard/images'
-import { addNote, addPicture, addRule, addSize, editSize, editText, removeCard, restoreCard, unhideCard } from './ops'
+import { addNote, addPicture, addRule, addSize, editSize, editText, removeCard, restoreCard, tieSize, unhideCard } from './ops'
+import { TiePanel } from './TiePanel'
 import { PictureView } from './PictureView'
 import { NoteRow, PictureTile, ReferenceLine, RuleRow, SizeRow } from './Rows'
 import { SizeForm } from './SizeForm'
@@ -47,11 +50,19 @@ export function BriefPage() {
   const [adding, setAdding] = useState<Adding>(null)
   const [menu, setMenu] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
+  const [tying, setTying] = useState<string | null>(null)
+  const marks = useStore((s) => s.marks)
+  const build = useStore((s) => (s.scene ? s.revision : undefined))
   const [viewing, setViewing] = useState<{ url: string; label: string } | null>(null)
   const [removed, setRemoved] = useState<{ id: string; what: string } | null>(null)
   const page = useRef<HTMLElement>(null)
   const files = useRef<HTMLInputElement>(null)
   const sections = useMemo(() => (board ? briefSections(board) : null), [board])
+  // What each tied size reads: the verdict of its dimension on the build on show (the same the Checks section reads).
+  const readings = useMemo(() => {
+    const dims = new Map(marks.filter((m): m is DimensionMark => m.kind === 'dimension').map((m) => [m.id, m]))
+    return new Map((sections?.sizes ?? []).map((c) => [c.id, tieReading(c.size!, c.size!.tie ? dims.get(c.size!.tie.mark) : undefined, build)]))
+  }, [sections, marks, build])
   const brief = useBrief(objectId ?? '', objectId !== null && sections?.hasWhat === true, board)
 
   // What main refused is said for a few seconds, and a removal can be taken back for a while.
@@ -216,7 +227,7 @@ export function BriefPage() {
       <section className="brief-block" aria-label="Sizes">
         <div className="brief-block-head">
           <h2>Sizes</h2>
-          <span className="brief-said num">{sizesSaid(sections.sizes.length)}</span>
+          <span className="brief-said num">{sizesTold(sections.sizes.length, tallyReadings([...readings.values()]))}</span>
           <button type="button" className="link-button" onClick={() => { setEditing(null); setAdding('size') }}>
             Add a size
           </button>
@@ -230,7 +241,26 @@ export function BriefPage() {
                 <span className="brief-against">Against the build on show</span>
               </div>
             )}
-            {sections.sizes.map((c) => (editing === c.id ? <SizeForm key={c.id} was={c.size} onKeep={keepSize(c)} onCancel={done} /> : <SizeRow key={c.id} card={c} lit={isLit(c)} acts={acts(c, c.size?.what ?? 'the size')} />))}
+            {sections.sizes.map((c) =>
+              editing === c.id ? (
+                <SizeForm key={c.id} was={c.size} onKeep={keepSize(c)} onCancel={done} />
+              ) : (
+                <Fragment key={c.id}>
+                  <SizeRow card={c} lit={isLit(c)} acts={acts(c, c.size?.what ?? 'the size')} reading={readings.get(c.id) ?? { state: 'none' }} build={build} tying={tying === c.id} onTie={() => setTying(tying === c.id ? null : c.id)} />
+                  {tying === c.id && (
+                    <TiePanel
+                      card={c}
+                      marks={marks}
+                      sizes={sections.sizes}
+                      revision={build}
+                      onClose={() => setTying(null)}
+                      onTie={(mark, tolerance) => void tieSize(id, c.id, mark, tolerance).then((ok) => ok && setTying(null))}
+                      onUntie={() => void tieSize(id, c.id, null).then((ok) => ok && setTying(null))}
+                    />
+                  )}
+                </Fragment>
+              )
+            )}
             {adding === 'size' && <SizeForm onKeep={keepSize(null)} onCancel={done} />}
           </div>
         )}

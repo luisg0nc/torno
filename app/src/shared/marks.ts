@@ -142,6 +142,8 @@ export interface DimensionMark extends MarkBase, Reviewable {
   refused?: string          // why the kernel could not measure it, in its words; only without a value
   expected?: number
   tolerance?: number        // default 0.05 mm, 0.1°
+  /** The size card of the brief (`C7`) that sets `expected` and `tolerance` (`shared/ties.ts`). Main's alone; only on a dimension that has an expectation. */
+  expectedFrom?: string
   verdict?: 'pass' | 'fail' // present when expected is set and value is known
   points?: [Vec3, Vec3]     // the two points the value was taken between, for drawing the dimension line
   /**
@@ -363,7 +365,7 @@ export type Mark = PinMark | PickMark | ArrowMark | StrokeMark | ShapeMark | Dim
 export type MarkKind = Mark['kind']
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 /** What main alone says of a mark: no caller supplies these. */
-export const MAIN_ONLY_KEYS = ['resolvedBy', 'acknowledged', 'sentBefore', 'reopened', 'checkedRevision', 'round', 'judged'] as const
+export const MAIN_ONLY_KEYS = ['resolvedBy', 'acknowledged', 'sentBefore', 'reopened', 'checkedRevision', 'round', 'judged', 'expectedFrom'] as const
 /** What main alone says of a dimension: what the kernel measured or why it could not, on which build, and the verdict. No caller supplies these either. */
 export const MEASURED_KEYS = ['value', 'how', 'points', 'measuredRevision', 'refused', 'verdict'] as const
 /** What the kernel's measurement leaves on a dimension (`MEASURED_KEYS`). */

@@ -548,8 +548,13 @@ export function drawLabels(
       }
     }
     if (value.verdict === 'pass') {
-      const left = x + w - (VALUE.pad + VALUE.check) * unit
+      const left = x + w - (VALUE.pad + VALUE.check) * unit - offWidth(advance, value, unit)
       const mid = whole.y + whole.h / 2
+      // A dimension a size of the brief checks says whose number it holds (`brief 96.5`) after the tick as after the cross.
+      if (value.off) {
+        ctx.fillStyle = tone(style.ink)
+        ctx.fillText(value.off, left + (VALUE.check + VALUE.checkGap) * unit, mid + 0.5 * unit)
+      }
       ctx.beginPath()
       ctx.moveTo(left, mid + 0.5 * unit)
       ctx.lineTo(left + 3 * unit, mid + 3.5 * unit)

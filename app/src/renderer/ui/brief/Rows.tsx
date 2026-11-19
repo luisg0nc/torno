@@ -3,6 +3,9 @@ import { type Card, firstLink } from '../../../shared/board'
 import { sizeSource, sizeValue } from '../../../shared/brief'
 import { boardActions } from '../../state/board'
 import { ensurePicture, pictureOf, usePictureUrl } from '../../state/boardPictures'
+import { number } from '../../../shared/format'
+import type { TieReading } from '../../../shared/ties'
+import { Gauge } from '../card/Gauge'
 import { refPieces } from './refPieces'
 
 // The pieces of the sheet. A row is drawn again only when its card or whether it is lit changes.
@@ -10,11 +13,11 @@ import { refPieces } from './refPieces'
 const by = (card: Card): string => (card.by === 'agent' ? 'Claude' : card.by === 'torno' ? 'torno' : 'you')
 
 /** What a size or a rule reads against the build on show: nothing, until something checks it. A dashed, empty gauge, a gap to fill and not a failure. */
-export function Unchecked({ rule }: { rule?: boolean }) {
+export function Unchecked({ rule, gone }: { rule?: boolean; gone?: string }) {
   return (
     <div className="brief-against" data-none="">
       <span className="brief-verdict">nothing checks this</span>
-      <span className="brief-reading num">{rule ? 'a judgement: no measure says it' : ''}</span>
+      <span className="brief-reading num">{rule ? 'a judgement: no measure says it' : gone !== undefined ? `${gone} is gone: tie it to another` : ''}</span>
       <svg className="brief-gauge" width="64" height="16" viewBox="0 0 64 16" role="img" aria-label="not checked">
         <line x1="2" y1="8" x2="62" y2="8" stroke="var(--hairline)" strokeWidth="1" />
         <rect x="14" y="5" width="36" height="6" rx="1" fill="none" stroke="var(--field-edge)" strokeWidth="1" strokeDasharray="3 2" />
@@ -84,10 +87,28 @@ function Buttons({ acts, what }: { acts: Acts; what: string }) {
   )
 }
 
-export const SizeRow = memo(function SizeRow({ card, lit, acts }: { card: Card; lit: boolean; acts: Acts }) {
-  const size = card.size!
+/** What a tied size reads against the build on show: the dimension's verdict, what it reads, and its gauge, as the Checks section draws it. */
+export function Tied({ reading, build }: { reading: Exclude<TieReading, { state: 'none' }>; build: number | undefined }) {
+  const word = reading.state === 'holds' ? 'holds' : reading.state === 'fails' ? 'fails' : 'not measured'
   return (
-    <div className="brief-row" data-card={card.id} data-by={card.by} data-lit={lit ? '' : undefined} data-none="">
+    <div className="brief-against" data-state={reading.state}>
+      <span className="brief-verdict" data-verdict={reading.state}>
+        {word}
+        {build !== undefined && build > 0 && <span className="num"> on r{build}</span>}
+      </span>
+      <span className="brief-reading num">{reading.reading}</span>
+      <span className="brief-gauge-slot">
+        <Gauge value={reading.value} lo={reading.lo} hi={reading.hi} verdict={reading.state === 'fails' ? 'fails' : undefined} />
+      </span>
+    </div>
+  )
+}
+
+export const SizeRow = memo(function SizeRow({ card, lit, acts, reading, build, tying, onTie }: { card: Card; lit: boolean; acts: Acts; reading: TieReading; build: number | undefined; tying: boolean; onTie: () => void }) {
+  const size = card.size!
+  const checked = reading.state !== 'none'
+  return (
+    <div className="brief-row" data-card={card.id} data-by={card.by} data-lit={lit ? '' : undefined} data-none={checked ? undefined : ''} data-state={reading.state}>
       <div className="brief-value num">
         {sizeValue(size)}
         <span className="brief-unit">{size.unit}</span>
@@ -96,9 +117,12 @@ export const SizeRow = memo(function SizeRow({ card, lit, acts }: { card: Card; 
         <b>{size.what}</b>
         <span className="brief-source">{sizeSource(size)}</span>
         <span className="brief-id num">{card.id}</span>
+        <button type="button" className="link-button brief-tie-button" aria-expanded={tying} aria-label={`${checked ? 'Change what checks' : 'Tie'} ${size.what}`} onClick={onTie}>
+          {reading.state !== 'none' ? `${reading.mark} · ± ${number(size.tie?.tolerance ?? 0)}` : 'Tie…'}
+        </button>
         <Buttons acts={acts} what={size.what} />
       </div>
-      <Unchecked />
+      {reading.state !== 'none' ? <Tied reading={reading} build={build} /> : <Unchecked gone={reading.gone} />}
     </div>
   )
 })

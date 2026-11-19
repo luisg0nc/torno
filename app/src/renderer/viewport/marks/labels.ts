@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { NO_VALUE, offBy, shownDimension } from '../../../shared/dimension'
 import { number } from '../../../shared/format'
+import { briefChip } from '../../../shared/ties'
 import { type DimensionMark, type Mark, type RegionMark, type ShapeIntent, type ReviewIntent, type SpanMark, type Vec3, markIntent } from '../../../shared/marks'
 import { INTENT_CHIP, INTENT_SIGN } from '../../../shared/reviews'
 import { LEADER_PX, labelAnchor } from './markObjects'
@@ -32,7 +33,7 @@ export interface Label {
 export interface LabelValue {
   text: string
   verdict?: 'pass' | 'fail'
-  /** Of one that fails: by how much it misses, and which way (`2 under`, `offBy`). */
+  /** Written after the verdict: of one that fails, by how much it misses and which way (`2 under`, `offBy`); of one a size of the brief checks, whose number it holds (`brief 96.5`), whether it passes or fails. */
   off?: string
   /** The value is of another build than the one drawn: it is written faint, and has no verdict. */
   stale?: true
@@ -50,7 +51,9 @@ export interface LabelValue {
 export function labelValue(mark: DimensionMark, revision: number | undefined): LabelValue {
   const shown = shownDimension(mark, revision)
   if (shown.value !== undefined) {
-    const off = shown.verdict === 'fail' && mark.expected !== undefined ? { off: offBy(shown.value, mark.expected) } : {}
+    // A dimension a size of the brief checks says so after its verdict, `brief 96.5`, in place of how far it misses (its row says that).
+    const brief = briefChip(mark)
+    const off = brief !== undefined && shown.verdict !== undefined ? { off: brief } : shown.verdict === 'fail' && mark.expected !== undefined ? { off: offBy(shown.value, mark.expected) } : {}
     return { text: shown.text, ...(shown.verdict ? { verdict: shown.verdict } : {}), ...off }
   }
   if (!shown.stale) return { text: NO_VALUE }

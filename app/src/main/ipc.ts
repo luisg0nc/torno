@@ -44,6 +44,7 @@ import { addDimension, dueAfterEdit, measureOnce, remeasure } from './marks/meas
 import { type RegionDeps, addRegion, convertScan, removeMark, repaintRegion, restoreMark, tendRegions } from './marks/regions'
 import type { MarkStore } from './marks/store'
 import { boardAttachOf, boardHandlers } from './board/ipc'
+import type { Ties } from './board/ties'
 import { noteHandlers } from './notes/ipc'
 import { forgetOpenSketches, forgetRemovedSketch, sketchHandlers } from './sketches/ipc'
 import { reviewHandlers } from './reviews/ipc'
@@ -102,7 +103,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 // Channel names, repeated in src/preload/index.ts.
 //   invoke: workspace:current, workspace:pick, workspace:open, workspace:versions, ready:check, ready:make,
 //           history:list, history:thumbnail, history:source, history:ghost, history:star, history:goBackPlan, history:goBack,
-//           board:read, board:change, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open, board:openLink,
+//           board:read, board:change, board:tie, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open, board:openLink,
 //           board:problem, board:dismissProblem,
 //           workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
@@ -713,6 +714,8 @@ export function registerIpc(
     tracings?: TracingStore
     /** The boards of the projects: the window reads and changes them through here, and is told when one changes. */
     board?: BoardStore
+    /** Keeps the sizes of the brief and the dimensions they tie saying the same thing. */
+    ties?: Ties
     /** The views saved of a project (its scene file's): only one of them is pinned to the board. */
     views?: (objectId: string) => Promise<SavedView[]>
     onBuild?: (state: BuildState) => void
@@ -814,6 +817,7 @@ export function registerIpc(
   const boards = boardStore
     ? boardHandlers({
         board: boardStore,
+        ...(opts.ties ? { ties: opts.ties } : {}),
         object: findObject,
         views: async (objectId) => (await opts.views?.(objectId)) ?? [],
         // The brief in the person's own program, a photo in its folder: tests stand in for both, as for an export.
@@ -1195,6 +1199,7 @@ export function registerIpc(
   })
   handle('board:read', (_event, objectId: string) => requireBoards().read(objectId))
   handle('board:change', (_event, objectId: string, change: PersonChange) => requireBoards().change(objectId, change))
+  handle('board:tie', (_event, objectId: string, cardId: string, markId: string | null, tolerance?: number) => requireBoards().tie(objectId, cardId, markId, tolerance))
   handle('board:picture', (_event, objectId: string, name: string) => requireBoards().picture(objectId, name))
   handle('board:brief', (_event, objectId: string) => requireBoards().brief(objectId))
   handle('board:reference', (_event, objectId: string, file: string) => requireBoards().reference(objectId, file))

@@ -122,6 +122,8 @@ export interface AddCardArgs {
   label?: string
   card?: string
   remove?: boolean
+  tie?: { size: string; mark: string; tolerance?: number }
+  untie?: string
 }
 
 /** A focus as the agent gives one: a ref, a group, a mark, or a box. */
@@ -379,7 +381,9 @@ const addCardInput = {
   arrowTo: z.string().optional().describe('Draw an arrow from the new card to this card (an id such as "C3").'),
   label: z.string().optional().describe('A few words on the arrow.'),
   card: z.string().optional().describe('The id of a card of yours to change (give text) or to remove (remove: true). Never a card of the person\'s or of torno\'s own.'),
-  remove: z.boolean().optional().describe('Take the card named in card off the board, with the arrows on it.')
+  remove: z.boolean().optional().describe('Take the card named in card off the board, with the arrows on it.'),
+  tie: loose(z.looseObject({ size: z.string(), mark: z.string(), tolerance: z.number().optional() })).optional().describe('Tie a size card of the brief (any, the person\'s too) to a dimension of yours: {"size": "C7", "mark": "M9", "tolerance": 0.5}. The dimension then should measure the size, within the tolerance (default by where the size came from: 0.5 measured, 0.2 from a datasheet, 2 a guess), and passes or fails on every build. Give it alone. The person\'s dimensions are theirs: tie only ones you placed.'),
+  untie: z.string().optional().describe('The id of a size card to take the tie off, when it is tied to a dimension of yours. Give it alone.')
 }
 const expectInput = {
   checks: z.array(z.unknown()).describe('What the next edit should change, 1 to 20 checks, each one of: {"part": "plate", "volume": {"change": -1200, "tolerance": 50}} (a part\'s volume, faces, edges or size, as a value or a change from now; size is [x, y, z]); {"measure": {"kind": "diameter", "a": "plate/F9"}, "expected": 6.4, "tolerance": 0.05} (a measurement as measure takes it); {"unchanged": ["lid", "hinge"]} (those parts keep their volume, box and counts).'),
@@ -688,7 +692,7 @@ export const TOOLS = {
     title: 'Add a card to the brief',
     annotations: CHANGES_VIEW_OR_MARKS,
     description:
-      'Returns the id of the card you added to the person\'s brief (a note, or a size, with the green edge of yours), and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own.',
+      'Returns the id of the card you added to the person\'s brief (a note, or a size, with the green edge of yours), and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own, and tie or untie holds a dimension of yours to a size of the brief, or lets it go.',
     inputSchema: addCardInput
   },
   tracings: {

@@ -602,7 +602,7 @@ export class MarkStore {
    * says that it was reopened, until it is sent. `acknowledged` can only be set, and only
    * on a mark the agent resolved.
    */
-  update(objectId: string, id: string, patch: MarkPatch, by: 'user' | 'agent' = 'user'): Promise<Mark> {
+  update(objectId: string, id: string, patch: MarkPatch, by: 'user' | 'agent' = 'user', brief?: { from: string | null }): Promise<Mark> {
     return this.change(objectId, (file) => {
       const at = indexOf(file, id)
       const mark = file.marks[at]
@@ -613,6 +613,10 @@ export class MarkStore {
       if (mark.kind !== 'shape' && forShape.length > 0) throw new Refusal(`${id} is a ${mark.kind}, not a shape: it has no ${forShape.join(', ')}`)
       const forDimension = given(DIMENSION_KEYS)
       if (mark.kind !== 'dimension' && forDimension.length > 0) throw new Refusal(`${id} is a ${mark.kind}, not a dimension: it has no ${forDimension.join(', ')}`)
+      // A dimension a size of the brief checks holds that size's number and tolerance: only the tie (`brief`, from `main/board/ties.ts`) moves them.
+      if (brief === undefined && mark.kind === 'dimension' && mark.expectedFrom !== undefined && forDimension.length > 0) {
+        throw new Refusal(`${id} takes its expected value and tolerance from ${mark.expectedFrom} of the brief: change that size, or untie it, rather than ${id}.`)
+      }
       const finite = (value: unknown): boolean => typeof value === 'number' && Number.isFinite(value)
       if (asked.expected !== undefined && asked.expected !== null && !finite(asked.expected)) throw new Refusal('expected is a number, or null for none')
       if (asked.tolerance !== undefined && asked.tolerance !== null && !(finite(asked.tolerance) && asked.tolerance >= 0)) throw new Refusal('tolerance is a number, zero or more, or null for the default')
@@ -621,6 +625,10 @@ export class MarkStore {
       // A null takes the expectation or the tolerance away: the sanitiser keeps neither. The verdict follows from what is left.
       const changed = sanitiseMark({ ...mark, ...Object.fromEntries([...given(COMMON_KEYS), ...forShape, ...forDimension].map((key) => [key, asked[key]])) })
       if (!changed) throw new Refusal(`that is not a valid change to ${id}`)
+      if (brief !== undefined && changed.kind === 'dimension') {
+        if (brief.from === null || changed.expected === undefined) delete changed.expectedFrom
+        else changed.expectedFrom = brief.from
+      }
       const said = changed as unknown as Record<string, unknown>
       const before = mark as unknown as Record<string, unknown>
       // What the agent was told of it no longer holds: it is told again.

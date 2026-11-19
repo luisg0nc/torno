@@ -1,7 +1,7 @@
 import { copyFile, lstat, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { type Arrow, type BoardFile, type Card, type CardKind, type SavedCamera, CARD_ID, MAX_NAME_CHARS, MAX_TEXT_CHARS, PICTURE_NAME } from '../../shared/board'
-import { checkSize } from '../../shared/size'
+import { checkSize, checkTie } from '../../shared/size'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 
 const FOLDER_NAME = 'board'
@@ -57,7 +57,8 @@ export function sanitiseCard(value: unknown): Card | null {
   if (card.kind === 'size') {
     const size = checkSize(value.size, card.by === 'agent' ? 'agent' : 'person')
     if (typeof size === 'string') return null
-    card.size = size
+    const tie = checkTie((value.size as { tie?: unknown } | undefined)?.tie)
+    card.size = tie ? { ...size, tie } : size
   }
   return card
 }

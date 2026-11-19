@@ -80,6 +80,25 @@ export async function addCardTool(deps: ToolDeps, objectId: string, args: AddCar
   const done = async (change: AgentChange): ReturnType<typeof board.agent> => board.agent(objectId, change)
 
   try {
+    // A size tied to a dimension of its own, or let go.
+    if (args.tie !== undefined || args.untie !== undefined) {
+      if (!deps.ties) return failure('ties are not available here')
+      const others = Object.keys(args).filter((k) => k !== 'tie' && k !== 'untie' && (args as Record<string, unknown>)[k] !== undefined)
+      if (others.length > 0 || (args.tie !== undefined && args.untie !== undefined)) return failure('tie and untie are given alone: nothing was done.')
+      if (args.untie !== undefined) {
+        if (typeof args.untie !== 'string' || !CARD_ID.test(args.untie)) return failure('untie names a size card by its id, such as "C7". Nothing was done.')
+        await deps.ties.untie(objectId, args.untie, 'agent')
+        return text(`${args.untie} is no longer tied: no dimension holds to it.`)
+      }
+      const wrong = unknownKeys(args.tie, ['size', 'mark', 'tolerance'], 'tie')
+      if (wrong !== null) return failure(wrong)
+      const { size, mark, tolerance } = args.tie as { size: unknown; mark: unknown; tolerance?: unknown }
+      if (typeof size !== 'string' || !CARD_ID.test(size) || typeof mark !== 'string' || !/^M[1-9]\d*$/.test(mark)) return failure('tie is {"size": "C7", "mark": "M9"}: a size card and a dimension. Nothing was done.')
+      if (tolerance !== undefined && (typeof tolerance !== 'number' || !Number.isFinite(tolerance) || tolerance < 0)) return failure('The tolerance is a number, zero or more. Nothing was done.')
+      await deps.ties.tie(objectId, size, mark, 'agent', tolerance as number | undefined)
+      return text(`${mark} now checks ${size}: it should measure what the size says, and passes or fails on every build.`)
+    }
+
     // A card of its own, changed or taken down.
     if (args.card !== undefined || args.remove === true) {
       if (typeof args.card !== 'string' || !CARD_ID.test(args.card)) return failure('remove names a card of yours, and so does a change of its text: give card with its id, such as "C9". Nothing was done.')
@@ -87,6 +106,7 @@ export async function addCardTool(deps: ToolDeps, objectId: string, args: AddCar
       if (args.remove === true) {
         if (args.text !== undefined || others) return failure('remove takes only the id of the card to take down: nothing was done.')
         await done({ op: 'remove', id: args.card })
+        await deps.ties?.reconcile(objectId).catch(() => {})
         return text(`Removed ${args.card}.`)
       }
       if (args.text === undefined || others) return failure('A card of yours is changed with only its text: give card and text, or take it down with remove and add it again to put it elsewhere. Nothing was done.')

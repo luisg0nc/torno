@@ -152,6 +152,7 @@ const bridge: TornoBridge = {
   board: {
     read: (objectId) => invokePlain('board:read', objectId),
     change: (objectId, change) => invokePlain('board:change', objectId, change),
+    tie: (objectId, cardId, markId, tolerance) => invokePlain('board:tie', objectId, cardId, markId, tolerance),
     picture: (objectId, name) => invokePlain('board:picture', objectId, name),
     brief: (objectId) => invokePlain('board:brief', objectId),
     reference: (objectId, file) => invokePlain('board:reference', objectId, file),

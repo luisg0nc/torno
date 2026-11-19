@@ -444,6 +444,7 @@ function dimensionOf(base: Omit<DimensionMark, 'kind' | 'measure' | 'a'>, value:
   if (isNumber(value.measuredRevision)) mark.measuredRevision = value.measuredRevision
   if (isNumber(value.expected)) mark.expected = value.expected
   if (isNumber(value.tolerance) && value.tolerance >= 0) mark.tolerance = value.tolerance
+  if (mark.expected !== undefined && typeof value.expectedFrom === 'string' && /^C[1-9]\d*$/.test(value.expectedFrom)) mark.expectedFrom = value.expectedFrom
   const verdict = verdictOf(mark)
   if (verdict) mark.verdict = verdict
   return mark

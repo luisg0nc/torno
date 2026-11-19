@@ -43,6 +43,7 @@ import { PictureSweep } from './board/pictures'
 import { NoteSweep } from './notes/sweep'
 import { PhotoSweep } from './tracings/sweep'
 import { BoardStore } from './board/store'
+import { Ties } from './board/ties'
 import { boardLine } from './board/text'
 import type { BoardCounts } from '../shared/board'
 import { Asks } from './asks'
@@ -432,6 +433,7 @@ const toolDeps: ToolDeps = {
     agent: (objectId, change) => board.agent(objectId, change),
     live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })
   },
+  ties: { tie: (objectId, cardId, markId, by, tolerance) => ties.tie(objectId, cardId, markId, by, tolerance), untie: (objectId, cardId, by) => ties.untie(objectId, cardId, by), reconcile: (objectId) => ties.reconcile(objectId) },
   scale: scalePicture,
   redact: (text) => redactAddresses(text),
   object: findObject,
@@ -566,6 +568,8 @@ const board = new BoardStore({
   // What a card shows of the project, for what `markAllTold` keeps: as the board line of a prompt reads it.
   live: async (id) => liveFacts({ dir: findObject(id)?.dir, marks: await marks.list(id), scene: lastScene(id)?.scene, overrides: heldOverrides, tracings: await tracingsOf(id) })
 })
+/** Keeps the sizes of the brief and the dimensions they tie saying the same thing (#262). */
+const ties = new Ties({ board, marks })
 /** The pictures no card names go when a project is first opened in a run, once the window has nothing of it to undo. */
 const pictureSweep = new PictureSweep(board)
 /** And the pictures of the view notes no note names, in the same turn of the run (the marks' own). */
@@ -774,6 +778,7 @@ void app.whenReady().then(async () => {
     sets,
     tracings,
     board,
+    ties,
     views: savedViews,
     onBuild: (state) => {
       stateFiles.changed(state.objectId)
