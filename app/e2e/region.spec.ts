@@ -13,7 +13,7 @@ import { usualRadius } from '../src/renderer/state/region'
 import type { LookRequest } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { cardSection, newSession, onBrief, openSection, showBrief, showModel } from './helpers'
+import { cardSection, newSession, onBrief, openSection, showBrief, showModel, clickImportScan } from './helpers'
 import { openListed } from './objects'
 
 // Regions: a part of a scan is painted with the brush, kept as a mark whose triangles are a file beside the
@@ -127,7 +127,7 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   writeFileSync(file, stl(grid(30, 1, () => 39)))
   await pickFile(file)
   await openSection(page, 'Scans')
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()
@@ -360,7 +360,7 @@ test('a stamp beside a part takes nothing the part hides', async () => {
   writeFileSync(file, stl(sheet))
   await pickFile(file)
   await openSection(page, 'Scans')
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await page.getByRole('button', { name: 'Top view, 4', exact: true }).click()

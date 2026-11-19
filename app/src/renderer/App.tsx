@@ -33,7 +33,7 @@ import { LeaderLayer } from './ui/LeaderLayer'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
-import { CARD_DEFAULT, sectionsFor, windowStorage } from './state/column'
+import { CARD_DEFAULT, cardFor, windowStorage } from './state/column'
 import { clampDock, DOCK_MIN, dockDefault, readDock, writeDock } from './state/dock'
 
 const KEY_STEP = 16
@@ -336,9 +336,9 @@ export function App() {
   const page = useStore((s) => s.page)
   const workspaceKnown = useStore((s) => s.workspaceKnown)
   const shell = useRef<HTMLDivElement>(null)
-  // The route card stands at the left while a project is open, and is away on the pages (`sectionsFor`).
+  // The route card stands at the left while a project is open, and is away on the pages (`cardFor`).
   const objectId = useStore((s) => s.objectId)
-  const cardOpen = sectionsFor({ page, objectId }).length > 0
+  const cardOpen = cardFor({ page, objectId })
   // The width the person gave the dock, kept by the window; none until they do, and then the CSS default (`--dock-w`) stands.
   const [kept, setKept] = useState<number | null>(() => readDock(windowStorage()))
   const dockWidth = kept ?? dockDefault(window.innerWidth)

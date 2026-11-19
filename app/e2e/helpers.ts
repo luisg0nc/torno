@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-/** The sections still in the route card, by the name of their heads, and the id the card keeps each under (`data-section`). */
-const SECTION = {
+/** The panels of the views the switch has beside Model and Brief (Scans, Tracing), by the name of their heads, and the id each keeps (`data-view-panel`). They were sections of the route card before #278. */
+const PANEL = {
   Scans: 'scans',
   Tracings: 'tracings'
 } as const
@@ -9,7 +9,7 @@ const SECTION = {
 /** The blocks of the Brief page that were sections of the card before #277, by name, and the id each keeps (`data-section`). */
 const HELD = { Checks: 'checks', Marks: 'marks' } as const
 
-export type SectionName = keyof typeof SECTION | keyof typeof HELD
+export type SectionName = keyof typeof PANEL | keyof typeof HELD
 
 /** The bench's two tabs, which are no sections: Parameters and Parts. */
 const TABS = { Parts: 'parts', Parameters: 'params' } as const
@@ -21,6 +21,8 @@ export const benchTab = (page: Page, name: TabName): Locator => page.locator(`[d
 /** Opens a tab of the bench with a click, as a person does. A tab the project does not have (a one-part model has Parameters alone) is no tab: the spec fails there. */
 export async function openTab(page: Page, name: TabName): Promise<void> {
   const tab = benchTab(page, name)
+  // The Scans and Tracing views' panels take the bench's place in the column: the model's tab brings it back.
+  if ((await tab.count()) === 0) await switchTab(page, 'Model').click()
   await expect(tab).toBeVisible()
   if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click()
   await expect(tab).toHaveAttribute('aria-selected', 'true')
@@ -44,13 +46,20 @@ export async function showModel(page: Page): Promise<void> {
 }
 
 /**
- * A section of the route card, whole (its head and its body), or a block of the Brief page: Checks and Marks are there since
+ * The panel of the Scans or the Tracing view, whole (its head and its body), or a block of the Brief page: Checks and Marks are there since
  * #277, so they are drawn only while the Brief is shown (`openSection` shows it).
  */
 export const cardSection = (page: Page, name: SectionName): Locator =>
-  name === 'Checks' || name === 'Marks' ? page.locator(`.brief-page [data-section="${HELD[name]}"]`) : page.locator(`[data-region="left"] [data-section="${SECTION[name]}"].route-section`)
+  name === 'Checks' || name === 'Marks' ? page.locator(`.brief-page [data-section="${HELD[name]}"]`) : page.locator(`[data-view-panel="${PANEL[name]}"]`)
 
-/** Brings a section into sight as a person does with no rail: the card is scrolled to it and its head is pressed if it is folded. It is unfolded afterwards. Checks and Marks are on the Brief page, which is shown (and stays up: `showModel` goes back). */
+/** A tab of the view's switch, by the name on it (Model, Brief, Scans, Tracing). */
+export const switchTab = (page: Page, name: 'Model' | 'Brief' | 'Scans' | 'Tracing'): Locator => page.locator('.pboard-switch').getByRole('button', { name, exact: true })
+
+/**
+ * Brings a part of the project into sight as a person does: Parameters and Parts are the bench's tabs, Checks and Marks blocks of the Brief page
+ * (which is shown and stays up: `showModel` goes back), Scans and Tracings tabs of the view's switch, pressed when the project has one (a project with
+ * none has no such tab: there is no panel to open, and the call leaves the view as it is).
+ */
 export async function openSection(page: Page, name: SectionName | TabName): Promise<void> {
   if (name === 'Parts' || name === 'Parameters') return openTab(page, name)
   if (name === 'Checks' || name === 'Marks') {
@@ -58,24 +67,21 @@ export async function openSection(page: Page, name: SectionName | TabName): Prom
     await cardSection(page, name).scrollIntoViewIfNeeded()
     return
   }
-  const section = cardSection(page, name)
-  await expect(section).toBeVisible()
-  await section.scrollIntoViewIfNeeded()
-  // A head that says "none" does not unfold: it is pressed once there is something in it (a build that has not landed yet).
-  await expect
-    .poll(async () => {
-      if ((await section.getAttribute('data-folded')) === null) return true
-      if ((await section.getAttribute('data-empty')) === null) await section.locator('.route-head-button').click()
-      return (await section.getAttribute('data-folded')) === null
-    })
-    .toBe(true)
+  const tab = switchTab(page, name === 'Scans' ? 'Scans' : 'Tracing')
+  if ((await tab.count()) === 0) return
+  if ((await tab.getAttribute('aria-pressed')) !== 'true') await tab.click()
+  await expect(cardSection(page, name)).toBeVisible()
 }
 
-/** Folds a section of the card to its head, as a person does: a click on the head. One that is folded stays as it is. */
-export async function foldSection(page: Page, name: Exclude<SectionName, 'Checks' | 'Marks'>): Promise<void> {
-  const section = cardSection(page, name)
-  if ((await section.getAttribute('data-folded')) === null) await section.locator('.route-head-button').click()
-  await expect(section).toHaveAttribute('data-folded', '')
+/**
+ * Asks for a scan to import as a person does: Import scan… in the head of the Scans panel when that is up, else in the `+` menu of the view's
+ * switch (a project with no scan has no Scans tab). The file is the one a stand-in for the system's dialog gives.
+ */
+export async function clickImportScan(page: Page): Promise<void> {
+  const inPanel = page.locator('[data-view-panel="scans"]').getByRole('button', { name: 'Import scan…' })
+  if ((await inPanel.count()) > 0) return inPanel.click()
+  await page.getByRole('button', { name: 'Add a scan or a tracing' }).click()
+  await page.getByRole('menuitem', { name: 'Import scan…' }).click()
 }
 
 /**

@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { ScanLayerState } from '../src/renderer/viewport/scans'
 import { apply } from '../src/shared/align'
 import { box, grid, moved, stl } from '../src/test/scanFixtures'
-import { openSection } from './helpers'
+import { openSection, clickImportScan } from './helpers'
 import { openListed } from './objects'
 
 // Aligning a scan: by pairs of points, by typed values, by its floor, and what a later build makes of it.
@@ -144,7 +144,7 @@ test('three pairs and a fourth bring a displaced scan onto the model, and say ho
   const file = join(root, 'twin.stl')
   writeFileSync(file, TWIN)
   await pickFile(file)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   // From above, so that the tops of both are what is clicked.
@@ -217,7 +217,7 @@ test('a tilted floor is laid flat on the ground, and says that is all it is', as
   // A sheet 29 mm square that rises a millimetre in ten along X, 60 mm up.
   writeFileSync(file, stl(grid(30, 1, (x) => 60 + 0.1 * x)))
   await pickFile(file)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await fromAbove()
@@ -250,7 +250,7 @@ test('an alignment says so when a build moves the model from under it', async ()
   const centre: Vec3 = [(lid.bbox.min[0] + lid.bbox.max[0]) / 2, 0, 1]
   writeFileSync(file, stl(moved(box([20, 20, 2]), 0, [centre[0], 40, 1])))
   await pickFile(file)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await later()
   await expect.poll(async () => (await scans())[0]?.ready).toBe(true)
   await fromAbove()
@@ -648,7 +648,7 @@ test('after an import the sheet leads on to the bar on its first step, and a flo
   const file = join(root, 'next.stl')
   writeFileSync(file, TWIN)
   await pickFile(file)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await expect.poll(async () => (await state()).scans.length).toBe(before + 1)
   const id = (await state()).scans[before].id
   // Not yet aligned anywhere: the next step, said in the quiet colour.

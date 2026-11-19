@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { LookRequest, ViewState } from '../src/shared/view'
 import { box, grid, stl } from '../src/test/scanFixtures'
 import type { ScanLayerState } from '../src/renderer/viewport/scans'
-import { cardSection, openSection } from './helpers'
+import { cardSection, openSection, clickImportScan } from './helpers'
 import { openListed } from './objects'
 
 // A scan on screen: imported from the panel with the real import process, drawn with the parts, switched and
@@ -96,14 +96,17 @@ test.beforeAll(async () => {
 })
 
 test('a scan is imported from the panel, drawn, and said in millimetres', async () => {
-  await expect(page.getByRole('region', { name: 'Scans' })).toContainText('Drop a scan on the view, or import one.')
-  // Import scan… is in the head's line, beside the head's button and not in it.
-  const sectionHead = cardSection(page, 'Scans').locator('.route-head')
-  await expect(sectionHead.getByRole('button', { name: 'Import scan…' })).toBeVisible()
-  await expect(sectionHead.locator('.route-head-button').getByRole('button')).toHaveCount(0)
-  await expect(sectionHead.locator('.route-said')).toHaveText('none')
+  // A project with no scan has no Scans tab; the `+` at the end of the switch imports the first.
+  await expect(page.locator('.pboard-switch').getByRole('button', { name: 'Scans', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Add a scan or a tracing' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Import scan…' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menuitem', { name: 'Import scan…' })).toHaveCount(0)
   await pickFile(scanFile)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
+  // The first scan shows the Scans tab, with its panel in the column and Import scan… at its head.
+  await expect(page.locator('.pboard-switch').getByRole('button', { name: 'Scans', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(cardSection(page, 'Scans').getByRole('button', { name: 'Import scan…' })).toBeVisible()
   await expect(row('S1')).toContainText('plate under.stl')
   await expect(row('S1').locator('.chip[data-state="unaligned"]')).toHaveText('unaligned')
   // Issue #21: a guess is asked about once, in the view by the scan (Task 25), with the size another reading would give.
@@ -196,6 +199,7 @@ test('opacity and the eye are kept in scene.json as the person set them, and are
   await page.waitForSelector('[data-region="viewport"]')
   await open('bracket')
   await expect.poll(async () => (await scans())[0]).toMatchObject({ id: 'S1', loaded: true, visible: false, opacity: 0.6 })
+  await openSection(page, 'Scans')
   await row('S1').getByRole('button', { name: 'Show S1' }).click()
 })
 
@@ -241,8 +245,8 @@ test('a file that is no scan is said to be none, and a scan is removed with its 
   const other = join(root, 'part.3mf')
   writeFileSync(other, '')
   await pickFile(other)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
-  await expect(page.getByRole('region', { name: 'Scans' })).toContainText('part.3mf is not a scan torno reads: .glb, .gltf, .obj, .ply or .stl')
+  await clickImportScan(page)
+  await expect(cardSection(page, 'Scans')).toContainText('part.3mf is not a scan torno reads: .glb, .gltf, .obj, .ply or .stl')
   await (await detail('S1')).getByRole('button', { name: 'Remove' }).click()
   await page.getByRole('button', { name: 'Remove', exact: true }).last().click()
   await expect(row('S1')).toHaveCount(0)
@@ -268,7 +272,7 @@ const drop = (name: string, p: Page = page) =>
 
 test('what is dropped on the view that is no scan, or has no file behind it, is said in the panel until it is put away', async () => {
   // Changed in fix round 1 (I3): said in the panel, where it stays until it is put away, not at the pointer.
-  const panel = page.getByRole('region', { name: 'Scans' })
+  const panel = cardSection(page, 'Scans')
   expect(await drop('notes.txt')).toMatchObject({ taken: true })
   await expect(panel.getByRole('alert')).toContainText('notes.txt is not a scan: torno reads .glb, .gltf, .obj, .ply and .stl scans')
   await page.mouse.move(400, 300)
@@ -300,7 +304,7 @@ test('a scan with colours of its own is drawn in them, or plain, as its row says
   writeFileSync(coloured, `${lines.join('\n')}\n`)
 
   await pickFile(coloured)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await expect(row('S2')).toContainText('plate.ply')
   await expect.poll(async () => (await scans())[0]).toMatchObject({ id: 'S2', loaded: true, triangles: 12 })
   expect((await state()).scans[0].imported.colours).toBe('vertex')
@@ -458,7 +462,7 @@ test('a scan read with a guess is asked about once after its import, and Apply r
   const again = join(root, 'plate again.stl')
   writeFileSync(again, PLATE)
   await pickFile(again)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   const sheet = page.getByRole('dialog', { name: 'How is S3 read?' })
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 60 × 50 × 2 mm')
   await expect(row('S3').getByRole('img', { name: 'Read as assumed' })).toBeVisible()
@@ -485,7 +489,7 @@ test('a scan is renamed from its detail; an empty name is refused, and Escape le
   await row('S3').getByRole('button', { name: 'Rename S3' }).click()
   await row('S3').getByRole('textbox', { name: 'Name of S3' }).fill('')
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('region', { name: 'Scans' }).getByRole('alert')).toContainText('a scan needs a name')
+  await expect(cardSection(page, 'Scans').getByRole('alert')).toContainText('a scan needs a name')
   await expect(name()).toHaveText('hatch')
   await row('S3').getByRole('button', { name: 'Rename S3' }).click()
   await row('S3').getByRole('textbox', { name: 'Name of S3' }).fill('other')
@@ -499,7 +503,7 @@ test('a scan read as metres that is far larger than the parts is compared with t
   const big = join(root, 'engine bay.stl')
   writeFileSync(big, stl(box([13, 13, 1], [0, 0, 0])))
   await pickFile(big)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   const sheet = page.getByRole('dialog', { name: 'How is S4 read?' })
   await expect(sheet.locator('[data-part="size"]')).toHaveText('Its size would be 13000 × 13000 × 1000 mm')
   await expect(sheet.locator('[data-part="parts"]')).toContainText('The parts of assembly: about')
@@ -523,7 +527,7 @@ test('a long scan name keeps ten characters on a hovered row, and the detail is 
   writeFileSync(long, PLATE)
   const count = (await state()).scans.length
   await pickFile(long)
-  await page.getByRole('button', { name: 'Import scan…' }).click()
+  await clickImportScan(page)
   await expect.poll(async () => (await state()).scans.length).toBe(count + 1)
   const last = (await state()).scans.at(-1)!.id
   await page.getByRole('dialog', { name: `How is ${last} read?` }).getByRole('button', { name: 'Keep mm' }).click()
@@ -562,7 +566,7 @@ test.describe('a large scan', () => {
     const wavy = join(root, 'wavy.stl')
     writeFileSync(wavy, stl(grid(317, 1, (x, y) => -20 + 3 * Math.sin(x / 20) * Math.cos(y / 20))))
     await pickFile(wavy)
-    await page.getByRole('button', { name: 'Import scan…' }).click()
+    await clickImportScan(page)
     await expect.poll(async () => (await scans())[0]?.loaded, { timeout: 60_000 }).toBe(true)
     // That the tree is made off the window's thread is said by `how` below: nothing here times the window meanwhile.
     await expect.poll(async () => (await scans())[0].ready, { timeout: 30_000 }).toBe(true)

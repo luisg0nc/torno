@@ -95,7 +95,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   again and tells the window (`tracings:outline`); `connectTracings3D` asks for the outline of one that has none, or whose plane moved (`cutKey`), and has
   the window read or make the photo's straightened copy.
 - **A `look` picture draws them** when they are shown on screen (`PictureHost.tracings`: `show` for the picture's layout, `extend`, `drawn`) and
-  says `· tracing T1 shown in its plane` (`tracingsSaid`). The Tracings section of the card has a row for each tracing (`ui/TracingRows.tsx`),
+  says `· tracing T1 shown in its plane` (`tracingsSaid`). The Tracing view's panel has a row for each tracing (`ui/TracingRows.tsx`),
   whose eye puts it in or takes it out of `tracingsShown`. There is no "Marks hidden" switch in the window, so the marks of a tracing are never hidden with it.
 - A **span** is drawn as a dimension line (`line` and a `tick` at each end) with its value in its chip (`spanValue`: `≈ 41.8 mm`), an **offset** as an
   arrow from `from` to `to` in its author's colour with its chip at `to` (`build` in `viewport/marks/markObjects.ts`), whether the tracing is shown or not.

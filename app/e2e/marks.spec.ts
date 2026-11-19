@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark, MarksFile, NewMark } from '../src/shared/marks'
 import type { Camera, LookRequest } from '../src/shared/view'
-import { briefPage, onBrief, openSection, showBrief, showModel } from './helpers'
+import { briefPage, onBrief, openSection, showBrief, showModel, clickImportScan } from './helpers'
 import { openListed } from './objects'
 import { box, stl } from '../src/test/scanFixtures'
 
@@ -532,10 +532,11 @@ test('with a scan imported, five mark rows and more are in view in the Marks pan
     await expect(rows(p)).toHaveCount(8)
     await ownApp.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: { pickFile: string | null } }).__tornoMain.pickFile = path), scan)
     await openSection(p, 'Scans')
-    await p.getByRole('button', { name: 'Import scan…' }).click()
+    await clickImportScan(p)
     await expect.poll(async () => (await state(p)).scans.length, { timeout: 60_000 }).toBe(1)
     const asked = p.getByRole('dialog', { name: 'How is S1 read?' })
     if (await asked.isVisible()) await asked.getByRole('button', { name: 'Later' }).click()
+    await openSection(p, 'Scans')
     await p.getByRole('button', { name: 'Details of S1' }).click()
     await expect(p.locator('.scan-detail')).toBeVisible()
     await openSection(p, 'Marks')
