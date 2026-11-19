@@ -28,6 +28,7 @@ import { BriefPage } from './ui/brief/BriefPage'
 import { FacePickBar } from './ui/tracings/NewTracing'
 import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
+import { PartPicker, usePickerKey } from './ui/PartPicker'
 import { LeaderLayer } from './ui/LeaderLayer'
 import { ReadinessSheet, useReadyFeed } from './ui/Readiness'
 import { Welcome } from './ui/Welcome'
@@ -328,6 +329,7 @@ export function App() {
   useDockKey()
   usePageKey()
   useKeysKey()
+  usePickerKey()
   useExportKey()
   useBoardSwapKey()
   const workspace = useStore((s) => s.workspace)
@@ -584,7 +586,8 @@ export function App() {
       {checking && <ReadinessSheet onClose={() => setChecking(false)} />}
       {/* The leaders of the view: over the panes, under the popovers. Empty until a tool or a pointer gives it one. */}
       <LeaderLayer />
-      {/* Over everything: the keys, asked for with ? or at the foot of the tools. */}
+      {/* Over everything: the picker, asked for with Ctrl+P, and the keys, asked for with ? or at the foot of the tools. */}
+      <PartPicker />
       <KeySheet />
     </div>
   )
