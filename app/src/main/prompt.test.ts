@@ -58,7 +58,7 @@ describe('the system prompt', () => {
   })
 
   it('says what approximate looks like, what is refused between parts torno spread and what to do, which build the dimensions listed are of, and how to read them again', () => {
-    for (const said of ['≈, "approximate" or "exact": false marks one that is not', 'are refused: ask in a layout that places them as assembled, or add one (def assembly(p))', '"Dimensions (measured on rN):"', 'once scene says the build is ok, read them again with mcp__torno__marks']) expect(FULL_PROMPT).toContain(said)
+    for (const said of ['≈, "approximate" or "exact": false marks one that is not', 'are refused: ask in a layout that places them as assembled, and if the model has none, add one (def assembly(p))', '"Dimensions (measured on rN):"', 'once scene says the build is ok, read them again with mcp__torno__marks']) expect(FULL_PROMPT).toContain(said)
   })
 
   it('says what a scan is and that only the user aligns one, gives one example call each of the tools that ask about one, as JSON that parses, and when they are refused', () => {
