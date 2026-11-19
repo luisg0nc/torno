@@ -82,8 +82,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   margin, an even number of pixels so that it is centred) and drawn at the page's one scale (`pageScale`: the narrowest
   `benchScale` of the three shelves, at most 1 and at least `MIN_SCALE` 0.25, below which `packRows` wraps a shelf into more
   lines). Everything is laid out in the bench's own pixels: `useWidth` reads `offsetWidth` of `.bench`, which is not counted
-  in the 86 % `zoom` of a window 800 px tall or less. The shelf is a 2 px `--ink` line (`.shelf::after`) at the foot of the
-  pictures, 40 px between cells, 20 px at the ends, the bar of 50 mm at the right (`barWidth`: 100 px at scale 1). **True scale /
+  in the 86 % `zoom` of a window 800 px tall or less. A shelf is a row of pictures with no line under it and no scale bar (a ruling of
+  2026-11-19), 40 px between cells, 20 px at the ends. **True scale /
   Grid** is kept per workspace in `torno.show.mode:<root>` (window storage). A label's cell is at least `CELL_MIN` wide.
   Up and down go by `stepAcross` (the nearest card on the line above or below, by `data-line`), the rest by `stepCard` in
   the page's order; the cards' DOM order is needs, working, rest. **Answer** on a card of Needs you opens the project, shows

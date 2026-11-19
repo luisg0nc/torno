@@ -53,8 +53,6 @@ export const GAP = 40
 export const PAD = 20
 /** No label is set narrower than this: what is said under a small part needs its room. */
 export const CELL_MIN = 140
-/** The bar at the right of a shelf is this long, in mm. */
-export const BAR_MM = 50
 /** Below this a picture is not worth reading: the shelf wraps instead. */
 export const MIN_SCALE = 0.25
 /** The two shelves on top stand this far apart. */
@@ -104,13 +102,10 @@ export function figureOf(card: ObjectCard, mode: BenchMode, scale: number): Figu
 /** The width of what stands on the shelf for a figure: its label is at least `CELL_MIN` wide. */
 export const cellWidth = (figure: Figure): number => Math.max(figure.w, CELL_MIN)
 
-/** The length of the bar at the shelf's end: 50 mm of the picture's own scale, never so short that its words do not fit. */
-export const barWidth = (scale: number): number => Math.max(Math.round(BAR_MM / BENCH_MM_PER_PX * scale), 44)
-
-/** The width one shelf holding all of these takes at this scale: the ends, the gaps, the cells and the bar. */
+/** The width one shelf holding all of these takes at this scale: the ends, the gaps and the cells. */
 export function widthOf(cards: ObjectCard[], scale: number, mode: BenchMode = 'scale'): number {
   const cells = cards.reduce((sum, card) => sum + cellWidth(figureOf(card, mode, scale)) + GAP, 0)
-  return 2 * PAD + cells + (mode === 'scale' ? barWidth(scale) : 0)
+  return 2 * PAD + cells
 }
 
 /**

@@ -225,7 +225,7 @@
   background: var(--warn);
 }
 
-/* A shelf is a 2 px line of ink. What stands on it stands on its line, 40 px apart; its labels hang under it. */
+/* A shelf is a row of pictures, no line under it: what stands on it is 40 px apart, bottom-aligned, its labels hang under it. */
 .shelf {
   position: relative;
   display: flex;
@@ -233,17 +233,6 @@
   gap: 40px;
   margin-top: 8px;
   padding: 0 20px;
-}
-
-.shelf::after {
-  content: '';
-  position: absolute;
-  top: var(--shelf-h);
-  right: 0;
-  left: 0;
-  height: 2px;
-  background: var(--ink);
-  pointer-events: none;
 }
 
 /* A project and, over its corner, the way to export that one: shown when the card is pointed at or has the focus. */
@@ -265,7 +254,7 @@
   outline-offset: 4px;
 }
 
-/* What stands on the shelf, bottom to the line, in a box as high as the shelf. */
+/* What stands on the shelf, bottom-aligned, in a box as high as the shelf. */
 .card-picture {
   position: relative;
   display: flex;
@@ -275,7 +264,7 @@
   height: var(--shelf-h);
 }
 
-/* The object that is open under the page: a 4 px bar of the accent under its picture, over the shelf's line. */
+/* The object that is open under the page: a 4 px bar of the accent under its picture. */
 .card-open-bar {
   position: absolute;
   bottom: -8px;
@@ -339,29 +328,6 @@
   .card-picture[data-dimmed] img {
     opacity: 0.45;
   }
-}
-
-/* The bar at the right end of a shelf: 50 mm of the pictures' own scale. */
-.sbar {
-  position: relative;
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  height: var(--shelf-h);
-  margin-left: auto;
-  padding-bottom: 10px;
-  color: var(--muted);
-  font: 300 10px var(--font-mono);
-}
-
-.sbar i {
-  display: block;
-  height: 6px;
-  border: 1px solid var(--muted);
-  border-top: 0;
 }
 
 .card-body {
