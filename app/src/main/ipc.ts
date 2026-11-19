@@ -581,6 +581,11 @@ export function buildState(id: string): BuildState | undefined {
   return current?.builds.state(id)
 }
 
+/** When the latest build of an object began (ms epoch); 0 when none has. */
+export function buildStartedAt(id: string): number {
+  return current?.builds.startedAt(id) ?? 0
+}
+
 /** The build "before this prompt" of an object, for Go back: the object and the id of the entry, or why there is none. */
 async function goBackTarget(objectId: string, prompt: string): Promise<{ obj: ObjectInfo; to: string } | { refused: string }> {
   const obj = findObject(objectId)

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AgentView, SessionStatus } from '../../shared/bridge'
 import type { ObjectInfo } from '../../shared/workspace'
@@ -2455,6 +2455,8 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
       detail?: (id: string, markId: string, revision: number) => Promise<string | undefined>
       /** When the object's newest source was saved (`sourcesSaved`). */
       saved?: (dir: string) => Promise<number | null>
+      /** The files the last build imported from beside the project (`uses`). */
+      uses?: string[]
       /** The session is a chat (the stand-in as a stream): there is no terminal to wait for. */
       chat?: boolean
     } = {}
@@ -2475,6 +2477,7 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
       ...(opts.settled ? { settled: opts.settled } : {}),
       ...(opts.detail ? { dimensionDetail: opts.detail } : {}),
       ...(opts.saved ? { sourcesSaved: opts.saved } : {}),
+      ...(opts.uses ? { uses: () => opts.uses! } : {}),
       editTiming: { answerMs: opts.wait ?? 5000, graceMs: opts.grace ?? 1500, ...(opts.stop === undefined ? {} : { stopMs: opts.stop }) },
       systemPromptFor: () => '',
       mcpUrlFor: (id) => server.url(`/mcp/${id}`)
@@ -2604,7 +2607,7 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     const { obj, edit } = await begun({ wait: 400 })
     const answer = edit()
     setTimeout(() => land(building(obj.id, 3)), 50)
-    expect(await answer).toEqual(context('A build is running (r4); call mcp__torno__scene for its result.'))
+    expect(await answer).toEqual(context('A build is running (r4); call mcp__torno__wait_build to wait for its result.'))
   })
 
   it('holds a Stop back once after a build of the turn failed, and lets it go with stop_hook_active', async () => {
@@ -2772,6 +2775,32 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
       land(failed(obj.id, 2))
     })
     expect(await post('Stop', {})).toEqual({ decision: 'block', reason: 'The build after r2 failed: NameError: x. Fix it, or say it is still broken.' })
+  })
+
+  it('answers an edit of common/ and of a file the build imports, as one of the project\'s own, and an edit of any other file with nothing', async () => {
+    const { obj, edit, post } = await begun({ grace: 200, uses: ['other/helper.py'] })
+    const root = dirname(obj.dir)
+    for (const file of [join(root, 'common', 'shared.py'), join(root, 'other', 'helper.py')]) {
+      await post('PreToolUse', { tool_name: 'Write', tool_use_id: 'toolu_1', tool_input: { file_path: file } })
+      builds(obj.id, 1, 2)
+      expect(await edit(file, 'Write')).toEqual(context('r2 ok'))
+    }
+    expect(await edit(join(root, 'other', 'unrelated.py'), 'Write')).toEqual({})
+  })
+
+  it('tells a Bash that rewrote a source the build it started, and one that did not nothing', async () => {
+    let saved: number | null = 1000
+    const { obj, post } = await begun({ saved: async () => saved, grace: 200 })
+    const bash = async (id: string, rewrites: boolean) => {
+      await post('PreToolUse', { tool_name: 'Bash', tool_use_id: id, tool_input: { command: 'python edit.py' } })
+      if (rewrites) {
+        saved = (saved ?? 0) + 1
+        builds(obj.id, 1, 2)
+      }
+      return post('PostToolUse', { tool_name: 'Bash', tool_use_id: id, tool_input: { command: 'python edit.py' } })
+    }
+    expect(await bash('toolu_1', false)).toEqual({})
+    expect(await bash('toolu_2', true)).toEqual(context('r2 ok'))
   })
 
   it('takes the same shapes in the same places for the look: a change in any part asks for one, a moved hole too', async () => {
@@ -2960,7 +2989,7 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     land(building(obj.id, 7))
     expect(await post('Stop', {})).toEqual({
       decision: 'block',
-      reason: 'A build begun in this turn is still running (r8). Call mcp__torno__scene for its result, then mcp__torno__look, before finishing.'
+      reason: 'A build begun in this turn is still running (r8). Call mcp__torno__wait_build for its result, then mcp__torno__look, before finishing.'
     })
     // Told once: the next does not wait the wait again.
     const again = Date.now()

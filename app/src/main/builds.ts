@@ -315,6 +315,11 @@ export class Builds {
     this.abandon(objectId)
   }
 
+  /** When the latest build of an object began (ms epoch); 0 before the first. */
+  startedAt(objectId: string): number {
+    return this.entries.get(objectId)?.startedAt ?? 0
+  }
+
   state(objectId: string): BuildState | undefined {
     return this.entries.get(objectId)?.state
   }
