@@ -75,8 +75,9 @@ what you mean rather than make geometry. The model is the Python file, and torno
   deviation against it. torno always marks scan numbers as approximate.
 - **Tracings.** Lay one plane of the model flat at true size on a millimetre grid, over a photo of the real thing
   if you have one. The outline is redrawn after every build. [More](docs/manual.md#the-tracing-view)
-- **A board for each project.** What the project knows (the brief, photos, marks, scans, tracings) laid out in
-  frames, so you can point Claude at a frame instead of explaining it again. [More](docs/manual.md#the-board)
+- **A brief for each project.** One page with what you are making, the sizes you know and where each came from,
+  the rules, and the photos and notes. Claude is told the sizes and rules in every new conversation.
+  [More](docs/manual.md#the-brief)
 - **Start from what you have.** A new project can start from a description, photos, doodles, scans and other
   projects in the workspace. Claude gets all of it with its first prompt. All your projects stand on one bench at
   true scale, the ones waiting on you first.

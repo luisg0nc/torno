@@ -50,8 +50,8 @@ it('has its table of keys from the one table of keys', () => {
   const table = keysTable()
   if (process.env.TORNO_README === 'write') writeRegion(BEGIN, END, table)
   else expect(readme.slice(from + BEGIN.length, to).trim()).toBe(table)
-  // The tracing's own keys, and the key that goes round the board, the model and a tracing.
-  for (const row of ['| Tracing | `Shift+1` | Tracing: fit the outline |', '| Tracing | `Shift+0` | Tracing: show it at true size, 1:1 |', '| Board | `Ctrl+Tab` | The board, the model and a tracing, in turn |']) expect(table).toContain(row)
+  // The tracing's own keys, and the key that goes round the model, the brief and a tracing.
+  for (const row of ['| Tracing | `Shift+1` | Tracing: fit the outline |', '| Tracing | `Shift+0` | Tracing: show it at true size, 1:1 |', '| Everywhere | `Ctrl+Tab` | The model, the brief and a tracing, in turn |']) expect(table).toContain(row)
   // Every key the sheet shows is in it, and the tools' keys with their tools.
   for (const { key, label } of TOOL_KEYS) expect([label, table.includes(`\`${key}\``)]).toEqual([label, true])
 })
@@ -90,7 +90,7 @@ it('is laid out for a first-time reader: what it is, how to start it, a walk-thr
     '## Section',
     '## Scans',
     '## Explode and saved views',
-    '## The board',
+    '## The brief',
     '## The page of projects',
     '## Export',
     '## Keys',

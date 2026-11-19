@@ -35,8 +35,8 @@ it('says what a key does in the view: E draws the parts apart and is no tool, D 
 
 it('says something else, or nothing, in another place', () => {
   expect(capOf('KeyE', 'Region').does).toBe('erase')
-  expect(capOf('KeyE', 'Board').does).toBeNull()
-  expect(capOf('KeyE', 'Board').view).toBe(true)
+  expect(capOf('KeyE', 'Tracing').does).toBeNull()
+  expect(capOf('KeyE', 'Tracing').view).toBe(true)
   // A place of several: the tool in hand is Region's, Measure's, Align's, Section's or the shape's.
   const tools = PLACES.find((place) => place.name === 'With a tool in hand')!.contexts
   expect(capOf('KeyE', tools).does).toBe('erase')

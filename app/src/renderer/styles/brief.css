@@ -1,0 +1,542 @@
+/* ---- The brief of a project (ui/brief/): the switch, the sheet, its ledgers and rows ---- */
+
+/* Model, Brief or Tracing, at the top left of the main area. */
+.pboard-switch {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--switch-h);
+  gap: 2px;
+  padding: 3px;
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--panel);
+  box-shadow: var(--float-shadow);
+  font-size: var(--text-small);
+}
+
+.pboard-switch-button {
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  cursor: pointer;
+}
+
+.pboard-switch-button:hover {
+  background: var(--accent-wash);
+}
+
+.pboard-switch-button[aria-pressed='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.pboard-switch-key {
+  margin: 0 var(--space-2) 0 var(--space-1);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+
+/* The brief takes the place of the view: the part of the viewport no panel covers, read like an inspection sheet. */
+.brief-page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: calc(var(--switch-h) + var(--space-5)) var(--space-5) var(--space-5);
+  background: var(--surface);
+  font-size: var(--text-size);
+  line-height: var(--text-leading);
+}
+
+.brief-head {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.brief-head h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.brief-head .grow {
+  flex: 1;
+}
+
+.brief-add {
+  position: relative;
+}
+
+.brief-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 140px;
+  margin-top: var(--space-1);
+  padding: var(--space-1);
+  border: var(--divider);
+  border-radius: var(--radius-float);
+  background: var(--panel);
+  box-shadow: var(--float-shadow);
+}
+
+.brief-menu button {
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brief-menu button:hover,
+.brief-menu button:focus-visible {
+  background: var(--accent-wash);
+}
+
+.brief-notices {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.brief-problem,
+.brief-removed {
+  margin: 0;
+  max-width: 520px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--divider);
+  border-left: 3px solid var(--fail);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.brief-removed {
+  border-left-color: var(--hairline);
+}
+
+/* What we are making: the words, and the photos beside them. */
+.brief-making {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.brief-words {
+  max-width: 60ch;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.brief-by {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  max-width: 300px;
+}
+
+.brief-tile {
+  display: grid;
+  gap: 3px;
+  width: 132px;
+  margin: 0;
+}
+
+.brief-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 132px;
+  height: 99px;
+  padding: 0;
+  border: 0;
+  background: var(--panel);
+  box-shadow: 0 0 0 1px var(--hairline);
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: center;
+  cursor: zoom-in;
+}
+
+.brief-photo[data-missing] {
+  cursor: default;
+}
+
+.brief-photo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.brief-tile figcaption {
+  display: grid;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.brief-tile small {
+  color: var(--muted);
+}
+
+.brief-ref {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: baseline;
+  margin-top: var(--space-2);
+  font-size: var(--text-small);
+}
+
+.brief-ref small,
+.brief-hidden {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-hidden {
+  margin: var(--space-2) 0 0;
+}
+
+/* The ledgers: sizes and rules, each row with the column of the build on show. */
+.brief-block {
+  margin-top: var(--space-4);
+}
+
+.brief-block-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.brief-block-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.brief-said {
+  flex: 1;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.brief-ledger {
+  overflow: hidden;
+  border-radius: var(--radius-float);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.brief-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 246px;
+  align-items: stretch;
+  min-height: 40px;
+}
+
+.brief-row + .brief-row,
+.brief-row + .brief-form,
+.brief-form + .brief-row {
+  border-top: 1px solid var(--hairline);
+}
+
+.brief-headrow {
+  min-height: 30px;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-headrow > span {
+  padding: 8px 10px 6px 12px;
+}
+
+.brief-rule {
+  grid-template-columns: minmax(0, 1fr) 246px;
+}
+
+.brief-value {
+  padding: 9px 0 0 12px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.brief-unit {
+  margin-left: 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.brief-row > .brief-what {
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding: 7px 10px;
+}
+
+.brief-row > .brief-what b {
+  display: block;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brief-row > .brief-what p {
+  margin: 0;
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.brief-source {
+  display: block;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+.brief-id {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+/* The column of the build on show. Nothing checks it yet: a dashed ground and an empty gauge, a gap to fill and not a failure. */
+.brief-against {
+  display: grid;
+  grid-template-columns: 1fr 64px;
+  column-gap: 8px;
+  align-items: center;
+  padding: 5px 10px;
+  background: var(--surface);
+  border-left: 1px solid var(--hairline);
+}
+
+.brief-against[data-none] {
+  background: repeating-linear-gradient(135deg, var(--surface) 0 6px, color-mix(in srgb, var(--surface) 70%, var(--hairline)) 6px 7px);
+}
+
+.brief-headrow .brief-against {
+  display: block;
+  background: var(--surface);
+}
+
+.brief-verdict {
+  overflow: hidden;
+  font-size: var(--text-small);
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brief-reading {
+  grid-column: 1;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brief-gauge {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+/* Claude's rows, notes and photos keep the agent's green edge; the person's the red pencil of theirs. */
+.brief-row[data-by='agent'],
+.brief-note[data-by='agent'] {
+  box-shadow: inset 3px 0 0 var(--agent-mark);
+}
+
+.brief-row[data-lit],
+.brief-note[data-lit],
+.brief-tile[data-lit] {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Edit and Remove show when the row is pointed at or has the keyboard. */
+.brief-acts {
+  display: none;
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+}
+
+.brief-row:hover .brief-acts,
+.brief-row:focus-within .brief-acts,
+.brief-note:hover .brief-acts,
+.brief-note:focus-within .brief-acts,
+.brief-tile:hover .brief-acts,
+.brief-tile:focus-within .brief-acts {
+  display: inline-flex;
+}
+
+.brief-notes {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.brief-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding-left: 10px;
+  border-left: 2px solid var(--user-mark);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.brief-note[data-by='agent'] {
+  border-left-color: var(--agent-mark);
+  box-shadow: none;
+}
+
+.brief-note-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.brief-note small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.brief-link {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+/* The forms: a size in a grid, a note or a rule in one field. */
+.brief-form {
+  box-sizing: border-box;
+  padding: var(--space-3);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.brief-sizeform {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  max-width: 420px;
+}
+
+.brief-sizeform label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-sizeform label[data-wide] {
+  grid-column: 1 / -1;
+}
+
+.brief-sizeform input,
+.brief-sizeform select,
+.brief-textform textarea {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--field-border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.brief-sizeform input,
+.brief-sizeform select {
+  height: 28px;
+}
+
+.brief-textform textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+}
+
+.brief-sizeform input:focus,
+.brief-sizeform select:focus,
+.brief-textform textarea:focus {
+  outline: var(--focus-ring);
+  outline-offset: 0;
+}
+
+.brief-form-help {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--fail);
+  font-size: var(--text-small);
+}
+
+.brief-form-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* A picture opened large over the board. */
+.pboard-view {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.pboard-view img {
+  max-width: calc(100% - 8 * var(--space-4));
+  max-height: calc(100% - 8 * var(--space-4));
+  border: var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: var(--float-shadow);
+  object-fit: contain;
+}
+
+.pboard-view-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+.pboard-view:focus {
+  outline: none;
+}

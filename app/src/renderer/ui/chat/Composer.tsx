@@ -108,9 +108,9 @@ function BoardChip() {
   if (attached === null || board === null) return null
   const sum = attachSummary(board, attached.ids)
   return (
-    <div className="chat-board-attached" role="group" aria-label="Board attached">
+    <div className="chat-board-attached" role="group" aria-label="Brief attached">
       <span className="chat-with-what">
-        <span>{attached.ids === 'all' ? 'The whole board goes with your next prompt' : 'Part of the board goes with your next prompt'}</span>
+        <span>{attached.ids === 'all' ? 'The whole brief goes with your next prompt' : 'Part of the brief goes with your next prompt'}</span>
         <span className="chat-board-chip num">{attachLabel(sum)}</span>
         {sum.gone.length > 0 && <span className="chat-board-gone">{numbered(`${sum.gone.join(', ')} ${sum.gone.length === 1 ? 'was' : 'were'} removed, so ${sum.gone.length === 1 ? 'it is' : 'they are'} left out`)}</span>}
       </span>

@@ -137,7 +137,7 @@ describe('a card of the board in the chat', () => {
   it('is only text when the board has no such card, or has it hidden', () => {
     const state = { ...store.getState(), board: board(card('C5', { by: 'torno', hidden: true })) }
     expect(refInfo(state, 'C9')).toMatchObject({ kind: 'card', live: false, plain: true, title: 'C9 is not on the board of this project' })
-    expect(refInfo(state, 'C5')).toMatchObject({ live: false, plain: false, title: 'C5 is hidden on the board: show it again from "Hidden cards"' })
+    expect(refInfo(state, 'C5')).toMatchObject({ live: false, plain: false, title: 'C5 is hidden in the brief: show it again from "Put away"' })
     // The board not read yet: nothing is claimed.
     expect(refInfo(store.getState(), 'C9')).toMatchObject({ live: false, plain: true })
   })

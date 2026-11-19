@@ -149,17 +149,9 @@ describe('the outline of the tracing that is open', () => {
 describe('what is told to main as shown', () => {
   it('is the open tracing while the view is on a tracing, and nothing otherwise', () => {
     expect(shownIds('model', 'T1')).toEqual([])
-    expect(shownIds('board', 'T1')).toEqual([])
+    expect(shownIds('brief', 'T1')).toEqual([])
     expect(shownIds('tracing', 'T1')).toEqual(['T1'])
     expect(shownIds('tracing', null)).toEqual([])
-  })
-
-  it('is the tracings of the cards on the board while the board is shown, the hidden ones left out', () => {
-    const card = (id: string, source: string, over: object = {}) => ({ id, kind: 'tracing' as const, x: 0, y: 0, w: 1, h: 1, by: 'torno' as const, source, ...over })
-    const cards = [card('C1', 'T1'), card('C2', 'T2', { hidden: true }), { ...card('C3', 'M1'), kind: 'mark' as const }, card('C4', 'T3')]
-    expect(shownIds('board', 'T1', { next: 5, cards, arrows: [] })).toEqual(['T1', 'T3'])
-    expect(shownIds('model', 'T1', { next: 5, cards, arrows: [] })).toEqual([])
-    expect(shownIds('tracing', 'T2', { next: 5, cards, arrows: [] })).toEqual(['T2'])
   })
 
   it('is said when the view or the open tracing changes', async () => {
@@ -179,9 +171,9 @@ describe('what is told to main as shown', () => {
 
 describe('what is told to main as shown, of the tracings shown in 3D', () => {
   it('is added to those the view and the board show, each once', () => {
-    expect(shownIds('model', null, null, ['T2'])).toEqual(['T2'])
-    expect(shownIds('tracing', 'T1', null, ['T2', 'T1'])).toEqual(['T1', 'T2'])
-    expect(shownIds('board', 'T1', null, ['T3'])).toEqual(['T3'])
+    expect(shownIds('model', null, ['T2'])).toEqual(['T2'])
+    expect(shownIds('tracing', 'T1', ['T2', 'T1'])).toEqual(['T1', 'T2'])
+    expect(shownIds('brief', 'T1', ['T3'])).toEqual(['T3'])
   })
 
   it('is said when a tracing is shown in 3D or put away, while the view is the model', async () => {
