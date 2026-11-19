@@ -27,7 +27,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   given by main only.
 - Main is the only writer of `<object>/.torno/marks.json`
   (`src/main/marks/store.ts`): one change at a time per object, written
-  atomically before it is told. The renderer and the MCP tools go through it.
+  atomically before it is told. The renderer and the MCP tools go through it. Before every change the file is compared
+  with the text main last read or wrote (`disk`, `diskText`, `savedText`): when it was changed from outside (a git pull)
+  the disk's marks are the base of the change and the window is told of them, as `BoardStore` does for `board.json`.
 - Coordinates and refs of a mark are in the object frame of the mark's layout.
   A ref is `<part>`, `<part>/F<i>`, `<part>/E<i>`, `<part>/@<tag>` or `M<n>`; to the kernel it
   is sent with the layout in front (`assembly:lid/F12`). A tag is a name the model gives a face or an edge

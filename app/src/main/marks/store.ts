@@ -8,7 +8,7 @@ import { type Tracing, type TracingPlane, inPlane, planeDistance, planeNormal } 
 
 /** What main says of a region: what it is, which mesh of its scan it is of, and which painting of it its mask holds. */
 export type RegionSaid = RegionStats & { mesh?: string; mask?: number }
-import { loadMarksFile, sanitiseMark, saveMarksFile } from './file'
+import { diskText, loadMarksFile, sanitiseMark, savedText, saveMarksFile } from './file'
 import { Refusal } from '../refusal'
 import { dropNoteFiles } from '../notes/dropped'
 
@@ -85,6 +85,8 @@ const CONTENT_KEYS = ['note', ...SHAPE_KEYS, ...DIMENSION_KEYS] as const
 export class MarkStore {
   /** By object folder: the marks file as last read or written. */
   private files = new Map<string, MarksFile>()
+  /** By object folder: the text of the marks file as main last read or wrote it (null: no file). A file that is other than this was changed from outside. */
+  private disk = new Map<string, string | null>()
   /** By object folder: the last thing asked of its marks, which the next waits for. */
   private turns = new Map<string, Promise<unknown>>()
   /**
@@ -130,6 +132,7 @@ export class MarkStore {
     this.deleted.clear()
     this.removedFiles.clear()
     this.files.clear()
+    this.disk.clear()
     this.sending.clear()
     this.histories.clear()
     this.unread.clear()
@@ -1175,7 +1178,13 @@ export class MarkStore {
    * tied to other geometry: they are told as unchecked, like those added.
    */
   private change<T>(objectId: string, edit: (file: MarksFile, dir: string) => T, moved: readonly string[] = [], before?: (result: T) => Promise<void>): Promise<T> {
-    return this.turn(objectId, async (current, dir, epoch) => {
+    return this.turn(objectId, async (kept, dir, epoch) => {
+      let current = kept
+      // Changed from outside since main last read or wrote it (a git pull): the disk's marks are the base, and the window is told.
+      if (epoch === this.epoch && this.disk.has(dir) && (await diskText(dir)) !== this.disk.get(dir)) {
+        current = await this.load(objectId, dir, epoch)
+        if (epoch === this.epoch && savedText(current) !== savedText(kept)) this.emit('changed', { objectId, marks: structuredClone(current.marks), rounds: structuredClone(current.rounds ?? []), sending: this.sending.get(dir) ?? null })
+      }
       const file = structuredClone(current)
       const result = edit(file, dir)
       if (result === UNCHANGED) return result
@@ -1185,6 +1194,7 @@ export class MarkStore {
       // Told only to the workspace it was asked in: the write of one that has been left lands, and is not broadcast.
       if (epoch === this.epoch) {
         this.files.set(dir, file)
+        this.disk.set(dir, savedText(file))
         this.emit('changed', { objectId, marks: structuredClone(file.marks), rounds: structuredClone(file.rounds ?? []), sending: this.sending.get(dir) ?? null })
         const was = new Map(current.marks.map((m) => [m.id, m.status]))
         const unchecked = file.marks.filter((m) => m.status !== 'resolved' && ((was.get(m.id) ?? 'resolved') === 'resolved' || moved.includes(m.id))).map((m) => m.id)
@@ -1203,24 +1213,7 @@ export class MarkStore {
     const turn = (this.turns.get(dir) ?? Promise.resolve())
       .catch(() => {})
       .then(async () => {
-        let file = this.files.get(dir)
-        if (!file) {
-          const loaded = await loadMarksFile(dir, () => this.now())
-          file = loaded.file
-          // Which build a mark was checked against, or a dimension measured on, is of the run that did it:
-          // revisions count anew in this one, and a number read from the file would pass for one of them.
-          for (const mark of file.marks) {
-            delete mark.checkedRevision
-            if (mark.kind === 'dimension') delete mark.measuredRevision
-            // A span's build is named by its history id, which is the same in every run; the run's own number is not.
-            if (mark.kind === 'span') delete mark.measuredOn
-          }
-          if (loaded.problem) this.problems.set(dir, loaded.problem)
-          if (epoch === this.epoch) {
-            this.files.set(dir, file)
-            if (loaded.problem) this.emit('problem', { objectId, message: loaded.problem })
-          }
-        }
+        const file = this.files.get(dir) ?? (await this.load(objectId, dir, epoch))
         return task(file, dir, epoch)
       })
       .finally(() => {
@@ -1228,6 +1221,27 @@ export class MarkStore {
       })
     this.turns.set(dir, turn)
     return turn
+  }
+
+  /** Reads the marks file of an object again, keeping what it says and what was wrong with it. */
+  private async load(objectId: string, dir: string, epoch: number): Promise<MarksFile> {
+    const loaded = await loadMarksFile(dir, () => this.now())
+    const file = loaded.file
+    // Which build a mark was checked against, or a dimension measured on, is of the run that did it:
+    // revisions count anew in this one, and a number read from the file would pass for one of them.
+    for (const mark of file.marks) {
+      delete mark.checkedRevision
+      if (mark.kind === 'dimension') delete mark.measuredRevision
+      // A span's build is named by its history id, which is the same in every run; the run's own number is not.
+      if (mark.kind === 'span') delete mark.measuredOn
+    }
+    if (loaded.problem) this.problems.set(dir, loaded.problem)
+    if (epoch === this.epoch) {
+      this.files.set(dir, file)
+      this.disk.set(dir, await diskText(dir))
+      if (loaded.problem) this.emit('problem', { objectId, message: loaded.problem })
+    }
+    return file
   }
 
   private emit<E extends keyof MarkEvents>(event: E, message: MarkEvents[E]): void {

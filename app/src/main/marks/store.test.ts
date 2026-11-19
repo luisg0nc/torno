@@ -2064,3 +2064,41 @@ describe('a review', () => {
     expect((await again.list('bracket'))[0]).toMatchObject({ round: 'R1', intent: 'want' })
   })
 })
+
+describe('a marks file changed from outside', () => {
+  const path = (): string => join(dirs.bracket, '.torno', 'marks.json')
+  /** What a git pull would leave: a mark more than main wrote. */
+  const pulled = (): void => {
+    const marks = onDisk('bracket')
+    marks.marks.push({ ...(marks.marks[0] as Mark), id: 'M9', note: 'from the pull' })
+    marks.next = 10
+    writeFileSync(path(), `${JSON.stringify(marks, null, 2)}\n`)
+  }
+
+  it('is taken as the base of the next change, which goes on top, and the window is told', async () => {
+    await store.add('bracket', pin('mine'))
+    pulled()
+    changes.length = 0
+    await store.add('bracket', pin('next'))
+    expect(ids(onDisk('bracket').marks)).toEqual(['M1', 'M9', 'M10'])
+    expect(ids((await store.list('bracket')))).toEqual(['M1', 'M9', 'M10'])
+    // Once for what the pull brought, once for the change.
+    expect(changes.map((c) => c.marks.length)).toEqual([2, 3])
+  })
+
+  it('is told before the change, whatever the change makes of it', async () => {
+    const mark = await store.add('bracket', pin('mine'))
+    pulled()
+    changes.length = 0
+    await store.update('bracket', mark.id, { note: 'edited' })
+    expect(changes[0]?.marks.map((m) => m.id)).toEqual(['M1', 'M9'])
+    expect(ids(onDisk('bracket').marks)).toEqual(['M1', 'M9'])
+  })
+
+  it('is no reason to tell the window again when it is as main left it', async () => {
+    await store.add('bracket', pin('mine'))
+    changes.length = 0
+    await store.add('bracket', pin('next'))
+    expect(changes).toHaveLength(1)
+  })
+})

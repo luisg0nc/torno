@@ -1,4 +1,4 @@
-import { copyFile, readFile } from 'node:fs/promises'
+import { copyFile, lstat, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { verdictOf } from '../../shared/dimension'
 import { MOST_CUTS_TOLD, MOST_REFS_TOLD, MOST_SCANS_TOLD, type StrokeUnder } from '../../shared/drawing'
@@ -68,7 +68,24 @@ export async function loadMarksFile(dir: string, now: () => Date = () => new Dat
 
 /** Writes `<dir>/.torno/marks.json`, creating the folder. Readers see the old file or the new one, never half of one. */
 export function saveMarksFile(dir: string, file: MarksFile): Promise<void> {
-  return writeOwn(dir, NAME, textOf(sanitiseMarksFile(file) ?? { next: 1, marks: [] }))
+  return writeOwn(dir, NAME, savedText(file))
+}
+
+/** What `saveMarksFile` writes for `file`. */
+export function savedText(file: MarksFile): string {
+  return textOf(sanitiseMarksFile(file) ?? { next: 1, marks: [] })
+}
+
+/** The text of the object's `marks.json`: null when there is none, or when what stands in its place is not a plain file. */
+export async function diskText(dir: string): Promise<string | null> {
+  const path = join(dir, FOLDER, NAME)
+  try {
+    if (!(await lstat(path)).isFile()) return null
+    return await readFile(path, 'utf8')
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT' || (e as NodeJS.ErrnoException).code === 'ENOTDIR') return null
+    throw e
+  }
 }
 
 function textOf(file: MarksFile): string {
