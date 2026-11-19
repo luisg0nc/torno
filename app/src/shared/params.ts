@@ -1,4 +1,4 @@
-import type { Param } from './scene'
+import type { Param, Scene } from './scene'
 
 /**
  * Where a size of the model's `Params` says it comes from: the first word of the field's comment, before a `:`
@@ -104,4 +104,20 @@ export function triedLine(params: readonly Param[] | undefined, dropped: Readonl
   }
   if (dropped.length > 0) parts.push(`Params overrides let go of: ${dropped.map((d) => `${d.name} (${d.reason})`).join('; ')}.`)
   return parts.join(' ')
+}
+
+/**
+ * The references (bought parts) of a build that were made from sizes the model's comments say are assumed, by name,
+ * each with those sizes: `references(p)` read an `assumed:` field of `Params` (`Part.reads`). A kernel that did not
+ * say what it read counts it as having read every one. The model's own claim of the sources, as `sourceCount` is.
+ */
+export function assumedReferences(scene: Pick<Scene, 'parts' | 'params'>): Map<string, string[]> {
+  const { assumed } = sourceCount(scene.params)
+  const found = new Map<string, string[]>()
+  for (const part of scene.parts) {
+    if (part.role !== 'reference' || found.has(part.name)) continue
+    const mine = assumed.filter((p) => part.reads === undefined || part.reads.includes(p.name)).map((p) => p.name)
+    if (mine.length > 0) found.set(part.name, mine)
+  }
+  return found
 }

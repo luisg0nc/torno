@@ -1,4 +1,6 @@
 import { number } from './format'
+import { assumedReferences } from './params'
+import type { Scene } from './scene'
 
 /**
  * A check the model declares in its `checks(p)` and the kernel measured on a build (`kernel/src/torno_kernel/modelchecks.py`).
@@ -19,6 +21,8 @@ export interface ModelCheck {
   how?: string
   reason?: string
   declared?: Record<string, unknown>
+  /** The references this check names (or, an interference, all) that were made from assumed sizes: it holds only as far as that guess does. Main's, after the build; absent for none. */
+  assumedRefs?: string[]
 }
 
 /**
@@ -59,7 +63,27 @@ export function readingText(c: Pick<ModelCheck, 'value' | 'unit' | 'kind' | 'exa
 export function checkText(c: ModelCheck): string {
   if (c.status === 'error') return `${c.name} (could not be measured: ${c.reason ?? 'no reason given'})`
   if (c.status === 'not run') return `${c.name} (not run: ${c.reason ?? 'no time'})`
-  return `${c.name} (${readingText(c)}, wanted ${wantedText(c)})`
+  return `${c.name} (${readingText(c)}, wanted ${wantedText(c)}${againstText(c) ? `; ${againstText(c)}` : ''})`
+}
+
+/** `against an assumed reference: radiator`; empty when the check names none. */
+export function againstText(c: Pick<ModelCheck, 'assumedRefs'>): string {
+  const refs = c.assumedRefs ?? []
+  return refs.length === 0 ? '' : `against ${refs.length === 1 ? 'an assumed reference' : 'assumed references'}: ${refs.join(', ')}`
+}
+
+/**
+ * For each check, the references it is against that were made from assumed sizes (`assumedReferences`): those of its `a`
+ * and `b`, a group by its parts, and for an `interference` every one. In the order of `checks`; `[]` for a check against none.
+ */
+export function assumedAgainst(checks: readonly ModelCheck[], scene: Pick<Scene, 'parts' | 'params' | 'groups'>): string[][] {
+  const assumed = assumedReferences(scene)
+  if (assumed.size === 0) return checks.map(() => [])
+  const expand = (ref: unknown): string[] => (typeof ref !== 'string' ? [] : (scene.groups?.find((g) => g.name === ref)?.parts ?? [ref]))
+  return checks.map((c) => {
+    const named = c.kind === 'interference' ? [...assumed.keys()] : [c.declared?.a, c.declared?.b].flatMap(expand)
+    return [...new Set(named)].filter((name) => assumed.has(name))
+  })
 }
 
 /** How the model's checks stand, counted: `pass`, `fail`, could not be measured, not run, and how many passes are by sampling or approximate. */
@@ -76,7 +100,8 @@ export function checksLine(checks: readonly ModelCheck[], revision: number | und
   if (checks.length === 0) return ''
   const n = checksCount(checks)
   const parts = [`${n.pass} pass`, ...(n.fail > 0 ? [`${n.fail} ${n.fail === 1 ? 'fails' : 'fail'}`] : []), ...(n.error > 0 ? [`${n.error} could not be measured`] : []), ...(n.notRun > 0 ? [`${n.notRun} not run`] : [])]
-  const sampled = n.approximate > 0 ? ` (${n.approximate} of the passes by sampling or approximate)` : ''
+  const guessed = checks.filter((c) => c.status === 'pass' && (c.assumedRefs ?? []).length > 0).length
+  const sampled = `${n.approximate > 0 ? ` (${n.approximate} of the passes by sampling or approximate)` : ''}${guessed > 0 ? ` (${guessed} of the passes against an assumed reference)` : ''}`
   const head = `Checks (the model's own${revision === undefined ? '' : `, on r${revision}`}): ${parts.join(', ')}${sampled}`
   const unmet = checks.filter((c) => c.status !== 'pass')
   if (unmet.length === 0) return head

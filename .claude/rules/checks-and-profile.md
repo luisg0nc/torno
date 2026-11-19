@@ -37,6 +37,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   check the build before did not have, of the kind and layout of one it drops) is that check under a new name, not a
   removed one: it is noted only when its bounds are looser, under the new name (`replacements`), and then as any note. The window shows the notes; the agent is told
   of them by `state.md` and `scene` (`checksEasier`).
+- **Against an assumed reference.** After a good build `Builds.succeeded` gives each check `assumedRefs` (`assumedAgainst` of
+  `shared/modelChecks.ts`, from `assumedReferences` of `shared/params.ts`): the references it names (`a`, `b`, a group by its
+  parts; an `interference` all of them) whose `reads` include a `Params` field commented `assumed:`. Every place says it:
+  `checkText` ("…; against an assumed reference: radiator"), `checksLine` ("N of the passes against an assumed reference"),
+  the row of the Checks section and the failing-checks pointers (`CheckWords.assumed`), and `scene`'s `checks[].assumedRefs`. It
+  is the model's own claim of its sources, as `assumedLine` is; the pass itself is never softened.
 
 ## Print profile (`app/src/main`)
 

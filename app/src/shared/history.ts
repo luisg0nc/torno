@@ -1,6 +1,6 @@
 import { landing, landingText } from './diff'
 import { partDefects } from './sanity'
-import type { Scene } from './scene'
+import type { ParamValue, Scene } from './scene'
 
 /**
  * The history of an object's builds (`main/history.ts`, #56): what is kept of each build that landed, under
@@ -74,6 +74,8 @@ export interface HistoryEntry {
   error?: string
   /** For the cause `params`: the names of the Params the person tried since the build before (the window says them between turns). Main's only. */
   tried?: string[]
+  /** For the cause `params`: of those names, the ones the build was made with another value for, with that value; a name of `tried` not here was put back to the file's default. Main's only. */
+  set?: Record<string, ParamValue>
   /** For the cause `goback`: the id of the build it restored. */
   wentBackTo?: string
   /** Undone by a later Go back. */

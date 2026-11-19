@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { type ModelCheck, checkText, checksLine, keepNotes, noteText, readingText, wantedText } from './modelChecks'
+import { type ModelCheck, assumedAgainst, checkText, checksLine, keepNotes, noteText, readingText, wantedText } from './modelChecks'
+import type { Param, Scene } from './scene'
 
 const check = (over: Partial<ModelCheck> = {}): ModelCheck => ({ name: 'lid fits', kind: 'clearance', status: 'pass', value: 0.2, unit: 'mm', min: 0.1, max: 0.3, exact: true, declared: { name: 'lid fits', kind: 'clearance', a: 'lid', b: 'tub' }, ...over })
 
@@ -73,5 +74,40 @@ describe('what the checks have become since a build', () => {
   it('notes a bed made larger', () => {
     const bed = (size: number[]): ModelCheck => check({ name: 'bed', kind: 'bed', min: null, max: 0, declared: { name: 'bed', kind: 'bed', size } })
     expect(keepNotes([], [bed([256, 256, 256])], [bed([300, 256, 256])], 2).map((n) => n.text)).toEqual(['bed: bed 256 × 256 × 256 → 300 × 256 × 256 mm'])
+  })
+})
+
+describe('a check against a reference built from assumed sizes', () => {
+  const param = (name: string, doc: string): Param => ({ name, type: 'float', default: 5, literal: true, doc })
+  const scene = (over: Partial<Scene> = {}): Pick<Scene, 'parts' | 'params' | 'groups'> =>
+    ({
+      parts: [
+        { name: 'radiator', layout: 'assembly', role: 'reference', reads: ['rad_w'] },
+        { name: 'bolt', layout: 'assembly', role: 'reference', reads: ['rad_w2'] },
+        { name: 'plate', layout: 'assembly' },
+        { name: 'radiator', layout: 'print', role: 'reference', reads: ['rad_w'] }
+      ],
+      params: [param('rad_w', 'assumed: from the photo'), param('rad_w2', 'datasheet X: 5'), param('wall', 'assumed: 2')],
+      groups: [{ name: 'bought', parts: ['radiator', 'bolt'] }],
+      ...over
+    }) as never
+  const named = (...refs: Array<string | undefined>) => check({ declared: { kind: 'overlap', a: refs[0], b: refs[1] } })
+
+  it('names the assumed reference a check names, also through a group, and no other', () => {
+    expect(assumedAgainst([named('plate', 'radiator')], scene())).toEqual([['radiator']])
+    expect(assumedAgainst([named('plate', 'bought')], scene())).toEqual([['radiator']])
+    expect(assumedAgainst([named('plate', 'bolt')], scene())).toEqual([[]])
+    expect(assumedAgainst([named('plate', 'plate')], scene())).toEqual([[]])
+  })
+  it('counts a reference that says nothing of what it read as built from every assumed size, and an interference check as against all references', () => {
+    const blind = scene({ parts: [{ name: 'bolt', layout: 'assembly', role: 'reference' }] as never })
+    expect(assumedAgainst([named('plate', 'bolt')], blind)).toEqual([['bolt']])
+    expect(assumedAgainst([check({ kind: 'interference', declared: { kind: 'interference' } })], scene())).toEqual([['radiator']])
+  })
+  it('says so in the words of a check, and counts the passes in the line', () => {
+    const c = check({ assumedRefs: ['radiator'] })
+    expect(checkText(c)).toBe('lid fits (0.2 mm, wanted 0.1 to 0.3 mm; against an assumed reference: radiator)')
+    expect(checkText(check({ status: 'fail', assumedRefs: ['radiator'], value: 0.5 }))).toContain('against an assumed reference: radiator')
+    expect(checksLine([c, check()], 3)).toBe("Checks (the model's own, on r3): 2 pass (1 of the passes against an assumed reference)")
   })
 })

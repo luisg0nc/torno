@@ -64,6 +64,7 @@ def build_scene(
     parts = []
     shapes = {}
     references = getattr(layouts, "references", frozenset())
+    reads = getattr(layouts, "references_read", None)
     # The solids integrated so far: one placed in two layouts is integrated once.
     solids: list[tuple[Any, extent.Volume]] = []
     for layout, named in layouts.items():
@@ -90,6 +91,9 @@ def build_scene(
             if name in references:
                 # Bought, not made: drawn and checked against, left out of what is printed, weighed and exported.
                 part["role"] = REFERENCE
+                if reads is not None:
+                    # The Params fields that made it (`references(p)` as a whole read them): a bought part drawn from assumed sizes.
+                    part["reads"] = list(reads)
                 if kept is not None:
                     kept["reference", key] = True
             parts.append(part)

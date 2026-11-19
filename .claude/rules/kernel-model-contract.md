@@ -92,7 +92,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   never against another reference, and names them in `references`). It is not made: `bed` leaves it out (and says
   so), `mass`, `mesh`, `overhang`, `thin` and a STL or 3MF refuse it (`queries.need_made`; a group in a model's
   `thin`, `overhang` or `mesh` check skips them, and naming one is refused when the model loads), while a STEP may
-  hold it when asked. `describe` says `role: "reference"`.
+  hold it when asked. `describe` says `role: "reference"`. The worker notes which `Params` fields `references(p)` read
+  (`loader._tracked`: a subclass copy of `Params` that records reads, so `dataclasses.replace` counts as reading all;
+  `Layouts.references_read`) and `tess.build_scene` gives each reference `reads`: it is how the app knows a reference was
+  drawn from `assumed:` sizes. A `Params` that cannot be copied that way (`__slots__`) gives no `reads`, and the app then
+  takes the reference as built from every assumed size.
 
 - **A part's mesh carries what a window snaps a sketch to** (`tess._snap`): `points`, the B-rep's vertices as float32 xyz in
   the order `V<i>` names them (`topo.vertices`, `TopExp.MapShapes` over vertices, the order of build123d's `shape.vertices()`;

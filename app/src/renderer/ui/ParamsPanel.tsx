@@ -164,7 +164,7 @@ function ParamItem({ row, canInsert, set, reset }: { row: ParamRow; canInsert: b
           {row.file !== null && (
             <span className="param-differs">
               <span>
-                differs from the file
+                kept by torno, not in the model file yet
               </span>
               <button type="button" className="button button-quiet" aria-label={`Reset ${row.name} to ${row.file}`} title={`Back to the file's ${row.file}`} onClick={reset}>
                 Reset

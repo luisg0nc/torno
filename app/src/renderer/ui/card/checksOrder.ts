@@ -49,7 +49,7 @@ function modelRow(c: ModelCheck): CheckRow {
     ...(measured && typeof c.value === 'number' ? { value: c.value } : {}),
     lo: c.min ?? null,
     hi: c.max ?? null,
-    line: [words.reading, words.wanted, caution].filter(Boolean).join(', '),
+    line: [words.reading, words.wanted, caution, words.assumed].filter(Boolean).join(', '),
     parts: names(c),
     title: words.title
   }

@@ -26,6 +26,9 @@ class Layouts(dict):
     layouts reads this."""
 
     references: frozenset[str] = frozenset()
+    # The ``Params`` fields ``references(p)`` read, in the order it read them; None when that could not be told (the
+    # caller then takes it that they read every one).
+    references_read: tuple[str, ...] | None = None
     tags: dict[tuple[str, str], dict[str, dict[str, list[int]]]] = {}  # noqa: RUF012 - replaced, never changed in place
 
 
@@ -157,7 +160,8 @@ def _references(module: ModuleType, scene: dict[str, dict[str, Any]]) -> dict[st
     function = getattr(module, "references", None)
     if not callable(function) or not hasattr(module, "Params"):
         return scene
-    made = function(_params(module))
+    params, read = _tracked(_params(module))
+    made = function(params)
     shape = "references() must return a dict of name to shape"
     if not isinstance(made, dict):
         raise LoadError("exception", f"{shape}, got {type(made).__name__}")
@@ -185,7 +189,33 @@ def _references(module: ModuleType, scene: dict[str, dict[str, Any]]) -> dict[st
     for layout in into:
         laid[layout].update(one)
     laid.references = frozenset(one)
+    laid.references_read = tuple(read) if read is not None else None
     return laid
+
+
+def _tracked(params: Any) -> tuple[Any, list[str] | None]:
+    """``params`` and the list its fields are noted in as they are read. A copy of another class (a subclass), so what
+    the model does with it (``dataclasses.replace``, which reads every field) is told as reading them; the list is
+    None, and ``params`` as it was, when it cannot be copied that way (``__slots__``)."""
+    import dataclasses
+
+    read: list[str] = []
+    if not dataclasses.is_dataclass(params) or not hasattr(params, "__dict__"):
+        return params, None
+    names = {f.name for f in dataclasses.fields(params)}
+
+    class Tracked(type(params)):  # type: ignore[misc]
+        def __getattribute__(self, name: str) -> Any:
+            if name in names and name not in read:
+                read.append(name)
+            return super().__getattribute__(name)
+
+    try:
+        tracked = object.__new__(Tracked)
+        tracked.__dict__.update(params.__dict__)
+    except Exception:
+        return params, None
+    return tracked, read
 
 
 def _one_shape(value: Any) -> Any:

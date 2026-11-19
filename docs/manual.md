@@ -329,6 +329,9 @@ distance, mm), `overlap` (the volume shared, nothing unless told), `solids` (how
 A declaration that is not one fails the build and says what is wrong, as a bad `groups(p)` does. A check that fails
 never fails the build, and never holds the agent back when it would stop; it is told with the build
 (What the agent is told) and listed in the window under Checks. torno never writes `checks(p)`.
+A check that names a reference built from sizes the model's comments call `assumed:` (the reference's own `references(p)` read
+them) says so: "pass, against an assumed reference: radiator". It is only as good as that guess, and the build result, `scene`
+and the Checks section all say it.
 
 **Names for faces and edges.** A face number (`lid/F12`) changes whenever the topology does. A model with `Params()`
 may also define `tags(p, parts)`, which names faces and edges, and a name holds across builds:
@@ -494,7 +497,7 @@ names on hover; it is what the model says, not something torno has checked. Tryi
 field whose default is a number or a flag written in the file (`wall: float = 2`, `lid: bool = True`), or a
 `Literal["round", "square"]`, has a control under its name: type a number and press Enter, or let go of a slider
 (the model gives one with `field(default=2.0, metadata={"min": 1, "max": 5, "step": 0.2})`), tick the box, or choose
-from the list. The project is built again with that value, and the row says `differs from the file` with a
+from the list. The project is built again with that value, and the row says `kept by torno, not in the model file yet` with a
 "Reset" beside it; "Reset all" and "Ask the agent to bake it in" (which puts a request in the session's prompt,
 never sent) are under the title while any value is tried. What you try is kept in `.torno/params.json` and the file
 always wins: if the model's default for that field changes, your value is let go of and the row says so, and a value
@@ -841,8 +844,9 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   away again), and the dots, a menu with **Go back to before this prompt**, **Star** (keeps the last build: a starred build is never let go;
   **Unstar** takes it away) and **Pin to board**.
 - **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
-  `common/fillets.py` in your editor · `h39`" for a build your own save made, "You tried `wall` · `h40`" for the
-  Params you tried. Several in a row, with no prompt between, are one line ("You saved 3 times in your editor ·
+  `common/fillets.py` in your editor · `h39`" for a build your own save made, "You set `wall` to `3` · not in the model yet · `h40`" for a
+  value you set in Parameters (a value put back reads "You put `wall` back to the file's value"; a build kept before the values were
+  kept still reads "You tried `wall`"). Several in a row, with no prompt between, are one line ("You saved 3 times in your editor ·
   `h39` to `h41`"). torno says which build was whose when it keeps the build, so a save made while a turn runs is
   yours, not the agent's.
 - **Go back to before this prompt.** On a turn that made builds, while the session is idle. It first says what it
@@ -1141,7 +1145,7 @@ Open marks: M2 (moved), M6 (unchecked)
 - `Checks` is there when the model declares checks (`checks(p)`), after the dimensions: how many pass, fail,
   could not be measured or were not run, and each that did not pass with its value and what was wanted
   (`Checks (the model's own, on r3): 2 pass, 1 fails: lid fits the tub (0.12 mm, wanted 0.15 to 0.25 mm)`). It says
-  what was measured and never that the part is verified; passes that were found by sampling or are approximate are counted.
+  what was measured and never that the part is verified; passes that were found by sampling or are approximate are counted, and so are passes against a reference built from assumed sizes.
 - A mark of yours that says what you want or do not want has it after its number (`M8 · don't want · pick on lid/F12 …`),
   and one in a round `[in R1]` at the end. A round that is not sent is left out of every prompt, and one line says so
   (`R1 is in review, not sent (3 marks). Wait until the review is sent: do not resolve its marks.`). `resolve_mark` refuses a draft of such a round until it is sent, and a view note of it does not go with a prompt either. The prompt that carries a sent round has, before its marks,
@@ -2948,7 +2952,7 @@ On the screen:
   cursor of the box (or the prompt) and sends nothing, with the dock hidden as well; with no session the rows are
   not clickable. Legible in light and dark. Try a value in a
   number field and with a slider (the field with a `metadata` range, which also has a small gauge at the right of its row: the band from least to most, a tick where the value is), tick a flag and choose from a list: the build
-  runs once the slider is let go, not while it moves; the row says it differs from the file and Reset brings it back.
+  runs once the slider is let go, not while it moves; the row says it is kept by torno and not in the model file yet, and Reset brings it back.
 - **The clipboard in the terminal.** Select text in a session and press `Ctrl+Shift+C`, then `Ctrl+Shift+V`: it is copied and pasted. No test touches the clipboard. "Copy" on the build error sheet likewise.
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of projects and on the page of projects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
 - **The doodle board with a mouse and a pen.** Draw with a mouse, a tablet pen and a touch screen: the line follows the pointer without lag, the eraser takes away what it crosses, `Ctrl+Z` takes the last stroke back, and the PNG Claude gets is dark on white in both themes. Tests drew with synthetic pointer events only. A photo dropped from the file manager on the new project's page is taken too; a test cannot drop a file with a path.
