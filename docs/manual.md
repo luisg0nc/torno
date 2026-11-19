@@ -476,7 +476,7 @@ The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
 a click with Select would, so "Insert in prompt" and "Note" work on it) and a double click brings it into view, the target on
-the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. A part that
+the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. A build whose parts replace every part you were looking at (the first model of a new project) shows its parts, even under a name you had switched off, and says none of them is hidden. A part that
 is switched off says `hidden` at the right of its row, with its colour faint. The slider for its opacity, the target and the
 eye are on the row while the pointer is on it or the keys are, as a group's header (in the sans, since the name is the model's) has
 its own. After the name, a small ring holds the number of open marks on the part (in the colour of a failing check when one of

@@ -237,6 +237,12 @@ describe('contextFor', () => {
     )
   })
 
+  it('says no part is hidden when the view reported is of a build whose parts are all gone', () => {
+    const build: BuildState = { objectId: 'bracket', status: 'ok', revision: 4, seconds: 0.8, stale: false }
+    const view: ViewState = { objectId: 'bracket', layout: 'assembly', camera: CAMERA, visible: ['assembly:placeholder'] }
+    expect(textFor(deps({ build, scene: SCENE, view }), 'bracket')).toBe('[torno] bracket · build ok · r4 (0.8 s) · layout assembly · parts: base, post.')
+  })
+
   it('says that the layout on screen is drawn apart, and that this is for display only', () => {
     const build: BuildState = { objectId: 'bracket', status: 'ok', revision: 3, seconds: 0.8, stale: false }
     const view: ViewState = { objectId: 'bracket', layout: 'assembly', camera: CAMERA, visible: ['assembly:base', 'assembly:post'], explode: { amount: 0.4, scale: 1, axis: 'z' } }
