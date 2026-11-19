@@ -5,10 +5,10 @@
  * (`{ open, width }`) is read as the default folding, at the width it had.
  */
 
-/** The sections of the route card, in the order they are read. */
-export type SectionId = 'parts' | 'params' | 'checks' | 'marks' | 'scans' | 'tracings'
+/** The sections that stand under the bench, in the order they are read. Parameters and Parts are the bench's two tabs, not sections. */
+export type SectionId = 'checks' | 'marks' | 'scans' | 'tracings'
 
-export const SECTION_IDS: readonly SectionId[] = ['parts', 'params', 'checks', 'marks', 'scans', 'tracings']
+export const SECTION_IDS: readonly SectionId[] = ['checks', 'marks', 'scans', 'tracings']
 
 export interface ColumnPrefs {
   /** The sections that are folded to their heads. Every other is open. */
@@ -30,8 +30,8 @@ export const CARD_NARROW = 264
 /** The window width below which the narrow defaults of the card and the dock apply (`state/dock.ts` says the dock's). */
 export const NARROW_WINDOW = 1360
 
-/** Needs you, Parts, Checks and Marks open; Parameters, Scans and Tracings folded. */
-export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['params', 'scans', 'tracings'], width: CARD_DEFAULT }
+/** Under the bench Checks, Scans and Tracings are folded to their heads: the bench has the column. Marks is open, so that a mark just left is seen. */
+export const COLUMN_DEFAULT: ColumnPrefs = { folded: ['checks', 'scans', 'tracings'], width: CARD_DEFAULT }
 
 /** The card's default in a window of this width. */
 export function leftDefault(windowWidth: number): number {
@@ -111,4 +111,53 @@ export function writeColumn(storage: Pick<Storage, 'setItem'> | null, prefs: Col
  */
 export function sectionsFor(s: { page: 'object' | 'objects' | 'new'; objectId: string | null }): readonly SectionId[] {
   return s.page === 'object' && s.objectId !== null ? SECTION_IDS : []
+}
+
+/** The two tabs of the bench: the model's Params and its parts. */
+export type BenchTab = 'params' | 'parts'
+
+/** Which tabs a project has: Parameters when the model has Params, Parts when it has more than one part (or no Params to show instead). A one-part model shows Parameters alone, a model with no Params Parts alone. */
+export function benchTabs(parts: number, params: number): BenchTab[] {
+  if (params === 0) return ['parts']
+  return parts > 1 ? ['params', 'parts'] : ['params']
+}
+
+/** The tab to draw: the one kept for the project if it has it, else the first of its tabs (Parameters). */
+export function tabShown(kept: BenchTab | undefined, tabs: readonly BenchTab[]): BenchTab {
+  return kept !== undefined && tabs.includes(kept) ? kept : tabs[0]
+}
+
+/** The open tab of each project, as the window keeps it (`localStorage`, never the workspace's): by the project's id. */
+export type BenchKept = Record<string, BenchTab>
+
+export const BENCH_KEY = 'torno.bench'
+
+/** What the storage holds under `BENCH_KEY`: the entries that are a project id and a tab, nothing for the rest. */
+export function readBench(raw: string | null): BenchKept {
+  let kept: unknown
+  try {
+    kept = JSON.parse(raw ?? 'null')
+  } catch {
+    return {}
+  }
+  if (typeof kept !== 'object' || kept === null || Array.isArray(kept)) return {}
+  const out: BenchKept = {}
+  for (const [id, tab] of Object.entries(kept)) if (tab === 'params' || tab === 'parts') out[id] = tab
+  return out
+}
+
+export function storedBench(storage: Pick<Storage, 'getItem'> | null): string | null {
+  try {
+    return storage?.getItem(BENCH_KEY) ?? null
+  } catch {
+    return null
+  }
+}
+
+export function writeBench(storage: Pick<Storage, 'setItem'> | null, kept: BenchKept): void {
+  try {
+    storage?.setItem(BENCH_KEY, JSON.stringify(kept))
+  } catch {
+    // A storage that refuses: the window goes on as it is.
+  }
 }

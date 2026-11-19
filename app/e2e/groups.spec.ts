@@ -43,8 +43,8 @@ const visible = async (): Promise<string[]> => {
 
 async function open(name: string): Promise<void> {
   await openListed(page, name)
-  await openSection(page, 'Parts')
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
+  await openSection(page, 'Parts')
 }
 
 test('the groups head the list, their parts under them, the parts in no group after', async () => {
@@ -102,6 +102,9 @@ test('a part\'s row lights it, its name selects it and a double click frames it,
   // A double click brings it into view: the camera comes to rest somewhere else.
   const camera = (): Promise<unknown> => page.evaluate(() => window.__tornoTest!.camera())
   const before = JSON.stringify(await camera())
+  // A click first: the selection puts what is in hand over the bench, which moves the rows; the double click is then on a row that stays.
+  await page.locator('[data-layer="tall-a"]').getByRole('button', { name: 'tall-a', exact: true }).click()
+  await expect(page.locator('.route-hand')).not.toBeEmpty()
   await page.locator('[data-layer="tall-a"]').getByRole('button', { name: 'tall-a', exact: true }).dblclick()
   await expect.poll(async () => JSON.stringify(await camera())).not.toBe(before)
 
