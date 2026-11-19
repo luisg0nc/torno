@@ -19,8 +19,6 @@ import { openListed } from './objects'
 const appDir = resolve(__dirname, '..')
 const fixtures = resolve(appDir, '../kernel/tests/fixtures/ws')
 const fakeAgent = resolve(appDir, 'test/fake-agent.mjs')
-const REBUILDING = 'Rebuilding: picks wait for the new build'
-const FAILED = 'The last build failed: picks wait for a build that works'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -349,7 +347,7 @@ test('Insert puts the selected refs in the prompt of the running session, and do
   expect((await state()).selection).toEqual([base.ref, post.ref])
 })
 
-test('on a stale build nothing is picked, and the pointer is told why; a build that changes a part empties the selection, one of the same parts keeps it', async () => {
+test('on a failed build or one under way the parts are still picked; a build that changes a part empties the selection, one of the same parts keeps it', async () => {
   const before = await state()
   expect(before.selection).toHaveLength(2)
   const source = readFileSync(model(), 'utf8')
@@ -358,17 +356,14 @@ test('on a stale build nothing is picked, and the pointer is told why; a build t
 
   const [x, y] = await pageXY([-14, -9, 2.5])
   await page.mouse.move(x, y)
-  // Nothing is being built: the sentence does not say that something is.
-  await expect(readout()).toHaveText(FAILED)
+  // The last good build is still there to point at: the pointer is told nothing of a wait.
+  await expect(readout()).not.toHaveText(/picks wait/)
   await page.mouse.down()
   await page.mouse.up()
-  // Off the parts there is nothing to refuse, and a click there clears nothing either.
-  const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
-  await page.mouse.move(box.x + box.width - 12, box.y + box.height - 60)
-  await expect(readout()).toBeHidden()
-  await page.mouse.down()
-  await page.mouse.up()
-  expect((await state()).selection).toEqual(before.selection)
+  // Select works on the build on show: the click picks the face, and the selection is of it.
+  await expect.poll(async () => (await state()).selection.length).toBeGreaterThan(0)
+  expect((await state()).selection).not.toEqual(before.selection)
+  expect((await state()).selection).toHaveLength(1)
 
   // A model that takes its time: while it is built, the parts on screen are still the old ones.
   // And it changes a part: the base is a millimetre thicker.
@@ -376,7 +371,7 @@ test('on a stale build nothing is picked, and the pointer is told why; a build t
   writeFileSync(model(), `${source.replace('Box(40, 30, 5)', 'Box(40, 30, 6)')}\nimport time\n\ntime.sleep(2)\n`)
   await expect.poll(async () => (await state()).build, { timeout: 20_000 }).toMatchObject({ status: 'building', stale: true })
   await page.mouse.move(x + 1, y)
-  await expect(readout()).toHaveText(REBUILDING)
+  await expect(readout()).not.toHaveText(/picks wait/)
   await expect.poll(async () => (await state()).build, { timeout: 20_000 }).toMatchObject({ status: 'ok', stale: false, revision: before.revision + 1 })
   expect((await state()).selection).toEqual([])
   await expect(page.locator('.hand-ref')).toHaveCount(0)

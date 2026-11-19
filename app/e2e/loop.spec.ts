@@ -311,7 +311,7 @@ test('saving the model leads to the next revision', async () => {
   await expect(status(page).locator('[data-part="revision"]')).toHaveText('r2')
 })
 
-test('a broken save fails the build and keeps the last good parts, dimmed; the error is one click away', async () => {
+test('a broken save fails the build and keeps the last good parts as they were; the error is one click away', async () => {
   const clean = await look({ view: 'iso' })
   expect(clean.of).toEqual({ objectId: 'bracket', revision: 2, stale: false })
   writeFileSync(model(), 'def assembly(p):\n    return {"base": Box(40, 30, 5)\n')
@@ -321,11 +321,11 @@ test('a broken save fails the build and keeps the last good parts, dimmed; the e
   expect(s.revision).toBe(2)
   expect(await layerNames()).toEqual(['base', 'post'])
 
-  // The old parts are still drawn, fainter.
+  // The old parts are still drawn, as they were: not faded.
   const stale = await look({ view: 'iso' })
   expect(stale.of).toEqual({ objectId: 'bracket', revision: 2, stale: true })
   expect(stale.drawn).toBeGreaterThan(0.02)
-  expect(stale.base64).not.toBe(clean.base64)
+  expect(stale.base64).toBe(clean.base64)
 
   const failed = page.getByRole('button', { name: 'Build failed' })
   await expect(failed).toBeVisible()
@@ -508,8 +508,8 @@ test('an object with two candidate models says what was looked for, and nothing 
   expect(await layerNames()).toEqual(['base', 'post'])
 })
 
-// The parts fade for a build that takes a while, not at each save; picks are locked from the first moment either way.
-test('a quick save never fades the parts; a build held past 600 ms does, and the pick lock does not wait', async () => {
+// The last good build stays on screen as it was, whatever a build under way or a failed one does.
+test('the parts are never faded: not by a quick save, nor by a build held past 600 ms, nor by one that fails', async () => {
   const faded = () => page.evaluate(() => window.__tornoTest!.faded())
   const before = (await state()).build!.revision
   await page.evaluate(() => {
@@ -519,20 +519,21 @@ test('a quick save never fades the parts; a build held past 600 ms does, and the
   })
   appendFileSync(model(), '# quick\n')
   await expect.poll(async () => (await state()).build?.revision, { timeout: 15_000 }).toBe(before + 1)
-  await page.waitForTimeout(700)
-  expect(await page.evaluate(() => (window as unknown as { __fadedSeen: boolean }).__fadedSeen)).toBe(false)
-  expect(await faded()).toBe(false)
 
   // Held by the model itself: it sleeps in the build.
   writeFileSync(model(), readFileSync(model(), 'utf8').replace('def assembly(p):\n', 'def assembly(p):\n    import time\n    time.sleep(1.5)\n'))
   await expect.poll(async () => (await state()).build?.status, { timeout: 15_000 }).toBe('building')
-  // The lock holds from the first moment; the fade does not.
-  expect((await state()).build).toMatchObject({ status: 'building', stale: true })
-  expect(await faded()).toBe(false)
-  await expect.poll(faded, { timeout: 5_000 }).toBe(true)
+  await page.waitForTimeout(900)
   expect((await state()).build?.status).toBe('building')
+  expect(await faded()).toBe(false)
   await expect.poll(async () => (await state()).build?.revision, { timeout: 20_000 }).toBe(before + 2)
-  await expect.poll(faded).toBe(false)
+
+  // One that fails leaves them as they are too.
+  appendFileSync(model(), '\nthis is not python(\n')
+  await expect.poll(async () => (await state()).build?.status, { timeout: 20_000 }).toBe('failed')
+  await page.waitForTimeout(300)
+  expect(await faded()).toBe(false)
+  expect(await page.evaluate(() => (window as unknown as { __fadedSeen: boolean }).__fadedSeen)).toBe(false)
   await page.evaluate(() => window.clearInterval((window as unknown as { __fadedTimer: number }).__fadedTimer))
   cpSync(join(fixtures, 'bracket', 'bracket.py'), model())
   await expect.poll(async () => (await state()).build?.revision, { timeout: 15_000 }).toBe(before + 3)

@@ -42,7 +42,7 @@ declare global {
       project(point: [number, number, number], part?: string): [number, number]
       /** Whether the viewport draws the parts apart now, or is on its way there or back. */
       exploded(): boolean
-      /** Whether the parts are drawn faded (older than the latest build attempt, and that has run a while or failed). */
+      /** Whether the parts are drawn faded (never by a build: the last good build stays as it was). */
       faded(): boolean
       /** The keys (`layout:name`) of the parts the old edges and the new are drawn for after a build landed; empty once they are gone. */
       ghosts(): string[]
