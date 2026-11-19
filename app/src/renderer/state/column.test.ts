@@ -27,8 +27,8 @@ const refusing = {
 } as unknown as Storage
 
 describe('the route card as the person keeps it', () => {
-  it('starts with Checks, Scans and Tracings folded and Marks open, at the default width', () => {
-    expect(COLUMN_DEFAULT).toEqual({ folded: ['checks', 'scans', 'tracings'], width: 296 })
+  it('starts with Scans and Tracings folded, at the default width', () => {
+    expect(COLUMN_DEFAULT).toEqual({ folded: ['scans', 'tracings'], width: 296 })
     expect(readColumn(null)).toEqual(COLUMN_DEFAULT)
     expect(readColumn('nope')).toEqual(COLUMN_DEFAULT)
   })
@@ -43,15 +43,15 @@ describe('the route card as the person keeps it', () => {
 
   it('reads back what was written, and nothing but the window keeps it', () => {
     const storage = memory()
-    writeColumn(storage, { folded: ['checks', 'marks'], width: 400 })
+    writeColumn(storage, { folded: ['scans', 'tracings'], width: 400 })
     expect(Object.keys(storage.data)).toEqual([COLUMN_KEY])
-    expect(readColumn(storedColumn(storage))).toEqual({ folded: ['checks', 'marks'], width: 400 })
+    expect(readColumn(storedColumn(storage))).toEqual({ folded: ['scans', 'tracings'], width: 400 })
     writeColumn(storage, { folded: [], width: 300 })
     expect(readColumn(storedColumn(storage))).toEqual({ folded: [], width: 300 })
   })
 
   it('keeps the known sections of a folded list, once each and in the card\'s order', () => {
-    expect(readColumn('{"folded":["marks","history","marks","needs"],"width":300}')).toEqual({ folded: ['marks'], width: 300 })
+    expect(readColumn('{"folded":["tracings","history","tracings","needs","marks"],"width":300}')).toEqual({ folded: ['tracings'], width: 300 })
   })
 
   it('takes what it can of a value that is not its own, and the default for the rest', () => {
@@ -69,8 +69,8 @@ describe('the route card as the person keeps it', () => {
 })
 
 describe('which sections the card has', () => {
-  it('has the four under the bench for an open project and none on a page, with a new project or with none open', () => {
-    expect(SECTION_IDS).toEqual(['checks', 'marks', 'scans', 'tracings'])
+  it('has the two under the bench for an open project and none on a page, with a new project or with none open', () => {
+    expect(SECTION_IDS).toEqual(['scans', 'tracings'])
     expect(sectionsFor({ page: 'object', objectId: 'hollow' })).toEqual(SECTION_IDS)
     expect(sectionsFor({ page: 'objects', objectId: 'hollow' })).toEqual([])
     expect(sectionsFor({ page: 'new', objectId: 'hollow' })).toEqual([])

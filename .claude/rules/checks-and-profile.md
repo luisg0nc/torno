@@ -66,7 +66,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 ## Checks (`app/src/renderer`)
 
-- `ui/card/Checks.tsx`, the body of the Checks section of the route card: the checks the model declares in its `checks(p)` as the
+- `ui/card/Checks.tsx`, the body of the Checks block of the Brief page (`ui/brief/Held.tsx` `ChecksBlock`, #277: `data-section="checks"`, the head `5 checks, 1 fails` from `checksSaid`, after the Sizes; it was a section of the route card before): the checks the model declares in its `checks(p)` as the
   kernel measured them at the last build (`Scene.checks`, `Scene.checkNotes`) and the person's dimension checks (`isCheck`) as
   one list. `ui/card/checksOrder.ts` (pure) is the rule: `mergedChecks(model, dimensions, build)` gives `CheckRow`s, failing
   first, then not run or not measured, then passing, stable within each, the model's before the person's; `litChecks` gives

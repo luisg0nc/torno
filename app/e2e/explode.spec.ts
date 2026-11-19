@@ -3,10 +3,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark, Vec3 } from '../src/shared/marks'
 import { SESSION_HEADER } from '../src/main/http'
+import { onBrief } from './helpers'
 import { openListed } from './objects'
 
 // Explode, through the window and through the agent's tools: the parts are drawn apart, and nothing that is
@@ -385,8 +386,10 @@ test('a dimension between two parts drawn apart is drawn dashed between them, sa
     return last
   }
   const together = await iso()
+  // The row is on the Brief page, which covers the view: it is read there, and the view is back for the keys and the marks' labels.
   const row = page.locator(`.mark-row[data-mark="${id}"]`)
-  await expect(row.locator('.row-note')).toHaveCount(0)
+  const rowNote = (): Locator => row.locator('.row-note')
+  await onBrief(page, () => expect(rowNote()).toHaveCount(0))
 
   await page.keyboard.press('e')
   await expect.poll(amount).toBeGreaterThan(0)
@@ -394,7 +397,7 @@ test('a dimension between two parts drawn apart is drawn dashed between them, sa
   // Still drawn, between its parts where they are drawn: its label is elsewhere.
   const apart = (await page.evaluate((mark) => window.__tornoTest!.markScreen(mark), id))!
   expect(Math.hypot(apart.x - together.x, apart.y - together.y)).toBeGreaterThan(0.02)
-  await expect(row.locator('.row-note')).toHaveText('spans parts drawn apart')
+  await onBrief(page, () => expect(rowNote()).toHaveText('spans parts drawn apart'))
   // Its value is the kernel's, of the parts as built: the same as before, in the store and to the agent.
   expect(((await state()).marks.find((mark) => mark.id === id) as Extract<Mark, { kind: 'dimension' }>).value).toBe(value)
   // And a picture of the view says which mark is drawn so, as what the agent is shown does.
@@ -407,7 +410,7 @@ test('a dimension between two parts drawn apart is drawn dashed between them, sa
   await expect.poll(amount).toBe(0)
   await settled(false)
   expect((await iso()).y).toBeCloseTo(together.y, 1)
-  await expect(row.locator('.row-note')).toHaveCount(0)
+  await onBrief(page, () => expect(rowNote()).toHaveCount(0))
 })
 
 test('the compass fits at 1280 × 800 for an object with two layouts, apart or together; and a stroke begun as the parts come together keeps nothing of where they were drawn', async () => {

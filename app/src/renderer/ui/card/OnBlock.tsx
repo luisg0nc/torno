@@ -14,9 +14,9 @@ import { bakeText, paramRow, tried } from '../paramRows'
 import { useStripNodes } from '../strip/useStripNodes'
 import { onBlock, type OnInput, type OnRow } from './onRows'
 
-/** Brings a model check's row under Checks into sight: its section is unfolded first, and the row once it is drawn. */
+/** Brings a model check's row on the Brief page into sight: the page is shown first, and the row once it is drawn. */
 function showModelCheck(name: string): void {
-  actions.showSection('checks')
+  boardActions.show('brief')
   const scroll = (): void => document.querySelector(`[data-check="${CSS.escape(name)}"]`)?.scrollIntoView({ block: 'nearest' })
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(scroll))
   else scroll()
@@ -105,7 +105,7 @@ function Row({ row, objectId }: { row: OnRow; objectId: string }) {
     case 'fromAgent':
       return (
         <li className="on-row" data-kind="fromAgent">
-          <button type="button" className="on-go" title="Go to its row under Marks" onClick={() => goToRow(row.mark.id)}>
+          <button type="button" className="on-go" title="Go to its row under Marks on the Brief page" onClick={() => goToRow(row.mark.id)}>
             <span className="mark-chip num" data-author="agent">{row.mark.id}</span>
             <span className="on-words">{row.mark.words}</span>
             <span className="on-reading">from Claude</span>

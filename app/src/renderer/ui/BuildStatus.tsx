@@ -9,6 +9,7 @@ import { makesEnvironment } from './readyLines'
 import { landedOn } from '../state/landing'
 import { compareStatus } from '../state/compare'
 import { useSets } from '../state/sets'
+import { boardActions, boardStore } from '../state/board'
 import { actions, partsInLayout, store, useStore } from '../state/store'
 import { BuildErrorSheet } from './BuildErrorSheet'
 import { withRefs } from './CompareBar'
@@ -44,24 +45,26 @@ export function defectsSaid(parts: readonly Part[]): string {
 /**
  * Goes to a mark as its row does (`selectMark`: its layout is shown when it is
  * of another, it is the active one, and the camera moves only when it is not in
- * view), and brings its row into view in the marks panel. One of a layout the
+ * view), and brings its row into view on the Brief page, which is shown for it
+ * (`show: false` for a click on a chip in the view, which leaves the view where
+ * it is: the row is there the next time the Brief is). One of a layout the
  * build no longer has is only made active.
  */
-export function goToRow(id: string): void {
+export function goToRow(id: string, show = true): void {
   // A list cut to one part may not hold its row.
   actions.listMarksOnPart(null)
   actions.selectMark(id)
   actions.setActiveMark(id)
+  if (!show) return
   // A dimension check's row is under Checks (the one that is a mark's own opens below it once it is the active mark), any other
-  // mark's under Marks.
+  // mark's under Marks: both are blocks of the Brief page.
   const mark = store.getState().marks.find((m) => m.id === id)
   const check = mark !== undefined && isCheck(mark)
   const row = check ? `.check-row[data-check-mark="${id}"]` : `.mark-row[data-mark="${id}"]`
-  // Its row is there already, whichever layout is shown: an open mark is never folded away. Unless its section of the card is folded:
-  // then the section is unfolded and brought into sight first, and the row once it is drawn.
-  if (document.querySelector(row) !== null) return document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
-  actions.showSection(check ? 'checks' : 'marks')
   const scroll = (): void => document.querySelector(row)?.scrollIntoView({ block: 'nearest' })
+  // The Brief is up already: the row is drawn. Otherwise it is shown, and the row scrolled to once it is drawn.
+  if (boardStore.getState().shown === 'brief' && document.querySelector(row) !== null) return scroll()
+  boardActions.show('brief')
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(scroll))
   else scroll()
 }

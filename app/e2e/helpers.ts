@@ -1,14 +1,15 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-/** The sections of the route card, by the name of their heads, and the id the card keeps each under (`data-section`). */
+/** The sections still in the route card, by the name of their heads, and the id the card keeps each under (`data-section`). */
 const SECTION = {
-  Checks: 'checks',
-  Marks: 'marks',
   Scans: 'scans',
   Tracings: 'tracings'
 } as const
 
-export type SectionName = keyof typeof SECTION
+/** The blocks of the Brief page that were sections of the card before #277, by name, and the id each keeps (`data-section`). */
+const HELD = { Checks: 'checks', Marks: 'marks' } as const
+
+export type SectionName = keyof typeof SECTION | keyof typeof HELD
 
 /** The bench's two tabs, which are no sections: Parameters and Parts. */
 const TABS = { Parts: 'parts', Parameters: 'params' } as const
@@ -25,12 +26,38 @@ export async function openTab(page: Page, name: TabName): Promise<void> {
   await expect(tab).toHaveAttribute('aria-selected', 'true')
 }
 
-/** A section of the route card, whole: its head and its body. */
-export const cardSection = (page: Page, name: SectionName): Locator => page.locator(`[data-region="left"] [data-section="${SECTION[name]}"].route-section`)
+/** The Brief page, shown in the view's place. */
+export const briefPage = (page: Page): Locator => page.locator('main.viewport .brief-page')
 
-/** Brings a section into sight as a person does with no rail: the card is scrolled to it and its head is pressed if it is folded. It is unfolded afterwards. */
+/** Shows the Brief page with a click on the view's switch, as a person does; one that is up stays as it is. */
+export async function showBrief(page: Page): Promise<void> {
+  const button = page.locator('.pboard-switch-button', { hasText: 'Brief' })
+  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click()
+  await expect(briefPage(page)).toBeVisible()
+}
+
+/** Shows the model again with a click on the view's switch. */
+export async function showModel(page: Page): Promise<void> {
+  const button = page.locator('.pboard-switch-button', { hasText: 'Model' })
+  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click()
+  await expect(briefPage(page)).toHaveCount(0)
+}
+
+/**
+ * A section of the route card, whole (its head and its body), or a block of the Brief page: Checks and Marks are there since
+ * #277, so they are drawn only while the Brief is shown (`openSection` shows it).
+ */
+export const cardSection = (page: Page, name: SectionName): Locator =>
+  name === 'Checks' || name === 'Marks' ? page.locator(`.brief-page [data-section="${HELD[name]}"]`) : page.locator(`[data-region="left"] [data-section="${SECTION[name]}"].route-section`)
+
+/** Brings a section into sight as a person does with no rail: the card is scrolled to it and its head is pressed if it is folded. It is unfolded afterwards. Checks and Marks are on the Brief page, which is shown (and stays up: `showModel` goes back). */
 export async function openSection(page: Page, name: SectionName | TabName): Promise<void> {
   if (name === 'Parts' || name === 'Parameters') return openTab(page, name)
+  if (name === 'Checks' || name === 'Marks') {
+    await showBrief(page)
+    await cardSection(page, name).scrollIntoViewIfNeeded()
+    return
+  }
   const section = cardSection(page, name)
   await expect(section).toBeVisible()
   await section.scrollIntoViewIfNeeded()
@@ -45,7 +72,7 @@ export async function openSection(page: Page, name: SectionName | TabName): Prom
 }
 
 /** Folds a section of the card to its head, as a person does: a click on the head. One that is folded stays as it is. */
-export async function foldSection(page: Page, name: SectionName): Promise<void> {
+export async function foldSection(page: Page, name: Exclude<SectionName, 'Checks' | 'Marks'>): Promise<void> {
   const section = cardSection(page, name)
   if ((await section.getAttribute('data-folded')) === null) await section.locator('.route-head-button').click()
   await expect(section).toHaveAttribute('data-folded', '')
@@ -134,4 +161,17 @@ export async function openStrip(page: Page): Promise<void> {
   await expect(toggle).toBeVisible()
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+}
+
+/**
+ * Reads something of the Brief page (a mark's row, a check's row) as a person does: the page is shown, `read` runs, and the model is
+ * shown again so that the spec goes on with the view. Checks and Marks are on that page since #277.
+ */
+export async function onBrief<T>(page: Page, read: () => Promise<T>): Promise<T> {
+  await showBrief(page)
+  try {
+    return await read()
+  } finally {
+    await showModel(page)
+  }
 }

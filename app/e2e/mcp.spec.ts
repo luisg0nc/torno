@@ -11,7 +11,7 @@ import type { PinMark } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { openSection, newSession } from './helpers'
+import { newSession, onBrief, openSection, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is given, through the real path: the SDK's MCP client in this
@@ -246,7 +246,6 @@ test('a layer the person hides is gone from the next look, and scene says it is 
   await openSection(page, 'Parts')
   await page.locator('[data-layer="post"]').hover()
   await page.getByRole('button', { name: 'Show post' }).click()
-  await openSection(page, 'Marks')
   await expect.poll(async () => JSON.parse((await call(bracket, 'scene')).text).parts[1].visible).toBe(false)
 
   const result = await call(bracket, 'look', { view: 'iso' })
@@ -388,7 +387,6 @@ test("show changes what the user sees for now, not the layers they saved, and wa
   await expect.poll(() => JSON.parse(readFileSync(sceneFile, 'utf8'))).toEqual({ layout: 'assembly', layers: { base: { visible: false }, post: { visible: false } } })
   await page.locator('[data-layer="base"]').getByRole('button', { name: 'Show base' }).click()
   await expect.poll(() => JSON.parse(readFileSync(sceneFile, 'utf8')).layers.base.visible).toBe(true)
-  await openSection(page, 'Marks')
   // Back as the tests that follow expect it: assembly, the post hidden by the person.
   expect((await call(bracket, 'show', { layout: 'assembly', parts: ['base'] })).isError).toBe(false)
   expect(await state()).toMatchObject({ layout: 'assembly', layers: { post: { visible: false } } })
@@ -401,7 +399,6 @@ test("show changes the user's layers and camera, and says what they see then", a
   expect((await state()).layers.post.visible).toBe(true)
   await openSection(page, 'Parts')
   await expect(page.locator('[data-layer="post"]').getByRole('button', { name: 'Show post' })).toHaveAttribute('aria-pressed', 'true')
-  await openSection(page, 'Marks')
 
   const before = await camera()
   const top = await call(bracket, 'show', { view: 'top' })
@@ -473,7 +470,7 @@ test('the next prompt carries the pin as one line, and turns it sent', async () 
   await prompt()
   await expect.poll(said).toContain(`Marks from the user (drawn in look pictures with these numbers): ${line}`.replace(/\s+/g, ''))
   await expect.poll(async () => (await state()).marks[0].status).toBe('sent')
-  await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
+  await onBrief(page, () => expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1))
 })
 
 test("add_mark places the agent's own marks, by ref and by point, which the user sees in green", async () => {
@@ -483,19 +480,22 @@ test("add_mark places the agent's own marks, by ref and by point, which the user
   expect(byRef.text).toBe(`placed in layout assembly: (yours) M2 pin on ${pin.anchor.ref} (plane, normal +Z, z = 2.5, 1200 mm²) at (0, 0, 2.5): "<i>this</i> face?"\nrevision r1`)
 
   const row = page.locator('.mark-row[data-mark="M2"]')
-  await expect(row).toHaveAttribute('data-author', 'agent')
-  // Under From the agent in Marks, for the person to read or answer; the person's sent M1 stays with the agent, in Marks.
-  await expect(page.getByRole('list', { name: 'From the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
-  await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
-  await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(0)
-  await expect(row.getByRole('button', { name: 'Resolve M2' })).toHaveAttribute('title', 'Seen: resolve it')
-  // --agent-mark, outlined: the user's own are filled with --user-mark.
-  await expect(row.locator('.mark-chip')).toHaveCSS('border-top-color', 'rgb(40, 129, 86)')
-  await expect(row.locator('.mark-chip')).toHaveCSS('color', 'rgb(40, 129, 86)')
-  await expect(row.locator('.mark-chip')).toHaveAttribute('title', /The agent's mark/)
-  // What the agent wrote is text, whatever it looks like.
-  await expect(row.locator('.mark-note')).toHaveText('<i>this</i> face?')
-  await expect(row.locator('.mark-note i')).toHaveCount(0)
+  // The rows are on the Brief page.
+  await onBrief(page, async () => {
+    await expect(row).toHaveAttribute('data-author', 'agent')
+    // Under From the agent in Marks, for the person to read or answer; the person's sent M1 stays with the agent, in Marks.
+    await expect(page.getByRole('list', { name: 'From the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(1)
+    await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M1"]')).toHaveCount(1)
+    await expect(page.getByRole('list', { name: 'With the agent' }).locator('.mark-row[data-mark="M2"]')).toHaveCount(0)
+    await expect(row.getByRole('button', { name: 'Resolve M2' })).toHaveAttribute('title', 'Seen: resolve it')
+    // --agent-mark, outlined: the user's own are filled with --user-mark.
+    await expect(row.locator('.mark-chip')).toHaveCSS('border-top-color', 'rgb(40, 129, 86)')
+    await expect(row.locator('.mark-chip')).toHaveCSS('color', 'rgb(40, 129, 86)')
+    await expect(row.locator('.mark-chip')).toHaveAttribute('title', /The agent's mark/)
+    // What the agent wrote is text, whatever it looks like.
+    await expect(row.locator('.mark-note')).toHaveText('<i>this</i> face?')
+    await expect(row.locator('.mark-note i')).toHaveCount(0)
+  })
   const agents = (await state()).marks[1] as PinMark
   expect(agents).toMatchObject({ id: 'M2', kind: 'pin', author: 'agent', status: 'sent', anchorState: 'ok', revision: 1 })
   expect(agents.anchor).toMatchObject({ point: [0, 0, 2.5], part: 'base', descriptor: 'plane, normal +Z, z = 2.5, 1200 mm²' })
@@ -642,6 +642,7 @@ test('resolve_mark resolves a mark, which the user sees as resolved by the agent
   expect(result).toMatchObject({ isError: false, text: `resolved: ${describeMark(pin)}\nnote: made the corner 2 mm thicker` })
   const marks = page.getByRole('region', { name: 'Marks' })
   const needs = page.getByRole('region', { name: 'Marks' })
+  await showBrief(page)
   // Under From the agent, saying who resolved it and what was done, in words on the row.
   await expect(needs.locator('.needs-review')).toContainText('The agent resolved 1 mark.')
   await needs.locator('.needs-review').getByRole('button', { name: 'Review' }).click()
@@ -660,6 +661,7 @@ test('resolve_mark resolves a mark, which the user sees as resolved by the agent
   await expect(resolved.locator('.mark-note')).toHaveText('make this corner thicker')
   await expect(resolved.locator('.mark-note')).toHaveAttribute('title', `${whole ? '' : 'make this corner thicker\n'}Resolved: made the corner 2 mm thicker`)
   expect((await call(bracket, 'marks', { status: 'open' })).text).not.toContain('"M1"')
+  await showModel(page)
 
   expect(await call(bracket, 'resolve_mark', { id: 'M9' })).toMatchObject({ isError: true, text: 'no mark M9; marks: M1, M2, M3, M4' })
 })
@@ -1014,6 +1016,7 @@ test("add_mark with a dimension leaves a check of the agent's that the user sees
   await expect(row.locator('.mark-chip')).toHaveAttribute('data-author', 'agent')
   await expect(row).toHaveAttribute('data-verdict', 'fails')
   await expect(page.locator('.check-row[data-check-mark="M2"]')).toHaveAttribute('data-verdict', 'passes')
+  await showModel(page)
 
   // A dimension has two ends, or is of one thing at a point: its number stands for neither in measure.
   expect(await call(measures, 'measure', { kind: 'radius', a: 'M1' })).toMatchObject({ isError: true, text: 'M1 is a dimension: name the ref or point of the end you mean' })

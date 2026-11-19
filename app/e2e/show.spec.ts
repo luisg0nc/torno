@@ -523,7 +523,6 @@ test('the page of projects has a card for every project, the project menu opens 
   await openSection(page, 'Parts')
   await expect(page.locator('[data-region="left"] .layers')).toBeVisible()
   expect(JSON.parse((await page.evaluate(() => localStorage.getItem('torno.bench')))!)).toEqual({ bracket: 'parts' })
-  await openSection(page, 'Marks')
 })
 
 // Who needs you stands first. Its own window: the sessions here are the stand-in's, and a chat of its own needs a home that is not the person's.

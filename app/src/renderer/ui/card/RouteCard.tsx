@@ -1,12 +1,10 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { actions } from '../../state/store'
 import { LeftEdge } from '../LeftEdge'
-import { MarksPanel } from '../MarksPanel'
 import { numbered } from '../numbered'
 import { ImportScan, ScansPanel } from '../ScansPanel'
 import { Bench } from './Bench'
 import { CardSection } from './CardSection'
-import { Checks } from './Checks'
 import { useColumnHead } from './InHand'
 import { OnBlock } from './OnBlock'
 import { NewTracingAction, TracingsBody } from './Tracings'
@@ -15,10 +13,6 @@ import { inSight, READING_LINE, SECTIONS, type SectionId, useSectionFacts } from
 /** The body of each section: today's component for it. The card is these in a column, and each section's task restyles its own. */
 function Body({ id }: { id: SectionId }): ReactNode {
   switch (id) {
-    case 'checks':
-      return <Checks />
-    case 'marks':
-      return <MarksPanel />
     case 'scans':
       return <ScansPanel />
     case 'tracings':
@@ -28,8 +22,8 @@ function Body({ id }: { id: SectionId }): ReactNode {
 
 /**
  * The project read from top to bottom: the card docked at the left, as wide as `--card-w` says. Its head slot (`head`: what
- * is in your hand) takes the place of the "On hN" block while the sketch, a review round or a size being tied is in hand; the bench (`Bench`: Parameters and Parts as two tabs) fills the column; under it the four sections of `SECTIONS`
- * (Checks, Marks, Scans, Tracings: they leave when the Brief page and the view's switch take them) follow one another down a route line,
+ * is in your hand) takes the place of the "On hN" block while the sketch, a review round or a size being tied is in hand; the bench (`Bench`: Parameters and Parts as two tabs) fills the column; under it the two sections of `SECTIONS`
+ * (Scans, Tracings: they leave when the view's switch takes them; Checks and Marks are on the Brief page) follow one another down a route line,
  * each folded to its head or open, in a scroll of their own; at the top stands the "On hN" block (`OnBlock`), which says how the build on show stands and what waits. Which of them is in sight is found by an `IntersectionObserver` on the heads (`inSight`), and
  * `store.sectionHere` has it. Its right edge makes it wider (`LeftEdge`).
  */

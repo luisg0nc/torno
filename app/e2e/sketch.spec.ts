@@ -209,17 +209,17 @@ test('flow with a diameter of 19 and Done: the sketch is kept, with its card of 
   // The picture of its card is drawn from its camera and kept.
   await expect.poll(() => sketches()[0].picture, { timeout: 20_000 }).toMatch(/\.png$/)
 
-  // The marks list has its row, in the words of the window.
+  // The marks list has its row, in the words of the window; it is on the Brief page.
   const id = sketches()[0].id
   const row = page.locator(`.mark-row[data-mark="${id}"]`)
+  await page.keyboard.press('Control+Tab')
+  await expect(page.locator('.brief-page')).toBeVisible()
   await expect(row).toBeVisible()
   await expect(row).toContainText('Hose route')
   await expect(row).toContainText('flow ⌀19 mm')
   await expect(row).toContainText('2 strokes')
 
   // The brief makes no card of it (#248).
-  await page.keyboard.press('Control+Tab')
-  await expect(page.locator('.brief-page')).toBeVisible()
   await expect(page.locator('.brief-page [data-card]')).toHaveCount(0)
   await page.keyboard.press('Control+Tab')
   await expect(page.locator('.brief-page')).toHaveCount(0)

@@ -677,7 +677,6 @@ test('a part switched off and a mark that is resolved stay here unless they are 
     await file.close()
   }
   await page.locator('[data-region="left"]').getByRole('button', { name: 'Show lid' }).click()
-  await openSection(page, 'Marks')
 })
 
 test('parts named like what every object has are parts like any other, and a file that cannot be unpacked says so', async () => {

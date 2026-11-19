@@ -8,6 +8,7 @@ import type { ArrowMark, MarksFile, PickMark, PinMark, ShapeMark, SketchMark } f
 import { TOOL_KEYS, doesOf } from '../src/shared/keys'
 import { pointerLine } from '../src/shared/pointer'
 import type { Camera, LookRequest } from '../src/shared/view'
+import { onBrief, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 import { stableBox } from './stable'
 
@@ -489,7 +490,8 @@ test('P takes the pin tool; a click on the part leaves a pin and opens its note 
   for (const [i, c] of ON_BASE.entries()) expect(pin.anchor.point[i]).toBeCloseTo(c, 1)
   for (const [i, c] of [0, 0, 1].entries()) expect(pin.anchor.normal![i]).toBeCloseTo(c, 5)
   for (const [i, c] of before.position.entries()) expect(pin.camera.position[i]).toBeCloseTo(c, 3)
-  await expect(page.locator('.mark-row[data-mark="M1"] .mark-note')).toHaveText('add a rib here, 1 mm thick, V-shaped')
+  // The row is on the Brief page.
+  await onBrief(page, () => expect(page.locator('.mark-row[data-mark="M1"] .mark-note')).toHaveText('add a rib here, 1 mm thick, V-shaped'))
 })
 
 test('the tool stays in hand: the next click is the next pin; Escape leaves its note empty', async () => {
@@ -544,7 +546,7 @@ test('the delete button of the note takes the mark away', async () => {
   await card().getByRole('button', { name: 'Delete mark M4' }).click()
   await expect(card()).toHaveCount(0)
   await expect.poll(() => marksOnDisk().marks.map((m) => m.id)).toEqual(['M1', 'M2', 'M3'])
-  await expect(page.locator('.mark-row')).toHaveCount(3)
+  await onBrief(page, () => expect(page.locator('.mark-row')).toHaveCount(3))
 })
 
 test('A takes the arrow tool; a drag from the part leaves an arrow of the length dragged', async () => {
@@ -823,19 +825,24 @@ test('a click on the base places a box there to add, sitting on the surface, wit
 
   // It is the active mark: its row is open on its numbers, and the gizmo is on it, to move it.
   expect((await state()).activeMark).toBe(box)
+  // (Its row and numbers are on the Brief page, the gizmo on the view: each is looked at where it is.)
   const row = page.locator(`.mark-row[data-mark="${box}"]`)
-  await expect(row).toHaveAttribute('data-expanded', '')
-  await expect(row.locator('.mark-kind')).toHaveAttribute('aria-label', 'Shape · box, add')
-  await expect(page.locator('.shape-fields')).toHaveCount(1)
   await expect(canvas()).toHaveAttribute('data-gizmo', 'translate')
-  await expect(fieldsButton('Add')).toHaveAttribute('aria-pressed', 'true')
-  await expect(numberField('Size along X')).toHaveValue('8')
-  await expect(numberField('Position Z')).toHaveValue('6.5')
-  await expect(numberField('Rotation about Z')).toHaveValue('0')
-  for (const input of await page.locator('.shape-fields input').all()) await expect(input).toHaveCSS('font-family', /Martian Mono/)
+  await onBrief(page, async () => {
+    await expect(row).toHaveAttribute('data-expanded', '')
+    await expect(row.locator('.mark-kind')).toHaveAttribute('aria-label', 'Shape · box, add')
+    await expect(page.locator('.shape-fields')).toHaveCount(1)
+    await expect(fieldsButton('Add')).toHaveAttribute('aria-pressed', 'true')
+    await expect(numberField('Size along X')).toHaveValue('8')
+    await expect(numberField('Position Z')).toHaveValue('6.5')
+    await expect(numberField('Rotation about Z')).toHaveValue('0')
+    for (const input of await page.locator('.shape-fields input').all()) await expect(input).toHaveCSS('font-family', /Martian Mono/)
+  })
 })
 
 test('the fields set what the shape is for and its size, in exact millimetres; a picture shows it', async () => {
+  // The fields are in the shape's row, on the Brief page; the view is shown again for the picture.
+  await showBrief(page)
   await fieldsButton('Remove').click()
   await expect(fieldsButton('Remove')).toHaveAttribute('aria-pressed', 'true')
   await typeNumber('Size along X', '10')
@@ -869,8 +876,10 @@ test('the fields set what the shape is for and its size, in exact millimetres; a
   await page.keyboard.press('Escape')
   expect(await camera()).toEqual(view)
   await expect(fieldsButton('Move')).toHaveAttribute('aria-pressed', 'true')
-  await expect(shapeButton()).toHaveAttribute('aria-pressed', 'true')
   await page.evaluate(() => (document.activeElement as HTMLElement).blur())
+  await showModel(page)
+  // (The palette is not drawn on the Brief page: the tool in hand is read on the view.)
+  await expect(shapeButton()).toHaveAttribute('aria-pressed', 'true')
 
   // The agent's picture shows the shape where it is, and not the gizmo it is held by.
   const centre = shapeOnDisk(box).position
@@ -882,30 +891,34 @@ test('the fields set what the shape is for and its size, in exact millimetres; a
 test('G, R and T choose what the gizmo does while a shape is active, and only then', async () => {
   for (const [key, label, mode] of [['r', 'Rotate', 'rotate'], ['t', 'Size', 'scale'], ['g', 'Move', 'translate']] as const) {
     await page.keyboard.press(key)
-    await expect(fieldsButton(label)).toHaveAttribute('aria-pressed', 'true')
+    await onBrief(page, () => expect(fieldsButton(label)).toHaveAttribute('aria-pressed', 'true'))
     await expect(canvas()).toHaveAttribute('data-gizmo', mode)
   }
   // The tool in hand is still the shape tool: T and G are no tools, and S did not come into it.
   await expect(shapeButton()).toHaveAttribute('aria-pressed', 'true')
-  await fieldsButton('Rotate').click()
+  await onBrief(page, () => fieldsButton('Rotate').click())
   await expect(canvas()).toHaveAttribute('data-gizmo', 'rotate')
-  await fieldsButton('Move').click()
+  await onBrief(page, () => fieldsButton('Move').click())
 
   // Another mark is the active one: no gizmo, and the keys do nothing.
   await atRest()
   const [held, view] = [await pictureNow(), await camera()]
-  await page.locator('.mark-row[data-mark="M1"] .mark-note').click({ position: { x: 4, y: 8 } })
-  await page.keyboard.press('Escape')
-  await expect.poll(async () => (await state()).activeMark).toBe('M1')
+  await onBrief(page, async () => {
+    await page.locator('.mark-row[data-mark="M1"] .mark-note').click({ position: { x: 4, y: 8 } })
+    await page.keyboard.press('Escape')
+    await expect.poll(async () => (await state()).activeMark).toBe('M1')
+    await expect(page.locator('.shape-fields')).toHaveCount(0)
+  })
   await expect(canvas()).not.toHaveAttribute('data-gizmo')
   // The agent's picture is the same with the gizmo on the shape and without: to the pixel, the triad's corner too.
   await atRest()
   expect(await camera()).toEqual(view)
   expect(await differing(held, await pictureNow())).toBe(0)
-  await expect(page.locator('.shape-fields')).toHaveCount(0)
   await page.keyboard.press('r')
-  await page.locator(`.mark-row[data-mark="${box}"] .mark-note`).click({ position: { x: 4, y: 8 } })
-  await page.keyboard.press('Escape')
+  await onBrief(page, async () => {
+    await page.locator(`.mark-row[data-mark="${box}"] .mark-note`).click({ position: { x: 4, y: 8 } })
+    await page.keyboard.press('Escape')
+  })
   await expect(canvas()).toHaveAttribute('data-gizmo', 'translate')
 })
 
@@ -939,7 +952,7 @@ test('dragging a handle of the gizmo moves the shape with it and has main keep i
   // The drag was the gizmo's: the camera did not turn, and the shape tool placed nothing.
   expect(await camera()).toEqual(view)
   expect(marksOnDisk().marks).toHaveLength(marks)
-  await expect(numberField('Position X')).toHaveValue(String(Math.round(moved.position[0] * 100) / 100))
+  await onBrief(page, () => expect(numberField('Position X')).toHaveValue(String(Math.round(moved.position[0] * 100) / 100)))
 
   // A click on a handle is no click on the part: nothing is placed, nothing changed.
   await ontoHandle(moved.position, 'X')
@@ -973,11 +986,12 @@ test('sizing with the gizmo changes the size in millimetres, never a scale', asy
   expect('scale' in sized).toBe(false)
   await page.waitForTimeout(300)
   expect(await changes()).toBe(1)
-  await expect(numberField('Size along X')).toHaveValue(String(Math.round(sized.size[0] * 100) / 100))
+  await onBrief(page, () => expect(numberField('Size along X')).toHaveValue(String(Math.round(sized.size[0] * 100) / 100)))
   await page.keyboard.press('g')
 })
 
 test('rotation is typed as degrees about X, Y and Z and kept as a quaternion; the numbers typed do not jump', async () => {
+  await showBrief(page)
   await typeNumber('Rotation about Z', '30')
   const half = (15 * Math.PI) / 180
   await expect.poll(() => shapeOnDisk(box).rotation[3]).toBeCloseTo(Math.cos(half), 9)
@@ -994,6 +1008,7 @@ test('rotation is typed as degrees about X, Y and Z and kept as a quaternion; th
   await expect.poll(() => shapeOnDisk(box).rotation.map((c) => Math.abs(Math.round(c * 1e9) / 1e9))).toEqual([0, 0, 0, 1])
   await page.evaluate(() => (document.activeElement as HTMLElement).blur())
   await expect(numberField('Rotation about Y')).toHaveValue('0')
+  await showModel(page)
 })
 
 test('a stroke drawn across the gizmo of the active shape is kept whole: the press began on the part, not on a handle', async () => {
@@ -1052,11 +1067,13 @@ test('a click beside the parts places the shape on the ground at the middle of t
   await expect(canvas()).toHaveAttribute('data-gizmo', 'translate')
   expect((await state()).activeMark).toBe(placed.id)
 
-  await page.locator(`.mark-row[data-mark="${placed.id}"]`).hover()
-  await page.getByRole('button', { name: `Resolve ${placed.id}`, exact: true }).click()
-  await expect.poll(() => shapeOnDisk(placed.id).status).toBe('resolved')
+  await onBrief(page, async () => {
+    await page.locator(`.mark-row[data-mark="${placed.id}"]`).hover()
+    await page.getByRole('button', { name: `Resolve ${placed.id}`, exact: true }).click()
+    await expect.poll(() => shapeOnDisk(placed.id).status).toBe('resolved')
+    await expect(page.locator('.shape-fields')).toHaveCount(0)
+  })
   await expect(canvas()).not.toHaveAttribute('data-gizmo')
-  await expect(page.locator('.shape-fields')).toHaveCount(0)
   await page.keyboard.press('v')
 })
 
@@ -1123,6 +1140,8 @@ for (const shot of ['pin-light', 'pin-dark', 'arrow-light', 'arrow-dark', 'draw-
         await expect(field(shotPage)).toBeFocused()
         await shotPage.keyboard.type('pocket for the nut')
         await shotPage.keyboard.press('Enter')
+        // The shape's fields are on the Brief page.
+        await showBrief(shotPage)
         await fieldsButton('Remove', shotPage).click()
         await typeNumber('Size along X', '12', shotPage)
         await typeNumber('Size along Y', '9', shotPage)
@@ -1130,6 +1149,7 @@ for (const shot of ['pin-light', 'pin-dark', 'arrow-light', 'arrow-dark', 'draw-
         await typeNumber('Rotation about Z', '15', shotPage)
         await expect.poll(async () => (await state(shotPage)).marks[0]).toMatchObject({ intent: 'remove', size: [12, 9, 4] })
         await shotPage.evaluate(() => (document.activeElement as HTMLElement).blur())
+        await showModel(shotPage)
         await expect(canvas(shotPage)).toHaveAttribute('data-gizmo', 'translate')
       } else if (shot.startsWith('draw')) {
         await shotPage.keyboard.press('d')

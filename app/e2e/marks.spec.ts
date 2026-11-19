@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark, MarksFile, NewMark } from '../src/shared/marks'
 import type { Camera, LookRequest } from '../src/shared/view'
-import { openSection } from './helpers'
+import { briefPage, onBrief, openSection, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 import { box, stl } from '../src/test/scanFixtures'
 
@@ -132,13 +132,16 @@ const MARKED = { view: 'current' } as const
 
 test('with no marks, the panel says how to leave one', async () => {
   await openObject('bracket')
-  const panel = page.getByRole('region', { name: 'Marks' })
-  await expect(panel).toContainText('Point at the part to leave a note for the agent.')
-  await expect(panel).toContainText('A mark goes with your next prompt, and stays here until the agent resolves it.')
-  // The keys are on the palette and on the sheet of keys, not here.
-  await expect(panel.getByRole('list', { name: 'Tool keys' })).toHaveCount(0)
-  await expect(panel.locator('kbd')).toHaveCount(0)
-  await expect(rows()).toHaveCount(0)
+  // The Marks are a block of the Brief page since #277.
+  await onBrief(page, async () => {
+    const panel = page.getByRole('region', { name: 'Marks' })
+    await expect(panel).toContainText('Point at the part to leave a note for the agent.')
+    await expect(panel).toContainText('A mark goes with your next prompt, and stays here until the agent resolves it.')
+    // The keys are on the palette and on the sheet of keys, not here.
+    await expect(panel.getByRole('list', { name: 'Tool keys' })).toHaveCount(0)
+    await expect(panel.locator('kbd')).toHaveCount(0)
+    await expect(rows()).toHaveCount(0)
+  })
   // Nothing to draw: a picture with marks is the picture without.
   expect((await differing(MARKED, PLAIN)).all).toBe(0)
 })
@@ -146,14 +149,16 @@ test('with no marks, the panel says how to leave one', async () => {
 test('a pin and an arrow are listed with their numbers, and drawn in the picture the agent gets', async () => {
   await addMark({ kind: 'pin', note: 'too thin here', anchor: { point: ON_BASE, normal: [0, 0, 1], part: 'base' } })
   await addMark({ kind: 'arrow', note: 'move it up', from: { point: [-14, -9, 2.5], part: 'base' }, to: [-14, -9, 16] })
-  await expect(rows()).toHaveCount(2)
-  await expect(rows().locator('.mark-chip')).toHaveText(['M1', 'M2'])
-  await expect(rows().locator('.mark-note')).toHaveText(['too thin here', 'move it up'])
-  await expect(page.getByRole('list', { name: 'To send' }).locator('.mark-row')).toHaveCount(2)
-  await expect(rows().locator('.mark-status')).toHaveCount(0)
-  await expect(row('M1').locator('.mark-kind')).toHaveAttribute('aria-label', 'Pin')
-  await expect(row('M2').locator('.mark-kind')).toHaveAttribute('aria-label', 'Arrow')
-  await expect(row('M1')).toHaveAttribute('data-author', 'user')
+  await onBrief(page, async () => {
+    await expect(rows()).toHaveCount(2)
+    await expect(rows().locator('.mark-chip')).toHaveText(['M1', 'M2'])
+    await expect(rows().locator('.mark-note')).toHaveText(['too thin here', 'move it up'])
+    await expect(page.getByRole('list', { name: 'To send' }).locator('.mark-row')).toHaveCount(2)
+    await expect(rows().locator('.mark-status')).toHaveCount(0)
+    await expect(row('M1').locator('.mark-kind')).toHaveAttribute('aria-label', 'Pin')
+    await expect(row('M2').locator('.mark-kind')).toHaveAttribute('aria-label', 'Arrow')
+    await expect(row('M1')).toHaveAttribute('data-author', 'user')
+  })
 
   for (const id of ['M1', 'M2']) {
     const label = (await markScreen(id))!
@@ -173,8 +178,11 @@ test('a pin and an arrow are listed with their numbers, and drawn in the picture
 test('the pointer on a row rings its chip in the view and lights what it is on, without making it the active one', async () => {
   const hovered = (): Promise<string | null> => page.evaluate(() => window.__tornoTest!.hoveredMark())
   const peeked = (): Promise<string[]> => page.evaluate(() => window.__tornoTest!.peeked())
-  // The pointer of the test before may rest over a row of the list: out of the panel first.
-  await page.mouse.move(900, 450)
+  // The rows are on the Brief page, which covers the view: what is read here is what crosses, the chip pointed at (`hoveredMark`) and
+  // the faces lit (`peeked`), in the store. The ring on the chip itself is drawn in the view, which is not drawn while the Brief is up.
+  await showBrief(page)
+  // The pointer of the test before may rest over a row of the list: off the rows first, on the heading of the list.
+  await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send', level: 3 }).hover()
   await expect.poll(hovered).toBeNull()
   await row('M2').hover()
   await expect.poll(hovered).toBe('M2')
@@ -213,6 +221,7 @@ test('the pointer on a row rings its chip in the view and lights what it is on, 
   await page.getByRole('region', { name: 'Marks' }).getByRole('heading', { name: 'To send', level: 3 }).hover()
   await expect.poll(hovered).toBeNull()
   expect(await peeked()).toEqual([])
+  await showModel(page)
 })
 
 test('a named view draws the marks with its own camera, at any size', async () => {
@@ -227,6 +236,9 @@ test('a named view draws the marks with its own camera, at any size', async () =
 
 test('a note is written in the panel and kept in .torno/marks.json; the view keys do not fire meanwhile', async () => {
   const before = await camera()
+  // The rows are on the Brief page. Its keys are not the view's: none of the view keys is heard there, so the letters typed below
+  // reaching the note is what is proved, not that a view key was held back.
+  await showBrief(page)
   await row('M1').locator('.mark-note').click({ position: { x: 4, y: 8 } })
   const field = row('M1').locator('.mark-note-input')
   await expect(field).toBeFocused()
@@ -254,6 +266,7 @@ test('a note is written in the panel and kept in .torno/marks.json; the view key
   await page.keyboard.press('Enter')
   await expect.poll(() => marksOnDisk().marks[1].note.length).toBe(2000)
   await page.evaluate(() => window.torno.marks.update('bracket', 'M2', { note: 'move it up' }))
+  await showModel(page)
 })
 
 test('clicking a row makes its mark the active one; the camera moves only for a mark out of view, and "Go to" always goes', async () => {
@@ -266,15 +279,21 @@ test('clicking a row makes its mark the active one; the camera moves only for a 
   await expect.poll(async () => (await camera()).position[2]).toBeGreaterThan(placedFrom.position[2] + 1)
   const top = await resting()
   expect((await markScreen('M2'))?.visible).toBe(true)
-  await row('M2').locator('.mark-chip').click()
-  await expect(row('M2')).toHaveAttribute('aria-current', 'true')
-  await expect(row('M1')).not.toHaveAttribute('aria-current', 'true')
-  expect((await state()).activeMark).toBe('M2')
-  // In view already: the view the person set up stays.
+  // The rows are on the Brief page, which covers the view: a row clicked there cannot tell whether its mark is in view (the view is
+  // not drawn meanwhile, and the camera goes to where the mark was placed from), so "in view already: the view stays" is proved with the
+  // click on the chip in the view, which makes the mark the active one and leaves the camera; the row says it is the active one on the Brief.
+  const canvasBox = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
+  const chip = (await markScreen('M2'))!
+  await page.mouse.click(canvasBox.x + chip.x * canvasBox.width, canvasBox.y + chip.y * canvasBox.height)
+  await expect.poll(async () => (await state()).activeMark).toBe('M2')
   expect(await resting()).toEqual(top)
+  await onBrief(page, async () => {
+    await expect(row('M2')).toHaveAttribute('aria-current', 'true')
+    await expect(row('M1')).not.toHaveAttribute('aria-current', 'true')
+  })
 
   // The reticle at the end of the row goes to the view it was placed from, in view or not.
-  await page.getByRole('button', { name: 'Go to M2', exact: true }).click()
+  await onBrief(page, () => page.getByRole('button', { name: 'Go to M2', exact: true }).click())
   await expect.poll(() => from(placedFrom)).toBeLessThan(1e-6)
 
   // Close in on M1, far from M2: M2 is out of view, and a click on its row goes to where it was placed from.
@@ -286,7 +305,7 @@ test('clicking a row makes its mark the active one; the camera moves only for a 
   for (let i = 0; i < 16; i++) await page.mouse.wheel(0, -400)
   await expect.poll(async () => (await markScreen('M2'))?.visible).toBe(false)
   await resting()
-  await row('M2').locator('.mark-chip').click()
+  await onBrief(page, () => row('M2').locator('.mark-chip').click())
   await expect.poll(() => from(placedFrom)).toBeLessThan(1e-6)
   await expect.poll(async () => (await markScreen('M2'))?.visible).toBe(true)
 })
@@ -302,13 +321,13 @@ test('the mark being worked on is drawn like any other in the picture the agent 
       return btoa(binary)
     })
   const withArrowActive = await picture()
-  await row('M1').locator('.mark-chip').click()
+  await onBrief(page, () => row('M1').locator('.mark-chip').click())
   await expect.poll(async () => (await state()).activeMark).toBe('M1')
   const withPinActive = await picture()
   expect(withPinActive).toBe(withArrowActive)
   // And it is still the active one on screen afterwards.
   expect((await state()).activeMark).toBe('M1')
-  await row('M2').locator('.mark-chip').click()
+  await onBrief(page, () => row('M2').locator('.mark-chip').click())
   await expect.poll(async () => (await state()).activeMark).toBe('M2')
 })
 
@@ -323,7 +342,7 @@ test('a pick mark tints its face, also when that face is selected; a ref that na
   const before = await differing(MARKED, PLAIN, { x: onFace[0], y: onFace[1] }, 0.004)
   expect(before.near).toBe(0)
   await addMark({ kind: 'pick', target: 'face', note: 'this face', anchor: { point: hit.point, ...(hit.normal ? { normal: hit.normal } : {}), part: hit.part, ref: face } })
-  await expect(rows()).toHaveCount(3)
+  await onBrief(page, () => expect(rows()).toHaveCount(3))
   // Away from the mark's point and its label, the face itself has taken the mark's colour.
   expect((await differing(MARKED, PLAIN, { x: onFace[0], y: onFace[1] }, 0.004)).near).toBeGreaterThan(20)
 
@@ -344,35 +363,40 @@ test('a pick mark tints its face, also when that face is selected; a ref that na
     expect((await differing(MARKED, PLAIN, label, 0.012)).near, id).toBeGreaterThan(60)
   }
   for (const id of ['M4', 'M5']) await page.evaluate((mark) => window.torno.marks.remove('bracket', mark), id)
-  await expect(rows()).toHaveCount(3)
+  await onBrief(page, () => expect(rows()).toHaveCount(3))
 })
 
 test('resolving a mark folds it under "Resolved" and takes it out of the picture', async () => {
   const label = (await markScreen('M1'))!
   expect((await differing(MARKED, PLAIN, label, 0.012)).near).toBeGreaterThan(60)
 
-  await row('M1').hover()
-  await page.getByRole('button', { name: 'Resolve M1', exact: true }).click()
-  await expect(rows()).toHaveCount(2)
-  await expect(row('M1')).toHaveCount(0)
-  await expect.poll(() => marksOnDisk().marks[0].status).toBe('resolved')
+  const fold = page.getByRole('button', { name: /^Resolved/ })
+  await onBrief(page, async () => {
+    await row('M1').hover()
+    await page.getByRole('button', { name: 'Resolve M1', exact: true }).click()
+    await expect(rows()).toHaveCount(2)
+    await expect(row('M1')).toHaveCount(0)
+    await expect.poll(() => marksOnDisk().marks[0].status).toBe('resolved')
+  })
   expect(await markScreen('M1')).toBeNull()
   expect((await differing(MARKED, PLAIN, label, 0.012)).near).toBe(0)
 
-  const fold = page.getByRole('button', { name: /^Resolved/ })
-  await expect(fold).toHaveAttribute('aria-expanded', 'false')
-  await expect(fold).toContainText('1')
-  await fold.click()
-  await expect(page.getByRole('list', { name: 'Resolved marks' }).locator('.mark-row')).toHaveAttribute('data-mark', 'M1')
-  // It can be taken up again.
-  await row('M1').hover()
-  await page.getByRole('button', { name: 'Reopen M1', exact: true }).click()
-  await expect.poll(() => marksOnDisk().marks[0].status).toBe('draft')
+  await onBrief(page, async () => {
+    await expect(fold).toHaveAttribute('aria-expanded', 'false')
+    await expect(fold).toContainText('1')
+    await fold.click()
+    await expect(page.getByRole('list', { name: 'Resolved marks' }).locator('.mark-row')).toHaveAttribute('data-mark', 'M1')
+    // It can be taken up again.
+    await row('M1').hover()
+    await page.getByRole('button', { name: 'Reopen M1', exact: true }).click()
+    await expect.poll(() => marksOnDisk().marks[0].status).toBe('draft')
+    await expect(fold).toHaveCount(0)
+  })
   await expect.poll(async () => (await markScreen('M1'))?.visible).toBe(true)
-  await expect(fold).toHaveCount(0)
 })
 
 test('deleting a mark takes it out of the file; its number is not given out again', async () => {
+  await showBrief(page)
   await row('M3').hover()
   await page.getByRole('button', { name: 'Delete M3', exact: true }).click()
   await expect(rows().locator('.mark-chip')).toHaveText(['M1', 'M2'])
@@ -393,6 +417,7 @@ test('deleting a mark takes it out of the file; its number is not given out agai
   await row('M3').hover()
   await page.getByRole('button', { name: 'Delete M3', exact: true }).click()
   await expect.poll(() => marksOnDisk().marks.map((m) => m.id)).toEqual(['M1', 'M2'])
+  await showModel(page)
 })
 
 test('marks belong to a layout: another layout shows none of them, and going to one switches back', async () => {
@@ -408,19 +433,22 @@ test('marks belong to a layout: another layout shows none of them, and going to 
   expect(await markScreen('M1')).toBeNull()
 
   // The rows are still there, and say where their marks are.
-  await expect(rows()).toHaveCount(2)
-  await expect(row('M1').locator('.mark-layout')).toHaveText('assembly')
+  await onBrief(page, async () => {
+    await expect(rows()).toHaveCount(2)
+    await expect(row('M1').locator('.mark-layout')).toHaveText('assembly')
+  })
   const print = await addMark({ kind: 'pin', note: 'on the bed', anchor: { point: [60, 0, 8], normal: [0, 0, 1], part: 'post' } })
   expect(print).toMatchObject({ id: 'M6', layout: 'print' })
   await expect.poll(async () => (await markScreen('M6'))?.visible).toBe(true)
-  await expect(row('M6').locator('.mark-layout')).toHaveCount(0)
-
-  await row('M1').locator('.mark-chip').click()
-  await expect.poll(async () => (await state()).layout).toBe('assembly')
-  expect((await state()).activeMark).toBe('M1')
+  await onBrief(page, async () => {
+    await expect(row('M6').locator('.mark-layout')).toHaveCount(0)
+    await row('M1').locator('.mark-chip').click()
+    await expect.poll(async () => (await state()).layout).toBe('assembly')
+    expect((await state()).activeMark).toBe('M1')
+  })
   await expect.poll(async () => (await markScreen('M1'))?.visible).toBe(true)
   expect(await markScreen('M6')).toBeNull()
-  await expect(row('M6').locator('.mark-layout')).toHaveText('print')
+  await onBrief(page, () => expect(row('M6').locator('.mark-layout')).toHaveText('print'))
 })
 
 test("the count of open marks on a part in the layers lists only its marks, and the chip above the list brings them all back", async () => {
@@ -446,6 +474,7 @@ test("the count of open marks on a part in the layers lists only its marks, and 
   await expect(page.locator('.marks-filter')).toHaveCount(0)
   await expect(row('M6')).toHaveCount(1)
   expect((await state()).marksOnPart).toBeNull()
+  await showModel(page)
 })
 
 test('what was wrong with a marks file is said in the panel in full, to a window that was not listening too, until it is dismissed', async () => {
@@ -459,11 +488,14 @@ test('what was wrong with a marks file is said in the panel in full, to a window
   const sentence = `The marks file of this project could not be read. It was kept as .torno/${aside}, and a new list was started.`
   const line = page.locator('.marks-problem')
   await openObject('plain')
+  // The line is in the Marks block of the Brief page.
+  await showBrief(page)
   await expect(line).toContainText(sentence)
   // Still there after the window is loaded anew.
   await page.reload()
   await page.waitForSelector('[data-region="viewport"]')
   await openObject('plain')
+  await showBrief(page)
   await expect(line).toContainText(sentence)
   // The ids the lost file gave out are not given out again.
   expect((await page.evaluate((c) => window.torno.marks.add('plain', { kind: 'pin', author: 'user', note: '', layout: 'assembly', revision: 1, camera: c, anchor: { point: [0, 0, 0] } }), await camera())).id).toBe('M4')
@@ -473,8 +505,10 @@ test('what was wrong with a marks file is said in the panel in full, to a window
   await page.reload()
   await page.waitForSelector('[data-region="viewport"]')
   await openObject('plain')
+  await showBrief(page)
   await expect(rows()).toHaveCount(1)
   await expect(line).toHaveCount(0)
+  await showModel(page)
 })
 
 test('with a scan imported, five mark rows and more are in view in the Marks panel at 1440 × 900', async () => {
@@ -494,6 +528,7 @@ test('with a scan imported, five mark rows and more are in view in the Marks pan
     expect(await p.evaluate(() => [innerWidth, innerHeight])).toEqual([1440, 900])
     await openListed(p, 'hollow')
     await expect.poll(async () => (await state(p)).build?.status, { timeout: 30_000 }).toBe('ok')
+    await openSection(p, 'Marks')
     await expect(rows(p)).toHaveCount(8)
     await ownApp.evaluate((_electron, path) => void ((globalThis as unknown as { __tornoMain: { pickFile: string | null } }).__tornoMain.pickFile = path), scan)
     await openSection(p, 'Scans')
@@ -559,7 +594,8 @@ test('a mark\'s chip in the view answers the pointer: its line at the pointer, i
     await expect(readout).toHaveText(/^M1\s*too thin here$/)
     await expect(readout).toHaveAttribute('data-says', 'note')
     expect(await hovered()).toBe('M1')
-    await expect(row('M1', p)).toHaveAttribute('data-hovered', '')
+    // (The row's own light, `data-hovered`, is on the Brief page, which is not up while the pointer is on the view: the store's
+    // `hoveredMark` is what crosses, and it is asserted here.)
     await expect(canvas).toHaveCSS('cursor', 'pointer')
     // What it is on is lit in the accent, on a layer of its own: nothing of the person's mark in the agent's colour.
     const pinned = (await state(p)).marks.find((m) => m.id === 'M1')!
@@ -572,14 +608,16 @@ test('a mark\'s chip in the view answers the pointer: its line at the pointer, i
     await p.mouse.move(...(await chip('M3')))
     await expect(readout).toHaveText(/^M3\s*40 mm, expected 42 ± 0\.05, 2 under$/)
     await expect(readout).toHaveAttribute('data-says', 'ref')
-    await expect(row('M1', p)).not.toHaveAttribute('data-hovered', '')
+    expect(await hovered()).toBe('M3')
 
     // A click on it opens its row, in view, and leaves the camera where it is.
     const before = await camera(p)
     await p.mouse.click(...(await chip('M3')))
-    await expect(row('M3', p)).toHaveAttribute('aria-current', 'true')
-    await expect(row('M3', p)).toBeInViewport()
+    await expect.poll(async () => (await state(p)).activeMark).toBe('M3')
     expect(await camera(p)).toEqual(before)
+    // The click leaves the view up and opens nothing over it; its row, on the Brief page, is the active one when the Brief is shown.
+    await expect(briefPage(p)).toHaveCount(0)
+    await onBrief(p, () => expect(row('M3', p)).toHaveAttribute('aria-current', 'true'))
     // A mark that was sent has its note in its row: no card opens over the view.
     await expect(p.locator('.note-card')).toHaveCount(0)
     // One of the person's not yet sent opens its note beside it, to be written.
@@ -594,7 +632,8 @@ test('a mark\'s chip in the view answers the pointer: its line at the pointer, i
     await p.keyboard.press('p')
     await expect(p.locator('.tool-button[data-tool="pin"]')).toHaveAttribute('aria-pressed', 'true')
     await p.mouse.click(...(await chip('M4')))
-    await expect(row('M4', p)).toHaveAttribute('aria-current', 'true')
+    await expect.poll(async () => (await state(p)).activeMark).toBe('M4')
+    await onBrief(p, () => expect(row('M4', p)).toHaveAttribute('aria-current', 'true'))
     await p.waitForTimeout(500)
     expect((await state(p)).marks.map((m) => m.id)).toEqual(['M1', 'M3', 'M4'])
     // Off the chips the tool has the pointer again: over the part, the pin says what it would be on.
@@ -657,16 +696,20 @@ test('a view note in the list has its picture and its comment; the pointer on it
     )
     const id = made.id
     const mark = row(id, p)
+    // The row is on the Brief page, the faces lit are the store's `peeked`.
+    await showBrief(p)
     await expect(mark).toHaveCount(1)
     // Its picture with the ink, and its comment.
     await expect(mark.locator('img.mark-thumb')).toBeVisible()
     await expect(mark.locator('.mark-note')).toHaveText('make the base thicker here')
     // The faces under the ink that the build has light up; the one it does not have lights nothing.
-    await p.mouse.move(900, 450)
+    const off = p.locator('.brief-page [data-section="marks"] h2')
+    await off.hover()
     await mark.hover()
     await expect.poll(() => p.evaluate(() => window.__tornoTest!.peeked())).toEqual(['base/F0'])
-    await p.mouse.move(900, 450)
+    await off.hover()
     await expect.poll(() => p.evaluate(() => window.__tornoTest!.peeked())).toEqual([])
+    await showModel(p)
     // A click on the row, and the reticle, go to the camera the note was made from.
     const apart = async (): Promise<number> => {
       const c = await camera(p)
@@ -681,13 +724,17 @@ test('a view note in the list has its picture and its comment; the pointer on it
     for (let i = 0; i < 16; i++) await p.mouse.wheel(0, -400)
     await expect.poll(async () => (await markScreen(id, p))?.visible).toBe(false)
     await resting(p)
-    await mark.locator('.mark-chip').click()
-    await expect(mark).toHaveAttribute('aria-current', 'true')
+    await onBrief(p, async () => {
+      await mark.locator('.mark-chip').click()
+      await expect(mark).toHaveAttribute('aria-current', 'true')
+    })
     await expect.poll(apart).toBeLessThan(1e-6)
     await p.getByRole('button', { name: 'Top view, 4', exact: true }).click()
     await resting(p)
-    await mark.hover()
-    await p.getByRole('button', { name: `Go to ${id}`, exact: true }).click()
+    await onBrief(p, async () => {
+      await mark.hover()
+      await p.getByRole('button', { name: `Go to ${id}`, exact: true }).click()
+    })
     await expect.poll(apart).toBeLessThan(1e-6)
   } finally {
     await ownApp.close()
@@ -732,6 +779,7 @@ for (const scheme of ['light', 'dark'] as const) {
         shotPage
       )
       await addAgentMark({ kind: 'shape', shape: 'box', intent: 'remove', note: 'I would cut this corner away', position: [-16, -11, 2.5], rotation: [0, 0, 0, 1], size: [8, 8, 5] }, shotApp, shotPage)
+      await showBrief(shotPage)
       await expect(rows(shotPage)).toHaveCount(5)
       await shotPage.evaluate(() => window.torno.marks.update('bracket', 'M1', { status: 'sent' }))
       // The stroke is the active mark, so its plane shows; the camera stays where it is.

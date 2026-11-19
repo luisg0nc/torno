@@ -288,8 +288,8 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       if (!mark || !s.objectId) return
       // While a size is being tied a dimension's chip is the one to tie it to (main says why when it cannot).
       if (mark.kind === 'dimension' && tyingStore.getState().tying?.objectId === s.objectId) return void tyingActions.tieTo(id)
-      // Its row opens, in view; the camera stays: the person is looking at it.
-      goToRow(id)
+      // It becomes the active mark; the camera stays and so does the view: the person is looking at it (its row is on the Brief page).
+      goToRow(id, false)
       // A mark of the person's not yet sent: its note opens beside it, to be written; a 3D sketch of theirs opens in Draw instead, where its comment is.
       if (mark.author === 'user' && mark.status === 'draft') {
         if (mark.kind === 'sketch') void editSketch(mark)
