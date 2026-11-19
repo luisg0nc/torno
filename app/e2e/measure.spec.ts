@@ -85,10 +85,11 @@ async function clickOver(point: Vec3, p: Page, times = 1): Promise<void> {
   await clearOfChips(point, p)
   const [x, y] = await pageXY(point, p)
   await p.mouse.move(x, y)
-  for (let i = 0; i < times; i++) {
-    await p.mouse.down()
-    await p.mouse.up()
-  }
+  // Sent together, not one awaited after the other: a double click is two clicks within REPEAT_MS (Tool.ts), and on a
+  // runner the round trip of each call alone is too long for that.
+  const sent: Promise<void>[] = []
+  for (let i = 0; i < times; i++) sent.push(p.mouse.down(), p.mouse.up())
+  await Promise.all(sent)
 }
 
 /** Waits until the camera has stopped: a view asked for by key is gone to over a quarter of a second. */
