@@ -510,8 +510,13 @@ export interface TornoBridge {
     dismissProblem(objectId: string): Promise<void>
     /** Whether a copy of the unreadable file was kept aside and is still waiting for the person to put it back or let it go. */
     aside(objectId: string): Promise<boolean>
-    /** Puts the copy kept aside in the place of the board, once it reads whole (rejects with why not): the board the window shows then is the copy. */
-    useAside(objectId: string): Promise<BoardFile>
+    /**
+     * Puts the copy kept aside in the place of the board, once it reads whole (rejects with why not). When the board holds cards
+     * that are not main's own and `replace` is not true, it changes nothing and says how many (`made`).
+     */
+    useAside(objectId: string, replace?: boolean): Promise<BoardFile | { made: number }>
+    /** Takes back the last put back, while the brief is as it left it (rejects with why not). */
+    undoAside(objectId: string): Promise<BoardFile>
     /** Deletes the copy kept aside; its pictures are swept with the rest in a later run. */
     letGoAside(objectId: string): Promise<void>
   }

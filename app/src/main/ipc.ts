@@ -104,7 +104,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //   invoke: workspace:current, workspace:pick, workspace:open, workspace:versions, ready:check, ready:make,
 //           history:list, history:thumbnail, history:source, history:ghost, history:star, history:goBackPlan, history:goBack,
 //           board:read, board:change, board:tie, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open, board:openLink,
-//           board:problem, board:dismissProblem, board:aside, board:useAside, board:letGoAside,
+//           board:problem, board:dismissProblem, board:aside, board:useAside, board:undoAside, board:letGoAside,
 //           workspace:refresh, workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
@@ -1220,7 +1220,8 @@ export function registerIpc(
   handle('board:problem', (_event, objectId: string) => requireBoards().problem(objectId))
   handle('board:dismissProblem', (_event, objectId: string) => requireBoards().dismissProblem(objectId))
   handle('board:aside', (_event, objectId: string) => requireBoards().aside(objectId))
-  handle('board:useAside', (_event, objectId: string) => requireBoards().useAside(objectId))
+  handle('board:useAside', (_event, objectId: string, replace?: boolean) => requireBoards().useAside(objectId, replace === true))
+  handle('board:undoAside', (_event, objectId: string) => requireBoards().undoAside(objectId))
   handle('board:letGoAside', (_event, objectId: string) => requireBoards().letGoAside(objectId))
 
   // A view note: main checks what the window sends, names and writes its pictures, and says the rest of the mark (its anchor placed, as a mark's).

@@ -49,6 +49,14 @@ export function BriefPage() {
   const problem = useBoard((s) => s.problem)
   const fileProblem = useBoard((s) => s.fileProblem)
   const fileAside = useBoard((s) => s.fileAside)
+  const asideAsk = useBoard((s) => s.asideAsk)
+  const putBack = useBoard((s) => s.putBack)
+  // "Brief put back. Undo" stays for ten seconds, as a removal's does.
+  useEffect(() => {
+    if (!putBack) return
+    const timer = setTimeout(() => boardActions.endPutBack(), 10_000)
+    return () => clearTimeout(timer)
+  }, [putBack])
   const attached = useBoard((s) => s.attached)
   const [adding, setAdding] = useState<Adding>(null)
   const [menu, setMenu] = useState(false)
@@ -160,13 +168,13 @@ export function BriefPage() {
         </span>
       </header>
 
-      {(problem !== null || fileProblem !== null || removed !== null) && (
+      {(problem !== null || fileProblem !== null || removed !== null || putBack) && (
         <div className="brief-notices">
           {problem !== null && <p className="brief-problem" role="status">{problem}</p>}
           {fileProblem !== null && (
             <p className="brief-problem selectable" role="status">
               {fileProblem}{' '}
-              {fileAside && (
+              {fileAside && asideAsk === null && (
                 <>
                   <button type="button" className="link-button" title="Use the copy kept aside as the brief, once it reads whole" onClick={() => void boardActions.useAside()}>
                     Put the copy back
@@ -176,11 +184,30 @@ export function BriefPage() {
                   </button>{' '}
                 </>
               )}
+              {fileAside && asideAsk !== null && (
+                <>
+                  <strong>{asideAsk === 1 ? 'The brief has 1 card made since.' : `The brief has ${asideAsk} cards made since.`} Replace {asideAsk === 1 ? 'it' : 'them'} with the copy?</strong>{' '}
+                  <button type="button" className="link-button" onClick={() => void boardActions.useAside(true)}>
+                    Replace
+                  </button>{' '}
+                  <button type="button" className="link-button" onClick={() => boardActions.keepThisOne()}>
+                    Keep this one
+                  </button>{' '}
+                </>
+              )}
               <button type="button" className="link-button" onClick={() => {
                 boardActions.dismissFileProblem()
                 void window.torno.board.dismissProblem(id).catch(() => {})
               }}>
                 Dismiss
+              </button>
+            </p>
+          )}
+          {putBack && (
+            <p className="brief-removed" role="status">
+              Brief put back.{' '}
+              <button type="button" className="link-button" onClick={() => void boardActions.undoAside()}>
+                Undo
               </button>
             </p>
           )}

@@ -366,6 +366,8 @@ export class BoardStore {
   private problems = new Map<string, string>()
   /** By project folder: the name of the copy of the board file kept aside when it was read (`board.json.corrupt-…`), until it is put back, let go, or the problem is dismissed. */
   private asides = new Map<string, string>()
+  /** By project folder: the last `useAside`, for `undoAside`: the board as it was, the text it wrote, and the copy's name and text. */
+  private putBack = new Map<string, { before: BoardFile; put: string; name: string; copy: string }>()
   /** By project folder: the last thing asked of its board, which the next waits for. */
   private turns = new Map<string, Promise<unknown>>()
   /** Counts `forget`: what was read before one is not kept after it, and what waited out one is not told. */
@@ -386,6 +388,7 @@ export class BoardStore {
     this.removed.clear()
     this.problems.clear()
     this.asides.clear()
+    this.putBack.clear()
   }
 
   /**
@@ -424,10 +427,12 @@ export class BoardStore {
 
   /**
    * Puts the copy kept aside in the place of the board: for a copy the person mended in their editor. It must read whole
-   * (every card and arrow), otherwise a `Refusal` says so and nothing changes. The board it replaces is gone, the copy is
-   * deleted and the notice with it, and the window is told. Ids go on above those of both boards.
+   * (every card and arrow), otherwise a `Refusal` says so and nothing changes. It loses nothing without being told to: when
+   * the board holds cards that are not main's own (the person's, the agent's) and `replace` is not true, it changes nothing
+   * and answers how many (`made`). Replaced, the copy is deleted and the notice with it, the window is told, ids go on above
+   * those of both boards, and `undoAside` brings the board back as it was.
    */
-  useAside(objectId: string): Promise<BoardFile> {
+  useAside(objectId: string, replace = false): Promise<BoardFile | { made: number }> {
     return this.turn(objectId, async (current, dir, epoch) => {
       const name = this.asides.get(dir)
       if (name === undefined) throw new Refusal('There is no copy of the board file to put back.')
@@ -441,6 +446,8 @@ export class BoardStore {
       }
       const read = readBoardFile(parsed)
       if (!read || read.dropped > 0) throw new Refusal(`The copy ${FOLDER}/board/${name} still cannot be read whole. Mend it in your editor and try again.`)
+      const made = current.cards.filter((c) => c.by !== 'torno').length
+      if (made > 0 && !replace) return { made }
       const board: BoardFile = { ...read.file, next: nextAbove(Math.max(read.file.next, current.next), read.file.cards, read.file.arrows) }
       await saveBoardFile(dir, board)
       const gone = [...picturesOf(current.cards)].filter((picture) => !picturesOf(board.cards).has(picture))
@@ -451,9 +458,32 @@ export class BoardStore {
         this.disk.set(dir, textOf(board))
         this.problems.delete(dir)
         this.asides.delete(dir)
+        this.putBack.set(dir, { before: structuredClone(current), put: textOf(board), name, copy: text })
         for (const cb of this.listeners.changed) cb({ objectId, board: structuredClone(board) })
       }
       return structuredClone(board)
+    })
+  }
+
+  /**
+   * Takes back the last `useAside`: the board as it was, and the copy where it was kept (the notice does not come back).
+   * Only while the board is still as the put back left it: once it changed, what was made since would be lost, so it is refused.
+   */
+  undoAside(objectId: string): Promise<BoardFile> {
+    return this.turn(objectId, async (current, dir, epoch) => {
+      const kept = this.putBack.get(dir)
+      if (!kept) throw new Refusal('There is nothing to take back.')
+      if (textOf(current) !== kept.put) throw new Refusal('The brief has changed since it was put back, so it is not taken back.')
+      await ownTorno(dir, 'board')
+      await writeOwn(dir, `board/${kept.name}`, kept.copy)
+      await saveBoardFile(dir, kept.before)
+      if (epoch === this.epoch) {
+        this.files.set(dir, kept.before)
+        this.disk.set(dir, textOf(kept.before))
+        this.putBack.delete(dir)
+        for (const cb of this.listeners.changed) cb({ objectId, board: structuredClone(kept.before) })
+      }
+      return structuredClone(kept.before)
     })
   }
 

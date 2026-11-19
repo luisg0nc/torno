@@ -302,12 +302,37 @@ describe('a board file kept aside', () => {
     expect(await store.problem('two')).toMatch(/not a plain file/)
   })
 
-  it('is put back once it reads whole: it becomes the board, the copy goes, the problem is gone and the window is told', async () => {
+  const ids = (board: BoardFile | { made: number }): string[] => ('cards' in board ? board.cards.map((c) => c.id) : [])
+
+  it('asks first when the board holds cards that are not main\'s own, and changes nothing until it is told to replace', async () => {
     const [name] = await broken()
+    goodCopy(name)
+    const before = readFileSync(file(), 'utf8')
+    changes.length = 0
+    const asked = await store.useAside('bracket')
+    expect('made' in asked && asked.made).toBe(1)
+    expect(readFileSync(file(), 'utf8')).toBe(before)
+    expect(asides()).toEqual([name])
+    expect(await store.aside('bracket')).toBe(true)
+    expect(changes).toEqual([])
+  })
+
+  it('counts the agent\'s cards too, and not the cards main made by itself', async () => {
+    const [name] = await broken()
+    await store.agent('bracket', { op: 'add', text: 'plan' })
+    await withTorno()
+    goodCopy(name)
+    const asked = await store.useAside('bracket')
+    expect('made' in asked && asked.made).toBe(2)
+  })
+
+  it('is put back with no question when the board holds only what main made, once it reads whole: it becomes the board, the copy goes, the problem is gone and the window is told', async () => {
+    const [name] = await broken()
+    await store.person('bracket', { op: 'remove', ids: onDisk().cards.map((c) => c.id) })
     goodCopy(name)
     changes.length = 0
     const board = await store.useAside('bracket')
-    expect(board.cards.map((c) => c.id)).toEqual(['C4'])
+    expect(ids(board)).toEqual(['C4'])
     expect(onDisk().cards.map((c) => c.id)).toEqual(['C4'])
     expect(asides()).toEqual([])
     expect(await store.problem('bracket')).toBeNull()
@@ -317,10 +342,38 @@ describe('a board file kept aside', () => {
     expect((await store.person('bracket', text(0, 0))).cards.map((c) => c.id)).toEqual(['C4', 'C5'])
   })
 
+  it('replaces the cards made since when told to, and undo brings the brief back as it was, with the copy', async () => {
+    const [name] = await broken()
+    goodCopy(name)
+    const mine = onDisk()
+    const copy = readFileSync(join(dir(), name), 'utf8')
+    const board = await store.useAside('bracket', true)
+    expect(ids(board)).toEqual(['C4'])
+    expect(asides()).toEqual([])
+    changes.length = 0
+    const back = await store.undoAside('bracket')
+    expect(back).toEqual(mine)
+    expect(onDisk()).toEqual(mine)
+    expect(changes.at(-1)?.board).toEqual(mine)
+    expect(readFileSync(join(dir(), name), 'utf8')).toBe(copy)
+    // Once is enough, and the notice does not come back.
+    await expect(store.undoAside('bracket')).rejects.toThrow(/nothing/)
+    expect(await store.aside('bracket')).toBe(false)
+  })
+
+  it('does not undo a put back after the brief changed again: nothing made since is lost', async () => {
+    const [name] = await broken()
+    goodCopy(name)
+    await store.useAside('bracket', true)
+    await store.person('bracket', text(0, 0))
+    await expect(store.undoAside('bracket')).rejects.toThrow(/changed since/)
+    expect(onDisk().cards.map((c) => c.id)).toEqual(['C4', 'C5'])
+  })
+
   it('is refused while it still cannot be read whole, and nothing changes', async () => {
     const [name] = await broken()
     const before = readFileSync(file(), 'utf8')
-    await expect(store.useAside('bracket')).rejects.toThrow(/still/)
+    await expect(store.useAside('bracket', true)).rejects.toThrow(/still/)
     expect(readFileSync(file(), 'utf8')).toBe(before)
     expect(asides()).toEqual([name])
     expect(await store.aside('bracket')).toBe(true)

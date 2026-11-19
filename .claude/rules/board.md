@@ -71,8 +71,11 @@ Paths as in the other rules.
   own write compares equal and says nothing, so the watch does not loop. A file that is not a plain file, cannot be read, or holds cards that are not whole is
   kept aside or left, and `board:problem` says so to the window (a notice with Dismiss, as `marks:problem`; `aside: true` when a copy
   is kept). The copy kept aside (`asides`, the name main made, never one from the window) is dealt with by `board:useAside`, which
-  needs it to read whole (`readBoardFile` drops none), replaces the board with it (ids on above both), deletes the copy and tells the
-  window, and `board:letGoAside`, which deletes it (a link is never followed or deleted through): the pictures it named are then
+  needs it to read whole (`readBoardFile` drops none), and **loses nothing unasked**: when the board holds cards that are not
+  `by: 'torno'` and `replace` is not true it changes nothing and answers `{ made }`, which the notice turns into "Replace them with the copy?"
+  (Replace / Keep this one); replaced, the board becomes the copy (ids on above both), the copy is deleted and the window told. `board:undoAside`
+  ("Brief put back. Undo", ten seconds) writes the board as it was and the copy back under its name, and is refused once the brief has changed
+  since (`putBack`, in memory, one per project), and `board:letGoAside`, which deletes it (a link is never followed or deleted through): the pictures it named are then
   no longer kept, and the sweep of a later run takes the ones that are listed. Dismiss leaves the copy. A card of main's own
   whose source is gone goes at the next reconcile; a pinned card never does.
 

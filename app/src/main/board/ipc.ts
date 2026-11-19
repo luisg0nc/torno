@@ -15,7 +15,7 @@ import type { Ties } from './ties'
 // The window names a project, never a folder; an id, an author or `hidden` is never taken from it (the store's `person`).
 
 export interface BoardIpcDeps {
-  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem' | 'aside' | 'useAside' | 'letGoAside'>
+  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem' | 'aside' | 'useAside' | 'undoAside' | 'letGoAside'>
   /** Keeps dimensions and the sizes that tie them saying the same thing (`ties.ts`). Absent: nothing is tied. */
   ties?: Pick<Ties, 'tie' | 'untie' | 'reconcile'>
   /** A project of the open workspace. */
@@ -90,8 +90,13 @@ export function boardHandlers(deps: BoardIpcDeps) {
     },
 
     /** The person puts the copy kept aside back as the board. Rejects with a `Refusal` while it cannot be read whole. */
-    async useAside(objectId: string): Promise<BoardFile> {
-      return deps.board.useAside(open(objectId).id)
+    async useAside(objectId: string, replace?: boolean): Promise<BoardFile | { made: number }> {
+      return deps.board.useAside(open(objectId).id, replace === true)
+    },
+
+    /** The person takes back the last put back, while the brief is as it left it. */
+    async undoAside(objectId: string): Promise<BoardFile> {
+      return deps.board.undoAside(open(objectId).id)
     },
 
     /** The person lets the copy kept aside go. */

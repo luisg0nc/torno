@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -73,6 +73,15 @@ describe('the board handlers', () => {
     await handlers().read('bracket')
     expect(await handlers().aside('bracket')).toBe(true)
     await expect(handlers().useAside('bracket')).rejects.toThrow(/still cannot be read/)
+    const [name] = readdirSync(join(dir, '.torno', 'board')).filter((n) => n.startsWith('board.json.corrupt'))
+    writeFileSync(join(dir, '.torno', 'board', name), '{"next":3,"cards":[],"arrows":[]}')
+    // A card made since is asked about first; replaced when told to, and the replace is undone.
+    await handlers().change('bracket', { op: 'add', card: { kind: 'text', x: 0, y: 0, w: 100, h: 50, text: 'mine' } })
+    expect(await handlers().useAside('bracket')).toEqual({ made: 1 })
+    expect(await handlers().useAside('bracket', true)).toMatchObject({ cards: [] })
+    expect((await handlers().undoAside('bracket')).cards).toHaveLength(1)
+    await expect(handlers().undoAside('bracket')).rejects.toThrow(/nothing/)
+    await handlers().read('bracket')
     await handlers().letGoAside('bracket')
     expect(await handlers().aside('bracket')).toBe(false)
     expect(await handlers().problem('bracket')).toBeNull()

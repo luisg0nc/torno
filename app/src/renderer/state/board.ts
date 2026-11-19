@@ -46,6 +46,10 @@ export interface BoardState {
   fileProblem: string | null
   /** A copy of the unreadable file is kept aside: the notice offers to put it back or let it go. */
   fileAside: boolean
+  /** The copy would replace this many cards made since: the notice asks first. Null when it asks nothing. */
+  asideAsk: number | null
+  /** The copy was put back and can be taken back for a while ("Brief put back. Undo"). */
+  putBack: boolean
   /** Whether a board has been read since the project opened: only the first decides what is shown, so that a card added meanwhile does not take the person from the model. */
   read: boolean
   /** What goes with the next prompt: the ids of cards, or all of the brief. What each says is read when the prompt is sent. Null for none. */
@@ -87,7 +91,7 @@ export function defaultShown(board: BoardFile | null): Shown {
   return board?.cards.some((c) => c.by !== 'torno' && !c.hidden) ? 'brief' : 'model'
 }
 
-const NONE: BoardState = { objectId: null, board: null, shown: 'model', chosen: false, selected: [], problem: null, fileProblem: null, fileAside: false, read: false, attached: null }
+const NONE: BoardState = { objectId: null, board: null, shown: 'model', chosen: false, selected: [], problem: null, fileProblem: null, fileAside: false, asideAsk: null, putBack: false, read: false, attached: null }
 
 export const boardStore = createStore<BoardState>(() => NONE)
 
@@ -196,20 +200,51 @@ export const boardActions = {
   },
 
   dismissFileProblem(): void {
-    if (boardStore.getState().fileProblem !== null) boardStore.setState({ fileProblem: null, fileAside: false })
+    if (boardStore.getState().fileProblem !== null) boardStore.setState({ fileProblem: null, fileAside: false, asideAsk: null })
   },
 
-  /** Puts the copy kept aside back as the board (main checks it reads whole) and lets the notice go; or says why not. */
-  async useAside(): Promise<void> {
+  /**
+   * Puts the copy kept aside back as the board. When the brief holds cards made since, main changes nothing and the notice asks
+   * first (`replace` says yes). Main checks the copy reads whole; or the page says why not.
+   */
+  async useAside(replace = false): Promise<void> {
     const { objectId } = boardStore.getState()
     if (objectId === null) return
     try {
-      boardActions.setBoard(objectId, await window.torno.board.useAside(objectId))
+      const got = await window.torno.board.useAside(objectId, replace)
+      if ('made' in got) {
+        boardStore.setState({ asideAsk: got.made })
+        return
+      }
+      boardActions.setBoard(objectId, got)
       boardActions.dismissFileProblem()
       boardActions.say(null)
+      boardStore.setState({ putBack: true })
     } catch (e) {
       boardActions.say((e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']*': (?:Error: )?/, ''))
     }
+  },
+
+  /** The person keeps the brief as it is: the question goes, the copy stays aside. */
+  keepThisOne(): void {
+    if (boardStore.getState().asideAsk !== null) boardStore.setState({ asideAsk: null })
+  },
+
+  /** Takes the put back back, or says why not. */
+  async undoAside(): Promise<void> {
+    const { objectId } = boardStore.getState()
+    if (objectId === null) return
+    boardStore.setState({ putBack: false })
+    try {
+      boardActions.setBoard(objectId, await window.torno.board.undoAside(objectId))
+    } catch (e) {
+      boardActions.say((e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']*': (?:Error: )?/, ''))
+    }
+  },
+
+  /** The time to take the put back back is over. */
+  endPutBack(): void {
+    if (boardStore.getState().putBack) boardStore.setState({ putBack: false })
   },
 
   /** Deletes the copy kept aside and lets the notice go. */
