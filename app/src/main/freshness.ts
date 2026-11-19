@@ -60,7 +60,7 @@ export class Freshness {
    * (a build running), or at `graceMs` when files are newer and no build has begun; `newer` and the build's state
    * then say what is still behind.
    */
-  async settle(objectId: string, limitMs = SETTLE_MS, graceMs = BEGIN_GRACE_MS): Promise<void> {
+  async settle(objectId: string, limitMs = SETTLE_MS, graceMs = BEGIN_GRACE_MS, signal?: AbortSignal): Promise<void> {
     const arrived = this.now()
     const deadline = arrived + limitMs
     const grace = arrived + graceMs
@@ -69,6 +69,7 @@ export class Freshness {
       // Read after the disk: a build that began while it was looked at is a build that runs.
       const building = this.ports.state(objectId)?.status === 'building'
       if (!building && !newer) return
+      if (signal?.aborted) return
       const now = this.now()
       if (now >= deadline || (!building && now >= grace)) return
       await this.nextChange(Math.min(RECHECK_MS, (building ? deadline : grace) - now))

@@ -24,7 +24,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `mcp/markTools.ts`; those that read the part in `mcp/readTools.ts`; those
   that ask about scans in `mcp/scanTools.ts`): `scene`, `look`, `marks`,
   `describe`, `highlight`, `ask`, `show`, `save_view`, `add_mark`, `add_sketch`, `add_set`, `resolve_mark`,
-  `measure`, `section`, `check`, `diff`, `history`, `board`, `add_card`, `tracings`, `add_tracing`, `add_layer`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
+  `measure`, `section`, `check`, `diff`, `history`, `wait_build`, `board`, `add_card`, `tracings`, `add_tracing`, `add_layer`, `expect`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`.
   `board` and `add_card` (`mcp/boardTools.ts`; `ToolDeps.board`, `ToolDeps.scale`, wired in `index.ts`) are the agent's door to the
   board: `board` reads it as `boardText` does (a frame by name or id; `pictures: true` sends up to 6, each scaled to 1280 by
   `deps.scale`); `add_card` makes cards and arrows of the agent's own through `BoardStore.agent` and changes or removes only those (a
@@ -107,12 +107,19 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   files the last build imported, `Scene.uses`) against when the latest build began (`Builds.startedAt`; a time to the millisecond
   below it is not newer), and waits up to `SETTLE_MS` (15 s) for a build that runs, `BEGIN_GRACE_MS` (3 s) for one to begin. What it
   does not get is told, never as current: `behind` says `the model's files are newer than this build` and `scene`'s `build.stale`
-  is true with `staleWhy`. `scene` counts the unresolved dimensions held to a value
+  is true with `staleWhy`.
+  `wait_build` (`mcp/waitTools.ts`, `ToolDeps.fresh.settle`, `ToolDeps.buildTold`) waits for the running build, or the one a save has
+  just started, up to `seconds` (1 to 600, default 60; `Freshness.settle` with the call's abort signal) and answers `status`,
+  `revision`, `waited`, `limitReached`, `seconds` of the build, `stale` and a `reading`; with the limit up and the build still
+  running (or files newer and no build begun) it says so and leaves the build alone, and the agent calls again. A build that ended
+  comes with what an edit's answer tells of it (`buildTold`, `buildContextFor` with the expectation). `scene` gives
+  `build.runningSeconds` while a build runs and `build.recentBuilds` (the last five kept: id, seconds, `failed`) from `deps.history`;
+  the stage of a build (loading, meshing) is not told, because the kernel does not report one. `scene` counts the unresolved dimensions held to a value
   (`dimensions: {pass, fail, notMeasured}`).
   - What a client reads of a tool before it calls one is beside its description in `TOOLS`: a `title` (sentence
     case), `annotations` and, for the tools loaded upfront, `meta`. Every tool has `openWorldHint: false`; the
     ones that only read have `readOnlyHint: true` (`scene`, `look`, `marks`, `describe`, `measure`, `section`,
-    `check`, `diff`, `history`, `board`, `tracings`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
+    `check`, `diff`, `history`, `wait_build`, `board`, `tracings`, `try_fillet`, `try_params`, `features`, `scans`, `scan_clash`, `scan_deviation`: Claude Code runs the calls of those side by side;
     `look` reads, the picture it writes under `.torno/views/` being torno's own), the rest `readOnlyHint: false,
     destructiveHint: false`. `scene`, `look`, `marks`, `describe` and `measure` have
     `_meta["anthropic/alwaysLoad"]` (Claude Code's tool search defers every other MCP tool until it is searched for,

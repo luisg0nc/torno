@@ -421,7 +421,8 @@ async function newestSource(id: string): Promise<number | null> {
 const freshness = new Freshness({ state: buildState, startedAt: buildStartedAt, newestSource })
 
 const toolDeps: ToolDeps = {
-  fresh: { settle: (id) => freshness.settle(id), newer: (id) => freshness.newer(id) },
+  fresh: { settle: (id, limitMs, graceMs, signal) => freshness.settle(id, limitMs, graceMs, signal), newer: (id) => freshness.newer(id) },
+  buildTold: async (id) => (await withExpectation(expectations, toolDeps, id, buildContextFor(editDeps, id, await marks.list(id).catch(() => []), {}))).text,
   ...(off.has('look') ? { off: new Set(['look']) } : {}),
   ...(tuning.lookSize ? { lookSize: tuning.lookSize } : {}),
   expectations,
@@ -715,11 +716,9 @@ void app.whenReady().then(async () => {
     settled: (id, revision, until) => verdicts.settled(id, revision, until),
     // A Bash is a change of the model when the newest source is newer after it: only a build that follows a change is the turn's.
     identity: buildIdentity,
-    sourcesSaved: async (dir) => {
-      const [own, common] = sourceFolders(dir)
-      const [a, b] = await Promise.all([newestPython(own), newestPython(common)])
-      return a === null ? b : Math.max(a, b ?? -Infinity)
-    },
+    sourcesSaved: (_dir, id) => newestSource(id),
+    // An edit of a file the last build imported is answered like one of the project's own.
+    uses: (id) => lastScene(id)?.scene.uses ?? [],
     // A dimension that passed when the turn began and fails now holds a Stop back, once, with what it measures against what was expected.
     verdicts: (id, revision) => verdicts.of(id, revision),
     dimensionDetail: async (id, markId, revision) => {

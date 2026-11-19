@@ -61,7 +61,8 @@ import { type DiffToolArgs, type HistoryToolArgs, type MeasureToolArgs, type Sec
 import { type ScanClashArgs, type ScanDeviationArgs, type ScansArgs, scanClashTool, scanDeviationTool, scansTool } from './scanTools'
 import { type AddCardArgs, type AddLayerArgs, type AddMarkArgs, type AddSetArgs, type AddSketchArgs, type AddTracingArgs, type AskArgs, type BoardArgs, type DescribeArgs, type HighlightArgs, type LookArgs, type MarksArgs, type ResolveMarkArgs, type SaveViewArgs, type ShowArgs, type TracingsArgs, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, NO_PLANE, TOOLS, refusedKeys } from './schemas'
 import { addCardTool, boardTool } from './boardTools'
-import { type SceneArgs, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
+import { type WaitBuildArgs, waitBuildTool } from './waitTools'
+import { type RecentBuild, type SceneArgs, RECENT_BUILDS, lookTool, saveViewTool, sceneTool, showTool } from './viewTools'
 import type { Profile } from '../../shared/profile'
 import type { AgentChange, BoardFile } from '../../shared/board'
 import type { AgentResult } from '../board/store'
@@ -83,7 +84,9 @@ export interface ToolDeps {
    * Whether the model is built as its files are (`Freshness`). `settle` waits, for a few seconds, for the build a save
    * started; `newer` says whether the files are newer than the latest build. Without it, only the build's own state is told.
    */
-  fresh?: { settle(objectId: string): Promise<void>; newer(objectId: string): boolean }
+  fresh?: { settle(objectId: string, limitMs?: number, graceMs?: number, signal?: AbortSignal): Promise<void>; newer(objectId: string): boolean }
+  /** What the agent is told of the build there is, as an edit's answer words it (`buildContextFor`); '' when it has nothing to tell. `wait_build` gives it with the result. */
+  buildTold?(objectId: string): Promise<string>
   /** The last successful build. */
   scene(objectId: string): { revision: number; scene: Scene } | undefined
   /** The last two successful builds, the older first (`diff`). Without it, only the last is known. */
@@ -263,7 +266,8 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<SceneArgs>('scene', async (args) => {
     const marks = await deps.marks(objectId).catch(() => undefined)
     const named = await deps.sets?.(objectId).then((sets) => ({ sets, refs: deps.setsRefs?.(objectId) })).catch(() => undefined)
-    return sceneTool(deps, objectId, marks, await deps.scans(objectId).catch(() => undefined), await deps.views(objectId).catch(() => undefined), args, named)
+    const recent = await deps.history?.(objectId).then((kept) => kept?.entries.slice(-RECENT_BUILDS).reverse().map((e): RecentBuild => ({ id: e.id, seconds: e.seconds, ...(e.failed ? { failed: true as const } : {}) }))).catch(() => undefined)
+    return sceneTool(deps, objectId, marks, await deps.scans(objectId).catch(() => undefined), await deps.views(objectId).catch(() => undefined), args, named, recent)
   })
   tool<LookArgs>('look', (args) => lookTool(deps, objectId, args))
   tool<MarksArgs>('marks', (args) => marksTool(deps, objectId, args))
@@ -284,6 +288,7 @@ export function registerTools(server: McpServer, deps: ToolDeps, objectId: strin
   tool<Parameters<typeof checkTool>[2]>('check', (args) => checkTool(deps, objectId, args))
   tool<DiffToolArgs>('diff', (args) => diffTool(deps, objectId, args))
   tool<HistoryToolArgs>('history', (args) => historyTool(deps, objectId, args))
+  tool<WaitBuildArgs>('wait_build', (args, extra) => waitBuildTool(deps, objectId, args, extra))
   tool<ExpectArgs>('expect', (args) => expectTool(deps, objectId, args))
   tool<TryFilletToolArgs>('try_fillet', (args) => tryFilletTool(deps, objectId, args))
   tool<FeaturesToolArgs>('features', (args) => featuresTool(deps, objectId, args))

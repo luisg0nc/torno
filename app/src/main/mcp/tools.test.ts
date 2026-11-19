@@ -194,7 +194,7 @@ const textOf = (result: { content: Array<{ type: string; text?: string }> }): st
 
 describe('the tool descriptions', () => {
   it('say in two or three sentences each what the tool returns and when to use it', () => {
-    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'add_sketch', 'add_set', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'board', 'add_card', 'tracings', 'add_tracing', 'add_layer', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
+    expect(Object.keys(TOOLS)).toEqual(['scene', 'look', 'marks', 'describe', 'highlight', 'ask', 'show', 'save_view', 'add_mark', 'add_sketch', 'add_set', 'resolve_mark', 'measure', 'section', 'check', 'diff', 'history', 'wait_build', 'board', 'add_card', 'tracings', 'add_tracing', 'add_layer', 'expect', 'try_fillet', 'try_params', 'features', 'scans', 'scan_clash', 'scan_deviation'])
     for (const tool of Object.values(TOOLS)) {
       expect(tool.description).toMatch(/^Returns /)
       const sentences = tool.description.match(/[.?!]"?(\s|$)/g)!.length
@@ -3069,9 +3069,9 @@ describe('scene lists the named sets', () => {
 
 describe('a read right after a save', () => {
   /** The handlers `registerTools` gives a server, by tool name. */
-  function handlers(deps: ToolDeps): Record<string, (args: unknown) => Promise<{ content: Array<{ text?: string }> }>> {
-    const by: Record<string, (args: unknown) => Promise<{ content: Array<{ text?: string }> }>> = {}
-    const server = { registerTool: (name: string, _config: unknown, run: (args: unknown, extra: unknown) => Promise<{ content: Array<{ text?: string }> }>) => void (by[name] = (args) => run(args, { signal: new AbortController().signal, _meta: {} })) }
+  function handlers(deps: ToolDeps): Record<string, (args: unknown) => Promise<{ content: Array<{ type: string; text?: string }> }>> {
+    const by: Record<string, (args: unknown) => Promise<{ content: Array<{ type: string; text?: string }> }>> = {}
+    const server = { registerTool: (name: string, _config: unknown, run: (args: unknown, extra: unknown) => Promise<{ content: Array<{ type: string; text?: string }> }>) => void (by[name] = (args) => run(args, { signal: new AbortController().signal, _meta: {} })) }
     registerTools(server as never, deps, 'bracket')
     return by
   }
@@ -3096,6 +3096,45 @@ describe('a read right after a save', () => {
   it('says nothing is stale when the files are not newer', async () => {
     const deps = fake({ fresh: { settle: async () => undefined, newer: () => false } })
     expect(JSON.parse(textOf(await handlers(deps).describe({ ref: 'base' }))).stale).toBeUndefined()
+  })
+
+  it('wait_build returns the result of the build it waited for, with what an edit is told of it', async () => {
+    const building: BuildState = { ...OK, status: 'building', startedAt: Date.now() - 4000, stale: true }
+    let state = building
+    const deps = fake({ fresh: { settle: async () => void (state = { ...OK, revision: 4, seconds: 12.34 }), newer: () => false }, buildTold: async () => 'Changed since r3: base thinner' })
+    deps.build = () => state
+    const out = await handlers(deps).wait_build({ seconds: 30 })
+    const result = JSON.parse(out.content[0].text!)
+    expect(result).toMatchObject({ status: 'ok', revision: 3, limitReached: false, seconds: 12.3, stale: false })
+    expect(result.reading).toContain('r4 is built (12.3 s)')
+    expect(out.content[1].text).toBe('Changed since r3: base thinner')
+  })
+
+  it('wait_build says the limit was reached, and how long the build has run, and leaves it running', async () => {
+    const state: BuildState = { ...OK, status: 'building', startedAt: Date.now() - 20_000, stale: true }
+    const deps = fake({ fresh: { settle: async () => undefined, newer: () => false }, buildTold: async () => 'never' })
+    deps.build = () => state
+    const out = await handlers(deps).wait_build({ seconds: 5 })
+    const result = JSON.parse(out.content[0].text!)
+    expect(result).toMatchObject({ status: 'building', limitReached: true, stale: true })
+    expect(result.reading).toMatch(/Still building after .* r4 is not done\. Call wait_build again/)
+    expect(out.content).toHaveLength(1)
+  })
+
+  it('wait_build says so when the files are newer and no build began, and refuses a limit it cannot keep', async () => {
+    const deps = fake({ fresh: { settle: async () => undefined, newer: () => true } })
+    const by = handlers(deps)
+    expect(JSON.parse(textOf(await by.wait_build({}))).reading).toContain("files are newer than r3 and no build has begun")
+    expect(textOf(await by.wait_build({ seconds: 0 }))).toContain('1 to 600')
+    expect(textOf(await by.wait_build({ seconds: 601 }))).toContain('1 to 600')
+  })
+
+  it('scene tells how long the running build has run and how long recent builds took', async () => {
+    const running: BuildState = { ...OK, status: 'building', startedAt: Date.now() - 7000, stale: true }
+    const deps = fake({ state: running, history: async () => ({ run: 'x', entries: [{ id: 'h1', seconds: 40 }, { id: 'h2', seconds: 52.5 }, { id: 'h3', seconds: 0.2, failed: true }] as never }) })
+    const scene = JSON.parse(textOf(await handlers(deps).scene({})))
+    expect(scene.build.runningSeconds).toBeGreaterThanOrEqual(7)
+    expect(scene.build.recentBuilds).toEqual([{ id: 'h3', seconds: 0.2, failed: true }, { id: 'h2', seconds: 52.5 }, { id: 'h1', seconds: 40 }])
   })
 
   it('a tool that reads nothing of the build does not wait', async () => {

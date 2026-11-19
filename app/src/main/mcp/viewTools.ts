@@ -75,7 +75,11 @@ export interface NamedSets {
 const SCENE_PARTS = 200
 const SCENE_CHARS = 30_000
 
-export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], args: SceneArgs = {}, named?: NamedSets): ToolResult {
+/** How long recent builds took, newest first, from the history: `scene` tells them so that a wait is not a guess. */
+export interface RecentBuild { id: string; seconds: number; failed?: true }
+export const RECENT_BUILDS = 5
+
+export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mark[], scans?: readonly ScanInfo[], views?: readonly SavedView[], args: SceneArgs = {}, named?: NamedSets, recent?: readonly RecentBuild[]): ToolResult {
   const found = built(deps, objectId)
   if ('content' in found) {
     // The first build failed: nothing was built, and what the model printed is all there is besides the error.
@@ -184,6 +188,9 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
       revision: build.revision,
       ...(build.seconds === undefined ? {} : { seconds: round(build.seconds) }),
       // Stale also while the files are newer than the build, though none has begun, and it says why.
+      // How long this one has run (its stage, loading or meshing, is not told: the kernel does not say it).
+      ...(build.status === 'building' && build.startedAt ? { runningSeconds: round((Date.now() - build.startedAt) / 1000) } : {}),
+      ...(recent && recent.length > 0 ? { recentBuilds: recent } : {}),
       stale: build.stale || behind(deps, objectId) !== '',
       ...(behind(deps, objectId) === NEWER_FILES ? { staleWhy: NEWER_FILES } : {}),
       ...(build.letGo ? { letGo: build.letGo } : {}),
