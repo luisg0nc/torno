@@ -32,6 +32,8 @@ export interface TagProps {
   subjectAt?: () => Vec3 | null
   /** A subject on a flat sheet (a tracing's), in window pixels, asked after every `tagsMoved` in place of `subject`: the view's camera has no say where it is. */
   subjectClient?: () => { x: number; y: number } | null
+  /** A box in window pixels the tag stands clear of (explode's track), asked after every frame; null for none. */
+  clear?: () => Box | null
   /** A tag with no leader (a mark's note stands at its mark, which has none): it is placed beside its subject as any, and nothing is drawn to it. */
   leaderless?: boolean
   /** The side it starts on, before it has one of its own. */
@@ -52,7 +54,7 @@ export interface TagProps {
  * its side while that still fits. With no subject, or a subject off the view or behind the camera, it docks above the hint
  * and has no leader. Its leader is set through `publishTag`.
  */
-export function Tag({ id, subject, subjectAt, subjectClient, leaderless, prefer, sticky = true, problem, status, children }: TagProps) {
+export function Tag({ id, subject, subjectAt, subjectClient, clear, leaderless, prefer, sticky = true, problem, status, children }: TagProps) {
   const element = useRef<HTMLDivElement>(null)
   const subjectRef = useRef(subject)
   subjectRef.current = subject
@@ -60,6 +62,8 @@ export function Tag({ id, subject, subjectAt, subjectClient, leaderless, prefer,
   subjectAtRef.current = subjectAt
   const subjectClientRef = useRef(subjectClient)
   subjectClientRef.current = subjectClient
+  const clearRef = useRef(clear)
+  clearRef.current = clear
   const leaderlessRef = useRef(leaderless)
   leaderlessRef.current = leaderless
   const side = useRef<Exclude<Side, 'docked'> | undefined>(prefer)
@@ -87,6 +91,8 @@ export function Tag({ id, subject, subjectAt, subjectClient, leaderless, prefer,
       }
       const size = { w: self.offsetWidth, h: self.offsetHeight }
       const avoid = avoidBoxes(self, within, pane)
+      const clearing = clearRef.current?.()
+      if (clearing) avoid.push({ ...clearing, x: clearing.x - pane.left, y: clearing.y - pane.top })
       const placed = placeTag(at, size, view, avoid, sticky ? side.current : prefer)
       if (placed.side !== 'docked') side.current = placed.side
       else {

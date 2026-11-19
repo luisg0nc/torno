@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Pt } from '../../shared/leader'
-import { MIN_TRACK_PX, amountAlong, planTrack, trackPoint, type Box3, type TrackPlan } from './explodeTrack'
+import { placeTag } from '../../shared/tagPlace'
+import { MIN_TRACK_PX, amountAlong, planTrack, trackBox, trackEnds, trackFits, trackPoint, type Box3, type TrackPlan } from './explodeTrack'
 
 const BOX: Box3 = { min: [0, 0, 0], max: [100, 60, 40] }
 
@@ -54,5 +55,67 @@ describe('where the explode track stands', () => {
     expect(amountAlong(a, b, { x: a.x, y: a.y + 200 })).toBe(0)
     expect(amountAlong(a, b, { x: a.x, y: b.y - 200 })).toBe(1)
     expect(trackPoint(plan, 0.5)[2]).toBeCloseTo(50, 9)
+  })
+})
+
+/** The window at 1280 x 800 leaves the view about this much. */
+const VIEW = { width: 1280, height: 800 }
+/** A front view of BOX with the camera zoomed by `zoom`, looking at `at` (a point of the box, mm), on the middle of the view. */
+const zoomed = (zoom: number, at: [number, number] = [50, 20]) => (p: readonly [number, number, number]): Pt => ({
+  x: VIEW.width / 2 + (p[0] - at[0]) * 3 * zoom,
+  y: VIEW.height / 2 - (p[2] - at[1]) * 3 * zoom
+})
+const meets = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+describe('the track stays whole in the view (1280 x 800)', () => {
+  it('stands beside the parts, whole, while there is room', () => {
+    const plan = planTrack(BOX, zoomed(1), null, VIEW)!
+    expect(plan.screen).toBeUndefined()
+    const ends = trackEnds(plan, zoomed(1))!
+    expect(trackFits(ends.a, ends.b, VIEW)).toBe(true)
+  })
+
+  it('is whole at every zoom: beside the parts where one place has room, else at the fixed place at the bottom right', () => {
+    for (const zoom of [0.5, 1, 2, 3, 4, 6, 8, 12, 20]) {
+      for (const at of [[50, 20], [0, 0], [100, 40], [0, 40]] as Array<[number, number]>) {
+        const project = zoomed(zoom, at)
+        const plan = planTrack(BOX, project, null, VIEW)
+        if (!plan) continue
+        const ends = trackEnds(plan, project)!
+        expect(trackFits(ends.a, ends.b, VIEW), `zoom ${zoom} at ${at}`).toBe(true)
+      }
+    }
+  })
+
+  it('goes to the bottom right of the view when no place beside the parts is on screen', () => {
+    const plan = planTrack(BOX, zoomed(12), null, VIEW)!
+    expect(plan.screen).toBeDefined()
+    const { a, b } = plan.screen!
+    expect(a.x).toBe(b.x)
+    expect(a.x).toBeGreaterThan(VIEW.width * 0.9)
+    expect(a.y).toBeGreaterThan(VIEW.height * 0.8)
+    expect(b.y).toBeLessThan(a.y)
+    expect(a.y - b.y).toBeGreaterThanOrEqual(MIN_TRACK_PX)
+  })
+
+  it('is not drawn where no axis shows long enough, as before', () => {
+    expect(planTrack(BOX, () => ({ x: 10, y: 10 }), null, VIEW)).toBeNull()
+  })
+
+  it('has its tag beside it and never over it, at every zoom', () => {
+    const tag = { w: 232, h: 168 }
+    const view = { x: 0, y: 0, w: VIEW.width, h: VIEW.height }
+    for (const zoom of [0.5, 1, 2, 4, 8, 12, 20]) {
+      const project = zoomed(zoom)
+      const plan = planTrack(BOX, project, null, VIEW)
+      if (!plan) continue
+      const ends = trackEnds(plan, project)!
+      const track = trackBox(ends)
+      const placed = placeTag(ends.b, tag, view, [track], 'left')
+      expect(meets(placed.box, track), `zoom ${zoom}`).toBe(false)
+      expect(placed.box.x).toBeGreaterThanOrEqual(0)
+      expect(placed.box.x + placed.box.w).toBeLessThanOrEqual(VIEW.width)
+      expect(placed.box.y + placed.box.h).toBeLessThanOrEqual(VIEW.height)
+    }
   })
 })

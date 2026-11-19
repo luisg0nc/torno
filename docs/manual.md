@@ -1915,7 +1915,9 @@ you drag along it (the slider of the track is also reached by the keys), and a t
 top says how far apart they are, "apart, for the view only", where from (from the
 centre, or along X, Y or Z), the distance (×0.5 to ×4) and, last, what Explode is: for
 display only, or why nothing is drawn apart. The track runs up along Z, or along the
-longest side the view shows when Z is seen end on. It is for display
+longest side the view shows when Z is seen end on. It is always whole on screen, and the
+tag stands beside it, never over it: when you zoom in so far that no place beside the parts
+has the whole track in view, it stands at the bottom right of the view instead. It is for display
 only: the parts are where they were built, and every pick, ref and number is
 of the parts as assembled.
 
