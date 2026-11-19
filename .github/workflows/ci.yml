@@ -121,7 +121,8 @@ jobs:
     name: E2E (${{ matrix.shard }}/8)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    needs: [changes, app, kernel]
+    # Not after app and kernel: the wall time of the pull request is the longest of the jobs, not their sum.
+    needs: changes
     if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
