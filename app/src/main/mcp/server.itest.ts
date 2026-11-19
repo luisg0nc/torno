@@ -311,7 +311,7 @@ describe('the MCP server', () => {
     expect(image).toMatchObject({ type: 'image', mimeType: 'image/png' })
     expect(new Uint8Array(Buffer.from(image.data!, 'base64'))).toEqual(PNG)
     expect(text.text).toBe('view iso\nrevision r2\nsaved as /ws/bracket/.torno/views/1.png')
-    expect(looks).toEqual([{ objectId: 'bracket', req: { view: 'iso', size: 2000, explode: 'current' } }])
+    expect(looks).toEqual([{ objectId: 'bracket', req: { view: 'iso', size: 2000, explode: null } }])
   })
 
   it("answers the tools that read and write marks, point things out and change the user's view", async () => {
