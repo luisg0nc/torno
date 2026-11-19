@@ -476,7 +476,7 @@ The
 layers (parts) of the open project each have a visibility switch, and for a model of ten parts or twenty they
 are also the way to the part: the pointer on a row lights the part in the view, a click on its name selects it (as
 a click with Select would, so "Insert in prompt" and "Note" work on it) and a double click brings it into view, the target on
-the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. A part that
+the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. A build whose parts replace every part you were looking at (the first model of a new project) shows its parts, even under a name you had switched off, and says none of them is hidden. A part that
 is switched off says `hidden` at the right of its row, with its colour faint. The slider for its opacity, the target and the
 eye are on the row while the pointer is on it or the keys are, as a group's header (in the sans, since the name is the model's) has
 its own. After the name, a small ring holds the number of open marks on the part (in the colour of a failing check when one of
@@ -666,7 +666,7 @@ The doodle board (the same board as the chat's "Draw on view") has a thin pen, a
 under the ink; hold `Shift` while drawing for a straight line from where the stroke began. (A drawing on the view has no grid: its ground is the picture.)
 `Esc` puts the board away; if strokes were drawn since it was opened it asks "Discard this doodle?" first. A
 doodle can be opened again from its card and changed. "Draw over" (when photos are given) puts one of them under the ink,
-fitted whole on a white ground, with no grid; Claude gets the photo with your ink on it, and the note says "drawn over reference/photo-N.ext", and the prompt says it is your ink over that photo and not a drawing on the grid. If you remove that photo
+fitted whole on a white ground, with no grid; on screen the ink is dark with a light edge over a photo (and over a doodle you draw on again), so it shows on a white one and a dark one in both themes; Claude gets the photo with your ink on it, and the note says "drawn over reference/photo-N.ext", and the prompt says it is your ink over that photo and not a drawing on the grid. If you remove that photo
 the doodle stays as it was drawn, and still says it is drawn over a photo (with no file named).
 
 What you have entered is a draft, kept while the window lives: you can leave the page, open another project and
@@ -1915,7 +1915,9 @@ you drag along it (the slider of the track is also reached by the keys), and a t
 top says how far apart they are, "apart, for the view only", where from (from the
 centre, or along X, Y or Z), the distance (×0.5 to ×4) and, last, what Explode is: for
 display only, or why nothing is drawn apart. The track runs up along Z, or along the
-longest side the view shows when Z is seen end on. It is for display
+longest side the view shows when Z is seen end on. It is always whole on screen, and the
+tag stands beside it, never over it: when you zoom in so far that no place beside the parts
+has the whole track in view, it stands at the bottom right of the view instead. It is for display
 only: the parts are where they were built, and every pick, ref and number is
 of the parts as assembled.
 
@@ -1971,7 +1973,7 @@ loaded while the board or a tracing is shown, so nothing is built again on the s
 
 **What is on it.** These appear by themselves, each in a free spot the first time the board is read after it appears:
 `brief.md` (its text, read only, scrolling), each photo or doodle of `reference/` (the picture, and your note on it), each STEP file and PDF of it (a card with its name and what it is, and your note on it), each mark (`M1`, its kind, where it is,
-its note and its state), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
+its note and its state; the card of a view note is made larger, in the shape of its picture, so that the drawing reads), each scan and each tracing (`T1`: its name, its plane, how many layers it has, and, drawn on the card, the outline of the last
 build with its layers; before a build of this run it says "build to see the outline", and a double click opens it in the Tracing view). Removing one of these hides it: the mark, scan, photo or tracing is untouched, and "Hidden cards"
 at the top right shows it again. When the thing itself goes (a mark deleted, a photo removed, a tracing removed) its card goes with it. Claude is told of a tracing's card as `C9 · tracing T1 "Front of the block": XZ at y = 0.0, 3 layers, photo lined up (4.731 px/mm, ≈)`, and it is new to Claude when the name, plane, layers or line-up change. These
 you pin, with "Pin to board":

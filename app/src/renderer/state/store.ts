@@ -294,7 +294,17 @@ export const actions = {
     const layout = m.scene.layouts.includes(s.layout) ? s.layout : (m.scene.layouts[0] ?? '')
     const names = new Set(m.scene.parts.map((p) => p.name))
     const kept = Object.entries(s.layers).filter(([name]) => names.has(name))
-    const layers = kept.length === Object.keys(s.layers).length ? s.layers : Object.fromEntries(kept)
+    let layers = kept.length === Object.keys(s.layers).length ? s.layers : Object.fromEntries(kept)
+    // When none of the parts that were shown is left (a new project's placeholder replaced by the first model) and what is left is
+    // all hidden by name, the view would be empty: the parts are shown. A name hidden by the person is remembered, but not against a
+    // model that has none of the parts they looked at.
+    const wasShown = s.scene ? partsInLayout(s).filter((p) => layerOf(s.layers, p.name)?.visible !== false) : []
+    if (wasShown.length > 0 && !wasShown.some((p) => names.has(p.name))) {
+      const there = m.scene.parts.filter((p) => p.layout === layout)
+      if (there.length > 0 && there.every((p) => layerOf(layers, p.name)?.visible === false)) {
+        layers = Object.fromEntries(Object.entries(layers).map(([name, settings]) => [name, names.has(name) && settings.visible === false ? withoutVisible(settings) : settings]))
+      }
+    }
     // A group the model no longer has is folded no more, as the layer of a part that is gone is dropped.
     const groups = new Set((m.scene.groups ?? []).map((g) => g.name))
     const folded = s.folded.every((name) => groups.has(name)) ? s.folded : s.folded.filter((name) => groups.has(name))
@@ -932,6 +942,11 @@ export function explodeNow(s: Pick<TornoState, 'explode' | 'section' | 'layout' 
  */
 export function layerOf(layers: Readonly<Record<string, LayerSettings>>, name: string): LayerSettings | undefined {
   return own(layers, name)
+}
+
+function withoutVisible(settings: LayerSettings): LayerSettings {
+  const { visible: _hidden, ...rest } = settings
+  return rest
 }
 
 /** Keys of the parts of a layout that are switched on. */

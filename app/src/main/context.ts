@@ -642,7 +642,9 @@ function status(deps: ContextDeps, objectId: string, limit: number): string {
   const view = deps.view(objectId)
   const layout = layoutShown(view, scene)
   const parts = scene.parts.filter((p) => p.layout === layout)
-  const hidden = view ? parts.filter((p) => !view.visible.includes(p.key)).map((p) => p.name) : []
+  // The view reported is of the build before when none of the parts it showed is left (the placeholder of a new project, replaced): the new parts are shown, not hidden.
+  const reported = view !== undefined && (view.visible.length === 0 || scene.parts.some((p) => view.visible.includes(p.key)))
+  const hidden = view && reported ? parts.filter((p) => !view.visible.includes(p.key)).map((p) => p.name) : []
   // Drawn apart or cut for display: said with the layout, so that nothing seen of it is taken for where the parts are.
   const apart = drawnHow(view, layout)
   const lead = `${start} · layout ${layout}${apart} · parts: `

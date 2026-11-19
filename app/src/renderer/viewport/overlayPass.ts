@@ -10,7 +10,7 @@ import { chipAt, mmPerPx } from './marks/labels'
 import { RULE_HANDLE, SCALE_BAR_MAX, SCREEN_UNIT, chipSize, drawExplodeTrack, drawFrameCues, drawLabels, drawSectionRule, type LabelStyle } from './overlay'
 import type { Box } from './section'
 import type { SectionPlane } from '../../shared/view'
-import type { TrackPlan } from './explodeTrack'
+import { trackEnds, type TrackPlan } from './explodeTrack'
 import { type SketchOverlay, drawSketchOverlay } from './sketchHint'
 import type { CubeFace } from './viewCube'
 
@@ -146,8 +146,8 @@ export class OverlayPass {
       seen.set(point[0], point[1], point[2]).project(camera)
       return seen.z >= -1 && seen.z <= 1 ? { x: ((seen.x + 1) / 2) * size.width, y: ((1 - seen.y) / 2) * size.height } : null
     }
-    const [a, b] = [px(track.plan.from), px(track.plan.to)]
-    if (a && b) drawExplodeTrack(ctx, { a, b, amount: track.amount, disabled: track.disabled }, { accent, ink: style.ink, muted: this.host.frame().muted, paper: style.paper })
+    const ends = trackEnds(track.plan, px)
+    if (ends) drawExplodeTrack(ctx, { a: ends.a, b: ends.b, amount: track.amount, disabled: track.disabled }, { accent, ink: style.ink, muted: this.host.frame().muted, paper: style.paper })
   }
 
   /** The triad and the scale: of the camera and the object frame, so drawn whatever the parts are doing. */
