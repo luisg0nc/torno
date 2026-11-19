@@ -58,7 +58,7 @@ export function namesOf(code: string): string[] {
  * Where a row is listened to, finer than the sheet's groups: a tool in hand is its own place (the tool has the key
  * before the view), and a sketch, a tracing's line-up and the page of a new project are theirs.
  */
-export type Context = 'Everywhere' | 'Viewport' | 'Measure' | 'Section' | 'Align' | 'Region' | 'Sketch' | 'Shape' | 'Board' | 'Tracing' | 'Lineup' | 'Projects' | 'NewProject' | 'Session' | 'Field' | 'Dev'
+export type Context = 'Everywhere' | 'Viewport' | 'Measure' | 'Section' | 'Align' | 'Region' | 'Sketch' | 'Shape' | 'Tracing' | 'Lineup' | 'Projects' | 'NewProject' | 'Session' | 'Field' | 'Dev'
 
 /** The place of a row, from the group the sheet lists it in and the scope it is listened to in. */
 export function contextOf(row: KeyRow): Context {
@@ -71,8 +71,6 @@ export function contextOf(row: KeyRow): Context {
       return ({ measure: 'Measure', section: 'Section', align: 'Align', region: 'Region' } as Partial<Record<string, Context>>)[row.scope] ?? 'Sketch'
     case 'With a shape in hand':
       return 'Shape'
-    case 'Board':
-      return 'Board'
     case 'Tracing':
       return row.scope === 'lineup' ? 'Lineup' : 'Tracing'
     case 'Page of projects':
@@ -94,7 +92,6 @@ export const PLACES: ReadonlyArray<{ name: string; contexts: readonly Context[] 
   { name: 'In the view', contexts: ['Viewport'] },
   { name: 'With a tool in hand', contexts: ['Measure', 'Section', 'Align', 'Region', 'Shape'] },
   { name: 'Sketching', contexts: ['Sketch'] },
-  { name: 'Board', contexts: ['Board'] },
   { name: 'Tracing', contexts: ['Tracing', 'Lineup'] },
   { name: 'Projects', contexts: ['Projects', 'NewProject'] },
   { name: 'Session', contexts: ['Session'] }

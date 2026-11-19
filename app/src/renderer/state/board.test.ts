@@ -17,8 +17,8 @@ describe('what a project opens on', () => {
     expect(defaultShown(null)).toBe('model')
     expect(defaultShown(board())).toBe('model')
     expect(defaultShown(board(card('C1', 'torno', 'brief'), card('C2', 'torno', 'mark')))).toBe('model')
-    expect(defaultShown(board(card('C1', 'torno', 'brief'), card('C2', 'person')))).toBe('board')
-    expect(defaultShown(board(card('C1', 'agent')))).toBe('board')
+    expect(defaultShown(board(card('C1', 'torno', 'brief'), card('C2', 'person')))).toBe('brief')
+    expect(defaultShown(board(card('C1', 'agent')))).toBe('brief')
   })
 
   it('does not count a hidden card of main as a card of the person', () => {
@@ -30,9 +30,9 @@ describe('what the window remembers', () => {
   it('keeps the choice per project, and reads nothing it does not understand', () => {
     const storage = memory()
     expect(shownRead(storage, 'a')).toBeNull()
-    shownWrite(storage, 'a', 'board')
+    shownWrite(storage, 'a', 'brief')
     shownWrite(storage, 'b', 'model')
-    expect(shownRead(storage, 'a')).toBe('board')
+    expect(shownRead(storage, 'a')).toBe('brief')
     expect(shownRead(storage, 'b')).toBe('model')
     expect(shownRead(storage, 'c')).toBeNull()
     storage.data.set(SHOWN_KEY, '{"a":"elsewhere","b":3}')
@@ -42,33 +42,39 @@ describe('what the window remembers', () => {
     expect(shownRead(storage, 'a')).toBeNull()
   })
 
+  it('reads the choice a window kept when the brief was the board as the brief', () => {
+    const storage = memory()
+    storage.data.set(SHOWN_KEY, '{"a":"board"}')
+    expect(shownRead(storage, 'a')).toBe('brief')
+  })
+
   it('goes on with no storage, or one that refuses', () => {
     expect(shownRead(null, 'a')).toBeNull()
-    expect(() => shownWrite(null, 'a', 'board')).not.toThrow()
+    expect(() => shownWrite(null, 'a', 'brief')).not.toThrow()
     const refusing = { getItem: () => { throw new Error('no') }, setItem: () => { throw new Error('no') } }
     expect(shownRead(refusing, 'a')).toBeNull()
-    expect(() => shownWrite(refusing, 'a', 'board')).not.toThrow()
+    expect(() => shownWrite(refusing, 'a', 'brief')).not.toThrow()
   })
 })
 
 describe('the swap of the main area', () => {
-  it('goes board, model, tracing, board, and passes over Tracing in a project with none', () => {
-    expect(swapped('board', true)).toBe('model')
-    expect(swapped('model', true)).toBe('tracing')
-    expect(swapped('tracing', true)).toBe('board')
-    expect(swapped('board', false)).toBe('model')
-    expect(swapped('model', false)).toBe('board')
-    // Left on a tracing that is gone: on to the board.
-    expect(swapped('tracing', false)).toBe('board')
+  it('goes model, brief, tracing, model, and passes over Tracing in a project with none', () => {
+    expect(swapped('model', true)).toBe('brief')
+    expect(swapped('brief', true)).toBe('tracing')
+    expect(swapped('tracing', true)).toBe('model')
+    expect(swapped('model', false)).toBe('brief')
+    expect(swapped('brief', false)).toBe('model')
+    // Left on a tracing that is gone: on to the model.
+    expect(swapped('tracing', false)).toBe('model')
   })
 
   it('shows the tracing in turn, and keeps the choice of it for the project', () => {
     boardActions.reset()
     boardActions.open('a', null)
     boardActions.swap(true)
-    expect(boardStore.getState().shown).toBe('tracing')
+    expect(boardStore.getState().shown).toBe('brief')
     boardActions.swap(true)
-    expect(boardStore.getState().shown).toBe('board')
+    expect(boardStore.getState().shown).toBe('tracing')
     boardActions.swap(true)
     expect(boardStore.getState().shown).toBe('model')
   })
@@ -79,9 +85,9 @@ describe('the swap of the main area', () => {
     boardActions.show('tracing')
     boardActions.leaveTracing()
     expect(boardStore.getState()).toMatchObject({ shown: 'model', chosen: true })
-    boardActions.show('board')
+    boardActions.show('brief')
     boardActions.leaveTracing()
-    expect(boardStore.getState().shown).toBe('board')
+    expect(boardStore.getState().shown).toBe('brief')
   })
 
   it('remembers a tracing as it does the board and the model', () => {
@@ -100,24 +106,24 @@ describe('the board store', () => {
     boardActions.open('a', null)
     expect(boardStore.getState().shown).toBe('model')
     boardActions.swap(false)
-    expect(boardStore.getState().shown).toBe('board')
+    expect(boardStore.getState().shown).toBe('brief')
     boardActions.swap(false)
     expect(boardStore.getState().shown).toBe('model')
-    boardActions.show('board')
-    expect(boardStore.getState().shown).toBe('board')
+    boardActions.show('brief')
+    expect(boardStore.getState().shown).toBe('brief')
   })
 
-  it('opens a project on the model, and on the board when the board first read has a card of the person there', () => {
+  it('opens a project on the model, and on the brief when the board first read has a card of the person there', () => {
     boardActions.open('a', null)
     expect(boardStore.getState()).toMatchObject({ objectId: 'a', board: null, shown: 'model' })
     boardActions.setBoard('a', board(card('C1', 'torno', 'brief'), card('C2', 'person')))
-    expect(boardStore.getState().shown).toBe('board')
+    expect(boardStore.getState().shown).toBe('brief')
     boardActions.open('b', null)
     boardActions.setBoard('b', board(card('C1', 'torno', 'brief')))
     expect(boardStore.getState().shown).toBe('model')
   })
 
-  it('does not flip from the model to the board when a card is added while the project is open', () => {
+  it('does not flip from the model to the brief when a card is added while the project is open', () => {
     boardActions.open('a', null)
     boardActions.setBoard('a', board(card('C1', 'torno', 'brief')))
     // The agent's first add_card, or a pin, comes in as a change main tells of: the person is at the model, and stays.
@@ -173,25 +179,12 @@ describe('the board store', () => {
     expect(boardStore.getState()).toMatchObject({ objectId: 'b', board: null, selected: [] })
   })
 
-  it('keeps an arrow in the selection, and lets go of one that is gone', () => {
+  it('holds what main refused, and starts each project afresh', () => {
     boardActions.open('a', null)
-    const withArrow = { ...board(card('C1', 'person'), card('C2', 'person')), arrows: [{ id: 'C3', from: 'C1', to: 'C2', by: 'person' as const }] }
-    boardActions.setBoard('a', withArrow)
-    boardActions.select(['C3'])
-    boardActions.setBoard('a', { ...withArrow })
-    expect(boardStore.getState().selected).toEqual(['C3'])
-    boardActions.setBoard('a', { ...withArrow, arrows: [] })
-    expect(boardStore.getState().selected).toEqual([])
-  })
-
-  it('holds the tool, what is being written and what main refused, and starts each project afresh', () => {
-    boardActions.open('a', null)
-    boardActions.setTool('arrow')
-    boardActions.edit({ kind: 'word', id: 'C3' })
     boardActions.say('The board holds 2000 cards.')
-    expect(boardStore.getState()).toMatchObject({ tool: 'arrow', editing: { kind: 'word', id: 'C3' }, problem: 'The board holds 2000 cards.' })
+    expect(boardStore.getState()).toMatchObject({ problem: 'The board holds 2000 cards.' })
     boardActions.open('b', null)
-    expect(boardStore.getState()).toMatchObject({ tool: 'select', editing: null, problem: null })
+    expect(boardStore.getState()).toMatchObject({ problem: null })
   })
 })
 
@@ -203,20 +196,7 @@ describe('what goes with the next prompt', () => {
     boardActions.setBoard('a', withArrow)
   })
 
-  it('is the cards and frames selected, and never an arrow', () => {
-    boardActions.select(['C1', 'C2', 'C4'])
-    expect(boardActions.attachSelected()).toBe(true)
-    expect(boardStore.getState().attached).toEqual({ ids: ['C1', 'C2'] })
-  })
-
-  it('is nothing when only an arrow, or nothing, is selected', () => {
-    expect(boardActions.attachSelected()).toBe(false)
-    boardActions.select(['C4'])
-    expect(boardActions.attachSelected()).toBe(false)
-    expect(boardStore.getState().attached).toBeNull()
-  })
-
-  it('is the whole board when asked, and is taken back off', () => {
+  it('is the whole brief when asked, and is taken back off', () => {
     boardActions.attachAll()
     expect(boardStore.getState().attached).toEqual({ ids: 'all' })
     boardActions.detach()
@@ -224,14 +204,14 @@ describe('what goes with the next prompt', () => {
   })
 
   it('goes with one prompt: taken when it is sent, and given back when it did not go', () => {
-    boardActions.select(['C2'])
-    boardActions.attachSelected()
+    boardActions.attachAll()
     const taken = boardActions.takeAttached()
-    expect(taken).toEqual({ ids: ['C2'] })
+    expect(taken).toEqual({ ids: 'all' })
     expect(boardStore.getState().attached).toBeNull()
     boardActions.giveBackAttached(taken!)
-    expect(boardStore.getState().attached).toEqual({ ids: ['C2'] })
+    expect(boardStore.getState().attached).toEqual({ ids: 'all' })
     // Not over what was attached since.
+    boardActions.takeAttached()
     boardActions.attachAll()
     boardActions.giveBackAttached({ ids: ['C3'] })
     expect(boardStore.getState().attached).toEqual({ ids: 'all' })
@@ -251,11 +231,11 @@ describe('a ref to a card in the chat', () => {
     boardActions.setBoard('a', board(card('C1', 'person'), card('C2', 'person')))
   })
 
-  it('shows the board with that card selected, and no other', () => {
+  it('shows the brief with that card lit, and no other', () => {
     boardActions.show('model')
     boardActions.select(['C1'])
     boardActions.reveal('C2')
-    expect(boardStore.getState()).toMatchObject({ shown: 'board', selected: ['C2'] })
+    expect(boardStore.getState()).toMatchObject({ shown: 'brief', selected: ['C2'] })
   })
 
   it('shows nothing of a card the board has not', () => {

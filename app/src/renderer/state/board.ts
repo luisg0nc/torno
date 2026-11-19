@@ -8,33 +8,18 @@ import { onWorkspaceSet, store } from './store'
 /** The window's storage; none where there is no window (a test under node). */
 const storageNow = (): Storage | null => (typeof window === 'undefined' ? null : windowStorage())
 
-// The board of the open project in the window: what main last said of it, which of the three (the board, the model or a
-// tracing) the main area shows, and which cards are selected. The window keeps the choice of the two per project in its own storage
+// The brief of the open project in the window: what main last said of its board file, which of the three (the model, the
+// brief or a tracing) the main area shows, and the one card a ref in the chat lit. The window keeps the choice per project in its own storage
 // (never in the workspace), and a project opens on the model until its board has a card of the person's or the agent's.
 
-export type Shown = 'board' | 'model' | 'tracing'
+export type Shown = 'model' | 'brief' | 'tracing'
 
-/** What `Ctrl+Tab` shows after `shown`: the board, the model, a tracing, the board again; a project with no tracing has the first two. */
+/** What `Ctrl+Tab` shows after `shown`: the model, the brief, a tracing, the model again; a project with no tracing has the first two. */
 export function swapped(shown: Shown, hasTracing: boolean): Shown {
-  if (shown === 'board') return 'model'
-  if (shown === 'model') return hasTracing ? 'tracing' : 'board'
-  return 'board'
+  if (shown === 'model') return 'brief'
+  if (shown === 'brief') return hasTracing ? 'tracing' : 'model'
+  return 'model'
 }
-
-/** The tool in hand on the board: Select, or one that makes a text, a frame, an arrow, a size, a picture or a sketch. */
-export type BoardTool = 'select' | 'text' | 'frame' | 'arrow' | 'size' | 'picture' | 'sketch'
-
-/**
- * What is being written on the board in a field of its own, over the place it is for: the words of a text card (new, or
- * of one that is there), the facts of a size card (a form), the name of a frame being drawn or renamed, the word on an arrow. Board units throughout.
- */
-export type Editing =
-  | { kind: 'text'; x: number; y: number; w: number; h: number; id?: string }
-  | { kind: 'frame'; x: number; y: number; w: number; h: number }
-  /** A size card's form: over a new card's place, or over the card (`id`). */
-  | { kind: 'size'; x: number; y: number; w: number; h: number; id?: string }
-  | { kind: 'name'; id: string }
-  | { kind: 'word'; id: string }
 
 export interface BoardState {
   objectId: string | null
@@ -43,17 +28,15 @@ export interface BoardState {
   shown: Shown
   /** Whether the person has chosen for this project (or an earlier visit did): the default no longer follows the board. */
   chosen: boolean
-  /** Ids of the selected cards, frames and arrows. */
+  /** The ids of the cards a ref in the chat lit: at most one. */
   selected: string[]
-  tool: BoardTool
-  editing: Editing | null
   /** What main refused of the last thing the person did, in its words; null when all is well. */
   problem: string | null
   /** What main found wrong with the board file when it read it (it could not be read, cards were left out), until it is dismissed. */
   fileProblem: string | null
   /** Whether a board has been read since the project opened: only the first decides what is shown, so that a card added meanwhile does not take the person from the model. */
   read: boolean
-  /** What goes with the next prompt: the ids of cards and frames, or all the board. What each says is read when the prompt is sent. Null for none. */
+  /** What goes with the next prompt: the ids of cards, or all of the brief. What each says is read when the prompt is sent. Null for none. */
   attached: BoardAttach | null
 }
 
@@ -74,7 +57,9 @@ function readAll(storage: Reader): Record<string, unknown> {
 /** What the person last chose for a project, or null when they did not, or the storage says something else. */
 export function shownRead(storage: Reader, objectId: string): Shown | null {
   const kept = Object.hasOwn(readAll(storage), objectId) ? readAll(storage)[objectId] : null
-  return kept === 'board' || kept === 'model' || kept === 'tracing' ? kept : null
+  // 'board' is what the window kept before the brief took the board's place.
+  if (kept === 'board') return 'brief'
+  return kept === 'brief' || kept === 'model' || kept === 'tracing' ? kept : null
 }
 
 export function shownWrite(storage: Writer, objectId: string, shown: Shown): void {
@@ -87,10 +72,10 @@ export function shownWrite(storage: Writer, objectId: string, shown: Shown): voi
 
 /** The model, until the board has a card the person or the agent made: what main puts there by itself is no reason to show it. */
 export function defaultShown(board: BoardFile | null): Shown {
-  return board?.cards.some((c) => c.by !== 'torno' && !c.hidden) ? 'board' : 'model'
+  return board?.cards.some((c) => c.by !== 'torno' && !c.hidden) ? 'brief' : 'model'
 }
 
-const NONE: BoardState = { objectId: null, board: null, shown: 'model', chosen: false, selected: [], tool: 'select', editing: null, problem: null, fileProblem: null, read: false, attached: null }
+const NONE: BoardState = { objectId: null, board: null, shown: 'model', chosen: false, selected: [], problem: null, fileProblem: null, read: false, attached: null }
 
 export const boardStore = createStore<BoardState>(() => NONE)
 
@@ -147,8 +132,7 @@ export const boardActions = {
   setBoard(objectId: string, board: BoardFile): void {
     const s = boardStore.getState()
     if (s.objectId !== objectId) return
-    // Arrows take their ids from the same count as cards, and are selected as they are.
-    const ids = new Set([...board.cards.map((c) => c.id), ...board.arrows.map((a) => a.id)])
+    const ids = new Set(board.cards.map((c) => c.id))
     const selected = s.selected.filter((id) => ids.has(id))
     boardStore.setState({ board: sharing(s.board, board), read: true, shown: s.chosen || s.read ? s.shown : defaultShown(board), selected: selected.length === s.selected.length ? s.selected : selected })
   },
@@ -189,14 +173,6 @@ export const boardActions = {
     boardStore.setState({ selected: next })
   },
 
-  setTool(tool: BoardTool): void {
-    if (boardStore.getState().tool !== tool) boardStore.setState({ tool })
-  },
-
-  edit(editing: Editing | null): void {
-    boardStore.setState({ editing })
-  },
-
   /** Main said what was wrong with a project's board file. It stays until it is dismissed or another project is opened. */
   setFileProblem(m: { objectId: string; message: string }): void {
     if (m.objectId === boardStore.getState().objectId) boardStore.setState({ fileProblem: m.message })
@@ -208,15 +184,6 @@ export const boardActions = {
 
   say(problem: string | null): void {
     if (boardStore.getState().problem !== problem) boardStore.setState({ problem })
-  },
-
-  /** Puts the cards and frames selected with the next prompt (an arrow is no part of one). False when there are none. */
-  attachSelected(): boolean {
-    const { board, selected } = boardStore.getState()
-    const ids = selected.filter((id) => board?.cards.some((c) => c.id === id && !c.hidden))
-    if (ids.length === 0) return false
-    boardStore.setState({ attached: { ids } })
-    return true
   },
 
   /** Puts every card of the board with the next prompt. */
@@ -240,11 +207,11 @@ export const boardActions = {
     if (boardStore.getState().attached === null) boardStore.setState({ attached })
   },
 
-  /** Shows the board with that card, and only that card, selected: what a ref to it in the chat does. Nothing for a card the board has not (or has hidden). */
+  /** Shows the brief with that card lit: what a ref to it in the chat does. Nothing for a card the board has not (or has hidden). */
   reveal(id: string): void {
     const { board } = boardStore.getState()
     if (!board?.cards.some((c) => c.id === id && !c.hidden)) return
-    boardActions.show('board')
+    boardActions.show('brief')
     boardActions.select([id])
   }
 }
