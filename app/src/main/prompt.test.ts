@@ -42,7 +42,7 @@ describe('the system prompt', () => {
   })
 
   it('tells it to resolve the marks it acted on, but never a dimension of the user’s with an expected value', () => {
-    expect(FULL_PROMPT).toContain('When you have acted on a mark and checked the result, call mcp__torno__resolve_mark with a line on what you did, except for a dimension of the user’s that has an expected value: that is their check, it passes by itself and keeps being measured, and only they resolve it (a resolved dimension is no longer measured).')
+    expect(FULL_PROMPT).toContain('When you have acted on a mark and checked the result, call mcp__torno__resolve_mark with a line on what you did, except for a dimension of the user’s with an expected value: that is their check, it passes by itself and keeps being measured, and only they resolve it (a resolved one is no longer measured).')
   })
 
   it('names dimensions among the marks, and gives one example call each of the tools that read the part, as JSON that parses', () => {
@@ -58,7 +58,7 @@ describe('the system prompt', () => {
   })
 
   it('says what approximate looks like, what is refused between parts torno spread and what to do, which build the dimensions listed are of, and how to read them again', () => {
-    for (const said of ['≈, "approximate" or "exact": false marks one that is not', 'are refused: ask in a layout that places them as assembled, and if the model has none, add one (def assembly(p))', '"Dimensions (measured on rN):"', 'once scene says the build is ok, read them again with mcp__torno__marks']) expect(FULL_PROMPT).toContain(said)
+    for (const said of ['≈, "approximate" or "exact": false marks one that is not', 'are refused: ask in a layout that places them as assembled, or add one (def assembly(p))', '"Dimensions (measured on rN):"', 'once scene says the build is ok, read them again with mcp__torno__marks']) expect(FULL_PROMPT).toContain(said)
   })
 
   it('says what a scan is and that only the user aligns one, gives one example call each of the tools that ask about one, as JSON that parses, and when they are refused', () => {
@@ -100,7 +100,7 @@ describe('the system prompt', () => {
   })
 
   it('says the working folder is the project, that common/ is the one place outside it to edit, and that a new project is made from the page', () => {
-    const sentence = 'The folder you work in is this project. Edit only it and common/, which the workspace’s projects share; other projects and the workspace are the person’s, and a new project is made from torno’s page, not by creating a folder.'
+    const sentence = 'Edit only the folder you work in and common/ (shared by the workspace’s projects). Other projects are the person’s; a new project is made from torno’s page, not by creating a folder.'
     expect(FULL_PROMPT).toContain(sentence)
     expect(SYSTEM_PROMPT).toContain(sentence)
   })
@@ -122,10 +122,10 @@ describe('the system prompt', () => {
   })
 
   it('says what a review is and to answer each of its items, and never to bring back what an earlier one removed', () => {
-    const said = 'A review lists what the person doesn\'t want and wants on one build: answer each item by its id with mcp__torno__resolve_mark, and never bring back what an earlier review removed (read them with mcp__torno__marks and review: "all").'
+    const said = 'A review lists what the person doesn\'t want and wants on one build: answer each item by its id with mcp__torno__resolve_mark, and never bring back what an earlier review removed (mcp__torno__marks with review: "all").'
     expect(FULL_PROMPT).toContain(said)
     expect(SYSTEM_PROMPT).toContain(said)
-    expect(systemPrompt((tool) => `torno_${tool}`, true)).toContain('with torno_resolve_mark, and never bring back what an earlier review removed (read them with torno_marks and review: "all")')
+    expect(systemPrompt((tool) => `torno_${tool}`, true)).toContain('with torno_resolve_mark, and never bring back what an earlier review removed (torno_marks with review: "all")')
   })
 
   it('says how literally to take a sketch, and that add_sketch shows a route or an outline', () => {
@@ -135,7 +135,7 @@ describe('the system prompt', () => {
 
   it('says how to read the digest that comes back with an edit: numbers of the B-rep, to be held to what was meant', () => {
     expect(FULL_PROMPT).toContain('("Changed since rN")')
-    expect(FULL_PROMPT).toContain('("Check:"), from the B-rep, which a picture is not: adding material must raise a volume and a cut lower it; a part your edit did not mean to touch changing is a defect, and so is a part Check calls not valid, inside out, open or of more solids than meant: mend it or say why.')
+    expect(FULL_PROMPT).toContain('("Check:"), from the B-rep, which a picture is not: adding material must raise a volume and a cut lower it; a part you did not mean to touch changing is a defect, and so is a part Check calls not valid, inside out, open or of more solids than meant: mend it or say why.')
     // What Check lists of an edit (faces renumbered, a part come or gone) is told, never called a defect.
     expect(FULL_PROMPT).not.toContain('anything under Check')
     expect(SYSTEM_PROMPT).toContain('Check:')
@@ -143,7 +143,7 @@ describe('the system prompt', () => {
 
   it('states the loop: numbers first with the tools that settle them, then one look with the marks, and the window and not a terminal', () => {
     for (const prompt of [SYSTEM_PROMPT, FULL_PROMPT]) {
-      expect(prompt).toContain('After an edit, settle with numbers what they can settle (measure, check, section, diff): the size you changed, a wall, a clearance, a hole through. Then look once, at the view or saved view that shows the change, marks drawn; look again only for what it could not show.')
+      expect(prompt).toContain('After an edit, settle with numbers what they can settle (measure, check, section, diff): the size you changed, a wall, a clearance, a hole through. Then look once, at the view that shows the change, marks drawn; look again only for what it could not show.')
       expect(prompt).not.toContain('terminal')
       expect(prompt.indexOf('settle with numbers')).toBeLessThan(prompt.indexOf('Then look once'))
     }
@@ -159,11 +159,11 @@ describe('the system prompt', () => {
   })
 
   it('says that explode is for display, right after what show is for', () => {
-    expect(FULL_PROMPT).toContain('To see for yourself, use look. look and show take explode (0 to 1) to draw the parts apart for display; a picture says when it is exploded, and no position, ref or number is ever of an exploded part.')
+    expect(FULL_PROMPT).toContain('To see for yourself, use look. look and show take explode (0 to 1) to draw the parts apart; a picture says when it is exploded, and no position, ref or number is of an exploded part.')
   })
 
   it('says that scene lists the saved views, that look and show take one by its name, and how to propose one, as JSON that parses', () => {
-    expect(FULL_PROMPT).toContain('ever of an exploded part. scene lists the views saved by name: look {"view": "Hinge side"} draws one and show {"view": "Hinge side"} puts it on the user\'s screen; they are the angles the user checks: for your look, take the one that shows the change. mcp__torno__save_view {"name": "Wall at the latch", "view": "front", "parts": ["tray"]} proposes a view of your own for them to keep. Measure before you state a size')
+    expect(FULL_PROMPT).toContain('of an exploded part. scene lists the views saved by name: look {"view": "Hinge side"} draws one and show {"view": "Hinge side"} puts it on the user\'s screen. They are the angles the user checks: for your look, take the one that shows the change. mcp__torno__save_view {"name": "Wall at the latch", "view": "front", "parts": ["tray"]} proposes a view of your own for them to keep. Measure before you state a size')
     const calls = [...FULL_PROMPT.matchAll(/(look|show|mcp__torno__save_view) (\{"(?:view|name)": [^}]*\})/g)].map((m) => [m[1], JSON.parse(m[2])])
     expect(calls).toEqual([
       ['look', { view: 'Hinge side' }],
