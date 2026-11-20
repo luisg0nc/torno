@@ -559,6 +559,8 @@ test('with no copy of the build to put back, the same button asks Claude to undo
   // Not while the session works.
   const slow = await turns().count()
   await say('slow 2')
+  // Sending is not working: the status turns on the prompt's hook, and until it has Go back is still offered.
+  await expect(dock().getByRole('status').first()).toHaveText('Working')
   // (The last turn that has the dots: this one has none yet.)
   await chat().getByRole('button', { name: 'More for this turn', exact: true }).last().click()
   await expect(chat().getByRole('menuitem', { name: GO_BACK, exact: true })).toBeDisabled()
