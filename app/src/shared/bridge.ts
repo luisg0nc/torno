@@ -504,10 +504,21 @@ export interface TornoBridge {
     /** The board of a project changed, whoever changed it: the whole board as it now is. */
     onChanged(cb: (m: { objectId: string; board: BoardFile }) => void): () => void
     /** What main found wrong with a project's board file (not readable, cards left out, not a plain file): told once as it happens. */
-    onProblem(cb: (m: { objectId: string; message: string }) => void): () => void
+    onProblem(cb: (m: { objectId: string; message: string; aside?: true }) => void): () => void
     /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
+    /** Whether a copy of the unreadable file was kept aside and is still waiting for the person to put it back or let it go. */
+    aside(objectId: string): Promise<boolean>
+    /**
+     * Puts the copy kept aside in the place of the board, once it reads whole (rejects with why not). When the board holds cards
+     * that are not main's own and `replace` is not true, it changes nothing and says how many (`made`).
+     */
+    useAside(objectId: string, replace?: boolean): Promise<BoardFile | { made: number }>
+    /** Takes back the last put back, while the brief is as it left it (rejects with why not). */
+    undoAside(objectId: string): Promise<BoardFile>
+    /** Deletes the copy kept aside; its pictures are swept with the rest in a later run. */
+    letGoAside(objectId: string): Promise<void>
   }
   objects: {
     /** The photo dialog (several images); under test, what `__tornoMain.pickPhotos` holds. [] when cancelled. */

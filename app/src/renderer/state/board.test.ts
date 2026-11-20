@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { emptyBoard, type BoardFile, type Card } from '../../shared/board'
 import { boardActions, boardStore, defaultShown, forgetMemories, memoryEpoch, onBoardForgotten, inModel, sharing, SHOWN_KEY, shownRead, shownWrite, swapped } from './board'
 import { actions, onWorkspaceSet } from './store'
@@ -210,6 +210,54 @@ describe('the board store', () => {
     expect(boardStore.getState()).toMatchObject({ problem: 'The board holds 2000 cards.' })
     boardActions.open('b', null)
     expect(boardStore.getState()).toMatchObject({ problem: null })
+  })
+})
+
+describe('a board file kept aside', () => {
+  it('is offered with the notice of the file, and goes with it', () => {
+    boardActions.open('a', null)
+    boardActions.setFileProblem({ objectId: 'a', message: 'could not be read', aside: true })
+    expect(boardStore.getState()).toMatchObject({ fileProblem: 'could not be read', fileAside: true })
+    boardActions.dismissFileProblem()
+    expect(boardStore.getState()).toMatchObject({ fileProblem: null, fileAside: false })
+    boardActions.setFileProblem({ objectId: 'a', message: 'not a plain file' })
+    expect(boardStore.getState()).toMatchObject({ fileAside: false })
+    boardActions.setFileProblem({ objectId: 'other', message: 'not this one', aside: true })
+    expect(boardStore.getState().fileProblem).toBe('not a plain file')
+  })
+})
+
+describe('putting a copy back', () => {
+  const copy = (b: BoardFile) => b
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('asks first when the brief holds cards made since, replaces when told to, and can take it back', async () => {
+    const useAside = vi.fn(async (_id: string, replace?: boolean) => (replace ? board(card('C4', 'person')) : { made: 2 }))
+    const undoAside = vi.fn(async () => copy(board(card('C1', 'person'), card('C2', 'agent'))))
+    vi.stubGlobal('window', { torno: { board: { useAside, undoAside } } })
+    boardActions.open('a', null)
+    boardActions.setFileProblem({ objectId: 'a', message: 'could not be read', aside: true })
+    await boardActions.useAside()
+    expect(useAside).toHaveBeenLastCalledWith('a', false)
+    expect(boardStore.getState()).toMatchObject({ asideAsk: 2, fileProblem: 'could not be read', putBack: false })
+    boardActions.keepThisOne()
+    expect(boardStore.getState()).toMatchObject({ asideAsk: null, fileProblem: 'could not be read' })
+    await boardActions.useAside()
+    await boardActions.useAside(true)
+    expect(useAside).toHaveBeenLastCalledWith('a', true)
+    expect(boardStore.getState()).toMatchObject({ asideAsk: null, fileProblem: null, fileAside: false, putBack: true })
+    expect(boardStore.getState().board?.cards.map((c) => c.id)).toEqual(['C4'])
+    await boardActions.undoAside()
+    expect(boardStore.getState()).toMatchObject({ putBack: false })
+    expect(boardStore.getState().board?.cards.map((c) => c.id)).toEqual(['C1', 'C2'])
+  })
+
+  it('says why a copy that cannot be read is not put back, and asks nothing', async () => {
+    vi.stubGlobal('window', { torno: { board: { useAside: vi.fn(async () => { throw new Error("Error invoking remote method 'board:useAside': Error: still cannot be read whole") }) } } })
+    boardActions.open('a', null)
+    boardActions.setFileProblem({ objectId: 'a', message: 'could not be read', aside: true })
+    await boardActions.useAside()
+    expect(boardStore.getState()).toMatchObject({ problem: 'still cannot be read whole', asideAsk: null, putBack: false })
   })
 })
 

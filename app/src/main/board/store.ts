@@ -6,7 +6,7 @@ import { FOLDER, ownTorno, writeOwn } from '../own'
 import { ensureIgnored } from '../ignored'
 import { Refusal } from '../refusal'
 import { dropPictures } from './dropped'
-import { diskText, loadBoardFile, nextAbove, saveBoardFile, textOf } from './file'
+import { asideText, diskText, loadBoardFile, nextAbove, readBoardFile, removeAside, saveBoardFile, textOf } from './file'
 import { MADE_SIZE, freeSpot, freeSpotBelow } from './place'
 import { type LiveFacts, boardLine } from './text'
 
@@ -14,7 +14,7 @@ interface BoardEvents {
   /** The board of a project changed: the whole board, as it now is. */
   changed: { objectId: string; board: BoardFile }
   /** Something about a project's board file the person should know, as a sentence. Said once; `problem()` answers it afterwards. */
-  problem: { objectId: string; message: string }
+  problem: { objectId: string; message: string; /** A copy of the file was kept aside, and `useAside` and `letGoAside` deal with it. */ aside?: true }
 }
 
 const TOLD = 'told.json'
@@ -364,6 +364,10 @@ export class BoardStore {
   private removed = new Map<string, Removed>()
   /** By project folder: what was wrong with its board file when it was read, until it is dismissed. */
   private problems = new Map<string, string>()
+  /** By project folder: the name of the copy of the board file kept aside when it was read (`board.json.corrupt-…`), until it is put back, let go, or the problem is dismissed. */
+  private asides = new Map<string, string>()
+  /** By project folder: the last `useAside`, for `undoAside`: the board as it was, the text it wrote, and the copy's name and text. */
+  private putBack = new Map<string, { before: BoardFile; put: string; name: string; copy: string }>()
   /** By project folder: the last thing asked of its board, which the next waits for. */
   private turns = new Map<string, Promise<unknown>>()
   /** Counts `forget`: what was read before one is not kept after it, and what waited out one is not told. */
@@ -383,6 +387,8 @@ export class BoardStore {
     this.disk.clear()
     this.removed.clear()
     this.problems.clear()
+    this.asides.clear()
+    this.putBack.clear()
   }
 
   /**
@@ -406,10 +412,98 @@ export class BoardStore {
     })
   }
 
-  /** The person has read what was wrong with the board file of a project. */
+  /** The person has read what was wrong with the board file of a project. The copy kept aside stays where it is. */
   dismissProblem(objectId: string): Promise<void> {
     return this.turn(objectId, (_file, dir) => {
       this.problems.delete(dir)
+      this.asides.delete(dir)
+    })
+  }
+
+  /** Whether the board file of the project was kept aside when it was read, and the person has neither put it back nor let it go nor dismissed the notice. */
+  aside(objectId: string): Promise<boolean> {
+    return this.turn(objectId, (_file, dir) => this.asides.has(dir))
+  }
+
+  /**
+   * Puts the copy kept aside in the place of the board: for a copy the person mended in their editor. It must read whole
+   * (every card and arrow), otherwise a `Refusal` says so and nothing changes. It loses nothing without being told to: when
+   * the board holds cards that are not main's own (the person's, the agent's) and `replace` is not true, it changes nothing
+   * and answers how many (`made`). Replaced, the copy is deleted and the notice with it, the window is told, ids go on above
+   * those of both boards, and `undoAside` brings the board back as it was.
+   */
+  useAside(objectId: string, replace = false): Promise<BoardFile | { made: number }> {
+    return this.turn(objectId, async (current, dir, epoch) => {
+      const name = this.asides.get(dir)
+      if (name === undefined) throw new Refusal('There is no copy of the board file to put back.')
+      const text = await asideText(dir, name)
+      if (text === null) throw new Refusal(`The copy ${FOLDER}/board/${name} is not there any more, or is no plain file.`)
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        // not JSON
+      }
+      const read = readBoardFile(parsed)
+      if (!read || read.dropped > 0) throw new Refusal(`The copy ${FOLDER}/board/${name} still cannot be read whole. Mend it in your editor and try again.`)
+      const made = current.cards.filter((c) => c.by !== 'torno').length
+      if (made > 0 && !replace) return { made }
+      const board: BoardFile = { ...read.file, next: nextAbove(Math.max(read.file.next, current.next), read.file.cards, read.file.arrows) }
+      await saveBoardFile(dir, board)
+      const gone = [...picturesOf(current.cards)].filter((picture) => !picturesOf(board.cards).has(picture))
+      if (gone.length > 0) await dropPictures(dir, gone)
+      await removeAside(dir, name)
+      if (epoch === this.epoch) {
+        this.files.set(dir, board)
+        this.disk.set(dir, textOf(board))
+        this.problems.delete(dir)
+        this.asides.delete(dir)
+        this.putBack.set(dir, { before: structuredClone(current), put: textOf(board), name, copy: text })
+        for (const cb of this.listeners.changed) cb({ objectId, board: structuredClone(board) })
+      }
+      return structuredClone(board)
+    })
+  }
+
+  /**
+   * Takes back the last `useAside`: the board as it was, and the copy where it was kept (the notice does not come back).
+   * Only while the board is still as the put back left it: once it changed, what was made since would be lost, so it is refused.
+   */
+  undoAside(objectId: string): Promise<BoardFile> {
+    return this.turn(objectId, async (current, dir, epoch) => {
+      const kept = this.putBack.get(dir)
+      if (!kept) throw new Refusal('There is nothing to take back.')
+      if (textOf(current) !== kept.put) throw new Refusal('The brief has changed since it was put back, so it is not taken back.')
+      await ownTorno(dir, 'board')
+      await writeOwn(dir, `board/${kept.name}`, kept.copy)
+      await saveBoardFile(dir, kept.before)
+      if (epoch === this.epoch) {
+        this.files.set(dir, kept.before)
+        this.disk.set(dir, textOf(kept.before))
+        this.putBack.delete(dir)
+        for (const cb of this.listeners.changed) cb({ objectId, board: structuredClone(kept.before) })
+      }
+      return structuredClone(kept.before)
+    })
+  }
+
+  /** Deletes the copy kept aside and the notice: the pictures it named are then swept with the rest, in a later run. The board stays as it is. */
+  letGoAside(objectId: string): Promise<void> {
+    return this.turn(objectId, async (_file, dir) => {
+      const name = this.asides.get(dir)
+      if (name !== undefined) await removeAside(dir, name)
+      this.asides.delete(dir)
+      this.problems.delete(dir)
+    })
+  }
+
+  /**
+   * Looks at the board file again, for a watcher: when it is other than main last read or wrote (a git pull) it is
+   * taken as the board and the window is told, with no change of anyone's. Never rejects for a file that cannot be read.
+   */
+  refresh(objectId: string): Promise<void> {
+    return this.turn(objectId, async (current, dir, epoch) => {
+      await this.takeDisk(objectId, dir, current, epoch)
     })
   }
 
@@ -499,11 +593,7 @@ export class BoardStore {
    */
   private changeWith<R>(objectId: string, edit: (board: BoardFile, removed: Removed) => { board: BoardFile | null; result: R }, track = false): Promise<{ board: BoardFile; result: R }> {
     return this.turn(objectId, async (current, dir, epoch) => {
-      let file = current
-      if (epoch === this.epoch && this.disk.has(dir) && (await diskText(dir)) !== this.disk.get(dir)) {
-        file = await this.load(objectId, dir, epoch)
-        if (epoch === this.epoch && textOf(file) !== textOf(current)) for (const cb of this.listeners.changed) cb({ objectId, board: structuredClone(file) })
-      }
+      const file = await this.takeDisk(objectId, dir, current, epoch)
       const before = textOf(file)
       let stash = this.removed.get(dir)
       if (!stash) this.removed.set(dir, (stash = new Map()))
@@ -524,6 +614,14 @@ export class BoardStore {
       }
       return { board: structuredClone(board), result }
     })
+  }
+
+  /** The board as the file now says it: read again when the file is other than main last read or wrote, and the window told when that changes the board. */
+  private async takeDisk(objectId: string, dir: string, current: BoardFile, epoch: number): Promise<BoardFile> {
+    if (epoch !== this.epoch || !this.disk.has(dir) || (await diskText(dir)) === this.disk.get(dir)) return current
+    const file = await this.load(objectId, dir, epoch)
+    if (epoch === this.epoch && textOf(file) !== textOf(current)) for (const cb of this.listeners.changed) cb({ objectId, board: structuredClone(file) })
+    return file
   }
 
   /** What `after` lacks of `before` is kept for `restore`, the oldest let go past `REMOVED_KEPT`; what is back on the board is not kept. */
@@ -548,7 +646,9 @@ export class BoardStore {
       this.disk.set(dir, loaded.text)
       if (loaded.problem !== undefined) {
         this.problems.set(dir, loaded.problem)
-        for (const cb of this.listeners.problem) cb({ objectId, message: loaded.problem })
+        if (loaded.aside !== undefined) this.asides.set(dir, loaded.aside)
+        else this.asides.delete(dir)
+        for (const cb of this.listeners.problem) cb({ objectId, message: loaded.problem, ...(loaded.aside !== undefined ? { aside: true as const } : {}) })
       }
     }
     return loaded.file

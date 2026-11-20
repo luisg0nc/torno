@@ -38,6 +38,7 @@ import { lineupsOf } from './tracings/text'
 import { markTracingsTold, readTracingsTold, tracingsLine as tracingsLineOf } from './tracings/told'
 import { attachBoard } from './board/attach'
 import { reconcileProject } from './board/follow'
+import { watchBrief } from './board/watch'
 import { liveFacts } from './board/live'
 import { PictureSweep } from './board/pictures'
 import { NoteSweep } from './notes/sweep'
@@ -592,6 +593,23 @@ async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName
   return boardLine(file, told, live, toolName, { again })
 }
 const followBoard = (objectId: string): Promise<void> => reconcileProject({ board, object: findObject, marks: (id) => marks.list(id), scans: async (id) => (await scans.list(id)).map((s) => s.id), tracings: async (id) => (await tracings.list(id)).tracings }, objectId)
+/** By project: the watch on what its brief follows (`reference/`, `brief.md`, `board.json`), while the workspace is open. */
+const briefWatches = new Map<string, () => void>()
+function watchBriefOf(objectId: string): void {
+  const dir = findObject(objectId)?.dir
+  if (dir === undefined || briefWatches.has(objectId)) return
+  briefWatches.set(
+    objectId,
+    watchBrief(dir, ({ files, board: file }) => {
+      // A pulled `board.json` first, so that the cards of main's own are brought up to date on the board as it now is.
+      void (file ? board.refresh(objectId) : Promise.resolve()).catch(() => {}).then(() => (files || file ? followBoard(objectId) : undefined))
+    })
+  )
+}
+const stopBriefWatches = (): void => {
+  for (const stop of briefWatches.values()) stop()
+  briefWatches.clear()
+}
 marks.on('changed', ({ objectId }) => void followBoard(objectId))
 scans.on('changed', ({ objectId }) => void followBoard(objectId))
 // A tracing made or removed brings its card or takes it away; a change of it changes what its card says, and the board line tells the agent.
@@ -805,6 +823,7 @@ void app.whenReady().then(async () => {
     onObjectOpened: (objectId) => {
       // Marks of a tracing that are off its plane (a crash between the plane's write and its marks', a tracing removed and put back) are put back first.
       void healMarks({ tracings, marks }, objectId)
+      watchBriefOf(objectId)
       void followBoard(objectId).then(() => {
         const dir = findObject(objectId)?.dir
         if (dir !== undefined) return Promise.all([pictureSweep.once(objectId, dir), noteSweep.once(objectId, dir), photoSweep.once(objectId, dir)]).then(() => undefined)
@@ -816,6 +835,7 @@ void app.whenReady().then(async () => {
       instructionFiles.forget()
       stateFiles.forget()
       verdicts.forget()
+      stopBriefWatches()
       board.forget()
       pictureSweep.forget()
       noteSweep.forget()
