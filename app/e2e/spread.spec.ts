@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { MarksFile, PinMark } from '../src/shared/marks'
-import { onBrief } from './helpers'
+import { clickHere, onBrief } from './helpers'
 import { openListed } from './objects'
 
 // Marks in a print layout whose parts the kernel sets side by side: a mark on
@@ -70,8 +70,7 @@ test('a pin placed with the pointer on the lid records how far the lid was moved
   const [fx, fy] = await page.evaluate((point) => window.__tornoTest!.project(point), at)
   const box = (await canvas().boundingBox())!
   await page.mouse.move(box.x + fx * box.width, box.y + fy * box.height)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(page.locator('.note-card textarea')).toBeFocused()
   await page.keyboard.type('a vent here')
   await page.keyboard.press('Enter')

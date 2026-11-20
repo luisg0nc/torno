@@ -11,7 +11,7 @@ import type { PinMark } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { newSession, onBrief, openSection, showBrief, showModel } from './helpers'
+import { clickHere, newSession, onBrief, openSection, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is given, through the real path: the SDK's MCP client in this
@@ -426,8 +426,7 @@ test('a pin the user places with the pointer is in marks, with the face it is on
   const [fx, fy] = await page.evaluate((at) => window.__tornoTest!.project(at), ON_BASE)
   const box = (await canvas().boundingBox())!
   await page.mouse.move(box.x + fx * box.width, box.y + fy * box.height)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(page.locator('.note-card textarea')).toBeFocused()
   await page.keyboard.type('make this corner thicker')
   await page.keyboard.press('Enter')

@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { LookRequest, ViewState } from '../src/shared/view'
 import { box, grid, stl } from '../src/test/scanFixtures'
 import type { ScanLayerState } from '../src/renderer/viewport/scans'
-import { cardSection, openSection, clickImportScan } from './helpers'
+import { clickHere, cardSection, openSection, clickImportScan } from './helpers'
 import { openListed } from './objects'
 
 // A scan on screen: imported from the panel with the real import process, drawn with the parts, switched and
@@ -381,8 +381,7 @@ test('a scan drawn solid in front of a part takes the pick, and one that is seen
   await page.mouse.move(x + 3, y)
   await page.mouse.move(x, y)
   await expect(readout.locator('.pick-readout-ref')).toHaveText(/^post\/F/)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect.poll(async () => (await state()).selection).toHaveLength(1)
   expect((await state()).selection[0]).toMatch(/^post\/F/)
   await page.keyboard.press('Escape')

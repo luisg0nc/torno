@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { Hit } from '../src/renderer/viewport/picking'
 import type { Camera, LookRequest, SectionPlane, ViewState } from '../src/shared/view'
-import { openSection } from './helpers'
+import { clickHere, openSection } from './helpers'
 import { openListed } from './objects'
 import { stableBox } from './stable'
 
@@ -237,8 +237,7 @@ test('the pointer finds nothing on the cut face and says what it is; what was ta
   const [x, y] = await pageXY(onCut)
   await page.mouse.move(x, y)
   await expect(readout()).toHaveText(/that is the cut face/i)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   expect((await state()).selection).toEqual([])
   await expect(readout()).toHaveText(/that is the cut face/i)
   // Beside the parts there is nothing, and nothing is said.
@@ -496,16 +495,14 @@ test('from face puts the plane on a flat face that is clicked, and refuses a rou
   // The side of the post is a cylinder.
   let [x, y] = await pageXY([0, -4, 3.5])
   await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(readout()).toHaveText('That face is not flat: the plane needs a flat one')
   expect(await section()).toEqual({ origin: [0, 0, 4], normal: [0, 0, 1] })
 
   // The side of the base at x = 20, which the view from the corner shows (near its top edge: lower, the bar at the foot of the view is over it).
   ;[x, y] = await pageXY([20, 3, 2])
   await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect.poll(async () => (await section())?.normal).toEqual([1, 0, 0])
   // Where the kernel says the face is: its own point of it, exactly on x = 20.
   expect(await section()).toEqual({ origin: [20, 0, 0], normal: [1, 0, 0] })

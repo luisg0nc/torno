@@ -4,7 +4,7 @@ import { _electron as electron, chromium, expect, test, type ElectronApplication
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace, showScans } from './readme-workspace'
-import { newSession, onBrief, openSection, showModel } from './helpers'
+import { clickHere, newSession, onBrief, openSection, showModel } from './helpers'
 
 // The pictures of the README (docs/images/README.md): the window in the states it describes, one hidden launch
 // each, written to <TORNO_README_SHOTS>/<shot>.png with a <shot>.json beside it holding the boxes of the regions
@@ -178,8 +178,7 @@ async function pinAt(page: Page, point: readonly [number, number, number], note:
   await page.keyboard.press('p')
   const [x, y] = await pageXY(page, point)
   await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(page.locator('.note-card textarea')).toBeFocused()
   await page.keyboard.type(note)
   await page.keyboard.press('Enter')

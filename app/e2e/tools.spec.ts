@@ -8,7 +8,7 @@ import type { ArrowMark, MarksFile, PickMark, PinMark, ShapeMark, SketchMark } f
 import { TOOL_KEYS, doesOf } from '../src/shared/keys'
 import { pointerLine } from '../src/shared/pointer'
 import type { Camera, LookRequest } from '../src/shared/view'
-import { onBrief, showBrief, showModel } from './helpers'
+import { clickHere, onBrief, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 import { stableBox } from './stable'
 
@@ -97,8 +97,7 @@ async function clickOver(point: Vec3, opts: { shift?: boolean } = {}, p: Page = 
   const [x, y] = await pageXY(point, p)
   await p.mouse.move(x, y)
   if (opts.shift) await p.keyboard.down('Shift')
-  await p.mouse.down()
-  await p.mouse.up()
+  await clickHere(p)
   if (opts.shift) await p.keyboard.up('Shift')
 }
 
@@ -452,8 +451,7 @@ test('P takes the pin tool; a click on the part leaves a pin and opens its note 
   // Beside the parts: nothing.
   const box = (await canvas().boundingBox())!
   await page.mouse.move(box.x + box.width - 12, box.y + box.height - 60)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
 
   const hit = (await pickOver(ON_BASE))!
   await clickOver(ON_BASE)
@@ -956,8 +954,7 @@ test('dragging a handle of the gizmo moves the shape with it and has main keep i
 
   // A click on a handle is no click on the part: nothing is placed, nothing changed.
   await ontoHandle(moved.position, 'X')
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await page.waitForTimeout(300)
   expect(marksOnDisk().marks).toHaveLength(marks)
   expect(await changes()).toBe(1)
@@ -1051,8 +1048,7 @@ test('a click beside the parts places the shape on the ground at the middle of t
   const marks = marksOnDisk().marks.length
   const pane = (await canvas().boundingBox())!
   await page.mouse.move(pane.x + pane.width - 40, pane.y + pane.height - 90)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(card()).toBeVisible()
   const placed = marksOnDisk().marks.at(-1) as ShapeMark
   expect(marksOnDisk().marks).toHaveLength(marks + 1)

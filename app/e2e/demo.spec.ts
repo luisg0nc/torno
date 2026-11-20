@@ -4,7 +4,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import { openListed } from './objects'
 import { configured, readmeWorkspace } from './readme-workspace'
-import { newSession, onBrief } from './helpers'
+import { clickHere, newSession, onBrief } from './helpers'
 
 // The frames of the README's recording of the loop (docs/images/demo.gif and demo.mp4): a person pins the tub wall
 // of an airbox that sits in a scan of the engine bay it is for, "too thin here", asks for 3 mm, the agent looks,
@@ -131,8 +131,7 @@ for (const [n, frame] of FRAMES.entries()) {
         await page.keyboard.press('p')
         const [x, y] = await pointAt(page, PIN_AT)
         await page.mouse.move(x, y)
-        await page.mouse.down()
-        await page.mouse.up()
+        await clickHere(page)
         await expect(page.locator('.note-card textarea')).toBeFocused()
         await page.keyboard.type('too thin here')
       }

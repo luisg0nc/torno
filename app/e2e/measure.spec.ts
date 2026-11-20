@@ -8,7 +8,7 @@ import type { Hit } from '../src/renderer/viewport/picking'
 import type { DimensionMark, MarksFile } from '../src/shared/marks'
 import type { Camera } from '../src/shared/view'
 import { openListed } from './objects'
-import { newSession, onBrief, showBrief, showModel } from './helpers'
+import { clickHere, newSession, onBrief, showBrief, showModel } from './helpers'
 
 // The Measure tool and the dimensions it leaves, on the `measures` fixture: a
 // plate 40 × 30 × 6 with two Ø8 holes 20 apart, a 45° chamfer and a pocket.
@@ -88,7 +88,7 @@ async function clickOver(point: Vec3, p: Page, times = 1): Promise<void> {
   // Sent together, not one awaited after the other: a double click is two clicks within REPEAT_MS (Tool.ts), and on a
   // runner the round trip of each call alone is too long for that.
   const sent: Promise<void>[] = []
-  for (let i = 0; i < times; i++) sent.push(p.mouse.down(), p.mouse.up())
+  for (let i = 0; i < times; i++) sent.push(clickHere(p))
   await Promise.all(sent)
 }
 

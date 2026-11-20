@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import type { Mark } from '../src/shared/marks'
 import { openListed } from './objects'
-import { closeModelMenu, fromMore, inModelMenu, newSession, openStrip } from './helpers'
+import { clickHere, closeModelMenu, fromMore, inModelMenu, newSession, openStrip } from './helpers'
 
 // The chat pane of Claude Code, through the window: what is said and shown, what torno added to a prompt, every torno
 // tool the agent used (through the real MCP server), refs that point into the viewport, stopping, the switch to the
@@ -66,8 +66,7 @@ async function clickOver(point: Vec3): Promise<void> {
   const [fx, fy] = await page.evaluate((at) => window.__tornoTest!.project(at), point)
   const box = (await canvas().boundingBox())!
   await page.mouse.move(box.x + fx * box.width, box.y + fy * box.height)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
 }
 
 /** Write a prompt in the box and send it, as a person does. */
@@ -560,6 +559,8 @@ test('with no copy of the build to put back, the same button asks Claude to undo
   // Not while the session works.
   const slow = await turns().count()
   await say('slow 2')
+  // Sending is not working: the status turns on the prompt's hook, and until it has Go back is still offered.
+  await expect(dock().getByRole('status').first()).toHaveText('Working')
   // (The last turn that has the dots: this one has none yet.)
   await chat().getByRole('button', { name: 'More for this turn', exact: true }).last().click()
   await expect(chat().getByRole('menuitem', { name: GO_BACK, exact: true })).toBeDisabled()

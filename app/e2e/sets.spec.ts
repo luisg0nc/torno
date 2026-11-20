@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { TornoState } from '../src/renderer/state/store'
 import type { NamedSet, SetsFile } from '../src/shared/sets'
-import { openSection, newSession } from './helpers'
+import { clickHere, openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // Named sets (#171), made and found again in the hidden window, on the fixture `morph` of e2e/reanchor.spec.ts: `variant.txt`
@@ -71,8 +71,7 @@ async function clickOver(point: Vec3, shift = false): Promise<void> {
   const [x, y] = await pageXY(point)
   await page.mouse.move(x, y)
   if (shift) await page.keyboard.down('Shift')
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   if (shift) await page.keyboard.up('Shift')
 }
 

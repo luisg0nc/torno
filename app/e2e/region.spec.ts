@@ -13,7 +13,7 @@ import { usualRadius } from '../src/renderer/state/region'
 import type { LookRequest } from '../src/shared/view'
 import { grid, stl } from '../src/test/scanFixtures'
 import { SESSION_HEADER } from '../src/main/http'
-import { cardSection, newSession, onBrief, openSection, showBrief, showModel, clickImportScan } from './helpers'
+import { clickHere, cardSection, newSession, onBrief, openSection, showBrief, showModel, clickImportScan } from './helpers'
 import { openListed } from './objects'
 
 // Regions: a part of a scan is painted with the brush, kept as a mark whose triangles are a file beside the
@@ -150,8 +150,7 @@ test('a part of a scan is painted, named, kept as a mark with its mask, told to 
   // Fix round 1 (I1): the lid is over the sheet, and what is not seen is not painted. A press on it takes nothing: it is the camera's, as beside the scan.
   // (The reed's pill, grown out of the Region button, stands over the view's left at -8: the points are taken from -4 on.)
   await page.mouse.move(...(await at([-10, -4, 39])))
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect(bar()).toContainText('0 triangles')
   expect((await tints()).painting).toBeNull()
   // The lid is switched off to paint.
@@ -303,8 +302,7 @@ test('a kept region is painted again from its row: a new mask, the same mark, an
   await expect.poll(async () => (await tints()).regions).toEqual([])
   // A dab on the other side of the sheet.
   await page.mouse.move(...(await at([8, 0, 39])))
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect.poll(painted).toBeGreaterThan(before.triangles)
   const now = await painted()
   await page.keyboard.press('Enter')
@@ -387,6 +385,7 @@ test('a stamp beside a part takes nothing the part hides', async () => {
   const under = await page.evaluate(([fx, fy]) => window.__tornoTest!.pickScanAt(fx, fy), [(x - canvas.x) / canvas.width, (y - canvas.y) / canvas.height] as const)
   expect(under).toMatchObject({ scan: 'S1' })
   await page.mouse.move(x, y)
+  // Not `clickHere`: with the press and release sent at once, this stamp beside a part paints nothing under software GL (#308).
   await page.mouse.down()
   await page.mouse.up()
   await expect.poll(painted).toBeGreaterThan(10)

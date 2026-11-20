@@ -7,7 +7,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import { TOOLS } from '../src/renderer/state/tools'
 import type { Hit } from '../src/renderer/viewport/picking'
 import type { Camera } from '../src/shared/view'
-import { openSection, newSession } from './helpers'
+import { clickHere, openSection, newSession } from './helpers'
 import { openListed } from './objects'
 
 // Pointing at the parts: what is under the pointer, selecting it, what the
@@ -76,8 +76,7 @@ async function clickOver(point: Vec3, opts: { shift?: boolean } = {}, p: Page = 
   const [x, y] = await pageXY(point, p)
   await p.mouse.move(x, y)
   if (opts.shift) await p.keyboard.down('Shift')
-  await p.mouse.down()
-  await p.mouse.up()
+  await clickHere(p)
   if (opts.shift) await p.keyboard.up('Shift')
 }
 
@@ -191,8 +190,7 @@ test('the pointer is told what it is on, and a click selects it', async () => {
   await expect(readout().locator('.pick-readout-detail')).toHaveText('plane, normal +Z, z = 2.5, 1200 mm²')
   expect((await state()).selection).toEqual([])
 
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect.poll(async () => (await state()).selection).toEqual([hit.ref])
   await expect(chips()).toHaveCount(1)
   await expect(chips().locator('.hand-ref-name')).toHaveText(hit.ref)
@@ -229,8 +227,7 @@ test('Shift adds to the selection, and takes out; Escape and a click on nothing 
   const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.move(box.x + box.width - 12, box.y + box.height - 60)
   await expect(readout()).toBeHidden()
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect.poll(async () => (await state()).selection).toEqual([])
 })
 
@@ -354,8 +351,7 @@ test('on a failed build or one under way the parts are still picked; a build tha
   await page.mouse.move(x, y)
   // The last good build is still there to point at: the pointer is told nothing of a wait.
   await expect(readout()).not.toHaveText(/picks wait/)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   // Select works on the build on show: the click picks the face, and the selection is of it.
   await expect.poll(async () => (await state()).selection.length).toBeGreaterThan(0)
   expect((await state()).selection).not.toEqual(before.selection)

@@ -6,7 +6,7 @@ import { inTerminal } from './terminal'
 import type { MarkStore } from '../src/main/marks/store'
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark } from '../src/shared/marks'
-import { newSession, onBrief, openSection, showBrief, showModel } from './helpers'
+import { clickHere, newSession, onBrief, openSection, showBrief, showModel } from './helpers'
 import { openListed } from './objects'
 
 // What the agent is told of the marks, and what the person is shown of what
@@ -71,8 +71,7 @@ async function pageXY(point: Vec3): Promise<[number, number]> {
 async function clickOver(point: Vec3): Promise<void> {
   const [x, y] = await pageXY(point)
   await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
 }
 
 /** Have the stand-in agent post the hook of a prompt, as the conversation it was started in or as another. */
