@@ -1075,7 +1075,7 @@ export function registerIpc(
   // The prompts of every conversation of an object, numbered across them (`main/sessions/prompts.ts`), and one earlier conversation to read: from `.torno/chat/`, read only.
   handle('chat:prompts', async (_event, objectId: string) => {
     const obj = findObject(String(objectId))
-    return obj ? listPrompts(obj.dir) : []
+    return obj ? (sessions ? sessions.prompts(obj) : listPrompts(obj.dir)) : []
   })
   handle('chat:conversation', async (_event, objectId: string, conversationId: string) => {
     const obj = findObject(String(objectId))
