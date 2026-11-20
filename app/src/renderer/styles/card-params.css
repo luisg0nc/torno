@@ -1,0 +1,469 @@
+/*
+ * The Parameters tab as a ledger: a line of 27 px for each field of the model's Params (name, where the comment says
+ * it comes from in a word, the value in a field of its own). The value is said once. A line opens in place only while
+ * its field or its slider has the keys, or its value is tried; the pointer never moves the list. Assumed is drawn: a
+ * dashed edge, the word in --warn ("nothing checks this", as torno draws it everywhere).
+ */
+.section.params {
+  container-type: inline-size;
+}
+
+/* A band under the filters while a value is tried. */
+.params-tried {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 0 var(--space-4) var(--space-2);
+  padding: 7px 9px;
+  border-radius: var(--radius-control);
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: var(--text-small);
+}
+
+.params-tried b {
+  flex: 1 0 100%;
+  font-weight: 600;
+}
+
+.params-ledger {
+  padding: 0 var(--space-4);
+}
+
+.param-row {
+  position: relative;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border-radius: var(--radius-control);
+}
+
+.param-row + .param-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 6px;
+  left: 6px;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* The line: name, (comment, when wide), source word, value. */
+.param-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 50px 58px;
+  align-items: center;
+  column-gap: 7px;
+  min-height: 27px;
+}
+
+.param-button {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.param-button {
+  cursor: pointer;
+}
+
+.param-name {
+  display: block;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.param-row[data-tried] .param-name {
+  color: var(--accent);
+}
+
+.param-doc {
+  display: none;
+}
+
+.param-source {
+  overflow: hidden;
+  color: var(--muted);
+  font: 400 9.5px var(--font-mono);
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.param-source[data-assumed] {
+  color: var(--warn);
+}
+
+/* The value: the one place it is said, and the field to try another in. */
+.param-field,
+.param-value {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: 58px;
+  height: 21px;
+  justify-self: end;
+  overflow: hidden;
+  font: 400 10.5px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.param-field {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-inline);
+  background: var(--raise);
+}
+
+.param-field[data-assumed] {
+  border-style: dashed;
+  border-color: var(--field-edge);
+}
+
+.param-field[data-tried] {
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+}
+
+.param-field:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-wash);
+  border-color: var(--accent);
+}
+
+.param-input {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  appearance: textfield;
+}
+
+.param-input::-webkit-inner-spin-button,
+.param-input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.param-input:focus-visible {
+  outline: none;
+}
+
+select.param-input {
+  appearance: none;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.param-field[data-kind='bool'] {
+  justify-content: space-between;
+  padding: 0 5px;
+}
+
+.param-flag {
+  margin: 0;
+}
+
+.param-check {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* A range the model gives: the field fills to where the value stands in it, a slider at rest. */
+.param-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--accent-wash);
+  box-shadow: inset -1.5px 0 0 var(--field-edge);
+}
+
+.param-field[data-tried] .param-fill {
+  box-shadow: inset -1.5px 0 0 var(--accent);
+}
+
+.param-row[data-open] .param-fill {
+  display: none;
+}
+
+/* Worked out in the model: no field, since it cannot be tried. */
+.param-value {
+  padding-right: 7px;
+  color: var(--muted);
+}
+
+.param-row[data-worked] .param-value::before {
+  content: '=';
+  margin-right: auto;
+  padding-left: 3px;
+}
+
+/* Pointed at: lit as a Part row is; nothing grows. */
+.param-row:hover {
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.param-row:hover::before,
+.param-row:hover + .param-row::before,
+.param-row[data-open] + .param-row::before {
+  display: none;
+}
+
+/* Open: the field has the keys. */
+.param-row[data-open] {
+  margin-top: 3px;
+  margin-bottom: 3px;
+  padding-bottom: 8px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.param-row[data-open]:hover {
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.param-open {
+  display: grid;
+  gap: 7px;
+  padding-top: 3px;
+}
+
+.param-said {
+  margin: 0;
+  font-size: var(--text-small);
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.param-written {
+  margin-right: 0.25em;
+  color: var(--muted);
+  font: 400 10px var(--font-mono);
+  letter-spacing: -0.03em;
+}
+
+.param-written[data-assumed] {
+  color: var(--warn);
+}
+
+.param-number {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.param-track {
+  position: relative;
+  display: block;
+}
+
+.param-slider {
+  display: block;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.param-was {
+  position: absolute;
+  top: 3px;
+  width: 1.5px;
+  height: 10px;
+  background: var(--field-edge);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.param-differs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: var(--text-small);
+}
+
+.param-differs > span:first-child {
+  flex: 1;
+}
+
+.param-note {
+  margin: 0;
+  padding: 0 0 3px;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* Narrow: the source and the value give up a little, so the longest name still reads whole. */
+@container (max-width: 270px) {
+  .param-line {
+    grid-template-columns: minmax(0, 1fr) 46px 50px;
+    column-gap: 6px;
+  }
+
+  .param-name {
+    font-size: 10.5px;
+  }
+
+  .param-source {
+    font-size: 9px;
+    letter-spacing: -0.05em;
+  }
+
+  .param-field,
+  .param-value {
+    width: 50px;
+  }
+}
+
+/* The tally: four counts that are the filters, the number over its word. Assumed is in --warn. */
+.params-tally {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.1fr) minmax(0, 0.85fr) minmax(0, 1.2fr);
+  margin: 0 var(--space-4) var(--space-2);
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  overflow: hidden;
+}
+
+.params-count {
+  display: grid;
+  justify-items: start;
+  padding: 4px 8px 5px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.params-count + .params-count {
+  box-shadow: inset 1px 0 0 var(--hairline);
+}
+
+.params-count b {
+  margin: 0;
+  font: 500 12.5px/1.3 var(--font-mono);
+  letter-spacing: -0.04em;
+}
+
+.params-count span {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.params-count[data-filter='assumed'] b {
+  color: var(--warn);
+}
+
+.params-count[aria-pressed='true'] {
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.params-count[aria-pressed='true'] b,
+.params-count[aria-pressed='true'] span {
+  color: var(--accent);
+}
+
+@container (max-width: 270px) {
+  .params-count {
+    padding: 4px 6px 5px;
+  }
+
+  .params-count span {
+    font-size: 10.5px;
+  }
+}
+
+.param-row mark {
+  padding: 0 1px;
+  border-radius: var(--radius-inline);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* Wide: the comment fills the room between the name and the source. */
+@container (min-width: 360px) {
+  .param-line {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) 50px 58px;
+  }
+
+  .param-name {
+    max-width: 150px;
+  }
+
+  .param-doc {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Finding: each line's comment shows under it, whole, so that you see why it matched (a find matches comments too). */
+.param-row[data-finding] .param-line {
+  grid-template-areas: 'name source value' 'doc doc doc';
+}
+
+@container (min-width: 360px) {
+  .param-row[data-finding] .param-line {
+    grid-template-columns: minmax(0, 1fr) 50px 58px;
+  }
+}
+
+.param-row[data-finding] .param-button {
+  grid-area: name;
+}
+
+.param-row[data-finding] .param-source {
+  grid-area: source;
+}
+
+.param-row[data-finding] .param-field,
+.param-row[data-finding] .param-value {
+  grid-area: value;
+}
+
+.param-row[data-finding] .param-doc {
+  display: block;
+  grid-area: doc;
+  padding: 0 0 5px;
+  overflow: visible;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

@@ -1,5 +1,5 @@
 import { number } from '../../shared/format'
-import { isTried } from '../../shared/params'
+import { isSize, isTried, sourceOf, sourceWord, type Source } from '../../shared/params'
 import type { Param, ParamKind, ParamValue } from '../../shared/scene'
 
 /** What the Parameters section draws for one field of the model's `Params`. */
@@ -15,6 +15,10 @@ export interface ParamRow {
   worked: boolean
   /** The field's comment, as the model has it. */
   doc: string | null
+  /** Where the comment says the value comes from (`sourceOf`). */
+  source: Source
+  /** The one word the line says for it: `photo-1`, `you`, `brief`, `assumed`, `model`; `no source` for a size whose comment says none, nothing for another kind of field. */
+  word: string
   /** The row's tooltip: the name, the type as written, the value whole and the comment. */
   title: string
   /** What the person may try in its place (a number, a flag or a choice), else null: the row is text. */
@@ -45,12 +49,21 @@ function show(value: unknown, whole: boolean): string {
 /** Whether the last build was made with a value other than the file's default for this field. */
 export const tried = (param: Param): boolean => isTried(param)
 
+/** The word a row's line says of its source: the model's own, shortened (`ref photo-1.jpg` is `photo-1`, `person` is `you`, `derived` is `model`). */
+function sourceLine(param: Param, source: Source): string {
+  if (source === 'unsaid') return isSize(param) ? 'no source' : ''
+  if (source === 'person') return 'you'
+  if (source === 'derived') return 'model'
+  return sourceWord(param.doc)
+}
+
 /** The row of a field. No unit is taken from its comment: the comment is shown as it was written. */
 export function paramRow(param: Param, note: string | null = null): ParamRow {
   const worked = !param.literal
   const nothing = worked && param.default === null
   const value = nothing ? null : show(param.default, false)
   const whole = nothing ? null : show(param.default, true)
+  const source = sourceOf(param.doc)
   const text = `Params.${param.name}`
   const said = [`${text}: ${param.type}`, whole !== null ? ` = ${whole}` : '', worked ? ', worked out in the model' : ''].join('')
   return {
@@ -60,6 +73,8 @@ export function paramRow(param: Param, note: string | null = null): ParamRow {
     full: whole !== null && whole !== value ? whole : null,
     worked,
     doc: param.doc,
+    source,
+    word: sourceLine(param, source),
     title: param.doc ? `${said}. ${param.doc}` : said,
     editable: param.editable ?? null,
     current: ((): ParamValue | null => {

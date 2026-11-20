@@ -150,37 +150,6 @@
   display: none;
 }
 
-.params-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0 var(--space-4) var(--space-2);
-}
-
-.params-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--muted);
-  font-size: 11.5px;
-  cursor: pointer;
-}
-
-.params-filter .num {
-  margin: 0;
-}
-
-.params-filter[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: var(--accent-wash);
-  color: var(--accent);
-}
-
 .params-match {
   margin: var(--space-2) var(--space-4) 0;
   color: var(--muted);

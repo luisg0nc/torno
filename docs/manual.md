@@ -498,19 +498,23 @@ them is one); a click on it lists only those marks in Marks, under a line `Only 
 rest back. That is a view of the list: the agent is told every mark as before. It works the other way too: the pointer on a part
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
 lines drawn to them. **`Ctrl+P` opens the picker**, a sheet over the middle of the view, for a model with many parts: every part of the layout, under its group's name, and then every value of the model, in one list. What you type narrows it (a part is found by its name or its group's, a value by its name or its comment; every word must be found), and the count at the foot says `4 of 40`; at most 60 rows are drawn, so a model of hundreds is searched, not scrolled. `Up` and `Down` choose; `Enter` takes the row: a part is selected and brought into view (and switched on if it was hidden), a value opens the Parameters tab with its control in focus. `Alt+Enter` shows only the part and `Alt+H` hides it or shows it again; the pointer on a row lights the part in the view as in the Parts tab. `Esc`, `Ctrl+P` again or a press beside it puts it away. Parameters lists the fields of
-the model's `Params` (a model with none has no Parameters tab). Over the list, a find box (`/` from anywhere outside a field opens the tab and puts the cursor in it; Esc clears it) narrows the rows by what is in a name or a comment, and the chips All, Assumed and Brief keep the sizes whose comment says `assumed:` or `brief:`, each with its count; with either on, a line says `3 of 22 match`. Each
-field's name, its default in the monospace face (four digits at most, the whole value on hover) and
-its comment as the model has it, and, for a default the model works out (an expression, not a
-number written in), that it is worked out in the model. The model's comments should begin with where a size
+the model's `Params` (a model with none has no Parameters tab). Over the list, a find box (`/` from anywhere outside a field opens the tab and puts the cursor in it; Esc clears it) narrows the rows by what is in a name or a comment, and a tally of four counts over the list, `all`, `assumed`, `brief` and `no source`, each the number over its word and each a filter (assumed in the warning colour; the names of the sizes are in its tooltip), keeps the sizes whose comment says `assumed:` or `brief:` or says no source; with a find or a filter on, a line says `3 of 22 match`. The list is a ledger, one line a field in the model's order: its name, where its comment says it comes from in one word
+(`photo-1` for `ref photo-1.jpg:`, `you` for `person:`, `model` for `derived:`, `brief`, `assumed`, `ISO 7380`, `no source`), and
+its value in a field of its own, in the monospace face (four digits at most, the whole value on hover), said once. An
+assumed value has a dashed edge and its word in the warning colour. A default the model works out (an expression, not a
+number written in) is `= 96.9` with no field, since it cannot be tried. A number with a range fills its field to where its value stands.
+The comment is in the line's tooltip (and, in a column 360 px wide or more, on the line between the name and the source; at the narrowest width the source and value columns tighten so the longest name reads whole; while you find, each line shows its comment under it with what matched marked, since a find matches comments too), and the line opens in place while its field has the keys (a click on the value, Tab,
+or `Enter` on it in the picker): the comment whole with its source as written, the slider where the model gives a
+range, and, for a value you are trying, the kept line with Reset. A value you try keeps its line open. Pointing at a line lights the faces
+its value drives and moves nothing. The model's comments should begin with where a size
 comes from (`brief:`, `M3:`, `S1 ≈:`, `ref <file>:`, `object:`, `datasheet <name>:`, `person:`, `derived:` or
-`assumed:`), and under the title a line counts the sizes that say `assumed` and those that say nothing, their
-names on hover; it is what the model says, not something torno has checked. Trying a value never writes the model. A
+`assumed:`), and the tally counts them; it is what the model says, not something torno has checked. Trying a value never writes the model. A
 field whose default is a number or a flag written in the file (`wall: float = 2`, `lid: bool = True`), or a
-`Literal["round", "square"]`, has a control under its name: type a number and press Enter, or let go of a slider
+`Literal["round", "square"]`, is its own control: type a number and press Enter, or let go of a slider
 (the model gives one with `field(default=2.0, metadata={"min": 1, "max": 5, "step": 0.2})`), tick the box, or choose
-from the list. The project is built again with that value, and the row says `kept by torno, not in the model file yet` with a
+from the list. The project is built again with that value, and the line says `Kept by torno, not in the model file yet. The file has 6.2.` with a
 "Reset" beside it; "Reset all" and "Ask the agent to bake it in" (which puts a request in the session's prompt,
-never sent) are under the title while any value is tried. What you try is kept in `.torno/params.json` and the file
+never sent) sit in one band under the filters while any value is tried. What you try is kept in `.torno/params.json` and the file
 always wins: if the model's default for that field changes, your value is let go of and the row says so, and a value
 the model no longer offers is let go of the same way. The agent is told, with every prompt, which values the build
 is made with. The model only sees a tried value where it is given `p`: a helper that makes `Params()` itself does not.
@@ -2914,12 +2918,12 @@ On the screen:
   the rest back, and the count of marks on a part lists only its marks. The rows must not crowd: name, count, and on
   hover the opacity, the target and the eye, at the width of the card.
 - **Parameters.** In a project whose model has a `Params` dataclass with comments and one default that is an
-  expression, open the Parameters tab: a row for each field in the model's order, the value in the
-  monospace face, the comment as written (cut to two lines, whole on hover), "worked out in the model" on the expression's.
-  With a real session running, in the chat and then in the terminal view, a click on a row puts `Params.wall` at the
+  expression, open the Parameters tab: a line for each field in the model's order, the value said once in a field in the
+  monospace face, the source in a word, `= value` on the expression's, the comment whole on hover and when the line is open.
+  With a real session running, in the chat and then in the terminal view, a click on a name puts `Params.wall` at the
   cursor of the box (or the prompt) and sends nothing, with the dock hidden as well; with no session the rows are
   not clickable. Legible in light and dark. Try a value in a
-  number field and with a slider (the field with a `metadata` range, which also has a small gauge at the right of its row: the band from least to most, a tick where the value is), tick a flag and choose from a list: the build
+  number field and with a slider (the field with a `metadata` range, whose field is filled to where the value stands), tick a flag and choose from a list: the build
   runs once the slider is let go, not while it moves; the row says it is kept by torno and not in the model file yet, and Reset brings it back.
 - **The clipboard in the terminal.** Select text in a session and press `Ctrl+Shift+C`, then `Ctrl+Shift+V`: it is copied and pasted. No test touches the clipboard. "Copy" on the build error sheet likewise.
 - **By eye.** On a monitor, in dark and in light: text, marks, part edges and the terminal's colours are legible; the scrollbars are the thin grey ones, also in the list of projects and on the page of projects in the dark theme; a mark that has moved says so on a line under its note. `?` typed in a field on your own keyboard (with its dead keys) is a question mark.
@@ -2987,7 +2991,7 @@ On the screen:
 - **The Brief follows its folder, and the notice of a file kept aside.** With a project open on the Brief page, drop a photo into `reference/` from the file manager and remove it again, make `brief.md`, and `git pull` a changed `board.json`: each shows within a second, with no reopening. Break `board.json` (conflict markers): the notice offers **Put the copy back**, **Let it go** and **Dismiss**; add a note, mend `board.json.corrupt-…` in your editor and press the first: the notice asks before it replaces the note, and "Brief put back. Undo" brings it back; press it too early and the page says why. Tests used a temporary folder and the watcher's own events in a hidden window only.
 - **The scans walk-through.** Import, align and check a scan by the steps the Scans section offers: each step is where the eye goes next, in both themes.
 - **The export in the dock.** Each of the five tiles (a person's page, CAD, slicer, picture, tracing): the dock is legible in both themes, the rule fills in once and ends at the 12 MB tick, and the file lands in the status line with its read-back above it.
-- **The sources line of Parameters.** A field's source word is shown after its comment, in the monospace face, and "no source" is quiet.
+- **The tally and source words of Parameters.** Each line's source word is in the monospace face, `assumed` in the warning colour with a dashed field, and "no source" is quiet; the tally's four counts read as one strip and the pressed one is clear.
 - **Another project's session, in the title bar.** A session of another project that works or waits has its pill beside the dock's toggle, readable at a glance in both themes.
 - **Compare in all four modes.** Compare a turn, a row and an older build with **Before**, **Overlay**, **After** and **Side by side**: the grey translucent earlier build over the later one, each build alone in its part colours, one camera for both halves, the two boxes over the corners, the band and the status line (`comparing prompt 14 · h40 → h41`) legible in both themes and clear of the compass. Tests drove them in the hidden window and never looked. Compare a turn while newer builds land: the older build is drawn in the live one's place and the view says so; check it reads as the live build, not as a second model. An older build is built again from its copy (tested against the real kernel on small models in a temporary folder): on a real project, how long the wait is, and that `Building h40 to compare…` is shown while it runs.
 - **Prompts only and Earlier conversations.** **Prompts only** in More, and **Close** on the list: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.

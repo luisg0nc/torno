@@ -79,38 +79,44 @@ test('the Parameters tab says its count, is the bench\'s first, and has a row fo
 
 test('a row has the name and the value in the monospace face, the comment as written, and says a default is worked out in the model', async () => {
   const row = (name: string) => section().locator(`[data-param="${name}"]`)
-  await expect(row('side').locator('.param-value')).toHaveText('40')
+  // The value is said once, in the field that takes another.
+  await expect(row('side').getByRole('spinbutton', { name: 'Try side' })).toHaveValue('40')
   await expect(row('side').locator('.param-doc')).toHaveText('Outer width, mm')
   // A comment above the field is the field's, a field with none shows none.
   await expect(row('gap').locator('.param-doc')).toHaveText('Room left round the post, 0.2 mm at least')
   await expect(row('wall').locator('.param-doc')).toHaveCount(0)
-  await expect(row('ribs').locator('.param-value')).toHaveText('4')
+  await expect(row('ribs').getByRole('spinbutton', { name: 'Try ribs' })).toHaveValue('4')
   // The numbers of a comment are in the monospace face too, the words round them are not.
   await expect(row('gap').locator('.param-doc .num')).toHaveText(['0.2'])
-  expect(await face('.left .param-doc .num')).toBe(await face('.left .param-value'))
-  expect(await face('.left .param-value')).toContain('Mono')
+  expect(await face('.left .param-doc .num')).toBe(await face('.left .param-input'))
+  expect(await face('.left .param-input')).toContain('Mono')
   // Four digits at most, the whole value in the title.
-  await expect(row('gap').locator('.param-value')).toHaveText('0.1235')
-  await expect(row('gap').locator('.param-value')).toHaveAttribute('title', '0.123456')
-  // An expression is worked out in the model, and its value is still shown.
-  await expect(row('inner').locator('.param-worked')).toHaveText('worked out in the model')
+  await expect(row('gap').getByRole('spinbutton', { name: 'Try gap' })).toHaveValue('0.1235')
+  await expect(row('gap').getByRole('spinbutton', { name: 'Try gap' })).toHaveAttribute('title', '0.123456')
+  // An expression is worked out in the model, has no field, and its value is still shown, after an equals sign.
+  await expect(row('inner')).toHaveAttribute('data-worked', '')
   await expect(row('inner').locator('.param-value')).toHaveText('36')
-  await expect(row('side').locator('.param-worked')).toHaveCount(0)
+  await expect(row('inner').locator('.param-value')).toHaveAttribute('title', 'Worked out in the model')
+  await expect(row('inner').locator('.param-input')).toHaveCount(0)
+  expect(await row('inner').locator('.param-value').evaluate((el) => getComputedStyle(el, '::before').content)).toBe('"="')
+  await expect(row('side')).not.toHaveAttribute('data-worked', '')
   // The face of the numbers: the monospace one, a name of a field too.
-  expect(await face('.left .param-name')).toBe(await face('.left .param-value'))
-  expect(await face('.left .param-doc')).not.toBe(await face('.left .param-value'))
+  expect(await face('.left .param-name')).toBe(await face('.left .param-input'))
+  expect(await face('.left .param-doc')).not.toBe(await face('.left .param-input'))
 })
 
-test('a field with a range in its metadata has a gauge at the right of its row, and a field without one has none', async () => {
-  const gauge = section().locator('[data-param="ribs"] svg.gauge')
-  await expect(gauge).toHaveCount(1)
-  await expect(gauge).toHaveAttribute('aria-label', '4, inside 1 to 8')
-  expect(await gauge.evaluate((el) => `${el.getBoundingClientRect().width} x ${el.getBoundingClientRect().height}`)).toBe('64 x 16')
-  // At the right of its row: its right edge is within the card's padding of the row's.
-  const edges = await section().locator('[data-param="ribs"]').evaluate((li) => ({ row: li.getBoundingClientRect().right, gauge: li.querySelector('svg.gauge')!.getBoundingClientRect().right }))
-  expect(edges.row - edges.gauge).toBeLessThan(16)
-  await expect(section().locator('[data-param="side"] svg.gauge')).toHaveCount(0)
-  await expect(section().locator('svg.gauge')).toHaveCount(1)
+test('a field with a range in its metadata fills its field to where its value stands, and a field without one does not', async () => {
+  const fill = section().locator('[data-param="ribs"] .param-fill')
+  await expect(fill).toHaveCount(1)
+  await expect(fill).toHaveAttribute('aria-label', '4, inside 1 to 8')
+  // 4 in 1 to 8 is three sevenths of the field.
+  const share = await fill.evaluate((el) => el.getBoundingClientRect().width / el.parentElement!.getBoundingClientRect().width)
+  expect(share).toBeGreaterThan(0.38)
+  expect(share).toBeLessThan(0.46)
+  await expect(section().locator('[data-param="side"] .param-fill')).toHaveCount(0)
+  await expect(section().locator('.param-fill')).toHaveCount(1)
+  // One line a value: a row at rest is no taller than 30 px.
+  expect(await section().locator('[data-param="side"]').evaluate((el) => el.getBoundingClientRect().height)).toBeLessThan(30)
 })
 
 test('the print profile chip of the status line says what the project is made for, and opens its choosers', async () => {
@@ -156,10 +162,10 @@ test('trying a value builds the model with it, says it differs from the file, an
   await box.fill('3')
   await box.press('Enter')
   await expect(row).toHaveAttribute('data-tried', '', { timeout: 30_000 })
-  await expect(row.locator('.param-differs')).toContainText('not in the model file yet')
+  await expect(row.locator('.param-differs')).toContainText('Kept by torno, not in the model file yet. The file has 2.')
   await expect(box).toHaveValue('3')
-  // The file's default stays on the row, and the scene says what the build used.
-  await expect(row.locator('.param-value')).toHaveText('2')
+  // A tried row stays open, the file's default is in its kept line, and the scene says what the build used.
+  await expect(row).toHaveAttribute('data-open', '')
   expect((await state()).build?.revision ?? 0).toBeGreaterThan(before)
   expect(readFileSync(join(root, 'hollow', 'hollow.py'), 'utf8')).toContain('wall: float = 2\n')
   expect(JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'params.json'), 'utf8'))).toEqual({ overrides: { wall: { value: 3, default: 2 } } })
@@ -212,7 +218,7 @@ test('the open tab is kept for each project, by the window', async () => {
   await expect(section().locator('[data-param="wall"]')).toBeVisible()
 })
 
-test('find narrows the rows, / goes to it, and the chips filter by the source the comment names', async () => {
+test('find narrows the rows, / goes to it, and the tally filters by the source the comment names', async () => {
   const find = page.getByRole('textbox', { name: 'Find a value' })
   await openSection(page, 'Parts')
   await page.locator('[data-region="viewport"]').click({ position: { x: 5, y: 5 } })
@@ -224,8 +230,56 @@ test('find narrows the rows, / goes to it, and the chips filter by the source th
   await expect(page.locator('.params-match')).toContainText('1 of 5')
   await page.keyboard.press('Escape')
   await expect(section().locator('[data-param]')).toHaveCount(5)
-  await page.getByRole('button', { name: /^Assumed/ }).click()
-  await expect(page.getByRole('button', { name: /^Assumed/ })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: /^All/ }).click()
+  // Four counts that are the filters; the fixture's five sizes name no source.
+  const count = (word: string) => section().locator('.params-tally').getByRole('button', { name: new RegExp(`${word}$`) })
+  await expect(section().locator('.params-tally button')).toHaveText(['5all', '0assumed', '0brief', '5no source'])
+  await expect(section().locator('.params-sources')).toHaveCount(0)
+  await expect(count('no source')).toHaveAttribute('title', /^No source: side, wall, gap, inner, ribs\./)
+  await count('assumed').click()
+  await expect(count('assumed')).toHaveAttribute('aria-pressed', 'true')
+  await expect(section().locator('[data-param]')).toHaveCount(0)
+  await count('no source').click()
   await expect(section().locator('[data-param]')).toHaveCount(5)
+  await expect(page.locator('.params-match')).toContainText('5 of 5')
+  await count('all').click()
+  await expect(section().locator('[data-param]')).toHaveCount(5)
+})
+
+test('while finding, each line shows its comment under it with the match marked', async () => {
+  const row = section().locator('[data-param="gap"]')
+  const doc = row.locator('.param-doc')
+  // At rest in the default width the comment is not on the line: it is in the title and the open part.
+  await expect(doc).toBeHidden()
+  await page.getByRole('textbox', { name: 'Find a value' }).fill('room')
+  await expect(section().locator('[data-param]')).toHaveCount(1)
+  await expect(doc).toBeVisible()
+  await expect(doc.locator('mark')).toHaveText('Room')
+  // Under the name, not beside it, and the line did not open for it.
+  const at = await Promise.all([row.locator('.param-name').boundingBox(), doc.boundingBox()])
+  expect(at[1]!.y).toBeGreaterThan(at[0]!.y + at[0]!.height - 1)
+  await expect(row).not.toHaveAttribute('data-open', '')
+  await page.getByRole('textbox', { name: 'Find a value' }).fill('gap')
+  await expect(row.locator('.param-name mark')).toHaveText('gap')
+  await page.getByRole('textbox', { name: 'Find a value' }).fill('')
+})
+
+test('wide, the comment is a column of the line, between the name and the source', async () => {
+  const handle = page.getByRole('separator', { name: 'Resize panel' })
+  const edge = (await handle.boundingBox())!
+  const x = edge.x + edge.width / 2
+  const y = edge.y + edge.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 100, y, { steps: 4 })
+  await page.mouse.up()
+  const row = section().locator('[data-param="gap"]')
+  await expect(row.locator('.param-doc')).toBeVisible()
+  const [name, doc, source] = await Promise.all([row.locator('.param-name').boundingBox(), row.locator('.param-doc').boundingBox(), row.locator('.param-source').boundingBox()])
+  expect(doc!.x).toBeGreaterThanOrEqual(name!.x + name!.width)
+  expect(doc!.x + doc!.width).toBeLessThanOrEqual(source!.x)
+  expect(Math.abs(doc!.y - name!.y)).toBeLessThan(8)
+  // The default width again: the comment leaves the line.
+  await handle.dblclick()
+  await expect(row.locator('.param-doc')).toBeHidden()
+  await page.mouse.move(0, 0)
 })

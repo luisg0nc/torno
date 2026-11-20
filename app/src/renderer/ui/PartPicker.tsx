@@ -85,7 +85,8 @@ function Picker() {
     const find = (): void => {
       const item = document.querySelector<HTMLElement>(`[data-param="${CSS.escape(row.name)}"]`)
       item?.scrollIntoView({ block: 'center' })
-      item?.querySelector<HTMLElement>('input, select, button')?.focus()
+      const field = item?.querySelector<HTMLElement>('[data-param-field]') ?? item?.querySelector<HTMLElement>('input, select, button')
+      field?.focus()
     }
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(find))
     else find()

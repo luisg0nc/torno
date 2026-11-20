@@ -77,92 +77,6 @@
   border-radius: var(--radius-inline);
 }
 
-/* A field of the model's Params: its name and default on a line, its comment under, and that the default is worked out in the model. Text where no session can take it, a button where one can. */
-.param-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.param-row > * {
-  grid-column: 1 / -1;
-}
-
-/* The gauge of a field with a range stands at the right of the first lines of its row, 8 px in from the card's edge. */
-.param-row > .param-button {
-  grid-column: 1;
-}
-
-.param-row > .param-gauge {
-  grid-column: 2;
-  grid-row: 1;
-  padding-right: var(--space-2);
-}
-
-.param-button {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  width: 100%;
-  padding: 3px var(--space-2) 3px var(--space-4);
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-button.param-button {
-  cursor: pointer;
-}
-
-button.param-button:hover {
-  background: var(--accent-wash);
-}
-
-button.param-button:focus-visible {
-  outline-offset: -2px;
-}
-
-.param-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: var(--text-small);
-}
-
-.param-name,
-.param-value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.param-name {
-  flex: 0 1 auto;
-}
-
-.param-value {
-  flex: 0 1 auto;
-  max-width: 60%;
-}
-
-.param-doc,
-.param-worked {
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-
-.param-doc {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow-wrap: anywhere;
-}
-
 .layer-row .row-name {
   font-size: var(--text-small);
 }
@@ -242,13 +156,6 @@ button.param-button:focus-visible {
   color: var(--accent);
 }
 
-.params-sources {
-  margin: 0 0 var(--space-2);
-  padding: 0 var(--space-4);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
 /* The print profile: two choosers, what they say, and a small form to add a printer. */
 .print-body {
   display: flex;
@@ -315,51 +222,6 @@ button.param-button:focus-visible {
   gap: var(--space-1);
 }
 
-/* A field the person may try another value for: the control under its name, and, where the build is made with a value other than the file's, that and a Reset. */
-.param-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0 var(--space-2) 3px var(--space-4);
-}
-
-.param-number {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.param-input {
-  min-width: 0;
-  width: 6.5em;
-  height: 24px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--field-edge);
-  border-radius: var(--radius-control);
-  background: var(--panel);
-  color: inherit;
-  font: inherit;
-  font-size: var(--text-small);
-}
-
-.param-slider {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.param-differs {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  color: var(--muted);
-  font-size: var(--text-small);
-}
-
-.param-row[data-tried] .param-name {
-  color: var(--accent);
-}
-
 .param-note,
 .params-problem {
   margin: 0;
@@ -368,11 +230,4 @@ button.param-button:focus-visible {
   font-size: var(--text-small);
 }
 
-.params-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-2);
-  padding: 0 var(--space-4);
-}
 
