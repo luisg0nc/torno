@@ -9,6 +9,8 @@ import type { AgentView, SessionStatus } from '../../shared/bridge'
 import { type AgentChoice, agentChoiceOf, type ChatAnswer, type ChatCommand, type ChatHistory, type ChatItem, type ChatMeta, type ChatModel, type Effort, isEffort, type Mode } from '../../shared/chat'
 import type { BuildIdentity } from '../../shared/git'
 import type { BuildTurn } from '../../shared/history'
+import type { PromptRow } from '../../shared/chat'
+import { listPrompts } from './prompts'
 import { modelsOf } from './models'
 import { type BuildState, errorLine, failedAfter } from '../../shared/build'
 import type { BoardAttach, BoardSent } from '../../shared/board'
@@ -478,8 +480,9 @@ export class Sessions {
               emit: (item) => {
                 chat!.seq += 1
                 if (item.kind === 'turn') this.keepChanges(chat!, item.id)
-                this.emit('item', { sessionId: id, objectId: obj.id, item, seq: chat!.seq })
+                // The write of the log begins before anyone is told, so that whoever reads the prompts on being told waits for it (`prompts`).
                 this.log(session)
+                this.emit('item', { sessionId: id, objectId: obj.id, item, seq: chat!.seq })
               },
               emitMeta: (meta) => {
                 chat!.seq += 1
@@ -1267,6 +1270,16 @@ export class Sessions {
   }
 
   /** The session of an object. One that has been hung up on is no longer it, though its process may linger. */
+  /**
+   * The prompts of an object (`listPrompts`), read once the chat logs being written have landed: an item is told to the
+   * window before its line is on disk, and a list asked at that moment would be one short until the next ask.
+   */
+  async prompts(obj: { id: string; dir: string }): Promise<PromptRow[]> {
+    const writing = [...this.sessions.values()].filter((s) => s.object.id === obj.id).map((s) => s.logging)
+    await Promise.all(writing)
+    return listPrompts(obj.dir)
+  }
+
   private of(objectId: string): Session | undefined {
     for (const s of this.sessions.values()) if (s.object.id === objectId && !s.killTimer) return s
     return undefined

@@ -1461,6 +1461,18 @@ describe('the transcript of a chat session', () => {
     expect(tSessions.history(c.id)!.earlier).toEqual([])
   })
 
+  it('lists a prompt that built nothing as soon as it is told sent, though its log line is still being written (#313)', async () => {
+    const c = await start()
+    const asked: Array<Promise<string[]>> = []
+    tSessions.on('item', (m) => {
+      if (m.item.kind === 'user' && m.item.state === 'sent') asked.push(tSessions.prompts(c.obj).then((rows) => rows.map((r) => r.text)))
+    })
+    await c.send('say nothing was built')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    expect(asked).toHaveLength(1)
+    expect(await asked[0]).toEqual(['say nothing was built'])
+  })
+
   it('gives main what the board line told once the answer has left, with no marks to send', async () => {
     boardTold = { C1: 'abc' }
     const c = await start()
