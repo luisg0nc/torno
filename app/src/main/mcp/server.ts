@@ -6,7 +6,7 @@ import { SERVER_INSTRUCTIONS } from './schemas'
 import { registerTools, type ToolDeps } from './tools'
 
 const BODY_LIMIT = 4 * 1024 * 1024
-const VERSION = '0.2.0'
+const VERSION = '0.2.1'
 
 /**
  * Serves `POST /mcp/<objectId>` (the router lets a request through only with a token of that object in its
