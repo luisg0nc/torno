@@ -5,6 +5,7 @@ import { insertIntoSession } from './insertIntoSession'
 import { giveKeysBack } from './typing'
 import { number } from '../../shared/format'
 import { numbered } from './numbered'
+import { markNumbered, markWords, wordsOf } from './markWords'
 import { splitSource } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
 import { gaugeSaid } from './card/gaugeWindow'
@@ -52,6 +53,7 @@ export function ParamsPanel() {
   const shown = findParams(params, query, filter)
   const counts = filterCounts(params)
   const searching = query.trim() !== '' || filter !== 'all'
+  const words = wordsOf(query)
   return (
     <div className="section params">
       <div className="params-find">
@@ -115,6 +117,7 @@ export function ParamsPanel() {
             key={param.name}
             row={paramRow(param, dropped?.find((d) => d.name === param.name)?.reason ?? null)}
             canInsert={canInsert}
+            words={words}
             rest={objectId === null ? undefined : () => restOn(objectId, param.name)}
             set={(value) => objectId !== null && say(window.torno.object.setParam(objectId, param.name, value))}
             reset={() => objectId !== null && say(window.torno.object.resetParams(objectId, param.name))}
@@ -147,7 +150,7 @@ const isName = (node: EventTarget | null): boolean => node instanceof Element &&
 /** Where `value` stands in `min` to `max`, 0 to 1. */
 const along = (value: number, min: number, max: number): number => Math.min(1, Math.max(0, (value - min) / (max - min)))
 
-function ParamItem({ row, canInsert, rest, set, reset }: { row: ParamRow; canInsert: boolean; rest?: () => void; set: (value: ParamValue) => void; reset: () => void }) {
+function ParamItem({ row, canInsert, words, rest, set, reset }: { row: ParamRow; canInsert: boolean; words: string[]; rest?: () => void; set: (value: ParamValue) => void; reset: () => void }) {
   // What a field drives is shown on the model while the pointer or the keys' focus rests on its row (`state/drives.ts`): only a field that can be tried has a nudge.
   const note = useDrives((s) => driveNote(s, row.name))
   const hover = row.editable !== null && rest !== undefined
@@ -175,7 +178,7 @@ function ParamItem({ row, canInsert, rest, set, reset }: { row: ParamRow; canIns
   }
   const label = `Try ${row.name}`
   const standing = typeof current === 'number' ? (Number.isFinite(Number(draft)) && draft.trim() !== '' ? Number(draft) : current) : null
-  const name = <span className="param-name num">{row.name}</span>
+  const name = <span className="param-name num">{markWords(row.name, words)}</span>
   return (
     <li
       className="param-row"
@@ -184,6 +187,7 @@ function ParamItem({ row, canInsert, rest, set, reset }: { row: ParamRow; canIns
       data-tried={row.file !== null ? '' : undefined}
       data-open={open ? '' : undefined}
       data-source={row.source}
+      data-finding={words.length > 0 ? '' : undefined}
       onPointerEnter={hover ? rest : undefined}
       onPointerLeave={hover ? leave : undefined}
       onFocus={(e) => {
@@ -219,7 +223,7 @@ function ParamItem({ row, canInsert, rest, set, reset }: { row: ParamRow; canIns
             {name}
           </div>
         )}
-        {row.doc && <span className="param-doc">{numbered(row.doc)}</span>}
+        {row.doc && <span className="param-doc">{words.length > 0 ? markNumbered(row.doc, words) : numbered(row.doc)}</span>}
         <span className="param-source" data-assumed={row.source === 'assumed' ? '' : undefined} title={said.source !== '' ? `As the model wrote it: ${said.source.replace(/:$/, '')}. torno has not checked it` : undefined}>
           {row.word}
         </span>

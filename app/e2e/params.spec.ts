@@ -244,3 +244,42 @@ test('find narrows the rows, / goes to it, and the tally filters by the source t
   await count('all').click()
   await expect(section().locator('[data-param]')).toHaveCount(5)
 })
+
+test('while finding, each line shows its comment under it with the match marked', async () => {
+  const row = section().locator('[data-param="gap"]')
+  const doc = row.locator('.param-doc')
+  // At rest in the default width the comment is not on the line: it is in the title and the open part.
+  await expect(doc).toBeHidden()
+  await page.getByRole('textbox', { name: 'Find a value' }).fill('room')
+  await expect(section().locator('[data-param]')).toHaveCount(1)
+  await expect(doc).toBeVisible()
+  await expect(doc.locator('mark')).toHaveText('Room')
+  // Under the name, not beside it, and the line did not open for it.
+  const at = await Promise.all([row.locator('.param-name').boundingBox(), doc.boundingBox()])
+  expect(at[1]!.y).toBeGreaterThan(at[0]!.y + at[0]!.height - 1)
+  await expect(row).not.toHaveAttribute('data-open', '')
+  await page.getByRole('textbox', { name: 'Find a value' }).fill('gap')
+  await expect(row.locator('.param-name mark')).toHaveText('gap')
+  await page.getByRole('textbox', { name: 'Find a value' }).fill('')
+})
+
+test('wide, the comment is a column of the line, between the name and the source', async () => {
+  const handle = page.getByRole('separator', { name: 'Resize panel' })
+  const edge = (await handle.boundingBox())!
+  const x = edge.x + edge.width / 2
+  const y = edge.y + edge.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 100, y, { steps: 4 })
+  await page.mouse.up()
+  const row = section().locator('[data-param="gap"]')
+  await expect(row.locator('.param-doc')).toBeVisible()
+  const [name, doc, source] = await Promise.all([row.locator('.param-name').boundingBox(), row.locator('.param-doc').boundingBox(), row.locator('.param-source').boundingBox()])
+  expect(doc!.x).toBeGreaterThanOrEqual(name!.x + name!.width)
+  expect(doc!.x + doc!.width).toBeLessThanOrEqual(source!.x)
+  expect(Math.abs(doc!.y - name!.y)).toBeLessThan(8)
+  // The default width again: the comment leaves the line.
+  await handle.dblclick()
+  await expect(row.locator('.param-doc')).toBeHidden()
+  await page.mouse.move(0, 0)
+})

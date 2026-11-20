@@ -403,3 +403,67 @@ select.param-input {
     font-size: 10.5px;
   }
 }
+
+.param-row mark {
+  padding: 0 1px;
+  border-radius: var(--radius-inline);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* Wide: the comment fills the room between the name and the source. */
+@container (min-width: 360px) {
+  .param-line {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) 50px 58px;
+  }
+
+  .param-name {
+    max-width: 150px;
+  }
+
+  .param-doc {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Finding: each line's comment shows under it, whole, so that you see why it matched (a find matches comments too). */
+.param-row[data-finding] .param-line {
+  grid-template-areas: 'name source value' 'doc doc doc';
+}
+
+@container (min-width: 360px) {
+  .param-row[data-finding] .param-line {
+    grid-template-columns: minmax(0, 1fr) 50px 58px;
+  }
+}
+
+.param-row[data-finding] .param-button {
+  grid-area: name;
+}
+
+.param-row[data-finding] .param-source {
+  grid-area: source;
+}
+
+.param-row[data-finding] .param-field,
+.param-row[data-finding] .param-value {
+  grid-area: value;
+}
+
+.param-row[data-finding] .param-doc {
+  display: block;
+  grid-area: doc;
+  padding: 0 0 5px;
+  overflow: visible;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

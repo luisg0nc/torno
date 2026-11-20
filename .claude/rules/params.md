@@ -66,6 +66,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`sourceOf` is `assumed`) has a dashed field edge and its word in `--warn` ("nothing checks this"). A number whose `metadata`
   has `min` and `max` fills its field to where the value stands (`.param-fill`, `role="img"`, `aria-label` from `gaugeSaid`).
   The comment (`doc`) is in the name's title and, whole with its source as written (`splitSource`), in the open part. No unit is taken from a comment.
+- **Widths and the find** (a container query on `.section.params`, `styles/card-params.css`): at 360 px and wider `.param-doc` is a column of the line between the name and the source word; at 270 px and narrower the source and value columns tighten (46 and 50 px) so `tab_hole_from_rear` reads whole. While a find is typed (`data-finding`), every line shows its comment whole under it at any width and the words found are marked, in the name and the comment (`ui/markWords.tsx`, `wordsOf` reads them as `findParams` does).
 - **A line opens in place** (`.param-open`, `data-open`) while its field or slider has the keys (a click on the value, Tab, the
   picker's Enter, which focuses `[data-param-field]`) and for as long as its value is tried: the comment whole, the slider, and the kept line
   with Reset. Pointing at a line lights its faces (and borrows the leader) and moves nothing; the keys on the name do not open it.

@@ -503,7 +503,7 @@ the model's `Params` (a model with none has no Parameters tab). Over the list, a
 its value in a field of its own, in the monospace face (four digits at most, the whole value on hover), said once. An
 assumed value has a dashed edge and its word in the warning colour. A default the model works out (an expression, not a
 number written in) is `= 96.9` with no field, since it cannot be tried. A number with a range fills its field to where its value stands.
-The comment is in the line's tooltip, and the line opens in place while its field has the keys (a click on the value, Tab,
+The comment is in the line's tooltip (and, in a column 360 px wide or more, on the line between the name and the source; at the narrowest width the source and value columns tighten so the longest name reads whole; while you find, each line shows its comment under it with what matched marked, since a find matches comments too), and the line opens in place while its field has the keys (a click on the value, Tab,
 or `Enter` on it in the picker): the comment whole with its source as written, the slider where the model gives a
 range, and, for a value you are trying, the kept line with Reset. A value you try keeps its line open. Pointing at a line lights the faces
 its value drives and moves nothing. The model's comments should begin with where a size
