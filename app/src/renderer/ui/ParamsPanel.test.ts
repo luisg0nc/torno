@@ -47,6 +47,7 @@ describe('the body of the Parameters section', () => {
     store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
     const out = html()
     expect([...out.matchAll(/data-param="([^"]+)"/g)].map((m) => m[1])).toEqual(['wall', 'inner', 'ribs', 'label'])
+    // A value that is not offered to try is plain text in the value's place; one that is has a field (below).
     expect(out).toContain('<span class="param-value num">2.4</span>')
     expect(out).toContain('<span class="param-value num">4</span>')
     expect(out).toContain('<span class="param-value num">&quot;M3&quot;</span>')
@@ -57,11 +58,12 @@ describe('the body of the Parameters section', () => {
     const out = html()
     // The comment is as written; the numbers in it are in the monospace face.
     expect(out).toContain('<span class="param-doc">Clearance <span class="num">0.2</span> mm, <span class="num">M3</span></span>')
-    expect(out.match(/<span class="param-worked">worked out in the model<\/span>/g)).toHaveLength(1)
+    expect(out.match(/data-worked=""/g)).toHaveLength(1)
     const inner = out.slice(out.indexOf('data-param="inner"'), out.indexOf('data-param="ribs"'))
-    expect(inner).toContain('param-worked')
+    expect(inner).toContain('data-worked')
+    expect(inner).toContain('title="Worked out in the model"')
     expect(inner).toContain('18.4')
-    expect(out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="inner"'))).not.toContain('param-worked')
+    expect(out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="inner"'))).not.toContain('data-worked')
   })
 
   it('has rows that cannot be clicked, and say why, while no session runs', () => {
@@ -106,13 +108,14 @@ describe('the body of the Parameters section', () => {
     store.setState({ scene: scene(OFFERED), column: COLUMN_DEFAULT })
     const out = html()
     // The value the build used, against the range the model gave: 2.4 of 1 to 5.
-    expect(out.match(/<svg class="gauge"/g)).toHaveLength(1)
+    expect(out.match(/class="param-fill"/g)).toHaveLength(1)
     const wall = out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="ribs"'))
-    expect(wall).toContain('<svg class="gauge"')
+    expect(wall).toContain('class="param-fill"')
     expect(wall).toContain('aria-label="2.4, inside 1 to 5"')
-    expect(out.slice(out.indexOf('data-param="ribs"'))).not.toContain('class="gauge"')
+    expect(wall).toContain('style="width:35%"')
+    expect(out.slice(out.indexOf('data-param="ribs"'))).not.toContain('param-fill')
     store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT })
-    expect(html()).not.toContain('class="gauge"')
+    expect(html()).not.toContain('param-fill')
   })
 
   it('says a row is built with a value other than the file’s, with a Reset, and offers to bake it in', () => {
@@ -120,9 +123,9 @@ describe('the body of the Parameters section', () => {
     const out = html()
     const wall = out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="ribs"'))
     expect(wall).toContain('data-tried')
-    expect(wall).toContain('kept by torno, not in the model file yet')
+    expect(wall).toContain('Kept by torno, not in the model file yet. The file has <span class="num">2</span>.')
     expect(wall).toContain('aria-label="Reset wall to 2"')
-    expect(out.slice(out.indexOf('data-param="ribs"'))).not.toContain('not in the model file yet: <span class="num">4')
+    expect(out.slice(out.indexOf('data-param="ribs"'))).not.toContain('not in the model file yet')
     expect(out).toContain('Ask the agent to bake it in')
     expect(out).toContain('Reset all')
   })
@@ -133,5 +136,16 @@ describe('the body of the Parameters section', () => {
     const out = html()
     expect(out).toContain('<p class="param-note">the file wins</p>')
     expect(out).not.toContain('Ask the agent to bake')
+  })
+
+  it('has a tally of four counts that filter, and no line of its own for the assumed sizes', () => {
+    const doc = (name: string, text: string | null): Param => ({ name, type: 'float', default: 1, literal: true, doc: text }) as Param
+    store.setState({ scene: scene([doc('a', 'assumed: x'), doc('b', 'assumed: y'), doc('c', 'brief: z'), doc('d', null)]), column: COLUMN_DEFAULT })
+    const out = html()
+    expect([...out.matchAll(/<b class="num">(\d+)<\/b><span>([^<]+)<\/span>/g)].map((m) => `${m[1]} ${m[2]}`)).toEqual(['4 all', '2 assumed', '1 brief', '1 no source'])
+    expect(out).toContain('title="Assumed: a, b. As the model&#x27;s comments say; torno has not checked them"')
+    expect(out).toContain('title="No source: d.')
+    expect(out).not.toContain('params-sources')
+    expect(out).not.toContain('with no source')
   })
 })

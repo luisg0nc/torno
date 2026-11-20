@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assumedKey, assumedLine, sameValue, sourceCount, sourceOf, triedParams, whyUnsaid } from './params'
+import { assumedKey, assumedLine, sameValue, sourceCount, sourceOf, sourceWord, splitSource, triedParams, whyUnsaid } from './params'
 import type { Param } from './scene'
 
 const p = (name: string, def: unknown, doc: string | null): Param => ({ name, type: 'float', default: def, literal: true, doc })
@@ -75,5 +75,28 @@ describe('sameValue', () => {
     expect(sameValue({ a: 1 }, { a: 2 })).toBe(false)
     expect(sameValue(null, null)).toBe(true)
     expect(sameValue(1, '1')).toBe(false)
+  })
+})
+
+describe('the source word of a row', () => {
+  it.each([
+    ['ref photo-1.jpg: over the tanks', 'photo-1'],
+    ['ref notes: the note says 12', 'notes'],
+    ['person: "96.5 mm"', 'person'],
+    ['datasheet ISO 7380: M5 button head', 'ISO 7380'],
+    ['derived: rad_height + 2 × fit', 'derived'],
+    ['assumed: the web beside the tank', 'assumed'],
+    ['brief: 60 wide', 'brief'],
+    ['M3: the pin', 'M3'],
+    ['S2 ≈: the scan', 'S2'],
+    ['a comment with no source', ''],
+    [null, '']
+  ])('%s is written %j', (doc, word) => expect(sourceWord(doc)).toBe(word))
+
+  it('splits a comment into its source as written and the rest, and leaves one with no source whole', () => {
+    expect(splitSource('assumed: leg thickness')).toEqual({ source: 'assumed:', rest: ' leg thickness' })
+    expect(splitSource('ref photo-1.jpg: over the tabs')).toEqual({ source: 'ref photo-1.jpg:', rest: ' over the tabs' })
+    expect(splitSource('over the tabs')).toEqual({ source: '', rest: 'over the tabs' })
+    expect(splitSource(null)).toEqual({ source: '', rest: '' })
   })
 })

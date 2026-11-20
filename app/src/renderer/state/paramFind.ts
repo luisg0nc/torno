@@ -3,16 +3,17 @@ import { createStore } from 'zustand/vanilla'
 import { isSize, sourceOf } from '../../shared/params'
 import type { Param } from '../../shared/scene'
 
-// Finding among the model's Params: what is typed in the find box and which filter chip is on. The window's, as the
+// Finding among the model's Params: what is typed in the find box and which filter of the tally is on. The window's, as the
 // person left them while the project is open: the Parameters tab gives its place to Parts and takes it back with both as they were.
 
-/** The chips over the list: every field, the sizes the model's comments say are assumed, and those it says come from the brief. */
-export type ParamFilter = 'all' | 'assumed' | 'brief'
+/** The tally over the list: every field, the sizes the model's comments say are assumed, those it says come from the brief, and those whose comment names no source. */
+export type ParamFilter = 'all' | 'assumed' | 'brief' | 'none'
 
 export const PARAM_FILTERS: ReadonlyArray<{ id: ParamFilter; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'assumed', label: 'Assumed' },
-  { id: 'brief', label: 'Brief' }
+  { id: 'all', label: 'all' },
+  { id: 'assumed', label: 'assumed' },
+  { id: 'brief', label: 'brief' },
+  { id: 'none', label: 'no source' }
 ]
 
 export interface ParamFindState {
@@ -29,15 +30,15 @@ export const paramFind = {
   clear: (): void => paramFindStore.setState({ query: '', filter: 'all' })
 }
 
-/** Whether a field is of the filter: only a size has a source to be assumed or from the brief. */
+/** Whether a field is of the filter: only a size has a source to be assumed, from the brief or without one. */
 export function inFilter(param: Param, filter: ParamFilter): boolean {
   if (filter === 'all') return true
-  return isSize(param) && sourceOf(param.doc) === filter
+  return isSize(param) && sourceOf(param.doc) === (filter === 'none' ? 'unsaid' : filter)
 }
 
-/** How many fields each chip holds, for its count. */
+/** How many fields each count of the tally holds. */
 export function filterCounts(params: readonly Param[]): Record<ParamFilter, number> {
-  return { all: params.length, assumed: params.filter((p) => inFilter(p, 'assumed')).length, brief: params.filter((p) => inFilter(p, 'brief')).length }
+  return { all: params.length, assumed: params.filter((p) => inFilter(p, 'assumed')).length, brief: params.filter((p) => inFilter(p, 'brief')).length, none: params.filter((p) => inFilter(p, 'none')).length }
 }
 
 /** The fields whose name or comment holds every word typed (any case), of the chosen filter, in the model's order. */

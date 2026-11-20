@@ -19,7 +19,11 @@ describe('finding among the Params', () => {
     expect(findParams(PARAMS, '', 'brief').map((x) => x.name)).toEqual(['leg_gap'])
     expect(findParams(PARAMS, 'w', 'assumed').map((x) => x.name)).toEqual(['wall'])
   })
-  it('counts each chip', () => {
-    expect(filterCounts(PARAMS)).toEqual({ all: 5, assumed: 2, brief: 1 })
+  it('filters to the sizes that say nothing of where they come from', () => {
+    expect(findParams(PARAMS, '', 'none').map((x) => x.name)).toEqual(['runner_len'])
+    expect(findParams(PARAMS, 'zzz', 'none')).toEqual([])
+  })
+  it('counts each of the tally', () => {
+    expect(filterCounts(PARAMS)).toEqual({ all: 5, assumed: 2, brief: 1, none: 1 })
   })
 })

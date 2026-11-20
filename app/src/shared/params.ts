@@ -20,6 +20,22 @@ export function sourceOf(doc: string | null | undefined): Source {
   return (SOURCES as readonly string[]).includes(word) ? (word as Source) : 'unsaid'
 }
 
+/** The source word of a comment as the model wrote it (`ref photo-1.jpg`, `M3`, `assumed`), for the row's own word; '' when it says none. */
+export function sourceWord(doc: string | null | undefined): string {
+  if (sourceOf(doc) === 'unsaid') return ''
+  const written = /^\s*([A-Za-z][^:\n]*?)\s*(?:≈\s*)?:/.exec(doc ?? '')?.[1] ?? ''
+  const named = /^(?:ref|datasheet)\s+(.+)$/i.exec(written)?.[1]
+  return (named ?? written).replace(/\.(?:jpe?g|png|webp|pdf)$/i, '')
+}
+
+/** A comment cut after its source (`assumed:`, `ref photo-1.jpg:`): the source as written, and the rest. */
+export function splitSource(doc: string | null | undefined): { source: string; rest: string } {
+  const text = doc ?? ''
+  if (sourceOf(text) === 'unsaid') return { source: '', rest: text }
+  const at = text.indexOf(':')
+  return { source: text.slice(0, at + 1).trim(), rest: text.slice(at + 1) }
+}
+
 /** A field is a size when its default is a number (a count, a clearance); text, flags and lists have no source to tell. */
 export const isSize = (param: Param): boolean => typeof param.default === 'number'
 

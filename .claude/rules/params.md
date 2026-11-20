@@ -56,13 +56,21 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - `ui/ParamsPanel.tsx`: the fields of the model's `Params` as the kernel read them at the last build (`Scene.params`,
   as main sends the scene, unchanged), read only; torno never writes the model. A model with none (or a kernel that does
-  not read them) has no section. A row (`paramRow` in `ui/paramRows.ts`, pure) is the name and the default in the
-  monospace face (`shared/format.ts`, four digits at most, a list or a dict by its items, a bool as Python writes it;
-  the whole value in the value's `title` where it differs, with the type as written in the row's), the comment (`doc`)
-  as written, its numbers in the monospace face (`numbered`), cut to two lines (whole in the row's title), and, for a default that is not a literal, "worked out in the
-  model" (its value too when the kernel has one). No unit is taken from a comment. A number whose `metadata` has `min` and `max` also has a `Gauge`
-  (`ui/card/Gauge.tsx`, `aria-label` from `gaugeSaid`) at the right of its row: the value the build used against that range, in `.param-gauge`.
-- A click on a row puts `Params.<name>` at the cursor of the open object's session by `insertIntoSession`
+  not read them) has no section. A row (`paramRow` in `ui/paramRows.ts`, pure) is a ledger line of 27 px
+  (`.param-line`, `styles/card-params.css`): the name in the monospace face, one source word (`ParamRow.word`: `sourceWord` of
+  `shared/params.ts` shortened, `ref photo-1.jpg` is `photo-1`, `person` is `you`, `derived` is `model`, `no source` for a size whose comment says none,
+  nothing for a flag or text), and the value in a field of its own (`.param-field`), said once: a number field, a checkbox
+  with its word or a select for an `editable` field; plain `.param-value` for one that is not; `= value` (`data-worked`, no field) for a
+  default that is not a literal. Numbers go through `shared/format.ts` (four digits at most, a list or a dict by its items, a bool as
+  Python writes it; the whole value in the title where it differs, the type as written in the name's title). An assumed value
+  (`sourceOf` is `assumed`) has a dashed field edge and its word in `--warn` ("nothing checks this"). A number whose `metadata`
+  has `min` and `max` fills its field to where the value stands (`.param-fill`, `role="img"`, `aria-label` from `gaugeSaid`).
+  The comment (`doc`) is in the name's title and, whole with its source as written (`splitSource`), in the open part. No unit is taken from a comment.
+- **A line opens in place** (`.param-open`, `data-open`) while its field or slider has the keys (a click on the value, Tab, the
+  picker's Enter, which focuses `[data-param-field]`) and for as long as its value is tried: the comment whole, the slider, and the kept line
+  with Reset. Pointing at a line lights its faces (and borrows the leader) and moves nothing; the keys on the name do not open it.
+  The notes under a line (a dropped override, what a value drives) still add a line while they show.
+- A click on a name puts `Params.<name>` at the cursor of the open object's session by `insertIntoSession`
   (`ui/insertIntoSession.ts`, also the selection's "Insert" and the build error sheet's ask: the box of the chat,
   `insertIntoComposer`, else a paste at the terminal's prompt, never sent; it says whether it went in), and shows the
   dock first (`later`: a box in a hidden dock takes no focus), as the selection's "Insert" does; the box puts its cursor
@@ -86,13 +94,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   when it fails (`param-note`, `role="status"`). A new build or leaving the row puts it out; it lights nothing of a preview and
   writes no file.
 - **Trying a value.** A field the kernel says is `editable` (`Param.editable`: `float`, `int`, `bool`, `choice`)
-  has a control under its name (`ParamControl`): a number field, plus a slider when the model gives `min` and `max`
+  has its value as the control (`ParamItem`): a number field, plus a slider in the open part when the model gives `min` and `max`
   in the field's `metadata`; a checkbox; a select. A number is taken on Enter or when the field is left, a slider when
   it is let go of (`onPointerUp`, `onKeyUp`): a build runs then, never while it moves. It asks main
-  (`object.setParam`, `object.resetParams`; a refusal is said under the title) and the control starts again from
-  `Param.value`, the value the last build used (keyed by it), so the window holds no override of its own. A row built
-  with a value other than the default (`tried`) says `kept by torno, not in the model file yet` with a "Reset"; the default stays on
-  the line. `Scene.overrides.dropped` is shown on its row (`param-note`). "Ask the agent to bake it in"
-  (`bakeText`) puts a request in the session's box like a row's click does, never sent; "Reset all" resets every field. There is no
+  (`object.setParam`, `object.resetParams`; a refusal is said under the title) and the field starts again from
+  `Param.value`, the value the last build used, so the window holds no override of its own. A row built
+  with a value other than the default (`tried`) says `Kept by torno, not in the model file yet. The file has 6.2.` with a "Reset" in its open part; the file's default is in that line. `Scene.overrides.dropped` is shown on its row (`param-note`). "Ask the agent to bake it in"
+  (`bakeText`) puts a request in the session's box like a row's click does, never sent; "Reset all" resets every field; the two sit in one band under the filters while a value is tried (`.params-tried`). There is no
   "write it into the model" button: the model is written only by Go back (`goback`), which restores copies torno kept, so a
   new writer of the model's defaults would break that rule; the agent bakes a value in.

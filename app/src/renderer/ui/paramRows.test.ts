@@ -38,6 +38,25 @@ describe('the row of a field of Params', () => {
   })
 })
 
+describe('where a row says its value comes from', () => {
+  const word = (doc: string | null, more: Partial<Param> = {}): string => paramRow(param({ doc, ...more })).word
+  it('is one short word of the comment’s source', () => {
+    expect(word('ref photo-1.jpg: over the tanks')).toBe('photo-1')
+    expect(word('person: "96.5 mm"')).toBe('you')
+    expect(word('derived: a + b')).toBe('model')
+    expect(word('datasheet ISO 7380: M5 button head')).toBe('ISO 7380')
+    expect(word('brief: 60')).toBe('brief')
+    expect(word('assumed: guess')).toBe('assumed')
+    expect(paramRow(param({ doc: 'assumed: guess' })).source).toBe('assumed')
+  })
+  it('says "no source" of a size that names none, and nothing of a flag or a text', () => {
+    expect(word('just a comment')).toBe('no source')
+    expect(word(null)).toBe('no source')
+    expect(word(null, { type: 'bool', default: true })).toBe('')
+    expect(word('rib under the leg', { type: 'str', default: 'x' })).toBe('')
+  })
+})
+
 describe('a field the person is trying another value for', () => {
   const offered = (more: Partial<Param>): Param => param({ editable: 'float', value: 2.4, default: 2, ...more })
 
