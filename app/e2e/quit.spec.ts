@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, readlinkSyn
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
-import { openSection } from './helpers'
+import { clickHere, openSection } from './helpers'
 import { openListed } from './objects'
 
 const appDir = resolve(__dirname, '..')
@@ -118,8 +118,7 @@ test('a note still being typed when the window closes is kept: nothing ended it,
     const [fx, fy] = await page.evaluate(() => window.__tornoTest!.project([14, 9, 2.5]))
     const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
     await page.mouse.move(box.x + fx * box.width, box.y + fy * box.height)
-    await page.mouse.down()
-    await page.mouse.up()
+    await clickHere(page)
     await expect(page.locator('.note-card textarea')).toBeFocused()
     await page.keyboard.type('thicker here')
     await expect(page.locator('.note-card textarea')).toHaveValue('thicker here')

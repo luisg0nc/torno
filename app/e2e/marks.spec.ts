@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { Mark, MarksFile, NewMark } from '../src/shared/marks'
 import type { Camera, LookRequest } from '../src/shared/view'
-import { briefPage, onBrief, openSection, showBrief, showModel, clickImportScan } from './helpers'
+import { clickHere, briefPage, onBrief, openSection, showBrief, showModel, clickImportScan } from './helpers'
 import { openListed } from './objects'
 import { box, stl } from '../src/test/scanFixtures'
 
@@ -349,8 +349,7 @@ test('a pick mark tints its face, also when that face is selected; a ref that na
   // Selected as well: the selection is not in a picture, the mark's tint still is.
   const box = (await page.locator('.viewport-canvas canvas').first().boundingBox())!
   await page.mouse.move(box.x + onFace[0] * box.width, box.y + onFace[1] * box.height)
-  await page.mouse.down()
-  await page.mouse.up()
+  await clickHere(page)
   await expect.poll(async () => (await state()).selection).toEqual([face])
   expect((await differing(MARKED, PLAIN, { x: onFace[0], y: onFace[1] }, 0.004)).near).toBeGreaterThan(20)
 
