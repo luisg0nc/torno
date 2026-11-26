@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DIMENSIONS_TEXT, FULL_PROMPT, SCANS_TEXT, SYSTEM_PROMPT, systemPrompt } from './prompt'
 import { PROMPTS } from './mcp/prompts'
+import { SETTLE, onboardPrompt } from './onboard'
 
 // The whole text, as Claude Code is told it when it is not given torno's skills; with them, below.
 describe('the system prompt', () => {
@@ -205,16 +206,27 @@ describe("Claude Code's prompt, with the skills", () => {
     for (const sentence of DIMENSIONS_TEXT) expect(skill('dimensions')).toContain(sentence)
   })
 
-  // #111: the rule is in the skill and in the first prompt of a new object (`onboard.ts`), not in the prompt, which has no room.
-  it('whose model skill asks for the missing sizes once before the first model, and for a later feature', () => {
+  // #111, #324: the rule is in the skill, and the first prompt of a new project (`onboard.ts`) names it there; the system prompt has no room for it.
+  it('whose model skill settles what would make the first build wrong, not only sizes, before the first model and for a later feature', () => {
     const model = skill('torno-model').replace(/\s+/g, ' ')
     expect(model).toContain('## Before the first model')
-    for (const said of ['where it comes from', 'or nowhere', 'ask in one round, before you build, with `AskUserQuestion`', 'at most 4 questions, each with 2 to 4 options', 'labelled as typical', '"build with assumptions"', 'Do not ask about what you can choose freely', 'built as assumed', 'a new feature whose key size is not given']) expect(model).toContain(said)
+    for (const said of SETTLE) expect(model).toContain(said)
+    for (const said of ['A size has a source when the person gave it', 'or another project says it', 'Ask the person in one round, before you build, with `AskUserQuestion`, only what would change the build', 'put a sketch of each choice in its option (`preview`)', 'labelled as typical', '"build with assumptions"', 'What does not decide fit (a fillet, a chamfer, a wall) is an assumption they can change afterwards in `Params`, not a question', 'If nothing would change the build, ask nothing', 'built as assumed', 'a new feature that depends on something not given']) expect(model).toContain(said)
+    // How many questions and options is the schema of AskUserQuestion, not the skill's to say.
+    expect(model).not.toMatch(/at most 4 questions|2 to 4 options/)
   })
 
   it('whose model skill does not ask again for a size the person gave, in the first prompt or as a size card of the board', () => {
     const model = skill('torno-model').replace(/\s+/g, ' ')
-    for (const said of ['the sizes the person gave, in the first prompt or as size cards on the board', 'Ask only for sizes with no source', 'a size the person gave is not asked again']) expect(model).toContain(said)
+    for (const said of ['the person gave it, in the first prompt or as a size card on the board (read them with `mcp__torno__board` when the prompt does not say them)', 'A size the person gave is not asked again']) expect(model).toContain(said)
+  })
+
+  it('whose section the first prompt of a new project names, with the same things to settle', () => {
+    const { text } = onboardPrompt({ name: 'x', description: 'A thing.', items: [], scans: [], objects: [] }, undefined, true)
+    const named = text.match(/the (torno-model) skill says under "([^"]+)"/)
+    expect(named).not.toBeNull()
+    expect(skill(named![1])).toContain(`## ${named![2]}`)
+    for (const said of SETTLE) expect(text).toContain(said)
   })
 })
 

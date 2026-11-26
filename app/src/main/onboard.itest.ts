@@ -45,6 +45,8 @@ let sessions: Sessions
 let scans: ScanStore
 let board: BoardStore
 const messages: StreamMessage[] = []
+/** What each prompt's hook was asked for, in order. */
+const contexts: Array<{ onboarding: boolean; newConversation: boolean }> = []
 const objects = new Map<string, ObjectInfo>()
 
 const live_ = (id: string) => liveFacts({ dir: objects.get(id)?.dir, marks: [], scene: undefined, overrides: () => ({}) })
@@ -55,11 +57,13 @@ function make(command: string): Sessions {
     http,
     adapter: claudeAdapter(command),
     viewFor: () => 'chat',
-    // As the app's prompt does: the line of the board, and what it told kept once the prompt is delivered.
-    contextFor: async (id) => {
+    // As the app's prompt does: the line of the board, the brief of a conversation that begins but for the onboarding
+    // prompt's, which says it itself, and what it told kept once the prompt is delivered.
+    contextFor: async (id, opts) => {
+      contexts.push({ onboarding: opts.onboarding === true, newConversation: opts.newConversation })
       const [file, told, live] = await Promise.all([board.read(id), board.told(id), live_(id)])
-      const line = boardLine(file, told, live)
-      return { text: `context for ${id}${line.line ? `\n${line.line}` : ''}`, sentMarkIds: [], ...(line.line ? { boardTold: line.told } : {}) }
+      const line = boardLine(file, told, live, undefined, { again: (opts.fresh || opts.newConversation) && opts.onboarding !== true })
+      return { text: `context for ${id}${line.line ? `\n${line.line}` : ''}${line.brief ? `\n${line.brief}` : ''}`, sentMarkIds: [], ...(line.line ? { boardTold: line.told } : {}) }
     },
     onDelivered: (id, _marks, told) => {
       if (told) void board.markTold(id, told)
@@ -76,7 +80,7 @@ const depsOf = (s: Sessions): OnboardDeps => ({
   running: (id) => sessionRunning(s, id),
   importScan: (id, path) => scans.import(id, path),
   start: (obj, choice) => s.start(obj, choice),
-  prompt: (id, blocks) => s.prompt(id, blocks),
+  prompt: (id, blocks) => s.prompt(id, blocks, undefined, undefined, [], { onboarding: true }),
   began: (id) => s.began(id),
   boardTold: (id) => board.markAllTold(id),
   scene: () => undefined
@@ -128,6 +132,7 @@ beforeAll(async () => {
 afterEach(async () => {
   await sessions.stopAll()
   messages.length = 0
+  contexts.length = 0
 })
 
 afterAll(async () => {
@@ -172,11 +177,26 @@ describe('onboarding a new object', () => {
     const context = (messages.find((m) => m.type === 'system' && m.subtype === 'hook_response') as unknown as { output: string }).output
     expect(context).toMatch(/^context for cable-clip\nBoard: 7 cards \(0 new\), frames /)
     expect(context).not.toMatch(/ new:/)
+    // The prompt said the sizes and the rules: its context does not say them again (#324).
+    expect(contexts).toEqual([{ onboarding: true, newConversation: true }])
+    expect(context).not.toContain('6 mm')
+    expect(context).not.toContain('No supports.')
     expect(sessions.history(out.sessionId!)!.items.some((i) => i.kind === 'context' && i.text === context)).toBe(true)
 
     // And the object is the one `create` made, its brief holding the same notes.
     const brief = readFileSync(join(root, objectId, 'brief.md'), 'utf8')
     for (const note of ['the desk', 'the shape', 'mounts on this']) expect(brief).toContain(note)
+  })
+
+  it('tells the brief with a first prompt that is not the onboarding one, and takes the next prompt for none (#324)', async () => {
+    const { objectId, draft } = await made('plain-first')
+    const out = await onboardObject({ ...depsOf(sessions), prompt: (id, blocks) => sessions.prompt(id, blocks) }, objectId, draft)
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 15000 }).toBe(1)
+    const context = (messages.find((m) => m.type === 'system' && m.subtype === 'hook_response') as unknown as { output: string }).output
+    expect(context).toContain('cable Ø 6 mm (measured)')
+    sessions.prompt(out.sessionId!, [{ type: 'text', text: 'say again' }], undefined, undefined, [], { onboarding: true })
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 15000 }).toBe(2)
+    expect(contexts).toEqual([{ onboarding: false, newConversation: true }, { onboarding: false, newConversation: false }])
   })
 
   it('would call every card and frame new if the board were not counted as told first', async () => {

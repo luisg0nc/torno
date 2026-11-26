@@ -27,15 +27,23 @@ function jpeg(w: number, h: number): Uint8Array {
 }
 const image = (bytes: Uint8Array): ImageBytes => checkedImage(bytes)!
 
-/** What the first prompt asks of the agent after the placeholder's line (#111), for a module named `m`. */
-const ASK_FIRST = (m: string): string =>
-  [
-    `${m}.py is torno's placeholder (a 20 mm cube). Read brief.md and look at what was given. Then:`,
-    '',
-    "1. List the sizes that decide fit or function (overall size, wall, the sizes of the parts it mates with, hole and fastener sizes, clearances), and say where each comes from: the sizes the person gave (above, or size cards of the board), brief.md, a reference picture's note, a PDF, a scan (≈, to a few mm), another project, or nowhere.",
-    '2. Ask only for sizes with no source, those from nowhere: a size the person gave is not asked again. For those, ask in one round, before you build, with AskUserQuestion: at most 4 questions, each with 2 to 4 options, one of them a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"); the person may answer "build with assumptions". Do not ask about what you can choose freely (a fillet radius, a chamfer). If every size has a source, ask nothing.',
-    '3. Replace the placeholder with the real model, built with the answers. A size still unknown is built as assumed (a field of Params commented "assumed"), and your reply lists the assumptions.'
+/** The end of the first prompt (#111, #324), for a module named `m`: as told to a session without torno's skills (the long form), or with them. */
+const ASK_FIRST = (m: string, skills = false): string => {
+  const head = [`${m}.py is torno's placeholder (a 20 mm cube) for you to replace. What is above is kept for later conversations, in brief.md and on the board (mcp__torno__board): you need not read them now.`, '']
+  const what = 'how the thing is arranged or mounted, which bought part it holds, how a drawing reads, and any size that decides fit or function and has no source.'
+  if (skills) {
+    return [
+      ...head,
+      `Before you build, settle what would make the first build wrong, as the torno-model skill says under "Before the first model": ${what} Ask the person in one round, only what would change the build, with a sketch in the option where the question is about shape. A size that does not decide fit is an assumption they can change afterwards in Params, not a question. Then replace the placeholder, and list in your reply what you assumed.`
+    ].join('\n')
+  }
+  return [
+    ...head,
+    `Before you build, settle what would make the first build wrong: ${what} A size has a source when the person gave it (above, or as a size card of the board) or when brief.md, a reference picture's note, a PDF, a scan (≈, to a few mm) or another project says it; a size the person gave is not asked again.`,
+    'Ask the person in one round, before you build, with AskUserQuestion, only what would change the build: with a sketch in the option (its preview) where the question is about shape, and for a size one option a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"). The person may answer "build with assumptions". What does not decide fit (a fillet, a chamfer, a wall) is an assumption they can change afterwards in Params, not a question. If nothing would change the build, ask nothing.',
+    'Then replace the placeholder. What is still unknown is built as assumed (a field of Params whose comment begins "assumed:"), and your reply lists what you assumed.'
   ].join('\n')
+}
 
 describe('checkedImage', () => {
   it('takes a PNG or a JPEG whose long edge is at most 2000, and says which', () => {
@@ -267,7 +275,7 @@ describe('onboardPrompt', () => {
         ].join('\n')
       )
     }
-    expect(text).toContain('Ask only for sizes with no source')
+    expect(text).toContain('a size the person gave is not asked again')
     const named = [...text.matchAll(/mcp__torno__([A-Za-z_]+)/g)].map((m) => m[1])
     expect(named.filter((name) => !(name in TOOLS))).toEqual([])
   })
@@ -282,13 +290,32 @@ describe('onboardPrompt', () => {
     expect(text).not.toMatch(/^- injected/m)
   })
 
-  it('asks for the missing sizes in one round before the first build', () => {
+  it('says what to settle before the first build, not only sizes, in one round (#324)', () => {
     const { text, held } = onboardPrompt({ name: 'x', description: 'A thing.', items: [], scans: [], objects: [] })
-    for (const said of ['List the sizes that decide fit or function', 'or nowhere.', 'ask in one round, before you build, with AskUserQuestion', 'at most 4 questions, each with 2 to 4 options', 'labelled as typical', '"build with assumptions"', 'Do not ask about what you can choose freely', 'built as assumed']) {
+    for (const said of ['how the thing is arranged or mounted', 'which bought part it holds', 'how a drawing reads', 'any size that decides fit or function and has no source', 'Ask the person in one round, before you build, with AskUserQuestion', 'only what would change the build', 'a sketch in the option', 'labelled as typical', '"build with assumptions"', 'What does not decide fit (a fillet, a chamfer, a wall) is an assumption', 'If nothing would change the build, ask nothing', 'built as assumed']) {
       expect(text).toContain(said)
       expect(held).toContain(said)
     }
-    expect(text).not.toContain('ask what you need to know')
+    // The schema of AskUserQuestion says how many questions and options; the prompt no longer does.
+    expect(text).not.toMatch(/at most 4 questions|2 to 4 options/)
+    // What was given is kept for later conversations: it is not to be read again now.
+    expect(text).not.toContain('Read brief.md')
+    expect(text).toContain('What is above is kept for later conversations, in brief.md and on the board')
+  })
+
+  const long_ = (input: Parameters<typeof onboardPrompt>[0]) => onboardPrompt(input, undefined, false)
+  it('names the skill, where the rule is, when the session has torno\'s skills, and says the rule when it has not', () => {
+    const input = { name: 'x', description: 'A thing.', items: [], scans: [], objects: [] }
+    const short = onboardPrompt(input, undefined, true)
+    expect(short.text).toBe("This is a new project, x, made in torno just now. What it is, in the person's words:\n\nA thing.\n\n" + ASK_FIRST('x', true))
+    // Held for a later session, which may have no skills, it says the rule itself.
+    expect(short.held).toBe(long_(input).held)
+    expect(short.held).toContain('AskUserQuestion')
+    expect(short.text).not.toContain('AskUserQuestion')
+    const long = onboardPrompt(input, undefined, false)
+    expect(long.text).not.toContain('torno-model skill')
+    // The procedure is said once, in the skill, and the short form is under half the long one.
+    expect(ASK_FIRST('x', true).length).toBeLessThan(ASK_FIRST('x').length / 1.5)
   })
 })
 
@@ -371,6 +398,18 @@ describe('onboardObject', () => {
     await onboardObject(deps(), 'cable-clip', draft({ steps }))
     expect(shown.text).toBe(sent[0].blocks[0].text)
     await expect(onboardObject(deps(), 'cable-clip', draft({ steps: [{ file: '../../etc/x.step', note: '' }] }))).rejects.toThrow(/STEP file of reference/)
+  })
+
+  it('sends the short form to a session given torno\'s skills and the long form to one without, and previews each the same (#324)', async () => {
+    const empty = { description: 'A clip.', items: [], steps: [], scans: [], objects: [], sizes: [], rules: '', links: [], pdfs: [] }
+    for (const skills of [true, false]) {
+      sent = []
+      const shown = await previewPrompt(deps({ skills }), 'cable-clip', empty)
+      await onboardObject(deps({ skills }), 'cable-clip', draft())
+      expect(sent[0].blocks[0].text).toBe(shown.text)
+      expect(shown.text.includes('as the torno-model skill says under "Before the first model"')).toBe(skills)
+      expect(shown.text.includes('AskUserQuestion')).toBe(!skills)
+    }
   })
 
   it('previews the very text it sends, writing and starting nothing (#84)', async () => {

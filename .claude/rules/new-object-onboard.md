@@ -29,14 +29,28 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `deps.boardTold` (`BoardStore.markAllTold`) keeps what the board line would say of every card and arrow as told, so
   the line of this prompt reads "Board: N cards (0 new)": the prompt says them in its words. A failure of that does not
   stop the prompt.
-  The text ends in three numbered steps (#111): list the sizes that decide fit or function with the source of each
-  (the sizes the person gave, `brief.md`, a picture's note, a PDF, a scan, another object, or nowhere); ask only for those from nowhere in one round with
-  `AskUserQuestion` (at most 4 questions, each with 2 to 4 options, one a typical value labelled as such; "build
-  with assumptions" is an answer; nothing about what it can choose freely); build with the answers, a size still
-  unknown being "assumed" in `Params` and listed in the reply. The same rule is in the `torno-model` skill, "Before
-  the first model", which also applies it to a later feature whose key size is not given; the system prompt has no
-  room for it. Both are held by `onboard.test.ts` and `prompt.test.ts`. The window needs nothing new: the question
-  is the chat's card (or the CLI's own in a terminal).
+  The text ends (#111, #324, `settleText`) with the placeholder's line, that what is above is kept in `brief.md` and
+  on the board for later conversations (it no longer says to read `brief.md`), and what to settle before building:
+  `SETTLE`, how the thing is arranged or mounted, which bought part it holds, how a drawing reads, and any size that
+  decides fit or function and has no source, asked in one round, only what would change the build, with a sketch in
+  the option where the question is about shape; a size that does not decide fit is an assumption the person can
+  change afterwards in `Params`, not a question; the reply lists what was assumed. Given torno's skills (`OnboardDeps.skills`, `Sessions.skills`:
+  the adapter's; `onboardPrompt`'s third argument, as `systemPrompt` takes it) the prompt names the `torno-model`
+  skill's "Before the first model", where the procedure is (sources of a size, `AskUserQuestion`, a typical value,
+  "build with assumptions", `assumed:` in `Params`), about 750 characters with the placeholder's line, where the three steps were 1,200; without them it says that procedure itself. `held` is always the long form: it may be sent later in a session
+  without the skills. A session whose plugin did not load is still sent the short form (the prompt is written before
+  the CLI's `init` says so), as its system prompt is.
+  How many questions and options is the schema of `AskUserQuestion`, said in neither. The skill applies the rule to a
+  later feature too; the system prompt has no room for it. `onboard.test.ts` holds both forms and `prompt.test.ts`
+  holds the skill to `SETTLE` and to the section the prompt names. The preview takes the same flag, so the plate
+  shows what is sent; while the description is empty it shows `BLANK_DESCRIPTION` in its place. The window needs
+  nothing new: the question is the chat's card (or the CLI's own in a terminal).
+  The prompt goes as the onboarding prompt (`Sessions.prompt`'s `onboarding`, kept only for the first prompt of a
+  conversation begun with the session): its hook's context (`contextFor`'s `onboarding`) has no references line and
+  `boardLine` is not asked `again`, so with `markAllTold` the brief is not told twice (`onboard.itest.ts`).
+  `app/evals` has two cases that start from this prompt (`onboard` in `case.json`, the text read from
+  `objects.previewPrompt` of the built app): `m-open-mount` (every size given, the mounting open: an `asked` check
+  about it) and `m-nothing-to-ask` (`asked` false).
 - The pictures are the window's. Main has no decoder (Electron's `nativeImage` has none for WebP, and the window already
   decodes), so the window scales to a long edge of 1280 px and sends PNG or JPEG bytes; main reads the size from the
   header (`checkedImage`) and attaches only a PNG or JPEG of at most 2000 px and 3.75 MB (`MAX_IMAGE_BYTES`; base64 of

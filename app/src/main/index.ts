@@ -718,7 +718,8 @@ void app.whenReady().then(async () => {
       const notice = dir === undefined ? null : await takeGoBackNotice(dir).catch(() => null)
       // What is on the board, and what of it is new to the agent: one line. A board that cannot be read is no reason to tell nothing of the build.
       const all = await marks.list(id).catch(() => [])
-      const boarded = await boardLineFor(id, all, opts.toolName, opts.fresh || opts.newConversation).catch(() => undefined)
+      // The onboarding prompt says the brief in its own words (and `markAllTold` kept its hash): it is not told it again.
+      const boarded = await boardLineFor(id, all, opts.toolName, (opts.fresh || opts.newConversation) && opts.onboarding !== true).catch(() => undefined)
       // The rounds of the review: a round that is not sent holds its drafts back, one being sent has its prompt now, and is sent once the answer has left (`delivered`).
       const rounds = await marks.rounds(id).catch(() => undefined)
       // The names of the named sets, so that a mark labelled with one that is gone says so. Unreadable: not known, and the label is told as it is.
@@ -727,7 +728,7 @@ void app.whenReady().then(async () => {
       const tracingFile = await tracings.list(id).then((file) => file, () => undefined)
       // And what of them the agent was last told: the line says what has changed since (kept once the prompt is delivered).
       const tracingsLine = tracingFile && dir !== undefined ? tracingsLineOf(tracingFile, await readTracingsTold(dir), opts.toolName) : undefined
-      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.brief ? { brief: boarded.brief } : {}), ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, ...(opts.onboarding ? { onboarding: true } : {}), toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.brief ? { brief: boarded.brief } : {}), ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {

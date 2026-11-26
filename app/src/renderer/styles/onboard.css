@@ -1195,6 +1195,13 @@
   color: var(--on-dye);
 }
 
+/* Where the description will go while it is empty (#324): torno's muted face, set apart by a dashed rule. */
+.draft-pane .draft-pane-blank {
+  border-bottom: 1px dashed var(--scribe);
+  color: var(--on-dye-muted);
+  font-style: italic;
+}
+
 /* A reference: outlined, as the design draws it. */
 .draft-pane .draft-pane-chip {
   padding: 1px 6px;

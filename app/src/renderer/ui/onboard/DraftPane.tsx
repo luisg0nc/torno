@@ -67,6 +67,18 @@ export function promptStretches(text: string, words: string[]): Array<{ sizes: b
   return stretches.map((s) => ({ sizes: s.sizes, runs: runsOf(s.text, words) }))
 }
 
+/** What stands where the person's description will go, while it is empty (#324). */
+export const BLANK_DESCRIPTION = 'What you are making, in your words, goes here.'
+
+/**
+ * The prompt in two halves around the place of the description: after the opening line and its blank line, as
+ * `onboardPrompt` writes it. None when the text has no such place.
+ */
+export function aroundDescription(text: string): [string, string] | null {
+  const at = text.indexOf('\n\n')
+  return at < 0 ? null : [text.slice(0, at + 2), text.slice(at + 2)]
+}
+
 const draw = (runs: Run[]): ReactNode[] =>
   runs.map((run, n) => (
     <span key={n} className={run.chip ? 'draft-pane-chip' : run.mine ? 'draft-pane-mine' : undefined}>
@@ -112,7 +124,18 @@ function Will({ make }: { make: Make }) {
  * and at its foot what will be made and `children` (the choice of model and the buttons that make it). It is the plate of the
  * page: layout blue, with `--on-dye` text.
  */
-export function DraftPane({ preview, words, thumbs, make, children }: { preview: PromptPreview | null; words: string[]; thumbs: PaneThumb[]; make: Make; children?: ReactNode }) {
+export function DraftPane({ preview, words, thumbs, make, blank = false, children }: { preview: PromptPreview | null; words: string[]; thumbs: PaneThumb[]; make: Make; /** The draft has no description yet: a muted line stands in its place. */ blank?: boolean; children?: ReactNode }) {
+  const stretches = (text: string, from: number): ReactNode[] =>
+    promptStretches(text, words).map((stretch, n) =>
+      stretch.sizes ? (
+        <span key={from + n} className="draft-pane-size num">
+          {draw(stretch.runs)}
+        </span>
+      ) : (
+        <span key={from + n}>{draw(stretch.runs)}</span>
+      )
+    )
+  const halves = preview && blank ? aroundDescription(preview.text) : null
   return (
     <aside className="draft-pane" data-plate aria-label="The first prompt">
       <h3 className="draft-pane-lead">What Claude gets first</h3>
@@ -121,14 +144,14 @@ export function DraftPane({ preview, words, thumbs, make, children }: { preview:
         <p className="draft-pane-none">Reading the prompt…</p>
       ) : (
         <div className="draft-pane-text" tabIndex={0} aria-label="The first prompt">
-          {promptStretches(preview.text, words).map((stretch, n) =>
-            stretch.sizes ? (
-              <span key={n} className="draft-pane-size num">
-                {draw(stretch.runs)}
-              </span>
-            ) : (
-              <span key={n}>{draw(stretch.runs)}</span>
-            )
+          {halves ? (
+            <>
+              {stretches(halves[0], 0)}
+              <span className="draft-pane-blank">{BLANK_DESCRIPTION}</span>
+              {stretches(halves[1], 1000)}
+            </>
+          ) : (
+            stretches(preview.text, 0)
           )}
         </div>
       )}
@@ -184,7 +207,7 @@ export function DraftPaneLive({ make, children }: { make: Make; children?: React
   const urls = [...draft.photos.map((p) => p.url), ...draft.doodles.map((d) => d.url)]
   const thumbs = files.map((f, i): PaneThumb => ({ file: f.file, url: urls[i], attached: preview?.attached[i] ?? null, hasPicture: f.picture }))
   return (
-    <DraftPane preview={preview} words={wordsOf(draft)} thumbs={thumbs} make={make}>
+    <DraftPane preview={preview} words={wordsOf(draft)} thumbs={thumbs} make={make} blank={draft.description.trim() === ''}>
       {children}
     </DraftPane>
   )
