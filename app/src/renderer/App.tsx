@@ -414,8 +414,10 @@ export function App() {
     if (!d) return
     drag.current = null
     shell.current!.toggleAttribute('data-resizing', false)
-    // A press that moved nothing keeps what there was (the default stays the default of the window).
+    // A drag that ends where it began keeps what there was. With nothing kept, the width the drag wrote comes off (React has none of
+    // its own to put over it), so the default stays the default of the window.
     if (d.width !== d.startWidth) keepDock(d.width)
+    else if (kept === null) shell.current!.style.removeProperty('--dock-w')
     // Dragged with the pointer, the edge is done with: the next letter is the view's, not the session pane's.
     giveKeysBack(e.currentTarget)
   }

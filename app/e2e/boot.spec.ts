@@ -303,6 +303,36 @@ test("a dock width the person set is the window's: a reload leaves it", async ()
   expect((await page.locator('[data-region="session"]').boundingBox())!.width).toBe(420)
 })
 
+test("a drag of the dock's edge that ends where it began leaves the window's default to follow its width", async () => {
+  const dock = page.locator('[data-region="session"]')
+  const width = async () => (await dock.boundingBox())!.width
+  const edge = (await page.getByRole('separator', { name: 'Resize session' }).boundingBox())!
+  const x = edge.x + edge.width / 2
+  const y = edge.y + edge.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x - 100, y, { steps: 4 })
+  await expect.poll(width).toBe(520)
+  await page.mouse.move(x, y, { steps: 4 })
+  await page.mouse.up()
+  expect(await width()).toBe(420)
+  expect(await page.evaluate(() => localStorage.getItem('torno.dock'))).toBeNull()
+
+  // Under 1360 px of window the default is 384.
+  const size = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
+  const resize = async ([w, h]: number[]) => {
+    await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h])
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(w)
+  }
+  try {
+    await resize([1280, size[1]])
+    await expect.poll(width).toBe(384)
+  } finally {
+    await resize(size)
+  }
+  await expect.poll(width).toBe(420)
+})
+
 // Set TORNO_SHOTS=<dir> to write shell-light.png and shell-dark.png there.
 // Each picture needs its own launch: on a hidden window capturePage() delivers
 // one image and hangs on the next call, and page.screenshot() never returns.

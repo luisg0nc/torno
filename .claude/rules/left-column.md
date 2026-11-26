@@ -126,7 +126,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   The dock's width is the window's too (`state/dock.ts`: `torno.dock` in `localStorage`, `readDock` and `writeDock` in try/catch,
   `clampDock(width, windowWidth, leftWidth)`, `dockDefault`: 420 px, 384 in a narrow window, never under `DOCK_MIN` 320): a drag of the dock's edge
   or an arrow key keeps it, and until then `--dock-w` stands at the CSS default (`tokens.css`, with the narrow defaults of the card and
-  the dock in a media query that a test holds to `CARD_NARROW` and `DOCK_NARROW`). A window made smaller than a kept width shows less, and keeps what was set. Opening a project leaves the folding as it is.
+  the dock in a media query that a test holds to `CARD_NARROW` and `DOCK_NARROW`); a drag that ends where it began with nothing kept takes the width it wrote on the shell off again (`e2e/boot.spec.ts`). A window made smaller than a kept width shows less, and keeps what was set. Opening a project leaves the folding as it is.
 - **The projects of the folder** are the page of projects (`ShowPage`), and the project crumb's menu of the title bar (All projects at its head, a project that cannot be built muted, its reason the title). The example's note
   ("A temporary copy…", with Keep this as a folder…) and a folder that would not open (`role="alert"`, which brings the page up to be read) are said at the top of the page of projects (`ShowPage`'s `notes`, the spec being silent on where). There
   is no switcher: the title bar's pills say that a session of another project works or waits.
