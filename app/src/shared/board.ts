@@ -164,6 +164,17 @@ export function firstLink(text: string): string | null {
   return link
 }
 
+/** Every `http` or `https` address of a text, in order, each as `firstLink` reads one: what `brief.md`'s links are numbered by, in main and on the page alike. */
+export function linksIn(text: string): string[] {
+  const found: string[] = []
+  let rest = text
+  for (let link = firstLink(rest); link !== null; link = firstLink(rest)) {
+    found.push(link)
+    rest = rest.slice(rest.indexOf(link) + link.length)
+  }
+  return found
+}
+
 /** What the window asks main to open from a card: the brief in the person's program, or a file of `reference/` in its folder. */
 export type BoardOpen = { kind: 'brief' } | { kind: 'reference'; file: string }
 

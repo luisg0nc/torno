@@ -1,6 +1,6 @@
 import { existsSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
-import { type BoardAttach, type BoardFile, type BoardOpen, CARD_ID, MAX_CARDS, firstLink, type PersonChange, type PinWhat } from '../../shared/board'
+import { type BoardAttach, type BoardFile, type BoardOpen, CARD_ID, MAX_CARDS, firstLink, linksIn, type PersonChange, type PinWhat } from '../../shared/board'
 import { type SavedView, findView } from '../../shared/views'
 import type { ObjectInfo } from '../../shared/workspace'
 import { Refusal } from '../refusal'
@@ -144,12 +144,15 @@ export function boardHandlers(deps: BoardIpcDeps) {
     },
 
     /** The first link of a text card, opened in the person's browser. The window names the card; the card is read from the store, and only `http` and `https` go. */
-    async openLink(objectId: string, cardId: string): Promise<void> {
-      const { id } = open(objectId)
+    async openLink(objectId: string, cardId: string, nth = 0): Promise<void> {
+      const { id, obj } = open(objectId)
       if (typeof cardId !== 'string' || !CARD_ID.test(cardId)) throw new Refusal('That is not a card of the board.')
+      if (!Number.isSafeInteger(nth) || nth < 0) throw new Refusal('That is not a link of the card.')
       const card = (await deps.board.read(id)).cards.find((c) => c.id === cardId)
       if (!card) throw new Refusal('That card is not on the board.')
-      const link = card.kind === 'text' && card.text !== undefined ? firstLink(card.text) : null
+      // The brief's card opens the nth address of brief.md as main reads it now (`linksIn`, as the page numbers them); a text card its first.
+      const brief = card.kind === 'brief' ? await readBrief(obj.dir) : undefined
+      const link = card.kind === 'text' && card.text !== undefined && nth === 0 ? firstLink(card.text) : brief !== undefined ? (linksIn(brief)[nth] ?? null) : null
       let url: URL | undefined
       try {
         url = link === null ? undefined : new URL(link)

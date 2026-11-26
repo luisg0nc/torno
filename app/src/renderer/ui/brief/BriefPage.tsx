@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { type Card } from '../../../shared/board'
-import { briefSections, rulesSaid } from '../../../shared/brief'
+import { type Card, readingOrder } from '../../../shared/board'
+import { briefSections, briefSpine, briefWords, claudeWrote, handOf, rulesSaid, spineSaid } from '../../../shared/brief'
+import type { PromptRow } from '../../../shared/chat'
 import type { DimensionMark } from '../../../shared/marks'
 import { sizesTold, tallyReadings, tieReading } from '../../../shared/ties'
 import type { SizeFact } from '../../../shared/size'
@@ -13,12 +14,29 @@ import { addNote, addPicture, addRule, addSize, editSize, editText, removeCard, 
 import { TiePanel } from './TiePanel'
 import { PictureView } from './PictureView'
 import { NoteRow, PictureTile, ReferenceLine, RuleRow, SizeRow } from './Rows'
+import { BriefWords } from './BriefWords'
+import { Spine } from './Spine'
+import { usePrompts } from '../chat/usePrompts'
+import { numbered } from '../numbered'
 import { SizeForm } from './SizeForm'
 import { TextForm } from './TextForm'
 
-// The brief in the view's place, read like an inspection sheet: what we are making with its pictures beside it, a ledger of
-// sizes, the rules the same way, then the notes. Each size and rule has a column for what the build on show says of it; until
-// something checks them every one reads "nothing checks this". The cards are the board's (`board.json`), changed only by main.
+// The brief in the view's place, in two voices (#338): the person's words (`brief.md`, set as a page) on a sheet of their own
+// with their pictures and the notes they made here, then what Claude wrote down, on a spine of the prompts that wrote it,
+// then the ledgers of sizes and rules, each row saying whose it is. Each size and rule has a column for what the build on
+// show says of it; until something checks them every one reads "nothing checks this". The cards are the board's
+// (`board.json`), changed only by main. Who wrote what is said by where it stands, and by a red or green edge, never by the
+// colour of the words.
+
+/** The pen of the person's hand, beside their words. */
+function Pen() {
+  return (
+    <svg className="brief-pen" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="var(--user-mark)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 13l1-3.5L11 2.5 13.5 5 6.5 12z" />
+      <path d="M9.5 4l2.5 2.5" />
+    </svg>
+  )
+}
 
 const isImage = (f: File): boolean => f.type === 'image/png' || f.type === 'image/jpeg' || f.type === 'image/webp' || /\.heic$/i.test(f.name)
 const wordsOf = (e: unknown): string => (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']*': (?:Error: )?/, '')
@@ -66,6 +84,7 @@ export function BriefPage() {
   const build = useStore((s) => (s.scene ? s.revision : undefined))
   const [viewing, setViewing] = useState<{ url: string; label: string } | null>(null)
   const [removed, setRemoved] = useState<{ id: string; what: string } | null>(null)
+  const [pointed, setPointed] = useState<string | null>(null)
   const page = useRef<HTMLElement>(null)
   const files = useRef<HTMLInputElement>(null)
   const sections = useMemo(() => (board ? briefSections(board) : null), [board])
@@ -75,6 +94,14 @@ export function BriefPage() {
     return new Map((sections?.sizes ?? []).map((c) => [c.id, tieReading(c.size!, c.size!.tie ? dims.get(c.size!.tie.mark) : undefined, build)]))
   }, [sections, marks, build])
   const brief = useBrief(objectId ?? '', objectId !== null && sections?.hasWhat === true, board)
+  // The project's prompts, numbered across its conversations: asked again when a card of Claude's names another prompt.
+  const turnsKey = useMemo(() => (board?.cards ?? []).map((c) => c.turn?.prompt ?? c.from?.turn?.prompt ?? '').join(','), [board])
+  const rows = usePrompts(objectId !== null, turnsKey)
+  const prompts = useMemo(() => new Map((rows ?? []).map((r): [string, PromptRow] => [r.id, r])), [rows])
+  const nodes = useMemo(() => (board ? briefSpine(readingOrder(board.cards), prompts) : []), [board, prompts])
+  const spineCards = useMemo(() => nodes.flatMap((n) => n.cards), [nodes])
+  const words = useMemo(() => (brief ? briefWords(brief) : ''), [brief])
+  const briefCard = board?.cards.find((c) => c.kind === 'brief' && !c.hidden)
 
   // What main refused is said for a few seconds, and a removal can be taken back for a while.
   useEffect(() => {
@@ -97,6 +124,8 @@ export function BriefPage() {
   if (objectId === null || sections === null) return <section className="brief-page" aria-label="Brief" data-brief="" ref={page} />
   const id = objectId
 
+  const yourPictures = sections.pictures.filter((c) => !claudeWrote(c))
+  const yourNotes = sections.notes.filter((c) => !claudeWrote(c))
   const empty = sections.pictures.length + sections.sizes.length + sections.rules.length + sections.notes.length + sections.references.length === 0 && !sections.hasWhat
 
   async function take(list: readonly File[]): Promise<void> {
@@ -142,7 +171,7 @@ export function BriefPage() {
     }}>
       <header className="brief-head">
         <h1>What we are making</h1>
-        <span className="grow" />
+        <span className="brief-head-acts">
         <button type="button" className="button button-quiet" aria-pressed={attached?.ids === 'all'} title="Put the whole brief in the chat, to go with your next prompt" onClick={() => {
           boardActions.attachAll()
           actions.setDockOpen(true)
@@ -165,6 +194,7 @@ export function BriefPage() {
               </button>
             </div>
           )}
+        </span>
         </span>
       </header>
 
@@ -222,33 +252,54 @@ export function BriefPage() {
         </div>
       )}
 
-      <div className="brief-making">
-        <div>
-          {sections.hasWhat ? (
-            <>
-              <p className="brief-words">{brief === undefined ? '' : (brief ?? 'There is no brief.md in this project.')}</p>
-              <p className="brief-by">
-                Your words, from{' '}
-                <button type="button" className="link-button num" title="Open brief.md in your editor" onClick={() => void window.torno.board.open(id, { kind: 'brief' }).catch((e: unknown) => boardActions.say(wordsOf(e)))}>
-                  brief.md
-                </button>
-              </p>
-            </>
-          ) : (
-            <p className="brief-by">{empty ? 'Nothing in the brief yet. Add a size, a rule, a note or a picture.' : 'This project has no brief.md.'}</p>
+      <section className="brief-yours" aria-label="In your words">
+        <div className="brief-yours-head">
+          <Pen />
+          <h2>In your words</h2>
+          <span className="brief-yours-from">
+            {sections.hasWhat ? (
+              <>
+                kept in <span className="num">brief.md</span>
+              </>
+            ) : (
+              'no brief.md in this project'
+            )}
+          </span>
+          <span className="grow" />
+          {sections.hasWhat && (
+            <button type="button" className="button button-quiet brief-small" title="Open brief.md in your editor" onClick={() => void window.torno.board.open(id, { kind: 'brief' }).catch((e: unknown) => boardActions.say(wordsOf(e)))}>
+              Edit in your editor
+            </button>
           )}
-          {sections.references.map((c) => (
-            <ReferenceLine key={c.id} objectId={id} card={c} />
-          ))}
         </div>
-        {sections.pictures.length > 0 && (
-          <div className="brief-tiles">
-            {sections.pictures.map((c) => (
-              <PictureTile key={c.id} objectId={id} card={c} lit={isLit(c)} onOpen={(url, label) => setViewing({ url, label })} acts={acts(c, 'the picture', false)} />
+        <div className="brief-yours-body">
+          <div className="brief-yours-words">
+            {sections.hasWhat && brief !== undefined && (brief === null ? <p className="brief-by">There is no brief.md in this project.</p> : words === '' ? <p className="brief-by">brief.md has no words yet.</p> : <BriefWords objectId={id} cardId={briefCard?.id ?? ''} words={words} full={brief} />)}
+            {!sections.hasWhat && <p className="brief-by">{empty ? 'Nothing in the brief yet. Add a size, a rule, a note or a picture.' : 'Your words go in brief.md, in the project folder.'}</p>}
+            {sections.references.map((c) => (
+              <ReferenceLine key={c.id} objectId={id} card={c} />
             ))}
           </div>
+          {yourPictures.length > 0 && (
+            <div className="brief-tiles">
+              {yourPictures.map((c) => (
+                <PictureTile key={c.id} objectId={id} card={c} lit={isLit(c)} onOpen={(url, label) => setViewing({ url, label })} acts={acts(c, 'the picture', false)} />
+              ))}
+            </div>
+          )}
+        </div>
+        {(yourNotes.length > 0 || adding === 'note') && (
+          <div className="brief-added" role="region" aria-label="Your notes">
+            {yourNotes.map((c) => (editing === c.id ? <TextForm key={c.id} initial={c.text} label="Note" onKeep={keepText(c, false)} onCancel={done} /> : <NoteRow key={c.id} objectId={id} card={c} lit={isLit(c)} acts={acts(c, 'the note')} />))}
+            {adding === 'note' && <TextForm label="New note" onKeep={keepText(null, false)} onCancel={done} />}
+          </div>
         )}
-      </div>
+        <div className="brief-yours-foot">
+          <button type="button" className="link-button" onClick={() => { setEditing(null); setAdding('note') }}>
+            Add a note
+          </button>
+        </div>
+      </section>
 
       {sections.hidden.length > 0 && (
         <p className="brief-hidden">
@@ -264,6 +315,31 @@ export function BriefPage() {
         </p>
       )}
 
+      <section className="brief-voices" aria-label="What Claude wrote down">
+        <div className="brief-block-head">
+          <h2>What Claude wrote down</h2>
+          <span className="brief-said">
+            {spineCards.length > 0 ? <>by the prompt that wrote it: {numbered(spineSaid(spineCards, sections.rulesFrame))}</> : 'nothing yet: what Claude settles with you shows here, under the prompt it came from'}
+          </span>
+        </div>
+        {nodes.length > 0 && (
+          <Spine
+            objectId={id}
+            nodes={nodes}
+            rulesFrame={sections.rulesFrame}
+            prompts={prompts}
+            pointed={pointed}
+            onPoint={setPointed}
+            lit={lit}
+            actsOf={(c) => ({ onRemove: () => void remove(c, c.kind === 'size' ? (c.size?.what ?? 'the size') : 'the note'), ...(c.by === 'person' ? { onEdit: () => setEditing(c.id) } : {}) })}
+            editingOf={(c) =>
+              editing !== c.id ? undefined : c.kind === 'size' ? <SizeForm was={c.size} onKeep={keepSize(c)} onCancel={done} /> : c.kind === 'text' ? <TextForm initial={c.text} label={c.frame === sections.rulesFrame ? 'Rule' : 'Note'} onKeep={keepText(c, false)} onCancel={done} /> : undefined
+            }
+            onOpenPicture={(url, label) => setViewing({ url, label })}
+          />
+        )}
+      </section>
+
       <section className="brief-block" aria-label="Sizes">
         <div className="brief-block-head">
           <h2>Sizes</h2>
@@ -278,6 +354,7 @@ export function BriefPage() {
               <div className="brief-row brief-headrow" aria-hidden="true">
                 <span>Size</span>
                 <span>What it measures, from where</span>
+                <span>Who</span>
                 <span className="brief-against">Against the build on show</span>
               </div>
             )}
@@ -286,7 +363,7 @@ export function BriefPage() {
                 <SizeForm key={c.id} was={c.size} onKeep={keepSize(c)} onCancel={done} />
               ) : (
                 <Fragment key={c.id}>
-                  <SizeRow card={c} lit={isLit(c)} acts={acts(c, c.size?.what ?? 'the size')} reading={readings.get(c.id) ?? { state: 'none' }} build={build} tying={tying === c.id} onTie={() => setTying(tying === c.id ? null : c.id)} />
+                  <SizeRow card={c} lit={isLit(c)} acts={acts(c, c.size?.what ?? 'the size')} reading={readings.get(c.id) ?? { state: 'none' }} build={build} tying={tying === c.id} onTie={() => setTying(tying === c.id ? null : c.id)} hand={handOf(c, prompts)} />
                   {tying === c.id && (
                     <TiePanel
                       card={c}
@@ -319,23 +396,10 @@ export function BriefPage() {
         </div>
         {(sections.rules.length > 0 || adding === 'rule') && (
           <div className="brief-ledger">
-            {sections.rules.map((c) => (editing === c.id ? <TextForm key={c.id} initial={c.text} label="Rule" onKeep={keepText(c, true)} onCancel={done} /> : <RuleRow key={c.id} objectId={id} card={c} lit={isLit(c)} acts={acts(c, 'the rule')} />))}
+            {sections.rules.map((c) => (editing === c.id ? <TextForm key={c.id} initial={c.text} label="Rule" onKeep={keepText(c, true)} onCancel={done} /> : <RuleRow key={c.id} objectId={id} card={c} lit={isLit(c)} acts={acts(c, 'the rule')} hand={handOf(c, prompts)} />))}
             {adding === 'rule' && <TextForm label="New rule" onKeep={keepText(null, true)} onCancel={done} />}
           </div>
         )}
-      </section>
-
-      <section className="brief-block" aria-label="Notes">
-        <div className="brief-block-head">
-          <h2>Notes</h2>
-          <button type="button" className="link-button" onClick={() => { setEditing(null); setAdding('note') }}>
-            Add a note
-          </button>
-        </div>
-        <div className="brief-notes">
-          {sections.notes.map((c) => (editing === c.id ? <TextForm key={c.id} initial={c.text} label="Note" onKeep={keepText(c, false)} onCancel={done} /> : <NoteRow key={c.id} objectId={id} card={c} lit={isLit(c)} acts={acts(c, 'the note')} />))}
-          {adding === 'note' && <TextForm label="New note" onKeep={keepText(null, false)} onCancel={done} />}
-        </div>
       </section>
 
       <MarksBlock />

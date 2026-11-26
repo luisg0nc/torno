@@ -205,6 +205,17 @@ describe('the board handlers', () => {
     expect(links).toEqual(['https://example.com/a'])
   })
 
+  it('opens the nth address of brief.md from the brief\'s card, as main reads the file now, and no other (#338)', async () => {
+    const h = handlers()
+    writeFileSync(join(dir, 'brief.md'), '# box\n\nSee [the cockpit](https://cdn.example.com/cockpit.pdf) and https://example.org/b.\n')
+    await store.torno('bracket', (b) => ({ ...b, next: b.next + 1, cards: [...b.cards, { id: `C${b.next}`, kind: 'brief', x: 0, y: 0, w: 300, h: 200, by: 'torno', source: 'brief' }] }))
+    await h.openLink('bracket', 'C1', 1)
+    await h.openLink('bracket', 'C1')
+    expect(links).toEqual(['https://example.org/b', 'https://cdn.example.com/cockpit.pdf'])
+    for (const nth of [2, -1, 0.5]) await expect(h.openLink('bracket', 'C1', nth)).rejects.toThrow()
+    expect(links).toHaveLength(2)
+  })
+
   it('opens nothing for a card that holds no http or https link, or one that is not there, and rejects', async () => {
     const h = handlers()
     await h.change('bracket', text({ text: 'javascript:alert(1)' }))

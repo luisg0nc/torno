@@ -71,7 +71,9 @@ test('Ctrl+Tab shows the brief and stops the view drawing; Ctrl+Tab again brings
 test('the brief card shows brief.md read only, and a project with nothing else says so', async () => {
   await expect(page.getByRole('heading', { name: 'What we are making' })).toBeVisible()
   await expect(sheet()).toContainText('Holds the lid shut', { timeout: 20_000 })
-  await expect(sheet().getByRole('button', { name: 'brief.md' })).toBeVisible()
+  await expect(sheet().getByRole('button', { name: 'Edit in your editor' })).toBeVisible()
+  // The name torno wrote on top of brief.md is the project's, not part of the words.
+  await expect(sheet().getByRole('region', { name: 'In your words' })).not.toContainText('A bracket')
   await expect(sizeRows()).toHaveCount(0)
   await expect(sheet().getByRole('region', { name: 'Sizes' })).toContainText('none yet')
 })
@@ -139,9 +141,10 @@ test('Add a rule makes the frame named Rules once, and a rule and a note are fie
   await sheet().getByRole('button', { name: 'Add a note' }).click()
   await page.getByLabel('New note').fill('ask about the screws')
   await page.keyboard.press('Enter')
-  await expect(sheet().getByRole('region', { name: 'Notes' })).toContainText('ask about the screws')
+  await expect(sheet().getByRole('region', { name: 'Your notes' })).toContainText('ask about the screws')
+  await expect(sheet().getByRole('region', { name: 'Your notes' })).toContainText('Added on this page')
   // A rule is not a note.
-  await expect(sheet().getByRole('region', { name: 'Notes' })).not.toContainText('Printed in ABS')
+  await expect(sheet().getByRole('region', { name: 'Your notes' })).not.toContainText('Printed in ABS')
 })
 
 test('a ref to a card in the chat is a chip, and clicking it shows the brief with that card lit', async () => {
@@ -204,7 +207,9 @@ test('an old board (the project `plain`) keeps every card: frames, arrows, view 
   await expect(sizeRows().nth(0)).toContainText('from a datasheet')
   await expect(sizeRows().nth(1)).toHaveAttribute('data-by', 'agent')
   await expect(sizeRows().nth(1)).toContainText('from Claude')
-  await expect(page.locator('.brief-note[data-by="agent"]')).toContainText('widen the latch')
+  await expect(page.locator('.brief-cn[data-by="agent"][data-kind="text"]')).toContainText('widen the latch')
+  // Written before torno kept the prompt: one node for all of it.
+  await expect(page.locator('.brief-node').first()).toContainText('Before torno kept the prompt')
   await expect(sheet().getByRole('region', { name: 'Rules' })).toContainText('Strong: it carries the cooler')
   // A rule is a judgement: no measure says it.
   await expect(sheet().getByRole('region', { name: 'Rules' })).toContainText('a judgement: no measure says it')
@@ -216,7 +221,7 @@ test('an old board (the project `plain`) keeps every card: frames, arrows, view 
   await sheet().getByRole('button', { name: 'Add a note' }).click()
   await page.getByLabel('New note').fill('one more')
   await page.keyboard.press('Enter')
-  await expect(sheet().getByRole('region', { name: 'Notes' })).toContainText('one more')
+  await expect(sheet().getByRole('region', { name: 'Your notes' })).toContainText('one more')
   const after = JSON.parse(readFileSync(boardPath('plain'), 'utf8')) as BoardFile
   expect(after.cards.slice(0, old.cards.length)).toEqual(old.cards)
   expect(after.arrows).toEqual(old.arrows)
@@ -245,4 +250,64 @@ test('a board file that cannot be read is kept aside and said on the page, with 
   await notice.getByRole('button', { name: 'Dismiss' }).click()
   await expect(notice).toHaveCount(0)
   expect(await page.evaluate(() => window.torno.board.problem('two'))).toBeNull()
+})
+
+// #338: the brief in two voices. The person's words of brief.md set as a page; Claude's cards on a spine of the prompts that wrote them.
+const CONV = '0a1b2c3d-0000-4000-8000-0000000000aa'
+const turn = (n: number) => ({ prompt: `u${n}`, conversation: CONV })
+const voices = (): void => {
+  const dir = join(root, 'hollow')
+  writeFileSync(join(dir, 'brief.md'), '# hollow\n\nWe want a box for a panel.\n\n- 5 toggles\n- ESP32 with a screen\n\nThe cockpit: https://cdn.example.com/files/GT1-EVO_cockpit.pdf?v=1\n')
+  mkdirSync(join(dir, '.torno', 'board'), { recursive: true })
+  mkdirSync(join(dir, '.torno', 'chat'), { recursive: true })
+  writeFileSync(join(dir, '.torno', 'session.json'), JSON.stringify({ conversationId: CONV }))
+  // Three prompts, so numbered 1, 2 and 3 across the project.
+  const said = [[2, 'Put the box on the shifter arm.'], [6, 'Try a tube.'], [11, 'Make the mount an arm with teeth.']] as const
+  writeFileSync(join(dir, '.torno', 'chat', `${CONV}.jsonl`), said.map(([n, text]) => JSON.stringify({ kind: 'user', id: `u${n}`, text, images: [], at: Date.UTC(2026, 10, 25, 14, n), state: 'sent' })).join('\n') + '\n')
+  const board: BoardFile = {
+    next: 30,
+    arrows: [],
+    cards: [
+      { id: 'C1', kind: 'brief', x: 0, y: 0, w: 300, h: 200, by: 'torno', source: 'brief' },
+      { id: 'C10', kind: 'text', x: 0, y: 300, w: 240, h: 120, by: 'agent', text: 'Where: on the outer side of the right shifter arm.', turn: turn(2) },
+      { id: 'C13', kind: 'text', x: 0, y: 500, w: 240, h: 120, by: 'agent', text: 'Mount: an adjustable arm with face teeth.', turn: turn(11), was: [{ text: 'Mount: a flat blade.', turn: turn(2) }, { text: 'Mount: a one-piece tube.', turn: turn(6) }] },
+      { id: 'C14', kind: 'size', x: 0, y: 700, w: 240, h: 120, by: 'agent', turn: turn(2), size: { what: 'screen board', value: '40.9 x 19.7', unit: 'mm', source: 'from Claude' } },
+      { id: 'C6', kind: 'size', x: 0, y: 900, w: 240, h: 120, by: 'person', size: size('push button hole', 'Ø 16', 'from a manual or datasheet') }
+    ]
+  }
+  writeFileSync(boardPath('hollow'), JSON.stringify(board, null, 2))
+}
+
+test('the brief in two voices: your words set as a page, Claude\'s cards on a spine of the prompts that wrote them, and the way to a prompt in the chat (#338)', async () => {
+  voices()
+  await openListed(page, 'hollow')
+  await expect.poll(() => page.evaluate(() => window.__tornoTest?.state().objectId), { timeout: 20_000 }).toBe('hollow')
+  await switchButton('Brief').click()
+  const yours = sheet().getByRole('region', { name: 'In your words' })
+  await expect(yours).toContainText('We want a box for a panel.', { timeout: 20_000 })
+  await expect(yours.locator('.brief-words li')).toHaveText(['5 toggles', 'ESP32 with a screen'])
+  // A web address is a link with its host, never the address itself.
+  await expect(yours.locator('.brief-weblink')).toContainText('GT1 EVO cockpit, PDF')
+  await expect(yours.locator('.brief-weblink')).toContainText('cdn.example.com')
+  await expect(yours).not.toContainText('?v=1')
+  const spine = sheet().getByRole('region', { name: 'What Claude wrote down' })
+  await expect(spine.locator('.brief-node .brief-node-head b')).toHaveText(['Prompt 1', 'Prompt 2', 'Prompt 3'])
+  const two = spine.locator('.brief-node[data-prompt="u2"]')
+  await expect(two.locator('.brief-asked')).toContainText('You: Put the box on the shifter arm.')
+  await expect(two.locator('.brief-cn')).toHaveCount(2)
+  // What C13 said in prompt 2, struck there, with the prompt that changed it.
+  await expect(two.locator('.brief-ghost')).toContainText('Mount: a flat blade. Changed in prompt 2.')
+  await expect(spine.locator('.brief-node[data-prompt="u6"] .brief-ghost')).toContainText('Changed in prompt 3.')
+  // The ledger says whose each size is.
+  await expect(sizeRows().filter({ hasText: 'screen board' }).locator('.brief-hand')).toHaveText('Claude, prompt 1')
+  await expect(sizeRows().filter({ hasText: 'push button hole' }).locator('.brief-hand')).toHaveText('You')
+  // Pointing at a card opens what it replaced and the way to its prompt.
+  const mount = spine.locator('.brief-cn[data-card="C13"]')
+  await mount.click()
+  await expect(mount.locator('.brief-cn-id')).toHaveAttribute('aria-expanded', 'true')
+  await expect(mount).toContainText('It replaced Mount: a flat blade. (prompt 1), then Mount: a one-piece tube. (prompt 2).')
+  await expect(spine.locator('.brief-node[data-prompt="u11"]')).toHaveAttribute('data-open', '')
+  await mount.getByRole('button', { name: 'Show prompt 3 in the chat' }).click()
+  await expect(page.locator('[data-region="session"] .chat-group[data-id="u11"]')).toHaveAttribute('data-shown', '', { timeout: 10_000 })
+  await page.keyboard.press('Escape')
 })

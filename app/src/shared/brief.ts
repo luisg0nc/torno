@@ -1,4 +1,5 @@
-import { type BoardFile, type Card, readingOrder } from './board'
+import { type BoardFile, type Card, type CardTurn, readingOrder } from './board'
+import type { PromptRow } from './chat'
 import { type SizeFact, parseSize } from './size'
 
 // The brief page's reading of a project's board (`board.json`): the cards that say what the project is, sorted into the
@@ -65,4 +66,168 @@ export function sizesSaid(sizes: number): string {
 /** The line over the rules. */
 export function rulesSaid(rules: number): string {
   return rules === 0 ? 'none yet' : `${rules} rule${rules === 1 ? '' : 's'}, ${rules} not checked`
+}
+
+/** What the person wrote, the way the page tells it: Claude's cards are those it wrote, made the person's since or not (#338). */
+export const claudeWrote = (card: Card): boolean => card.by === 'agent' || card.from?.by === 'agent'
+
+/** The kinds of card the spine of "What Claude wrote down" holds: its notes and rules, its sizes, its pictures of the view. */
+const SPINE_KINDS: ReadonlySet<Card['kind']> = new Set(['text', 'size', 'picture', 'sketch'])
+
+/** What a card of Claude's said before an edit, in the node of the prompt that wrote it: struck, with the prompt that changed it. */
+export interface SpineGhost {
+  card: string
+  text: string
+  /** The number of the prompt that changed it, when that prompt is known on this computer. */
+  changedIn?: number
+}
+
+/** One prompt on the spine, with the cards of Claude's it wrote (or last changed) and the words of its cards that a later prompt changed. */
+export interface SpineNode {
+  /** The prompt's id, or '' for the cards written before torno kept their prompt. */
+  id: string
+  turn?: CardTurn
+  /** The prompt as the chat's log has it, when it is on this computer. */
+  prompt?: PromptRow
+  /** When: the prompt's time, else the earliest of its cards', ms. */
+  at?: number
+  cards: Card[]
+  ghosts: SpineGhost[]
+}
+
+/** The prompt a card of Claude's belongs to now: the one that wrote or last changed it, kept when the person made it theirs. */
+export const turnOfCard = (card: Card): CardTurn | undefined => card.turn ?? card.from?.turn
+
+const msOf = (at: string | undefined): number | undefined => {
+  const ms = at === undefined ? Number.NaN : Date.parse(at)
+  return Number.isFinite(ms) ? ms : undefined
+}
+
+/**
+ * Claude's cards of a board on a spine of the prompts that wrote them, oldest first (#338): each card in the node of the
+ * prompt that wrote or last changed it, and each of its earlier words, struck, in the node of the prompt that wrote those.
+ * `cards` are in reading order and that order is kept within a node; the cards no prompt is known for (written before
+ * torno kept it) are one node, first. `prompts` are the project's, by id (`chat:prompts`): a prompt that is not among
+ * them has no number and is placed by its cards' time.
+ */
+export function briefSpine(cards: readonly Card[], prompts: ReadonlyMap<string, PromptRow>): SpineNode[] {
+  const nodes = new Map<string, SpineNode>()
+  const nodeOf = (turn: CardTurn | undefined): SpineNode => {
+    const id = turn?.prompt ?? ''
+    let node = nodes.get(id)
+    if (!node) {
+      const prompt = turn ? prompts.get(turn.prompt) : undefined
+      node = { id, ...(turn ? { turn } : {}), ...(prompt ? { prompt, at: prompt.at } : {}), cards: [], ghosts: [] }
+      nodes.set(id, node)
+    }
+    return node
+  }
+  const seen = (node: SpineNode, at: string | undefined): void => {
+    const ms = msOf(at)
+    if (node.prompt === undefined && ms !== undefined && (node.at === undefined || ms < node.at)) node.at = ms
+  }
+  for (const card of cards) {
+    if (card.hidden || !SPINE_KINDS.has(card.kind) || !claudeWrote(card)) continue
+    const now = turnOfCard(card)
+    const node = nodeOf(now)
+    node.cards.push(card)
+    seen(node, card.from?.at ?? card.at)
+    const was = card.was ?? []
+    was.forEach((one, i) => {
+      const next = i + 1 < was.length ? was[i + 1].turn : now
+      const changedIn = next ? prompts.get(next.prompt)?.number : undefined
+      const old = nodeOf(one.turn)
+      old.ghosts.push({ card: card.id, text: one.text, ...(changedIn !== undefined ? { changedIn } : {}) })
+      seen(old, one.at)
+    })
+  }
+  return [...nodes.values()].sort((a, b) => (a.id === '' ? -1 : b.id === '' ? 1 : (a.at ?? 0) - (b.at ?? 0) || (a.prompt?.number ?? 0) - (b.prompt?.number ?? 0)))
+}
+
+/** Who wrote a card, said in a few words with its prompt: "You", "Claude, prompt 13", "Yours, from prompt 13". */
+export function handOf(card: Card, prompts: ReadonlyMap<string, PromptRow>): { hand: 'you' | 'claude'; label: string } {
+  const number = (turn: CardTurn | undefined): number | undefined => (turn ? prompts.get(turn.prompt)?.number : undefined)
+  if (card.by === 'agent') {
+    const n = number(card.turn)
+    return { hand: 'claude', label: n === undefined ? 'Claude' : `Claude, prompt ${n}` }
+  }
+  if (card.from?.by === 'agent') {
+    const n = number(card.from.turn)
+    return { hand: 'you', label: n === undefined ? 'Yours, from Claude' : `Yours, from prompt ${n}` }
+  }
+  return { hand: 'you', label: card.by === 'torno' ? 'torno' : 'You' }
+}
+
+/** How many of each Claude wrote down, in a line: `9 notes, 4 sizes, a rule`. */
+export function spineSaid(cards: readonly Card[], rulesFrame: string | null): string {
+  const many = (n: number, one: string, a: string): string => (n === 1 ? a : `${n} ${one}s`)
+  const rules = cards.filter((c) => c.kind === 'text' && rulesFrame !== null && c.frame === rulesFrame).length
+  const notes = cards.filter((c) => c.kind === 'text').length - rules
+  const sizes = cards.filter((c) => c.kind === 'size').length
+  const pictures = cards.filter((c) => c.kind === 'picture' || c.kind === 'sketch').length
+  const parts = [notes > 0 ? many(notes, 'note', 'a note') : '', sizes > 0 ? many(sizes, 'size', 'a size') : '', rules > 0 ? many(rules, 'rule', 'a rule') : '', pictures > 0 ? many(pictures, 'picture', 'a picture') : ''].filter(Boolean)
+  return parts.length === 0 ? 'nothing yet' : parts.join(', ')
+}
+
+/** The topic a card of Claude's starts with ("Mount: an arm" is of Mount), when it starts with one: a short name and a colon. */
+export function topicOf(text: string): { topic: string; rest: string } | null {
+  const m = /^([A-Z][^:\n.]{0,39}):\s+(\S[\s\S]*)$/.exec(text.trim())
+  return m ? { topic: m[1], rest: m[2] } : null
+}
+
+/** A web address as the page shows it: a short label (a file's name, or the host) and the host, never the address broken over lines. */
+export function linkLabel(url: string): { label: string; host: string } {
+  try {
+    const u = new URL(url)
+    const host = u.host.replace(/^www\./, '')
+    const last = decodeURIComponent(u.pathname.split('/').filter(Boolean).at(-1) ?? '')
+    const pdf = /\.pdf$/i.test(last)
+    const name = last.replace(/\.[a-z0-9]{1,5}$/i, '').replace(/[-_]+/g, ' ').trim()
+    if (name === '' || !/[a-z]/i.test(name)) return { label: host, host }
+    return { label: `${name.length > 48 ? `${name.slice(0, 47)}…` : name}${pdf ? ', PDF' : ''}`, host }
+  } catch {
+    return { label: url.slice(0, 48), host: '' }
+  }
+}
+
+/** A level-two section of `brief.md`: its heading's words and the lines under it. */
+interface Section {
+  heading: string
+  body: string
+}
+
+/** `brief.md` cut at its level-two headings: what comes before the first, and each section. */
+function sectionsOf(text: string): { head: string; sections: Section[] } {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const head: string[] = []
+  const sections: Section[] = []
+  let fence = false
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) fence = !fence
+    const h = fence ? null : /^##\s+(.+?)\s*#*\s*$/.exec(line)
+    if (h) sections.push({ heading: h[1], body: '' })
+    else if (sections.length === 0) head.push(line)
+    else sections[sections.length - 1].body += `${line}\n`
+  }
+  return { head: head.join('\n'), sections }
+}
+
+/**
+ * The person's words of `brief.md` as the page shows them (#338): without the `# name` line torno wrote at its top (the page
+ * says what it is), and without the `## References` torno listed the files of `reference/` under (the page shows those
+ * files, with their notes).
+ */
+export function briefWords(text: string): string {
+  const { head, sections } = sectionsOf(text)
+  const top = head.replace(/^\s*#\s[^\n]*\n?/, '')
+  return [top.trim(), ...sections.filter((s) => s.heading.trim().toLowerCase() !== 'references').map((s) => `## ${s.heading}\n${s.body.trimEnd()}`)].filter((part) => part !== '').join('\n\n')
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** When something was said, as the spine says it: `25 Nov 14:11`, in the computer's own time. */
+export function whenSaid(ms: number): string {
+  const d = new Date(ms)
+  const two = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${two(d.getHours())}:${two(d.getMinutes())}`
 }

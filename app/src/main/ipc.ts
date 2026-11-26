@@ -1216,7 +1216,7 @@ export function registerIpc(
   handle('board:addPicture', (_event, objectId: string, bytes: Uint8Array) => requireBoards().addPicture(objectId, bytes))
   handle('board:pin', (_event, objectId: string, what: PinWhat) => requireBoards().pin(objectId, what))
   handle('board:open', (_event, objectId: string, what: BoardOpen) => requireBoards().open(objectId, what))
-  handle('board:openLink', (_event, objectId: string, cardId: string) => requireBoards().openLink(objectId, cardId))
+  handle('board:openLink', (_event, objectId: string, cardId: string, nth?: number) => requireBoards().openLink(objectId, cardId, nth ?? 0))
   handle('board:problem', (_event, objectId: string) => requireBoards().problem(objectId))
   handle('board:dismissProblem', (_event, objectId: string) => requireBoards().dismissProblem(objectId))
   handle('board:aside', (_event, objectId: string) => requireBoards().aside(objectId))
