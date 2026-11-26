@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { boardActions } from '../../state/board'
 import { useShelf } from '../../state/shelf'
 import { PartLine, PartPicture } from '../shelf/PartBits'
-import type { Slip } from './shelfSlip'
+import type { Slip } from './slipsOf'
 
 /**
  * The slip under the card of a write to a shelf part's folder (#354): "On the shelf: ec11" and the file written, and, once the shelf lists the part

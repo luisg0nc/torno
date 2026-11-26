@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shelfOffer } from './shelfOffer'
+import { shelfOffer } from './offerLines'
 
 const ask = (question: string, header = 'Shelf') => ({ question, header, multi: false, options: [{ label: 'Put it on the shelf', description: '' }, { label: 'Not this one', description: '' }] })
 

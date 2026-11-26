@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatItem } from '../../../shared/chat'
-import { shelfSlips } from './shelfSlip'
+import { shelfSlips } from './slipsOf'
 
 let n = 0
 const tool = (name: string, file: unknown, state: Extract<ChatItem, { kind: 'tool' }>['state'] = 'done'): ChatItem => ({ kind: 'tool', id: `t${++n}`, toolUseId: `u${n}`, name, torno: false, input: { file_path: file }, state, images: [] })

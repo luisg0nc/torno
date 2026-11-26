@@ -8,7 +8,7 @@ import { Diff } from './Diff'
 import { Markdown } from './markdown'
 import { Takeover, WaitsBelow } from './AskTakeover'
 import { ShelfOffer } from './ShelfOffer'
-import { type ShelfOffer as Offer, shelfOffer } from './shelfOffer'
+import { type ShelfOffer as Offer, shelfOffer } from './offerLines'
 import { isEditable } from './typing'
 import { useChatPlace } from './place'
 

@@ -1,5 +1,5 @@
 import { numbered } from '../numbered'
-import type { ShelfOffer as Offer } from './shelfOffer'
+import type { ShelfOffer as Offer } from './offerLines'
 
 /**
  * What a question that offers a part to the shelf says besides its title (#354): its other lines as they were written, and the size lines as a

@@ -24,11 +24,11 @@ paths:
   - "app/src/renderer/ui/place/**"
   - "app/src/renderer/ui/shelf/placeRequest.ts"
   - "app/src/renderer/ui/shelfDrops.ts"
-  - "app/src/renderer/ui/chat/shelfOffer.ts"
-  - "app/src/renderer/ui/chat/shelfOffer.test.ts"
+  - "app/src/renderer/ui/chat/offerLines.ts"
+  - "app/src/renderer/ui/chat/offerLines.test.ts"
   - "app/src/renderer/ui/chat/ShelfOffer.tsx"
-  - "app/src/renderer/ui/chat/shelfSlip.ts"
-  - "app/src/renderer/ui/chat/shelfSlip.test.ts"
+  - "app/src/renderer/ui/chat/slipsOf.ts"
+  - "app/src/renderer/ui/chat/slipsOf.test.ts"
   - "app/src/renderer/ui/chat/ShelfSlip.tsx"
   - "app/e2e/shelfask.spec.ts"
   - "app/src/main/shelf/add.ts"
@@ -129,13 +129,13 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
 
 - **The ask is the skill's** (`torno-model`: `AskUserQuestion`, header `Shelf`, the question `Put <name> on the parts shelf?` and a line a size `<value> <what> (<source>)`, options
   `Put it on the shelf` and `Not this one`, the folder written only on yes). torno does not enforce it: no hook holds a write to `common/parts/`, and the slip below says what was written either way.
-- **The card** (`ui/chat/shelfOffer.ts` `shelfOffer(question)`, pure; `ShelfOffer.tsx` draws it; `AskCard.tsx` `QuestionView`): a question whose `header` is `shelf` in any case, with at least one size line, is an
+- **The card** (`ui/chat/offerLines.ts` `shelfOffer(question)`, pure; `ShelfOffer.tsx` draws it; `AskCard.tsx` `QuestionView`): a question whose `header` is `shelf` in any case, with at least one size line, is an
   offer: the first line is the title, a run of lines `<value> <what> (<source>)` (`SIZE`: a number, `Ø`/`M` before it, `×` between numbers, a unit after) is one table of value (`.num`), what and source, `tone` from
   `sourceOf` (`assumed` warn, `measured` ok, `listing`, a standard and `derived` quiet, any other plain: muted, as the part ledger's words), every other line is text in its place, a bullet is dropped. A line that
   does not read as a size stays text, so nothing is lost; no size line is no offer and the card is the ordinary one. The options are buttons in a row (the first `button-primary`), the Other field beside them says
   `or answer in your words`; a choice of an offer that is the only question answers at once (no Submit: it appears only when Other has text); the keys 1 to 9 do the same. With several questions the offer's
   buttons pick and go on, as rows do. The part's picture is not in the card: the part is not on the shelf yet.
-- **The slip** (`ui/chat/shelfSlip.ts` `shelfSlips(items)`, `ShelfSlip.tsx`, `shared/shelf.ts` `shelfFileOf(path)`): under a `Write`, `Edit` or `MultiEdit` that is `done` and whose `file_path` has the segments
+- **The slip** (`ui/chat/slipsOf.ts` `shelfSlips(items)`, `ShelfSlip.tsx`, `shared/shelf.ts` `shelfFileOf(path)`): under a `Write`, `Edit` or `MultiEdit` that is `done` and whose `file_path` has the segments
   `common/parts/<id>/<file>` (`isPartId`; relative or absolute, found by segments, not by the workspace root, which the window does not know apart from the project's folder; a path with `..` is none). One slip a part
   in a turn (a `turn` item ends it), under the last such write, naming each file written once. `ChatItems` puts the ids in the set `foldRuns` is given, so a tool with a slip never folds into a run. The slip reads
   `useShelf` for its part: not listed yet (the store asks 400 ms after a change), the head alone; listed, its `PartPicture`, name and `PartLine` (`ui/shelf/PartBits.tsx`, the tab's row pieces, one set for both)
