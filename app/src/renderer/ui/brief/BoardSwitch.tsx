@@ -29,10 +29,10 @@ export function useBoardSwapKey(): void {
   }, [])
 }
 
-const NAMES = { model: 'Model', brief: 'Brief', scans: 'Scans', tracing: 'Tracing' } as const
+const NAMES = { model: 'Model', brief: 'Brief', usage: 'Usage', scans: 'Scans', tracing: 'Tracing' } as const
 
 /**
- * The switch at the top left of the main area: Model and Brief, and Scans and Tracing when the project has a scan or a tracing (or while
+ * The switch at the top left of the main area: Model, Brief and Usage (#371), and Scans and Tracing when the project has a scan or a tracing (or while
  * that view is the one shown), then the part of the shelf that is open as its id in mono with a `×` that closes it, with the key that goes round them. At its end a `+` makes the first of either: Import scan…, New tracing….
  * It steps aside while a band holds its place (`ui/view/Band.tsx`).
  */
@@ -50,7 +50,7 @@ export function BoardSwitch() {
   const box = useRef<HTMLDivElement>(null)
   useDismiss(menu, box, () => setMenu(false))
   if (!open || band !== null) return null
-  const views = (['model', 'brief', 'scans', 'tracing'] as const).filter((which) => which === 'model' || which === 'brief' || shown === which || (which === 'scans' ? hasScans : hasTracings))
+  const views = (['model', 'brief', 'usage', 'scans', 'tracing'] as const).filter((which) => which === 'model' || which === 'brief' || which === 'usage' || shown === which || (which === 'scans' ? hasScans : hasTracings))
   return (
     <div className="pboard-switch" role="group" aria-label="Show">
       {views.map((which) => (

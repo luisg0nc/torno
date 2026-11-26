@@ -4,6 +4,7 @@ import type { BoardAttach, BoardFile, BoardOpen, PersonChange, PinWhat } from '.
 import type { BuildState } from './build'
 import type { DrivesAnswer } from './drives'
 import type { TurnChanges } from './changes'
+import type { ProjectUsage } from './usage'
 import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode, PromptRow } from './chat'
 import type { GitState } from './git'
 import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './history'
@@ -729,6 +730,8 @@ export interface TornoBridge {
     lastConversation(objectId: string): Promise<{ items: ChatItem[]; at: string | null } | null>
     /** Every prompt of the object's conversations that was sent, oldest first, numbered from 1 across all of them (a terminal's from the history): what "Prompts only" lists. Read from `.torno/chat/`. */
     prompts(objectId: string): Promise<PromptRow[]>
+    /** Every prompt of `prompts` with what its turns took (the CLI's numbers kept on each turn of the log, and the pictures and builds of its items), and the median cost of a prompt: what the Usage page and "large" read. A terminal's prompts are there, not recorded. Read only. */
+    usage(objectId: string): Promise<ProjectUsage>
     /** The items of one earlier conversation of the object, from its log (its last 500), for reading above the current one; none for a conversation with no log. Read only. */
     conversation(objectId: string, conversationId: string): Promise<ChatItem[]>
     /** The bytes of a picture of the person's in the session's object, `reference/photo-1.jpg` (`ChatImage.file`), read again by main: none for a file that is not a plain file of a name torno gives there, or for a session that is not of the open workspace. Also for a session that has ended. */

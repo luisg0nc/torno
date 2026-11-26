@@ -11,6 +11,8 @@ import type { BuildIdentity } from '../../shared/git'
 import type { BuildTurn } from '../../shared/history'
 import type { PromptRow } from '../../shared/chat'
 import { listPrompts } from './prompts'
+import { listUsage } from './usage'
+import type { ProjectUsage } from '../../shared/usage'
 import { modelsOf } from './models'
 import { type BuildState, errorLine, failedAfter } from '../../shared/build'
 import type { BoardAttach, BoardSent } from '../../shared/board'
@@ -1303,6 +1305,13 @@ export class Sessions {
     const writing = [...this.sessions.values()].filter((s) => s.object.id === obj.id).map((s) => s.logging)
     await Promise.all(writing)
     return listPrompts(obj.dir)
+  }
+
+  /** What each prompt of an object took (`listUsage`), read once the chat logs being written have landed, as `prompts` is. */
+  async usage(obj: { id: string; dir: string }): Promise<ProjectUsage> {
+    const writing = [...this.sessions.values()].filter((s) => s.object.id === obj.id).map((s) => s.logging)
+    await Promise.all(writing)
+    return listUsage(obj.dir)
   }
 
   private of(objectId: string): Session | undefined {

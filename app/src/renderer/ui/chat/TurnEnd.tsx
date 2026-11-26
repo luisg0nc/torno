@@ -12,6 +12,10 @@ import { useMenu } from '../useMenu'
 import type { JoinedTurn } from './historyJoin'
 import { UndoableTurn } from './turnContext'
 import { isEmpty, summaryParts, type TurnAccount, type TurnSummary } from './turnSummary'
+import { TurnUsageLine } from './TurnUsage'
+import { largeTimes, whyLarge } from '../../../shared/usage'
+import { boardActions } from '../../state/board'
+import { useProjectUsage, usageActions } from '../../state/usage'
 
 
 type TurnItem = Extract<ChatItem, { kind: 'turn' }>
@@ -159,6 +163,15 @@ export const TurnEnd = memo(function TurnEnd({ item, account, joined }: { item: 
   const pulled = pulledFromTorno(item.pulled)
   const head = item.stopped ? 'Stopped' : item.ok ? `Done in ${item.seconds < 10 ? item.seconds.toFixed(1) : Math.round(item.seconds)} s` : `Failed${item.error ? `: ${item.error}` : ''}`
   const parts = account && !isEmpty(account.summary) ? summaryParts(account.summary) : []
+  // Large against the project's usual turn (#369): its median turn cost, and the prompt's number across the project.
+  const project = useProjectUsage()
+  const row = project?.rows.find((r) => r.turns.includes(item.id))
+  const times = largeTimes(item.usage?.costUsd, row?.number ?? (joined && joined.number > 0 ? joined.number : undefined), project?.median)
+  const why = times !== null && item.usage ? whyLarge(item.usage, account?.facts ?? { pictures: {}, builds: { count: 0 } }, times) : null
+  const openUsage = (): void => {
+    if (row) usageActions.openConversation(row.conversation, row.id)
+    boardActions.show('usage')
+  }
   return (
     <div className="chat-item chat-turn" data-kind="turn" data-ok={item.ok && !item.stopped ? '' : undefined} data-open={changesOpen ? '' : undefined}>
       <div className="chat-turn-main">
@@ -172,6 +185,7 @@ export const TurnEnd = memo(function TurnEnd({ item, account, joined }: { item: 
           <TurnMore item={item} joined={joined} account={account} />
         </TurnActions>
       </div>
+      <TurnUsageLine usage={item.usage} why={why} onOpen={openUsage} />
       {pulled && <p className="chat-turn-line chat-turn-pulled">{numbered(pulled)}</p>}
     </div>
   )

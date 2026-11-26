@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { HistoryEntry } from '../../../shared/history'
-import { buildNamed, groupCount, groupTitle, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
+import type { ProjectUsage, UsageRow } from '../../../shared/usage'
+import { buildNamed, chipCost, groupCount, groupTitle, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
 
 let n = 0
 const entry = (id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => ({
@@ -256,5 +257,22 @@ describe('stripSays', () => {
   })
   it('says an export of nothing built', () => {
     expect(stripSays({ nodes: [], exporting: true })).toBe('Exporting the build on show')
+  })
+})
+
+describe('chipCost', () => {
+  const row = (number: number, costUsd?: number): UsageRow => ({ conversation: 'c', id: `u${number}`, number, text: '', at: number, turns: [`t${number}`], facts: { pictures: {}, builds: { count: 0 } }, usage: { input: 0, output: 1, cacheRead: 1, cacheCreation: 0, ...(costUsd !== undefined ? { costUsd } : {}) } })
+  const usage: ProjectUsage = { rows: [row(13, 0.95), row(14, 0.64), row(15, 7.05), row(16)], median: 0.95 }
+  const groupOf = (prompt: number) => stripGroups(stripNodes([agent('h1', `u${prompt}`)], idle(), new Map([[`u${prompt}`, prompt]])))[0]!
+
+  it("says a prompt group's cost, the large one marked", () => {
+    expect(chipCost(groupOf(14), usage)).toEqual({ text: '$0.64', large: false })
+    expect(chipCost(groupOf(15), usage)).toEqual({ text: '$7.05', large: true })
+  })
+
+  it('says nothing for a group that is no prompt, a prompt whose cost is not known, or before usage is read', () => {
+    expect(chipCost(stripGroups(stripNodes([entry('h1', { cause: 'person' })], idle()))[0]!, usage)).toBeNull()
+    expect(chipCost(groupOf(16), usage)).toBeNull()
+    expect(chipCost(groupOf(14), undefined)).toBeNull()
   })
 })

@@ -83,6 +83,7 @@ import { type UserProfiles, projectProfile, setProjectProfile } from './profile'
 import { type Profile, profileOf } from '../shared/profile'
 import { lastConversation, readLog } from './sessions/chatlog'
 import { listPrompts } from './sessions/prompts'
+import { listUsage } from './sessions/usage'
 import { readReference } from './sessions/reference'
 import { storedConversation } from './sessions/resume'
 import { sessionOfWorkspace } from './sessions/status'
@@ -113,7 +114,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           workspace:refresh, workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
 //           object:open, object:rebuild, object:renamePart, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
-//           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
+//           chat:history, chat:lastConversation, chat:prompts, chat:usage, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:span, marks:offset, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
 //           shelf:list, shelf:measured, shelf:addFiles, marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
 //           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, tracings:photo, tracings:lineUp, tracings:look, tracings:straightened, tracings:photoBytes, tracings:removePhoto, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
@@ -1128,6 +1129,11 @@ export function registerIpc(
   handle('chat:prompts', async (_event, objectId: string) => {
     const obj = findObject(String(objectId))
     return obj ? (sessions ? sessions.prompts(obj) : listPrompts(obj.dir)) : []
+  })
+  // What each prompt of an object took (`main/sessions/usage.ts`): the turn lines of `.torno/chat/`, read only.
+  handle('chat:usage', async (_event, objectId: string) => {
+    const obj = findObject(String(objectId))
+    return obj ? (sessions ? sessions.usage(obj) : listUsage(obj.dir)) : { rows: [] }
   })
   handle('chat:conversation', async (_event, objectId: string, conversationId: string) => {
     const obj = findObject(String(objectId))
