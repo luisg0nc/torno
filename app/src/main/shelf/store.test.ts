@@ -1,11 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, symlinkSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { KernelShelfPart, ShelfPart } from '../../shared/shelf'
 import type { KernelClient, ShelfResult } from '../kernel/client'
 import { watchFolder } from '../builds'
-import { watchTop } from './watch'
+import { keepChecked, watchTop } from './watch'
 import { checkedOf, ShelfStore } from './store'
 
 const part = (id: string, extra: Partial<KernelShelfPart> = {}): KernelShelfPart => ({ id, name: `Part ${id}`, what: '', params: [], files: [], ...extra })
@@ -214,6 +215,14 @@ describe('checkedOf', () => {
     expect(await checkedOf(root, 'p')).toEqual({})
     write(' '.repeat(70_000))
     expect(await checkedOf(root, 'p')).toEqual({})
+    // Not a plain file: a pipe would block the read for ever, a link could lead to any file of the computer.
+    rmSync(join(root, 'common', 'parts', 'p', '.torno', 'checked.json'))
+    execFileSync('mkfifo', [join(root, 'common', 'parts', 'p', '.torno', 'checked.json')])
+    expect(await checkedOf(root, 'p')).toEqual({})
+    rmSync(join(root, 'common', 'parts', 'p', '.torno', 'checked.json'))
+    writeFileSync(join(root, 'secret.json'), JSON.stringify({ a: { value: 1.5, date: '2026-01-02' } }))
+    symlinkSync(join(root, 'secret.json'), join(root, 'common', 'parts', 'p', '.torno', 'checked.json'))
+    expect(await checkedOf(root, 'p')).toEqual({})
   })
 })
 
@@ -274,5 +283,50 @@ describe('what is watched', () => {
     await new Promise((resolve) => setTimeout(resolve, 500))
     expect(asked.mock.calls.length).toBe(settled)
     store.close()
+  })
+
+  it('sees, with the real watches, a checked.json that changes in a part folder (a git pull), merges it and does not ask the kernel', async () => {
+    vi.useRealTimers()
+    mkdirSync(join(root, 'common', 'parts', 'ec11', '.torno'), { recursive: true })
+    writeFileSync(join(root, 'common', 'parts', 'ec11', 'part.py'), '"""EC11"""\n')
+    const asked = vi.fn(async (): Promise<ShelfResult> => ({ ok: true, parts: [part('ec11')] }))
+    const store = new ShelfStore({ watch: (dir, onChange) => watchFolder(dir, onChange, 30, keepChecked), watchTop, debounceMs: 30 })
+    store.open(root, { shelf: asked } as unknown as KernelClient)
+    await vi.waitFor(() => expect(store.list()).toHaveLength(1))
+    await new Promise((resolve) => setTimeout(resolve, 600)) // the watch is ready
+    expect(store.list()[0].checked).toEqual({})
+    const file = join(root, 'common', 'parts', 'ec11', '.torno', 'checked.json')
+    writeFileSync(file, JSON.stringify({ hole_d: { value: 7.3, date: '2026-11-27' } }))
+    await vi.waitFor(() => expect(store.list()[0].checked).toEqual({ hole_d: { value: 7.3, date: '2026-11-27' } }), { timeout: 5000 })
+    writeFileSync(file, JSON.stringify({ hole_d: { value: 7.4, date: '2026-11-28' } }))
+    await vi.waitFor(() => expect(store.list()[0].checked).toEqual({ hole_d: { value: 7.4, date: '2026-11-28' } }), { timeout: 5000 })
+    expect(asked).toHaveBeenCalledTimes(1)
+    store.close()
+  })
+
+  it("keeps only a part's checked.json of the folders watchFolder ignores", () => {
+    const at = (rest: string): string => join(root, 'common', 'parts', ...rest.split('/'))
+    expect(keepChecked(at('ec11/.torno'))).toBe(true)
+    expect(keepChecked(at('ec11/.torno/checked.json'))).toBe(true)
+    expect(keepChecked(at('ec11/.torno/chat/log.json'))).toBe(false)
+    expect(keepChecked(at('ec11/.torno/checked.json/x'))).toBe(false)
+    expect(keepChecked(at('ec11/sub/.torno/checked.json'))).toBe(false)
+    expect(keepChecked(join(root, 'obj', '.torno'))).toBe(false)
+    expect(keepChecked(at('.torno'))).toBe(false)
+  })
+
+  it('merges only, on a checked.json change the watch reports', async () => {
+    const { kernel, shelf } = kernelOf({ ok: true, parts: [part('ec11')] })
+    const watched = watching()
+    const store = new ShelfStore({ watch: watched.watch, watchTop: watched.watchTop })
+    store.open(root, kernel)
+    await settle()
+    mkdirSync(join(root, 'common', 'parts', 'ec11', '.torno'), { recursive: true })
+    writeFileSync(join(root, 'common', 'parts', 'ec11', '.torno', 'checked.json'), JSON.stringify({ hole_d: { value: 7.3, date: '2026-11-27' } }))
+    watched.fire(join(root, 'common', 'parts', 'ec11', '.torno', 'checked.json'))
+    await settle()
+    expect(store.list()[0].checked).toEqual({ hole_d: { value: 7.3, date: '2026-11-27' } })
+    await later(500)
+    expect(shelf).toHaveBeenCalledTimes(1)
   })
 })

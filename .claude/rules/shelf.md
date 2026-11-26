@@ -57,12 +57,15 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   An outline is `{points: [[x, y], ...], hole?: true}` in mm, closed, at most 400 points (thinned from the section's own 0.05 mm
   deflection) and at most 40 to a drawing. Numbers are the kernel's, in full.
 - **The kernel writes nothing, and `ShelfStore` writes nothing**: it (`app/src/main/shelf/store.ts`) reads the kernel's
-  answer and each part's `.torno/checked.json` (`{<param>: {value, date}}`; a bad file or entry is ignored). The one file of the
+  answer and each part's `.torno/checked.json` (`{<param>: {value, date}}`; a bad file or entry is ignored). The file is read by one reader, `shelf/checkedFile.ts`
+  `readCheckedText`, for the store and for `recordMeasured`: opened without following a link or waiting on a pipe (`O_NOFOLLOW|O_NONBLOCK`, then `fstat` is a plain file), at most 64 KB; a link, a pipe or a larger
+  file is refused with a plain reason (`recordMeasured` writes nothing then) or, in the store, is no checks for that part, never blocking the ask. The one file of the
   shelf main writes for #352 is that one, from `shelf/checked.ts` (below); the copy of #355 (below) is in the rule `workspace-writes`.
 - **The store asks when the workspace opens and when a file under `common/parts/` changes**, 400 ms after the last change (the
   watch is `watchFolder` on `common/`, filtered to `common/parts`; while `common/` is missing, `watchTop` waits for it, one level
   deep). One ask runs at a time; a change meanwhile has the answer applied and another asked, so the newest state stays. A failed
-  ask leaves the last good list and is logged. `list()` and the event `changed` give the whole list; `close()` empties it.
+  ask leaves the last good list and is logged. The watch also keeps `common/parts/<id>/.torno/checked.json` (`keepChecked`, the fourth argument of `watchFolder`; project builds pass none and
+  still ignore every `.torno`): a burst of only those files is `checkedChanged()` (merged again, the kernel not asked), so a `git pull` that changes only a part's checks is seen. `list()` and the event `changed` give the whole list; `close()` empties it.
   An answer of a workspace that has been left is dropped (`epoch`).
 - **The window gets it through `shelf:list` and `shelf:changed`** (`window.torno.shelf.list()`, `onChanged`), and a new
   conversation is told it through `shelfLine` (`shelf/told.ts`, rule `agent-prompt`). `Scene.shelf` says which parts a project used.

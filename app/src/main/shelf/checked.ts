@@ -1,8 +1,9 @@
-import { lstat, readFile } from 'node:fs/promises'
+import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { isSize } from '../../shared/params'
 import { isPartId, MOST_MEASURED, SHELF_DIR, type ShelfChecked, type ShelfPart } from '../../shared/shelf'
 import { ownTorno, writeOwn } from '../own'
+import { readCheckedText } from './checkedFile'
 
 // "I measured it" (#352): the one file of the shelf torno writes, `common/parts/<id>/.torno/checked.json`, `{ <size>: { value, date } }`. The part
 // folder is treated as a project's folder for `.torno/`: the write goes through `ownTorno` and `writeOwn` (a link or a file in `.torno`'s place is
@@ -26,13 +27,13 @@ const chain = new Map<string, Promise<unknown>>()
 
 /** Reads the object `checked.json` is: `{}` for none, the object whole (entries torno does not know stay as they are), a plain reason for a file that is something else. */
 async function existing(path: string): Promise<Record<string, unknown>> {
-  let text: string
+  let text: string | null
   try {
-    text = await readFile(path, 'utf8')
+    text = await readCheckedText(path)
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return {}
-    throw new Error(`${path} could not be read: ${(e as Error).message}. torno wrote nothing.`)
+    throw new Error(`${(e as Error).message} torno wrote nothing.`)
   }
+  if (text === null) return {}
   try {
     const data: unknown = JSON.parse(text)
     if (data !== null && typeof data === 'object' && !Array.isArray(data)) return data as Record<string, unknown>

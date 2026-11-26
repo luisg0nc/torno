@@ -1,14 +1,13 @@
 import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { isPartId, MOST_PARTS, SHELF_DIR, type KernelShelfPart, type ShelfChecked, type ShelfPart } from '../../shared/shelf'
 import type { KernelClient } from '../kernel/client'
+import { readCheckedText } from './checkedFile'
+import { isCheckedFile } from './watch'
 
 /** How long after the last change under `common/parts/` the kernel is asked again. */
 const DEBOUNCE_MS = 400
-/** The largest `.torno/checked.json` that is read. */
-const CHECKED_BYTES = 64 * 1024
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
 /** Whether a path is `common/parts` or lies under it. */
@@ -83,7 +82,13 @@ export class ShelfStore extends EventEmitter {
    */
   private follow(root: string): void {
     const common = join(root, 'common')
-    const onCommon = (): (() => void) => this.watch(common, (paths) => (paths.some(onShelf) ? this.changed() : undefined))
+    const onCommon = (): (() => void) =>
+      this.watch(common, (paths) => {
+        const shelf = paths.filter(onShelf)
+        // A part's checks alone (a `git pull`): merged again, the kernel not asked.
+        if (shelf.some((path) => !isCheckedFile(path))) this.changed()
+        else if (shelf.length > 0) void this.checkedChanged().catch((e: unknown) => this.log(`the checks of the shelf could not be read: ${e instanceof Error ? e.message : String(e)}`))
+      })
     if (existsSync(common)) {
       this.unwatch = onCommon()
       return
@@ -196,13 +201,14 @@ async function merge(root: string, parts: KernelShelfPart[]): Promise<ShelfPart[
  * missing, too large or not that is none; a size of it that is not a number and a day is left out, the rest stands.
  */
 export async function checkedOf(root: string, id: string): Promise<Record<string, ShelfChecked>> {
-  let text: string
+  let text: string | null
   try {
-    text = await readFile(join(root, SHELF_DIR, id, '.torno', 'checked.json'), 'utf8')
+    text = await readCheckedText(join(root, SHELF_DIR, id, '.torno', 'checked.json'))
   } catch {
+    // A link, a pipe or a file too big is none, and the shelf does not wait on it.
     return {}
   }
-  if (text.length > CHECKED_BYTES) return {}
+  if (text === null) return {}
   let data: unknown
   try {
     data = JSON.parse(text)

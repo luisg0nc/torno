@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -110,6 +111,26 @@ describe('recordMeasured', () => {
     writeFileSync(checkedFile(), '{ not json')
     await expect(recordMeasured(shelfOf(part('ec11')), 'ec11', 'body_h', 6.6, day)).rejects.toThrow(/checked\.json/)
     expect(readFileSync(checkedFile(), 'utf8')).toBe('{ not json')
+  })
+
+  it('refuses a checked.json that is a link, a pipe or over 64 KB, writing nothing', async () => {
+    const away = mkdtempSync(join(tmpdir(), 'torno-checked-away-'))
+    try {
+      mkdirSync(join(root, 'common', 'parts', 'ec11', '.torno'))
+      writeFileSync(join(away, 'secret.json'), '{"password": 1}')
+      symlinkSync(join(away, 'secret.json'), checkedFile())
+      await expect(recordMeasured(shelfOf(part('ec11')), 'ec11', 'body_h', 6.6, day)).rejects.toThrow(/is a link/)
+      expect(readFileSync(join(away, 'secret.json'), 'utf8')).toBe('{"password": 1}')
+      rmSync(checkedFile())
+      execFileSync('mkfifo', [checkedFile()])
+      await expect(recordMeasured(shelfOf(part('ec11')), 'ec11', 'body_h', 6.6, day)).rejects.toThrow(/not a plain file/)
+      rmSync(checkedFile())
+      writeFileSync(checkedFile(), `{"a": "${'x'.repeat(70_000)}"}`)
+      await expect(recordMeasured(shelfOf(part('ec11')), 'ec11', 'body_h', 6.6, day)).rejects.toThrow(/over 64 KB/)
+      expect(readFileSync(checkedFile(), 'utf8').length).toBeGreaterThan(70_000)
+    } finally {
+      rmSync(away, { recursive: true, force: true })
+    }
   })
 
   it('refuses with no workspace open', async () => {

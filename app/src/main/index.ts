@@ -79,7 +79,7 @@ import { KnownModels } from './sessions/models'
 import { UserProfiles, projectProfile } from './profile'
 import { watchFolder } from './builds'
 import { ShelfStore } from './shelf/store'
-import { watchTop } from './shelf/watch'
+import { keepChecked, watchTop } from './shelf/watch'
 
 // Environment switches:
 //   TORNO_TEST=1            the window is created hidden and never shown (tests, headless checks)
@@ -350,7 +350,7 @@ const marks: MarkStore = new MarkStore({ dirOf: (id) => findObject(id)?.dir, mes
 const sets: SetStore = new SetStore({ dirOf: (id) => findObject(id)?.dir, scene: (id) => lastScene(id), marks: (objectId) => marks.list(objectId) })
 
 /** The parts shelf (`common/parts/`) of the open workspace: read by the kernel when it opens and when a file there changes; told to a new conversation (`shelfLine`) and to the window. */
-const shelf = new ShelfStore({ watch: (dir, onChange) => watchFolder(dir, onChange, 50), watchTop, log: (message) => console.error(message) })
+const shelf = new ShelfStore({ watch: (dir, onChange) => watchFolder(dir, onChange, 50, keepChecked), watchTop, log: (message) => console.error(message) })
 
 // A `.torno` that is a link or a file is written to by no one (`ownTorno`). The person is told once for each
 // object, where what is wrong with its marks is said: nothing of that object is kept until it is a real folder.
