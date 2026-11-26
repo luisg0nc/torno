@@ -140,7 +140,9 @@ button.crumb[aria-expanded='true'] {
   min-width: 0;
 }
 
-.folder-item {
+/* Two lines, so taller than a menu item. Named with `.menu-item` to outweigh it: its 26 px and its padding come later in the
+   cascade (viewbars.css) and would squash the lines into each other. */
+.menu-item.folder-item {
   display: grid;
   flex: 1;
   min-width: 0;
@@ -178,6 +180,11 @@ button.crumb[aria-expanded='true'] {
   flex: none;
   color: var(--muted);
   font-size: var(--text-small);
+}
+
+/* At the end of its row it stands as far in from the edge as an item's words do. */
+.folder-said:last-child {
+  padding-right: 9px;
 }
 
 /* The open folder's mark: a check beside the word, in the muted face of the row's other words. */
