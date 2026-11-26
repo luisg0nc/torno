@@ -203,5 +203,8 @@ describe('Claude\'s old sections of brief.md (#341)', () => {
     ])
     expect(briefWords(old)).toBe('We want a box.\n\n## Where it goes\n\nOn the arm.')
     expect(claudeSections('# box\n\n## Where it goes\n\nOn the arm.\n')).toEqual([])
+    // A heading of the person's own with those words but no date is theirs.
+    expect(claudeSections('# box\n\n## Assumptions\n\n- mine\n\n## Changes from the old holder\n\n- wider\n')).toEqual([])
+    expect(briefWords('# box\n\n## Assumptions\n\n- mine\n')).toBe('## Assumptions\n\n- mine')
   })
 })

@@ -1215,9 +1215,12 @@
 }
 
 /* The card's id, and the button that points at it: what it replaced, and what may be done with it. */
+.brief-cn-line > .brief-cn-id {
+  margin: 0 0 0 auto;
+}
+
 .brief-cn-id {
   flex: none;
-  margin-left: auto;
   padding: 0 4px;
   border: 0;
   border-radius: var(--radius-inline);
@@ -1400,6 +1403,12 @@
 
 .brief-band .grow {
   flex: 1;
+}
+
+.brief-band .button,
+.brief-fold .button {
+  flex: none;
+  white-space: nowrap;
 }
 
 .brief-fresh-dot {

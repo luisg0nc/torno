@@ -117,7 +117,11 @@ export function SizeForm({ was, onKeep, onCancel, note }: { was?: SizeFact; onKe
           {help}
         </p>
       )}
-      {note && <p className="brief-form-note">{note}</p>}
+      {note && (
+        <p className="brief-form-note">
+          <span>{note}</span>
+        </p>
+      )}
       <div className="brief-form-actions">
         <button type="button" className="button button-quiet" onClick={onCancel}>
           Cancel

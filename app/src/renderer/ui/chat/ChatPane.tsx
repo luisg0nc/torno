@@ -101,12 +101,15 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
   // A prompt another part of the window asked to see (the Brief's "Show prompt 11 in the chat"): read in from its conversation, then lit for a moment.
   const shown = useStore((s) => s.promptShown)
   const [lit, setLit] = useState<string | null>(null)
+  // Only an ask made while this pane is up: one made before it mounted (another session, the pane with no session) is not done again.
+  const handled = useRef(shown?.seq ?? 0)
   useEffect(() => {
-    if (!shown) return
+    if (!shown || shown.seq <= handled.current || rows === undefined) return
+    handled.current = shown.seq
     if (shown.conversation !== current && earlierRead === undefined) readEarlier()
     setTarget(shown.id)
     setLit(shown.id)
-  }, [shown?.seq]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [shown?.seq, rows]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (lit === null) return
     const timer = setTimeout(() => setLit(null), 4000)

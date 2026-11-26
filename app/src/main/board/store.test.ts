@@ -1108,7 +1108,7 @@ describe('making a card of Claude’s yours (#339)', () => {
     const wrote = byId(await store.read('bracket'), 'C1').at
     clock += 60_000
     const board = await store.person('bracket', { op: 'adopt', id: 'C1' })
-    expect(byId(board, 'C1')).toMatchObject({ by: 'person', from: { by: 'agent', turn: { prompt: 'u13', conversation: 'c1' }, at: wrote }, at: new Date(clock).toISOString() })
+    expect(byId(board, 'C1')).toMatchObject({ by: 'person', from: { by: 'agent', turn: { prompt: 'u13', conversation: 'c1' }, at: wrote, since: new Date(clock).toISOString() }, at: new Date(clock).toISOString() })
     expect(byId(board, 'C1').turn).toBeUndefined()
     const edited = await store.person('bracket', { op: 'edit', id: 'C1', text: 'Controls: 9 buttons, measured shafts' })
     expect(byId(edited, 'C1')).toMatchObject({ by: 'person', text: 'Controls: 9 buttons, measured shafts', from: { by: 'agent' } })

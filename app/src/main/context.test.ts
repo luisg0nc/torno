@@ -1608,14 +1608,14 @@ describe('the brief in a prompt', () => {
     expect(again.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
   })
   it('asks Claude once to move its old sections out of brief.md, and again only when the file changed (#341)', () => {
-    const old = '# bracket\n\nA bracket.\n\n## Answers (2026-11-25)\n\n- Mount: a blade\n\n## Changes\n\n- Mount: an arm\n'
+    const old = '# bracket\n\nA bracket.\n\n## Answers (2026-11-25)\n\n- Mount: a blade\n\n## Changes (2026-11-25, later)\n\n- Mount: an arm\n'
     const ask = (brief: string, told: Record<string, string>) => {
       const line = boardLine(boardOf('186'), told, { marks: new Map(), brief }, tool, { again: false })
       return contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { board: line.line, boardTold: line.told, ...(line.move ? { briefMove: line.move } : {}), toolName: tool })
     }
     const first = ask(old, {})
     expect(first.briefMove).toBe(true)
-    expect(first.text).toContain('brief.md holds sections you wrote into it before (## Answers (2026-11-25), ## Changes). Once, in this turn: put what they say into cards of yours with mcp__torno__add_card')
+    expect(first.text).toContain('brief.md holds sections you wrote into it before (## Answers (2026-11-25), ## Changes (2026-11-25, later)). Once, in this turn: put what they say into cards of yours with mcp__torno__add_card')
     expect(first.text).toContain('That edit is let through in this turn only.')
     const second = ask(old, first.boardTold!)
     expect(second.briefMove).toBeUndefined()

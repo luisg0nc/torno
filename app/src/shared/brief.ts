@@ -224,11 +224,12 @@ export function briefWords(text: string): string {
 }
 
 /**
- * The headings of the sections Claude wrote into `brief.md` before it wrote the brief as cards (#341): `## Answers`,
- * `## Changes (2026-11-25, later)`, `## Decisions`, `## Assumptions`, and the like. torno never writes one, and the person's own
- * headings are of what the thing is, not of a conversation.
+ * The headings of the sections Claude wrote into `brief.md` before it wrote the brief as cards (#341), as it wrote them: one of
+ * Answers, Changes, Decisions, Assumptions, Settled or Clarifications followed by a date in brackets (`## Answers (2026-11-25)`,
+ * `## Changes (2026-11-25, later)`). torno never writes one, and a heading of the person's own without such a date
+ * (`## Assumptions`, `## Changes from the old holder`) is theirs and stays among their words.
  */
-const CLAUDES_HEADING = /^(?:answers?|changes?|decisions?|assumptions?|settled|clarifications?)\b/i
+const CLAUDES_HEADING = /^(?:answers?|changes?|decisions?|assumptions?|settled|clarifications?)\s*\(\s*\d{4}-\d{2}-\d{2}\b/i
 
 const isClaudes = (s: Section): boolean => CLAUDES_HEADING.test(s.heading.trim())
 

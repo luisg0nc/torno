@@ -83,7 +83,10 @@ export interface CardWas {
 export interface CardFrom {
   by: 'agent'
   turn?: CardTurn
+  /** When the agent wrote it. */
   at?: string
+  /** When the person made it theirs. */
+  since?: string
 }
 
 /** The most earlier words a card keeps (`was`). */
@@ -159,7 +162,8 @@ export function firstLink(text: string): string | null {
   // The punctuation of the sentence the address ends, and a `)` that closes a bracket opened before it.
   for (;;) {
     const last = link.at(-1)
-    if (last !== undefined && '.,;:!?'.includes(last)) link = link.slice(0, -1)
+    // The sentence's punctuation, and the markup that closes around an address in markdown (`**`, `_`, a table's `|`, a quote's `>`, a code's backtick).
+    if (last !== undefined && '.,;:!?*_|>`'.includes(last)) link = link.slice(0, -1)
     else if (last === ')' && (link.match(/\(/g)?.length ?? 0) < (link.match(/\)/g)?.length ?? 0)) link = link.slice(0, -1)
     else break
   }

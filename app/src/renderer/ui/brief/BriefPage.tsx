@@ -112,8 +112,12 @@ export function BriefPage() {
   useEffect(() => {
     if (objectId === null) return
     let live = true
+    // Only a page that has read what was seen marks it seen when it goes: a mount undone at once (React's StrictMode in
+    // development) would otherwise mark everything seen before the page read it.
+    let read = false
     window.torno.board.seen(objectId).then(
       (seen) => {
+        read = true
         if (!live) return
         if (seen !== null) setSince(seen)
         else void window.torno.board.markSeen(objectId).then((now) => live && setSince(now), () => {})
@@ -122,7 +126,7 @@ export function BriefPage() {
     )
     return () => {
       live = false
-      void window.torno.board.markSeen(objectId).catch(() => {})
+      if (read) void window.torno.board.markSeen(objectId).catch(() => {})
     }
   }, [objectId])
   const fresh = useMemo(() => freshCards(nodes, since), [nodes, since])

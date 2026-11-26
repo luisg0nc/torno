@@ -89,7 +89,8 @@ export function sanitiseCard(value: unknown): Card | null {
     const from = value.from
     const fromTurn = turnOf(from.turn)
     const fromAt = timeOf(from.at)
-    card.from = { by: 'agent', ...(fromTurn ? { turn: fromTurn } : {}), ...(fromAt !== undefined ? { at: fromAt } : {}) }
+    const since = timeOf(from.since)
+    card.from = { by: 'agent', ...(fromTurn ? { turn: fromTurn } : {}), ...(fromAt !== undefined ? { at: fromAt } : {}), ...(since !== undefined ? { since } : {}) }
   }
   const copy = value.copy
   if (isRecord(copy) && typeof copy.id === 'string' && typeof copy.line === 'string' && typeof copy.cause === 'string' && typeof copy.sources === 'string') {

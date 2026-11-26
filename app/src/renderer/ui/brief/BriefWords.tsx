@@ -31,6 +31,7 @@ interface Drawing {
 function WebLink({ draw, url, text }: { draw: Drawing; url: string; text?: string }) {
   const { label, host } = linkLabel(url)
   const nth = draw.nth(url)
+  if (nth < 0) return <span className="brief-weblink-off">{text ?? url}</span>
   return (
     <a
       className="brief-weblink"
@@ -168,7 +169,8 @@ export const BriefWords = memo(function BriefWords({ objectId, cardId, words, fu
     cardId,
     nth(url) {
       const at = links.indexOf(url, cursor)
-      if (at < 0) return Math.max(0, links.indexOf(url))
+      // An address main would not read the same is no link: it is never opened as another.
+      if (at < 0) return -1
       cursor = at + 1
       return at
     }

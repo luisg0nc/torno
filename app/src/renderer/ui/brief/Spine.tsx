@@ -57,7 +57,7 @@ interface ItemProps {
 /** One card of Claude's on the spine. */
 const SpineCard = memo(function SpineCard({ objectId, card, node, rule, pointed, lit, fresh, replaced, onPoint, acts, editing, onOpenPicture }: ItemProps) {
   const mine = card.by === 'person'
-  const madeMine = mine && card.from?.at !== undefined && card.at !== undefined ? Date.parse(card.from.at) : undefined
+  const madeMine = mine && card.from?.since !== undefined ? Date.parse(card.from.since) : undefined
   const wrote = node.prompt ? `prompt ${node.prompt.number}` : 'an earlier prompt'
   const body = ((): ReactNode => {
     if (card.kind === 'size' && card.size) {

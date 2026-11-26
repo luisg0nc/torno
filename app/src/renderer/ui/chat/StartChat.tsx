@@ -52,8 +52,11 @@ export function StartChat({
   // A prompt the Brief asked to see ("Show prompt 11 in the chat"): brought into view and lit for a moment when the last conversation holds it.
   const scroll = useRef<HTMLDivElement>(null)
   const shown = useStore((s) => s.promptShown)
+  // Only an ask made while this pane is up, and each once.
+  const handled = useRef(shown?.seq ?? 0)
   useEffect(() => {
-    if (!shown || last === null) return
+    if (!shown || shown.seq <= handled.current || last === null) return
+    handled.current = shown.seq
     const el = scroll.current?.querySelector<HTMLElement>(`.chat-group[data-id="${CSS.escape(shown.id)}"]`)
     if (!el) return
     el.scrollIntoView({ block: 'center' })

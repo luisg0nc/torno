@@ -166,7 +166,7 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed, a
       if (card.by !== 'agent') throw new Refusal(`${card.id} is not Claude's: there is nothing to make yours.`)
       if (card.kind !== 'text' && card.kind !== 'size') throw new Refusal(`${card.id} is not a note, a rule or a size, and is not made yours here.`)
       // Who wrote it, and when and in which prompt, stay with it; the card is the person's from now on.
-      card.from = { by: 'agent', ...(card.turn ? { turn: card.turn } : {}), ...(card.at ? { at: card.at } : {}) }
+      card.from = { by: 'agent', ...(card.turn ? { turn: card.turn } : {}), ...(card.at ? { at: card.at } : {}), since: at }
       card.by = 'person'
       delete card.turn
       card.at = at

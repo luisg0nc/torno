@@ -89,7 +89,7 @@ describe('readBoardFile', () => {
   })
 
   it('keeps who a card the person made theirs was by, and Claude’s source on a size of it until they change it (#339)', () => {
-    const adopted = card('C1', { kind: 'size', text: undefined, from: { by: 'agent', turn: { prompt: 'u13' }, at: '2026-11-25T18:07:00.000Z' }, size: { what: 'encoder hole', value: '7', unit: 'mm', source: 'from Claude' } })
+    const adopted = card('C1', { kind: 'size', text: undefined, from: { by: 'agent', turn: { prompt: 'u13' }, at: '2026-11-25T18:07:00.000Z', since: '2026-11-26T09:12:00.000Z' }, size: { what: 'encoder hole', value: '7', unit: 'mm', source: 'from Claude' } })
     delete (adopted as Record<string, unknown>).text
     expect(readBoardFile({ next: 2, cards: [adopted], arrows: [] })?.file.cards[0]).toEqual(adopted)
     // Claude's source is not the person's on a card they did not make theirs, and a from on Claude's own card is not kept.

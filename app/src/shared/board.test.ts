@@ -43,6 +43,10 @@ describe('what an attachment is said to hold', () => {
 describe('the link a text card holds', () => {
   it('is the first http or https address, up to the next whitespace', () => {
     expect(firstLink('see https://example.com/a b')).toBe('https://example.com/a')
+    // The markdown around an address is not part of it: the page and main read the same address.
+    expect(firstLink('**[the seat](https://example.org/seat)**')).toBe('https://example.org/seat')
+    expect(firstLink('| https://a.com/x |')).toBe('https://a.com/x')
+    expect(firstLink('**https://a.com/x**')).toBe('https://a.com/x')
     expect(firstLink('a\nhttp://x.dev/p?q=1\nhttps://other.dev')).toBe('http://x.dev/p?q=1')
     expect(firstLink('HTTPS://EXAMPLE.COM')).toBe('HTTPS://EXAMPLE.COM')
   })
