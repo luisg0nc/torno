@@ -103,6 +103,14 @@ def _sites(dir: Path, model: str, module: Any, part: str, to: str, parts: set[st
         if makers:
             raise Refused(f"{_MAKER_PREFIX}{part} is not defined in {model}, so torno cannot rename it.")
         raise Refused(f"{part} is not written as a plain name in {_and_or(_DEFINES)} of {model}: it is built from a variable or comes from another file. Rename it in the model by hand, or ask Claude.")
+    # The new name already written where a part's name stands, in the files as they are now (a part added since the build,
+    # a rename not built yet): renaming onto it would make two parts one.
+    for path, source in read.items():
+        if path != model_file:
+            continue
+        for kind, node, _ in _find(ast.parse(source), to, False, True):
+            if kind == "literal":
+                raise Refused(f"{to} is already written in {_name(root, path)} line {node.lineno} as the name of a part: name it otherwise.")
     if makers:
         taken = _MAKER_PREFIX + to
         if any(_defines_name(ast.parse(source), taken) for path, source in read.items() if path in own):
@@ -203,8 +211,9 @@ def _name_places(node: ast.AST) -> list[ast.AST]:
         return [node.left, *node.comparators]
     if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
         return list(node.elts)
-    if isinstance(node, ast.keyword):
-        return [node.value]
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "dict":
+        # ``dict(a="shell", b="lid")``, as a check is written: a keyword of another call (``Text(txt="lid")``) is a word of the model's.
+        return [k.value for k in node.keywords if k.arg is not None]
     if isinstance(node, ast.DictComp):
         return [node.key, node.value]
     return []

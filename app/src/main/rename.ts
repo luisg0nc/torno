@@ -38,6 +38,11 @@ export interface RenameDeps {
   /** The kernel's `part_sites` of that build. */
   sites: (part: string, to: string) => Promise<PartSites>
   builds: Pick<Builds, 'state'>
+  /**
+   * Whether the project's sources are now the ones the last good build was made from (`sourcesHash` against the build's
+   * record): a save the watcher has not built yet, or a build that failed since, may hold names the build does not know.
+   */
+  sourcesBuilt: () => Promise<boolean>
   /** Why the project's session will not have it now (`Sessions.busyWith`), or null. */
   busy?: () => string | null
   /** torno's own files that name the part follow it: each store in its turn. A failure of one is said, not undone. */
@@ -52,7 +57,9 @@ const sha256 = (bytes: Buffer): string => createHash('sha256').update(bytes).dig
  * has prompts untaken, while a build runs, before a build worked, for a name `partNameRefusal` refuses, and for whatever
  * the kernel refuses (a name not written plainly, written where it may not be this part). Every place is checked before
  * the first write: an own `.py` of the project, a plain file, the bytes the kernel read (its hash) and the old text at
- * each span. Each file is then written whole; a failure stops there and says which files were written.
+ * each span. Each file is then read again and written whole; a file changed meanwhile or a write that fails puts back the
+ * files written before it and says so. Refused too while the last build is not of the files as they are (it failed, is
+ * stale, or a save has not been built): the names it knows are what "taken" is judged by.
  */
 export async function renamePart(obj: ObjectInfo, ask: { from: unknown; to: unknown }, deps: RenameDeps): Promise<RenameResult> {
   const refuse = (refused: string): RenameResult => ({ done: false, refused })
@@ -61,12 +68,16 @@ export async function renamePart(obj: ObjectInfo, ask: { from: unknown; to: unkn
   const to = ask.to.trim()
   const busy = deps.busy?.()
   if (busy) return refuse(busy)
-  if (deps.builds.state(obj.id)?.status === 'building') return refuse('A build is running. Wait for it to end, then rename.')
+  const state = deps.builds.state(obj.id)
+  if (state?.status === 'building') return refuse('A build is running. Wait for it to end, then rename.')
   const scene = deps.scene()
   if (!scene) return refuse('The model has not built yet: rename once it has.')
+  // What is taken is judged by the last build: it must be of the files as they are, or a name added since would be written twice.
+  if (state?.status !== 'ok' || state.stale) return refuse('The last build is not of the model as it is now (it failed, or a save is not built yet): rename once it builds.')
   if (!scene.parts.some((p) => p.name === from)) return refuse(`${from} is not a part of the last build.`)
   const why = partNameRefusal(from, to, namesTaken(scene))
   if (why) return refuse(why)
+  if (!(await deps.sourcesBuilt())) return refuse('The model changed since its last build: rename once the build of it ends.')
   let answer: PartSites
   try {
     answer = await deps.sites(from, to)
@@ -99,14 +110,24 @@ export async function renamePart(obj: ObjectInfo, ask: { from: unknown; to: unkn
     }
     written.set(file, out)
   }
+  // Each file is read again just before it is written, so that a save made since the check is never overwritten; when one
+  // cannot be written, those written before it are put back as they were, so the model is never left half renamed.
   const done: string[] = []
+  const was = new Map<string, Buffer>()
+  const putBack = async (): Promise<string> => {
+    const left: string[] = []
+    for (const file of done.reverse()) await writeFileAtomic(absolute(obj, file), was.get(file)!).catch(() => left.push(file))
+    return left.length > 0 ? ` ${left.join(', ')} could not be put back as ${left.length === 1 ? 'it was' : 'they were'}: look at ${left.length === 1 ? 'it' : 'them'}.` : ' Nothing was changed.'
+  }
   for (const [file, bytes] of written) {
+    const now = await readFile(absolute(obj, file)).catch(() => null)
+    if (now === null || sha256(now) !== answer.files[file]) return refuse(`${file} changed while torno renamed: try again.${await putBack()}`)
+    was.set(file, now)
     try {
       await writeFileAtomic(absolute(obj, file), bytes)
       done.push(file)
     } catch (e) {
-      const so = done.length > 0 ? ` ${done.join(', ')} ${done.length === 1 ? 'was' : 'were'} written already.` : ''
-      return refuse(`${file} could not be written: ${said(e)}.${so}`)
+      return refuse(`${file} could not be written: ${said(e)}.${await putBack()}`)
     }
   }
   // The build of the new name is the watcher's, as of any save of the person's (the project is the one on screen, which a save

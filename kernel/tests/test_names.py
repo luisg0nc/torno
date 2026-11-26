@@ -207,7 +207,7 @@ def test_the_worker_answers_of_the_files_its_build_was_made_from(tmp_path):
     _, _, shapes = build_scene(layouts, "box.py", kept)
     kept["source",] = {"dir": str(folder), "model": "box.py", "uses": []}
     sys.modules["torno_model_box"] = _import_model((folder / "box.py").resolve())
-    answer = queries.run(shapes, "part_sites", {"part": "shell", "to": "case"}, kept)
+    answer = queries.run(shapes, "part_sites", {"part": "shell", "to": "body"}, kept)
     assert len(answer["sites"]) == 7
     assert "Build again" in queries.run(shapes, "part_sites", {"part": "shell", "to": "case"}, {})["refused"]
     with pytest.raises(queries.QueryError):
@@ -217,6 +217,25 @@ def test_the_worker_answers_of_the_files_its_build_was_made_from(tmp_path):
 
 def test_an_fstring_that_cannot_make_the_name_is_no_reason_to_refuse(tmp_path):
     source = MODEL.replace("return {\"shell\": _shell(p), 'lid'", "legs = {f\"leg{i}\": Box(1, 1, 1) for i in range(2)}\n    return {**legs, \"shell\": _shell(p), 'lid'")
-    answer = sites(project(tmp_path, source), "shell", "case")
+    answer = sites(project(tmp_path, source), "shell", "body")
     assert len(answer["sites"]) == 7
     assert "refused" in sites(project(tmp_path, source, name="l", model="l.py"), "leg0", "foot", model="l.py")
+
+
+def test_a_name_the_model_already_writes_for_a_part_is_refused_though_the_build_has_no_such_part(tmp_path):
+    folder = project(tmp_path, MODEL)
+    layouts, *_ = load_model(folder, "box.py")
+    module = _import_model((folder / "box.py").resolve())
+    parts = {name for layout in layouts.values() for name in layout}
+    # Saved since the build: a part "case" the build does not know yet.
+    (folder / "box.py").write_text(MODEL.replace("'lid': Pos", "\"body\": Box(1, 1, 1), 'lid': Pos"))
+    answer = names.part_sites(folder, "box.py", module, "shell", "body", parts, [])
+    assert "body is already written in box/box.py line" in answer["refused"]
+
+
+def test_a_keyword_of_a_call_is_a_word_of_the_model_and_only_dict_keywords_name_a_part(tmp_path):
+    source = MODEL.replace("def assembly(p):", "def _label(txt):\n    return txt\n\ndef assembly(p):").replace("return {\"shell\": _shell(p), 'lid'", "label = _label(txt=\"shell\")\n    return {\"shell\": _shell(p), 'lid'")
+    answer = sites(project(tmp_path, source), "shell", "case")
+    assert "box/box.py line" in answer["refused"]
+    # dict(a="shell") in checks(p) is the part, as before.
+    assert any(s["line"] == 29 for s in sites(project(tmp_path, MODEL, name="d", model="d.py"), "shell", "body", model="d.py")["sites"])

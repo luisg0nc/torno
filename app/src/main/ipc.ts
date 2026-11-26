@@ -982,6 +982,11 @@ export function registerIpc(
       scene: () => lastScene(obj.id)?.scene,
       sites: (part, name) => ws.builds.query<PartSites>(obj.id, 'part_sites', { part, to: name }),
       builds: ws.builds,
+      sourcesBuilt: async () => {
+        const last = lastScene(obj.id)
+        const made = last ? buildIdentity(obj.id, last.revision) : undefined
+        return made !== undefined && made.sources === (await sourcesHash(obj.dir, last?.scene.uses))
+      },
       busy: () => sessions?.busyWith(obj.id, 'rename') ?? null,
       follow: async (was, now) => {
         const moved = await Promise.allSettled([marks?.renamePart(obj.id, was, now), sets?.renamePart(obj.id, was, now), tracings?.renamePart(obj.id, was, now), scans?.renamePart(obj.id, was, now)])

@@ -665,9 +665,12 @@ the key of `assembly(p)`, `printables(p)` or `references(p)` and the same name i
 or, for a model of `make_<part>(p)` functions, the function's name and its uses (the new name is then a Python name). It builds
 again, your marks, named sets, tracings, scans and saved views that name the part follow it, and Claude is told once, with your
 next prompt, so that it keeps the new name. It says why not, under the field, when the name is built from a variable or an
-f-string, comes from another file or from `common/`, is written somewhere else that may not be this part (a label, a print),
-or when the new name is empty, has a `/`, a `:` or the form `M3`, or is another part's or group's; and while Claude is working
-or a build runs. The builds kept before keep the old name. After the name, a small ring holds the number of open marks on the part (in the colour of a failing check when one of
+f-string, comes from another file or from `common/`, is written somewhere else that may not be this part (a label, a print,
+a keyword of a call other than `dict(...)`),
+or when the new name is empty, has a `/`, a `:` or the form `M3`, or is another part's or group's (in the build, or already
+written in the model since); and while Claude is working, a build runs, or the last build failed or is not of your latest save.
+If one of the files cannot be written, or you save one while torno writes, those it wrote are put back and nothing is renamed.
+The builds kept before keep the old name. After the name, a small ring holds the number of open marks on the part (in the colour of a failing check when one of
 them is one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
 rest back. That is a view of the list: the agent is told every mark as before. It works the other way too: the pointer on a part
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of

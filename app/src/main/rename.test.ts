@@ -8,6 +8,16 @@ import type { Part, Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { type PartSites, RENAME_LIMIT, type RenameDeps, keepRenameNotice, renamePart, takeRenameNotice } from './rename'
 
+/** Run before each atomic write, with its path: a test makes a write fail, or saves another file meanwhile. */
+let beforeWrite: ((path: string) => void) | undefined
+vi.mock('./atomic', async (real) => {
+  const actual = await real<typeof import('./atomic')>()
+  return { ...actual, writeFileAtomic: async (path: string, data: string | Uint8Array) => {
+    beforeWrite?.(path)
+    return actual.writeFileAtomic(path, data)
+  } }
+})
+
 let root: string
 let box: ObjectInfo
 
@@ -31,7 +41,7 @@ function kernelSites(text = MODEL, part = 'shell', to = 'front case'): PartSites
 
 function deps(over: Partial<RenameDeps> = {}): RenameDeps & { follow: ReturnType<typeof vi.fn> } {
   const follow = vi.fn(async () => {})
-  return { scene, sites: async (p, t) => kernelSites(MODEL, p, t), builds: { state: () => ({ objectId: 'box', status: 'ok', revision: 3 }) as BuildState }, follow, ...over } as RenameDeps & { follow: ReturnType<typeof vi.fn> }
+  return { scene, sites: async (p, t) => kernelSites(MODEL, p, t), builds: { state: () => ({ objectId: 'box', status: 'ok', revision: 3, stale: false }) as BuildState }, sourcesBuilt: async () => true, follow, ...over } as RenameDeps & { follow: ReturnType<typeof vi.fn> }
 }
 
 beforeEach(() => {
@@ -40,7 +50,10 @@ beforeEach(() => {
   writeFileSync(join(root, 'box', 'model.py'), MODEL)
   box = { id: 'box', name: 'box', dir: join(root, 'box'), model: 'model.py' }
 })
-afterEach(() => rmSync(root, { recursive: true, force: true }))
+afterEach(() => {
+  beforeWrite = undefined
+  rmSync(root, { recursive: true, force: true })
+})
 
 describe('renamePart', () => {
   it('writes the new name where the kernel found the old one, has torno\'s files follow and keeps the notice', async () => {
@@ -57,6 +70,50 @@ describe('renamePart', () => {
     expect(await renamePart(box, { from: 'shell', to: 'case2' }, deps({ busy: () => 'Claude is working on this project. Wait for it to finish, or stop it, then rename.' }))).toEqual({ done: false, refused: expect.stringMatching(/then rename/) })
     expect(await renamePart(box, { from: 'shell', to: 'case2' }, deps({ builds: { state: () => ({ objectId: 'box', status: 'building', revision: 3 }) as BuildState } }))).toEqual({ done: false, refused: expect.stringMatching(/build is running/) })
     expect(await renamePart(box, { from: 'shell', to: 'case2' }, deps({ scene: () => undefined }))).toEqual({ done: false, refused: expect.stringMatching(/not built yet/) })
+    expect(read('box/model.py')).toBe(MODEL)
+  })
+
+  it('refuses while the last build is not of the files as they are: failed, stale, or a save not built yet', async () => {
+    const at = (status: BuildState['status'], stale = false) => ({ builds: { state: () => ({ objectId: 'box', status, revision: 3, stale }) as BuildState } })
+    const sites = vi.fn()
+    expect(await renamePart(box, { from: 'shell', to: 'body' }, deps({ ...at('failed', true), sites }))).toEqual({ done: false, refused: expect.stringMatching(/not of the model as it is now/) })
+    expect(await renamePart(box, { from: 'shell', to: 'body' }, deps({ ...at('ok', true), sites }))).toEqual({ done: false, refused: expect.stringMatching(/not of the model as it is now/) })
+    expect(await renamePart(box, { from: 'shell', to: 'body' }, deps({ sourcesBuilt: async () => false, sites }))).toEqual({ done: false, refused: expect.stringMatching(/changed since its last build/) })
+    expect(sites).not.toHaveBeenCalled()
+    expect(read('box/model.py')).toBe(MODEL)
+  })
+
+  it('puts back the files it wrote when a later one cannot be written, and tells nothing', async () => {
+    const helper = 'from model import a\n\ndef b(p):\n    return {"shell": a(p)}\n'
+    mkdirSync(join(root, 'box', 'parts'))
+    writeFileSync(join(root, 'box', 'parts', 'helper.py'), helper)
+    const one = kernelSites()
+    const two = kernelSites(helper)
+    const both: PartSites = 'sites' in one && 'sites' in two ? { sites: [...one.sites, ...two.sites.map((site) => ({ ...site, file: 'box/parts/helper.py' }))], files: { ...one.files, 'box/parts/helper.py': two.files['box/model.py'] } } : one
+    beforeWrite = (path) => {
+      if (path.endsWith('helper.py')) throw new Error('disk full')
+    }
+    const d = deps({ sites: async () => both })
+    expect(await renamePart(box, { from: 'shell', to: 'body' }, d)).toEqual({ done: false, refused: 'box/parts/helper.py could not be written: disk full. Nothing was changed.' })
+    expect(read('box/model.py')).toBe(MODEL)
+    expect(read('box/parts/helper.py')).toBe(helper)
+    expect(d.follow).not.toHaveBeenCalled()
+    expect(existsSync(join(root, 'box/.torno/renamed.json'))).toBe(false)
+  })
+
+  it('never overwrites a save made after the check: it reads each file again before writing it', async () => {
+    const helper = 'def b(p):\n    return {"shell": 1}\n'
+    mkdirSync(join(root, 'box', 'parts'))
+    writeFileSync(join(root, 'box', 'parts', 'helper.py'), helper)
+    const one = kernelSites()
+    const two = kernelSites(helper)
+    const both: PartSites = 'sites' in one && 'sites' in two ? { sites: [...one.sites, ...two.sites.map((site) => ({ ...site, file: 'box/parts/helper.py' }))], files: { ...one.files, 'box/parts/helper.py': two.files['box/model.py'] } } : one
+    // The person saves helper.py while model.py is being written.
+    beforeWrite = (path) => {
+      if (path.endsWith('model.py') && read('box/parts/helper.py') === helper) writeFileSync(join(root, 'box', 'parts', 'helper.py'), `${helper}# mine\n`)
+    }
+    expect(await renamePart(box, { from: 'shell', to: 'body' }, deps({ sites: async () => both }))).toEqual({ done: false, refused: 'box/parts/helper.py changed while torno renamed: try again. Nothing was changed.' })
+    expect(read('box/parts/helper.py')).toBe(`${helper}# mine\n`)
     expect(read('box/model.py')).toBe(MODEL)
   })
 
