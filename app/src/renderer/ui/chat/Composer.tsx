@@ -298,7 +298,13 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
 
   async function send(): Promise<void> {
     const prompt = text.trim()
-    if (prompt === '' || !live) return
+    if (prompt === '' || !live || guard.busy()) return
+    // Only a message that copies a part's files waits before it goes, and only then is the box held: any other send runs as it always did, with no
+    // pause in which a letter typed straight after Enter could be refused by a read-only box.
+    if (!shelfPending.holds(prompt)) {
+      await sendNow(prompt)
+      return
+    }
     await guard.run(async () => {
       setSending(true)
       try {
@@ -332,7 +338,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
     // A part added by hand from the Shelf tab: its files are copied into `common/parts/<id>/` as the last thing before the message that names them goes (#355),
     // so no file is copied for a message the checks above refuse. A refusal holds the message back, whole, for the person to change and send again.
     // Nothing is taken from the board or the tag before it, so a refusal has nothing to give back.
-    const refused = await shelfPending.beforeSend(prompt)
+    const refused = shelfPending.get() === null ? null : await shelfPending.beforeSend(prompt)
     if (refused !== null) {
       setProblem(refused)
       return

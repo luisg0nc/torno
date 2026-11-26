@@ -83,7 +83,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `review R1 sent` for the round the prompt carried, and `R1 is in review, not sent` for each round that waits. The build line of the build still on show has
   "Review this build" (`reviewActions.start`). The terminal has no chip: its review line goes with the hook's context for the next prompt.
 
-- **A part added by hand from the Shelf tab** waits in the box as a request, and `Composer.send` first awaits `shelfPending.beforeSend(prompt)`: the files the request names are copied into `common/parts/<id>/` before the message goes, and a refusal is the error line (`chat-problem`) with the text kept (#355; rule `shelf`).
+- **A part added by hand from the Shelf tab** waits in the box as a request, and `Composer.send` first awaits `shelfPending.beforeSend(prompt)`: the files the request names are copied into `common/parts/<id>/` before the message goes, and a refusal is the error line (`chat-problem`) with the text kept (#355; rule `shelf`). Only such a send waits and holds the box (read-only, one send at a time, `sendGuard`); every other send runs with no wait before the box is emptied, so a letter typed straight after Enter is kept (`e2e/chatask.spec.ts`).
 - **The foot of the dock** (`ui/chat/Composer.tsx`, `Tasks.tsx`, `Suggestions.tsx`, `AskTakeover.tsx`, `styles/chat-foot.css`; the foot's rules are in that
   one sheet). From the top: an ask, when one waits (`AskTakeover.tsx`, drawn by `ChatPane`; see `asks` and `chat-cards-and-refs`), the `agent.json` note as one
   warn line (`.session-note`, passed to `ChatPane` as `foot` by `SessionPane`; with no chat it stays under the strip), then the foot proper: the task line, up to three
