@@ -99,6 +99,22 @@
   font-size: var(--text-small);
 }
 
+.shelf-empty {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.shelf-empty b {
+  display: block;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.shelf-empty p {
+  margin: 4px 0 0;
+}
+
 .shelf-group-title {
   display: flex;
   align-items: baseline;

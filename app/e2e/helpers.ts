@@ -11,7 +11,7 @@ const HELD = { Checks: 'checks', Marks: 'marks' } as const
 
 export type SectionName = keyof typeof PANEL | keyof typeof HELD
 
-/** The bench's tabs, which are no sections: Parameters, Parts and Shelf (the workspace's bought parts, there when it has any). */
+/** The bench's tabs, which are no sections: Parameters, Parts and Shelf (the workspace's bought parts, always the last). */
 const TABS = { Parts: 'parts', Parameters: 'params', Shelf: 'shelf' } as const
 export type TabName = keyof typeof TABS
 

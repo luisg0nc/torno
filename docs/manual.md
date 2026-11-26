@@ -430,8 +430,10 @@ size, see "A part opened"). No file of a part is made or changed by reading it. 
 the model called the part's `cutout` (its `body` when it has none) while it built. Python before 3.12 cannot count, and a part
 imported only inside a maker is not seen coming: such a part is told used with no count.
 
-The Shelf tab. A workspace with a part on its shelf has a third tab on the left, **Shelf** and the number of its parts, after Parameters
-and Parts, whether or not the open project has Params (a workspace with no part has no such tab). A row for each part: its picture, its
+The Shelf tab. Every open project has a last tab on the left, **Shelf** and the number of its parts, after Parameters and Parts, whether
+or not the project has Params. With no part on the shelf it says `Shelf 0`, and the tab says `No parts on the shelf yet.` and `Claude asks
+before it puts a part it researched here. Or drop a datasheet, STEP or photo here to add one.` instead of the list; the drop works there
+as on a full shelf (see "Adding a part by hand"). A row for each part: its picture, its
 name, what it cuts (`hole Ø7.2` for a round hole, `window 18.4 × 33.4` for another; nothing for a part with no cutout), a row of short
 rules and, at the right, `× 9` for how many times the open project used it. The picture is the part's section from the side as the kernel
 drew it, on a floor line, at one scale for all the parts, 1.25 px a millimetre, so a bigger part is drawn bigger (one too big for its

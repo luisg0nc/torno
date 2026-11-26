@@ -108,18 +108,11 @@ describe('the width of the card', () => {
 })
 
 describe('the tabs of the bench', () => {
-  it('shows Parameters alone for a one-part model, Parts alone with no Params, both otherwise', () => {
-    expect(benchTabs(1, 22)).toEqual(['params'])
-    expect(benchTabs(4, 0)).toEqual(['parts'])
-    expect(benchTabs(1, 0)).toEqual(['parts'])
-    expect(benchTabs(4, 22)).toEqual(['params', 'parts'])
-  })
-  it('adds Shelf, last, when the workspace has a part on its shelf, with or without Params', () => {
-    expect(benchTabs(1, 22, 1)).toEqual(['params', 'shelf'])
-    expect(benchTabs(4, 22, 6)).toEqual(['params', 'parts', 'shelf'])
-    expect(benchTabs(4, 0, 2)).toEqual(['parts', 'shelf'])
-    expect(benchTabs(1, 0, 2)).toEqual(['parts', 'shelf'])
-    expect(benchTabs(4, 22, 0)).toEqual(['params', 'parts'])
+  it('has Parameters, Parts, or both, then Shelf last whatever the shelf holds', () => {
+    expect(benchTabs(1, 22)).toEqual(['params', 'shelf'])
+    expect(benchTabs(4, 0)).toEqual(['parts', 'shelf'])
+    expect(benchTabs(1, 0)).toEqual(['parts', 'shelf'])
+    expect(benchTabs(4, 22)).toEqual(['params', 'parts', 'shelf'])
   })
   it('draws Shelf when it was kept and there is a shelf, else the first tab', () => {
     expect(tabShown('shelf', ['params', 'shelf'])).toBe('shelf')

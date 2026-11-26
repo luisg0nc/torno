@@ -14,8 +14,7 @@ const TITLES: Record<BenchTab, string> = { params: 'Parameters', parts: 'Parts',
 /**
  * The bench: Parameters, Parts and Shelf as folder tabs that fill the column under the On block. The open one is kept for
  * each project (`store.benchTab`, in the window's storage). The tabs a project has are `benchTabs`: a one-part model
- * shows Parameters alone, a model with no Params Parts alone, and Shelf comes last when the workspace has a part on its
- * shelf. The bodies are the Parameters, Parts and Shelf components; the tab says how many each holds, and a dot on
+ * shows Parameters, a model with no Params Parts, and Shelf always comes last, with `Shelf 0` when the shelf is empty. The bodies are the Parameters, Parts and Shelf components; the tab says how many each holds, and a dot on
  * Parameters says a value is being tried.
  */
 export function Bench() {
@@ -26,7 +25,7 @@ export function Bench() {
   const params = useStore((s) => s.scene?.params)
   const tryingCount = (params ?? []).filter(tried).length
   const shelf = useShelf((s) => s.parts.length)
-  const tabs = benchTabs(parts, params?.length ?? 0, shelf)
+  const tabs = benchTabs(parts, params?.length ?? 0)
   const open = tabShown(kept, tabs)
   const list = useRef<HTMLDivElement>(null)
 

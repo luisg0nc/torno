@@ -19,7 +19,7 @@ import type { Scene } from '../../../shared/scene'
  * many of it the open project used. A row is dragged onto the model to place the part there (`state/placing.ts`, #353). The parts the project used come first, under its name, and then the rest. A find box and
  * three chips narrow them. A row is a button, so Enter on it is a click too: it opens the part (`boardActions.openPart`: `store.shelfOpen`, and the part's
  * page in the view, #352). The foot says where the parts come from. Files dropped on the tab (a datasheet, a STEP, a photo; a row's own drag is
- * none) open the form that adds a part by hand in place of the list (`AddPart`, #355).
+ * none) open the form that adds a part by hand in place of the list (`AddPart`, #355). With no part on the shelf the tab says so, still takes the drop and keeps the foot.
  */
 export function ShelfPanel() {
   const form = useShelfAdd((s) => s.form)
@@ -34,6 +34,19 @@ export function ShelfPanel() {
   const counts = shelfCounts(parts, scene)
   const shown = findShelf(parts, scene, query, filter)
   const { here, other } = partGroups(shown, scene)
+  const foot = (
+    <div className="shelf-foot">
+      <span>
+        All at one scale. From <span className="file">common/parts/</span>, which Claude keeps.
+      </span>
+      <span>{parts.length === 0 ? 'Drop a datasheet, STEP or photo here.' : 'Drag a part onto the model, or drop a datasheet, STEP or photo here.'}</span>
+      {said.length > 0 && (
+        <span className="shelf-said" role="status" data-part="shelf-said">
+          {said.join(' ')}
+        </span>
+      )}
+    </div>
+  )
   const carriesFiles = (e: DragEvent): boolean => e.dataTransfer.types.includes('Files')
   return (
     <div
@@ -64,7 +77,13 @@ export function ShelfPanel() {
           <span>{form ? 'to add to this part' : 'to put a new part on the shelf'}</span>
         </div>
       )}
-      {form ? <AddPart form={form} /> : <><div className="shelf-head">
+      {form ? <AddPart form={form} /> : parts.length === 0 ? <><div className="shelf-scroll">
+        <div className="shelf-empty" role="status" data-part="shelf-empty">
+          <b>No parts on the shelf yet.</b>
+          <p>Claude asks before it puts a part it researched here. Or drop a datasheet, STEP or photo here to add one.</p>
+        </div>
+      </div>
+      {foot}</> : <><div className="shelf-head">
         <div className="params-find shelf-find">
           <svg className="shelf-find-icon" viewBox="0 0 14 14" aria-hidden="true">
             <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
@@ -119,17 +138,7 @@ export function ShelfPanel() {
           </>
         )}
       </div>
-      <div className="shelf-foot">
-        <span>
-          All at one scale. From <span className="file">common/parts/</span>, which Claude keeps.
-        </span>
-        <span>Drag a part onto the model, or drop a datasheet, STEP or photo here.</span>
-        {said.length > 0 && (
-          <span className="shelf-said" role="status" data-part="shelf-said">
-            {said.join(' ')}
-          </span>
-        )}
-      </div></>}
+      {foot}</>}
     </div>
   )
 }

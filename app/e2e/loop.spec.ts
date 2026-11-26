@@ -52,7 +52,7 @@ const state = (p: Page = page): Promise<TornoState> => p.evaluate(() => window._
 const camera = (): Promise<Camera> => page.evaluate(() => window.__tornoTest!.camera())
 /** The layers listed in the Layers panel, which is opened first (a project is open). */
 async function layerNames(p: Page = page): Promise<(string | null)[]> {
-  // A model with one part and Params shows Parameters alone: no list of parts to read.
+  // A model with one part and Params has no Parts tab: no list of parts to read.
   if ((await benchTab(p, 'Parts').count()) > 0) await openSection(p, 'Parts')
   return p.locator('[data-layer]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer')))
 }

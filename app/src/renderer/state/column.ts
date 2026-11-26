@@ -105,11 +105,12 @@ export type BenchTab = 'params' | 'parts' | 'shelf'
 
 /**
  * Which tabs a project has: Parameters when the model has Params, Parts when it has more than one part (or no Params to show instead). A one-part
- * model shows Parameters alone, a model with no Params Parts alone. Shelf, last, when the workspace has a part on its shelf (`shelf`), whatever the model has.
+ * model shows Parameters, a model with no Params Parts. Shelf is always the last tab while a project is open, whatever the model has and
+ * even when the shelf is empty: it is where the first part is dropped (#355).
  */
-export function benchTabs(parts: number, params: number, shelf = 0): BenchTab[] {
+export function benchTabs(parts: number, params: number): BenchTab[] {
   const model: BenchTab[] = params === 0 ? ['parts'] : parts > 1 ? ['params', 'parts'] : ['params']
-  return shelf > 0 ? [...model, 'shelf'] : model
+  return [...model, 'shelf']
 }
 
 /** The tab to draw: the one kept for the project if it has it, else the first of its tabs (Parameters). */

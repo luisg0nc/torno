@@ -38,7 +38,7 @@ const shelf = () => page.locator('.left .shelf-tab')
 const row = () => shelf().locator('[data-part="ec11"]')
 const chip = (id: string) => shelf().locator(`.shelf-chip[data-filter="${id}"]`)
 
-test('a workspace with a part on its shelf has the tab "Shelf 1", after Parameters and Parts', async () => {
+test('the tab "Shelf 1" is the last, after Parameters and Parts', async () => {
   await openListed(page, 'hollow')
   await expect.poll(async () => { const s = await state(); return s.objectId === 'hollow' && s.build?.status }, { timeout: 30_000 }).toBe('ok')
   await expect(page.locator('.left .bench-tab')).toHaveText([/^Parameters\s*\d+$/, /^Parts\s*\d+$/, /^Shelf\s*1$/])

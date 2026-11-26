@@ -262,3 +262,22 @@ test('main refuses what the window should not have sent: a bad id, a link, a rel
   expect(got.refused.map((r) => r.name)).toEqual(['relative.png', 'notes.txt'])
   expect(existsSync(partDir('ok_id'))).toBe(false)
 })
+
+test('with an empty shelf the tab is still there as "Shelf 0", says so, keeps its foot, and takes the first drop', async () => {
+  if ((await form().count()) > 0) await form().locator('.add-back').click()
+  rmSync(join(root, 'common', 'parts'), { recursive: true, force: true })
+  await expect(benchTab(page, 'Shelf')).toHaveText(/^Shelf\s*0$/, { timeout: 15_000 })
+  // It stays last, and is the open one when the project has kept it so.
+  await expect(page.locator('.left .bench-tab').last()).toHaveAttribute('data-tab', 'shelf')
+  await openSection(page, 'Shelf')
+  await expect(tab().locator('.shelf-row')).toHaveCount(0)
+  await expect(tab().locator('[data-part="shelf-empty"] b')).toHaveText('No parts on the shelf yet.')
+  await expect(tab().locator('[data-part="shelf-empty"] p')).toHaveText('Claude asks before it puts a part it researched here. Or drop a datasheet, STEP or photo here to add one.')
+  await expect(tab().locator('.shelf-foot')).toContainText('common/parts/')
+  await drop('drawing.png')
+  await expect(form()).toBeVisible()
+  await expect(form().locator('.add-back')).toHaveText('New part, from 1 file you dropped')
+  await form().locator('.add-back').click()
+  await expect(form()).toHaveCount(0)
+  await expect(tab().locator('[data-part="shelf-empty"]')).toBeVisible()
+})
