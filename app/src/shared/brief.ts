@@ -231,3 +231,43 @@ export function whenSaid(ms: number): string {
   const two = (n: number): string => String(n).padStart(2, '0')
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${two(d.getHours())}:${two(d.getMinutes())}`
 }
+
+/** What the person had seen of Claude's cards when they last had the Brief on screen (`.torno/board/seen.json`, #340): when, and a hash of each card. */
+export interface Seen {
+  at: string
+  cards: Record<string, string>
+}
+
+/** A short hash of a string (FNV-1a, 32 bits, in hex): enough to tell that a card says something else, nothing more. */
+function fnv(text: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(16).padStart(8, '0')
+}
+
+/** What a card of Claude's says, as a hash: its words, its size (without the tie, which is no news), and whose it is. A move is not news. */
+export function seenHash(card: Card): string {
+  const size = card.size ? { what: card.size.what, value: card.size.value, unit: card.size.unit, source: card.size.source, note: card.size.note ?? '' } : null
+  return fnv(JSON.stringify([card.kind, card.text ?? '', card.caption ?? '', card.picture ?? '', size, card.by]))
+}
+
+/** What the person has now seen: every card of Claude's on the board, by its hash. */
+export function seenOf(cards: readonly Card[], at: string): Seen {
+  return { at, cards: Object.fromEntries(cards.filter((c) => !c.hidden && c.by === 'agent').map((c) => [c.id, seenHash(c)])) }
+}
+
+/** The cards of Claude's on the spine that are new since `seen`: added, or saying something else. Nothing is new without a `seen`. */
+export function freshCards(nodes: readonly SpineNode[], seen: Seen | null): Set<string> {
+  if (seen === null) return new Set()
+  return new Set(nodes.flatMap((n) => n.cards.filter((c) => c.by === 'agent' && seen.cards[c.id] !== seenHash(c)).map((c) => c.id)))
+}
+
+/** The prompts named in a line, by number: `prompt 13`, `prompts 13 and 14`, `prompts 4, 9 and 13`. */
+export function promptsSaid(numbers: readonly number[]): string {
+  if (numbers.length === 0) return ''
+  if (numbers.length === 1) return `prompt ${numbers[0]}`
+  return `prompts ${numbers.slice(0, -1).join(', ')} and ${numbers.at(-1)}`
+}

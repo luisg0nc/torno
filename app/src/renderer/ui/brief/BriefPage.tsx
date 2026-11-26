@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { type Card, readingOrder } from '../../../shared/board'
-import { briefSections, briefSpine, briefWords, claudeWrote, handOf, rulesSaid, spineSaid } from '../../../shared/brief'
+import { type Seen, briefSections, briefSpine, briefWords, claudeWrote, freshCards, handOf, promptsSaid, rulesSaid, spineSaid, whenSaid } from '../../../shared/brief'
 import type { PromptRow } from '../../../shared/chat'
 import type { DimensionMark } from '../../../shared/marks'
 import { sizesTold, tallyReadings, tieReading } from '../../../shared/ties'
@@ -103,6 +103,37 @@ export function BriefPage() {
   const nodes = useMemo(() => (board ? briefSpine(readingOrder(board.cards), prompts) : []), [board, prompts])
   const spineCards = useMemo(() => nodes.flatMap((n) => n.cards), [nodes])
   const words = useMemo(() => (brief ? briefWords(brief) : ''), [brief])
+  // New since you looked (#340): what main kept when the Brief was last on screen, read once as the page opens. A project
+  // with none has nothing new, and is kept now; leaving the page keeps what it showed.
+  const [since, setSince] = useState<Seen | null>(null)
+  const [unfolded, setUnfolded] = useState(false)
+  useEffect(() => {
+    if (objectId === null) return
+    let live = true
+    window.torno.board.seen(objectId).then(
+      (seen) => {
+        if (!live) return
+        if (seen !== null) setSince(seen)
+        else void window.torno.board.markSeen(objectId).then((now) => live && setSince(now), () => {})
+      },
+      () => {}
+    )
+    return () => {
+      live = false
+      void window.torno.board.markSeen(objectId).catch(() => {})
+    }
+  }, [objectId])
+  const fresh = useMemo(() => freshCards(nodes, since), [nodes, since])
+  const freshNodes = useMemo(() => new Set(nodes.filter((n) => n.cards.some((c) => fresh.has(c.id))).map((n) => n.id)), [nodes, fresh])
+  const seenNodes = nodes.filter((n) => !freshNodes.has(n.id))
+  const folded = freshNodes.size > 0 && !unfolded && seenNodes.length > 0
+  const markSeen = (): void => {
+    if (objectId === null) return
+    void window.torno.board.markSeen(objectId).then((now) => {
+      setSince(now)
+      setUnfolded(false)
+    }, (e: unknown) => boardActions.say(wordsOf(e)))
+  }
   const briefCard = board?.cards.find((c) => c.kind === 'brief' && !c.hidden)
 
   // What main refused is said for a few seconds, and a removal can be taken back for a while.
@@ -255,6 +286,20 @@ export function BriefPage() {
         </div>
       )}
 
+      {freshNodes.size > 0 && since !== null && (
+        <div className="brief-band" role="status">
+          <span className="brief-fresh-dot" />
+          <span>
+            <b>New since you looked at {numbered(whenSaid(Date.parse(since.at)))}:</b>{' '}
+            {((numbers) => (numbers.length > 0 ? <>what Claude wrote down in {numbered(promptsSaid(numbers))}.</> : 'what Claude wrote down.'))(nodes.filter((n) => freshNodes.has(n.id) && n.prompt).map((n) => n.prompt!.number))}
+          </span>
+          <span className="grow" />
+          <button type="button" className="button button-quiet brief-small" onClick={markSeen}>
+            Mark as seen
+          </button>
+        </div>
+      )}
+
       <section className="brief-yours" aria-label="In your words">
         <div className="brief-yours-head">
           <Pen />
@@ -328,7 +373,22 @@ export function BriefPage() {
         {nodes.length > 0 && (
           <Spine
             objectId={id}
-            nodes={nodes}
+            nodes={folded ? nodes.filter((n) => freshNodes.has(n.id)) : nodes}
+            fresh={freshNodes}
+            freshCards={fresh}
+            before={
+              folded ? (
+                <li className="brief-node brief-fold">
+                  <span>
+                    Seen before: {numbered(spineSaid(seenNodes.flatMap((n) => n.cards), sections.rulesFrame))}
+                    {((first) => (first ? <> from the prompts before {numbered(String(first))}</> : ''))(nodes.find((n) => freshNodes.has(n.id))?.prompt?.number)}.
+                  </span>
+                  <button type="button" className="button button-quiet brief-small" onClick={() => setUnfolded(true)}>
+                    Show them
+                  </button>
+                </li>
+              ) : undefined
+            }
             rulesFrame={sections.rulesFrame}
             prompts={prompts}
             pointed={pointed}

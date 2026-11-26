@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { type BoardFile, type Card, linksIn } from './board'
-import { briefSections, briefSpine, briefWords, handOf, whenSaid, linkLabel, RULES_FRAME, rulesSaid, sizesSaid, sizeSource, sizeValue, spineSaid, topicOf } from './brief'
+import { briefSections, briefSpine, briefWords, freshCards, handOf, promptsSaid, seenHash, seenOf, whenSaid, linkLabel, RULES_FRAME, rulesSaid, sizesSaid, sizeSource, sizeValue, spineSaid, topicOf } from './brief'
 import type { PromptRow } from './chat'
 
 const card = (id: string, extra: Partial<Card>): Card => ({ id, kind: 'text', x: 0, y: 0, w: 100, h: 100, by: 'person', ...extra })
@@ -166,5 +166,29 @@ describe('the person’s words of brief.md', () => {
 
   it('says when, as the spine does', () => {
     expect(whenSaid(new Date(2026, 10, 25, 9, 5).getTime())).toBe('25 Nov 09:05')
+  })
+})
+
+describe('new since you looked (#340)', () => {
+  const prompts = new Map([['u13', { conversation: 'c', id: 'u13', number: 13, text: '', at: 13 }], ['u14', { conversation: 'c', id: 'u14', number: 14, text: '', at: 14 }]])
+  const a = card('C1', { by: 'agent', text: 'Controls: 9 buttons', turn: { prompt: 'u13' } })
+  const b = card('C2', { by: 'agent', kind: 'size', turn: { prompt: 'u14' }, size: { what: 'plate', value: '15 x 8', unit: 'mm', source: 'from Claude' } })
+
+  it('keeps a hash of each card of Claude’s, and says which are new: added, or saying something else, not moved', () => {
+    const seen = seenOf([a, card('C5', { text: 'mine' })], '2026-11-25T17:50:00.000Z')
+    expect(Object.keys(seen.cards)).toEqual(['C1'])
+    const nodes = briefSpine([{ ...a, x: 500 }, b], prompts)
+    expect([...freshCards(nodes, seen)]).toEqual(['C2'])
+    expect([...freshCards(briefSpine([{ ...a, text: 'Controls: 3 toggles' }], prompts), seen)]).toEqual(['C1'])
+    expect(freshCards(nodes, null).size).toBe(0)
+    // A tie of a size is no news.
+    expect(seenHash({ ...b, size: { ...b.size!, tie: { mark: 'M9', tolerance: 0.5 } } })).toBe(seenHash(b))
+  })
+
+  it('names the prompts in a line', () => {
+    expect(promptsSaid([13])).toBe('prompt 13')
+    expect(promptsSaid([13, 14])).toBe('prompts 13 and 14')
+    expect(promptsSaid([4, 9, 13])).toBe('prompts 4, 9 and 13')
+    expect(promptsSaid([])).toBe('')
   })
 })

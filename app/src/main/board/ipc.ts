@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { type BoardAttach, type BoardFile, type BoardOpen, CARD_ID, MAX_CARDS, firstLink, linksIn, type PersonChange, type PinWhat } from '../../shared/board'
 import { type SavedView, findView } from '../../shared/views'
 import type { ObjectInfo } from '../../shared/workspace'
+import type { Seen } from '../../shared/brief'
 import { Refusal } from '../refusal'
 import { listBoardReferences, readReference } from '../sessions/reference'
 import { readBrief } from './live'
@@ -15,7 +16,7 @@ import type { Ties } from './ties'
 // The window names a project, never a folder; an id, an author or `hidden` is never taken from it (the store's `person`).
 
 export interface BoardIpcDeps {
-  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem' | 'aside' | 'useAside' | 'undoAside' | 'letGoAside'>
+  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem' | 'aside' | 'useAside' | 'undoAside' | 'letGoAside' | 'seen' | 'markSeen'>
   /** Keeps dimensions and the sizes that tie them saying the same thing (`ties.ts`). Absent: nothing is tied. */
   ties?: Pick<Ties, 'tie' | 'untie' | 'reconcile'>
   /** A project of the open workspace. */
@@ -82,6 +83,16 @@ export function boardHandlers(deps: BoardIpcDeps) {
 
     async dismissProblem(objectId: string): Promise<void> {
       return deps.board.dismissProblem(open(objectId).id)
+    },
+
+    /** What the person had seen of Claude's cards when they last had the Brief on screen (#340); null when nothing is kept. */
+    async seen(objectId: string): Promise<Seen | null> {
+      return deps.board.seen(open(objectId).id)
+    },
+
+    /** The person has seen the brief as it is now: main keeps a hash of each card of Claude's, from its own board. */
+    async markSeen(objectId: string): Promise<Seen> {
+      return deps.board.markSeen(open(objectId).id)
     },
 
     /** Whether a copy of the unreadable board file is kept aside and waits for the person. */

@@ -9,6 +9,7 @@ import { dropPictures } from './dropped'
 import { asideText, diskText, loadBoardFile, nextAbove, readBoardFile, removeAside, saveBoardFile, textOf } from './file'
 import { MADE_SIZE, freeSpot, freeSpotBelow } from './place'
 import { type LiveFacts, boardLine } from './text'
+import { type Seen, seenOf } from '../../shared/brief'
 
 interface BoardEvents {
   /** The board of a project changed: the whole board, as it now is. */
@@ -18,6 +19,8 @@ interface BoardEvents {
 }
 
 const TOLD = 'told.json'
+/** What the person had seen of Claude's cards when they last had the Brief on screen (#340). */
+const SEEN = 'seen.json'
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 
@@ -572,6 +575,36 @@ export class BoardStore {
       } catch {
         return {}
       }
+    })
+  }
+
+  /**
+   * What the person had seen of Claude's cards when they last had the Brief on screen (`.torno/board/seen.json`, ignored by
+   * git, #340); null for a project that has none, or whose file cannot be read.
+   */
+  seen(objectId: string): Promise<Seen | null> {
+    return this.turn(objectId, async (_file, dir) => {
+      try {
+        const parsed: unknown = JSON.parse(await readFile(join(dir, FOLDER, 'board', SEEN), 'utf8'))
+        if (typeof parsed !== 'object' || parsed === null) return null
+        const { at, cards } = parsed as { at?: unknown; cards?: unknown }
+        if (typeof at !== 'string' || typeof cards !== 'object' || cards === null || Array.isArray(cards)) return null
+        return { at, cards: Object.fromEntries(Object.entries(cards).filter((e): e is [string, string] => typeof e[1] === 'string')) }
+      } catch {
+        return null
+      }
+    })
+  }
+
+  /** The person has seen the brief as it is now: every card of Claude's, by its hash, and when (`seenOf`). Written in the board's turn. */
+  markSeen(objectId: string): Promise<Seen> {
+    return this.turn(objectId, async (file, dir) => {
+      const seen = seenOf(file.cards, this.stamp())
+      await ownTorno(dir, 'board')
+      // Ignored before it is there, as told.json is.
+      await ensureIgnored(dir, [`board/${SEEN}`])
+      await writeOwn(dir, `board/${SEEN}`, `${JSON.stringify(seen, null, 2)}\n`)
+      return seen
     })
   }
 

@@ -69,6 +69,14 @@ Paths as in the other rules.
   has been delivered (the delivery point of `sentMarkIds`), so a prompt that fails to go leaves the cards new. The one other
   writer is `BoardStore.markAllTold`, for the first prompt of a new project (`objects:onboard`, just before the prompt
   goes): it keeps the hashes `boardLine` itself computes for every card and arrow, so that prompt's line says none is new.
+- `<object>/.torno/board/seen.json` (#340, ignored through `ensureIgnored`, never tracked) is `Seen`, `{ at, cards }`: a hash (`seenHash`, FNV of the
+  kind, words, caption, picture, size without its tie, and `by`) of each card of the agent's when the person last had the Brief on screen.
+  Main writes it (`BoardStore.markSeen`, `board:markSeen`, from its own board, never ids or hashes from the window) and reads it (`seen`,
+  `board:seen`, null when there is none or it cannot be read). The page reads it once when it mounts (it is mounted only while the Brief is
+  shown, keyed by the project); with none it marks the board seen at once, so a project's first Brief has nothing new; it marks it seen again when
+  it unmounts (leaving the Brief or the project) and on "Mark as seen". New is `freshCards`: an agent card absent from it or with another hash.
+  The page shows them in the accent: the sticky `.brief-band` (`promptsSaid`), `data-fresh` on their nodes (filled accent node, "new" pill) and
+  cards (a wash), and folds the nodes with nothing new into `.brief-fold` ("Seen before: …", Show them).
 - Everything of the board is written under `<object>/.torno/board/`, through `ownTorno(dir, 'board')` and
   `writeOwn` first: a link or a file in the place of a folder is refused and nothing is written where it leads. The board
   adds no write exception to `workspace-writes`.

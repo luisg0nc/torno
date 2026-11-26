@@ -1136,3 +1136,17 @@ describe('making a card of Claude’s yours (#339)', () => {
     expect(byId(await store.read('bracket'), 'C2').by).toBe('agent')
   })
 })
+
+describe('seen.json (#340)', () => {
+  it('is nothing for a project that has none, keeps every card of Claude’s by its hash when the person has seen the brief, and git passes over it', async () => {
+    expect(await store.seen('bracket')).toBeNull()
+    await store.agent('bracket', { op: 'add', text: 'Mount: an arm' })
+    await store.person('bracket', text(0, 400))
+    const seen = await store.markSeen('bracket')
+    expect(Object.keys(seen.cards)).toEqual(['C1'])
+    expect(await newStore().seen('bracket')).toEqual(seen)
+    expect(readFileSync(join(dirs.bracket, '.torno', '.gitignore'), 'utf8')).toContain('board/seen.json')
+    writeFileSync(join(dirs.bracket, '.torno', 'board', 'seen.json'), 'not json')
+    expect(await newStore().seen('bracket')).toBeNull()
+  })
+})

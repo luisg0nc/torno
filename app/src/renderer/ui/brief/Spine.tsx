@@ -43,6 +43,8 @@ interface ItemProps {
   rule: boolean
   pointed: boolean
   lit: boolean
+  /** New since the person last looked (#340). */
+  fresh: boolean
   /** Its earlier words, oldest first, with the number of the prompt that wrote each. */
   replaced: Array<{ text: string; number?: number }>
   onPoint: () => void
@@ -53,7 +55,7 @@ interface ItemProps {
 }
 
 /** One card of Claude's on the spine. */
-const SpineCard = memo(function SpineCard({ objectId, card, node, rule, pointed, lit, replaced, onPoint, acts, editing, onOpenPicture }: ItemProps) {
+const SpineCard = memo(function SpineCard({ objectId, card, node, rule, pointed, lit, fresh, replaced, onPoint, acts, editing, onOpenPicture }: ItemProps) {
   const mine = card.by === 'person'
   const madeMine = mine && card.from?.at !== undefined && card.at !== undefined ? Date.parse(card.from.at) : undefined
   const wrote = node.prompt ? `prompt ${node.prompt.number}` : 'an earlier prompt'
@@ -105,6 +107,7 @@ const SpineCard = memo(function SpineCard({ objectId, card, node, rule, pointed,
       data-kind={card.kind}
       data-pointed={pointed ? '' : undefined}
       data-lit={lit ? '' : undefined}
+      data-fresh={fresh ? '' : undefined}
       onClick={(e) => {
         // A button or a link of the card does its own thing.
         if ((e.target as HTMLElement).closest('button, a') !== null) return
@@ -171,13 +174,18 @@ export interface SpineProps {
   actsOf: (card: Card) => CardActs
   editingOf: (card: Card) => ReactNode | undefined
   onOpenPicture: (url: string, label: string) => void
-  /** The prompts new since the person last looked (#340). */
+  /** The prompts new since the person last looked (#340), by id. */
   fresh?: ReadonlySet<string>
+  /** The cards new since then, washed in the accent. */
+  freshCards?: ReadonlySet<string>
+  /** What stands before the first node: the fold of what was seen. */
+  before?: ReactNode
 }
 
-export function Spine({ objectId, nodes, rulesFrame, prompts, pointed, onPoint, lit, actsOf, editingOf, onOpenPicture, fresh }: SpineProps) {
+export function Spine({ objectId, nodes, rulesFrame, prompts, pointed, onPoint, lit, actsOf, editingOf, onOpenPicture, fresh, freshCards, before }: SpineProps) {
   return (
     <ol className="brief-spine">
+      {before}
       {nodes.map((node) => {
         const open = node.cards.some((c) => c.id === pointed)
         const isFresh = fresh?.has(node.id) === true
@@ -211,6 +219,7 @@ export function Spine({ objectId, nodes, rulesFrame, prompts, pointed, onPoint, 
                     rule={card.kind === 'text' && rulesFrame !== null && card.frame === rulesFrame}
                     pointed={pointed === card.id}
                     lit={lit.includes(card.id)}
+                    fresh={freshCards?.has(card.id) === true}
                     replaced={replaced}
                     onPoint={() => onPoint(pointed === card.id ? null : card.id)}
                     acts={actsOf(card)}

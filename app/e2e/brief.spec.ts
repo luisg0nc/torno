@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
@@ -336,4 +336,35 @@ test('Make it yours turns a card of Claude\'s into the person\'s, with the red e
   await screen.getByRole('button', { name: 'Cancel' }).click()
   await expect(sizeRows().filter({ hasText: 'screen board' }).locator('.brief-hand')).toHaveText('Yours, from prompt 1')
   await expect(sizeRows().filter({ hasText: 'screen board' })).toHaveAttribute('data-by', 'person')
+})
+
+test('what Claude wrote down since the person last looked is new: the band, the accent node, and what was seen folded to one line (#340)', async () => {
+  // The brief was on screen: leaving it keeps what it showed.
+  await switchButton('Model').click()
+  await expect(sheet()).toHaveCount(0)
+  await expect.poll(() => existsSync(join(root, 'hollow', '.torno', 'board', 'seen.json'))).toBe(true)
+  // Claude writes a card in the third prompt while the model is shown (here, as a pull of the file would bring it).
+  const file = JSON.parse(readFileSync(boardPath('hollow'), 'utf8')) as BoardFile
+  file.cards.push({ id: 'C20', kind: 'text', x: 0, y: 1100, w: 240, h: 120, by: 'agent', text: 'Controls: 9 buttons and 2 encoders.', turn: turn(11) })
+  file.next = 40
+  writeFileSync(boardPath('hollow'), JSON.stringify(file, null, 2))
+  await expect.poll(async () => (await readBoard('hollow')).cards.some((c) => c.id === 'C20'), { timeout: 10_000 }).toBe(true)
+  await switchButton('Brief').click()
+  const band = sheet().locator('.brief-band')
+  await expect(band).toContainText('New since you looked at')
+  await expect(band).toContainText('what Claude wrote down in prompt 3.')
+  const spine = sheet().getByRole('region', { name: 'What Claude wrote down' })
+  await expect(spine.locator('.brief-node[data-prompt="u11"]')).toHaveAttribute('data-fresh', '')
+  await expect(spine.locator('.brief-node[data-prompt="u11"] .brief-newpill')).toHaveText('new')
+  await expect(spine.locator('.brief-cn[data-card="C20"]')).toHaveAttribute('data-fresh', '')
+  // What was seen is one line, and comes back with Show them.
+  await expect(spine.locator('.brief-fold')).toContainText('Seen before:')
+  await expect(spine.locator('.brief-node[data-prompt="u2"]')).toHaveCount(0)
+  await spine.getByRole('button', { name: 'Show them' }).click()
+  await expect(spine.locator('.brief-node[data-prompt="u2"]')).toHaveCount(1)
+  await band.getByRole('button', { name: 'Mark as seen' }).click()
+  await expect(band).toHaveCount(0)
+  await expect(spine.locator('.brief-cn[data-fresh]')).toHaveCount(0)
+  const seen = JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'board', 'seen.json'), 'utf8')) as { cards: Record<string, string> }
+  expect(Object.keys(seen.cards)).toContain('C20')
 })
