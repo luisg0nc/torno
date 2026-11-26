@@ -262,6 +262,7 @@ const bridge: TornoBridge = {
     history: (sessionId) => invokePlain('chat:history', sessionId),
     lastConversation: (objectId) => invokePlain('chat:lastConversation', objectId),
     prompts: (objectId) => invokePlain('chat:prompts', objectId),
+    usage: (objectId) => invokePlain('chat:usage', objectId),
     conversation: (objectId, conversationId) => invokePlain('chat:conversation', objectId, conversationId),
     reference: (sessionId, file) => invokePlain('chat:reference', sessionId, file),
     changes: (sessionId, turnId) => invokePlain('chat:changes', sessionId, turnId),

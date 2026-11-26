@@ -37,7 +37,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the tail as `readLog` does, parsing only the lines that say `"kind":"user"`: 50 logs of 2,000 lines take about 85 ms, so there is no index
   file, RF4), and a terminal's prompts from the history entries' `turn` (the ids `t-<conversation>-<n>`, once each, at the time of their first
   build: a terminal keeps no log, so only a prompt that built is known), oldest first and numbered from 1 across the project, at most the newest
-  2,000. `chat:conversation` reads one conversation's log (`readLog`) for the chat's "Earlier conversations". Both only read, for an object of the open
+  2,000. `chat:usage` (`sessions/usage.ts` `listUsage`, #370) gives each row of `listPrompts` what its turns took: every line of each log is
+  read (`readLog`, an item written again counted once, where it first stood), each `turn` goes to the last `sent` prompt before it, and its
+  `usage` (the CLI's numbers, `usageOf`: the counts, `requests` and `costUsd`, not the running total nor the models) and the pictures and builds
+  of its items (`turnFacts` of `shared/usage.ts`: pictures by the tool that brought them, `you` for the person's; builds that ran, from the build on
+  show at the prompt to the last that worked) are summed over the prompt's turns. Tokens with no `costUsd` are the first turn of a resumed
+  conversation (`resumed`): its cost is not known and is never worked out from `sessionCostUsd`. A terminal's prompt is a row with `terminal`
+  and nothing counted. `median` is the median cost of the rows whose cost is known (`medianCost`). `chat:conversation` reads one conversation's log (`readLog`) for the chat's "Earlier conversations". Both only read, for an object of the open
   workspace. Switching `view` ends the session and resumes the
   conversation in the other kind (`session.json` is the same).
 - **What a turn changed in the model** (`sessions/snapshots.ts`, `shared/changes.ts`, `chat:changes`). When a
