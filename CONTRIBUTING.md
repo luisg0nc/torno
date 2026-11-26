@@ -119,6 +119,8 @@ Two things tests must never do:
 
 ## Commits and pull requests
 
+- Branch from `dev` and open the pull request against `dev`. `main` holds the last release; a release merges `dev`
+  into it.
 - One change per commit. The message is a sentence that says what changed, from the person's side when it's a
   behaviour: "Keep Marks within the column when the room shrinks", not "fix layout bug".
 - A commit made with an AI agent ends with its `Co-Authored-By:` line.

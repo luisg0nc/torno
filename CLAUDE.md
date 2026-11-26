@@ -89,6 +89,9 @@ or of a whole user, and `kill -1`.
 Commit after every task with a message describing the change, ending with the Co-Authored-By trailer the harness
 gives. A change to what torno does changes the manual and the rule that says it in the same commit.
 
+Branches: work merges into `dev` (pull requests use `--base dev`); `main` is the last release, and the site and
+the manual deploy from it. A release is one pull request from `dev` to `main` with the version bump, then the `v*` tag.
+
 ## Rules by area
 
 The detail is in `.claude/rules/*.md`, moved as written from the folder `CLAUDE.md` files that held it. Claude Code
