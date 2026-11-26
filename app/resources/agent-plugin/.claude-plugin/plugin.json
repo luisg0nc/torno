@@ -1,5 +1,5 @@
 {
   "name": "torno",
   "description": "What an agent working in torno, the CAD workbench, needs to know of torno's model files, build123d, scans and dimensions.",
-  "version": "0.2.1"
+  "version": "0.2.2"
 }
