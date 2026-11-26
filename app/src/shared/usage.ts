@@ -142,7 +142,7 @@ export function whyLarge(u: Usage, facts: UsageFacts, times: number): { head: st
   const from = Object.entries(facts.pictures).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   const pictures = from.reduce((n, [, k]) => n + k, 0)
   if (pictures > 0) {
-    const where = pictures === 1 ? `from ${from[0]![0]}` : and(from.map(([name, n]) => `${n} from ${name}`))
+    const where = pictures === 1 ? `from ${from[0]![0]}` : from.length === 1 ? `all from ${from[0]![0]}` : and(from.map(([name, n]) => `${n} from ${name}`))
     lines.push(`${pictures} ${pictures === 1 ? 'picture' : 'pictures'} came in on the way, ${where}. A picture stays in the conversation, so every call after it reads it too.`)
   }
   const { count, from: first, to } = facts.builds

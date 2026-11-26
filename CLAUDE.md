@@ -111,7 +111,7 @@ heading names the folder its text came from. Paths are as written there: from `a
 - The view: `section`, `explode`, `saved-views`, `viewport-overlay`, `leaders`, `styles-themes`.
 - The agent: `mcp-tools`, `mcp-read-tools`, `build-digest`, `stop-hook`, `agent-prompt`, `instruction-files`, `asks`,
   `agent-launch-and-tokens`, `sessions`, `chat-transcript`, `chat-log-and-undo`, `session-pane`, `chat-pane`,
-  `chat-cards-and-refs`, `drawing-on-view`.
+  `chat-cards-and-refs`, `drawing-on-view`, `usage` (what Claude Code spent: the turn's line, the Usage page, the timeline's costs).
 - Scans: `scans-store`, `scans-regions`, `scans-window`. Screens: `first-screen`, `readiness`, `page-of-objects`,
   `new-object-create`, `new-object-onboard`, `new-object-page`.
 - The parts shelf: `shelf` (`common/parts/`: the kernel's op, the store, the types).

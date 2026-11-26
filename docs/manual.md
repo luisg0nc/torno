@@ -577,7 +577,8 @@ made (`Prompt 4 (3)`); the builds you made from the Parameters between two promp
 `Saved by you`, a Go back is `Went back`, and builds kept before torno said what made them are `Earlier`. A chip and a group of your own builds have a dot in your colour. The
 words of the prompt and the values you set are not in the label: hover a chip for them ("Prompt 4: make the box 96 mm wide", then "3 builds, h7 to h9, h9 on
 show"). The group of the build on show is ringed in the accent; a group whose last build failed is in red; the group of the build that runs is outlined, with its
-seconds; a starred group has a star.
+seconds; a starred group has a star. A prompt's chip ends with what the prompt cost (`Prompt 15 (3) $7.05`), in the accent when its turn was large
+(see "Why a turn was large"); a prompt whose cost is not known says none.
 
 A click on **Builds** (or `Ctrl+Shift+H`) opens the drawer upward over the view, and folds it back the same way; the view keeps its size. Whether it is open is
 kept by the window, not by the project: it stays as you left it when you open another project or start torno again. The drawer's head says "Builds of *name*",
@@ -1230,6 +1231,24 @@ you made the project are shown again from `reference/`, by the name the log
 keeps (one you have since deleted says `reference/doodle-1.png is no longer
 there`); a picture a tool gave says "Picture of an earlier build, not kept",
 and any other "Picture not kept".
+
+### What Claude Code spent
+
+**Usage**, beside Model and Brief in the switch at the top left of the view, shows what Claude Code spent on the
+project, read from the chat logs in `.torno/chat/`: the numbers Claude Code gave at the end of each turn, and the
+pictures and builds the log holds. It opens on the week; **Month** and **All** take the last 30 days or the whole
+project. At the top, the range in a sentence ("$19.42 over 17 prompts in 4 conversations. 96 % of the tokens were the
+conversation read again.") and, under it, the prompt that took most of it when it took far more than the others.
+Then the cost of each day (each week for a project longer than a month), where the tokens went (read again, new to
+the context, written by Claude), the turns grouped by how many pictures they had (each turn counted whole: Claude
+Code says what a turn cost, not what each picture cost), and the conversations, named by their first prompt, each
+with a small column for each prompt. A conversation opens to its prompts as a ledger: calls, pictures, builds and
+cost, the large ones with why under them, and a line where the conversation was resumed. **Usage** in the crumbs goes
+back. `Ctrl+Tab` does not go round to this page; from it, it goes to the model.
+
+What is not known is said so, never guessed: a terminal session records no usage, so its prompts are listed as "not
+recorded", and the first turn after a resume has its tokens but "not known" for its cost. A `?` on a day marks
+prompts like these. On a Claude plan the dollars are what the tokens would cost through the API, not what you pay.
 
 ### What Claude Code is given
 

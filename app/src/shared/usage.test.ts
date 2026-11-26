@@ -105,5 +105,6 @@ describe('whyLarge', () => {
   it('says one picture and one build, and leaves out what there was none of', () => {
     expect(whyLarge(usage, { pictures: { you: 1 }, builds: { count: 1, to: 4 } }, 3).lines.slice(1)).toEqual(['1 picture came in on the way, from you. A picture stays in the conversation, so every call after it reads it too.', '1 build ran, r4.'])
     expect(whyLarge(usage, { pictures: {}, builds: { count: 0 } }, 3).lines).toHaveLength(1)
+    expect(whyLarge(usage, { pictures: { look: 4 }, builds: { count: 0 } }, 3).lines[1]).toMatch(/^4 pictures came in on the way, all from look\./)
   })
 })
