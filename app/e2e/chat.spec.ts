@@ -557,16 +557,19 @@ test('"Go back to before this prompt" lists what it will do, puts the file back 
 test('with no copy of the build to put back, the same button asks Claude to undo, which asks first and sends a prompt that holds the lines to reverse', async () => {
   await expect(composer()).toBeEnabled()
   // Not while the session works.
-  const slow = await turns().count()
-  await say('slow 2')
+  const held = await turns().count()
+  // The turn is the test's to end: it goes on until this file is there, however long the menu takes.
+  const release = join(root, 'release-turn')
+  await say(`hold ${release}`)
   // Sending is not working: the status turns on the prompt's hook, and until it has Go back is still offered.
   await expect(dock().getByRole('status').first()).toHaveText('Working')
   // (The last turn that has the dots: this one has none yet.)
   await chat().getByRole('button', { name: 'More for this turn', exact: true }).last().click()
   await expect(chat().getByRole('menuitem', { name: GO_BACK, exact: true })).toBeDisabled()
   await page.keyboard.press('Escape')
-  await expect(turns()).toHaveCount(slow + 1, { timeout: 30_000 })
-  const before = slow + 1
+  writeFileSync(release, '')
+  await expect(turns()).toHaveCount(held + 1, { timeout: 30_000 })
+  const before = held + 1
   const kind = kept().length
   await say('edit hollow.py "wall: float = 5" "wall: float = 6"')
   await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
