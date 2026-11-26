@@ -12,7 +12,10 @@
 <link rel="icon" href="assets/torno.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/instrument-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/story.css">
 <script src="assets/site.js" defer></script>
+<script src="assets/story.js" defer></script>
+<script src="stories/simracing-panel.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to the page</a>
@@ -60,7 +63,7 @@
     <figcaption id="bench-cap">
       <span class="readout"><span class="ref">M1</span> pin on <span class="ref">bracket/F4</span>: make this wall
         <span class="num" data-want>3</span> mm</span>
-      <span class="readout"><span class="ref">M2</span> wall <span class="num" data-wall>2.000</span> mm,
+      <span class="readout" data-measured><span class="ref">M2</span> wall <span class="num" data-wall>2.000</span> mm,
         <span class="verdict" data-verdict>fails</span></span>
     </figcaption>
   </figure>
@@ -94,13 +97,10 @@
 </section>
 
 <section class="recording reveal" aria-labelledby="rec-title">
-  <h2 id="rec-title">Twenty seconds of it</h2>
-  <p class="section-lede">An airbox in a scan of its engine bay. A pin on the tub wall asks for 3 mm. Claude Code
-    looks, measures, edits; the model rebuilds and the dimension passes.</p>
-  <video controls muted playsinline loop preload="none" poster="assets/img/hero.png" width="1600" height="1000">
-    <source src="assets/img/demo.mp4" type="video/mp4">
-    <a href="assets/img/demo.mp4">Download the recording</a>.
-  </video>
+  <h2 id="rec-title">A part, prompt by prompt</h2>
+  <p class="section-lede">A button box for a sim racing rig, in seven prompts. You say what you want, Claude Code
+    looks, measures and edits, and torno builds it and runs its checks.</p>
+  <figure data-story="simracing-panel"></figure>
 </section>
 
 <section class="window reveal" aria-labelledby="win-title">

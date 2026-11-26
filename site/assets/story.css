@@ -1,0 +1,119 @@
+/* torno stories (story.js): the part on the left, drawn as the landing page draws its bracket, the conversation on the
+   right, a tick for each turn under both. Uses the tokens of site.css. */
+.story {
+  --shade: #1B1E24; --shade-k: 1;
+  display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, 1fr); grid-template-rows: auto auto;
+  gap: 0; margin: 0; background: var(--panel); color: var(--ink); border-radius: var(--radius-sheet, 12px);
+  box-shadow: 0 1px 2px rgb(8 20 60 / .25), 0 18px 48px rgb(8 20 60 / .35); overflow: hidden;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .story { --shade: #000; --shade-k: .8; } }
+:root[data-theme="dark"] .story { --shade: #000; --shade-k: .8; }
+
+.story-view { position: relative; padding: 14px 16px 12px; min-width: 0; }
+.story-head { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); }
+.story-name { color: var(--ink); font-size: 13px; }
+.story-rev { font-size: 12px; padding: 1px 7px; border-radius: 999px; background: var(--surface); }
+.story-status { display: inline-flex; align-items: center; gap: 7px; }
+.story-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hairline); transition: background 300ms; }
+.story-status.working .story-dot { background: var(--accent); animation: story-pulse 1s ease-in-out infinite alternate; }
+.story-status.ok .story-dot { background: var(--agent-mark); }
+.story-status.ok { color: var(--ok); }
+@keyframes story-pulse { from { opacity: .35; } to { opacity: 1; } }
+.story-pause {
+  margin-left: auto; font: 500 13px var(--font-ui); color: var(--muted); background: none; cursor: pointer;
+  border: 1px solid var(--hairline); border-radius: 6px; padding: 3px 10px;
+}
+.story-pause:hover { color: var(--ink); border-color: var(--accent); }
+.story-pause:focus-visible, .story-tick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.story-svg { width: 100%; aspect-ratio: 640 / 460; margin-top: 6px; overflow: hidden; }
+.story-grid { fill: none; stroke: var(--grid); stroke-width: 1; }
+.story-svg .f { --c: color-mix(in oklab, var(--mat), var(--shade) var(--k, 0%)); fill: var(--c); stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
+.story-svg .f.side { stroke: var(--c); stroke-width: .6; }
+.story-svg .ln { fill: none; stroke: var(--ink); stroke-width: 1; stroke-linecap: round; }
+.story-svg .pl { fill: none; stroke: var(--ink); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+.story-svg .pl.filled { fill: var(--mat); }
+
+/* What each solid is made of. */
+.m-part { --mat: var(--accent-wash); }
+.m-shell { --mat: var(--accent-wash); }
+.m-cap, .m-ring, .m-arm { --mat: var(--panel); }
+.m-metal { --mat: color-mix(in oklab, var(--panel), var(--muted) 30%); }
+.m-knob { --mat: color-mix(in oklab, var(--accent) 22%, var(--panel)); }
+.m-screen { --mat: #1A2133; }
+.m-rig { --mat: color-mix(in oklab, var(--surface), var(--panel)); }
+.story-svg .f.m-rig { stroke: var(--muted); stroke-width: .8; }
+.story-svg .pl.m-rig { stroke: var(--muted); stroke-width: .8; opacity: .7; }
+.story-svg .ln.m-knob { stroke-width: .7; }
+.story-svg .pl.engrave { stroke: var(--accent); stroke-width: 1.3; opacity: .75; }
+.story-svg .pl.plate { --mat: var(--panel); stroke: var(--accent); stroke-width: .9; }
+.story-svg .pl.glyph { stroke: var(--user-mark); stroke-width: 1.1; }
+.story-svg .pl.pointer { stroke: var(--panel); stroke-width: 1.6; }
+.story-svg .pl.glare { stroke: var(--scribe); stroke-width: 1.2; opacity: .9; }
+
+/* Marks, as the bracket's: the person's pin red, a dimension green, failing red. */
+.story-mark { transition: none; }
+.story-mark .pin-stem { stroke: var(--user-mark); stroke-width: 2; }
+.story-mark .pin-head { fill: var(--user-mark); }
+.story-mark .pin-ref { fill: var(--panel); font: 9px var(--font-mono); text-anchor: middle; dominant-baseline: central; }
+.story-mark.dim { --mk: var(--user-mark); }
+.story-mark.dim.pass { --mk: var(--agent-mark); }
+.story-mark .dim-line, .story-mark .dim-ext { stroke: var(--mk); stroke-width: 1.3; }
+.story-mark .dim-ext { stroke-width: .8; stroke-dasharray: 2 3; }
+.story-mark .dim-end { fill: var(--mk); }
+.story-mark .dim-text { fill: var(--mk); font: 12px var(--font-mono); text-anchor: middle; }
+
+.story-readout { margin: 4px 2px 0; min-height: 2.9em; font-size: 14px; color: var(--muted); max-width: none; }
+.story .verdict { font-weight: 500; color: var(--fail); }
+.story .verdict.pass { color: var(--ok); }
+
+/* The conversation: newest at the bottom, the oldest fading out at the top. */
+.story-chat {
+  position: relative; border-left: 1px solid var(--hairline); background: var(--surface); min-height: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%); mask-image: linear-gradient(to bottom, transparent, #000 22%);
+}
+.story-log { position: absolute; inset: auto 0 0 0; display: flex; flex-direction: column; gap: 14px; padding: 18px 18px 20px; }
+.story-row { margin: 0; font-size: 14.5px; line-height: 1.45; animation: story-in 380ms cubic-bezier(.2,.7,.2,1) both; }
+.story-log.instant .story-row, .story-log.instant .story-row * { animation: none !important; }
+@keyframes story-in { from { opacity: 0; transform: translateY(8px); } }
+.story-note { color: var(--muted); font-size: 13.5px; }
+.story-who { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); margin-bottom: 3px; }
+.story-you .story-msg {
+  margin: 0; background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 9px 11px; max-width: none;
+}
+.story-you .story-msg .ref { margin-right: 2px; }
+.story-caret { display: inline-block; width: 2px; height: 1.05em; margin-left: 1px; vertical-align: -0.15em; background: var(--accent); animation: story-blink 1s steps(1) infinite; }
+@keyframes story-blink { 50% { opacity: 0; } }
+.story-chip {
+  display: inline-block; font-size: 11px; line-height: 1; padding: 3px 6px 3px; border-radius: 999px; margin-right: 6px;
+  color: var(--panel); background: var(--user-mark); vertical-align: 0.08em;
+}
+.story-tools { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.story-tools li { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; color: var(--muted); max-width: none; animation: story-in 300ms ease both; }
+.story-tool { color: var(--accent); font-size: 12px; }
+.story-tool::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin-right: 7px; vertical-align: 0.15em; }
+.story-arg { font-size: 12px; }
+.story-plus { color: var(--agent-mark); font-size: 12px; }
+.story-minus { color: var(--user-mark); font-size: 12px; margin-left: -4px; }
+.story-build { margin: 6px 0 0; font-size: 12px; color: var(--muted); max-width: none; animation: story-in 300ms ease both; }
+.story-build.ok { color: var(--ok); }
+.story-tickmark { display: inline-block; width: 9px; height: 5px; border: solid currentColor; border-width: 0 0 1.6px 1.6px; transform: rotate(-45deg) translateY(-2px); margin-right: 8px; }
+.story-reply { margin: 6px 0 0; max-width: none; animation: story-in 380ms ease both; }
+
+/* A tick for each turn; one goes back to it. */
+.story-ticks { grid-column: 1 / -1; display: flex; gap: 6px; padding: 10px 16px 14px; border-top: 1px solid var(--hairline); }
+.story-tick { flex: 1; height: 14px; padding: 5px 0; background: none; border: 0; cursor: pointer; position: relative; }
+.story-tick::before { content: ''; position: absolute; inset: 5px 0; border-radius: 2px; background: var(--hairline); }
+.story-tick span { position: absolute; left: 0; top: 5px; bottom: 5px; border-radius: 2px; background: var(--accent); width: 0; }
+.story-tick:hover::before { background: var(--scribe); }
+.story-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .story { grid-template-columns: minmax(0, 1fr); }
+  .story-chat { border-left: 0; border-top: 1px solid var(--hairline); height: 260px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-row, .story-tools li, .story-build, .story-reply { animation: none; }
+}
+.story.recording .story-pause { visibility: hidden; }
+.story.recording { border-radius: 0; box-shadow: none; }

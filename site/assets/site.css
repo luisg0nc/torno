@@ -139,6 +139,11 @@ main > section.hero + section { border-top: 0; }
 #part .pin, #part .dim { transition: opacity 400ms; }
 #part:not(.marked) .pin, #part:not(.marked) .dim { opacity: 0; }
 .bench figcaption { display: grid; gap: 4px; padding: 10px 6px 0; font-size: 14px; color: var(--muted); }
+.bench .readout { transition: opacity 400ms; }
+/* Claude Code, in its own orange: the one colour on the page that is not the window's, because it is its mark. */
+#part .critter rect { fill: #D97757; }
+#part .critter rect.critter-eye { fill: var(--panel); }
+#part .agent-pulse { fill: none; stroke: #D97757; stroke-width: 1.6; }
 .verdict { font-weight: 500; color: var(--fail); transition: color 300ms; }
 .verdict.pass { color: var(--ok); }
 
@@ -160,7 +165,7 @@ main > section.hero + section { border-top: 0; }
 .steps li.on::before { color: var(--accent); }
 
 /* Pictures. */
-.recording video { width: 100%; margin-top: 36px; border-radius: 10px; border: 1px solid var(--hairline); background: var(--panel); }
+.recording .story { margin-top: 36px; box-shadow: none; border: 1px solid var(--hairline); }
 .wide img { margin-top: 36px; border-radius: 10px; border: 1px solid var(--hairline); }
 .shots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
 .shots figure { margin: 0; }

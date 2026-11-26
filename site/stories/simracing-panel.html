@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A sim racing panel, made in torno</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/torno.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/story.css">
+<style>
+  .story-page { background: var(--dye); color: var(--on-dye); min-height: 100vh; position: relative; isolation: isolate; }
+  .story-page::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-image: linear-gradient(to right, var(--scribe) 1px, transparent 1px), linear-gradient(to bottom, var(--scribe) 1px, transparent 1px);
+    background-size: 40px 40px; opacity: .28;
+  }
+  .story-page main { padding: clamp(24px, 4vw, 48px) max(16px, calc((100vw - 1160px) / 2)) 64px; }
+  .story-page h1 { font-size: clamp(28px, 3.6vw, 40px); letter-spacing: -0.015em; max-width: 24ch; }
+  .story-page .lede { color: var(--on-dye-muted); margin: 12px 0 28px; max-width: 60ch; font-size: 18px; }
+</style>
+</head>
+<body class="story-page">
+<header class="top">
+  <a class="brand" href="../" aria-label="torno, home"><img src="../assets/torno.svg" alt="" width="32" height="32"><span>torno</span></a>
+</header>
+<main>
+  <h1>A sim racing panel in seven prompts</h1>
+  <p class="lede">A button box for a racing rig: you say what you want, Claude Code edits the model, torno builds it and checks it.</p>
+  <figure data-story="simracing-panel"></figure>
+</main>
+<script src="../assets/story.js"></script>
+<script src="simracing-panel.js"></script>
+</body>
+</html>
