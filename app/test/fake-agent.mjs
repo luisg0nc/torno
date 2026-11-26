@@ -49,6 +49,8 @@
 //                                 `allowed: <json updatedInput>` (and, when the answer carried them, a second line
 //                                 `permissions: <json updatedPermissions>`) or `denied: <message>`
 //       slow <seconds>            a word every 100 ms for that long
+//       hold <file>               nothing until that file is there (or the turn is interrupted): a turn the test ends
+//                                 when it is done with it, for what must be checked while the agent works
 //       rate <percent>            a `rate_limit_event` at that utilization
 //       images                    says what pictures came with the prompt: `images: <n> <width>x<height> ...`, the
 //                                 size read from each PNG's header (a text, as `say` is)
@@ -95,7 +97,7 @@
 // The turns after it run as ever; with FAKE_AGENT_AUTH_EXIT=1 too it exits 1 after that `result` instead. (The shape is the
 // SDK's, not yet seen from a real CLI.)
 import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 
@@ -387,6 +389,8 @@ async function streamMode() {
       await edit(file ?? '', old ?? '', replacement ?? '')
     } else if (command === 'work') {
       await tool('Bash', { command: `sleep ${rest}` }, false, Number(rest) * 1000)
+    } else if (command === 'hold') {
+      while (!existsSync(rest) && !turn.aborted) await pause(20)
     } else if (command === 'slow') {
       const until = Date.now() + Number(rest) * 1000
       const event = (e) => out({ type: 'stream_event', event: e, ...base, uuid: next('uuid') })

@@ -20,8 +20,11 @@ A chat session is tested with `app/test/fake-agent.mjs` in its stream mode, whic
 `--input-format stream-json`: it speaks Claude Code's protocol on its pipes and prints nothing else. Its header
 lists everything it does; in short, a prompt's text is a script of one command per line: `say`, `tool <name>
 <json>` (a name beginning `mcp__torno__` calls torno's MCP server for real), `ask <name> <json>` (a permission
-request, answered by the window), `slow <s>`, `work <s>` (a tool that takes that long), `rate <percent>`, `images`,
-`garbage`, `retry`, `deny` and `argv`; `/noop` and `/compact` are what the CLI does for them. As the real CLI does (seen 2026-10-15), a prompt that
+request, answered by the window), `slow <s>`, `work <s>` (a tool that takes that long), `hold <file>`, `rate <percent>`, `images`,
+`garbage`, `retry`, `deny` and `argv`; `/noop` and `/compact` are what the CLI does for them. What a spec checks while
+the agent works runs under `hold <file>`, which goes on until the test writes that file (a path outside the project's
+folder, in the run's temporary copy), never under a `slow` or a `work` timed to outlast the checks: a slow runner
+takes longer than the turn. As the real CLI does (seen 2026-10-15), a prompt that
 comes while a tool runs is folded into the running turn (its hook, no `init`, one result), and an interrupt while a
 request waits sends `control_cancel_request` first. An interrupt keeps the prompts queued behind the turn (it lists their
 uuids in `still_queued`) and runs them afterwards together, one `init`; every prompt torno writes has a `uuid`, and the
