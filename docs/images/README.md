@@ -87,3 +87,4 @@ anywhere but is large (keep it under 10 MB, 800 px wide, 10–15 fps). Speed up 
 | # | File | What it shows |
 |---|---|---|
 | 11 | `social-preview.png` | **1280 × 640**, for Settings → General → Social preview on GitHub: the logo, "torno", the one-line description, and a crop of shot 1. Not used in the README. |
+| 12 | `site-preview.png` | **1200 × 1200**, the link preview of torno.luisg.me (`og:image`): the logo and "torno", centred on the paper grey, so a chat app that crops it to a square thumbnail keeps the logo. Drawn from `scripts/torno.svg` in Instrument Sans 600 and screenshotted in headless Chromium. |
