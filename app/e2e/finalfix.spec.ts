@@ -179,6 +179,68 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   await expect(page.getByRole('tabpanel', { name: /Parts/ })).toBeVisible()
 })
 
+// #330: the rows were held to a menu item's 26 px, so each folder's path lay over its name and the focus ring cut the row under it.
+test('each recent folder of the menu is two lines of its own: nothing overlaps, and the focus ring keeps off the other rows', async () => {
+  const other = mkdtempSync(join(realpathSync(tmpdir()), 'torno-e2e-finalfix-a-folder-with-a-long-name-'))
+  const config = join(home, 'config.json')
+  const before = readFileSync(config, 'utf8')
+  writeFileSync(config, JSON.stringify({ workspace: root, recent: [root, other, join(other, 'gone')] }))
+  try {
+    await page.getByRole('button', { name: /^Folder / }).click()
+    const menu = page.getByRole('menu', { name: 'Folders' })
+    await expect(menu.locator('.folder-row')).toHaveCount(3)
+    const laid = await menu.evaluate((el) => {
+      const box = (e: Element) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right } }
+      return {
+        menu: box(el),
+        rows: [...el.querySelectorAll('.folder-row')].map((row) => ({
+          row: box(row),
+          item: box(row.querySelector('.folder-item')!),
+          name: box(row.querySelector('.folder-name')!),
+          path: box(row.querySelector('.folder-path')!),
+          // Where the words themselves start and end, their element's padding aside.
+          said: [...row.querySelectorAll('.folder-said, .folder-remove')].map((word) => ({ left: box(word).left, right: box(word).right - parseFloat(getComputedStyle(word).paddingRight) })),
+          lines: [...row.querySelectorAll('.folder-name, .folder-path')].map((line) => [line.clientHeight, parseFloat(getComputedStyle(line).fontSize)])
+        }))
+      }
+    })
+    // Half a pixel of room for rounding.
+    const slack = 0.5
+    for (const [i, { row, item, name, path, said, lines }] of laid.rows.entries()) {
+      // Each line is as tall as its text, the path under the name, both inside the row's button with air above and below.
+      for (const [height, font] of lines) expect(height).toBeGreaterThanOrEqual(font)
+      expect(name.bottom).toBeLessThanOrEqual(path.top + slack)
+      expect(name.top - item.top).toBeGreaterThanOrEqual(3)
+      expect(item.bottom - path.bottom).toBeGreaterThanOrEqual(3)
+      if (i > 0) expect(laid.rows[i - 1].row.bottom).toBeLessThanOrEqual(row.top + slack)
+      // What a row says beside it stays clear of its lines and of the menu's edge.
+      for (const word of said) {
+        expect(word.left).toBeGreaterThanOrEqual(item.right)
+        expect(word.right).toBeLessThanOrEqual(laid.menu.right - 8)
+      }
+    }
+    // The one folder to open, reached by the keys: its ring is round its own row and over no other row's words.
+    const item = menu.locator('.folder-item:enabled')
+    await page.keyboard.press('Home')
+    await expect(item).toBeFocused()
+    const ring = await item.evaluate((el) => {
+      const style = getComputedStyle(el)
+      const reach = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+      const r = el.getBoundingClientRect()
+      return { style: style.outlineStyle, top: r.top - reach, bottom: r.bottom + reach, left: r.left - reach }
+    })
+    expect(ring.style).toBe('solid')
+    expect(ring.left).toBeGreaterThanOrEqual(laid.menu.left)
+    expect(ring.top).toBeGreaterThanOrEqual(laid.rows[0].path.bottom)
+    expect(ring.bottom).toBeLessThanOrEqual(laid.rows[2].name.top)
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+  } finally {
+    writeFileSync(config, before)
+    rmSync(other, { recursive: true, force: true })
+  }
+})
+
 test('Refresh folder reads the folder again: a project another tool made is listed, one that went is not', async () => {
   const names = async (): Promise<string[]> => (await state()).workspace!.objects.map((o) => o.id)
   expect(await names()).not.toContain('made-outside')

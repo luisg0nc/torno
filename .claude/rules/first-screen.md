@@ -114,7 +114,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   example", "Refresh folder" (`workspace:refresh`: main `rescan`s, builds the project on screen again with `builds.update` or `rebuild`,
   and answers with the list, which `refreshWorkspace` puts in the store; it writes nothing) and "Check what torno needs". A folder torno is started with (`TORNO_WORKSPACE`) is added to the
   recent ones; the workspace to open next stays the one chosen in the window. The open folder's row is marked
-  with a check and the word "current" in the muted face. A folder that cannot be opened (one gone since the menu
+  with a check and the word "current" in the muted face. A recent folder's row is two lines (name, path), so its
+  style is `.menu-item.folder-item` (`titlebar.css`): `.folder-item` alone loses its height and padding to `.menu-item`,
+  which comes later in the cascade (`e2e/finalfix.spec.ts` holds the rows apart). A folder that cannot be opened (one gone since the menu
   was read, one main refuses) leaves the workspace as it is and is said at the top of the page of projects, a `role="alert"`
   line with `openProblem`'s text, until the next action (`goTo` in `App.tsx` returns the problem).
 - **The window's own questions are dialogs over the whole window, not strips of a section.** Closing torno and
