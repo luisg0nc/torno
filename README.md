@@ -57,7 +57,7 @@ what you mean rather than make geometry. The model is the Python file, and torno
 - **Point, don't describe.** Pins, arrows, strokes, shapes and picks on faces and edges, each with a note. The
   agent gets them with your next prompt as refs like `lid/F12`, never as vague words. What you have selected waits
   in a tag by the part, with what the kernel says of it.
-- **What waits on you.** The top of the left column says how the build on show stands (`2 fail, 5 pass`) and lists
+- **What waits on you.** The top of the left column says how the build on show stands (`2 checks fail, 5 pass`) and lists
   what needs you: a failing check, Claude's question, a mark to review. Parameters and Parts are two tabs under it,
   and `Ctrl+P` finds any part or value in a model of many. `Ctrl+Shift+L` hides the column.
 - **Sketch in 3D.** Draw strokes in space, on a plane or on the surface of the parts, in millimetres, to show

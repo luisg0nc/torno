@@ -199,6 +199,28 @@ export function groupTitle(group: StripGroup, entries: ReadonlyMap<string, Histo
   return `${words}\n${facts.join(', ')}`
 }
 
+/** A build named in words, as the head of the left column's On block says it (#335). */
+export interface BuildNamed {
+  /** Its history id: said in the title only. */
+  id: string
+  /** `Latest build · prompt 5`, `Latest build · manual edit`, or `Prompt 3 · older build`. */
+  head: string
+  /** It is the newest build that drew (a failed or a running one after it does not count). */
+  latest: boolean
+}
+
+/** What made a build, inside a line: `prompt 5`, `manual edit`, `saved by you`; `Claude Code` keeps its capitals. */
+const byInLine = (by: string): string => (by === 'Claude Code' ? by : by.charAt(0).toLowerCase() + by.slice(1))
+
+/** A build of the timeline named with the timeline's own words: the latest one by what made it, an older one as older. Null when the timeline does not have it. */
+export function buildNamed(nodes: readonly StripNode[], id: string): BuildNamed | null {
+  const node = nodes.find((n) => n.id === id && n.kind === 'built')
+  if (!node) return null
+  const latest = nodes.findLast((n) => n.kind === 'built') === node
+  const by = node.by !== '' ? node.by : 'Earlier'
+  return { id, head: latest ? (node.by === '' ? 'Latest build' : `Latest build · ${byInLine(node.by)}`) : `${by} · older build`, latest }
+}
+
 /** The builds the status line's ticks stand for: the last `n`, and the build on show among them when it is older (in its place in the order). */
 export function ticksOf(nodes: readonly StripNode[], n = 8): StripNode[] {
   const last = nodes.slice(-n)

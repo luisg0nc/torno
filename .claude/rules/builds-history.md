@@ -180,7 +180,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `stripGroups(nodes)` (consecutive nodes of one prompt are one group, and so are consecutive ones of one cause that is not a prompt's, the person's Parameters
   between two prompts among them; every `goback` is its own; one nobody can say yet is `Building` or `Failed build`; a group shows its last build and
   `groupCount`), `groupTitle(group, entries)` (two lines: the prompt's words, `turn.text`, or what the Parameters set, `saveWords`, or `Went back to h3`; then
-  its builds, the one on show, a failure, a star: never in the label; it is the chip's and the group's title and the head of a build's menu), `ticksOf` (the
+  its builds, the one on show, a failure, a star: never in the label; it is the chip's and the group's title and the head of a build's menu), `buildNamed`
+  (a build in the same words for the left column's head, `Latest build · prompt 5` or `Prompt 3 · older build`: `marks-window`, #335), `ticksOf` (the
   last eight, the build on show kept among them) and `stripSays` (the drawer's head line's right side). There is no bracket of the prompts in sight any more:
   away from the chat it pointed across the window, and `state/inSight` and the chat's measuring went with it.
 - In the drawer a group is its label (`.tl-group-head`, a button with its count while it has several builds) over its builds: a group of several is a pile

@@ -81,7 +81,12 @@ test('a check that fails does not fail the build, and is told in the head of its
   await expect(said()).toHaveText('2 checks, 1 fails')
   // The block says it waits, and what waits on the person is a row of the On block.
   await expect(cardSection(page, 'Checks')).toHaveAttribute('data-needs', '')
-  await expect(page.locator('[data-region="left"] .on-block .on-head .on-said')).toHaveText('1 fails, 1 pass')
+  await expect(page.locator('[data-region="left"] .on-block .on-head .on-said')).toHaveText('1 check fails, 1 pass')
+  // The build on show is named in words, as the builds timeline names it; its history id is in the title only.
+  const head = page.locator('[data-region="left"] .on-block .on-head')
+  await expect(head.locator('.on-name')).toHaveText(/^Latest build( · .+)?$/)
+  await expect(head).toHaveAttribute('title', /^h\d+/)
+  await expect(head).not.toContainText(/\bh\d+\b/)
   await expect(page.locator('[data-region="left"] .on-block .on-row[data-kind="check"]')).toHaveCount(1)
 })
 

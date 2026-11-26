@@ -95,8 +95,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`toSend`, `withAgent`, `resolved`) to Marks. The other checks (`groups.checks`) are the Checks section's. A heading only for a
   group that has marks, in Marks; a row has no status word but a pinned dimension's `pinned`, which is never cut.
 - **The On block** (`ui/card/OnBlock.tsx`, drawn by `RouteCard` over the head and the sections; the rule is the pure `ui/card/onRows.ts`,
-  `onBlock(input, opened)`): the head is `On h18` (the build on show's id from `useStripNodes`, `r<n>` while the history has none) and the
-  verdict in a line (`verdictSaid`: `2 fail, 5 pass`, `nothing checked yet`; the model's checks and the dimensions together, `--fail`
+  `onBlock(input, opened)`): the head names the build in the builds timeline's words (#335): `buildNamed(nodes, id)` of `ui/strip/strip.ts`,
+  the one naming rule the timeline's labels share, gives `Latest build · prompt 5` (`· manual edit`, `· saved by you`, `· went back`) for the newest
+  build that drew, and `Prompt 3 · older build` for another; the build is the one on show (`useStripNodes`), or while a compare is on the one the
+  view draws in its place (`compare.to`, `compare.from` in Before), and then an older one has **Back to latest** (`actions.endCompare`) and no
+  verdict (it is the latest build's). The history id (`h18`, `r<n>` while the history has none) is in the head's title only. Then the
+  verdict in a line (`verdictSaid`: `27 checks pass`, `2 checks fail, 5 pass`, `1 check fails`, `nothing checked yet`; the model's checks and the dimensions together, `--fail`
   while one fails). The rows are one line each, in this order, at most `ON_ROWS_SHOWN` (4) unless opened: Claude's open question (`useOpenAsk`;
   `in the chat` opens the dock), a check that fails (a dimension's chip or the model's bar in `--agent-mark`, the words, the value read in `--fail`;
   it goes to its row by `goToRow`, or to the model's row under Checks), one row for the brief's sizes (`briefSections(board).sizes`; no size is

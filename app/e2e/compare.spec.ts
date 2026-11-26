@@ -197,6 +197,19 @@ test('a build of the builds timeline compares with the live build from its menu,
   await expect(page.getByRole('menu', { name: `Build ${from}` })).toHaveCount(0)
   await expect.poll(async () => (await state()).compare).toMatchObject({ from, to: live, mode: 'overlay' })
   await expect(bar()).toBeVisible()
+  // Before draws the older build alone: the left column's head names it so, without the latest build's verdict, and Back to latest ends the compare.
+  const onHead = page.locator('[data-region="left"] .on-block .on-head')
+  await expect(onHead.locator('.on-name')).toHaveText(/^Latest build/)
+  await bar().getByRole('button', { name: 'Before', exact: true }).click()
+  await expect(onHead.locator('.on-name')).toHaveText(/ · older build$/)
+  await expect(onHead).toHaveAttribute('title', from)
+  await expect(onHead.locator('.on-said')).toHaveCount(0)
+  await onHead.getByRole('button', { name: 'Back to latest' }).click()
+  await expect.poll(async () => (await state()).compare).toBeNull()
+  await expect(onHead.locator('.on-name')).toHaveText(/^Latest build/)
+  await nodes.first().click()
+  await page.getByRole('menuitem', { name: 'Compare with live' }).click()
+  await expect.poll(async () => (await state()).compare).toMatchObject({ from, to: live })
 
   // The same node says "Stop comparing"; the build on show has nothing to compare with.
   await nodes.first().click()

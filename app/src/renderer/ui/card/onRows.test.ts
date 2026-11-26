@@ -5,10 +5,19 @@ const base: OnInput = { ask: null, failing: [], pass: 0, unchecked: 0, review: [
 const fail = (id: string) => ({ id, chip: id, words: `${id} fails`, reading: '6.2' })
 
 describe('verdictSaid', () => {
-  it('counts what fails and what passes', () => expect(verdictSaid(2, 5)).toBe('2 fail, 5 pass'))
-  it('says one fails in the singular', () => expect(verdictSaid(1, 0)).toBe('1 fails'))
+  it('says what passes as checks', () => {
+    expect(verdictSaid(0, 27)).toBe('27 checks pass')
+    expect(verdictSaid(0, 1)).toBe('1 check passes')
+  })
+  it('counts what fails first, then what passes', () => {
+    expect(verdictSaid(2, 5)).toBe('2 checks fail, 5 pass')
+    expect(verdictSaid(1, 5)).toBe('1 check fails, 5 pass')
+  })
+  it('says what fails alone', () => {
+    expect(verdictSaid(1, 0)).toBe('1 check fails')
+    expect(verdictSaid(3, 0)).toBe('3 checks fail')
+  })
   it('says so when nothing is checked', () => expect(verdictSaid(0, 0)).toBe('nothing checked yet'))
-  it('leaves out a zero', () => expect(verdictSaid(0, 3)).toBe('3 pass'))
 })
 
 describe('onBlock', () => {
@@ -21,7 +30,7 @@ describe('onBlock', () => {
   it('orders the question, the failing checks, the sizes, the marks to review, then the marks from Claude, then tried values', () => {
     const b = onBlock({ ask: { text: 'Which way?' }, failing: [fail('M9')], pass: 5, unchecked: 2, review: [{ id: 'M12', words: 'rib' }], fromAgent: [{ id: 'M3', words: 'look' }], tried: [{ name: 'leg_gap', value: '96.9', file: '96.1' }] }, true)
     expect(b.rows.map((r) => r.kind)).toEqual(['ask', 'check', 'sizes', 'review', 'fromAgent', 'tried'])
-    expect(b.said).toBe('1 fails, 5 pass')
+    expect(b.said).toBe('1 check fails, 5 pass')
   })
   it('shows at most four rows and counts the rest, unless it is opened', () => {
     const input = { ...base, failing: ['a', 'b', 'c', 'd', 'e', 'f'].map(fail) }

@@ -171,7 +171,7 @@ for (const [n, frame] of FRAMES.entries()) {
       }
       if (frame === 'passes') {
         await expect(onCheck).toHaveCount(0)
-        await expect(onHead).toContainText('1 pass')
+        await expect(onHead).toContainText('1 check passes')
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
         // What the agent resolved waits as a row of the On block: M2 with its line.
         await page.locator('[data-region="left"] .on-block .on-row[data-kind="review"]').first().hover()

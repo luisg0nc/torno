@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { HistoryEntry } from '../../../shared/history'
-import { groupCount, groupTitle, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
+import { buildNamed, groupCount, groupTitle, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
 
 let n = 0
 const entry = (id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => ({
@@ -186,6 +186,33 @@ describe('groupTitle', () => {
     expect(groupTitle(stripGroups(stripNodes(history, idle()))[0]!, byId(history))).toBe('Went back to h0\nh1, starred')
     const failed = [agent('h2', 'u13', { failed: true, error: 'NameError' })]
     expect(groupTitle(stripGroups(stripNodes(failed, idle(), numbering))[0]!, byId(failed))).toBe('Prompt 13\nh2, failed')
+  })
+})
+
+describe('buildNamed', () => {
+  it('names the newest build that drew as the latest, with what made it in the timeline\'s words', () => {
+    const history = [agent('h1', 'u13'), agent('h2', 'u14')]
+    expect(buildNamed(stripNodes(history, idle({ onShow: 'h2' }), numbering), 'h2')).toEqual({ id: 'h2', head: 'Latest build · prompt 14', latest: true })
+    const manual = [agent('h1', 'u13'), entry('h2', { cause: 'params' })]
+    expect(buildNamed(stripNodes(manual, idle(), numbering), 'h2')!.head).toBe('Latest build · manual edit')
+    expect(buildNamed(stripNodes([entry('h3', { cause: 'person' })], idle()), 'h3')!.head).toBe('Latest build · saved by you')
+    expect(buildNamed(stripNodes([entry('h4', { cause: 'goback', wentBackTo: 'h1' })], idle()), 'h4')!.head).toBe('Latest build · went back')
+    expect(buildNamed(stripNodes([agent('h5', 'u99')], idle(), numbering), 'h5')!.head).toBe('Latest build · Claude Code')
+  })
+
+  it('names an older build by what made it, and says it is older', () => {
+    const history = [agent('h1', 'u13'), agent('h2', 'u14')]
+    expect(buildNamed(stripNodes(history, idle({ onShow: 'h2' }), numbering), 'h1')).toEqual({ id: 'h1', head: 'Prompt 13 · older build', latest: false })
+    expect(buildNamed(stripNodes([entry('h1'), entry('h2')], idle()), 'h1')!.head).toBe('Earlier · older build')
+  })
+
+  it('still calls the build the latest when only failed or running builds came after it', () => {
+    const history = [agent('h1', 'u13'), agent('h2', 'u14', { failed: true, error: 'NameError' })]
+    expect(buildNamed(stripNodes(history, idle({ status: 'building', onShow: 'h1', prompt: 14, cause: 'agent' }), numbering), 'h1')!.latest).toBe(true)
+  })
+
+  it('is null for a build the timeline does not have', () => {
+    expect(buildNamed([], 'h1')).toBeNull()
   })
 })
 
