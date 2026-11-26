@@ -7,7 +7,7 @@ import type { ScanInfo } from '../../shared/scans'
 import type { NamedSet } from '../../shared/sets'
 import { type ModelCheck, noteText } from '../../shared/modelChecks'
 import type { Scene } from '../../shared/scene'
-import { type Camera, type LookRequest, type LookResult, type SaveViewRequest, type SaveViewResult, type SectionPlane, type ShowRequest, type ShowResult, type ViewName, axisForm, planeText } from '../../shared/view'
+import { type Camera, type LookRequest, type LookResult, type SaveViewRequest, type SaveViewResult, type SectionPlane, type ShowRequest, type ShowResult, type ViewName, MAX_TILES, MIN_TILES, axisForm, planeText } from '../../shared/view'
 import { type SavedView, MAX_PROPOSALS, VIEW_NOT_BOTH, cleanViewName, findView, viewGone, viewNameRefusal, viewSummary } from '../../shared/views'
 import { number } from '../../shared/format'
 import { FOCUS_NOT_EXPLODED } from '../../shared/focus'
@@ -19,7 +19,7 @@ import { setsListed } from '../sets/text'
 import { type Focused, MARGIN_NEEDS_FOCUS, NO_SAVED_FRAME, focusOf, hiddenText, marginShare, notDrawn } from './focus'
 import { unknownKeys } from './keys'
 import { NO_LOOK_SCANS, NO_SCAN_OPACITY, NO_SHOW_SCANS, isScanOpacity, scanColourFor, scanIds } from './scanTools'
-import { type CameraArg, type LookArgs, type SaveViewArgs, type ShowArgs, CAMERA_KEYS, FOV, VIEW_NAMES, explodeHelp } from './schemas'
+import { type CameraArg, type LookArgs, type SaveViewArgs, type ShowArgs, CAMERA_KEYS, FOV, VIEW_NAMES, explodeHelp, viewsHelp } from './schemas'
 import { modelOutput } from '../context'
 import { NEWER_FILES } from '../freshness'
 import { type ToolDeps, type ToolResult, REFERENCE_NOTE, SPREAD_NOTE, TRACEBACK_LINES, behind, built, clampSize, failure, lastLines, layoutFor, messageOf, notOpen, onScreen, planeArg, tidy } from './tools'
@@ -294,11 +294,93 @@ export interface LookCapture {
 export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs, capture?: LookCapture): Promise<ToolResult> {
   const found = built(deps, objectId)
   if ('content' in found) return found
-  const { obj, scene, revision } = found
+  const { obj } = found
   // The window draws whatever object it has open, and a request does not say
   // which is meant: asked for another, it would answer with the wrong one.
   const elsewhere = (open: string | null) => failure(`${notOpen(obj, open)}. Ask the user to open it.`)
   if (deps.openObjectId() !== objectId) return elsewhere(deps.openObjectId())
+
+  // One view, or several tiled in one picture (`views`): each is asked as a look of that view alone would be.
+  const tiled = given.views !== undefined
+  const asked: AskedLook[] = []
+  if (tiled) {
+    const { views, ...beside } = given
+    if (beside.view !== undefined) return failure('give view or views, not both')
+    if (!Array.isArray(views) || views.length < MIN_TILES || views.length > MAX_TILES) return failure(viewsHelp)
+    for (const [at, view] of views.entries()) {
+      const nth = `view ${at + 1} of views: `
+      if (!isViewArg(view)) return failure(`${nth}give current, ${STANDARD_VIEWS}, the name of a saved view, or a camera: {"position": [x, y, z], "target": [x, y, z]}`)
+      const one = await askedLook(deps, objectId, found, { ...beside, view })
+      // What is wrong with one view says which; what is wrong with what they share is said as of any look.
+      if ('content' in one) return typeof view === 'string' && !isSavedName(view) ? one : failure(`${nth}${(one.content[0] as { text: string }).text}`)
+      asked.push(one)
+    }
+  } else {
+    const one = await askedLook(deps, objectId, found, given)
+    if ('content' in one) return one
+    asked.push(one)
+  }
+  const request: LookRequest = tiled ? { size: clampSize(given.size, deps.lookSize), tiles: asked.map(({ request: { size: _size, ...tile } }) => tile) } : asked[0].request
+
+  let picture: LookResult
+  try {
+    picture = await deps.look(objectId, request)
+  } catch (e) {
+    return failure(e instanceof Error ? e.message : String(e))
+  }
+  // The picture says what it is of: the window may have moved on, or a build
+  // may have ended, between the request and the answer, and what main knows
+  // now is not what was drawn.
+  if (picture.objectId !== objectId) return elsewhere(picture.objectId)
+
+  if (capture) {
+    capture.request = request
+    capture.picture = picture
+  }
+  let saved: string
+  try {
+    saved = capture ? 'not kept as a view' : `saved as ${await deps.saveImage(objectId, picture.png)}`
+  } catch (e) {
+    saved = `not saved: ${e instanceof Error ? e.message : String(e)}`
+  }
+  /** What is said after a picture's caption of what it was asked: of its saved view, and of scans standing where torno spread the parts. */
+  const after = (one: AskedLook, drawn: { layout?: string; scans?: string[] }): string => `${one.named ? passedOver(one.named, given, { picture: true, cut: Boolean(deps.view(objectId)?.section) }) : ''}${spreadBesideScans(found.scene, drawn)}`
+  const caption = tiled
+    ? [picture.caption, ...(picture.tiles ?? []).map((tile, i) => `${i + 1}: ${tile.caption}${after(asked[i], tile)}${asked[i].focused ? hiddenText(tile.hiddenBy).replace(/^\n/, ' · ') : ''}`)].join('\n')
+    : `${picture.caption}${after(asked[0], picture)}`
+  // The scans said to be gone from the disk: of those the views name, or of all when one of them names none.
+  const named = asked.map((one) => one.scans)
+  const undrawn = await undrawnScans(deps, objectId, named.some((one) => one === undefined) ? undefined : [...new Set(named.flatMap((one) => one!))])
+  // A focus is one place for every view: it is said once.
+  const focused = asked[0].focused
+  return {
+    content: [
+      { type: 'image', data: Buffer.from(picture.png).toString('base64'), mimeType: 'image/png' },
+      { type: 'text', text: `${caption}${undrawn}${focused ? `${focusSaid(focused)}${tiled ? '' : hiddenText(picture.hiddenBy)}${given.explode === undefined && isExploded(deps.view(objectId)?.explode) ? "\nThe user's screen draws the parts apart; this picture draws them together, as a focus is where they are built." : ''}` : ''}\nrevision r${picture.revision}${staleNote(deps, objectId, picture)}\n${saved}` }
+    ]
+  }
+}
+
+/** What one view of a look asks of the window, with what is to be said of it after its caption. */
+interface AskedLook {
+  request: LookRequest
+  named?: NamedView
+  focused?: Focused
+  /** The scans it asks for by number, none for false, or undefined for all there are. */
+  scans: string[] | undefined
+}
+
+/** Whether a value of `views` is a view as `view` takes one: a name, or something with a camera's position and target. */
+function isViewArg(value: unknown): value is string | CameraArg {
+  if (typeof value === 'string') return value !== ''
+  const at = (point: unknown): boolean => Array.isArray(point) && point.length === 3 && point.every((c) => typeof c === 'number' && Number.isFinite(c))
+  const camera = value as { position?: unknown; target?: unknown } | null
+  return typeof camera === 'object' && camera !== null && at(camera.position) && at(camera.target)
+}
+
+/** One view of a look checked and made a request of the window's, or the answer that refuses it. */
+async function askedLook(deps: ToolDeps, objectId: string, found: { scene: Scene; revision: number }, given: LookArgs): Promise<AskedLook | ToolResult> {
+  const { scene, revision } = found
   if (given.margin !== undefined && given.focus === undefined) return failure(MARGIN_NEEDS_FOCUS)
   if (given.focus !== undefined && isSavedName(given.view)) return failure(NO_SAVED_FRAME)
 
@@ -365,33 +447,7 @@ export async function lookTool(deps: ToolDeps, objectId: string, given: LookArgs
     request.explode = null
   }
 
-  let picture: LookResult
-  try {
-    picture = await deps.look(objectId, request)
-  } catch (e) {
-    return failure(e instanceof Error ? e.message : String(e))
-  }
-  // The picture says what it is of: the window may have moved on, or a build
-  // may have ended, between the request and the answer, and what main knows
-  // now is not what was drawn.
-  if (picture.objectId !== objectId) return elsewhere(picture.objectId)
-
-  if (capture) {
-    capture.request = request
-    capture.picture = picture
-  }
-  let saved: string
-  try {
-    saved = capture ? 'not kept as a view' : `saved as ${await deps.saveImage(objectId, picture.png)}`
-  } catch (e) {
-    saved = `not saved: ${e instanceof Error ? e.message : String(e)}`
-  }
-  return {
-    content: [
-      { type: 'image', data: Buffer.from(picture.png).toString('base64'), mimeType: 'image/png' },
-      { type: 'text', text: `${picture.caption}${named ? passedOver(named, given, { picture: true, cut: Boolean(deps.view(objectId)?.section) }) : ''}${spreadBesideScans(scene, picture)}${await undrawnScans(deps, objectId, args.scans === false ? [] : Array.isArray(args.scans) ? args.scans : undefined)}${focused ? `${focusSaid(focused)}${hiddenText(picture.hiddenBy)}${given.explode === undefined && isExploded(deps.view(objectId)?.explode) ? "\nThe user's screen draws the parts apart; this picture draws them together, as a focus is where they are built." : ''}` : ''}\nrevision r${picture.revision}${staleNote(deps, objectId, picture)}\n${saved}` }
-    ]
-  }
+  return { request, ...(named ? { named } : {}), ...(focused ? { focused } : {}), scans: args.scans === false ? [] : Array.isArray(args.scans) ? args.scans : undefined }
 }
 
 /** The focus checked against the last build, and the layout it is in: its box, or why it cannot be framed. For `look` and `show`; `drawn` is the parts the call names, if it does. */

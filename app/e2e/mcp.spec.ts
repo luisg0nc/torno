@@ -857,6 +857,50 @@ let measures: Client
 /** The faces of the measures plate, by what the kernel says of each. */
 let plateFaces: Array<{ ref: string; descriptor: string }>
 
+test('look with several views tiles them in one picture, each numbered and said in the caption, and keeps the one', async () => {
+  const pocket = await connect('pocket')
+  const kept = (): number => readdirSync(join(root, 'pocket', '.torno', 'views')).length
+  const before = kept()
+  const result = await call(pocket, 'look', { views: ['iso', 'top', 'current'] })
+  expect(result.isError, result.text).toBe(false)
+  expect(result.content.filter((block) => block.type === 'image')).toHaveLength(1)
+  expect(kept()).toBe(before + 1)
+  const lines = result.text.split('\n')
+  expect(lines[0]).toBe('3 views tiled in one picture of 1280×960, numbered left to right, top to bottom')
+  expect(lines[1]).toMatch(/^1: view iso · layout main · parts plate · orthographic · 640×480/)
+  expect(lines[2]).toMatch(/^2: view top · layout main · parts plate · orthographic · 640×480/)
+  // The person's own view has the shape of their viewport, fitted into its cell.
+  expect(lines[3]).toMatch(/^3: view current · layout main · parts plate · .*· (640×\d+|\d+×480)$/)
+  const image = result.content[0].data!
+  if (process.env.TORNO_SHOTS) {
+    mkdirSync(process.env.TORNO_SHOTS, { recursive: true })
+    writeFileSync(join(process.env.TORNO_SHOTS, 'look-views-3.png'), Buffer.from(image, 'base64'))
+  }
+  // Something is drawn in the middle of each of the three cells, and nothing in the fourth.
+  const middles = await page.evaluate(async (data) => {
+    const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0))
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(bitmap, 0, 0)
+    return [[0, 0], [640, 0], [0, 480], [640, 480]].map(([x, y]) => {
+      const pixels = ctx.getImageData(x + 160, y + 120, 320, 240).data
+      let count = 0
+      for (let i = 0; i < pixels.length; i += 4) if ([0xf1, 0xef, 0xea].some((value, channel) => Math.abs(pixels[i + channel] - value) > 40)) count += 1
+      return count / (pixels.length / 4)
+    })
+  }, image)
+  for (const share of middles.slice(0, 3)) expect(share).toBeGreaterThan(0.05)
+  expect(middles[3]).toBe(0)
+
+  // Six views at the largest, framed on a face.
+  const six = await call(pocket, 'look', { views: ['iso', 'front', 'back', 'left', 'right', 'top'], size: 9000, focus: 'plate/F0' })
+  expect(six.isError, six.text).toBe(false)
+  expect(six.text).toContain('6 views tiled in one picture of 1998×1000')
+  expect(six.text.match(/framed with/g)).toHaveLength(1)
+  if (process.env.TORNO_SHOTS) writeFileSync(join(process.env.TORNO_SHOTS, 'look-views-6.png'), Buffer.from(six.content[0].data!, 'base64'))
+})
+
 test('measure answers with the exact value, how it was taken and a reading, through refs, points and marks', async () => {
   await openObject('measures')
   measures = await connect('measures')

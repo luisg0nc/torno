@@ -261,7 +261,8 @@ export function toolLabel(name: string, input: unknown, where?: ChatWhere): stri
   if (isTornoTool(name)) {
     const tool = name.slice(TORNO_TOOL_PREFIX.length)
     const refs = typeof input === 'object' && input !== null && Array.isArray((input as { refs?: unknown }).refs) ? (input as { refs: unknown[] }).refs.filter((r): r is string => typeof r === 'string') : []
-    const hint = field(input, 'view') ?? field(input, 'ref') ?? field(input, 'id') ?? field(input, 'kind') ?? (refs.length > 0 ? refs.slice(0, 3).join(', ') : undefined)
+    const views = typeof input === 'object' && input !== null && Array.isArray((input as { views?: unknown }).views) ? (input as { views: unknown[] }).views.length : 0
+    const hint = (views > 0 ? `${views} views` : undefined) ?? field(input, 'view') ?? field(input, 'ref') ?? field(input, 'id') ?? field(input, 'kind') ?? (refs.length > 0 ? refs.slice(0, 3).join(', ') : undefined)
     return `torno · ${tool}${hint ? ` (${cut(hint)})` : ''}`
   }
   let detail: string | undefined

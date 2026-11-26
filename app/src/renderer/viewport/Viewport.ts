@@ -1413,6 +1413,11 @@ export class Viewport {
     return this.pictures.render(request)
   }
 
+  /** Several views tiled in one picture, whose long edge is `size`: see `PictureMaker.renderTiles`. */
+  renderTiles(requests: () => ImageRequest[], size?: number): Promise<Picture> {
+    return this.pictures.renderTiles(requests, size)
+  }
+
   /**
    * A small picture of any scene, of the object on show or of another, drawn off screen with this viewport's
    * renderer (`ThumbnailMaker.render`): nothing on screen changes for it. Null for a scene with nothing to draw.

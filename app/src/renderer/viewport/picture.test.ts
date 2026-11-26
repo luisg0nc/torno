@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import type { Part } from '../../shared/scene'
-import { asPictured, colouringNote, explodedNote, pictureExplode, pictureSize, scansNote, type PictureHost, type PicturePart, type PictureState, beyondNote, reachesBeyond, viewSaid } from './picture'
+import { asPictured, colouringNote, explodedNote, pictureExplode, pictureSize, scansNote, type PictureHost, type PicturePart, type PictureState, beyondNote, reachesBeyond, viewSaid, tileGrid, tileLongEdge } from './picture'
 
 describe('the size of a picture', () => {
   it('is 1280 on its long edge when none is asked for, or what is asked for is no number', () => {
@@ -27,6 +27,32 @@ describe('the size of a picture', () => {
     expect(pictureSize(1000, 0.5)).toEqual({ width: 500, height: 1000 })
     expect(pictureSize(64, 1000)).toEqual({ width: 64, height: 1 })
     expect(pictureSize(64, 0.001)).toEqual({ width: 1, height: 64 })
+  })
+})
+
+describe('a picture tiled of several views', () => {
+  it('has two side by side, up to four in two rows of two, and up to six in two rows of three, each cell 4:3', () => {
+    expect(tileGrid(2, 1280)).toEqual({ columns: 2, rows: 1, cell: { width: 640, height: 480 }, width: 1280, height: 480 })
+    expect(tileGrid(3, 1280)).toEqual({ columns: 2, rows: 2, cell: { width: 640, height: 480 }, width: 1280, height: 960 })
+    expect(tileGrid(4, 1280)).toEqual({ columns: 2, rows: 2, cell: { width: 640, height: 480 }, width: 1280, height: 960 })
+    expect(tileGrid(5, 1280)).toEqual({ columns: 3, rows: 2, cell: { width: 426, height: 320 }, width: 1278, height: 640 })
+    expect(tileGrid(6, 1280)).toEqual({ columns: 3, rows: 2, cell: { width: 426, height: 320 }, width: 1278, height: 640 })
+  })
+
+  it('is as a whole what a single picture may be: 1280 when not said, 2000 at most on its long edge', () => {
+    expect(tileGrid(4, undefined)).toMatchObject({ width: 1280, height: 960 })
+    expect(tileGrid(4, 5000)).toMatchObject({ width: 2000, height: 1500 })
+    expect(tileGrid(6, 5000).width).toBeLessThanOrEqual(2000)
+  })
+
+  it('draws a view of any shape as large as fits its cell', () => {
+    const cell = { width: 640, height: 480 }
+    for (const aspect of [4 / 3, 16 / 9, 2.4, 1, 0.6]) {
+      const drawn = pictureSize(tileLongEdge(aspect, cell), aspect)
+      expect(drawn.width, String(aspect)).toBeLessThanOrEqual(640)
+      expect(drawn.height, String(aspect)).toBeLessThanOrEqual(480)
+      expect(drawn.width === 640 || drawn.height === 480, String(aspect)).toBe(true)
+    }
   })
 })
 
