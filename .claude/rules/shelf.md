@@ -31,6 +31,13 @@ paths:
   - "app/src/renderer/ui/chat/shelfSlip.test.ts"
   - "app/src/renderer/ui/chat/ShelfSlip.tsx"
   - "app/e2e/shelfask.spec.ts"
+  - "app/src/main/shelf/add.ts"
+  - "app/src/main/shelf/add.test.ts"
+  - "app/src/renderer/state/shelfAdd.ts"
+  - "app/src/renderer/state/shelfAdd.test.ts"
+  - "app/src/renderer/ui/shelf/AddPart.tsx"
+  - "app/src/renderer/ui/shelf/addAsk.ts"
+  - "app/e2e/shelfadd.spec.ts"
 ---
 
 # The parts shelf: the kernel's read, main's store, the types
@@ -51,7 +58,7 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   deflection) and at most 40 to a drawing. Numbers are the kernel's, in full.
 - **The kernel writes nothing, and `ShelfStore` writes nothing**: it (`app/src/main/shelf/store.ts`) reads the kernel's
   answer and each part's `.torno/checked.json` (`{<param>: {value, date}}`; a bad file or entry is ignored). The one file of the
-  shelf main writes for #352 is that one, from `shelf/checked.ts` (below); the copy of #355 is in the rule `workspace-writes`.
+  shelf main writes for #352 is that one, from `shelf/checked.ts` (below); the copy of #355 (below) is in the rule `workspace-writes`.
 - **The store asks when the workspace opens and when a file under `common/parts/` changes**, 400 ms after the last change (the
   watch is `watchFolder` on `common/`, filtered to `common/parts`; while `common/` is missing, `watchTop` waits for it, one level
   deep). One ask runs at a time; a change meanwhile has the answer applied and another asked, so the newest state stays. A failed
@@ -134,3 +141,20 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   `useShelf` for its part: not listed yet (the store asks 400 ms after a change), the head alone; listed, its `PartPicture`, name and `PartLine` (`ui/shelf/PartBits.tsx`, the tab's row pieces, one set for both)
   and "Open it" (`boardActions.openPart`); a part with an `error` says `does not build` in warn. Derived each render, never stored, never in the log.
 - **The test** is `e2e/shelfask.spec.ts` with the stand-in: it asks the Shelf question, the test answers, and a `write` of a new part (the stand-in makes the folders) gives the slip and a Shelf tab of 2; a no writes nothing.
+
+## Adding a part by hand (#355)
+
+- **The drop** is the Shelf tab's (`ShelfPanel`: `dragover` of a drag that carries `Files` takes it and shows `.shelf-drop`, the `.drop.on` look of the mockup, over the tab; a row's own drag carries only `SHELF_DRAG_TYPE`, never `Files`, so it is
+  none). `takeDrop` (`state/shelfAdd.ts`, pure) holds the files to what main takes: `shelfFileKind` (PDF, PNG, JPEG, WebP, STEP/STP by the ending in any case), `shelfFileCap` (STEP 50 MB, the rest 25 MB, the caps `create` uses), at most `MAX_SHELF_FILES` 8 with those the
+  form has, a path (`window.torno.objects.pathOf`), the name each will have (`shelfFileName` = `referenceFiles`' stem rule, so the window names a file as main writes it) not given twice in any case. What is left out is a plain line (`said`): over the form, or, with no form,
+  in the tab's foot (`shelfDropSaid`). The form is not reachable with no part on the shelf: the tab is not there (`benchTabs`).
+- **The form** (`state/shelfAdd.ts`, `ui/shelf/AddPart.tsx`, `data-add-part`; `shelfAddStore`, one form for the window): the name is `idFromName(first file)` until the person types one (`named`), `idProblem` (`isPartId`, not on the shelf) is its live help, up to `MOST_ADD_SIZES` 20 rows of what, value as
+  typed (the page of a new project's `parseSize` is not used: a value is kept as typed, one line, at most 60 characters) and a source `ADD_SOURCES` (`datasheet`, `listing`, `measured`, `a guess` told as `assumed`); a blank row is left out and `sizeIssue` (one box of two empty) holds the button back
+  (`canAsk`). Back and Esc (`field.leave`, from anywhere in the form but a list) call `shelfAdd.close()`, which writes nothing. The pictures are `URL.createObjectURL` of the dropped file, revoked when the form goes. A workspace left clears the form and the request (`onWorkspaceSet`).
+- **The request** is `addRequest` (pure): `Put the <what> on the shelf as <id>: <value> <what> (<source>), .... Its files are in common/parts/<id>/: <names>. Model it as the torno-model skill says.`; `part` when what is empty, no colon with no sizes.
+- **Where the copy is made** (`ui/shelf/addAsk.ts` `askToShelve`): in a chat the request goes through `askClaude` (never sent; no session: `fixRequest`, which holds it as a draft in the box of the session it starts) and `shelfPending` keeps `{ id, paths, text }`; the chat box's send (`Composer.send`) first
+  asks `shelfPending.beforeSend(text)`: nothing waiting, or the message no longer holds `common/parts/<id>/` (the request is forgotten), lets it go; else `window.torno.shelf.addFiles(id, paths)` is awaited (twice at once copies once) and a rejection or any refused file is the box's error line (`refusedLine`) and the
+  message is not sent, the text kept; what was refused stays pending (a second send copies only that). The answer to an ask card (`denyAndSend`) is not a send of this. In a terminal session (there is no box) `shelfPending.now` copies at the click and the request is typed after, never if it was refused; a session asked for that turns out to be a
+  terminal gets the copy as the request is typed into it (`SessionPane`, `fixRequest`). Never a copy before a send or a click.
+- **Main** is `shelf/add.ts` `addFiles(root, id, paths)` (the writes are the fifth exception of `workspace-writes`, which says what it checks and writes). It answers `{ copied, refused: [{ name, why }] }` or rejects the whole request (a bad id or list, no workspace, a link or a file at a level of the way). `openRegular` of `objects/create.ts` is its one reader.
+- **The tests** are `main/shelf/add.test.ts` (a temp workspace), `state/shelfAdd.test.ts` and `e2e/shelfadd.spec.ts` (the drop is made with `File`s of a file input given real paths, since a `File` made in the page has no path for `webUtils`; the stand-in agent takes the sent message).

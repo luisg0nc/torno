@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Param } from './scene'
-import { assumedCount, holeText, isPartId, shelfFileOf, type ShelfPart } from './shelf'
+import { assumedCount, holeText, isPartId, shelfFileCap, shelfFileKind, shelfFileName, shelfFileOf, MAX_SHELF_FILES, type ShelfPart } from './shelf'
 
 const size = (name: string, doc: string | null, value = 1): Param => ({ name, type: 'float', default: value, literal: true, doc })
 
@@ -57,4 +57,33 @@ describe('shelfFileOf', () => {
     expect(shelfFileOf('')).toBeNull()
     expect(shelfFileOf(undefined)).toBeNull()
   })
+})
+
+describe('shelfFileKind', () => {
+  it.each([['a.pdf', 'pdf'], ['A.PDF', 'pdf'], ['a.png', 'image'], ['a.JPG', 'image'], ['a.jpeg', 'image'], ['a.webp', 'image'], ['a.step', 'step'], ['a.STP', 'step']])('%s is %s', (name, kind) => expect(shelfFileKind(name)).toBe(kind))
+  it.each(['a.txt', 'a.py', 'a', '.png', 'a.gif', 'a.step.exe', 'a.ply'])('%s is none', (name) => expect(shelfFileKind(name)).toBeNull())
+  it('reads the path\'s last name, from either kind of slash', () => expect(shelfFileKind('C:\\x\\y\\a.pdf')).toBe('pdf'))
+})
+
+describe('shelfFileCap', () => {
+  it('is the cap create uses: 50 MB a STEP, 25 MB a PDF or a picture', () => {
+    expect(shelfFileCap('step')).toBe(50 * 1024 * 1024)
+    expect(shelfFileCap('pdf')).toBe(25 * 1024 * 1024)
+    expect(shelfFileCap('image')).toBe(25 * 1024 * 1024)
+  })
+  it('allows eight files at most', () => expect(MAX_SHELF_FILES).toBe(8))
+})
+
+describe('shelfFileName', () => {
+  it('keeps a plain name, with its ending in lower case', () => {
+    expect(shelfFileName('/home/x/drawing.jpg')).toBe('drawing.jpg')
+    expect(shelfFileName('/home/x/Sizes.JPG')).toBe('Sizes.jpg')
+    expect(shelfFileName('/h/MTS-101_datasheet.PDF')).toBe('MTS-101_datasheet.pdf')
+  })
+  it('makes a name safe as create does for a reference: no space, no leading dot', () => {
+    expect(shelfFileName('/h/my photo (1).png')).toBe('my_photo__1_.png')
+    expect(shelfFileName('/h/.hidden.png')).toBe('hidden.png')
+    expect(shelfFileName('C:\\h\\a b.step')).toBe('a_b.step')
+  })
+  it('cuts a long name to 64 characters before the ending', () => expect(shelfFileName(`/h/${'a'.repeat(100)}.png`)).toBe(`${'a'.repeat(64)}.png`))
 })

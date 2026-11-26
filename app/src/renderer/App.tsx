@@ -8,6 +8,7 @@ import { connectTracings } from './state/tracings'
 import { connectReview } from './state/review'
 import { connectSets, setActions } from './state/sets'
 import { connectShelf } from './state/shelf'
+import { shelfAdd } from './state/shelfAdd'
 import { shelfFind } from './state/shelfFind'
 import { actions, onWorkspaceSet, sceneFileOf, store, useStore } from './state/store'
 import { BuildStatus } from './ui/BuildStatus'
@@ -196,6 +197,7 @@ function useMain(): void {
     // The parts shelf of the workspace, read from main and followed.
     const offShelf = connectShelf()
     const offShelfFind = onWorkspaceSet(shelfFind.clear)
+    const offShelfAdd = onWorkspaceSet(shelfAdd.clear)
 
     // Layer and layout changes are written to <object>/.torno/scene.json, once they stop coming.
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -234,6 +236,7 @@ function useMain(): void {
       offSets()
       offShelf()
       offShelfFind()
+      offShelfAdd()
       offSetsProblem()
       offMarks()
       offMarksProblem()

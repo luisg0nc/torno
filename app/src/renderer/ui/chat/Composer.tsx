@@ -10,6 +10,7 @@ import { onboarding } from '../../state/onboard'
 import { replaceRequest } from '../../state/placing'
 import { roundsViewOf, useReview } from '../../state/review'
 import { setTagActions } from '../../state/setTag'
+import { shelfPending } from '../../state/shelfAdd'
 import { store, useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { giveKeysBack } from '../typing'
@@ -37,6 +38,7 @@ export function unsentSessions(sessionIds: Iterable<string>): string[] {
 /** The drafts of the prompts not sent, and the board over the view, are let go when the workspace they were made in is closed. */
 export function clearDrafts(): void {
   drafts.clear()
+  shelfPending.clear()
   drawingActions.clear()
 }
 
@@ -291,6 +293,13 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
   async function send(): Promise<void> {
     const prompt = text.trim()
     if (prompt === '' || !live) return
+    // A part added by hand from the Shelf tab: its files are copied into `common/parts/<id>/` before the message that names them goes (#355). A refusal
+    // holds the message back, whole, for the person to change and send again.
+    const refused = await shelfPending.beforeSend(prompt)
+    if (refused !== null) {
+      setProblem(refused)
+      return
+    }
     // The picture shown for "Attach view" is the one that goes; one still coming is waited for.
     const withView = attach ? shown.current : null
     let viewPng: Uint8Array | undefined

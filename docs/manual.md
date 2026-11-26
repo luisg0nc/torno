@@ -503,6 +503,30 @@ is checked and the part's file still says the old value. torno writes nothing el
 when `.torno` is a real folder (a link or a file in its place is refused with a reason shown in the row), and leaves a
 `checked.json` it cannot read as it is, saying so.
 
+Adding a part by hand. Drop a datasheet, a STEP file or a photo on the Shelf tab (it shows a dashed edge in the accent while you carry files
+over it) and the tab becomes a short form in place of the list: **New part, from 2 files you dropped**. It takes PDFs, PNG, JPEG and WebP
+pictures and STEP files (`.step`, `.stp`), at most 8 for a part, a picture or a PDF of at most 25 MB and a STEP of at most 50 MB; any other
+file, one with no place on the disk, one over its size or one that would have the same name as another is left out and said above the
+form. The files show as pictures (a PDF or a STEP as a tile with its ending), each with its name, and a small cross takes one off. **Name**
+is the part's folder, in mono, made from the first file's name and yours to change: a lower-case identifier of letters, digits and `_`, not
+starting with a digit (a project imports the part by it), checked as you type, and not a part already on the shelf. **What is it** is a
+line. The box of sizes has a row for each size you know: what it measures, its value as you type it (`6.2`, `13 × 8`, `Ø 6.2`) and where it
+came from, **datasheet**, **listing**, **measured** or **a guess** (up to 20 rows; **Add a size**; the cross clears a row). An empty row is
+left out; a row with only one of its boxes filled holds the button back. **Back**, and Esc, leave the form with nothing written.
+
+**Ask Claude to put it on the shelf** puts a request in the message box, shown first and never sent: `Put the MTS-101 mini toggle, SPST,
+two pins on the shelf as mts_101: Ø 6.2 panel hole (datasheet), 6 bushing (datasheet), 10 lever (assumed). Its files are in
+common/parts/mts_101/: drawing.jpg, sizes.jpg. Model it as the torno-model skill says.` (a guess is told as `assumed`). Claude writes the
+part's `part.py` itself, after it has asked you with the Shelf question. torno copies your files into `common/parts/<name>/` when you
+send a message that still has `common/parts/<name>/` in it, and before it goes: the folders `common/`, `common/parts/` and the part's are
+made when they are not there, and each file is copied whole or not at all, never over a file of that name in any case of its letters (so
+more photos may be added to a part that is on the shelf, and nothing there is changed), and never through a link, which is also how a file
+that is a link is refused. torno writes nothing else, no `part.py` and no `.torno`. If a file is refused, the message is not sent: the
+box's error line says which file and why, and the text stays for you to change and send again (the files that were copied stay; a second
+send copies only what is left). A message that no longer has the folder in it goes without the files, and torno forgets the request. In a
+terminal session there is no box to send from, so the files are copied when you press the button (the form says so), and the request is
+typed at the prompt after that; when it is refused nothing is typed.
+
 **Builds.** Saving a file in the project's folder (dotfiles, `out/`, `cache/`,
 `.torno/` and `__pycache__/` are ignored, as are `build/`, `dist/`,
 `node_modules/`, `.venv/` and `.git/`) or in the workspace's `common/` starts

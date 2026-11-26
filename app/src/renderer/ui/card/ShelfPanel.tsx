@@ -1,10 +1,12 @@
-import { useId } from 'react'
+import { useId, useState, type DragEvent } from 'react'
 import type { ShelfPart } from '../../../shared/shelf'
 import { partGroups, timesUsed, useShelf } from '../../state/shelf'
 import { findShelf, shelfCounts, shelfFind, SHELF_FILTERS, useShelfFind } from '../../state/shelfFind'
 import { boardActions } from '../../state/board'
 import { placingActions, SHELF_DRAG_TYPE, usePlacing } from '../../state/placing'
 import { useStore } from '../../state/store'
+import { shelfAdd, shelfAddStore, takeDrop, useShelfAdd, useShelfDropSaid } from '../../state/shelfAdd'
+import { AddPart } from '../shelf/AddPart'
 import { giveKeysBack } from '../typing'
 import { PartLine, PartPicture } from '../shelf/PartBits'
 import { pressed } from '../../../shared/keys'
@@ -16,9 +18,13 @@ import type { Scene } from '../../../shared/scene'
  * solid one has a source, a thick green one is checked on the part, a dashed one is assumed, a dotted one is worked out), and how
  * many of it the open project used. A row is dragged onto the model to place the part there (`state/placing.ts`, #353). The parts the project used come first, under its name, and then the rest. A find box and
  * three chips narrow them. A row is a button, so Enter on it is a click too: it opens the part (`boardActions.openPart`: `store.shelfOpen`, and the part's
- * page in the view, #352). The foot says where the parts come from; dropping a datasheet is #355.
+ * page in the view, #352). The foot says where the parts come from. Files dropped on the tab (a datasheet, a STEP, a photo; a row's own drag is
+ * none) open the form that adds a part by hand in place of the list (`AddPart`, #355).
  */
 export function ShelfPanel() {
+  const form = useShelfAdd((s) => s.form)
+  const said = useShelfDropSaid((s) => s.lines)
+  const [dragging, setDragging] = useState(false)
   const parts = useShelf((s) => s.parts)
   const scene = useStore((s) => s.scene)
   const project = useStore((s) => (s.workspace?.objects.find((o) => o.id === s.objectId)?.name ?? s.objectId) || 'this project')
@@ -28,9 +34,37 @@ export function ShelfPanel() {
   const counts = shelfCounts(parts, scene)
   const shown = findShelf(parts, scene, query, filter)
   const { here, other } = partGroups(shown, scene)
+  const carriesFiles = (e: DragEvent): boolean => e.dataTransfer.types.includes('Files')
   return (
-    <div className="shelf-tab">
-      <div className="shelf-head">
+    <div
+      className="shelf-tab"
+      data-dragging={dragging ? '' : undefined}
+      onDragOver={(e) => {
+        if (!carriesFiles(e)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        setDragging(true)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
+      }}
+      onDrop={(e) => {
+        setDragging(false)
+        if (!carriesFiles(e)) return
+        e.preventDefault()
+        const got = takeDrop(e.dataTransfer.files, (f) => window.torno.objects.pathOf(f), shelfAddStore.getState().form?.files)
+        const files = got.taken.map((t) => ({ path: t.path, name: t.name, kind: t.kind, url: t.kind === 'image' ? URL.createObjectURL(t.file) : null }))
+        if (files.length > 0) shelfAdd.drop(files, got.said)
+        else shelfAdd.said(got.said)
+      }}
+    >
+      {dragging && (
+        <div className="shelf-drop" aria-hidden="true">
+          <b>Drop a datasheet, STEP or photo</b>
+          <span>{form ? 'to add to this part' : 'to put a new part on the shelf'}</span>
+        </div>
+      )}
+      {form ? <AddPart form={form} /> : <><div className="shelf-head">
         <div className="params-find shelf-find">
           <svg className="shelf-find-icon" viewBox="0 0 14 14" aria-hidden="true">
             <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
@@ -90,7 +124,12 @@ export function ShelfPanel() {
           All at one scale. From <span className="file">common/parts/</span>, which Claude keeps.
         </span>
         <span>Drag a part onto the model, or drop a datasheet, STEP or photo here.</span>
-      </div>
+        {said.length > 0 && (
+          <span className="shelf-said" role="status" data-part="shelf-said">
+            {said.join(' ')}
+          </span>
+        )}
+      </div></>}
     </div>
   )
 }

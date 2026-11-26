@@ -127,6 +127,7 @@ const bridge: TornoBridge = {
   shelf: {
     list: () => invokePlain('shelf:list'),
     measured: (id, name, value) => invokePlain('shelf:measured', id, name, value),
+    addFiles: (id, paths) => invokePlain('shelf:addFiles', id, paths),
     onChanged: (cb) => subscribe('shelf:changed', cb)
   },
   tracings: {

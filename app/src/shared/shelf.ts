@@ -1,4 +1,5 @@
 import { number } from './format'
+import { MAX_PDF_BYTES, MAX_PHOTO_BYTES, MAX_STEP_BYTES, PDF_FORMATS, referenceFiles, STEP_FORMATS } from './objectName'
 import { sourceCount } from './params'
 import type { Param } from './scene'
 
@@ -114,4 +115,42 @@ export function shelfFileOf(path: unknown): { id: string; file: string } | null 
   const id = parts[at + 2]
   const file = parts.slice(at + 3)
   return id !== undefined && isPartId(id) && file.length > 0 ? { id, file: file.join('/') } : null
+}
+
+// Adding a part by hand (#355): the files a person drops on the Shelf tab are copied into `common/parts/<id>/` by main (`main/shelf/add.ts`).
+// What they may be, how many and how big, and what they are called there, is one rule for the window and main.
+
+/** The kinds of file the shelf takes: a datasheet or drawing (PDF), a picture, a vendor's STEP. */
+export type ShelfFileKind = 'pdf' | 'image' | 'step'
+
+const IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp'] as const
+
+/** Every ending the shelf takes, as the new project page's own (pictures, PDF, STEP). */
+export const SHELF_FILE_ENDINGS: readonly string[] = [...IMAGE_FORMATS, ...PDF_FORMATS, ...STEP_FORMATS]
+
+/** The most files one part takes in one go. */
+export const MAX_SHELF_FILES = 8
+
+/** What a file is, from its name's ending in any case; null for any kind the shelf does not take. */
+export function shelfFileKind(name: string): ShelfFileKind | null {
+  const base = name.split(/[\\/]/).pop() ?? ''
+  const dot = base.lastIndexOf('.')
+  if (dot <= 0) return null
+  const ending = base.slice(dot).toLowerCase()
+  if ((IMAGE_FORMATS as readonly string[]).includes(ending)) return 'image'
+  if ((PDF_FORMATS as readonly string[]).includes(ending)) return 'pdf'
+  if ((STEP_FORMATS as readonly string[]).includes(ending)) return 'step'
+  return null
+}
+
+/** The most bytes of a file of a kind: what a new project copies of the same kind (a STEP 50 MB, a PDF or a picture 25 MB). */
+export const shelfFileCap = (kind: ShelfFileKind): number => (kind === 'step' ? MAX_STEP_BYTES : kind === 'pdf' ? MAX_PDF_BYTES : MAX_PHOTO_BYTES)
+
+/** The name a dropped file has in the part's folder: as a new project names a reference (`referenceFiles`), without its folder. */
+export const shelfFileName = (path: string): string => referenceFiles([path], SHELF_FILE_ENDINGS)[0].slice('reference/'.length)
+
+/** What copying the dropped files answers: the names they have in the part's folder, and each file that was left out, by name, with the reason. */
+export interface ShelfAddResult {
+  copied: string[]
+  refused: Array<{ name: string; why: string }>
 }

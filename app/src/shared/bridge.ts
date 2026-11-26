@@ -22,7 +22,7 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
-import type { ShelfChecked, ShelfPart } from './shelf'
+import type { ShelfAddResult, ShelfChecked, ShelfPart } from './shelf'
 import type { LineupPair } from './lineup'
 import type { LayerColour, LayerShape, PlaneSnap, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
 import type { MainAxis } from './planes'
@@ -422,6 +422,14 @@ export interface TornoBridge {
      * Answers with what it wrote; rejects with a plain reason (nothing written) for a bad name or value, or a link or file in `.torno`'s place.
      */
     measured(id: string, name: string, value: number): Promise<ShelfChecked>
+    /**
+     * Adding a part by hand (#355): copies the files the person dropped on the Shelf tab (their paths, `objects.pathOf`) into `common/parts/<id>/`, when they send the
+     * request that names them. Main checks the id (a part id), at most 8 paths, and each file (a plain file, no link, of a PDF, picture or STEP kind, within the cap of a
+     * new project's reference of that kind); makes `common/`, `common/parts/` and the part's folder when missing, never through a link; copies each file whole or not at
+     * all and never over a file of that name (any case). Answers with the names copied and each file left out with its reason; rejects (nothing written) for a bad id,
+     * list or folder. It writes no `part.py` and nothing under `.torno`.
+     */
+    addFiles(id: string, paths: string[]): Promise<ShelfAddResult>
   }
   /**
    * The tracings of a project (`<project>/.torno/tracings.json`): the model laid flat in one plane at true scale. Main is their

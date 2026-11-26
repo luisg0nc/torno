@@ -51,6 +51,7 @@ import { reviewHandlers } from './reviews/ipc'
 import { setHandlers } from './sets/ipc'
 import { followSets, refindAll } from './sets/refind'
 import type { SetStore } from './sets/store'
+import { addFiles } from './shelf/add'
 import { recordMeasured } from './shelf/checked'
 import type { ShelfStore } from './shelf/store'
 import { Outlines } from './tracings/outline'
@@ -112,7 +113,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:span, marks:offset, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
-//           shelf:list, shelf:measured, marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
+//           shelf:list, shelf:measured, shelf:addFiles, marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
 //           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, tracings:photo, tracings:lineUp, tracings:look, tracings:straightened, tracings:photoBytes, tracings:removePhoto, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
@@ -823,6 +824,11 @@ export function registerIpc(
   handle('shelf:measured', async (_event, id: string, name: string, value: number) => {
     if (!shelf) throw new Error('The parts shelf is not available.')
     return recordMeasured(shelf, id, name, value)
+  })
+  // "Add a part by hand": the files the person dropped are copied into `common/parts/<id>/` when they send the request that names them (`shelf/add.ts`).
+  handle('shelf:addFiles', async (_event, id: string, paths: string[]) => {
+    if (!shelf) throw new Error('The parts shelf is not available.')
+    return addFiles(shelf.workspaceRoot(), id, paths)
   })
 
   // The tracings of a project: the window makes and changes the person's, and is told of every change, whoever made it.
