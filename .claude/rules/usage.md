@@ -28,7 +28,7 @@ are on the local branch `design/usage`. The reader is in `chat-log-and-undo` (`c
   asked when it opens (`useProjectUsage`), when a `turn` item comes (`connectChat`) and when the page mounts; an answer for
   another project or older than the last ask is let go. It also holds the page's range (week, the default, month, all;
   never kept), the conversation open and the prompt lit.
-- **The Usage page** (`ui/usage/UsagePage.tsx`, the rules pure in `ui/usage/usagePage.ts`, styles `usage.css`) is the
+- **The Usage page** (`ui/usage/UsagePage.tsx`, the rules pure in `ui/usage/usageView.ts`, styles `usage.css`) is the
   board's `Shown` `usage` (`board.md`): the switch's third button, mounted by `App` in the view's place, so the 3D view
   pauses and the timeline is not drawn, as for the brief. `Ctrl+Tab` does not go to it (`swapped('usage')` is the model).
   The page: the head (`Usage of <project>`, the span, Week | Month | All as `.segmented`), the lead (`pageLead`: the cost

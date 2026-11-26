@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Usage, UsageRow } from '../../../shared/usage'
-import { buckets, byPictures, conversationsOf, daySpan, ledgerLead, pageLead, rowsIn } from './usagePage'
+import { buckets, byPictures, conversationsOf, daySpan, ledgerLead, pageLead, rowsIn } from './usageView'
 
 const day = (d: number, h = 12): number => new Date(2026, 10, d, h).getTime()
 const used = (costUsd: number | undefined, over: Partial<Usage> = {}): Usage => ({ input: 0, output: 100, cacheRead: 9600, cacheCreation: 300, requests: 4, ...(costUsd !== undefined ? { costUsd } : {}), ...over })

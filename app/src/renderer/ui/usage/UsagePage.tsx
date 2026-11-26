@@ -5,7 +5,7 @@ import { useStore } from '../../state/store'
 import { usageActions, useProjectUsage, useUsage, type UsageRange } from '../../state/usage'
 import { WhyLarge } from '../chat/TurnUsage'
 import { numbered } from '../numbered'
-import { type Bucket, buckets, byPictures, type ConversationUsage, conversationsOf, daySpan, ledgerLead, pageLead, pictureCount, rangeStart, rowsIn, shareOf, tokenKinds, unknownCost } from './usagePage'
+import { type Bucket, buckets, byPictures, type ConversationUsage, conversationsOf, daySpan, ledgerLead, pageLead, pictureCount, rangeStart, rowsIn, shareOf, tokenKinds, unknownCost } from './usageView'
 
 // The Usage page (#371, direction A of #357): in the view's place, beside Model and Brief. The range as a sentence, its days,
 // where the tokens went, the turns by their pictures and the conversations; a conversation opens to its prompts as a ledger,
@@ -78,9 +78,9 @@ function DaysChart({ cols, weekly }: { cols: Bucket[]; weekly: boolean }) {
 function WentTo({ rows }: { rows: UsageRow[] }) {
   const k = tokenKinds(rows)
   const kinds = [
-    { key: 'read', value: k.read, label: 'read again' },
-    { key: 'new', value: k.fresh, label: 'new to the context' },
-    { key: 'out', value: k.written, label: 'written by Claude' }
+    { kind: 'read', value: k.read, label: 'read again' },
+    { kind: 'new', value: k.fresh, label: 'new to the context' },
+    { kind: 'out', value: k.written, label: 'written by Claude' }
   ]
   return (
     <div className="usage-went">
@@ -89,13 +89,13 @@ function WentTo({ rows }: { rows: UsageRow[] }) {
       </h2>
       {k.all > 0 && (
         <div className="usage-kinds" role="img" aria-label={kinds.map((x) => `${x.label} ${shareOf(x.value, k.all)}`).join(', ')}>
-          {kinds.map((x) => (x.value > 0 ? <i key={x.key} data-kind={x.key} style={{ flexGrow: x.value }} title={`${x.label}: ${tokens(x.value)}`} /> : null))}
+          {kinds.map((x) => (x.value > 0 ? <i key={x.kind} data-kind={x.kind} style={{ flexGrow: x.value }} title={`${x.label}: ${tokens(x.value)}`} /> : null))}
         </div>
       )}
       <div className="usage-legend">
         {kinds.map((x) => (
-          <span key={x.key}>
-            <i data-kind={x.key} aria-hidden="true" />
+          <span key={x.kind}>
+            <i data-kind={x.kind} aria-hidden="true" />
             {x.label} <span className="num">{shareOf(x.value, k.all)}</span>
           </span>
         ))}
