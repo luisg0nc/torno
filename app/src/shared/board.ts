@@ -55,7 +55,42 @@ export interface Card {
   copy?: BuildCopy
   /** What a `size` card says: only ever on that kind. */
   size?: SizeFact
+  /** The prompt the agent made or last changed it in. Main's only (#336): never taken from the window or a tool's arguments. */
+  turn?: CardTurn
+  /** When it was made or last changed, ISO 8601. Main's only. */
+  at?: string
+  /** What an agent's card said before each edit of its words, oldest first, the last `MAX_WAS`. Main's only. */
+  was?: CardWas[]
+  /** A card the person made theirs (`adopt`, #339): it was the agent's, written in that prompt. Main's only. */
+  from?: CardFrom
 }
+
+/** A prompt, as a build's turn names it (`BuildTurn`) without its words: those stay in the chat log, which does not travel with the project. */
+export interface CardTurn {
+  /** The chat's `user` item, or `t-<conversation>-<n>` for a terminal's prompt. */
+  prompt: string
+  conversation?: string
+}
+
+/** What a card said before an edit, and the prompt and time it said it from. */
+export interface CardWas {
+  text: string
+  turn?: CardTurn
+  at?: string
+}
+
+/** Who a card the person made theirs was by, and when and in which prompt that one wrote it. */
+export interface CardFrom {
+  by: 'agent'
+  turn?: CardTurn
+  /** When the agent wrote it. */
+  at?: string
+  /** When the person made it theirs. */
+  since?: string
+}
+
+/** The most earlier words a card keeps (`was`). */
+export const MAX_WAS = 6
 
 export interface Arrow {
   /** `C<n>`: arrows take their ids from the same count as cards. */
@@ -101,6 +136,8 @@ export type PersonChange =
   | { op: 'unarrow'; id: string }
   /** Puts back cards and arrows main removed in this run, by id: what they were is main's to say, never the window's. */
   | { op: 'restore'; ids: string[] }
+  /** Makes a note, rule or size of the agent's the person's own (#339): main keeps who wrote it, in which prompt and when (`from`). */
+  | { op: 'adopt'; id: string }
 
 /**
  * What the agent's tools may ask of the board (`add_card`). It only ever adds cards of its own and changes or removes
@@ -125,11 +162,23 @@ export function firstLink(text: string): string | null {
   // The punctuation of the sentence the address ends, and a `)` that closes a bracket opened before it.
   for (;;) {
     const last = link.at(-1)
-    if (last !== undefined && '.,;:!?'.includes(last)) link = link.slice(0, -1)
+    // The sentence's punctuation, and the markup that closes around an address in markdown (`**`, `_`, a table's `|`, a quote's `>`, a code's backtick).
+    if (last !== undefined && '.,;:!?*_|>`'.includes(last)) link = link.slice(0, -1)
     else if (last === ')' && (link.match(/\(/g)?.length ?? 0) < (link.match(/\)/g)?.length ?? 0)) link = link.slice(0, -1)
     else break
   }
   return link
+}
+
+/** Every `http` or `https` address of a text, in order, each as `firstLink` reads one: what `brief.md`'s links are numbered by, in main and on the page alike. */
+export function linksIn(text: string): string[] {
+  const found: string[] = []
+  let rest = text
+  for (let link = firstLink(rest); link !== null; link = firstLink(rest)) {
+    found.push(link)
+    rest = rest.slice(rest.indexOf(link) + link.length)
+  }
+  return found
 }
 
 /** What the window asks main to open from a card: the brief in the person's program, or a file of `reference/` in its folder. */

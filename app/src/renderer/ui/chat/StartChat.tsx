@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatItem } from '../../../shared/chat'
 import { hint, pressed } from '../../../shared/keys'
 import { AGENT_LABEL } from '../../../shared/agents'
@@ -6,6 +6,7 @@ import { giveKeysBack } from '../typing'
 import { ago } from './ago'
 import { ChatItems } from './Items'
 import { ChatPlace } from './place'
+import { useStore } from '../../state/store'
 
 /**
  * The pane of an object with no session, for the chat: the end of the conversation it would go on with (read from
@@ -48,6 +49,25 @@ export function StartChat({
     }
   }, [objectId, resumable])
 
+  // A prompt the Brief asked to see ("Show prompt 11 in the chat"): brought into view and lit for a moment when the last conversation holds it.
+  const scroll = useRef<HTMLDivElement>(null)
+  const shown = useStore((s) => s.promptShown)
+  // Only an ask made while this pane is up, and each once.
+  const handled = useRef(shown?.seq ?? 0)
+  useEffect(() => {
+    if (!shown || shown.seq <= handled.current || last === null) return
+    handled.current = shown.seq
+    const el = scroll.current?.querySelector<HTMLElement>(`.chat-group[data-id="${CSS.escape(shown.id)}"]`)
+    if (!el) return
+    el.scrollIntoView({ block: 'center' })
+    el.dataset.shown = ''
+    const timer = setTimeout(() => delete el.dataset.shown, 4000)
+    return () => {
+      clearTimeout(timer)
+      delete el.dataset.shown
+    }
+  }, [shown?.seq, last]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const going = resumable && resume
   const when = ago(last?.at ?? null)
   const send = (): void => {
@@ -58,7 +78,7 @@ export function StartChat({
 
   return (
     <div className="chat-start" data-object={objectId}>
-      <div className="chat-start-scroll">
+      <div className="chat-start-scroll" ref={scroll}>
         {resumable && (
           <section className="chat-earlier" aria-label="Last conversation">
             <h3 className="chat-earlier-head">{when !== '' ? `Last conversation, ${when}` : 'Last conversation'}</h3>

@@ -74,6 +74,11 @@ export async function addPicture(objectId: string, bytes: Uint8Array): Promise<b
   return (await ask(objectId, { op: 'add', card: { kind: 'picture', picture, ...placeBelow(current(objectId), PICTURE_SIZE) } })) !== null
 }
 
+/** A note, rule or size of Claude's made the person's own (#339): main keeps who wrote it. */
+export async function adoptCard(objectId: string, id: string): Promise<boolean> {
+  return (await ask(objectId, { op: 'adopt', id })) !== null
+}
+
 /** The words of a note or a rule, changed. */
 export async function editText(objectId: string, id: string, text: string): Promise<boolean> {
   return (await ask(objectId, { op: 'edit', id, text })) !== null

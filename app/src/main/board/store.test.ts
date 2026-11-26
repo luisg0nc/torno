@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync,
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type BoardFile, type Card, MAX_TEXT_CHARS } from '../../shared/board'
+import { type BoardFile, type Card, MAX_TEXT_CHARS, MAX_WAS } from '../../shared/board'
 import { textOf } from './file'
 import { BoardStore } from './store'
 import { startBoard } from './start'
@@ -66,7 +66,7 @@ describe('reading', () => {
 describe('adding', () => {
   it('numbers cards C1, C2, makes them the person’s, and has them on disk before it resolves', async () => {
     const board = await store.person('bracket', text(10, 20))
-    expect(board.cards).toEqual([{ id: 'C1', kind: 'text', x: 10, y: 20, w: 200, h: 100, by: 'person', text: 'hello' }])
+    expect(board.cards).toEqual([{ id: 'C1', kind: 'text', x: 10, y: 20, w: 200, h: 100, by: 'person', text: 'hello', at: expect.any(String) }])
     expect(onDisk()).toEqual(board)
     const second = await store.person('bracket', text(0, 0))
     expect(second.cards.map((c) => c.id)).toEqual(['C1', 'C2'])
@@ -75,13 +75,13 @@ describe('adding', () => {
 
   it('ignores an id, an author or hidden in the request', async () => {
     const board = await store.person('bracket', { op: 'add', card: { kind: 'text', x: 0, y: 0, w: 10, h: 10, text: 'x', id: 'C99', by: 'agent', hidden: true } as never })
-    expect(board.cards).toEqual([{ id: 'C1', kind: 'text', x: 0, y: 0, w: 10, h: 10, by: 'person', text: 'x' }])
+    expect(board.cards).toEqual([{ id: 'C1', kind: 'text', x: 0, y: 0, w: 10, h: 10, by: 'person', text: 'x', at: expect.any(String) }])
     expect(board.next).toBe(2)
   })
 
   it('keeps of a new card only what its kind says, and nothing of main’s own fields', async () => {
     const board = await store.person('bracket', text(0, 0, { source: 'M1', layout: 'a', copy: { id: 'h1', line: '', cause: '', sources: '' }, camera: { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 } }))
-    expect(Object.keys(board.cards[0]).sort()).toEqual(['by', 'h', 'id', 'kind', 'text', 'w', 'x', 'y'])
+    expect(Object.keys(board.cards[0]).sort()).toEqual(['at', 'by', 'h', 'id', 'kind', 'text', 'w', 'x', 'y'])
   })
 
   it('refuses a kind that is main’s to make, a bad number, an unknown frame, a bad picture name', async () => {
@@ -570,7 +570,7 @@ describe('size cards', () => {
 
   it('adds a size card as the person’s, with the size as typed', async () => {
     const board = await store.person('bracket', { ...sized({ by: 'agent', id: 'C9' }) })
-    expect(byId(board, 'C1')).toEqual({ id: 'C1', kind: 'size', x: 0, y: 0, w: 240, h: 120, by: 'person', size: fact })
+    expect(byId(board, 'C1')).toEqual({ id: 'C1', kind: 'size', x: 0, y: 0, w: 240, h: 120, by: 'person', size: fact, at: expect.any(String) })
     expect(onDisk()).toEqual(board)
   })
 
@@ -1015,5 +1015,138 @@ describe('the frame of a round', () => {
     await withRound()
     await store.person('bracket', { op: 'remove', ids: ['C1'] })
     await expect(store.agent('bracket', { op: 'add', text: 'x', frame: 'C1' })).rejects.toThrow(/no card C1/)
+  })
+})
+
+describe('when and in which prompt (#336)', () => {
+  let clock: number
+  const at = (ms: number): string => new Date(ms).toISOString()
+  const turn = (prompt: string) => ({ prompt, conversation: 'c1' })
+  beforeEach(() => {
+    clock = Date.UTC(2026, 10, 25, 14, 2)
+    store = new BoardStore({ dirOf: (id) => dirs[id], now: () => new Date(clock) })
+  })
+
+  it('stamps a card of the person’s with the time it was made and changed, and no prompt', async () => {
+    const made = await store.person('bracket', text(0, 0))
+    expect(byId(made, 'C1')).toMatchObject({ by: 'person', at: at(clock) })
+    expect(byId(made, 'C1').turn).toBeUndefined()
+    clock += 60_000
+    const edited = await store.person('bracket', { op: 'edit', id: 'C1', text: 'new' })
+    expect(byId(edited, 'C1').at).toBe(at(clock))
+    expect(byId(edited, 'C1').was).toBeUndefined()
+  })
+
+  it('writes nothing for an edit that changes nothing: the time stays', async () => {
+    await store.person('bracket', text(0, 0))
+    const before = readFileSync(join(dirs.bracket, '.torno', 'board', 'board.json'), 'utf8')
+    clock += 60_000
+    await store.person('bracket', { op: 'edit', id: 'C1', text: 'hello' })
+    expect(readFileSync(join(dirs.bracket, '.torno', 'board', 'board.json'), 'utf8')).toBe(before)
+  })
+
+  it('stamps a card of the agent’s with the prompt it was made in and the time, and without a prompt when none is under way', async () => {
+    const { board } = await store.agent('bracket', { op: 'add', text: 'Mount: a flat blade' }, turn('u2'))
+    expect(byId(board, 'C1')).toMatchObject({ by: 'agent', turn: { prompt: 'u2', conversation: 'c1' }, at: at(clock) })
+    const { board: plain } = await store.agent('bracket', { op: 'add', size: { what: 'arm joint', value: '15', unit: '°' } })
+    expect(byId(plain, 'C2').turn).toBeUndefined()
+    expect(byId(plain, 'C2').at).toBe(at(clock))
+  })
+
+  it('keeps what an agent’s card said before each edit, with its prompt and time, and moves the card to the new prompt', async () => {
+    const first = clock
+    await store.agent('bracket', { op: 'add', text: 'Mount: a flat blade' }, turn('u2'))
+    clock += 3_600_000
+    await store.agent('bracket', { op: 'edit', id: 'C1', text: 'Mount: a one-piece tube' }, turn('u6'))
+    const second = clock
+    clock += 3_600_000
+    const { board } = await store.agent('bracket', { op: 'edit', id: 'C1', text: 'Mount: an adjustable arm' }, turn('u11'))
+    expect(byId(board, 'C1')).toMatchObject({
+      text: 'Mount: an adjustable arm',
+      turn: { prompt: 'u11', conversation: 'c1' },
+      at: at(clock),
+      was: [
+        { text: 'Mount: a flat blade', turn: { prompt: 'u2', conversation: 'c1' }, at: at(first) },
+        { text: 'Mount: a one-piece tube', turn: { prompt: 'u6', conversation: 'c1' }, at: at(second) }
+      ]
+    })
+    expect(onDisk().cards[0]).toEqual(byId(board, 'C1'))
+  })
+
+  it('keeps no earlier words for an edit that says the same, and only the last MAX_WAS', async () => {
+    await store.agent('bracket', { op: 'add', text: 'v0' }, turn('u1'))
+    const same = await store.agent('bracket', { op: 'edit', id: 'C1', text: 'v0' }, turn('u2'))
+    expect(byId(same.board, 'C1').was).toBeUndefined()
+    expect(byId(same.board, 'C1').turn?.prompt).toBe('u1')
+    for (let n = 1; n <= MAX_WAS + 2; n++) await store.agent('bracket', { op: 'edit', id: 'C1', text: `v${n}` }, turn(`u${n + 2}`))
+    const was = byId(await store.read('bracket'), 'C1').was ?? []
+    expect(was).toHaveLength(MAX_WAS)
+    expect(was.at(-1)?.text).toBe(`v${MAX_WAS + 1}`)
+  })
+
+  it('takes none of them from the window: a turn, a time, earlier words or a from in the request are ignored', async () => {
+    const board = await store.person('bracket', text(0, 0, { turn: { prompt: 'u9' }, at: '2001-01-01T00:00:00.000Z', was: [{ text: 'x' }], from: { by: 'agent' } }))
+    expect(Object.keys(byId(board, 'C1')).sort()).toEqual(['at', 'by', 'h', 'id', 'kind', 'text', 'w', 'x', 'y'])
+    expect(byId(board, 'C1').at).toBe(at(clock))
+  })
+
+  it('nor from what the agent asks', async () => {
+    const { board } = await store.agent('bracket', { op: 'add', text: 'plan', turn: { prompt: 'u9' }, at: '2001-01-01T00:00:00.000Z', was: [{ text: 'x' }] } as never)
+    expect(Object.keys(byId(board, 'C1')).sort()).toEqual(['at', 'by', 'h', 'id', 'kind', 'text', 'w', 'x', 'y'])
+  })
+})
+
+describe('making a card of Claude’s yours (#339)', () => {
+  let clock: number
+  beforeEach(() => {
+    clock = Date.UTC(2026, 10, 26, 9, 12)
+    store = new BoardStore({ dirOf: (id) => dirs[id], now: () => new Date(clock) })
+  })
+
+  it('makes a note of Claude’s the person’s, keeping who wrote it, in which prompt and when; the person may then edit it', async () => {
+    await store.agent('bracket', { op: 'add', text: 'Controls: 9 buttons' }, { prompt: 'u13', conversation: 'c1' })
+    const wrote = byId(await store.read('bracket'), 'C1').at
+    clock += 60_000
+    const board = await store.person('bracket', { op: 'adopt', id: 'C1' })
+    expect(byId(board, 'C1')).toMatchObject({ by: 'person', from: { by: 'agent', turn: { prompt: 'u13', conversation: 'c1' }, at: wrote, since: new Date(clock).toISOString() }, at: new Date(clock).toISOString() })
+    expect(byId(board, 'C1').turn).toBeUndefined()
+    const edited = await store.person('bracket', { op: 'edit', id: 'C1', text: 'Controls: 9 buttons, measured shafts' })
+    expect(byId(edited, 'C1')).toMatchObject({ by: 'person', text: 'Controls: 9 buttons, measured shafts', from: { by: 'agent' } })
+    // Claude may no longer change it.
+    await expect(store.agent('bracket', { op: 'edit', id: 'C1', text: 'mine again' })).rejects.toThrow(/person/)
+    // A new store reads it back whole.
+    expect(byId(await newStore().read('bracket'), 'C1')).toEqual(byId(edited, 'C1'))
+  })
+
+  it('makes a size of Claude’s the person’s with its source, which they must say when they edit it', async () => {
+    await store.agent('bracket', { op: 'add', size: { what: 'encoder hole', value: '7' } }, { prompt: 'u13' })
+    await store.person('bracket', { op: 'adopt', id: 'C1' })
+    expect(byId(await newStore().read('bracket'), 'C1')).toMatchObject({ by: 'person', size: { source: 'from Claude' } })
+    await expect(store.person('bracket', { op: 'edit', id: 'C1', size: { what: 'encoder hole', value: '7.2', unit: 'mm', source: 'from Claude' } })).rejects.toThrow(/say where/)
+    const edited = await store.person('bracket', { op: 'edit', id: 'C1', size: { what: 'encoder hole', value: '7.2', unit: 'mm', source: 'measured' } })
+    expect(byId(edited, 'C1').size).toMatchObject({ value: '7.2', source: 'measured' })
+  })
+
+  it('refuses a card that is not Claude’s, or not a note, rule or size, and changes nothing', async () => {
+    await store.person('bracket', text(0, 0))
+    await store.agent('bracket', { op: 'add', text: 'Shown', picture: 'p-aaaaaaaaaaaa.png' })
+    await expect(store.person('bracket', { op: 'adopt', id: 'C1' })).rejects.toThrow(/not Claude/)
+    await expect(store.person('bracket', { op: 'adopt', id: 'C2' })).rejects.toThrow(/not a note/)
+    await expect(store.person('bracket', { op: 'adopt', id: 'C9' })).rejects.toThrow()
+    expect(byId(await store.read('bracket'), 'C2').by).toBe('agent')
+  })
+})
+
+describe('seen.json (#340)', () => {
+  it('is nothing for a project that has none, keeps every card of Claude’s by its hash when the person has seen the brief, and git passes over it', async () => {
+    expect(await store.seen('bracket')).toBeNull()
+    await store.agent('bracket', { op: 'add', text: 'Mount: an arm' })
+    await store.person('bracket', text(0, 400))
+    const seen = await store.markSeen('bracket')
+    expect(Object.keys(seen.cards)).toEqual(['C1'])
+    expect(await newStore().seen('bracket')).toEqual(seen)
+    expect(readFileSync(join(dirs.bracket, '.torno', '.gitignore'), 'utf8')).toContain('board/seen.json')
+    writeFileSync(join(dirs.bracket, '.torno', 'board', 'seen.json'), 'not json')
+    expect(await newStore().seen('bracket')).toBeNull()
   })
 })

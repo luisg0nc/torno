@@ -1,16 +1,16 @@
 import { memo, useEffect, useState } from 'react'
 import { type Card, firstLink } from '../../../shared/board'
-import { sizeSource, sizeValue } from '../../../shared/brief'
+import { sizeSource, sizeValue, whenSaid } from '../../../shared/brief'
 import { boardActions } from '../../state/board'
 import { ensurePicture, pictureOf, usePictureUrl } from '../../state/boardPictures'
 import { number } from '../../../shared/format'
 import type { TieReading } from '../../../shared/ties'
 import { Gauge } from '../card/Gauge'
 import { refPieces } from './refPieces'
+import { numbered } from '../numbered'
 
 // The pieces of the sheet. A row is drawn again only when its card or whether it is lit changes.
 
-const by = (card: Card): string => (card.by === 'agent' ? 'Claude' : card.by === 'torno' ? 'torno' : 'you')
 
 /** What a size or a rule reads against the build on show: nothing, until something checks it. A dashed, empty gauge, a gap to fill and not a failure. */
 export function Unchecked({ rule, gone }: { rule?: boolean; gone?: string }) {
@@ -42,9 +42,8 @@ function Pieces({ text }: { text: string }) {
   )
 }
 
-/** The text of a card with the web address in it as a link: main opens it in the browser, from the card, so no address is ever sent from here. */
-function Words({ objectId, card }: { objectId: string; card: Card }) {
-  const text = card.text ?? ''
+/** The text of a card (or `text`, a part of it) with the web address in it as a link: main opens it in the browser, from the card, so no address is ever sent from here. */
+export function Words({ objectId, card, text = card.text ?? '' }: { objectId: string; card: Card; text?: string }) {
   const link = firstLink(text)
   const at = link === null ? -1 : text.indexOf(link)
   if (link === null || at < 0) return <Pieces text={text} />
@@ -104,7 +103,18 @@ export function Tied({ reading, build }: { reading: Exclude<TieReading, { state:
   )
 }
 
-export const SizeRow = memo(function SizeRow({ card, lit, acts, reading, build, tying, onTie }: { card: Card; lit: boolean; acts: Acts; reading: TieReading; build: number | undefined; tying: boolean; onTie: () => void }) {
+/** Who wrote a row: a dot in the hand's colour and the hand with its prompt (`Claude, prompt 13`), never the colour of the words. */
+export function Hand({ hand }: { hand: { hand: 'you' | 'claude'; label: string } }) {
+  return (
+    <span className="brief-hand-cell">
+      <span className="brief-hand" data-hand={hand.hand}>
+        {numbered(hand.label)}
+      </span>
+    </span>
+  )
+}
+
+export const SizeRow = memo(function SizeRow({ card, lit, acts, reading, build, tying, onTie, hand }: { card: Card; lit: boolean; acts: Acts; reading: TieReading; build: number | undefined; tying: boolean; onTie: () => void; hand: { hand: 'you' | 'claude'; label: string } }) {
   const size = card.size!
   const checked = reading.state !== 'none'
   return (
@@ -122,12 +132,13 @@ export const SizeRow = memo(function SizeRow({ card, lit, acts, reading, build, 
         </button>
         <Buttons acts={acts} what={size.what} />
       </div>
+      <Hand hand={hand} />
       {reading.state !== 'none' ? <Tied reading={reading} build={build} /> : <Unchecked gone={reading.gone} />}
     </div>
   )
 })
 
-export const RuleRow = memo(function RuleRow({ objectId, card, lit, acts }: { objectId: string; card: Card; lit: boolean; acts: Acts }) {
+export const RuleRow = memo(function RuleRow({ objectId, card, lit, acts, hand }: { objectId: string; card: Card; lit: boolean; acts: Acts; hand: { hand: 'you' | 'claude'; label: string } }) {
   return (
     <div className="brief-row brief-rule" data-card={card.id} data-by={card.by} data-lit={lit ? '' : undefined} data-none="">
       <div className="brief-what">
@@ -137,20 +148,23 @@ export const RuleRow = memo(function RuleRow({ objectId, card, lit, acts }: { ob
         <span className="brief-id num">{card.id}</span>
         <Buttons acts={acts} what="the rule" />
       </div>
+      <Hand hand={hand} />
       <Unchecked rule />
     </div>
   )
 })
 
+/** A note the person made on the page, in their sheet: when they added it, then their words. */
 export const NoteRow = memo(function NoteRow({ objectId, card, lit, acts }: { objectId: string; card: Card; lit: boolean; acts: Acts }) {
+  const at = card.at === undefined ? Number.NaN : Date.parse(card.at)
   return (
     <div className="brief-note" data-card={card.id} data-by={card.by} data-lit={lit ? '' : undefined}>
+      <span className="brief-note-when">{Number.isFinite(at) ? <>Added on this page, {numbered(whenSaid(at))}</> : 'Added on this page'}</span>
       <span className="brief-note-text">
         <Words objectId={objectId} card={card} />
+        <span className="brief-id num">{card.id}</span>
+        <Buttons acts={acts} what="the note" />
       </span>
-      <small>{by(card)}</small>
-      <span className="brief-id num">{card.id}</span>
-      <Buttons acts={acts} what="the note" />
     </div>
   )
 })

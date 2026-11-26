@@ -2570,6 +2570,17 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     return (_id: string, revision: number | undefined): BuildVerdicts | undefined => (revision === undefined ? undefined : kept.get(revision))
   }
 
+  it('says the prompt a turn answers while it runs, without its words, and none between turns (#336)', async () => {
+    const { obj, post, sessions: s } = await begun({ grace: 200 })
+    const conversation = '0a1b2c3d-0000-4000-8000-000000000002'
+    expect(s.turnNow(obj.id)).toBeUndefined()
+    await post('UserPromptSubmit', { prompt: 'put the box on the arm', session_id: conversation })
+    expect(s.turnNow(obj.id)).toEqual({ conversation, prompt: `t-${conversation}-1` })
+    expect(s.turnNow('nowhere')).toBeUndefined()
+    await post('Stop', {})
+    expect(s.turnNow(obj.id)).toBeUndefined()
+  })
+
   it('says what caused a build: the person before the turn first edits, the agent after it, the person when no turn runs', async () => {
     const { obj, post, sessions: s } = await begun({ grace: 200 })
     const conversation = '0a1b2c3d-0000-4000-8000-000000000001'
@@ -3142,6 +3153,68 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(refused.slice(0, 4).every((r) => String(r.content).includes(`works on the project in ${obj.dir}`))).toBe(true)
     expect(refused[4].content).toContain('Use add_mark and resolve_mark instead')
     expect(existsSync(join(obj.dir, '.torno', 'marks.json'))).toBe(false)
+  })
+
+  it('refuses the stand-in\'s Edit and Write of brief.md, the person\'s own words, and points at add_card (#337)', async () => {
+    states = new Map()
+    own = recording(await startHttp())
+    const server = own
+    made = new Sessions({
+      configDir,
+      http: server,
+      adapter: claudeAdapter(`node ${FAKE}`),
+      viewFor: () => 'chat',
+      contextFor: () => ({ text: '', sentMarkIds: [] }),
+      systemPromptFor: () => '',
+      mcpUrlFor: (id) => server.url(`/mcp/${id}`)
+    })
+    others.push(made)
+    n += 1
+    const obj = object(`brief-${n}`)
+    writeFileSync(join(obj.dir, 'brief.md'), '# box\n\nA box.\n')
+    const messages: StreamMessage[] = []
+    made.on('stream', (m) => messages.push(m.message))
+    const { sessionId } = await made.start(obj, {})
+    made.prompt(sessionId, [{ type: 'text', text: ['edit brief.md "A box." "A box. Mount: a blade."', 'write brief.md mine now'].join('\n') }])
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 10_000 }).toBe(1)
+    expect(readFileSync(join(obj.dir, 'brief.md'), 'utf8')).toBe('# box\n\nA box.\n')
+    const results = messages.flatMap((m) => (m.type === 'user' ? (m.message as { content: { content?: string; is_error?: boolean }[] }).content : []))
+    const refused = results.filter((r) => r.is_error)
+    expect(refused).toHaveLength(2)
+    expect(refused.every((r) => String(r.content).includes('may not write brief.md') && String(r.content).includes('add_card'))).toBe(true)
+  })
+
+  it('lets the stand-in edit brief.md in the one turn whose prompt asked it to move its old sections out, and in no other (#341)', async () => {
+    states = new Map()
+    own = recording(await startHttp())
+    const server = own
+    let asks = 1
+    made = new Sessions({
+      configDir,
+      http: server,
+      adapter: claudeAdapter(`node ${FAKE}`),
+      viewFor: () => 'chat',
+      // The first prompt carries the ask, as the board line gives it once; the next does not.
+      contextFor: () => (asks-- > 0 ? { text: 'brief.md holds sections you wrote into it before.', sentMarkIds: [], briefMove: true } : { text: '', sentMarkIds: [] }),
+      systemPromptFor: () => '',
+      mcpUrlFor: (id) => server.url(`/mcp/${id}`)
+    })
+    others.push(made)
+    n += 1
+    const obj = object(`move-${n}`)
+    writeFileSync(join(obj.dir, 'brief.md'), '# box\n\nA box.\n\n## Answers\n\n- Mount: a blade\n')
+    const messages: StreamMessage[] = []
+    made.on('stream', (m) => messages.push(m.message))
+    const { sessionId } = await made.start(obj, {})
+    made.prompt(sessionId, [{ type: 'text', text: 'edit brief.md "## Answers" "## Kept"' }])
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 10_000 }).toBe(1)
+    expect(readFileSync(join(obj.dir, 'brief.md'), 'utf8')).toContain('## Kept')
+    made.prompt(sessionId, [{ type: 'text', text: 'edit brief.md "## Kept" "## Again"' }])
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 10_000 }).toBe(2)
+    expect(readFileSync(join(obj.dir, 'brief.md'), 'utf8')).toContain('## Kept')
+    const refused = messages.flatMap((m) => (m.type === 'user' ? (m.message as { content: { content?: string; is_error?: boolean }[] }).content : [])).filter((r) => r.is_error)
+    expect(refused).toHaveLength(1)
+    expect(String(refused[0].content)).toContain('may not write brief.md')
   })
 
   it('reads an Edit of the stand-in, and puts the build it started under the edit as data: how long a good one took, the last line of what a failed one said', async () => {

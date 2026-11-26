@@ -1,5 +1,5 @@
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { isInsideFolder } from './inside'
+import { isInsideFolder, realPathOrNearest } from './inside'
 
 /** The tools that write a file, and the key of their input that names it. */
 const WRITERS: Record<string, string> = { Write: 'file_path', Edit: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' }
@@ -10,16 +10,25 @@ const WRITERS: Record<string, string> = { Write: 'file_path', Edit: 'file_path',
  * workspace's root, a new folder) are refused, judged by real paths (`isInsideFolder`). `Bash` is never judged: no
  * path can be read from a command, so the CLI's own card stays.
  */
-export function refusalOf(dir: string, name: string, input: unknown): string | undefined {
+export function refusalOf(dir: string, name: string, input: unknown, opts: { /** The one turn that moves Claude's old sections out of `brief.md` (#341) may write it. */ brief?: boolean } = {}): string | undefined {
   const key = WRITERS[name]
   if (!key || typeof input !== 'object' || input === null) return undefined
   const path = (input as Record<string, unknown>)[key]
   if (typeof path !== 'string' || path === '') return undefined
   if (isInsideFolder(join(dir, '.torno'), path)) return torno(dir, name, path)
+  if (opts.brief !== true && realPathOrNearest(resolve(dir, path)) === realPathOrNearest(join(dir, 'brief.md'))) return BRIEF_REFUSAL(name)
   if (isInsideFolder(dir, path) || isInsideFolder(join(dirname(dir), 'common'), path)) return undefined
   return `This session works on the project in ${dir}. ${name} may write only there and in the workspace's common/ folder. ` +
     'Other projects and the workspace are the person\'s to open or make: ask them to open the other project, or to make a new one from torno\'s page.'
 }
+
+/**
+ * Why Claude may not write `brief.md` (#337): it is the person's own words, and what Claude learns is a card of its own,
+ * one per topic, which it changes rather than adding another.
+ */
+export const BRIEF_REFUSAL = (name: string): string =>
+  `${name} may not write brief.md: it is the person's own words, and only they change it. Write down what you learned as a card of yours with add_card, ` +
+  'one card per topic that begins with its name ("Mount: an adjustable arm, ..."); when a topic changes, change your card of it (card and text) rather than add another.'
 
 /** What to use in place of a file of `.torno/`, which is torno's alone to write: ids, atomic writes and the rules of each file are its. */
 const INSTEAD: Record<string, string> = {

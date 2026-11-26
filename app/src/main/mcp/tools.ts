@@ -186,6 +186,8 @@ export interface ToolDeps {
     /** Rejects with a `Refusal` whose message is for the agent: nothing was changed. */
     agent(objectId: string, change: AgentChange): Promise<AgentResult>
     live(objectId: string): Promise<LiveFacts>
+    /** The number of each prompt of the project, by the id a card's `turn` names (`listPrompts`): `board` says a card's prompt with it. Without it, no number is said. */
+    prompts?(objectId: string): Promise<ReadonlyMap<string, number>>
   }
   /** Keeps a size of the brief and the dimension that checks it saying the same thing (`main/board/ties.ts`). Without it `add_card` cannot tie. */
   ties?: { tie(objectId: string, cardId: string, markId: string, by: 'agent', tolerance?: number): Promise<unknown>; untie(objectId: string, cardId: string, by: 'agent'): Promise<unknown>; reconcile(objectId: string): Promise<void> }

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { deniedAnswer, refusalOf } from './reach'
+import { BRIEF_REFUSAL, deniedAnswer, refusalOf } from './reach'
 
 describe('refusalOf', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'torno-reach-')))
@@ -36,6 +36,17 @@ describe('refusalOf', () => {
     expect(refusalOf(dir, 'Edit', { file_path: join(dir, '.torno', 'marks.json') })).toContain('Edit may not write')
     expect(refusalOf(dir, 'Read', { file_path: join(dir, '.torno', 'marks.json') })).toBeUndefined()
     expect(refusalOf(dir, 'Write', { file_path: join(dir, 'torno', 'x.py') })).toBeUndefined()
+  })
+  it('refuses a write of brief.md, the person\'s own words, and names add_card, unless the turn may move Claude\'s old sections out of it (#337, #341)', () => {
+    for (const name of ['Write', 'Edit', 'MultiEdit']) {
+      const said = refusalOf(dir, name, { file_path: join(dir, 'brief.md') })
+      expect(said).toContain(`${name} may not write brief.md`)
+      expect(said).toContain('add_card')
+    }
+    expect(refusalOf(dir, 'Edit', { file_path: join(dir, 'sub', '..', 'brief.md') })).toBe(BRIEF_REFUSAL('Edit'))
+    expect(refusalOf(dir, 'Edit', { file_path: join(dir, 'brief.md') }, { brief: true })).toBeUndefined()
+    expect(refusalOf(dir, 'Read', { file_path: join(dir, 'brief.md') })).toBeUndefined()
+    expect(refusalOf(dir, 'Write', { file_path: join(dir, 'notes', 'brief.md') })).toBeUndefined()
   })
   it('leaves other tools and inputs it cannot read to the CLI', () => {
     expect(refusalOf(dir, 'Bash', { command: 'echo > ../b/x' })).toBeUndefined()

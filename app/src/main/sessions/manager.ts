@@ -159,6 +159,8 @@ interface TurnState {
    * turn's (`stopAnswer`); one begun before it, or in a turn with none, is not, and no `Stop` is held back for it.
    */
   changedAt?: number
+  /** The prompt of this turn asked Claude, once, to move its old sections out of `brief.md` (#341): its `Edit` or `Write` of the file is let through. */
+  briefOpen?: true
   /** The prompt the turn answers, as the history names it (`BuildTurn`, without its conversation): set once its hook has been answered. */
   prompt?: { conversation: string; prompt: string; text: string }
   /** The `Bash` tool uses under way, by tool use: when each began and when the newest source of the object was saved then. */
@@ -621,6 +623,17 @@ export class Sessions {
     const ended = session.lastTurn
     if (ended && startedMs >= ended.changedAt && startedMs <= ended.endedAt) return { cause: 'agent', turn: ended.turn }
     return { cause: 'person' }
+  }
+
+  /**
+   * The prompt a session of the object is answering now, as a build's turn names it, without its words: what the agent
+   * writes on the brief in it is stamped with it (#336). None between turns, and none before the prompt's hook was answered.
+   */
+  turnNow(objectId: string): { prompt: string; conversation?: string } | undefined {
+    const session = this.of(objectId)
+    if (!session?.turn?.prompt) return undefined
+    const { prompt, conversation } = turnOf(session, session.turn)
+    return { prompt, ...(conversation ? { conversation } : {}) }
   }
 
   /** Resolves at the next change of a build, or at `until` (ms epoch), whichever comes first. */
@@ -1449,7 +1462,7 @@ export class Sessions {
         return sendJson(res, 200, {})
       }
       if (event === 'PreToolUse') {
-        const reason = refusalOf(session.object.dir, typeof tool.tool_name === 'string' ? tool.tool_name : '', tool.tool_input)
+        const reason = refusalOf(session.object.dir, typeof tool.tool_name === 'string' ? tool.tool_name : '', tool.tool_input, { brief: session.turn?.briefOpen === true })
         if (reason) return sendJson(res, 200, deniedAnswer(reason))
         if (!this.deps.build) return sendJson(res, 200, {})
       }
@@ -1531,6 +1544,8 @@ export class Sessions {
     }
     const { text, sentMarkIds } = context
     session.chat?.transcript.context({ text, sentMarkIds, ...(context.sketching ? { sketching: context.sketching } : {}), ...(context.review ? { review: context.review } : {}), ...(context.held ? { held: context.held } : {}), ...(context.board ? { board: context.board } : {}), ...(context.revision !== undefined ? { revision: context.revision } : {}), ...(context.buildState ? { buildState: context.buildState } : {}), ...(context.selection ? { selection: context.selection } : {}), ...(context.instructions ? { instructions: context.instructions } : {}), ...(context.revision !== undefined && this.deps.identity?.(objectId, context.revision) ? { identity: this.deps.identity(objectId, context.revision) } : {}), ...(typeof fields.prompt === 'string' ? { prompt: fields.prompt } : {}) })
+    // The prompt asks, once, to move Claude's old sections out of brief.md: this turn may edit it (#341).
+    if (context.briefMove && turn && session.turn === turn) turn.briefOpen = true
     // Which prompt this turn answers, for the builds it causes: the id of the chat's `user` item (as its log holds it), else a number of main's own.
     if (turn && session.turn === turn) {
       const taken = session.chat?.transcript.taken()

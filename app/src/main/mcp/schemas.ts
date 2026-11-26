@@ -692,7 +692,7 @@ export const TOOLS = {
     title: 'Add a card to the brief',
     annotations: CHANGES_VIEW_OR_MARKS,
     description:
-      'Returns the id of the card you added to the person\'s brief (a note, or a size, with the green edge of yours), and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own, and tie or untie holds a dimension of yours to a size of the brief, or lets it go.',
+      'Returns the id of the card you added to the person\'s brief (a note, or a size, with the green edge of yours), and of the frame or the arrow when you made one, or why it was refused. Use it to leave a plan, a note, a size or a picture of the view where they can follow it: {"text": "Widen the latch by 2 mm", "frame": "Latch"}, or size for a size you measured or assumed, or look to draw the view as the look tool does. It puts the card in a free spot and never moves, changes or removes a card of theirs; card with text or remove changes or takes down one of your own, and tie or untie holds a dimension of yours to a size of the brief, or lets it go; brief.md is the person\'s own words, never yours to edit: what you learn or settle goes on a card, one card per topic that begins with its name ("Mount: an adjustable arm"), and when a topic changes you change that card (card with text) rather than add another.',
     inputSchema: addCardInput
   },
   tracings: {

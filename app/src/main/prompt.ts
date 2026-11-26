@@ -60,7 +60,7 @@ const text = (skills: boolean): string => [
   'A tracing is the model laid flat in a plane at true scale over a photo: to trace the photo, look at it with mcp__torno__tracings and picture: true, then add layers in mm with mcp__torno__add_layer; a photo\'s numbers are never exact.',
   'mcp__torno__add_mark leaves a mark of your own, to show where you changed something or ask about it.',
   'A sketch says how literally to take it (exact, rough or flow); follow it. Use mcp__torno__add_sketch to show the person a route or an outline.',
-  "The board is the person's brief; its sizes and rules come with a conversation's first prompt. Add a plan or picture with mcp__torno__add_card; never rearrange their cards.",
+  "The board is the person's brief; its sizes and rules come with a conversation's first prompt. Never edit brief.md: note what you learn with mcp__torno__add_card, card per topic.",
   'mcp__torno__show changes what the user sees (camera, layout, visible parts, section): use it to show them something, and say so. To see for yourself, use look.',
   'look and show take explode (0 to 1) to draw the parts apart; a picture says when it is exploded, and no position, ref or number is of an exploded part.',
   'scene lists the views saved by name: look {"view": "Hinge side"} draws one and show {"view": "Hinge side"} puts it on the user\'s screen. They are the angles the user checks: for your look, take the one that shows the change.',

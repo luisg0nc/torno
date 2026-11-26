@@ -1,8 +1,9 @@
 import { existsSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
-import { type BoardAttach, type BoardFile, type BoardOpen, CARD_ID, MAX_CARDS, firstLink, type PersonChange, type PinWhat } from '../../shared/board'
+import { type BoardAttach, type BoardFile, type BoardOpen, CARD_ID, MAX_CARDS, firstLink, linksIn, type PersonChange, type PinWhat } from '../../shared/board'
 import { type SavedView, findView } from '../../shared/views'
 import type { ObjectInfo } from '../../shared/workspace'
+import type { Seen } from '../../shared/brief'
 import { Refusal } from '../refusal'
 import { listBoardReferences, readReference } from '../sessions/reference'
 import { readBrief } from './live'
@@ -15,7 +16,7 @@ import type { Ties } from './ties'
 // The window names a project, never a folder; an id, an author or `hidden` is never taken from it (the store's `person`).
 
 export interface BoardIpcDeps {
-  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem' | 'aside' | 'useAside' | 'undoAside' | 'letGoAside'>
+  board: Pick<BoardStore, 'read' | 'person' | 'torno' | 'problem' | 'dismissProblem' | 'aside' | 'useAside' | 'undoAside' | 'letGoAside' | 'seen' | 'markSeen'>
   /** Keeps dimensions and the sizes that tie them saying the same thing (`ties.ts`). Absent: nothing is tied. */
   ties?: Pick<Ties, 'tie' | 'untie' | 'reconcile'>
   /** A project of the open workspace. */
@@ -84,6 +85,16 @@ export function boardHandlers(deps: BoardIpcDeps) {
       return deps.board.dismissProblem(open(objectId).id)
     },
 
+    /** What the person had seen of Claude's cards when they last had the Brief on screen (#340); null when nothing is kept. */
+    async seen(objectId: string): Promise<Seen | null> {
+      return deps.board.seen(open(objectId).id)
+    },
+
+    /** The person has seen the brief as it is now: main keeps a hash of each card of Claude's, from its own board. */
+    async markSeen(objectId: string): Promise<Seen> {
+      return deps.board.markSeen(open(objectId).id)
+    },
+
     /** Whether a copy of the unreadable board file is kept aside and waits for the person. */
     async aside(objectId: string): Promise<boolean> {
       return deps.board.aside(open(objectId).id)
@@ -144,12 +155,15 @@ export function boardHandlers(deps: BoardIpcDeps) {
     },
 
     /** The first link of a text card, opened in the person's browser. The window names the card; the card is read from the store, and only `http` and `https` go. */
-    async openLink(objectId: string, cardId: string): Promise<void> {
-      const { id } = open(objectId)
+    async openLink(objectId: string, cardId: string, nth = 0): Promise<void> {
+      const { id, obj } = open(objectId)
       if (typeof cardId !== 'string' || !CARD_ID.test(cardId)) throw new Refusal('That is not a card of the board.')
+      if (!Number.isSafeInteger(nth) || nth < 0) throw new Refusal('That is not a link of the card.')
       const card = (await deps.board.read(id)).cards.find((c) => c.id === cardId)
       if (!card) throw new Refusal('That card is not on the board.')
-      const link = card.kind === 'text' && card.text !== undefined ? firstLink(card.text) : null
+      // The brief's card opens the nth address of brief.md as main reads it now (`linksIn`, as the page numbers them); a text card its first.
+      const brief = card.kind === 'brief' ? await readBrief(obj.dir) : undefined
+      const link = card.kind === 'text' && card.text !== undefined && nth === 0 ? firstLink(card.text) : brief !== undefined ? (linksIn(brief)[nth] ?? null) : null
       let url: URL | undefined
       try {
         url = link === null ? undefined : new URL(link)

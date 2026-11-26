@@ -158,3 +158,10 @@
 .chat-gone-body .chat-you .ref-chip {
   box-shadow: none;
 }
+
+/* A prompt the Brief asked to see ("Show prompt 11 in the chat"): washed in the accent for a moment, with its edge. */
+.chat-group[data-shown] {
+  border-radius: var(--radius-control);
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}

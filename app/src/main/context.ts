@@ -26,6 +26,8 @@ import { TRACINGS_LIMIT, type TracingsLine } from './tracings/told'
 export const CONTEXT_LIMIT = 6000
 /** The most the board's line takes of it. */
 export const BOARD_LIMIT = 600
+/** The most the ask to move Claude's old sections out of brief.md takes of a prompt (#341). */
+export const BRIEF_MOVE_LIMIT = 600
 /** The most of it that says how the build stands, when there are marks to tell of as well. */
 const STATUS_LIMIT = 2000
 /** The most of it that tells how the model's own checks stand (`checksLine`). */
@@ -164,6 +166,8 @@ export interface PromptContext {
   tracingsTold?: Record<string, string>
   /** What the board line said, as numbers for the chat's line under the prompt: the cards there are and how many are new to the agent. Absent when the text has no board line. */
   board?: BoardCounts
+  /** The text asks Claude, once, to move its old sections out of brief.md (#341): the turn may then edit brief.md. */
+  briefMove?: true
   /**
    * Called once the answer that holds `text` has been handed over whole (not when the agent hung up first): for what is
    * kept until then and removed after, such as a Go back's notice (`takeGoBackNotice`).
@@ -225,7 +229,7 @@ export interface PromptContext {
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; /** The first prompt of a new project (`onboard.ts`), which names the references itself: no line of them. */ onboarding?: boolean; scans?: readonly ScanInfo[]; /** The slugs of the project's named sets: a mark labelled with one that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is gone says so. */ tracings?: readonly string[]; /** The revision of each layer of the tracings (`layerRevisions`): an offset on a layer that has changed says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up (`lineupsOf`): a mark on the photo is told with it. */ lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; /** The brief of the board (`briefOf`), at most BRIEF_LIMIT characters, after the board's line: told to a new conversation and when it changed. */ brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; /** The one line of the project's tracings and what it will have told (`tracingsLine`), after the board's: at most TRACINGS_LIMIT characters. */ tracingsLine?: TracingsLine; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; /** The first prompt of a new project (`onboard.ts`), which names the references itself: no line of them. */ onboarding?: boolean; scans?: readonly ScanInfo[]; /** The slugs of the project's named sets: a mark labelled with one that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is gone says so. */ tracings?: readonly string[]; /** The revision of each layer of the tracings (`layerRevisions`): an offset on a layer that has changed says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up (`lineupsOf`): a mark on the photo is told with it. */ lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; /** The brief of the board (`briefOf`), at most BRIEF_LIMIT characters, after the board's line: told to a new conversation and when it changed. */ brief?: string; /** The line that asks Claude, once, to move its old sections out of brief.md (`briefMoveText`, #341), after the brief: at most BRIEF_MOVE_LIMIT characters. */ briefMove?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; /** The one line of the project's tracings and what it will have told (`tracingsLine`), after the board's: at most TRACINGS_LIMIT characters. */ tracingsLine?: TracingsLine; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
   const { notice, ...rest } = opts
   const told = withBuild(deps, objectId, contextText(deps, objectId, marks, rest))
   return notice ? { ...told, text: told.text === '' ? notice : `${notice}\n${told.text}` } : told
@@ -260,7 +264,7 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; onboarding?: boolean; scans?: readonly ScanInfo[]; sets?: readonly string[]; tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; tracingsLine?: TracingsLine; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; onboarding?: boolean; scans?: readonly ScanInfo[]; sets?: readonly string[]; tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; brief?: string; briefMove?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; tracingsLine?: TracingsLine; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
@@ -306,8 +310,10 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // The tracings' line, after the board's: one line of main's own, which keeps to its limit.
   // The brief, after the board's line: the person's sizes and rules, main's own line, which keeps to its limit.
   const briefed = opts.buildOnly || !boarded ? '' : cutEnd(opts.brief ?? '', BRIEF_LIMIT)
+  // Once, the ask to move Claude's old sections out of brief.md (#341), after the brief.
+  const moving = opts.buildOnly || !boarded ? '' : cutEnd(opts.briefMove ?? '', BRIEF_MOVE_LIMIT)
   const tracked = opts.buildOnly ? '' : cutEnd(opts.tracingsLine?.line ?? '', TRACINGS_LIMIT)
-  const limit = told ? STATUS_LIMIT : CONTEXT_LIMIT - room(instructed) - room(selected) - room(scanned) - room(boarded) - room(briefed) - room(tracked) - room(tried)
+  const limit = told ? STATUS_LIMIT : CONTEXT_LIMIT - room(instructed) - room(selected) - room(scanned) - room(boarded) - room(briefed) - room(moving) - room(tracked) - room(tried)
   // Every part of it is fitted to the limit by what it can spare; the cut holds for what none of them
   // foresaw, such as a very long name.
   const lines = [cutEnd(status(deps, objectId, limit), limit)]
@@ -317,6 +323,7 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   if (scanned) lines.push(scanned)
   if (boarded) lines.push(boarded)
   if (briefed) lines.push(briefed)
+  if (moving) lines.push(moving)
   if (tracked) lines.push(tracked)
   const openLine = open.length > 0 && !opts.buildOnly ? `Open marks: ${openMarks(open, revision, toolName)}` : ''
   const named = layoutNamed(deps, objectId)
@@ -444,7 +451,7 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // The files Claude Code reads are the very last line; the references go before it, should they fit beside it.
   const tail = instructed ? 1 + instructed.length : 0
   const text = printed ? `${joined}\n${printed}` : `${joined}${referred && joined.length + 1 + referred.length + tail <= CONTEXT_LIMIT ? `\n${referred}` : ''}${instructed ? `\n${instructed}` : ''}`
-  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(said ? { sketching: said } : {}), ...(reviewed && sending ? { review: sending.id } : {}), ...(held.length > 0 ? { held: held.join(',') } : {}), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}), ...(tracked && opts.tracingsLine ? { tracingsTold: opts.tracingsLine.told } : {}) }
+  if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(said ? { sketching: said } : {}), ...(reviewed && sending ? { review: sending.id } : {}), ...(held.length > 0 ? { held: held.join(',') } : {}), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}), ...(moving ? { briefMove: true as const } : {}), ...(tracked && opts.tracingsLine ? { tracingsTold: opts.tracingsLine.told } : {}) }
   // Every part above keeps to the room it has; this holds for what none of them foresaw. What is cut is
   // the end, and no mark whose line may be among it is said to have been told.
   return { text: cutEnd(text, CONTEXT_LIMIT), sentMarkIds: [] }

@@ -12,6 +12,7 @@ import type { InstructionFile } from './instructions'
 import type { Anchor, Mark, MarkPatch, NewMark, NewRegion, NewStroke, NoteLabel, NoteStroke, Replacement, ReviewIntent, SketchPlane, SketchTake } from './marks'
 import type { Scene } from './scene'
 import type { SizeFact } from './size'
+import type { Seen } from './brief'
 import type { AlignMade, NewAlignment, Reimported, ScanInfo, ScanUnit, ScanUp } from './scans'
 import type { SceneFile } from './scenefile'
 import type { ObjectCard, ThumbnailOf } from './show'
@@ -499,8 +500,8 @@ export interface TornoBridge {
     pin(objectId: string, what: PinWhat): Promise<BoardFile | { refused: string }>
     /** Opens the project's `brief.md` in the person's own program, or shows a file of its `reference/` in its folder. Rejects with why not. */
     open(objectId: string, what: BoardOpen): Promise<void>
-    /** Opens the first `http` or `https` link of a text card in the person's browser. Main reads the card; rejects with why not (no such card, no link). */
-    openLink(objectId: string, cardId: string): Promise<void>
+    /** Opens the first `http` or `https` link of a text card in the person's browser, or the `nth` (from 0) of `brief.md` from the brief's card (`linksIn`). Main reads the card and the file; rejects with why not (no such card, no link). */
+    openLink(objectId: string, cardId: string, nth?: number): Promise<void>
     /** The board of a project changed, whoever changed it: the whole board as it now is. */
     onChanged(cb: (m: { objectId: string; board: BoardFile }) => void): () => void
     /** What main found wrong with a project's board file (not readable, cards left out, not a plain file): told once as it happens. */
@@ -508,6 +509,10 @@ export interface TornoBridge {
     /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
+    /** What the person had seen of Claude's cards when they last had the Brief on screen (`seen.json`, #340); null when nothing is kept. */
+    seen(objectId: string): Promise<Seen | null>
+    /** The person has seen the brief as it is now: main keeps a hash of each card of Claude's, read from its own board, and when. */
+    markSeen(objectId: string): Promise<Seen>
     /** Whether a copy of the unreadable file was kept aside and is still waiting for the person to put it back or let it go. */
     aside(objectId: string): Promise<boolean>
     /**

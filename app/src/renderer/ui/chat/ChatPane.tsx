@@ -98,6 +98,24 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
     setTarget(row.id)
   }
 
+  // A prompt another part of the window asked to see (the Brief's "Show prompt 11 in the chat"): read in from its conversation, then lit for a moment.
+  const shown = useStore((s) => s.promptShown)
+  const [lit, setLit] = useState<string | null>(null)
+  // Only an ask made while this pane is up: one made before it mounted (another session, the pane with no session) is not done again.
+  const handled = useRef(shown?.seq ?? 0)
+  useEffect(() => {
+    if (!shown || shown.seq <= handled.current || rows === undefined) return
+    handled.current = shown.seq
+    if (shown.conversation !== current && earlierRead === undefined) readEarlier()
+    setTarget(shown.id)
+    setLit(shown.id)
+  }, [shown?.seq, rows]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (lit === null) return
+    const timer = setTimeout(() => setLit(null), 4000)
+    return () => clearTimeout(timer)
+  }, [lit, shown?.seq])
+
   useEffect(() => {
     if (target === null || promptsOpen || before === 'loading') return
     const el = box.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(target)}"]`)
@@ -107,6 +125,15 @@ export function ChatPane({ sessionId, live, working, dir, onWholePrompt, onUseTe
     }
     setTarget(null)
   }, [target, promptsOpen, before, items, earlier])
+  // The lit prompt is said by an attribute on its group, which the stylesheet washes in the accent.
+  useEffect(() => {
+    const all = box.current?.querySelectorAll<HTMLElement>('.chat-group[data-shown]') ?? []
+    for (const el of all) if (el.dataset.id !== lit) delete el.dataset.shown
+    if (lit !== null) {
+      const el = box.current?.querySelector<HTMLElement>(`.chat-group[data-id="${CSS.escape(lit)}"]`)
+      if (el) el.dataset.shown = ''
+    }
+  }, [lit, items, earlier, before])
   // "Undo" is offered on the last turn only: a live session at rest, with no prompt of the person's after that turn.
   const undoable = useMemo(() => {
     if (!live || working || !items) return undefined

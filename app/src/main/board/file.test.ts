@@ -80,6 +80,24 @@ describe('readBoardFile', () => {
     expect(read?.dropped).toBe(4)
   })
 
+  it('keeps when and in which prompt a card was written, and what it said before, each whole (#336)', () => {
+    const stamped = card('C1', { by: 'agent', turn: { prompt: 'u2', conversation: 'c1' }, at: '2026-11-25T14:11:00.000Z', was: [{ text: 'Mount: a flat blade', turn: { prompt: 'u1' }, at: '2026-11-25T14:02:00.000Z' }, { text: 'Mount: a tube' }] })
+    expect(readBoardFile({ next: 2, cards: [stamped], arrows: [] })?.file.cards[0]).toEqual(stamped)
+    const bad = readBoardFile({ next: 2, cards: [card('C1', { turn: { prompt: 7 }, at: 'yesterday', was: [{ text: 3 }, 'x', { text: 'kept', turn: 'u1', at: 'soon', extra: 1 }], from: 'agent' })], arrows: [] })
+    expect(bad?.file.cards[0]).toEqual({ ...card('C1'), was: [{ text: 'kept' }] })
+    expect(bad?.dropped).toBe(0)
+  })
+
+  it('keeps who a card the person made theirs was by, and Claude’s source on a size of it until they change it (#339)', () => {
+    const adopted = card('C1', { kind: 'size', text: undefined, from: { by: 'agent', turn: { prompt: 'u13' }, at: '2026-11-25T18:07:00.000Z', since: '2026-11-26T09:12:00.000Z' }, size: { what: 'encoder hole', value: '7', unit: 'mm', source: 'from Claude' } })
+    delete (adopted as Record<string, unknown>).text
+    expect(readBoardFile({ next: 2, cards: [adopted], arrows: [] })?.file.cards[0]).toEqual(adopted)
+    // Claude's source is not the person's on a card they did not make theirs, and a from on Claude's own card is not kept.
+    const plain = card('C2', { kind: 'size', size: { what: 'x', value: '7', unit: 'mm', source: 'from Claude' } })
+    expect(readBoardFile({ next: 3, cards: [plain], arrows: [] })?.dropped).toBe(1)
+    expect(readBoardFile({ next: 3, cards: [card('C3', { by: 'agent', from: { by: 'agent' } })], arrows: [] })?.file.cards[0].from).toBeUndefined()
+  })
+
   it('drops a field of the wrong shape and keeps the card', () => {
     const read = readBoardFile({ next: 2, cards: [card('C1', { text: 5, hidden: false, picture: '../x.png', camera: { position: [1] } })], arrows: [] })
     expect(read?.file.cards[0]).toEqual(card('C1', { text: undefined }))

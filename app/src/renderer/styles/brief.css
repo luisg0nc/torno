@@ -51,14 +51,23 @@
   inset: 0;
   overflow-y: auto;
   box-sizing: border-box;
-  padding: calc(var(--switch-h) + var(--space-5)) var(--space-5) var(--space-5);
+  padding: calc(var(--switch-h) + var(--space-5)) 28px 72px;
   background: var(--surface);
   font-size: var(--text-size);
   line-height: var(--text-leading);
+  container: brief / inline-size;
+  scrollbar-width: thin;
+  scrollbar-color: var(--field-edge) transparent;
+}
+
+/* The sheet is held to a width a page reads at. */
+.brief-page > * {
+  max-width: 860px;
 }
 
 .brief-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
   margin-bottom: var(--space-2);
@@ -66,9 +75,34 @@
 
 .brief-head h1 {
   margin: 0;
-  font-size: 22px;
+  white-space: nowrap;
+  font-size: 28px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+@container brief (width < 640px) {
+  .brief-head h1 {
+    font-size: 25px;
+  }
+}
+
+.brief-small {
+  height: 26px;
+  padding: 0 10px;
+  font-size: var(--text-small);
+}
+
+.brief-head .button {
+  white-space: nowrap;
+}
+
+.brief-head-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
 }
 
 .brief-head .grow {
@@ -133,39 +167,257 @@
   border-left-color: var(--hairline);
 }
 
-/* What we are making: the words, and the photos beside them. */
-.brief-making {
+/* In your words: brief.md set as a page, on a sheet of its own, with the person's pictures beside it and the notes they made here. */
+.brief-yours {
+  margin-top: var(--space-4);
+  padding: 18px 20px 14px;
+  border-radius: var(--radius-sheet);
+  background: var(--raise);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.brief-yours-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  margin-bottom: var(--space-3);
+}
+
+.brief-pen {
+  flex: none;
+}
+
+.brief-yours-head h2,
+.brief-voices .brief-block-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.brief-yours-from {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-yours-head .grow {
+  flex: 1;
+}
+
+.brief-yours-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-4);
+  gap: 20px;
   align-items: start;
 }
 
+@container brief (width < 640px) {
+  .brief-yours-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brief-yours-body .brief-tiles {
+    flex-direction: row;
+    max-width: none;
+    justify-content: flex-start;
+  }
+}
+
+/* The person's words, large: they are the brief. */
 .brief-words {
-  max-width: 60ch;
-  margin: 0;
-  white-space: pre-wrap;
+  max-width: 62ch;
+  font-size: 17px;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
-.brief-by {
-  margin: var(--space-2) 0 0;
+@container brief (width < 640px) {
+  .brief-words {
+    font-size: 15.5px;
+  }
+}
+
+.brief-words > :first-child {
+  margin-top: 0;
+}
+
+.brief-words p,
+.brief-words ul,
+.brief-words ol,
+.brief-words blockquote,
+.brief-words pre,
+.brief-words table {
+  margin: 0 0 10px;
+}
+
+.brief-words h3 {
+  margin: 18px 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Lists with hanging indents that hold over a wrapped line: a short dash of the field's edge, the text clear of it. */
+.brief-words ul,
+.brief-words ol {
+  display: grid;
+  gap: 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.brief-words li {
+  position: relative;
+  padding-left: 18px;
+}
+
+.brief-words ul > li::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0.78em;
+  width: 8px;
+  height: 1.5px;
+  background: var(--field-edge);
+}
+
+.brief-words ol {
+  counter-reset: brief-item;
+}
+
+.brief-words ol > li {
+  counter-increment: brief-item;
+  padding-left: 24px;
+}
+
+.brief-words ol > li::before {
+  content: counter(brief-item) '.';
+  position: absolute;
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: 0.78em;
   color: var(--muted);
+  line-height: 2;
+}
+
+.brief-words li > ul,
+.brief-words li > ol {
+  margin: 2px 0 0;
+}
+
+.brief-words blockquote {
+  padding-left: 12px;
+  border-left: 2px solid var(--hairline);
+  color: var(--muted);
+}
+
+.brief-words pre {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.brief-words hr {
+  border: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.brief-words table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.brief-words th,
+.brief-words td {
+  padding: 3px 10px 3px 0;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+
+/* A web address: a link that opens in the browser, with its host, never the address broken over lines. */
+.brief-weblink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--accent);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+.brief-weblink:hover {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.brief-weblink:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.brief-weblink svg {
+  flex: none;
+}
+
+.brief-weblink-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brief-weblink-host {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brief-by {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* What the person added on this page: under a dashed rule, when on the left, their words on the right. */
+.brief-added {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: 10px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.brief-yours-foot {
+  margin-top: var(--space-2);
   font-size: var(--text-small);
 }
 
 .brief-tiles {
   display: flex;
+  flex-direction: column;
   flex-wrap: wrap;
   gap: var(--space-3);
-  justify-content: flex-end;
-  max-width: 300px;
+  max-width: 150px;
 }
 
 .brief-tile {
   display: grid;
   gap: 3px;
-  width: 132px;
+  width: 150px;
   margin: 0;
 }
 
@@ -174,9 +426,11 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 132px;
-  height: 99px;
+  width: 150px;
+  height: 100px;
   padding: 0;
+  border-radius: var(--radius-control);
+  overflow: hidden;
   border: 0;
   background: var(--panel);
   box-shadow: 0 0 0 1px var(--hairline);
@@ -258,7 +512,7 @@
 
 .brief-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) 246px;
+  grid-template-columns: 140px minmax(0, 1fr) 132px 204px;
   align-items: stretch;
   min-height: 40px;
 }
@@ -280,11 +534,127 @@
 }
 
 .brief-rule {
-  grid-template-columns: minmax(0, 1fr) 246px;
+  grid-template-columns: minmax(0, 1fr) 132px 204px;
+}
+
+/* Narrow: who wrote it goes under what it measures. */
+@container brief (width < 640px) {
+  .brief-row {
+    grid-template-columns: 108px minmax(0, 1fr) 176px;
+  }
+
+  .brief-rule {
+    grid-template-columns: minmax(0, 1fr) 176px;
+  }
+
+  .brief-row > .brief-value {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .brief-row > .brief-what {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .brief-row > .brief-hand-cell {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 0 10px 7px;
+  }
+
+  .brief-row > .brief-against {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+
+  .brief-rule > .brief-what,
+  .brief-rule > .brief-hand-cell {
+    grid-column: 1;
+  }
+
+  .brief-rule > .brief-hand-cell {
+    padding-left: 12px;
+  }
+
+  .brief-rule > .brief-against {
+    grid-column: 2;
+  }
+
+  .brief-headrow > span:nth-child(3) {
+    display: none;
+  }
+
+  .brief-headrow > .brief-against {
+    grid-row: 1;
+  }
+
+  /* The value may take two lines, and the verdict sits over its gauge. */
+  .brief-row > .brief-value {
+    white-space: normal;
+  }
+
+  .brief-row > .brief-against:not(.brief-headrow > *) {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+  }
+
+  .brief-against .brief-gauge,
+  .brief-against .brief-gauge-slot {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+/* Who wrote a row: a pill with a dot in the hand's colour. The words keep the ink. */
+.brief-hand-cell {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 0;
+  min-width: 0;
+}
+
+.brief-hand {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  height: 22px;
+  padding: 0 8px 0 7px;
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--user-mark) 55%, transparent);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brief-hand::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--user-mark);
+}
+
+.brief-hand[data-hand='claude'] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agent-mark) 55%, transparent);
+}
+
+.brief-hand[data-hand='claude']::before {
+  background: var(--agent-mark);
+}
+
+.brief-hand .num {
+  font-size: 10px;
 }
 
 .brief-value {
+  overflow: hidden;
+  letter-spacing: -0.05em;
   padding: 9px 0 0 12px;
+  text-overflow: ellipsis;
   font-size: 15px;
   font-weight: 500;
   line-height: 1.1;
@@ -373,8 +743,7 @@
 }
 
 /* Claude's rows, notes and photos keep the agent's green edge; the person's the red pencil of theirs. */
-.brief-row[data-by='agent'],
-.brief-note[data-by='agent'] {
+.brief-row[data-by='agent'] {
   box-shadow: inset 3px 0 0 var(--agent-mark);
 }
 
@@ -401,25 +770,23 @@
   display: inline-flex;
 }
 
-.brief-notes {
-  display: grid;
-  gap: var(--space-2);
-}
-
 .brief-note {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
   align-items: baseline;
-  padding-left: 10px;
-  border-left: 2px solid var(--user-mark);
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.5;
 }
 
-.brief-note[data-by='agent'] {
-  border-left-color: var(--agent-mark);
-  box-shadow: none;
+.brief-note-when {
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.brief-note-when .num {
+  font-size: 10.5px;
 }
 
 .brief-note-text {
@@ -427,9 +794,14 @@
   white-space: pre-wrap;
 }
 
-.brief-note small {
-  color: var(--muted);
-  white-space: nowrap;
+.brief-note-text .brief-id {
+  margin-left: var(--space-2);
+}
+
+@container brief (width < 640px) {
+  .brief-note {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .brief-link {
@@ -645,4 +1017,450 @@
   border-radius: var(--radius-float);
   box-shadow: inset 0 0 0 1px var(--hairline);
   overflow: hidden;
+}
+
+/* ---- What Claude wrote down (#338): Claude's cards on a spine of the prompts that wrote them ---- */
+.brief-voices {
+  margin-top: 30px;
+}
+
+.brief-voices .brief-block-head {
+  flex-wrap: wrap;
+  gap: 2px 9px;
+  margin-bottom: var(--space-3);
+}
+
+.brief-voices .brief-said {
+  font-size: 12px;
+}
+
+/* The spine: a line in Claude's green, softened, with a node for each prompt. */
+.brief-spine {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 26px;
+  list-style: none;
+}
+
+.brief-spine::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 8px;
+  width: 1.5px;
+  background: color-mix(in srgb, var(--agent-mark) 45%, var(--route));
+}
+
+.brief-node {
+  position: relative;
+  margin-bottom: 18px;
+}
+
+.brief-node::before {
+  content: '';
+  position: absolute;
+  left: -25px;
+  top: 4px;
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--agent-mark);
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.brief-node[data-fresh]::before {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.brief-node-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.brief-node-head b {
+  font-weight: 600;
+}
+
+.brief-node-when {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.brief-node-head .grow {
+  flex: 1;
+}
+
+.brief-node-chat {
+  font-size: var(--text-small);
+}
+
+.brief-newpill {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* What the person said in that prompt: two lines with the red edge of their hand, in full once a card of it is pointed at. */
+.brief-asked {
+  position: relative;
+  display: -webkit-box;
+  max-width: 64ch;
+  margin: 4px 0 8px;
+  padding: 1px 0 1px 12px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.brief-asked::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 2.5px;
+  border-radius: var(--radius-full);
+  background: var(--user-mark);
+}
+
+.brief-asked b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.brief-node[data-open] .brief-asked {
+  color: var(--ink);
+  -webkit-line-clamp: unset;
+}
+
+.brief-cns {
+  display: grid;
+  gap: 6px;
+}
+
+/* One card of Claude's: the green edge of its hand. Made the person's, the red edge of theirs. */
+.brief-cn {
+  position: relative;
+  padding: 8px 12px 8px 14px;
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 13.5px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.brief-cn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
+  background: var(--agent-mark);
+}
+
+.brief-cn[data-by='person']::before {
+  background: var(--user-mark);
+}
+
+.brief-cn[data-pointed] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agent-mark) 60%, var(--hairline));
+  background: color-mix(in srgb, var(--agent-mark) 7%, var(--raise));
+  cursor: default;
+}
+
+.brief-cn[data-by='person'][data-pointed] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--user-mark) 50%, var(--hairline));
+  background: color-mix(in srgb, var(--user-mark) 5%, var(--raise));
+}
+
+.brief-cn[data-lit] {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.brief-cn[data-editing] {
+  padding: 0;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  cursor: default;
+}
+
+.brief-cn[data-editing]::before {
+  z-index: 1;
+  background: var(--user-mark);
+}
+
+.brief-cn-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* The card's id, and the button that points at it: what it replaced, and what may be done with it. */
+.brief-cn-line > .brief-cn-id {
+  margin: 0 0 0 auto;
+}
+
+.brief-cn-id {
+  flex: none;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-inline);
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.brief-cn-id:hover,
+.brief-cn-id[aria-expanded='true'] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.brief-cn-id:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.brief-cn-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.brief-cn-text b {
+  font-weight: 600;
+}
+
+.brief-cn-tag {
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.brief-cn-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.brief-cn-size .brief-cn-tag {
+  margin-right: 0;
+}
+
+.brief-cn-value {
+  font-size: 14px;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
+}
+
+.brief-cn-value small {
+  margin-left: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.brief-cn-from {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.brief-cn[data-kind='picture'] .brief-tile,
+.brief-cn[data-kind='sketch'] .brief-tile {
+  width: auto;
+}
+
+.brief-cn-since,
+.brief-cn-replaced {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.brief-cn-replaced {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.brief-cn-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.brief-cn-show {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* A card's earlier words, where they were written: struck, with the prompt that changed them. */
+.brief-ghost {
+  margin: 0;
+  padding: 2px 0 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.brief-ghost s {
+  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+@container brief (width < 640px) {
+  .brief-spine {
+    padding-left: 20px;
+  }
+
+  .brief-spine::before {
+    left: 4px;
+  }
+
+  .brief-node::before {
+    left: -19px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .brief-cn {
+    transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+}
+
+/* Under a field of a card made the person's (#339): whose it is now, and the keys. */
+.brief-form-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-form-note .grow {
+  flex: 1;
+}
+
+.brief-form-note kbd {
+  padding: 0 5px;
+  border: var(--divider);
+  border-radius: var(--radius-inline);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+.brief-cn[data-editing] .brief-form {
+  padding: 10px 12px 10px 14px;
+  background: var(--raise);
+}
+
+/* ---- New since you looked (#340): the accent, since it is about the person's attention, not about who wrote it ---- */
+.brief-band {
+  position: sticky;
+  top: calc(-1 * var(--space-2));
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: var(--space-3) 0 0;
+  padding: 7px 10px 7px 14px;
+  border-radius: var(--radius-float);
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  font-size: 13px;
+}
+
+.brief-band b {
+  font-weight: 600;
+}
+
+.brief-band .grow {
+  flex: 1;
+}
+
+.brief-band .button,
+.brief-fold .button {
+  flex: none;
+  white-space: nowrap;
+}
+
+.brief-fresh-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.brief-cn[data-fresh] {
+  background: color-mix(in srgb, var(--accent-wash) 80%, var(--raise));
+}
+
+/* What was seen before, folded to one line so the new part is at the top. */
+.brief-fold {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* What Claude wrote into brief.md before it wrote the brief as cards (#341): apart from the person's words, under a notice,
+   with Claude's edge, smaller, until it is moved into cards. */
+.brief-old {
+  margin-top: var(--space-4);
+  padding: 10px 12px 4px 14px;
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: inset 3px 0 0 var(--agent-mark), inset 0 0 0 1px var(--hairline);
+}
+
+.brief-old-notice {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-old-notice b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.brief-old-section h3 {
+  margin: var(--space-2) 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.brief-old .brief-words {
+  font-size: 13.5px;
+  line-height: 1.5;
 }

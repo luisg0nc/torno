@@ -101,6 +101,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   edit another project, the workspace's root or make a folder. The answer is given before the build tracking and also
   where there is no build state (the hook body is read for a `PreToolUse` always). `Bash` is never judged: no path can be
   read from a command, so the CLI's own card stays; the prompt says which folder is the project (`agent-prompt`).
+  The project's `brief.md` is refused too (`BRIEF_REFUSAL`, #337: the person's words; Claude writes cards), except in the one turn
+  that moves Claude's old sections out of it (`opts.brief`, #341, `board`).
   A file the build imports from another project (`uses`) is no longer one the agent may write. `isInsideFolder` takes
   `..notes/x.py` as inside: only a first part that is exactly `..` is outside. The stand-in's `write` and `edit` play a
   refusal: nothing is written and the tool's result is the reason, an error.

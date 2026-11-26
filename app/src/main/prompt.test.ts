@@ -27,10 +27,21 @@ describe('the system prompt', () => {
     expect(TOOLS.add_mark.description).toContain('it is told to you again with every prompt for as long as it fails')
   })
 
-  it('says the board is the person\'s brief, that its sizes and rules come with the first prompt, and that cards are added with add_card and never rearranged', () => {
-    const sentence = "The board is the person's brief; its sizes and rules come with a conversation's first prompt. Add a plan or picture with mcp__torno__add_card; never rearrange their cards."
+  it('says the board is the person\'s brief, that its sizes and rules come with the first prompt, and that what Claude settles goes on cards with add_card', () => {
+    const sentence = "The board is the person's brief; its sizes and rules come with a conversation's first prompt. Never edit brief.md: note what you learn with mcp__torno__add_card, card per topic."
     expect(FULL_PROMPT).toContain(sentence)
     expect(SYSTEM_PROMPT).toContain(sentence)
+  })
+
+  it('says brief.md is the person\'s, and that what Claude learns is a card of its own per topic, changed and not added again (#337)', () => {
+    for (const said of ['Never edit brief.md: note what you learn with mcp__torno__add_card, card per topic.']) {
+      expect(FULL_PROMPT).toContain(said)
+      expect(SYSTEM_PROMPT).toContain(said)
+    }
+    expect(TOOLS.add_card.description).toContain('brief.md is the person\'s own words, never yours to edit')
+    expect(TOOLS.add_card.description).toContain('one card per topic that begins with its name')
+    const skill = readFileSync(join(__dirname, '../../resources/agent-plugin/skills/torno-model/SKILL.md'), 'utf8').replace(/\s+/g, ' ')
+    for (const said of ['## Writing down the brief', '`brief.md` is the person\'s own words', 'one card per topic', 'change your card of it (`card` and `text`)']) expect(skill).toContain(said)
   })
 
   it('names the tools as it is told to', () => {

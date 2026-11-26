@@ -31,7 +31,16 @@ Paths as in the other rules.
   `S<n>`, `h<n>`, a view's name, `params`, `checks`), `layout`, `text`, `name`, `picture`, `caption`, `camera`,
   `hidden`, `copy` (a build card's copy of what it shows). An arrow has `id`, `from`, `to`, `label?`, `by`. Ids are
   `C<n>` from one count for cards and arrows, per project, given by main, never reused.
-  The ink-pad card is a **Doodle** in everything a person or Claude reads (the palette, the card's face, the key row, the board text,
+- **When and in which prompt (#336).** A card has `at` (ISO, made or last changed: `applyPerson` stamps an add and an edit that changes
+  something, `applyAgent` an add and an edit of its words), `turn` (`CardTurn`, `{ prompt, conversation? }`: a build's turn without its words,
+  which stay in the chat log that does not travel) on the agent's cards, from `Sessions.turnNow` (the turn under way once its
+  `UserPromptSubmit` was answered; none between turns) passed by `index.ts` to `BoardStore.agent(objectId, change, turn)`, and `was`
+  (`CardWas[]`, oldest first, the last `MAX_WAS`): what an agent's card said before each edit that changed its words, with that version's
+  `turn` and `at`. All three are main's: `applyPerson` builds a card from named fields, `applyAgent` takes none from `AgentChange`, and
+  `sanitiseCard` keeps only whole ones (`turnOf`, `timeOf`, `wasOf` in `file.ts`). The clock is `deps.now` (tests). `board` says an
+  agent's card's prompt after its author (`by you, prompt 11`, `promptOf` in `text.ts`) from `deps.board.prompts` (`listPrompts`, by
+  prompt id); a prompt whose log is not on this computer is not numbered.
+- The ink-pad card is a **Doodle** in everything a person or Claude reads (the palette, the card's face, the key row, the board text,
   the tool descriptions); its stored `kind` stays `sketch`, as its key id `board.sketch`, so that "sketch" can mean the 3D one.
 - A `size` card (`shared/size.ts`) holds `size: { what, value, unit, source, note? }`: `value` as typed, never parsed into the file
   (`parseSize` reads the numbers whenever they are told), `unit` `mm` or `°`, `source` one of `measured`, `from a manual or datasheet`,
@@ -60,6 +69,14 @@ Paths as in the other rules.
   has been delivered (the delivery point of `sentMarkIds`), so a prompt that fails to go leaves the cards new. The one other
   writer is `BoardStore.markAllTold`, for the first prompt of a new project (`objects:onboard`, just before the prompt
   goes): it keeps the hashes `boardLine` itself computes for every card and arrow, so that prompt's line says none is new.
+- `<object>/.torno/board/seen.json` (#340, ignored through `ensureIgnored`, never tracked) is `Seen`, `{ at, cards }`: a hash (`seenHash`, FNV of the
+  kind, words, caption, picture, size without its tie, and `by`) of each card of the agent's when the person last had the Brief on screen.
+  Main writes it (`BoardStore.markSeen`, `board:markSeen`, from its own board, never ids or hashes from the window) and reads it (`seen`,
+  `board:seen`, null when there is none or it cannot be read). The page reads it once when it mounts (it is mounted only while the Brief is
+  shown, keyed by the project); with none it marks the board seen at once, so a project's first Brief has nothing new; it marks it seen again when
+  it unmounts (leaving the Brief or the project) and on "Mark as seen". New is `freshCards`: an agent card absent from it or with another hash.
+  The page shows them in the accent: the sticky `.brief-band` (`promptsSaid`), `data-fresh` on their nodes (filled accent node, "new" pill) and
+  cards (a wash), and folds the nodes with nothing new into `.brief-fold` ("Seen before: …", Show them).
 - Everything of the board is written under `<object>/.torno/board/`, through `ownTorno(dir, 'board')` and
   `writeOwn` first: a link or a file in the place of a folder is refused and nothing is written where it leads. The board
   adds no write exception to `workspace-writes`.
@@ -88,6 +105,13 @@ Paths as in the other rules.
 - `id`, `by` and `hidden` are main's. They are never taken from the window or from a tool's arguments: a card the window adds is
   the person's whatever it says, and the agent's is the agent's. The page sends the text of notes and rules, sizes, and pictures (checked as images, at most 2000 px and 3.75 MB, as `checkedImage` does; the window
   scales a larger one down first, `prepareImage`). It sends no place, size, frame or arrow: a new card goes below the lowest card (`placeBelow`), and a rule goes in the frame named Rules, which `addRule` makes when there is none.
+- **Make it yours (#339).** `PersonChange` `{ op: 'adopt', id }`: a `text` or `size` card of the agent's becomes `by: 'person'` with
+  `from: { by: 'agent', turn?, at?, since }` (the turn and time it was written, and when it was made the person's), `turn` taken off, `at` now; `was` stays. Anything else is refused.
+  `from` is main's and only on the person's cards (`sanitiseCard`); a size made the person's keeps `from Claude` as its source (the file reads
+  it with `checkSize(…, 'agent')` when `from` says so) until the person's edit, which must name one of their sources. `saysHash` counts `from`, so
+  the adoption is news once; `board` says `by the person (it was yours, prompt 13: theirs now, not yours to change)`. On the page, "Make it yours"
+  (`adoptCard`) points away and opens the card's form in place in the spine (`TextForm` / `SizeForm` with `note`; the size form shows
+  `from Claude` as a disabled choice that must be changed); the card keeps its node (`turnOfCard` reads `from.turn`) with the red edge.
 - A card is the person's, the agent's or torno's (`by`). **The agent never moves, edits, hides or removes a card of the
   person's or of torno's own**, whatever `add_card` is given; the answer names the owner and the file is untouched. It may
   put a card in a frame of the person's (that changes the new card, not the frame), and when the frame has no free spot the
@@ -116,6 +140,20 @@ Paths as in the other rules.
   and its thumb is copied into `pictures/`; removing the card leaves the star), a view must be among the saved views (the
   card keeps its layout), the Params and the checks are on a board once each. A local build with the card's id and
   another `sources` hash is not the same build.
+- **`brief.md` is the person's alone (#337).** Claude writes the brief as cards: the system prompt (`prompt.ts`, one line on the board, held to the
+  budget of `turncost.test.ts`), the torno-model skill ("Writing down the brief") and `add_card`'s description say so, one card per topic
+  beginning with its name, its own card of a topic changed (`card`, `text`) rather than another added. `refusalOf` (`sessions/reach.ts`) refuses `Write`, `Edit`, `MultiEdit` of `<project>/brief.md`
+  (real paths) with `BRIEF_REFUSAL`, which names `add_card`; `opts.brief` lets the one turn of #341 through.
+- **Old briefs (#341, Luis's pick: automatic).** `claudeSections` (`shared/brief.ts`) finds the sections Claude wrote into `brief.md` before:
+  level-two headings that begin Answers, Changes, Decisions, Assumptions, Settled or Clarifications and then a bracketed date (`CLAUDES_HEADING`:
+  how Claude wrote them; the person's own `## Assumptions` without a date is theirs and is never asked to be moved); `briefWords` leaves
+  them out of the person's words, and the page shows them in `.brief-old` under "Claude wrote these into brief.md before". `boardLine`
+  keeps `told['brief.md']`, a hash of the file's text, whenever it has such sections, and while that differs from what was told gives `move`
+  (`briefMoveText`: put them into cards with `add_card`, one per topic, then take them out of `brief.md`, in this turn only); `index.ts`
+  passes it to `contextFor` as `briefMove`, after the brief, in `BRIEF_MOVE_LIMIT`, and the context says `briefMove: true`. Kept with
+  the rest of `told.json` once the prompt is delivered, so it is asked once for a text of the file. The manager sets `turn.briefOpen`
+  for that turn, and the `PreToolUse` refusal lets an `Edit`/`Write` of `brief.md` through while it is set (`refusalOf(…, { brief })`);
+  the next `UserPromptSubmit` begins a turn without it.
 - The board is never edited from outside `board.json`'s own owners: `brief.md` is shown read-only and opened in the person's
   editor (`board:open`, main's own path, never the window's).
 
@@ -145,9 +183,10 @@ Paths as in the other rules.
 
 ## The page
 
-- **Sections** (`shared/brief.ts` `briefSections`, from the visible cards in reading order): *what we are making* (the `brief` card: `brief.md` read through `board:brief`, shown read only, with "brief.md" opening it in the person's editor through `board:open`), the *pictures* (photos of `reference/`, picture cards, doodles) as tiles beside it, the *references* (STEP and PDF) as lines with "Show in folder", the *sizes* ledger, the *rules* (text cards in the frame named Rules, any case, the one `briefOf` reads) and the *notes* (the other text cards, a link in one opens in the browser as before). What main made and the person put away (the brief, a photo) is listed under "Put away" with Show.
+- **Sections** (`shared/brief.ts` `briefSections`, from the visible cards in reading order), in two voices (#338, direction C of #331; the look is the mockup `design/mockups/brief-2/c-voices.html`): *In your words* (`aria-label`, `.brief-yours`: the `brief` card's `brief.md` read through `board:brief`, set by `ui/brief/BriefWords.tsx` from `briefWords`, which leaves out the `# name` line and `## References`; parsed by the chat's `parseMarkdown`, drawn by its own hand with numbers in Martian Mono only when they stand alone (`ESP32` stays whole); an address is `.brief-weblink` with `linkLabel`'s label and host, opened by `board:openLink(objectId, briefCardId, nth)`, `nth` its place among `linksIn` of the file, which main reads again: no address goes from the window; `firstLink` drops the markdown that closes round an address (`**`, `_`, `|`, `>`, a backtick) so both read the same address, and one the page cannot find among them is shown as plain words, never opened as another), the *pictures* not by Claude as tiles beside it, the *references* (STEP and PDF) as lines with "Show in folder", the person's notes (`Your notes`, `NoteRow`: "Added on this page" with `at`) and "Add a note"; *What Claude wrote down* (`ui/brief/Spine.tsx`, `briefSpine`: Claude's cards, `claudeWrote` (by the agent, or `from` it), of kinds text, size, picture and sketch, in the node of `turnOfCard`, each `was` struck in the node of its own turn with the number of the prompt that changed it; the nodes by time, the one with no prompt first; the prompts from `chat:prompts` (`usePrompts`, asked again when a card names another prompt)); the *sizes* ledger and the *rules* (text cards in the frame named Rules, any case, the one `briefOf` reads), each row with `Hand` (`handOf`: "You", "Claude, prompt 13", "Yours, from prompt 13"). What main made and the person put away (the brief, a photo) is listed under "Put away" with Show.
+- **The spine**: a node is "Prompt N", its time (`whenSaid`), "In the chat", and `.brief-asked` ("You:" and the prompt's words, two lines, the red edge); a card is `.brief-cn`, the green edge (red once `by: 'person'`), its topic in bold when its text starts with one (`topicOf`). A click on it, or on its id (`.brief-cn-id`, a button with `aria-expanded`: the keyboard's way, so the spine reads no key of its own), points at it (one at a time; the node gets `data-open` and its quote is shown whole): "It replaced …", **Show prompt N in the chat** (`actions.showPrompt(id, conversation)`, the store's `promptShown`: the dock opens, Prompts only is put away, and `ChatPane` reads the conversation in if it is an earlier one, scrolls to `.chat-group[data-id]` and sets `data-shown` for four seconds; `StartChat` does the same in the last conversation it shows; each acts only on a `seq` newer than the one there was when it mounted, so a pane started later does not do an old ask again), and Remove. A terminal's prompt (`t-…`) has no chat to show. Red and green are edges and dots only, never the colour of words; the accent is for what is new (#340).
 - **The ledger row** is the value large in the monospace face (`sizeValue`: the numbers read from it, as typed when it has none), what it measures, where it came from (`sizeSource`: "from a datasheet", the note after) and a column "Against the build on show". A size nothing checks, and every rule, reads **"nothing checks this"** on a dashed ground with an empty gauge: a gap, not a failure. A rule reads "a judgement: no measure says it". The head says `7 sizes, 7 not checked`.
-- **Who may change what on it:** Edit and Remove show when a row is pointed at or has the keyboard; the person edits only their own cards (a size in its form, a note or rule in a field: Enter keeps, Shift+Enter is a new line, Esc leaves), Claude's keep the green edge and are only removable. A removal says "Removed … Undo" for ten seconds (`restore`). "Add" makes a size, rule, note or picture; a picture is chosen or dropped on the page, scaled by the window first. There is no doodle tool, no frame, no arrow, no selection, no drag, no zoom and no undo of edits any more.
+- **Who may change what on it:** Edit and Remove show when a row is pointed at or has the keyboard; the person edits only their own cards (a size in its form, a note or rule in a field: Enter keeps, Shift+Enter is a new line, Esc leaves), Claude's keep the green edge and are only removable (on the spine, by pointing at them). A removal says "Removed … Undo" for ten seconds (`restore`). "Add" makes a size, rule, note or picture; a picture is chosen or dropped on the page, scaled by the window first. There is no doodle tool, no frame, no arrow, no selection, no drag, no zoom and no undo of edits any more.
 - **Send with the next prompt** puts the whole brief with it (`attachAll`); a chosen set is gone with the selection. `Ctrl+Z` and the tool keys went with the canvas.
 - A ref `C7` in the chat shows the brief with that card lit and scrolled to (`boardActions.reveal`).
 - What a card's double click did is gone (`opens.ts`): the brief and a STEP or PDF have their own buttons.
