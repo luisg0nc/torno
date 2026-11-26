@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import { openListed } from './objects'
-import { newSession, openStrip } from './helpers'
+import { newSession, openTimeline, timeline } from './helpers'
 
 // The history of a project is Prompts only: one row for each prompt, across the project's conversations, opened by the
 // status line's History button or by the chat's own toggle. Clicking a row compares it, a double click opens it in the chat;
@@ -30,7 +30,7 @@ const composer = () => dock().locator('[data-chat-composer]')
 const turns = () => chat().locator('.chat-turn')
 const prompts = () => dock().locator('[data-part="prompts"]')
 const rows = () => prompts().locator('.prompt')
-/** The history is Prompts only, which the dock's More menu opens (the status line's History button is the strip's ticks now). */
+/** The history is Prompts only, which the dock's More menu opens (the status line's History button is the builds timeline's ticks now). */
 async function openPrompts(): Promise<void> {
   await dock().getByRole('button', { name: 'More', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Prompts only' }).click()
@@ -123,47 +123,6 @@ test('More in the dock opens Prompts only: a row for each prompt, newest first, 
   await expect(prompts()).toHaveCount(0)
 })
 
-test('the builds strip holds the project\'s builds, a bracket stands under the prompts in sight, the status line has the ticks, and under 640 px of dock it folds', async () => {
-  const strip = dock().locator('.strip')
-  await expect(strip).toBeVisible()
-  // It starts shut: one line, the build on show and how many are kept, and no node.
-  await expect(strip.locator('.strip-head')).toContainText('Builds of')
-  await expect(strip.locator('.strip-toggle')).toHaveAttribute('aria-expanded', 'false')
-  await expect(strip.locator('.strip-toggle')).toContainText('on show')
-  await expect(strip.locator('.strip-node')).toHaveCount(0)
-  expect((await strip.boundingBox())!.height).toBeLessThan(60)
-  // One click opens it.
-  await openStrip(page)
-  expect((await strip.boundingBox())!.height).toBeCloseTo(136, 0)
-  // A node for each build kept that drew, oldest first; the newest is on show.
-  const built = strip.locator('.strip-node[data-kind="built"]')
-  await expect.poll(() => built.count(), { timeout: 15_000 }).toBe(kept().filter((e) => !e.failed).length)
-  const last = kept().filter((e) => !e.failed).at(-1)!.id
-  await expect(built.last()).toHaveAttribute('data-build', last)
-  await expect(built.last()).toHaveAttribute('data-on-show', '')
-  await expect(built.last()).toContainText('on show')
-  await expect(strip.locator('.strip-head .num').first()).toHaveText(String(kept().filter((e) => !e.failed).length))
-  // The agent's builds say their prompt; a bracket stands under the ones in sight in the conversation.
-  await expect(built.nth(-2)).toContainText(/prompt \d/)
-  await expect(strip.locator('[data-part="bracket"]')).toContainText('in sight below')
-  // The ticks of the status line: the last eight, the one on show taller and in the accent.
-  const ticks = page.locator('[data-region="status"] [data-part="ticks"] .status-tick')
-  await expect(ticks).toHaveCount(Math.min(8, kept().filter((e) => !e.failed).length))
-  await expect(ticks.last()).toHaveAttribute('data-on-show', '')
-  await expect(ticks.last()).toHaveAttribute('data-build', last)
-  await expect(page.locator('[data-region="status"]')).toContainText(`${last} built in`)
-
-  // Under 640 px of dock height (the window's least height is that) it folds to its head line and a row of ticks, and unfolds with the room.
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 700))
-  await expect(strip).toHaveAttribute('data-folded', '')
-  await expect(strip.locator('.strip-head')).toBeVisible()
-  await expect(strip.locator('.strip-tick')).toHaveCount(kept().filter((e) => !e.failed).length)
-  await expect(strip.locator('.strip-node')).toHaveCount(0)
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 860))
-  await expect(strip).not.toHaveAttribute('data-folded', '')
-  await expect(strip.locator('.strip-node[data-kind="built"]').last()).toHaveAttribute('data-on-show', '')
-})
-
 test('a click on a row compares that prompt, with its number in the status line; again puts it away', async () => {
   await openPrompts()
   const row = rows().nth(1)
@@ -250,7 +209,7 @@ test('a new conversation goes on with the numbers, lists beside the earlier one,
   await expect(chat().locator(`.chat-group[data-id="${id}"]`)).toBeInViewport()
 })
 
-test('"Go back to here" on a node asks from that node, strikes what it would undo in the strip and the conversation, and puts the files back when confirmed', async () => {
+test('"Go back to here" on a node asks from that node, strikes what it would undo in the timeline and the conversation, and puts the files back when confirmed', async () => {
   // The last prompt of the open conversation, and the build before it: the node to go back to.
   const all = kept()
   const promptId = all.filter((e) => e.turn).at(-1)!.turn!.prompt
@@ -258,9 +217,8 @@ test('"Go back to here" on a node asks from that node, strikes what it would und
   const before = all.slice(0, first).findLast((e) => !e.failed)!
   const made = all.filter((e) => e.turn?.prompt === promptId && !e.failed)
   expect(made.length).toBeGreaterThan(0)
-  await openStrip(page)
-  const strip = dock().locator('.strip')
-  const node = (id: string) => strip.locator(`.strip-node[data-build="${id}"]`)
+  await openTimeline(page)
+  const node = (id: string) => timeline(page).locator(`.strip-node[data-build="${id}"]`)
   const group = chat().locator(`.chat-group[data-id="${promptId}"]`)
   await expect(node(before.id)).toBeVisible()
 
@@ -281,8 +239,9 @@ test('"Go back to here" on a node asks from that node, strikes what it would und
   await expect(ask).toBeVisible()
   await expect(ask).toContainText(`as they were at ${before.id}, before prompt 4`)
   await expect(ask).toContainText('Undoes prompt 4')
+  // The node is at the foot of the window: the question stands above it.
   const [box, from] = [(await ask.boundingBox())!, (await node(before.id).boundingBox())!]
-  expect(box.y).toBeGreaterThanOrEqual(from.y + from.height)
+  expect(box.y + box.height).toBeLessThanOrEqual(from.y)
   await expect(group).toHaveAttribute('data-struck', '')
   for (const e of made) await expect(node(e.id)).toHaveAttribute('data-struck', '')
   await expect(node(before.id)).not.toHaveAttribute('data-struck', '')
@@ -307,9 +266,9 @@ test('where the agent is a terminal the same list is a pane over the session, fr
   await openListed(page, 'bracket')
   await builtRevision(1)
   await expect(prompts()).toHaveCount(0)
-  // The builds strip is on top of the dock in the terminal's view too, with the three builds the history keeps (and the one this opening made).
-  await openStrip(page)
-  await expect.poll(() => dock().locator('.strip .strip-node[data-kind="built"]').count()).toBeGreaterThanOrEqual(3)
+  // The builds timeline is under the view whatever the session's view, with the three builds the history keeps (and the one this opening made).
+  await openTimeline(page)
+  await expect.poll(() => timeline(page).locator('.strip-node[data-kind="built"]').count()).toBeGreaterThanOrEqual(3)
   await openPrompts()
   const pane = dock().locator('.session-prompts')
   await expect(pane).toBeVisible()

@@ -12,9 +12,6 @@ import { chatActions, connectChat, useChat } from '../state/chat'
 import { heldSaid, onboarding, useOnboard } from '../state/onboard'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
-import { BuildsStrip } from './strip/BuildsStrip'
-import { NodePopover } from './strip/NodePopover'
-import type { StripNode } from './strip/strip'
 import { PromptsPane } from './chat/PromptsOnly'
 import { StartChat } from './chat/StartChat'
 import { clearDrafts, holdDraft } from './chat/Composer'
@@ -262,13 +259,11 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
   const session = useStore((s) => (s.objectId ? s.sessions[s.objectId] : undefined))
   /** The first prompt of a new object that was not sent, and why. */
   const held = useOnboard((s) => (objectId ? s.held[objectId] : undefined))
-  /** Export is open: it takes the dock under the builds strip, and the conversation folds to a band at the foot. */
+  /** Export is open: it takes the dock under the header, and the conversation folds to a band at the foot. */
   const exporting = useStore((s) => s.exportOf !== null)
   const marks = useStore((s) => s.marks)
   const revision = useStore((s) => s.revision)
   const [resumable, setResumable] = useState(false)
-  // The node of the builds strip that was clicked, and its element: its menu (or its error) stands from it.
-  const [picked, setPicked] = useState<{ node: StripNode; anchor: HTMLElement } | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   /** Whether "New session" is waiting for a yes: the session it would end is in the middle of something. */
@@ -815,10 +810,6 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
         )}
       </header>
 
-      {/* The project's builds, on top of the dock in every mode: the chat, the terminal and no session. */}
-      <BuildsStrip onPick={(node, anchor) => setPicked(node.kind === 'running' ? null : { node, anchor })} onCompared={() => setPicked(null)} />
-      {picked && <NodePopover key={picked.node.id} node={picked.node} anchor={picked.anchor} onClose={() => setPicked(null)} />}
-
       {exporting && <ExportSheet onOpen={onExport} />}
 
       {next !== null && !exporting && (
@@ -826,7 +817,7 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
           {numbered(next)}
         </p>
       )}
-      {/* Where the chat's box is not (no session, a terminal) the note stands under the strip; with the chat it is the warn line above the box. */}
+      {/* Where the chat's box is not (no session, a terminal) the note stands under the header; with the chat it is the warn line above the box. */}
       {!inChat && !exporting && note}
 
       {/* The first prompt of a new object that was not sent: the reason, above the pane that holds it. */}

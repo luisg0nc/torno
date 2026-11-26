@@ -1,7 +1,7 @@
 import { drawable, type HistoryEntry } from '../../../shared/history'
 import type { StripNode } from './strip'
 
-// What a click on a node of the builds strip offers (spec 2026-11-18, section 2), pure: which acts the menu holds, in its order,
+// What a click on a build of the builds timeline offers (spec 2026-11-18, section 2), pure: which acts the menu holds, in its order,
 // and the prompt that Go back would be to before. `NodePopover` draws and does them.
 
 /** One thing the menu of a node does. */

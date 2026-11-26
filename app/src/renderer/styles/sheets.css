@@ -106,7 +106,7 @@
   height: 30px;
 }
 
-/* ---- Export in the dock: under the builds strip, in place of the conversation (spec 2026-11-18, "Export, on the bench") ---- */
+/* ---- Export in the dock: under its header, in place of the conversation (spec 2026-11-18, "Export, on the bench") ---- */
 
 .export-dock {
   display: flex;

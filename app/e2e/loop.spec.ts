@@ -334,7 +334,7 @@ test('a broken save fails the build and keeps the last good parts as they were; 
 
   await failed.click()
   const sheet = page.getByRole('dialog', { name: 'Build error' })
-  // The error stands from the failed node of the builds strip: the tail first, the whole of it when asked.
+  // The error stands from the chip of the failed build's group in the builds timeline: the tail first, the whole of it when asked.
   await expect(sheet).toContainText('The build after h')
   await expect(sheet.locator('[data-part="tail"]')).toContainText('SyntaxError')
   await sheet.getByRole('button', { name: 'Whole error' }).click()
@@ -352,15 +352,15 @@ test('a broken save fails the build and keeps the last good parts as they were; 
   await expect(sheet.getByRole('button', { name: 'Rebuild' })).toHaveCount(0)
   // The same sources would give the same error: the status line's Rebuild is quiet.
   await expect(status(page).locator('.status-rebuild')).not.toHaveAttribute('data-primary', '')
-  // It stands from the failed node of the strip at the top of the dock, 300 px wide, with a stem to it.
-  const node = page.locator('[data-region="session"] .strip-node[data-kind="failed"]')
+  // It stands from that chip in the bar at the foot of the view, so above it, 300 px wide, with a stem to it.
+  const node = page.locator('[data-region="builds"] .tl-chip[data-state="failed"]')
   await expect(node).toHaveCount(1)
   const [box, from] = [(await sheet.boundingBox())!, (await node.boundingBox())!]
   expect(Math.round(box.width)).toBe(300)
-  expect(box.y).toBeGreaterThanOrEqual(from.y + from.height)
+  expect(box.y + box.height).toBeLessThanOrEqual(from.y)
   expect(box.x).toBeLessThanOrEqual(from.x + from.width)
   expect(box.x + box.width).toBeGreaterThanOrEqual(from.x)
-  // A click on the node puts it away, and another brings it back.
+  // A click on the chip puts it away, and another brings it back.
   await node.click()
   await expect(sheet).toHaveCount(0)
   await node.click()

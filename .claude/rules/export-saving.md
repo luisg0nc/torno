@@ -94,7 +94,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 
 - "Export…" is a button in the status line for the open object, in the head of the page of objects for every
   object that can be exported, and on each card that has a build of this run, for that object. The export is
-  **docked in the session dock, under the builds strip, in place of the conversation** (`ui/ExportSheet.tsx`,
+  **docked in the session dock, under its header, in place of the conversation** (`ui/ExportSheet.tsx`,
   rendered by `SessionPane` while `exportOf` is set; the conversation's body stays mounted, hidden, so a draft and a terminal
   are as they were). It is no modal: the view is its preview (a 2 px accent frame, the export's `Band`, `useBand` reading
   `exportOf`; `LeftOutTags` puts a dashed `Tag` at each switched-off part that stays out of a page, from `state/exportPreview.ts`).

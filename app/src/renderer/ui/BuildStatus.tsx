@@ -151,7 +151,7 @@ export function BuildStatus({ onOpen }: { onOpen: (id: string) => void }) {
   const strip = useStripNodes()
   const ticks = ticksOf(strip.nodes)
   const shownId = strip.nodes.find((n) => n.onShow)?.id
-  // The error of the failed build stands from its node in the strip, or from this line when the strip is not drawn.
+  // The error of the failed build stands from its element in the builds timeline, or from this line when the timeline is not drawn.
   const failedAfter = strip.nodes.findLast((n) => n.kind === 'failed')?.after
   const failedNode = useFailedAnchor()
   // The file an export wrote stands where Export… is until the next build begins, or a minute (`state/exportSaved.ts`).

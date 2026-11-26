@@ -62,7 +62,7 @@ const DRAWINGS: Record<Tile['name'], ReactNode> = {
 const NOT_ON_SHOW = 'Open the project first: this is made of its view, and the export is not of the project on show'
 
 /**
- * What goes into an export, said before anything is written, in the session dock under the builds strip (spec 2026-11-18, "Export, on
+ * What goes into an export, said before anything is written, in the session dock under its header (spec 2026-11-18, "Export, on
  * the bench"): five tiles for what is made, a line for each thing that can go with what it weighs, the weight against the budget on a
  * rule, and the action. The view behind it is the preview. Marks and scans are off until ticked: a note may be private, and a scan may
  * show the real world. "Export" asks main, which asks where to save; the window never names a path. A file that was written closes

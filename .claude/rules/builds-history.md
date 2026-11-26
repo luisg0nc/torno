@@ -25,6 +25,10 @@ paths:
   - "app/src/renderer/viewport/ghosts.test.ts"
   - "app/src/renderer/viewport/earlier.ts"
   - "app/src/renderer/viewport/earlier.test.ts"
+  - "app/src/renderer/state/timeline.ts"
+  - "app/src/renderer/state/timeline.test.ts"
+  - "app/src/renderer/styles/strip.css"
+  - "app/e2e/timeline.spec.ts"
   - "app/src/renderer/state/landing.ts"
   - "app/e2e/history.spec.ts"
   - "app/e2e/git.spec.ts"
@@ -156,20 +160,45 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   hidden for a picture (`hideGizmo`), and nothing is measured, marked or written from it. A live build landing does not end it; another object, another layout, a
   section or an explode does. It is not the ghosts of a build that landed (`ghosts.ts`, a moment, edges only). `__tornoTest.earlier()` and `compare()` are for tests.
 
-## The builds strip (`app/src/renderer/ui/strip`)
+## The builds timeline (`app/src/renderer/ui/strip`)
 
-- **The strip is shut until it is wanted** (#211): its head line is a button (`.strip-toggle`, `aria-expanded`, a chevron, "Builds of x", `<n> kept`, and `h41 on show` while shut) and the nodes (or, in a short dock, the ticks) show only while it is open. It opens by a click on the line, by itself when a build fails (`failedId` appears, and `errorOpen`), and is held open while comparing (`store.compare`) and while Go back asks (`useStruckNodes`); the person's own open/shut is the component's state (not kept across a reload). `e2e/helpers.ts` `openStrip` opens it in a spec.
-- `BuildsStrip` is on top of the dock under the header, in every mode (`SessionPane`: chat, terminal, no session; not while a new project is drafted), over
-  `useStripNodes` (`useHistory`, `usePrompts` for the numbers of prompts, the build state, the open round of `state/review`). The rules are `strip.ts`, pure
-  and held by `strip.test.ts`: `stripNodes(history, live, numbering)` (oldest to newest: every kept build, a failed one `after` the build before it, a failure the history
-  has not kept yet as one more node, the build that runs last; `by` is `prompt 14`, `you saved`, `you tried`, `went back`, `earlier`), `bracketOf(nodes, promptsInSight)`,
-  `stripFolded` (`STRIP_FOLD_BELOW` 640 of dock height, measured by the strip on its `.dock`), `ticksOf` (the last eight, the build on show kept among them),
-  `stripSays` (the head line's right side) and `inSightOf`. A node is a button: its click goes to the `onPick(node, anchor)` `SessionPane` gives, which opens `NodePopover` (`strip/NodePopover.tsx`) from the node; a double click compares it with the build on show (not with a section or an explode on).
-  The menu is `nodeMenu(node, { canReview, goBackTo })` (`strip/nodeMenu.ts`, pure and held by its test; the order is Compare with live, Star or Unstar, Review this build, Go back to here; none for a failed or a running node): Compare is `actions.compare(node, the build on show)` (it reads Stop comparing while it is on; none for the build on show), Star is `history.star` (there is no Pin to board here: #256), Review is `reviewActions.start` and is offered only on the build on show with no round open, and Go back is `goBackTarget(entries, id)`: the prompt of the first build kept after the node, past builds that failed, and none when a save of the person's, or nothing, follows it or all its builds are undone. Nothing here picks a build to export (ruling 7).
-  The build that failed now is not given to `onPick`: its click toggles `errorOpen`, and its element (`strip/failedAnchor.ts`) is what `BuildErrorSheet` stands from, wherever it is opened (`BuildStatus` draws it, from the node, or from the status line when the dock is put away). A failed build that is not the latest opens `BuildErrorSheet` with `old` from `NodePopover`: its line (`entry.error`) and Copy, nobody told.
-- The build on show is the kept build of this run whose revision is the store's `build.revision` (`useStripNodes`). The prompt number of the running build is the last
-  prompt's, only while a session works. The bracket follows the chat: `ChatPane` measures each prompt's stretch of the transcript (`.chat-group[data-id]` with a `user`
-  item, then the groups up to the next prompt) on scroll and resize, and tells `state/inSight`. Nothing draws per frame in React: a rAF measures, the store takes a changed list only.
+- **A bar under the view, folded by default** (#332, which replaced the strip on top of the dock). `BuildsTimeline` (`strip/BuildsTimeline.tsx`) is drawn by `App`
+  in the view's area (`.viewport`, after `ViewportPane`) while a project's model is on screen (`page === 'object'` and the board's `inModel`): not on the page of
+  projects or of a new project, not with the Brief or a tracing in its place. It is `--timeline-h` (34 px) across the foot of the view, above the status line, and
+  `.viewport:has(> .timeline) > .viewport-pane` stands the view on it, so what sits at the foot of the view sits on the bar and the camera is fitted to what is
+  left. The bar: the toggle (`.timeline-toggle`, `aria-expanded`, a chevron, `Builds`, how many are kept) and a chip for each group (`.tl-chip`, oldest at the
+  left, on a hairline; it scrolls sideways, by the wheel too, keeping the newest and the group on show in sight). The drawer (`.timeline-drawer`) rises from the
+  bar over the view (it never resizes the view) by its rows' height, `inert` and hidden while folded. Open or shut is `state/timeline.ts`: the window's
+  (`localStorage` `torno.timeline`, `open`/`shut`, as the dock's width is kept; the same for every project), toggled by the toggle and by `builds.toggle`
+  (`Ctrl+Shift+H`, global, `useTimelineKey` in `App`, only with a project's view on screen). Which groups show every build (`expanded`, by `StripGroup.id`)
+  is the run's only. `e2e/helpers.ts` `openTimeline` opens the drawer and every group in a spec; `e2e/timeline.spec.ts` holds the bar, the drawer, the key,
+  a group opened and the window's memory.
+- The rules are `strip.ts`, pure and held by `strip.test.ts`: `stripNodes(history, live, numbering)` (oldest to newest: every kept build, a failed one `after`
+  the build before it, a failure the history has not kept yet as one more node, the build that runs last; `cause` and `by`, the label: `Prompt 14` for a
+  build of a numbered prompt, `Manual edit` for `params`, `Saved by you` for `person`, `Went back`, `Earlier` for `unknown`, `Claude Code` for a prompt with no
+  number; the running or just failed build takes `StripLive.cause`, which `useStripNodes` finds from the prompt while a session works and else `BuildState.reason`),
+  `stripGroups(nodes)` (consecutive nodes of one prompt are one group, and so are consecutive ones of one cause that is not a prompt's, the person's Parameters
+  between two prompts among them; every `goback` is its own; one nobody can say yet is `Building` or `Failed build`; a group shows its last build and
+  `groupCount`), `groupTitle(group, entries)` (two lines: the prompt's words, `turn.text`, or what the Parameters set, `saveWords`, or `Went back to h3`; then
+  its builds, the one on show, a failure, a star: never in the label; it is the chip's and the group's title and the head of a build's menu), `ticksOf` (the
+  last eight, the build on show kept among them) and `stripSays` (the drawer's head line's right side). There is no bracket of the prompts in sight any more:
+  away from the chat it pointed across the window, and `state/inSight` and the chat's measuring went with it.
+- In the drawer a group is its label (`.tl-group-head`, a button with its count while it has several builds) over its builds: a group of several is a pile
+  (`.tl-pile`, its last build's picture on the edges of the others) until a click on it or on its label shows every build, side by side under a bracket
+  (`data-expanded`); the label folds them back. A click on a chip is `timelineActions.reveal`: the drawer opens with that group shown whole.
+  A build is a button: its click opens `NodePopover` (`strip/NodePopover.tsx`) from it, whose head says `groupTitle` of the build alone; a double click compares
+  it with the build on show (not with a section or an explode on). The menu is `nodeMenu(node, { canReview, goBackTo })` (`strip/nodeMenu.ts`, pure and held by its
+  test; the order is Compare with live, Star or Unstar, Review this build, Go back to here; none for a failed or a running node): Compare is `actions.compare(node,
+  the build on show)` (it reads Stop comparing while it is on; none for the build on show), Star is `history.star` (there is no Pin to board here: #256), Review is
+  `reviewActions.start` and is offered only on the build on show with no round open, and Go back is `goBackTarget(entries, id)`: the prompt of the first build kept
+  after the node, past builds that failed, and none when a save of the person's, or nothing, follows it or all its builds are undone. While Go back asks
+  (`useStruckNodes`) its builds are struck, and a chip or a pile all of whose builds are. Nothing here picks a build to export (ruling 7).
+  The build that failed now is not given to the menu: a click on it, or on the chip of its group while that group ends with it, toggles `errorOpen`, and the
+  element that stands for it (`strip/failedAnchor.ts`: its build or its group's pile in the open drawer, its group's chip while the drawer is folded) is what
+  `BuildErrorSheet` stands from, wherever it is opened (`BuildStatus` draws it, from that element, or from the status line when the timeline is not drawn). A
+  failed build that is not the latest opens `BuildErrorSheet` with `old` from `NodePopover`: its line (`entry.error`) and Copy, nobody told.
+- The build on show is the kept build of this run whose revision is the store's `build.revision` (`useStripNodes`). The prompt number of the running build is the
+  last prompt's, only while a session works. Nothing draws per frame in React.
 - The status line's ticks (`BuildStatus`, `.status-ticks`) are `ticksOf` of the same nodes; they replace the History button, and "h41 built in 51 s" names the build on show.
 
 ## What a save builds (`app/src/main`)

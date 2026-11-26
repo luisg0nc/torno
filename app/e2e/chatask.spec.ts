@@ -1247,11 +1247,11 @@ test('an ask that arrives while the export is open turns the dock\'s foot band t
   await page.keyboard.press('Control+Shift+E')
   const exporting = dock().locator('.export-dock')
   await expect(exporting).toBeVisible()
-  // The conversation is folded to a band at the foot, and the builds strip stays above the export.
+  // The conversation is folded to a band at the foot, and the builds timeline stays at the foot of the view.
   const fold = dock().locator('.export-fold')
   await expect(fold).toContainText('Claude Code')
   await expect(fold).toContainText('working')
-  await expect(dock().locator('.strip')).toBeVisible()
+  await expect(page.locator('[data-region="builds"]')).toBeVisible()
   await expect(fold).toContainText('needs you', { timeout: 30_000 })
   await expect(fold).toHaveAttribute('data-asks', '')
   // Answer puts the export away: the dock shows the ask.

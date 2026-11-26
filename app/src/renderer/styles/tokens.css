@@ -152,6 +152,7 @@
   --panel-w: var(--card-w); /* what the card was called: the panel docked at the left */
   --dock-w: 420px;         /* the session dock's default */
   --status-h: 28px;
+  --timeline-h: 34px;      /* the builds timeline at the foot of the view, folded (`styles/strip.css`) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

@@ -4,7 +4,7 @@ paths:
   - "app/src/main/goback.test.ts"
   - "app/src/main/ipc.ts"
   - "app/src/shared/history.ts"
-  - "app/src/renderer/ui/strip/BuildsStrip.tsx"
+  - "app/src/renderer/ui/strip/BuildsTimeline.tsx"
   - "app/src/renderer/ui/strip/NodePopover.tsx"
   - "app/src/renderer/ui/chat/GoBack.tsx"
   - "app/src/renderer/state/goBackAsk.ts"
@@ -54,4 +54,4 @@ deletes files of the person's model. `workspace-writes` says what it may write (
 
 ## Go back in the window (`app/src/renderer/ui`)
 
-- One confirmation, `useGoBack` (`chat/GoBack.tsx`), for every place that offers it: the turn's dots (`TurnMore`) and a node of the builds strip (`strip/NodePopover.tsx`, "Go back to here"; the prompt is `goBackTarget` of `strip/nodeMenu.ts`, and main's `entryBefore` finds the node's build again from it). It stands from the anchor it is given, lists `planLines`, and while it asks (`confirm`, `going`) it tells `state/goBackAsk` what the plan undoes (`plan.undone`, the prompts of `plan.prompts`): the strip draws those nodes (`data-struck`) and `Items` the prompts' groups struck and muted. The one that set it lets it go (cancel, done, unmount). The strip is outside the chat's contexts, so `NodePopover` provides `ChatIdle` and `PromptNumbers` itself; what came of an ask that was refused or failed stands from the node in a card with Close (`GoBackOffer.step`, `dismiss`).
+- One confirmation, `useGoBack` (`chat/GoBack.tsx`), for every place that offers it: the turn's dots (`TurnMore`) and a build of the builds timeline (`strip/NodePopover.tsx`, "Go back to here"; the prompt is `goBackTarget` of `strip/nodeMenu.ts`, and main's `entryBefore` finds the node's build again from it). It stands from the anchor it is given, lists `planLines`, and while it asks (`confirm`, `going`) it tells `state/goBackAsk` what the plan undoes (`plan.undone`, the prompts of `plan.prompts`): the timeline draws those builds, and a chip or pile all of whose builds are (`data-struck`) and `Items` the prompts' groups struck and muted. The one that set it lets it go (cancel, done, unmount). The timeline is outside the chat's contexts, so `NodePopover` provides `ChatIdle` and `PromptNumbers` itself; what came of an ask that was refused or failed stands from the node in a card with Close (`GoBackOffer.step`, `dismiss`).

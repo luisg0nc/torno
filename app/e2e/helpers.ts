@@ -161,12 +161,21 @@ export async function moreItems(dock: Locator): Promise<string[]> {
   return items
 }
 
-/** The dock's builds strip starts shut, one line; this opens it as a person does, by its line (it stays as it is when it is open already). */
-export async function openStrip(page: Page): Promise<void> {
-  const toggle = page.locator('[data-region="session"] .strip-toggle')
+/** The builds timeline: a bar across the foot of the view, with a chip for each group of builds, and its drawer. */
+export const timeline = (page: Page) => page.locator('[data-region="builds"]')
+
+/**
+ * The timeline's drawer starts folded; this opens it as a person does, by the toggle at the left of its bar (it stays as it is when it is
+ * open already), and with `all` (the default) opens every group of several builds, so that each build is a node of its own.
+ */
+export async function openTimeline(page: Page, { all = true }: { all?: boolean } = {}): Promise<void> {
+  const toggle = timeline(page).locator('.timeline-toggle')
   await expect(toggle).toBeVisible()
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  if (!all) return
+  const folded = timeline(page).locator('.tl-group-head[aria-expanded="false"]')
+  while ((await folded.count()) > 0) await folded.first().click()
 }
 
 /**

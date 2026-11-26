@@ -42,11 +42,11 @@ export function errorTail(error: BuildError, lines = 6): string {
 export const failedTitle = (after: string | undefined): string => (after ? `The build after ${after} failed` : 'The first build failed')
 
 /**
- * A failed build's error, as a popover from its node in the builds strip (spec 2026-11-18, section 2): "The build after h40
+ * A failed build's error, as a popover from its element in the builds timeline (#332): "The build after h40
  * failed", who is told, the tail of the error in mono on the fail wash, then Copy, Whole error (message, why a fillet failed,
  * traceback and what the model printed, in the card) and Ask Claude Code to fix it. `old` is a failure that a later build
- * mended or came after: only its line is kept, so it is the line and Copy, with nobody told. `anchor` is the node; with none (the
- * dock is put away) the card stands from the element it is drawn in, the status line.
+ * mended or came after: only its line is kept, so it is the line and Copy, with nobody told. `anchor` is that element; with none (the
+ * timeline is not drawn) the card stands from the element it is drawn in, the status line.
  */
 export function BuildErrorSheet({ objectName, error, after, old = false, anchor, onClose }: { objectName: string; error: BuildError; after?: string | undefined; old?: boolean; anchor?: HTMLElement | null; onClose: () => void }) {
   const [copied, setCopied] = useState(false)

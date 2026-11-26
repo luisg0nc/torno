@@ -2,7 +2,7 @@ import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 
 // What a Go back that is being asked would undo, while it asks (spec 2026-11-18, "Go back"): the builds after the one it goes back
-// to and the prompts of the conversation they came from. The confirmation says it (`useGoBack`); the builds strip and the
+// to and the prompts of the conversation they came from. The confirmation says it (`useGoBack`); the builds timeline and the
 // conversation draw those struck through and muted. One question at a time: the one that set it is the one that lets it go.
 
 interface Struck {
