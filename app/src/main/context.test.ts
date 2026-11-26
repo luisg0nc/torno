@@ -70,6 +70,10 @@ describe('the references of a new conversation', () => {
   it('are not said when there are none', () => {
     expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { fresh: true }).text).not.toContain('reference/')
   })
+  it('are not said with the onboarding prompt, which names them itself (#324)', () => {
+    const d = deps({ build: OK, scene: SCENE, references: ['photo-1.jpg', 'doodle-1.png'] })
+    expect(contextFor(d, 'bracket', [], { newConversation: true, onboarding: true }).text).not.toContain('reference/')
+  })
   it('are named twelve at most, and the rest counted', () => {
     const many = Array.from({ length: 14 }, (_, i) => `photo-${i + 1}.jpg`)
     const text = contextFor(deps({ build: OK, scene: SCENE, references: many }), 'bracket', [], { fresh: true }).text

@@ -97,12 +97,42 @@ const overPhoto = (item: { over?: true }): boolean => item.over === true
 const CLAUDE_TOOL = (tool: string): string => `mcp__torno__${tool}`
 
 /**
+ * What would make the first build wrong, named in the prompt and in the `torno-model` skill's "Before the first model"
+ * in these words (`prompt.test.ts`): not only sizes (#324).
+ */
+export const SETTLE = ['how the thing is arranged or mounted', 'which bought part it holds', 'how a drawing reads', 'any size that decides fit or function and has no source'] as const
+
+/**
+ * The end of the first prompt (#111, #324): the placeholder, that what was given is kept, and what to settle before
+ * building. Given torno's skills (`skills`) it names the skill, where the rule is; without them it says the rule.
+ */
+function settleText(module: string, toolName: (tool: string) => string, skills: boolean): string[] {
+  const settle = `settle what would make the first build wrong${skills ? ', as the torno-model skill says under "Before the first model"' : ''}: ${SETTLE.slice(0, -1).join(', ')}, and ${SETTLE[SETTLE.length - 1]}.`
+  const head = [
+    `${module}.py is torno's placeholder (a 20 mm cube) for you to replace. What is above is kept for later conversations, in brief.md and on the board (${toolName('board')}): you need not read them now.`,
+    ''
+  ]
+  if (skills) {
+    return [
+      ...head,
+      `Before you build, ${settle} Ask the person in one round, only what would change the build, with a sketch in the option where the question is about shape. A size that does not decide fit is an assumption they can change afterwards in Params, not a question. Then replace the placeholder, and list in your reply what you assumed.`
+    ]
+  }
+  return [
+    ...head,
+    `Before you build, ${settle} A size has a source when the person gave it (above, or as a size card of the board) or when brief.md, a reference picture's note, a PDF, a scan (≈, to a few mm) or another project says it; a size the person gave is not asked again.`,
+    'Ask the person in one round, before you build, with AskUserQuestion, only what would change the build: with a sketch in the option (its preview) where the question is about shape, and for a size one option a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"). The person may answer "build with assumptions". What does not decide fit (a fillet, a chamfer, a wall) is an assumption they can change afterwards in Params, not a question. If nothing would change the build, ask nothing.',
+    'Then replace the placeholder. What is still unknown is built as assumed (a field of Params whose comment begins "assumed:"), and your reply lists what you assumed.'
+  ]
+}
+
+/**
  * The first prompt of a new object: the text, then the pictures it says are attached, at most 6 in all, each after a line of text that names it
  * ("Picture 2: reference/doodle-1.png (the person's doodle): <note>"): the CLI gives the model no file name for an image. `held` is
  * the same text for a prompt that is not sent with its pictures (the composer holds it): each picture is named by
  * its file and says it is not attached, and a referred object's picture by the file it is in.
  */
-export function onboardPrompt(input: PromptInput, toolName: (tool: string) => string = CLAUDE_TOOL): { text: string; held: string; blocks: PromptBlock[]; attached: Array<number | null>; pictured: Array<number | null> } {
+export function onboardPrompt(input: PromptInput, toolName: (tool: string) => string = CLAUDE_TOOL, skills = false): { text: string; held: string; blocks: PromptBlock[]; attached: Array<number | null>; pictured: Array<number | null> } {
   const images: Array<{ image: ImageBytes; caption: (n: number) => string }> = []
   const said = (note: string): string => oneLine(note, 'note')
   /** The number of the picture when it fits in the prompt (it is attached then), else none. */
@@ -114,7 +144,7 @@ export function onboardPrompt(input: PromptInput, toolName: (tool: string) => st
   }
   const attached = input.items.map((item) => attach(item.image, `${item.file} (the person's ${item.file.startsWith('reference/doodle') ? 'doodle' : 'photo'})`, item.note))
   const pictured = input.objects.map((other) => (other.thumb ? attach(other.thumb, `../${said(other.name)}/ as torno last drew it (its thumbnail)`, other.note) : null))
-  const compose = (held: boolean): string => {
+  const compose = (held: boolean, long = false): string => {
     const lines: string[] = []
     input.items.forEach((item, i) => {
       const tail = attached[i] !== null && !held ? ` (attached: picture ${attached[i]})` : ` (not attached: read ${item.file})`
@@ -162,15 +192,12 @@ export function onboardPrompt(input: PromptInput, toolName: (tool: string) => st
       ...given,
       ...(doodles.some((item) => !overPhoto(item)) ? ['A doodle is drawn over a light grid: 1 square = 40 px of the board, with no scale. Read proportions from it, not sizes.', ''] : []),
       ...(doodles.some(overPhoto) ? ["A doodle drawn over a photo is the person's ink over that photo: read it as what they point at in the photo, with no grid.", ''] : []),
-      `${moduleName(input.name)}.py is torno's placeholder (a 20 mm cube). Read brief.md and look at what was given. Then:`,
-      '',
-      "1. List the sizes that decide fit or function (overall size, wall, the sizes of the parts it mates with, hole and fastener sizes, clearances), and say where each comes from: the sizes the person gave (above, or size cards of the board), brief.md, a reference picture's note, a PDF, a scan (≈, to a few mm), another project, or nowhere.",
-      '2. Ask only for sizes with no source, those from nowhere: a size the person gave is not asked again. For those, ask in one round, before you build, with AskUserQuestion: at most 4 questions, each with 2 to 4 options, one of them a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm nozzle"); the person may answer "build with assumptions". Do not ask about what you can choose freely (a fillet radius, a chamfer). If every size has a source, ask nothing.',
-      '3. Replace the placeholder with the real model, built with the answers. A size still unknown is built as assumed (a field of Params commented "assumed"), and your reply lists the assumptions.'
+      ...settleText(moduleName(input.name), toolName, skills && !long)
     ].join('\n')
   }
   const text = compose(false)
-  return { text, held: compose(true), blocks: [{ type: 'text', text }, ...images.flatMap((p, i): PromptBlock[] => [{ type: 'text', text: p.caption(i + 1) }, imageBlock(p.image)])], attached, pictured }
+  // Held, it may be sent later in a session without torno's skills: it says the rule itself.
+  return { text, held: compose(true, true), blocks: [{ type: 'text', text }, ...images.flatMap((p, i): PromptBlock[] => [{ type: 'text', text: p.caption(i + 1) }, imageBlock(p.image)])], attached, pictured }
 }
 
 /** A stand-in for a picture the window holds and says is fit to attach: the preview shows which are attached, and carries none. */
@@ -181,7 +208,7 @@ const STAND_IN: ImageBytes = { bytes: new Uint8Array(0), mediaType: 'image/png',
  * no scan imported (they are numbered S1, S2, ... as the import will), no file read but the thumbnails of the objects
  * referred to, no session. `attached` says which picture of the prompt each item and each object has, or none.
  */
-export async function previewPrompt(deps: Pick<OnboardDeps, 'object' | 'scene'>, name: string, draft: PromptPreviewDraft): Promise<PromptPreview> {
+export async function previewPrompt(deps: Pick<OnboardDeps, 'object' | 'scene' | 'skills'>, name: string, draft: PromptPreviewDraft): Promise<PromptPreview> {
   if (typeof name !== 'string' || typeof draft !== 'object' || draft === null) throw new Error('No draft to preview.')
   if (typeof draft.description !== 'string' || draft.description.length > MAX_DESCRIPTION) throw new Error('The description is not text of at most 20,000 characters.')
   for (const kind of ['items', 'steps', 'scans', 'objects', 'sizes', 'links', 'pdfs'] as const) {
@@ -216,7 +243,7 @@ export async function previewPrompt(deps: Pick<OnboardDeps, 'object' | 'scene'>,
       }
     }),
     pdfs: draft.pdfs.map((pdf) => ({ file: text(pdf?.file), note: text(pdf?.note) }))
-  })
+  }, undefined, deps.skills === true)
   return { text: built.text, attached: built.attached, pictured: built.pictured, objects: objects.map((o) => o.name) }
 }
 
@@ -231,7 +258,10 @@ export interface OnboardDeps {
   importScan(objectId: string, path: string): Promise<{ id: string; name: string }>
   /** Starts the session of the object's agent; rejects with why it cannot. */
   start(obj: ObjectInfo, choice: AgentChoice): Promise<{ sessionId: string; view: string }>
+  /** Sends the first prompt, as the onboarding one: its hook's context leaves out what the prompt has just said (the brief, the references). */
   prompt(sessionId: string, blocks: PromptBlock[]): void
+  /** Whether a session started now is given torno's skills (`AgentAdapter.skills`): the prompt then names the skill where its rule is. */
+  skills?: boolean
   /** Resolves once the session's CLI has taken the prompt up, or with why it ended without; none when this cannot be known. */
   began?(sessionId: string): Promise<{ began: true } | { began: false; why: string }>
   /** Counts everything on the object's board as told (`BoardStore.markAllTold`), just before the first prompt goes. */
@@ -361,7 +391,7 @@ async function onboarded(deps: OnboardDeps, obj: ObjectInfo, draft: OnboardDraft
     rules: draft.rules,
     links,
     pdfs: draft.pdfs.map((pdf) => ({ file: pdf.file, note: pdf.note }))
-  })
+  }, undefined, deps.skills === true)
 
   let started: { sessionId: string; view: string }
   try {

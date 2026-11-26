@@ -1400,7 +1400,9 @@ export function registerIpc(
         running: (id) => sessionRunning(sessions, id),
         importScan: (id, path) => requireScans().import(id, path),
         start: (obj, choice) => requireSessions().start(obj, choice),
-        prompt: (sessionId, blocks) => requireSessions().prompt(sessionId, blocks),
+        prompt: (sessionId, blocks) => requireSessions().prompt(sessionId, blocks, undefined, undefined, [], { onboarding: true }),
+        // Whether the session it starts has torno's skills: the prompt names the skill, or says its rule.
+        skills: sessions?.skills ?? false,
         began: (sessionId) => requireSessions().began(sessionId),
         // The first prompt says what is on the board in its own words: its board line counts the cards as told.
         boardTold: (id) => (boardStore ? boardStore.markAllTold(id) : Promise.resolve()),
@@ -1414,7 +1416,7 @@ export function registerIpc(
   handle('objects:previewPrompt', (_event, name: string, draft: PromptPreviewDraft) => {
     const ws = current
     if (!ws) throw new Error('No workspace is open.')
-    return previewPrompt({ object: (id) => ws.info.objects.find((o) => o.id === id), scene: (id) => ws.builds.scene(id)?.scene }, name, draft)
+    return previewPrompt({ object: (id) => ws.info.objects.find((o) => o.id === id), scene: (id) => ws.builds.scene(id)?.scene, skills: sessions?.skills ?? false }, name, draft)
   })
   handle('scans:import', (_event, objectId: string, path: string) => requireScans().import(String(objectId), path))
   // Read again, a scan may be another mesh: what the last build makes of its alignments is asked anew.

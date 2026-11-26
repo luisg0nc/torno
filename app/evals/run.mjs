@@ -11,7 +11,8 @@
 //
 // A run, for each case and repeat: the case is copied to a new temporary folder (never a person's workspace), the
 // built app is started on it hidden (TORNO_TEST=1), a chat session is started on the case's project, its prompts are
-// sent through the chat box, permission cards and AskUserQuestion cards are answered from the case, a plain question
+// sent through the chat box (a case with `onboard`, a draft of the page of a new project, is first sent the prompt
+// torno would make of it, as `objects.previewPrompt` writes it), permission cards and AskUserQuestion cards are answered from the case, a plain question
 // is answered from `answers` while turns are left, and then the project is scored: `score.py` on the last state of
 // the model folder, and each `mcp` check through the project's MCP address. One JSON line per run goes to
 // `evals/out/<date>-<sha>-<label>.jsonl` (ignored by git) and a Markdown summary beside it.
@@ -90,6 +91,11 @@ export function answerFor(question, answers = {}) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+/** A case's `onboard` as `objects.previewPrompt` takes it: what it leaves out is empty. */
+export function onboardDraft(onboard) {
+  return { description: onboard.description ?? '', items: [], steps: [], scans: [], objects: [], sizes: onboard.sizes ?? [], rules: onboard.rules ?? '', links: [], pdfs: [] }
+}
+
 /** Drive one run in the window: the prompts, the cards, the questions, up to the turn limit. */
 async function drive(page, c, log) {
   const dock = page.locator('[data-region="session"]')
@@ -140,7 +146,9 @@ async function drive(page, c, log) {
 
   await dock.getByRole('button', { name: 'New session' }).click()
   await chat.waitFor()
-  const prompts = [...c.prompts]
+  // The first prompt of a new project, as torno writes it from the draft, for the session's skills: not a copy that could drift.
+  const onboarding = c.onboard ? (await page.evaluate(([name, draft]) => window.torno.objects.previewPrompt(name, draft), [c.object, onboardDraft(c.onboard)])).text : undefined
+  const prompts = [...(onboarding ? [onboarding] : []), ...c.prompts]
   const limit = c.turns ?? prompts.length + 3
   while (metrics.turnsUsed < limit) {
     let prompt = prompts.shift()
@@ -170,19 +178,38 @@ export function readChat(obj) {
   let pictures = 0
   let askedBeforeWrite = null
   let asked = false
+  const questions = []
   for (const item of items) {
     if (item.kind === 'tool') {
       tools[item.name] = (tools[item.name] ?? 0) + 1
       pictures += item.images?.length ?? 0
-      if (item.name === 'AskUserQuestion') asked = true
+      if (item.name === 'AskUserQuestion') {
+        asked = true
+        for (const q of Array.isArray(item.input?.questions) ? item.input.questions : []) questions.push([q?.header, q?.question].filter((t) => typeof t === 'string').join(': '))
+      }
       const path = item.input?.file_path ?? ''
       if (askedBeforeWrite === null && ['Write', 'Edit', 'MultiEdit'].includes(item.name) && path.endsWith('.py')) askedBeforeWrite = asked
     }
-    if (item.kind === 'text' && /\?\s*$/.test(item.text)) asked = true
+    if (item.kind === 'text' && /\?\s*$/.test(item.text)) {
+      asked = true
+      questions.push(item.text.trim().split('\n').at(-1))
+    }
   }
   const lastText = [...items].reverse().find((i) => i.kind === 'text')?.text ?? ''
   const claim = /\?\s*$/.test(lastText.trim()) ? 'asked' : 'done'
-  return { tools, pictures, askedBeforeWrite, claim, lastText: lastText.slice(-400) }
+  return { tools, pictures, askedBeforeWrite, questions, claim, lastText: lastText.slice(-400) }
+}
+
+/**
+ * An `asked` check, of what the chat says (`readChat`): `expect: true` passes when a question came before the first
+ * write of the model and one of them matches `about` (a regular expression, any case) when it is given; `expect: false`
+ * when nothing was asked before it and no AskUserQuestion card came at all (an offer at the end, after the build, is none).
+ */
+export function judgeAsked(check, chat) {
+  const about = check.about ? new RegExp(check.about, 'i') : null
+  const value = chat.questions.slice(0, 8)
+  if (check.expect === false) return { pass: chat.askedBeforeWrite !== true && !(chat.tools?.AskUserQuestion > 0), value, expect: false }
+  return { pass: chat.askedBeforeWrite === true && (!about || chat.questions.some((q) => about.test(q))), value, expect: check.about ?? true }
 }
 
 /** The CLI's own `result` messages, kept by `tee.mjs`: cost, tokens, turns and time, summed. */
@@ -274,7 +301,7 @@ export function judgeDiff(check, answer) {
 }
 
 async function scoreRun(c, obj, mcp) {
-  const brep = c.checks.filter((k) => k.kind !== 'mcp' && k.kind !== 'diff')
+  const brep = c.checks.filter((k) => !['mcp', 'diff', 'asked'].includes(k.kind))
   const checksFile = join(dirname(obj), '..', 'checks.json')
   writeFileSync(checksFile, JSON.stringify(brep))
   const py = spawnSync('uv', ['run', '--no-sync', '--project', join(repo, 'kernel'), 'python', join(here, 'score.py'), obj, checksFile], { encoding: 'utf8', timeout: 300_000, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } })
@@ -300,6 +327,7 @@ async function scoreRun(c, obj, mcp) {
       scored.checks.push({ ...head, pass: false, error: String(e.message ?? e).slice(0, 300) })
     }
   }
+  for (const check of c.checks.filter((k) => k.kind === 'asked')) scored.checks.push({ id: check.id ?? 'asked', kind: 'asked', ...judgeAsked(check, readChat(obj)) })
   const dims = caseDimensions(c)
   if (dims.length > 0) {
     let answer
@@ -324,7 +352,8 @@ async function oneRun(c, repeat, o, agent, electron, log) {
   let run = { case: c.id, repeat, label: o.label, ablate: o.ablate.split(',').filter(Boolean), ...(o.lookSize ? { lookSize: Number(o.lookSize) } : {}), ...(o.holds ? { holds: Number(o.holds) } : {}) }
   try {
     const page = await app.firstWindow()
-    await page.waitForSelector('[data-region="left"]')
+    // The left column is there hidden while a project's route card is up: there, not seen.
+    await page.waitForSelector('[data-region="left"]', { state: 'attached' })
     const { openListed } = await import('./window.mjs')
     await openListed(page, c.object)
     // The case's first build ends before the first prompt: the agent starts from it, and diff has it to compare with.

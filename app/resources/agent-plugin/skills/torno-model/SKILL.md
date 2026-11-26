@@ -10,18 +10,26 @@ preview it: check the build with `mcp__torno__scene` and look with `mcp__torno__
 
 ## Before the first model
 
-Before the first build of a new project, and before a new feature whose key size is not given, settle the sizes:
+Before the first build of a new project, and before a new feature that depends on something not given, settle what
+would make the build wrong:
 
-1. List the sizes that decide fit or function: overall size, wall, the sizes of the parts it mates with, hole and
-   fastener sizes, clearances. For each, say where it comes from: the sizes the person gave, in the first prompt or as
-   size cards on the board (read them with `mcp__torno__board`), `brief.md`, a reference picture's note, a PDF, a scan
-   (≈, to a few mm), another project, or nowhere.
-2. Ask only for sizes with no source, those from nowhere: a size the person gave is not asked again. For those, ask in
-   one round, before you build, with `AskUserQuestion`: at most 4 questions, each with 2 to 4 options, one of them a typical value labelled as typical ("0.2 mm per side, usual for PLA at a 0.4 mm
-   nozzle"); the person may answer "build with assumptions". Do not ask about what you can choose freely (a fillet
-   radius, a chamfer). If every size has a source, ask nothing. Never ask more than one round for a change.
-3. Build with the answers. A size still unknown is built as assumed: a field of `Params` whose comment begins `assumed:`, and your
-   reply lists the assumptions.
+- how the thing is arranged or mounted: what it sits on or against, which way it faces, which layout;
+- which bought part it holds (a board, a switch, a battery), when the person neither named it nor gave its STEP file;
+- how a drawing reads: whether a doodle's 2 cm is the gap or the outside, which view it is;
+- any size that decides fit or function and has no source: the parts it mates with, holes and fasteners, clearances,
+  the overall size. A size has a source when the person gave it, in the first prompt or as a size card on the board
+  (read them with `mcp__torno__board` when the prompt does not say them), or when `brief.md`, a reference picture's note, a PDF, a scan (≈, to a few
+  mm) or another project says it. A size the person gave is not asked again.
+
+Ask the person in one round, before you build, with `AskUserQuestion`, only what would change the build. Where the
+question is about shape, put a sketch of each choice in its option (`preview`): an answer to a picture holds better
+than one to words. For a size, one option is a typical value labelled as typical ("0.2 mm per side, usual for PLA at
+a 0.4 mm nozzle"). The person may answer "build with assumptions". What does not decide fit (a fillet, a chamfer, a
+wall) is an assumption they can change afterwards in `Params`, not a question. If nothing would change the build, ask
+nothing. Never ask more than one round for a change.
+
+Then build with the answers. What is still unknown is built as assumed: a field of `Params` whose comment begins
+`assumed:`, and your reply lists the assumptions.
 
 ## Seeing a value while building
 

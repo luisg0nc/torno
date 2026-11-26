@@ -210,6 +210,7 @@ export interface PromptContext {
  *
  * A new conversation (`newConversation`: the first prompt of a session not resumed, or `fresh`) is also told, in a last line, the files of the object's `reference/` (`referencesLine`),
  * to read when they matter. It says nothing of whether they are attached: the first prompt of a new object attaches them.
+ * That first prompt (`onboarding`) names them itself, so its context has no such line (#324).
  *
  * The first prompt of a session, resumed or not, is given the instruction files Claude Code reads for the object
  * (`opts.instructions`, found by `main/instructions.ts`: paths and sizes, never their text) and which wins for seeing
@@ -224,7 +225,7 @@ export interface PromptContext {
  *
  * It changes nothing: whoever delivers the text turns `sentMarkIds` into sent.
  */
-export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; /** The slugs of the project's named sets: a mark labelled with one that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is gone says so. */ tracings?: readonly string[]; /** The revision of each layer of the tracings (`layerRevisions`): an offset on a layer that has changed says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up (`lineupsOf`): a mark on the photo is told with it. */ lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; /** The brief of the board (`briefOf`), at most BRIEF_LIMIT characters, after the board's line: told to a new conversation and when it changed. */ brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; /** The one line of the project's tracings and what it will have told (`tracingsLine`), after the board's: at most TRACINGS_LIMIT characters. */ tracingsLine?: TracingsLine; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
+export function contextFor(deps: ContextDeps, objectId: string, marks: readonly Mark[] = [], opts: { fresh?: boolean; newConversation?: boolean; /** The first prompt of a new project (`onboard.ts`), which names the references itself: no line of them. */ onboarding?: boolean; scans?: readonly ScanInfo[]; /** The slugs of the project's named sets: a mark labelled with one that is gone says so. */ sets?: readonly string[]; /** The ids of the project's tracings: a mark on one that is gone says so. */ tracings?: readonly string[]; /** The revision of each layer of the tracings (`layerRevisions`): an offset on a layer that has changed says so. */ layers?: Readonly<Record<string, number>>; /** What each tracing with a lined-up photo says of its line-up (`lineupsOf`): a mark on the photo is told with it. */ lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; /** The brief of the board (`briefOf`), at most BRIEF_LIMIT characters, after the board's line: told to a new conversation and when it changed. */ brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; /** The one line of the project's tracings and what it will have told (`tracingsLine`), after the board's: at most TRACINGS_LIMIT characters. */ tracingsLine?: TracingsLine; toolName?: (tool: string) => string; notice?: string; rounds?: RoundsView } = {}): PromptContext {
   const { notice, ...rest } = opts
   const told = withBuild(deps, objectId, contextText(deps, objectId, marks, rest))
   return notice ? { ...told, text: told.text === '' ? notice : `${notice}\n${told.text}` } : told
@@ -259,7 +260,7 @@ function withBuild(deps: ContextDeps, objectId: string, told: PromptContext): Pr
   }
 }
 
-function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; scans?: readonly ScanInfo[]; sets?: readonly string[]; tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; tracingsLine?: TracingsLine; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
+function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Mark[], opts: { fresh?: boolean; newConversation?: boolean; onboarding?: boolean; scans?: readonly ScanInfo[]; sets?: readonly string[]; tracings?: readonly string[]; layers?: Readonly<Record<string, number>>; lineups?: Readonly<Record<string, string>>; instructions?: readonly InstructionFile[]; board?: string; brief?: string; boardTold?: Record<string, string>; boardCounts?: BoardCounts; tracingsLine?: TracingsLine; toolName?: (tool: string) => string; buildOnly?: boolean; rounds?: RoundsView }): PromptContext {
   const toolName = opts.toolName ?? CLAUDE_TOOL
   const moreMarks = moreMarksBy(toolName)
   const moreDimensions = moreDimensionsBy(toolName)
@@ -431,8 +432,9 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   // What has its line above is not named again; never longer than the line room was kept for.
   const rest = open.filter((m) => !listedUnmet.includes(m))
   if (rest.length > 0 && !opts.buildOnly) lines.push(`Open marks: ${openMarks(rest, revision, toolName, openLine.length - 'Open marks: '.length)}`)
-  // A new conversation is told which references there are, last, and only when the line fits: it is no mark.
-  const referred = (opts.fresh || opts.newConversation) && !opts.buildOnly ? referencesLine(deps.references?.(objectId) ?? []) : ''
+  // A new conversation is told which references there are, last, and only when the line fits: it is no mark. Not the
+  // onboarding prompt's, which names them itself.
+  const referred = (opts.fresh || opts.newConversation) && !opts.buildOnly && !opts.onboarding ? referencesLine(deps.references?.(objectId) ?? []) : ''
   // And the print profile, the person's numbers the check and measure tools default to: told the same way, in one line.
   const profiled = (opts.fresh || opts.newConversation) && !opts.buildOnly ? profileLine(deps.profile?.(objectId)) : ''
   if (profiled && lines.join('\n').length + 1 + profiled.length + (referred ? 1 + referred.length : 0) + (instructed ? 1 + instructed.length : 0) <= CONTEXT_LIMIT) lines.push(profiled)

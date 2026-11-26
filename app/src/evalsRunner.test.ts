@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error: a plain module of the evals, outside the typed sources
 import * as run from '../evals/run.mjs'
+import { checkSize } from './shared/size'
 
 // The pure parts of the evals' runner (`app/evals/run.mjs`): nothing here starts an agent, a window or a kernel.
 
@@ -20,16 +21,41 @@ describe('the runner of the evals, without running anything', () => {
   })
 
   it('every case is whole: an object, prompts, and checks of known kinds; the smoke case only by name', () => {
-    const kinds = ['valid', 'parts', 'solids', 'size', 'ratio', 'volume', 'clearance', 'overlap', 'hole', 'mcp', 'diff']
+    const kinds = ['valid', 'parts', 'solids', 'size', 'ratio', 'volume', 'clearance', 'overlap', 'hole', 'mcp', 'diff', 'asked']
     const cases = run.loadCases([])
     expect(cases.length).toBeGreaterThanOrEqual(12)
     expect(cases.map((c: { id: string }) => c.id)).not.toContain('_smoke')
     for (const c of [...cases, ...run.loadCases(['_smoke'])]) {
       expect(c.object, c.id).toMatch(/^[a-z][a-z0-9-]*$/)
-      expect(c.prompts.length, c.id).toBeGreaterThan(0)
+      // A case that starts from the first prompt of a new project (`onboard`) may have no prompt of its own.
+      expect(c.prompts.length + (c.onboard ? 1 : 0), c.id).toBeGreaterThan(0)
       expect(c.checks.length, c.id).toBeGreaterThan(1)
       for (const k of c.checks) expect(kinds, `${c.id} ${k.id}`).toContain(k.kind)
     }
+  })
+
+  it('starts a case from a draft of a new project whose sizes torno takes as the person\'s, so none is left out of the prompt (#324)', () => {
+    const onboarded = run.loadCases([]).filter((c: { onboard?: unknown }) => c.onboard)
+    expect(onboarded.map((c: { id: string }) => c.id).sort()).toEqual(['m-nothing-to-ask', 'm-open-mount'])
+    for (const c of onboarded) {
+      const draft = run.onboardDraft(c.onboard)
+      expect(draft.description, c.id).not.toBe('')
+      for (const size of draft.sizes) expect(typeof checkSize(size, 'person'), `${c.id} ${JSON.stringify(size)}`).toBe('object')
+      expect(c.checks.some((k: { kind: string }) => k.kind === 'asked'), c.id).toBe(true)
+    }
+  })
+
+  it('judges whether the agent asked before its first write, and about what, or asked nothing', () => {
+    const chat = (questions: string[], askedBeforeWrite: boolean | null, cards = 0) => ({ questions, askedBeforeWrite, tools: cards > 0 ? { AskUserQuestion: cards } : {} })
+    expect(run.judgeAsked({ expect: true, about: 'mount|wall' }, chat(['Mounting: How is it fixed to the WALL?'], true)).pass).toBe(true)
+    expect(run.judgeAsked({ expect: true, about: 'mount|wall' }, chat(['Board: Which board?'], true)).pass).toBe(false)
+    // Asked only after the model was written: too late.
+    expect(run.judgeAsked({ expect: true }, chat(['Mounting: how?'], false)).pass).toBe(false)
+    expect(run.judgeAsked({ expect: false }, chat([], null))).toEqual({ pass: true, value: [], expect: false })
+    // An offer after the build is no question about it; a question before it, or a card at all, is.
+    expect(run.judgeAsked({ expect: false }, chat(['Want a chamfer on the bore?'], false)).pass).toBe(true)
+    expect(run.judgeAsked({ expect: false }, chat(['Which bolt?'], true)).pass).toBe(false)
+    expect(run.judgeAsked({ expect: false }, chat(['Bore: which?'], false, 1)).pass).toBe(false)
   })
 
   it('puts the check pass rate first, the build apart, then cost and time', () => {

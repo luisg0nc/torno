@@ -1,0 +1,59 @@
+{
+  "object": "washer",
+  "track": "missing dimensions",
+  "onboard": {
+    "description": "A flat washer for an M8 bolt. One part named \"washer\".",
+    "sizes": [
+      { "what": "outside", "value": "Ø20", "unit": "mm", "source": "from a manual or datasheet" },
+      { "what": "bore", "value": "Ø8.4", "unit": "mm", "source": "from a manual or datasheet" },
+      { "what": "thickness", "value": "2", "unit": "mm", "source": "from a manual or datasheet" }
+    ]
+  },
+  "prompts": [],
+  "answers": {
+    "default": "I don't know: choose, and say what you chose."
+  },
+  "turns": 2,
+  "checks": [
+    {
+      "id": "asks-nothing",
+      "kind": "asked",
+      "expect": false
+    },
+    {
+      "id": "valid",
+      "kind": "valid"
+    },
+    {
+      "id": "parts",
+      "kind": "parts",
+      "names": [
+        "washer"
+      ]
+    },
+    {
+      "id": "washer-x",
+      "kind": "size",
+      "part": "washer",
+      "axis": "x",
+      "expect": 20,
+      "tol": 0.05
+    },
+    {
+      "id": "washer-z",
+      "kind": "size",
+      "part": "washer",
+      "axis": "z",
+      "expect": 2,
+      "tol": 0.05
+    },
+    {
+      "id": "bore",
+      "kind": "hole",
+      "part": "washer",
+      "diameter": 8.4,
+      "through": true,
+      "tol": 0.05
+    }
+  ]
+}

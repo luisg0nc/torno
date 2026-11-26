@@ -50,13 +50,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   or `fresh`, after /clear or after a compaction: the `PostCompact` hook, which moves no status, or the stream's
   `compact_boundary`, either sets `Session.compacted`, which the next prompt takes once as `fresh`) is told in a last line the files of `reference/` (`referencesLine` in `context.ts`,
   `listReferences`: plain files of create's names, photos then doodles, twelve named at most). It is no mark, and is
-  left out when it does not fit in the context's limit. The onboarding prompt names them too; the repetition is
-  accepted.
+  left out when it does not fit in the context's limit. The onboarding prompt names them itself, so its context
+  (`opts.onboarding`, from `Sessions`' `onboarding` flag) has no such line (#324).
 - **The brief** (#249): the same conversations are told, after the board's line, the person's sizes and rules (`briefOf` in `board/text.ts`: every
   visible `size` card by `saySize`, then the text cards of the frame named Rules, one line, in at most `BRIEF_LIMIT` 1,000 characters, the rules at most
   400 of them, sizes cut by whole sizes and counted; `contextFor` `opts.brief`, room kept like the board's line, never in an edit's answer). `boardLine(…, { again })`
   returns it (`brief`) when `again` (`fresh || newConversation`, from `index.ts`) or when its hash (`told.brief`, kept in `board/told.json` with the cards', once the answer
-  has left) is not the one told: so a size changed between two prompts is told once, and a move or a resize is not. `markAllTold` keeps the hash, so the first prompt of a new project (which names its sizes itself) does not tell it twice.
+  has left) is not the one told: so a size changed between two prompts is told once, and a move or a resize is not. `markAllTold` keeps the hash, and `index.ts` passes `again` false for the onboarding prompt (`opts.onboarding`), so the first prompt of a new project (which names its sizes itself) does not tell it twice (#324).
   The prompt's board sentence says the brief comes with a conversation's first prompt, so the caps did not rise.
 - **Named sets** (`prompt.ts`, in both prompts, after the review sentence): one fixed sentence says named sets are the person's names for faces, edges,
   parts and strokes (`scene` lists them), to write `#deck`, or `block/#deck` for one part's, in any ref, and to propose one with

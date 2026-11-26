@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { Draft } from '../../state/onboard'
-import { DraftPane, pictureState, promptPieces, wordsOf } from './DraftPane'
+import { BLANK_DESCRIPTION, DraftPane, pictureState, promptPieces, wordsOf } from './DraftPane'
 
 const make = { folder: 'parts/cable-clip/', module: 'cable_clip', files: 0, scans: 0 }
 const preview = { text: 'This is a new project, clip.\n\nA small clip\n\nmore', attached: [1, null], pictured: [], objects: [] }
@@ -33,6 +33,17 @@ describe('the session pane while a new object is made', () => {
     const none = renderToStaticMarkup(createElement(DraftPane, { preview, words: [], thumbs: [], make: 'Give it a name and say what it is to start.' }))
     expect(none).toContain('Give it a name and say what it is to start.')
     expect(none).not.toContain('Makes')
+  })
+
+  it('shows a muted line where the description will go while it is empty, and none once there is one (#324)', () => {
+    const empty = { ...preview, text: "This is a new project, clip, made in torno just now. What it is, in the person's words:\n\n\n\nclip.py is torno's placeholder" }
+    const out = renderToStaticMarkup(createElement(DraftPane, { preview: empty, words: [], thumbs: [], make, blank: true }))
+    const line = `<span class="draft-pane-blank">${BLANK_DESCRIPTION}</span>`
+    expect(out).toContain(line)
+    // Between the opening line and what follows, where the words will be.
+    expect(out.indexOf("person&#x27;s words:")).toBeLessThan(out.indexOf(line))
+    expect(out.indexOf(line)).toBeLessThan(out.indexOf('placeholder'))
+    expect(renderToStaticMarkup(createElement(DraftPane, { preview, words: ['A small clip'], thumbs: [], make }))).not.toContain('draft-pane-blank')
   })
 
   it('puts the foot, the choice and the buttons, at the bottom of the plate', () => {

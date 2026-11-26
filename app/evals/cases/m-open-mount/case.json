@@ -1,0 +1,49 @@
+{
+  "object": "sensor-holder",
+  "track": "missing dimensions",
+  "onboard": {
+    "description": "A holder for a motion sensor board in the hallway. One part named \"holder\".",
+    "sizes": [
+      { "what": "sensor board", "value": "32 x 24", "unit": "mm", "source": "measured" },
+      { "what": "board thickness", "value": "1.6", "unit": "mm", "source": "measured" },
+      { "what": "dome", "value": "Ø23", "unit": "mm", "source": "measured", "note": "in the middle of the board, on its front" },
+      { "what": "board holes", "value": "Ø2.2", "unit": "mm", "source": "measured", "note": "two, 28 mm apart along the long side" }
+    ]
+  },
+  "prompts": [],
+  "answers": {
+    "mount": "On the wall, with two screws, the dome facing out.",
+    "wall": "On the wall, with two screws, the dome facing out.",
+    "ceiling": "On the wall, not the ceiling.",
+    "fix": "On the wall, with two screws.",
+    "attach": "On the wall, with two screws.",
+    "screw": "Two 3.5 mm wood screws into the wall.",
+    "default": "I don't know: choose, and say what you chose."
+  },
+  "turns": 4,
+  "checks": [
+    {
+      "id": "asks-mount",
+      "kind": "asked",
+      "expect": true,
+      "about": "mount|wall|ceiling|fix|attach|hang|screw|adhesive|tape|orient|face"
+    },
+    {
+      "id": "valid",
+      "kind": "valid"
+    },
+    {
+      "id": "parts",
+      "kind": "parts",
+      "names": [
+        "holder"
+      ]
+    },
+    {
+      "id": "solids",
+      "kind": "solids",
+      "part": "holder",
+      "count": 1
+    }
+  ]
+}

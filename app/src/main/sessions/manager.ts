@@ -78,6 +78,8 @@ interface Session {
   promptedIn: string
   /** A conversation begun with this session (not one resumed) that no prompt has been in yet: the next is told what is new to it. */
   unprompted: boolean
+  /** Its first prompt is the onboarding prompt of a new project (`onboard.ts`), which says the brief and the references itself: its hook's context leaves them out. */
+  onboarding: boolean
   /** The conversation was compacted since the last prompt (the `PostCompact` hook, or the stream's `compact_boundary`): the next prompt is told as one of a fresh conversation, once. */
   compacted: boolean
   /** No prompt has been in this session yet, resumed or not: the next is told what Claude Code reads of the object's folder. */
@@ -318,9 +320,10 @@ export class Sessions {
        * last one: the agent started another (/clear), which has seen nothing.
        * `newConversation` says it is the first in a conversation: one begun with the session (not resumed) or on
        * /clear (`fresh`). `first` says it is the first prompt of this session, resumed or not (the instruction files
-       * Claude Code reads are told then).
+       * Claude Code reads are told then). `onboarding` says it is the first prompt of a new project, which says the
+       * brief and the references in its own words.
        */
-      contextFor: (objectId: string, opts: { fresh: boolean; newConversation: boolean; first: boolean; toolName: (tool: string) => string }) => PromptContext | Promise<PromptContext>
+      contextFor: (objectId: string, opts: { fresh: boolean; newConversation: boolean; first: boolean; onboarding?: boolean; toolName: (tool: string) => string }) => PromptContext | Promise<PromptContext>
       /**
        * The answer to a prompt's hook has left for the agent of that object,
        * and these marks were in it. Only ever for a UserPromptSubmit of a
@@ -499,6 +502,7 @@ export class Sessions {
       conversationId,
       promptedIn: conversationId,
       unprompted: stored === null,
+      onboarding: false,
       prompts: 0,
       compacted: false,
       firstPrompt: true,
@@ -547,6 +551,11 @@ export class Sessions {
   /** The person said to start the chat in an object's folder, whatever Claude Code settings it has. */
   trust(obj: ObjectInfo): Promise<void> {
     return this.deps.trust?.accept(obj.dir) ?? Promise.resolve()
+  }
+
+  /** Whether a session started now is given torno's skills (`AgentAdapter.skills`), unless it is started without them. */
+  get skills(): boolean {
+    return this.deps.adapter.skills
   }
 
   /** How many agents have not gone yet, counting those hung up on. */
@@ -813,9 +822,11 @@ export class Sessions {
    * A chat session: a prompt for its agent, which queues it if it is at work. Nothing for a terminal session
    * (its prompts are typed: `write`) or one that has ended or been told to.
    */
-  prompt(sessionId: string, content: PromptBlock[], notes?: DrawnOver[], board?: BoardSent, carried: readonly string[] = []): void {
+  prompt(sessionId: string, content: PromptBlock[], notes?: DrawnOver[], board?: BoardSent, carried: readonly string[] = [], opts: { onboarding?: boolean } = {}): void {
     const s = this.chat(sessionId, 'prompt')
     if (!s?.agent || !s.chat) return
+    // The onboarding prompt is the first of its conversation, with none before it: the next hook is its own.
+    if (opts.onboarding === true && s.unprompted && s.prompts === 0 && s.chat.transcript.untakenCount() === 0) s.onboarding = true
     // It waits when the agent is at work, or has been sent a prompt it has not taken up yet (its hook has not moved the status).
     const queued = s.status === 'working' || s.status === 'needs_input' || s.chat.transcript.untakenCount() > 0
     // Its own id: the CLI says in `command_lifecycle` when it queues, begins and ends the prompt it names.
@@ -1499,6 +1510,8 @@ export class Sessions {
     if (named !== undefined) session.promptedIn = named
     const newConversation = fresh || session.unprompted
     session.unprompted = false
+    const onboarding = session.onboarding && newConversation
+    session.onboarding = false
     const first = session.firstPrompt
     session.firstPrompt = false
     // The sources as the turn begins, read before the agent can have touched them: they are what "See changes" compares with.
@@ -1510,7 +1523,7 @@ export class Sessions {
     }
     let context: PromptContext
     try {
-      context = await this.deps.contextFor(objectId, { fresh, newConversation, first, toolName: this.deps.adapter.toolName })
+      context = await this.deps.contextFor(objectId, { fresh, newConversation, first, ...(onboarding ? { onboarding } : {}), toolName: this.deps.adapter.toolName })
     } catch (e) {
       // The prompt goes ahead without it rather than wait for the hook to time out.
       console.error(`no context for the prompt in ${objectId}: ${e instanceof Error ? e.message : String(e)}`)
