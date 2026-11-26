@@ -76,6 +76,23 @@ main > section + section { border-top: 1px solid var(--hairline); }
 /* Hero: the words on the left, the part being rebuilt on the right. */
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(24px, 5vw, 64px); align-items: center; padding-top: clamp(24px, 5vw, 64px); }
 .hero h1 { font-size: clamp(36px, 5.6vw, 64px); letter-spacing: -0.025em; max-width: 14ch; }
+/* Claude Code in the heading, drawn from its pixel mark as the hero's walker is, at a table with a vise (a torno) holding
+   a cube. It idles: it breathes, blinks, and gives the handle a turn now and then. Still when motion is reduced. */
+.hero h1 .cc { display: inline-block; vertical-align: -0.1em; }
+.hero h1 .cc svg { display: block; height: 0.92em; width: auto; overflow: visible; }
+.cc-critter rect { fill: #D97757; }
+/* On the dye: the eyes are holes, as in the mark; the part is the dye's white, the vise and the floor its scribe. */
+.cc-critter rect.cc-eye { fill: var(--dye); }
+.cc-table rect { fill: var(--on-dye-muted); }
+.cc-vise rect, .cc-floor { fill: var(--scribe); }
+.cc-cube rect { fill: var(--on-dye-muted); }
+.cc-cube rect.cc-cube-top { fill: var(--on-dye); }
+.cc-body { animation: cc-breathe 2.8s ease-in-out infinite; }
+.cc-eye { transform-box: fill-box; transform-origin: center; animation: cc-blink 4.2s infinite; }
+.cc-handle { animation: cc-turn 6s ease-in-out infinite; }
+@keyframes cc-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(12px); } }
+@keyframes cc-blink { 0%, 91%, 97%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.15); } }
+@keyframes cc-turn { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(60px); } 90% { transform: translateY(-40px); } }
 .lede { font-size: clamp(18px, 1.8vw, 21px); margin: 22px 0 0; max-width: 34ch; }
 .note { color: var(--muted); font-size: 15px; margin-top: 18px; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
