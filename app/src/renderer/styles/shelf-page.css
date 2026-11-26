@@ -131,16 +131,6 @@
   margin-top: var(--space-3);
 }
 
-/* Placing is the next piece: the button is there and says so. */
-.part-place[aria-disabled='true'] {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.part-place[aria-disabled='true']:hover {
-  filter: none;
-}
-
 .part-file {
   display: inline-flex;
   align-items: center;

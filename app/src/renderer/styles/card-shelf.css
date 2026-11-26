@@ -139,6 +139,17 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+/* A row taken up to be dropped on the model: ringed in the accent, its picture faint, as it is carried. */
+.shelf-row.lifted {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+/* The drawing is a picture, no text: the row's words stay as they are. */
+.shelf-row.lifted .shelf-draw {
+  filter: opacity(0.35);
+}
+
 .shelf-row:focus-visible {
   outline-offset: -2px;
 }

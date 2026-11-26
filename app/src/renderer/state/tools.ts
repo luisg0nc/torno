@@ -4,10 +4,14 @@ import { GIZMO_KEYS, TOOL_KEYS, type ToolGroup } from '../../shared/keys'
 import type { ShapeKind } from '../../shared/marks'
 import type { GizmoMode } from '../viewport/Viewport'
 
-export type ToolName = 'select' | 'pin' | 'arrow' | 'draw' | 'shape' | 'section' | 'measure' | 'align' | 'region'
+/** `place` is the tool of placing a shelf part (#353): it has no key and no button in the palette, and is taken up from the shelf (`placingActions.start`). */
+export type ToolName = 'select' | 'pin' | 'arrow' | 'draw' | 'shape' | 'section' | 'measure' | 'align' | 'region' | 'place'
 
 /** The tools of the palette, in its order, each with its key: from the one table of keys. One that is not `ready` is shown, and cannot be chosen yet. */
-export const TOOLS: { name: ToolName; label: string; key: string; group: ToolGroup; ready: boolean }[] = TOOL_KEYS.map((t) => ({ name: t.name, label: t.label, key: t.key, group: t.group, ready: true }))
+/** The tools of the palette: every tool but the one taken up from the shelf. */
+export type PaletteTool = Exclude<ToolName, 'place'>
+
+export const TOOLS: { name: PaletteTool; label: string; key: string; group: ToolGroup; ready: boolean }[] = TOOL_KEYS.map((t) => ({ name: t.name, label: t.label, key: t.key, group: t.group, ready: true }))
 
 /** The groups of the palette, in its order, each named for the toolbar's `aria-label`: split on screen by a hairline. */
 export const TOOL_GROUPS: { group: ToolGroup; label: string }[] = [

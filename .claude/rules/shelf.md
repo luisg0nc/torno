@@ -15,6 +15,15 @@ paths:
   - "app/src/renderer/state/partLedger.test.ts"
   - "app/src/renderer/ui/shelf/**"
   - "app/e2e/shelf.spec.ts"
+  - "app/src/renderer/state/placing.ts"
+  - "app/src/renderer/state/placing.test.ts"
+  - "app/src/renderer/tools/placeTool.ts"
+  - "app/src/renderer/tools/placeTool.test.ts"
+  - "app/src/renderer/viewport/placeGhost.ts"
+  - "app/src/renderer/viewport/placeGhost.test.ts"
+  - "app/src/renderer/ui/place/**"
+  - "app/src/renderer/ui/shelf/placeRequest.ts"
+  - "app/src/renderer/ui/shelfDrops.ts"
 ---
 
 # The parts shelf: the kernel's read, main's store, the types
@@ -55,7 +64,7 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   per project (`torno.board.part`, `partRead`, `partWrite`, beside `torno.board.shown`); `closePart()` (the `×` of the switch's tab, or `connectShelf` when
   `partGone`: the part was on the list and is not, or a list with parts lacks it) clears both and shows the model if the page was shown. A page kept with no part
   opens on the model. `PartPage` (`ui/shelf/PartPage.tsx`) is drawn by `App` beside `BriefPage`; the 3D view is covered as for the brief.
-- **Buttons.** Place on the model is `aria-disabled` with the title `Placing comes next` and calls `actions.startPlacing(id)`, a no-op #353 fills. Ask Claude about it
+- **Buttons.** Place on the model is `placingActions.startOnModel(id)` (the model shown, the place tool in hand; #353, below). Ask Claude about it
   and the measured request go through `ui/shelf/askClaude.ts`: the dock is shown; with no session running `fixRequest` starts one with the text in its box, else
   `insertIntoSession(text, { later: true })`. Never sent. There is no "Open part.py" and the files are not links: no bridge opens a project file in the person's
   editor (`board.open` is `brief.md` and `reference/` only). The files are named.
@@ -78,3 +87,26 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   is not a JSON object is left as it is and the person told. Writes of one part are in turn (read, merge, write), then `ShelfStore.checkedChanged()` merges again and
   the window is told through `shelf:changed`. Nothing else is written, never `part.py`, and `checked.json` is not in `.torno/.gitignore`: it is the part's record and
   travels with it, as `marks.json` does with a project.
+
+## Placing a part on the model (#353)
+
+- **The place tool** (`tools/placeTool.ts`, `ToolName` `place`, the one tool with no key and no button in the palette, `PaletteTool` being the rest): taken up by
+  `placingActions.start(id)` (not `setTool`, which knows only the palette's) from "Place on the model" (`startOnModel`, which also shows the model) or from a drop of a row,
+  put down by Esc (the generic step back to Select), Stop (`placingActions.stop`), another tool, a project switch or the part leaving the shelf (`connectPlacing`). While it is
+  in hand the view's switch gives way to the band (`BandKind` `place`, priority after `facePick`; `PlaceBar`, `data-band="place"`: `Placing <id> from the shelf, <n> placed`,
+  Ask Claude `data-part="place-ask"`, Stop `data-part="place-stop"`; `placeWords`). `state/placing.ts` is the state (`placing`: part, `objectId`, `marks` with each one's face, point and
+  normal, and `said`; `tag`; `dragging`) and the pure rules of the words. It is never per frame in React: the ghost goes to the viewport.
+- **The ghost** is drawn on the overlay canvas, as the Region brush's ring is (`Viewport.showPlacing`, `OverlayPass.placing`, `viewport/placeGhost.ts`; screen only, in no picture): the cutout's
+  `plan` outlines solid and the keep-out's dashed with a 12 % accent fill (holes are not filled), in the face's plane at the hit point. `faceFrame(normal)`: Z is the normal, X is the world X
+  taken into the face (the world Y when |n.x| > 0.9), Y is Z across X; the same face always gives the same turn. Each part placed in this go keeps its cutout and a ring 1.6 mm past its farthest
+  point (`haloReach`). Only a face with a normal is laid on (`faceHit`); an edge gets no ghost and no mark.
+- **A drop** (`ui/shelfDrops.ts`, wired in `ViewportPane`'s `connect`): a row is `draggable` and carries only `application/x-torno-shelf-part` (the id; never `text/plain`, so a drop on the box or a
+  field is nothing); its `dragstart` sets `placingStore.dragging` one tick later (the row is `.lifted`; a dragover cannot read what is carried). Over the pane `dragover` picks a face
+  (`viewport.pick(..., { edges: false })`) and shows the ghost, taking the drag (`preventDefault`) only on a face with the build current and the parts together; `drop` calls `placeOnFace`.
+  Files drops stay `acceptDrops`'s: the two check their own type.
+- **A mark** (`placeOnFace`): a user `pin` through `ctx.commit`, `note` `<id> from the shelf`, anchor as the pin tool's (`anchorFromHit`), no note opened; then `placingActions.placed(mark)` and the tag
+  (`PlaceTag`, a `Tag` with id `place`, `placeTagWords`: `cuts Ø 7.2` or `cuts w × h` from `cutout.size`, `keeps w × h clear` from `keepout.bbox`; cleared when the pointer moves 8 px on, or leaves the view).
+- **The request** (`ui/shelf/placeRequest.ts` `connectPlacingRequest`, started in `connect`; text `placeRequest`): written when a mark is added. In a chat the sentence torno wrote (`said`) is replaced in the
+  box by the longer one while the box still holds it exactly (`replaceInComposer`, `replaceRequest`), else the sentence of the new mark alone is inserted at the cursor and becomes `said` (`addToRequest`).
+  `on the faces` when the marks' refs differ. With no session `askClaude(whole request)` each time (the last stands); with a terminal session nothing until placing ends, then
+  `insertIntoSession(whole request, { later })` once (not after a project switch). Never sent. The band's Ask Claude is `askNow`: stop, show the dock, focus the box.

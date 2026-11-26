@@ -7,6 +7,7 @@ import { useChat } from '../../state/chat'
 import { drawingActions, useDrawing } from '../../state/drawing'
 import { picture } from '../../state/agent'
 import { onboarding } from '../../state/onboard'
+import { replaceRequest } from '../../state/placing'
 import { roundsViewOf, useReview } from '../../state/review'
 import { setTagActions } from '../../state/setTag'
 import { store, useStore } from '../../state/store'
@@ -45,13 +46,22 @@ export function holdDraft(sessionId: string, text: string): void {
 }
 
 /** The composer in the pane now, for what is inserted from outside (the selection's "Insert"). */
-let current: { insert(text: string): void } | null = null
+let current: { insert(text: string): void; replace(was: string, next: string): boolean } | null = null
 
 /** Puts text at the cursor of the composer of the chat shown, and gives it the keys. False when there is none. */
 export function insertIntoComposer(text: string): boolean {
   if (!current) return false
   current.insert(text)
   return true
+}
+
+/**
+ * Makes the words torno put in the box (`was`) other words, where they are, if the box still holds them as they were (`replaceRequest`): the
+ * request of a placing grows with each mark. False when there is no chat box, or the person has changed them: the caller adds the new words.
+ * The cursor and the keys are left where they are.
+ */
+export function replaceInComposer(was: string, next: string): boolean {
+  return current?.replace(was, next) ?? false
 }
 
 /** The most marks named in the line above the box; the rest are counted. */
@@ -192,6 +202,13 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
 
   useEffect(() => {
     current = {
+      replace(was, next) {
+        const made = replaceRequest(latest.current, was, next)
+        if (made === null) return false
+        latest.current = made
+        setText(made)
+        return true
+      },
       insert(inserted) {
         const box = field.current
         const value = latest.current

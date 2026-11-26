@@ -441,9 +441,28 @@ Model and Brief show theirs again and leave the tab; the tab shows the part agai
 (and the row is no longer lit). `Ctrl+Tab` goes on round to the part after the last view the project has. The window keeps which part
 and whether its page was shown for each project, so a project opens on it again; a part that is no longer on the shelf (its folder was
 deleted) closes its page. The page has the part's name, what it is and `common/parts/<id>/part.py`, and these buttons: **Place on the
-model** (placing comes next: the button is there, says so, and does nothing yet), **Ask Claude about it**, which puts
+model** (shows the model and starts placing, see "Placing a part on the model"), **Ask Claude about it**, which puts
 `About the shelf's ec11: ` in the message box for you to finish (it opens the chat if it is shut and starts a session when none runs;
 never sent), and the part's other files by name. Under them is the drawing, then what its lines say, then the sizes.
+
+Placing a part on the model. Drag a row of the Shelf tab onto a face of the model, or press **Place on the model** on a part's page and
+click a face. The row you carry is ringed in the accent, with its picture faint. Over a face the part's ghost lies on it, in the accent: the
+cutout's outline as a solid line and the keep-out's as a dashed one over a light wash, in the face's plane at the pointer, the part's top
+(its +Z, the side you see) along the face's outward normal and its X along the world X taken into the face (along the world Y on a face
+that looks along X), so the ghost keeps its turn as the pointer moves. A drop, or a click while placing, on a face leaves a **pin** there, a
+mark of yours with the note `ec11 from the shelf` and no note to write, and the face keeps a small accent ring of the cutout while you go on.
+A drop off the model, over an edge, while the build is not the one on screen or while the parts are drawn apart, does nothing. Files dropped
+on the view are imported as scans as before. A tag by the pin says `ec11 on the face, M7` and what the part cuts and keeps clear, from the
+kernel's numbers (`cuts Ø 7.2, keeps 16 × 16 clear`, or `cuts 33.4 × 18.4` for a window); it goes when the pointer moves on.
+
+While you place, a band at the top left says `Placing ec11 from the shelf, 1 placed`, with **Ask Claude** and **Stop**. Each pin adds to a
+request in the message box, never sent by itself: `Put the shelf's ec11 at M7 on the face: cut its cutout and keep its keep-out clear.`,
+and with more pins `at M7 and M8` or `at M7, M8 and M9`, and `on the faces` when the pins are not all on one face. The sentence is made
+longer where it stands, so what you wrote round it stays; when you have changed the sentence itself, the next pin gets a sentence of its own
+at the cursor. With no session running one is started with the request in its box; with a terminal session the request is typed at its
+prompt once, when placing ends. Placing ends on **Stop**, on `Esc` (when the keys are not in a field), when you take another tool or
+switch project, and when the part leaves the shelf; **Ask Claude** ends it and gives the keys to the message box. The pins stay, and are
+marks like any other: they go to Claude with your next prompt.
 
 The drawing is made from the numbers the kernel read, never from ours. On the left, the part through a panel, seen from the side: the
 panel is a slab 2 mm thick (z from -2 to 0) cut where the cutout's section crosses it, the part's section in the shelf's metal over it,

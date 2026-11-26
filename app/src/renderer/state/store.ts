@@ -765,9 +765,6 @@ export const actions = {
     writeBench(windowStorage(), next)
   },
 
-  /** "Place on the model" of a part's page. Placing is #353, which fills this: until then it does nothing. */
-  startPlacing(_id: string): void {},
-
   /** A row of the Shelf tab was chosen (or none: null). */
   openShelfPart(id: string | null): void {
     if (store.getState().shelfOpen !== id) store.setState({ shelfOpen: id })

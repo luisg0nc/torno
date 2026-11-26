@@ -3,6 +3,7 @@ import type { ShelfPart } from '../../../shared/shelf'
 import { drawingOf, holeParts, partGroups, ruleKinds, rulesTitle, timesUsed, useShelf } from '../../state/shelf'
 import { findShelf, shelfCounts, shelfFind, SHELF_FILTERS, useShelfFind } from '../../state/shelfFind'
 import { boardActions } from '../../state/board'
+import { placingActions, SHELF_DRAG_TYPE, usePlacing } from '../../state/placing'
 import { useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
 import { pressed } from '../../../shared/keys'
@@ -12,9 +13,9 @@ import type { Scene } from '../../../shared/scene'
  * The Shelf tab of the bench: the parts of `common/parts/`, each as a row: its side outline at the one scale of the shelf (the
  * kernel's section, never a drawing of ours), its name, what it cuts, a row of short rules that say how sure its sizes are (a
  * solid one has a source, a thick green one is checked on the part, a dashed one is assumed, a dotted one is worked out), and how
- * many of it the open project used. The parts the project used come first, under its name, and then the rest. A find box and
+ * many of it the open project used. A row is dragged onto the model to place the part there (`state/placing.ts`, #353). The parts the project used come first, under its name, and then the rest. A find box and
  * three chips narrow them. A row is a button, so Enter on it is a click too: it opens the part (`boardActions.openPart`: `store.shelfOpen`, and the part's
- * page in the view, #352). The foot says where the parts come from; dragging a part onto the model and dropping a datasheet are later.
+ * page in the view, #352). The foot says where the parts come from; dropping a datasheet is #355.
  */
 export function ShelfPanel() {
   const parts = useShelf((s) => s.parts)
@@ -112,8 +113,24 @@ function Row({ part, used, hot }: { part: ShelfPart; used: number | null; hot: b
   const drawing = drawingOf(part)
   const hole = holeParts(part)
   const kinds = ruleKinds(part)
+  const lifted = usePlacing((s) => s.dragging === part.id)
   return (
-    <button type="button" className={`shelf-row${hot ? ' hot' : ''}`} data-part={part.id} aria-current={hot ? 'true' : undefined} onClick={() => boardActions.openPart(part.id)}>
+    <button
+      type="button"
+      className={`shelf-row${hot ? ' hot' : ''}${lifted ? ' lifted' : ''}`}
+      data-part={part.id}
+      aria-current={hot ? 'true' : undefined}
+      draggable
+      onClick={() => boardActions.openPart(part.id)}
+      onDragStart={(e) => {
+        // Only the part's id, in a type of torno's own: dropped on the composer, a field or the desktop it is nothing.
+        e.dataTransfer.setData(SHELF_DRAG_TYPE, part.id)
+        e.dataTransfer.effectAllowed = 'copy'
+        // After the browser has taken its picture of the row: a row changed in dragstart can end the drag at once.
+        setTimeout(() => placingActions.drag(part.id), 0)
+      }}
+      onDragEnd={() => placingActions.drag(null)}
+    >
       <span className="shelf-pic">
         {drawing && (
           <svg className="shelf-draw" width={drawing.width} height={drawing.height} viewBox={`0 0 ${drawing.width} ${drawing.height}`} aria-hidden="true">

@@ -1,6 +1,7 @@
 import { askAboutText } from '../../state/partLedger'
+import { placingActions } from '../../state/placing'
 import { useShelf } from '../../state/shelf'
-import { actions, useStore } from '../../state/store'
+import { useStore } from '../../state/store'
 import { askClaude } from './askClaude'
 import { PartDrawing, PartLegend } from './PartDrawing'
 import { PartLedger } from './PartLedger'
@@ -33,8 +34,7 @@ export function PartPage() {
           <span className="file">{part.file}</span>
         </p>
         <div className="part-acts">
-          {/* Placing is the next piece (#353): the button is here, says so, and does nothing meanwhile. */}
-          <button type="button" className="button button-primary part-place" aria-disabled="true" title="Placing comes next" onClick={() => actions.startPlacing(part.id)}>
+          <button type="button" className="button button-primary part-place" title="Show the model and click a face to place it there" onClick={() => placingActions.startOnModel(part.id)}>
             Place on the model
           </button>
           <button type="button" className="button" onClick={() => askClaude(askAboutText(part.id))}>

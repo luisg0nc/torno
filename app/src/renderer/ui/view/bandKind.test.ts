@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { bandOf, compareWords, failedWords, planeSaid, sketchWords, type BandState } from './bandKind'
+import { bandOf, compareWords, failedWords, placeWords, planeSaid, sketchWords, type BandState } from './bandKind'
 
-const none: BandState = { exportOpen: false, roundOpen: false, lineup: false, facePick: false, comparing: false, sketching: false, failedOnShow: false }
+const none: BandState = { exportOpen: false, roundOpen: false, lineup: false, facePick: false, placing: false, comparing: false, sketching: false, failedOnShow: false }
 const on = (...flags: Array<keyof BandState>): BandState => Object.fromEntries(Object.keys(none).map((k) => [k, flags.includes(k as keyof BandState)])) as unknown as BandState
 
 describe('which band the view wears', () => {
@@ -14,14 +14,15 @@ describe('which band the view wears', () => {
     expect(bandOf(on('roundOpen'))).toBe('review')
     expect(bandOf(on('lineup'))).toBe('lineup')
     expect(bandOf(on('facePick'))).toBe('facePick')
+    expect(bandOf(on('placing'))).toBe('place')
     expect(bandOf(on('comparing'))).toBe('compare')
     expect(bandOf(on('sketching'))).toBe('sketch')
     expect(bandOf(on('failedOnShow'))).toBe('failed')
   })
 
-  it('shows one: export, then line-up, face pick, review, compare, sketch, failed', () => {
-    const order = ['exportOpen', 'lineup', 'facePick', 'roundOpen', 'comparing', 'sketching', 'failedOnShow'] as const
-    const kinds = ['export', 'lineup', 'facePick', 'review', 'compare', 'sketch', 'failed']
+  it('shows one: export, then line-up, face pick, placing, review, compare, sketch, failed', () => {
+    const order = ['exportOpen', 'lineup', 'facePick', 'placing', 'roundOpen', 'comparing', 'sketching', 'failedOnShow'] as const
+    const kinds = ['export', 'lineup', 'facePick', 'place', 'review', 'compare', 'sketch', 'failed']
     order.forEach((_, i) => expect(bandOf(on(...order.slice(i)))).toBe(kinds[i]))
   })
 
@@ -32,6 +33,11 @@ describe('which band the view wears', () => {
 })
 
 describe('what the bands say', () => {
+  it('says what is placed and how many', () => {
+    expect(placeWords('ec11', 0)).toEqual({ lead: 'Placing ', part: 'ec11', mid: ' from the shelf, ', placed: '0 placed' })
+    expect(placeWords('ec11', 2).placed).toBe('2 placed')
+  })
+
   it('says the plane of a sketch in its short words', () => {
     expect(planeSaid('XZ at y = 40 (u = +X, v = +Z)')).toBe('XZ, y = 40')
     expect(planeSaid('plane through F12 offset 3 mm (u = +X, v = +Y)')).toBe('plane through F12 offset 3 mm')

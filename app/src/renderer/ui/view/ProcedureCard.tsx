@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { hint } from '../../../shared/keys'
-import type { ToolName } from '../../state/tools'
+import type { PaletteTool } from '../../state/tools'
 import { ICONS } from '../ToolPalette'
 
 /**
@@ -8,7 +8,7 @@ import { ICONS } from '../ToolPalette'
  * wide (320 for Align), `--raise` with a title and its icon and "Esc put down" at its right (spec 2026-11-18, section 2).
  * The tag placement keeps clear of it (`data-tag-avoid`). What is in it is the tool's.
  */
-export function ProcedureCard({ tool, title, className, children }: { tool: ToolName; title: string; className: string; children: ReactNode }) {
+export function ProcedureCard({ tool, title, className, children }: { tool: PaletteTool; title: string; className: string; children: ReactNode }) {
   return (
     <section className={`procedure ${className}`} role="group" aria-label={title} data-tool={tool} data-tag-avoid>
       <header className="procedure-head">
