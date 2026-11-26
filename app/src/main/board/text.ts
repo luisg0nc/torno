@@ -6,6 +6,7 @@ import { lineupsOf } from '../tracings/text'
 import { checkText, type ModelCheck } from '../../shared/modelChecks'
 import { number } from '../../shared/format'
 import { parseSize, saySize } from '../../shared/size'
+import { claudeSections } from '../../shared/brief'
 import { type Tracing, tracingName } from '../../shared/tracings'
 import { said } from '../../shared/params'
 import type { Param } from '../../shared/scene'
@@ -336,7 +337,16 @@ export function briefOf(board: BoardFile, toolName: (tool: string) => string = (
  * card follows the marks' own news and the agent's own cards are never news to it. Nothing for a board with nothing
  * on it. `told` in the answer is what the agent will have been told once the prompt is delivered: kept by whoever delivers.
  */
-export function boardLine(board: BoardFile, told: Record<string, string>, live: LiveFacts, toolName: (tool: string) => string = (t) => t, opts: { again?: boolean } = {}): { line: string; told: Record<string, string>; counts?: BoardCounts; brief?: string } {
+/**
+ * The line that asks Claude, once, to move the sections it wrote into `brief.md` before (#341) into cards of its own and to
+ * give the file back to the person's words: the one edit of `brief.md` torno lets through, in the turn this line goes with.
+ */
+export function briefMoveText(headings: readonly string[], toolName: (tool: string) => string = (t) => t): string {
+  const named = headings.slice(0, 4).map((h) => `## ${oneLine(h).slice(0, 40)}`).join(', ')
+  return `brief.md holds sections you wrote into it before (${named}${headings.length > 4 ? ` and ${headings.length - 4} more` : ''}). Once, in this turn: put what they say into cards of yours with ${toolName('add_card')} (one per topic, its name first; change a card you have of that topic rather than add another), then edit brief.md to take those sections out and leave the person's words as they are. That edit is let through in this turn only.`
+}
+
+export function boardLine(board: BoardFile, told: Record<string, string>, live: LiveFacts, toolName: (tool: string) => string = (t) => t, opts: { again?: boolean } = {}): { line: string; told: Record<string, string>; counts?: BoardCounts; brief?: string; move?: string } {
   const cards = readingOrder(board.cards)
   if (cards.length === 0 && board.arrows.length === 0) return { line: '', told: {} }
   const known: Record<string, string> = {}
@@ -352,6 +362,13 @@ export function boardLine(board: BoardFile, told: Record<string, string>, live: 
   const brief = briefOf(board, toolName)
   if (brief) known.brief = brief.hash
   const briefed = brief && (opts.again === true || told.brief !== brief.hash) ? brief.text : undefined
+  // Claude's old sections of brief.md (#341): asked once to move them, for the text the file has now.
+  const old = live.brief ? claudeSections(live.brief) : []
+  let move: string | undefined
+  if (old.length > 0) {
+    known['brief.md'] = hash(['brief.md', live.brief])
+    if (told['brief.md'] !== known['brief.md']) move = briefMoveText(old.map((s) => s.heading), toolName)
+  }
   const named = news.slice(0, MOST_NAMED).join(', ')
   const more = news.length > MOST_NAMED ? ` and ${news.length - MOST_NAMED} more` : ''
   const frames = cards.filter((c) => c.kind === 'frame' && c.name).map((c) => oneLine(c.name as string).slice(0, FRAME_NAME))
@@ -359,5 +376,5 @@ export function boardLine(board: BoardFile, told: Record<string, string>, live: 
   // As an attachment tells them: the frames by name, and the cards not counting them.
   const total = cards.filter((c) => c.kind !== 'frame').length
   const count = `${total} card${total === 1 ? '' : 's'}`
-  return { line: `Board: ${count} (${news.length} new${news.length > 0 ? `: ${named}${more}` : ''})${framed}. Read it with ${toolName('board')}.`, told: known, counts: { total, new: news.length }, ...(briefed ? { brief: briefed } : {}) }
+  return { line: `Board: ${count} (${news.length} new${news.length > 0 ? `: ${named}${more}` : ''})${framed}. Read it with ${toolName('board')}.`, told: known, counts: { total, new: news.length }, ...(briefed ? { brief: briefed } : {}), ...(move ? { move } : {}) }
 }

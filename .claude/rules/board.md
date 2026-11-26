@@ -144,6 +144,15 @@ Paths as in the other rules.
   budget of `turncost.test.ts`), the torno-model skill ("Writing down the brief") and `add_card`'s description say so, one card per topic
   beginning with its name, its own card of a topic changed (`card`, `text`) rather than another added. `refusalOf` (`sessions/reach.ts`) refuses `Write`, `Edit`, `MultiEdit` of `<project>/brief.md`
   (real paths) with `BRIEF_REFUSAL`, which names `add_card`; `opts.brief` lets the one turn of #341 through.
+- **Old briefs (#341, Luis's pick: automatic).** `claudeSections` (`shared/brief.ts`) finds the sections Claude wrote into `brief.md` before:
+  level-two headings that begin Answers, Changes, Decisions, Assumptions, Settled or Clarifications (`CLAUDES_HEADING`); `briefWords` leaves
+  them out of the person's words, and the page shows them in `.brief-old` under "Claude wrote these into brief.md before". `boardLine`
+  keeps `told['brief.md']`, a hash of the file's text, whenever it has such sections, and while that differs from what was told gives `move`
+  (`briefMoveText`: put them into cards with `add_card`, one per topic, then take them out of `brief.md`, in this turn only); `index.ts`
+  passes it to `contextFor` as `briefMove`, after the brief, in `BRIEF_MOVE_LIMIT`, and the context says `briefMove: true`. Kept with
+  the rest of `told.json` once the prompt is delivered, so it is asked once for a text of the file. The manager sets `turn.briefOpen`
+  for that turn, and the `PreToolUse` refusal lets an `Edit`/`Write` of `brief.md` through while it is set (`refusalOf(…, { brief })`);
+  the next `UserPromptSubmit` begins a turn without it.
 - The board is never edited from outside `board.json`'s own owners: `brief.md` is shown read-only and opened in the person's
   editor (`board:open`, main's own path, never the window's).
 

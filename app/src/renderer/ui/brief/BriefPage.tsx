@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { type Card, readingOrder } from '../../../shared/board'
-import { type Seen, briefSections, briefSpine, briefWords, claudeWrote, freshCards, handOf, promptsSaid, rulesSaid, spineSaid, whenSaid } from '../../../shared/brief'
+import { type Seen, briefSections, briefSpine, briefWords, claudeSections, claudeWrote, freshCards, handOf, promptsSaid, rulesSaid, spineSaid, whenSaid } from '../../../shared/brief'
 import type { PromptRow } from '../../../shared/chat'
 import type { DimensionMark } from '../../../shared/marks'
 import { sizesTold, tallyReadings, tieReading } from '../../../shared/ties'
@@ -103,6 +103,8 @@ export function BriefPage() {
   const nodes = useMemo(() => (board ? briefSpine(readingOrder(board.cards), prompts) : []), [board, prompts])
   const spineCards = useMemo(() => nodes.flatMap((n) => n.cards), [nodes])
   const words = useMemo(() => (brief ? briefWords(brief) : ''), [brief])
+  // What Claude wrote into brief.md before it wrote the brief as cards (#341): shown apart, under a notice, until it is moved.
+  const olds = useMemo(() => (brief ? claudeSections(brief) : []), [brief])
   // New since you looked (#340): what main kept when the Brief was last on screen, read once as the page opens. A project
   // with none has nothing new, and is kept now; leaving the page keeps what it showed.
   const [since, setSince] = useState<Seen | null>(null)
@@ -327,6 +329,19 @@ export function BriefPage() {
             {sections.references.map((c) => (
               <ReferenceLine key={c.id} objectId={id} card={c} />
             ))}
+            {olds.length > 0 && brief && (
+              <div className="brief-old" role="region" aria-label="Claude wrote these into brief.md before">
+                <p className="brief-old-notice">
+                  <b>Claude wrote these into brief.md before.</b> Your next prompt asks Claude, once, to move them into its own notes and to leave brief.md with your words alone.
+                </p>
+                {olds.map((o, i) => (
+                  <div key={i} className="brief-old-section">
+                    <h3>{o.heading}</h3>
+                    <BriefWords objectId={id} cardId={briefCard?.id ?? ''} words={o.body} full={brief} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           {yourPictures.length > 0 && (
             <div className="brief-tiles">

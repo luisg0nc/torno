@@ -1423,3 +1423,35 @@
   color: var(--muted);
   font-size: 12.5px;
 }
+
+/* What Claude wrote into brief.md before it wrote the brief as cards (#341): apart from the person's words, under a notice,
+   with Claude's edge, smaller, until it is moved into cards. */
+.brief-old {
+  margin-top: var(--space-4);
+  padding: 10px 12px 4px 14px;
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: inset 3px 0 0 var(--agent-mark), inset 0 0 0 1px var(--hairline);
+}
+
+.brief-old-notice {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-old-notice b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.brief-old-section h3 {
+  margin: var(--space-2) 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.brief-old .brief-words {
+  font-size: 13.5px;
+  line-height: 1.5;
+}

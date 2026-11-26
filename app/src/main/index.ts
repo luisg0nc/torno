@@ -592,7 +592,7 @@ const noteSweep = new NoteSweep(marks)
 /** And the photos of the tracings no tracing names, in the same run, in the turn of the tracings. */
 const photoSweep = new PhotoSweep(tracings)
 /** The one line every prompt carries of the board of a project (`boardLine`), and the brief a new conversation or a changed one adds, with what it will have told: undefined when there is no such project. */
-async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string, again: boolean): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts; brief?: string } | undefined> {
+async function boardLineFor(objectId: string, marksOf: readonly Mark[], toolName: (tool: string) => string, again: boolean): Promise<{ line: string; told: Record<string, string>; counts?: BoardCounts; brief?: string; move?: string } | undefined> {
   const dir = findObject(objectId)?.dir
   if (dir === undefined) return undefined
   const [file, told, live] = await Promise.all([board.read(objectId), board.told(objectId), liveFacts({ dir, marks: marksOf, scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })])
@@ -734,7 +734,7 @@ void app.whenReady().then(async () => {
       const tracingFile = await tracings.list(id).then((file) => file, () => undefined)
       // And what of them the agent was last told: the line says what has changed since (kept once the prompt is delivered).
       const tracingsLine = tracingFile && dir !== undefined ? tracingsLineOf(tracingFile, await readTracingsTold(dir), opts.toolName) : undefined
-      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, ...(opts.onboarding ? { onboarding: true } : {}), toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.brief ? { brief: boarded.brief } : {}), ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
+      const told = contextFor(promptDeps, id, all, { ...(setSlugs ? { sets: setSlugs } : {}), ...(tracingFile ? { tracings: tracingFile.tracings.map((t) => t.id), layers: layerRevisions(tracingFile.tracings), lineups: lineupsOf(tracingFile.tracings) } : {}), fresh: opts.fresh, newConversation: opts.newConversation, ...(opts.onboarding ? { onboarding: true } : {}), toolName: opts.toolName, ...(rounds ? { rounds } : {}), ...(scans ? { scans } : {}), ...(instructions && instructions.length > 0 ? { instructions } : {}), ...(boarded && boarded.line ? { board: boarded.line, boardTold: boarded.told, ...(boarded.brief ? { brief: boarded.brief } : {}), ...(boarded.move ? { briefMove: boarded.move } : {}), ...(boarded.counts ? { boardCounts: boarded.counts } : {}) } : {}), ...(tracingsLine && tracingsLine.line ? { tracingsLine } : {}), ...(notice ? { notice: notice.text } : {}) })
       const review = told.review
       if (!notice && review === undefined) return told
       return {

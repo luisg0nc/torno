@@ -220,8 +220,25 @@ function sectionsOf(text: string): { head: string; sections: Section[] } {
 export function briefWords(text: string): string {
   const { head, sections } = sectionsOf(text)
   const top = head.replace(/^\s*#\s[^\n]*\n?/, '')
-  return [top.trim(), ...sections.filter((s) => s.heading.trim().toLowerCase() !== 'references').map((s) => `## ${s.heading}\n${s.body.trimEnd()}`)].filter((part) => part !== '').join('\n\n')
+  return [top.trim(), ...sections.filter((s) => s.heading.trim().toLowerCase() !== 'references' && !isClaudes(s)).map((s) => `## ${s.heading}\n${s.body.trimEnd()}`)].filter((part) => part !== '').join('\n\n')
 }
+
+/**
+ * The headings of the sections Claude wrote into `brief.md` before it wrote the brief as cards (#341): `## Answers`,
+ * `## Changes (2026-11-25, later)`, `## Decisions`, `## Assumptions`, and the like. torno never writes one, and the person's own
+ * headings are of what the thing is, not of a conversation.
+ */
+const CLAUDES_HEADING = /^(?:answers?|changes?|decisions?|assumptions?|settled|clarifications?)\b/i
+
+const isClaudes = (s: Section): boolean => CLAUDES_HEADING.test(s.heading.trim())
+
+/** The sections Claude wrote into `brief.md` before (#341), each with its heading and what is under it; none for a brief of the person's words alone. */
+export function claudeSections(text: string): Section[] {
+  return sectionsOf(text).sections.filter(isClaudes).map((s) => ({ heading: s.heading.trim(), body: s.body.trim() }))
+}
+
+/** A section of `brief.md` as the page shows Claude's old ones. */
+export type BriefSection = Section
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 

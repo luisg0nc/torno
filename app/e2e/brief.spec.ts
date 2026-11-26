@@ -368,3 +368,16 @@ test('what Claude wrote down since the person last looked is new: the band, the 
   const seen = JSON.parse(readFileSync(join(root, 'hollow', '.torno', 'board', 'seen.json'), 'utf8')) as { cards: Record<string, string> }
   expect(Object.keys(seen.cards)).toContain('C20')
 })
+
+test('Claude\'s old sections of brief.md are shown apart from the person\'s words, under a notice, until they are moved (#341)', async () => {
+  writeFileSync(join(root, 'gauge', 'brief.md'), '# gauge\n\nA gauge for the bench.\n\n## Answers (2026-11-25)\n\n- Mount: a flat blade\n\n## Changes (2026-11-25, later)\n\n- Mount: an arm\n')
+  await openListed(page, 'gauge')
+  await expect.poll(() => page.evaluate(() => window.__tornoTest?.state().objectId), { timeout: 20_000 }).toBe('gauge')
+  await switchButton('Brief').click()
+  const yours = sheet().getByRole('region', { name: 'In your words' })
+  await expect(yours.locator('.brief-words').first()).toHaveText('A gauge for the bench.', { timeout: 20_000 })
+  const old = sheet().getByRole('region', { name: 'Claude wrote these into brief.md before' })
+  await expect(old).toContainText('Your next prompt asks Claude, once, to move them into its own notes')
+  await expect(old.locator('h3')).toHaveText(['Answers (2026-11-25)', 'Changes (2026-11-25, later)'])
+  await expect(old).toContainText('Mount: a flat blade')
+})

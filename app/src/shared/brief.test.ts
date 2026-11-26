@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { type BoardFile, type Card, linksIn } from './board'
-import { briefSections, briefSpine, briefWords, freshCards, handOf, promptsSaid, seenHash, seenOf, whenSaid, linkLabel, RULES_FRAME, rulesSaid, sizesSaid, sizeSource, sizeValue, spineSaid, topicOf } from './brief'
+import { briefSections, briefSpine, briefWords, claudeSections, freshCards, handOf, promptsSaid, seenHash, seenOf, whenSaid, linkLabel, RULES_FRAME, rulesSaid, sizesSaid, sizeSource, sizeValue, spineSaid, topicOf } from './brief'
 import type { PromptRow } from './chat'
 
 const card = (id: string, extra: Partial<Card>): Card => ({ id, kind: 'text', x: 0, y: 0, w: 100, h: 100, by: 'person', ...extra })
@@ -190,5 +190,18 @@ describe('new since you looked (#340)', () => {
     expect(promptsSaid([13, 14])).toBe('prompts 13 and 14')
     expect(promptsSaid([4, 9, 13])).toBe('prompts 4, 9 and 13')
     expect(promptsSaid([])).toBe('')
+  })
+})
+
+describe('Claude\'s old sections of brief.md (#341)', () => {
+  const old = '# simracing-panel\n\nWe want a box.\n\n## Answers (2026-11-25)\n\n- Screen: Waveshare\n- Mount: a blade\n\n## Where it goes\n\nOn the arm.\n\n## Changes (2026-11-25, later)\n\n- Mount: an arm\n'
+
+  it('finds them by their headings, and leaves them out of the person\'s words', () => {
+    expect(claudeSections(old)).toEqual([
+      { heading: 'Answers (2026-11-25)', body: '- Screen: Waveshare\n- Mount: a blade' },
+      { heading: 'Changes (2026-11-25, later)', body: '- Mount: an arm' }
+    ])
+    expect(briefWords(old)).toBe('We want a box.\n\n## Where it goes\n\nOn the arm.')
+    expect(claudeSections('# box\n\n## Where it goes\n\nOn the arm.\n')).toEqual([])
   })
 })
