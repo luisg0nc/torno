@@ -253,6 +253,24 @@ test('a refusal is shown in the box\'s error line and the message is not sent; t
   await expect(turns()).toHaveCount(4, { timeout: 20_000 })
 })
 
+test('Enter twice at once sends the message once and copies once, and the box holds still while it copies', async () => {
+  await drop('body.step')
+  await form().getByLabel('Name', { exact: true }).fill('twice_part')
+  await form().locator('[data-part="add-ask"]').click()
+  await expect(composer()).toHaveValue(/common\/parts\/twice_part\/: body\.step/)
+  const before = await turns().count()
+  // Two key presses in one tick: the second comes while the first send is still going (before the copy is done and the box emptied).
+  await composer().evaluate((el) => {
+    for (let n = 0; n < 2; n++) el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }))
+  })
+  await expect(turns()).toHaveCount(before + 1, { timeout: 20_000 })
+  await expect(composer()).toHaveValue('')
+  // Given time to show a second message, if one was sent.
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  await expect(turns()).toHaveCount(before + 1)
+  expect(names('twice_part')).toEqual(['body.step'])
+})
+
 test('main refuses what the window should not have sent: a bad id, a link, a relative path, too many files', async () => {
   const refused = (id: string, paths: string[]) => page.evaluate(([i, p]) => window.torno.shelf.addFiles(i as string, p as string[]).then(() => 'ok', (e: Error) => e.message), [id, paths] as const)
   expect(await refused('../x', [join(from, 'drawing.png')])).toMatch(/not a part/)

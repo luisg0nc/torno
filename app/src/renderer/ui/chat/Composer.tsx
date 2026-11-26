@@ -20,6 +20,7 @@ import { RefChip } from './RefChip'
 import { ReviewChip, goingNext } from './ReviewChip'
 import { type Suggestion, suggest } from './suggest'
 import { SetTagChip, useSetTagAttached } from './SetTagChip'
+import { sendGuard } from './sendGuard'
 import { Suggestions } from './Suggestions'
 import { TasksBar } from './Tasks'
 import { WaitingNotes } from './WaitingNotes'
@@ -290,16 +291,25 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
     if (attachedUrl.current !== null) URL.revokeObjectURL(attachedUrl.current)
   }, [])
 
+  // One send at a time: Enter twice during a long copy of a part's files must not send twice. The box is read-only while it runs, so what is typed
+  // meanwhile is not lost to the `setText('')` that follows (the person's words are never taken by a copy).
+  const guard = useRef(sendGuard()).current
+  const [sending, setSending] = useState(false)
+
   async function send(): Promise<void> {
     const prompt = text.trim()
     if (prompt === '' || !live) return
-    // A part added by hand from the Shelf tab: its files are copied into `common/parts/<id>/` before the message that names them goes (#355). A refusal
-    // holds the message back, whole, for the person to change and send again.
-    const refused = await shelfPending.beforeSend(prompt)
-    if (refused !== null) {
-      setProblem(refused)
-      return
-    }
+    await guard.run(async () => {
+      setSending(true)
+      try {
+        await sendNow(prompt)
+      } finally {
+        setSending(false)
+      }
+    })
+  }
+
+  async function sendNow(prompt: string): Promise<void> {
     // The picture shown for "Attach view" is the one that goes; one still coming is waited for.
     const withView = attach ? shown.current : null
     let viewPng: Uint8Array | undefined
@@ -319,9 +329,17 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         return
       }
     }
-    // So is the part of the board the person attached; the same.
+    // A part added by hand from the Shelf tab: its files are copied into `common/parts/<id>/` as the last thing before the message that names them goes (#355),
+    // so no file is copied for a message the checks above refuse. A refusal holds the message back, whole, for the person to change and send again.
+    // Nothing is taken from the board or the tag before it, so a refusal has nothing to give back.
+    const refused = await shelfPending.beforeSend(prompt)
+    if (refused !== null) {
+      setProblem(refused)
+      return
+    }
+    // What goes with the prompt is taken as the last step, with no wait after it: the part of the board the person attached,
     const board = boardActions.takeAttached()
-    // And the request for a tag, which the person asked for with "Make it a tag": its words go after theirs.
+    // and the request for a tag, which the person asked for with "Make it a tag": its words go after theirs.
     const tag = setTagActions.take()
     setText('')
     unattach()
@@ -347,7 +365,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
   /** The text as the answer to the card that waits: it refuses with it as the reason, and the agent goes on with it. */
   function denyAndSend(): void {
     const message = text.trim()
-    if (message === '' || !live || !openAsk) return
+    if (message === '' || !live || !openAsk || guard.busy()) return
     setText('')
     setProblem(null)
     onSent()
@@ -427,6 +445,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
           rows={2}
           value={text}
           disabled={!live}
+          readOnly={sending}
           aria-label="Message to Claude Code"
           placeholder={live ? (openAsk ? 'Answer the card above, or say what to do instead' : reviewAttached ? 'The review goes as its own prompt. Add words to it here.' : working ? 'Claude Code is working: this goes next' : 'Message Claude Code') : 'The session has ended'}
           aria-controls={offered.length > 0 ? 'chat-commands' : undefined}
@@ -514,7 +533,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
             <button
               type="button"
               className="button button-primary"
-              disabled={!live || text.trim() === ''}
+              disabled={!live || sending || text.trim() === ''}
               title={`Refuse what the card asks, with this as what to do instead (${hint('chat.send')})`}
               onClick={denyAndSend}
             >
@@ -524,7 +543,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
           <button
             type="button"
             className={openAsk ? 'button' : 'button button-primary'}
-            disabled={!live || text.trim() === ''}
+            disabled={!live || sending || text.trim() === ''}
             title={openAsk ? 'Leave the card as it is and queue this for after it' : `Send (${hint('chat.send')})`}
             onClick={() => void send()}
           >

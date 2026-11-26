@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ShelfPart } from '../../shared/shelf'
-import { addToRequest, marksSaid, placeRequest, placeTagWords, replaceRequest } from './placing'
+import { addToRequest, endRequest, marksSaid, placeRequest, placeTagWords, replaceRequest } from './placing'
 
 const part = (over: Partial<ShelfPart> = {}): ShelfPart => ({ id: 'ec11', file: 'common/parts/ec11/part.py', name: 'EC11', what: '', params: [], checked: {}, files: [], ...over })
 
@@ -59,5 +59,25 @@ describe('the tag after a drop', () => {
   it('says the window\'s sides, and leaves out what the part has not', () => {
     expect(placeTagWords(part({ cutout: { side: [], plan: [], size: { w: 33.4, h: 18.4 } } }))).toEqual({ cuts: 'cuts 33.4 × 18.4', keeps: null })
     expect(placeTagWords(part())).toEqual({ cuts: null, keeps: null })
+  })
+})
+
+describe('the request when placing ends in a terminal', () => {
+  const m = (id: string) => ({ id, face: 'F1' })
+  const placing = (marks: string[], said: string[] | null) => ({ part: 'ec11', objectId: 'o', marks: marks.map(m), said: said ? { marks: said.map(m), text: placeRequest('ec11', said.map(m)) } : null })
+
+  it('types the whole request once when nothing went through the session asked for', () => {
+    expect(endRequest(placing(['M7', 'M8'], null), null)).toEqual({ insert: placeRequest('ec11', [m('M7'), m('M8')]) })
+  })
+  it('types nothing when the session was asked for with every mark (fixRequest has typed it, or will)', () => {
+    expect(endRequest(placing(['M7', 'M8'], ['M7', 'M8']), null)).toBeNull()
+    expect(endRequest(placing(['M7', 'M8'], ['M7', 'M8']), placeRequest('ec11', [m('M7'), m('M8')]))).toBeNull()
+  })
+  it('makes the pending fixRequest the whole request when marks came after the session was asked for', () => {
+    const was = placing(['M7', 'M8'], ['M7'])
+    expect(endRequest(was, was.said!.text)).toEqual({ fix: placeRequest('ec11', [m('M7'), m('M8')]) })
+  })
+  it('types only the marks the typed request lacks', () => {
+    expect(endRequest(placing(['M7', 'M8'], ['M7']), null)).toEqual({ insert: placeRequest('ec11', [m('M8')]) })
   })
 })

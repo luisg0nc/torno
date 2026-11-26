@@ -1,4 +1,4 @@
-import { addToRequest, placeRequest, placingActions, placingStore, type PlacedMark, type Placing } from '../../state/placing'
+import { addToRequest, endRequest, placeRequest, placingActions, placingStore, type PlacedMark, type Placing } from '../../state/placing'
 import { actions, runningSession, store } from '../../state/store'
 import { replaceInComposer } from '../chat/Composer'
 import { insertIntoSession } from '../insertIntoSession'
@@ -47,12 +47,19 @@ function added(placing: Placing, mark: PlacedMark): void {
   requestAnimationFrame(now)
 }
 
-/** Placing ended: a terminal gets its one sentence, with every mark of the go, and not when the project was left. */
+/**
+ * Placing ended: a terminal gets its one sentence, with every mark of the go, and not when the project was left. A session that was asked for at the
+ * first mark (`askClaude` with no session) has the request through `fixRequest` already: it is typed once, not again here (`endRequest`).
+ */
 function ended(was: Placing): void {
   if (was.marks.length === 0 || store.getState().objectId !== was.objectId) return
   if (runningSession(store.getState())?.view !== 'terminal') return
+  const fix = store.getState().fixRequest
+  const next = endRequest(was, fix)
+  if (next === null) return
   actions.setDockOpen(true)
-  insertIntoSession(placeRequest(was.part, was.marks), { later: true })
+  if ('fix' in next) actions.setFixRequest(next.fix)
+  else insertIntoSession(next.insert, { later: true })
 }
 
 /** The band's "Ask Claude": placing ends and the box has the keys. The request is in it already, and is not sent. */

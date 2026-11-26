@@ -146,6 +146,22 @@ export function placeRequest(part: string, marks: readonly PlacedMark[]): string
 }
 
 /**
+ * What a terminal is given when placing ends. With no session at the first mark, the request went to the session asked for (`fixRequest`, which
+ * `SessionPane` types once when its CLI is ready) and `said` names the marks in it, so only what that lacks is added: the pending `fixRequest` is made the
+ * whole request (typed once), or, once it has been typed, a sentence of the marks after it. A go with nothing said is one sentence for every mark.
+ * `fixPending` is the `fixRequest` still waiting, null when none is.
+ */
+export function endRequest(was: Placing, fixPending: string | null): { fix: string } | { insert: string } | null {
+  if (was.marks.length === 0) return null
+  if (was.said === null) return { insert: placeRequest(was.part, was.marks) }
+  const told = new Set(was.said.marks.map((m) => m.id))
+  const left = was.marks.filter((m) => !told.has(m.id))
+  if (left.length === 0) return null
+  if (fixPending !== null && fixPending === was.said.text) return { fix: placeRequest(was.part, was.marks) }
+  return { insert: placeRequest(was.part, left) }
+}
+
+/**
  * The box with the sentence torno put there (`was`) made the new one, in place, round whatever the person wrote; null when `was` is
  * not in the box as it was (the person changed it, or sent it, or it never was there), which leaves the new words to be added.
  */
