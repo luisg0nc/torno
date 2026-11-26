@@ -2,8 +2,10 @@ import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import { number } from '../../shared/format'
 import { isSize, sourceOf } from '../../shared/params'
-import type { Scene } from '../../shared/scene'
+import type { Param, Scene } from '../../shared/scene'
 import { SHELF_DIR, type Outline, type ShelfPart } from '../../shared/shelf'
+import { boardActions } from './board'
+import { store } from './store'
 
 // The parts shelf as the window has it (#351): the workspace's parts from main, and the pure rules the Shelf tab draws from: which
 // parts a project used, the rule of each size, the picture of a part at the one scale.
@@ -24,10 +26,24 @@ export function connectShelf(): () => void {
     live = false // the push is newer than a read that is still on its way
     shelfStore.setState({ parts })
   })
+  // A part's page is closed when the part is no longer on the shelf (its folder was deleted, or the workspace left).
+  const offGone = shelfStore.subscribe((s, prev) => {
+    if (partGone(store.getState().shelfOpen, prev.parts, s.parts)) boardActions.closePart()
+  })
   return () => {
     live = false
     off()
+    offGone()
   }
+}
+
+/**
+ * Whether the open part has left the shelf: it was in the list before and is not in this one, or it is not in a list that has parts (a part the
+ * window kept open that is gone). A list that is empty and had not the part says nothing: the shelf may not have been read yet.
+ */
+export function partGone(open: string | null, before: readonly ShelfPart[], after: readonly ShelfPart[]): boolean {
+  if (open === null || after.some((p) => p.id === open)) return false
+  return before.some((p) => p.id === open) || after.length > 0
 }
 
 /** How sure a size is, as the rule drawn for it says: checked on the part, assumed, worked out from the others, or given a source. */
@@ -38,12 +54,15 @@ export type RuleKind = 'ck' | 'as' | 'mo' | 'so'
  * `.torno/checked.json`) or its comment says `measured`, else `as` for `assumed`, `mo` for `derived`, `so` for any other.
  */
 export function ruleKinds(part: Pick<ShelfPart, 'params' | 'checked'>): RuleKind[] {
-  return part.params.filter(isSize).map((p) => {
-    const source = sourceOf(p.doc)
-    if (part.checked[p.name] !== undefined || source === 'measured') return 'ck'
-    if (source === 'assumed') return 'as'
-    return source === 'derived' ? 'mo' : 'so'
-  })
+  return part.params.filter(isSize).map((p) => ruleKindOf(part, p))
+}
+
+/** The rule of one size of a part: the same as `ruleKinds` says of it. */
+export function ruleKindOf(part: Pick<ShelfPart, 'checked'>, p: Pick<Param, 'name' | 'doc'>): RuleKind {
+  const source = sourceOf(p.doc)
+  if (part.checked[p.name] !== undefined || source === 'measured') return 'ck'
+  if (source === 'assumed') return 'as'
+  return source === 'derived' ? 'mo' : 'so'
 }
 
 /** What the rules say, for a title: `4 sizes: 2 with a source, 2 assumed, 1 checked on the part`. */

@@ -63,6 +63,11 @@ export class ShelfStore extends EventEmitter {
     return this.parts
   }
 
+  /** The open workspace's folder, null when none is open: where `recordMeasured` writes (`shelf/checked.ts`; this file writes nothing). */
+  workspaceRoot(): string | null {
+    return this.root
+  }
+
   /** A workspace opened: its shelf is read now, and again whenever `common/parts/` changes. Replaces the one before. */
   open(root: string, kernel: KernelClient): void {
     this.close()

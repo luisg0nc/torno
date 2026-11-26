@@ -73,6 +73,9 @@ export type KernelShelfPart = Omit<ShelfPart, 'file' | 'checked'>
 /** The folder of the shelf, from the workspace. */
 export const SHELF_DIR = 'common/parts'
 
+/** A size the person measured on a part is more than 0 and less than this, in millimetres: the window and main hold to the one number. */
+export const MOST_MEASURED = 10_000
+
 /** The most parts the shelf lists. */
 export const MOST_PARTS = 60
 

@@ -29,6 +29,7 @@ import { ViewportPane } from './ui/ViewportPane'
 import { BoardSwitch, useBoardSwapKey } from './ui/brief/BoardSwitch'
 import { BriefPage } from './ui/brief/BriefPage'
 import { FacePickBar } from './ui/tracings/NewTracing'
+import { PartPage } from './ui/shelf/PartPage'
 import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { PartPicker, usePickerKey } from './ui/PartPicker'
@@ -395,6 +396,7 @@ export function App() {
   const briefOf = useBoard((s) => (s.shown === 'brief' ? s.objectId : null))
   // So does a tracing, on the same page.
   const tracingOf = useBoard((s) => (s.shown === 'tracing' ? s.objectId : null))
+  const partOf = useBoard((s) => (s.shown === 'part' ? s.objectId : null))
   // While the edge is dragged the width goes straight to the CSS variable, so
   // React renders once at the end rather than on every pointer move.
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null)
@@ -577,6 +579,7 @@ export function App() {
         <BuildsTimeline />
         {page === 'object' && briefOf !== null && <BriefPage key={briefOf} />}
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
+        {page === 'object' && partOf !== null && <PartPage key={partOf} />}
         {/* Over the model: a tracing on a face waits for the face. */}
         <FacePickBar />
         {page === 'objects' && <ShowPage onOpen={openObject} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}

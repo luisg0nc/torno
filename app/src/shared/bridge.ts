@@ -22,7 +22,7 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
-import type { ShelfPart } from './shelf'
+import type { ShelfChecked, ShelfPart } from './shelf'
 import type { LineupPair } from './lineup'
 import type { LayerColour, LayerShape, PlaneSnap, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
 import type { MainAxis } from './planes'
@@ -409,13 +409,19 @@ export interface TornoBridge {
   }
   /**
    * The parts shelf of the open workspace: `common/parts/<id>/part.py`, each part as the kernel reads and draws it, with the sizes the
-   * person checked (`.torno/checked.json`). Read-only here: the window never writes a part.
+   * person checked (`.torno/checked.json`). The window never writes a part; the one thing it asks main to write is that a size was measured.
    */
   shelf: {
     /** The parts, sorted by id, as of the last read; empty when the workspace has none or none is open. */
     list(): Promise<ShelfPart[]>
     /** The shelf, whole, each time a read of it differs from the one before (a part added, saved or removed, a check written, the workspace left). */
     onChanged(cb: (parts: ShelfPart[]) => void): () => void
+    /**
+     * The person measured a size of a part on the real part: main checks the part (on the shelf), the size (one of its numbers) and the value (more
+     * than 0, under 10,000 mm), then writes the value and today's date into `common/parts/<id>/.torno/checked.json`, merged with what is there.
+     * Answers with what it wrote; rejects with a plain reason (nothing written) for a bad name or value, or a link or file in `.torno`'s place.
+     */
+    measured(id: string, name: string, value: number): Promise<ShelfChecked>
   }
   /**
    * The tracings of a project (`<project>/.torno/tracings.json`): the model laid flat in one plane at true scale. Main is their

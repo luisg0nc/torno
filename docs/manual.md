@@ -414,8 +414,8 @@ part's error, and the others are read as they are. For each part it takes the na
 the part's body (its box and its section from the side), its cutout (the section from the side and from above, and the size of the
 hole: a diameter when it is one circle, else its width and height) and its keep-out. The drawings are the B-rep's cross-sections in
 millimetres, at most 400 points an outline, never a mesh. Alongside, torno reads each part's `.torno/checked.json`, the sizes you
-have checked on the part with the day (it is read only here). It writes nothing to the shelf: no file of a part is made or changed by
-reading it. A project's build says which parts of the shelf it used (`shelf` in its scene, beside `uses`): for each, how many times
+have checked on the part with the day (reading it changes nothing; the one thing torno writes there is that file, when you say you measured a
+size, see "A part opened"). No file of a part is made or changed by reading it. A project's build says which parts of the shelf it used (`shelf` in its scene, beside `uses`): for each, how many times
 the model called the part's `cutout` (its `body` when it has none) while it built. Python before 3.12 cannot count, and a part
 imported only inside a maker is not seen coming: such a part is told used with no count.
 
@@ -432,8 +432,46 @@ project used (it counted them, or it read their files) come first, under `In <pr
 project`, each by name. Over the rows, a find box, `Find a part or a size`, narrows them by every word typed, any case, in the part's
 id, its name, what it is or a size's value as written (`7.2`; Esc clears it), and three chips, `All`, `In this project` and
 `Assumed sizes`, each with its number, keep every part, those the project used and those with a size still assumed (one you checked is
-not). A find that matches nothing says `No part matches`. A row is a button: a click lights it. At the foot the tab says `All at one
+not). A find that matches nothing says `No part matches`. A row is a button: a click, or Enter on it, lights it and opens the part in the view (below). At the foot the tab says `All at one
 scale. From common/parts/, which Claude keeps.` and `Drag a part onto the model, or drop a datasheet, STEP or photo here.`
+
+A part opened. Opening a part shows it in the view as a tracing is shown: the switch at the top left gets a tab with the part's id in the
+monospace face and a `×`, as in `Model  Brief  ec11 ×  +`, and the page takes the view's place (the 3D view is not drawn meanwhile).
+Model and Brief show theirs again and leave the tab; the tab shows the part again; `×` closes the page and the tab, back to the model
+(and the row is no longer lit). `Ctrl+Tab` goes on round to the part after the last view the project has. The window keeps which part
+and whether its page was shown for each project, so a project opens on it again; a part that is no longer on the shelf (its folder was
+deleted) closes its page. The page has the part's name, what it is and `common/parts/<id>/part.py`, and these buttons: **Place on the
+model** (placing comes next: the button is there, says so, and does nothing yet), **Ask Claude about it**, which puts
+`About the shelf's ec11: ` in the message box for you to finish (it opens the chat if it is shut and starts a session when none runs;
+never sent), and the part's other files by name. Under them is the drawing, then what its lines say, then the sizes.
+
+The drawing is made from the numbers the kernel read, never from ours. On the left, the part through a panel, seen from the side: the
+panel is a slab 2 mm thick (z from -2 to 0) cut where the cutout's section crosses it, the part's section in the shelf's metal over it,
+and the keep-out as a dashed box in the accent, labelled `keep clear`. On the right, `the cutout, from above`: a square of panel with
+the hole, its centre lines and the keep-out. Four dimensions in the monospace face, from the kernel's measures: the cutout's size over
+the top (`Ø 7.2`, or `33.4 × 18.4` for a window; also under the view from above), the height above the panel (the box's highest
+point), the depth below it, and the body's width under it. The scale is the largest at which the part, its keep-out and the numbers fit
+(at most 16 px a mm), so a tiny insert is not drawn huge. A dimension takes the line style of the one size in `Params` whose value is
+the same to a millionth of a millimetre; with none, or with two of them, it is a plain solid line. A size with a source (datasheet,
+listing, standard, anything else written) is a solid line, one checked on the part (its comment says `measured:`, or it has an entry in
+`.torno/checked.json`) is green, thicker and ends in a ring with a tick, an assumed one is dashed in the warning colour, one worked out
+from the others (`derived:`) is dotted and quiet; the legend under the drawing says it. A part with no cutout has no gap in the panel and
+no view from above, one with no keep-out no dashed box, and a part that does not build shows its error in the monospace face instead of
+a drawing.
+
+The sizes are a ledger, a row for each size of `Params`: its value with its unit, what the comment says after its source word, the
+size's name, the source word as written (`datasheet EC11`, `assumed`; in the warning colour for an assumed one, green for a measured
+one, quiet for a listing or a worked-out one) and, at the end, one of three things. A size worked out from the others says `from the
+maker`. One you checked says `checked 26 Nov` with a green ring tick (and, when the value you measured is not the part's, `, at 6.6`:
+Claude has not changed the file yet). Any other has a button, **I measured it…**, which turns the row into `You measured [value] mm`:
+the field has the keys and the part's value in it, **Ask Claude to change it** is the main button (it waits for a number above 0 and
+under 10,000; Enter does the same) and **Cancel** (Esc too) puts the row back. Asking writes the value and today's date into the part's
+`common/parts/<id>/.torno/checked.json` (`{ "body_h": { "value": 6.6, "date": "2026-11-26" } }`, merged with the sizes already there; the
+file stays with the part and goes to git with it), and puts `In the shelf's ec11, set body_h to 6.6: I measured it on the part. Make its
+comment measured.` in the message box, never sent: Claude changes the value and the comment in `part.py`, and until it does the size
+is checked and the part's file still says the old value. torno writes nothing else, and never into `part.py`. It writes that file only
+when `.torno` is a real folder (a link or a file in its place is refused with a reason shown in the row), and leaves a
+`checked.json` it cannot read as it is, saying so.
 
 **Builds.** Saving a file in the project's folder (dotfiles, `out/`, `cache/`,
 `.torno/` and `__pycache__/` are ignored, as are `build/`, `dist/`,
@@ -2114,7 +2152,7 @@ replace its own proposals (12 at most) and never a view of yours.
 ## The brief
 
 Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief**, **Scans** and **Tracing** (below) take the main
-area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); Scans and Tracing are in the switch only while the project has a scan or a tracing (or while that view is the one shown), and `Ctrl+Tab` passes over what is not there. A `+` at the end of the switch makes the first of either: **Import scan…** and **New tracing…**. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
+area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); Scans and Tracing are in the switch only while the project has a scan or a tracing (or while that view is the one shown), a part of the parts shelf that is open has its id there too (see "A part opened"), and `Ctrl+Tab` passes over what is not there. A `+` at the end of the switch makes the first of either: **Import scan…** and **New tracing…**. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
 The model stays loaded while the brief or a tracing is shown, so nothing is built again on the swap, and the card, the chat and the status line stay as they are.
 
 The page is in two voices: who wrote what is said by where it stands. From the top:

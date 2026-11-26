@@ -2,7 +2,8 @@ import { Fragment, useId } from 'react'
 import type { ShelfPart } from '../../../shared/shelf'
 import { drawingOf, holeParts, partGroups, ruleKinds, rulesTitle, timesUsed, useShelf } from '../../state/shelf'
 import { findShelf, shelfCounts, shelfFind, SHELF_FILTERS, useShelfFind } from '../../state/shelfFind'
-import { actions, useStore } from '../../state/store'
+import { boardActions } from '../../state/board'
+import { useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
 import { pressed } from '../../../shared/keys'
 import type { Scene } from '../../../shared/scene'
@@ -12,8 +13,8 @@ import type { Scene } from '../../../shared/scene'
  * kernel's section, never a drawing of ours), its name, what it cuts, a row of short rules that say how sure its sizes are (a
  * solid one has a source, a thick green one is checked on the part, a dashed one is assumed, a dotted one is worked out), and how
  * many of it the open project used. The parts the project used come first, under its name, and then the rest. A find box and
- * three chips narrow them. A row is a button: it chooses the part (`store.shelfOpen`), and what a chosen part shows is the part's
- * page (#352). The foot says where the parts come from; dragging a part onto the model and dropping a datasheet are later.
+ * three chips narrow them. A row is a button, so Enter on it is a click too: it opens the part (`boardActions.openPart`: `store.shelfOpen`, and the part's
+ * page in the view, #352). The foot says where the parts come from; dragging a part onto the model and dropping a datasheet are later.
  */
 export function ShelfPanel() {
   const parts = useShelf((s) => s.parts)
@@ -112,7 +113,7 @@ function Row({ part, used, hot }: { part: ShelfPart; used: number | null; hot: b
   const hole = holeParts(part)
   const kinds = ruleKinds(part)
   return (
-    <button type="button" className={`shelf-row${hot ? ' hot' : ''}`} data-part={part.id} aria-current={hot ? 'true' : undefined} onClick={() => actions.openShelfPart(part.id)}>
+    <button type="button" className={`shelf-row${hot ? ' hot' : ''}`} data-part={part.id} aria-current={hot ? 'true' : undefined} onClick={() => boardActions.openPart(part.id)}>
       <span className="shelf-pic">
         {drawing && (
           <svg className="shelf-draw" width={drawing.width} height={drawing.height} viewBox={`0 0 ${drawing.width} ${drawing.height}`} aria-hidden="true">

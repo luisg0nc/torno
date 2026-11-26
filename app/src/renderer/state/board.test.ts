@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { emptyBoard, type BoardFile, type Card } from '../../shared/board'
-import { boardActions, boardStore, defaultShown, forgetMemories, memoryEpoch, onBoardForgotten, inModel, sharing, SHOWN_KEY, shownRead, shownWrite, swapped } from './board'
-import { actions, onWorkspaceSet } from './store'
+import { boardActions, boardStore, defaultShown, forgetMemories, memoryEpoch, onBoardForgotten, inModel, partRead, partWrite, sharing, SHOWN_KEY, shownRead, shownWrite, swapped } from './board'
+import { actions, onWorkspaceSet, store } from './store'
 
 const card = (id: string, by: Card['by'], kind: Card['kind'] = 'text'): Card => ({ id, kind, x: 0, y: 0, w: 10, h: 10, by })
 const board = (...cards: Card[]): BoardFile => ({ ...emptyBoard(), cards })
@@ -352,5 +352,84 @@ describe('the board main tells again', () => {
     const first = boardStore.getState().board!.cards[0]
     boardActions.setBoard('a', JSON.parse(JSON.stringify({ ...one, cards: [...one.cards, card('C2', 'person')] })) as BoardFile)
     expect(boardStore.getState().board!.cards[0]).toBe(first)
+  })
+})
+
+describe('a part of the shelf opened in the main area (#352)', () => {
+  it('is a fifth view: after the tracing in the swap, passed over when no part is open', () => {
+    const has = { scans: true, tracing: true, part: true }
+    expect(swapped('tracing', has)).toBe('part')
+    expect(swapped('brief', { scans: false, tracing: false, part: true })).toBe('part')
+    expect(swapped('scans', { scans: true, tracing: false, part: true })).toBe('part')
+    expect(swapped('part', has)).toBe('model')
+    expect(swapped('tracing', { scans: true, tracing: true })).toBe('model')
+    expect(swapped('brief', { scans: false, tracing: false, part: false })).toBe('model')
+  })
+
+  it('has the 3D view away, as the brief does', () => {
+    expect(inModel('part')).toBe(false)
+  })
+
+  it('opens a part: the row is lit, the page shown, and both are kept for the project', () => {
+    const storage = memory()
+    boardActions.reset()
+    boardActions.open('a', null)
+    boardActions.openPart('ec11', storage)
+    expect(store.getState().shelfOpen).toBe('ec11')
+    expect(boardStore.getState()).toMatchObject({ shown: 'part', chosen: true })
+    expect(partRead(storage, 'a')).toBe('ec11')
+    expect(partRead(storage, 'b')).toBeNull()
+  })
+
+  it('closes it back to the model, and forgets the part', () => {
+    const storage = memory()
+    boardActions.reset()
+    boardActions.open('a', null)
+    boardActions.openPart('ec11', storage)
+    boardActions.closePart(storage)
+    expect(store.getState().shelfOpen).toBeNull()
+    expect(boardStore.getState().shown).toBe('model')
+    expect(partRead(storage, 'a')).toBeNull()
+  })
+
+  it('closing the part leaves the brief on screen when that is what was shown', () => {
+    const storage = memory()
+    boardActions.reset()
+    boardActions.open('a', null)
+    boardActions.openPart('ec11', storage)
+    boardActions.show('brief')
+    boardActions.closePart(storage)
+    expect(boardStore.getState().shown).toBe('brief')
+    expect(store.getState().shelfOpen).toBeNull()
+  })
+
+  it('opens a project on the page of its part again, when the window kept both', () => {
+    const storage = memory()
+    shownWrite(storage, 'a', 'part')
+    partWrite(storage, 'a', 'ec11')
+    boardActions.reset()
+    boardActions.open('a', storage)
+    expect(boardStore.getState()).toMatchObject({ shown: 'part', chosen: true })
+    expect(store.getState().shelfOpen).toBe('ec11')
+  })
+
+  it('opens on the model when the page was kept and the part was not', () => {
+    const storage = memory()
+    shownWrite(storage, 'a', 'part')
+    boardActions.reset()
+    boardActions.open('a', storage)
+    expect(boardStore.getState().shown).toBe('model')
+  })
+
+  it('reads no part id that is not one, and goes on with no storage', () => {
+    const storage = memory()
+    storage.data.set('torno.board.part', '{"a":"../x","b":3,"c":"ec11"}')
+    expect(partRead(storage, 'a')).toBeNull()
+    expect(partRead(storage, 'b')).toBeNull()
+    expect(partRead(storage, 'c')).toBe('ec11')
+    storage.data.set('torno.board.part', 'nonsense')
+    expect(partRead(storage, 'c')).toBeNull()
+    expect(partRead(null, 'a')).toBeNull()
+    expect(() => partWrite(null, 'a', 'ec11')).not.toThrow()
   })
 })

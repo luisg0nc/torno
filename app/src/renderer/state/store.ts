@@ -65,7 +65,7 @@ export interface TornoState {
   column: ColumnPrefs
   /** The open tab of the bench, for each project (`torno.bench`). */
   benchTab: BenchKept
-  /** The part of the shelf chosen on the Shelf tab (its id): its row is lit; the page that shows it is #352. Of the open project. */
+  /** The part of the shelf chosen on the Shelf tab (its id): its row is lit, and its page is a tab of the switch (`ui/shelf/PartPage.tsx`, shown when `shown` is `part`). Of the open project. */
   shelfOpen: string | null
   /** The last good scene of the open object, and the revision it is. */
   scene: Scene | null
@@ -764,6 +764,9 @@ export const actions = {
     store.setState({ benchTab: next })
     writeBench(windowStorage(), next)
   },
+
+  /** "Place on the model" of a part's page. Placing is #353, which fills this: until then it does nothing. */
+  startPlacing(_id: string): void {},
 
   /** A row of the Shelf tab was chosen (or none: null). */
   openShelfPart(id: string | null): void {

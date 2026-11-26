@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Param, Scene } from '../../shared/scene'
 import type { ShelfPart } from '../../shared/shelf'
-import { drawingOf, holeParts, partGroups, ruleKinds, rulesTitle, timesUsed, usesPart } from './shelf'
+import { drawingOf, holeParts, partGone, partGroups, ruleKinds, rulesTitle, timesUsed, usesPart } from './shelf'
 
 const size = (name: string, doc: string | null, value = 1): Param => ({ name, type: 'float', default: value, literal: true, doc })
 
@@ -97,5 +97,22 @@ describe('the drawing of a part', () => {
   it('is nothing for a part with no body', () => {
     expect(drawingOf(part())).toBeNull()
     expect(drawingOf(part({ error: 'boom' }))).toBeNull()
+  })
+})
+
+describe('a part that left the shelf', () => {
+  const a = part({ id: 'a' })
+  const b = part({ id: 'b' })
+  it('is gone when it was in the list and is not in the next', () => {
+    expect(partGone('a', [a, b], [b])).toBe(true)
+    expect(partGone('a', [a], [])).toBe(true)
+  })
+  it('is gone when a list that has parts has not it', () => {
+    expect(partGone('a', [], [b])).toBe(true)
+  })
+  it('is not gone while the shelf may not have been read, nor when it is there, nor when none is open', () => {
+    expect(partGone('a', [], [])).toBe(false)
+    expect(partGone('a', [a], [a, b])).toBe(false)
+    expect(partGone(null, [a], [])).toBe(false)
   })
 })
