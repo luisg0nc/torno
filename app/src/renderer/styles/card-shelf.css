@@ -524,11 +524,16 @@
 
 .add-size {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 62px 86px 18px;
-  gap: 6px;
+  /* What it measures has a line of its own, the whole width; the value, its source and the clear button are under it. */
+  grid-template-columns: minmax(0, 1fr) 96px 18px;
+  gap: 5px 6px;
   align-items: center;
   padding: 5px 0;
   font-size: 12px;
+}
+
+.add-size > :first-child {
+  grid-column: 1 / -1;
 }
 
 .add-size + .add-size {

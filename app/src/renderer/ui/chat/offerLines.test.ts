@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shelfOffer } from './offerLines'
+import { answersIn, shelfOffer } from './offerLines'
 
 const ask = (question: string, header = 'Shelf') => ({ question, header, multi: false, options: [{ label: 'Put it on the shelf', description: '' }, { label: 'Not this one', description: '' }] })
 
@@ -51,5 +51,20 @@ describe('shelfOffer', () => {
     expect(shelfOffer(ask(board, 'Shelf life'))).toBeNull()
     expect(shelfOffer(ask(board, ''))).toBeNull()
     expect(shelfOffer(ask('Put it on the shelf?'))).toBeNull()
+  })
+})
+
+describe('answersIn', () => {
+  it('takes what follows each question and a colon, as main wrote the answers (a line a question)', () => {
+    expect(answersIn([board], `${board}: Put it on the shelf`)).toEqual(['Put it on the shelf'])
+  })
+
+  it('splits several questions at where each one starts, keeping an answer that has a line break or a colon', () => {
+    expect(answersIn(['Which wall?', 'Put it?\n7 hole (assumed)'], 'Which wall?: left\nright\nPut it?\n7 hole (assumed): Not this one: later')).toEqual(['left\nright', 'Not this one: later'])
+  })
+
+  it('is undefined for a question the text does not answer', () => {
+    expect(answersIn([board, 'Other?'], `${board}: Put it on the shelf`)).toEqual(['Put it on the shelf', undefined])
+    expect(answersIn([board], 'something else')).toEqual([undefined])
   })
 })

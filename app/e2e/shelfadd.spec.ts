@@ -180,6 +180,10 @@ test('the name is checked as it is typed: an identifier, and not a part on the s
     expect(inner!.x + inner!.width).toBeLessThanOrEqual(box!.x + box!.width + 0.5)
     expect(inner!.width).toBeGreaterThan(10)
   }
+  // What a size measures has the row's width, to read "panel hole" and longer names whole.
+  const what = await form().getByLabel('What size 1 measures').boundingBox()
+  expect(what!.width).toBeGreaterThan(box!.width - 24)
+  expect(await form().getByLabel('What size 2 measures').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
 })
 
 test('Ask Claude puts the request in the box, shown first, and copies nothing until it is sent', async () => {

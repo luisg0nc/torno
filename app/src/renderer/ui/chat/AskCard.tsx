@@ -8,7 +8,7 @@ import { Diff } from './Diff'
 import { Markdown } from './markdown'
 import { Takeover, WaitsBelow } from './AskTakeover'
 import { ShelfOffer } from './ShelfOffer'
-import { type ShelfOffer as Offer, shelfOffer } from './offerLines'
+import { type ShelfOffer as Offer, answersIn, shelfOffer } from './offerLines'
 import { isEditable } from './typing'
 import { useChatPlace } from './place'
 
@@ -334,12 +334,32 @@ function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & An
             )}
           </div>
         </>
+      ) : offers.every((o) => o !== null) && item.state !== 'denied' ? (
+        <Held offers={offers as Offer[]} answers={answersIn(questions.map((q) => q.question), item.answer ?? '')} item={item} />
       ) : (
         <>
           {item.answer && <pre className="chat-ask-answers selectable">{numbered(item.answer)}</pre>}
           <Outcome item={item} said={{ allowed: 'Answered', denied: 'Declined' }} />
         </>
       )}
+    </>
+  )
+}
+
+/** Offers of the shelf once done: each as the open card drew it (title and table) and, beneath, what was answered, in the line a card says it with; no raw text. */
+function Held({ offers, answers, item }: { offers: Offer[]; answers: Array<string | undefined>; item: Ask }) {
+  return (
+    <>
+      {offers.map((offer, n) => (
+        <div key={n} className="chat-ask-held" data-offer="shelf">
+          <p className="chat-ask-text selectable">{numbered(offer.title)}</p>
+          <ShelfOffer offer={offer} />
+          {item.state === 'allowed' && answers[n] !== undefined && (
+            <p className="chat-ask-outcome selectable">Answered: {numbered(answers[n] as string)}</p>
+          )}
+        </div>
+      ))}
+      {(item.state === 'ended' || answers.every((a) => a === undefined)) && <Outcome item={item} said={{ allowed: 'Answered', denied: 'Declined' }} />}
     </>
   )
 }

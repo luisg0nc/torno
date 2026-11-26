@@ -100,6 +100,8 @@ test('the question with the header Shelf is a card: its title, the sizes as a ta
   await expect(card.getByRole('button', { name: 'Put it on the shelf' })).toHaveClass(/button-primary/)
   await expect(card.getByRole('button', { name: 'Not this one' })).not.toHaveClass(/button-primary/)
   await expect(card.getByPlaceholder('or answer in your words')).toBeVisible()
+  // The field has room for all of its words (it wraps under the buttons when it does not fit beside them).
+  expect(await card.getByPlaceholder('or answer in your words').evaluate((el: HTMLInputElement) => el.scrollWidth <= el.clientWidth && el.clientWidth >= 150)).toBe(true)
   // Nothing is written before the answer.
   expect(existsSync(partFile('waveshare_147'))).toBe(false)
   await expect(slips()).toHaveCount(0)
@@ -111,6 +113,14 @@ test('the question with the header Shelf is a card: its title, the sizes as a ta
 
 test('after a yes the part is written, the shelf takes it in, and a slip under the Write says so and opens it', async () => {
   expect(existsSync(partFile('waveshare_147'))).toBe(true)
+  // The answered card in the transcript is the offer's title and table and the answer's line, with no raw text box.
+  const done = asks().last()
+  await expect(done).toHaveAttribute('data-state', 'allowed')
+  await expect(done.locator('.chat-ask-text')).toHaveText(TITLE)
+  await expect(done.locator('.chat-offer-size')).toHaveCount(4)
+  await expect(done.locator('.chat-offer-size dt')).toHaveText(['40.9 × 19.7', '1.6', '7.5', '12 × 25'])
+  await expect(done.locator('.chat-ask-outcome')).toHaveText('Answered: Put it on the shelf')
+  await expect(done.locator('.chat-ask-answers')).toHaveCount(0)
   const slip = slips().last()
   await expect(slip).toHaveAttribute('data-part', 'waveshare_147')
   await expect(slip.locator('.chat-shelf-slip-head')).toHaveText(/On the shelf:\s*waveshare_147\s*part\.py/)

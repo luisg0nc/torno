@@ -53,3 +53,23 @@ export function shelfOffer(question: Pick<Question, 'question' | 'header'>): She
   }
   return blocks.some((b) => b.kind === 'rows') ? { title: title.trim(), blocks } : null
 }
+
+/**
+ * What each question was answered, from the text of a done request (main writes `<question>: <answer>`, a line for each question, in the
+ * order asked). Undefined for a question the text has no answer to.
+ */
+export function answersIn(questions: readonly string[], text: string): Array<string | undefined> {
+  const starts = questions.map((q) => {
+    const marker = `${q}: `
+    for (let at = text.indexOf(marker); at >= 0; at = text.indexOf(marker, at + 1)) if (at === 0 || text[at - 1] === '\n') return at
+    return -1
+  })
+  return questions.map((q, n) => {
+    if (starts[n] < 0) return undefined
+    const from = starts[n] + q.length + 2
+    // It runs to the next question's line, or to the end.
+    const next = starts.filter((s) => s > starts[n]).sort((a, b) => a - b)[0]
+    const answer = text.slice(from, next === undefined ? undefined : next - 1)
+    return answer === '' ? undefined : answer
+  })
+}

@@ -608,8 +608,19 @@
 }
 
 .chat-ask-options[data-offer='shelf'] .chat-ask-other {
-  flex: 1 1 14ch;
+  /* Wide enough for its whole placeholder: where it does not fit beside the buttons, the row wraps and it takes the width under them. */
+  flex: 1 1 26ch;
+  min-width: 26ch;
   width: auto;
   margin: 0;
   font-size: 12.5px;
+}
+
+/* A shelf offer once answered (AskCard `Held`): the title, the table as it was, and the answer in the line a card says it with. */
+.chat-ask-held + .chat-ask-held {
+  margin-top: var(--space-3);
+}
+
+.chat-ask-held > .chat-ask-text {
+  margin: 0 0 var(--space-1);
 }
