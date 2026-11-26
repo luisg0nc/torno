@@ -1,0 +1,40 @@
+/* What Claude Code spent (#357): the paragraph of why a turn was large, under its end and in the Usage page's ledger, and the
+   Usage page itself in the view's place. Chart colours by emphasis (the dataviz rule): the context read again is the story, so it
+   is the accent; what was new to the context is the accent's wash; what Claude wrote is the field edge's grey. Every segment is
+   labelled, and "not known" is hatched, never a colour. */
+
+:root {
+  --usage-read: var(--accent);
+  --usage-new: color-mix(in srgb, var(--accent) 38%, var(--panel));
+  --usage-out: var(--field-edge);
+  --usage-hatch: repeating-linear-gradient(135deg, var(--field-edge) 0 1.5px, transparent 1.5px 5px);
+}
+
+/* Why a turn was large: facts on the surface, an accent edge at the left. */
+.usage-why {
+  max-width: 60ch;
+  margin: var(--space-2) 0 2px;
+  padding: 9px 12px 10px;
+  border-radius: var(--radius-float);
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--ink);
+  font-size: var(--text-row);
+  line-height: 1.5;
+}
+
+.usage-why p {
+  margin: 0;
+}
+
+.usage-why p + p {
+  margin-top: 4px;
+}
+
+.usage-why-head {
+  font-weight: 600;
+}
+
+.usage-why .usage-why-open {
+  margin-top: var(--space-2);
+}

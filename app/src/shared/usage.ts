@@ -1,5 +1,5 @@
 import type { ChatItem, PromptRow, TokenCount, TurnUsage } from './chat'
-import { dollars, tokens } from './format'
+import { dollars, number, tokens } from './format'
 
 // What Claude Code spent on a project (#357), from what its `result` messages said and the chat's own items: the
 // prompts of the project with what their turns used (`UsageRow`, read by main from `.torno/chat/`, `main/sessions/usage.ts`),
@@ -111,6 +111,46 @@ export function usageLine(u: Usage | undefined): { lead: string; rest: string; k
   const kinds = `${tokens(u.cacheRead)} of context read again, ${tokens(newTokens(u))} new to it, ${tokens(u.output)} written.`
   if (u.costUsd === undefined) return { lead: 'Cost not known for this turn.', rest: ` ${u.requests !== undefined ? `${calls(u.requests)}: ` : ''}${kinds}`, known: false }
   return { lead: dollars(u.costUsd), rest: `${u.requests !== undefined ? ` for ${calls(u.requests)}` : ''}: ${kinds}`, known: true }
+}
+
+/** A turn is large from this many times the project's median turn cost (Luis, 2026-11-26). */
+export const LARGE_TIMES = 3
+/** Never within the project's first prompts: there is no usual turn yet. */
+export const LARGE_AFTER = 3
+
+/**
+ * How many times the project's usual turn (the median cost, `medianCost`) a turn of the prompt numbered `number` cost,
+ * when that is at least `LARGE_TIMES` and the prompt is past the project's first `LARGE_AFTER`; null when it is not large
+ * or cannot be told (no cost, no number, no usual turn).
+ */
+export function largeTimes(cost: number | undefined, number: number | undefined, median: number | undefined): number | null {
+  if (cost === undefined || number === undefined || median === undefined || median <= 0 || number <= LARGE_AFTER) return null
+  const times = cost / median
+  return times >= LARGE_TIMES ? times : null
+}
+
+const and = (parts: string[]): string => (parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`)
+
+/**
+ * Why a turn was large (#369), as facts in a row and never a cause: the calls and the context each read again, the
+ * pictures that came in (which every call after reads too) and where from, the builds that ran. Claude Code says what a
+ * turn cost, not what each picture or build did, so nothing here splits the cost.
+ */
+export function whyLarge(u: Usage, facts: UsageFacts, times: number): { head: string; lines: string[] } {
+  const lines: string[] = []
+  if (u.requests) lines.push(`${calls(u.requests)}, and each read the whole conversation again: ${tokens(u.cacheRead / u.requests)} a call on average, ${tokens(u.cacheRead)} in all.`)
+  const from = Object.entries(facts.pictures).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  const pictures = from.reduce((n, [, k]) => n + k, 0)
+  if (pictures > 0) {
+    const where = pictures === 1 ? `from ${from[0]![0]}` : and(from.map(([name, n]) => `${n} from ${name}`))
+    lines.push(`${pictures} ${pictures === 1 ? 'picture' : 'pictures'} came in on the way, ${where}. A picture stays in the conversation, so every call after it reads it too.`)
+  }
+  const { count, from: first, to } = facts.builds
+  if (count > 0) {
+    const span = to === undefined ? '' : first !== undefined && first !== to ? `, r${first} to r${to}` : `, r${to}`
+    lines.push(`${count} ${count === 1 ? 'build' : 'builds'} ran${span}.`)
+  }
+  return { head: `Why this turn was large: ${number(Math.round(times * 10) / 10)} × this project's usual turn`, lines }
 }
 
 /** Why a resumed conversation's first turn has no cost, said once under it. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatItem, TurnUsage } from './chat'
-import { addUsage, medianCost, usageFacts, usageLine, type UsageRow } from './usage'
+import { addUsage, largeTimes, medianCost, usageFacts, usageLine, whyLarge, type UsageRow } from './usage'
 
 const user = (id: string, images = 0): ChatItem => ({ kind: 'user', id, text: 'x', images: Array.from({ length: images }, (_, i) => ({ id: `${id}-i${i}`, mediaType: 'image/png' })), state: 'sent', at: 1 })
 const tool = (id: string, name: string, images = 0, state: 'done' | 'error' = 'done'): ChatItem => ({ kind: 'tool', id, toolUseId: id, name, torno: name.startsWith('mcp__torno__'), input: {}, state, images: Array.from({ length: images }, (_, i) => ({ id: `${id}-i${i}`, mediaType: 'image/png' })) })
@@ -67,5 +67,43 @@ describe('usageLine', () => {
   it('says nothing for a turn the CLI counted nothing for', () => {
     expect(usageLine(undefined)).toBeNull()
     expect(usageLine({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0, requests: 0, costUsd: 0 })).toBeNull()
+  })
+})
+
+describe('largeTimes', () => {
+  it('is how many times the usual turn a turn cost, from 3 times on', () => {
+    expect(largeTimes(7.05, 15, 0.95)).toBeCloseTo(7.42, 2)
+    expect(largeTimes(3, 15, 1)).toBe(3)
+    expect(largeTimes(2.9, 15, 1)).toBeNull()
+  })
+
+  it('is never within the project\'s first 3 prompts', () => {
+    expect(largeTimes(10, 3, 1)).toBeNull()
+    expect(largeTimes(10, 4, 1)).toBe(10)
+  })
+
+  it('is null with no cost, no number or no usual turn to measure against', () => {
+    expect(largeTimes(undefined, 9, 1)).toBeNull()
+    expect(largeTimes(10, undefined, 1)).toBeNull()
+    expect(largeTimes(10, 9, undefined)).toBeNull()
+    expect(largeTimes(10, 9, 0)).toBeNull()
+  })
+})
+
+describe('whyLarge', () => {
+  const usage = { input: 0, output: 31_400, cacheRead: 9_860_000, cacheCreation: 212_000, requests: 62, costUsd: 7.05 }
+  it('says the calls and the context each read, the pictures and where from, and the builds, as facts', () => {
+    const why = whyLarge(usage, { pictures: { look: 13, section: 1 }, builds: { count: 3, from: 33, to: 36 } }, 7.42)
+    expect(why.head).toBe("Why this turn was large: 7.4 × this project's usual turn")
+    expect(why.lines).toEqual([
+      '62 calls, and each read the whole conversation again: 159 k a call on average, 9.86 M in all.',
+      '14 pictures came in on the way, 13 from look and 1 from section. A picture stays in the conversation, so every call after it reads it too.',
+      '3 builds ran, r33 to r36.'
+    ])
+  })
+
+  it('says one picture and one build, and leaves out what there was none of', () => {
+    expect(whyLarge(usage, { pictures: { you: 1 }, builds: { count: 1, to: 4 } }, 3).lines.slice(1)).toEqual(['1 picture came in on the way, from you. A picture stays in the conversation, so every call after it reads it too.', '1 build ran, r4.'])
+    expect(whyLarge(usage, { pictures: {}, builds: { count: 0 } }, 3).lines).toHaveLength(1)
   })
 })

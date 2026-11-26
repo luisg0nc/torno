@@ -29,6 +29,7 @@ import { PromptNumbers } from './turnContext'
 import { PromptHead } from './PromptHead'
 import { headBuilds } from './headKind'
 import { netParts, turnSummary, type TurnAccount } from './turnSummary'
+import { usageFacts } from '../../../shared/usage'
 
 type Of<K extends ChatItem['kind']> = Extract<ChatItem, { kind: K }>
 
@@ -393,7 +394,7 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
         turn.push(item)
         continue
       }
-      const account = { summary: turnSummary(turn), net: netParts(turn) }
+      const account = { summary: turnSummary(turn), net: netParts(turn), facts: usageFacts(turn) }
       const said = JSON.stringify(account)
       const was = kept.current.get(item.id)
       const same = was?.said === said ? was.account : account

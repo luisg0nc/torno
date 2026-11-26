@@ -1,6 +1,7 @@
 import { type ChatItem, TORNO_TOOL_PREFIX } from '../../../shared/chat'
 import { number } from '../../../shared/format'
 import type { DigestPart, Verdict } from '../../../shared/sanity'
+import type { UsageFacts } from '../../../shared/usage'
 
 /** The tools of Claude Code that write a file. */
 const WRITES = new Set(['Edit', 'Write', 'MultiEdit'])
@@ -37,6 +38,8 @@ export interface PartChange {
 export interface TurnAccount {
   summary: TurnSummary
   net: string[]
+  /** The pictures that came in and the builds that ran (`usageFacts`): what says why a large turn was large. */
+  facts?: UsageFacts
 }
 
 /** The items of one turn: after the turn before it, up to its own end. Empty for an id that is not a turn. */

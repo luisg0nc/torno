@@ -18,6 +18,14 @@ describe('TurnUsageLine', () => {
     expect(text(html)).toContain("Claude Code counts a resumed conversation's cost together")
   })
 
+  it('says why a large turn was large under its line, as facts, with Open in Usage', () => {
+    const why = { head: "Why this turn was large: 7.4 × this project's usual turn", lines: ['62 calls, and each read the whole conversation again: 159 k a call on average, 9.86 M in all.', '3 builds ran, r33 to r36.'] }
+    const html = renderToStaticMarkup(createElement(TurnUsageLine, { usage: { input: 0, output: 31_400, cacheRead: 9_860_000, cacheCreation: 212_000, requests: 62, costUsd: 7.05 }, why, onOpen: () => {} }))
+    expect(text(html)).toContain("Why this turn was large: 7.4 × this project's usual turn")
+    expect(text(html)).toContain('3 builds ran, r33 to r36.')
+    expect(html).toContain('>Open in Usage</button>')
+  })
+
   it('draws nothing for a turn the CLI counted nothing for', () => {
     expect(renderToStaticMarkup(createElement(TurnUsageLine, { usage: undefined }))).toBe('')
   })

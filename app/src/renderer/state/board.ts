@@ -13,7 +13,8 @@ const storageNow = (): Storage | null => (typeof window === 'undefined' ? null :
 // brief, the scans, a tracing or a part of the shelf) the main area shows, and the one card a ref in the chat lit. The window keeps the choice per project in its own storage
 // (never in the workspace), and a project opens on the model until its board has a card of the person's or the agent's.
 
-export type Shown = 'model' | 'brief' | 'scans' | 'tracing' | 'part'
+/** `usage`: the Usage page (#371), shown from the switch or a turn's "Open in Usage"; `Ctrl+Tab` does not go to it, and goes on from it to the model. */
+export type Shown = 'model' | 'brief' | 'scans' | 'tracing' | 'part' | 'usage'
 
 /** Which views of the switch beyond the model and the brief the project has: Scans when it has a scan, Tracing when it has a tracing, the part when one of the shelf is open. */
 export interface HasViews {
@@ -81,7 +82,7 @@ export function shownRead(storage: Reader, objectId: string): Shown | null {
   const kept = Object.hasOwn(readAll(storage), objectId) ? readAll(storage)[objectId] : null
   // 'board' is what the window kept before the brief took the board's place.
   if (kept === 'board') return 'brief'
-  return kept === 'brief' || kept === 'model' || kept === 'scans' || kept === 'tracing' || kept === 'part' ? kept : null
+  return kept === 'brief' || kept === 'model' || kept === 'scans' || kept === 'tracing' || kept === 'part' || kept === 'usage' ? kept : null
 }
 
 export function shownWrite(storage: Writer, objectId: string, shown: Shown): void {

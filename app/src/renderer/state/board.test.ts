@@ -74,6 +74,8 @@ describe('the swap of the main area', () => {
     // Left on a view that is gone: on to the model.
     expect(swapped('tracing', none)).toBe('model')
     expect(swapped('scans', none)).toBe('model')
+    // The Usage page is not in the round: from it, on to the model.
+    expect(swapped('usage', both)).toBe('model')
   })
 
   it('shows each in turn, and keeps the choice of it for the project', () => {

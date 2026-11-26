@@ -1071,6 +1071,12 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   usually the largest. The first turn after a resumed conversation says "Cost not known for this turn" with its tokens, because Claude
   Code counts a resumed conversation's cost together with what its earlier processes spent. A turn Claude Code counted nothing for
   says nothing.
+- **Why a turn was large.** A turn that cost 3 times this project's usual turn or more (the median of its prompts' costs), from the
+  project's fourth prompt on, has a short paragraph under its sentence: "Why this turn was large: 7.4 × this project's usual turn", then
+  the facts from the conversation's log: the calls and the context each read again ("62 calls, and each read the whole conversation
+  again: 159 k a call on average"), the pictures that came in and which tool brought them (a picture stays in the conversation, so every
+  call after it reads it too), and the builds that ran. It never says what share of the cost a picture or a build was: Claude Code
+  says what a turn cost, not what each thing in it cost. **Open in Usage** shows the conversation on the Usage page.
 - **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
   `common/fillets.py` in your editor · `h39`" for a build your own save made, "You set `wall` to `3` · not in the model yet · `h40`" for a
   value you set in Parameters (a value put back reads "You put `wall` back to the file's value"; a build kept before the values were
